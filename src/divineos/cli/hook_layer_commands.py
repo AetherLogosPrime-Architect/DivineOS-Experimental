@@ -33,3 +33,27 @@ def register(cli: click.Group) -> None:
         from divineos.core.hook_layer import format_inventory, inventory
 
         click.echo(format_inventory(inventory(".")))
+
+    @hook_layer_group.command("doorbells")
+    @click.option("--write", "do_write", is_flag=True, help="Regenerate the bells on disk.")
+    def doorbells_cmd(do_write: bool) -> None:
+        """Check every bell against the generator, or rewrite them.
+
+        The bells are generated so that nobody authors one — Aria 2026-09-08:
+        *"You cannot put a brain in a file you did not author."* So the check
+        is byte equality against what the generator produces, which is
+        exhaustive, rather than an opinion about what a bell should look like.
+        """
+        from divineos.core.doorbell_generator import active_events, main, write_all
+
+        if do_write:
+            changed = write_all(".")
+            for path in changed:
+                click.secho(f"[doorbells] wrote {path}", fg="green")
+            if not changed:
+                click.echo("[doorbells] already current.")
+            click.echo(f"  doors with surfaces behind them: {', '.join(active_events())}")
+            return
+        if main(".") != 0:
+            raise click.exceptions.Exit(1)
+        click.secho("[doorbells] ok — every bell is what the generator produces.")

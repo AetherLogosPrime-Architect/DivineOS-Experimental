@@ -669,6 +669,7 @@ src/divineos/
     pr_scope.py                True file scope for a pull request, derived locally. No API cap.
     hook_router.py             Seven doorbells — one OS-side router behind each harness hook event.
     hook_surfaces.py           The roster — every surface, registered to its door.
+    doorbell_generator.py      The bells are generated, not written, so nobody can put a decision in one (Aria 2026-09-08). Stop fails CLOSED because its surfaces are refusals and a dead bell there ships a reply nothing checked; every other door fails soft.
     letter_claims.py           Measure the local state of every file a sibling's letter talks about.
     self_demotion.py           Catch praise-by-contrast: elevating a mechanism by calling a faculty of mine defective.
     summary_room.py            Require a plain-language summary at the top of a long reply.

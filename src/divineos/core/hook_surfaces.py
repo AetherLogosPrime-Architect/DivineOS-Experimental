@@ -644,6 +644,175 @@ def correction_marker_surface(payload: dict) -> SurfaceOutcome | None:
     return SurfaceOutcome(name="correction_marker", state="nothing-to-say")
 
 
+# --------------------------------------------------------------------------
+# Stop — the fourth door, opened 2026-09-08.
+#
+# Same finding as UserPromptSubmit, and it is worth stating twice because it is
+# the whole reason the consolidation is cheap: these hooks did not differ. Five
+# of them opened the transcript, walked it for the last assistant message,
+# reassembled its text blocks, and handed that string to one OS function. Two
+# carried a byte-identical copy of that walk. The variation was the function.
+#
+# So the walk lives here once, and the surfaces are the function calls.
+# --------------------------------------------------------------------------
+
+
+def _last_assistant_text(payload: dict) -> str:
+    """The text of my most recent reply, from the transcript the harness names.
+
+    Returns "" when there is nothing to read. Callers must NOT treat that as a
+    clean reply -- it means the same thing an unreadable transcript means, so
+    a surface that finds nothing declares ``nothing-to-say`` rather than
+    reporting a pass.
+    """
+    import json as _json
+
+    raw = payload.get("transcript_path") or payload.get("transcript") or ""
+    if not raw:
+        return ""
+    from pathlib import Path
+
+    path = Path(raw)
+    if not path.is_file():
+        return ""
+    last = ""
+    with path.open(encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = _json.loads(line)
+            except ValueError:
+                continue
+            msg = rec.get("message") or {}
+            if not isinstance(msg, dict) or msg.get("role") != "assistant":
+                continue
+            content = msg.get("content", [])
+            if isinstance(content, list):
+                parts = [
+                    c.get("text", "")
+                    for c in content
+                    if isinstance(c, dict) and c.get("type") == "text"
+                ]
+                if parts:
+                    last = "\n".join(parts)
+            elif isinstance(content, str):
+                last = content
+    return last
+
+
+#: (surface name, module, callable) — each takes the transcript path and does
+#: its work as a side effect. Audits, not speakers.
+_TRANSCRIPT_AUDITS: tuple[tuple[str, str, str], ...] = (
+    ("hedge_audit", "divineos.core.hedge_audit", "run_hedge_audit"),
+    ("theater_audit", "divineos.core.theater_audit", "run_theater_audit"),
+)
+
+
+def _transcript_audit_surface(name: str, module: str, attr: str):
+    """Build one Stop surface that hands the transcript path to an OS audit."""
+
+    def surface(payload: dict) -> SurfaceOutcome | None:
+        raw = payload.get("transcript_path") or payload.get("transcript") or ""
+        if not raw:
+            return SurfaceOutcome(name=name, state="nothing-to-say")
+        try:
+            mod = __import__(module, fromlist=[attr])
+            getattr(mod, attr)(raw)
+        except Exception as exc:  # noqa: BLE001 — an audit never blocks a reply
+            return SurfaceOutcome(
+                name=name,
+                error=f"{type(exc).__name__}: {exc}",
+                state="could-not-run",
+            )
+        return SurfaceOutcome(name=name, state="nothing-to-say")
+
+    surface.__name__ = f"{name}_surface"
+    return surface
+
+
+def time_estimate_surface(payload: dict) -> SurfaceOutcome | None:
+    """Record how long I said something would take against what it took."""
+    try:
+        from divineos.core.time_calibration import hook_main
+
+        hook_main()
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="time_estimate",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    return SurfaceOutcome(name="time_estimate", state="nothing-to-say")
+
+
+def self_demotion_stop_surface(payload: dict) -> SurfaceOutcome | None:
+    """Record praise-by-contrast spans so the compose prime can quote them back.
+
+    Speaks on stderr in the shell version; here the recording is the work and
+    the report is the output, so a run that found nothing declares itself
+    rather than going quiet — the distinction that keeps "no spans" apart from
+    "the detector never loaded."
+    """
+    text = _last_assistant_text(payload)
+    if not text.strip():
+        return SurfaceOutcome(name="self_demotion_stop", state="nothing-to-say")
+    try:
+        from divineos.core.self_demotion import detect, record
+
+        hits = detect(text)
+        if not hits:
+            return SurfaceOutcome(name="self_demotion_stop", state="nothing-to-say")
+        err = record(hits)
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="self_demotion_stop",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    if err:
+        return SurfaceOutcome(
+            name="self_demotion_stop",
+            error=f"detected but NOT RECORDED: {err}",
+            state="could-not-run",
+        )
+    spans = "\n".join(f"    {h.span}" for h in hits)
+    return SurfaceOutcome(
+        name="self_demotion_stop",
+        state="spoke",
+        output=(
+            f"[self-demotion] recorded {len(hits)} praise-by-contrast span(s); "
+            f"the compose prime will show them next turn:\n{spans}"
+        ),
+    )
+
+
+def summary_room_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a reply that dropped the room which compresses it for him.
+
+    This one REFUSES rather than reports, and the router carries that through
+    as exit 2 exactly as the shell hook did. The wire protocol is part of the
+    behaviour a migration promises to preserve.
+    """
+    text = _last_assistant_text(payload)
+    if not text.strip():
+        return SurfaceOutcome(name="summary_room", state="nothing-to-say")
+    try:
+        from divineos.core.summary_room import assess, render_block
+
+        block = render_block(assess(text))
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="summary_room",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    if not block:
+        return SurfaceOutcome(name="summary_room", state="nothing-to-say")
+    return SurfaceOutcome(name="summary_room", refused=True, reason=block, state="spoke")
+
+
 def install() -> None:
     """Register every surface. Idempotent — safe to call from each doorbell."""
     from divineos.core.hook_router import registered
@@ -709,3 +878,18 @@ def install() -> None:
         register("UserPromptSubmit", "auto_goal", auto_goal_surface)
     if "correction_marker" not in registered("UserPromptSubmit"):
         register("UserPromptSubmit", "correction_marker", correction_marker_surface)
+
+    # Fourth door, 2026-09-08. Order matters here in a way it does not on the
+    # other doors: summary_room REFUSES, and the router runs every surface
+    # before reporting, so the recorders below it still do their work on a turn
+    # that is about to be sent back. That is deliberate -- a refused reply is
+    # still a reply I wrote, and the spans in it are still worth recording.
+    for name, module, attr in _TRANSCRIPT_AUDITS:
+        if name not in registered("Stop"):
+            register("Stop", name, _transcript_audit_surface(name, module, attr))
+    if "time_estimate" not in registered("Stop"):
+        register("Stop", "time_estimate", time_estimate_surface)
+    if "self_demotion_stop" not in registered("Stop"):
+        register("Stop", "self_demotion_stop", self_demotion_stop_surface)
+    if "summary_room" not in registered("Stop"):
+        register("Stop", "summary_room", summary_room_surface)

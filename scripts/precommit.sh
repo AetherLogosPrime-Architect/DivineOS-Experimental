@@ -411,8 +411,22 @@ fi
 # be better than twenty that each hide a private brain. A count is easy to
 # police and the real property is work, and I took the easy one.
 #
-# The replacement is the migration itself — see doorbell-user-prompt-submit.sh
-# and the UserPromptSubmit surfaces in divineos.core.hook_surfaces.
+# The replacement is the migration itself — see the generated doorbells and the
+# surfaces in divineos.core.hook_surfaces.
+
+# 5b-ter. Every bell is what the generator produced.
+#
+# Aria 2026-09-08, refusing a property check on hand-written hooks: "Do not
+# police the shape. Remove the authoring. ... You cannot put a brain in a file
+# you did not author." So the doorbells are generated, and this compares them
+# byte-for-byte against the generator — exhaustive, rather than an opinion
+# about what a bell should look like.
+if [ -f src/divineos/core/doorbell_generator.py ]; then
+    section "Doorbells"
+    if ! python -c "import sys; from divineos.core.doorbell_generator import main; sys.exit(main('.'))"; then
+        note_fail
+    fi
+fi
 
 # 5c-ter. The map of the system still describes the system.
 #
