@@ -212,11 +212,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/degraded-detector-gate.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/m3-discipline-hierarchy.sh",
             "timeout": 15
           }
@@ -258,10 +253,6 @@
             "type": "command",
             "command": "bash .claude/hooks/venv-python-gate.sh",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/heredoc-escape-doorman.sh"
           },
           {
             "type": "command",

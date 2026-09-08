@@ -1,4 +1,11 @@
 #!/bin/bash
+# SUPERSEDED 2026-09-08 by the router. The decision now lives in
+# divineos.core.hook_surfaces as degraded_detectors_surface, dispatched by
+# doorbell-pre-tool-use.sh. The registration came out of settings.json in the
+# SAME change, and the BLOCK case was driven end to end through the doorbell
+# before it went -- my own 2026-06-07 note, written after a gate of mine
+# shipped broken and nobody found out for six hours.
+# INTENTIONALLY UNWIRED (2026-09-08): superseded, see above.
 # PreToolUse — a guard that reported it could not run must cost something.
 #
 # WHY. On 2026-08-02 Andrew found 24 orphaned processes on his machine. The

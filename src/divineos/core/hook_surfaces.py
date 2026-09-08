@@ -813,6 +813,98 @@ def summary_room_surface(payload: dict) -> SurfaceOutcome | None:
     return SurfaceOutcome(name="summary_room", refused=True, reason=block, state="spoke")
 
 
+# --------------------------------------------------------------------------
+# PreToolUse, second batch — 2026-09-08.
+#
+# The gates on this door REFUSE, so the standard for moving one is higher than
+# for a surface that only speaks. My own note from 2026-06-07, handed back by
+# the read-gate while doing exactly this work: *"Building the gate isn't
+# enough; the gate has to be VERIFIED working. Future gates: write the
+# integration test that exercises the BLOCK case end-to-end. Not just the
+# matcher logic."*
+#
+# That was written after a gate of mine was broken from the moment it shipped
+# and nobody found out for six hours. So each of these is exercised through the
+# doorbell in its refusing state, not only as a function returning a string.
+#
+# ONE THING THE ROUTER DOES NOT YET CARRY, named rather than discovered later:
+# several shell gates source a remedy-allowlist so that no gate can block the
+# command another gate just prescribed. That library exists only in shell --
+# nothing under divineos.core references it. Neither gate below uses it, so
+# behaviour is preserved here, but a refusing gate that DOES use it cannot move
+# until the allowlist moves too. Centralising it is a gain, not a cost: one
+# place instead of one per hook.
+# --------------------------------------------------------------------------
+
+#: Tools that write to the tree. Reads and searches stay open on purpose --
+#: blocking those would block the investigation of the block.
+_WRITE_TOOLS = frozenset({"Edit", "Write", "MultiEdit", "NotebookEdit"})
+
+
+def degraded_detectors_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse substrate writes while a detector is known to be degraded.
+
+    A detector that is quietly broken reports the same nothing as one that
+    looked and found nothing, so writing on top of it is working in a room
+    where the alarms are disconnected.
+    """
+    if (payload.get("tool_name") or "") not in _WRITE_TOOLS:
+        return SurfaceOutcome(name="degraded_detectors", state="nothing-to-say")
+    try:
+        from divineos.core.degraded_detectors import blocking_degradations, format_block
+
+        entries = blocking_degradations()
+    except Exception as exc:  # noqa: BLE001 — a gate never crashes the tool call
+        return SurfaceOutcome(
+            name="degraded_detectors",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    if not entries:
+        return SurfaceOutcome(name="degraded_detectors", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="degraded_detectors",
+        refused=True,
+        reason=format_block(entries),
+        state="spoke",
+    )
+
+
+def heredoc_escape_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a shell heredoc that writes a file through an escape.
+
+    Three layers -- shell, then python, then the file -- and an escape meant
+    for the file is eaten by the middle one. Five failures in one session
+    taught that being careful does not fix it and switching tools does.
+    """
+    if (payload.get("tool_name") or "") != "Bash":
+        return SurfaceOutcome(name="heredoc_escape", state="nothing-to-say")
+    command = (payload.get("tool_input") or {}).get("command") or ""
+    if not command:
+        return SurfaceOutcome(name="heredoc_escape", state="nothing-to-say")
+    try:
+        from divineos.core import heredoc_escape_check as check
+
+        refuse = check.should_refuse(command)
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="heredoc_escape",
+            error=(
+                f"{type(exc).__name__}: {exc} — the heredoc path is currently "
+                "unguarded. Absent, not satisfied."
+            ),
+            state="could-not-run",
+        )
+    if not refuse:
+        return SurfaceOutcome(name="heredoc_escape", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="heredoc_escape",
+        refused=True,
+        reason=check.refusal_message(command),
+        state="spoke",
+    )
+
+
 def install() -> None:
     """Register every surface. Idempotent — safe to call from each doorbell."""
     from divineos.core.hook_router import registered
@@ -852,6 +944,15 @@ def install() -> None:
     # nobody dispatches is the alarm in the box with the cable coiled beside it.
     if "compound_branch_change" not in registered("PreToolUse"):
         register("PreToolUse", "compound_branch_change", compound_branch_change_surface)
+
+    # Second PreToolUse batch, 2026-09-08. Both REFUSE, both exercised through
+    # the doorbell in their refusing state before their shell registrations
+    # came out -- the standard my own 2026-06-07 note set after a gate of mine
+    # shipped broken and stayed broken for six hours.
+    if "degraded_detectors" not in registered("PreToolUse"):
+        register("PreToolUse", "degraded_detectors", degraded_detectors_surface)
+    if "heredoc_escape" not in registered("PreToolUse"):
+        register("PreToolUse", "heredoc_escape", heredoc_escape_surface)
 
     # Second door. PostToolUse carries surfaces that report on what just
     # happened rather than gating what is about to.
