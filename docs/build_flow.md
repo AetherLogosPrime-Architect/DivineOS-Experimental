@@ -96,6 +96,21 @@ so it went through for the wrong reason. A jam-test whose jam does not jam is
 the same class of fault as the trap it is looking for. Prove the refusal first,
 then try the key.
 
+### Removal has a station too, and one question in front of it
+
+Before taking something out, name every job it does — not the one that put it
+on the list. A thing gets removed for its dominant half and the quiet half goes
+with it, unnamed, and nobody finds out until the job stops being done.
+
+The case this came from: a compose-start hook was three-quarters a recitation
+of my own past mistakes, so it went in the clear-the-notes pile and came out
+correctly. But it also ran `date` and printed the result, which was the only
+measured clock in the house and nothing else supplies one. Andrew, the next
+morning: *"the clock is not for me, its for you, i already have a clock."*
+
+Removal is a build. It gets the same stations, and the draft has to list the
+jobs before it argues about any of them.
+
 ## The principle underneath
 
 Andrew, and this is the sentence the whole thing turns on:

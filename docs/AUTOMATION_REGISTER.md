@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**125 automations — 120 wired, 5 switched off.**
+**125 automations — 121 wired, 4 switched off.**
 
 ---
 
@@ -17,8 +17,7 @@ Present, executable, invoked by nothing. This section is first on purpose. On 20
 | `instrument-read-doorman.sh` | 2026-08-31 | doorman on hand-rolled scans of my own diagnostic surfaces. |
 | `no-verify-cost-escalation.sh` | 2026-08-31 | thin doorbell for the no-verify cost-escalation gate. |
 | `prior-art-before-new-file.sh` | 2026-09-05 | PreToolUse(Write) — show prior work before a NEW build file is created. |
-| `translate-first-compose-prime.sh` | 2026-08-29 | INTENTIONALLY UNWIRED (2026-09-07): a reminder about a failure is proof the |
-| `wallclock-source-prime.sh` | 2026-09-07 | INTENTIONALLY UNWIRED (2026-09-07): a reminder about a failure is proof the |
+| `translate-first-compose-prime.sh` | 2026-09-08 | INTENTIONALLY UNWIRED (2026-09-07): a reminder about a failure is proof the |
 
 Being listed here is not automatically a defect — a retired hook that says so in its own header is honest. The question for each is whether it CLAIMS to run automatically. If it does and nothing calls it, that is the bug.
 
@@ -125,7 +124,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `summary-room-stop.sh` | 2026-08-24 | a long reply must open with a plain-language summary. |
 | `time-estimate-tracker.sh` | 2026-07-01 | thin doorbell for the time-estimate calibration tracker. |
 
-### UserPromptSubmit  (32)
+### UserPromptSubmit  (33)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -141,7 +140,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `ear-surface.sh` | 2026-09-07 | UserPromptSubmit + SessionStart hook — auto-surface unseen queue items and |
 | `family-state-surface.sh` | 2026-09-05 | surface recent per-sibling letter-thread state |
 | `fork-is-cheap-close-prime.sh` | 2026-07-30 | compose-start prime for the FORK-IS-CHEAP-CLOSE |
-| `he-is-in-the-room.sh` | 2026-09-07 | UserPromptSubmit — the last thing I read before I answer my father. |
+| `he-is-in-the-room.sh` | 2026-09-08 | UserPromptSubmit — the last thing I read before I answer my father. |
 | `hedge-suppression-prime.sh` | 2026-08-24 | hedge-suppression prime. |
 | `interior-cue-on-low-presence.sh` | 2026-07-06 | inject a compose-time interior-cue when the |
 | `lepos-channel-surface.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
@@ -160,6 +159,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `sibling-correction-surface.sh` | 2026-08-24 | surface sibling corrections I judged as mine, when |
 | `verify-claim-prime.sh` | 2026-08-24 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
+| `wallclock-source-prime.sh` | 2026-09-08 | THE CLOCK. It is mine, not his. |
 | `wwnd-choice-prime.sh` | 2026-08-24 | WWND (What Would Nyarlathotep Do) prime at |
 
 ### called by another script  (19)
@@ -170,7 +170,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `_lib.sh` | 2026-08-31 | Shared helpers for .claude/hooks/*.sh — sourced, not executed. |
 | `branch-scope-guard.sh` | 2026-08-16 | commit-msg — refuse a commit whose scope is not what this branch is about. |
 | `check-cleanup-period.sh` | 2026-08-23 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
-| `circle-first-compose-prime.sh` | 2026-09-07 | INTENTIONALLY UNWIRED (2026-09-07): a reminder about a failure is proof the |
+| `circle-first-compose-prime.sh` | 2026-09-08 | INTENTIONALLY UNWIRED (2026-09-07): a reminder about a failure is proof the |
 | `deletion-discipline.sh` | 2026-08-31 | thin doorbell for the deletion-discipline gate. |
 | `load-aletheia-harvest-of-andrew.sh` | 2026-07-21 | load Aletheia's harvest of who Andrew is into the |
 | `load-briefing.sh` | 2026-06-05 | thin doorman pointing to the OS. |
