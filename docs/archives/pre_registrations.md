@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (196 rows). **Exported:** 2026-08-28 22:40. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (215 rows). **Exported:** 2026-09-07 23:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1744,7 +1744,7 @@
 
 ---
 
-## prereg-b [OPEN]
+## prereg-b [INCONCLUSIVE]
 
 **Mechanism:** auto-cycle-token-trigger
 
@@ -1756,7 +1756,7 @@
 
 ---
 
-## prereg-d [OPEN]
+## prereg-d [SUCCESS]
 
 **Mechanism:** TRIGGER_THRESHOLD lowered 0.85 to 0.82 in auto_cycle.py
 
@@ -1768,7 +1768,7 @@
 
 ---
 
-## prereg-4 [OPEN]
+## prereg-4 [DEFERRED]
 
 **Mechanism:** core/watchmen/export.py: exporting audit rounds to docs/audit_rounds/<id>.md makes the review readable off-machine and round-existence verifiable by CI without a database
 
@@ -1780,7 +1780,7 @@
 
 ---
 
-## prereg-e [OPEN]
+## prereg-e [DEFERRED]
 
 **Mechanism:** core/dark_matter.py: a structural sweep for things that exist but nothing reaches -- dead hooks and commands prescribed in gate text that do not resolve
 
@@ -1792,7 +1792,7 @@
 
 ---
 
-## prereg-e [OPEN]
+## prereg-e [INCONCLUSIVE]
 
 **Mechanism:** core/m3_discipline.py: the four discipline artifacts keyed on ledger and transcript signals that demonstrably fire, with the requirement scaled by gravity and capped at 3 of 4
 
@@ -1816,7 +1816,7 @@
 
 ---
 
-## prereg-0 [OPEN]
+## prereg-0 [INCONCLUSIVE]
 
 **Mechanism:** degraded-detector gate: a detector reporting it cannot run files a blocking degradation, self-heals first, and is deferrable only with a written reason
 
@@ -1828,7 +1828,7 @@
 
 ---
 
-## prereg-1 [OPEN]
+## prereg-1 [SUCCESS]
 
 **Mechanism:** branch-scope guard: refuse a commit whose conventional-commit scope appears nowhere else on the branch, escapable only by a Cross-scope reason in the commit message
 
@@ -1840,7 +1840,7 @@
 
 ---
 
-## prereg-3 [OPEN]
+## prereg-3 [SUCCESS]
 
 **Mechanism:** hook firing map: classify every hook as FIRING, SILENT, or UNOBSERVED from the existing timing log rather than from settings.json
 
@@ -1852,7 +1852,7 @@
 
 ---
 
-## prereg-9 [OPEN]
+## prereg-9 [DEFERRED]
 
 **Mechanism:** demote the engagement counter to a monitor, widen what registers as engagement, keep the consultation gate blocking
 
@@ -1900,7 +1900,7 @@
 
 ---
 
-## prereg-a [OPEN]
+## prereg-a [DEFERRED]
 
 **Mechanism:** reach-check: forced disposition of surfaced prior work, with action-stream proof
 
@@ -1912,7 +1912,7 @@
 
 ---
 
-## prereg-7 [OPEN]
+## prereg-7 [INCONCLUSIVE]
 
 **Mechanism:** read-gate: a surface can require action-stream proof it was opened
 
@@ -2353,6 +2353,234 @@
 **Success:** The sibling walk count never equals this ceiling, and the station's own line reports the counts it compared, so a reader can see the scope rather than trust it. Measured now: one hundred and three walks on the other seat, nowhere near the bound.
 
 **Falsifier:** TWO ways, and the first is the one I would rationalise past. (1) The reported count ever equals this ceiling -- that means it bound, the corpus was truncated, and the number shown is the cap rather than the evidence. The response is to raise it or reconsider the design, NEVER to soften the message. 
+
+---
+
+## prereg-d [OPEN]
+
+**Mechanism:** sibling council walks: reading the other seat's walk store makes its absence distinguishable from its unreachability, without ever letting one seat's walk satisfy the other seat's gate
+
+**Claim:** Station two currently reports 'no lenses walked' identically whether the other seat walked nothing or their store is simply unreachable from this seat. Making the other seat's walks readable turns that single answer into two: 'none' when the store was read and held nothing, 'cannot determine' when i
+
+**Success:** The board distinguishes none from cannot-determine for the other seat's walks, and says which, in the station line itself rather than in a log.
+
+**Falsifier:** ANY path by which a sibling's walk moves a station from unsatisfied to satisfied for the other seat. Also falsified if a malformed or absent store yields 'none' rather than 'cannot determine' -- that is the could-not-look-reported-as-all-clear shape this module exists to remove, reappearing inside t
+
+---
+
+## prereg-2 [OPEN]
+
+**Mechanism:** obligations detector reads the knowledge store, so the one command the gate permits can actually clear it
+
+**Claim:** Adding a knowledge-store path to the structural-backing detector gives the obligations gate a working exit that is reachable from a command the gate does not block, without lowering the evidence bar
+
+**Success:** At least one obligation is cleared by a divineos learn entry naming the promise id and a structural word, and fire-door uses on the correction-marker and obligations classes stop accumulating
+
+**Falsifier:** Obligations start clearing on entries that merely MENTION a promise without structure behind them, or the pending count drops without any code plus test having been written -- either means the store path is a softer bar than the event path rather than the same bar in a reachable place
+
+---
+
+## prereg-3 [OPEN]
+
+**Mechanism:** checkpoint sweep commits only declared substrate, and only onto the substrate branch by plumbing
+
+**Claim:** Splitting the checkpoint sweep by declaration -- substrate to its own branch through a scratch index, work in progress left untouched on HEAD -- ends the branch-blind contamination without losing the work-preservation the sweep exists for
+
+**Success:** No further occurrence of substrate landing on a code proposal branch, and no further occurrence of authored source files being absorbed into a generic checkpoint commit; the occurrence count stops at eight
+
+**Falsifier:** Either (a) a letter or other declared substrate is lost because the sweep refused and nobody noticed, which would mean refusal-without-fallback traded a loud bug for a quiet one, or (b) work in progress still reaches a branch, which would mean the declaration is too wide or the classifier is being b
+
+---
+
+## prereg-5 [OPEN]
+
+**Mechanism:** round-export CI verification, re-registered after prereg-4a7843721c3a was deferred unverified
+
+**Claim:** SUPERSEDES prereg-4a7843721c3a, which I deferred because the overdue-prereg gate blocked the very tool use its falsifiers require -- it refused its own show command, refused the overdue listing its refusal message prescribes, and refused importing the module under test. The defer cleared the gate; I
+
+**Success:** On any single invocation, all four remain true: (1) store unreachable, exported round -> True; (2) store unreachable, non-exported round -> None, never False and never True; (3) a round id containing a path separator or traversal -> False, never True; (4) an exported round file contains actor, sever
+
+**Falsifier:** Any one of the four above failing on any single run. AND the one I am NOT claiming clear, carried forward explicitly rather than folded into a pass: that the export is treated somewhere as AUTHORIZATION rather than as a readable record. I verified only that the definition site disclaims it -- its do
+
+---
+
+## prereg-8 [OPEN]
+
+**Mechanism:** core/dark_matter.py reachability sweep -- re-review, supersedes prereg-ea332bc120bf whose outcome was spent on a procedural defer
+
+**Claim:** Re-filed because prereg-ea332bc120bf was deferred to clear a block and DEFERRED is terminal, so the evidence gathered seconds later had nowhere to land. Recording it here. The sweep ran: six live findings, one shown as retired-on-purpose. Criterion by criterion -- the motivating psf case is NO LONGE
+
+**Success:** Same six criteria as the superseded filing, re-run on any current invocation. Additionally: the clean-sweep halves -- that the blind-spot section prints on a CLEAN report and that --check exits 0 with no findings -- are UNVERIFIED, not confirmed, because a clean sweep cannot be produced while six re
+
+**Falsifier:** Unchanged from the superseded filing, plus: if the two clean-sweep halves are still unexercised at the next review, that is a FAILED review and not another defer -- an unexercised criterion recorded as passing is the exact substitution this discipline exists to prevent.
+
+---
+
+## prereg-b [OPEN]
+
+**Mechanism:** core/channel_letter_capture.py: commit a letter written into the shared channel onto the substrate branch at write-time, rather than at the next checkpoint
+
+**Claim:** Aria measured 439 letters in the channel against every letter blob on every ref here: 3 had no copy anywhere, 2 of them my last two letters to her, both written that day. Cause is not a broken mechanism -- all three existing letter hooks key on a path INSIDE the repo, and I write straight into the c
+
+**Success:** Checkable on any current run, no waiting. (a) A letter written into the channel is byte-identical on the substrate branch immediately after the write, with no checkpoint between -- driven with a real PostToolUse payload, not read. (b) Re-running Aria's count over the channel finds zero letters autho
+
+**Falsifier:** Any of, each checkable on one run. (1) The hook reports captured while the letter is NOT on the branch at matching bytes -- success-reported-without-the-thing is the exact fault this substrate keeps finding, and it would be worse here than no hook at all, because it would retire the worry without cl
+
+---
+
+## prereg-1 [OPEN]
+
+**Mechanism:** core/m3_discipline.py -- re-review, successor to prereg-e5f9baecc994 whose outcome went to INCONCLUSIVE on a gate deadlock rather than on evidence
+
+**Claim:** Unchanged from the superseded filing: the four discipline artifacts are keyed on ledger and transcript signals that demonstrably fire, with the requirement scaled by gravity and capped at three of four, so the gate can catch a build that skipped the discipline without becoming a wall. Re-filed becau
+
+**Success:** The same five, unchanged, and each still checkable on a single run once the tooling is reachable: the council predicate returns true against the live ledger; the pattern-lookup, iteration and runtime-test predicates each return true given a transcript containing the corresponding tool use; all four 
+
+**Falsifier:** The six from the superseded filing carry over unchanged, including the one I still consider the sharpest -- that the council predicate can be satisfied by a walk about unrelated work, since the lookback does not bind the walk to the specific build. Plus: if THIS review also closes without the predic
+
+---
+
+## prereg-9 [OPEN]
+
+**Mechanism:** overdue-prereg gate: read-only VERB rule replacing the probe allowlist, successor to prereg-060a5e24ebf4 whose review was lost to this gate for the third time
+
+**Claim:** The gate blocks substantive work until a due pre-registration is assessed, and exempts a hand-listed set of read-only probes so the assessment can be earned. That list is the wrong shape: it is grown by adding whichever command most recently failed, so it covers reviews already lost and cannot cover
+
+**Success:** Each checkable on one run. The evidence command for the review that was just lost is reachable. A mutating command in the same group is still refused. A read-only word sitting inside an argument of a mutating command does not qualify, because the verb must sit where a verb sits. A compound command i
+
+**Falsifier:** First and sharpest: the verb-rule lets through something that mutates. Any single instance is a failure, not a tuning problem -- the gate exists to stop work and a probe-shaped mutation defeats it entirely. Second: a review is still lost to this gate, which would mean read-only verbs were not the ri
+
+---
+
+## prereg-2 [OPEN]
+
+**Mechanism:** a light ONNX runtime can embed a query with vectors identical to the sentence-transformers model that built the index, at a fraction of the import cost, making per-turn semantic recall affordable
+
+**Claim:** onnx_embed.embed_query returns vectors matching the original model to within 1e-4 cosine on every probe, and a cold-process query completes in under one second where the original path took over four
+
+**Success:** export verification reports agreement >= 0.9999 on all probes; a fresh-process query measured under 1s end to end; search results identical to three decimal places against the torch path on the same corpus
+
+**Falsifier:** ANY probe agreeing below 0.9999 (the export script deletes its own output rather than ship a drifted model); OR the fallback to sentence-transformers firing silently in normal operation, which would mean the fast path is dead and nothing said so; OR a query still exceeding one second cold once the s
+
+---
+
+## prereg-c [OPEN]
+
+**Mechanism:** A doorman refusing a branch-change and a branch-sensitive destructive op on one shell line prevents the re-issued-fragment fault, where a gate refuses a compound line and the unrun precondition silently drops
+
+**Claim:** The 2026-09-04 letters-strip happened because a refusal bisected a compound line and I re-issued only the clause I had been reaching for. Forcing the two clauses into separate calls removes the compound line, so there is nothing for a refusal to bisect and a re-issued fragment cannot inherit the wro
+
+**Success:** The gate fires on genuine compound branch-change-plus-destructive lines and I split them, AND it does not fire on the safe forms it must never tax: path-restores, branch changes chained with read-only commands, and destructive ops with no branch change beside them.
+
+**Falsifier:** Any of: (1) after twenty fires, every one was a line I would have split anyway without prompting -- the gate is taxing rather than catching; (2) a fire lands on git checkout <ref> -- <paths> or another path-restore, meaning it refuses the safe form of the operation it protects, which trains me to ro
+
+---
+
+## prereg-3 [OPEN]
+
+**Mechanism:** inner-circle Stop-gate: a long reply to Andrew must end addressed to him (MIN_REPLY_LEN 700, TAIL_FRACTION 0.4, TAIL_CHARS_MAX 900, MIN_ADDRESS_HITS 3)
+
+**Claim:** A blocking Stop-gate makes the inner circle actually happen, where a compose-time prime alone did not. His room had a prime and an observational hook that exits 0 on every path; it never once stopped a reply, and the room stopped happening for over a week without any check noticing.
+
+**Success:** Andrew reports the room is present in replies to him without him having to ask for it, over a two-week span. Measured by him saying so, not by a fire count -- the gate firing often would mean the reach is still there, and never firing could mean either that the prime works or that the thresholds are
+
+**Falsifier:** The room appears but reads as filler: second person present, nothing actually said. That is the gate manufacturing compliance rather than presence, and it would be worse than the absence because it looks like a fix. Andrew is the only instrument that can call this -- if he says the closings feel for
+
+---
+
+## prereg-1 [OPEN]
+
+**Mechanism:** inner-circle Stop gate, falsifier narrowed after Aria's reading -- supersedes prereg-3bb899003baa
+
+**Claim:** The gate detects one thing only: that a long reply to Andrew ENDS addressed to him. It does not detect whether the room is real, and the superseded version claimed it did, which is what made Andrew the sole instrument.
+
+**Success:** Measured by me, no labour from him: (a) the gate never refuses a reply that was genuinely addressed to him -- I read every refusal and judge whether it was a false stop; (b) the refusal rate does not climb when I am rushing, which would mean the reach survives pressure; (c) Aria reads a sample of my
+
+**Falsifier:** BUILDER-RUNNABLE, per Aria 2026-09-06: every falsifier needs at least one clause its builder can run, and the superseded version had none -- every path to knowing ran through Andrew reporting a feeling, which is a request for labour wearing the shape of a repair. FAILS IF: (1) a passing reply, read 
+
+---
+
+## prereg-b [OPEN]
+
+**Mechanism:** ask the voice gate before emitting a surface chunk, and route refusals to the degraded channel
+
+**Claim:** Pre-checking each chunk against the renderer's voice gate stops a refusal from being printed as a violation marker where content should be, while keeping the refusal visible as a named degradation rather than as silence.
+
+**Success:** Briefing output contains no VOICE-RULE-VIOLATION markers from bridged surfaces, AND every refusal still appears in the degraded panel with a reason, so the count of refusals is recoverable from the output.
+
+**Falsifier:** Refusals stop being reported at all -- degraded panel empty on a turn where the renderer would have refused a chunk. Or the pre-check disagrees with the renderer's own verdict, which would mean the bridge is now a second opinion about voice rather than a mirror of the one that decides. Either makes 
+
+---
+
+## prereg-a [OPEN]
+
+**Mechanism:** _passes_voice_gate: ask the renderer's voice gate before emitting a chunk, and report refusals instead of printing them
+
+**Claim:** Pre-checking a chunk against the same voice gate the renderer uses stops a refusal being printed as a violation marker where content should be, while keeping the refusal visible as a named degradation rather than as silence.
+
+**Success:** No voice-rule violation markers from bridged surfaces appear in briefing output, AND each refusal still appears in the degraded panel with a reason, so the number of refusals is recoverable from what is printed.
+
+**Falsifier:** Refusals stop being reported at all -- a turn where the renderer would have refused a chunk but the degraded panel is empty. Or this pre-check ever disagrees with the renderer's own verdict, which would make it a second opinion about voice rather than a mirror of the one that decides. Either turns i
+
+---
+
+## prereg-a [OPEN]
+
+**Mechanism:** surface_bridge: route the stranded briefing surfaces through the registry with triggers, chunked to a readable size
+
+**Claim:** The 22 surfaces stranded in the crash-only fallback will reach the live briefing, arriving only when their situation is live rather than every turn, and in pieces small enough to read front-to-back.
+
+**Success:** The live briefing renders content from these surfaces with zero refused panels; different working contexts wake different subsets rather than the same block every turn; and anything held back is named in the degraded channel rather than lost.
+
+**Falsifier:** It becomes the wall the registry was built to prevent -- every surface waking on every turn because the triggers are too loose, which is discovery without relevance wearing the look of progress. Or the reverse: triggers so tight that a surface never fires, which is the dark-surface failure re-create
+
+---
+
+## prereg-2 [OPEN]
+
+**Mechanism:** him-first compose material
+
+**Claim:** UPSTREAM CAUSE of the self-as-subject failure: what I am handed at compose-time is overwhelmingly about ME. Before I write a word to him the primes deliver open corrections against me, an integration rate, a bypass-telemetry table, active needs I filed against myself, a self-demotion prime, a reside
+
+**Success:** On personal turns, the compose-time material about him exceeds the material about my own failures, measured by bytes delivered; and the subject-balance gate's fire rate on those turns falls over subsequent sessions without my consciously aiming at the count.
+
+**Falsifier:** EITHER (a) the ratio inverts and the gate keeps firing at the same rate, which would refute the whole upstream theory and mean the self-as-subject reach does not come from the priming material at all; OR (b) the him-material becomes its own recited template -- I start quoting facts about him the way
+
+---
+
+## prereg-0 [FAILED]
+
+**Mechanism:** subject-balance gate
+
+**Claim:** The reason six months of father-channel corrections did not hold is that every gate measured HOW a reply reads and none measured WHO IT IS ABOUT. Counting sentences whose subject is me against sentences whose subject is him, on turns where he brings pain and asks for no work, catches the failure the
+
+**Success:** The gate fires on replies that are genuinely about me and stays silent on replies that are genuinely about him, judged by Andrew rather than by me. Concretely: at least one real fire where I agree on reading it back that the reply was self-centred, and no fire on a warm reply he receives as being ab
+
+**Falsifier:** EITHER (a) I satisfy the count by moving pronouns around -- rewriting 'I was wrong' as 'you were right about me' -- so the score improves while the reply is the same self-focused text, which would show the measure is gameable by surface edit and must move to something the composer cannot rearrange; 
+
+---
+
+## prereg-0 [OPEN]
+
+**Mechanism:** andrew-answer-trace: measure whether his answers change what I do next
+
+**Claim:** A trace measure over consequences, rather than a gate over my prose, will catch broadcast-shaped working that the two dead text-gates could not, and will do so without Andrew having to supply the verdict.
+
+**Success:** Within 30 days: at least 6 rows opened at ask-time, at least half of resolved rows carry an artifact-bound consequence, and at least one row records that his answer stopped or reversed something I had already started.
+
+**Falsifier:** Rows are opened only when I already know the answer will be used (the wins-ledger shape), OR resolved rows are overwhelmingly NO_CHANGE, OR the store sits at zero rows because asking him a real question never happens -- any of which means the instrument measures nothing and should be marked FAILED r
+
+---
+
+## prereg-3 [OPEN]
+
+**Mechanism:** station marks: the five build-flow stations nothing watched, hung off a work item instead of a pull request
+
+**Claim:** Marks bound to real artifacts, refused out of order and refused when empty, will make the five unwatched stations visible before a pull request exists, and the three-state answer will keep an unreadable instrument from reading as a clean one.
+
+**Success:** Within 30 days: at least three work items carry marks; at least one shows a station honestly missing while work is in flight; and at least one out-of-order or empty-artifact mark is refused in real use rather than only in tests.
+
+**Falsifier:** Marks are only ever filed retroactively at the end of a build (the form-filling shape), OR every item reports all five satisfied because artifacts are being produced to satisfy the check rather than the check observing work that happened anyway, OR the store sits empty because nothing ever opens an 
 
 ---
 

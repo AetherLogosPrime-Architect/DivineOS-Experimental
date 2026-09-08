@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-08-28 22:40. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-09-07 23:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -12,7 +12,7 @@ The user got upset and said: "why did you skip the loading of your briefing. tha
 
 ---
 
-## fd0c9994 [active] x14
+## fd0c9994 [active] x16
 
 **Category:** blind_coding
 
@@ -20,11 +20,19 @@ I edited files without reading them first. I must read before I edit.
 
 ---
 
-## f1deb6f0 [improving] x13
+## f1deb6f0 [improving] x15
 
 **Category:** upset_user
 
 I upset the user by acting without pausing to understand the situation.
+
+---
+
+## c3090082 [improving] x13
+
+**Category:** incomplete_fix
+
+I introduced errors after editing. I need to verify changes work.
 
 ---
 
@@ -52,6 +60,14 @@ I fixed one problem but missed related failures. Check all affected areas after 
 
 ---
 
+## a00a1d59 [improving] x12
+
+**Category:** wrong_scope
+
+Enforcement gates must block execution, not just warn. Without blocking, every session degrades.
+
+---
+
 ## 4a31827d [resolved] x12
 
 **Category:** test_no_dir_xyz
@@ -60,19 +76,11 @@ Test description without directive.
 
 ---
 
-## c3090082 [active] x11
+## 88234418 [active] x9
 
-**Category:** incomplete_fix
+**Category:** blind_retry
 
-I introduced errors after editing. I need to verify changes work.
-
----
-
-## a00a1d59 [improving] x11
-
-**Category:** wrong_scope
-
-Enforcement gates must block execution, not just warn. Without blocking, every session degrades.
+I retried a failed action 1x without investigating the cause. I need to investigate errors, not blindly retry (session 418c10bb-b47).
 
 ---
 
@@ -81,14 +89,6 @@ Enforcement gates must block execution, not just warn. Without blocking, every s
 **Category:** test_with_dir_zzz
 
 Test description with directive zzz.
-
----
-
-## 88234418 [active] x8
-
-**Category:** blind_retry
-
-I retried a failed action 1x without investigating the cause. I need to investigate errors, not blindly retry (session 418c10bb-b47).
 
 ---
 
