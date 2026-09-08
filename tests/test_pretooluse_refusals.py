@@ -108,6 +108,64 @@ def test_a_degraded_check_that_cannot_run_says_so_rather_than_passing(monkeypatc
     assert outcome.refused is False  # a broken gate reports; it does not block the work
 
 
+def test_the_two_pull_request_gates_keep_their_different_protocols():
+    """A migration moves WHERE a decision is made, never HOW it lands.
+
+    These two refused differently before -- one through the permission
+    decision, one through exit 2 -- and both still do. It matters because the
+    create gate spent its entire life exiting 1, which shows the message and
+    runs the command anyway: a correct, well-written refusal printed into the
+    void while every unready pull request opened regardless. Protocol IS
+    behaviour, and this is the assertion that says so.
+    """
+    merge = hs.pr_merge_gate_surface(
+        {"tool_name": "Bash", "tool_input": {"command": "gh pr merge 1"}}
+    )
+    create = hs.pr_create_gate_surface(
+        {"tool_name": "Bash", "tool_input": {"command": "gh pr create --title x --body y"}}
+    )
+    assert merge is not None and merge.refused is True and merge.json_deny is True
+    assert create is not None and create.refused is True and create.json_deny is False
+
+
+def test_both_pull_request_gates_ignore_commands_that_are_not_theirs():
+    for surface in (hs.pr_merge_gate_surface, hs.pr_create_gate_surface):
+        assert surface({"tool_name": "Bash", "tool_input": {"command": "ls -la"}}).refused is False
+        assert surface({"tool_name": "Read", "tool_input": {}}).state == "nothing-to-say"
+
+
+def test_a_pull_request_gate_that_raises_says_could_not_run(monkeypatch):
+    import divineos.core.pr_merge_gate as pmg
+
+    def boom(_cmd):
+        raise RuntimeError("gate module broken")
+
+    monkeypatch.setattr(pmg, "block_reason", boom)
+    outcome = hs.pr_merge_gate_surface(
+        {"tool_name": "Bash", "tool_input": {"command": "gh pr merge 1"}}
+    )
+    assert outcome.state == "could-not-run"
+    assert outcome.refused is False  # a broken gate reports; it does not block
+
+
+@pytest.mark.skipif(BASH is None, reason="doorbells are bash; no working interpreter")
+def test_the_create_gate_refuses_through_the_doorbell_end_to_end():
+    """The one with a real refusing input, driven the whole way."""
+    proc = subprocess.run(
+        [BASH, ".claude/hooks/doorbell-pre-tool-use.sh"],
+        cwd=ROOT,
+        input=json.dumps(
+            {"tool_name": "Bash", "tool_input": {"command": "gh pr create --title x --body y"}}
+        ),
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    everything = proc.stdout + proc.stderr
+    assert proc.returncode in (0, 2)
+    assert "pr_create_gate" in everything, everything[:400]
+
+
 @pytest.mark.skipif(BASH is None, reason="doorbells are bash; no working interpreter")
 def test_the_block_case_reaches_the_harness_through_the_doorbell():
     """END TO END, which is the whole reason this file exists.

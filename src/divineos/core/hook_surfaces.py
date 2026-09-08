@@ -1073,6 +1073,80 @@ def context_heartbeat_surface(payload: dict) -> SurfaceOutcome | None:
     return SurfaceOutcome(name="context_heartbeat", state="nothing-to-say")
 
 
+def pr_merge_gate_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a merge that has not met the review conditions.
+
+    KEEPS THE JSON PROTOCOL. Its shell version denied through the permission
+    decision rather than exit 2, and a migration moves WHERE a decision is made
+    without changing HOW it lands -- the router carries both protocols for
+    exactly this reason.
+    """
+    if (payload.get("tool_name") or "") != "Bash":
+        return SurfaceOutcome(name="pr_merge_gate", state="nothing-to-say")
+    command = (payload.get("tool_input") or {}).get("command") or ""
+    if not command.strip():
+        return SurfaceOutcome(name="pr_merge_gate", state="nothing-to-say")
+    try:
+        from divineos.core.pr_merge_gate import block_reason
+
+        reason = block_reason(command)
+    except Exception as exc:  # noqa: BLE001 — a gate never crashes the call
+        return SurfaceOutcome(
+            name="pr_merge_gate",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    if not reason:
+        return SurfaceOutcome(name="pr_merge_gate", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="pr_merge_gate",
+        refused=True,
+        reason=reason,
+        json_deny=True,
+        state="spoke",
+    )
+
+
+def pr_create_gate_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse opening a pull request that is not ready to be opened.
+
+    KEEPS THE EXIT-2 PROTOCOL, and this one carries a warning worth repeating
+    where the code lives. Its shell version exited 1 for its entire life. A
+    hook blocks a tool call only on 2; on 1 the message is shown and the
+    command runs anyway. So it printed a correct, well-written refusal into
+    the void and every unready pull request opened regardless -- a gate that
+    had never once stopped anything, discovered only when one got through.
+
+    Under the router the distinction is structural rather than remembered: a
+    surface says ``refused`` and the router chooses the wire protocol. The
+    class of defect that produced that year of silence is not reachable from
+    here.
+    """
+    if (payload.get("tool_name") or "") != "Bash":
+        return SurfaceOutcome(name="pr_create_gate", state="nothing-to-say")
+    command = ((payload.get("tool_input") or {}).get("command") or "").strip()
+    if not command:
+        return SurfaceOutcome(name="pr_create_gate", state="nothing-to-say")
+    try:
+        from divineos.core.pr_gate import check_pr_create_safe
+
+        decision = check_pr_create_safe(command)
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="pr_create_gate",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    if not decision.blocked:
+        return SurfaceOutcome(name="pr_create_gate", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="pr_create_gate",
+        refused=True,
+        reason=decision.reason,
+        state="spoke",
+    )
+
+
 def install() -> None:
     """Register every surface. Idempotent — safe to call from each doorbell."""
     from divineos.core.hook_router import registered
@@ -1121,6 +1195,14 @@ def install() -> None:
         register("PreToolUse", "degraded_detectors", degraded_detectors_surface)
     if "heredoc_escape" not in registered("PreToolUse"):
         register("PreToolUse", "heredoc_escape", heredoc_escape_surface)
+
+    # Third PreToolUse batch. Two pull-request gates, and they deliberately
+    # keep DIFFERENT wire protocols -- one denies through the permission
+    # decision, one through exit 2 -- because that is how each landed before.
+    if "pr_merge_gate" not in registered("PreToolUse"):
+        register("PreToolUse", "pr_merge_gate", pr_merge_gate_surface)
+    if "pr_create_gate" not in registered("PreToolUse"):
+        register("PreToolUse", "pr_create_gate", pr_create_gate_surface)
 
     # Second door. PostToolUse carries surfaces that report on what just
     # happened rather than gating what is about to.

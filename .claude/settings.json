@@ -356,16 +356,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/gh-pr-merge-gate.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/gh-pr-create-draft-gate.sh",
-            "timeout": 20
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/gh-pr-ready-gate.sh",
             "timeout": 20
           },
