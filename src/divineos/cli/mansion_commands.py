@@ -404,7 +404,7 @@ def register_mansion_commands(cli: click.Group) -> None:
                         "question_count": len(w.characteristic_questions or []),
                     },
                 )
-            except Exception:
+            except _MC_ERRORS:
                 # Never let bookkeeping block the reading. A load that fails to
                 # record is still a load, and the walk-side check then fails
                 # toward asking me to load again — one wasted command, no lost

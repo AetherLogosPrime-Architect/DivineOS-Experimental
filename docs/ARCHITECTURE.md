@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (476 commands across 84 modules)
+  cli/                         CLI package (482 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -99,6 +99,7 @@ src/divineos/
     dream_commands.py          Dream CLI — list and show sleep recombinations
     void_commands.py           VOID adversarial-sandbox subsystem commands
     prereg_commands.py         pre-registrations (Goodhart prevention)
+    class_fix_commands.py      class-fix declarations: a repair claiming a class must have its population measured by running a search
     prior_art_commands.py      already-built — station 0: does this exist before I build it
     psf_commands.py            pending structural-fix obligations (list, mark-done)
     reach_commands.py          reach-check — surface prior work, then prove it was opened
@@ -709,6 +710,7 @@ src/divineos/
     hook_layer.py              The hook layer, computed — and a ratchet that only turns one way.
     hook_story.py              The same picture in words Andrew can follow: before, now, what is left, and why two guards are blocked. Built 2026-09-08 after he said "im trying to follow along but its still hard" — every earlier fix for that aimed at single sentences, and none produced a place to look. Computed from the live wiring, never hand-maintained.
     remedy_allowlist.py        No gate may block another gate's prescribed way out.
+    class_fix.py               A repair that claims a class must count the class, by running rather than by judging.
 
   analysis/
     _session_types.py          Session analysis type definitions

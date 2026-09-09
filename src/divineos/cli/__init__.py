@@ -379,6 +379,7 @@ from divineos.cli import (  # noqa: E402
     motivation_commands,
     prior_art_commands,
     prereg_commands,
+    class_fix_commands,
     reach_commands,
     admin_reset_template,
     admin_migrate_family,
@@ -514,6 +515,10 @@ correction_commands.register(cli)
 # are a pair, and the wins half spent three weeks with no door at all while
 # this line's neighbour had a command and a blocking gate (2026-08-25).
 prereg_commands.register(cli)
+# Beside prereg on purpose, and for the reason the walk settled on: this is the
+# same measurement a pre-registration makes, moved from a calendar date to the
+# moment a fix is declared done (council-5bec78b85acc).
+class_fix_commands.register(cli)
 prior_art_commands.register(cli)
 psf_commands.register(cli)
 reach_commands.register(cli)

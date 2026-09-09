@@ -86,7 +86,7 @@ except Exception:
 msg = check_should_block(reply, commands, now=now)
 if msg:
     print(msg)
-' 2>/dev/null)"
+' 2>/dev/null)"  # fail-soft: a signal surface that cannot read the ledger must stay quiet rather than print a traceback into the reply channel
 
 if [ -n "$RESULT" ]; then
     echo "$RESULT" >&2

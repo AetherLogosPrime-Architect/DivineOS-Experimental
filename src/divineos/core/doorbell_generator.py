@@ -96,7 +96,7 @@ _FAIL_CLOSED_NOTE = """#
 
 _BODY = """
 set +e
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0  # fail-soft: outside a git checkout there is no OS to route to, so the bell stays silent rather than guessing at a repo root
 [ -z "$REPO_ROOT" ] && exit 0
 # shellcheck disable=SC1091
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0

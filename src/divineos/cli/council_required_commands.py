@@ -58,9 +58,22 @@ def _lens_loaded_within(lens_key: str, window_seconds: int) -> bool | None:
     *I could not see*. A ledger that will not open must not silently convict.
     """
     try:
+        import json as _json
+        import sqlite3
         import time
 
         from divineos.core.ledger import get_events
+
+        _TRACE_ERRORS = (
+            ImportError,
+            sqlite3.OperationalError,
+            sqlite3.DatabaseError,
+            OSError,
+            KeyError,
+            TypeError,
+            ValueError,
+            _json.JSONDecodeError,
+        )
 
         cutoff = time.time() - window_seconds
         for ev in get_events(limit=500, order="desc", event_type="COUNCIL_LENS_LOADED"):
@@ -68,13 +81,11 @@ def _lens_loaded_within(lens_key: str, window_seconds: int) -> bool | None:
                 break
             payload = ev.get("payload") or {}
             if isinstance(payload, str):
-                import json as _json
-
                 payload = _json.loads(payload)
             if str(payload.get("expert_name", "")).lower() == lens_key:
                 return True
         return False
-    except Exception:
+    except _TRACE_ERRORS:
         return None
 
 
