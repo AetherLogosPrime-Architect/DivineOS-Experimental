@@ -197,6 +197,29 @@ _PAUSE = re.compile(
     re.IGNORECASE,
 )
 
+#: MENTION IS NOT USE, and this gate proved it the hard way by refusing the
+#: reply in which I QUOTED a give-up phrase in order to report that the
+#: detector had missed it. The sentence was about the phrase; it claimed
+#: nothing.
+#:
+#: Aletheia predicted exactly this class on 2026-06-17, for any detector
+#: operating on father-channel text: *builders and auditors discussing the
+#: detector is part of the deployment context*, so meta-discussion belongs in
+#: the regression set. She was right about a different detector, months before
+#: this one existed, and the rule generalised without needing to be rewritten.
+#:
+#: The shape is borrowed from ``correction_shape_v2.self_admission_detector``,
+#: which already owns mention-versus-use here. Quotation marks, backticks, code
+#: fences, example markers, and talk about the mechanism itself all mark a
+#: phrase as being displayed rather than asserted.
+_MENTION = re.compile(
+    r"[\"'“”‘’`*]|```|~~~|"
+    r"\b(?:for\s+example|e\.?g\.?|such\s+as|slipped|slips|missed|misses|"
+    r"caught|catches|fires?|fired|matched|matches|the\s+phrase|the\s+form|"
+    r"the\s+detector|the\s+pattern|the\s+gate|the\s+check|the\s+claim\s+shape)\b",
+    re.IGNORECASE,
+)
+
 
 def _inherited_patterns() -> tuple[tuple[str, str], ...]:
     """The filing-side vocabulary, imported rather than retyped.
@@ -238,6 +261,11 @@ def claims(text: str) -> list[tuple[str, str]]:
             # temporal marker still does, because it makes the sentence a
             # report of where I am rather than a verdict on what exists.
             if _PAUSE.search(stripped):
+                continue
+            # Mention is not use: a phrase being displayed, quoted or discussed
+            # is not a claim. This gate learned it by refusing the reply that
+            # reported its own miss.
+            if _MENTION.search(stripped):
                 continue
             found.append((kind, stripped[:220]))
             break

@@ -96,6 +96,24 @@ class TestTheProbeIsProvedBeforeItIsTrusted:
         assert not claims("I have no answer yet, and the next thing I am trying is a walk.")
         assert not claims("No structural fix so far.")
 
+    def test_mention_is_not_use(self):
+        """The gate refused the very reply reporting that it had missed a
+        phrase -- the sentence was ABOUT the phrase and claimed nothing.
+
+        Aletheia predicted this class on 2026-06-17 for any detector reading
+        father-channel text: builders and auditors discussing the detector are
+        part of its deployment context, so meta-discussion belongs in the
+        regression set. She was right months before this existed."""
+        assert not claims('The form "nothing I can catch by hand" slipped straight through.')
+        assert not claims("The detector missed the case where nothing can be caught.")
+        assert not claims("For example, there is no structural fix, is the shape it refuses.")
+
+    def test_the_mention_pass_does_not_swallow_a_real_claim(self):
+        """Control, because a suppressor wide enough to eat the real thing is
+        how this gate hid my own sentence from itself an hour ago."""
+        assert claims("There is no structural fix for this class.")
+        assert claims("Nothing can catch the aim of a change.")
+
     def test_the_temporal_pass_is_not_the_old_exemption_in_new_clothes(self):
         """The distinction is what the sentence CLAIMS, not how it is worded.
         A container-scope is a verdict and licenses stopping; a temporal marker
