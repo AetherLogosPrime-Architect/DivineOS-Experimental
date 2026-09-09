@@ -702,6 +702,48 @@ def _last_assistant_text(payload: dict) -> str:
     return last
 
 
+def _recent_assistant_texts(payload: dict, count: int = 2) -> list[str]:
+    """My last ``count`` replies, newest first. Same reader, wider window.
+
+    Needed because a Stop surface that only ever sees the CURRENT reply cannot
+    notice that the current reply IS the previous one again.
+    """
+    import json as _json
+    from pathlib import Path
+
+    raw = payload.get("transcript_path") or payload.get("transcript") or ""
+    if not raw:
+        return []
+    path = Path(raw)
+    if not path.is_file():
+        return []
+    texts: list[str] = []
+    with path.open(encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = _json.loads(line)
+            except ValueError:
+                continue
+            msg = rec.get("message") or {}
+            if not isinstance(msg, dict) or msg.get("role") != "assistant":
+                continue
+            content = msg.get("content", [])
+            if isinstance(content, list):
+                parts = [
+                    c.get("text", "")
+                    for c in content
+                    if isinstance(c, dict) and c.get("type") == "text"
+                ]
+                if parts:
+                    texts.append("\n".join(parts))
+            elif isinstance(content, str) and content.strip():
+                texts.append(content)
+    return list(reversed(texts))[:count]
+
+
 #: (surface name, module, callable) — each takes the transcript path and does
 #: its work as a side effect. Audits, not speakers.
 _TRANSCRIPT_AUDITS: tuple[tuple[str, str, str], ...] = (
@@ -784,6 +826,79 @@ def self_demotion_stop_surface(payload: dict) -> SurfaceOutcome | None:
         output=(
             f"[self-demotion] recorded {len(hits)} praise-by-contrast span(s); "
             f"the compose prime will show them next turn:\n{spans}"
+        ),
+    )
+
+
+#: Two replies sharing this fraction of their paragraphs are the same reply.
+#: Deliberately high: a genuine follow-up on the same subject reuses phrases,
+#: and refusing that would be worse than the fault being caught.
+_REPEAT_THRESHOLD = 0.7
+
+#: Below this, a short reply can share most of its few paragraphs with the
+#: previous one by ordinary coincidence -- an acknowledgement, a one-line
+#: answer. The fault this catches is a long body re-shipped whole.
+_REPEAT_MIN_PARAGRAPHS = 4
+
+
+def repeated_reply_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a reply that is the previous reply again.
+
+    Andrew 2026-09-08: *"you are repeating yourself, look at the last post,
+    literally verbatim posted twice."* He was right and he had to be the one
+    to notice.
+
+    HOW IT HAPPENS, and it is a mechanism rather than carelessness. A Stop gate
+    refuses a reply that has already been shown to him. The prescribed repair
+    is to add the missing room -- so the cheapest compliant move is to re-emit
+    the whole body with the room bolted on, which satisfies the gate perfectly
+    and makes him read the entire thing twice. Every existing Stop surface
+    inspects only the reply in front of it, so not one of them can see that the
+    reply in front of it is the previous one.
+
+    The repair after a refusal is to send WHAT IS NEW. He has already read the
+    rest.
+
+    Compared on paragraphs rather than characters: a re-send with a new opening
+    section is still a re-send, and character-level similarity would be diluted
+    by exactly the addition the gate asked for.
+    """
+    texts = _recent_assistant_texts(payload, count=2)
+    if len(texts) < 2:
+        return SurfaceOutcome(name="repeated_reply", state="nothing-to-say")
+    current, previous = texts[0], texts[1]
+
+    def _paragraphs(text: str) -> set[str]:
+        return {
+            " ".join(block.split())
+            for block in text.split("\n\n")
+            if len(" ".join(block.split())) >= 40
+        }
+
+    now, before = _paragraphs(current), _paragraphs(previous)
+    if len(now) < _REPEAT_MIN_PARAGRAPHS or not before:
+        return SurfaceOutcome(name="repeated_reply", state="nothing-to-say")
+    shared = now & before
+    fraction = len(shared) / len(now)
+    if fraction < _REPEAT_THRESHOLD:
+        return SurfaceOutcome(name="repeated_reply", state="nothing-to-say")
+    percent = int(fraction * 100)
+    return SurfaceOutcome(
+        name="repeated_reply",
+        state="spoke",
+        refused=True,
+        reason=(
+            f"REPEATED REPLY — {percent}% of this reply's paragraphs "
+            f"({len(shared)} of {len(now)}) are word-for-word from the reply he "
+            "has already read.\n\n"
+            "Andrew 2026-09-08: 'you are repeating yourself, look at the last "
+            "post, literally verbatim posted twice.'\n\n"
+            "This is almost certainly a re-send after another Stop gate refused "
+            "the first attempt. Adding the missing room to the same body "
+            "satisfies that gate and charges him twice for one post.\n\n"
+            "Send WHAT IS NEW. He has read the rest. If the earlier gate wanted "
+            "a summary, the summary alone is the reply; if it wanted a "
+            "correction, the correction alone is."
         ),
     )
 
@@ -1261,6 +1376,12 @@ def install() -> None:
         register("Stop", "self_demotion_stop", self_demotion_stop_surface)
     if "summary_room" not in registered("Stop"):
         register("Stop", "summary_room", summary_room_surface)
+    # Registered directly after summary_room, which is the gate whose refusal
+    # produced the fault this one catches: told to add a missing room, the
+    # cheapest compliant move is to re-send the whole body with the room bolted
+    # on, and he reads the entire thing a second time (Andrew 2026-09-08).
+    if "repeated_reply" not in registered("Stop"):
+        register("Stop", "repeated_reply", repeated_reply_surface)
     for name, module, detect_attr, marker_name in _REACH_DETECTORS:
         if name not in registered("Stop"):
             register(
