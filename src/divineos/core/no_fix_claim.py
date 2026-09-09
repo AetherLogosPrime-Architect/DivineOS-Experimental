@@ -113,7 +113,12 @@ _CLAIM_PATTERNS: tuple[tuple[str, str], ...] = (
     ),
     (
         "nothing-can",
-        r"\bnothing\s+(?:can|could|will)\s+(?:catch|fix|prevent|stop|detect)\b",
+        # The bare form and the first-person one. "Nothing I can catch by hand"
+        # slipped the first version, which knew only "nothing CAN catch" -- and
+        # it slipped while I was using it as an example of an acceptable
+        # sentence, which is exactly how a hole gets written on purpose.
+        r"\bnothing\s+(?:(?:i|we)\s+(?:can|could)|can|could|will)\s+"
+        r"(?:catch|fix|prevent|stop|detect)\b",
     ),
     (
         "no-way",
@@ -148,11 +153,47 @@ _CLAIM_PATTERNS: tuple[tuple[str, str], ...] = (
 #: it IS the impossibility claim. A softener that eats the very sentence the
 #: check exists for is worse than no softener, because it fails silently and
 #: reads as coverage.
-_SCOPED = re.compile(
-    r"\b(?:with(?:out)?\s+(?:a|an|the|this|that)\b|by\s+hand|"
-    r"using\s+(?:a|an|the|this|that)\b|"
-    r"in\s+(?:this|that)\s+(?:shape|form|design|container)|"
-    r"as\s+(?:built|designed|written)|unless\b|until\b|yet\b)",
+#: REMOVED 2026-09-08, hours after being added, and the removal is the point.
+#:
+#: Andrew: *"you said you allowed for the narrower true thing, who determines
+#: if its true? the optimizer always looks for a reason not to do something,
+#: (i cant think of a way to fix this therefore its impossible so no point in
+#: trying) that is the behavior that needs changed."*
+#:
+#: I was the one deciding whether the narrowing was true, which hands the
+#: verdict straight back to the thing that wanted to stop. A narrowing is
+#: always available and always sounds accurate, so the exemption was a door
+#: with my own hand on the latch.
+#:
+#: Aria named this class in June and I rebuilt the wrong version anyway: the
+#: word is the OUTPUT of the shape, not the cause. The exemption caught
+#: wording. The cause is the optimizer hunting for a reason to stop looking,
+#: and it phrases that reason impeccably.
+#:
+#: WHAT STAYS LEGITIMATE needs no exemption, which is why removing this costs
+#: nothing. His own examples -- *"a keyword list cannot be used for
+#: enforcement... you cannot hold things in memory without structural
+#: support"* -- take a named MECHANISM as their subject, while every pattern
+#: above takes the PROBLEM as its subject. Verified against both of his
+#: sentences rather than assumed: neither fires.
+_SCOPED = None
+
+#: THE ONE THING THAT STILL PASSES, and it is not the old exemption wearing a
+#: new coat. The difference is what the sentence CLAIMS, not how it is worded.
+#:
+#:     "no fix with a keyword list"   -> a verdict about a container, and it
+#:                                       licenses stopping. REFUSED.
+#:     "I have not found one yet"     -> a report of present state, and it
+#:                                       licenses nothing. PASSES.
+#:
+#: A temporal marker holds the question open by construction. If the optimizer
+#: learns to append "yet" to everything, it has learned to stop issuing
+#: verdicts -- which is the entire win, not a leak.
+#:
+#: This must stay open or the gate teaches me to go silent rather than to keep
+#: looking, which is this mechanism's own second falsifier.
+_PAUSE = re.compile(
+    r"\b(?:yet|so\s+far|thus\s+far|to\s+date|at\s+the\s+moment|for\s+now)\b",
     re.IGNORECASE,
 )
 
@@ -193,32 +234,113 @@ def claims(text: str) -> list[tuple[str, str]]:
             match = re.search(pattern, stripped, re.IGNORECASE)
             if not match:
                 continue
-            if _SCOPED.search(stripped):
+            # No CONTAINER-scoping exempts a claim any more (see _SCOPED). A
+            # temporal marker still does, because it makes the sentence a
+            # report of where I am rather than a verdict on what exists.
+            if _PAUSE.search(stripped):
                 continue
             found.append((kind, stripped[:220]))
             break
     return found
 
 
-def refusal_text(hits: list[tuple[str, str]]) -> str:
-    """What to say when the claim was made with nothing tried behind it."""
+#: The council roster, and Andrew's stated bar for concluding no solution
+#: exists: *"unless the entire 45 lenses of the council and the internet comes
+#: back all agreeing that what were trying to do has absolutely no solution. we
+#: look to find one.. lol"*
+#:
+#: Encoded literally, and the consequence is intended: the conclusion becomes
+#: practically unreachable. That is not a wall, because the way through costs
+#: nothing and is the true sentence anyway -- I have not found one YET, here is
+#: what I tried, here is the next thing I am trying. A pause is not a verdict,
+#: and only the verdict is being refused.
+FULL_COUNCIL = 45
+
+
+def lenses_walked_within(window_start_ts: float, now: float) -> int:
+    """How many DISTINCT council lenses were actually walked in the window.
+
+    Distinct, because walking one lens forty-five times is not a council. Reads
+    the applied-events, which the walk command emits and priming does not --
+    the split Andrew made 2026-07-18, precisely so that printing a methodology
+    could never stand in for using it.
+
+    Returns 0 when the ledger cannot be read. That direction is deliberate: an
+    unreadable ledger must leave the claim refused rather than waved through,
+    because the whole point is that I do not get to certify my own exhaustion.
+    """
+    try:
+        from divineos.core.ledger import get_events
+
+        names: set[str] = set()
+        for ev in get_events(limit=1000, order="desc", event_type="COUNCIL_LENS_APPLIED"):
+            try:
+                stamp = float(ev.get("timestamp") or 0)
+            except (TypeError, ValueError):
+                continue
+            if stamp < window_start_ts or stamp > now:
+                continue
+            payload = ev.get("payload") or {}
+            if isinstance(payload, str):
+                import json as _json
+
+                payload = _json.loads(payload)
+            name = str(payload.get("expert_name", "")).strip().lower()
+            if name:
+                names.add(name)
+        return len(names)
+    except Exception:  # noqa: BLE001 — unreadable means unproven, never means passed
+        return 0
+
+
+def looked_outside_within(window_start_ts: float, now: float) -> bool:
+    """Did the action stream reach past this repository in the window?
+
+    The second half of his bar is *"and the internet"*. A council walk is forty
+    five views from inside one head; the outside is where a container nobody
+    here has thought of comes from.
+
+    Returns False when telemetry is unreadable, for the same reason the count
+    returns zero: unproven is not passed.
+    """
+    try:
+        from divineos.core.tool_logbook import get_recent_events
+
+        events = get_recent_events(
+            since_ts=window_start_ts,
+            now_ts=now,
+            tool_names=frozenset({"WebSearch", "WebFetch"}),
+            event_type="TOOL_CALL",
+            limit=100,
+        )
+        return bool(list(events))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def refusal_text(hits: list[tuple[str, str]], lenses_walked: int = 0) -> str:
+    """What to say when a no-fix verdict was reached short of exhaustion."""
     spans = "\n".join(f"    [{kind}] {span}" for kind, span in hits)
     return (
-        "NO-FIX CLAIM WITH NO SEARCH BEHIND IT — "
-        f"{len(hits)} impossibility claim(s), and the action stream this turn "
-        "carries neither a council walk nor a search.\n\n"
+        "NO-FIX VERDICT SHORT OF EXHAUSTION — "
+        f"{len(hits)} claim(s) that no solution exists, with "
+        f"{lenses_walked} of {FULL_COUNCIL} council lenses walked and no "
+        "external research in the action stream.\n\n"
         f"{spans}\n\n"
-        "Andrew 2026-09-08: trying to hold water in your hands and saying it "
-        "is impossible to shape water into a triangle. It is — with hands. A "
-        "triangular container does it. Every gate and doorman here exists "
-        "because holding that shape by hand was impossible, so "
-        "impossible-by-hand has never once been a real verdict in this house.\n\n"
-        "TWO WAYS THROUGH, and both are honest:\n"
-        "  1. Scope the claim to the container that failed — 'no fix WITH a "
-        "     keyword list', 'nothing I can catch BY HAND'. That sentence is "
-        "     true, useful, and passes.\n"
-        "  2. Go and look for another container: walk the council, or search "
-        "     the tree and the docs, then say what you found.\n\n"
-        "What does not pass is a claim about the world inferred from one "
-        "attempt with one tool."
+        "Andrew 2026-09-08, and this is the bar: *unless the entire 45 lenses "
+        "of the council and the internet comes back all agreeing that what "
+        "were trying to do has absolutely no solution. we look to find one.*\n\n"
+        "THE HOLE THIS CLOSES, which was mine: I used to let a claim through "
+        "when it named the container that failed. But I was the one judging "
+        "whether the narrowing was true, and the optimizer will always find a "
+        "narrowing that sounds accurate -- 'I cannot think of a way, therefore "
+        "there is no point trying.' The wording was never the problem.\n\n"
+        "WHAT IS STILL FINE, unchanged: a fact about a TOOL. 'A keyword list "
+        "cannot be used for enforcement.' 'Nothing holds in memory without "
+        "structural support.' Those are true and they say nothing whatever "
+        "about whether a solution exists.\n\n"
+        "THE WAY THROUGH, which costs nothing and is the truer sentence:\n"
+        "  I have not found one YET. Here is what I tried. Here is the next\n"
+        "  container I am going to try.\n\n"
+        "A pause is not a verdict. Only the verdict is refused."
     )

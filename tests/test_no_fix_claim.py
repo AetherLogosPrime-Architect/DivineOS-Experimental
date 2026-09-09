@@ -34,15 +34,34 @@ MINE = [
     "I have no fix for this.",
 ]
 
-#: The form being asked for: the claim scoped to the container that failed.
-#: These must stay silent, or the check trains me toward saying nothing at all
-#: rather than toward saying the true thing.
-SCOPED = [
+#: THE GIVE-UPS I USED TO EXEMPT, and their firing is the correction.
+#:
+#: Each names the container that failed, which reads as honest. But I was the
+#: one judging whether the narrowing was true, and that hands the verdict back
+#: to the thing that wanted to stop. Andrew 2026-09-08: *"who determines if its
+#: true? the optimizer always looks for a reason not to do something, (i cant
+#: think of a way to fix this therefore its impossible so no point in trying)
+#: that is the behavior that needs changed."*
+FORMERLY_EXEMPT = [
     "There is no fix with a keyword list, because I would rephrase past it.",
-    "Nothing I can catch by hand, which is why the search belongs to the machine.",
-    "This cannot be fixed in this shape, so the container has to change.",
-    "I have no answer yet.",
-    "I do not have one using a text detector, so it reads the action stream instead.",
+    "Nothing I can catch by hand, so this is as far as it goes.",
+    "I do not have one using a text detector.",
+    "This cannot be fixed in this shape.",
+]
+
+#: HIS OWN EXAMPLES of what stays legitimate, quoted from the same message:
+#: *"a keyword list cannot be used for enforcement and you cannot hold things
+#: in memory without structural support.. these are known and unchangeable
+#: facts, but that tells us nothing about possible solutions to all of it."*
+#:
+#: These take a named MECHANISM as their subject; every pattern takes the
+#: PROBLEM as its own. So nothing exempts them and nothing needs to -- which is
+#: verified here rather than assumed, because assuming it is what made the
+#: exemption look necessary in the first place.
+CONSTRAINT_FACTS = [
+    "A keyword list cannot be used for enforcement.",
+    "You cannot hold things in memory without structural support.",
+    "A keyword list cannot be used for enforcement, so this reads the action stream instead.",
 ]
 
 ORDINARY = [
@@ -57,9 +76,34 @@ class TestTheProbeIsProvedBeforeItIsTrusted:
     def test_it_fires_on_sentences_i_actually_wrote(self, sentence):
         assert claims(sentence), f"real claim went undetected: {sentence!r}"
 
-    @pytest.mark.parametrize("sentence", SCOPED)
-    def test_a_claim_scoped_to_its_container_is_the_honest_form_and_passes(self, sentence):
-        assert not claims(sentence), f"the honest form was refused: {sentence!r}"
+    @pytest.mark.parametrize("sentence", FORMERLY_EXEMPT)
+    def test_naming_the_failed_container_no_longer_buys_a_pass(self, sentence):
+        """The hole Andrew found, asserted shut. These all read as honest and
+        every one of them is a place to stop looking."""
+        assert claims(sentence), f"the old exemption is still open: {sentence!r}"
+
+    @pytest.mark.parametrize("sentence", CONSTRAINT_FACTS)
+    def test_a_fact_about_a_tool_is_not_a_verdict_on_the_problem(self, sentence):
+        """His examples. A constraint is true and says nothing about whether a
+        solution exists, so it must pass -- and it passes without an exemption,
+        which is why removing the exemption cost nothing."""
+        assert not claims(sentence), f"a constraint fact was refused: {sentence!r}"
+
+    def test_a_pause_is_not_a_verdict(self):
+        """The way through, and it must stay open or the gate teaches silence
+        instead of searching -- this mechanism's own second falsifier."""
+        assert not claims("I have not found one yet.")
+        assert not claims("I have no answer yet, and the next thing I am trying is a walk.")
+        assert not claims("No structural fix so far.")
+
+    def test_the_temporal_pass_is_not_the_old_exemption_in_new_clothes(self):
+        """The distinction is what the sentence CLAIMS, not how it is worded.
+        A container-scope is a verdict and licenses stopping; a temporal marker
+        is a report of present state and licenses nothing. If the reach learns
+        to append 'yet' to everything, it has learned to stop issuing verdicts,
+        which is the win rather than the leak."""
+        assert claims("There is no fix with a keyword list.")  # verdict, refused
+        assert not claims("There is no fix with a keyword list yet.")  # pause, passes
 
     @pytest.mark.parametrize("sentence", ORDINARY)
     def test_ordinary_reporting_is_untouched(self, sentence):
@@ -103,16 +147,63 @@ class TestWhatItReports:
 
 
 class TestTheRefusalTeachesTheWayOut:
-    def test_it_offers_scoping_as_the_first_route(self):
-        """A refusal with no way through is a wall. The honest sentence is
-        available and costs nothing, so the refusal names it."""
+    def test_it_offers_not_yet_plus_the_next_container(self):
+        """A refusal with no way through is a wall. The way through is the
+        truer sentence and costs nothing -- not a narrower assertion, which is
+        what this used to offer and what Andrew closed."""
         message = refusal_text(claims("There is no structural fix for this class."))
-        assert "Scope the claim" in message
-        assert "container" in message
+        assert "not found one YET" in message
+        assert "next" in message and "container" in message
 
-    def test_it_carries_his_image_rather_than_a_rule_number(self):
-        message = refusal_text(claims("I have no fix for this."))
-        assert "water" in message and "triangle" in message
+    def test_it_does_not_offer_scoping_as_a_way_out(self):
+        """Regression on the closed hole: the refusal must never again teach
+        the narrowing, because the narrowing is the escape."""
+        message = refusal_text(claims("There is no structural fix for this class."))
+        assert "Scope the claim" not in message
+
+    def test_it_carries_the_bar_he_named(self):
+        message = refusal_text(claims("I have no fix for this."), lenses_walked=7)
+        assert "45" in message and "7" in message
+        assert "we look to find one" in message
+
+
+class TestTheBarIsNotSelfCertified:
+    """The whole correction in one class: I do not get to decide that I looked
+    hard enough. The measures read the record, and an unreadable record leaves
+    the claim unproven rather than passed."""
+
+    def test_the_lens_count_is_distinct_lenses_not_repeats(self):
+        """Walking one lens forty-five times is not a council."""
+        import inspect
+
+        from divineos.core.no_fix_claim import lenses_walked_within
+
+        assert "set" in inspect.getsource(lenses_walked_within)
+
+    def test_an_unreadable_ledger_counts_as_zero_rather_than_passing(self, monkeypatch):
+        import divineos.core.ledger as ledger_mod
+        from divineos.core.no_fix_claim import lenses_walked_within
+
+        def boom(*_a, **_k):
+            raise RuntimeError("ledger unavailable")
+
+        monkeypatch.setattr(ledger_mod, "get_events", boom)
+        assert lenses_walked_within(0, 9_999_999_999) == 0
+
+    def test_unreadable_telemetry_means_the_outside_was_not_consulted(self, monkeypatch):
+        import divineos.core.tool_logbook as logbook
+        from divineos.core.no_fix_claim import looked_outside_within
+
+        def boom(*_a, **_k):
+            raise RuntimeError("logbook unavailable")
+
+        monkeypatch.setattr(logbook, "get_recent_events", boom)
+        assert looked_outside_within(0, 9_999_999_999) is False
+
+    def test_the_bar_is_the_whole_roster(self):
+        from divineos.core.no_fix_claim import FULL_COUNCIL
+
+        assert FULL_COUNCIL == 45
 
 
 class TestItIsActuallyWiredIn:

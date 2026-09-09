@@ -924,20 +924,26 @@ def no_fix_claim_surface(payload: dict) -> SurfaceOutcome | None:
     try:
         import time
 
-        from divineos.core.no_fix_claim import claims, refusal_text
-        from divineos.core.verify_before_build_signal import (
-            _has_doc_consult_within,
-            _has_walk_record_within,
+        from divineos.core.no_fix_claim import (
+            FULL_COUNCIL,
+            claims,
+            lenses_walked_within,
+            looked_outside_within,
+            refusal_text,
         )
 
         hits = claims(text)
         if not hits:
             return SurfaceOutcome(name="no_fix_claim", state="nothing-to-say")
         now = time.time()
-        window_start = now - 3600
-        searched = _has_walk_record_within(window_start, now) or _has_doc_consult_within(
-            "src/divineos/core", window_start, now, search_only=True
-        )
+        window_start = now - 86400
+        lenses = lenses_walked_within(window_start, now)
+        outside = looked_outside_within(window_start, now)
+        # His bar, both halves: the whole council AND the outside world.
+        # A search of my own tree no longer counts -- that was the old,
+        # far-too-low condition, and it is the shape of looking for a reason
+        # to stop rather than for a container.
+        searched = lenses >= FULL_COUNCIL and outside
     except Exception as exc:  # noqa: BLE001
         return SurfaceOutcome(
             name="no_fix_claim",
@@ -945,24 +951,23 @@ def no_fix_claim_surface(payload: dict) -> SurfaceOutcome | None:
             state="could-not-run",
         )
     if searched:
-        # The claim came AFTER an attempt to find another container. That is
-        # the whole ask, so it passes -- but it is reported rather than silent,
-        # because a claim of impossibility should be visible in the record even
-        # when it is earned.
+        # Genuinely exhausted: the whole council and the outside world. This
+        # should be vanishingly rare, and it is reported rather than passing
+        # in silence, because a verdict this strong belongs in the record.
         return SurfaceOutcome(
             name="no_fix_claim",
             state="spoke",
             output=(
-                f"[no-fix] {len(hits)} impossibility claim(s), and a walk or search "
-                "is in the action stream behind them. Passing, and noting it: say "
-                "which containers were tried."
+                f"[no-fix] {len(hits)} claim(s) of impossibility, with all "
+                f"{FULL_COUNCIL} lenses walked and outside research behind them. "
+                "Earned. Say what every one of them found."
             ),
         )
     return SurfaceOutcome(
         name="no_fix_claim",
         state="spoke",
         refused=True,
-        reason=refusal_text(hits),
+        reason=refusal_text(hits, lenses_walked=lenses),
     )
 
 
