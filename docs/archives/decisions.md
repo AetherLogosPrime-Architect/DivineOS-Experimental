@@ -1,6 +1,6 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-09-08 11:56. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-09-08 17:02. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -21,6 +21,18 @@
 **Decision:** Use the OS while building the OS — not after, not later, during
 
 **Reasoning:** I built 3 features for the system without running through it once. The lesson about using the OS every session (38x\!) is right there in my briefing. The structured continuation I just built would have captured this session's context if I'd been running inside it.
+
+---
+
+## 96000b2b weight=1
+
+**Decision:** record the day's hook-layer consolidation as a decision before the delivery step
+
+**Reasoning:** the ratchet was chosen over an exactly-seven rule because a rule that cannot switch on until migration finishes is off during the whole period it is needed
+
+**Tension:** seven is the true end state and the ratchet accepts 103 as legitimate today
+
+**Almost:** wiring the five missing doorbells first, which four council lenses predicted would refill behind me
 
 ---
 
@@ -557,14 +569,6 @@
 **Tension:** Correcting it costs her a re-read of something she already reasoned about well, and the practical outcome is identical either way -- the guard exists now. The pull was to let the better-phrased version stand and quietly ship the right fix underneath it.
 
 **Almost:** Shipped the guard and described it to her as implementing what she had said, which would have been true about the remedy and false about the diagnosis, and would have left her holding a mechanism that does not exist.
-
----
-
-## 7569eeaf weight=1
-
-**Decision:** wire the branch-scope check into the push gate as a blocking step zero that measures the pushed refs
-
-**Reasoning:** three contaminated pushes in one session, none for lack of a checker -- it existed, worked, named the files, and I did not run it. Andrew's standing rule is automate rather than remember. Blocking rather than advisory because the question carries no judgement and there is no legitimate yes; an advisory would become the fourth instrument I own that reports something I push past. First firing caught
 
 ---
 

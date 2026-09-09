@@ -1,10 +1,10 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-09-08 11:56. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-09-08 17:02. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 09c2b16f [improving] x17
+## 09c2b16f [active] x17
 
 **Category:** upset_recovered
 
@@ -28,7 +28,7 @@ I upset the user by acting without pausing to understand the situation.
 
 ---
 
-## c3090082 [active] x13
+## c3090082 [improving] x13
 
 **Category:** incomplete_fix
 

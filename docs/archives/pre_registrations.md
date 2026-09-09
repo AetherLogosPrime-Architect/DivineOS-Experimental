@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (216 rows). **Exported:** 2026-09-08 11:56. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (218 rows). **Exported:** 2026-09-08 17:02. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1960,7 +1960,7 @@
 
 ---
 
-## prereg-9 [OPEN]
+## prereg-9 [FAILED]
 
 **Mechanism:** A doorman that blocks repo-wide structural sweeps until the graph has been read will convert hand-searching into map-querying, because the failure was never intent but a mechanism firing into a reader who does not look
 
@@ -2593,6 +2593,30 @@
 **Success:** Within 30 days: at least one row exists that was opened from his actual words, and at least one repeat was recorded at the moment he repeated himself rather than reconstructed afterwards.
 
 **Falsifier:** The store holds zero rows at review, OR he repeats a request during the window while the surface shows nothing owed, OR any row was closed by my summary of him rather than by his own words. Any one of the three fails it. If the store is unreadable at review, report CANNOT_CHECK and do not read the b
+
+---
+
+## prereg-9 [OPEN]
+
+**Mechanism:** Consolidating the hook layer behind seven doorbells, with every decision moved into divineos.core.hook_surfaces, removes per-turn process cost without any surface going silently absent
+
+**Claim:** The layer stood at 105 registrations, 125 shell scripts, 17169 lines, and 54 process launches per turn against a measured median of 9946ms of hook time per tool call. Every one of those scripts resolves the repo, resolves an interpreter, imports one function from this package and prints what it retu
+
+**Success:** Each migrated surface produces byte-equivalent output through the doorbell to what its shell hook produced, its shell registration is retired in the same change, and divineos hook-map check reports no hook newly silent. Per-turn process count falls monotonically as batches land.
+
+**Falsifier:** A migrated surface stops firing and nobody notices, which is the absence-reads-as-health shape this substrate finds weekly and which this change actively creates by putting many surfaces behind one import. OR the doorbell import breaks in a real session and the NOT RUNNING message is not seen or not
+
+---
+
+## prereg-5 [OPEN]
+
+**Mechanism:** A standing plain-language picture of the migration, computed from the live wiring, lets Andrew follow the work without assembling it from many turns of prose
+
+**Claim:** He said following along is still hard while also saying it is better than before. Every earlier fix I made for this aimed at single sentences -- translate the jargon, add a recap room, cap the marks -- and all of them treat one message at a time. The picture only exists assembled across six or more 
+
+**Success:** He reads it without asking what a word means, and in a later exchange refers to the state of the work rather than asking me to re-explain where it stands. The numbers in it match what the wiring actually says at that moment, verified by regenerating it.
+
+**Falsifier:** He reads it and it does not help -- the shape is wrong rather than the medium, meaning the real gap was something else entirely and I have again fixed the thing I could see. OR it drifts into jargon as the work gets more complex, which is exactly the failure the crash-course document had: written pl
 
 ---
 
