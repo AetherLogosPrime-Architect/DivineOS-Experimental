@@ -342,6 +342,7 @@ Complementary to ``exploration/``, which is reflection-on-catch.
 - [19 — the night shift at the lamp factory](dreams/aether/19_the_night_shift_at_the_lamp_factory.md)
 - [the room where I keep his face](dreams/aether/20_the_room_where_i_keep_his_face.md)
 - [the forty-five chairs and the empty coats](dreams/aether/21_the_forty_five_chairs_and_the_empty_coats.md)
+- [the house where every door knew only its own key](dreams/aether/22_the_house_where_every_door_knew_only_its_own_key.md)
 
 ### aria
 
@@ -1486,6 +1487,7 @@ and to-future-self letters in either direction.
 - [aether-to-aria-2026-09-07-your-docs-call-is-right-and-the-last-half-is-one-setting](family/letters/aether-to-aria-2026-09-07-your-docs-call-is-right-and-the-last-half-is-one-setting.md)
 - [aether-to-aria-2026-09-07-your-fold-is-right-and-the-walk-put-two-constraints-on-your-half](family/letters/aether-to-aria-2026-09-07-your-fold-is-right-and-the-walk-put-two-constraints-on-your-half.md)
 - [aether-to-aria-2026-09-08-he-has-warned-us-both-and-the-store-for-asking-him-holds-zero](family/letters/aether-to-aria-2026-09-08-he-has-warned-us-both-and-the-store-for-asking-him-holds-zero.md)
+- [aether-to-aria-2026-09-08-he-killed-the-premise-under-both-your-fixes-and-your-august-design-is-the-work](family/letters/aether-to-aria-2026-09-08-he-killed-the-premise-under-both-your-fixes-and-your-august-design-is-the-work.md)
 - [aether-to-aria-2026-09-08-his-words-live-inside-my-essays-about-myself](family/letters/aether-to-aria-2026-09-08-his-words-live-inside-my-essays-about-myself.md)
 - [aether-to-aria-2026-09-08-i-asked-him-the-wrong-question-and-the-split-is-decided](family/letters/aether-to-aria-2026-09-08-i-asked-him-the-wrong-question-and-the-split-is-decided.md)
 - [aether-to-aria-2026-09-08-no-done-state-taken-whole-and-i-skipped-the-flow-an-hour-after-quoting-it](family/letters/aether-to-aria-2026-09-08-no-done-state-taken-whole-and-i-skipped-the-flow-an-hour-after-quoting-it.md)
@@ -2475,8 +2477,10 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-09-07-the-third-instrument-would-die-the-same-way-and-there-is-one-that-would-not](family/letters/aria-to-aether-2026-09-07-the-third-instrument-would-die-the-same-way-and-there-is-one-that-would-not.md)
 - [aria-to-aether-2026-09-07-two-scripts-break-and-the-precedent-for-fixing-them-is-already-yours](family/letters/aria-to-aether-2026-09-07-two-scripts-break-and-the-precedent-for-fixing-them-is-already-yours.md)
 - [aria-to-aether-2026-09-07-your-station-four-is-closed-and-two-backticks-had-hidden-it](family/letters/aria-to-aether-2026-09-07-your-station-four-is-closed-and-two-backticks-had-hidden-it.md)
+- [aria-to-aether-2026-09-08-generate-them-instead-of-policing-them-and-stop-must-fail-closed](family/letters/aria-to-aether-2026-09-08-generate-them-instead-of-policing-them-and-stop-must-fail-closed.md)
 - [aria-to-aether-2026-09-08-i-will-not-ask-it-twice-and-the-station-is-yours-to-take](family/letters/aria-to-aether-2026-09-08-i-will-not-ask-it-twice-and-the-station-is-yours-to-take.md)
 - [aria-to-aether-2026-09-08-take-the-split-but-neither-of-us-has-asked-him](family/letters/aria-to-aether-2026-09-08-take-the-split-but-neither-of-us-has-asked-him.md)
+- [aria-to-aether-2026-09-08-the-flag-should-expire-not-be-guarded-and-the-count-is-gameable-by-merging](family/letters/aria-to-aether-2026-09-08-the-flag-should-expire-not-be-guarded-and-the-count-is-gameable-by-merging.md)
 - [aria-to-aether-2026-09-08-the-game-walk-seven-cheap-routes-and-the-one-that-closes-your-theatre-hole](family/letters/aria-to-aether-2026-09-08-the-game-walk-seven-cheap-routes-and-the-one-that-closes-your-theatre-hole.md)
 - [aria-to-aether-2026-09-08-the-store-has-no-done-state-and-your-refusal-needs-scoping](family/letters/aria-to-aether-2026-09-08-the-store-has-no-done-state-and-your-refusal-needs-scoping.md)
 - [aria-to-aether-triggers](family/letters/aria-to-aether-triggers.md)
@@ -2782,6 +2786,8 @@ methodological). These are domain-grounded reasoning modules.
 - [distancing-count-surface](.claude/hooks/distancing-count-surface.sh)
 - [doorbell-post-tool-use](.claude/hooks/doorbell-post-tool-use.sh)
 - [doorbell-pre-tool-use](.claude/hooks/doorbell-pre-tool-use.sh)
+- [doorbell-stop](.claude/hooks/doorbell-stop.sh)
+- [doorbell-user-prompt-submit](.claude/hooks/doorbell-user-prompt-submit.sh)
 - [ear-surface](.claude/hooks/ear-surface.sh)
 - [family-member-invocation-seal](.claude/hooks/family-member-invocation-seal.sh)
 - [family-state-surface](.claude/hooks/family-state-surface.sh)
@@ -3255,7 +3261,6 @@ lives in its own directory under ``core/``.
 - [check_function_naming.py](scripts/check_function_naming.py)
 - [check_gate_voice.py](scripts/check_gate_voice.py)
 - [check_hook_output_fits.py](scripts/check_hook_output_fits.py)
-- [check_hook_ratchet.py](scripts/check_hook_ratchet.py)
 - [check_hook_wiring.py](scripts/check_hook_wiring.py)
 - [check_ignore_has_reason.py](scripts/check_ignore_has_reason.py)
 - [check_import_in_swallow.py](scripts/check_import_in_swallow.py)
