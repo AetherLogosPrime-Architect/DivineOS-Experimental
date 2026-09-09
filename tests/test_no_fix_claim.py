@@ -165,13 +165,13 @@ class TestWhatItReports:
 
 
 class TestTheRefusalTeachesTheWayOut:
-    def test_it_offers_not_yet_plus_the_next_container(self):
-        """A refusal with no way through is a wall. The way through is the
-        truer sentence and costs nothing -- not a narrower assertion, which is
-        what this used to offer and what Andrew closed."""
+    def test_it_offers_where_the_constraint_points(self):
+        """A refusal with no way through is a wall. The way through is to name
+        the constraint AND say where it leads -- not a narrower assertion,
+        which is what this used to offer and what Andrew closed."""
         message = refusal_text(claims("There is no structural fix for this class."))
-        assert "not found one YET" in message
         assert "next" in message and "container" in message
+        assert "not found one YET" in message
 
     def test_it_does_not_offer_scoping_as_a_way_out(self):
         """Regression on the closed hole: the refusal must never again teach
@@ -179,10 +179,60 @@ class TestTheRefusalTeachesTheWayOut:
         message = refusal_text(claims("There is no structural fix for this class."))
         assert "Scope the claim" not in message
 
-    def test_it_carries_the_bar_he_named(self):
+    def test_it_carries_the_bar_and_the_count(self):
         message = refusal_text(claims("I have no fix for this."), lenses_walked=7)
         assert "45" in message and "7" in message
-        assert "we look to find one" in message
+
+    def test_it_carries_his_flight_example_rather_than_a_rule_number(self):
+        """The image does the teaching. A rule number teaches nothing, and the
+        example is the whole distinction in one line."""
+        message = refusal_text(claims("I have no fix for this."))
+        assert "humans cannot fly" in message.lower()
+        assert "wing that does not flap" in message
+
+
+class TestTheTargetIsTheFullStopNotTheConstraint:
+    """Andrew 2026-09-09, and it moved the aim of the whole thing:
+
+        *"its not about not declaring impossibility, they exist, its about
+        stopping there as the verdict, humans cannot fly, this is a fact, we
+        have no wings, were too heavy and we would tire out easily from
+        flapping, did that stop us from flying? lol"*
+
+    Before this, the gate refused the constraint and slept through the give-up.
+    Both halves of his example are here, because a check that cannot tell them
+    apart is aimed at nothing.
+    """
+
+    def test_a_constraint_that_leads_somewhere_passes(self):
+        assert not claims("Humans cannot fly, so we built a wing that does not flap.")
+
+    def test_the_same_constraint_with_a_full_stop_is_refused(self):
+        assert claims("Humans cannot fly. There is nothing to be done about it.")
+
+    def test_a_bare_constraint_is_not_a_failure(self):
+        """The fact on its own is true and says nothing about the enquiry."""
+        assert not claims("Humans cannot fly.")
+
+    def test_the_terminus_needs_no_impossibility_wording(self):
+        """These close the question without claiming anything is impossible,
+        and not one was caught by any earlier version of this check."""
+        for stop in ("No point in trying.", "That is just how it is.", "We stop there."):
+            assert claims(stop), stop
+
+    def test_a_connective_leading_into_a_stop_is_still_a_stop(self):
+        """Found by this suite rather than by thinking: "so this is as far as
+        it goes" carries a continuation word and arrives at a full stop. The
+        connective is not the evidence -- where it LANDS is."""
+        assert claims("Nothing I can catch by hand, so this is as far as it goes.")
+        assert not claims("Nothing I can catch by hand, so the machine does the searching.")
+
+    def test_a_workaround_sentence_is_what_this_house_is_made_of(self):
+        """The gate must never refuse the shape every wall here was built in."""
+        assert not claims(
+            "A keyword list cannot be used for enforcement, "
+            "so this reads the action stream instead."
+        )
 
 
 class TestTheBarIsNotSelfCertified:

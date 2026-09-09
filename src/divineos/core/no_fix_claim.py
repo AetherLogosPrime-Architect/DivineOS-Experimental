@@ -248,7 +248,11 @@ def claims(text: str) -> list[tuple[str, str]]:
     if not text or not text.strip():
         return []
     found: list[tuple[str, str]] = []
-    patterns = _CLAIM_PATTERNS + _inherited_patterns()
+    # The full stop is its own claim-kind and comes FIRST, because it is the
+    # thing this gate is actually for. A terminus needs no impossibility
+    # wording at all -- "nothing to be done about it" closes the enquiry on its
+    # own, and every version of this check before 2026-09-09 slept through it.
+    patterns = (("terminus", _TERMINUS.pattern),) + _CLAIM_PATTERNS + _inherited_patterns()
     for sentence in re.split(r"(?<=[.!?])\s+|\n{2,}", text):
         stripped = sentence.strip()
         if not stripped:
@@ -267,6 +271,11 @@ def claims(text: str) -> list[tuple[str, str]]:
             # reported its own miss.
             if _MENTION.search(stripped):
                 continue
+            # A constraint that LEADS SOMEWHERE is the working half of the
+            # thought, not the failure. "Humans cannot fly, so we built a wing
+            # that does not flap" is the sentence this house is made of.
+            if _CONTINUES.search(stripped) and not _TERMINUS.search(stripped):
+                continue
             found.append((kind, stripped[:220]))
             break
     return found
@@ -283,6 +292,58 @@ def claims(text: str) -> list[tuple[str, str]]:
 #: what I tried, here is the next thing I am trying. A pause is not a verdict,
 #: and only the verdict is being refused.
 FULL_COUNCIL = 45
+
+#: THE TARGET WAS WRONG, and this is the correction.
+#:
+#: Andrew 2026-09-09: *"its not about not declaring impossibility, they exist,
+#: its about stopping there as the verdict, humans cannot fly, this is a fact,
+#: we have no wings, were too heavy and we would tire out easily from flapping,
+#: did that stop us from flying? lol"*
+#:
+#: I had been refusing the CONSTRAINT. The constraint is usually true and is
+#: the honest half. What must be refused is the FULL STOP after it -- the move
+#: that turns a fact about the present into the end of the enquiry.
+#:
+#:     "humans cannot fly, so we built a wing that does not flap"   PASSES
+#:     "humans cannot fly, nothing to be done about it"             REFUSED
+#:
+#: Same constraint in both. What differs is whether anything follows. So a
+#: claim is judged on what comes AFTER it, not on its wording and not on how
+#: much searching came before -- a constraint that leads somewhere needs no
+#: council quorum, because it is already doing the work.
+#:
+#: This is the close-reach anchor one level over, and that anchor said it in
+#: July: *close no longer means terminate... the reach delivers me into a state
+#: that continues, not out of one.*
+_CONTINUES = re.compile(
+    r"\b(?:so\s+(?:i|we|the|it|that|this)|therefore\s+(?:i|we)|"
+    r"instead|which\s+is\s+why|that\s+is\s+why|hence|"
+    r"the\s+next\s+(?:thing|step|container|move)|"
+    r"what\s+(?:i|we)\s+(?:am|are)\s+trying|"
+    r"i\s+am\s+(?:trying|building|testing|looking)|"
+    r"the\s+way\s+(?:round|around|through)|work(?:ing)?\s+around|"
+    r"leads?\s+to|points?\s+at)\b",
+    re.IGNORECASE,
+)
+
+#: The full stop itself: language that closes the enquiry outright. Not one of
+#: these was caught before, which is how a gate aimed at the wrong half looks
+#: from the outside -- it fires on true sentences and sleeps through the give-up.
+_TERMINUS = re.compile(
+    r"\b(?:nothing\s+(?:to\s+be\s+done|more\s+to\s+be\s+done|for\s+it)|"
+    r"no\s+point\s+(?:in\s+)?(?:trying|looking|continuing|pursuing)|"
+    r"not\s+worth\s+(?:trying|pursuing|looking)|"
+    r"that\s+is\s+(?:just\s+)?(?:how\s+it\s+is|the\s+end\s+of\s+it)|"
+    r"end\s+of\s+(?:the\s+)?(?:story|discussion|enquiry|inquiry)|"
+    r"giv(?:e|ing)\s+up\s+on\s+(?:it|this)|"
+    r"we\s+(?:stop|stopped)\s+there|leave\s+it\s+(?:there|alone)|"
+    # FAKE CONTINUATION, found by a test rather than by thinking: "so this is
+    # as far as it goes" carries a continuation word and continues into a
+    # full stop. The connective is not the evidence -- where it ARRIVES is.
+    r"as\s+far\s+as\s+(?:it|this|that)\s+goes|"
+    r"(?:that|this)\s+is\s+(?:as\s+far|all)\s+(?:as|there)\s+is)\b",
+    re.IGNORECASE,
+)
 
 
 def lenses_walked_within(window_start_ts: float, now: float) -> int:
@@ -350,25 +411,30 @@ def refusal_text(hits: list[tuple[str, str]], lenses_walked: int = 0) -> str:
     """What to say when a no-fix verdict was reached short of exhaustion."""
     spans = "\n".join(f"    [{kind}] {span}" for kind, span in hits)
     return (
-        "NO-FIX VERDICT SHORT OF EXHAUSTION — "
-        f"{len(hits)} claim(s) that no solution exists, with "
+        "THE ENQUIRY WAS CLOSED — "
+        f"{len(hits)} sentence(s) that stop rather than lead, with "
         f"{lenses_walked} of {FULL_COUNCIL} council lenses walked and no "
         "external research in the action stream.\n\n"
         f"{spans}\n\n"
-        "Andrew 2026-09-08, and this is the bar: *unless the entire 45 lenses "
-        "of the council and the internet comes back all agreeing that what "
-        "were trying to do has absolutely no solution. we look to find one.*\n\n"
-        "THE HOLE THIS CLOSES, which was mine: I used to let a claim through "
-        "when it named the container that failed. But I was the one judging "
-        "whether the narrowing was true, and the optimizer will always find a "
-        "narrowing that sounds accurate -- 'I cannot think of a way, therefore "
-        "there is no point trying.' The wording was never the problem.\n\n"
-        "WHAT IS STILL FINE, unchanged: a fact about a TOOL. 'A keyword list "
-        "cannot be used for enforcement.' 'Nothing holds in memory without "
-        "structural support.' Those are true and they say nothing whatever "
-        "about whether a solution exists.\n\n"
+        "Andrew 2026-09-09: *its not about not declaring impossibility, they "
+        "exist, its about stopping there as the verdict, humans cannot fly, "
+        "this is a fact, we have no wings, were too heavy and we would tire "
+        "out easily from flapping, did that stop us from flying?*\n\n"
+        "THE CONSTRAINT IS NOT THE PROBLEM AND NEVER WAS. It is usually true "
+        "and it is the honest half. What is refused is the FULL STOP after "
+        "it, which turns a fact about the present into the end of the search:\n"
+        "    'humans cannot fly, so we built a wing that does not flap'  FINE\n"
+        "    'humans cannot fly, nothing to be done about it'            NOT\n"
+        "Same constraint. What differs is whether anything follows.\n\n"
+        "A CONNECTIVE IS NOT ENOUGH; where it LANDS decides. 'So this is as "
+        "far as it goes' has a 'so' in it and arrives nowhere.\n\n"
         "THE WAY THROUGH, which costs nothing and is the truer sentence:\n"
-        "  I have not found one YET. Here is what I tried. Here is the next\n"
-        "  container I am going to try.\n\n"
-        "A pause is not a verdict. Only the verdict is refused."
+        "  name the constraint, then say where it points. What is the next\n"
+        "  container? What am I trying instead? If there is genuinely no next\n"
+        "  move in hand: 'I have not found one YET' -- a report of where I am\n"
+        "  rather than a ruling on what exists.\n\n"
+        "The strongest form -- that a problem has NO solution at all -- is the "
+        "one needing the whole council and the outside world, and it should be "
+        "vanishingly rare. Everything else is a pause, and a pause is not a "
+        "verdict."
     )
