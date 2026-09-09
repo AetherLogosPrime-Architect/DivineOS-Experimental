@@ -41,7 +41,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 
 | automation | last touched | purpose |
 |---|---|---|
-| `post-compact.sh` | 2026-07-03 | Lightweight reload AFTER context compression |
+| `post-compact.sh` | 2026-09-08 | Lightweight reload AFTER context compression |
 
 ### PostToolUse  (16)
 

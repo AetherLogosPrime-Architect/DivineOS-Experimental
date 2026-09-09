@@ -44,21 +44,47 @@ def _registrations() -> list[tuple[str, str | None]]:
     ]
 
 
+def _surface_registered() -> bool:
+    """Is the doorman live behind the PreToolUse doorbell, in the OS?
+
+    THE DOORMAN MOVED, 2026-09-08. It now lives as a surface in
+    ``core.hook_surfaces`` and its shell script's registration was retired in
+    the same change, exactly as a migration should retire it. So the two tests
+    below no longer ask about a line in the settings file — they ask whether
+    the judgement is reachable at the door where it must refuse.
+
+    This is the migration-aware version of the same guard. What Aletheia asked
+    for was that the next split cannot happen silently; where the logic lives
+    was never the point, and a test pinned to a location the logic has left is
+    a test that fails on a correct change and passes on a broken one.
+    """
+    from divineos.core.hook_router import registered
+    from divineos.core.hook_surfaces import install
+
+    install()
+    return "heredoc_escape" in registered("PreToolUse")
+
+
 def test_the_doorman_is_registered_at_all() -> None:
     """The branch exists to connect it. Shipping it dark was the whole defect."""
-    assert _registrations(), (
-        f"{_DOORMAN} is written and registered nowhere. A hook that is never "
-        "called cannot complain about not being called."
+    assert _surface_registered() or _registrations(), (
+        "the heredoc doorman is reachable from neither the OS router nor a "
+        "shell registration. A doorman that is never called cannot refuse "
+        "anything."
     )
 
 
 def test_the_doorman_runs_before_the_tool_it_guards() -> None:
-    """PreToolUse, on Bash, or it cannot refuse anything.
+    """PreToolUse, or it cannot refuse anything.
 
-    A heredoc doorman registered after the fact would report a fault the shell
+    A heredoc doorman consulted after the fact would report a fault the shell
     had already committed, which is the difference between a doorman and a
-    post-mortem.
+    post-mortem. In the OS the door IS the event, so registration at
+    PreToolUse is the whole assertion; the Bash-only narrowing is the
+    surface's own business and is covered where that logic lives.
     """
+    if _surface_registered():
+        return
     registrations = _registrations()
     assert registrations, "not registered at all; see the previous test"
     events = {event for event, _matcher in registrations}
@@ -68,6 +94,17 @@ def test_the_doorman_runs_before_the_tool_it_guards() -> None:
         f"PreToolUse matchers are {sorted(m for m in matchers if m)}; the doorman "
         "inspects Bash commands and must match Bash to see them"
     )
+
+
+def test_the_guard_can_still_fail() -> None:
+    """Control for the two above, because a check that cannot fail is the thing
+    this file was written about. A name the router does not carry must not be
+    reported as wired."""
+    from divineos.core.hook_router import registered
+    from divineos.core.hook_surfaces import install
+
+    install()
+    assert "heredoc_escape_that_does_not_exist" not in registered("PreToolUse")
 
 
 def test_the_script_it_points_at_exists() -> None:

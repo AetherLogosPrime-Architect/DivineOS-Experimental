@@ -88,7 +88,13 @@ def test_a_bell_carries_no_decision_of_its_own(event):
     """
     assert _shell_statements(dg.render(event)) == [
         "set +e",
-        'REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0',
+        # The trailing comment is required by the silent-swallow check, which
+        # wants the reason on the same line as the suppression. Kept inside the
+        # exact string rather than stripped, because stripping comments here
+        # would reopen the hole this test exists to close.
+        'REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0'
+        "  # fail-soft: outside a git checkout there is no OS to route to, "
+        "so the bell stays silent rather than guessing at a repo root",
         '[ -z "$REPO_ROOT" ] && exit 0',
         'source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0',
         'PYTHON_BIN="$(find_divineos_python)" || exit 0',

@@ -137,6 +137,66 @@ class TestExcluding:
         assert "excluded:" not in cf.format_fix(cf.declare("t", PATTERN, tree))
 
 
+class TestAriasGameWalk:
+    """Her findings, 2026-09-08, asserted rather than agreed with.
+
+    She took the game-walk station because it cannot be mine — I am not
+    reliably adversarial toward my own build, and no resolve fixes that, it is
+    the same seat. Two of her six routes are closable from code and these are
+    they.
+    """
+
+    def test_the_clock_records_how_long_the_class_stayed_open(self, tree):
+        """Her first route and the one she would actually take: fix the sites
+        in front of me, THEN declare. Every field true, nothing composed, and
+        the instrument does no work — because its whole value is the site I did
+        not know about. The record cannot catch it, since the record is honest.
+        The clock can."""
+        fix = cf.declare("thing home", PATTERN, tree)
+        for name in ("pkg/a.py", "pkg/b.py", "c.py"):
+            (tree / name).write_text("ok\n", encoding="utf-8")
+        after = cf.verify(fix.fix_id)
+        assert after.seconds_to_close is not None
+        assert after.receipt_shaped is True
+
+    def test_an_unverified_class_has_no_gap_rather_than_a_zero(self, tree):
+        """Could-not-look again: never verified must not read as closed in no
+        time at all."""
+        fix = cf.declare("thing home", PATTERN, tree)
+        assert fix.seconds_to_close is None
+        assert fix.receipt_shaped is False
+
+    def test_a_class_still_carrying_sites_is_not_receipt_shaped(self, tree):
+        """Control: the flag is about closing fast, not about being young."""
+        fix = cf.declare("thing home", PATTERN, tree)
+        assert cf.verify(fix.fix_id).receipt_shaped is False
+
+    def test_the_exclusions_are_counted_not_merely_listed(self, tree):
+        """Her second route. Storing and printing the exclusions guards nothing
+        because it relies on a reader, and his corrections have printed at the
+        top of every turn all day unread. So the hatch gets the same instrument
+        the class gets."""
+        fix = cf.declare("thing home", PATTERN, tree, exclude=("pkg/",))
+        assert fix.before == 1
+        assert fix.excluded_count == 2
+
+    def test_a_hatch_wider_than_the_class_is_a_finding(self, tree):
+        fix = cf.declare("thing home", PATTERN, tree, exclude=("pkg/",))
+        assert fix.exclusions_outweigh_findings is True
+        assert "HATCH IS WIDER" in cf.format_fix(fix)
+
+    def test_a_narrow_hatch_is_not_flagged(self, tree):
+        """Control: excluding one site of three must not raise the alarm, or
+        the alarm says nothing."""
+        fix = cf.declare("thing home", PATTERN, tree, exclude=("c.py",))
+        assert fix.excluded_count == 1
+        assert fix.exclusions_outweigh_findings is False
+        assert "HATCH IS WIDER" not in cf.format_fix(fix)
+
+    def test_no_exclusions_means_nothing_was_hidden(self, tree):
+        assert cf.declare("t", PATTERN, tree).excluded_count == 0
+
+
 class TestVerifying:
     def test_removing_every_site_closes_the_class(self, tree):
         fix = cf.declare("thing home", PATTERN, tree)

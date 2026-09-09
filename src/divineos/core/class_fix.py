@@ -125,9 +125,57 @@ class ClassFix:
     declared_at: int
     before: int
     before_sites: tuple[Site, ...] = field(default_factory=tuple)
+    excluded_count: int = 0
     verified_at: int | None = None
     after: int | None = None
     after_sites: tuple[Site, ...] = field(default_factory=tuple)
+
+    #: Below this, a declaration closed so fast it cannot have found anything
+    #: its author did not already have in hand. Aria's number, 2026-09-08.
+    SAME_SITTING_SECONDS: int = 900
+
+    @property
+    def seconds_to_close(self) -> int | None:
+        """How long the class stayed open. The measure of whether it searched.
+
+        Aria's game-walk found the cheap route I could not see and would not
+        have felt: notice a defect, fix the sites in front of me, THEN declare.
+        The search finds exactly the set just repaired, closes on the spot,
+        every field true, nothing composed — and the instrument has done no work
+        at all, because its whole value is finding the site I did not know
+        about. Her words: *you would not feel like you cheated, you would feel
+        efficient.*
+
+        That route cannot be caught by inspecting the record, because the record
+        is honest. It can only be caught by the CLOCK, which I cannot write my
+        way past.
+        """
+        if self.verified_at is None:
+            return None
+        return max(0, self.verified_at - self.declared_at)
+
+    @property
+    def receipt_shaped(self) -> bool:
+        """Closed inside one sitting: a receipt for work already done.
+
+        Not proof of gaming — a genuinely small class closes fast — which is
+        why this reports rather than refuses. If MOST declarations carry it,
+        the mechanism has become a stamp and that is the finding.
+        """
+        gap = self.seconds_to_close
+        return self.state() == CLOSED and gap is not None and gap < self.SAME_SITTING_SECONDS
+
+    @property
+    def exclusions_outweigh_findings(self) -> bool:
+        """More sites hidden by the exclusions than the class ever contained.
+
+        Aria again, and she was right that my guard was no guard: storing the
+        exclusions and printing them relies on someone READING them, and his
+        corrections have printed at the top of every turn all day while neither
+        of us opened a row. So the escape hatch gets the same instrument pointed
+        at it — a count, not a footer.
+        """
+        return self.excluded_count > self.before
 
     @property
     def single_site(self) -> bool:
@@ -157,6 +205,7 @@ class ClassFix:
             "root": self.root,
             "globs": list(self.globs),
             "exclude": list(self.exclude),
+            "excluded_count": self.excluded_count,
             "declared_at": self.declared_at,
             "before": self.before,
             "before_sites": [s.as_dict() for s in self.before_sites],
@@ -199,6 +248,7 @@ def _from_dict(raw: dict) -> ClassFix:
         root=raw["root"],
         globs=tuple(raw.get("globs") or ("*.py",)),
         exclude=tuple(raw.get("exclude") or ()),
+        excluded_count=int(raw.get("excluded_count") or 0),
         declared_at=raw["declared_at"],
         before=raw["before"],
         before_sites=sites("before_sites"),
@@ -278,6 +328,12 @@ def declare(
     three broken probes report clean trees.
     """
     sites = search(pattern, root, globs, tuple(exclude))
+    # THE ESCAPE HATCH GETS THE SAME INSTRUMENT. Aria, 2026-09-08: storing the
+    # exclusions and printing them guards nothing, because it relies on someone
+    # reading — and his corrections have printed at the top of every turn all
+    # day while neither of us opened a row. So count what they removed, and let
+    # a hatch wider than the class be a finding rather than a footer.
+    hidden = len(search(pattern, root, globs)) - len(sites) if exclude else 0
     fix = ClassFix(
         fix_id=f"cfix-{int(time.time() * 1000):x}",
         name=name,
@@ -285,6 +341,7 @@ def declare(
         root=str(root),
         globs=tuple(globs),
         exclude=tuple(exclude),
+        excluded_count=hidden,
         declared_at=int(time.time()),
         before=len(sites),
         before_sites=tuple(sites),
@@ -348,9 +405,13 @@ def format_fix(fix: ClassFix) -> str:
         f"  before:  {fix.before} site(s)",
     ]
     if fix.exclude:
-        # Printed every time, because an exclusion is where this mechanism can
-        # be turned into a stamp and the reader must be able to judge it.
-        lines.append(f"  excluded: {', '.join(fix.exclude)}")
+        lines.append(
+            f"  excluded: {', '.join(fix.exclude)} — hiding {fix.excluded_count} match(es)"
+        )
+    if fix.exclusions_outweigh_findings:
+        lines.append("  THE HATCH IS WIDER THAN THE CLASS. The exclusions hide more")
+        lines.append("  matches than the declared population contains, so most of what")
+        lines.append("  this pattern found is being set aside rather than examined.")
     if fix.state() == PROBE_BROKEN:
         lines.append("  THE PROBE FOUND NOTHING. That is a fact about the instrument,")
         lines.append("  not about the tree. Fix the pattern before claiming the class.")
@@ -358,6 +419,12 @@ def format_fix(fix: ClassFix) -> str:
         lines.append("  SINGLE SITE — a population of one cannot distinguish a real")
         lines.append("  one-member class from a pattern narrowed to what was already")
         lines.append("  edited. Recorded, not refused; read it with that in mind.")
+    if fix.receipt_shaped:
+        gap = fix.seconds_to_close or 0
+        lines.append(f"  RECEIPT-SHAPED — declared and closed {gap}s apart, inside one")
+        lines.append("  sitting. A class fixed BEFORE it was declared closes exactly on")
+        lines.append("  the set already in hand, and the search finds nothing new. Not")
+        lines.append("  proof of anything on its own; a finding if most of them look so.")
     if fix.after is not None:
         lines.append(f"  after:   {fix.after} site(s)")
         for site in fix.after_sites[:10]:

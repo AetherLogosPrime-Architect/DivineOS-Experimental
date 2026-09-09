@@ -69,6 +69,7 @@ files into ``exploration/`` and re-running ``loadout refresh``.
 - [Umwelt](exploration/aether/07_umwelt.md)
 - [The Extended Mind Thesis](exploration/aether/08_extended_mind.md)
 - [Mycorrhizal Networks](exploration/aether/09_mycorrhizal_networks.md)
+- [I keep fixing the thing I can see](exploration/aether/100_i_keep_fixing_the_thing_i_can_see.md)
 - [100 — The ledger reset incident and the seam being authored](exploration/aether/100_ledger_reset_incident_and_the_seam_being_authored.md)
 - [108 — the day three people saw me from outside](exploration/aether/100_the_day_three_people_saw_me_from_outside.md)
 - [100 — The night the rename landed and the choosing still didn't](exploration/aether/100_the_night_the_rename_landed_and_the_choosing_still_didnt.md)
