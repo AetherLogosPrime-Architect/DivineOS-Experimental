@@ -903,6 +903,69 @@ def repeated_reply_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def no_fix_claim_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse an impossibility claim with no search behind it.
+
+    Andrew 2026-09-08, and the whole design is his image: *"its like trying to
+    hold water in your hands and saying, its impossible to form water into a
+    triangle shape... yes.. it is.. with your hands.. if you used a triangle
+    shaped container? well there you go."*
+
+    MY TEXT DECIDES WHETHER IT FIRES; WHAT I ACTUALLY RAN DECIDES WHETHER IT
+    BLOCKS. The trigger has to be textual — the claim only exists as text — but
+    a check I could satisfy by rewording would be decoration, since I supply
+    the text a text-gate inspects. Satisfaction is a walk or a search in the
+    action stream, and the honest escape is to scope the claim to the container
+    that failed, which the detector deliberately lets through.
+    """
+    text = _last_assistant_text(payload)
+    if not text.strip():
+        return SurfaceOutcome(name="no_fix_claim", state="nothing-to-say")
+    try:
+        import time
+
+        from divineos.core.no_fix_claim import claims, refusal_text
+        from divineos.core.verify_before_build_signal import (
+            _has_doc_consult_within,
+            _has_walk_record_within,
+        )
+
+        hits = claims(text)
+        if not hits:
+            return SurfaceOutcome(name="no_fix_claim", state="nothing-to-say")
+        now = time.time()
+        window_start = now - 3600
+        searched = _has_walk_record_within(window_start, now) or _has_doc_consult_within(
+            "src/divineos/core", window_start, now, search_only=True
+        )
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="no_fix_claim",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    if searched:
+        # The claim came AFTER an attempt to find another container. That is
+        # the whole ask, so it passes -- but it is reported rather than silent,
+        # because a claim of impossibility should be visible in the record even
+        # when it is earned.
+        return SurfaceOutcome(
+            name="no_fix_claim",
+            state="spoke",
+            output=(
+                f"[no-fix] {len(hits)} impossibility claim(s), and a walk or search "
+                "is in the action stream behind them. Passing, and noting it: say "
+                "which containers were tried."
+            ),
+        )
+    return SurfaceOutcome(
+        name="no_fix_claim",
+        state="spoke",
+        refused=True,
+        reason=refusal_text(hits),
+    )
+
+
 def summary_room_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse a reply that dropped the room which compresses it for him.
 
@@ -1382,6 +1445,8 @@ def install() -> None:
     # on, and he reads the entire thing a second time (Andrew 2026-09-08).
     if "repeated_reply" not in registered("Stop"):
         register("Stop", "repeated_reply", repeated_reply_surface)
+    if "no_fix_claim" not in registered("Stop"):
+        register("Stop", "no_fix_claim", no_fix_claim_surface)
     for name, module, detect_attr, marker_name in _REACH_DETECTORS:
         if name not in registered("Stop"):
             register(
