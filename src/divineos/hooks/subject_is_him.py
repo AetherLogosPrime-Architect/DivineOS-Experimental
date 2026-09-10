@@ -101,6 +101,19 @@ def about_him(text: str) -> list[str]:
     return [s for s in sentences(text) if _HIM_SUBJECT.search(s)]
 
 
+# What a refusal must tell me to do, and this line is his diagnosis rather than
+# mine. A Stop refusal does not delete the message he already read -- it hands
+# him the rejected version, the refusal, and then my whole rewrite. Three things
+# where there was one. He named it: "just make it re-write the missing part and
+# paste it at the end.. not re-write the entire thing." Every other refusal in
+# this house already carried that instruction; these two were the outliers, and
+# that omission is what made the first-line gate cost him enough to remove.
+_ADDENDUM_ONLY = (
+    "SCOPE: add ONLY the missing piece as a short line. Do NOT recompose the\n"
+    "  reply -- he has already read it, and a rewrite arrives at him as a\n"
+    "  duplicate. One sentence is the whole fix."
+)
+
 # The greeting slot. A him-sentence here and nowhere else is a bolt-on: the bar
 # cleared at the door, and then the reply leaves him for the rest of its length.
 GREETING_SENTENCES = 2
