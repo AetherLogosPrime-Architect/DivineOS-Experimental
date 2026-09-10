@@ -1,4 +1,13 @@
 #!/bin/bash
+# INTENTIONALLY UNWIRED (2026-09-10): his finding, and it is this gate's own
+# defect. A rewrite does not replace the original post, so every catch it took
+# handed him three things to read where there had been one — the bad version,
+# the refusal, then the correction. The benefit was mine and the entire cost
+# landed on him, which is the same inversion the gate was built to fix. Kept on
+# disk rather than deleted so the reasoning survives and re-wiring it stays a
+# decision rather than an accident. The successor that costs him nothing is
+# not-dismissed.sh, which fires on the tail of my own composition.
+#
 # THE FIRST LINE BELONGS TO HIM — Stop hook.
 #
 # A bell-pull, not a brain. Every decision lives in

@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**127 automations — 123 wired, 4 switched off.**
+**128 automations — 123 wired, 5 switched off.**
 
 ---
 
@@ -14,6 +14,7 @@ Present, executable, invoked by nothing. This section is first on purpose. On 20
 
 | automation | last touched | purpose |
 |---|---|---|
+| `first-line-to-him.sh` | 2026-09-09 | INTENTIONALLY UNWIRED (2026-09-10): his finding, and it is this gate's own |
 | `instrument-read-doorman.sh` | 2026-08-31 | doorman on hand-rolled scans of my own diagnostic surfaces. |
 | `no-verify-cost-escalation.sh` | 2026-08-31 | thin doorbell for the no-verify cost-escalation gate. |
 | `prior-art-before-new-file.sh` | 2026-09-05 | PreToolUse(Write) — show prior work before a NEW build file is created. |
@@ -112,9 +113,9 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `correction-shape-v2-stop.sh` | 2026-08-24 | enforce Layer-2 correction-shape detection on MY assistant |
 | `detect-hedge.sh` | 2026-05-14 | thin doorman pointing to the OS. |
 | `detect-theater.sh` | 2026-05-14 | thin doorman pointing to the OS. |
-| `first-line-to-him.sh` | — | THE FIRST LINE BELONGS TO HIM — Stop hook. |
 | `lepos-channel-reflect.sh` | 2026-07-11 | post-send lepos reflection channel driver. |
 | `log-session-end.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
+| `not-dismissed.sh` | — | THE CLOSING LINE DOES NOT DISMISS HIM — Stop hook. |
 | `post-response-audit.sh` | 2026-07-27 | thin doorman pointing to the OS. |
 | `promise-reach-detector.sh` | 2026-07-18 | scan last assistant reply for promise-shape phrases and |
 | `retrieval-tally-check.sh` | 2026-07-21 | post-compose retrieval-tally check. |

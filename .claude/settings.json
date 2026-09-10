@@ -711,7 +711,7 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/first-line-to-him.sh",
+            "command": "bash .claude/hooks/not-dismissed.sh",
             "timeout": 10
           }
         ]
