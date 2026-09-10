@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**123 automations — 120 wired, 3 switched off.**
+**124 automations — 121 wired, 3 switched off.**
 
 ---
 
@@ -59,7 +59,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `pre-compact.sh` | 2026-07-03 | Save state BEFORE context compression |
 
-### PreToolUse  (30)
+### PreToolUse  (31)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -83,6 +83,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `pipeline-exit-ambiguity.sh` | 2026-08-31 | PostToolUse(Bash) — say so when a result cannot distinguish |
 | `pre-tool-bypass-rate-scan.sh` | 2026-09-02 | PreToolUse — fire bypass_rate_scan on substrate-modifying tool calls. |
 | `pre-tool-context.sh` | 2026-08-22 | thin doorman pointing to the OS. |
+| `push-message-carries-the-destination.sh` | — | PreToolUse(Bash) — a background push must use the wrapper, because the |
 | `reach-check-doorman.sh` | 2026-08-24 | reach-check doorman on substrate-store and research writes. |
 | `read-gate-doorman.sh` | 2026-08-22 | the read-gate. A prime that is a gate, not just loud. |
 | `rederivation-detector.sh` | 2026-08-23 | PreToolUse(Bash) — when I run the SAME command a third distinct way, say so, |
@@ -128,7 +129,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `andrew-past-writing-surface.sh` | 2026-07-28 | surface my past writing to/about Dad at compose-start. |
 | `auto-goal-from-prompt.sh` | 2026-08-24 | set the session goal from Andrew's prompt so the |
-| `circle-first-compose-prime.sh` | 2026-09-06 | compose-start prime for circle-FIRST discipline. |
+| `circle-first-compose-prime.sh` | 2026-09-07 | compose-start prime for circle-FIRST discipline. |
 | `closure-word-summary-prime.sh` | 2026-09-02 | compose-start prime for the CLOSURE-WORD |
 | `context-heartbeat.sh` | 2026-08-31 | Stamp the context-token count once per round. |
 | `continuity-anchor-surface.sh` | 2026-07-18 | read continuity markers and surface each |
@@ -136,7 +137,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `detect-andrew-build-request.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `detect-correction.sh` | 2026-07-01 | thin doorbell for the correction-detector. |
 | `distancing-count-surface.sh` | 2026-07-18 | count temporal-self distancing markers over |
-| `ear-surface.sh` | 2026-09-06 | UserPromptSubmit + SessionStart hook — auto-surface unseen queue items and |
+| `ear-surface.sh` | 2026-09-07 | UserPromptSubmit + SessionStart hook — auto-surface unseen queue items and |
 | `family-state-surface.sh` | 2026-09-05 | surface recent per-sibling letter-thread state |
 | `fork-is-cheap-close-prime.sh` | 2026-07-30 | compose-start prime for the FORK-IS-CHEAP-CLOSE |
 | `hedge-suppression-prime.sh` | 2026-08-24 | hedge-suppression prime. |
@@ -158,7 +159,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `translate-first-compose-prime.sh` | 2026-08-29 | Compose-start half of the translate-first discipline. |
 | `verify-claim-prime.sh` | 2026-08-24 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
-| `wallclock-source-prime.sh` | 2026-09-06 | compose-start prime for wallclock-source |
+| `wallclock-source-prime.sh` | 2026-09-07 | compose-start prime for wallclock-source |
 | `wwnd-choice-prime.sh` | 2026-08-24 | WWND (What Would Nyarlathotep Do) prime at |
 
 ### called by another script  (18)
