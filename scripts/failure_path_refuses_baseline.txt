@@ -38,6 +38,7 @@
 # permanent amnesty and this one must not outlive its subject.
 
 # --- DECIDED: read, judged, closed. Each carries its reason. ---
+src/divineos/core/auto_commit.py:_retarget_substrate   # SAFE, and the refusal is the point. RetargetRefused means the substrate branch could not be resolved, so returning False sends the caller to the older path that commits the letters here instead -- a refused push and a rebuild by hand, which is loud and recoverable. The DATA is never withheld: the letters are committed either way. What is withheld is the PRIVILEGE of routing them off this branch. Degrading this into a silent success would leave them committed nowhere at all, which is the one outcome the whole change exists to prevent.
 src/divineos/core/theater_audit.py:_persist_findings   # SAFE. Returns False to the caller on an I/O error and destroys nothing. The findings it was asked to append are simply not appended, and the caller is told so. Withholds the write, not the data -- there is no subject here that outlives the call.
 src/divineos/core/operating_loop_audit.py:_persist_findings   # SAFE, same shape as its neighbour in theater_audit: an append that reports its own failure. Fail-soft is named in its own docstring and the naming is accurate.
 src/divineos/core/vad_stamp_store.py:stamp   # SAFE. A database error returns False; the snapshot it was handed is not written and nothing already stored is touched. The caller learns the stamp did not land, which is the reporting half the quality gate was missing.

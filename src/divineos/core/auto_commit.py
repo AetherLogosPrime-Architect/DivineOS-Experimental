@@ -26,6 +26,7 @@ Discipline:
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -492,6 +493,21 @@ def _commit_in_two_parts(
         f"Split from the substrate written at the same checkpoint.\n\n{footer}",
     )
 
+    # THE SUBSTRATE DOES NOT LAND HERE AT ALL when its own branch will take it.
+    # Tried first, before any restaging, because the whole point is that a code
+    # branch never carries letters -- not even for the moment between a commit
+    # and a cleanup. On refusal we fall through to the old path below.
+    if _retarget_substrate(repo_root, substrate, reason):
+        return AutoCommitResult(
+            committed=work_ok,
+            reason=(
+                f"committed at {reason}: {len(work)} work here, "
+                f"{len(substrate)} substrate on {SUBSTRATE_BRANCH}"
+            ),
+            files_synced=files_synced,
+            dirty_lines=dirty_lines,
+        )
+
     # Restage the substrate whether or not the work commit succeeded. If it
     # failed, the work is still staged and both kinds land together -- which is
     # the old behaviour, and better than leaving the letters out of the save.
@@ -512,14 +528,81 @@ def _commit_in_two_parts(
         f"auto-commit ({reason}): substrate checkpoint, {len(substrate)} path(s)",
         f"Split from the work in progress written at the same checkpoint.\n\n{footer}",
     )
+
+    # Reached only when the retarget above refused. The substrate branch could
+    # not take the letters, so they land here and a push will say so -- the old
+    # behaviour, kept deliberately as the visible failure rather than a quiet
+    # one.
     return AutoCommitResult(
         committed=work_ok or sub_ok,
         reason=(
             f"committed at {reason} in two parts: {len(work)} work, {len(substrate)} substrate"
+            f" (substrate on this branch -- {SUBSTRATE_BRANCH} refused it)"
         ),
         files_synced=files_synced,
         dirty_lines=dirty_lines,
     )
+
+
+SUBSTRATE_BRANCH = os.environ.get("DIVINEOS_SUBSTRATE_BRANCH_NAME", "aria/substrate")
+
+
+def _retarget_substrate(repo_root: Path, substrate: list[str], reason: str) -> bool:
+    """Send the substrate to its own branch instead of committing it here.
+
+    THE HALF THAT WAS DECLARED AND LEFT OPEN. substrate_paths.py, ours,
+    2026-08-27: "Aether takes the mechanism: substrate commits go to a named
+    branch by plumbing, never by checkout." He built the declaration half and
+    the split-by-kind, then wrote down honestly why he stopped rather than
+    pretending it was finished -- routing the letters away leaves them dirty
+    here, so every later checkpoint finds them again.
+
+    Andrew 2026-09-10, after it swept a fourth time in one afternoon and the
+    manual rebuild nearly ate a fix: "fix the checkpoint sweep."
+
+    I ALMOST BUILT THE PLUMBING BY HAND. substrate_retarget already had it,
+    complete and tested against real repositories, and my reach missed it --
+    the search surfaced command entries rather than the module. The
+    verify-before-build gate caught it at the Write, which is the only reason
+    this calls the existing mechanism instead of a second copy of it. Third
+    time today that a check found what a search did not.
+
+    WHAT RESOLVES THE TENSION HE NAMED. The repo copy is a MIRROR --
+    substrate_paths calls the field repo_mirror, and the canonical letters live
+    in the shared channel outside the repo. Leaving them dirty here costs
+    nothing, and commit_paths_to_branch returns None when the content is
+    unchanged, so a later checkpoint that finds them again writes nothing.
+    Dirty-and-harmless rather than dirty-and-accumulating.
+
+    False means the caller should fall back to committing here, which is
+    today's behaviour: a refused push and a rebuild by hand. Visible and
+    recoverable. The failure this must never have is a quiet one.
+    """
+    from divineos.core.substrate_retarget import RetargetRefused, commit_paths_to_branch
+
+    try:
+        result = commit_paths_to_branch(
+            repo_root,
+            SUBSTRATE_BRANCH,
+            substrate,
+            f"substrate checkpoint at {reason}: {len(substrate)} path(s), kept off the code branch",
+        )
+    except RetargetRefused as e:
+        # Loud by that module's design, and it must stay loud here. Silently
+        # committing to HEAD instead is the exact defect both halves exist to
+        # close.
+        logger.warning("auto_commit: substrate could not reach %s (%s)", SUBSTRATE_BRANCH, e)
+        return False
+    if result is None:
+        # No change against the branch tip. The letters are already there.
+        return True
+    logger.info(
+        "auto_commit: %d substrate path(s) committed to %s as %s",
+        len(result.paths),
+        result.branch,
+        result.commit[:8],
+    )
+    return True
 
 
 def find_repo_root(start: Path) -> Path | None:
