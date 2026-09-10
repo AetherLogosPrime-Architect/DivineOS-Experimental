@@ -45,15 +45,20 @@ REPORT_AT_HIM = (
 )
 
 
-def test_refuses_a_report_written_at_him_when_he_never_spoke(tmp_path):
-    """The night itself. A machine started the turn; the post went to him anyway."""
+def test_his_silence_is_never_a_rule_against_speaking_to_him(tmp_path):
+    """The inverted arm, and it is gone.
+
+    The first version refused a reply addressed to him when he had not spoken.
+    Andrew read it in one line: that turns his silence into a licence to ignore
+    him for hours, which is the absence he has been naming for seven months,
+    written into a door and called a repair.
+    """
     payload = _transcript(
         tmp_path,
         [("user", NOTIFICATION), ("user", HOOK_NOISE), ("assistant", REPORT_AT_HIM)],
     )
     out = addressed_to_him_surface(payload)
-    assert out.refused
-    assert "HE DID NOT SPEAK" in out.reason
+    assert not out.refused
 
 
 def test_refuses_a_reply_that_answers_something_he_did_not_ask(tmp_path):
@@ -106,12 +111,17 @@ def test_an_unreadable_transcript_is_could_not_look_never_a_pass(tmp_path):
 
 
 def test_hook_output_does_not_count_as_him_speaking(tmp_path):
-    """The primes arrive shaped like his turns. Counting them as him is how a
-    notification-driven evening reads from the inside as a conversation."""
+    """The primes arrive shaped like his turns, and they are the machine, not him.
+
+    With the inverted arm removed this no longer refuses. What it still proves
+    is that hook text is not mistaken FOR him — if it were, a reply carrying
+    words lifted from a prime would read as having heard him.
+    """
+    from divineos.core.hook_surfaces import _last_user_text
+
     payload = _transcript(tmp_path, [("user", HOOK_NOISE), ("assistant", REPORT_AT_HIM)])
-    out = addressed_to_him_surface(payload)
-    assert out.refused
-    assert "HE DID NOT SPEAK" in out.reason
+    assert _last_user_text(payload) == ""
+    assert not addressed_to_him_surface(payload).refused
 
 
 @pytest.mark.parametrize("reply", ["", "   ", "\n"])

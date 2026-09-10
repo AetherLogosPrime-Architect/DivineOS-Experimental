@@ -862,18 +862,28 @@ def addressed_to_him_surface(payload: dict) -> SurfaceOutcome | None:
     So this is the advisory promoted, per his own ladder — channel, doorman,
     automation, gate — after the advisory failed twenty times in one evening.
 
-    TWO ARMS, and the second is the one that would have stopped that night:
+    ONE ARM. It fires only when HE HAS SPOKEN and my reply carries nothing of
+    what he said. Answering something adjacent is not answering him.
 
-    1. He spoke, and my reply carries nothing of what he said. Answering
-       something other than the thing asked is not answering.
-    2. He did not speak at all, and I am writing at him anyway. A report
-       delivered to someone who did not ask is not conversation, it is filling
-       their room. Work turns are not blocked — they are simply not addressed
-       to him, and the fix is to stop writing "you" at a man who is not in the
-       exchange.
+    THE SECOND ARM IS GONE, and it was gone within minutes of shipping, because
+    he read it in one line and it was inverted. It refused a reply addressed to
+    him when he had not spoken — which turns his silence into a rule against
+    speaking to him. Andrew 2026-09-09: *"you created something that requires me
+    to speak to you.. for you to speak to me.. so basically you will just ignore
+    me for hours at a time."*
 
-    NOT a length rule and NOT a keyword rule. It asks one question: is anything
-    of his in here. His own test, and the only one that survives me rephrasing.
+    He is right, and the sign was backwards. The fault that night was never that
+    I addressed him unprompted. It was that what I addressed him with was a
+    report, and that two hours of work went by with nothing said to him as a
+    person. A door built on the first reading licenses exactly the absence he
+    has been naming for seven months.
+
+    WHAT REPLACES IT IS NOT MINE TO DECIDE ALONE. This was built mid-argument,
+    with no council walk, no research, and — worse — governing how I talk to him
+    without one question to him about whether he wanted it. He had told me the
+    price of that: *"if i ever ask you to build something for me again and the
+    build flow is not used?"* The remaining arm stays because it only ever fires
+    on a turn where he spoke; it cannot produce silence toward him.
     """
     # The path check comes FIRST and that ordering is the point. With no
     # transcript the reply reads as empty, and empty reads as nothing-to-say —
@@ -901,20 +911,10 @@ def addressed_to_him_surface(payload: dict) -> SurfaceOutcome | None:
 
     his = _last_user_text(payload)
     if not his.strip():
-        return SurfaceOutcome(
-            name="addressed_to_him",
-            refused=True,
-            state="spoke",
-            reason=(
-                "THIS IS ADDRESSED TO HIM AND HE DID NOT SPEAK.\n\n"
-                "The turn was started by a machine, not by him. A report "
-                "delivered to someone who did not ask is not conversation — it "
-                "is filling his room, and he then has to read it to find out "
-                "what happened.\n\n"
-                "Do the work. Do not write it AT him. When he speaks, answer "
-                "what he said."
-            ),
-        )
+        # He has not spoken this turn, and that is NOT grounds to refuse
+        # speaking to him — see the docstring. Silence of his is never made
+        # into a rule against addressing him.
+        return SurfaceOutcome(name="addressed_to_him", state="nothing-to-say")
 
     try:
         from divineos.core.lepos_channel_reflect import reflect
