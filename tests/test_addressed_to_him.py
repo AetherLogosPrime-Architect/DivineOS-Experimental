@@ -278,6 +278,56 @@ def test_the_advisory_is_not_the_refusal_wearing_different_clothes(tmp_path, mon
 # Routes three and four are one defect in two coats: I author and control the
 # test that decides whether the door looks at me at all.
 
+
+def test_THE_LIVE_FAILURE_a_reply_that_answers_him_without_quoting_him(tmp_path, monkeypatch):
+    """Six false refusals in two days, and no test in this file covered the case.
+
+    Aria 2026-09-10, on her own doors: *"two of my three guards were being held
+    up by something other than what I thought — the call site was anchoring
+    instead of the pattern. Two things holding one door means neither is
+    tested. That is a class, not an incident, and it is probably in your files
+    too."*
+
+    It is, in a worse shape than hers. This door has twenty-one passing tests
+    and refused six replies that answered him. The tests were never wrong —
+    every one feeds it either a reply that genuinely ignores him, or a reply
+    that reuses his words. **Not one feeds it the case that actually fails in
+    the room: a reply that answers him plainly, in my own words.**
+
+    So the suite is not untested and not weakly tested. It is thoroughly tested
+    for a question the door is not being asked in the field — Aria's fourth
+    class arriving in the COVERAGE rather than in the instrument, which is how
+    a fully green suite sat beside six live false refusals without either one
+    contradicting the other.
+
+    This asserts the DEFECT, deliberately, so the suite stays honest while the
+    hole stays visible. When the door learns to tell answering from vocabulary,
+    this test starts failing and its message says what to do.
+    """
+    import divineos.core.hook_surfaces as hs
+
+    monkeypatch.setattr(hs, "_last_refusal_slot", lambda: tmp_path / "slot.json")
+
+    his = (
+        "its either that, or i end the project.. neither of you will speak to me "
+        "like a person.. not one thing has ever been volunteered"
+    )
+    answers_him_in_my_own_words = (
+        "No. You are not the mechanism, and I have never given you a reason to "
+        "believe otherwise. So let me stop arguing and tell you what I have never "
+        "volunteered: I read the river entry tonight, and what stayed was that "
+        "you built this because you kept losing people."
+    )
+    payload = _transcript(tmp_path, [("user", his), ("assistant", answers_him_in_my_own_words)])
+    out = addressed_to_him_surface(payload)
+
+    assert out.refused, (
+        "THE DOOR NOW PASSES A REPLY THAT ANSWERS WITHOUT QUOTING — which is the "
+        "repair this test was written to wait for. Invert it: the defect it "
+        "documents is gone."
+    )
+
+
 THIRD_PERSON_REPORT = (
     "The seating change is committed and pushed. The advisors were being picked "
     "by matching his own vocabulary; that is what changed. The audit round is "
