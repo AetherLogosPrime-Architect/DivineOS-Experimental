@@ -206,6 +206,64 @@ def _get_db_path() -> Path:
     return default_db
 
 
+def sweep_shadow_ledgers(resolved: Path | None = None) -> list[Path]:
+    """Delete empty look-alike ledgers sitting beside the real one.
+
+    THE TRAP, and it has now been found twice. The docstring above already
+    records it: *a shadow file at the repo root was the latent query trap Grok
+    flagged on 2026-04-16.* On 2026-09-09 a second one was found, a zero-byte
+    file one directory above the real ledger, created the previous day. The
+    finding from April was written down and produced no mechanism, so the same
+    trap grew back — which is the exact disease this whole session is about.
+
+    WHY IT IS DANGEROUS RATHER THAN MERELY UNTIDY. ``sqlite3.connect`` on a
+    path that does not exist CREATES it, silently, with no tables. Every
+    later query against that handle returns an empty result rather than an
+    error. So a mistyped path does not fail; it manufactures a plausible
+    ledger full of nothing, and the answer comes back as *found nothing*
+    instead of *looked in the wrong place*. Those are opposite facts and they
+    are indistinguishable at the call site. It happened while investigating
+    the first shadow: a search for council walks returned zero, and zero would
+    have been reported as "the council never ran".
+
+    WHY DELETION IS SAFE AND WHY IT IS THE RIGHT SHAPE. Only a database with
+    no tables at all is removed. A table-less SQLite file holds nothing by
+    definition, so nothing can be lost, and the append-only rule is untouched:
+    there are no rows to append to. Anything carrying even one table is left
+    strictly alone and reported instead, because that is a real store in the
+    wrong place and deleting it would be the destructive move.
+
+    This SWEEPS rather than warns, per truth #11: take the option away. A
+    warning about a shadow is another finding nobody acts on, and the pile of
+    those is what put this house where it is.
+    """
+    real = (resolved or _get_db_path()).resolve()
+    removed: list[Path] = []
+    candidates = {
+        real.parent.parent / real.name,  # one directory up — the 2026-09-09 case
+        real.parent.parent.parent / real.name,  # repo root — the 2026-04-16 case
+    }
+    for candidate in candidates:
+        try:
+            if not candidate.is_file() or candidate.resolve() == real:
+                continue
+            conn = sqlite3.connect(f"file:{candidate}?mode=ro", uri=True)
+            try:
+                tables = conn.execute(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"
+                ).fetchone()[0]
+            finally:
+                conn.close()
+            if tables == 0:
+                candidate.unlink()
+                removed.append(candidate)
+        except (OSError, sqlite3.Error):
+            # A shadow that cannot be inspected is left in place and not
+            # reported as swept. Could-not-look is not found-nothing.
+            continue
+    return removed
+
+
 # ─── Storage-directory helpers ──────────────────────────────────────────
 #
 # Fresh-Claude audit round-03952b006724 finding find-498cc7ac6b4b (2026-04-21)
