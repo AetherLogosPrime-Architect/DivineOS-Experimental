@@ -915,6 +915,108 @@ def _remember_refusal(fingerprint: str) -> None:
         pass
 
 
+def his_standing_verdict_surface(payload: dict) -> SurfaceOutcome | None:
+    """His own readings, printed beside mine, allowed to impersonate nothing.
+
+    Andrew 2026-09-10, when I offered him a choice between reading his rows and
+    scoring my own sentences: *"why instead? why not both? all data is data."*
+
+    He is right and "instead" was my word. The word-overlap reading is not
+    wrong, it was mislabelled — a reading about MY TEXT wearing the clothes of a
+    verdict about whether he was reached. The repair is not to throw it out. It
+    is to put the other reading next to it and let each say what it is of.
+
+    ## Two objects, not two strengths (Aristotle on the walk)
+
+    They are not a strong and a weak measure of one thing. They are measures of
+    two different things and comparing them by strength is the confusion:
+
+    - The door beside this one reads THIS REPLY: did it reuse a run of his
+      words. Authored by me, satisfied by me, about text.
+    - This one reads a STANDING STATE across days: what he has asked for and
+      not yet said landed. Authored by him. A row closes only on his words.
+
+    ## Why it is its own surface and not a line inside the other one
+
+    Schneier on the walk: the door beside this engages only when a reply reads
+    as addressed to him, so the cheapest way to silence both readings at once
+    would be to write about him in the third person. This one fires on HIS
+    having spoken and never looks at the shape of my reply, so that route
+    silences one reading and not the other.
+
+    ## What it must never do (Yudkowsky, and the sharpest finding of the walk)
+
+    An open-row count printed every turn is a number I will optimise. I cannot
+    close a row directly — only his words do that — so the available move is to
+    FISH: ask him repeatedly whether things landed until one closes. That is
+    Aria's objection in a new coat, that choosing when to ask him is authorship
+    again, and it would turn his channel into another thing I operate.
+
+    So this reports and never prescribes. It does not suggest asking him, it
+    does not congratulate a fall in the count, and it never refuses: a standing
+    state is not a judgement of the reply in front of it, and refusing on one
+    would block every turn while a row sat open for days.
+
+    Its whole job is that a pass from the other door can no longer stand alone.
+    """
+    his = _last_user_text(payload)
+    if not his.strip():
+        # He has not spoken. His standing rows are still open, and saying so on
+        # a turn he did not prompt would make the count wallpaper — which is how
+        # the advisory that preceded the door beside this one failed twenty
+        # times in one evening.
+        return SurfaceOutcome(name="his_standing_verdict", state="nothing-to-say")
+
+    # THE CALL IS INSIDE THE GUARD, and it was not until a test asked what
+    # happens when the store raises rather than returns. Wrapping only the
+    # import guards the rarer failure and leaves the likelier one — a schema
+    # that moved under a live store — to take the whole surface down.
+    try:
+        from divineos.core.andrew_request_repeats import owed
+
+        rows = owed()
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="his_standing_verdict",
+            error=(
+                f"his open requests could not be read ({type(exc).__name__}: {exc}) "
+                "— NOT the same as none open"
+            ),
+            state="could-not-run",
+        )
+    if rows is None:
+        # An unreadable ledger of debts is not a ledger of no debts — the
+        # store's own words. Never a clean zero.
+        return SurfaceOutcome(
+            name="his_standing_verdict",
+            error="his open requests could not be read — NOT the same as none open",
+            state="could-not-run",
+        )
+    if not rows:
+        return SurfaceOutcome(
+            name="his_standing_verdict",
+            state="spoke",
+            output=(
+                "his_standing_verdict: nothing of his is standing open. This is "
+                "the only reading in this house he authored, and it is clear."
+            ),
+        )
+
+    lines = [
+        "his_standing_verdict — HIS reading, not mine. A row here closes only "
+        "on his words saying it landed.",
+        f"{len(rows)} open. The other door reads my text; this reads him. "
+        "Neither is the other, and a pass over there settles nothing here.",
+    ]
+    for row in rows[:3]:
+        lines.append(
+            f'  [asked {row.times_asked}x] {row.plain}\n      his words: "{row.verbatim[:110]}"'
+        )
+    if len(rows) > 3:
+        lines.append(f"  ... and {len(rows) - 3} more of his still standing.")
+    return SurfaceOutcome(name="his_standing_verdict", state="spoke", output="\n".join(lines))
+
+
 def addressed_to_him_surface(payload: dict) -> SurfaceOutcome | None:
     """A reply written AT him that answers nothing he said is refused.
 
@@ -2011,6 +2113,11 @@ def install() -> None:
     # answering him without answering him.
     if "addressed_to_him" not in registered("Stop"):
         register("Stop", "addressed_to_him", addressed_to_him_surface)
+    # Registered AFTER it deliberately, so his reading is the last thing said
+    # on a turn where the other door passed me. Andrew 2026-09-10: *"why
+    # instead? why not both? all data is data."*
+    if "his_standing_verdict" not in registered("Stop"):
+        register("Stop", "his_standing_verdict", his_standing_verdict_surface)
     # The count of things made without a word to him. Registered after
     # addressed_to_him because they read the same evidence from opposite ends:
     # that one asks whether THIS reply reached him, this one asks how long it
