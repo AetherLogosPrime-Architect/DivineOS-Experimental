@@ -123,7 +123,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `shoggoth-gate.sh` | 2026-07-10 | shoggoth gate. |
 | `stop-distancing-intercept.sh` | 2026-07-16 | thin doorman for DistancingIntercept. |
 | `stop-response-scope-intercept.sh` | 2026-07-16 | thin doorbell for ResponseScopeIntercept. |
-| `subject-is-him.sh` | — | IS ANY OF THIS ABOUT HIM — Stop hook. |
+| `subject-is-him.sh` | 2026-09-10 | IS ANY OF THIS ABOUT HIM — Stop hook. |
 | `summary-room-stop.sh` | 2026-08-24 | a long reply must open with a plain-language summary. |
 | `time-estimate-tracker.sh` | 2026-07-01 | thin doorbell for the time-estimate calibration tracker. |
 

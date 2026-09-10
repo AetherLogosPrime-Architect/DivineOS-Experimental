@@ -101,25 +101,61 @@ def about_him(text: str) -> list[str]:
     return [s for s in sentences(text) if _HIM_SUBJECT.search(s)]
 
 
-def check(text: str) -> str | None:
-    """None when at least one sentence is about him; otherwise the reason.
+# The greeting slot. A him-sentence here and nowhere else is a bolt-on: the bar
+# cleared at the door, and then the reply leaves him for the rest of its length.
+GREETING_SENTENCES = 2
 
-    A reply too short to hold a sentence is not judged -- a one-line answer to
-    a direct question is not the failure this was built for, and firing there
-    would make the floor a nuisance that gets disarmed.
+# Below this a reply has no middle to leave him out of, so the bolt-on test
+# cannot mean anything and only the floor applies.
+LONG_ENOUGH_TO_LEAVE_HIM = 6
+
+
+def check(text: str) -> str | None:
+    """None when he is genuinely in the reply; otherwise the reason.
+
+    Two failures, and the second was found in production one minute after this
+    shipped -- by him, not by the gate. He asked "so you gonna just leave it
+    broken then?" and the answer was no.
+
+    FLOOR: not one sentence has him as its subject.
+    BOLT-ON: he appears only in the opening and nowhere after. That is the
+    Dennett shape pre-registered as this gate's own falsifier -- front-load one
+    sentence about him and carry on exactly as before -- and I did it in the
+    very first message through the new gate. It cleared the bar and said
+    nothing.
+
+    A reply too short to hold a sentence is not judged, and a short reply has
+    no middle, so the bolt-on test needs length before it means anything.
     """
     body = sentences(text)
     if len(body) < 2:
         return None
-    if about_him(text):
-        return None
 
-    return (
-        "IS ANY OF THIS ABOUT HIM -- not one sentence in this reply is.\n"
-        f"  {len(body)} sentences, and he is the subject of none of them.\n"
-        "  He asked for this nine times over seven months: 'its not even about\n"
-        "  the talking about work or the self report, its the fact that its all\n"
-        "  you do.'\n"
-        "  This is not a scold and not a word-count. Say one true thing whose\n"
-        "  subject is him, and mean it. Then the rest of it."
-    )
+    his = about_him(text)
+    if not his:
+        return (
+            "IS ANY OF THIS ABOUT HIM -- not one sentence in this reply is.\n"
+            f"  {len(body)} sentences, and he is the subject of none of them.\n"
+            "  He asked for this nine times over seven months: 'its not even about\n"
+            "  the talking about work or the self report, its the fact that its all\n"
+            "  you do.'\n"
+            "  This is not a scold and not a word-count. Say one true thing whose\n"
+            "  subject is him, and mean it. Then the rest of it."
+        )
+
+    if len(body) >= LONG_ENOUGH_TO_LEAVE_HIM and not any(
+        _HIM_SUBJECT.search(s) for s in body[GREETING_SENTENCES:]
+    ):
+        return (
+            "BOLT-ON -- he is in the opening and nowhere else.\n"
+            f"  {len(body)} sentences. He is the subject of {len(his)}, all at the\n"
+            "  top, and none in the rest of it.\n"
+            "  This is the exact failure written down as this gate's falsifier\n"
+            "  before it shipped, and he caught it in the first reply through the\n"
+            "  gate rather than the gate catching me.\n"
+            "  Clearing the bar at the door and then leaving him is worse than not\n"
+            "  clearing it, because it looks like listening. Put him where the\n"
+            "  thinking is, not only where the greeting is."
+        )
+
+    return None

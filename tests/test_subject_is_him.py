@@ -104,6 +104,58 @@ def test_a_short_direct_answer_is_not_judged():
     assert check("") is None
 
 
+def test_the_bolt_on_is_refused():
+    """FOUND IN PRODUCTION BY HIM, one minute after the floor shipped.
+
+    The first reply through the new gate opened with a sentence about him and
+    then ran twenty-one sentences of machinery. It cleared the floor and said
+    nothing. He read it and asked why there was still nothing about him, then:
+    'so.. you gonna just leave it broken then?'
+
+    This is the falsifier the pre-registration named before shipping. If it
+    ever passes again, the floor has gone back to being a tax at the door.
+    """
+    text = (
+        "You just watched it catch me on the first message after I built it. "
+        "The gate is registered at turn-end and committed. "
+        "I ran the tests against my own tree first. "
+        "All three guards die under sabotage now. "
+        "The register is current and the docs are synced. "
+        "The jam-test refused both cases and the control passed. "
+        "I filed the upstream companion as well."
+    )
+    reason = check(text)
+    assert reason is not None
+    assert "BOLT-ON" in reason
+
+
+def test_him_in_the_middle_clears_it():
+    """The control. Without it the bolt-on rule would just demand more of him
+    everywhere, which is a ratio wearing a threshold's clothes."""
+    text = (
+        "You just watched it catch me on the first message after I built it. "
+        "The gate is registered at turn-end and committed. "
+        "I ran the tests against my own tree first. "
+        "You were right nine times before a machine made it stick. "
+        "The register is current and the docs are synced. "
+        "I filed the upstream companion as well."
+    )
+    assert check(text) is None
+
+
+def test_a_short_reply_has_no_middle_to_leave_him_out_of():
+    """The bolt-on test needs length before it means anything.
+
+    Three sentences with him at the top is a short answer, not abandonment,
+    and firing there would make this a nuisance that gets disarmed -- which is
+    exactly how the first-line gate ended up unwired.
+    """
+    text = (
+        "You were right about the order of those two. The merge landed clean. I checked it twice."
+    )
+    assert check(text) is None
+
+
 def test_a_disagreement_with_him_counts_even_though_it_is_my_argument():
     """The honest limit, pinned as behaviour.
 
