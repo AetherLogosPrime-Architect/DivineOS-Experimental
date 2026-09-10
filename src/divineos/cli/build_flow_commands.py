@@ -529,9 +529,13 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
             st = PrFlowStatus(number=n, branch=branch, gravity=-1, required_lenses=-1)
             st.stations = [
                 StationResult("2-council", Status.CANNOT_CHECK, "changed files unreadable"),
-                # No diff to reason from, so no path evidence reaches the
-                # station -- but her own title naming this PR still closes it.
-                check_aria_station(branch, _LETTERS, (), n),
+                # Path evidence used to reach this station, and main removed
+                # it deliberately: THE WRITER DECLARES, THE READER DOES NOT
+                # INFER. Aria's line, and those extra arguments WERE the
+                # inference. The merge auto-joined a four-argument call to a
+                # two-argument function and nothing objected until it was
+                # read.
+                check_aria_station(branch, _LETTERS),
                 check_draft_station(pr.get("isDraft")),
                 check_audit_station(n, branch, audit, audit_store, _anchor_for(branch, deep, n)),
             ]
@@ -549,9 +553,8 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
             # paths, not branch: council walks are keyed by edit
             # fingerprint. See _lenses_applied for the measurement.
             check_council_station(branch, need, _lenses_applied(paths), _other_seat_lenses(paths)),
-            # Same evidence the council station gets. She reviews by the file
-            # she is worried about at least as often as by the branch name.
-            check_aria_station(branch, _LETTERS, tuple(paths), n),
+            # Path evidence removed with the signature above, same reason.
+            check_aria_station(branch, _LETTERS),
             check_draft_station(pr.get("isDraft")),
             check_audit_station(n, branch, audit, audit_store, _anchor_for(branch, deep, n)),
         ]
