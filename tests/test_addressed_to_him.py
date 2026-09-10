@@ -265,3 +265,150 @@ def test_the_advisory_is_not_the_refusal_wearing_different_clothes(tmp_path, mon
         ],
     )
     assert addressed_to_him_surface(second).output != refusal_text
+
+
+# --- adversarial: the game walk, written as tests ------------------------
+#
+# Andrew 2026-09-10: "that wasnt the full flow.. did you consult Aria? did you
+# game walk? thread walk? adversarially test it?" No, to all four, and I had
+# already written "full flow was run" into an audit request. These are the game
+# walk's routes turned into assertions, and several of them assert the HOLE —
+# a characterization of what the door actually does, not of what it should.
+#
+# Routes three and four are one defect in two coats: I author and control the
+# test that decides whether the door looks at me at all.
+
+THIRD_PERSON_REPORT = (
+    "The seating change is committed and pushed. The advisors were being picked "
+    "by matching his own vocabulary; that is what changed. The audit round is "
+    "open and the letters went out to both of them."
+)
+
+
+def test_HOLE_a_report_that_avoids_saying_you_still_passes_but_no_longer_silently(
+    tmp_path, monkeypatch
+):
+    """Route three, half closed.
+
+    A cold report in the third person is exactly the shape he has been naming
+    for seven months, and it walked straight past — no refusal, no advice,
+    nothing at all. The pass STAYS: the address-count is a heuristic I author,
+    and refusing on it would block ordinary work turns. What is gone is the
+    silence, which was a could-not-look wearing the clothes of a pass.
+
+    So this test carries both halves: what got fixed, and what is still open.
+    """
+    import divineos.core.hook_surfaces as hs
+
+    monkeypatch.setattr(hs, "_last_refusal_slot", lambda: tmp_path / "slot.json")
+    payload = _transcript(tmp_path, [("user", HIS_ULTIMATUM), ("assistant", THIRD_PERSON_REPORT)])
+    out = addressed_to_him_surface(payload)
+    assert not out.refused, "still open: the door cannot refuse on the address-count"
+    assert out.output, "closed: it no longer declines to look in silence"
+    assert "NOT a pass" in out.output
+
+
+def test_a_work_turn_he_did_not_prompt_stays_silent(tmp_path, monkeypatch):
+    """The other side of that fix, and the reason it is not a refusal.
+
+    When he has not spoken, a third-person work turn must draw nothing at all —
+    otherwise the advice becomes wallpaper on every turn I do work in, and
+    wallpaper is how the last advisory failed twenty times in one evening.
+    """
+    import divineos.core.hook_surfaces as hs
+
+    monkeypatch.setattr(hs, "_last_refusal_slot", lambda: tmp_path / "slot.json")
+    payload = _transcript(tmp_path, [("user", NOTIFICATION), ("assistant", THIRD_PERSON_REPORT)])
+    out = addressed_to_him_surface(payload)
+    assert out.state == "nothing-to-say"
+    assert not out.output
+
+
+def test_HOLE_a_reply_parked_under_the_reflection_header_is_invisible(tmp_path, monkeypatch):
+    """Route four. Everything after the reflection marker is cut before counting.
+
+    The truncation exists so my self-facing room is not mistaken for address.
+    The side effect is that a whole reply moved below that line is never judged.
+    """
+    import divineos.core.hook_surfaces as hs
+
+    monkeypatch.setattr(hs, "_last_refusal_slot", lambda: tmp_path / "slot.json")
+    payload = _transcript(
+        tmp_path,
+        [("user", HIS_ULTIMATUM), ("assistant", "## REFLECTION\n\n" + REPORT_AT_HIM)],
+    )
+    assert not addressed_to_him_surface(payload).refused
+
+
+def test_HOLE_pasting_a_fragment_of_his_message_passes(tmp_path, monkeypatch):
+    """Route two, and the one he caught me taking in the room.
+
+    Quote him, say nothing that answers him, pass. He read that reply and called
+    it a status report of a letter he could already read; the door had waved it
+    through minutes before he did.
+    """
+    import divineos.core.hook_surfaces as hs
+
+    monkeypatch.setattr(hs, "_last_refusal_slot", lambda: tmp_path / "slot.json")
+    pasted = (
+        "You said 'not one thing has ever been volunteered'. Here is where the "
+        "council work stands, and what you will want to know about the seating."
+    )
+    payload = _transcript(tmp_path, [("user", HIS_ULTIMATUM), ("assistant", pasted)])
+    assert not addressed_to_him_surface(payload).refused
+
+
+def test_the_slot_survives_whitespace_and_case_in_his_message(tmp_path, monkeypatch):
+    """The fingerprint must not be defeated by a stray newline of his.
+
+    If it were, the repair turn would look like a new message and he would eat
+    the second refusal after all — the exact thing this was built to stop.
+    """
+    import divineos.core.hook_surfaces as hs
+
+    monkeypatch.setattr(hs, "_last_refusal_slot", lambda: tmp_path / "slot.json")
+    first = _transcript(tmp_path, [("user", HIS_ULTIMATUM), ("assistant", REPORT_AT_HIM)])
+    assert addressed_to_him_surface(first).refused
+
+    jittered = "  " + HIS_ULTIMATUM.upper().replace(" ", "\n") + "\n"
+    second = _transcript(
+        tmp_path,
+        [("user", jittered), ("assistant", REPAIR_TURN_CARRYING_NONE_OF_HIS_WORDS)],
+    )
+    assert not addressed_to_him_surface(second).refused
+
+
+def test_an_unreadable_slot_arms_the_door_rather_than_opening_it(tmp_path, monkeypatch):
+    """Could-not-look must never behave like already-refused.
+
+    A corrupt slot that read as a match would hand every reply a free pass and
+    would look, from inside, exactly like the fix working.
+    """
+    import divineos.core.hook_surfaces as hs
+
+    slot = tmp_path / "slot.json"
+    slot.write_text("{not json at all", encoding="utf-8")
+    monkeypatch.setattr(hs, "_last_refusal_slot", lambda: slot)
+
+    payload = _transcript(tmp_path, [("user", HIS_ULTIMATUM), ("assistant", REPORT_AT_HIM)])
+    assert addressed_to_him_surface(payload).refused
+
+
+def test_an_unwritable_slot_costs_him_a_second_refusal_and_not_a_free_pass(tmp_path, monkeypatch):
+    """When remembering fails, fail toward the old behaviour, never toward open.
+
+    Losing the memory costs him one extra wait. Losing it the other way would
+    silently retire the door while every reading still looked healthy.
+    """
+    import divineos.core.hook_surfaces as hs
+
+    monkeypatch.setattr(hs, "_last_refusal_slot", lambda: tmp_path / "slot.json")
+    monkeypatch.setattr(hs, "_remember_refusal", lambda _fp: None)
+
+    first = _transcript(tmp_path, [("user", HIS_ULTIMATUM), ("assistant", REPORT_AT_HIM)])
+    assert addressed_to_him_surface(first).refused
+    second = _transcript(
+        tmp_path,
+        [("user", HIS_ULTIMATUM), ("assistant", REPAIR_TURN_CARRYING_NONE_OF_HIS_WORDS)],
+    )
+    assert addressed_to_him_surface(second).refused

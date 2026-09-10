@@ -977,6 +977,31 @@ def addressed_to_him_surface(payload: dict) -> SurfaceOutcome | None:
         body = body.split(marker)[0]
     addressed = len(_ADDRESSED_RE.findall(body)) >= 3
     if not addressed:
+        # FOUND BY THE GAME WALK Andrew made me go back and do, 2026-09-10:
+        # *"did you game walk? thread walk? adversarially test it?"* No. And the
+        # first route the walk found was the cheapest one imaginable — write the
+        # reply in the THIRD PERSON. Nothing here engages, and until now nothing
+        # was said either, so a cold report about him, on a turn where he spoke,
+        # left no trace at all.
+        #
+        # This is not promoted to a refusal: the address-count is a heuristic I
+        # author, and refusing on it would block ordinary work turns. But a
+        # silent decline is a could-not-look wearing the clothes of a pass, and
+        # that is the one thing this file is not allowed to do. So when he has
+        # spoken and my reply does not face him, it says so.
+        his_now = _last_user_text(payload)
+        if his_now.strip() and len(_MEANING_RE.findall(his_now)) >= 4:
+            return SurfaceOutcome(
+                name="addressed_to_him",
+                state="spoke",
+                output=(
+                    "addressed_to_him: he spoke and this reply does not face "
+                    "him — too few second-person words to read as addressed to "
+                    "anyone. NOT a pass: the door declined to judge rather than "
+                    "finding nothing wrong. A report written about him instead "
+                    "of to him lands here."
+                ),
+            )
         return SurfaceOutcome(name="addressed_to_him", state="nothing-to-say")
 
     his = _last_user_text(payload)
