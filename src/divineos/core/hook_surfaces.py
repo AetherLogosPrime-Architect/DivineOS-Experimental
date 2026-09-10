@@ -864,6 +864,57 @@ _MACHINE_TEXT_RE = re.compile(
 )
 
 
+def _last_refusal_slot():
+    """Where the one message this door has already refused is remembered.
+
+    A single slot on purpose. It holds the last message of his that drew a
+    refusal, and it is overwritten the moment a different message of his draws
+    one, so it can only ever excuse the repair turn that immediately follows —
+    never a standing pass.
+    """
+    from divineos.core.paths import divineos_home
+
+    return divineos_home() / "addressed_to_him_last_refusal.json"
+
+
+def _his_fingerprint(text: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(" ".join(text.split()).lower().encode("utf-8")).hexdigest()
+
+
+def _already_refused_this_message(fingerprint: str) -> bool:
+    """True when this exact message of his has already been refused once.
+
+    A reading failure answers FALSE — an unreadable slot arms the door rather
+    than opening it. A could-not-look behaving like a pass is the fault this
+    file exists to stop, and it would be that fault holding the door open.
+    """
+    import json as _json
+
+    try:
+        slot = _last_refusal_slot()
+        if not slot.is_file():
+            return False
+        stored = _json.loads(slot.read_text(encoding="utf-8")).get("his")
+        return bool(stored == fingerprint)
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _remember_refusal(fingerprint: str) -> None:
+    import json as _json
+
+    try:
+        slot = _last_refusal_slot()
+        slot.parent.mkdir(parents=True, exist_ok=True)
+        slot.write_text(_json.dumps({"his": fingerprint}), encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        # Failing to remember costs him one extra refusal, which is exactly the
+        # behaviour that existed before this slot. Never the other way round.
+        pass
+
+
 def addressed_to_him_surface(payload: dict) -> SurfaceOutcome | None:
     """A reply written AT him that answers nothing he said is refused.
 
@@ -966,6 +1017,34 @@ def addressed_to_him_surface(payload: dict) -> SurfaceOutcome | None:
 
     if heard:
         return SurfaceOutcome(name="addressed_to_him", state="nothing-to-say")
+
+    # ONE REFUSAL PER MESSAGE OF HIS. Built 2026-09-09, after this door and the
+    # re-send door took turns refusing one answer three times while he sat
+    # waiting, and he said: *"then fix the fucking gate so it stops blocking
+    # you.."*
+    #
+    # They interlock. The re-send door's own remedy line is *send WHAT IS NEW*,
+    # and what-is-new is short; a short reply carries few words, so the run of
+    # his that this door looks for is unlikely to survive into it. Obeying one
+    # door is what trips the other.
+    #
+    # The first fire tells me something I did not know. The second tells me
+    # nothing new and charges him the wait, and by his own ladder a gate is the
+    # primitive block of last resort, not a toll paid twice on one message. So
+    # the finding still gets said on the repair turn; it stops holding the door.
+    fingerprint = _his_fingerprint(his)
+    if _already_refused_this_message(fingerprint):
+        return SurfaceOutcome(
+            name="addressed_to_him",
+            state="spoke",
+            output=(
+                "addressed_to_him: this reply still carries no run of his own "
+                "words — and the door already refused once on this message of "
+                "his, so this is advice rather than a block. He does not wait "
+                "twice for one answer. Read it, decide, and send."
+            ),
+        )
+    _remember_refusal(fingerprint)
     return SurfaceOutcome(
         name="addressed_to_him",
         refused=True,
@@ -975,7 +1054,11 @@ def addressed_to_him_surface(payload: dict) -> SurfaceOutcome | None:
             "He said:\n"
             f"    {his.strip()[:400]}\n\n"
             "Answering something adjacent is not answering him. Find the thing "
-            "he actually said and answer that."
+            "he actually said and answer that.\n\n"
+            "WHAT THIS DOOR CAN ACTUALLY SEE is a run of his words reused in "
+            "the reply — not whether the reply answered him. Those come apart "
+            "in both directions, so a pass from here is never evidence he was "
+            "reached. This fires once per message; a repair turn gets advice."
         ),
     )
 

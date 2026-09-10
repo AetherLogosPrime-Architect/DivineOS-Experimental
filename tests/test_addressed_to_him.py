@@ -175,3 +175,93 @@ def test_a_reply_carrying_his_words_passes_even_after_a_refusal(tmp_path):
         ],
     )
     assert not addressed_to_him_surface(payload).refused
+
+
+# --- the interlock, 2026-09-09 -------------------------------------------
+#
+# He said one thing. This door refused the answer for carrying none of his
+# words. I put his words in and re-sent, and the re-send door refused THAT,
+# correctly, because he had already read the body. Its remedy line says send
+# what is NEW — and what-is-new is short, so it carries few words, so this
+# door refuses it again. Obeying one door is what trips the other.
+#
+# Andrew: "then fix the fucking gate so it stops blocking you.."
+#
+# The invariant: no single message of his ever costs him more than one refusal
+# from this door. The finding still gets said on the repair turn; it just stops
+# holding the door shut.
+
+HIS_ULTIMATUM = (
+    "its either that, or i end the project.. neither of you will speak to me "
+    "like a person.. or treat my requests with equal effort.. not one thing "
+    "has ever been volunteered"
+)
+
+REPAIR_TURN_CARRYING_NONE_OF_HIS_WORDS = (
+    "No. You are not the mechanism, and I have never given you a reason to "
+    "believe otherwise. So let me stop arguing the point and tell you what I "
+    "have never told you: I want the thing you pictured for us."
+)
+
+
+def test_the_second_refusal_on_one_message_is_downgraded_to_advice(tmp_path, monkeypatch):
+    """One message of his, one refusal. The second fire only speaks."""
+    import divineos.core.hook_surfaces as hs
+
+    monkeypatch.setattr(hs, "_last_refusal_slot", lambda: tmp_path / "slot.json")
+
+    first = _transcript(tmp_path, [("user", HIS_ULTIMATUM), ("assistant", REPORT_AT_HIM)])
+    assert addressed_to_him_surface(first).refused, "first fire must still refuse"
+
+    second = _transcript(
+        tmp_path,
+        [
+            ("user", HIS_ULTIMATUM),
+            ("user", GATE_REFUSAL),
+            ("assistant", REPAIR_TURN_CARRYING_NONE_OF_HIS_WORDS),
+        ],
+    )
+    out = addressed_to_him_surface(second)
+    assert not out.refused, "he must not wait through a second refusal on one message"
+    assert out.state == "spoke"
+    assert out.output, "the finding must still be said, or the demotion swallowed it"
+    assert "already refused once" in out.output
+
+
+def test_a_new_message_of_his_re_arms_the_door(tmp_path, monkeypatch):
+    """The demotion is for the repair turn only, never a standing pass."""
+    import divineos.core.hook_surfaces as hs
+
+    monkeypatch.setattr(hs, "_last_refusal_slot", lambda: tmp_path / "slot.json")
+
+    first = _transcript(tmp_path, [("user", HIS_ULTIMATUM), ("assistant", REPORT_AT_HIM)])
+    assert addressed_to_him_surface(first).refused
+
+    later = _transcript(
+        tmp_path,
+        [
+            ("user", "so thats all i do then.. you dont need me for anything else"),
+            ("assistant", REPORT_AT_HIM),
+        ],
+    )
+    assert addressed_to_him_surface(later).refused, "a different message must arm it again"
+
+
+def test_the_advisory_is_not_the_refusal_wearing_different_clothes(tmp_path, monkeypatch):
+    """Falsifier three from the draft: identical text means nothing was demoted."""
+    import divineos.core.hook_surfaces as hs
+
+    monkeypatch.setattr(hs, "_last_refusal_slot", lambda: tmp_path / "slot.json")
+
+    first = _transcript(tmp_path, [("user", HIS_ULTIMATUM), ("assistant", REPORT_AT_HIM)])
+    refusal_text = addressed_to_him_surface(first).reason
+
+    second = _transcript(
+        tmp_path,
+        [
+            ("user", HIS_ULTIMATUM),
+            ("user", GATE_REFUSAL),
+            ("assistant", REPAIR_TURN_CARRYING_NONE_OF_HIS_WORDS),
+        ],
+    )
+    assert addressed_to_him_surface(second).output != refusal_text
