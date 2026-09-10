@@ -53,6 +53,24 @@ The honest waiting sentence is never refused: "still running, I will say when it
 lands" carries no arrival claim, and punishing it would teach me to stop narrating
 the wait at all, which is worse than the fault.
 
+## IT FIRES ON ITS OWN DESCRIPTION, AND THAT COST IS ACCEPTED
+
+First live firing, minutes after wiring: it refused a reply of mine whose only
+matching sentence was DESCRIBING this door -- "a door that refuses any sentence
+claiming work reached the shared copy". No arrival was claimed. The detector
+cannot tell a claim from a description of the shape of a claim, which is the
+mention-versus-use problem every keyword layer in this house has.
+
+A suppressor keyed on gate-talk would clear it and is refused, because that
+suppressor is reachable any time I want to write the word -- a door with a
+phrase that opens it is a door with a key taped to the frame. The cost of the
+false fire is one turn spent going and reading the destination, which is the
+thing I should be doing anyway.
+
+And on that first firing the reading was not academic: the prescribed script
+answered that the remote did NOT carry the commit. The door fired for the wrong
+reason and was right about the world.
+
 ## Three-valued
 
 An unreadable action stream is NOT a clean turn. It returns could-not-check, and

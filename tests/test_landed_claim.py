@@ -96,6 +96,22 @@ def test_an_unreadable_turn_is_could_not_check_and_not_a_pass() -> None:
     assert render_block(verdict) == ""
 
 
+def test_it_fires_on_its_own_description_and_that_is_recorded_not_suppressed() -> None:
+    """The known false positive, asserted rather than hidden.
+
+    First live firing refused a reply whose only matching sentence was
+    DESCRIBING this door. No arrival was claimed. A suppressor keyed on
+    gate-talk would clear it and is refused: that suppressor is reachable any
+    time I want to write the word, which is a key taped to the frame.
+
+    This test exists so the limit cannot be forgotten and quietly "fixed" later
+    by someone who reads the fire as a bug. If it ever stops firing here, that
+    was a decision, and it should be argued rather than discovered.
+    """
+    describing_the_door = "a door that refuses any sentence claiming work reached the shared copy"
+    assert claim_spans(describing_the_door) != ()
+
+
 def test_the_detector_is_not_matching_everything() -> None:
     """Control, in both directions.
 
