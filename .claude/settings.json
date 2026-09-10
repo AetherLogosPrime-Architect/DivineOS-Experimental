@@ -253,6 +253,16 @@
         ]
       },
       {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/work-item-doorman.sh",
+            "timeout": 20
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {
