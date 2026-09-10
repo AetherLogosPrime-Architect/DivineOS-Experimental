@@ -440,19 +440,43 @@ MUTATING_SUBCOMMANDS = {
     "gh": {"pr", "release", "issue", "repo", "api"},
     "pip": {"install", "uninstall"},
     "npm": {"install", "publish", "uninstall"},
-    "divineos": {"prereg", "audit", "goal", "walk", "learn", "decide", "claim",
-                 "feel", "log", "compass-ops", "corrections", "andrew-correction",
-                 "opinion", "directive", "holding", "family-member", "family-queue",
-                 "extract", "sleep", "init", "refresh", "council"},
 }
-_subs = MUTATING_SUBCOMMANDS.get(first)
+
+# CORRECTED an hour after it was added, by its own false fire on a command
+# that reads. The first version listed NOUN GROUPS -- audit, walk, prereg --
+# and refused `audit show`, which writes nothing. That is an enumeration
+# standing in for a principle, mine, one hour old, in the very fix whose
+# commit message named the class. The principle is THIS INVOCATION WRITES,
+# and for a noun-verb CLI the verb is what carries it.
+#
+# So: mutating when any bare token is a write verb. `audit submit-round`
+# refuses and `audit show` passes; `walk apply` refuses and `walk status`
+# passes; `prereg file` refuses and `prereg show` passes. Top-level writes
+# whose verb IS the first token -- learn, decide, feel, claim -- are in the
+# same set and need no special case.
+#
+# The door said a wrong match means the shape is the thing to fix rather than
+# something to route around. It was talking about itself.
+DIVINEOS_WRITE_VERBS = {
+    "add", "apply", "assess", "claim", "close", "credit", "decide", "defer",
+    "exclude", "extract", "feel", "file", "init", "integrate", "learn", "log",
+    "mark", "observe", "open", "refresh", "resolve", "route", "set", "sleep",
+    "submit", "submit-round", "supersede",
+}
+
 _mutating = False
-if _subs:
-    for token in first_tokens[1:]:
-        if token.startswith("-"):
-            continue
-        _mutating = token in _subs
-        break
+if first == "divineos":
+    _mutating = any(
+        token in DIVINEOS_WRITE_VERBS for token in first_tokens[1:] if not token.startswith("-")
+    )
+else:
+    _subs = MUTATING_SUBCOMMANDS.get(first)
+    if _subs:
+        for token in first_tokens[1:]:
+            if token.startswith("-"):
+                continue
+            _mutating = token in _subs
+            break
 
 if _mutating:
     _SUBJECT["verdict"] = "deny"
