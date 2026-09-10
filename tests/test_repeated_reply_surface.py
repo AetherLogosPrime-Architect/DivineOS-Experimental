@@ -62,6 +62,24 @@ class TestTheFaultItCatches:
         outcome = repeated_reply_surface(_transcript(tmp_path, body, second))
         assert outcome.refused is True
 
+    def test_a_light_rewording_is_still_the_same_letter(self, tmp_path, body):
+        """It let this through on 2026-09-09 and he read the same letter twice.
+
+        A Stop gate refused the first send, I changed a handful of words, and
+        exact-string comparison saw two different paragraphs. The guard was
+        watching the surface instead of the content -- which is the very fault
+        it exists to catch, since the wording is the output and the repeat is
+        the thing.
+        """
+        reworded = "\n\n".join(
+            p.replace("This is the first", "Here is the opening")
+            .replace("comfortably past", "well past")
+            .replace("yet more of the body", "still more of the material")
+            for p in _PARAS
+        )
+        outcome = repeated_reply_surface(_transcript(tmp_path, body, reworded))
+        assert outcome.refused is True
+
     def test_the_refusal_says_to_send_only_what_is_new(self, tmp_path, body):
         """A refusal naming no way out is a wall. The repair is the point."""
         outcome = repeated_reply_surface(_transcript(tmp_path, body, body))

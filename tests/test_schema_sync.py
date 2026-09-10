@@ -354,6 +354,13 @@ class TestSchemaSync:
             # was invisible until a full-suite run at push — a comment
             # asserting a state nobody had made true.
             "test_sibling_walk_store_malformed.py",
+            # Same shape again, and this time the exemption ships in the same
+            # commit as the fixture. The sweep's whole subject is that a
+            # look-alike store answers queries with an empty result instead of
+            # an error, so its fixtures build deliberately thin tables — a real
+            # store with one column, and a shadow with none at all. Padding
+            # them to production width would remove the condition under test.
+            "test_shadow_ledger_sweep.py",
         }
 
         warnings: list[str] = []
