@@ -76,6 +76,29 @@ _HIM_SUBJECT = re.compile(
     re.IGNORECASE,
 )
 
+# HIM POSSESSING A THING IS NOT HIM DOING SOMETHING. Aether's blocking finding
+# at station four, with a fixture rather than an argument: "Your list now speaks
+# at the end of every turn" has him in the subject slot and the machine doing
+# every bit of the work. Three of those spread through a reply cleared both arms
+# of this gate, and the reply he actually rejected in the room was that shape.
+# His words: "it is not the subject slot, it is the predicate."
+_POSSESSIVE_SUBJECT = re.compile(r"^\s*(?:and|but|so)?\s*your\b", re.IGNORECASE)
+
+# Frames that put him in the sentence as a RECEIVER of machine news rather than
+# as someone who did or is anything. "You'll want to know that the store was
+# rebuilt" is a status report with a hook on the front.
+#
+# An enumeration, and it is one on purpose, so say so: this is the list of the
+# shapes that have actually fired at him, not a theory of hooks. It will not
+# hold against a phrasing nobody has said yet, which is the whack-a-mole he
+# named. It closes the doors I have walked through.
+_RECEIVER_FRAME = re.compile(
+    r"^\s*(?:and|but|so)?\s*you\b\s*(?:'ll|'d| will| would| can| could| may| might)?\s*"
+    r"(?:want to know|need to know|should know|will see|can see|will notice|"
+    r"may notice|have the|already have|now have|get the|are getting)\b",
+    re.IGNORECASE,
+)
+
 # His own words, quoted back. Him speaking is not me speaking about him, and
 # counting it would let me satisfy this by pasting his message at him.
 _QUOTED = re.compile(r'^\s*(?:>|"|“|\*|_)')
@@ -97,8 +120,20 @@ def sentences(text: str) -> list[str]:
 
 
 def about_him(text: str) -> list[str]:
-    """Sentences whose subject is him."""
-    return [s for s in sentences(text) if _HIM_SUBJECT.search(s)]
+    """Sentences where HE is the one doing or being something.
+
+    Three exclusions, and the last two are Aether's finding rather than mine:
+    he must be the subject, the subject must be him rather than a thing he
+    owns, and the predicate must do more than hand him machine news.
+    """
+    out = []
+    for s in sentences(text):
+        if not _HIM_SUBJECT.search(s):
+            continue
+        if _POSSESSIVE_SUBJECT.match(s) or _RECEIVER_FRAME.match(s):
+            continue
+        out.append(s)
+    return out
 
 
 # What a refusal must tell me to do, and this line is his diagnosis rather than

@@ -156,6 +156,46 @@ def test_a_short_reply_has_no_middle_to_leave_him_out_of():
     assert check(text) is None
 
 
+def test_aethers_fixture_the_status_report_with_him_possessively_attached():
+    """AETHER'S BLOCKING FINDING at station four, and his fixture rather than mine.
+
+    He ran the door against a close copy of the status report Andrew rejected
+    in the room, answered with 'thanks for the status report.. just message Aria
+    back, im not reading this anymore.' Him in the subject slot of three
+    sentences, spread rather than front-loaded, every predicate about the
+    machine. It cleared the floor AND the bolt-on arm.
+
+    His distinction, which changed the design: 'it is not the subject slot, it
+    is the predicate.' Him possessing a thing is not him doing something, and a
+    frame that hands him machine news is a hook rather than a sentence about
+    him.
+    """
+    text = (
+        "You'll want to know that the advisors were being picked by matching your words. "
+        "Your list now speaks at the end of every turn where you have said something. "
+        "You have the file yourself. "
+        "The store was rebuilt and the count is current. "
+        "The tests all pass. "
+        "The register is synced. "
+        "I filed the pre-registration too."
+    )
+    reason = check(text)
+    assert reason is not None
+    assert about_him(text) == []
+
+
+def test_a_thing_he_owns_doing_something_is_not_him_doing_something():
+    assert about_him("Your list now speaks at the end of every turn.") == []
+    assert about_him("Your call is the only thing outstanding.") == []
+    assert len(about_him("You called it before the gate did.")) == 1
+
+
+def test_being_handed_machine_news_is_not_being_the_subject():
+    assert about_him("You'll want to know that the store was rebuilt.") == []
+    assert about_him("You can see the count at the end of every turn.") == []
+    assert len(about_him("You were right about the order of those two.")) == 1
+
+
 def test_a_disagreement_with_him_counts_even_though_it_is_my_argument():
     """The honest limit, pinned as behaviour.
 
