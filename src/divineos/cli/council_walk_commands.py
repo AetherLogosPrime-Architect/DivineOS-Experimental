@@ -24,6 +24,7 @@ from divineos.core.council_walk import (
     exclude_lens,
     finding_distinctness,
     open_walk,
+    seat_evidence,
     status,
 )
 
@@ -46,15 +47,21 @@ def register(cli: click.Group) -> None:
         help="Lens floor: normal 5, high 9, severe 12, critical 15 (Andrew's ladder).",
     )
     def open_cmd(problem: str, gravity: str) -> None:
-        """Open a walk. The MANAGER picks the lenses, not me."""
+        """Open a walk. The SEATING picks the lenses, not me.
+
+        Most seats are drawn by lot from the whole roster; the rest go to the
+        top-scored. Each line says which, because a drawn lens that turns out
+        to have nothing to say is the visible cost of the draw and should be
+        recognisable as such rather than read as the council being thin.
+        """
         try:
             result = open_walk(problem, gravity=gravity)
         except WalkRefused as exc:
             raise click.ClickException(str(exc)) from exc
         lenses = result["lenses"]
         click.secho(f"[+] {result['walk_id']} — {len(lenses)} lenses ({gravity})", fg="green")
-        for lens in lenses:
-            click.echo(f"    {lens}")
+        for seat in result["seats"]:
+            click.echo(f"    {seat['lens']:22s} {seat['origin']}")
         click.echo("\nEvery one needs a finding or a written exclusion before this can close.")
 
     @walk_group.command("apply")
@@ -147,6 +154,48 @@ def register(cli: click.Group) -> None:
             click.echo(
                 f"    distinctness UNMEASURED ({d.get('reason')}) — not the same as distinct"
             )
+
+        # The seating evidence prints here for Peirce's reason, found on the
+        # walk that reviewed the seating change itself: a record nobody reads
+        # and a record that does not exist have identical consequences, so by
+        # the pragmatic maxim they are the same thing. The drawn/scored split
+        # was set on an argument and is meant to move on this number; closing
+        # a walk is the moment the number just changed and is the only moment
+        # it is both fresh and in front of me.
+        ev = seat_evidence()
+        origins = ev.get("origins", {})
+        if origins:
+            parts = [
+                f"{origin} {stats['applied']}/{stats['settled']}"
+                for origin, stats in sorted(origins.items())
+            ]
+            click.echo(f"    seats producing findings: {', '.join(parts)}")
+        if ev.get("verdict") == "insufficient":
+            click.echo(f"    split evidence: {ev.get('why')}")
+        else:
+            click.secho(f"    split evidence: {ev['verdict']} — {ev['why']}", fg="yellow")
+
+    @walk_group.command("evidence")
+    def evidence_cmd() -> None:
+        """Have the drawn seats earned their keep, or the scored ones?"""
+        ev = seat_evidence()
+        click.echo(f"closed walks: {ev['closed_walks']}")
+        for origin, stats in sorted(ev.get("origins", {}).items()):
+            rate = "n/a" if stats["applied_rate"] is None else f"{stats['applied_rate']:.3f}"
+            div = stats.get("divergence")
+            div_text = (
+                stats.get("divergence_unavailable", "UNMEASURED") if div is None else f"{div:.3f}"
+            )
+            click.echo(
+                f"  {origin:8s} findings {stats['applied']:4d}  "
+                f"exclusions {stats['excluded']:4d}  applied-rate {rate}  "
+                f"divergence {div_text}"
+            )
+        click.echo(
+            "  applied-rate is the weak measure — I have never written an exclusion,\n"
+            "  so it cannot vary. Divergence is the one that can falsify the split."
+        )
+        click.echo(f"verdict: {ev['verdict']} — {ev['why']}")
 
     @walk_group.command("list")
     def list_cmd() -> None:

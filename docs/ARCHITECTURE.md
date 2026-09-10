@@ -202,7 +202,8 @@ src/divineos/
     council/                   Expert council sub-package
       engine.py                CouncilEngine — analyze problems through expert lenses
       framework.py             ExpertWisdom dataclasses (7 components)
-      manager.py               Dynamic council manager (classify → select 5-8 experts)
+      manager.py               Dynamic council manager (classify → select 5-8 experts). Still the scorer; no longer the seating authority for walks — see draw.py
+      draw.py                  Seats a walk's council by lot from the whole roster, with a scored remainder. Replaces fit-selection at open_walk after two blind probes showed a problem stated without the scorer's own vocabulary seats almost nobody who scores, filling the bench alphabetically. Every seat records its origin so the drawn/scored split can be moved on applied-rate evidence rather than preference
       consultation_log.py      Always-on consultation logging + opt-in audit promotion (Mode 1.5)
       lab_evidence.py          Attach science-lab slice output to council results when problem matches triggers
       experts/                 45 expert wisdom profiles
@@ -632,6 +633,7 @@ src/divineos/
     vad_capture.py             VAD write-time capture — attach current felt-state to every write.
     vad_stamp_store.py         VAD write-stamp store — a side-table pairing record_id → VAD snapshot.
     findings_ledger.py         Findings ledger — a single living record of every past-and-present audit finding.
+    finding_backlog.py         Unfixed findings block work at the place or the moment they name. Built 2026-09-09 against the measurement that of the twenty blocking doors in the house, none reads the findings store — so filing a diagnosis costs nothing and ignoring one costs nothing. NOTE: not yet wired to a door; it is the scheduler role, and until it has a caller it is a module rather than a mechanism.
     foundational_truths_surface.py Foundational-truths surface — surfaces relevant kiln principles by trigger match.
     auto_cycle.py              Auto-cycle phase 1 — mechanical pipeline before compaction.
     closure_verification.py    Closure-shape citation verification — the substance-binding mechanism.
