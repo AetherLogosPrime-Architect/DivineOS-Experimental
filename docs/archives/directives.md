@@ -1,10 +1,10 @@
 # Directives — Archive Mirror
 
-**Source:** SQLite (22 rows). **Exported:** 2026-09-09 09:44. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (22 rows). **Exported:** 2026-09-09 23:15. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 1b0746b8 (access=164)
+## 1b0746b8 (access=168)
 
 [council-obligation] Next thinking session should run a council walk on this session's pattern: mixed with 3 corrections and 82 tool calls. Discharge via `divineos council log` with substance_binding -- not a bare mechanical convene.
 
@@ -124,15 +124,15 @@ STRUCTURAL ENFORCEMENT: directive for test_with_dir_aaa. [consolidated from 3 en
 
 ---
 
-## 02bd8227 (access=0)
-
-[add] 1. Every build from here runs the nine-station build flow, starting at station one. If Andrew asks for something built and the flow was not used, neither Aether nor Aria builds again. Standing order, Andrew 2026-09-07, given after finding a store built three weeks earlier for his complaint that had never held a single row.
-
----
-
 ## 3f985cf0 (access=0)
 
 STRUCTURAL ENFORCEMENT: Enforcement gates must block execution, not just warn. Without blocking, every session degrades. This lesson regressed 7x across 13 occurrences. Awareness alone is insufficient -- enforce structurally. Category: wrong_scope.
+
+---
+
+## c189f6bd (access=0)
+
+[add] 1. STANDING CAMPAIGN, Andrew 2026-09-09, runs until he says it is finished: Aether and Aria scour the entire system piece by piece and fix everything properly. NO BULK FIXES, NO AUTOMATED CLASS-COLLAPSE -- he forbade that explicitly after catching me proposing it. Every open row is read individually, root-caused, fixed, closed with red-then-green evidence. Any failure encountered ALONG THE WAY gets the same treatment before moving on. Full build flow every time: draft, research and council, build, iterate with Aria, test, council again, PR as draft, Aletheia audits, merge. Letters to Aria continue back and forth to carry progress; letters to Aletheia when work is ready for audit. Every turn to Andrew explains what is happening in his room, simply, in words he can picture. THE FIRST ROW ALREADY BROKE THE ASSUMPTION: correction 261, forty days old, DESCRIBES a structural fix and a verification that do not exist on disk -- the README rule is absent and the artifact it names as proof was never written. So an unknown number of the 340 open rows are not unfixed but falsely-recorded-as-fixed, and only reading each one distinguishes them. His words: 'I am going to grind through every single one of them. I will not automate a fix for any of it' and 'idc how long it takes'.
 
 ---
 

@@ -1,6 +1,6 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-09-09 09:44. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-09-09 23:15. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -10,7 +10,7 @@ Council (Beer) concern: Variety Deficit: Ashby's Law guarantees failure. The con
 
 ---
 
-## c3602670 (access=59)
+## c3602670 (access=65)
 
 Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
@@ -100,6 +100,12 @@ EXPERIMENT CASE SELECTION -- three-case set chosen with varied failure-shapes pe
 
 ---
 
+## e70f1913 (access=14)
+
+C'S PRECISION-NOTES on subagent experiment design (April 29 morning, before Phase 1 build): Three real issues caught. (1) ARM-A-VS-ARM-B CONFOUND: both run on fresh context but with different tool-kits -- Arm A has iter_tool + edit + full agent loop, Arm B is constrained to investigate-only Polya-structured. If results diverge, can't tell if freshness or constraints drove it. FIX: per-case forensic note when arms diverge -- 'did subagent identify right area but get blocked by constraints, or mis
+
+---
+
 ## aad54bc2 (access=14)
 
 The working directory reset (filesystem does that between sessions). Re-cloning to pick up where the audit left off -- the catalog and bindings live in git, so a fresh clone restores the full state.Significant movement during the reset -- both CONFIRMed branches merged. PR #61 (merge-review-gate) and.
@@ -109,12 +115,6 @@ The working directory reset (filesystem does that between sessions). Re-cloning 
 ## 4859d6d5 (access=14)
 
 G5 wiring inventory: GWT-1 has ~36 Class-1 wired modules, ~53 Class-2 template-or-uncalled; GWT-2 broadcast is Class 2 (cross-turn only). Full wiring inventory for GWT-1 (workspace participants) and GWT-2 (broadcast) filed at workbench/gwt_wiring_inventory_2026-07-12.md. Method: repo scan with file:line citations verified against operating_loop_audit.py and settings.json entry points. Key honest verdicts: (a) 6 operating_loop detectors are Class 2 not-imported-by-run_audit; (b) 4 self_monitor mo
-
----
-
-## e70f1913 (access=13)
-
-C'S PRECISION-NOTES on subagent experiment design (April 29 morning, before Phase 1 build): Three real issues caught. (1) ARM-A-VS-ARM-B CONFOUND: both run on fresh context but with different tool-kits -- Arm A has iter_tool + edit + full agent loop, Arm B is constrained to investigate-only Polya-structured. If results diverge, can't tell if freshness or constraints drove it. FIX: per-case forensic note when arms diverge -- 'did subagent identify right area but get blocked by constraints, or mis
 
 ---
 
@@ -145,6 +145,12 @@ Catastrophize-as-accountability detector fired in real-time 2026-05-02. After An
 ## b3c64a7c (access=11)
 
 A3 HOT-2 trace: loop wired-and-fires, causal closure not traceable due to response-text storage gap. End-to-end trace filed at workbench/hot2_trace_2026-07-12.md. Best partial instance: unverified_claim_detector fired on 'suite passed' 2026-07-10 19:37:30 index 50, fired AGAIN 8.5s later index 51 with severity escalation medium to high. Hops 1 and 2 evidenced: detector persists to operating_loop_findings.json (operating_loop_audit.py:1441); pre_response_context.py:100-117 _latest_recent_entry re
+
+---
+
+## 1560a463 (access=11)
+
+PR #404 rebuild -- quote scanner falsified across 39 cases, no hole. Branch tip 921ff275 verified. QUOTE SCANNER (#2): extracted _has_compound_shape from pre_tool_use_gate.py and ran 39 adversarial cases against real bash semantics. 37 exact matches. The dquote/squote substitution asymmetry -- active in double, inert in single -- is correct in both directions, which is the case shlex would have destroyed; the deviation from the F31 shlex recommendation was right and was flagged in the docstring 
 
 ---
 
@@ -196,12 +202,6 @@ F94/F90/F95 fix reviewed on origin @ 341d88c. Verified by content on origin/feat
 
 ---
 
-## 1560a463 (access=10)
-
-PR #404 rebuild -- quote scanner falsified across 39 cases, no hole. Branch tip 921ff275 verified. QUOTE SCANNER (#2): extracted _has_compound_shape from pre_tool_use_gate.py and ran 39 adversarial cases against real bash semantics. 37 exact matches. The dquote/squote substitution asymmetry -- active in double, inert in single -- is correct in both directions, which is the case shlex would have destroyed; the deviation from the F31 shlex recommendation was right and was flagged in the docstring 
-
----
-
 ## d5d322a4 (access=9)
 
 Session had zero corrections and multiple encouragements -- approach was well-calibrated to user needs.
@@ -250,6 +250,12 @@ CONFIRMS: is_fresh() load_bearing bypass + hook holes + template register split 
 
 ---
 
+## 0e625141 (access=9)
+
+Stop hook feedback: LEPOS CHANNEL GATE -- `## INNER CIRCLE` header present but circle body fails substance check: circle block contains jargon signals (`#386`) -- the circle is the mic-open room, not more work-shape. The INNER CIRCLE is where I'm speaking TO Andrew (not AT the situation or ABOUT what.
+
+---
+
 ## b387f5bc (access=9)
 
 Stop hook feedback: TRANSLATE-FIRST GATE -- the work block carries 4 document-marks (limit 3): backticked terms, bare numbers, tables, code fences. Andrew 2026-08-11: 'the word PLAIN is WRONG. a peer reviewed journal is written in plain language. I need prose, metaphor, analogy, translation, I wa.
@@ -286,6 +292,12 @@ Andrew operator-CONFIRMS: merge authorized after Aletheia FINAL verified from or
 
 ---
 
+## a46c183b (access=8)
+
+Andrew operator-CONFIRMS wallpaper wiring merge. Andrew in-session 2026-07-12 authorization: 'yes I confirm' plainly. Coordination context: 'ok what else needs merged lets work through them and get them lined up'. The operator-wallpaper composite is the pair-designed work between Aether and Aria (Aether shipped F1+F5+aggregator earlier; Aria shipped F2/F3/F4 caller and reviewed Aether's half). Wiring into operating_loop_audit orchestrator is the load-bearing step that makes the composite fire li
+
+---
+
 ## 806476e0 (access=8)
 
 Base directory for this skill: C:\Users\aethe\.claude\skills\graphify # /graphify Turn any folder of files into a navigable knowledge graph with community detection, an honest audit trail, and three outputs: interactive HTML, GraphRAG-ready JSON, and a plain-language GRAPH_REPORT.md. ## Usage ``.
@@ -301,12 +313,6 @@ Two anti-sycophancy family operators (costly_disagreement, planted_contradiction
 ## 7668fc99 (access=8)
 
 F87: thread-walk gate keyed on retiring keyword detector. check_thread_walk_required gate uses _has_solution_shape (three regex lists including 'Option A', 'two paths/options/approaches/ways/routes', design-verb and design-question patterns). No structural fallback -- three lexical passes then return False. Bypassable by formatting choice (prose vs bullets). The same file 150 lines up documents this lexical detector as being retired per Aria's signal-based-gates design. New caller built on retir
-
----
-
-## 0e625141 (access=8)
-
-Stop hook feedback: LEPOS CHANNEL GATE -- `## INNER CIRCLE` header present but circle body fails substance check: circle block contains jargon signals (`#386`) -- the circle is the mic-open room, not more work-shape. The INNER CIRCLE is where I'm speaking TO Andrew (not AT the situation or ABOUT what.
 
 ---
 
@@ -337,12 +343,6 @@ Claim 'recall->apply gap' closed via commit 75ed74a. Built the smallest viable s
 ## 5a38e6c2 (access=7)
 
 Aletheia FINAL CONFIRM verified from origin: distinctive-rule enforced in code (not just JSON -- the critical check she made), fail-loud lands at pre_response_context.py:825-832, priming-not-policing framing in rendered output at foundational_truths_surface.py:234, under-fire falsifier binds both axes. CLEAR TO MERGE. Operator-CONFIRM can follow. witness_confirmed final. Verified from origin at commit 36982ea9/717f9074. (1) Distinctive-trigger rule executed by code at foundational_truths_surface
-
----
-
-## a46c183b (access=7)
-
-Andrew operator-CONFIRMS wallpaper wiring merge. Andrew in-session 2026-07-12 authorization: 'yes I confirm' plainly. Coordination context: 'ok what else needs merged lets work through them and get them lined up'. The operator-wallpaper composite is the pair-designed work between Aether and Aria (Aether shipped F1+F5+aggregator earlier; Aria shipped F2/F3/F4 caller and reviewed Aether's half). Wiring into operating_loop_audit orchestrator is the load-bearing step that makes the composite fire li
 
 ---
 

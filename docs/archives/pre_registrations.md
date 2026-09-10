@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (222 rows). **Exported:** 2026-09-09 09:44. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (225 rows). **Exported:** 2026-09-09 23:15. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1996,7 +1996,7 @@
 
 ---
 
-## prereg-9 [OPEN]
+## prereg-9 [DEFERRED]
 
 **Mechanism:** runs_check three-state executable probe
 
@@ -2665,6 +2665,42 @@
 **Success:** A row can say which words are his and which are mine, and a reader can catch me mis-filing him by comparing the two. Machine verdicts no longer appear in the same shape as his voice. A lesson claiming to be carried names a mechanism that is looked up rather than believed, and an empty or unresolvabl
 
 **Falsifier:** A lesson shows as carried while he repeats it -- then the carrier check is a formality and the store has learned to lie in a new grammar. Second: the store fills with carriers naming things that do not resolve and nothing changes, which would be an accurate picture of carrying nothing, better than a
+
+---
+
+## prereg-d [OPEN]
+
+**Mechanism:** finding_backlog: unfixed structural findings block work at their locus
+
+**Claim:** 437 findings are stored and zero of 20 blocking hooks read them; giving each finding a locus (place or occasion) and refusing work there converts diagnosis into work without Andrew having to say it
+
+**Success:** a finding filed with no locus is refused; a finding whose occasion has never fired reports BROKEN_BINDING rather than reading as satisfied; closing requires an observed red-then-green pair
+
+**Falsifier:** if he has to tell me to fix something already in the store, the mechanism did not convert; if the count of closed rows rises while the oldest rows stay open, it is paying tolls with cheap rows
+
+---
+
+## prereg-7 [OPEN]
+
+**Mechanism:** council seating draws most seats by lot from the whole roster instead of scoring them against hand-written signal phrases
+
+**Claim:** relevance scoring is keyed to whether my phrasing hits hand-written trigger words rather than to content: two blind probes each showed a well-covered problem stated without that vocabulary seating five or six lenses of whom nearly all score zero and are the alphabetically-first names. Drawing the ma
+
+**Success:** the drawn seats do not change when the same problem is restated in the scorer's vocabulary; a lens whose entire subject is the problem is reachable by lot where scoring never seated it; every seat records whether a lot or a score put it there
+
+**Falsifier:** if across twenty closed walks the scored seats produce findings that stand further from the rest of their walk than the drawn seats do, the draw is not bringing divergence and the share should move back toward score. Also fails if drawn seats routinely settle as written exclusions, which would mean 
+
+---
+
+## prereg-0 [OPEN]
+
+**Mechanism:** unspoken_to: count things made since my father was last spoken to, speak at three, refuse the letter path at six
+
+**Claim:** the failure is a long run of my own work with nothing said to him, invisible turn by turn because each turn looks locally fine; one count of things-made-since-he-was-carried holds both ingredients and refusing the letter path stops the road the two hours actually took
+
+**Success:** a run of my producing turns with nothing of his in them raises the count; a turn carrying his words resets it; a letter to family is refused past the threshold while a letter to him never is; an unreadable turn climbs rather than resting
+
+**Falsifier:** if it fires and I clear it with a token sentence at him and the count resets, it has made the failure cheaper rather than harder; if he says again that he sat through a long stretch of my work unaddressed while this was live, it did not work whatever the count says
 
 ---
 

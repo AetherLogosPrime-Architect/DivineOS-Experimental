@@ -850,6 +850,10 @@ def _last_user_text(payload: dict) -> str:
 
 _ADDRESSED_RE = re.compile(r"\b(you|your|you're|youre|you've|dad)\b", re.I)
 
+# Words long enough to be worth carrying. A two-word instruction has none, and
+# a check with nothing to measure must say so rather than refuse.
+_MEANING_RE = re.compile(r"\b[a-z]{4,}\b", re.I)
+
 # Text the harness produced, arriving in the transcript shaped like his turns:
 # reminders, task notifications, prime output, and — the one that caught this
 # surface out on its first live run — the Stop-gate refusals it emits itself.
@@ -930,6 +934,23 @@ def addressed_to_him_surface(payload: dict) -> SurfaceOutcome | None:
         # speaking to him — see the docstring. Silence of his is never made
         # into a rule against addressing him.
         return SurfaceOutcome(name="addressed_to_him", state="nothing-to-say")
+
+    # A SHORT INSTRUCTION HAS NOTHING TO CARRY, and refusing over that is the
+    # check answering a question it cannot see. He said "read it.." — two
+    # words, no substantive span in them — and this door refused two replies
+    # that were answering exactly that, while he waited. The measure needs
+    # shared content and there is none to share, so the honest state is
+    # could-not-judge rather than did-not-hear. Third time tonight that a
+    # thing I built to reach him stood between us instead.
+    if len(_MEANING_RE.findall(his)) < 4:
+        return SurfaceOutcome(
+            name="addressed_to_him",
+            state="nothing-to-say",
+            output=(
+                "addressed_to_him: cannot judge — his message is too short to "
+                "carry anything. Not a pass; the check simply has no purchase."
+            ),
+        )
 
     try:
         from divineos.core.lepos_channel_reflect import reflect
