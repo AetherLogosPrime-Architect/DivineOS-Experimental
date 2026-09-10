@@ -90,6 +90,59 @@ def test_a_read_only_command_is_not_a_write() -> None:
     assert not doorman.paths_from_tool_call("Bash", {"command": "grep -rn foo src/"})
 
 
+_ARROW = "-" + ">"
+_GT = ">"
+
+
+@pytest.mark.parametrize(
+    ("label", "command"),
+    [
+        ("an arrow inside a formatted string", f"python p.py  # prints x {_ARROW} y"),
+        ("a greater-or-equal comparison", "python -c 'assert n " + _GT + "= 0'"),
+        ("a redirect inside quoted text", "echo 'write it " + _GT + " somewhere'"),
+    ],
+)
+def test_a_greater_than_sign_is_not_always_a_redirect(label: str, command: str) -> None:
+    """Every one of these produced a phantom file and a refusal with it.
+
+    THIS DOORMAN FIRED WRONGLY ON ARIA TWICE while she was reading my branch,
+    and she took the counted bypass with her reason written out rather than
+    routing around it — so the cost landed on her, twice, and was paid
+    honestly both times. Her report: it read a probe on a scratch copy as new
+    build work, and named the target `-2`.
+
+    Then it did it to me, in the command I wrote to reproduce her report:
+    named `{pf` and `out.txt` as files I was about to write, from a read-only
+    inspection that wrote nothing.
+
+    The cause is one character. `>` was matched wherever it appeared, so an
+    arrow in a formatted string yielded a file called `ok`, and a comparison
+    yielded a file called `=`. A redirection is shell syntax and never lives
+    inside quotes, so quoted spans are blanked before matching, and a `>`
+    preceded by `-` or `=` is not a redirection at all.
+
+    THE MODULE SAID OVER-COLLECTING WAS THE SAFE DIRECTION, on the reasoning
+    that a false hit costs one refusal a work item clears. Use falsified it:
+    the real cost is another person blocked twice on work that was never a
+    build, writing a justification for a door that should not have closed.
+    That correction is kept in the module rather than deleted, because the
+    reasoning was honest and it was the measurement that changed it.
+    """
+    assert not doorman.paths_from_tool_call("Bash", {"command": command}), label
+
+
+def test_the_real_redirects_still_land_after_that_narrowing() -> None:
+    """The control. Without it, the three above would pass on an extractor
+    that had simply stopped extracting — which is the shape of half the
+    findings in this house today."""
+    assert doorman.paths_from_tool_call(
+        "Bash", {"command": "echo hi " + _GT + _GT + " notes.txt"}
+    ) == ["notes.txt"]
+    assert doorman.paths_from_tool_call(
+        "Bash", {"command": "somecmd " + _GT + " out.txt 2" + _GT + "&1"}
+    ) == ["out.txt"]
+
+
 def test_the_doorman_can_be_asked_about_its_own_source() -> None:
     """Route 2 in the tree: turn off the gate and the whole thing collapses to
     one leaf. Its own files are code and are held like anything else."""

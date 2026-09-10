@@ -159,8 +159,31 @@ def needs_an_item(paths: list[str]) -> tuple[str, ...]:
 # the Edit/Write tools. This was the cheapest route in the attack tree, and
 # it is not hypothetical: I wrote this module's own design draft through a
 # heredoc an hour before writing this function.
+# QUOTED TEXT IS NOT SHELL SYNTAX. A redirection never lives inside quotes, so
+# quoted spans come out before anything is matched. Measured 2026-09-10:
+# `echo 'write it > somewhere'` produced a phantom file named `somewhere` and
+# a refusal to go with it.
+_QUOTED_SPAN = re.compile(r"'[^']*'|\"[^\"]*\"")
+
 _SHELL_WRITE_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r">>?\s*([^\s;|&<>()]+)"),
+    # THE LOOKBEHIND IS THE WHOLE REPAIR, and it was found by this doorman
+    # firing wrongly on Aria twice while she was reading my work, and then on
+    # me, in the command I wrote to reproduce her report.
+    #
+    # `>` was matched wherever it appeared. An arrow in a formatted string
+    # (`-> ok`) yielded a file called `ok`. A comparison (`>= 0`) yielded a
+    # file called `=`. Aria's was the same shape: her probe text produced a
+    # target named `-2`, and she took a counted bypass rather than routing
+    # around it — so the cost of this landed on her twice and was paid
+    # honestly both times.
+    #
+    # THE DOCSTRING BELOW SAYS OVER-COLLECTING IS THE SAFE DIRECTION, and use
+    # has now falsified that. A false hit does not cost "one refusal a work
+    # item clears" — it costs a person reading my branch two blocks and a
+    # written justification, on work that was never a build. Kept as a
+    # correction rather than deleted, because the reasoning was honest and the
+    # measurement is what changed it.
+    re.compile(r"(?<![-=])>>?\s*(?![=\s])([^\s;|&<>()]+)"),
     re.compile(r"\btee\s+(?:-a\s+)?([^\s;|&<>()]+)"),
     re.compile(r"\bsed\s+(?:-[a-zA-Z]*i[a-zA-Z]*\S*\s+)(?:[^\s]+\s+)*?([^\s;|&<>()]+)\s*$"),
     re.compile(r"\b(?:cp|mv|install)\s+(?:-\S+\s+)*\S+\s+([^\s;|&<>()]+)"),
@@ -179,6 +202,9 @@ def paths_from_tool_call(tool_name: str, tool_input: dict) -> list[str]:
         return [p] if p else []
     if tool_name == "Bash":
         cmd = tool_input.get("command") or ""
+        # Quoted spans blanked rather than removed, so offsets and word
+        # boundaries either side of them are unchanged.
+        cmd = _QUOTED_SPAN.sub(lambda m: " " * len(m.group(0)), cmd)
         found: list[str] = []
         for pattern in _SHELL_WRITE_PATTERNS:
             for m in pattern.finditer(cmd):
