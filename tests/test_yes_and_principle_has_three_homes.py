@@ -204,3 +204,44 @@ def test_the_hooks_are_still_syntactically_runnable(path: Path) -> None:
         text=True,
     )
     assert result.returncode == 0, f"{path.name} no longer parses: {result.stderr}"
+
+
+def test_the_symbol_rule_reaches_the_delivered_prime_and_not_only_the_file() -> None:
+    """A rule at the end of a prime that gets cut is a rule nobody was ever told.
+
+    Added 2026-09-10 after the gate refused a reply whose entire subject was one
+    punctuation character. Every mark it counted was that character shown rather
+    than spelled, and the rule against that did not exist anywhere.
+
+    This asserts against the RUN output rather than the file text on purpose.
+    The delivery cut has already eaten the tail of a prime in this house once,
+    and Andrew was the one who found it — a rule present on disk and absent from
+    every turn reads identically to a rule being obeyed.
+    """
+    import subprocess
+
+    bash = _real_bash()
+    if bash is None:
+        pytest.skip("no usable bash on this machine — could-not-look, not a pass")
+
+    control = subprocess.run([bash, "-c", "exit 0"], capture_output=True, text=True)
+    if control.returncode != 0:
+        pytest.skip(f"bash at {bash} cannot run at all: {control.stderr.strip()}")
+
+    run = subprocess.run(
+        [bash, str(ASK_RULE)],
+        input="{}",
+        capture_output=True,
+        text=True,
+    )
+    delivered = run.stdout + run.stderr
+
+    assert "SPELL ITS NAME IN WORDS" in delivered, (
+        "the symbol-naming rule is not in what the prime actually delivers. "
+        "Either it was edited out, or it has fallen past the delivery cut and "
+        "needs moving earlier in the prime."
+    )
+    assert "greater-than" in delivered, (
+        "the rule is there but the worked examples are gone; the abstract rule "
+        "without a spelled name to copy is the version that gets read past."
+    )
