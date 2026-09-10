@@ -191,6 +191,7 @@ Then retry the push. The reason will be recorded to telemetry,
 auto-filed as a claim, and opens a structural-fix obligation on the
 briefing until root-cause is discharged.
 EOF
+        hook_say_nothing_ran_for "$INPUT"
         exit 2
     fi
     # Fire the four-step LOGGED/REPORTED/ADDRESSED/FIXED loop.
@@ -358,6 +359,7 @@ investigation trails are what trained the 71-in-15-days pattern).
 
 Re-enable the gate with: rm "$MARKER_PATH"
 EOF
+    hook_say_nothing_ran_for "$INPUT"
     exit 2
     ;;
   *)
