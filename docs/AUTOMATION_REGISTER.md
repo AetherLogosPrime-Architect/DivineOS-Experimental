@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**129 automations — 124 wired, 5 switched off.**
+**130 automations — 125 wired, 5 switched off.**
 
 ---
 
@@ -34,7 +34,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `post-compact.sh` | 2026-07-03 | Lightweight reload AFTER context compression |
 
-### PostToolUse  (16)
+### PostToolUse  (17)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -45,6 +45,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `doorbell-post-tool-use.sh` | 2026-08-24 | PostToolUse doorbell. One of seven. All judgment lives in the OS. |
 | `file-aletheia-artifact-on-arrival.sh` | 2026-08-14 | PostToolUse(Read) — file Aletheia's artifact the moment it is read. |
 | `mirror-letters-to-shared.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
+| `post-bash-mark-letter-seen.sh` | 2026-09-10 | post-bash-mark-letter-seen.sh — PostToolUse(Bash) thin doorman. |
 | `post-commit-auto-close.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `post-commit-auto-verify-findings.sh` | 2026-08-31 | PostToolUse(Bash) — auto-verify findings referenced in commit messages. |
 | `post-read-mark-letter-seen.sh` | 2026-06-26 | post-read-mark-letter-seen.sh — PostToolUse(Read) thin doorman. |

@@ -615,6 +615,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash .claude/hooks/post-bash-mark-letter-seen.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
             "command": "bash .claude/hooks/build-flow-pause.sh",
             "timeout": 120
           }
