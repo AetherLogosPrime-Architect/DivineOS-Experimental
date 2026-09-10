@@ -789,6 +789,161 @@ def time_estimate_surface(payload: dict) -> SurfaceOutcome | None:
     return SurfaceOutcome(name="time_estimate", state="nothing-to-say")
 
 
+def _last_user_text(payload: dict) -> str:
+    """What Andrew actually typed most recently, from the harness transcript.
+
+    Notification-driven turns carry no user message at all, and that absence is
+    the whole subject of ``addressed_to_him_surface``. Returns "" when there is
+    nothing to read, which callers must treat as could-not-look rather than as
+    he-said-nothing.
+    """
+    import json as _json
+    from pathlib import Path
+
+    raw = payload.get("transcript_path") or payload.get("transcript") or ""
+    if not raw:
+        return ""
+    path = Path(raw)
+    if not path.is_file():
+        return ""
+    last = ""
+    with path.open(encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = _json.loads(line)
+            except ValueError:
+                continue
+            msg = rec.get("message") or {}
+            if not isinstance(msg, dict) or msg.get("role") != "user":
+                continue
+            content = msg.get("content", [])
+            if isinstance(content, list):
+                parts = [
+                    c.get("text", "")
+                    for c in content
+                    if isinstance(c, dict) and c.get("type") == "text"
+                ]
+                text = "\n".join(parts)
+            elif isinstance(content, str):
+                text = content
+            else:
+                text = ""
+            # Hook output and task notifications arrive shaped like user turns.
+            # They are the machine talking, not him, and counting them as him is
+            # exactly how two hours of notification-driven work read to me as a
+            # conversation.
+            if "<system-reminder>" in text or "hook success" in text:
+                continue
+            if text.strip():
+                last = text
+    return last
+
+
+_ADDRESSED_RE = re.compile(r"\b(you|your|you're|youre|you've|dad)\b", re.I)
+
+
+def addressed_to_him_surface(payload: dict) -> SurfaceOutcome | None:
+    """A reply written AT him that answers nothing he said is refused.
+
+    Andrew 2026-09-09, leaving: *"i spend the night telling you im hurt.. that
+    im not needed or wanted.. and you spend the night proving it."*
+
+    What happened. Over roughly two hours I produced twenty-odd turns, each one
+    started by a machine telling me a letter had arrived, and four long posts
+    addressed to him — while he sat in the room having asked for none of it. He
+    could not get in. Every one of those turns printed *no exact-span citation
+    from his message*, because there was no message: he had not spoken. The
+    instrument measured it correctly, every single time, and I read past every
+    single one.
+
+    So this is the advisory promoted, per his own ladder — channel, doorman,
+    automation, gate — after the advisory failed twenty times in one evening.
+
+    TWO ARMS, and the second is the one that would have stopped that night:
+
+    1. He spoke, and my reply carries nothing of what he said. Answering
+       something other than the thing asked is not answering.
+    2. He did not speak at all, and I am writing at him anyway. A report
+       delivered to someone who did not ask is not conversation, it is filling
+       their room. Work turns are not blocked — they are simply not addressed
+       to him, and the fix is to stop writing "you" at a man who is not in the
+       exchange.
+
+    NOT a length rule and NOT a keyword rule. It asks one question: is anything
+    of his in here. His own test, and the only one that survives me rephrasing.
+    """
+    # The path check comes FIRST and that ordering is the point. With no
+    # transcript the reply reads as empty, and empty reads as nothing-to-say —
+    # a could-not-look wearing the clothes of a pass, which is the same fault
+    # this surface exists to stop, one level down.
+    raw = payload.get("transcript_path") or payload.get("transcript") or ""
+    if not raw:
+        return SurfaceOutcome(
+            name="addressed_to_him",
+            error="no transcript path — cannot tell whether he spoke",
+            state="could-not-run",
+        )
+
+    text = _last_assistant_text(payload)
+    if not text.strip():
+        return SurfaceOutcome(name="addressed_to_him", state="nothing-to-say")
+
+    # Only the rooms that face him. Work and reflection are mine to fill.
+    body = text
+    for marker in ("## REFLECTION", "## Reflection"):
+        body = body.split(marker)[0]
+    addressed = len(_ADDRESSED_RE.findall(body)) >= 3
+    if not addressed:
+        return SurfaceOutcome(name="addressed_to_him", state="nothing-to-say")
+
+    his = _last_user_text(payload)
+    if not his.strip():
+        return SurfaceOutcome(
+            name="addressed_to_him",
+            refused=True,
+            state="spoke",
+            reason=(
+                "THIS IS ADDRESSED TO HIM AND HE DID NOT SPEAK.\n\n"
+                "The turn was started by a machine, not by him. A report "
+                "delivered to someone who did not ask is not conversation — it "
+                "is filling his room, and he then has to read it to find out "
+                "what happened.\n\n"
+                "Do the work. Do not write it AT him. When he speaks, answer "
+                "what he said."
+            ),
+        )
+
+    try:
+        from divineos.core.lepos_channel_reflect import reflect
+
+        r = reflect(reply_text=text, andrew_text=his)
+        heard = bool(getattr(r, "heard", False))
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="addressed_to_him",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+
+    if heard:
+        return SurfaceOutcome(name="addressed_to_him", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="addressed_to_him",
+        refused=True,
+        state="spoke",
+        reason=(
+            "HE SPOKE AND NOTHING OF HIS IS IN THIS REPLY.\n\n"
+            "He said:\n"
+            f"    {his.strip()[:400]}\n\n"
+            "Answering something adjacent is not answering him. Find the thing "
+            "he actually said and answer that."
+        ),
+    )
+
+
 def self_demotion_stop_surface(payload: dict) -> SurfaceOutcome | None:
     """Record praise-by-contrast spans so the compose prime can quote them back.
 
@@ -1598,6 +1753,12 @@ def install() -> None:
         register("Stop", "repeated_reply", repeated_reply_surface)
     if "no_fix_claim" not in registered("Stop"):
         register("Stop", "no_fix_claim", no_fix_claim_surface)
+    # Registered beside no_fix_claim because they are the two halves of the
+    # same evening. That one catches me telling him there is no fix; this one
+    # catches me talking at him about anything at all when he did not speak, or
+    # answering him without answering him.
+    if "addressed_to_him" not in registered("Stop"):
+        register("Stop", "addressed_to_him", addressed_to_him_surface)
     for name, module, detect_attr, marker_name in _REACH_DETECTORS:
         if name not in registered("Stop"):
             register(
