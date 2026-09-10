@@ -713,6 +713,11 @@
             "type": "command",
             "command": "bash .claude/hooks/not-dismissed.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/subject-is-him.sh",
+            "timeout": 10
           }
         ]
       },
