@@ -18,10 +18,29 @@ from __future__ import annotations
 from divineos.core.multiplex_panels import Panel, Tier
 from divineos.core.multiplex_voice import gate_render
 
-# Per entry 71: panel size 60-120 tokens. Approximated as 80-480 chars.
-# Total always-essential budget 600 tokens = ~2400 chars.
+# Per entry 71: panel size 60-120 tokens, approximated as 80-480 chars. The
+# FLOOR was corrected empirically 2026-05-16 -- Aletheia read the real panels
+# and found ones well under the supposed minimum rendering cleanly, so it moved
+# and the contract recorded the lesson: the voice rule is the actual quality
+# gate, not arbitrary token count.
+#
+# The CEILING never got that treatment. It stayed as the original arithmetic --
+# 120 tokens times four characters -- with no reader behind it, until Andrew
+# 2026-09-06 asked why it was so small: "the entire point is to find out where
+# the maximum is to where the middle starts to get fuzzy so that every gulp is
+# fully readable and is maximum size to get the most information squeezed in."
+#
+# MEASURED against the 105 natural paragraphs the briefing surfaces produce.
+# Median 231 chars; three quarters under 319; nine in ten under 562. At 480,
+# 11% of them were being cut mid-thought -- a fuzzy middle created by the door
+# rather than by the writing. At 600, nine in ten arrive whole.
+#
+# Raising it further buys almost nothing: the remaining offenders run to 3138
+# characters, which fails the gulp test on its own terms. Those need rewriting
+# into chunks, not a wider door. So the ceiling sits just above where real
+# thoughts end, and the residue is named as a content problem.
 PANEL_MIN_CHARS = 80
-PANEL_MAX_CHARS = 480
+PANEL_MAX_CHARS = 600
 TOTAL_ALWAYS_ESSENTIAL_BUDGET_CHARS = 2400
 
 # Visual separator. Thin rule between panels.

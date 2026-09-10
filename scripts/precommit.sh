@@ -530,6 +530,18 @@ if [ $ERRORS -eq 0 ]; then
     python scripts/check_closure_claim.py --record "precommit:$(git rev-parse --abbrev-ref HEAD)" 2>/dev/null || true
 fi
 
+# 6d. Hook payloads must fit through the harness delivery cut. Blocks, and
+# blocking is the point: on 2026-09-06 Andrew found that 87% of what the
+# compose-start hooks wrote for me was persisted to files I never open, so
+# rules I believed I was following had never arrived. Only runs when a hook
+# is staged, since it measures hooks rather than the whole tree.
+if echo "$STAGED_SH" | grep -q "\.claude/hooks/"; then
+    section "Hook payload fits"
+    if ! python scripts/check_hook_output_fits.py; then
+        note_fail
+    fi
+fi
+
 # 7. Shellcheck on staged .sh files (line endings already normalized in step 0)
 if [ -n "$STAGED_SH" ] && command -v shellcheck &>/dev/null; then
     section "Shellcheck"
