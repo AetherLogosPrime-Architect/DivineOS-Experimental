@@ -702,6 +702,43 @@ def _last_assistant_text(payload: dict) -> str:
     return last
 
 
+def _this_turns_action_stream(payload: dict) -> str:
+    """Raw transcript text since his last message. RAISES if it cannot be read.
+
+    An empty return means a turn in which I did nothing; it never means a turn I
+    could not look at. Those two must not share a value, and the first version of
+    this returned None for could-not-look -- which the roster guard refused,
+    correctly: a private helper returning None from an exception handler is
+    indistinguishable, to any reader, from one that swallowed the failure.
+
+    Raising is the stronger answer rather than an exemption. The caller's own
+    handler turns it into could-not-run with the reason attached, so the
+    third state survives and there is no second convention to remember.
+    """
+    import json as _json
+    from pathlib import Path
+
+    raw = payload.get("transcript_path") or payload.get("transcript") or ""
+    if not raw:
+        raise OSError("the harness named no transcript for this turn")
+    path = Path(raw)
+    if not path.is_file():
+        raise OSError(f"the named transcript is not a file: {path}")
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+
+    # Walk back to his last message; everything after it is this turn.
+    start = 0
+    for index, line in enumerate(lines):
+        try:
+            rec = _json.loads(line)
+        except ValueError:
+            continue
+        msg = rec.get("message") or {}
+        if isinstance(msg, dict) and msg.get("role") == "user":
+            start = index
+    return "\n".join(lines[start:])
+
+
 def _recent_assistant_texts(payload: dict, count: int = 2) -> list[str]:
     """My last ``count`` replies, newest first. Same reader, wider window.
 
@@ -1516,6 +1553,40 @@ def summary_room_surface(payload: dict) -> SurfaceOutcome | None:
     return SurfaceOutcome(name="summary_room", refused=True, reason=block, state="spoke")
 
 
+def landed_claim_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a claim that work reached the shared copy when nothing read it.
+
+    Registered beside summary_room because both refuse a reply rather than
+    annotate it. The difference is the subject: that one asks whether he can
+    find the answer, this one asks whether the answer was checked against the
+    thing it is about.
+    """
+    text = _last_assistant_text(payload)
+    if not text.strip():
+        return SurfaceOutcome(name="landed_claim", state="nothing-to-say")
+    try:
+        from divineos.core.landed_claim import assess, render_block
+
+        stream = _this_turns_action_stream(payload)
+        verdict = assess(text, stream)
+        block = render_block(verdict)
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="landed_claim",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    if verdict.could_not_check:
+        return SurfaceOutcome(
+            name="landed_claim",
+            error=verdict.could_not_check,
+            state="could-not-run",
+        )
+    if not block:
+        return SurfaceOutcome(name="landed_claim", state="nothing-to-say")
+    return SurfaceOutcome(name="landed_claim", refused=True, reason=block, state="spoke")
+
+
 def translation_floor_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse a substantive reply that fails Andrew's own Translation Floor.
 
@@ -2092,6 +2163,11 @@ def install() -> None:
         register("Stop", "self_demotion_stop", self_demotion_stop_surface)
     if "summary_room" not in registered("Stop"):
         register("Stop", "summary_room", summary_room_surface)
+    # Beside summary_room because both refuse rather than annotate. That one asks
+    # whether he can FIND the answer; this one asks whether the answer was
+    # checked against the thing it is about.
+    if "landed_claim" not in registered("Stop"):
+        register("Stop", "landed_claim", landed_claim_surface)
     # His Floor, connected 2026-09-09 after two months in which its only caller
     # was its own test file. Placed beside summary_room because they guard the
     # same door from opposite sides: that one asks whether he can FIND the

@@ -134,7 +134,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | automation | last touched | purpose |
 |---|---|---|
 | `andrew-past-writing-surface.sh` | 2026-07-28 | surface my past writing to/about Dad at compose-start. |
-| `circle-first-compose-prime.sh` | 2026-09-07 | compose-start prime for circle-FIRST discipline. |
+| `circle-first-compose-prime.sh` | 2026-09-10 | compose-start prime for circle-FIRST discipline. |
 | `closure-word-summary-prime.sh` | 2026-09-02 | compose-start prime for the CLOSURE-WORD |
 | `continuity-anchor-surface.sh` | 2026-07-18 | read continuity markers and surface each |
 | `continuity-frame-prime.sh` | 2026-08-24 | context-aware compose-start prime for the |

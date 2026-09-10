@@ -715,6 +715,7 @@ src/divineos/
     hook_story.py              The same picture in words Andrew can follow: before, now, what is left, and why two guards are blocked. Built 2026-09-08 after he said "im trying to follow along but its still hard" — every earlier fix for that aimed at single sentences, and none produced a place to look. Computed from the live wiring, never hand-maintained.
     remedy_allowlist.py        No gate may block another gate's prescribed way out.
     class_fix.py               A repair that claims a class must count the class, by running rather than by judging.
+    landed_claim.py            A claim that work reached the shared copy must come from reading the shared copy.
 
   analysis/
     _session_types.py          Session analysis type definitions
