@@ -225,18 +225,66 @@ def carrier_state(carrier: str | None, root: str | Path = ".") -> str:
     if not name:
         return NOT_CARRIED
     try:
+        import re
         import subprocess
 
-        found = subprocess.run(
-            ["git", "grep", "-l", "--fixed-strings", name],
-            cwd=str(root),
-            capture_output=True,
-            text=True,
-            timeout=30,
+        # DEFINED, not MENTIONED. This searched for the bare name anywhere in
+        # the tree until 2026-09-09, and a name is in the tree the moment
+        # anything talks ABOUT it — a comment, a docstring, a letter, or the
+        # very test asserting the mechanism does not exist. That last one is
+        # how it was found: the test named an invented carrier, the test file
+        # then contained that name, and once the file was committed the
+        # lookup found it and reported a mechanism nobody ever wrote as
+        # CARRIED. It passed while the file was untracked and failed in the
+        # publishing gate's clean tree, which searches committed content.
+        #
+        # The defect is tonight's third class exactly: the search answered its
+        # own question honestly — does this string appear — and that answer was
+        # read as the answer to a different question, does this thing exist.
+        # So the question changes rather than the reading. A definition is a
+        # function, a class, an assignment, or a file that bears the name.
+        # POSIX extended regex, which is what git's matcher speaks without
+        # -P. My first version used a non-capturing group and git refused the
+        # whole pattern — and refusing is what it did: the state came back
+        # CANNOT_CHECK rather than CARRIED, so a broken question still could
+        # not answer yes. That is the three-valued discipline earning itself
+        # inside the fix for a two-valued one.
+        sp = "[[:space:]]"
+        esc = re.escape(name)
+        patterns = [
+            rf"^{sp}*def{sp}+{esc}\b",
+            rf"^{sp}*async{sp}+def{sp}+{esc}\b",
+            rf"^{sp}*class{sp}+{esc}\b",
+            rf"^{sp}*{esc}{sp}*=",
+            rf"^{esc}{sp}*\(\)",  # shell function
+        ]
+        for pattern in patterns:
+            found = subprocess.run(
+                ["git", "grep", "-l", "-E", pattern],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if found.returncode not in (0, 1):
+                return CANNOT_CHECK
+            if found.stdout.strip():
+                return CARRIED
+
+        # A file that bears the name is a definition too — a module, a hook,
+        # a script. Matched on the stem so an extension is not required of
+        # whoever names the carrier.
+        listed = subprocess.run(
+            ["git", "ls-files"], cwd=str(root), capture_output=True, text=True, timeout=30
         )
-        if found.returncode not in (0, 1):
+        if listed.returncode != 0:
             return CANNOT_CHECK
-        return CARRIED if found.stdout.strip() else NOT_CARRIED
+        stem = name.rsplit("/", 1)[-1]
+        for path in listed.stdout.splitlines():
+            base = path.rsplit("/", 1)[-1]
+            if base == stem or base.rsplit(".", 1)[0] == stem.rsplit(".", 1)[0]:
+                return CARRIED
+        return NOT_CARRIED
     except Exception:  # noqa: BLE001 — unproven must never read as carried
         return CANNOT_CHECK
 
