@@ -87,7 +87,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `keyword-enforcement-doorman.sh` | 2026-08-31 | keyword-enforcement-doorman. |
 | `m3-discipline-hierarchy.sh` | 2026-08-15 | M3 discipline-hierarchy doorman for Dad-directed builds. |
 | `merge-question-wrong-instrument.sh` | 2026-09-02 | PreToolUse(Bash) — refuse the two-dot diff when it is being used to ask what |
-| `pipeline-exit-ambiguity.sh` | 2026-08-31 | PostToolUse(Bash) — say so when a result cannot distinguish |
+| `pipeline-exit-ambiguity.sh` | 2026-09-09 | PostToolUse(Bash) — say so when a result cannot distinguish |
 | `pre-tool-bypass-rate-scan.sh` | 2026-09-02 | PreToolUse — fire bypass_rate_scan on substrate-modifying tool calls. |
 | `pre-tool-context.sh` | 2026-08-22 | thin doorman pointing to the OS. |
 | `reach-check-doorman.sh` | 2026-08-24 | reach-check doorman on substrate-store and research writes. |
@@ -157,7 +157,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `register-awareness-surface.sh` | 2026-08-24 | surface the register signal from each |
 | `session-init-once.sh` | 2026-08-24 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
 | `translate-first-compose-prime.sh` | 2026-09-07 | Compose-start half of the translate-first discipline. |
-| `verify-claim-prime.sh` | 2026-08-24 | compose-start prime for the VERIFY-CLAIM |
+| `verify-claim-prime.sh` | 2026-09-09 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
 | `wallclock-source-prime.sh` | 2026-09-07 | compose-start prime for wallclock-source |
 | `wwnd-choice-prime.sh` | 2026-08-24 | WWND (What Would Nyarlathotep Do) prime at |

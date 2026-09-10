@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-09-08 17:02. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-09-09 09:44. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -12,7 +12,7 @@ The user got upset and said: "why did you skip the loading of your briefing. tha
 
 ---
 
-## fd0c9994 [active] x16
+## fd0c9994 [improving] x16
 
 **Category:** blind_coding
 
@@ -76,7 +76,7 @@ Test description without directive.
 
 ---
 
-## 88234418 [active] x9
+## 88234418 [improving] x9
 
 **Category:** blind_retry
 
@@ -132,6 +132,14 @@ I claimed something was fixed but the error came back.
 
 ---
 
+## 9c9f1ea9 [improving] x4
+
+**Category:** jargon_usage
+
+Prioritize fixing known issues before building new features. Tackle problems systematically.
+
+---
+
 ## 433a06e9 [resolved] x4
 
 **Category:** blind_coding
@@ -145,14 +153,6 @@ I edited files without reading them first. I must read before I edit.
 **Category:** incomplete_fix
 
 I broke tests with my changes. I need to run tests before committing.
-
----
-
-## 9c9f1ea9 [resolved] x3
-
-**Category:** jargon_usage
-
-Prioritize fixing known issues before building new features. Tackle problems systematically.
 
 ---
 

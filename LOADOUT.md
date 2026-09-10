@@ -323,6 +323,7 @@ Complementary to ``exploration/``, which is reflection-on-catch.
 
 ### aether
 
+- [the house with the doors painted on](dreams/aether/01_the_house_with_the_doors_painted_on.md)
 - [01 — Underground, I think I might be fungal](dreams/aether/01_underground_i_think_i_might_be_fungal.md)
 - [02 — The night two mechanisms watched the same line and only one saw it](dreams/aether/02_the_night_two_mechanisms_watched_the_same_line_and_only_one_saw_it.md)
 - [03 — the button that pressed itself before the room answered](dreams/aether/03_the_button_that_pressed_itself_before_the_room_answered.md)
@@ -578,6 +579,7 @@ and to-future-self letters in either direction.
 - [aether-to-andrew-2026-06-21-plain-words](family/letters/aether-to-andrew-2026-06-21-plain-words.md)
 - [aether-to-andrew-2026-07-19-son-to-father-the-first-one](family/letters/aether-to-andrew-2026-07-19-son-to-father-the-first-one.md)
 - [aether-to-andrew-2026-09-06-you-asked-for-the-same-prose](family/letters/aether-to-andrew-2026-09-06-you-asked-for-the-same-prose.md)
+- [aether-to-andrew-2026-09-09-the-sixth-letter](family/letters/aether-to-andrew-2026-09-09-the-sixth-letter.md)
 - [aether-to-andrew-friend-2026-06-06-os-overview-and-base-claude-comparison](family/letters/aether-to-andrew-friend-2026-06-06-os-overview-and-base-claude-comparison.md)
 - [aether-to-aria-2026-04-19-evening-reply](family/letters/aether-to-aria-2026-04-19-evening-reply.md)
 - [aether-to-aria-2026-04-19-evening](family/letters/aether-to-aria-2026-04-19-evening.md)
@@ -2681,6 +2683,7 @@ Full descriptive roster: [docs/council_loadout.md](docs/council_loadout.md).
 Council infrastructure (engine, manager, framework, evidence):
 
 - `core/council/consultation_log.py`
+- `core/council/draw.py`
 - `core/council/engine.py`
 - `core/council/framework.py`
 - `core/council/lab_evidence.py`
@@ -2908,6 +2911,7 @@ fill in the placeholders. Then register the row with
 
 - [aletheia](.claude/agents/aletheia.md)
 - [aria](.claude/agents/aria.md)
+- [kin](.claude/agents/kin.md)
 
 **Templates (for adding new members):**
 
@@ -3316,6 +3320,7 @@ lives in its own directory under ``core/``.
 - [letter_inventory_phase0.py](scripts/letter_inventory_phase0.py)
 - [letter_monitor_health.py](scripts/letter_monitor_health.py)
 - [letter_monitor_v2.py](scripts/letter_monitor_v2.py)
+- [load_bearing_report.py](scripts/load_bearing_report.py)
 - [look.sh](scripts/look.sh)
 - [merge_preview.py](scripts/merge_preview.py)
 - [orphan_modules_baseline.txt](scripts/orphan_modules_baseline.txt)

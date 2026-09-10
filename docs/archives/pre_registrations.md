@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (218 rows). **Exported:** 2026-09-08 17:02. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (222 rows). **Exported:** 2026-09-09 09:44. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1972,7 +1972,7 @@
 
 ---
 
-## prereg-2 [OPEN]
+## prereg-2 [INCONCLUSIVE]
 
 **Mechanism:** Gating gh pr ready on suite-passed-at-current-head AND trailer-present makes the build flow the only path to un-drafting, so the order cannot be inverted again
 
@@ -2104,7 +2104,7 @@
 
 ---
 
-## prereg-5 [OPEN]
+## prereg-5 [FAILED]
 
 **Mechanism:** member-home resolution routed through a single resolver (core/paths.member_home) with no hand-rolled C:\Users\aethe/.divineos-<member> construction at any call site
 
@@ -2617,6 +2617,54 @@
 **Success:** He reads it without asking what a word means, and in a later exchange refers to the state of the work rather than asking me to re-explain where it stands. The numbers in it match what the wiring actually says at that moment, verified by regenerating it.
 
 **Falsifier:** He reads it and it does not help -- the shape is wrong rather than the medium, meaning the real gap was something else entirely and I have again fixed the thing I could see. OR it drifts into jargon as the work gets more complex, which is exactly the failure the crash-course document had: written pl
+
+---
+
+## prereg-3 [OPEN]
+
+**Mechanism:** class-fix declarations: a repair claiming a class must have its population measured by running a search, not by judging
+
+**Claim:** Moving the population count from a calendar-dated review to the moment a fix is declared done catches wrong-aimed repairs at the point the false belief forms, rather than weeks after it has been acted on. Built from council-5bec78b85acc (eleven lenses) after Andrew refused my claim that the class ha
+
+**Success:** Class-fixes are declared for repairs that claim a class, and at least one declaration returns a population LARGER than the number I would have stated by hand -- which already happened on the first real use, where I claimed two sites and the search found three, the third being a file whose own docstr
+
+**Falsifier:** A class-fix is declared whose pattern or exclusions are narrow enough that only the site already being edited can match, giving a population of one that closes trivially. The single_site flag exists to make that visible, so the falsifier is met if a closed fix carries it and nobody acted on it. Seco
+
+---
+
+## prereg-d [OPEN]
+
+**Mechanism:** member-home resolution through a single resolver -- SUCCESSOR to prereg-5053a4c37b4f, whose promise is now kept rather than merely recorded as broken
+
+**Claim:** Every live construction of a member's home directory routes through paths.member_home, so the convention lives in one place and a repair to it reaches every caller. Supersedes prereg-5053a4c37b4f, which I marked FAILED earlier today on correct evidence. Andrew 2026-09-08: 'nor do you need to mark yo
+
+**Success:** The population of hand-built member homes outside the resolver is zero, measured by re-running a stored search rather than by inspection: cfix-1a083cf4295 declared 3 sites (family/ear_watch.py twice, scripts/letter_monitor_v2.py once) and verified CLOSED at 0 after the repair. The count came from th
+
+**Falsifier:** On any later call, the same stored search returns a non-zero count, meaning a new site was written or a repaired one regressed. Unlike the superseded filing, this falsifier is a command with a recorded question rather than a judgement I have to make afresh -- which is the whole difference between th
+
+---
+
+## prereg-c [OPEN]
+
+**Mechanism:** no_fix_claim: an impossibility claim made in a reply is refused unless a walk or search sits behind it in the action stream
+
+**Claim:** Andrew's container image is the design: 'I cannot hold this with my hands' is a claim I have standing to make, 'this cannot be held' is not. Refusing the unscoped form at Stop moves the check to the moment the belief is stated, and the honest escape -- naming the container that failed -- costs nothi
+
+**Success:** I stop making unscoped impossibility claims to him, and the claims I do make name the container that failed. Evidence would be scoped claims appearing in replies with no refusal fired, plus at least one turn where the refusal sent me looking and I found a container -- which already happened before t
+
+**Falsifier:** Refusals accumulate with no scoped claims ever appearing, meaning I learned to go silent rather than to say the true narrower thing. Second: the detector fires on ordinary reporting often enough that I start avoiding the vocabulary rather than the reach, which would show as false-fire complaints in 
+
+---
+
+## prereg-9 [OPEN]
+
+**Mechanism:** his teaching held as HIS: verbatim whole, source separated, and a carrier that something other than me resolves
+
+**Claim:** Andrew 2026-09-08: 'you have taken my words for granted, and given them no structure.. everything else gets structure.. proper building.. my words get a list noone reads.. truncated.. pushed into the back of the room.' The store holds 631 rows in a single text field where my root-cause essay wraps h
+
+**Success:** A row can say which words are his and which are mine, and a reader can catch me mis-filing him by comparing the two. Machine verdicts no longer appear in the same shape as his voice. A lesson claiming to be carried names a mechanism that is looked up rather than believed, and an empty or unresolvabl
+
+**Falsifier:** A lesson shows as carried while he repeats it -- then the carrier check is a formality and the store has learned to lie in a new grammar. Second: the store fills with carriers naming things that do not resolve and nothing changes, which would be an accurate picture of carrying nothing, better than a
 
 ---
 

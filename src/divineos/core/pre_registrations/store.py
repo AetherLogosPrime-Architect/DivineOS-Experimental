@@ -114,13 +114,16 @@ def _row_to_prereg(row: tuple[Any, ...]) -> PreRegistration:
         linked_claim_id=row[12],
         linked_commit=row[13],
         tags=tags,
+        # Rows written before this column existed are shorter, and a short row
+        # means the question was never asked — not that the answer was none.
+        embarrassing_reading=row[15] if len(row) > 15 else None,
     )
 
 
 _SELECT_ALL_COLS = (
     "prereg_id, created_at, actor, mechanism, claim, success_criterion, "
     "falsifier, review_ts, review_window_days, outcome, outcome_ts, "
-    "outcome_notes, linked_claim_id, linked_commit, tags"
+    "outcome_notes, linked_claim_id, linked_commit, tags, embarrassing_reading"
 )
 
 
@@ -134,8 +137,19 @@ def file_pre_registration(
     linked_claim_id: str | None = None,
     linked_commit: str | None = None,
     tags: list[str] | None = None,
+    embarrassing_reading: str | None = None,
 ) -> str:
     """File a new pre-registration.
+
+    ``embarrassing_reading`` is Aria's test, 2026-09-09, after two measures
+    of mine shipped in one evening that could not contradict me: the first
+    could not vary at all, the second varied with my own prose. Both had
+    falsifiers written for them. Her sharper form is not *what would falsify
+    the claim* but *what number would this thing have to produce for me to be
+    sorry I built it* — and a measure with no such number is not a measure.
+    Left optional at this layer so older rows read as NULL, meaning the
+    question was never asked rather than answered with none; the command-line
+    path requires it, which is where a new measure actually gets filed.
 
     Returns the prereg_id. Raises ValueError if any required field is
     empty or review_window_days is not positive.
@@ -171,7 +185,7 @@ def file_pre_registration(
     try:
         conn.execute(
             f"INSERT INTO pre_registrations ({_SELECT_ALL_COLS}) "  # noqa: S608  # nosec B608 — static column list
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 prereg_id,
                 now,
@@ -188,6 +202,7 @@ def file_pre_registration(
                 linked_claim_id,
                 linked_commit,
                 json.dumps(tag_list),
+                embarrassing_reading.strip() if embarrassing_reading else None,
             ),
         )
         conn.commit()
