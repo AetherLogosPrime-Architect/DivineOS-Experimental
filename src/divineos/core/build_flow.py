@@ -534,6 +534,105 @@ def check_audit_station(
     )
 
 
+def judging_code_provenance(
+    main_ref: str = "main",
+    module_path: Path | None = None,
+    tracked_path: str = "src/divineos/core/build_flow.py",
+) -> tuple[Status, str]:
+    """Say which copy of the station rules produced this reading.
+
+    THE VERDICT COMES FROM THE CHECKOUT, NOT ONLY FROM THE DATA. Every station
+    above is code, and the code that runs is whichever copy the working tree
+    happens to be standing on. So the same pull request reads one way from a
+    branch carrying a widened check and another way from a branch that does
+    not, with nothing on the page saying so. Named on 2026-09-01 in a letter to
+    Aria after a station demoted to could-not-check on one branch and passed on
+    another, and again on 2026-09-10 when she reported the board's answer about
+    her readings while standing in a different tree from mine.
+
+    This does not and cannot make the reading independent of the checkout --
+    that would mean fetching the rules from somewhere, and then the fetch is
+    the thing that varies. It makes the dependence VISIBLE, which is the
+    honest half and the half that was missing. A green from rules nobody else
+    is running is still a green; it just is not a green about the shared
+    repository, and the reader deserves to know which one they have.
+
+    Three-valued like everything else here. Cannot-check is returned when git
+    is unavailable or the reference does not exist, and it must never be read
+    as agreement -- that is the same collapse the whole module exists to
+    refuse.
+    """
+    import hashlib
+    import subprocess
+
+    # The two extra arguments exist so this can be exercised against a real
+    # repository built in a test rather than against whichever one the suite
+    # happens to be sitting in. A check whose only fixture is the tree it lives
+    # in can only ever be run once, in one state, which is how a three-valued
+    # answer ends up with two of its three branches never observed.
+    here = Path(__file__) if module_path is None else module_path
+    repo_root = here.parents[3] if module_path is None else here.parent
+    try:
+        mine = here.read_bytes()
+    except OSError as exc:
+        return (
+            Status.CANNOT_CHECK,
+            f"the running station rules could not be read from disk ({exc.__class__.__name__})"
+            " — this is not agreement with the shared copy",
+        )
+
+    try:
+        proc = subprocess.run(
+            ["git", "show", f"{main_ref}:{tracked_path}"],
+            capture_output=True,
+            cwd=str(repo_root),
+            check=False,
+        )
+    except OSError as exc:
+        return (
+            Status.CANNOT_CHECK,
+            f"git could not be run ({exc.__class__.__name__}), so which rules"
+            " produced this reading is unknown — not the same as shared",
+        )
+
+    if proc.returncode != 0:
+        detail = proc.stderr.decode(errors="replace").strip().splitlines()
+        why = detail[-1] if detail else f"git exited {proc.returncode}"
+        return (
+            Status.CANNOT_CHECK,
+            f"the shared copy on {main_ref} could not be read ({why}) — unknown, not agreed",
+        )
+
+    def _rules(raw: bytes) -> bytes:
+        # LINE ENDINGS ARE NOT THE RULEBOOK. Git stores the blob with newlines
+        # alone; a Windows working tree holds the same source with a carriage
+        # return in front of every one of them. Comparing the raw bytes made
+        # this answer "differs" on every Windows checkout including one that had
+        # just been cloned, which would have made the new line on the board cry
+        # wolf permanently -- and a warning that is always on is a warning
+        # nobody reads. Caught by the test, on the first run, against a
+        # repository built for the purpose.
+        return raw.replace(b"\r\n", b"\n")
+
+    def _short(raw: bytes) -> str:
+        # usedforsecurity=False: this names WHICH copy of a source file spoke,
+        # so two readings can be told apart. Nothing authenticates against it.
+        return hashlib.sha1(_rules(raw), usedforsecurity=False).hexdigest()[:8]
+
+    if _rules(proc.stdout) == _rules(mine):
+        return (
+            Status.SATISFIED,
+            f"judged by the same station rules {main_ref} carries",
+        )
+
+    return (
+        Status.MISSING,
+        f"judged by THIS checkout's station rules ({_short(mine)}), which differ"
+        f" from the ones on {main_ref} ({_short(proc.stdout)}) — another tree"
+        " may read the same pull requests differently",
+    )
+
+
 def fingerprint(statuses: list[PrFlowStatus]) -> str:
     """Stable digest of the whole picture, for delta-detection.
 

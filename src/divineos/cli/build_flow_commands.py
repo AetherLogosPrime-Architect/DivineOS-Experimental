@@ -37,6 +37,7 @@ from divineos.core.build_flow import (
     check_council_station,
     check_draft_station,
     fingerprint,
+    judging_code_provenance,
     required_lens_count,
     score_pr_gravity,
 )
@@ -654,6 +655,15 @@ def render(statuses: list[PrFlowStatus]) -> str:
     lines.append("  Stations advance on artifacts. Station 4 needs a reply FROM Aria,")
     lines.append("  not a letter from me — an artifact I can produce alone proves only")
     lines.append("  that I spoke. '????' is not a pass; it means the check could not run.")
+    lines.append("")
+
+    # WHOSE RULES SAID SO. Every verdict above is this checkout's copy of the
+    # station code talking, and until now the page read as if it were the
+    # repository's. Aria and I have each reported a board reading to the other
+    # from different trees more than once; both readings were honest and they
+    # were about different rulebooks.
+    prov_status, prov_detail = judging_code_provenance()
+    lines.append(f"  [{_MARK[prov_status]}] whose rules  {prov_detail}")
     lines.append("")
     return "\n".join(lines)
 
