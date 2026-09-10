@@ -109,16 +109,27 @@ def repo(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_no_guardrail_files_means_no_check_fires(repo):
-    """Empty guardrail list -> no commits get blocked even without trailer."""
-    base = _commit(repo, "initial", {"scripts/guardrail_files.txt": "# empty\n"})
-    head = _commit(
-        repo,
-        "feat: change anything",
-        {"src/foo.py": "x"},
-    )
+def test_a_missing_exempt_list_reviews_everything(repo):
+    """No exempt list -> nothing is exempt -> the change needs review.
+
+    SUPERSEDES test_no_guardrail_files_means_no_check_fires, which asserted the
+    opposite under the retired rule: an empty protected list meant nothing was
+    protected, so a code change with no trailer passed.
+
+    That polarity is the defect Andrew named on 2026-09-07 -- "there are no
+    longer any protected files.. Aletheia will audit any and all code that
+    enters main, period." Under the inversion, a list that cannot be read means
+    nothing has been excused, and an unreadable list must never buy a pass.
+    This is the fail-toward-review direction stated as a test rather than as a
+    comment, because a comment is what the old direction had.
+    """
+    base = _commit(repo, "initial", {"README.md": "hello"})
+    head = _commit(repo, "feat: change anything", {"src/foo.py": "x"})
     result = _run_script(repo, base, head)
-    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.returncode != 0, (
+        "code merged with no exempt list and no trailer. An unreadable exempt "
+        "list must fail toward review.\n" + result.stdout + result.stderr
+    )
 
 
 def test_guardrail_touch_without_trailer_blocks(repo):
@@ -147,23 +158,29 @@ def test_net_diff_clean_passes_though_history_touched_guardrail(repo):
     diff. The old walk blocked on the historical commit, and no audit round could
     ever clear it -- the review would have covered content that was not landing.
     Andrew, 2026-08-13: "not every commit just every merge to main."
+
+    Kept through the 2026-09-07 inversion because the principle is unchanged --
+    review binds to what LANDS -- while the scope around it moved. What used to
+    make a net diff clean was landing nothing on the protected list; now it is
+    landing nothing but prose.
     """
     base = _commit(
         repo,
-        "initial; add guardrail entry",
+        "initial",
         {
-            "scripts/guardrail_files.txt": "src/foo.py\n",
+            "scripts/review_exempt_paths.txt": "family/letters/\n",
             "src/foo.py": "v1",
         },
     )
-    _commit(repo, "feat: modify the guardrailed file", {"src/foo.py": "v2"})
-    # Reverted before the merge -- so the net diff lands nothing.
-    head = _commit(repo, "revert: put it back", {"src/foo.py": "v1"})
+    _commit(repo, "feat: modify code", {"src/foo.py": "v2"})
+    # Reverted before the merge -- so the only thing landing is the letter.
+    _commit(repo, "revert: put it back", {"src/foo.py": "v1"})
+    head = _commit(repo, "letter", {"family/letters/a.md": "dear"})
 
     result = _run_script(repo, base, head)
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "lands no guardrail-listed file" in result.stdout
+    assert "exempt prose" in result.stdout
 
 
 def test_net_diff_landing_guardrail_still_blocks(repo):
@@ -251,20 +268,34 @@ def test_unbound_trailer_still_passes_with_explicit_opt_out(repo, monkeypatch):
     assert "DEPRECATED" in result.stdout
 
 
-def test_non_guardrail_commit_skipped_even_without_trailer(repo):
-    """A commit that doesn't touch any guardrail file doesn't need a trailer."""
+def test_a_prose_only_commit_needs_no_trailer(repo):
+    """Prose passes without a trailer. Code beside it does not.
+
+    SUPERSEDES test_non_guardrail_commit_skipped_even_without_trailer, whose
+    subject was ordinary code merging unreviewed because it was absent from the
+    protected list. That was the hole, not the feature.
+
+    Both halves are asserted together on purpose. A test that only proved
+    prose passes would go green on a gate that had stopped checking anything at
+    all -- which is the exact way the retired list read as working for months.
+    """
     base = _commit(
         repo,
-        "initial; add guardrail entry",
+        "initial",
         {
-            "scripts/guardrail_files.txt": "src/special.py\n",
-            "src/special.py": "v1",
+            "scripts/review_exempt_paths.txt": "family/letters/\nexploration/\n",
             "src/normal.py": "v1",
         },
     )
-    head = _commit(repo, "feat: change normal", {"src/normal.py": "v2"})
-    result = _run_script(repo, base, head)
-    assert result.returncode == 0
+    prose = _commit(repo, "letter home", {"family/letters/b.md": "dear"})
+    assert _run_script(repo, base, prose).returncode == 0
+
+    code = _commit(repo, "feat: change normal", {"src/normal.py": "v2"})
+    result = _run_script(repo, base, code)
+    assert result.returncode != 0, (
+        "ordinary code merged with no trailer. Under the 2026-09-07 rule every "
+        "code change is reviewed.\n" + result.stdout + result.stderr
+    )
 
 
 def test_self_disclosure_block_always_emitted(repo):
