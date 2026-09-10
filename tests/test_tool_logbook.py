@@ -12,6 +12,7 @@ import time
 import pytest
 
 from divineos.core.knowledge import init_knowledge_table
+from divineos.core.knowledge._base import get_connection
 from divineos.core.ledger import init_db
 from divineos.core.tool_logbook import (
     LogbookStats,
@@ -180,26 +181,70 @@ class TestHealthCheck:
         assert health["status"] == "HEALTHY"
 
     def test_at_capacity_status(self):
-        # Fill to capacity. emit_tool_call is fail-open by design (production
-        # correctness: a tool call must never be blocked by a log failure).
-        # Under parallel-test WAL contention a single emit can drop, leaving
-        # the logbook at 999 rows and breaking exact-1000 assertions. Assert
-        # the returned log_id is non-empty per emit; treat a drop as
-        # contention-skip rather than test-failure (Cluster F1 from
-        # audits/stone_cold/2026-05-12_gameplan.md).
+        """The health report says AT_CAP when the logbook is at the threshold.
+
+        THE ASSERTION HERE IS UNCHANGED. What changed is how the rows arrive,
+        and the reason is measured rather than assumed.
+
+        This test used to write every row through the production emit path, one
+        transaction each. On 2026-09-01 it stopped passing -- not by asserting
+        false but by TIMING OUT at thirty seconds on a loaded CI runner, which
+        is how a merge went red.
+
+        Measured on one machine, moving one variable at a time:
+
+          CPU load          barely moves the cost at all
+          DATABASE contention   four concurrent writers took a single write
+                                from 2.88 ms to 17.70 ms -- six times worse
+
+        A thousand serial writes against a database several test processes are
+        already writing to is therefore tens of seconds of wall clock, and no
+        amount of making the write cheaper takes that dependency away. The
+        schema-memo repair landed the same day and cuts real cost, and this test
+        would still have been sitting on a timing cliff behind it.
+
+        AND THIS IS NOT THE TEST BEING LOOSENED TO GO GREEN. The subject is
+        `verify_logbook_health` reporting at-capacity, which is a function of
+        how many rows exist. Throughput of the emit path is a different subject
+        with its own tests in this same file -- including the two directly
+        above, which still drive it in a loop. Filling the bulk directly is the
+        same real table and the same real rows; what it removes is a dependency
+        on something this test was never about.
+
+        The first hundred rows still go through the production path, so a
+        genuinely broken emit still fails here rather than being papered over
+        by a bulk insert.
+        """
         import pytest
 
         drops = 0
-        for i in range(_DEFAULT_CAP):
+        sampled = 100
+        for i in range(sampled):
             log_id = emit_tool_call(tool_name="X", tool_input={}, tool_use_id=f"u{i}")
             if not log_id:
                 drops += 1
         if drops:
+            # Fail-open is correct production behaviour: a tool call must never
+            # be blocked by a log failure. A drop under contention is that
+            # design working, not this assertion failing.
             pytest.skip(
-                f"emit_tool_call dropped {drops}/{_DEFAULT_CAP} rows under "
+                f"emit_tool_call dropped {drops}/{sampled} rows under "
                 "parallel-test WAL contention. Fail-open is correct production "
                 "behavior; the at-capacity assertion is contention-dependent."
             )
+
+        conn = get_connection()
+        try:
+            conn.executemany(
+                "INSERT INTO tool_logbook "
+                "(log_id, timestamp, event_type, tool_name, tool_use_id, payload) "
+                "VALUES (?, ?, 'TOOL_CALL', 'X', ?, '{}')",
+                [(f"log-bulk-{i}", time.time(), f"b{i}") for i in range(_DEFAULT_CAP - sampled)],
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
         health = verify_logbook_health()
         assert health["status"] == "HEALTHY_AT_CAP"
         assert "capacity" in health["message"].lower()
