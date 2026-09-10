@@ -123,34 +123,87 @@ def test_unmeasured_divergence_is_never_reported_as_low(store):
     assert stats["divergence_unavailable"]
 
 
-def test_the_verdict_can_go_against_the_draw(store, monkeypatch):
+def _seed_twenty(store, drawn_credits, scored_credits):
+    """Twenty closed walks, crediting a given number of seats of each origin."""
+    for i in range(20):
+        _seed(
+            store,
+            f"walk-{i}",
+            [
+                ("Taleb", "drawn", "APPLIED", "a finding"),
+                ("Peirce", "scored", "APPLIED", "another finding"),
+            ],
+        )
+    conn = council_walk._conn()
+    try:
+        for origin, lens, n in (
+            ("drawn", "Taleb", drawn_credits),
+            ("scored", "Peirce", scored_credits),
+        ):
+            for i in range(n):
+                conn.execute(
+                    "UPDATE walk_lenses SET changed_artifact = ? WHERE walk_id = ? AND lens = ?",
+                    (f"changed something real in walk {i}", f"walk-{i}", lens),
+                )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_the_verdict_can_go_against_the_draw(store):
     """The falsifier must be able to fire — otherwise it is decoration.
 
-    Red half of the pair: had the verdict stayed on applied-rate, this could
-    never have happened, because across every walk in the real store I have
-    written exactly zero exclusions and the rate is pinned at 1.000.
+    Red half of the pair, twice over. Under applied-rate this could never have
+    happened, because across every walk in the real store I have written
+    exactly zero exclusions and the rate is pinned at 1.000. Under divergence
+    it could fire, but on a number that tracked my own prose variety rather
+    than the lens.
     """
-    for i in range(20):
-        _seed(
-            store,
-            f"walk-{i}",
-            [
-                ("Taleb", "drawn", "APPLIED", "a finding"),
-                ("Peirce", "scored", "APPLIED", "another finding"),
-            ],
-        )
-
-    def fake_attach(result):
-        result["origins"]["drawn"]["divergence"] = 0.40
-        result["origins"]["scored"]["divergence"] = 0.75
-
-    monkeypatch.setattr(council_walk, "_attach_divergence", fake_attach)
+    _seed_twenty(store, drawn_credits=4, scored_credits=15)
     ev = council_walk.seat_evidence(min_walks=20)
     assert ev["verdict"] == "scored-ahead"
-    assert "divergence" in ev["why"]
+    assert "changing the artifact" in ev["why"]
 
 
-def test_the_verdict_can_also_go_for_the_draw(store, monkeypatch):
+def test_the_verdict_can_also_go_for_the_draw(store):
+    _seed_twenty(store, drawn_credits=16, scored_credits=3)
+    assert council_walk.seat_evidence(min_walks=20)["verdict"] == "drawn-holds"
+
+
+def test_credit_is_refused_once_the_walk_is_closed(store):
+    """The window closes with the walk, and that is the point.
+
+    Aria 2026-09-09: credit reconstructed after the fact is a receipt written
+    once the outcome is known — the anchoring class arriving inside the fix
+    for it. So the code refuses rather than trusting me to remember.
+    """
+    _seed(store, "walk-shut", [("Taleb", "drawn", "APPLIED", "a finding")], closed=True)
+    with pytest.raises(council_walk.WalkRefused):
+        council_walk.credit_seat("walk-shut", "Taleb", "removed the unreachable fallback branch")
+
+
+def test_credit_records_what_changed_while_open(store):
+    _seed(store, "walk-live", [("Taleb", "drawn", "APPLIED", "a finding")], closed=False)
+    council_walk.credit_seat("walk-live", "Taleb", "removed the unreachable fallback branch")
+    conn = council_walk._conn()
+    try:
+        row = conn.execute(
+            "SELECT changed_artifact FROM walk_lenses WHERE walk_id = ? AND lens = ?",
+            ("walk-live", "Taleb"),
+        ).fetchone()
+    finally:
+        conn.close()
+    assert "fallback" in row[0]
+
+
+def test_credit_refuses_a_gesture(store):
+    _seed(store, "walk-live", [("Taleb", "drawn", "APPLIED", "a finding")], closed=False)
+    with pytest.raises(council_walk.WalkRefused):
+        council_walk.credit_seat("walk-live", "Taleb", "it helped")
+
+
+def test_verdict_will_not_rule_when_nothing_was_ever_credited(store):
+    """Zero credits on both sides is a fact about recording, not about the split."""
     for i in range(20):
         _seed(
             store,
@@ -160,10 +213,25 @@ def test_the_verdict_can_also_go_for_the_draw(store, monkeypatch):
                 ("Peirce", "scored", "APPLIED", "another finding"),
             ],
         )
+    ev = council_walk.seat_evidence(min_walks=20)
+    assert ev["verdict"] == "insufficient"
+    assert "credit is being recorded" in ev["why"]
 
-    def fake_attach(result):
-        result["origins"]["drawn"]["divergence"] = 0.80
-        result["origins"]["scored"]["divergence"] = 0.55
 
-    monkeypatch.setattr(council_walk, "_attach_divergence", fake_attach)
-    assert council_walk.seat_evidence(min_walks=20)["verdict"] == "drawn-holds"
+def test_the_narrowing_door_is_counted_per_lens(store):
+    """Aria's guard: no single exclusion looks like re-picking by taste; a tally does."""
+    _seed(
+        store,
+        "walk-x",
+        [
+            ("Taleb", "drawn", "EXCLUDED", "nothing to say on this particular problem at all"),
+            ("Popper", "drawn", "APPLIED", "a finding"),
+        ],
+    )
+    _seed(
+        store,
+        "walk-y",
+        [("Taleb", "drawn", "EXCLUDED", "again nothing to say on this problem whatsoever")],
+    )
+    tally = council_walk.exclusion_tally()
+    assert tally[0] == {"lens": "Taleb", "exclusions": 2}

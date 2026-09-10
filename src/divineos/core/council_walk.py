@@ -93,6 +93,13 @@ def _conn() -> sqlite3.Connection:
         conn.execute("ALTER TABLE walk_lenses ADD COLUMN origin TEXT NOT NULL DEFAULT 'scored'")
     except sqlite3.OperationalError:
         pass
+    # What this seat changed in the artifact, written as the change is made.
+    # NULL means no change credited, which on an older row means the question
+    # was never asked rather than that the answer was no.
+    try:
+        conn.execute("ALTER TABLE walk_lenses ADD COLUMN changed_artifact TEXT")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
     return conn
 
@@ -280,6 +287,89 @@ def apply_lens(walk_id: str, lens: str, finding: str) -> None:
 def exclude_lens(walk_id: str, lens: str, reason: str) -> None:
     """Exclude a lens WITH a reason. Silent narrowing is what this stops."""
     _settle(walk_id, lens, "EXCLUDED", reason, MIN_EXCLUSION_CHARS)
+
+
+MIN_CHANGE_CHARS = 30
+
+
+def credit_seat(walk_id: str, lens: str, what_changed: str) -> None:
+    """Record that this lens changed the thing being built, as it changes.
+
+    Aria 2026-09-09, taking apart the measure I had just shipped: divergence
+    compares a seat's finding against the other findings on the same walk, and
+    I wrote all of them — so it measures how far one of my paragraphs sits from
+    my other paragraphs, which is a fact about my prose variety and not about
+    the lens. A seat I happened to phrase in a different register reads as
+    divergent; one that genuinely broke the frame but came out in the same
+    voice reads as conformist. And it moves if I vary my wording, with no
+    intent to game it at all.
+
+    Her replacement was already in my own hands: *four of those findings
+    changed the commit before it was made.* That is what divergence was
+    standing in for, it is binary, and it is about the artifact rather than
+    about the text. Distance-from-the-others was chosen because it was
+    computable; changed-the-artifact is the thing itself.
+
+    REFUSED ON A CLOSED WALK, and that is the whole discipline rather than a
+    convenience. Her caution: credit recorded after the fact is a receipt
+    written once the outcome is known, which is the anchoring class arriving
+    inside the fix for it. Closing the walk closes the window.
+    """
+    what_changed = (what_changed or "").strip()
+    if len(what_changed) < MIN_CHANGE_CHARS:
+        raise WalkRefused(
+            f"name what changed, in at least {MIN_CHANGE_CHARS} characters. "
+            "'it helped' is not an artifact."
+        )
+    conn = _conn()
+    try:
+        row = conn.execute(
+            "SELECT w.closed_at FROM walks w JOIN walk_lenses l ON l.walk_id = w.id "
+            "WHERE w.id = ? AND l.lens = ?",
+            (walk_id, lens),
+        ).fetchone()
+        if row is None:
+            raise WalkRefused(f"{lens!r} is not on walk {walk_id}")
+        if row[0] is not None:
+            raise WalkRefused(
+                f"{walk_id} is closed. Credit is recorded as the change is made, never "
+                "after — a receipt written once the outcome is known is the anchoring "
+                "shape this whole line of work is about."
+            )
+        conn.execute(
+            "UPDATE walk_lenses SET changed_artifact = ? WHERE walk_id = ? AND lens = ?",
+            (what_changed, walk_id, lens),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def exclusion_tally(limit: int = 15) -> list[dict[str, Any]]:
+    """How often each lens has been excluded, across all walks.
+
+    Aria's guard, and she moved the target to get here. I had flagged the
+    hand-add path as the override I kept for myself; she refused that reading.
+    A hand-add can only WIDEN the council, costs a written reason, and is what
+    put four of the fourteen lenses on the walk that found the defect at all.
+
+    The narrowing door is this one. Draw nine, exclude the three that feel
+    useless, and fit-selection is back by hand with a paper trail that reads as
+    diligence. No single exclusion looks like that; a tally does. If one name
+    keeps being excluded it is either a genuinely useless lens — a finding
+    about the roster — or a voice I keep declining to hear, which is a finding
+    about me. Neither is visible one exclusion at a time.
+    """
+    conn = _conn()
+    try:
+        rows = conn.execute(
+            "SELECT lens, COUNT(*) AS n FROM walk_lenses WHERE state = 'EXCLUDED' "
+            "GROUP BY lens ORDER BY n DESC, lens ASC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    finally:
+        conn.close()
+    return [{"lens": lens, "exclusions": n} for lens, n in rows]
 
 
 def status(walk_id: str) -> dict[str, Any]:
@@ -507,6 +597,12 @@ def seat_evidence(min_walks: int = 20) -> dict[str, Any]:
             "WHERE w.closed_at IS NOT NULL AND l.state IN ('APPLIED', 'EXCLUDED') "
             "GROUP BY l.origin, l.state"
         ).fetchall()
+        credits = conn.execute(
+            "SELECT l.origin, COUNT(*) FROM walk_lenses l "
+            "JOIN walks w ON w.id = l.walk_id "
+            "WHERE w.closed_at IS NOT NULL AND l.changed_artifact IS NOT NULL "
+            "GROUP BY l.origin"
+        ).fetchall()
         closed_walks = conn.execute(
             "SELECT COUNT(*) FROM walks WHERE closed_at IS NOT NULL"
         ).fetchone()[0]
@@ -517,15 +613,19 @@ def seat_evidence(min_walks: int = 20) -> dict[str, Any]:
     for origin, state, count in rows:
         bucket = by_origin.setdefault(origin, {"APPLIED": 0, "EXCLUDED": 0})
         bucket[state] = count
+    credited_by_origin = dict(credits)
 
     result: dict[str, Any] = {"closed_walks": closed_walks, "origins": {}}
     for origin, counts in sorted(by_origin.items()):
         settled = counts["APPLIED"] + counts["EXCLUDED"]
+        credited = credited_by_origin.get(origin, 0)
         result["origins"][origin] = {
             "applied": counts["APPLIED"],
             "excluded": counts["EXCLUDED"],
             "settled": settled,
             "applied_rate": round(counts["APPLIED"] / settled, 3) if settled else None,
+            "changed_artifact": credited,
+            "change_rate": round(credited / settled, 3) if settled else None,
         }
 
     _attach_divergence(result)
@@ -537,18 +637,27 @@ def seat_evidence(min_walks: int = 20) -> dict[str, Any]:
             "number says anything about the split."
         )
     else:
-        # Divergence decides, not applied-rate. The claim under test is that
-        # drawn seats say what the fitted ones would not, so the question is
-        # whether a drawn finding stands further from its walk than a scored
-        # one does — not whether it got written down at all.
-        drawn = result["origins"].get("drawn", {}).get("divergence")
-        scored = result["origins"].get("scored", {}).get("divergence")
+        # CHANGE-RATE decides. Divergence is still reported and is still the
+        # weaker measure of the two: it compares a seat's finding against the
+        # other findings on the same walk, all of which I wrote, so it tracks
+        # how much my own phrasing varied between paragraphs. Changing the
+        # artifact is about the artifact, is binary, and cannot be moved by
+        # writing the same thought in a different register.
+        drawn = result["origins"].get("drawn", {}).get("change_rate")
+        scored = result["origins"].get("scored", {}).get("change_rate")
         if drawn is None or scored is None:
             result["verdict"] = "insufficient"
-            result["why"] = "one of the two origins has no measurable divergence to compare."
+            result["why"] = "one of the two origins has no settled seats to compare."
+        elif drawn == 0 and scored == 0:
+            result["verdict"] = "insufficient"
+            result["why"] = (
+                "no seat of either origin has been credited with changing anything. "
+                "That is a fact about whether credit is being recorded, not about "
+                "the split."
+            )
         else:
             result["verdict"] = "scored-ahead" if scored > drawn else "drawn-holds"
-            result["why"] = f"drawn {drawn} vs scored {scored} mean divergence from the walk."
+            result["why"] = f"drawn {drawn} vs scored {scored} rate of changing the artifact."
     return result
 
 

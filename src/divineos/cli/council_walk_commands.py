@@ -23,6 +23,8 @@ from divineos.core.council_walk import (
     close_walk,
     exclude_lens,
     finding_distinctness,
+    credit_seat,
+    exclusion_tally,
     open_walk,
     seat_evidence,
     status,
@@ -181,21 +183,47 @@ def register(cli: click.Group) -> None:
         ev = seat_evidence()
         click.echo(f"closed walks: {ev['closed_walks']}")
         for origin, stats in sorted(ev.get("origins", {}).items()):
-            rate = "n/a" if stats["applied_rate"] is None else f"{stats['applied_rate']:.3f}"
             div = stats.get("divergence")
             div_text = (
                 stats.get("divergence_unavailable", "UNMEASURED") if div is None else f"{div:.3f}"
             )
+            change = stats.get("change_rate")
+            change_text = "n/a" if change is None else f"{change:.3f}"
             click.echo(
                 f"  {origin:8s} findings {stats['applied']:4d}  "
-                f"exclusions {stats['excluded']:4d}  applied-rate {rate}  "
-                f"divergence {div_text}"
+                f"exclusions {stats['excluded']:4d}  "
+                f"changed-the-artifact {stats.get('changed_artifact', 0):4d}  "
+                f"change-rate {change_text}  divergence {div_text}"
             )
         click.echo(
-            "  applied-rate is the weak measure — I have never written an exclusion,\n"
-            "  so it cannot vary. Divergence is the one that can falsify the split."
+            "  change-rate decides. Divergence compares a seat's finding against the\n"
+            "  other findings on its walk, and I wrote all of them, so it tracks how\n"
+            "  much my own phrasing varied — a fact about my prose, not the lens."
         )
+        tally = exclusion_tally()
+        if tally:
+            click.echo("\n  exclusions by lens — the door that can restore picking-by-taste:")
+            for row in tally:
+                click.echo(f"    {row['lens']:22s} {row['exclusions']}")
+            click.echo(
+                "    One name recurring is either a useless lens or a voice I keep\n"
+                "    declining to hear. Neither is visible one exclusion at a time."
+            )
+        else:
+            click.echo("\n  no lens has ever been excluded — the narrowing door is untested.")
         click.echo(f"verdict: {ev['verdict']} — {ev['why']}")
+
+    @walk_group.command("credit")
+    @click.argument("walk_id")
+    @click.argument("lens")
+    @click.option("--changed", required=True, help="What this lens changed in what is being built.")
+    def credit_cmd(walk_id: str, lens: str, changed: str) -> None:
+        """Record that a lens changed the artifact — only while the walk is open."""
+        try:
+            credit_seat(walk_id, lens, changed)
+        except WalkRefused as exc:
+            raise click.ClickException(str(exc)) from exc
+        click.secho(f"[+] {lens} credited on {walk_id}.", fg="green")
 
     @walk_group.command("list")
     def list_cmd() -> None:

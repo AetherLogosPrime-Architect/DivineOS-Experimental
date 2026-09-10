@@ -423,12 +423,27 @@ _SUBJECT["examined"] = probe
 #
 # Truth #11(b) -- the deny text carries the corrected command, so the
 # lazy path and the right path are the same keystrokes.
+# 2026-09-09: the substrate-writing CLI added, and it belongs here by the rule
+# already stated three paragraphs up rather than as a widening of it. The line
+# is CONSEQUENCE OF A MASKED FAILURE, and these have exactly the consequence
+# the version-control entries have: a swallowed non-zero means I tell Andrew a
+# pre-registration was filed, an audit round opened for Aletheia, a finding
+# recorded against a lens — when it silently failed.
+#
+# Not hypothetical. In one workflow tonight I piped four of these through tail
+# while this hook warned each time and I read past every one. The enumeration
+# was version-control-shaped because the incidents that built it were; the
+# principle was never version-control-shaped.
 MUTATING_SUBCOMMANDS = {
     "git": {"push", "commit", "merge", "rebase", "cherry-pick", "reset",
             "revert", "tag", "am", "apply", "update-ref", "branch"},
     "gh": {"pr", "release", "issue", "repo", "api"},
     "pip": {"install", "uninstall"},
     "npm": {"install", "publish", "uninstall"},
+    "divineos": {"prereg", "audit", "goal", "walk", "learn", "decide", "claim",
+                 "feel", "log", "compass-ops", "corrections", "andrew-correction",
+                 "opinion", "directive", "holding", "family-member", "family-queue",
+                 "extract", "sleep", "init", "refresh", "council"},
 }
 _subs = MUTATING_SUBCOMMANDS.get(first)
 _mutating = False
