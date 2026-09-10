@@ -702,6 +702,7 @@ src/divineos/
     compound_branch_change.py  Refuse a branch change and a destructive op on the same shell line.
     surface_bridge.py          Wire the built-but-unreachable surfaces into the briefing that actually runs.
     work_item_doorman.py       The doorman at the reach: no code edit without an open piece of work.
+    asymmetry_surface.py       The asymmetry surface — the sentence he did not get.
 
   analysis/
     _session_types.py          Session analysis type definitions

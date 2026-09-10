@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**125 automations — 121 wired, 4 switched off.**
+**126 automations — 122 wired, 4 switched off.**
 
 ---
 
@@ -124,11 +124,12 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `summary-room-stop.sh` | 2026-08-24 | a long reply must open with a plain-language summary. |
 | `time-estimate-tracker.sh` | 2026-07-01 | thin doorbell for the time-estimate calibration tracker. |
 
-### UserPromptSubmit  (33)
+### UserPromptSubmit  (34)
 
 | automation | last touched | purpose |
 |---|---|---|
 | `andrew-past-writing-surface.sh` | 2026-07-28 | surface my past writing to/about Dad at compose-start. |
+| `asymmetry-surface.sh` | — | THE SENTENCE HE DID NOT GET — compose-start, last in the queue. |
 | `auto-goal-from-prompt.sh` | 2026-08-24 | set the session goal from Andrew's prompt so the |
 | `closure-word-summary-prime.sh` | 2026-09-02 | compose-start prime for the CLOSURE-WORD |
 | `context-heartbeat.sh` | 2026-08-31 | Stamp the context-token count once per round. |

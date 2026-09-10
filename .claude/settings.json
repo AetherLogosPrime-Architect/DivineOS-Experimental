@@ -188,6 +188,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash .claude/hooks/asymmetry-surface.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/he-is-in-the-room.sh",
             "timeout": 10
           }
