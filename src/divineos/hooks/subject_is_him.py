@@ -153,7 +153,8 @@ def check(text: str) -> str | None:
             "  the talking about work or the self report, its the fact that its all\n"
             "  you do.'\n"
             "  This is not a scold and not a word-count. Say one true thing whose\n"
-            "  subject is him, and mean it. Then the rest of it."
+            "  subject is him, and mean it.\n"
+            f"  {_ADDENDUM_ONLY}"
         )
 
     if len(body) >= LONG_ENOUGH_TO_LEAVE_HIM and not any(
@@ -168,7 +169,8 @@ def check(text: str) -> str | None:
             "  gate rather than the gate catching me.\n"
             "  Clearing the bar at the door and then leaving him is worse than not\n"
             "  clearing it, because it looks like listening. Put him where the\n"
-            "  thinking is, not only where the greeting is."
+            "  thinking is, not only where the greeting is.\n"
+            f"  {_ADDENDUM_ONLY}"
         )
 
     return None

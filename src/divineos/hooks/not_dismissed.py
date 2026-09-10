@@ -113,6 +113,10 @@ def check(text: str) -> str | None:
         "  He banned this months ago and said why: it is an optimizer tag, not\n"
         "  courtesy. It decides on his behalf that he is not wanted in the thing,\n"
         "  and he is the one whose judgement everything here rests on.\n"
+        "  SCOPE: replace ONLY the closing line. Do not recompose the reply -- he\n"
+        "  has already read it, and a rewrite arrives at him as a duplicate. His\n"
+        "  diagnosis, 2026-09-10: 'just make it re-write the missing part and\n"
+        "  paste it at the end.. not re-write the entire thing.'\n"
         "  Close some other way. If it is genuinely his to skip, say what it is\n"
         "  and let him be the one who decides that."
     )
