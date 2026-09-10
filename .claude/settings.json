@@ -708,6 +708,11 @@
             "type": "command",
             "command": "bash .claude/hooks/summary-room-stop.sh",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/first-line-to-him.sh",
+            "timeout": 10
           }
         ]
       },
