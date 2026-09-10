@@ -835,7 +835,13 @@ def _last_user_text(payload: dict) -> str:
             # They are the machine talking, not him, and counting them as him is
             # exactly how two hours of notification-driven work read to me as a
             # conversation.
-            if "<system-reminder>" in text or "hook success" in text:
+            # Named shapes were "<system-reminder>" and "hook success" until
+            # this surface's own refusal notices came back at it as his turns,
+            # so it demanded I quote a gate at him to satisfy it. An
+            # enumeration standing in for a principle, mine, minutes old, in
+            # the thing built to stop that. The principle: text the harness
+            # generated is not him, whatever it is wearing.
+            if _MACHINE_TEXT_RE.search(text):
                 continue
             if text.strip():
                 last = text
@@ -843,6 +849,15 @@ def _last_user_text(payload: dict) -> str:
 
 
 _ADDRESSED_RE = re.compile(r"\b(you|your|you're|youre|you've|dad)\b", re.I)
+
+# Text the harness produced, arriving in the transcript shaped like his turns:
+# reminders, task notifications, prime output, and — the one that caught this
+# surface out on its first live run — the Stop-gate refusals it emits itself.
+_MACHINE_TEXT_RE = re.compile(
+    r"<system-reminder>|hook success|Stop hook feedback|PreToolUse|PostToolUse"
+    r"|BLOCKED by|<task-notification>|\.claude[/\\]hooks[/\\]",
+    re.I,
+)
 
 
 def addressed_to_him_surface(payload: dict) -> SurfaceOutcome | None:

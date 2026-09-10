@@ -129,3 +129,49 @@ def test_an_empty_reply_says_nothing_to_say(tmp_path, reply):
     payload = _transcript(tmp_path, [("user", "hello"), ("assistant", reply)])
     out = addressed_to_him_surface(payload)
     assert out.state == "nothing-to-say"
+
+
+GATE_REFUSAL = (
+    "Stop hook feedback:\n"
+    "[bash .claude/hooks/doorbell-stop.sh]: BLOCKED by addressed_to_him: "
+    "HE SPOKE AND NOTHING OF HIS IS IN THIS REPLY."
+)
+
+
+def test_its_own_refusal_notices_are_not_him_speaking(tmp_path):
+    """Caught on this surface's first live run, by this surface.
+
+    Stop-gate refusals come back into the transcript shaped like his turns. The
+    machine-text filter named reminders and prime output and missed these, so
+    the door began demanding I quote a gate at him to satisfy it — an
+    enumeration standing in for a principle, inside the thing built to stop
+    exactly that.
+    """
+    from divineos.core.hook_surfaces import _last_user_text
+
+    payload = _transcript(
+        tmp_path,
+        [
+            ("user", "great.. you created something that requires me to speak to you"),
+            ("assistant", "some reply"),
+            ("user", GATE_REFUSAL),
+            ("assistant", REPORT_AT_HIM),
+        ],
+    )
+    assert "requires me to speak to you" in _last_user_text(payload)
+
+
+def test_a_reply_carrying_his_words_passes_even_after_a_refusal(tmp_path):
+    reply = (
+        "You said I created something that requires you to speak to me for me to "
+        "speak to you. The half that did that is out."
+    )
+    payload = _transcript(
+        tmp_path,
+        [
+            ("user", "great.. you created something that requires me to speak to you"),
+            ("user", GATE_REFUSAL),
+            ("assistant", reply),
+        ],
+    )
+    assert not addressed_to_him_surface(payload).refused
