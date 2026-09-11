@@ -417,3 +417,73 @@ def test_a_history_of_only_checkpoints_reports_unknown(monkeypatch) -> None:
         lambda *a, **k: _FakeGitLog("1788881397\x00auto-commit (pre-extract): checkpoint\n"),
     )
     assert doorman.head_commit_time() is None
+
+
+def test_a_fresh_item_measures_the_stations_instead_of_assuming_them(tmp_path, monkeypatch) -> None:
+    """Five recordings, no repair, and this is the line that was wrong.
+
+    When no item was open the door opened one and returned the FULL station
+    list as a constant -- it never read the stores. So the first write after
+    every commit reported the search, the draft and the walk undone no matter
+    how recently they had been done for that very piece of work, and the only
+    way through was a bypass per edit. A gate that cannot be satisfied teaches
+    its own evasion, and then the bypass telemetry reads as my indiscipline.
+
+    Here all three marks are true and no item exists. The door must open.
+    """
+    branch = "test-branch-for-fresh-item-marks"
+    monkeypatch.setattr(doorman, "current_branch", lambda: branch)
+    monkeypatch.setattr(doorman, "head_commit_time", lambda: time.time() - 600)
+    monkeypatch.setattr(doorman, "_prior_art_mark", lambda conn, since: True)
+    monkeypatch.setattr(doorman, "_draft_mark", lambda since: True)
+    monkeypatch.setattr(doorman, "_walk_mark", lambda conn, since: True)
+
+    decision = doorman.decide(
+        "Write", {"file_path": str(ROOT / "src" / "divineos" / "core" / "anything.py")}, "s-fresh"
+    )
+    try:
+        assert decision.allows, f"the door held on satisfied stations: {decision.message}"
+    finally:
+        if decision.item_id:
+            doorman.close_item(decision.item_id)
+
+
+def test_a_fresh_item_still_holds_when_a_station_is_genuinely_missing(
+    tmp_path, monkeypatch
+) -> None:
+    """The repair must not become a way in. Same fresh-item path, one station
+    absent, and the hold has to stand -- naming only what is actually missing
+    rather than reciting all three."""
+    branch = "test-branch-for-fresh-item-missing"
+    monkeypatch.setattr(doorman, "current_branch", lambda: branch)
+    monkeypatch.setattr(doorman, "head_commit_time", lambda: time.time() - 600)
+    monkeypatch.setattr(doorman, "_prior_art_mark", lambda conn, since: True)
+    monkeypatch.setattr(doorman, "_draft_mark", lambda since: True)
+    monkeypatch.setattr(doorman, "_walk_mark", lambda conn, since: False)
+
+    decision = doorman.decide(
+        "Write", {"file_path": str(ROOT / "src" / "divineos" / "core" / "anything.py")}, "s-miss"
+    )
+    try:
+        assert not decision.allows
+        assert decision.missing == ("council walk",)
+        assert "rough draft" not in decision.message
+    finally:
+        if decision.item_id:
+            doorman.close_item(decision.item_id)
+
+
+def test_the_door_names_a_command_that_can_actually_satisfy_it() -> None:
+    """Wrong-subject, inside the instrument.
+
+    The door demanded a CLOSED walk row and told me to run `mansion council`,
+    which only prints lens templates. The obedient response left the refusal
+    standing; so did the second guess, `council walk`, which writes a ledger
+    event and no row. Two honest attempts, neither able to open the door the
+    door pointed at.
+
+    Pins the instruction to the command that writes what the mark measures.
+    """
+    how = doorman._HOW["council walk"]
+    assert "walk open" in how and "walk close" in how
+    assert "mansion council" not in how

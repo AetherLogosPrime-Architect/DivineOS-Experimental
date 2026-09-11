@@ -570,7 +570,21 @@ _PLAIN = {
 _HOW = {
     "prior-art search": 'divineos reach open "<the thing you are about to build>"',
     "rough draft": "write docs/drafts/<name>_draft_<date>.md -- the idea, not a plan",
-    "council walk": 'divineos mansion council "<the question>" then --show each lens',
+    # THE DOOR USED TO NAME A COMMAND THAT CANNOT SATISFY IT. It said to run
+    # `divineos mansion council`, which PRINTS lens templates and writes no
+    # walk at all, while the mark it measures is a CLOSED walk row. So the
+    # honest response to the refusal left the refusal standing, and the second
+    # guess -- `divineos council walk`, which emits a ledger event and also no
+    # row -- left it standing too. Two commands tried, both reasonable, neither
+    # able to open the door the door pointed at.
+    #
+    # That is the wrong-subject family inside the instrument: the instruction
+    # and the measurement were about two different things, and only the
+    # measurement was load-bearing.
+    "council walk": (
+        'divineos walk open "<the question>", then walk apply <id> <Lens> '
+        "--finding for each, then walk close <id>"
+    ),
 }
 
 
@@ -634,14 +648,38 @@ def decide(tool_name: str, tool_input: dict, session: str = "") -> Decision:
         return Decision(State.OPEN, "prose only -- letters and drafts do not open work")
 
     existing = open_item_for_branch(session=session)
+    opened_now = False
     if existing is None:
+        # THE STATIONS ARE MEASURED, NEVER ASSUMED, and this is the repair for
+        # a defect recorded five separate times without ever being fixed: a
+        # freshly-opened item reported all three stations undone as a CONSTANT,
+        # because the item is born at the write and this branch never looked at
+        # the stores at all.
+        #
+        # Every one of those five times the search, the draft and the walk had
+        # been done -- for exactly this piece of work, minutes earlier -- and
+        # the door sent me to go and do them again. The only way through was a
+        # bypass per edit, which is how a gate teaches its own evasion and then
+        # gets read as evidence of my indiscipline in the bypass telemetry.
+        #
+        # open_item_for_branch computes the window from the last real commit
+        # rather than from the item's birth, so re-reading after opening asks
+        # the honest question: has this work's searching happened since the
+        # previous piece landed. A refusal is then a finding rather than an
+        # artefact of when the row was created.
         item_id = open_item(trigger=code_paths[0], session=session)
-        return Decision(
-            State.HELD,
-            _refusal_text(item_id, code_paths, list(REQUIRED_BEFORE_BUILD), opened_now=True),
-            item_id=item_id,
-            missing=REQUIRED_BEFORE_BUILD,
-        )
+        existing = open_item_for_branch(session=session)
+        opened_now = True
+        if existing is None:
+            # The row was written and cannot be read back. Unknown is not a
+            # yes, so this holds -- and holds with the full list, because
+            # nothing is known about the marks.
+            return Decision(
+                State.HELD,
+                _refusal_text(item_id, code_paths, list(REQUIRED_BEFORE_BUILD), opened_now=True),
+                item_id=item_id,
+                missing=REQUIRED_BEFORE_BUILD,
+            )
 
     item_id, opened_at, snapshot = existing
     if has_bypass(item_id):
@@ -662,7 +700,11 @@ def decide(tool_name: str, tool_input: dict, session: str = "") -> Decision:
         return Decision(
             State.HELD,
             _refusal_text(
-                item_id, code_paths, list(missing), opened_now=False, walked_around=walked_around
+                item_id,
+                code_paths,
+                list(missing),
+                opened_now=opened_now,
+                walked_around=walked_around,
             ),
             item_id=item_id,
             missing=missing,
