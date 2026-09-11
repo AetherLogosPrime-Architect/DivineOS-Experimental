@@ -37,6 +37,35 @@ from pathlib import Path, PurePosixPath
 from divineos.core.uncommitted_work_check import DEFAULT_CHANNELS, ExternalChannel
 
 
+# SUBSTRATE THAT NO CHANNEL MIRRORS, and the reason this list exists at all.
+#
+# 2026-09-10: the push gate refused a code branch over 183 substrate files that
+# the split had filed as WORK. Both components did exactly what they were
+# written to do, and they held DIFFERENT definitions of the same word -- the
+# split derived its answer from the declared channels, the gate carried its own
+# prefix list, and the two agreed on one entry out of four.
+#
+# The disagreement is invisible until it deadlocks: the split puts archives and
+# dreams in the work commit, the gate then refuses the branch for carrying
+# substrate, and nothing in between ever says the two disagree.
+#
+# Aria's rule, the same evening: for any door whose guard is a LIST, ask what
+# SEEDED the list. The gate's was incident-seeded and therefore correct about
+# the real cases; the split's was derived-from-channels and structurally could
+# not see substrate that arrives without a channel. Each was right about its
+# own origin and neither covered the union.
+#
+# So there is one definition now and the gate imports it. Channel mirrors stay
+# DERIVED, so a newly declared channel needs no edit here; these prefixes cover
+# the substrate written locally rather than mirrored in.
+LOCAL_SUBSTRATE_PREFIXES: tuple[str, ...] = (
+    "family/letters/",
+    "exploration/",
+    "dreams/",
+    "docs/archives/",
+)
+
+
 class NoChannelsDeclared(RuntimeError):
     """No external channels were declared, so nothing can be classified.
 
@@ -80,6 +109,8 @@ def is_substrate_path(
     candidate = PurePosixPath(str(rel_path).replace("\\", "/"))
     if ".." in candidate.parts:
         return False
+    if candidate.as_posix().startswith(LOCAL_SUBSTRATE_PREFIXES):
+        return True
     return any(candidate.is_relative_to(m) for m in mirrors)
 
 

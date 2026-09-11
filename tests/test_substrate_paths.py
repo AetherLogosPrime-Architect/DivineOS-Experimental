@@ -79,6 +79,16 @@ class TestFailDirection:
     def test_the_exact_sweep_that_caused_this(self):
         # The real shape: letters correctly synced, plus a tree full of
         # unrelated dirt that `git add -A` took along with them.
+        #
+        # SUPERSEDED IN ONE ENTRY, 2026-09-10, and the entry is the finding.
+        # This originally pinned docs/archives/claims.md as WORK, which was
+        # right by this module's own rule and wrong about the house: the push
+        # gate counted that same directory as SUBSTRATE and refused any branch
+        # carrying it. So the split put archives in the work commit and the
+        # gate then refused the branch, with no component able to see the
+        # disagreement -- 183 files, unpushable and unfixable by the thing that
+        # made it. The definition is now shared (LOCAL_SUBSTRATE_PREFIXES) and
+        # archives classify as what they have always been.
         swept = [
             "family/letters/aether-to-aria-note.md",
             "scripts/wiring_gap_phase1.py",
@@ -89,11 +99,11 @@ class TestFailDirection:
         substrate, work = partition(swept, CHANNELS)
         assert substrate == [
             "family/letters/aether-to-aria-note.md",
+            "docs/archives/claims.md",
             "family/letters/aria-to-aether-reply.md",
         ]
         assert work == [
             "scripts/wiring_gap_phase1.py",
-            "docs/archives/claims.md",
             "tests/test_wiring_gap_phase1.py",
         ]
 
