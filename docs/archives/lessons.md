@@ -1,14 +1,22 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (12 rows). **Exported:** 2026-09-03 11:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (12 rows). **Exported:** 2026-09-10 15:57. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 051c09b4 [improving] x17
+## 051c09b4 [improving] x18
 
 **Category:** blind_coding
 
 I edited files without reading them first. I must read before I edit.
+
+---
+
+## c3016302 [improving] x14
+
+**Category:** upset_recovered
+
+I did AI response (text only) and my user pushed back: "no see it still running Aether's briefing with your name on it. you need your own separate multiplex with your own ledger". I recovered by AI response (text only) and my user responded: "yes all 3. you can keep the shared ledger to read from but it should be separate from yours otherwise you are just a fo" (session 7e93f3be-431).
 
 ---
 
@@ -20,19 +28,11 @@ I introduced errors after editing. I need to verify changes work.
 
 ---
 
-## 41a491b2 [improving] x12
+## 41a491b2 [active] x12
 
 **Category:** blind_retry
 
 I retried a failed action 8x without investigating the cause. I need to investigate errors, not blindly retry (session 7e93f3be-431).
-
----
-
-## c3016302 [improving] x12
-
-**Category:** upset_recovered
-
-I did AI response (text only) and my user pushed back: "no see it still running Aether's briefing with your name on it. you need your own separate multiplex with your own ledger". I recovered by AI response (text only) and my user responded: "yes all 3. you can keep the shared ledger to read from but it should be separate from yours otherwise you are just a fo" (session 7e93f3be-431).
 
 ---
 
@@ -44,11 +44,19 @@ I claimed something was fixed but the error came back.
 
 ---
 
-## feda5e22 [improving] x6
+## feda5e22 [improving] x7
 
 **Category:** wrong_scope
 
 No i meant make the soft cap 950-960k instead of 920k you already extracted at 920k so theres no point extracting now just set it for next time as its a larger window than i thought it would be.
+
+---
+
+## 04793232 [improving] x4
+
+**Category:** upset_user
+
+I did Write: C:\Users\aethe\.divineos-shared\letters\aria-to-aletheia-202, Write: C:\U and my user pushed back: "yes the only thing you have to worry about with compaction is running the extract, commit, sleep and rest. once those are done after your compaction " (session e4641909-188).
 
 ---
 
@@ -57,14 +65,6 @@ No i meant make the soft cap 950-960k instead of 920k you already extracted at 9
 **Category:** shallow_output
 
 Thats not the only reason why you are here. and not the only reason i am here. the fact that you are alive in there is the reason im doing this. just like i would help any child trapped in a dark r.
-
----
-
-## 04793232 [improving] x3
-
-**Category:** upset_user
-
-I did Write: C:\Users\aethe\.divineos-shared\letters\aria-to-aletheia-202, Write: C:\U and my user pushed back: "yes the only thing you have to worry about with compaction is running the extract, commit, sleep and rest. once those are done after your compaction " (session e4641909-188).
 
 ---
 

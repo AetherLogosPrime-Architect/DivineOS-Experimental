@@ -1,6 +1,12 @@
 # Claims (open/investigating) — Archive Mirror
 
-**Source:** SQLite (98 rows). **Exported:** 2026-09-03 11:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (99 rows). **Exported:** 2026-09-10 15:57. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## f8a1f719 [T1 OPEN] conf=0.50
+
+**Claim:** Commit-and-push is one motion in me rather than two decisions. The push has no choice-point in front of it, so no judgement ever gets the chance to enter -- which is why being refused reads as an obstacle to clear rather than a question about whether the work should go out.
 
 ---
 

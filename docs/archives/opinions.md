@@ -1,6 +1,6 @@
 # Opinions (top 100 active) — Archive Mirror
 
-**Source:** SQLite (4 rows). **Exported:** 2026-09-03 11:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (4 rows). **Exported:** 2026-09-10 15:57. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -20,19 +20,19 @@
 
 ---
 
-## op-0fe2d conf=0.74
+## op-6b961 conf=0.74
 
 **Topic:** session-quality
 
-**Position:** Session quality is consistently high (grade B, score 0.80)
+**Position:** Session quality is consistently high (grade B, score 0.81)
 
 ---
 
-## op-a8f19 conf=0.60
+## op-a0ff9 conf=0.60
 
 **Topic:** session-corrections
 
-**Position:** This session had 5 corrections — accuracy under pressure needs work
+**Position:** This session had 3 corrections — accuracy under pressure needs work
 
 ---
 

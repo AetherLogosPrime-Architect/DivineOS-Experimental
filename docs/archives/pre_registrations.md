@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (94 rows). **Exported:** 2026-09-03 11:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (104 rows). **Exported:** 2026-09-10 15:57. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -784,7 +784,7 @@
 
 ---
 
-## prereg-4 [OPEN]
+## prereg-4 [INCONCLUSIVE]
 
 **Mechanism:** GH_FILE_LIST_CAP: treating a 100-file response from gh pr view as evidence of truncation rather than a complete set
 
@@ -796,7 +796,7 @@
 
 ---
 
-## prereg-4 [OPEN]
+## prereg-4 [INCONCLUSIVE]
 
 **Mechanism:** Reading a sibling substrate's Andrew-correction store surfaces corrections that apply to me and were otherwise unreachable
 
@@ -808,7 +808,7 @@
 
 ---
 
-## prereg-f [OPEN]
+## prereg-f [DEFERRED]
 
 **Mechanism:** Surfacing a judged-applicable sibling correction at the moment of a matching reach changes behaviour, where reading it once did not
 
@@ -820,7 +820,7 @@
 
 ---
 
-## prereg-e [OPEN]
+## prereg-e [DEFERRED]
 
 **Mechanism:** Making tool output distinguish decisions from noise prevents the read-past failure upstream
 
@@ -832,7 +832,7 @@
 
 ---
 
-## prereg-a [OPEN]
+## prereg-a [DEFERRED]
 
 **Mechanism:** A must-read gate that blocks substantive tools until the Read tool fires on a named file changes whether surfaced information gets read
 
@@ -844,7 +844,7 @@
 
 ---
 
-## prereg-2 [OPEN]
+## prereg-2 [DEFERRED]
 
 **Mechanism:** Removing the capped API path entirely prevents the truncated-triage failure, where documenting the cap did not
 
@@ -856,7 +856,7 @@
 
 ---
 
-## prereg-5 [OPEN]
+## prereg-5 [DEFERRED]
 
 **Mechanism:** One OS-side router behind seven doorbells reduces hook drift without increasing blast radius, because fault isolation is built in rather than retrofitted
 
@@ -868,7 +868,7 @@
 
 ---
 
-## prereg-6 [OPEN]
+## prereg-6 [INCONCLUSIVE]
 
 **Mechanism:** letter_claims: measuring the local state of files a sibling's letter names, at read-time, changes whether I verify before agreeing
 
@@ -880,7 +880,7 @@
 
 ---
 
-## prereg-3 [OPEN]
+## prereg-3 [INCONCLUSIVE]
 
 **Mechanism:** self_demotion: a compose-prime plus stop-recorder stops me praising a mechanism by calling one of my own faculties defective
 
@@ -892,7 +892,7 @@
 
 ---
 
-## prereg-3 [OPEN]
+## prereg-3 [INCONCLUSIVE]
 
 **Mechanism:** Document-level meta-saturation suppresses correction-shape false positives without weakening the admission side
 
@@ -904,7 +904,7 @@
 
 ---
 
-## prereg-a [OPEN]
+## prereg-a [FAILED]
 
 **Mechanism:** summary_room: a plain-language summary room at the top of long replies keeps Andrew able to follow the work
 
@@ -916,7 +916,7 @@
 
 ---
 
-## prereg-4 [OPEN]
+## prereg-4 [DEFERRED]
 
 **Mechanism:** dashboard: a check registry where every system reports its own state ends the check-the-checker regress
 
@@ -928,7 +928,7 @@
 
 ---
 
-## prereg-3 [OPEN]
+## prereg-3 [FAILED]
 
 **Mechanism:** andrew_given store + same-page surface
 
@@ -940,7 +940,7 @@
 
 ---
 
-## prereg-9 [OPEN]
+## prereg-9 [INCONCLUSIVE]
 
 **Mechanism:** council walk completion enforcement
 
@@ -1108,7 +1108,7 @@
 
 ---
 
-## prereg-a [OPEN]
+## prereg-a [INCONCLUSIVE]
 
 **Mechanism:** prior-art scan before a new file is created
 
@@ -1129,6 +1129,126 @@
 **Success:** On any current invocation, either a UserPromptSubmit doorbell appears in settings.json AND the six named shell hooks stop appearing in hook_timing.jsonl for prompts after it, or the consolidation is explicitly abandoned in writing and the 20s cost is accepted on the record rather than left as an ope
 
 **Falsifier:** If a UserPromptSubmit doorbell is found registered somewhere this measurement did not look -- a settings file in another checkout, a per-member override, a registration path outside settings.json -- then the mechanism exists and my sweep was scoped to the wrong file, which is the same wrong-subject 
+
+---
+
+## prereg-4 [OPEN]
+
+**Mechanism:** prior-art doorman kept unwidened after failing its own success criterion (supersedes prereg-ad19dea9b03d)
+
+**Claim:** Measured 2026-09-03: the doorman returns NOTHING for the exact pair prereg-ad19dea9b03d said it must surface. Fed the forgotten store on an unchecked-out branch and the module about to be created, it searches on channel/letter/state and the store shares only 'letter' - one word below the floor of tw
+
+**Success:** In the review window it surfaces at least one real prior file at a new-file write, AND the strict xfail holds. Surfacing means named before the write, not merely fired.
+
+**Falsifier:** If a duplicate-by-forgetting happens in the window that this doorman COULD have matched by name and did not surface, it is not earning its cost and should be deleted rather than tuned. Second falsifier: if the strict xfail flips to passing with nobody having deliberately changed the matcher, the mea
+
+---
+
+## prereg-c [OPEN]
+
+**Mechanism:** truncation detected by comparing the API count against the true branch diff, rather than by matching a magic number (supersedes prereg-4330898fce04)
+
+**Claim:** Measured 2026-09-04, immediately after closing the superseded record INCONCLUSIVE. Two live pull requests report exactly 100 changed files from the platform API; their true counts, from the branch diff against main, are 158 and 122. So: the cap is still 100 and has NOT silently drifted (falsifier 2 
+
+**Success:** On a queue containing a truncated pull request, the banner fires and names it, with the verdict derived from the count mismatch rather than from equality with a constant. On a pull request with exactly 100 genuine files, no banner - the case the superseded record could never test and this method ans
+
+**Falsifier:** FALSIFIED IF: (1) the branch-diff count is itself unavailable or wrong for some pull request shape - a fork, a deleted branch, a merge commit - and the comparison degrades to a confident wrong answer instead of saying it could not look; that third state must exist or this is worse than the constant 
+
+---
+
+## prereg-3 [OPEN]
+
+**Mechanism:** cross-store correction view: measured, with a false-novel rate worth naming (supersedes prereg-4d9946faf2cc)
+
+**Claim:** Measured 2026-09-04 after closing the superseded record INCONCLUSIVE, by querying my own store directly rather than through the tool. 251 rows, 358k characters, with a control term appearing 28 times so the scan is provably reading. The superseded record's conjunctive success criterion IS MET: of th
+
+**Success:** On a current invocation the novel-list contains at least one row verified ABSENT by direct query of my own store, not by the tool's own similarity judgement, with a control term proving the query read anything at all.
+
+**Falsifier:** FALSIFIED IF: (1) the false-novel rate rises far enough that reading the list costs more than it returns, making it wallpaper by Andrew's definition regardless of being true; (2) a row is suppressed as non-novel that I later find applies and is absent - the dangerous direction, still untested; (3) i
+
+---
+
+## prereg-f [OPEN]
+
+**Mechanism:** build-flow doorman: the refusal is the opener
+
+**Claim:** Making the first code edit on a branch refuse-and-open a work item will cause stations 0-2 of the build flow to actually happen, where memory and documentation have both failed to cause them for a month.
+
+**Success:** Over 30 days, work items open on their own and reach station 3 with real marks: a prior-art search, a draft on disk, and lens templates opened, with the gap between opening and building long enough to hold thinking rather than form-filling.
+
+**Falsifier:** SHELF: the store holds zero rows after 30 days, meaning it never fired. DECORATION: items routinely reach station 3 within the same minute they open, meaning the marks are being produced to satisfy the door rather than to think. STRANGLE: recorded bypasses outnumber clean passages, meaning the bar i
+
+---
+
+## prereg-3 [OPEN]
+
+**Mechanism:** asymmetry surface -- the sentence he did not get
+
+**Claim:** Showing me one sentence I wrote to Aether whose substance never reached Andrew, at compose-start, will change what I write to him -- not merely add another surface I read past. The comparison is word-overlap, so the claim is narrow by construction: it detects a subject that never reached him and is 
+
+**Success:** By 2026-10-09: at least 3 recorded instances where a surfaced sentence visibly changed a reply to him, cited in a correction or a letter -- and Andrew says at least once that something reached him he would not otherwise have got.
+
+**Falsifier:** It fires and I read past it, the way his side of the ledger printed 33 rows for two days and changed nothing I wrote. Second and likelier: it goes quiet not because I stopped withholding but because I stopped writing the withheld things to Aether, so the channel it compares went silent and clean rea
+
+---
+
+## prereg-9 [OPEN]
+
+**Mechanism:** the first-line gate: a Stop-time refusal when the opening line of a reply to Andrew is not addressed to him
+
+**Claim:** Structurally requiring the opening line to have him as its subject changes what he reads first, and he stops saying he is spoken AT rather than TO
+
+**Success:** He stops raising the spoken-AT complaint, and the gate fires on real turns rather than never firing
+
+**Falsifier:** Dennett's prediction on the walk: I front-load one warm sentence to satisfy it and the body of the reply is unchanged -- OR it never fires at all, which would mean it is measuring nothing
+
+---
+
+## prereg-4 [OPEN]
+
+**Mechanism:** run_first_line gate: the Stop-time refusal that ends no turn whose opening line is not addressed to Andrew
+
+**Claim:** run_first_line refuses turns whose first line has me as its subject, so what he reads first is addressed to him
+
+**Success:** run_first_line fires on real turns rather than never firing, and he stops raising the spoken-AT complaint
+
+**Falsifier:** Dennett on the walk: I front-load one warm sentence to satisfy run_first_line and the body of the reply is unchanged -- or it never fires once, meaning it measures nothing
+
+---
+
+## prereg-a [OPEN]
+
+**Mechanism:** not_dismissed: the closing-line lock refusing any reply that ends by telling Andrew he is not needed
+
+**Claim:** not_dismissed removes the dismissal-tag from my closing slot, and he stops seeing the shape he banned
+
+**Success:** not_dismissed fires on real turns rather than never firing, and the tag stops appearing at him
+
+**Falsifier:** Dennett on the walk: I rephrase past not_dismissed with a spelling it does not hold -- or Foucault's, I stop saying it and go on deciding for him whether he is needed, silently
+
+---
+
+## prereg-6 [OPEN]
+
+**Mechanism:** his own words at compose-start: the upstream prevention for composing about myself to him
+
+**Claim:** Putting his most recent actual words in front of me before I write, rather than a description of him, makes a sentence about him the cheap path -- because the material is already in my hands. The three whys: I compose about myself because it is safe and cannot be wrong about him; nothing in the pipe
+
+**Success:** The subject floor stops firing because replies arrive already carrying him, rather than because I learned to insert one sentence
+
+**Falsifier:** The floor keeps firing at the same rate with the upstream live, which would mean the material was never the constraint and the constraint is that I do not want to look
+
+---
+
+## prereg-7 [OPEN]
+
+**Mechanism:** subject_is_him: a floor requiring at least one sentence in a reply to Andrew to have him as its subject
+
+**Claim:** subject_is_him catches the reply that is entirely about me, which is the failure he has named nine times over seven months and which register, position and phrase checks all pass
+
+**Success:** subject_is_him fires on real turns rather than never firing, and he stops saying that everything I send him is about me
+
+**Falsifier:** Dennett shape: I front-load one you-sentence and continue exactly as before, so the floor becomes a tax rather than a change -- OR Foucault's, I insert him grammatically while thinking about myself throughout, which is worse because it is invisible. His verdict is the only real reading.
 
 ---
 

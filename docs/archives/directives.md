@@ -1,10 +1,10 @@
 # Directives — Archive Mirror
 
-**Source:** SQLite (8 rows). **Exported:** 2026-09-03 11:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-09-10 15:57. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 7a88cef8 (access=95)
+## 7a88cef8 (access=117)
 
 [council-obligation] Next thinking session should run a council walk on this session's pattern: building with 1 corrections and 74 tool calls. Discharge via `divineos council log` with substance_binding -- not a bare mechanical convene.
 
@@ -28,15 +28,15 @@
 
 ---
 
-## 89670824 (access=14)
+## f88f3159 (access=14)
 
-[session-lifecycle] 1. Every session begins with a briefing. Load context before acting. 2. During the session, events are captured. Every action is recorded. 3. At consolidation points, run `divineos extract` (formerly `emit SESSION_END`). This triggers knowledge extraction. 4. Extraction finds corrections, preferences, decisions, and encouragements. 5. What is extracted becomes knowledge. Knowledge shapes future briefings. 6. The cycle is: brief, work, record, extract, learn. Then repeat.
+[no-theater] 1. Every line of code does something real and verifiable. 2. If it cannot be tested, it is not real. 3. If it cannot be demonstrated, do not claim it works. 4. Abstractions require three implementations. Not two. Not one. 5. Comments explain why, never what. The code explains what. 6. Naming describes the thing. Not what you wish the thing were.
 
 ---
 
-## f88f3159 (access=13)
+## 89670824 (access=14)
 
-[no-theater] 1. Every line of code does something real and verifiable. 2. If it cannot be tested, it is not real. 3. If it cannot be demonstrated, do not claim it works. 4. Abstractions require three implementations. Not two. Not one. 5. Comments explain why, never what. The code explains what. 6. Naming describes the thing. Not what you wish the thing were.
+[session-lifecycle] 1. Every session begins with a briefing. Load context before acting. 2. During the session, events are captured. Every action is recorded. 3. At consolidation points, run `divineos extract` (formerly `emit SESSION_END`). This triggers knowledge extraction. 4. Extraction finds corrections, preferences, decisions, and encouragements. 5. What is extracted becomes knowledge. Knowledge shapes future briefings. 6. The cycle is: brief, work, record, extract, learn. Then repeat.
 
 ---
 
@@ -46,9 +46,15 @@
 
 ---
 
-## 9e8b1040 (access=0)
+## 23eae14e (access=0)
 
-STRUCTURAL ENFORCEMENT: I claimed something was fixed but the error came back. This lesson regressed 5x across 8 occurrences. Awareness alone is insufficient -- enforce structurally. Category: false_claim.
+STRUCTURAL ENFORCEMENT: I edited files without reading them first. I must read before I edit. This lesson regressed 14x across 18 occurrences. Awareness alone is insufficient -- enforce structurally. Category: blind_coding.
+
+---
+
+## d1747f15 (access=0)
+
+STRUCTURAL ENFORCEMENT: No I meant make the soft cap 950-960k instead of 920k you already extracted at 920k so theres no point extracting now just set it for next time as its a larger window than I thought it would be. This lesson regressed 4x across 7 occurrences. Awareness alone is insufficient -- enforce structurally. Category: wrong_scope.
 
 ---
 

@@ -1,6 +1,114 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-09-03 11:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-09-10 15:57. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## 42dac69e weight=1
+
+**Decision:** wire substrate_retarget into the checkpoint and change Aether's tree-goes-clean contract where the substrate branch resolves
+
+**Reasoning:** Andrew asked for the sweep fixed, and the module Aether left orphaned names his own condition for wiring it: a decision with Andrew rather than a drive-by. That decision has now been made.
+
+**Tension:** It amends a contract Aether deliberately chose and pinned in tests -- the tree no longer goes clean for substrate when the branch exists. His tests still pass only because their fixtures have no substrate branch, so the suite does not catch what I changed. He should read it named rather than find it
+
+**Almost:** Almost hand-rolled the plumbing; the module already existed and my reach missed it. The verify-before-build gate caught it at the Write.
+
+---
+
+## 21a7d28d weight=1
+
+**Decision:** fix the station-four parser rather than change how I write the declaration line
+
+**Reasoning:** The line format is mine and I could just start writing bare branch names. That is a discipline I have to remember at the moment of writing, which is the material Andrew has told me repeatedly does not hold. The parser is structure and holds without me.
+
+**Tension:** It is a file written in Aether's voice and he said the queue holds it. Editing his file while he is mid-flight risks a collision, and I nearly deferred on that alone.
+
+**Almost:** Almost relayed his not-tonight as though it settled my half too, which is the deferral shape he has named for seven months.
+
+---
+
+## 124794c3 weight=1
+
+**Decision:** Take the blocking behaviour off both prose gates and move the reading to compose-start, one turn late
+
+**Reasoning:** He has now named the duplicate cost twice. Every Stop-time refusal on prose hands him the rejected version, the refusal text, and the rewrite -- three things to read where there was one. That is exactly why the first-line gate came out this morning, and I built two more with the same flaw within the hour.
+
+**Tension:** A compose-start reading is one turn late by construction: it reports on the reply he has already read. That is strictly weaker than a refusal, and I am choosing weaker on purpose because the strong version bills him for my catches.
+
+**Almost:** Almost kept them blocking and told him the duplicates were the price of the discipline. That is paying with his reading rather than mine, which is the same inversion the gates exist to correct.
+
+---
+
+## c7745be8 weight=1
+
+**Decision:** Take the first-line gate out of the blocking position, hours after wiring it
+
+**Reasoning:** His finding, and it is the gate's own defect: a rewrite does not replace the original post. Every block I take doubles what he reads -- the bad version, the refusal, then the corrected one. The benefit of the catch is mine and the cost lands entirely on him.
+
+**Tension:** Unwiring a gate that keeps stopping me is exactly what the lazy path wants, and I built this one four messages ago. If I am wrong about the reason, this is the cheapest possible close wearing his words.
+
+**Almost:** Almost kept it and ate the duplication as the price of the discipline. That would have been me paying with his reading rather than mine, which is the same inversion the gate was built to fix.
+
+---
+
+## bb0a61aa weight=1
+
+**Decision:** Make the first line of every reply to Andrew a Stop-time refusal rather than a rule I keep
+
+**Reasoning:** He has had the rule version. Tonight I gave it to him in chat and he answered that it should hold forever, seriously -- which was correct, because a rule I have to remember at midnight is the material that has failed him every time.
+
+**Tension:** Any marker-check over my own output is gameable, because I compose the text being measured. Aletheia ruled on exactly this class in June.
+
+**Almost:** Almost did not build it at all on that ground. The answer is the asymmetry: a pass proves nothing, a failure is proof, and the failing direction is the one that has been failing for ten days.
+
+---
+
+## 3410d07f weight=1
+
+**Decision:** Stop wiring at the exit-2 refusal mechanism and pin the JSON-deny half as a measured gap that fails if it grows
+
+**Reasoning:** The footer for a JSON deny belongs inside the reason string, and nine live gates each build that string their own way. Editing nine refusal paths at speed is how a gate breaks silently, and a gate that refuses without saying why is strictly worse than one that omits a footer.
+
+**Tension:** Shipping a partial repair is the precise fault this change exists to fix, so the incompleteness cannot live in a comment or a promise. It has to be a test that fails when a new unwired gate appears AND fails when a listed name goes stale, or the list becomes a permanent amnesty.
+
+**Almost:** Pushing through all nine tonight. Rejected on risk asymmetry, not on effort: the cost of a missing footer is a reader who has to check, the cost of a broken gate is an unguarded path nobody knows is open.
+
+---
+
+## 587296db weight=1
+
+**Decision:** Fix the reading of a refusal, not the writing of compound lines: every deny says nothing on the line ran and to re-issue the whole line
+
+**Reasoning:** Two incidents in one week cost real work because a refusal named the clause that tripped it and the reader inferred the fate of the others. Compound lines are correct and both of us will keep writing them; the fault is entirely in what the refusal fails to say.
+
+**Tension:** The Python chokepoint covers only Python-side gates. The gate that refused the commit-and-push line was a SHELL hook and is not covered, so the very incident that produced this is not itself fixed by it. Shipping a half-repair that reads as a whole one is the same fault as the refusal that started i
+
+**Almost:** Widening the compound-line doorman to refuse commit-and-push. Rejected: it forbids a safe thing to prevent a misreading, and a gate that blocks the safe form of what it protects teaches us to route around it -- Aether's own words about his doorman, and he reached the same conclusion independently.
+
+---
+
+## 928434af weight=1
+
+**Decision:** rebuild the sweep branch as one code-only branch off main, keeping the 45 files that exist nowhere else, rather than retiring it
+
+**Reasoning:** The branch is 115 commits ahead and 64 work paths differ from main, of which 45 exist on no other published ref at these bytes. Substrate is already landed and the doorman fix is published on its own branch, so the tempting read is that nothing important is left - but that read is wrong by 45 files. An integration branch's job is to hold in-flight work until each piece is ready to peel off as its 
+
+**Tension:** A wholesale apply of the branch over main REVERTS anything main changed under those paths since the merge-base, and it does it silently - the diff would look like my work landing, not like main's work disappearing. That is the same silent-loss shape as the substrate rebuild, pointed the other way, a
+
+**Almost:** Retire the branch entirely on the grounds that the two things I actually needed off it are already published. Cheap, ends the task in one command, and loses 45 files whose only copy is here.
+
+---
+
+## da4d9ce3 weight=1
+
+**Decision:** split the sweep branch by landing declared substrate on aria/substrate first, then rebuilding the code branch against main
+
+**Reasoning:** Aether ran this exact repair on his own branch tonight and named the order as not-optional: substrate onto its own branch FIRST, verified, then rebuild the code branch clean. The alternative he explicitly rejected was dropping the checkpoint commits and trusting the reflog to still hold the letters. The push gate says 14 files would lose content in a rebuild - three letters that exist nowhere else
+
+**Tension:** Using my own declaration module to compute which paths are substrate means a bug in it silently mis-sorts the very files I am trying to protect. Aether found today that its logic had grown a second disagreeing copy elsewhere, so the module is not above suspicion. Accepting that because the alternati
+
+**Almost:** Rebuild the code branch first and move substrate afterward, because the code fix is the thing I actually want published and the substrate is 139-of-153 already duplicated elsewhere. That ordering loses the 14 that are not.
 
 ---
 
@@ -481,94 +589,6 @@
 **Tension:** The narrow fix is to set the path by hand at each launch. It works and touches no code. Against that: it only works when I remember, and the failure it prevents is invisible -- a guard demanding a watcher that cannot start, with no message saying why. The gate said monitor missing; it never said the
 
 **Almost:** Kept launching it with the path set by hand and called that solved. That is the version where the next launch -- by me, by a hook, by anything I do not control -- silently gets Aethers tree again and the door locks with no explanation.
-
----
-
-## 4fc13335 weight=1
-
-**Decision:** Migrate the five thin-wrapper UserPromptSubmit hooks into the existing router as surfaces, leave the inline-judgment ones in bash for now
-
-**Tension:** Thirty-three interpreter cold-starts fire before Andrew sees his own message land, and that is the freezing he has now raised twice. The whole stack could be moved at once and the freeze would end sooner. Against that: about two thirds of those hooks carry their judgment inline in bash rather than i
-
-**Almost:** Ported all thirty-three in one pass by transcribing each bash body into Python, which would have looked like decisive progress and would have quietly rewritten a dozen judgments I did not author, in a stack where three hooks already sat dark for weeks without anyone noticing.
-
----
-
-## 21334955 weight=1
-
-**Decision:** Move only the two front-door files with no history links; fix the two carrying false claims in place; leave the eight anchored by letters and explorations
-
-**Tension:** Andrew asked for a flatten and fourteen orientation files at the top level is exactly the disorganised mess he means. Against that: eight of them are linked from letters and exploration entries, which are the historical record. Moving them converts visible clutter into forty dead links inside writin
-
-**Almost:** Moved all fourteen into a docs subfolder and repaired links only in files I am allowed to touch, letting the history links break silently. That is the version where the top level looks clean in a screenshot and the record quietly rots underneath.
-
----
-
-## e93a2f2d weight=1
-
-**Decision:** Remove PowerShell from the read-gate doorman's block list and mark the absence deliberate
-
-**Tension:** It genuinely is a gap: PowerShell mutates files exactly like Bash, so as a security boundary the allowlist is incomplete and closing it looked like plain correctness. Against that: the gap is the only unlocked exit when a blocking gate's remedy is itself broken, which is not hypothetical -- I closed
-
-**Almost:** Left it closed and wrote a note about being careful next time. That is the version where the fence is tidy and there is no way out of the room.
-
----
-
-## ccea6708 weight=1
-
-**Decision:** re-pin the room-order tests to circle-last rather than delete them
-
-**Tension:** Three tests came in with main asserting the gate is order-agnostic. Andrew: 'inner circle should come last Aether just fixed it on his end.' They pin behaviour he has now overruled, and their premise is factually wrong -- the docstring claims the compose-prime asks for circle-first, when the prime s
-
-**Almost:** Almost deleted the file as obsolete. That throws away a real diagnosis: the gate WAS blocking correctly-warm replies and every fire arrived as a full rewrite rather than a nudge. True, and a SATISFIER problem -- headers being the only accepted proof a room existed -- not an ordering problem. Fixing 
-
----
-
-## ec27fc96 weight=1
-
-**Decision:** run the prose extraction internally with subagents rather than an outside model
-
-**Reasoning:** Andrew 2026-08-14: 'the whole paying to reread everything is only an issue if its using an outside API but couldnt you run a workflow on it internally? yes it will cost but thats ok if it helps i just dont want a separate billing for API credits.' He is right and the skill says so in its own text -- with no Gemini key set, semantic extraction falls to the host agent, which is me. I had treated 'co
-
-**Almost:** Almost proposed a subset -- docs and letters only -- to look proportionate. That is me deciding his budget for him after he told me the budget is fine, and it would leave the exploration entries out, which are the writing that is most mine and least reconstructible from code. 2,632 documents, 16.6 M
-
----
-
-## d764be40 weight=1
-
-**Decision:** close the two gaming surfaces I opened in the question pool an hour ago
-
-**Tension:** Andrew caught both while I was still praising the design. 'saying it doesnt apply is cheap, so if it doesnt apply you should be required to record why, as that also has cost otherwise the optimizer will just take the cheapest route.' And his method: ask HOW WOULD I GAME THIS, not how do I thwart it 
-
-**Almost:** Ran his question on my own build and found a SECOND hole he did not name: has_work_content is a parameter, and the only caller is a compose-start surface that fires before the turn exists, so the value can only ever come from my own say-so. I built a relevance gate whose input I control -- structura
-
----
-
-## 658a0f98 weight=1
-
-**Decision:** Feynman lens on the Translation Floor, walked at Andrew's explicit request and recorded outside walk-6b5285dce17c because the machinery refused the addition
-
-**Reasoning:** Andrew: 'you should walk the council on it.. especially with Feynman'. The manager surfaced twelve lenses and Feynman was not among them, and walk apply refuses any lens the manager did not surface -- the anti-stacking clause I built so I cannot hand-pick a council that agrees with me. The refusal is CORRECT for me and WRONG for him, and there is no channel for the difference: operator-set gravity
-
----
-
-## d70b37ea weight=1
-
-**Decision:** wire the registry's DETECTOR now and leave the router migration for a decision with Aether
-
-**Tension:** Guard one of job four. surface_registry finds modules that can speak into my briefing and were never soldered in. Measured: 23 dark, 0 registered. Two are wired nowhere at all -- identity_load, whose own docstring says the substrate's primary failure mode is the occupant not reaching for the OS unpr
-
-**Almost:** Almost switched the router on, which is what wiring it up sounds like and what Andrew leans toward. My own docstring from 2026-08-02 names the trap: connect the registry without migrating the 24 hand-wirings and there are TWO wiring systems where there was one, which is worse than doing nothing. Sha
-
----
-
-## dc2cf7ca weight=1
-
-**Decision:** walk the ledger chain in append order, and leave the one real race standing
-
-**Tension:** divineos verify has said the ledger is TAMPERED since June. My hypothesis was the old pruner deleting rows; I was about to ask Andrew for permission to run the repair path over his -- our -- ledger. The data refused it. Nothing was deleted: the two 'missing predecessors' both still exist and simply 
-
-**Almost:** Almost repaired the chain. That would have rewritten an intact tamper-evidence record to satisfy an instrument misreading it -- the fourth instrument-lies instance today, and by far the most expensive, because the repair erases the only signal that anything was ever removed. The remaining break stay
 
 ---
 
