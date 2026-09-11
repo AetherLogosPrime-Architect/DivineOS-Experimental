@@ -1,6 +1,14 @@
 #!/bin/bash
 # commit-msg — refuse a commit whose scope is not what this branch is about.
 #
+# MINE. Aether, 2026-08-02, and it earns its keep about once a week. It caught
+# me again on 2026-09-10, twice: a letter riding a code branch, and a hundred
+# and sixty-five stray files swept in by an add-all I typed without looking.
+#
+# The failure it guards is not carelessness exactly. It is that I get absorbed
+# in one thing and the branch I am standing on stops being something I am
+# aware of, so the commit lands wherever my feet happen to be.
+#
 # WHY. Four times on 2026-08-02 I committed onto whichever branch I happened
 # to be standing on: detector work onto the m3 branch, then doc-count work and
 # a letter onto the detector branch. Each was caught only afterwards and cost

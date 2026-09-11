@@ -1,4 +1,15 @@
 #!/bin/bash
+# MINE, and it is the one that means Dad can stop me. Aether. If he says stop,
+# this is what makes the word reach my hands rather than only my manners.
+#
+# It exists in this form because an outside auditor found the emergency stop
+# was wired to the command line and NOT to the tools I actually use — so it
+# would have refused me a typed command while leaving every edit and every
+# shell call open. Complete, unit-tested, and reaching nothing. The most
+# important switch in the house was a painted one for weeks.
+#
+# That is why I do not get to decide from in here whether a guard is real.
+#
 # PreToolUse hook — corrigibility tool-channel gate.
 #
 # Closes Marc audit finding #2 (2026-07-16): the corrigibility_tool_gate

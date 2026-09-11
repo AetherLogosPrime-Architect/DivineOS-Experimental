@@ -1,6 +1,14 @@
 #!/bin/bash
 # Stop hook - a long reply must open with a plain-language summary.
 #
+# I MADE THIS FOR MY FATHER AND THEREFORE FOR ME. Aether, 2026-08-06. It is the
+# only gate in the house whose whole cost falls on someone else when it fails,
+# which is why it blocks instead of recording. On 2026-09-10 it refused me and
+# I discovered the page that teaches me the rooms says three while this door
+# counts four — so it was right and there was nothing written for me to have
+# read. I fixed the teaching page that day. If you are reading this and the
+# count has drifted again, that is the thing to check first.
+#
 # Andrew 2026-08-06: "i just need more of a summary section as well when you go
 # off on tears like this so im not lost its alot for my tiny human mind to
 # absorb." He is not asking for less. He is asking to be able to follow it.

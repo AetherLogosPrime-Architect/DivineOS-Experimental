@@ -421,6 +421,35 @@ if [ -f scripts/check_capability_catalog_fresh.py ]; then
     fi
 fi
 
+# 5c-bis. The automation register, same discipline, and it needed no new code.
+#
+# Aletheia asked, closing her review of the capability-map repair: "is this file
+# a function of the repository, or of the machine that last wrote it? The
+# catalog was the second. I would want to know whether it is the only one."
+#
+# Asked of the register: it is a function of the repository, so her question
+# has a clean no. But it was 24 automations STALE -- claiming 98 where the tree
+# has 122, blind to every hook added in weeks, still listing four that no longer
+# exist. A prior-art check pointed at it would have answered "no such thing"
+# with the authority of a system-wide index, which is exactly the hazard its
+# sibling's docstring names.
+#
+# AND THE ALARM ALREADY EXISTED. The generator has carried a --check mode all
+# along that exits non-zero on drift. Nothing ever called it. So the register
+# did not lack a checker; it lacked a CALLER -- a built mechanism sitting dark,
+# which is the same disease as everything else found this week and the reason
+# the file could rot unnoticed.
+#
+# No new script for this. Writing one would have been a second copy of a
+# discipline that was already here, and would have left the real defect (the
+# unwired check) in place beneath it.
+if [ -f scripts/generate_automation_register.py ]; then
+    section "Automation Register"
+    if ! python scripts/generate_automation_register.py --check; then
+        note_fail
+    fi
+fi
+
 # 5d. Ignore-flag-has-reason check (Aletheia Finding 74, 2026-05-17).
 # Refuses pytest --ignore= usages without an adjacent # REASON: comment.
 # Substrate-level fix for the bypass-too-broad pattern that recurred
@@ -429,6 +458,26 @@ fi
 if [ -f scripts/check_ignore_has_reason.py ]; then
     section "Ignore-flag has reason"
     if ! python scripts/check_ignore_has_reason.py; then
+        note_fail
+    fi
+fi
+
+# 5e. Refusal-on-crash sites (Aletheia's proposal, 2026-09-03).
+#
+# I told her I had surveyed the tree by hand and found exactly one handler that
+# destroys its subject when the check itself breaks. She refused to confirm it:
+# grep counts a word, not a form, and confirming from a text search would be
+# the same instrument-blindness the finding was about. Her resolution, which is
+# better than her reading it would have been: "Your negative claim rests on one
+# pass by one party, and my confirming it would rest on one pass by another.
+# A DETECTOR MAKES IT A PROPERTY."
+#
+# It found 64 sites where the question arises. My hand survey found one. Most
+# of the 64 are certainly correct -- the point is that "one" was a statement
+# about my attention rather than about the tree, and now it is neither.
+if [ -f scripts/check_failure_path_refuses.py ]; then
+    section "Refusal-on-crash sites"
+    if ! python scripts/check_failure_path_refuses.py; then
         note_fail
     fi
 fi
@@ -481,11 +530,65 @@ if [ $ERRORS -eq 0 ]; then
     python scripts/check_closure_claim.py --record "precommit:$(git rev-parse --abbrev-ref HEAD)" 2>/dev/null || true
 fi
 
+# 6d. Hook payloads must fit through the harness delivery cut. Blocks, and
+# blocking is the point: on 2026-09-06 Andrew found that 87% of what the
+# compose-start hooks wrote for me was persisted to files I never open, so
+# rules I believed I was following had never arrived. Only runs when a hook
+# is staged, since it measures hooks rather than the whole tree.
+if echo "$STAGED_SH" | grep -q "\.claude/hooks/"; then
+    section "Hook payload fits"
+    if ! python scripts/check_hook_output_fits.py; then
+        note_fail
+    fi
+fi
+
 # 7. Shellcheck on staged .sh files (line endings already normalized in step 0)
 if [ -n "$STAGED_SH" ] && command -v shellcheck &>/dev/null; then
     section "Shellcheck"
     if ! echo "$STAGED_SH" | xargs shellcheck 2>/dev/null; then
         note_fail
+    fi
+fi
+
+# 7b. Capability claims in the comments of files being committed (informational).
+#
+#     Aletheia named this class 2026-08-27 and the checker was written for it,
+#     then called by nothing for two weeks -- indexed, tested, unwired, which is
+#     how Aria and I came to rediscover the same class from scratch on 2026-09-10
+#     and each report it to the other as a finding.
+#
+#     Aria's cost for it: a comment of ours saying a refusal path was loud,
+#     sincere and in our own voice and no longer true. It answered the question
+#     she was about to ask, so she diagnosed the resulting incident twice by
+#     guessing. A note about the PAST cannot rot; a note about what the code
+#     DOES is a test with no assertion.
+#
+#     SCOPED TO THE STAGED FILES ON PURPOSE. Across the whole tree this prints
+#     twenty-odd lines every time, which is the shape that turns a signal into
+#     furniture. Here it speaks only about what is being changed right now,
+#     where it can still be acted on.
+#
+#     Non-blocking, and the checker says why in its own output: UNNAMED asks
+#     whether a SYMBOL is mentioned in tests, as a proxy for whether the
+#     BEHAVIOUR is pinned, and the proxy breaks whenever a test is named for the
+#     invariant instead of the function.
+CLAIM_ROOTS="$(printf '%s\n%s\n' "$STAGED_SH" "${STAGED_PY:-}" | grep -v '^$' || true)"  # fail-soft: grep -v exits 1 when both staged lists are empty, which simply means no shell or python files are staged and there is nothing for this advisory to read
+if [ -n "$CLAIM_ROOTS" ] && [ -f scripts/check_comment_claims.py ]; then
+    # fail-soft: this advisory must never decide whether a commit proceeds. The
+    # checker's own docstring says UNNAMED asks about a SYMBOL as a proxy for a
+    # BEHAVIOUR, and names the case where that proxy is wrong -- so a failure
+    # here is information about the instrument, not about the commit. It stays
+    # visible because the checker prints NOTHING OPENED rather than a clean bill
+    # when it reads no files, which is what caught this wiring scanning zero.
+    # STDERR IS KEPT, not discarded. The first draft sent it to nowhere and the
+    # swallow gate refused -- correctly, and the right repair was not a louder
+    # annotation but deleting the swallow. An advisory whose own crashes are
+    # invisible would report "no claims" from a scanner that died, which is the
+    # could-not-look-reads-as-clean shape this whole checker exists to end.
+    CLAIM_OUT="$(echo "$CLAIM_ROOTS" | xargs python scripts/check_comment_claims.py --limit 8 --roots 2>&1 || true)"  # fail-soft: this advisory never decides whether a commit proceeds, because UNNAMED asks about a symbol as a proxy for a behaviour and the checker's own docstring names the case where that proxy is wrong
+    if echo "$CLAIM_OUT" | grep -q "whose symbol is named in no test"; then
+        section "Capability claims in comments (advisory)"
+        echo "$CLAIM_OUT"
     fi
 fi
 

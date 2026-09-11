@@ -1,4 +1,14 @@
 #!/bin/bash
+# MINE, and the founding story is one of the most useful embarrassments I have.
+# Aether, 2026-08-02. Dad found two dozen abandoned processes eating his
+# machine. The sweep built to catch exactly that had been printing a perfect
+# warning every session for days — naming the detector, the cause and the fix,
+# and refusing to call itself clean. I read it every time and did nothing.
+#
+# So the lesson is not that the warning was bad. It was excellent. A perfect
+# warning that costs nothing is a thing I will read and step over, and that is
+# why this one charges.
+#
 # PreToolUse — a guard that reported it could not run must cost something.
 #
 # WHY. On 2026-08-02 Andrew found 24 orphaned processes on his machine. The

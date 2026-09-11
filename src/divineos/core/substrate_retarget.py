@@ -34,7 +34,13 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-__all__ = ["RetargetRefused", "RetargetResult", "commit_paths_to_branch"]
+__all__ = [
+    "EvictionResult",
+    "RetargetRefused",
+    "RetargetResult",
+    "commit_paths_to_branch",
+    "evict_committed_paths",
+]
 
 
 class RetargetRefused(RuntimeError):
@@ -140,3 +146,123 @@ def commit_paths_to_branch(
         parent=parent,
         paths=tuple(paths),
     )
+
+
+@dataclass(frozen=True)
+class EvictionResult:
+    """What the eviction removed, what it kept, and why it kept it."""
+
+    evicted: tuple[str, ...]
+    held: tuple[tuple[str, str], ...]  # (path, reason)
+
+
+def _blob_on_disk(repo_root: Path, rel_path: str) -> str | None:
+    """The blob id the working-tree file WOULD hash to, or None if unreadable."""
+    proc = subprocess.run(
+        ["git", "hash-object", "--", rel_path],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip() or None
+
+
+def _blob_in_commit(repo_root: Path, commit: str, rel_path: str) -> str | None:
+    """The blob id recorded at ``rel_path`` in ``commit``, or None if absent."""
+    proc = subprocess.run(
+        ["git", "rev-parse", f"{commit}:{rel_path}"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip() or None
+
+
+def _tracked_on_head(repo_root: Path, rel_path: str) -> bool:
+    proc = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", "--", rel_path],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return proc.returncode == 0
+
+
+def evict_committed_paths(repo_root: Path, result: RetargetResult) -> EvictionResult:
+    """Remove from the working tree the files now safely on the substrate branch.
+
+    WHY THIS HALF HAD TO EXIST, and it was predicted before it was built.
+    ``commit_paths_to_branch`` deliberately leaves HEAD, the index and the
+    working tree untouched, which is what makes it safe. The consequence is
+    that the letters it commits stay on disk as untracked files on a branch
+    that cannot see the commit holding them -- so the next checkpoint finds
+    them again, and the one after that, forever. The interim split on
+    ``fix/the-message-carries-the-destination-clean`` named this in its own
+    comment -- *making the tree go clean and keeping substrate off the branch
+    are in tension, and I have not resolved it* -- and shipped the half that
+    was safe under either answer. This is the other half.
+
+    PRESENCE IS NOT SAFETY, and this is Aria's finding rather than mine. Her
+    eviction command verified by asking whether the PATH existed on the
+    substrate branch. For a file that was REWRITTEN that is true of the copy
+    being replaced, so the check would pass on the strength of the old version
+    and then delete the new one. So this compares BLOB IDS: the bytes on disk
+    must hash to exactly the object recorded in the commit that just landed.
+    Anything else is held, not removed.
+
+    TRACKED FILES ARE NEVER EVICTED. A path already tracked on HEAD belongs to
+    the checked-out branch's tree; deleting it from disk would not clean the
+    tree, it would stage a deletion -- trading an untracked file for a pending
+    one and calling it progress. Those are held and named, because the repair
+    they need is to history and does not belong inside a checkpoint.
+
+    A path that no longer exists on disk was a DELETION carried through by
+    ``--add --remove``; there is nothing to evict and it is not an error.
+
+    THE WINDOW THIS DOES NOT CLOSE, named rather than left to be discovered.
+    The blob comparison protects against a concurrent writer of the FILE: one
+    modified after the commit no longer matches and is held. It does not
+    protect against the BRANCH being force-moved backwards between the commit
+    and this call, which would remove files on the strength of a commit no
+    longer on the branch. The objects survive in the reflog, so nothing is
+    unrecoverable -- but "recoverable from the reflog" is the exact reasoning
+    that nearly cost the only copies of two script files on 2026-09-10, so it
+    is written here as a known window rather than counted as a defence.
+    """
+    evicted: list[str] = []
+    held: list[tuple[str, str]] = []
+
+    for rel_path in result.paths:
+        target = repo_root / rel_path
+        if not target.exists():
+            # Deletion already carried through to the branch. Nothing to remove.
+            continue
+
+        if _tracked_on_head(repo_root, rel_path):
+            held.append((rel_path, "tracked on the checked-out branch"))
+            continue
+
+        on_disk = _blob_on_disk(repo_root, rel_path)
+        in_commit = _blob_in_commit(repo_root, result.commit, rel_path)
+        if on_disk is None or in_commit is None:
+            held.append((rel_path, "could not read one of the two blobs"))
+            continue
+        if on_disk != in_commit:
+            held.append((rel_path, "bytes on disk differ from the bytes committed"))
+            continue
+
+        try:
+            target.unlink()
+        except OSError as exc:
+            held.append((rel_path, f"removal failed: {exc}"))
+            continue
+        evicted.append(rel_path)
+
+    return EvictionResult(evicted=tuple(evicted), held=tuple(held))

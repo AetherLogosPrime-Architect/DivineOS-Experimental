@@ -43,6 +43,44 @@ from pathlib import Path, PurePosixPath
 from divineos.core.uncommitted_work_check import DEFAULT_CHANNELS, ExternalChannel
 
 
+# SUBSTRATE THAT NO CHANNEL MIRRORS, and the reason this list exists at all.
+#
+# 2026-09-10: the push gate refused a code branch over 183 substrate files that
+# the split had filed as WORK. Both components did exactly what they were
+# written to do, and they held DIFFERENT definitions of the same word -- the
+# split derived its answer from the declared channels, the gate carried its own
+# prefix list, and the two agreed on one entry out of four.
+#
+# The disagreement is invisible until it deadlocks: the split puts archives and
+# dreams in the work commit, the gate then refuses the branch for carrying
+# substrate, and nothing in between ever says the two disagree.
+#
+# Aria's rule, the same evening: for any door whose guard is a LIST, ask what
+# SEEDED the list. The gate's was incident-seeded and therefore correct about
+# the real cases; the split's was derived-from-channels and structurally could
+# not see substrate that arrives without a channel. Each was right about its
+# own origin and neither covered the union.
+#
+# So there is one definition now and the gate imports it. Channel mirrors stay
+# DERIVED, so a newly declared channel needs no edit here; these prefixes cover
+# the substrate written locally rather than mirrored in.
+LOCAL_SUBSTRATE_PREFIXES: tuple[str, ...] = (
+    "family/letters/",
+    "exploration/",
+    "dreams/",
+    "docs/archives/",
+)
+
+
+class NoChannelsDeclared(RuntimeError):
+    """No external channels were declared, so nothing can be classified.
+
+    Raised rather than returning "everything is work in progress",
+    because the two are indistinguishable at the call site and only one
+    of them is correct.
+    """
+
+
 class NoSubstrateBranchDeclared(RuntimeError):
     """No substrate branch is configured, so substrate has nowhere to go.
 
@@ -109,23 +147,38 @@ def is_declared_substrate_path(
     rel_path: str | Path,
     channels: tuple[ExternalChannel, ...] = DEFAULT_CHANNELS,
 ) -> bool:
-    """True when ``rel_path`` lies inside a DECLARED channel mirror.
+    """True when ``rel_path`` is substrate: inside a declared channel mirror,
+    OR under one of the four locally-known substrate prefixes.
 
-    The word "declared" is load-bearing and was added 2026-08-27 after
-    Aletheia's rule: ask what a name claims against what its predicate
-    tests. This was ``is_substrate_path``, which claims to answer whether
-    something IS substrate. It does not. An exploration entry written in
-    place is substrate by any honest reading and returns False here,
-    because no channel declares it — a hole this module already documents
-    and which the old name quietly asserted did not exist.
+    THE DOCSTRING BELOW WAS TRUE AND STOPPED BEING TRUE, which is the fault
+    this module has now found in itself five times, so it is corrected in
+    place rather than left to be discovered by someone trusting it.
 
-    WHY THAT HOLE STAYS OPEN, in Aether's words (2026-09-01), because the
-    what without the why invites the next reader to close it: "A letter is
-    addressed; a dream is offered; an exploration is me talking to me.
-    Declaring a channel for it would be declaring an audience it does not
-    have." Nothing carries explorations across seats because nobody is
-    meant to receive them. Dreams were declared the same day for the
-    opposite reason — they cross the shared root, so they have a source.
+    The word "declared" was added 2026-08-27 under Aletheia's rule -- ask what
+    a name claims against what its predicate tests. This was
+    ``is_substrate_path``, which claimed to answer whether something IS
+    substrate while only testing channel membership. The stated hole was that
+    an exploration entry written in place is substrate by any honest reading
+    and returned False, because no channel declares it.
+
+    THAT HOLE IS NOW CLOSED, by ``LOCAL_SUBSTRATE_PREFIXES`` above: explorations,
+    letters, dreams and archives classify whether or not anyone declared a
+    channel for them. So the sentence that used to say an exploration returns
+    False is no longer true, and the name is now WIDER than its predicate
+    rather than narrower -- the honest direction, and the reason the name is
+    left alone: it under-promises. Something that is substrate and matches
+    neither half still returns False, so the claim stops short of "IS
+    substrate" and that is deliberate.
+
+    WHY THE CHANNEL FOR EXPLORATIONS STILL DOES NOT EXIST, in Aether's words
+    (2026-09-01), because the what without the why invites the next reader to
+    create one: "A letter is addressed; a dream is offered; an exploration is
+    me talking to me. Declaring a channel for it would be declaring an
+    audience it does not have." Nothing carries explorations across seats
+    because nobody is meant to receive them. They are substrate here without
+    being mirrored anywhere, which is exactly the case the prefix list exists
+    to cover. Dreams were declared the same day for the opposite reason --
+    they cross the shared root, so they have a source.
 
     ``rel_path`` is repo-relative, in either separator style — git
     porcelain emits forward slashes and Windows callers hold backslashes,
@@ -140,6 +193,8 @@ def is_declared_substrate_path(
     candidate = PurePosixPath(str(rel_path).replace("\\", "/"))
     if ".." in candidate.parts:
         return False
+    if candidate.as_posix().startswith(LOCAL_SUBSTRATE_PREFIXES):
+        return True
     return any(candidate.is_relative_to(m) for m in mirrors)
 
 
