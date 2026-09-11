@@ -503,3 +503,40 @@ def test_a_history_of_only_checkpoints_reports_unknown(monkeypatch) -> None:
         lambda *a, **k: _FakeGitLog("1788881397\x00auto-commit (pre-extract): checkpoint\n"),
     )
     assert doorman.head_commit_time() is None
+
+
+def test_the_council_remedy_names_the_command_that_actually_satisfies_it() -> None:
+    """A remedy that does not satisfy its own check turns a doorman into a wall.
+
+    2026-09-11: I hit this doorman four times on one edit, each time doing
+    exactly what it told me. Its remedy sent me to `mansion council --show`,
+    which primes lenses into context and writes to the council RECORDS store.
+    The check reads a CLOSED WALK out of the council_walk store -- different
+    store, different command, nothing comparing them.
+
+    Andrew named the distinction the same day: a gate says no, do this and come
+    back, and you come back and it says no again. A doorman names what is needed
+    and where it actually is. The difference is not politeness; it is whether
+    one refusal costs one step or a loop.
+
+    Pinned against the mechanism rather than a wording, so the sentence cannot
+    outlive the check a second time.
+    """
+    how = doorman._HOW["council walk"]
+
+    assert "walk open" in how and "walk close" in how, (
+        "the council remedy no longer names the open/close walk commands, which "
+        "are the only thing that writes the closed walk this check reads"
+    )
+    assert "mansion council --show" in how, (
+        "the remedy should still name the command that does NOT satisfy it -- "
+        "that was the trap, and dropping the warning re-arms it for the next reader"
+    )
+
+
+def test_every_required_station_has_a_remedy_and_a_plain_sentence() -> None:
+    """Control. A station that refuses with no exit is the shape this whole
+    file exists to prevent, and it would pass the test above by saying nothing."""
+    for station in doorman.REQUIRED_BEFORE_BUILD:
+        assert doorman._PLAIN.get(station), f"{station} refuses without saying what is missing"
+        assert doorman._HOW.get(station), f"{station} refuses without saying what to do"

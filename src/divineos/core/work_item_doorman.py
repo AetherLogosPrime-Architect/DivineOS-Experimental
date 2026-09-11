@@ -625,13 +625,40 @@ def missing_marks(item_id: str, opened_at: float) -> tuple[str, ...] | None:
 _PLAIN = {
     "prior-art search": "nothing has been searched yet for whether this already exists",
     "rough draft": "no rough draft has been written under docs/drafts",
-    "council walk": "no lens templates have been opened for this piece of work",
+    # WAS: "no lens templates have been opened for this piece of work". That
+    # described the OLD view-counting check this file's own docstring says was
+    # walked straight through, not the closed-walk check that replaced it. The
+    # sentence outlived the mechanism it described.
+    "council walk": "no council walk has been opened and closed for this piece of work",
 }
 
+# THE REMEDY MUST SATISFY THE CHECK, and for one of these three it did not.
+#
+# 2026-09-11: I hit this doorman four times on a single edit, each time doing
+# exactly what the line below told me. The old text sent me to `mansion
+# council --show`, which PRIMES lenses into context and writes to the council
+# records store. The check reads a CLOSED WALK out of the council_walk store --
+# a different store, a different command, and no comparison between them.
+#
+# So the door said no, told me where to go, I went, and it said no again. That
+# is a gate wearing a doorman's coat: Andrew's distinction the same day --
+# "a gate is a wall that says no, do this and come back, you come back, it says
+# no, you didnt do this either". A doorman names what is needed and where it
+# actually is. The cost of getting that wrong is not one refusal, it is a loop.
+#
+# It is also the two-authorities class Aletheia named on 2026-09-11: two
+# mechanisms owning the same word, agreeing on nothing, invisible until someone
+# stands between them. The other instance that day was two definitions of
+# substrate. This one was two definitions of a council walk.
 _HOW = {
     "prior-art search": 'divineos reach open "<the thing you are about to build>"',
     "rough draft": "write docs/drafts/<name>_draft_<date>.md -- the idea, not a plan",
-    "council walk": 'divineos mansion council "<the question>" then --show each lens',
+    "council walk": (
+        'divineos walk open "<the question>" then `walk apply <id> --lens L '
+        "--finding ...` for each lens surfaced, then `walk close <id>`. "
+        "NOT `mansion council --show`: that primes lenses into context and "
+        "satisfies nothing here."
+    ),
 }
 
 
