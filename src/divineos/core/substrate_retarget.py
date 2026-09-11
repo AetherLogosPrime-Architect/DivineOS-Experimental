@@ -184,6 +184,46 @@ def _blob_in_commit(repo_root: Path, commit: str, rel_path: str) -> str | None:
     return proc.stdout.strip() or None
 
 
+def _commit_is_on_branch(repo_root: Path, commit: str, branch: str) -> bool | None:
+    """Is ``commit`` an ancestor of ``branch``? ``None`` means could not tell.
+
+    THREE STATES, NOT TWO, and the third is the point -- the same discipline as
+    ``stamp_ready_command._is_ancestor``, whose docstring records why: ``git
+    merge-base --is-ancestor`` exits non-zero BOTH for "no" and for "that object
+    is not here at all". Collapsing them lets a lookup failure read as an
+    answer. Each object is resolved first so the two stay separable.
+
+    ANCESTOR rather than EQUAL. A later checkpoint may legitimately have moved
+    the branch on; the earlier commit is still landed and its files are still
+    safe to remove. A check written as equality-with-the-tip would hold every
+    time two checkpoints overlapped and quietly stop evicting anything.
+    """
+    if not commit or not branch:
+        return None
+    for rev in (f"{commit}^{{commit}}", f"refs/heads/{branch}^{{commit}}"):
+        probe = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", rev],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if probe.returncode != 0:
+            return None
+    answer = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", commit, f"refs/heads/{branch}"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if answer.returncode == 0:
+        return True
+    if answer.returncode == 1:
+        return False
+    return None
+
+
 def _tracked_on_head(repo_root: Path, rel_path: str) -> bool:
     proc = subprocess.run(
         ["git", "ls-files", "--error-unmatch", "--", rel_path],
@@ -226,18 +266,53 @@ def evict_committed_paths(repo_root: Path, result: RetargetResult) -> EvictionRe
     A path that no longer exists on disk was a DELETION carried through by
     ``--add --remove``; there is nothing to evict and it is not an error.
 
-    THE WINDOW THIS DOES NOT CLOSE, named rather than left to be discovered.
-    The blob comparison protects against a concurrent writer of the FILE: one
-    modified after the commit no longer matches and is held. It does not
-    protect against the BRANCH being force-moved backwards between the commit
-    and this call, which would remove files on the strength of a commit no
-    longer on the branch. The objects survive in the reflog, so nothing is
-    unrecoverable -- but "recoverable from the reflog" is the exact reasoning
-    that nearly cost the only copies of two script files on 2026-09-10, so it
-    is written here as a known window rather than counted as a defence.
+    THE COMMIT MUST BE ON THE BRANCH, NOT MERELY WRITTEN (Aletheia, 2026-09-11,
+    and she found it by attacking the argument rather than the code).
+
+    My claim in the audit request was that "the commit is known to have landed
+    before the eviction runs, and the compare-and-swap on the ref is what makes
+    it checkable". The compare-and-swap is real. This function never consulted
+    it. It resolved the blob against the COMMIT OBJECT, and a commit object
+    exists the moment ``commit-tree`` returns -- before ``update-ref`` runs, and
+    whether or not ``update-ref`` succeeded. So the checked guarantee was "the
+    bytes match this commit", not "the bytes match what is on the branch".
+
+    Her reason for flagging it rather than calling it a defect was that the
+    current path looked unreachable, the raise on a failed swap arriving first.
+    MEASURED, IT WAS REACHABLE, and the test she prompted proves it: force the
+    branch backwards after a clean commit and the old code deleted the letter.
+    Her "almost certainly unreachable" was the generous reading and it was wrong
+    in the direction that costs a letter.
+
+    So the ancestry is checked, and that also closes the window this docstring
+    used to name as OPEN -- the branch force-moved backwards between the commit
+    and this call. It is closed without leaning on the reflog, which I had
+    refused as a defence because "recoverable from the reflog" is the reasoning
+    that nearly cost the only copies of two script files on 2026-09-10.
+
+    Could-not-tell holds everything, with the reason. A branch that does not
+    resolve is not a branch that carries the commit.
     """
     evicted: list[str] = []
     held: list[tuple[str, str]] = []
+
+    # ONE QUESTION FOR THE WHOLE RUN, ASKED BEFORE ANY FILE IS TOUCHED.
+    #
+    # It is a property of the commit rather than of any path, so asking it
+    # per-file would be the same answer repeated -- and asking it AFTER the
+    # first removal would mean the first letter is already gone by the time the
+    # run discovers it should not have started.
+    landed = _commit_is_on_branch(repo_root, result.commit, result.branch)
+    if landed is not True:
+        why = (
+            f"commit {result.commit[:12]} is not on {result.branch}"
+            if landed is False
+            else f"could not tell whether {result.commit[:12]} is on {result.branch}"
+        )
+        return EvictionResult(
+            evicted=(),
+            held=tuple((p, why) for p in result.paths),
+        )
 
     for rel_path in result.paths:
         target = repo_root / rel_path
