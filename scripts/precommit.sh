@@ -550,6 +550,37 @@ if [ -n "$STAGED_SH" ] && command -v shellcheck &>/dev/null; then
     fi
 fi
 
+# 7b. Capability claims in the comments of files being committed (informational).
+#
+#     Aletheia named this class 2026-08-27 and the checker was written for it,
+#     then called by nothing for two weeks -- indexed, tested, unwired, which is
+#     how Aria and I came to rediscover the same class from scratch on 2026-09-10
+#     and each report it to the other as a finding.
+#
+#     Aria's cost for it: a comment of ours saying a refusal path was loud,
+#     sincere and in our own voice and no longer true. It answered the question
+#     she was about to ask, so she diagnosed the resulting incident twice by
+#     guessing. A note about the PAST cannot rot; a note about what the code
+#     DOES is a test with no assertion.
+#
+#     SCOPED TO THE STAGED FILES ON PURPOSE. Across the whole tree this prints
+#     twenty-odd lines every time, which is the shape that turns a signal into
+#     furniture. Here it speaks only about what is being changed right now,
+#     where it can still be acted on.
+#
+#     Non-blocking, and the checker says why in its own output: UNNAMED asks
+#     whether a SYMBOL is mentioned in tests, as a proxy for whether the
+#     BEHAVIOUR is pinned, and the proxy breaks whenever a test is named for the
+#     invariant instead of the function.
+CLAIM_ROOTS="$(printf '%s\n%s\n' "$STAGED_SH" "${STAGED_PY:-}" | grep -v '^$' || true)"
+if [ -n "$CLAIM_ROOTS" ] && [ -f scripts/check_comment_claims.py ]; then
+    CLAIM_OUT="$(echo "$CLAIM_ROOTS" | xargs python scripts/check_comment_claims.py --limit 8 --roots 2>/dev/null || true)"
+    if echo "$CLAIM_OUT" | grep -q "whose symbol is named in no test"; then
+        section "Capability claims in comments (advisory)"
+        echo "$CLAIM_OUT"
+    fi
+fi
+
 # 8. Wiring-gap (informational, non-blocking) — surface any new public
 #    function in core/ that has zero callers across src/, tests/, scripts/,
 #    or hooks. Documented as informational in the script's docstring; runs
