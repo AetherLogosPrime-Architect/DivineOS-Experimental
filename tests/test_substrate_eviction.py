@@ -310,5 +310,84 @@ def test_the_report_speaks_to_someone_who_does_not_read_code(repo: Path):
 
     text = describe(evict(repo, reference="main"), "main")
 
-    assert "still on this machine" in text
+    assert "safe on that branch" in text
     assert "family/letters/new-six.md" not in text
+
+
+# ---------------------------------------------------------------------------
+# THE SECOND KIND, which the command could not see for two days.
+#
+# It shipped reading additions only. That was invisible for exactly as long as
+# every piece of substrate happened to be new -- and on 2026-09-11 it evicted
+# 179 letters, reported success in plain words, and the push was refused again
+# by eleven regenerated archive exports: files that exist on main and were
+# rewritten here. An enumeration is complete only by luck.
+
+
+def _rewrite_main_letter(repo: Path, name: str, body: str) -> str:
+    rel = f"family/letters/{name}"
+    (repo / "family" / "letters" / name).write_text(body, encoding="utf-8")
+    _git(repo, "add", rel)
+    return rel
+
+
+def test_a_letter_the_branch_rewrote_is_substrate_too(repo: Path):
+    from divineos.core.substrate_eviction import modified_substrate
+
+    rel = _rewrite_main_letter(repo, "old-one.md", "the branch rewrote this")
+    _git(repo, "commit", "-qm", "rewrite a letter")
+
+    assert modified_substrate(repo, "main") == [rel]
+    assert added_substrate(repo, "main") == [], "a rewrite is not an addition"
+
+
+def test_a_rewrite_goes_back_to_the_reference_rather_than_out_of_the_index(repo: Path):
+    """The two kinds need opposite actions, and using one for both is the
+    169-became-2,142 fault wearing different clothes: dropping a file main
+    still has reads as this branch DELETING it."""
+    rel = _rewrite_main_letter(repo, "old-two.md", "rewritten on the branch")
+    _git(repo, "commit", "-qm", "rewrite another letter")
+
+    evict(repo, reference="main")
+
+    assert _git(repo, "ls-files", "--", rel) == rel, "it left the index; main still has it"
+    assert (repo / rel).read_text(encoding="utf-8").startswith("main already had old-two.md")
+    assert _git(repo, "show", f"aria/substrate:{rel}") == "rewritten on the branch"
+
+
+def test_the_name_being_there_is_not_the_writing_being_there(repo: Path, monkeypatch):
+    """THE GATE USED TO ASK THE WRONG QUESTION, and the wrongness only showed
+    once rewrites joined the list.
+
+    Presence answers "is there a file with this name over there", which for a
+    rewritten export is true of the OLD copy. So the gate would have passed on
+    the strength of the very version this branch replaced, and then dropped the
+    new one. Routing is made a no-op here, leaving the substrate branch holding
+    only the old content -- presence satisfied, content not -- and the command
+    must refuse having touched nothing.
+    """
+    import divineos.core.substrate_eviction as ev
+
+    rel = _rewrite_main_letter(repo, "old-one.md", "the newer version")
+    _git(repo, "commit", "-qm", "rewrite")
+
+    monkeypatch.setattr(ev, "commit_paths_to_branch", lambda *a, **k: None)
+
+    with pytest.raises(EvictionRefused) as caught:
+        evict(repo, reference="main")
+
+    assert "DIFFERENT content" in str(caught.value)
+    assert _git(repo, "ls-files", "--", rel) == rel, "it removed something it had not verified"
+    assert (repo / rel).read_text(encoding="utf-8").startswith("the newer version")
+
+
+def test_already_there_counts_the_writing_not_the_filename(repo: Path):
+    """It reported "11 were already safely there" about eleven exports that
+    existed over there only as the older version this branch had rewritten --
+    true about names, false about content, in the one report Andrew reads."""
+    _rewrite_main_letter(repo, "old-one.md", "changed here, not there")
+    _git(repo, "commit", "-qm", "rewrite")
+
+    result = evict(repo, reference="main")
+
+    assert result.already_present == (), "a stale copy over there was counted as safe"

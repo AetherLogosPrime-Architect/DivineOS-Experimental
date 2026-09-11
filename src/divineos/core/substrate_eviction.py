@@ -198,6 +198,45 @@ def added_substrate(
     return [p.strip() for p in out.splitlines() if p.strip().startswith(SUBSTRATE_PREFIXES)]
 
 
+def modified_substrate(
+    repo_root: Path, reference: str = DEFAULT_REFERENCE, branch: str = "HEAD"
+) -> list[str]:
+    """Substrate paths this branch CHANGED rather than added.
+
+    The command shipped seeing additions only, and the blindness was invisible
+    for exactly as long as every piece of substrate happened to be new. Today it
+    evicted 179 letters, reported success in plain words, and the push was
+    refused again by eleven regenerated archive exports -- files that exist on
+    main and were rewritten here. An enumeration is complete only by luck, and
+    the luck ran out in a day.
+
+    These need the opposite action from an addition. An added file leaves the
+    index entirely; a changed file goes BACK to the reference's version, because
+    dropping it would read as this branch deleting something main still has --
+    which is the 169-became-2,142 fault wearing different clothes.
+    """
+    out = _git(
+        repo_root,
+        "diff",
+        "--diff-filter=M",
+        "--name-only",
+        f"{reference}...{branch}",
+    )
+    return [p.strip() for p in out.splitlines() if p.strip().startswith(SUBSTRATE_PREFIXES)]
+
+
+def _blob_at(repo_root: Path, ref: str, path: str) -> str | None:
+    """The content hash of one path on one ref, or None when it is not there."""
+    try:
+        return _git(repo_root, "rev-parse", f"{ref}:{path}").strip() or None
+    except (EvictionRefused, subprocess.SubprocessError, OSError):
+        # ABSENT IS AN ANSWER HERE, NOT A REFUSAL. _git turns any non-zero into
+        # EvictionRefused, which is right for the operations that move data and
+        # wrong for a question whose honest answer is "it is not on that ref" --
+        # the caller's whole job is to act on that.
+        return None
+
+
 def _paths_on_branch(repo_root: Path, branch: str) -> set[str]:
     out = _git(repo_root, "ls-tree", "-r", "--name-only", branch)
     return {line.strip() for line in out.splitlines() if line.strip()}
@@ -217,7 +256,9 @@ def evict(
     Raises EvictionRefused, having touched nothing, if the substrate branch
     cannot take the files or if any single path is missing from it afterwards.
     """
-    paths = added_substrate(repo_root, reference)
+    added = added_substrate(repo_root, reference)
+    changed = modified_substrate(repo_root, reference)
+    paths = added + changed
     if not paths:
         return EvictionResult(branch=branch)
 
@@ -242,8 +283,17 @@ def evict(
             "recoverable."
         )
 
-    before = _paths_on_branch(repo_root, branch)
-    already = tuple(p for p in paths if p in before)
+    # ALREADY-THERE MEANS THE WRITING, NOT THE FILENAME. Measured by path this
+    # reported "11 were already safely there" about eleven exports that existed
+    # over there only as the older version this branch had rewritten -- a true
+    # sentence about names and a false one about content, in the one report
+    # Andrew actually reads.
+    already = tuple(
+        p
+        for p in paths
+        if _blob_at(repo_root, branch, p) is not None
+        and _blob_at(repo_root, branch, p) == _blob_at(repo_root, "HEAD", p)
+    )
 
     try:
         routed = commit_paths_to_branch(
@@ -260,6 +310,13 @@ def evict(
         ) from exc
 
     # THE GATE. Not a courtesy check -- the reason this may run unattended.
+    #
+    # IT USED TO ASK THE WRONG QUESTION, and the wrongness only surfaced when
+    # modified files joined the list. Presence answers "is there a file with
+    # this name over there", which for a rewritten export is true of the OLD
+    # copy -- so the gate would have passed on the strength of the very version
+    # this branch replaced, and then dropped the new one. Presence is not
+    # safety; identical content is.
     after = _paths_on_branch(repo_root, branch)
     missing = [p for p in paths if p not in after]
     if missing:
@@ -268,8 +325,21 @@ def evict(
             f"was removed from the index. First: {missing[0]}. "
             "Withhold the eviction, never the data."
         )
+    stale = [p for p in paths if _blob_at(repo_root, branch, p) != _blob_at(repo_root, "HEAD", p)]
+    if stale:
+        raise EvictionRefused(
+            f"{len(stale)} path(s) are on {branch} with DIFFERENT content than this "
+            f"branch holds, so nothing was removed. First: {stale[0]}. The name being "
+            "there is not the writing being there."
+        )
 
-    _git(repo_root, "rm", "--cached", "--quiet", "-r", "--", *paths)
+    # Two kinds, two actions. An addition leaves the index; a rewritten file
+    # goes back to the reference's version, because removing it would read as
+    # this branch deleting something main still has.
+    if added:
+        _git(repo_root, "rm", "--cached", "--quiet", "-r", "--", *added)
+    if changed:
+        _git(repo_root, "checkout", reference, "--", *changed)
 
     return EvictionResult(
         paths=tuple(paths),
@@ -295,7 +365,9 @@ def describe(result: EvictionResult, reference: str = DEFAULT_REFERENCE) -> str:
         f"Moved {result.evicted} letter(s) off this branch and onto {result.branch}.",
         f"  {len(result.already_present)} were already safely there; {newly} were not, "
         "and are now.",
-        "  Every file is still on this machine, untouched. Only the branch changed.",
+        "  Every one is safe on that branch. Files this branch had ADDED are untouched on disk;",
+        "  files it had REWRITTEN now show the shared version here, because the rewrite is",
+        "  what moved. Nothing was lost either way -- only the branch it lives on changed.",
     ]
     if result.routed_commit is None:
         lines.append("  Nothing needed writing -- the content was already identical.")

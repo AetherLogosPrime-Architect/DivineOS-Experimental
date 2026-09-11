@@ -28,6 +28,7 @@ from divineos.core.substrate_eviction import (
     DEFAULT_SUBSTRATE_BRANCH,
     EvictionRefused,
     added_substrate,
+    modified_substrate,
     recent_refusals,
     describe,
     evict,
@@ -77,7 +78,7 @@ def evict_substrate(reference: str, branch: str, dry_run: bool) -> None:
 
     try:
         if dry_run:
-            paths = added_substrate(repo, reference)
+            paths = added_substrate(repo, reference) + modified_substrate(repo, reference)
             if not paths:
                 click.secho(f"Nothing to move: this branch adds no letters over {reference}.")
                 return
