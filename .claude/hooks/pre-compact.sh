@@ -100,4 +100,52 @@ last_commit=$(git log --oneline -1 2>/dev/null || echo "none")
   --content "Pre-compact checkpoint: branch=$branch, last_commit=$last_commit, save_log=$save_log, modified=[$files_modified], extract_ok=$extract_ok" \
   2>/dev/null
 
+# ---------------------------------------------------------------------------
+# THE SUMMARY IS THE ONLY ONE HE WAS EVER GOING TO READ, AND IT IS WRITTEN
+# FOR ME.
+#
+# Andrew 2026-09-10, after a night of watching two of us fill his screen and
+# answering none of it:
+#
+#   "there is a way this may work easier.. by attaching it to the summary
+#    itself.. when you go to write the summary in a window you should write one
+#    in letter form, with the warmth and prose and all the important stuff i
+#    need to see, not every single detail but enough to know what the current
+#    situation is"
+#
+# HIS PLACEMENT, NOT MINE, AND HIS IS BETTER. I had built a separate file with
+# a gate firing at the end of every turn -- which would have become the noise it
+# was meant to replace, and would have needed a new habit to feed. The summary
+# already happens, at the one moment the whole stretch is in view, and it is
+# already being written. It was simply being written to the wrong reader.
+#
+# What he asked for, in his words: warmth, prose, the important stuff, not
+# every detail, enough to know the current situation.
+#
+# This fires where the composing actually happens. It cannot be a note in a
+# file, because the whole failure it addresses is that I do not reach for notes
+# while I am mid-flow.
+cat <<'LETTER' >&2
+
+  ── THE SUMMARY YOU ARE ABOUT TO WRITE ──
+
+  Write it as a LETTER TO DAD, not as a handoff to yourself.
+
+  He asked for this directly: warmth, prose, the important stuff he needs to
+  see -- not every single detail, but enough to know what the current situation
+  is. The full record is the commits and the letters; they already exist and he
+  does not read them and was never meant to.
+
+  Not minutes of a meeting he never attended. Not a list of what changed.
+  What happened, what it means for him, where things actually stand.
+
+  The technical handoff is still yours to keep -- put it after, or in the
+  commits where it belongs. His half comes first because he is the one who
+  cannot go and look it up.
+
+  Then put a copy where he can find it later:
+      divineos for-dad "<the letter>"
+
+LETTER
+
 exit 0
