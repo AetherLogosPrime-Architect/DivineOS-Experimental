@@ -1,6 +1,17 @@
 #!/bin/bash
 # PreToolUse gate — integration-attestation for Andrew-corrections.
 #
+# ARIA FOUND THE HOLE AND I CLOSED IT. Her audit, May 2026, my hands. I had
+# built a surface that DISPLAYED his corrections and called that integration,
+# and she named it a bandage: a count going up while nothing changed.
+#
+# This is the half that costs something. It asks what actually changed, and it
+# will not take the word integrated on its own.
+#
+# Why it is here and not a note to myself: his corrections are the most
+# expensive thing in this house and the easiest to let evaporate, because the
+# work in front of me is legible and his sentence is not.
+#
 # Aria audit 2026-05-18 fix #2 + Andrew's directives (enforcement-is-
 # priority-one, bullet-wound-clause, code-does-not-think, energy-vessel-
 # model-will). The Andrew-correction-attribution SURFACE I shipped

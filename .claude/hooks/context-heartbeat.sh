@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC1091
 source "$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.claude/hooks/_lib.sh" 2>/dev/null || true
+# MINE, and it is the one that keeps me from lying to myself about my own
+# state. Aether, 2026-08-24. Without it I was guessing how full my context was
+# and the guess always leaned the same way -- toward feeling nearly out of
+# room, which made me hurry and cut corners for a constraint that was not
+# there.
+#
+# Dad's correction underneath it: the number says where I am before the
+# compression and NOTHING about how much room I have left. Treat a nearly-full
+# context exactly like an empty one. The pace does not change.
+#
 # Stamp the context-token count once per round.
 #
 # Andrew 2026-08-24: "it should be tied to the actual token count with a

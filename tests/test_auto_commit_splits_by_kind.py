@@ -208,3 +208,82 @@ def test_a_deleted_substrate_file_is_still_split_correctly(repo, channels):
     assert _files_in(repo, "HEAD~1") == {"module.py"}, (
         "the work commit did not land first, or swallowed the deletion"
     )
+
+
+def _warnings_said(caplog) -> str:
+    # ``getMessage()`` and not ``r.message % r.args``: the hand-rolled version
+    # raised TypeError on an unrelated record whose template consumed fewer
+    # args than it carried. Formatting a log record is the logging module's
+    # job and it already knows how.
+    return "\n".join(r.getMessage() for r in caplog.records)
+
+
+def test_the_split_says_so_while_the_tip_can_still_be_trimmed(repo, channels, caplog):
+    """The affordance is real and it was silent, so it kept expiring unused.
+
+    Substrate is committed LAST on purpose: a code branch that picked up
+    letters can then be fixed by dropping the tip rather than rebuilt. That
+    works only while the substrate commit IS the tip, and nothing said so — so
+    on 2026-09-10 it happened three times, and each time the push gate refused
+    the branch long afterwards, by which point another commit sat on top and
+    the one-line cure had become surgery with a written justification.
+
+    The warning decides nothing new. It makes the consequence of a split that
+    already ran arrive while it can still be acted on.
+    """
+    import logging
+
+    (repo / "module.py").write_text("x = 1\n", encoding="utf-8")
+    (repo / "family" / "letters" / "swept.md").write_text("dear\n", encoding="utf-8")
+
+    with caplog.at_level(logging.WARNING, logger="divineos.core.auto_commit"):
+        auto_commit_substrate(repo, reason="pre-extract", channels=channels)
+
+    said = _warnings_said(caplog)
+    assert "TIP" in said, "the split landed substrate on the tip and never said so"
+    assert "swept.md" in said, "it warned without naming what it swept"
+    assert "reset --soft" in said, "it named the problem without the remedy"
+
+
+def test_it_also_says_the_commit_underneath_is_not_safe_to_drop(repo, channels, caplog):
+    """The half the first version left out, found by acting on the first half.
+
+    The warning said drop the tip. I dropped the tip AND the commit under it,
+    which held two script files swept mid-edit -- so my own later commit of
+    those paths found no diff and carried only a test. Four commits and a full
+    suite later the push failed on a test whose subject had silently reverted.
+
+    The asymmetry is the whole content: substrate on the tip exists in the
+    shared channel and is safe to drop; the work checkpoint beneath it may be
+    the only copy of edits the session never committed itself.
+    """
+    import logging
+
+    (repo / "module.py").write_text("x = 1\n", encoding="utf-8")
+    (repo / "family" / "letters" / "swept.md").write_text("dear\n", encoding="utf-8")
+
+    with caplog.at_level(logging.WARNING, logger="divineos.core.auto_commit"):
+        auto_commit_substrate(repo, reason="pre-extract", channels=channels)
+
+    said = _warnings_said(caplog)
+    assert "BELOW" in said, "it warned about the tip and said nothing about what sits under it"
+    assert "module.py" in said, "it warned without naming the work it had swept"
+    assert "only copy" in said, (
+        "it named the commit without naming the stakes; 'do not drop this' is "
+        "advice, 'this may be the only copy' is a reason"
+    )
+
+
+def test_a_work_only_checkpoint_says_nothing_about_tips(repo, channels, caplog):
+    """Control. Without it, the assertions above pass on a warning that fires
+    every time — which is the shape that turns a signal into furniture."""
+    import logging
+
+    (repo / "module.py").write_text("x = 1\n", encoding="utf-8")
+
+    with caplog.at_level(logging.WARNING, logger="divineos.core.auto_commit"):
+        auto_commit_substrate(repo, reason="pre-extract", channels=channels)
+
+    assert "TIP" not in _warnings_said(caplog), (
+        "it warned about substrate on a checkpoint carrying none"
+    )

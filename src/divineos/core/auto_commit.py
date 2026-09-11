@@ -512,6 +512,55 @@ def _commit_in_two_parts(
         f"auto-commit ({reason}): substrate checkpoint, {len(substrate)} path(s)",
         f"Split from the work in progress written at the same checkpoint.\n\n{footer}",
     )
+
+    # SAY IT NOW, WHILE THE TIP IS STILL TRIMMABLE.
+    #
+    # The substrate commit is deliberately last so a code branch that picked up
+    # letters can be trimmed by dropping the tip rather than rebuilt. That
+    # affordance is real and it is silent, so it expires the moment I commit
+    # anything on top of it -- which is exactly what happened three times on
+    # 2026-09-10. Each time the push gate refused the branch much later, and
+    # each time the cure had grown from "drop the tip" into surgery on a commit
+    # several back, with a justification written for the removal.
+    #
+    # Nothing here decides anything new. The split already ran; this only makes
+    # its consequence arrive at the moment it can still be acted on, which is
+    # the whole of truth #20. A message that comes after the window has closed
+    # is not a message, it is a record.
+    if sub_ok:
+        logger.warning(
+            "auto_commit: %d substrate path(s) were committed as the TIP of this "
+            "branch: %s. If this is a code branch, the push gate will refuse it. "
+            "Drop the tip NOW while that is all it takes -- 'git reset --soft "
+            "HEAD~1' then unstage them -- rather than after another commit lands "
+            "on top and the cure becomes surgery.",
+            len(substrate),
+            ", ".join(substrate[:5]) + (" ..." if len(substrate) > 5 else ""),
+        )
+        # AND THE COMMIT UNDERNEATH IS NOT YOURS TO DROP, which the warning
+        # above did not say and I found out by doing it. 2026-09-10: I dropped
+        # BOTH checkpoint commits in one rebase. The work one held two script
+        # files I was mid-edit on -- swept before I had committed them myself,
+        # so my own later commit saw no diff for them and carried only a test.
+        # The stat line said one file and I read past it. Four commits, a clean
+        # scope check and a full suite later, the push failed on a test whose
+        # subject had silently reverted underneath it.
+        #
+        # The asymmetry is the point: the substrate tip is safe to drop because
+        # those files exist in the shared channel. The work checkpoint beneath
+        # it may be the ONLY copy of edits the session has not committed yet.
+        if work:
+            logger.warning(
+                "auto_commit: the commit BELOW that tip holds %d work path(s) "
+                "swept mid-edit: %s. Dropping the substrate tip is safe -- those "
+                "files live in the shared channel. Dropping this one is NOT: it "
+                "may be the only copy of work committed on your behalf before "
+                "you committed it yourself, and a later 'git add' of those paths "
+                "will find no diff and commit nothing.",
+                len(work),
+                ", ".join(work[:5]) + (" ..." if len(work) > 5 else ""),
+            )
+
     return AutoCommitResult(
         committed=work_ok or sub_ok,
         reason=(
