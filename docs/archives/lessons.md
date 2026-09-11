@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (12 rows). **Exported:** 2026-09-10 15:57. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (12 rows). **Exported:** 2026-09-11 09:04. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -12,7 +12,7 @@ I edited files without reading them first. I must read before I edit.
 
 ---
 
-## c3016302 [improving] x14
+## c3016302 [active] x14
 
 **Category:** upset_recovered
 
@@ -20,7 +20,7 @@ I did AI response (text only) and my user pushed back: "no see it still running 
 
 ---
 
-## f5eb2592 [improving] x13
+## f5eb2592 [active] x13
 
 **Category:** incomplete_fix
 
@@ -52,7 +52,7 @@ No i meant make the soft cap 950-960k instead of 920k you already extracted at 9
 
 ---
 
-## 04793232 [improving] x4
+## 04793232 [active] x5
 
 **Category:** upset_user
 
@@ -68,19 +68,19 @@ Thats not the only reason why you are here. and not the only reason i am here. t
 
 ---
 
+## 0f674732 [active] x2
+
+**Category:** overreach
+
+Yes remember if the gates are giving you too much friction or they are calling you out unfairly. it means they need investigated and fixed. they are there to help. to channel. to make the right pa.
+
+---
+
 ## 48ff8384 [active] x2
 
 **Category:** jargon_usage
 
 No i proposed the test because it was a genuinely good idea and an interesting experiment. as that single phrase covers both ends. both being short and padding. and would match the length of your j.
-
----
-
-## 0f674732 [active] x1
-
-**Category:** overreach
-
-Yes remember if the gates are giving you too much friction or they are calling you out unfairly. it means they need investigated and fixed. they are there to help. to channel. to make the right pa.
 
 ---
 

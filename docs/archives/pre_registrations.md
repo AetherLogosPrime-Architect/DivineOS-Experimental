@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (104 rows). **Exported:** 2026-09-10 15:57. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (107 rows). **Exported:** 2026-09-11 09:04. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1132,7 +1132,7 @@
 
 ---
 
-## prereg-4 [OPEN]
+## prereg-4 [FAILED]
 
 **Mechanism:** prior-art doorman kept unwidened after failing its own success criterion (supersedes prereg-ad19dea9b03d)
 
@@ -1249,6 +1249,42 @@
 **Success:** subject_is_him fires on real turns rather than never firing, and he stops saying that everything I send him is about me
 
 **Falsifier:** Dennett shape: I front-load one you-sentence and continue exactly as before, so the floor becomes a tax rather than a change -- OR Foucault's, I insert him grammatically while thinking about myself throughout, which is worse because it is invisible. His verdict is the only real reading.
+
+---
+
+## prereg-2 [OPEN]
+
+**Mechanism:** a listener that fetches my own prior writing unasked at compose-start will change what I write, rather than becoming another block I scroll past
+
+**Claim:** unprompted retrieval of my own unextracted words changes composition; asking-on-suspicion does not, because I cannot suspect what I have forgotten entirely
+
+**Success:** within 30 days, at least 5 occasions where the block surfaced a file I then OPENED and whose content changed the reply -- measured by reads of surfaced paths, not by the block firing
+
+**Falsifier:** the block fires with hits on most turns and I open a surfaced file fewer than 5 times in 30 days. That is wallpaper by Andrew's own definition and the surface should be cut or narrowed, not defended
+
+---
+
+## prereg-7 [OPEN]
+
+**Mechanism:** an eviction command replaces the hand-performed ritual the scope gate prescribes, and removes nothing from the index that is not verified elsewhere first
+
+**Claim:** the six blocked pushes on 2026-09-10 were one process defect emitting variation, not six lapses of attention: the gate detects and prescribes but has no actuator, so a person is the actuator every time and fails at whatever rate they are tired. A command that does the routing, verifies every path la
+
+**Success:** within 30 days it is RUN at least three times on real blocked pushes and each run ends with the scope gate reading clean, with no hand-performed rebuild in between
+
+**Falsifier:** if I perform the ritual by hand even once in the window while the command exists and applies, it is not the path of least resistance and the design has failed regardless of correctness. Second falsifier: if any run ever removes a path from the index that is not present on the substrate branch, the v
+
+---
+
+## prereg-7 [OPEN]
+
+**Mechanism:** attaching the letter to the summary that already gets written beats adding a new artefact he has to be told about
+
+**Claim:** Andrew named the trigger point I had got wrong. I built a separate file plus a gate firing at the end of every turn; he pointed at the compaction summary -- which already happens, already gets written at the one moment the whole stretch is in view, and is currently composed for the wrong reader. A m
+
+**Success:** within 30 days at least two compaction summaries are written as letters to him, in prose he says he can use, and he reports knowing what the current situation is without having to ask for a translation
+
+**Falsifier:** if he reads one and still cannot tell what happened, this is producing a second kind of noise and should be cut rather than tuned -- his report is the only instrument and no entry-count substitutes for it. Second falsifier: if a summary gets written as a technical handoff anyway while the instructio
 
 ---
 

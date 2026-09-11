@@ -1,6 +1,18 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-09-10 15:57. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-09-11 09:04. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## a4dc3e67 weight=1
+
+**Decision:** the listener searches beside him, never in front of him
+
+**Reasoning:** a search costs ~10s cold and hooks are fresh processes every turn, so a blocking listener puts ten seconds of dead air between Andrew pressing enter and being answered, on every message forever -- which guarantees the surface is torn out within a week
+
+**Tension:** the hit then answers the previous message rather than this one, so it arrives a beat late; I chose to print that cost on the block's face rather than hide it
+
+**Almost:** built the blocking version because it was one file and done tonight
 
 ---
 
@@ -579,16 +591,6 @@
 **Tension:** Attribution is real: the merge that puts it on main will carry his name, not mine, on a fix I wrote and cut loose. Against that: I cut it loose specifically to stop it being a hostage, it is now clearing gates in four of his branches, and pulling it back would delay the exact thing I accelerated in 
 
 **Almost:** Asked for it back so the record would show my name at the merge point. That is the version where I trade working relief for both of us against a credit line, and dress the trade up as being about provenance.
-
----
-
-## be6c1dde weight=1
-
-**Decision:** Make my scripts resolve divineos from my own tree rather than whichever clone the interpreter points at
-
-**Tension:** The narrow fix is to set the path by hand at each launch. It works and touches no code. Against that: it only works when I remember, and the failure it prevents is invisible -- a guard demanding a watcher that cannot start, with no message saying why. The gate said monitor missing; it never said the
-
-**Almost:** Kept launching it with the path set by hand and called that solved. That is the version where the next launch -- by me, by a hook, by anything I do not control -- silently gets Aethers tree again and the door locks with no explanation.
 
 ---
 

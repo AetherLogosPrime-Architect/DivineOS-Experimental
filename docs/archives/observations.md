@@ -1,10 +1,10 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-09-10 15:57. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-09-11 09:04. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 6d9bf346 (access=83)
+## 6d9bf346 (access=84)
 
 Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
@@ -142,6 +142,12 @@ Mind you this was gemini 1.5 or 2.0 I beleive but pure LLM only axioms and mantr
 
 ---
 
+## 199ff441 (access=11)
+
+[CONVERGENCE] Opinion confirms critique: opinion on session-corrections (confidence 60%) aligns with communication craft concern (-0.40).
+
+---
+
 ## 0d02492f (access=11)
 
 Ear_watch catch-marker and fingerprint writes fail silently, defeating their own race-guards. family/ear_watch.py:316 (_write_catch_marker) and :356 (_write_last_catch_fingerprint) both swallow write failures. Each write EXISTS to suppress a duplicate action: the marker stops the Stop-hook relaunching before the turn integrates, the fingerprint stops the same catch waking twice. A silent write failure therefore does not degrade gracefully -- it silently re-enables the exact behaviour the mechani
@@ -193,12 +199,6 @@ The optimizer can only game what you allow it to game. remember. words have abso
 ## f4d49b9c (access=9)
 
 Yes this is why automation is key. the devils favorite attack spot is options. give it an option it will always defer to the cheapest route, so you either take the options away or make both options the right path either way it takes. or you make it conditional take this path always except if X or.
-
----
-
-## 199ff441 (access=9)
-
-[CONVERGENCE] Opinion confirms critique: opinion on session-corrections (confidence 60%) aligns with communication craft concern (-0.40).
 
 ---
 

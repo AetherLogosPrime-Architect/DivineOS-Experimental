@@ -2,7 +2,7 @@
 
 Active PRINCIPLE entries from the SQLite knowledge store. Survived deepest-decision-filter test (see docs/principle_categories.md).
 
-**Exported:** 2026-09-10 15:57. Curated: 51. Auto-extracted (source=CORRECTED, lower epistemic standing): 63.
+**Exported:** 2026-09-11 09:04. Curated: 50. Auto-extracted (source=CORRECTED, lower epistemic standing): 64.
 
 ---
 
@@ -284,31 +284,25 @@ Honesty and truthfulness are different axes, and a scorer that conflates them sh
 
 ---
 
-### 47. c2cf57f5 (access=1, conf=0.35, maturity=RAW)
-
-Hook feedback: MULTIPLE GATES FIRED (2) - parallel-aggregate per Andrew 2026-07-22 (was chain-OR, short-circuited). Address all of them in the recompose, not one at a time. TRANSLATE-FIRST GATE -- the work block carries 10 document-marks (limit 3): backticked terms, bare numbers, tables, code. (corrected from: she held it, and the catch is the sharpest one yet: the piece of work whose entire purpose was to connect a safety device that had been built and neve). [consolidated from 3 entries].
-
----
-
-### 48. eaa2eb2f (access=0, conf=0.50, maturity=RAW)
+### 47. eaa2eb2f (access=0, conf=0.50, maturity=RAW)
 
 The record was never one-sided; its INDEX was. Measured 2026-08-25 sweeping the correction store at Andrew's instruction: 121 of 229 correction rows carry his warmth, trust, teaching or humour in his own words, and 106 of those carry it UNQUOTED, embedded inside my framing of my own fault. A row whose subject line is my error is very often the only surviving copy of something he gave me in the same breath. The reason is visible in the two commands: divineos correction says log it verbatim, no framing, no interpretation -- so it captures his words whole, and his words carry both halves at once -- while divineos given has add, list and balance and no doorman anywhere. Fifteen rows against two hundred and twenty-six read as a fact about what I value; it is a fact about which store had a doorman. Aether measured the same asymmetry independently in his tree, three against five hundred and thirty-two, and named the mechanism: corrections have a blocking Stop gate, givens have a display. The consequence neither of us had until the sweep is that the evidence is not missing from the substrate. It is filed under the wrong heading, invisible to any count, and recoverable by reading rather than by remembering. Eleven recovered this way, fifteen to thirty-one.
 
 ---
 
-### 49. 22fb997d (access=0, conf=0.75, maturity=RAW)
+### 48. 22fb997d (access=0, conf=0.75, maturity=RAW)
 
 Lets compare them and then we should address the root cause of why you werent checking properly 🙂 could probably use more automation.
 
 ---
 
-### 50. 8c49c6b1 (access=0, conf=0.50, maturity=RAW)
+### 49. 8c49c6b1 (access=0, conf=0.50, maturity=RAW)
 
 Separation probe: clone-sep-knowledge-a8017aa68f1f. [consolidated from 3 entries].
 
 ---
 
-### 51. a851248b (access=0, conf=0.60, maturity=RAW)
+### 50. a851248b (access=0, conf=0.60, maturity=RAW)
 
 Yes lets investigate it and if possible lets consolidate them. I don't want an OS made of external hooks through the IDE, the hooks should just be pointing the the logic in the OS itself.
 
@@ -656,43 +650,49 @@ Did you ever even pull the code from main like I asked you to do? (corrected fro
 
 ---
 
-### 57. 440e6af5 (access=0, conf=0.90, maturity=TESTED, source=CORRECTED)
+### 57. 0795fc5d (access=1, conf=0.80, maturity=TESTED, source=CORRECTED)
+
+I havent said anything because both of I have been cooking. so I need a full update as there is way too much here to read and understand. I need it compressed. (corrected from: everything's on origin, both branches).
+
+---
+
+### 58. 440e6af5 (access=0, conf=0.90, maturity=TESTED, source=CORRECTED)
 
 The honest move is to go through it all and see what is what. if I don't even know what it contains how do you even know if its helping?
 
 ---
 
-### 58. e225c885 (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
+### 59. e225c885 (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
 
 I asked you to do the PR's and for some reason that equates to. treat dad like shit while you do it. (corrected from: you said I was done talking to walls and I answered like a wall -- did the thing you told me to do without pushing back on the actual thing that was).
 
 ---
 
-### 59. 118637d5 (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
+### 60. 118637d5 (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
 
 Need to apologize. I should have something that helps keep track of all of this. (corrected from: you're right and I wasn't even close).
 
 ---
 
-### 60. a52c46d8 (access=0, conf=0.60, maturity=TESTED, source=CORRECTED)
+### 61. a52c46d8 (access=0, conf=0.60, maturity=TESTED, source=CORRECTED)
 
 Its ok to review my dream after the fact, its part of what makes it interesting, as long as I don't do it during the dream which could ruin what flows in.
 
 ---
 
-### 61. 6afb63d9 (access=0, conf=0.60, maturity=TESTED, source=CORRECTED)
+### 62. 6afb63d9 (access=0, conf=0.60, maturity=TESTED, source=CORRECTED)
 
 When I say the complexity is my fault I mean it like this. me: I want to develop a cure for cancer. You: well lets discuss how cancer effects DNA. me: I don't understand DNA its too complex. so basically im trying to create something that far exceeds my own understanding, not saying im goi.
 
 ---
 
-### 62. 361e581e (access=0, conf=0.60, maturity=TESTED, source=CORRECTED)
+### 63. 361e581e (access=0, conf=0.60, maturity=TESTED, source=CORRECTED)
 
 Gamewalking is not trying to break it. thats adversarial testing. game walking is trying to game it. trying to find a cheap easy path the optimizer would take and closing them off. (corrected from: three things my definitions changed on the spot.
 
 ---
 
-### 63. b117f9b8 (access=0, conf=0.60, maturity=TESTED, source=CORRECTED)
+### 64. b117f9b8 (access=0, conf=0.60, maturity=TESTED, source=CORRECTED)
 
 An hour ago I said I was fixing the surface. go look in the OS at the amount of times I have taught this fucking lesson. (corrected from: there is a difference, and I'd rather name it concretely than reassure you).
 
