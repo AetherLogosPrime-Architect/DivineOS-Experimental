@@ -4,7 +4,7 @@
 
 Third of three inventories. [LOADOUT.md](../LOADOUT.md) describes the rooms. [AUTOMATION_REGISTER.md](AUTOMATION_REGISTER.md) lists what runs by itself. This lists what I can **reach for** — the tools on the wall.
 
-**182 top-level commands, 357 subcommands, 37 core subsystems.**
+**183 top-level commands, 361 subcommands, 35 core subsystems.**
 
 ---
 
@@ -1319,16 +1319,22 @@ Wiring checks â€” is what I built actually...
 
 Record an open question -- something I'm...
 
+### `work-item`
+
+The front of the build flow: no code edit...
+
+| subcommand | purpose |
+|---|---|
+| `work-item bypass` | Let this item through without its marks, and count that it... |
+| `work-item close` | Close a piece of work. |
+| `work-item gate` | Read a hook payload on stdin; exit 2 to hold the tool call. |
+| `work-item status` | What is open on this branch and which marks it still lacks. |
+
 ---
 
 ## Core subsystems
 
 Reference count is how many places mention each package — a rough load-bearing signal, not a precise import graph. Zero is worth a look.
-
-**2 subsystem(s) with no references** — retired, or forgotten?
-
-- `core/doc_sync/` — (no package docstring)
-- `core/push_verify/` — (no package docstring)
 
 | subsystem | refs | purpose |
 |---|---|---|
@@ -1342,7 +1348,6 @@ Reference count is how many places mention each package — a rough load-bearing
 | `core/council/` | 100+ | Expert Council — thinking lenses from great minds. |
 | `core/council_required/` | 10-99 | Council-required enforcement gate — block high-gravity edits until evidence |
 | `core/decision_superposition/` | 10-99 | Decision superposition — deliberate holding-of-options before commit. |
-| `core/doc_sync/` | none | (no package docstring) |
 | `core/ear_relaunch/` | 10-99 | Ear-watcher polling auto-relaunch decision logic. |
 | `core/ear_sweep/` | 10-99 | SessionStart sweep — reap stale ear_watch processes from prior sessions. |
 | `core/empirica/` | 10-99 | EMPIRICA — evidence ledger with tiered burden routing. |
@@ -1358,7 +1363,6 @@ Reference count is how many places mention each package — a rough load-bearing
 | `core/pr_gate/` | 10-99 | PR gates — gh-pr-create / gh-pr-merge guard logic. |
 | `core/pre_registrations/` | 10-99 | Pre-registrations — Goodhart prevention for new detectors and mechanisms. |
 | `core/push_orchestrator/` | 10-99 | Push orchestrator — foreground git push with file-lock serialization |
-| `core/push_verify/` | none | (no package docstring) |
 | `core/reliability/` | 1-9 | Reliability — Bayesian confidence with uncertainty. |
 | `core/self_monitor/` | 10-99 | Self-monitor — watches the agent's own output for trained failure modes. |
 | `core/semantic_classifier/` | 1-9 | Semantic classifier for gate-fire discrimination. |
