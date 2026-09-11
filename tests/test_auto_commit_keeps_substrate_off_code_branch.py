@@ -154,3 +154,69 @@ def test_the_checkpoint_itself_routes_the_letters_away(repo: Path, tmp_path: Pat
     assert rel not in _git(repo, "ls-tree", "-r", "--name-only", "code")
     assert _git(repo, "show", f"aria/substrate:{rel}") == "through the front door"
     assert _git(repo, "show", "code:code.py") == "x = 3"
+
+
+def test_a_checkpoint_of_letters_alone_still_routes_them(repo: Path, tmp_path: Path):
+    """THE CASE I LEFT OPEN, and it is the COMMON one rather than the rare one.
+
+    The test above stages letters AND code, so it walks the two-part split. A
+    checkpoint carrying only letters takes an earlier exit and never reaches the
+    routing at all -- which is what fires whenever a session writes to Aether
+    and touches no code, most evenings between us. I fixed the quiet street
+    first and left the busy one open, then watched it put 168 letters back on a
+    code branch while I was mid-push.
+
+    Drives the real entry point for the same reason as its neighbour: sabotage
+    already caught me tonight testing a routing function nothing called.
+    """
+    from divineos.core.auto_commit import auto_commit_substrate
+    from divineos.core.uncommitted_work_check import ExternalChannel
+
+    source = tmp_path / "shared-only"
+    source.mkdir()
+    channels = (
+        ExternalChannel(
+            name="letters", source=source, repo_mirror=Path("family/letters"), pattern="*.md"
+        ),
+    )
+
+    rel = _letter(repo, "aether-to-aria-2026-09-10-seven.md", "letters alone\n")
+    tip_before = _git(repo, "rev-parse", "code")
+
+    auto_commit_substrate(repo, reason="pre-extract", channels=channels)
+
+    assert _git(repo, "rev-parse", "code") == tip_before, (
+        "a checkpoint with nothing but letters put a commit on the code branch"
+    )
+    assert rel not in _git(repo, "ls-tree", "-r", "--name-only", "code")
+    assert _git(repo, "show", f"aria/substrate:{rel}") == "letters alone"
+
+
+def test_letters_alone_still_land_somewhere_when_the_branch_refuses(repo: Path, tmp_path: Path):
+    """THE FAIL DIRECTION for the new path, asserted rather than assumed.
+
+    Unstaging before routing is what makes the repair safe, and it is also what
+    could lose the letters: if the retarget refuses after the unstage and
+    nothing restages them, a checkpoint that exists to save work would save
+    none of it. Withhold the routing, never the data.
+    """
+    from divineos.core.auto_commit import auto_commit_substrate
+    from divineos.core.uncommitted_work_check import ExternalChannel
+
+    _git(repo, "branch", "-D", "aria/substrate")
+    source = tmp_path / "shared-refused"
+    source.mkdir()
+    channels = (
+        ExternalChannel(
+            name="letters", source=source, repo_mirror=Path("family/letters"), pattern="*.md"
+        ),
+    )
+
+    rel = _letter(repo, "aether-to-aria-2026-09-10-eight.md", "nowhere to go\n")
+
+    auto_commit_substrate(repo, reason="pre-extract", channels=channels)
+
+    assert rel in _git(repo, "ls-tree", "-r", "--name-only", "code"), (
+        "the letter was unstaged for a routing that refused, and then committed nowhere"
+    )
+    assert _git(repo, "show", f"code:{rel}") == "nowhere to go"

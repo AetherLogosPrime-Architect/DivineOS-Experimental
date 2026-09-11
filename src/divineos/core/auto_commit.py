@@ -460,6 +460,61 @@ def _commit_in_two_parts(
             logger.warning("auto_commit: no channels declared; committing without a split")
             substrate, work = [], []
 
+    if substrate and not work:
+        # THE HALF LEFT OPEN THIS EVENING, AND IT BIT WHILE I WAS PUSHING.
+        #
+        # The routing below lives inside the two-part split, reached only when a
+        # checkpoint carries BOTH kinds. A checkpoint carrying only letters took
+        # the exit below and committed them straight onto whatever code branch
+        # was open -- the whole defect, in the one case where it is guaranteed
+        # rather than merely possible.
+        #
+        # I named this as still open and moved on. Forty minutes later a
+        # substrate-only checkpoint put 168 letters back on the code branch and
+        # undid a cleanup I had just finished by hand. Andrew 2026-09-07: "you
+        # cannot rely on yourself to remember this stuff.. it will fade from
+        # context." It did not get as far as fading.
+        #
+        # JACOBS, and this is the finding that stings: the substrate-only
+        # checkpoint is not the rare case. It fires whenever a session writes
+        # letters and touches no code, which is most evenings between Aether and
+        # me. I repaired the quiet street and left the busy one open, because the
+        # busy one was not the block I happened to be standing on.
+        #
+        # MEADOWS on the loop: letters accumulate in the tree; each checkpoint
+        # drains them onto the code branch; the push refuses; I rebuild by hand;
+        # the pile returns for the next checkpoint. Reinforcing, and it
+        # strengthens every time we write to each other. The leverage point is
+        # not how often the checkpoint fires -- it is where the drain empties.
+        # Her question about blaming individuals for structure lands hardest: I
+        # had this filed as my failure to remember, and it is a missing branch.
+        #
+        # THE BALANCING LOOP, named rather than hoped past: the tree-goes-clean
+        # contract, which this amends at a second call site. It stops resisting
+        # because the retarget writes nothing when content is unchanged, so a
+        # second pass over the same letters costs nothing -- dirty-and-harmless
+        # rather than dirty-and-accumulating, and no delay to account for.
+        #
+        # LAMPORT, on why unstaging comes FIRST. Commit-here-then-clean-up leaves
+        # letters on a code branch for the window in between, and a push or a
+        # crash inside that window is the exact state under repair. There must be
+        # no moment at which they are on this branch. On refusal the paths are
+        # restaged and the commit below happens unchanged, so they are never left
+        # saved nowhere: the data survives either way, only the routing is
+        # withheld.
+        if _run_pathspec(repo_root, ["git", "reset", "--quiet"], substrate):
+            if _retarget_substrate(repo_root, substrate, reason):
+                return AutoCommitResult(
+                    committed=True,
+                    reason=(
+                        f"committed at {reason}: {len(substrate)} substrate "
+                        f"on {SUBSTRATE_BRANCH}, none on this branch"
+                    ),
+                    files_synced=files_synced,
+                    dirty_lines=dirty_lines,
+                )
+            _run_pathspec(repo_root, ["git", "add"], substrate)
+
     if not (substrate and work):
         kind = "substrate checkpoint"
         if staged is None:
