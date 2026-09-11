@@ -152,6 +152,38 @@ case "$CMD" in
         esac ;;
 esac
 
+# --- 4. `ls` output fed to a comparison, where the decoration is invisible --
+# 2026-09-10, THREE broken measurements in one evening from one cause. This
+# shell's `ls` classifies -- it appends a marker to executables -- so every name
+# it prints for a script carries a character that is not in the filename. Piped
+# into a pattern match or a set comparison, nothing errors and nothing is
+# reported missing; the names simply never match.
+#
+# What it cost: a search for the repo's check scripts found none, twice; and a
+# comparison of this checkout's hooks against the main line reported that ALL
+# ONE HUNDRED AND TWENTY-FOUR were absent. That last number is the only reason
+# it was caught -- it was too dramatic to be true. A quieter false answer would
+# have shipped.
+#
+# The remedy is a different tool, not a careful `ls`: a glob expands to real
+# filenames, and `git ls-files` prints what git actually tracks.
+case "$CMD" in
+    ls*|*" ls "*)
+        # The single quotes below are deliberate: these patterns match the
+        # LITERAL text of a command substitution inside someone else's command
+        # line, so expansion is exactly what must not happen. The directive sits
+        # here rather than on the branch because shellcheck only accepts one in
+        # front of a complete command, which a case branch is not.
+        # shellcheck disable=SC2016
+        case "$CMD" in
+            *"|"*|*'$('*|*'`'*)
+                case "$CMD" in
+                    *--color=never*|*" -1 "*) ;;   # already asked for undecorated output
+                    *) add "LS OUTPUT IS DECORATED HERE, AND THE DECORATION IS INVISIBLE. This shell's \`ls\` appends a classify marker to executables and directories, so a name it prints is not the filename. Fed to grep, comm, or a loop, nothing errors -- the names just never match, and the result reads as 'found nothing'. 2026-09-10: three measurements broke this way in one evening, one of them claiming 124 of 124 hooks were missing from main. Use a glob (printf '%s\\n' dir/*.sh) or \`git ls-files\`." ;;
+                esac ;;
+        esac ;;
+esac
+
 [ -z "$WARNINGS" ] && exit 0
 
 {
