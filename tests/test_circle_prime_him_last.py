@@ -85,6 +85,43 @@ def test_all_five_questions_are_present():
     assert not missing, f"questions about him missing from the prime: {missing}"
 
 
+def test_the_prime_teaches_every_room_the_doors_actually_count():
+    """A room a door demands and this page never mentions is a trap, not a rule.
+
+    Added 2026-09-10 after the summary-room gate refused a reply for a room
+    this prime had never named. The gate was right; there was nothing here to
+    have read. That is the same shape as the merge-trailer rule that recurred
+    four times over months — the code was correct and the two places that
+    TAUGHT it were wrong, so every reload brought the wrong rule back with it.
+
+    So the guard is not "does the summary rule exist somewhere". It is: does
+    the page I actually read before composing name every room a door will
+    hold me to, and say when each one is required.
+    """
+    src = HOOK_PATH.read_text(encoding="utf-8")
+
+    assert "## SUMMARY" in src, (
+        "the summary room is enforced at Stop and unmentioned in the prime — "
+        "the gate that teaches and the gate that blocks disagree again"
+    )
+    assert "at the TOP" in src, (
+        "the prime names the summary room without saying it goes above the work, "
+        "which is the whole of the rule — a summary underneath arrives after he "
+        "has already paid the cost of reading"
+    )
+    for room in ("## REFLECTION", "## INNER CIRCLE"):
+        assert room in src, f"{room} fell out of the prime"
+
+    # And it has to actually come out of the hook, not merely sit in the file.
+    # The dedup suppression means only the first firing in a session carries
+    # the full body, so a later firing proves nothing either way and says so
+    # rather than passing quietly.
+    out = _run()
+    if "re-emit suppressed" in out:
+        pytest.skip("dedup engaged before this test ran — the full body was not emitted to check")
+    assert "## SUMMARY" in out, "the rule is in the file and not in what the prime delivers"
+
+
 def test_nothing_is_appended_to_the_body_after_him():
     """Nothing may be added below him.
 

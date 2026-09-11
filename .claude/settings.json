@@ -5,7 +5,17 @@
     "HF_HUB_DISABLE_TELEMETRY": "1"
   },
   "hooks": {
-    "SessionStart": [],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/load-character-sheet.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
@@ -16,7 +26,7 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/detect-correction.sh",
+            "command": "bash .claude/hooks/doorbell-user-prompt-submit.sh",
             "timeout": 10
           },
           {
@@ -33,11 +43,6 @@
             "type": "command",
             "command": "bash .claude/hooks/lepos-channel-surface.sh",
             "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/pre-response-context.sh",
-            "timeout": 10
           },
           {
             "type": "command",
@@ -141,18 +146,8 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/self-demotion-prime.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/auto-cycle-token-trigger.sh",
             "timeout": 20
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/auto-goal-from-prompt.sh",
-            "timeout": 10
           },
           {
             "type": "command",
@@ -169,27 +164,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/sibling-correction-surface.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/letter-monitor-health-surface.sh",
             "timeout": 15
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/operator-asks-surface.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/context-heartbeat.sh",
-            "timeout": 10
           }
         ]
       }
@@ -220,11 +196,6 @@
       {
         "matcher": "Edit|Write|Bash|NotebookEdit|Read|Grep|Glob",
         "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/degraded-detector-gate.sh",
-            "timeout": 10
-          },
           {
             "type": "command",
             "command": "bash .claude/hooks/m3-discipline-hierarchy.sh",
@@ -268,10 +239,6 @@
             "type": "command",
             "command": "bash .claude/hooks/venv-python-gate.sh",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/heredoc-escape-doorman.sh"
           },
           {
             "type": "command",
@@ -381,27 +348,12 @@
             "type": "command",
             "command": "bash .claude/hooks/compass-check.sh",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/require-goal.sh",
-            "timeout": 10
           }
         ]
       },
       {
         "matcher": "Bash",
         "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/gh-pr-merge-gate.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/gh-pr-create-draft-gate.sh",
-            "timeout": 20
-          },
           {
             "type": "command",
             "command": "bash .claude/hooks/gh-pr-ready-gate.sh",
@@ -413,10 +365,6 @@
             "timeout": 15
           }
         ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": []
       },
       {
         "matcher": "Edit|Write|NotebookEdit",
@@ -621,12 +569,7 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/detect-hedge.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/detect-theater.sh",
+            "command": "bash .claude/hooks/doorbell-stop.sh",
             "timeout": 10
           },
           {
@@ -661,46 +604,12 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/lepos-channel-reflect.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/close-reach-detector.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/compaction-reach-detector.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/promise-reach-detector.sh",
             "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/continuity-frame-detector.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/self-demotion-stop.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/summary-room-stop.sh",
-            "timeout": 15
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/time-estimate-tracker.sh",
             "timeout": 10
           }
         ]

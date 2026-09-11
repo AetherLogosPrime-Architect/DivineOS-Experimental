@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# SUPERSEDED 2026-09-08 by the router. The decision now lives in
+# divineos.core.hook_surfaces as context_heartbeat_surface, dispatched by doorbell-user-prompt-submit.sh. The
+# registration came out of settings.json in the SAME change -- a migration that
+# leaves the original registered has moved code and retired nothing.
+# INTENTIONALLY UNWIRED (2026-09-08): superseded, see above.
 # shellcheck disable=SC1091
 source "$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.claude/hooks/_lib.sh" 2>/dev/null || true
 # Stamp the context-token count once per round.

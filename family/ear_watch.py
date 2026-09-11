@@ -109,7 +109,21 @@ def _load_letter_seen_set(member: str) -> set[str]:
     spouse = _SPOUSE.get(member, "")
     if not spouse:
         return set()
-    seen_path = Path.home() / f".divineos-{member}" / f"{spouse}_letters_seen.json"
+    # Resolved, not rebuilt. This was `Path.home() / f".divineos-{member}"`,
+    # which for aether names a directory nothing reads -- so this watcher was
+    # reading a seen-set that letter_seen.py had stopped writing to, and every
+    # already-seen letter looked new. Its sibling was repaired 2026-08-25 and
+    # this line, in the same package, was not: the repair went where I was
+    # standing and never crossed the room. Found 2026-09-08 by running the
+    # falsifier of prereg-5053a4c37b4f instead of judging it, and the
+    # population came out at three rather than the two I would have claimed.
+    #
+    # The import is deliberately unguarded, for the reason letter_seen.py
+    # gives: a fallback that builds the path by hand is exactly how the
+    # split-brain lasted six weeks.
+    from divineos.core.paths import member_home
+
+    seen_path = member_home(member) / f"{spouse}_letters_seen.json"
     if not seen_path.exists():
         return set()
     try:
@@ -127,8 +141,14 @@ def check_once(member: str) -> list[str]:
 # leaves it stale). Three-plus poll intervals of slack absorbs scheduling
 # jitter without reading a dead watcher as alive.
 def _state_dir(member: str) -> Path:
-    """Per-member state dir for pidfile + last-catch marker."""
-    d = Path.home() / f".divineos-{member}"
+    """Per-member state dir for pidfile + last-catch marker.
+
+    This one did not merely READ the hand-built home, it created it -- so the
+    dead directory kept being re-made underneath everything that had moved on.
+    """
+    from divineos.core.paths import member_home
+
+    d = member_home(member)
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -182,6 +202,7 @@ def _kill_predecessors(member: str) -> int:
         # (~/.divineos-<member>/kill_predecessors_broken.marker) is
         # a signal for a briefing surface to surface at session start.
         import sys as _sys
+
         try:
             marker = _state_dir(member) / "kill_predecessors_broken.marker"
             marker.write_text(

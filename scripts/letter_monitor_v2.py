@@ -120,9 +120,20 @@ def _persistent_seen_path(recipient: str) -> Path:
 
     Same shape as family/letter_seen.py's seen_path() so the two stay
     in sync as a single source of truth.
+
+    THAT DOCSTRING WAS FALSE UNTIL 2026-09-08. It claimed a single source of
+    truth while rebuilding the convention by hand, which is the most expensive
+    kind of comment: it describes the property whose absence it is causing, and
+    it reads as reassurance to anyone checking. Now the shape really is shared,
+    because both call the one resolver.
+
+    Third and last site of that class, found by counting the population rather
+    than by inspecting the file I already had open.
     """
+    from divineos.core.paths import member_home
+
     spouse = _SPOUSE.get(recipient.lower(), "unknown")
-    return Path.home() / f".divineos-{recipient.lower()}" / f"{spouse}_letters_seen.json"
+    return member_home(recipient.lower()) / f"{spouse}_letters_seen.json"
 
 
 def load_persistent_seen(recipient: str) -> set[str]:

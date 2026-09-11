@@ -210,3 +210,69 @@ def test_a_path_deleted_on_this_branch_is_not_reported_as_at_risk(repo: Path):
     out = _run(repo, "work")
 
     assert "ONLY HERE" not in out
+
+
+def test_checking_a_sha_does_not_compare_the_branch_against_itself(repo: Path):
+    """2026-09-07, and this one told two of us our letters were safe.
+
+    Aria's push was told every substrate file existed elsewhere at the same
+    bytes; two existed nowhere on origin. Mine was told the same about
+    seventy-eight, and I passed that on to Andrew as verification.
+
+    The push hook checks the refs BEING PUSHED, so it passes a commit sha.
+    ``git rev-parse --abbrev-ref <sha>`` prints an empty string, so the old
+    exclusion set came out empty, the branch's own ref stayed in the
+    comparison, and every file was found safe on the branch itself.
+
+    It only failed when a ref pointed at the rev under test — checking your
+    own tip, which is the only thing anyone runs before a push. The branch
+    name form kept working the whole time, which is why the sibling tests
+    above stayed green through it.
+    """
+    _add(repo, "work", {"dreams/aether/only_copy.md": "a dream\n"})
+    sha = _git(repo, "rev-parse", "HEAD")
+
+    out = _run(repo, sha)
+
+    assert "ONLY HERE: dreams/aether/only_copy.md" in out
+    assert "at the same bytes" not in out, (
+        "the branch's own ref points at this sha; counting it as another ref is "
+        "the self-comparison the refusal text one screen below warns against"
+    )
+
+
+def test_the_branch_own_remote_copy_one_commit_behind_is_still_itself(repo: Path):
+    """Aria's case, and it is the state every push is made from.
+
+    She ran the first repair against a live tree rather than agreeing with my
+    letter about it, and found that excluding refs which POINT AT the rev is
+    exact and therefore beside the point: the moment there is a commit the
+    remote does not have, the local ref moves and this branch's own
+    remote-tracking copy stays behind. It stops pointing at the tip, so it
+    stops being excluded — and it is still this branch, carrying nearly every
+    file on it. A file living only here is then found safe on its own remote
+    copy. The witness is me, one commit ago.
+
+    A push exists BECAUSE the remote is missing a commit, so this is not an
+    edge case; it is the only case the hook ever sees.
+    """
+    _add(repo, "work", {"dreams/aether/only_copy.md": "a dream\n"})
+    # Pushed once: the remote-tracking copy exists at that commit.
+    _git(repo, "update-ref", "refs/remotes/origin/work", _git(repo, "rev-parse", "HEAD"))
+    # Then one more commit — and it must touch something ELSE. My first draft of
+    # this test edited the dream itself, so the old remote copy held different
+    # bytes and was correctly reported as a different version. It passed with
+    # the repair and passed without it: a test that cannot fail proves nothing,
+    # which is the exact artifact Aria caught in her own run and warned me about
+    # in the same letter that found this bug.
+    (repo / "unrelated.txt").write_text("a second commit, elsewhere\n", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "second")
+
+    out = _run(repo, _git(repo, "rev-parse", "HEAD"))
+
+    assert "at the same bytes" not in out, (
+        "this branch's own remote copy, one commit behind, is not another ref -- "
+        "believing it is how a version that exists in one place reads as safe"
+    )
+    assert "ONLY HERE" in out

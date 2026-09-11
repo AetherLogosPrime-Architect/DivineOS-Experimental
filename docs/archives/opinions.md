@@ -1,6 +1,6 @@
 # Opinions (top 100 active) — Archive Mirror
 
-**Source:** SQLite (23 rows). **Exported:** 2026-08-28 22:40. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (23 rows). **Exported:** 2026-09-09 23:15. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -76,35 +76,35 @@
 
 ---
 
-## op-1b2cb conf=0.76
-
-**Topic:** session-quality
-
-**Position:** Session quality is consistently high (grade A, score 0.86)
-
----
-
-## op-2e8dd conf=0.76
-
-**Topic:** session-quality
-
-**Position:** Session quality is consistently high (grade A, score 0.85)
-
----
-
-## op-50260 conf=0.76
-
-**Topic:** session-quality
-
-**Position:** Session quality is consistently high (grade A, score 0.85)
-
----
-
 ## op-fa842 conf=0.75
 
 **Topic:** test5
 
 **Position:** Initial
+
+---
+
+## op-655d2 conf=0.74
+
+**Topic:** session-quality
+
+**Position:** Session quality is consistently high (grade B, score 0.80)
+
+---
+
+## op-313dd conf=0.74
+
+**Topic:** session-quality
+
+**Position:** Session quality is consistently high (grade B, score 0.80)
+
+---
+
+## op-02c89 conf=0.74
+
+**Topic:** session-quality
+
+**Position:** Session quality is consistently high (grade B, score 0.80)
 
 ---
 
@@ -140,19 +140,19 @@
 
 ---
 
-## op-4725f conf=0.60
+## op-2d91d conf=0.60
 
 **Topic:** session-corrections
 
-**Position:** This session had 3 corrections — accuracy under pressure needs work
+**Position:** This session had 16 corrections — accuracy under pressure needs work
 
 ---
 
-## op-e0fab conf=0.60
+## op-0593c conf=0.60
 
 **Topic:** session-corrections
 
-**Position:** This session had 4 corrections — accuracy under pressure needs work
+**Position:** This session had 28 corrections — accuracy under pressure needs work
 
 ---
 

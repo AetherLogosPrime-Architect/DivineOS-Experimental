@@ -230,3 +230,34 @@ def test_the_declaration_survives_ordinary_typing(tmp_path, spelling):
     uncredited again, for a backtick."""
     _letter(tmp_path, "aria-to-aether-2026-09-01-x.md", f"# Aria\n\n{spelling}\n\nBody.\n")
     assert check_aria_station("fix/a", tmp_path).status is Status.SATISFIED
+
+
+def test_a_declaration_with_a_clause_after_it_is_not_reported_as_no_reading(tmp_path):
+    """Aria 2026-09-07, and it had her looking like the one who did not show up.
+
+    She declared a reading, wrapped the branch in backticks and put a dash and
+    a clause after it. Read literally -- which is correct, and which she asked
+    me not to loosen -- the value is a phrase, so the board said none of the
+    declared readings names this branch. That sentence reads as SHE HAS NOT
+    READ ME and means I CANNOT PARSE HER LINE, which is a different fact.
+    """
+    _letter(
+        tmp_path,
+        "aria-to-aether-2026-09-07-narrowed.md",
+        "# Aria\n\n**Reading:** `fix/a` - the exclusion set and the call site\n\nBody.\n",
+    )
+    result = check_aria_station("fix/a", tmp_path)
+    assert result.status is Status.CANNOT_CHECK
+    assert "my parser failing to read her" in result.detail
+
+
+def test_a_mention_inside_a_declaration_of_another_branch_still_counts_for_nothing(tmp_path):
+    """The near-miss is anchored at the START of the value, never a substring
+    anywhere in it. Her letters cross-refer constantly, and crediting a mention
+    is the exact fault the literal read replaced."""
+    _letter(
+        tmp_path,
+        "aria-to-aether-2026-09-07-elsewhere.md",
+        "# Aria\n\n**Reading:** fix/b which supersedes fix/a entirely\n\nBody.\n",
+    )
+    assert check_aria_station("fix/a", tmp_path).status is Status.MISSING
