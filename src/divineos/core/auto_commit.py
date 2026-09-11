@@ -514,6 +514,26 @@ def _commit_in_two_parts(
                     dirty_lines=dirty_lines,
                 )
             _run_pathspec(repo_root, ["git", "add"], substrate)
+        else:
+            # A SILENT REFUSAL INSIDE THE FIX FOR SILENT REFUSALS.
+            #
+            # When the unstage fails, this skipped the routing entirely -- so
+            # nothing refused, nothing was recorded, and the letters landed on
+            # the code branch quietly. Exactly the shape repaired one commit
+            # earlier, surviving in the guard clause of the repair.
+            #
+            # Found by the diary itself, and only because it was empty: three
+            # substrate checkpoints landed after the recorder went in and it
+            # held nothing, which can only mean the routing was never REACHED
+            # rather than that it declined. An empty log is a finding when the
+            # thing it watches is demonstrably happening.
+            from divineos.core.substrate_eviction import record_refusal
+
+            record_refusal(
+                "could not unstage the substrate, so the routing was never "
+                "attempted and the letters landed on this branch",
+                SUBSTRATE_BRANCH,
+            )
 
     if not (substrate and work):
         kind = "substrate checkpoint"

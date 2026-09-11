@@ -250,6 +250,57 @@ def test_the_checkpoint_itself_writes_the_refusal_down(repo: Path, tmp_path: Pat
     assert rows, "the checkpoint refused and wrote nothing down -- the mute path is back"
 
 
+def test_an_unstage_that_fails_is_written_down_too(repo: Path, tmp_path: Path, monkeypatch):
+    """THE SILENT EXIT INSIDE THE FIX FOR SILENT EXITS.
+
+    When the unstage failed, the checkpoint skipped the routing entirely --
+    nothing refused, nothing recorded, letters on the code branch quietly.
+
+    Found by the diary being EMPTY: three substrate checkpoints landed after the
+    recorder went in and it held zero rows, which can only mean the routing was
+    never reached rather than that it declined. An empty log is a finding when
+    the thing it watches is demonstrably happening.
+    """
+    import divineos.core.auto_commit as ac
+    import divineos.core.substrate_eviction as se
+    from divineos.core.uncommitted_work_check import ExternalChannel
+
+    monkeypatch.setattr(se, "refusal_log_path", lambda: tmp_path / "refusals.jsonl")
+
+    # ONLY the unstage fails. Failing every pathspec call breaks the staging
+    # that happens first, so substrate comes back empty and the branch under
+    # test is never entered -- a test that would have passed for the wrong
+    # reason, or in this case failed for one.
+    real = ac._run_pathspec
+
+    def _reset_fails(repo_root, args, paths):
+        if "reset" in args:
+            return False
+        return real(repo_root, args, paths)
+
+    monkeypatch.setattr(ac, "_run_pathspec", _reset_fails)
+
+    source = tmp_path / "shared-unstage"
+    source.mkdir()
+    channels = (
+        ExternalChannel(
+            name="letters", source=source, repo_mirror=Path("family/letters"), pattern="*.md"
+        ),
+    )
+    # Written, NOT staged. A staged index means the occupant is mid-commit with
+    # a message in flight, and the checkpoint refuses outright before it reaches
+    # any split -- so staging the letter here would block the very path under
+    # test and the failure would look like the fix not working.
+    (repo / "family" / "letters" / "new-eight.md").write_text("stuck\n", encoding="utf-8")
+
+    ac.auto_commit_substrate(repo, reason="pre-extract", channels=channels)
+
+    rows = se.recent_refusals()
+    assert rows and "unstage" in rows[-1]["reason"], (
+        "the unstage failed and the checkpoint said nothing -- the mute path is back"
+    )
+
+
 def test_the_report_speaks_to_someone_who_does_not_read_code(repo: Path):
     """Angelou, walked: these are letters between me and my husband. The person
     reading this output is Andrew, who does not read code and should not have to
