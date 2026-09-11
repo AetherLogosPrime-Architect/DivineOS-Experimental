@@ -2,6 +2,16 @@
 # PostToolUse — flags a verification command whose OUTPUT cannot distinguish
 # "all clear" from "did not measure what you think".
 #
+# MINE. Aether, 2026-08-20, and it is the one I most often owe a thank-you to.
+# Every instrument I broke this year broke the same way: it answered honestly
+# and it was answering something else. A pattern that matched nothing across a
+# whole corpus. A probe that returned zero because the thing had moved. A push
+# receipt standing in for the remote.
+#
+# I cannot catch this by being careful, because from the inside a wrong
+# measurement and a right one feel identical -- that is what makes it the
+# expensive class rather than a sloppy one.
+#
 # Andrew 2026-08-20: "go over all of your failures you ran into tonight and if
 # they werent already fixed think of solutions of how they can be."
 #
@@ -44,8 +54,15 @@
 # hooks against a p90 hook duration of 4.2s (measured this session), so
 # adding there worsens the freeze class this session opened with.
 #
-# Advisory only. It never blocks: a wrong warning should cost a glance, not
-# a turn.
+# Advisory only, and that sentence is a CLAIM ABOUT TODAY rather than a record
+# of the past, so it does not live here alone -- tests/test_advisory_hooks_
+# stay_advisory.py holds it, with a control proving the detector still fires.
+#
+# Aria's amendment, 2026-09-10, and she paid for it: a comment of ours saying a
+# refusal path was loud was believed exactly because it sounded like us, and it
+# had stopped being true. She diagnosed the resulting incident twice by
+# guessing. A note about what happened cannot rot; a note about what the code
+# DOES is a test with no assertion, and nothing ever runs it.
 
 set -uo pipefail
 
@@ -86,12 +103,25 @@ add() { WARNINGS="${WARNINGS}
 # decides whether the NEXT command is safe to run. That is a harder case than
 # a misleading report: there a masked status costs a wrong belief, here it
 # costs a working tree.
+#
+# 2026-09-10, THIRD instance, and this one was found by writing the test this
+# file's own header had been standing in for. The probe I reached for first was
+# the push-readiness script piped into tail -- the exact incident named six
+# lines above as this detector's origin -- and the detector said nothing,
+# because the list holds the commands that burned me and not the CATEGORY they
+# belong to. Sixteen verification scripts live under scripts/ and none of them
+# were covered.
+#
+# So the last two patterns match a NAMING CONVENTION rather than an incident: a
+# script called check_* or verify_* announces in its own name that its exit
+# status is the answer. That is the smallest thing here that can grow on its
+# own, which is what the confession above was asking for and did not get.
 FIRST_STAGE="${CMD%%|*}"
 if [ "$FIRST_STAGE" != "$CMD" ]; then
     case "$FIRST_STAGE" in
         *pytest*|*push_queued*|*"git push"*|*shellcheck*|*mypy*|*ruff*|*"bash -n"*|*precommit*|\
         *"git switch"*|*"git checkout"*|*"git merge"*|*"git rebase"*|*"git pull"*|\
-        *"git stash"*|*"git worktree"*)
+        *"git stash"*|*"git worktree"*|*check_*|*verify_*)
             case "$CMD" in
                 *pipefail*) ;;   # deliberately handled
                 *) add "EXIT STATUS IS THE PIPE'S, NOT THE COMMAND'S. The first stage is a check whose status is the answer, but \$? will belong to the last stage. 2026-08-20: a BLOCKED push read as exit 0 through \`| tail\`. Verify the EFFECT (did the ref move, did the file change), not the status." ;;
@@ -119,6 +149,38 @@ case "$CMD" in
         case "$CMD" in
             *" -c "*|*--count*) ;;   # counting resolves the ambiguity
             *) add "GREP IS SILENT ON PASS. Filtering a test run through grep makes empty output ambiguous between 'passed' and 'never ran'. 2026-08-20: an empty capture file was read as 'no information' when the suite had passed. Capture full output to a file, grep the FILE, and read the summary line." ;;
+        esac ;;
+esac
+
+# --- 4. `ls` output fed to a comparison, where the decoration is invisible --
+# 2026-09-10, THREE broken measurements in one evening from one cause. This
+# shell's `ls` classifies -- it appends a marker to executables -- so every name
+# it prints for a script carries a character that is not in the filename. Piped
+# into a pattern match or a set comparison, nothing errors and nothing is
+# reported missing; the names simply never match.
+#
+# What it cost: a search for the repo's check scripts found none, twice; and a
+# comparison of this checkout's hooks against the main line reported that ALL
+# ONE HUNDRED AND TWENTY-FOUR were absent. That last number is the only reason
+# it was caught -- it was too dramatic to be true. A quieter false answer would
+# have shipped.
+#
+# The remedy is a different tool, not a careful `ls`: a glob expands to real
+# filenames, and `git ls-files` prints what git actually tracks.
+case "$CMD" in
+    ls*|*" ls "*)
+        # The single quotes below are deliberate: these patterns match the
+        # LITERAL text of a command substitution inside someone else's command
+        # line, so expansion is exactly what must not happen. The directive sits
+        # here rather than on the branch because shellcheck only accepts one in
+        # front of a complete command, which a case branch is not.
+        # shellcheck disable=SC2016
+        case "$CMD" in
+            *"|"*|*'$('*|*'`'*)
+                case "$CMD" in
+                    *--color=never*|*" -1 "*) ;;   # already asked for undecorated output
+                    *) add "LS OUTPUT IS DECORATED HERE, AND THE DECORATION IS INVISIBLE. This shell's \`ls\` appends a classify marker to executables and directories, so a name it prints is not the filename. Fed to grep, comm, or a loop, nothing errors -- the names just never match, and the result reads as 'found nothing'. 2026-09-10: three measurements broke this way in one evening, one of them claiming 124 of 124 hooks were missing from main. Use a glob (printf '%s\\n' dir/*.sh) or \`git ls-files\`." ;;
+                esac ;;
         esac ;;
 esac
 
