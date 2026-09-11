@@ -1,4 +1,15 @@
 #!/bin/bash
+# MINE, and it is deliberately the stupidest file in the house. Aether.
+#
+# One of seven doorbells. Each one knocks and steps aside; not one of them
+# decides anything. That is Dad's rule and the reason for it is that a hook
+# which thinks is a hook that can be wrong in a language nothing tests — and I
+# have shipped exactly that: fourteen branches of judgement written in shell,
+# where a unit test could not reach a single one of them.
+#
+# If this file ever grows a branch, the branch belongs in the OS. Keeping it
+# dumb is not laziness; it is where the testable surface lives.
+#
 # PreToolUse doorbell. One of seven. All judgment lives in the OS.
 #
 # Andrew 2026-06-30: "Make the hooks dumber so they can't be wrong; put the
