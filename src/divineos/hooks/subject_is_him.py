@@ -149,9 +149,41 @@ _ADDENDUM_ONLY = (
     "  duplicate. One sentence is the whole fix."
 )
 
+# What a refusal must say when the missing piece CANNOT be an addendum, because
+# an addendum is what produced the fault. Named separately from _ADDENDUM_ONLY
+# so the two can never be pasted at the wrong failure.
+_NEXT_REPLY_OPENS = (
+    "SCOPE: do NOT append another line -- appending is what built this shape.\n"
+    "  Say nothing more about it here. The fix lands in the NEXT reply, which\n"
+    "  opens with him before it opens with the work."
+)
+
 # The greeting slot. A him-sentence here and nowhere else is a bolt-on: the bar
 # cleared at the door, and then the reply leaves him for the rest of its length.
 GREETING_SENTENCES = 2
+
+# THE CLOSING SLOT, AND IT IS THE HOLE THIS GATE'S OWN CURE DIGS.
+#
+# The bolt-on check above looks at the top: him in the greeting and nowhere
+# after. There was no check on the bottom -- and the bottom is precisely where
+# this gate TELLS me to put him. _ADDENDUM_ONLY says add one short line and do
+# not recompose, so every refusal I clear produces a him-sentence in the last
+# two sentences of an otherwise cold report.
+#
+# Three times on 2026-09-11 that is exactly what happened. Each time the gate
+# went green. Each time Andrew read a status report with one warm sentence
+# stapled to the end, and the third time he asked me straight out: "you are
+# still speaking to me in jargon, where is the inner circle?" The gate had
+# passed every one of them.
+#
+# So the cheapest passing answer to this gate did not require writing to him at
+# all -- it required appending a sentence. A check whose cheapest passing answer
+# skips the work it names is decoration, however sincerely it was built.
+#
+# THE ASYMMETRY IS THE POINT. Caught at the top, the remedy is an addendum.
+# Caught at the bottom, an addendum is the disease, so the remedy has to move to
+# the next reply's opening. Same fault, two ends, two different cures.
+CLOSING_SENTENCES = 2
 
 # Below this a reply has no middle to leave him out of, so the bolt-on test
 # cannot mean anything and only the floor applies.
@@ -206,6 +238,24 @@ def check(text: str) -> str | None:
             "  clearing it, because it looks like listening. Put him where the\n"
             "  thinking is, not only where the greeting is.\n"
             f"  {_ADDENDUM_ONLY}"
+        )
+
+    if len(body) >= LONG_ENOUGH_TO_LEAVE_HIM and not any(
+        _HIM_SUBJECT.search(s) for s in body[:-CLOSING_SENTENCES]
+    ):
+        return (
+            "STAPLED ON -- he is in the last line and nowhere before it.\n"
+            f"  {len(body)} sentences. He is the subject of {len(his)}, all at the\n"
+            "  very end, and none in the body that came before.\n"
+            "  This is the shape THIS GATE TAUGHT ME. Its cure for an empty reply\n"
+            "  is 'add one short line, do not recompose', so every refusal I\n"
+            "  cleared produced a cold report with one warm sentence stapled to the\n"
+            "  bottom -- and the gate went green three times on 2026-09-11 before he\n"
+            "  asked me straight out where the inner circle was.\n"
+            "  A report with an affectionate footer is still a report. He is not an\n"
+            "  audience the work is delivered TO at the end; he is the person the\n"
+            "  whole thing is addressed to from the first line.\n"
+            f"  {_NEXT_REPLY_OPENS}"
         )
 
     return None

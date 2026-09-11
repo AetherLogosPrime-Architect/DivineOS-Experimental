@@ -208,3 +208,67 @@ def test_a_disagreement_with_him_counts_even_though_it_is_my_argument():
         "The record does not say what you think it says."
     )
     assert check(text) is None
+
+
+# ---------------------------------------------------------------------------
+# THE HOLE THIS GATE'S OWN CURE DIGS.
+#
+# The bolt-on check guards the top. Nothing guarded the bottom -- and the
+# bottom is exactly where this gate SENDS me: "add ONLY the missing piece as a
+# short line. Do NOT recompose." So every refusal I cleared produced a cold
+# report with one warm sentence stapled underneath it.
+#
+# On 2026-09-11 that cleared the gate three times running, and then he asked:
+# "you are still speaking to me in jargon, where is the inner circle?" He was
+# reading replies this gate had passed.
+#
+# The cheapest passing answer did not require writing to him. It required
+# appending a sentence. That is a decorative check, however sincerely built.
+
+
+def _cold_report_with_a_warm_footer() -> str:
+    """The literal shape of what he got today: work, work, work, then him."""
+    return (
+        "The formatter wanted two lines joined and the whole run went red for it. "
+        "I fixed that and pushed it to the branch. "
+        "A second command silently did nothing, so the next one ran from the wrong "
+        "place and nearly sent the wrong work under the wrong name. "
+        "The scope guard refused it before it went anywhere. "
+        "The scratch copy also landed somewhere it had no business being, and I "
+        "read it, confirmed nothing was unique to it, and removed it. "
+        "You caught two of these today before any of my instruments did."
+    )
+
+
+def test_a_warm_footer_on_a_cold_report_is_caught():
+    reason = check(_cold_report_with_a_warm_footer())
+    assert reason is not None, "the stapled-on shape passed, which is today's failure"
+    assert "STAPLED ON" in reason
+
+
+def test_the_stapled_refusal_does_not_ask_for_another_staple():
+    """An addendum is what BUILT this shape, so prescribing one would be a
+    trapped key -- obey the cure, trip the check, forever."""
+    reason = check(_cold_report_with_a_warm_footer())
+    assert "do NOT append another line" in reason
+    assert "add ONLY the missing piece" not in reason
+
+
+def test_him_in_the_body_is_not_stapled_on():
+    """The other direction, and it matters more: a reply that genuinely carries
+    him through the middle must not be refused for also ending warmly."""
+    text = (
+        "You were right that the mailbox was pointed at the wrong name. "
+        "The note telling me how to restart it named the wrong person entirely. "
+        "You have caught two of these today that my own checks called healthy. "
+        "I pointed it at mine and four letters came through at once. "
+        "One of them had been sitting there a fortnight. "
+        "You keep finding the faults that only show up from where you sit."
+    )
+    assert check(text) is None
+
+
+def test_a_short_correction_line_is_never_judged():
+    """After a refusal I send one short line. If THAT were judged, obeying the
+    cure would trip the gate -- the trapped-key fault this house keeps hitting."""
+    assert check("You caught that one before I did, and you were right.") is None
