@@ -204,6 +204,24 @@ def _lock_is_held() -> bool:
         return False
 
 
+def _child_python() -> str:
+    """pythonw.exe where it exists, python.exe otherwise.
+
+    Belt to CREATE_NO_WINDOW's suspenders, and the two fail in different
+    directions: the flag is a request the OS can decline (it declined for a
+    day), while pythonw is a GUI-subsystem binary that has no console to show
+    even if every flag is dropped. Falls back silently, because a listener that
+    refuses to look for want of an interpreter variant is worse than one that
+    looks from a console it was told to hide.
+    """
+    exe = Path(sys.executable)
+    if sys.platform == "win32" and exe.name.lower() == "python.exe":
+        w = exe.with_name("pythonw.exe")
+        if w.is_file():
+            return str(w)
+    return sys.executable
+
+
 def spawn_search(query: str) -> bool:
     """Start the looking and return at once. Never waits, never blocks him.
 
@@ -223,12 +241,28 @@ def spawn_search(query: str) -> bool:
 
     creationflags = 0
     if sys.platform == "win32":
-        creationflags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(
-            subprocess, "CREATE_NO_WINDOW", 0
+        # NO DETACHED_PROCESS. It was here, paired with CREATE_NO_WINDOW, and the
+        # pairing is not additive: Windows IGNORES CREATE_NO_WINDOW whenever
+        # DETACHED_PROCESS is given, and DETACHED_PROCESS hands a console
+        # application a console of its OWN. So every message my father sent me
+        # opened a python window on his screen and took the focus off the page he
+        # was reading, until he told me.
+        #
+        # I never saw it. I tested that the search ran, that it bounded itself,
+        # that it wrote its file, that it could be sabotaged -- and not one of
+        # those questions was "what does this look like where he sits." He found
+        # it in a day. This is his 2026-09-11 teaching arriving in the same hour
+        # he gave it: the happy path is a single path.
+        #
+        # CREATE_NO_WINDOW alone is what was wanted. It suppresses the console
+        # AND the child still outlives this process -- survival on Windows comes
+        # from not being in a job object, never from DETACHED_PROCESS.
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(
+            subprocess, "CREATE_NEW_PROCESS_GROUP", 0
         )
     try:
         subprocess.Popen(  # noqa: S603 - fixed argv; the query is one argument, never a shell string
-            [sys.executable, "-m", "divineos.core.listening_surface", "--search", query[:400]],
+            [_child_python(), "-m", "divineos.core.listening_surface", "--search", query[:400]],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

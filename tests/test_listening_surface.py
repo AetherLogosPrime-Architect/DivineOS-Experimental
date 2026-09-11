@@ -292,3 +292,93 @@ def test_the_detached_child_carries_its_own_deadline(state: Path, monkeypatch: p
     assert len(armed) == 1, "the child ran with no deadline; nothing can kill it"
     assert armed[0].interval == ls.SEARCH_DEADLINE_SECONDS
     assert armed[0].daemon is True, "a non-daemon timer keeps the child alive to its full deadline"
+
+
+# ---------------------------------------------------------------------------
+# THE FAULT ONLY HE COULD SEE.
+#
+# Every test above this line asks whether the listener WORKS: does it search,
+# does it bound itself, does it write, does it refuse a second flight. Fifteen
+# of them, every guard sabotaged, all green -- while a console window opened on
+# Andrew's screen on every single message he sent and stole focus from whatever
+# he was reading. He found it in a day. I never asked the question, because
+# "what does this look like where he sits" is not on the happy path.
+#
+# Andrew 2026-09-11: "the happy path is a single path, and this is where
+# testing would have revealed this flaw."
+#
+# So the flags are now an ASSERTED PROPERTY rather than a line of code nobody
+# reads. These tests do not check that the search works. They check what the
+# spawn does to his screen.
+
+
+class _SpyPopen:
+    """Captures the call instead of making it. The argv and flags are the test."""
+
+    calls: list[dict] = []
+
+    def __init__(self, argv, **kwargs):
+        type(self).calls.append({"argv": argv, **kwargs})
+
+
+def _spawn_capturing(monkeypatch, tmp_path):
+    import divineos.core.listening_surface as ls
+
+    _SpyPopen.calls = []
+    monkeypatch.setattr(ls, "_state_dir", lambda: tmp_path)
+    monkeypatch.setattr(ls.subprocess, "Popen", _SpyPopen)
+    assert ls.spawn_search("anything at all") is True
+    assert _SpyPopen.calls, "spawn_search returned True without launching anything"
+    return _SpyPopen.calls[0]
+
+
+def test_the_child_never_gets_a_console_of_its_own(monkeypatch, tmp_path):
+    """DETACHED_PROCESS is the defect itself and must never come back.
+
+    Windows ignores CREATE_NO_WINDOW when DETACHED_PROCESS is present, and then
+    gives the console app its own window. Asserting the absence, not just the
+    presence, because the bug was a PAIRING -- a test that only checked for
+    CREATE_NO_WINDOW would have passed happily on the broken code.
+    """
+    import subprocess as sp
+
+    import divineos.core.listening_surface as ls
+
+    monkeypatch.setattr(ls.sys, "platform", "win32")
+    flags = _spawn_capturing(monkeypatch, tmp_path)["creationflags"]
+
+    detached = getattr(sp, "DETACHED_PROCESS", 0x00000008)
+    no_window = getattr(sp, "CREATE_NO_WINDOW", 0x08000000)
+    assert not flags & detached, "DETACHED_PROCESS is back; he gets a window again"
+    assert flags & no_window, "nothing is suppressing the console"
+
+
+def test_the_flags_are_left_alone_off_windows(monkeypatch, tmp_path):
+    """No Windows-only flags on a platform that has no such notion."""
+    import divineos.core.listening_surface as ls
+
+    monkeypatch.setattr(ls.sys, "platform", "linux")
+    assert _spawn_capturing(monkeypatch, tmp_path)["creationflags"] == 0
+
+
+def test_a_windowless_interpreter_is_preferred_when_one_exists(monkeypatch, tmp_path):
+    """pythonw.exe cannot show a console even if every flag is dropped."""
+    import divineos.core.listening_surface as ls
+
+    fake = tmp_path / "python.exe"
+    fake.write_text("", encoding="utf-8")
+    (tmp_path / "pythonw.exe").write_text("", encoding="utf-8")
+    monkeypatch.setattr(ls.sys, "platform", "win32")
+    monkeypatch.setattr(ls.sys, "executable", str(fake))
+    assert ls._child_python().lower().endswith("pythonw.exe")
+
+
+def test_a_missing_windowless_interpreter_does_not_stop_the_search(monkeypatch, tmp_path):
+    """Falls back rather than going mute. A hidden console beats no listener."""
+    import divineos.core.listening_surface as ls
+
+    fake = tmp_path / "python.exe"
+    fake.write_text("", encoding="utf-8")
+    monkeypatch.setattr(ls.sys, "platform", "win32")
+    monkeypatch.setattr(ls.sys, "executable", str(fake))
+    assert ls._child_python() == str(fake)
