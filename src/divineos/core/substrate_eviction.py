@@ -92,6 +92,74 @@ class EvictionResult:
         return len(self.paths)
 
 
+def refusal_log_path() -> Path:
+    from divineos.core.paths import marker_path
+
+    return marker_path("substrate_refusals.jsonl")
+
+
+def record_refusal(reason: str, branch: str = DEFAULT_SUBSTRATE_BRANCH) -> None:
+    """Write down why the checkpoint could not route the letters.
+
+    THE REFUSAL WAS MUTE, AND ITS OWN COMMENT SAID OTHERWISE. auto_commit logged
+    it through a module logger with no handler in a hook process, under a
+    comment reading "Loud by that module's design, and it must stay loud here."
+    It was not loud. It went nowhere. Twice on 2026-09-10 the routing refused,
+    letters landed on a code branch, and there was nothing to read afterwards --
+    so both diagnoses were guesswork.
+
+    WRITTEN WHERE IT WILL BE STOOD IN FRONT OF, rather than where it is tidy. A
+    refusal puts letters on a code branch; that blocks the push; the push sends
+    me to evict-substrate, which prints these. The loop closes without anyone
+    remembering to go looking, which is the only kind of record that works here.
+
+    Appended, never rewritten, following the archive shape already in
+    structural_fix_tracker. A refusal that happened is a fact about the evening,
+    and how OFTEN matters as much as the latest reason.
+
+    Fail-open: a checkpoint must never die because its diary is unwritable.
+    """
+    import json
+    import time
+
+    try:
+        path = refusal_log_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(
+                json.dumps({"at": time.time(), "branch": branch, "reason": str(reason)[:500]})
+                + "\n"
+            )
+    except OSError:
+        pass
+
+
+def recent_refusals(limit: int = 5) -> list[dict]:
+    """The last refusals, oldest first within the window. Empty when there are none.
+
+    A malformed line is skipped rather than fatal: this is a diary, and one
+    unreadable entry must not hide the readable ones around it.
+    """
+    import json
+
+    try:
+        text = refusal_log_path().read_text(encoding="utf-8")
+    except (OSError, ValueError):
+        return []
+    out: list[dict] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(row, dict):
+            out.append(row)
+    return out[-limit:]
+
+
 def _git(repo_root: Path, *args: str) -> str:
     done = subprocess.run(
         ["git", *args],

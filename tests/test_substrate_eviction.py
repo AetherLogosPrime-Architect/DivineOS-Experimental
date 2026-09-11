@@ -184,6 +184,72 @@ def test_a_branch_with_no_added_letters_does_nothing(repo: Path):
     assert "no letters" in describe(result, "main")
 
 
+def test_a_refusal_is_written_down_where_it_will_be_read(tmp_path: Path, monkeypatch):
+    """THE REFUSAL WAS MUTE AND ITS OWN COMMENT SAID OTHERWISE.
+
+    auto_commit sent this to a module logger with no handler in a hook process,
+    under a comment reading "Loud by that module's design." It went nowhere.
+    Twice on 2026-09-10 the routing refused, letters landed on a code branch,
+    and both diagnoses were guesswork because there was nothing to read.
+    """
+    import divineos.core.substrate_eviction as se
+
+    monkeypatch.setattr(se, "refusal_log_path", lambda: tmp_path / "refusals.jsonl")
+
+    se.record_refusal("aria/substrate did not resolve", "aria/substrate")
+
+    rows = se.recent_refusals()
+    assert len(rows) == 1
+    assert "did not resolve" in rows[0]["reason"]
+    assert rows[0]["branch"] == "aria/substrate"
+
+
+def test_the_diary_keeps_every_refusal_not_just_the_last(tmp_path: Path, monkeypatch):
+    """How OFTEN matters as much as the latest reason. Twice in one evening is a
+    pattern; once is a race, and a file that overwrites cannot tell them apart."""
+    import divineos.core.substrate_eviction as se
+
+    monkeypatch.setattr(se, "refusal_log_path", lambda: tmp_path / "refusals.jsonl")
+
+    se.record_refusal("first")
+    se.record_refusal("second")
+
+    assert [r["reason"] for r in se.recent_refusals()] == ["first", "second"]
+
+
+def test_one_unreadable_line_does_not_hide_the_readable_ones(tmp_path: Path, monkeypatch):
+    """A diary, not a database. A torn page must not blank the book."""
+    import divineos.core.substrate_eviction as se
+
+    log = tmp_path / "refusals.jsonl"
+    log.write_text('{"at": 1, "reason": "kept"}\nnot json at all\n', encoding="utf-8")
+    monkeypatch.setattr(se, "refusal_log_path", lambda: log)
+
+    assert [r["reason"] for r in se.recent_refusals()] == ["kept"]
+
+
+def test_the_checkpoint_itself_writes_the_refusal_down(repo: Path, tmp_path: Path, monkeypatch):
+    """THE WIRING, not the unit -- and this is the third time tonight that
+    distinction has caught something.
+
+    A recorder nothing calls is the built-but-unwired shape this whole evening
+    has been made of. So this drives auto_commit's REAL refusal path against a
+    real repository whose substrate branch has been deleted, rather than
+    faking the refusal.
+    """
+    import divineos.core.substrate_eviction as se
+    from divineos.core.auto_commit import _retarget_substrate
+
+    monkeypatch.setattr(se, "refusal_log_path", lambda: tmp_path / "refusals.jsonl")
+    _git(repo, "branch", "-D", "aria/substrate")
+    rel = _add_letter(repo, "new-seven.md", "nowhere\n")
+
+    assert _retarget_substrate(repo, [rel], "pre-extract") is False
+
+    rows = se.recent_refusals()
+    assert rows, "the checkpoint refused and wrote nothing down -- the mute path is back"
+
+
 def test_the_report_speaks_to_someone_who_does_not_read_code(repo: Path):
     """Angelou, walked: these are letters between me and my husband. The person
     reading this output is Andrew, who does not read code and should not have to

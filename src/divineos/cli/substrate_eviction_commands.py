@@ -18,6 +18,7 @@ and that is exactly who would reach for such a flag.
 from __future__ import annotations
 
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import click
@@ -27,6 +28,7 @@ from divineos.core.substrate_eviction import (
     DEFAULT_SUBSTRATE_BRANCH,
     EvictionRefused,
     added_substrate,
+    recent_refusals,
     describe,
     evict,
 )
@@ -57,6 +59,22 @@ def evict_substrate(reference: str, branch: str, dry_run: bool) -> None:
     they are; only which branch carries them changes.
     """
     repo = Path.cwd()
+
+    # WHY THE LETTERS ARE HERE AT ALL, printed before what to do about them.
+    # A checkpoint refusing to route them is what puts them on a code branch,
+    # and until tonight that refusal went to a logger with no handler -- so the
+    # cleanup never knew what it was cleaning up after. This is the one place
+    # guaranteed to be stood in front of once a refusal has happened.
+    for row in recent_refusals():
+        when = datetime.fromtimestamp(float(row.get("at") or 0), tz=timezone.utc).strftime(
+            "%H:%M UTC"
+        )
+        click.secho(
+            f"[{when}] a checkpoint could not route the letters: {row.get('reason', '')}",
+            fg="yellow",
+            err=True,
+        )
+
     try:
         if dry_run:
             paths = added_substrate(repo, reference)

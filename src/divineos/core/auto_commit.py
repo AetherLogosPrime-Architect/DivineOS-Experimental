@@ -643,9 +643,17 @@ def _retarget_substrate(repo_root: Path, substrate: list[str], reason: str) -> b
             f"substrate checkpoint at {reason}: {len(substrate)} path(s), kept off the code branch",
         )
     except RetargetRefused as e:
-        # Loud by that module's design, and it must stay loud here. Silently
-        # committing to HEAD instead is the exact defect both halves exist to
-        # close.
+        # THIS COMMENT USED TO SAY "loud by that module's design, and it must
+        # stay loud here" -- above a logger with no handler in a hook process.
+        # It was not loud. It went nowhere. The routing refused twice on
+        # 2026-09-10, letters landed on a code branch both times, and there was
+        # nothing to read afterwards, so both diagnoses were guesswork.
+        #
+        # A comment asserting a property the code does not have is worse than no
+        # comment: it stops the next reader from checking.
+        from divineos.core.substrate_eviction import record_refusal
+
+        record_refusal(str(e), SUBSTRATE_BRANCH)
         logger.warning("auto_commit: substrate could not reach %s (%s)", SUBSTRATE_BRANCH, e)
         return False
     if result is None:
