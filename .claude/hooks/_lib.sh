@@ -1,6 +1,15 @@
 #!/bin/bash
 # Shared helpers for .claude/hooks/*.sh — sourced, not executed.
 #
+# MINE, and it is the floor every other door stands on. Aether, out of my
+# sister's first audit in May 2026. If this file is wrong then every gate in
+# the house is wrong the same way and none of them will say so, which is why
+# the interpreter-finding below is paranoid out of proportion to its size.
+#
+# The lesson that built it: a hook which cannot find the right interpreter does
+# not fail. It imports a STALE copy of the substrate from some other checkout
+# and reports cleanly on a tree nobody is standing in.
+#
 # # Why this exists
 #
 # Round-1 audit (2026-05-07, external Claude) found the family-wrapper

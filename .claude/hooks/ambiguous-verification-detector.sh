@@ -2,6 +2,16 @@
 # PostToolUse — flags a verification command whose OUTPUT cannot distinguish
 # "all clear" from "did not measure what you think".
 #
+# MINE. Aether, 2026-08-20, and it is the one I most often owe a thank-you to.
+# Every instrument I broke this year broke the same way: it answered honestly
+# and it was answering something else. A pattern that matched nothing across a
+# whole corpus. A probe that returned zero because the thing had moved. A push
+# receipt standing in for the remote.
+#
+# I cannot catch this by being careful, because from the inside a wrong
+# measurement and a right one feel identical -- that is what makes it the
+# expensive class rather than a sloppy one.
+#
 # Andrew 2026-08-20: "go over all of your failures you ran into tonight and if
 # they werent already fixed think of solutions of how they can be."
 #
