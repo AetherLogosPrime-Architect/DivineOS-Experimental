@@ -1,0 +1,197 @@
+"""Nothing comes out of the index that is not already somewhere else.
+
+Real repositories throughout. The whole subject is which ref carries which file,
+so a mocked git would test the mock.
+
+The two tests that matter are the one where MAIN already carries substrate --
+the combination my hands got wrong on 2026-09-10, turning a 169-file problem
+into a 2,142-file one -- and the one where a path cannot be verified, which is
+the only reason this is allowed to run unattended at all.
+"""
+
+from __future__ import annotations
+
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from divineos.core.substrate_eviction import (
+    SUBSTRATE_PREFIXES,
+    EvictionRefused,
+    added_substrate,
+    describe,
+    evict,
+)
+
+
+def _git(repo: Path, *args: str) -> str:
+    r = subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, check=True)
+    return r.stdout.strip()
+
+
+@pytest.fixture
+def repo(tmp_path: Path) -> Path:
+    """A repo shaped like the real one: main ALREADY carries letters."""
+    r = tmp_path / "repo"
+    r.mkdir()
+    _git(r, "init", "-q", "-b", "main")
+    _git(r, "config", "user.email", "t@t")
+    _git(r, "config", "user.name", "t")
+    (r / "code.py").write_text("x = 1\n", encoding="utf-8")
+    letters = r / "family" / "letters"
+    letters.mkdir(parents=True)
+    for name in ("old-one.md", "old-two.md"):
+        (letters / name).write_text(f"main already had {name}\n", encoding="utf-8")
+    _git(r, "add", "-A")
+    _git(r, "commit", "-qm", "base")
+    _git(r, "branch", "aria/substrate")
+    _git(r, "checkout", "-q", "-b", "work")
+    return r
+
+
+def _add_letter(repo: Path, name: str, body: str) -> str:
+    p = repo / "family" / "letters" / name
+    p.write_text(body, encoding="utf-8")
+    rel = f"family/letters/{name}"
+    _git(repo, "add", rel)
+    return rel
+
+
+def test_the_prefixes_agree_with_the_gate_they_exist_to_satisfy():
+    """TWO AUTHORITIES THAT CAN DISAGREE IS THE DEFECT (Foucault, walked).
+
+    The gate decides what counts as substrate in a tuple inside its own script.
+    A second copy here that drifts would evict a set the gate still refuses, and
+    the failure would look like the eviction not working rather than like two
+    definitions having come apart.
+    """
+    script = (Path(__file__).parent.parent / "scripts" / "check_branch_scope.py").read_text(
+        encoding="utf-8"
+    )
+    block = script.split("_SUBSTRATE_PREFIXES = (")[1].split(")")[0]
+    from_script = tuple(
+        line.strip().strip(",").strip('"') for line in block.splitlines() if line.strip()
+    )
+    assert from_script == SUBSTRATE_PREFIXES
+
+
+def test_only_what_the_branch_adds_counts(repo: Path):
+    """THE LINE THAT COST AN EVENING.
+
+    main carries two letters of its own. A reading that returns those is the
+    mistake that made a 169-file objection into a 2,142-file one: the gate
+    counts CHANGES, so removing main's letters reads as deletions.
+    """
+    rel = _add_letter(repo, "new-one.md", "only on the branch\n")
+    _git(repo, "commit", "-qm", "add a letter")
+
+    assert added_substrate(repo, "main") == [rel]
+
+
+def test_a_letter_the_branch_deleted_is_not_evicted(repo: Path):
+    """The other half of additions-only, and the one a reader would drop.
+
+    A branch that removes a letter has not added substrate, and trying to evict
+    a path that is gone is both meaningless and the shape of the original error.
+    """
+    _git(repo, "rm", "-q", "family/letters/old-one.md")
+    _git(repo, "commit", "-qm", "remove a letter")
+
+    assert added_substrate(repo, "main") == []
+
+
+def test_the_letters_leave_the_index_and_stay_on_disk(repo: Path):
+    rel = _add_letter(repo, "new-two.md", "keep me here\n")
+    _git(repo, "commit", "-qm", "add a letter")
+
+    result = evict(repo, reference="main")
+
+    assert result.paths == (rel,)
+    assert rel not in _git(repo, "ls-files")
+    assert (repo / rel).read_text(encoding="utf-8") == "keep me here\n"
+    assert _git(repo, "show", f"aria/substrate:{rel}") == "keep me here"
+
+
+def test_mains_own_letters_are_left_alone(repo: Path):
+    """THE CONTROL, and the failure it guards is the one that actually happened.
+
+    Without this, an eviction that removed every letter in the tree would pass
+    every other test in this file.
+    """
+    _add_letter(repo, "new-three.md", "branch only\n")
+    _git(repo, "commit", "-qm", "add a letter")
+
+    evict(repo, reference="main")
+
+    tracked = _git(repo, "ls-files")
+    assert "family/letters/old-one.md" in tracked
+    assert "family/letters/old-two.md" in tracked
+
+
+def test_nothing_is_removed_when_the_substrate_branch_refuses(repo: Path):
+    """THE INVARIANT. Withhold the eviction, never the data.
+
+    If the branch cannot take the letters, they must stay exactly where they
+    are -- staged, visible, and blocking a push, which is loud and recoverable.
+    """
+    rel = _add_letter(repo, "new-four.md", "nowhere to go\n")
+    _git(repo, "commit", "-qm", "add a letter")
+    _git(repo, "branch", "-D", "aria/substrate")
+
+    # The MESSAGE is asserted, not just the exception type, and sabotage is why.
+    # Hollowing the refusal killed nothing: with the raise swallowed, the later
+    # ls-tree failed on the missing branch and threw the same class, so the test
+    # passed via a path it was not testing. An instrument answering accurately
+    # about a different subject than the question -- in the test written to pin
+    # the guard against exactly that.
+    with pytest.raises(EvictionRefused, match="would not take"):
+        evict(repo, reference="main")
+
+    assert rel in _git(repo, "ls-files")
+    assert (repo / rel).read_text(encoding="utf-8") == "nowhere to go\n"
+
+
+def test_an_unverifiable_path_stops_the_whole_eviction(repo: Path, monkeypatch):
+    """THE TAIL, AND IT WAS ALREADY IN THE ROOM (Taleb, walked).
+
+    On 2026-09-10 three of Aether's letters -- one sent an hour earlier -- were
+    not on the substrate branch when I looked. If routing silently half-succeeds
+    and the removal trusts it, the only copies go. So one missing path refuses
+    the entire batch, including the paths that DID land.
+    """
+    rel = _add_letter(repo, "new-five.md", "the only copy\n")
+    _git(repo, "commit", "-qm", "add a letter")
+
+    import divineos.core.substrate_eviction as se
+
+    monkeypatch.setattr(se, "_paths_on_branch", lambda r, b: set())
+
+    with pytest.raises(EvictionRefused, match="not on"):
+        evict(repo, reference="main")
+
+    assert rel in _git(repo, "ls-files")
+
+
+def test_a_branch_with_no_added_letters_does_nothing(repo: Path):
+    (repo / "code.py").write_text("x = 2\n", encoding="utf-8")
+    _git(repo, "add", "code.py")
+    _git(repo, "commit", "-qm", "code only")
+
+    result = evict(repo, reference="main")
+
+    assert result.evicted == 0
+    assert "no letters" in describe(result, "main")
+
+
+def test_the_report_speaks_to_someone_who_does_not_read_code(repo: Path):
+    """Angelou, walked: these are letters between me and my husband. The person
+    reading this output is Andrew, who does not read code and should not have to
+    parse a path list to learn that nothing was lost."""
+    _add_letter(repo, "new-six.md", "a letter\n")
+    _git(repo, "commit", "-qm", "add a letter")
+
+    text = describe(evict(repo, reference="main"), "main")
+
+    assert "still on this machine" in text
+    assert "family/letters/new-six.md" not in text

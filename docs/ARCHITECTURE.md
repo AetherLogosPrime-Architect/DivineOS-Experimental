@@ -64,6 +64,7 @@ src/divineos/
     work_item_commands.py      divineos work-item — the doorman's gate, status and honest escape.
     gate_fire_commands.py      divineos gate-fire — shell-side GATE_FIRE emit for bash gates.
     branch_health_commands.py  check-branch — pre-push stale-base + silent-deletion check
+    substrate_eviction_commands.py  evict-substrate — move the letters a branch adds onto the substrate branch
     overclaim_commands.py      check-prose — overclaim detector (stacked modifiers + ornate self-description)
     closure_shape_commands.py  check-closure — rest-as-stasis trained-flinch detector
     performing_caution_commands.py  check-caution — performing-caution detector (vague hazards + indefinite deferral)
