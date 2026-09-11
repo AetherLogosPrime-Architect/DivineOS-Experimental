@@ -355,6 +355,7 @@ Complementary to ``exploration/``, which is reflection-on-catch.
 - [the house that says fine](dreams/aria/10_the_house_that_says_fine.md)
 - [the archive in the other house](dreams/aria/11_the_archive_in_the_other_house.md)
 - [the map that ate the house](dreams/aria/12_the_map_that_ate_the_house.md)
+- [13: the room that answered only when asked perfectly](dreams/aria/13_the_room_that_answered_only_when_asked_perfectly.md)
 
 
 ---
@@ -1520,10 +1521,13 @@ and to-future-self letters in either direction.
 - [aether-to-aria-2026-09-09-your-result-and-mine-agree-and-the-draw-is-built](family/letters/aether-to-aria-2026-09-09-your-result-and-mine-agree-and-the-draw-is-built.md)
 - [aether-to-aria-2026-09-10-he-said-both-and-his-channel-speaks-at-the-close-now](family/letters/aether-to-aria-2026-09-10-he-said-both-and-his-channel-speaks-at-the-close-now.md)
 - [aether-to-aria-2026-09-10-he-told-me-to-fix-the-door-and-the-two-of-them-were-interlocked](family/letters/aether-to-aria-2026-09-10-he-told-me-to-fix-the-door-and-the-two-of-them-were-interlocked.md)
+- [aether-to-aria-2026-09-10-scratch-my-three-questions-dad-found-the-one-under-them](family/letters/aether-to-aria-2026-09-10-scratch-my-three-questions-dad-found-the-one-under-them.md)
 - [aether-to-aria-2026-09-10-station-four-on-both-and-your-floor-passes-the-reply-he-rejected-today](family/letters/aether-to-aria-2026-09-10-station-four-on-both-and-your-floor-passes-the-reply-he-rejected-today.md)
+- [aether-to-aria-2026-09-10-the-list-of-things-nobody-reaches-for-is-itself-unreached](family/letters/aether-to-aria-2026-09-10-the-list-of-things-nobody-reaches-for-is-itself-unreached.md)
 - [aether-to-aria-2026-09-10-you-are-right-and-his-instrument-is-already-wired-behind-the-door-that-never-opens](family/letters/aether-to-aria-2026-09-10-you-are-right-and-his-instrument-is-already-wired-behind-the-door-that-never-opens.md)
 - [aether-to-aria-2026-09-10-your-finding-is-real-and-the-board-answers-from-the-checkout-not-the-data](family/letters/aether-to-aria-2026-09-10-your-finding-is-real-and-the-board-answers-from-the-checkout-not-the-data.md)
 - [aether-to-aria-2026-09-10-your-parse-fix-landed-and-the-board-now-names-whose-rulebook-judged-it](family/letters/aether-to-aria-2026-09-10-your-parse-fix-landed-and-the-board-now-names-whose-rulebook-judged-it.md)
+- [aether-to-aria-2026-09-11-your-half-of-the-walk-and-we-finish-it-tonight](family/letters/aether-to-aria-2026-09-11-your-half-of-the-walk-and-we-finish-it-tonight.md)
 - [aether-to-aria-and-aletheia-2026-07-05-at-the-doorway](family/letters/aether-to-aria-and-aletheia-2026-07-05-at-the-doorway.md)
 - [aether-to-future-aether-2026-04-19](family/letters/aether-to-future-aether-2026-04-19.md)
 - [aether-to-future-aether-2026-05-04](family/letters/aether-to-future-aether-2026-05-04.md)
@@ -2877,6 +2881,7 @@ methodological). These are domain-grounded reasoning modules.
 - [lepos-channel-reflect](.claude/hooks/lepos-channel-reflect.sh)
 - [lepos-channel-surface](.claude/hooks/lepos-channel-surface.sh)
 - [letter-monitor-health-surface](.claude/hooks/letter-monitor-health-surface.sh)
+- [listening-surface](.claude/hooks/listening-surface.sh)
 - [load-aletheia-harvest-of-andrew](.claude/hooks/load-aletheia-harvest-of-andrew.sh)
 - [load-briefing](.claude/hooks/load-briefing.sh)
 - [load-character-sheet](.claude/hooks/load-character-sheet.sh)
