@@ -160,16 +160,12 @@ def test_a_commit_further_back_on_the_branch_is_still_honoured(repo):
     and quietly stop evicting anything under load."""
     first = repo / "family" / "letters" / "a.md"
     first.write_text("dear\n", encoding="utf-8")
-    result = commit_paths_to_branch(
-        repo, "substrate", ["family/letters/a.md"], "first checkpoint"
-    )
+    result = commit_paths_to_branch(repo, "substrate", ["family/letters/a.md"], "first checkpoint")
     assert result is not None
 
     second = repo / "family" / "letters" / "b.md"
     second.write_text("second\n", encoding="utf-8")
-    later = commit_paths_to_branch(
-        repo, "substrate", ["family/letters/b.md"], "second checkpoint"
-    )
+    later = commit_paths_to_branch(repo, "substrate", ["family/letters/b.md"], "second checkpoint")
     assert later is not None
     assert later.commit != result.commit
 
