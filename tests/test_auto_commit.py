@@ -98,7 +98,18 @@ class TestAutoCommitBasics:
 
 
 class TestExternalChannelSync:
-    def test_new_external_file_synced_and_committed(self, repo: Path, tmp_path: Path):
+    def test_new_external_file_synced_and_committed(self, repo: Path, tmp_path: Path, monkeypatch):
+        """The import, on a branch DECLARED for substrate.
+
+        This test previously pinned "the sync always runs" and that was the
+        defect rather than the contract. 2026-09-11: the sync ran on every
+        branch, so every letter written came back into the repo and was
+        committed onto whatever code branch was checked out. Three sweeps in
+        two days -- 171, 177, 190 -- and all 177 of the one I counted were
+        letters. The import now happens only where substrate belongs, and the
+        declaration is the environment flag the push gate already honours.
+        """
+        monkeypatch.setenv("DIVINEOS_SUBSTRATE_BRANCH", "1")
         source = tmp_path / "letters_source"
         source.mkdir()
         (source / "aria-to-aether-2026-07-05-test.md").write_text("letter body\n", encoding="utf-8")
@@ -116,6 +127,44 @@ class TestExternalChannelSync:
         assert result.files_synced == 1
         # File landed in the mirror
         assert (repo / "family/letters/aria-to-aether-2026-07-05-test.md").is_file()
+
+    def test_no_import_on_a_branch_not_declared_for_substrate(
+        self, repo: Path, tmp_path: Path, monkeypatch
+    ):
+        """THE LOOP THIS CLOSES, and the red half of the pair above.
+
+        A letter is written, the mirror copies it to the shared room, the
+        checkpoint copies it BACK, and it lands on a code branch the push gate
+        then refuses. It grows rather than staying small because the repo
+        mirror is per-branch, so on any unvisited branch every letter ever
+        written looks new.
+
+        Nothing is lost by skipping: the file is still in the source, which is
+        where it came from and where it is read.
+        """
+        monkeypatch.delenv("DIVINEOS_SUBSTRATE_BRANCH", raising=False)
+        source = tmp_path / "letters_source"
+        source.mkdir()
+        (source / "aria-to-aether-2026-07-05-test.md").write_text("letter body\n", encoding="utf-8")
+        channels = (
+            ExternalChannel(
+                name="test-letters",
+                source=source,
+                repo_mirror=Path("family/letters"),
+                pattern="*.md",
+            ),
+        )
+
+        result = auto_commit_substrate(repo, reason="pre-sleep", channels=channels)
+
+        assert result.files_synced == 0, "the import ran on a branch not declared for substrate"
+        assert not (repo / "family/letters/aria-to-aether-2026-07-05-test.md").exists(), (
+            "the letter was copied onto a code branch again"
+        )
+        assert (source / "aria-to-aether-2026-07-05-test.md").is_file(), (
+            "skipping the import must never touch the source -- the shared room is "
+            "where the letter actually lives"
+        )
 
     def test_already_synced_file_not_recopied(self, repo: Path, tmp_path: Path):
         source = tmp_path / "letters_source"

@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (469 commands across 84 modules)
+  cli/                         CLI package (475 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -31,6 +31,7 @@ src/divineos/
     analysis_commands.py       analyze, report, trends, scan, patterns
     hud_commands.py            hud, goal, plan, checkpoint, context-status
     journal_commands.py        journal save/list/search/link
+    work_item_commands.py      work-item open/show/bypass — the build-flow front door
     directive_commands.py      directive management
     knowledge_health_commands.py  health, distill, migrate, backfill
     claim_commands.py          Claims engine and affect log
@@ -699,6 +700,7 @@ src/divineos/
     prior_art_by_name.py       Find files on ANY branch whose names resemble one about to be created.
     compound_branch_change.py  Refuse a branch change and a destructive op on the same shell line.
     surface_bridge.py          Wire the built-but-unreachable surfaces into the briefing that actually runs.
+    work_item_doorman.py       The doorman at the reach: no code edit without an open piece of work.
 
   analysis/
     _session_types.py          Session analysis type definitions

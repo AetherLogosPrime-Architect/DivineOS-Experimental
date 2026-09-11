@@ -1,0 +1,90 @@
+# WHAT DOES NOT NEED REVIEW BEFORE IT REACHES MAIN.
+#
+# Andrew, 2026-09-07:
+#
+#   "there are no longer any protected files.. Aletheia will audit any and
+#    all code that enters main, period. the only exception are docs like
+#    letters and explorations etc, but code all gets reviewed before merge"
+#
+# and his reason, which decides the shape of this file:
+#
+#   "the rule used to be only guardrail protected files, but that caused
+#    more harm than good, it stifled progress, and leaves things
+#    vulnerable, so the blanket audit was the fix for it"
+#
+# THIS FILE IS THE OPPOSITE POLARITY OF THE ONE IT REPLACES, and the
+# inversion is the whole point (Aether's design, 2026-09-07).
+#
+# The old list named what WAS protected. A file missing from it was silently
+# unaudited, and every new file was born missing from it -- so the list decayed
+# by sitting still, and staying correct required a human to notice, every time,
+# forever. Nobody noticed. The measured result: roughly ninety named files were
+# covered while everything else in the repository merged unwatched.
+#
+# This list names what is EXEMPT. A file missing from it gets reviewed when it
+# did not need to be. That is annoying and VISIBLE -- someone asks why their
+# letter is in the queue, and a line gets added here. Wrong in the safe
+# direction and loud rather than silent. Prose is a closed, slow-growing
+# category, so this list stays accurate by sitting still.
+#
+# ONE ENTRY PER LINE. Each line is a PATH PREFIX matched against the repository
+# path of a changed file. Blank lines and lines starting with # are ignored.
+# Prefixes rather than globs, because a glob dialect is a second thing to get
+# wrong and directories are what actually divide prose from code here.
+#
+# THE DELIBERATE OMISSION: docs/ is NOT exempt as a whole.
+#
+# He said "docs like letters and explorations", and the writing he meant is
+# personal -- correspondence, reflection, dreams. docs/ also holds the
+# foundational truths, the audit rounds, and the documents that describe how
+# this system behaves, and a wrong description of a gate is as dangerous as a
+# wrong gate. Exempting the directory wholesale would have quietly removed the
+# values layer from review on the same day the demand for his signature to edit
+# it was removed -- not what he asked for, and the shape he has spent the week
+# refusing.
+#
+# So this errs toward review, which is the direction this file exists to err
+# in. If it proves too broad, the failure arrives as a person saying so, and a
+# line here is the whole fix. That trade was chosen rather than inherited.
+
+family/letters/
+exploration/
+dreams/
+family/aria/explorations/
+family/aletheia/audits/
+# memory/ holds one file, things_i_should_remember.md, written by Aria. Prose,
+# and nothing in the codebase reads it. Measured rather than assumed, because
+# Aletheia asked on 2026-09-11 and "it is probably prose" is the reasoning the
+# list this replaced died of.
+memory/
+#
+# workbench/ WAS HERE AND IS NOT ANY MORE, and her question is why.
+#
+# She could not tell from the name whether it held prose or state, said so, and
+# handed the question to the seat that can answer it. The measurement: forty-one
+# markdown files -- design notes, specs, drafts -- plus three Python scripts and
+# a JSON inventory that a script under scripts/ reads by path.
+#
+# So the directory is mostly prose and is not ONLY prose, and four operational
+# files were exempt from review under a rule written for correspondence, with
+# nobody having decided that. Same shape this file already refuses for docs/.
+#
+# A prefix cannot separate the halves, and this file deliberately has no glob
+# dialect (see the header: a second thing to get wrong). So the choice was
+# binary, and the file's own founding asymmetry decides it: reviewing prose
+# unnecessarily is annoying and VISIBLE -- someone says so and a line comes
+# back. Exempting code is silent.
+#
+# THE ENTRY WAS NOT THE DEFECT. Code living in a prose directory is what makes
+# the category untrue, and moving those four files is the real fix -- named here
+# rather than done quietly in the same breath, because a remedy arriving
+# attached to a finding gets less scrutiny than one offered cold. That is
+# Aletheia's own observation from the day before, and this is her finding.
+#
+# Council walk: council-3e3c890b333e (Deming, Norman, Yudkowsky, Meadows).
+# docs/drafts is prose by construction -- a rough draft of an idea, station 1
+# of docs/build_flow.md. It is exempt here for the merge check AND, because the
+# build-flow doorman reads this same file, so that the doorman cannot refuse
+# the writing of the draft it is demanding. That closed loop was live for about
+# a minute on 2026-09-07 and is the worst thing dogfooding found.
+docs/drafts/
