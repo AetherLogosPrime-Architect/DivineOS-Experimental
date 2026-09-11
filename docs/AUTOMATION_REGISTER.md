@@ -83,7 +83,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `pipeline-exit-ambiguity.sh` | 2026-08-31 | PostToolUse(Bash) — say so when a result cannot distinguish |
 | `pre-tool-bypass-rate-scan.sh` | 2026-09-02 | PreToolUse — fire bypass_rate_scan on substrate-modifying tool calls. |
 | `pre-tool-context.sh` | 2026-08-22 | thin doorman pointing to the OS. |
-| `push-message-carries-the-destination.sh` | — | PreToolUse(Bash) — a background push must use the wrapper, because the |
+| `push-message-carries-the-destination.sh` | 2026-09-10 | PreToolUse(Bash) — a background push must use the wrapper, because the |
 | `reach-check-doorman.sh` | 2026-08-24 | reach-check doorman on substrate-store and research writes. |
 | `read-gate-doorman.sh` | 2026-08-22 | the read-gate. A prime that is a gate, not just loud. |
 | `rederivation-detector.sh` | 2026-08-23 | PreToolUse(Bash) — when I run the SAME command a third distinct way, say so, |
