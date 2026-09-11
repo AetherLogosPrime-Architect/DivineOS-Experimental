@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**130 automations — 125 wired, 5 switched off.**
+**131 automations — 126 wired, 5 switched off.**
 
 ---
 
@@ -128,7 +128,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `summary-room-stop.sh` | 2026-08-24 | a long reply must open with a plain-language summary. |
 | `time-estimate-tracker.sh` | 2026-07-01 | thin doorbell for the time-estimate calibration tracker. |
 
-### UserPromptSubmit  (34)
+### UserPromptSubmit  (35)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -150,6 +150,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `interior-cue-on-low-presence.sh` | 2026-07-06 | inject a compose-time interior-cue when the |
 | `lepos-channel-surface.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `letter-monitor-health-surface.sh` | 2026-08-23 | Session-init child — say out loud whether the letter monitor is delivering. |
+| `listening-surface.sh` | — | hand over what the last look found, then start the next. |
 | `no-cliff-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn had |
 | `no-cliff-prime.sh` | 2026-08-24 | compose-start prime for the no-cliff / |
 | `open-corrections-surface.sh` | 2026-08-24 | surface the 3 most recent OPEN Andrew- |
