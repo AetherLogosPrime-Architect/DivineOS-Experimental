@@ -178,6 +178,31 @@ def test_a_dead_searchers_lock_does_not_hold_the_door_shut(
     assert ls.spawn_search("after the corpse") is True
 
 
+def test_an_unreadable_lock_reports_not_held(state: Path, monkeypatch: pytest.MonkeyPatch):
+    """THE SENTENCE THAT WAS ONLY A COMMENT UNTIL NOW.
+
+    _lock_is_held carried a claim about its own behaviour on an unreadable lock,
+    written in my voice, with nothing asserting it. Aether's comment-claim
+    checker found it the hour he wired it in -- in a file I had written the same
+    evening I sent him the amendment saying a live-property sentence belongs in
+    a test rather than a header. His instrument, on me, inside the hour.
+
+    What the sentence claims: an unreadable lock reports NOT-HELD, which sends
+    the caller on to try claiming it, so the failure lands one step later where
+    it stops a search rather than silently permitting a second one. That claim
+    now has an assertion holding it.
+    """
+    lock = state / "listening_surface.lock"
+    lock.write_text("1", encoding="utf-8")
+
+    def _unreadable(self):
+        raise OSError("lock is unreadable")
+
+    monkeypatch.setattr(Path, "is_file", _unreadable)
+
+    assert ls._lock_is_held() is False
+
+
 def test_an_empty_message_starts_nothing(state: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(ls.subprocess, "Popen", lambda *a, **k: pytest.fail("searched on nothing"))
 
