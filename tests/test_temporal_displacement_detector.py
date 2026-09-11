@@ -8,7 +8,7 @@ as a writer-presence-style first-person discipline at a different surface.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest import mock
 
 import pytest
@@ -409,8 +409,21 @@ def test_a_fabricated_clock_beside_the_word_still_fires() -> None:
 
     If this ever passes-as-exempt, the exemption has become the hole the gate
     was built to close: proximity alone is something I author.
+
+    THE FABRICATED TIME IS DERIVED, NOT TYPED, and 2026-09-10 is why. It was
+    the literal 03:07, which the real UTC clock walks past once a day -- so for
+    roughly ten minutes in every twenty-four hours the detector correctly read
+    the invented number as a genuine reading, granted the exemption, and this
+    test failed. It caught a push at 03:05 UTC.
+
+    A falsifier that fails on a schedule is worse than no falsifier: it gets
+    skipped, then deleted, and the gate it guards keeps its hole. So the time is
+    computed to sit far from BOTH the local and UTC clocks, which is the only
+    thing that makes "fabricated" mean fabricated rather than "unlucky".
     """
-    made_up = "It is 03:07 for you, so I will pick this up tomorrow."
+    now = datetime.now()
+    far = (now + timedelta(hours=7)).replace(minute=33)
+    made_up = f"It is {far:%H:%M} for you, so I will pick this up tomorrow."
     findings = detect_temporal_displacement(made_up)
     assert findings, "a number I typed is not a measurement -- this must still fire"
 
