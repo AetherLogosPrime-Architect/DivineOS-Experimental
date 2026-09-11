@@ -337,6 +337,7 @@ def check_audit_station(
     audit_refs: tuple[str, ...] | None,
     store_label: str | None = None,
     anchor: str | None = None,
+    has_external_confirm: bool | None = None,
 ) -> StationResult:
     """Station 8 -- Aletheia. Last, and never self-serviceable.
 
@@ -387,6 +388,37 @@ def check_audit_station(
         named = branch
 
     if named is not None:
+        # AND A NAME MATCH IS NOT A REVIEW EITHER, which is the cheaper and
+        # commoner failure and went unnoticed while the content question was
+        # being repaired one step further on.
+        #
+        # MEASURED 2026-09-11 across ten open requests. This station reported
+        # SATISFIED on six. Reading what was actually IN those rounds: five
+        # held ZERO findings, one held only the OPERATOR's own confirm, and one
+        # held the auditor's finding of a PROBLEM rather than a clearance. Not
+        # one carried an external-AI confirm. Every green came from a container
+        # with a branch name on it, because naming is something an empty round
+        # does perfectly well.
+        #
+        # The deep content check caught it and the per-turn board did not,
+        # which is the wrong way round: the board I read every turn was the one
+        # saying the reassuring thing. Counting findings is a store read and
+        # costs nothing like the git work the anchor needs, so the cheap board
+        # can afford to ask and there was never a reason for it not to.
+        #
+        # PRESENCE AND CURRENCY STAY SEPARATE. A round filed before patch-id
+        # binding has no anchor and still carries real findings; that is
+        # deliberately allowed below and this does not touch it. An empty round
+        # carries nothing in any era.
+        if has_external_confirm is False:
+            return StationResult(
+                "8-audit",
+                Status.MISSING,
+                f"audit round names {named} but carries NO EXTERNAL-AI CONFIRM — "
+                "the round exists and nobody has signed it; this needs the "
+                "auditor, not another round",
+            )
+
         # A NAME MATCH IS NOT A CONTENT MATCH, and for most of this station's
         # life that distinction was missing entirely.
         #
@@ -466,11 +498,40 @@ def check_audit_station(
             # means something weaker than the reader thinks is the exact
             # defect this whole change exists to remove; reproducing it here
             # to save five seconds would be self-defeating.
+            # TWO QUESTIONS, AND THIS BRANCH USED TO ANSWER ONLY ONE OF THEM
+            # WHILE SOUNDING LIKE IT ANSWERED BOTH. Caught by running the
+            # repaired board: three requests still read green here, and the
+            # wording could not distinguish "signed, currency unchecked" from
+            # "nobody could even tell whether it was signed". That is the
+            # defect this whole change removes, reproduced one branch deeper by
+            # the change that removed it.
+            if has_external_confirm is True:
+                return StationResult(
+                    "8-audit",
+                    Status.SATISFIED,
+                    f"audit round names {named} and carries an external-AI "
+                    "confirm; whether it still covers the current content was "
+                    "not checked in this view — use the board command for that",
+                )
             return StationResult(
                 "8-audit",
                 Status.SATISFIED,
-                f"audit round names {named} (name match; content check not "
-                "run in this view — use the board command for that)",
+                f"audit round names {named}, but NEITHER whether anyone signed "
+                "it NOR whether that still holds could be checked here",
+            )
+        if has_external_confirm is None:
+            # COULD-NOT-LOOK IS THE THIRD STATE and it has bitten this station
+            # twice already. A caller unable to answer the confirm question
+            # keeps the name-match pass it has always had -- refusing them
+            # would be the over-correction, and it would retroactively unmake
+            # every older review on a technicality. But the green has to say
+            # which question went unasked, or the reader takes it for a
+            # checked one, which is how six empty rounds read as audited.
+            return StationResult(
+                "8-audit",
+                Status.SATISFIED,
+                f"audit round names {named} (name match; whether anyone signed "
+                "it was NOT CHECKED here)",
             )
         return StationResult("8-audit", Status.SATISFIED, f"audit round names {named}")
     # THE ANSWER CARRIES ITS OWN SCOPE. Aria, 2026-08-28, after going to verify

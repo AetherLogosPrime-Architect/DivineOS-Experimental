@@ -344,6 +344,64 @@ def _audit_store_label() -> str | None:
     return None
 
 
+def _signed_for(branch: str, pr_number: int) -> bool | None:
+    """Does a round naming this request carry an external-AI CONFIRM?
+
+    None means could not tell, and it is returned rather than False on every
+    failure path: a store that will not open has not told me nobody signed.
+
+    WHY THIS IS CHEAP ENOUGH FOR THE PER-TURN BOARD, which is the whole reason
+    it belongs here rather than behind the deep flag. The anchor check costs
+    about five seconds per request because it fetches and recomputes a diff.
+    This is a store read over rounds already listed. The expensive question is
+    whether a confirm still COVERS the content; the cheap one is whether a
+    confirm EXISTS, and the cheap one was never being asked.
+
+    Measured 2026-09-11: six open requests passed station eight on rounds that
+    held no external confirm at all -- five of them held no findings whatsoever.
+    The deep check caught it and the board I read every turn did not, which is
+    exactly backwards.
+    """
+    try:
+        from divineos.cli.audit_commands import _EXTERNAL_AI_ACTORS
+        from divineos.core.watchmen.store import list_findings, list_rounds
+    except _BF_ERRORS:
+        return None
+
+    tail = branch.rsplit("/", 1)[-1] if branch else ""
+    pr_token = f"#{pr_number}" if pr_number else ""
+
+    def _names_it(rnd: object) -> bool:
+        # THE SAME PREDICATE THE STATION USES, deliberately. Three separate
+        # times in the sibling function an answer came from a different corpus
+        # than the question it fed, and each cure was to stop writing a
+        # reasonable-looking equivalent.
+        text = str(rnd)
+        if pr_token and pr_token in text:
+            return True
+        return bool(branch and (branch in text or (tail and tail in text)))
+
+    try:
+        matches = [r for r in list_rounds(limit=_ROUND_SCAN_LIMIT) if _names_it(r)]
+    except _BF_ERRORS:
+        return None
+    if not matches:
+        # The station takes the no-round-at-all branch and never consults this.
+        return None
+
+    for rnd in matches:
+        try:
+            findings = list_findings(round_id=getattr(rnd, "round_id", ""), limit=200)
+        except _BF_ERRORS:
+            return None
+        for f in findings:
+            actor = (getattr(f, "actor", "") or "").lower()
+            title = getattr(f, "title", "") or ""
+            if actor in _EXTERNAL_AI_ACTORS and "CONFIRMS" in title:
+                return True
+    return False
+
+
 def _audit_refs() -> tuple[tuple[str, ...] | None, str | None]:
     """Rounds visible to THIS seat, and the store they came from.
 
@@ -531,7 +589,14 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
                 StationResult("2-council", Status.CANNOT_CHECK, "changed files unreadable"),
                 check_aria_station(branch, _LETTERS),
                 check_draft_station(pr.get("isDraft")),
-                check_audit_station(n, branch, audit, audit_store, _anchor_for(branch, deep, n)),
+                check_audit_station(
+                    n,
+                    branch,
+                    audit,
+                    audit_store,
+                    _anchor_for(branch, deep, n),
+                    _signed_for(branch, n),
+                ),
             ]
             out.append(st)
             continue
@@ -549,7 +614,14 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
             check_council_station(branch, need, _lenses_applied(paths), _other_seat_lenses(paths)),
             check_aria_station(branch, _LETTERS),
             check_draft_station(pr.get("isDraft")),
-            check_audit_station(n, branch, audit, audit_store, _anchor_for(branch, deep, n)),
+            check_audit_station(
+                n,
+                branch,
+                audit,
+                audit_store,
+                _anchor_for(branch, deep, n),
+                _signed_for(branch, n),
+            ),
         ]
         out.append(st)
     return out, ""
