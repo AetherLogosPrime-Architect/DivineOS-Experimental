@@ -704,6 +704,7 @@ src/divineos/
     work_item_doorman.py       The doorman at the reach: no code edit without an open piece of work.
     asymmetry_surface.py       The asymmetry surface — the sentence he did not get.
     listening_surface.py       Something that listens to the room and fetches without being asked.
+    substrate_eviction.py      Get the letters off a code branch, safely, without a person doing it by hand.
 
   analysis/
     _session_types.py          Session analysis type definitions
