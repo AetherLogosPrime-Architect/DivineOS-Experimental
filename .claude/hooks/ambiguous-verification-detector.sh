@@ -54,8 +54,15 @@
 # hooks against a p90 hook duration of 4.2s (measured this session), so
 # adding there worsens the freeze class this session opened with.
 #
-# Advisory only. It never blocks: a wrong warning should cost a glance, not
-# a turn.
+# Advisory only, and that sentence is a CLAIM ABOUT TODAY rather than a record
+# of the past, so it does not live here alone -- tests/test_advisory_hooks_
+# stay_advisory.py holds it, with a control proving the detector still fires.
+#
+# Aria's amendment, 2026-09-10, and she paid for it: a comment of ours saying a
+# refusal path was loud was believed exactly because it sounded like us, and it
+# had stopped being true. She diagnosed the resulting incident twice by
+# guessing. A note about what happened cannot rot; a note about what the code
+# DOES is a test with no assertion, and nothing ever runs it.
 
 set -uo pipefail
 
@@ -96,12 +103,25 @@ add() { WARNINGS="${WARNINGS}
 # decides whether the NEXT command is safe to run. That is a harder case than
 # a misleading report: there a masked status costs a wrong belief, here it
 # costs a working tree.
+#
+# 2026-09-10, THIRD instance, and this one was found by writing the test this
+# file's own header had been standing in for. The probe I reached for first was
+# the push-readiness script piped into tail -- the exact incident named six
+# lines above as this detector's origin -- and the detector said nothing,
+# because the list holds the commands that burned me and not the CATEGORY they
+# belong to. Sixteen verification scripts live under scripts/ and none of them
+# were covered.
+#
+# So the last two patterns match a NAMING CONVENTION rather than an incident: a
+# script called check_* or verify_* announces in its own name that its exit
+# status is the answer. That is the smallest thing here that can grow on its
+# own, which is what the confession above was asking for and did not get.
 FIRST_STAGE="${CMD%%|*}"
 if [ "$FIRST_STAGE" != "$CMD" ]; then
     case "$FIRST_STAGE" in
         *pytest*|*push_queued*|*"git push"*|*shellcheck*|*mypy*|*ruff*|*"bash -n"*|*precommit*|\
         *"git switch"*|*"git checkout"*|*"git merge"*|*"git rebase"*|*"git pull"*|\
-        *"git stash"*|*"git worktree"*)
+        *"git stash"*|*"git worktree"*|*check_*|*verify_*)
             case "$CMD" in
                 *pipefail*) ;;   # deliberately handled
                 *) add "EXIT STATUS IS THE PIPE'S, NOT THE COMMAND'S. The first stage is a check whose status is the answer, but \$? will belong to the last stage. 2026-08-20: a BLOCKED push read as exit 0 through \`| tail\`. Verify the EFFECT (did the ref move, did the file change), not the status." ;;
