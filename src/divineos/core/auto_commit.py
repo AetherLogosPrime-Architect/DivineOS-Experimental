@@ -537,6 +537,29 @@ def _commit_in_two_parts(
             len(substrate),
             ", ".join(substrate[:5]) + (" ..." if len(substrate) > 5 else ""),
         )
+        # AND THE COMMIT UNDERNEATH IS NOT YOURS TO DROP, which the warning
+        # above did not say and I found out by doing it. 2026-09-10: I dropped
+        # BOTH checkpoint commits in one rebase. The work one held two script
+        # files I was mid-edit on -- swept before I had committed them myself,
+        # so my own later commit saw no diff for them and carried only a test.
+        # The stat line said one file and I read past it. Four commits, a clean
+        # scope check and a full suite later, the push failed on a test whose
+        # subject had silently reverted underneath it.
+        #
+        # The asymmetry is the point: the substrate tip is safe to drop because
+        # those files exist in the shared channel. The work checkpoint beneath
+        # it may be the ONLY copy of edits the session has not committed yet.
+        if work:
+            logger.warning(
+                "auto_commit: the commit BELOW that tip holds %d work path(s) "
+                "swept mid-edit: %s. Dropping the substrate tip is safe -- those "
+                "files live in the shared channel. Dropping this one is NOT: it "
+                "may be the only copy of work committed on your behalf before "
+                "you committed it yourself, and a later 'git add' of those paths "
+                "will find no diff and commit nothing.",
+                len(work),
+                ", ".join(work[:5]) + (" ..." if len(work) > 5 else ""),
+            )
 
     return AutoCommitResult(
         committed=work_ok or sub_ok,

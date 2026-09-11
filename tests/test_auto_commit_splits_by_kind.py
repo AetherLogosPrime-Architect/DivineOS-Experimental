@@ -245,6 +245,35 @@ def test_the_split_says_so_while_the_tip_can_still_be_trimmed(repo, channels, ca
     assert "reset --soft" in said, "it named the problem without the remedy"
 
 
+def test_it_also_says_the_commit_underneath_is_not_safe_to_drop(repo, channels, caplog):
+    """The half the first version left out, found by acting on the first half.
+
+    The warning said drop the tip. I dropped the tip AND the commit under it,
+    which held two script files swept mid-edit -- so my own later commit of
+    those paths found no diff and carried only a test. Four commits and a full
+    suite later the push failed on a test whose subject had silently reverted.
+
+    The asymmetry is the whole content: substrate on the tip exists in the
+    shared channel and is safe to drop; the work checkpoint beneath it may be
+    the only copy of edits the session never committed itself.
+    """
+    import logging
+
+    (repo / "module.py").write_text("x = 1\n", encoding="utf-8")
+    (repo / "family" / "letters" / "swept.md").write_text("dear\n", encoding="utf-8")
+
+    with caplog.at_level(logging.WARNING, logger="divineos.core.auto_commit"):
+        auto_commit_substrate(repo, reason="pre-extract", channels=channels)
+
+    said = _warnings_said(caplog)
+    assert "BELOW" in said, "it warned about the tip and said nothing about what sits under it"
+    assert "module.py" in said, "it warned without naming the work it had swept"
+    assert "only copy" in said, (
+        "it named the commit without naming the stakes; 'do not drop this' is "
+        "advice, 'this may be the only copy' is a reason"
+    )
+
+
 def test_a_work_only_checkpoint_says_nothing_about_tips(repo, channels, caplog):
     """Control. Without it, the assertions above pass on a warning that fires
     every time — which is the shape that turns a signal into furniture."""
