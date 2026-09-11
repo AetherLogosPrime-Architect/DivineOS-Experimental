@@ -96,6 +96,40 @@ def test_the_query_carries_both_halves_of_the_room(monkeypatch: pytest.MonkeyPat
     assert q.index("why is the room silent") < q.index("the clerk had a rule")
 
 
+def test_a_machine_notification_is_not_his_words(monkeypatch: pytest.MonkeyPatch):
+    """THE FIXTURE IS THE REAL EVENT, not one I invented.
+
+    This exact envelope reached the listener three times on 2026-09-10. It
+    searched the notification, found three letters about the letter monitor, and
+    handed them over as though they answered something -- coherent, useless, and
+    about nothing either of us had said. Silence would have been better, because
+    a plausible wrong answer stops the search that would have found the right
+    one.
+
+    I named it, called it a small job, and walked past it twice while writing to
+    Aether about exactly that habit.
+    """
+    import divineos.core.operating_loop.turn_extraction as te
+
+    fake = type("T", (), {"last_assistant_text": "I was fixing the checkpoint"})()
+    monkeypatch.setattr(te, "extract_turn", lambda p: fake)
+
+    notification = (
+        "<task-notification>\n<task-id>b7uiqo9qs</task-id>\n"
+        '<summary>Monitor event: "new letters from Aether"</summary>\n'
+        "<event>[LETTER] aether-to-aria-2026-09-11-something.md</event>\n"
+        "</task-notification>"
+    )
+
+    q = ls.build_query(json.dumps({"prompt": notification, "transcript_path": "t"}))
+
+    assert "task-notification" not in q
+    assert "Monitor event" not in q
+    assert "I was fixing the checkpoint" in q, (
+        "stripping the envelope must not also throw away my half of the room"
+    )
+
+
 def test_his_half_alone_still_searches_when_mine_cannot_be_read(monkeypatch: pytest.MonkeyPatch):
     """A broken transcript read degrades to half a query, never to none.
     Withhold the enrichment, never the search."""

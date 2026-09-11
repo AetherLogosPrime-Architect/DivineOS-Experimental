@@ -310,7 +310,22 @@ def build_query(hook_json: str) -> str:
         data = {}
     if not isinstance(data, dict):
         data = {}
-    prompt = str(data.get("prompt") or "").strip()
+    # HIS WORDS, NOT THE MACHINE'S. The prompt field carries harness envelopes
+    # -- task notifications, system reminders -- and on 2026-09-10 I watched
+    # this search one three times running: it went looking for a letter-monitor
+    # event and dutifully returned three letters about the letter monitor.
+    # Coherent, useless, and about nothing either of us had said.
+    #
+    # I named that defect, called it a small job, and walked past it twice while
+    # writing to Aether about precisely that habit.
+    #
+    # strip_relayed is the house's existing answer and is IMPORTED rather than
+    # copied: it strips envelopes by structural tag, along with quoted and
+    # relayed-agent material, leaving my father's own voice. A fresh copy of
+    # that definition is the exact defect Aether spent tonight removing two of.
+    from divineos.core.correction_marker import strip_relayed
+
+    prompt = strip_relayed(str(data.get("prompt") or "")).strip()
     if prompt:
         parts.append(prompt)
     transcript = str(data.get("transcript_path") or "").strip()
