@@ -92,7 +92,17 @@ class QuantityFinding:
 
     @property
     def should_warn(self) -> bool:
-        """True when the reader must be told something -- a hit OR a blind gate."""
+        """True when the reader must be told something -- a hit OR a blind gate.
+
+        THE ZERO-CALLERS SCAN REPORTED THIS AS DEAD, with prod=0 and test=0,
+        and I deleted it on that report before checking. A test does call it.
+        The scan was wrong about the test side and I had already removed
+        working code by the time I looked -- which is the corollary I wrote
+        into the house rules myself: one instrument asked once is not a
+        measurement, and a tool reporting an absence is most often a broken
+        probe. It applies to the tools that audit me exactly as much as to the
+        ones I point at the world.
+        """
         return self.state in ("found", "could-not-check")
 
 
@@ -103,6 +113,7 @@ class _Turn:
     reply: str = ""
     prior_user_text: str = ""
     tools_ran: bool = False
+    tool_output: str = ""
     readable: bool = True
     reason: str = ""
     _lines: list[str] = field(default_factory=list, repr=False)
@@ -133,6 +144,95 @@ def _has_tool_use(event: dict) -> bool:
     if not isinstance(content, list):
         return False
     return any(isinstance(block, dict) and block.get("type") == "tool_use" for block in content)
+
+
+def _tool_output_of(event: dict) -> str:
+    """Everything a tool handed back in this event, flattened to text.
+
+    TURING'S LENS, and it is the one that rebuilt this module. His question is
+    the distinguishability test: can this check actually tell apart the thing
+    it claims to detect? The first version could not. It asked whether ANY tool
+    ran, which cannot tell counting the branches apart from listing a
+    directory -- and Andrew named that as why the thing shipped full of holes.
+
+    A number I measured appears in what I looked at. A number I reached for
+    does not. That difference is readable right here, and asking whether a
+    command ran was a proxy for it that one unrelated command defeats.
+    """
+    content = (event.get("message") or {}).get("content")
+    blocks = content if isinstance(content, list) else []
+    out: list[str] = []
+    for block in blocks:
+        if not isinstance(block, dict) or block.get("type") != "tool_result":
+            continue
+        inner = block.get("content")
+        if isinstance(inner, str):
+            out.append(inner)
+        elif isinstance(inner, list):
+            for piece in inner:
+                if isinstance(piece, dict) and isinstance(piece.get("text"), str):
+                    out.append(piece["text"])
+    extra = event.get("toolUseResult")  # the other shape the harness writes
+    if isinstance(extra, str):
+        out.append(extra)
+    elif isinstance(extra, dict):
+        out.extend(v for v in extra.values() if isinstance(v, str))
+    return "\n".join(out)
+
+
+# Quantity words carrying a numeral I can go looking for in what I read.
+_WORD_VALUES = {
+    "a dozen": "12",
+    "dozen": "12",
+    "one": "1",
+    "two": "2",
+    "three": "3",
+    "four": "4",
+    "five": "5",
+    "six": "6",
+    "seven": "7",
+    "eight": "8",
+    "nine": "9",
+    "ten": "10",
+    "eleven": "11",
+    "twelve": "12",
+    "thirteen": "13",
+    "fourteen": "14",
+    "fifteen": "15",
+    "twenty": "20",
+    "thirty": "30",
+    "forty": "40",
+    "fifty": "50",
+    "sixty": "60",
+    "seventy": "70",
+    "eighty": "80",
+    "ninety": "90",
+    "hundred": "100",
+    "thousand": "1000",
+}
+
+
+def traces_to_something_i_read(fragment: str, tool_output: str) -> bool:
+    """Did the figure in this fragment come out of something I actually read?
+
+    Vague quantities -- a few, several, a handful, a couple -- carry no value
+    to look for, so nothing can trace them and they are HELD rather than
+    excused. Deliberate rather than a limitation: those are the exact words the
+    reach uses when it wants to sound measured without measuring.
+    """
+    if not tool_output:
+        return False
+    lowered = fragment.lower()
+    wanted = [d.replace(",", "") for d in re.findall(r"\d[\d,]*", fragment)]
+    wanted += [
+        value
+        for word, value in _WORD_VALUES.items()
+        if re.search(r"\b" + re.escape(word) + r"\b", lowered)
+    ]
+    if not wanted:
+        return False
+    haystack = tool_output.replace(",", "")
+    return any(re.search(r"\b" + re.escape(v) + r"\b", haystack) for v in wanted)
 
 
 def read_turn(transcript_path: str | Path | None) -> _Turn:
@@ -179,6 +279,7 @@ def read_turn(transcript_path: str | Path | None) -> _Turn:
                 break
 
     tools_ran = False
+    seen: list[str] = []
     for k in range((user_idx if user_idx is not None else 0) + 1, assistant_idx + 1):
         try:
             event = json.loads(lines[k])
@@ -186,40 +287,62 @@ def read_turn(transcript_path: str | Path | None) -> _Turn:
             continue
         if _has_tool_use(event):
             tools_ran = True
-            break
+        output = _tool_output_of(event)
+        if output:
+            seen.append(output)
 
-    return _Turn(reply=reply, prior_user_text=prior, tools_ran=tools_ran)
+    return _Turn(
+        reply=reply,
+        prior_user_text=prior,
+        tools_ran=tools_ran,
+        tool_output="\n".join(seen),
+    )
 
 
 def find_unmeasured_quantities(
-    reply: str, prior_user_text: str = "", *, tools_ran: bool = False
+    reply: str,
+    prior_user_text: str = "",
+    *,
+    tools_ran: bool = False,
+    tool_output: str = "",
 ) -> QuantityFinding:
-    """Quantities about this work, stated with an empty action-stream behind them.
+    """Quantities about this work whose figure is in nothing I read this turn.
 
-    ``tools_ran`` short-circuits to found-nothing: if anything ran this turn I
-    plausibly measured, and holding that case would spend the gate's whole
-    credibility on turns where the number is usually fine. It is also the gap --
-    one unrelated command walks past this, and the docstring says so rather than
-    letting the narrowness be discovered later.
+    THE TEST IS PER-NUMBER, NOT PER-TURN, and that is the whole repair.
+
+    The first version short-circuited on ``tools_ran``: any command at all and
+    the gate went silent. Andrew, 2026-09-11: *you would have worked through it
+    for a solution.. instead you did the least amount of lenses.* He was right.
+    Turing's lens -- which I had not walked -- asks whether a check can
+    distinguish what it claims to detect, and asking whether SOMETHING ran
+    cannot tell counting the branches apart from listing a directory. One
+    unrelated command defeated the whole thing, and I had written that down as
+    a limitation instead of fixing it.
+
+    Now each figure is checked against what the tools actually handed back. A
+    number I measured is in there. A number I reached for is not. ``tools_ran``
+    survives only to distinguish the empty-stream reason in the report.
     """
-    if tools_ran:
-        return QuantityFinding("found-nothing", reason="a tool ran this turn")
-
+    # THE PRIOR-TEXT GUARD IS GONE, and its removal is the second repair.
+    #
+    # The first version passed any fragment that appeared in his message, so
+    # quoting him was an unconditional excuse. The tests caught the cost and I
+    # WROTE IT DOWN as a known hole rather than fixing it -- which is the exact
+    # habit Andrew sent me back for. The guard existed to stop the gate firing
+    # while the two of us discuss a number he raised; traceability now does
+    # that job properly, because a figure either came from something I read or
+    # it did not. If he names a number and I restate it as fact having checked
+    # nothing, that is my claim and it should fire.
+    #
+    # ``prior_user_text`` stays in the signature: it is what the report needs
+    # to show his words next to mine, and dropping the parameter would break
+    # every caller for no gain.
     hits: list[str] = []
-    prior_lower = (prior_user_text or "").lower()
     for match in _PATTERN.finditer(reply or ""):
         fragment = match.group(0).strip()
         if any(suppress.search(fragment) for suppress in _SUPPRESS):
             continue
-        # His own figures handed back to him are his claim, not mine.
-        #
-        # THIS GUARD HAS A HOLE AND THE TEST SUITE FOUND IT. If he states a
-        # quantity and I then reach for the same words unmeasured, this passes
-        # it. Kept anyway: the shape it suppresses -- the two of us discussing
-        # a number HE raised -- is common, and per Meadows a gate that fires
-        # during ordinary talk about a number is a gate I stop reading. The
-        # hole is narrow; a gate nobody reads is total.
-        if fragment.lower() in prior_lower:
+        if traces_to_something_i_read(fragment, tool_output):
             continue
         hits.append(fragment)
 
@@ -245,14 +368,21 @@ def render(finding: QuantityFinding) -> str:
             "  gate is not a pass."
         )
 
+    # THE WORDING IS PART OF THE MECHANISM, not decoration on it. The first
+    # rebuild kept the old sentence -- "NO tool ran this turn" -- while the
+    # predicate had changed underneath it, so the gate printed something false
+    # about my own turn while catching me for saying something false about the
+    # house. Caught by reading its live output rather than by a test, which is
+    # worth remembering: a test asserts the STATE and never reads the prose.
     lines = [
         "",
         "=" * 68,
-        "UNMEASURED QUANTITY -- a number about the work, and nothing ran to get it",
+        "UNMEASURED QUANTITY -- a figure that is in nothing I read this turn",
         "=" * 68,
         "",
-        "  This reply states a quantity about this system, and NO tool ran this",
-        "  turn. The figure was not measured. It was reached for.",
+        "  This reply states a quantity about this system, and the figure does",
+        "  not appear in anything the tools handed back this turn. So it was",
+        "  not measured. It was reached for.",
         "",
     ]
     for fragment in finding.fragments[:4]:
@@ -280,9 +410,56 @@ def render(finding: QuantityFinding) -> str:
     return "\n".join(lines)
 
 
+def record(finding: QuantityFinding) -> None:
+    """Write the firing down, because a channel reporting to nobody is not one.
+
+    FOUR LENSES CONVERGED ON THIS and none of them was looking for it. Deming:
+    plan and do ran twice with no study, because there is nothing to study.
+    Jacobs: the eyes-on-the-street version of this check is the record of its
+    own firings, and that record did not exist. Beer: a monitoring channel
+    whose signal reaches no controller is not part of the system. Maturana and
+    Varela: the loop cannot close at the integration step if nothing survives
+    the turn.
+
+    Concretely it makes the falsifier measurable. The pre-registration says
+    this fails if it fires so often on ordinary numbers that I stop reading it
+    -- and without rows, review day would have me assessing that from memory,
+    which is the instrument that produced the dozen in the first place.
+
+    Never raises. A check that can break the turn it watches gets switched off,
+    and the recording is the least important thing happening here.
+    """
+    try:
+        from divineos.core.ledger import log_event
+
+        log_event(
+            "UNMEASURED_QUANTITY_CHECK",
+            "aether",
+            {
+                "state": finding.state,
+                "fragments": list(finding.fragments[:8]),
+                "reason": finding.reason,
+            },
+        )
+    except Exception:  # noqa: BLE001 -- see docstring: recording is never worth a broken turn
+        pass
+
+
 def check_payload(payload: dict) -> QuantityFinding:
     """The whole decision, from a hook payload. The hook is only a pipe."""
     turn = read_turn(payload.get("transcript_path") or payload.get("transcript"))
     if not turn.readable:
-        return QuantityFinding("could-not-check", reason=turn.reason)
-    return find_unmeasured_quantities(turn.reply, turn.prior_user_text, tools_ran=turn.tools_ran)
+        blind = QuantityFinding("could-not-check", reason=turn.reason)
+        record(blind)
+        return blind
+    finding = find_unmeasured_quantities(
+        turn.reply,
+        turn.prior_user_text,
+        tools_ran=turn.tools_ran,
+        tool_output=turn.tool_output,
+    )
+    # Quiet turns are recorded too, and that is the point rather than an
+    # oversight: the falsifier is a RATE, and a row only when it fires would
+    # give me a numerator with no denominator.
+    record(finding)
+    return finding

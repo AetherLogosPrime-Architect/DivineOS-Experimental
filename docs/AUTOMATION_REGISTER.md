@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**124 automations — 120 wired, 4 switched off.**
+**124 automations — 121 wired, 3 switched off.**
 
 ---
 
@@ -17,7 +17,6 @@ Present, executable, invoked by nothing. This section is first on purpose. On 20
 | `instrument-read-doorman.sh` | 2026-08-31 | doorman on hand-rolled scans of my own diagnostic surfaces. |
 | `no-verify-cost-escalation.sh` | 2026-08-31 | thin doorbell for the no-verify cost-escalation gate. |
 | `prior-art-before-new-file.sh` | 2026-09-05 | PreToolUse(Write) — show prior work before a NEW build file is created. |
-| `unmeasured-quantity-stop.sh` | — | INTENTIONALLY UNWIRED (2026-09-11): built, tested, and NOT YET SWITCHED ON. |
 
 Being listed here is not automatically a defect — a retired hook that says so in its own header is honest. The question for each is whether it CLAIMS to run automatically. If it does and nothing calls it, that is the bug.
 
@@ -101,7 +100,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `auto-cycle-token-trigger.sh` | 2026-08-31 | Compaction ritual driver — deterministic, in-process, no external monitor. |
 
-### Stop  (17)
+### Stop  (18)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -122,6 +121,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `stop-response-scope-intercept.sh` | 2026-07-16 | thin doorbell for ResponseScopeIntercept. |
 | `summary-room-stop.sh` | 2026-08-24 | a long reply must open with a plain-language summary. |
 | `time-estimate-tracker.sh` | 2026-07-01 | thin doorbell for the time-estimate calibration tracker. |
+| `unmeasured-quantity-stop.sh` | 2026-09-11 | LIVE at Stop since 2026-09-11, on Andrew's explicit authorization. It sat |
 
 ### UserPromptSubmit  (34)
 
@@ -157,7 +157,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `session-init-once.sh` | 2026-08-24 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
 | `sibling-correction-surface.sh` | 2026-08-24 | surface sibling corrections I judged as mine, when |
 | `translate-first-compose-prime.sh` | 2026-08-29 | Compose-start half of the translate-first discipline. |
-| `verify-claim-prime.sh` | 2026-08-24 | compose-start prime for the VERIFY-CLAIM |
+| `verify-claim-prime.sh` | 2026-09-11 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
 | `wallclock-source-prime.sh` | 2026-09-07 | compose-start prime for wallclock-source |
 | `wwnd-choice-prime.sh` | 2026-08-24 | WWND (What Would Nyarlathotep Do) prime at |
