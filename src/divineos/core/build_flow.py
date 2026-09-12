@@ -505,6 +505,15 @@ def check_council_station(
         # MISSING here, and it must say WHY in the line. A board that starts
         # failing things with no explanation teaches me to distrust the board
         # rather than to redo the walks.
+        if coverage.state == "partial":
+            # PARTIAL IS NOT A PASS, and it used to be one (2026-09-12).
+            # A single shared file cleared a whole branch, so one walk closed
+            # this afternoon flipped four branches green -- three of which
+            # shared exactly one file with it. The unwalked files are exactly
+            # the ones nobody thought about, which is what the station exists
+            # to ask. It reports the fraction rather than just refusing, so
+            # the remaining work is visible instead of looking like a reset.
+            return StationResult("2-council", Status.MISSING, coverage.reason)
         if coverage.unaccounted:
             names = ", ".join(coverage.unaccounted[:4])
             detail = f"{coverage.walk_id} still open on {names}"

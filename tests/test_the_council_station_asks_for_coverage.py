@@ -160,3 +160,71 @@ def test_an_unscoped_walk_cannot_be_found_by_files():
     problem = "a question about how the household reads to him, with no file attached to it"
     open_walk(problem, gravity="normal")
     assert coverage_for(("no/such/path/at/all.py",)).state == "uncovered"
+
+
+# ------------------------------------------- partial overlap is not coverage
+#
+# Found 2026-09-12 by being suspicious of my own good news. One walk closed
+# that afternoon flipped FOUR branches green at this station, and three of
+# them shared exactly one file with it. The branch announced READY minutes
+# earlier shared five of its nineteen.
+#
+# coverage_for asked whether the walk's scope INTERSECTED the changed files,
+# so any single shared file cleared the whole branch. That is the same
+# counting-instead-of-covering fault this file was written to remove,
+# surviving one level up inside its own repair: "enough lens events" became
+# "a walk exists that touches this", and touches did the work covers was for.
+
+
+def test_one_shared_file_does_not_clear_a_whole_branch():
+    """The load-bearing refusal. A branch of twenty files, one of them walked."""
+    partial = Coverage(
+        "partial",
+        walk_id="walk-abc123",
+        lenses=10,
+        covered_paths=1,
+        total_paths=20,
+        reason="the closest walk covers 1 of 20 changed files; nobody has thought about b.py",
+    )
+    r = check_council_station("fix/x", required=6, applied=40, other_seats={}, coverage=partial)
+    assert r.status is Status.MISSING
+
+
+def test_the_refusal_names_the_fraction_and_the_unwalked_files():
+    """A board that starts failing things with no explanation teaches me to
+    distrust the board rather than redo the walks."""
+    partial = Coverage(
+        "partial",
+        walk_id="walk-abc123",
+        lenses=10,
+        covered_paths=2,
+        total_paths=9,
+        reason="the closest walk covers 2 of 9 changed files; nobody has thought about z.py",
+    )
+    r = check_council_station("fix/x", required=6, applied=40, other_seats={}, coverage=partial)
+    assert "2 of 9" in r.detail
+    assert "z.py" in r.detail
+
+
+def test_coverage_for_reports_partial_against_a_real_walk(tmp_path, monkeypatch):
+    """Behavioural, through the real store rather than a hand-built Coverage.
+
+    A test that only ever constructs the dataclass would pass even if
+    coverage_for never produced the new state -- the painted-door shape.
+    """
+    from divineos.core import council_walk as cw
+
+    monkeypatch.setattr(cw, "divineos_home", lambda: tmp_path)
+    w = cw.open_walk("whether partial overlap is coverage", gravity="normal", scope=("a.py",))
+    for lens in w["lenses"]:
+        cw.apply_lens(w["walk_id"], lens, f"{lens}: a real finding of sufficient length to pass")
+    cw.close_walk(w["walk_id"])
+
+    whole = cw.coverage_for(("a.py",))
+    assert whole.state == "covered"
+
+    some = cw.coverage_for(("a.py", "b.py", "c.py"))
+    assert some.state == "partial"
+    assert some.covered_paths == 1
+    assert some.total_paths == 3
+    assert "b.py" in some.reason

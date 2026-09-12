@@ -110,14 +110,33 @@ class Coverage:
     the thinking not having happened.
     """
 
-    state: str  # covered | uncovered | cannot-check
+    state: str  # covered | partial | uncovered | cannot-check
     walk_id: str = ""
     lenses: int = 0
     unaccounted: tuple[str, ...] = ()
     reason: str = ""
+    # PARTIAL WAS READING AS COVERED (2026-09-12), and I found it by being
+    # suspicious of my own good news.
+    #
+    # This function asked whether the walk's scope INTERSECTED the branch's
+    # files, so a single shared file cleared a branch of twenty. One walk
+    # closed this afternoon flipped four separate branches green, three of
+    # which shared exactly one file with it -- and the branch I had just
+    # announced READY shared five of its nineteen.
+    #
+    # That is the same counting-instead-of-covering fault this whole function
+    # was written this morning to remove, surviving one level up inside its own
+    # repair: I replaced "enough lens events" with "a walk exists that touches
+    # this", and "touches" was doing the work "covers" was supposed to do.
+    #
+    # So the overlap is now measured and reported. Partial is its own state and
+    # does NOT satisfy the station, because the unwalked files are exactly the
+    # ones nobody thought about.
+    covered_paths: int = 0
+    total_paths: int = 0
 
     def __post_init__(self) -> None:
-        allowed = ("covered", "uncovered", "cannot-check")
+        allowed = ("covered", "partial", "uncovered", "cannot-check")
         if self.state not in allowed:
             raise ValueError(f"state must be one of {allowed}, got {self.state!r}")
 
@@ -149,9 +168,12 @@ def coverage_for(paths: tuple[str, ...] | None) -> Coverage:
             "SELECT id, scope FROM walks WHERE closed_at IS NOT NULL AND scope != ''"
             " ORDER BY closed_at DESC"
         ).fetchall()
+        wanted = set(paths)
+        best: Coverage | None = None
         for walk_id, scope in rows:
             scoped = {line.strip() for line in (scope or "").splitlines() if line.strip()}
-            if not scoped & set(paths):
+            hit = scoped & wanted
+            if not hit:
                 continue
             lenses = conn.execute(
                 "SELECT lens, state FROM walk_lenses WHERE walk_id = ?", (walk_id,)
@@ -167,7 +189,33 @@ def coverage_for(paths: tuple[str, ...] | None) -> Coverage:
                     unaccounted=open_lenses,
                     reason="a closed walk still carries open lenses",
                 )
-            return Coverage("covered", walk_id=walk_id, lenses=len(lenses))
+            if hit >= wanted:
+                return Coverage(
+                    "covered",
+                    walk_id=walk_id,
+                    lenses=len(lenses),
+                    covered_paths=len(hit),
+                    total_paths=len(wanted),
+                )
+            # A partial hit is kept as the best answer so far, but the search
+            # continues -- a later walk may cover the branch whole, and taking
+            # the first overlap was precisely the bug.
+            if best is None:
+                missed = sorted(wanted - hit)
+                best = Coverage(
+                    "partial",
+                    walk_id=walk_id,
+                    lenses=len(lenses),
+                    covered_paths=len(hit),
+                    total_paths=len(wanted),
+                    reason=(
+                        f"the closest walk covers {len(hit)} of {len(wanted)} changed files; "
+                        f"nobody has thought about {', '.join(missed[:4])}"
+                        + (f" and {len(missed) - 4} more" if len(missed) > 4 else "")
+                    ),
+                )
+        if best is not None:
+            return best
         return Coverage("uncovered", reason="no closed walk is scoped to these files")
     except sqlite3.Error as exc:
         return Coverage("cannot-check", reason=f"the walk store could not be read: {exc}")
