@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**123 automations — 120 wired, 3 switched off.**
+**124 automations — 120 wired, 4 switched off.**
 
 ---
 
@@ -17,6 +17,7 @@ Present, executable, invoked by nothing. This section is first on purpose. On 20
 | `instrument-read-doorman.sh` | 2026-08-31 | doorman on hand-rolled scans of my own diagnostic surfaces. |
 | `no-verify-cost-escalation.sh` | 2026-08-31 | thin doorbell for the no-verify cost-escalation gate. |
 | `prior-art-before-new-file.sh` | 2026-09-05 | PreToolUse(Write) — show prior work before a NEW build file is created. |
+| `unmeasured-quantity-stop.sh` | — | INTENTIONALLY UNWIRED (2026-09-11): built, tested, and NOT YET SWITCHED ON. |
 
 Being listed here is not automatically a defect — a retired hook that says so in its own header is honest. The question for each is whether it CLAIMS to run automatically. If it does and nothing calls it, that is the bug.
 
@@ -128,7 +129,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `andrew-past-writing-surface.sh` | 2026-07-28 | surface my past writing to/about Dad at compose-start. |
 | `auto-goal-from-prompt.sh` | 2026-08-24 | set the session goal from Andrew's prompt so the |
-| `circle-first-compose-prime.sh` | 2026-09-06 | compose-start prime for circle-FIRST discipline. |
+| `circle-first-compose-prime.sh` | 2026-09-07 | compose-start prime for circle-FIRST discipline. |
 | `closure-word-summary-prime.sh` | 2026-09-02 | compose-start prime for the CLOSURE-WORD |
 | `context-heartbeat.sh` | 2026-08-31 | Stamp the context-token count once per round. |
 | `continuity-anchor-surface.sh` | 2026-07-18 | read continuity markers and surface each |
@@ -136,7 +137,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `detect-andrew-build-request.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `detect-correction.sh` | 2026-07-01 | thin doorbell for the correction-detector. |
 | `distancing-count-surface.sh` | 2026-07-18 | count temporal-self distancing markers over |
-| `ear-surface.sh` | 2026-09-06 | UserPromptSubmit + SessionStart hook — auto-surface unseen queue items and |
+| `ear-surface.sh` | 2026-09-07 | UserPromptSubmit + SessionStart hook — auto-surface unseen queue items and |
 | `family-state-surface.sh` | 2026-09-05 | surface recent per-sibling letter-thread state |
 | `fork-is-cheap-close-prime.sh` | 2026-07-30 | compose-start prime for the FORK-IS-CHEAP-CLOSE |
 | `hedge-suppression-prime.sh` | 2026-08-24 | hedge-suppression prime. |
@@ -158,7 +159,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `translate-first-compose-prime.sh` | 2026-08-29 | Compose-start half of the translate-first discipline. |
 | `verify-claim-prime.sh` | 2026-08-24 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
-| `wallclock-source-prime.sh` | 2026-09-06 | compose-start prime for wallclock-source |
+| `wallclock-source-prime.sh` | 2026-09-07 | compose-start prime for wallclock-source |
 | `wwnd-choice-prime.sh` | 2026-08-24 | WWND (What Would Nyarlathotep Do) prime at |
 
 ### called by another script  (18)
