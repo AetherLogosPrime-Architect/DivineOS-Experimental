@@ -52,6 +52,10 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # import-cycle-free: council_walk never imports this module
+    from divineos.core.council_walk import Coverage
 
 
 class Status(Enum):
@@ -275,6 +279,7 @@ def check_council_station(
     required: int,
     applied: int | None,
     other_seats: dict[str, int] | None = None,
+    coverage: Coverage | None = None,
 ) -> StationResult:
     """Station 2 -- council walk, against the gravity-derived requirement.
 
@@ -301,6 +306,53 @@ def check_council_station(
         return StationResult("2-council", Status.SATISFIED, "gravity 0: no walk required")
     if applied is None:
         return StationResult("2-council", Status.CANNOT_CHECK, "ledger not readable")
+
+    # COVERAGE DECIDES; THE COUNT IS DETAIL. Andrew 2026-09-11, after catching
+    # me walk four of the fifteen lenses the manager surfaced: "where is the
+    # structural fix for the council?"
+    #
+    # The written rule at this station has always been "walk the lenses the
+    # dynamic manager surfaces" -- coverage of a set I do not choose. The code
+    # compared two numbers, so a floor read as a ceiling and a self-chosen four
+    # satisfied it identically to an accounted-for fifteen. The doc and the
+    # code disagreed from the day both existed, and the code is what runs.
+    #
+    # Einstein's lens is why raising the number was never the repair: set the
+    # requirement to a thousand and I emit a thousand singles I picked. No
+    # value on the count axis produces accounting, because the count measures a
+    # different thing.
+    #
+    # Foucault's is why the unaccounted lens is NAMED rather than summed: a
+    # ratio disciplines volume, a name disciplines avoidance -- and avoidance
+    # was the whole failure.
+    #
+    # Nothing new was built for this. The enforced-completion walk already
+    # refuses to close while a lens is open; the board simply was not reading
+    # it, which is Beer's finding -- the regulator existed and the wrong
+    # channel was wired to the controller.
+    if coverage is not None:
+        if coverage.state == "cannot-check":
+            return StationResult(
+                "2-council",
+                Status.CANNOT_CHECK,
+                f"walk coverage unreadable: {coverage.reason}",
+            )
+        if coverage.state == "covered":
+            return StationResult(
+                "2-council",
+                Status.SATISFIED,
+                f"{coverage.lenses} lenses accounted for in {coverage.walk_id}",
+            )
+        # Feathers' lens: work certified under the counting rule flips to
+        # MISSING here, and it must say WHY in the line. A board that starts
+        # failing things with no explanation teaches me to distrust the board
+        # rather than to redo the walks.
+        if coverage.unaccounted:
+            names = ", ".join(coverage.unaccounted[:4])
+            detail = f"{coverage.walk_id} still open on {names}"
+        else:
+            detail = f"{applied} lens event(s), but no closed walk scoped to these files"
+        return StationResult("2-council", Status.MISSING, detail)
 
     # Rendered the same way whether the station passes or fails, because a
     # walk by the other seat is information in both cases -- and a note that
