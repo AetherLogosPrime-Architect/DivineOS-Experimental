@@ -428,6 +428,23 @@ def record(finding: QuantityFinding) -> None:
 
     Never raises. A check that can break the turn it watches gets switched off,
     and the recording is the least important thing happening here.
+
+    BUT IT NEVER FAILS QUIETLY, and the correction is Andrew's, 2026-09-12:
+    "the optimizer likes to hide in builds designed to crush it, like remember
+    you making all that stuff with escape hatches? not saying bypasses arent
+    needed but those werent bypasses they were cheap escapes.. planned to be
+    taken every time, that is the difference."
+
+    The first version swallowed every failure in silence, which is that shape
+    exactly -- an exit designed to be taken by anything, every time, with
+    nothing said. And the cost lands precisely where this function was meant
+    to help: an empty record on review day reads as "it never fired" when the
+    truth may be "I could not write it down." Found-nothing collapsing into
+    could-not-look, sitting inside the repair built to stop that collapse.
+
+    The swallow itself is right -- a broken recorder must not break the turn.
+    What was wrong is that it said nothing. The exception still does not
+    propagate; the failure is now audible.
     """
     try:
         from divineos.core.ledger import log_event
@@ -441,8 +458,12 @@ def record(finding: QuantityFinding) -> None:
                 "reason": finding.reason,
             },
         )
-    except Exception:  # noqa: BLE001 -- see docstring: recording is never worth a broken turn
-        pass
+    except Exception as exc:  # noqa: BLE001 -- the turn must survive a broken recorder
+        print(
+            f"[unmeasured-quantity] COULD NOT RECORD this turn: {exc}\n"
+            "  The check itself still ran; only the row is missing. Any later "
+            "count of these rows is a FLOOR, not a total."
+        )
 
 
 def check_payload(payload: dict) -> QuantityFinding:
