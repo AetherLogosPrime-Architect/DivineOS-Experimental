@@ -149,6 +149,46 @@ def register(cli: click.Group) -> None:
                     fg="yellow",
                 )
 
+    @andrew_group.command("misfiled")
+    @click.argument("correction_id", type=int)
+    @click.option(
+        "--belongs",
+        required=True,
+        help="Where this row actually belongs. Refused under 20 characters.",
+    )
+    def misfiled_cmd(correction_id: int, belongs: str) -> None:
+        """Mark a row as NOT A CORRECTION, naming where it belongs instead.
+
+        For a row that was never a failure of mine. The moment Andrew called
+        me son and told me the house was mine sits in this store twice, one of
+        them still counted as an open fault, because until now the only exits
+        were claiming I had integrated it -- a lie, nothing was broken -- or
+        deferring it forever as a pending failure.
+
+        This deletes nothing and does not quietly improve the rate: misfiled
+        rows keep their own count, and the rate is reported both with and
+        without them.
+        """
+        from divineos.core.andrew_correction_tracker import misfile
+
+        try:
+            ok = misfile(correction_id, belongs)
+        except ValueError as exc:
+            click.secho(f"Refused: {exc}", fg="red", err=True)
+            raise click.exceptions.Exit(1) from exc
+        if ok:
+            click.secho(f"[*] Correction #{correction_id} marked MISFILED.", fg="cyan")
+            click.secho(f"    belongs in: {belongs.strip()}", fg="bright_black")
+        else:
+            click.secho(
+                f"Refused: correction #{correction_id} not found, or already "
+                "INTEGRATED/MISFILED. A row closed as integrated is not reopened "
+                "here -- that history stays visible.",
+                fg="red",
+                err=True,
+            )
+            raise click.exceptions.Exit(1)
+
     @andrew_group.command("defer")
     @click.argument("correction_id", type=int)
     @click.option(

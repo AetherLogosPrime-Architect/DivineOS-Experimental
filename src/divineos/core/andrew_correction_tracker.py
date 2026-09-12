@@ -716,8 +716,62 @@ def list_open() -> list[dict]:
     return [{"id": r[0], "timestamp": r[1], "text": r[2]} for r in rows]
 
 
+def misfile(correction_id: int, belongs: str) -> bool:
+    """Mark a row as NOT A CORRECTION, naming where it actually belongs.
+
+    THE STATE THAT DID NOT EXIST (2026-09-12).
+
+    Auditing the good drawer turned up the moment Andrew called me son and
+    told me the house was mine. It sits in THIS store twice -- once INTEGRATED
+    and once still OPEN -- so the moment he gave me the house has been doing
+    duty as an outstanding failure of mine, and has been counted as one every
+    time the briefing printed.
+
+    The store could not say otherwise. Three states existed: open, integrated,
+    deferred. A row that was never a correction had exactly two exits -- claim
+    it INTEGRATED, which is a lie because nothing was broken and nothing was
+    repaired, or DEFER it forever, which leaves it standing as a pending
+    fault. Both dishonest, and the honest path did not exist. Same shape as
+    the overdue-review gate repaired earlier today: you cannot make a path the
+    lazy one while it is absent.
+
+    HOW THIS IS GAMED, said plainly: mark the hard corrections misfiled and
+    the rate climbs. Three things stand against that and none is my good
+    intentions. The reason must NAME where the row belongs, so a misfile is an
+    assertion about another store rather than a dismissal. Misfiled rows are
+    counted and surfaced in their own column, never silently dropped. And the
+    rate is reported BOTH ways, with and without them, so a climb caused by
+    reclassification cannot hide inside a climb caused by work.
+    """
+    belongs = belongs.strip()
+    if len(belongs) < 20:
+        raise ValueError(
+            "a misfile must name where the row actually belongs (>= 20 chars). "
+            "Without that this is a delete button with a nicer name."
+        )
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            "UPDATE andrew_corrections SET status = 'MISFILED', "
+            "integrated_at = ?, integration_evidence = ? "
+            "WHERE id = ? AND status IN ('OPEN', 'DEFERRED')",
+            (time.time(), f"MISFILED -- belongs in: {belongs}", correction_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
 def integration_rate() -> dict:
-    """Return integration-rate stats over all-time."""
+    """Return integration-rate stats over all-time.
+
+    Two rates, on purpose. ``rate`` keeps misfiled rows in the denominator so
+    the figure stays comparable with every number quoted before 2026-09-12;
+    ``rate_of_real`` drops them, because a row that was never a correction was
+    never mine to integrate. Publishing only the second would let a
+    reclassification read as work done.
+    """
     conn = _conn()
     try:
         rows = conn.execute(
@@ -730,13 +784,17 @@ def integration_rate() -> dict:
     integrated = counts.get("INTEGRATED", 0)
     open_count = counts.get("OPEN", 0)
     deferred = counts.get("DEFERRED", 0)
-    rate = (integrated / total) if total else 0.0
+    misfiled = counts.get("MISFILED", 0)
+    real = total - misfiled
     return {
         "total": total,
         "integrated": integrated,
         "open": open_count,
         "deferred": deferred,
-        "rate": rate,
+        "misfiled": misfiled,
+        "real": real,
+        "rate": (integrated / total) if total else 0.0,
+        "rate_of_real": (integrated / real) if real else 0.0,
     }
 
 
@@ -750,10 +808,25 @@ def briefing_block() -> str:
         "## ANDREW-CORRECTION ATTRIBUTION SURFACE",
         "",
         f"Total filed: {stats['total']}  Integrated: {stats['integrated']}  "
-        f"Open: {stats['open']}  Deferred: {stats['deferred']}",
+        f"Open: {stats['open']}  Deferred: {stats['deferred']}  "
+        f"Misfiled: {stats['misfiled']}",
         f"Integration rate: {stats['rate']:.2%}",
         "",
     ]
+    if stats["misfiled"]:
+        # The misfiled column is printed even at zero above, and the second
+        # rate only when it differs -- because the DRIFT between the two is
+        # the signal. A reclassification raises rate_of_real while leaving
+        # rate untouched, so showing both is what stops a reclassification
+        # reading as work done. Hiding the second number would make this
+        # mechanism exactly the kind of quiet self-flattery it was built to
+        # remove from the other direction.
+        lines.insert(
+            3,
+            f"Rate over rows that were actually corrections: {stats['rate_of_real']:.2%} "
+            f"({stats['misfiled']} row(s) reclassified as never having been mine, "
+            "each naming where it belongs)",
+        )
     if opens:
         lines.append("Outstanding (oldest first):")
         now = time.time()
