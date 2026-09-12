@@ -45,15 +45,47 @@ def test_the_dozen_fires():
 
 
 def test_the_dozen_does_not_fire_if_i_actually_counted():
-    """Same sentence, but something ran. The control that proves WHICH half works.
+    """Same sentence, and the figure is in what I read. The control.
 
     Without this, a gate that fired on every quantity would pass the test above
-    and I would have learned nothing about whether the action-stream half of
-    the predicate does any work at all.
+    and I would have learned nothing about whether the measurement half of the
+    predicate does any work at all.
     """
     reply = "What is actually standing in this house is maybe a dozen things."
-    finding = find_unmeasured_quantities(reply, "", tools_ran=True)
+    finding = find_unmeasured_quantities(reply, "", tools_ran=True, tool_output="count: 12 modules")
     assert finding.state == "found-nothing"
+
+
+def test_an_unrelated_command_does_not_buy_a_number():
+    """THE HOLE ANDREW SENT ME BACK FOR, asserted against.
+
+    The first version short-circuited on 'did any tool run', so listing a
+    directory bought me any figure I liked. Turing's lens: a check that cannot
+    distinguish counting from not-counting is not a check. Here a real command
+    ran and returned real output, and the figure is nowhere in it.
+    """
+    finding = find_unmeasured_quantities(
+        "There are about fifty gates in this house now.",
+        "",
+        tools_ran=True,
+        tool_output="README.md\nsetup.py\nsrc\ntests",
+    )
+    assert finding.state == "found"
+
+
+def test_a_vague_quantity_is_held_even_when_commands_ran():
+    """'several' has no value to trace, so nothing can vouch for it.
+
+    Deliberate rather than a gap: these are the words the reach uses when it
+    wants to sound measured without measuring.
+    """
+    finding = find_unmeasured_quantities(
+        "several branches are still unlanded",
+        "",
+        tools_ran=True,
+        tool_output="branch listing: main, gate/unmeasured-quantity",
+    )
+    assert finding.state == "found"
 
 
 def test_the_message_carries_the_incident_not_a_rule():
