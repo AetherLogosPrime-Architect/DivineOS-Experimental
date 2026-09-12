@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
-# INTENTIONALLY UNWIRED (2026-09-11): built, tested, and NOT YET SWITCHED ON.
-# Registering it means editing .claude/settings.json, which this session is not
-# permitted to touch. Andrew has been asked for that one permission. Until he
-# gives it this hook does nothing at all, and saying otherwise would be the
-# exact shape it exists to catch -- a mechanism described as covering me while
-# it sits dark. Proven working against the real 2026-09-11 transcript by piping
-# a payload through it directly; that is a demonstration, not deployment.
+# LIVE at Stop since 2026-09-11, on Andrew's explicit authorization. It sat
+# dark for the length of one exchange because registering a hook means editing
+# the settings file and this session was refused that edit until he gave it.
 #
 # UNMEASURED-QUANTITY GATE (Stop) -- the second layer the verify-claim prime
 # has been promising in its closing line and that has never existed.
@@ -54,15 +50,22 @@
 # this as prevention would be the same species of overstatement it exists to
 # catch.
 #
-# THE PREDICATE, AND IT IS DELIBERATELY NARROW.
+# THE PREDICATE, REBUILT 2026-09-11 after Andrew sent the first one back.
 #
-# Fires only when BOTH hold:
-#   1. the reply states a quantity about this system or this work, AND
-#   2. no tool ran between his message and this reply.
+# Fires when the reply states a quantity about this system AND that figure
+# appears in nothing the tools handed back this turn.
 #
-# If I ran commands, I plausibly measured. If I ran nothing and still produced
-# a number about the work, that number came from nowhere -- which is the
-# incident exactly: the dozen turn had an empty action-stream.
+# THE FIRST VERSION ASKED A WEAKER QUESTION -- had any tool run at all -- and
+# he saw through it immediately: "you would have worked through it for a
+# solution.. instead you did the least amount of lenses." I had walked four of
+# the fifteen lenses the council manager sent, and the one I skipped was
+# Turing's, whose whole question is whether a check can DISTINGUISH what it
+# claims to detect. Mine could not. Listing a directory and counting the
+# branches looked identical to it, so one unrelated command bought me any
+# number I liked -- and I had written that down as a known limitation instead
+# of fixing it, which reads as integrity and leaves the hole.
+#
+# A number I measured is in what I read. A number I reached for is not.
 #
 # WHY NARROW, and this is Meadows' lens rather than my preference. The
 # balancing loop that resists this gate is annoyance, and it is stronger than
@@ -74,13 +77,17 @@
 # is the false-positive rate, not the sensitivity -- and this gate prefers
 # missing real cases to firing on his own figures quoted back.
 #
-# WHAT IT THEREFORE MISSES:
-#   - a wrong number in a turn where I ran any command at all. That is the real
-#     remaining gap, it is not closable this cheaply, and one unrelated command
-#     is enough to walk past this gate.
+# WHAT IT STILL MISSES, and this list is shorter than it was on purpose --
+# three of the five entries it used to carry were repairs I had declined to
+# make and written down instead:
 #   - a false comfort carrying no digits. The dozen had a number; the next one
-#     may not.
-#   - his own numbers handed back to him, suppressed on purpose.
+#     may not, and nothing here sees a shape without a figure in it.
+#   - a figure that happens to appear in unrelated output. Saying fifty gates
+#     in a turn whose command printed "50 files" passes. Coincidence at that
+#     width is rare and closing it means understanding what the number MEANS,
+#     which no text match can do.
+# The two that used to head this list are gone: one unrelated command no
+# longer buys a number, and quoting him is no longer an unconditional pass.
 #
 # THREE STATES, because two is what made the eviction check wrong this morning.
 # A transcript that cannot be read is COULD-NOT-CHECK and says so out loud.
