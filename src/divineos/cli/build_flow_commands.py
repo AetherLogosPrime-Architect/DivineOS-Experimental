@@ -28,11 +28,12 @@ from pathlib import Path
 
 import click
 
+from divineos.core.council_walk import Coverage, coverage_for
 from divineos.core.build_flow import (
     PrFlowStatus,
     StationResult,
     Status,
-    check_aria_station,
+    check_cold_read_station,
     check_audit_station,
     check_council_station,
     check_draft_station,
@@ -42,6 +43,12 @@ from divineos.core.build_flow import (
 )
 
 _LETTERS = Path.home() / ".divineos-shared" / "letters"
+# Who owns a branch, DECLARED. One file per branch, so two seats claiming the
+# same branch collide at the declaration rather than at the board. Never
+# inferred from the branch name or the commit identity: both were measured
+# wrong on 2026-09-12, and the identity source is an unconfigured-checkout
+# default that nobody chose and nothing declares.
+_OWNERS = Path.home() / ".divineos-shared" / "branch_owners"
 
 # Every one of these means "could not check", never "checked and found none" --
 # which is exactly the distinction Status carries three values for. A bare
@@ -214,6 +221,24 @@ def _changed_paths(pr: int) -> tuple[str, ...] | None:
     if len(paths) >= _GH_PR_FILES_CAP:
         return None  # may be truncated; unknown is not zero
     return paths
+
+
+def _walk_coverage(paths: tuple[str, ...] | None) -> "Coverage":
+    """Is there a CLOSED walk scoped to these files, with every lens settled?
+
+    This is what station 2 now decides on. The count that used to decide is
+    kept beside it as detail, because a number that was never the right
+    question is still worth seeing while the two disagree.
+
+    Failure to import is COULD-NOT-CHECK rather than uncovered: a board that
+    reports a missing module as a missing walk is the false-accusation shape
+    this same station shipped in August, and a station that can only fail
+    teaches me to discount it.
+    """
+    try:
+        return coverage_for(paths)
+    except Exception as exc:  # noqa: BLE001 -- any failure here is could-not-look
+        return Coverage("cannot-check", reason=f"the walk store raised: {exc}")
 
 
 def _lenses_applied(paths: tuple[str, ...] | None) -> int | None:
@@ -529,7 +554,7 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
             st = PrFlowStatus(number=n, branch=branch, gravity=-1, required_lenses=-1)
             st.stations = [
                 StationResult("2-council", Status.CANNOT_CHECK, "changed files unreadable"),
-                check_aria_station(branch, _LETTERS),
+                check_cold_read_station(branch, _LETTERS, _OWNERS),
                 check_draft_station(pr.get("isDraft")),
                 check_audit_station(n, branch, audit, audit_store, _anchor_for(branch, deep, n)),
             ]
@@ -546,8 +571,14 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
         st.stations = [
             # paths, not branch: council walks are keyed by edit
             # fingerprint. See _lenses_applied for the measurement.
-            check_council_station(branch, need, _lenses_applied(paths), _other_seat_lenses(paths)),
-            check_aria_station(branch, _LETTERS),
+            check_council_station(
+                branch,
+                need,
+                _lenses_applied(paths),
+                _other_seat_lenses(paths),
+                coverage=_walk_coverage(paths),
+            ),
+            check_cold_read_station(branch, _LETTERS, _OWNERS),
             check_draft_station(pr.get("isDraft")),
             check_audit_station(n, branch, audit, audit_store, _anchor_for(branch, deep, n)),
         ]
@@ -604,7 +635,11 @@ def render(statuses: list[PrFlowStatus]) -> str:
         lines.append(f"  Needing attention: {', '.join(f'#{n}' for n in attention)}")
     else:
         lines.append("  Nothing is off-track. Drafts with stations ahead of them are drafts.")
-    lines.append("  Checked: 2-council, 4-aria, 7-draft, 8-audit. NOT checked:")
+    # Said 4-aria until 2026-09-12, after the station stopped being about Aria
+    # and became about whichever seat did not write the branch. The board was
+    # naming a station it no longer runs -- small, and the same class as every
+    # other sentence in this house that stopped being true and told nobody.
+    lines.append("  Checked: 2-council, 4-cold-read, 7-draft, 8-audit. NOT checked:")
     lines.append("  1-draft, 3-build, 5-test, 6-more-council, 9-merge — four of nine.")
     lines.append("")
     lines.append("  Stations advance on artifacts. Station 4 needs a reply FROM Aria,")

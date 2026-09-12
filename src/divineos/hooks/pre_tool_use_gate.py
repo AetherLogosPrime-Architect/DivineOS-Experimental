@@ -1232,6 +1232,35 @@ def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
         return None
     if not overdue:
         return None
+
+    # A DECLARED REVIEW IS THE THING THIS GATE IS ASKING FOR, so it cannot be
+    # the thing this gate refuses. Added 2026-09-12 after the block denied the
+    # evidence for two reviews in one night and left only a fabricated verdict
+    # or a deferral as exits -- both worse than the review it wanted. See
+    # core/pre_registrations/review_window.py for why this is neither an
+    # allowlist nor a bypass flag.
+    window_error = ""
+    try:
+        from divineos.core.pre_registrations.review_window import active_window
+
+        window = active_window()
+    except Exception as exc:  # noqa: BLE001 -- not swallowed; see the deny below
+        window = None
+        window_error = f"{type(exc).__name__}: {exc}"
+
+    if window is not None and window.state == "open":
+        return None
+    if window is None or window.state == "could-not-check":
+        reason = window_error or getattr(window, "reason", "unknown")
+        return _make_deny(
+            "OVERDUE PRE-REGISTRATIONS block substantive tool use, AND the "
+            "review-window store could not be consulted, so this gate cannot "
+            "tell whether a review is already under way.\n\n"
+            f"  why: {reason}\n\n"
+            "This is a refusal made without looking, NOT a finding that no "
+            "review is happening. Repair the store, then retry."
+        )
+
     ids_preview = ", ".join(p.prereg_id[:24] for p in overdue[:5])
     more = f" (and {len(overdue) - 5} more)" if len(overdue) > 5 else ""
     return _make_deny(
@@ -1243,6 +1272,14 @@ def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
         '--actor <name> --notes "<what happened>"\n'
         "  divineos prereg assess <id> --outcome DEFERRED --actor <name> "
         '--notes "<why deferring>"\n\n'
+        "IF THE EVIDENCE IS BEHIND THIS GATE, say so and go get it:\n"
+        '  divineos prereg reviewing <id> --purpose "<what you will look at>"\n'
+        "  That stands this gate down for a bounded stretch and records the "
+        "window by name. It is not a bypass -- it only opens against a review "
+        "that is genuinely overdue, and a window with no assessment behind it "
+        "is counted and surfaced. Added because this block twice refused the "
+        "evidence for its own reviews, leaving a fabricated verdict or a "
+        "deferral as the only exits.\n\n"
         "List all overdue with: divineos prereg overdue"
     )
 

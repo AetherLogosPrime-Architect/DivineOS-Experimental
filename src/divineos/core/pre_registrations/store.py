@@ -346,6 +346,17 @@ def record_outcome(
     finally:
         conn.close()
 
+    # An assessment is what a review window was opened FOR, so recording one
+    # closes it here rather than at the call site. Leaving that to the caller
+    # would make every earned window indistinguishable from a lapsed one on
+    # the single occasion it was forgotten, which is the whole measurement.
+    try:
+        from divineos.core.pre_registrations.review_window import close_windows_for
+
+        close_windows_for(prereg_id)
+    except _STORE_ERRORS:
+        pass
+
     # Log to ledger — best-effort
     try:
         from divineos.core.ledger import log_event
