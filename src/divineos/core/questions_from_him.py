@@ -77,7 +77,7 @@ def his_words(hook_json: str) -> str:
     except ValueError:
         return ""
     if not isinstance(data, dict):
-        return ""
+        return ""  # both-empty: unparseable and unexpected-shape agree -- either way the payload holds no words of his, and the only caller asks one question of this, whether there is anything of him to build on
     from divineos.core.correction_marker import strip_relayed
 
     return strip_relayed(str(data.get("prompt") or "")).strip()

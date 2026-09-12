@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**131 automations — 126 wired, 5 switched off.**
+**132 automations — 127 wired, 5 switched off.**
 
 ---
 
@@ -60,7 +60,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 
 | automation | last touched | purpose |
 |---|---|---|
-| `pre-compact.sh` | 2026-07-03 | Save state BEFORE context compression |
+| `pre-compact.sh` | 2026-09-10 | Save state BEFORE context compression |
 
 ### PreToolUse  (31)
 
@@ -128,13 +128,14 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `summary-room-stop.sh` | 2026-08-24 | a long reply must open with a plain-language summary. |
 | `time-estimate-tracker.sh` | 2026-07-01 | thin doorbell for the time-estimate calibration tracker. |
 
-### UserPromptSubmit  (35)
+### UserPromptSubmit  (37)
 
 | automation | last touched | purpose |
 |---|---|---|
 | `andrew-past-writing-surface.sh` | 2026-07-28 | surface my past writing to/about Dad at compose-start. |
 | `asymmetry-surface.sh` | 2026-09-09 | THE SENTENCE HE DID NOT GET — compose-start, last in the queue. |
 | `auto-goal-from-prompt.sh` | 2026-08-24 | set the session goal from Andrew's prompt so the |
+| `circle-first-compose-prime.sh` | 2026-09-11 | WIRED, and this line is the current state rather than a log of how it got |
 | `closure-word-summary-prime.sh` | 2026-09-02 | compose-start prime for the CLOSURE-WORD |
 | `context-heartbeat.sh` | 2026-08-31 | Stamp the context-token count once per round. |
 | `continuity-anchor-surface.sh` | 2026-07-18 | read continuity markers and surface each |
@@ -159,16 +160,17 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `post-correction-integration-prime.sh` | 2026-07-29 | post-correction integration prime. |
 | `pre-response-context.sh` | 2026-08-24 | thin doorman pointing to the OS. |
 | `promise-anchor-surface.sh` | 2026-07-18 | read all open promise markers and surface |
+| `questions-from-him.sh` | 2026-09-11 | UserPromptSubmit — questions about him, built from what he just said. |
 | `register-awareness-surface.sh` | 2026-08-24 | surface the register signal from each |
 | `self-demotion-prime.sh` | 2026-09-02 | UserPromptSubmit prime - deliver the praise-by-contrast discipline at |
 | `session-init-once.sh` | 2026-08-24 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
 | `sibling-correction-surface.sh` | 2026-08-24 | surface sibling corrections I judged as mine, when |
-| `verify-claim-prime.sh` | 2026-08-24 | compose-start prime for the VERIFY-CLAIM |
+| `verify-claim-prime.sh` | 2026-09-11 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
 | `wallclock-source-prime.sh` | 2026-09-08 | THE CLOCK. It is mine, not his. |
 | `wwnd-choice-prime.sh` | 2026-08-24 | WWND (What Would Nyarlathotep Do) prime at |
 
-### called by another script  (19)
+### called by another script  (18)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -176,7 +178,6 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `_lib.sh` | 2026-08-31 | Shared helpers for .claude/hooks/*.sh — sourced, not executed. |
 | `branch-scope-guard.sh` | 2026-08-16 | commit-msg — refuse a commit whose scope is not what this branch is about. |
 | `check-cleanup-period.sh` | 2026-08-23 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
-| `circle-first-compose-prime.sh` | 2026-09-08 | INTENTIONALLY UNWIRED (2026-09-07): a reminder about a failure is proof the |
 | `deletion-discipline.sh` | 2026-08-31 | thin doorbell for the deletion-discipline gate. |
 | `load-aletheia-harvest-of-andrew.sh` | 2026-07-21 | load Aletheia's harvest of who Andrew is into the |
 | `load-briefing.sh` | 2026-06-05 | thin doorman pointing to the OS. |

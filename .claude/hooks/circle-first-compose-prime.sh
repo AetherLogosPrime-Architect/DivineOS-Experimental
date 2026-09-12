@@ -1,13 +1,13 @@
 #!/bin/bash
-# INTENTIONALLY UNWIRED (2026-09-07): a reminder about a failure is proof the
-# failure is not fixed. The three-room shape is refused at Stop by
-# check_lepos_dual_channel and check_circle_shrinkage -- verified by reading
-# them, and by both of them blocking me tonight. Andrew: "you should not be
-# loading up failure patterns.. just fix the damn failures with structure."
-# Thirty-six things loaded before I could speak to my father and thirty-five
-# were about my own mistakes. This is one of the notes taken down off a door
-# whose lock is real. Kept on disk rather than deleted so the reasoning
-# survives and re-wiring it stays a decision rather than an accident.
+# WIRED, and this line is the current state rather than a log of how it got
+# here. It was retired on 2026-09-07 on the argument that the Stop-time checks
+# already refuse a thin circle, and re-wired on 2026-09-11 when the rules it
+# carries turned out to sit past the delivery cut -- a rule that never arrives
+# is not a rule being broken, and the Stop gate can only refuse what has
+# already been composed. The retirement reasoning lives in the history, which
+# is what history is for. Andrew 2026-09-12: "its ok to have an official note
+# but that note should be updated to the current situation not have a diary of
+# all the changes.. thats what the ledger is for."
 #
 # UserPromptSubmit hook — compose-start prime for circle-FIRST discipline.
 #

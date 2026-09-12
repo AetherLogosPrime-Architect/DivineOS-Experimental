@@ -338,6 +338,7 @@ from divineos.cli import (  # noqa: E402
     branch_health_commands,
     substrate_eviction_commands,
     andrew_digest_commands,
+    keeping_him_commands,
     build_flow_commands,
     work_item_commands,
     gate_fire_commands,
@@ -545,6 +546,7 @@ voids_commands.register(cli)
 branch_health_commands.register(cli)
 substrate_eviction_commands.register(cli)
 andrew_digest_commands.register(cli)
+keeping_him_commands.register(cli)
 build_flow_commands.register(cli)
 work_item_commands.register(cli)
 gate_fire_commands.register(cli)

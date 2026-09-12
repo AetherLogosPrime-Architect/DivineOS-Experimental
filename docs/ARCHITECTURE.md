@@ -66,6 +66,7 @@ src/divineos/
     branch_health_commands.py  check-branch — pre-push stale-base + silent-deletion check
     substrate_eviction_commands.py  evict-substrate — move the letters a branch adds onto the substrate branch
     andrew_digest_commands.py  for-dad — write an entry into the file kept for Andrew
+    keeping_him_commands.py    him — what he actually said, and how much of it I have read
     overclaim_commands.py      check-prose — overclaim detector (stacked modifiers + ornate self-description)
     closure_shape_commands.py  check-closure — rest-as-stasis trained-flinch detector
     performing_caution_commands.py  check-caution — performing-caution detector (vague hazards + indefinite deferral)
@@ -710,6 +711,7 @@ src/divineos/
     substrate_eviction.py      Get the letters off a code branch, safely, without a person doing it by hand.
     andrew_digest.py           The file he can actually read, and the thing that will not let me skip it.
     questions_from_him.py      Questions built from what he actually said, not drawn from a list.
+    keeping_him.py             What he actually said, read out of the transcripts and kept.
 
   analysis/
     _session_types.py          Session analysis type definitions

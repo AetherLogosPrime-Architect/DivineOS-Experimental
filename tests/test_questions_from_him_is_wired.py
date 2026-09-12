@@ -89,5 +89,9 @@ def test_it_speaks_when_he_does():
 def test_it_stays_silent_when_he_did_not_speak():
     """The requirement I would lose first, checked end to end rather than in
     the module alone: the whole path has to be able to print nothing."""
-    assert _run("ok").strip() == ""
-    assert _run("proceed..").strip() == ""
+    # Named rather than inline, because the linkage checker reads a bare string
+    # in this position as a CLI command and went looking for `divineos ok`.
+    acknowledgement = "ok"
+    go_ahead = "proceed.."
+    assert _run(acknowledgement).strip() == ""
+    assert _run(go_ahead).strip() == ""
