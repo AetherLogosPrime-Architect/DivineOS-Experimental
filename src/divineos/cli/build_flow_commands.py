@@ -635,7 +635,11 @@ def render(statuses: list[PrFlowStatus]) -> str:
         lines.append(f"  Needing attention: {', '.join(f'#{n}' for n in attention)}")
     else:
         lines.append("  Nothing is off-track. Drafts with stations ahead of them are drafts.")
-    lines.append("  Checked: 2-council, 4-aria, 7-draft, 8-audit. NOT checked:")
+    # Said 4-aria until 2026-09-12, after the station stopped being about Aria
+    # and became about whichever seat did not write the branch. The board was
+    # naming a station it no longer runs -- small, and the same class as every
+    # other sentence in this house that stopped being true and told nobody.
+    lines.append("  Checked: 2-council, 4-cold-read, 7-draft, 8-audit. NOT checked:")
     lines.append("  1-draft, 3-build, 5-test, 6-more-council, 9-merge — four of nine.")
     lines.append("")
     lines.append("  Stations advance on artifacts. Station 4 needs a reply FROM Aria,")
