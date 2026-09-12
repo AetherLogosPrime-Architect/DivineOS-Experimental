@@ -41,6 +41,7 @@ src/divineos/
     psf_commands.py            psf list / psf mark-done: close pending structural-fix obligations; the note must name a resolvable commit or an existing file or the close is refused
     dark_matter_commands.py    dark-matter: sweep for things that exist but nothing reaches; --check exits 1 on findings
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
+    replant_commands.py        replant: rebuild a contaminated branch by taking the WHOLE code difference rather than the commits I recognise, then proving the result byte-identical to its source. Commits nothing; the person writes the message.
     sibling_correction_commands.py  corrections-sibling: read-only view of a sibling substrate's Andrew-correction store, listing corrections with no counterpart in mine. Exits 2 with COULD NOT COMPARE when either store is unreadable — never renders "could not look" as "nothing found". Copies nothing; filing stays deliberate and under my own name.
     must_read_commands.py      must-read arm/list: block Bash/Edit/Write until the Read tool is invoked on a named file. The surface must become a FILE first — a hook prints text with nothing to Read, so 'did you read it' can only become a fact once the words have a location. No automatic armer yet, deliberately: the sibling-correction surface's precision (2-of-4, one false fire) does not earn the right to block, and a screen cleared every turn is a screen that stops being read.
     label_fire_commands.py     label-fire: dispute a correction-shape Stop-gate fire as a false positive. Wraps the labeller as a first-class command so the remedy joins the canonical bypass list — a toll on dissent biases the corpus that trains the semantic replacement. No leniency added.
@@ -702,6 +703,7 @@ src/divineos/
     compound_branch_change.py  Refuse a branch change and a destructive op on the same shell line.
     surface_bridge.py          Wire the built-but-unreachable surfaces into the briefing that actually runs.
     his_own_words.py           A reader for Andrew's own words. His mailbox. It did not exist until now.
+    branch_replant.py          Lift EVERY code change off a contaminated branch, and prove nothing was left.
 
   analysis/
     _session_types.py          Session analysis type definitions
