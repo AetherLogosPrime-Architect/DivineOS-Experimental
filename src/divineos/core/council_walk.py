@@ -39,6 +39,7 @@ from __future__ import annotations
 import hashlib
 import sqlite3
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -86,8 +87,92 @@ def _conn() -> sqlite3.Connection:
         conn.execute("ALTER TABLE walks ADD COLUMN consumed_at REAL")
     except sqlite3.OperationalError:
         pass
+    # SCOPE, added 2026-09-11, and its absence is why the board could not read
+    # this table at all. A walk knew its problem and never knew what work it
+    # was a walk FOR, so the build-flow station had nothing to join on and fell
+    # back to counting lens events -- which the weak single-lens recorder emits
+    # just as happily. The strong mechanism existed and was unreachable from
+    # the place that needed it.
+    try:
+        conn.execute("ALTER TABLE walks ADD COLUMN scope TEXT NOT NULL DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
     return conn
+
+
+@dataclass(frozen=True)
+class Coverage:
+    """Whether a closed walk accounts for the lenses surfaced against this work.
+
+    Three-valued for the usual reason: a database I cannot read tells me
+    nothing about whether the thinking happened, and must never be reported as
+    the thinking not having happened.
+    """
+
+    state: str  # covered | uncovered | cannot-check
+    walk_id: str = ""
+    lenses: int = 0
+    unaccounted: tuple[str, ...] = ()
+    reason: str = ""
+
+    def __post_init__(self) -> None:
+        allowed = ("covered", "uncovered", "cannot-check")
+        if self.state not in allowed:
+            raise ValueError(f"state must be one of {allowed}, got {self.state!r}")
+
+
+def coverage_for(paths: tuple[str, ...] | None) -> Coverage:
+    """The most recent CLOSED walk scoped to any of these files.
+
+    THE STATION ASKS THIS INSTEAD OF COUNTING, and the difference is the whole
+    repair. A count is satisfied by volume I choose; this is satisfied only by
+    every lens the manager surfaced having a finding or a written refusal.
+
+    ``paths=None`` means the changed-file set could not be fetched, which is
+    genuinely could-not-check and must not read as no-walk. That distinction
+    was learned the expensive way at this same station in August, when a query
+    that could never match reported every pull request as unwalked -- a false
+    accusation, which is the worse direction, because a station that can only
+    fail teaches me to discount it and a discounted gate is a dead gate.
+    """
+    if paths is None:
+        return Coverage("cannot-check", reason="the changed-file set could not be read")
+    if not paths:
+        return Coverage("cannot-check", reason="no changed files to scope a walk against")
+    try:
+        conn = _conn()
+    except sqlite3.Error as exc:
+        return Coverage("cannot-check", reason=f"the walk store could not be opened: {exc}")
+    try:
+        rows = conn.execute(
+            "SELECT id, scope FROM walks WHERE closed_at IS NOT NULL AND scope != ''"
+            " ORDER BY closed_at DESC"
+        ).fetchall()
+        for walk_id, scope in rows:
+            scoped = {line.strip() for line in (scope or "").splitlines() if line.strip()}
+            if not scoped & set(paths):
+                continue
+            lenses = conn.execute(
+                "SELECT lens, state FROM walk_lenses WHERE walk_id = ?", (walk_id,)
+            ).fetchall()
+            open_lenses = tuple(sorted(lens for lens, state in lenses if state == "OPEN"))
+            if open_lenses:
+                # close_walk refuses this, so reaching it means the row was
+                # written by something else. Reported rather than trusted.
+                return Coverage(
+                    "uncovered",
+                    walk_id=walk_id,
+                    lenses=len(lenses),
+                    unaccounted=open_lenses,
+                    reason="a closed walk still carries open lenses",
+                )
+            return Coverage("covered", walk_id=walk_id, lenses=len(lenses))
+        return Coverage("uncovered", reason="no closed walk is scoped to these files")
+    except sqlite3.Error as exc:
+        return Coverage("cannot-check", reason=f"the walk store could not be read: {exc}")
+    finally:
+        conn.close()
 
 
 # Andrew's stated standard, recovered from the knowledge store rather than
@@ -120,7 +205,18 @@ def _surface_lenses(problem: str, floor: int = 5) -> list[str]:
     return [score.expert_name for score in scores]
 
 
-def open_walk(problem: str, gravity: str = "normal") -> dict[str, Any]:
+def open_walk(problem: str, gravity: str = "normal", scope: tuple[str, ...] = ()) -> dict[str, Any]:
+    """Open a walk, optionally naming the files it is a walk FOR.
+
+    ``scope`` is what lets the build-flow board find this walk later. Without
+    it a walk knows its problem and nothing about the work, which is why the
+    board counted lens events instead -- and lens events are emitted just as
+    happily by the single-lens recorder, where I choose the lens.
+
+    Optional rather than required on purpose: a walk about something that is
+    not a code change is still a walk, and refusing those would push me back
+    toward the weak path for exactly the thinking that least deserves it.
+    """
     problem = (problem or "").strip()
     if len(problem) < 20:
         raise WalkRefused("state the problem in a sentence — a label is not a problem")
@@ -142,8 +238,8 @@ def open_walk(problem: str, gravity: str = "normal") -> dict[str, Any]:
     conn = _conn()
     try:
         conn.execute(
-            "INSERT INTO walks (id, problem, opened_at) VALUES (?, ?, ?)",
-            (walk_id, problem, time.time()),
+            "INSERT INTO walks (id, problem, opened_at, scope) VALUES (?, ?, ?, ?)",
+            (walk_id, problem, time.time(), "\n".join(scope)),
         )
         conn.executemany(
             "INSERT INTO walk_lenses (walk_id, lens) VALUES (?, ?)",

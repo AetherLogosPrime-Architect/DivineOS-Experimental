@@ -28,6 +28,7 @@ from pathlib import Path
 
 import click
 
+from divineos.core.council_walk import Coverage, coverage_for
 from divineos.core.build_flow import (
     PrFlowStatus,
     StationResult,
@@ -214,6 +215,24 @@ def _changed_paths(pr: int) -> tuple[str, ...] | None:
     if len(paths) >= _GH_PR_FILES_CAP:
         return None  # may be truncated; unknown is not zero
     return paths
+
+
+def _walk_coverage(paths: tuple[str, ...] | None) -> "Coverage":
+    """Is there a CLOSED walk scoped to these files, with every lens settled?
+
+    This is what station 2 now decides on. The count that used to decide is
+    kept beside it as detail, because a number that was never the right
+    question is still worth seeing while the two disagree.
+
+    Failure to import is COULD-NOT-CHECK rather than uncovered: a board that
+    reports a missing module as a missing walk is the false-accusation shape
+    this same station shipped in August, and a station that can only fail
+    teaches me to discount it.
+    """
+    try:
+        return coverage_for(paths)
+    except Exception as exc:  # noqa: BLE001 -- any failure here is could-not-look
+        return Coverage("cannot-check", reason=f"the walk store raised: {exc}")
 
 
 def _lenses_applied(paths: tuple[str, ...] | None) -> int | None:
@@ -546,7 +565,13 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
         st.stations = [
             # paths, not branch: council walks are keyed by edit
             # fingerprint. See _lenses_applied for the measurement.
-            check_council_station(branch, need, _lenses_applied(paths), _other_seat_lenses(paths)),
+            check_council_station(
+                branch,
+                need,
+                _lenses_applied(paths),
+                _other_seat_lenses(paths),
+                coverage=_walk_coverage(paths),
+            ),
             check_aria_station(branch, _LETTERS),
             check_draft_station(pr.get("isDraft")),
             check_audit_station(n, branch, audit, audit_store, _anchor_for(branch, deep, n)),
