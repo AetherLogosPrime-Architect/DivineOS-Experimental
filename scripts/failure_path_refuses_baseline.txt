@@ -125,4 +125,3 @@ src/divineos/hooks/gate_event_ledger.py:_resolve_audit_round
 src/divineos/hooks/gate_event_ledger.py:_resolve_claim
 src/divineos/hooks/hook_validator.py:validate_hook_file
 src/divineos/hooks/pre_tool_use_gate.py:_is_low_friction_write
-src/divineos/hooks/stop_carry.py:carry

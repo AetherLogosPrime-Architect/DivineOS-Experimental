@@ -26,7 +26,9 @@ import pytest
 from divineos.hooks.stop_carry import (
     MAX_CARRIED,
     Finding,
+    Stored,
     carry,
+    carry_or_block,
     carry_path,
     clear,
     compose,
@@ -49,7 +51,7 @@ def test_nothing_pending_is_silence_not_an_error():
 
 
 def test_a_finding_survives_to_the_next_compose():
-    assert carry("subject-is-him", "not one sentence in this reply is about him")
+    assert carry("subject-is-him", "not one sentence in this reply is about him") is Stored.WRITTEN
     block = compose()
     assert "not one sentence" in block
     assert "subject-is-him" in block
@@ -65,9 +67,15 @@ def test_reading_is_what_clears_it():
     assert compose() == ""
 
 
-def test_an_empty_reason_is_refused_rather_than_stored():
-    assert not carry("some-gate", "   ")
+def test_an_empty_reason_is_nothing_not_a_lost_finding():
+    """Three answers, never two. An empty reason and an unwritable file used
+    to share one value, and the fallback reads that value as 'the finding is
+    gone, refuse the reply' -- so an empty string would have refused one of my
+    replies to him over nothing at all. Caught by the failure-shares-empty
+    check before it shipped."""
+    assert carry("some-gate", "   ") is Stored.NOTHING
     assert pending() == []
+    assert carry_or_block("some-gate", "   ") is None
 
 
 def test_two_gates_firing_on_one_reply_both_survive():
@@ -173,7 +181,7 @@ def test_the_fallback_only_refuses_when_the_finding_could_not_be_written(monkeyp
 
     assert stop_carry.carry_or_block("gate", "a finding") is None
 
-    monkeypatch.setattr(stop_carry, "carry", lambda *_a, **_k: False)
+    monkeypatch.setattr(stop_carry, "carry", lambda *_a, **_k: stop_carry.Stored.UNWRITABLE)
     out = stop_carry.carry_or_block("gate", "a finding")
     assert out is not None
     assert out["decision"] == "block"

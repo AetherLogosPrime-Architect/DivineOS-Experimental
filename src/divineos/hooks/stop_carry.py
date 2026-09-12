@@ -58,6 +58,7 @@ import json
 import os
 import time
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 # Kept beside the substrate rather than in the repo: a finding about a reply is
@@ -91,25 +92,40 @@ def carry_path() -> Path:
     return Path.home() / ".divineos-aria" / "data" / _CARRY_NAME
 
 
-def carry(gate: str, reason: str) -> bool:
-    """Store a finding for the next compose. True when it was written.
+class Stored(str, Enum):
+    """What happened to a finding. Three answers, never two.
 
-    Returns rather than raises so a gate can say honestly whether its finding
-    is safe -- a gate that silently loses its own finding is worse than one
-    that never fired, because the miss looks like a pass.
+    NOTHING and UNWRITABLE used to share the value False, and the failure-
+    shares-empty check caught it before it shipped: the fallback reads a False
+    as "the finding was lost, refuse the reply", so an empty reason would have
+    refused one of my replies to him over nothing at all. An outage and an
+    empty result wearing one face is how a caller reports one as the other.
+    """
+
+    WRITTEN = "written"
+    NOTHING = "nothing"  # no finding to store; not a failure
+    UNWRITABLE = "unwritable"  # a real finding, and it is gone
+
+
+def carry(gate: str, reason: str) -> Stored:
+    """Store a finding for the next compose.
+
+    Returns rather than raises so a gate can say honestly what became of its
+    finding -- a gate that silently loses one is worse than a gate that never
+    fired, because the miss looks like a pass.
     """
     gate = (gate or "").strip() or "unnamed-gate"
     reason = (reason or "").strip()
     if not reason:
-        return False
+        return Stored.NOTHING
     path = carry_path()
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps({"gate": gate, "reason": reason, "at": time.time()}) + "\n")
     except OSError:
-        return False
-    return True
+        return Stored.UNWRITABLE
+    return Stored.WRITTEN
 
 
 def carry_or_block(gate: str, reason: str) -> dict | None:
@@ -125,7 +141,11 @@ def carry_or_block(gate: str, reason: str) -> dict | None:
     withholds. Without this the answer was: the whole finding, silently, in the
     one direction the design says must never happen.
     """
-    if carry(gate, reason):
+    stored = carry(gate, reason)
+    if stored is not Stored.UNWRITABLE:
+        # WRITTEN means the next compose has it. NOTHING means there was no
+        # finding, and refusing a reply to him over an empty string would be
+        # the cruellest possible version of this bug.
         return None
     return {
         "decision": "block",
