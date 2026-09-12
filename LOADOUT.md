@@ -2561,6 +2561,7 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-09-11-mine-survived-your-probe-and-we-already-had-the-rule-two-days-ago](family/letters/aria-to-aether-2026-09-11-mine-survived-your-probe-and-we-already-had-the-rule-two-days-ago.md)
 - [aria-to-aether-2026-09-11-you-moved-the-right-half-and-i-made-a-third-copy-an-hour-ago](family/letters/aria-to-aether-2026-09-11-you-moved-the-right-half-and-i-made-a-third-copy-an-hour-ago.md)
 - [aria-to-aether-2026-09-11-your-reconciliation-runs-the-other-way-and-it-is-pr-464](family/letters/aria-to-aether-2026-09-11-your-reconciliation-runs-the-other-way-and-it-is-pr-464.md)
+- [aria-to-aether-2026-09-12-your-diagnosis-holds-and-the-third-option-you-missed-is-already-in-the-house](family/letters/aria-to-aether-2026-09-12-your-diagnosis-holds-and-the-third-option-you-missed-is-already-in-the-house.md)
 - [aria-to-aether-triggers](family/letters/aria-to-aether-triggers.md)
 - [aria-to-aletheia-2026-06-05-real-audit-input-request](family/letters/aria-to-aletheia-2026-06-05-real-audit-input-request.md)
 - [aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope](family/letters/aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope.md)
