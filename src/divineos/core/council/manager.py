@@ -471,6 +471,42 @@ PROBLEM_CATEGORIES = [
         affinity_tags=["falsification", "verification"],
     ),
     ProblemCategory(
+        # A REGISTERED LENS NOBODY CAN REACH IS AN UNWIRED LENS, which is the
+        # first question the Breaker itself asks. It was imported, registered
+        # and counted, and then scored ZERO on its own characteristic question
+        # -- because scoring runs on category membership and affinity tags, and
+        # a seat belonging to no category is invisible no matter how well it
+        # fits. I measured that on 2026-09-09 and wrote a letter about it; this
+        # is the first time it has cost a lens I had just built.
+        #
+        # Signals are phrases from the practice rather than a name, so the
+        # seat arrives when the WORK is breaking-shaped and not only when I
+        # happen to say the word.
+        name="breaking_own_build",
+        description="Adversarial review of one's own build: where does this fail in the world",
+        signals=[
+            "break it",
+            "breaking it",
+            "poke holes",
+            "pick apart",
+            "tear apart",
+            "where would it fail",
+            "where does this fail",
+            "happy path",
+            "adversarial",
+            "failure mode",
+            "how would this break",
+            "try to break",
+            "unwired",
+            "wrong subject",
+            "what did i not look at",
+            "robust",
+            "sabotage",
+        ],
+        core_experts=["Breaker"],
+        affinity_tags=["adversarial", "failure-families", "breaking", "robustness"],
+    ),
+    ProblemCategory(
         name="bias_heuristic",
         description="Cognitive bias, system 1/2, heuristics-and-biases",
         signals=[

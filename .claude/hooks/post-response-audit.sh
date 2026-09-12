@@ -90,7 +90,22 @@ try:
                 'Address all of them in the recompose, not one at a time.\n\n'
                 + '\n\n---\n\n'.join(_reasons)
             )
-        print(json.dumps({'decision': 'block', 'reason': reason}))
+        # Carried rather than refused. The reply this judges is already in his
+        # window, so refusing it never retracted anything -- it made me compose
+        # again and he read both drafts. Andrew 2026-09-12: 'no i mean
+        # literally repeating yourself.. look at your post.' The finding is put
+        # in front of me at the top of the next compose instead, which is the
+        # only place it can change a sentence rather than duplicate one.
+        # If the finding cannot be written down, this window is the only
+        # channel left and a reply he reads twice beats a correction that
+        # vanishes. So refusing becomes the fallback, never the default.
+        try:
+            from divineos.hooks.stop_carry import carry_or_block
+            _out = carry_or_block('post-response-audit', reason)
+            if _out is not None:
+                print(json.dumps(_out))
+        except Exception:
+            print(json.dumps({'decision': 'block', 'reason': reason}))
 except Exception:
     pass
 " 2>/dev/null

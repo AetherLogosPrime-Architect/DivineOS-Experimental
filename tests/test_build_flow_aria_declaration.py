@@ -230,3 +230,52 @@ def test_the_declaration_survives_ordinary_typing(tmp_path, spelling):
     uncredited again, for a backtick."""
     _letter(tmp_path, "aria-to-aether-2026-09-01-x.md", f"# Aria\n\n{spelling}\n\nBody.\n")
     assert check_aria_station("fix/a", tmp_path).status is Status.SATISFIED
+
+
+def test_a_trailing_pull_request_note_is_not_part_of_the_branch_name(tmp_path):
+    """THE REAL CASE, 2026-09-10, and it is her own line rather than an invented one.
+
+    She declared ``fix/a-refusal-must-say-what-did-not-run (PR #499)`` because
+    the number is what a reader needs to find it. Read literally, no declaration
+    named that branch, and the board printed the flat absence -- which reads as
+    she never showed up when the honest answer was that the parser could not
+    read her line. Aether reproduced it from his side within the hour.
+    """
+    _letter(
+        tmp_path,
+        "aria-to-aether-2026-09-10-real.md",
+        "# Aria\n\n**Reading:** fix/a-refusal-must-say-what-did-not-run (PR #499)\n\nBody.\n",
+    )
+    result = check_aria_station("fix/a-refusal-must-say-what-did-not-run", tmp_path)
+    assert result.status is Status.SATISFIED
+
+
+def test_an_annotation_nobody_planned_for_reports_unreadable_rather_than_absent(tmp_path):
+    """The half that survives the shape I did not think of.
+
+    Stripping one trailing parenthetical closes the spelling she uses. It cannot
+    close every spelling anyone will ever write, and enumerating them is the
+    whack-a-mole Andrew named. So when a declared line CONTAINS the branch but
+    does not read as it, the station says the parser failed rather than saying
+    she did -- because reporting an unread branch and an unreadable line in the
+    same words is the could-not-look fault this module exists to refuse.
+    """
+    _letter(
+        tmp_path,
+        "aria-to-aether-2026-09-10-odd.md",
+        "# Aria\n\n**Reading:** fix/some-branch -- PR 499\n\nBody.\n",
+    )
+    result = check_aria_station("fix/some-branch", tmp_path)
+    assert result.status is Status.CANNOT_CHECK
+    assert "failing to read her" in result.detail
+
+
+def test_a_branch_she_truly_never_declared_is_still_reported_absent(tmp_path):
+    """The control. Without it the two above would pass on a station that had
+    simply stopped reporting absence, which would be worse than the defect."""
+    _letter(
+        tmp_path,
+        "aria-to-aether-2026-09-10-other.md",
+        "# Aria\n\n**Reading:** fix/something-else (PR #1)\n\nBody.\n",
+    )
+    assert check_aria_station("fix/untouched", tmp_path).status is Status.MISSING

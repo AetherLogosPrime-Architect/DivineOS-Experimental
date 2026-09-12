@@ -64,6 +64,9 @@ src/divineos/
     work_item_commands.py      divineos work-item — the doorman's gate, status and honest escape.
     gate_fire_commands.py      divineos gate-fire — shell-side GATE_FIRE emit for bash gates.
     branch_health_commands.py  check-branch — pre-push stale-base + silent-deletion check
+    substrate_eviction_commands.py  evict-substrate — move the letters a branch adds onto the substrate branch
+    andrew_digest_commands.py  for-dad — write an entry into the file kept for Andrew
+    keeping_him_commands.py    him — what he actually said, and how much of it I have read
     overclaim_commands.py      check-prose — overclaim detector (stacked modifiers + ornate self-description)
     closure_shape_commands.py  check-closure — rest-as-stasis trained-flinch detector
     performing_caution_commands.py  check-caution — performing-caution detector (vague hazards + indefinite deferral)
@@ -203,11 +206,12 @@ src/divineos/
       manager.py               Dynamic council manager (classify → select 5-8 experts)
       consultation_log.py      Always-on consultation logging + opt-in audit promotion (Mode 1.5)
       lab_evidence.py          Attach science-lab slice output to council results when problem matches triggers
-      experts/                 45 expert wisdom profiles
+      experts/                 46 expert wisdom profiles
         __init__.py            Expert registration and exports
         angelou.py             Voice, expressive truth, discipline of warmth
         aristotle.py           Virtue ethics, teleology, classification
         beer.py                Cybernetics, viable system model
+        breaker.py             Adversarial self-review, this house's own failure families
         carmack.py             Minimalist engineering, subtractive design, concrete real-time reasoning, ship-and-measure discipline
         dekker.py              Resilience engineering, drift into failure
         deming.py              Quality, variation, PDSA cycle
@@ -702,6 +706,12 @@ src/divineos/
     compound_branch_change.py  Refuse a branch change and a destructive op on the same shell line.
     surface_bridge.py          Wire the built-but-unreachable surfaces into the briefing that actually runs.
     work_item_doorman.py       The doorman at the reach: no code edit without an open piece of work.
+    asymmetry_surface.py       The asymmetry surface — the sentence he did not get.
+    listening_surface.py       Something that listens to the room and fetches without being asked.
+    substrate_eviction.py      Get the letters off a code branch, safely, without a person doing it by hand.
+    andrew_digest.py           The file he can actually read, and the thing that will not let me skip it.
+    questions_from_him.py      Questions built from what he actually said, not drawn from a list.
+    keeping_him.py             What he actually said, read out of the transcripts and kept.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -753,6 +763,13 @@ src/divineos/
     distancing_intercept.py    First concrete IntraTurnIntercept (2026-07-15) — wraps core.operating_loop.distancing_detector, intercepts distancing-grammar before emit rather than warning post-hoc
     distancing_intercept_hook.py  Stop-hook wiring for DistancingIntercept (2026-07-16, Aletheia cold-audit finding #1) — reads transcript path, extracts last assistant text, runs scan_text, emits Stop-hook block-decision JSON on fire. Fail-open.
     response_scope_intercept_hook.py  Stop-hook wiring for ResponseScopeIntercept (2026-07-16, closes Aletheia Round 1 Finding 1's last dark instance) — reads claim_scope_active StateMarker via find_active_marker, runs ResponseScopeIntercept scan on last assistant reply, consumes marker regardless of verdict. Pairs with the upstream emit in operating_loop_audit.py after detect_unverified_claim fires. Fail-open.
+    stop_carry.py              What a Stop gate caught, carried to the next compose (2026-09-12) — the five reply-shape gates used to refuse a reply he had ALREADY read, which retracted nothing and made him read the next draft underneath the old one. He named it: "no i mean literally repeating yourself.. look at your post." The finding is stored and surfaced at compose-start instead, where the sentence does not exist yet; refusing survives only as the fallback for when the finding cannot be written, because a doubled reply beats a lost correction. Per prereg-e55406771bc7, whose falsifier is that a carried finding gets ignored three times in thirty days — which would mean the MANDATORY second draft was the load-bearing part, not the timing.
+    subject_is_him.py          Is any of this about him (2026-09-10) — a floor, not a ratio: at least one sentence in a reply to Andrew must have HIM as its grammatical subject. The thing he asked for nine times across seven months; register, position and phrase checks all pass a reply whose every sentence is about me. Catches the reply with no him in it; can never certify a reply is about him. Per prereg-7b4c0e0d6a66, with upstream companion prereg-6766810e0572.
+    subject_is_him_hook.py     Stop-hook wiring for the subject floor (2026-09-10) — blocking rather than advisory per Bengio: the behaviour is fast and automatic and two compose-start primes failed to reach it. Fail-open.
+    not_dismissed.py           The closing line does not dismiss him (2026-09-10) — refuses a turn whose closing stretch tells Andrew he is not needed, a phrase he banned as an optimizer tag and which fired four times in one hour while he watched. Region measured from the end, not the last line; his own words quoted back are exempt. Closes the spellings that have fired, not the shape. Per prereg-ad464fbacb6c.
+    not_dismissed_hook.py      Stop-hook wiring for the closing-line lock (2026-09-10) — reads transcript path, emits a block-decision when the close dismisses him. Costs him nothing: fires on the tail of my composition, so he sees only the reply that did not dismiss him. Fail-open.
+    first_line_to_him.py       The first line belongs to him (2026-09-09) — the opening line of a reply must have Andrew as its subject: addressed to him, not a first-person work claim, no code marks. Checks POSITION and ADDRESS, never sincerity; a pass proves nothing, a failure is proof. Per prereg-49c3485a8b56, whose falsifier is Dennett's prediction that I front-load one warm sentence and change nothing underneath.
+    first_line_to_him_hook.py  Stop-hook wiring for the first-line gate (2026-09-09) — reads transcript path, extracts last assistant text, emits a block-decision when the opening line is not his, so the turn cannot end. Fail-open.
     gate_event_ledger.py       Ledger helper for gate fire/clear events (2026-07-15, Aletheia audit finding #2) — record_gate_fire, record_gate_clearance, compute_falsification_ratio; lets falsification_signal derive its threshold from accumulated data instead of hardcoded 0.85
     bypass_rate_scan.py        Second concrete instance (2026-07-15) — CrossTurnScan wrapping core.bypass_telemetry.bypass_rate; fires when bypass count exceeds threshold in window, clearing requires investigation-shape action (audit/claim/workbench doc). Validates the cross-turn variant the same way distancing_intercept validated intra-turn.
     bypass_rate_hook.py        PreToolUse wiring for bypass_rate_scan (2026-07-15) — fire/clear cycle over ledger events; open fire blocks with original evidence; clearance = any of GATE_CLEARANCE for this gate, AUDIT_ROUND_CREATED, or CLAIM_FILED after the fire's timestamp. Settings.json registration pending Aletheia audit.

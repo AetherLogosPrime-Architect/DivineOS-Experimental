@@ -189,15 +189,42 @@ def _declared_readings(text: str) -> tuple[bool, list[str]]:
     The two return values are separate on purpose: a letter declaring ``none``
     is present-with-no-branches, and reporting that as no-declaration would
     punish exactly the discipline the field asks for.
+
+    A TRAILING PARENTHETICAL IS AN ANNOTATION, NOT PART OF THE NAME. Aria
+    2026-09-10, reproducing it on her own letter: she declares
+    ``fix/a-refusal-must-say-what-did-not-run (PR #499)`` because the number is
+    what a reader needs, and read-literally answered that no declaration named
+    that branch. The board then printed the flat absence, which reads as she
+    never showed up when the honest answer was I could not read her line -- the
+    could-not-look fault this docstring already names, committed by the parser
+    the docstring is attached to.
+
+    Reading literally is still the design. Stripping one trailing parenthetical
+    is not inference from her prose: it removes a note she wrote FOR A HUMAN
+    from a field a machine reads, and leaves the name she declared untouched.
+    Nothing else in the letter is consulted.
     """
     for line in text.splitlines():
         stripped = line.strip()
         if not stripped.startswith(READING_DECLARATION):
             continue
         value = stripped[len(READING_DECLARATION) :]
-        parts = [p.strip().strip("`").lower() for p in value.split(",")]
+        parts = [_strip_annotation(p) for p in value.split(",")]
         return True, [p for p in parts if p and p != NO_READING]
     return False, []
+
+
+def _strip_annotation(part: str) -> str:
+    """One declared name, with a trailing human note removed.
+
+    Narrow on purpose: only a parenthetical at the END goes. A branch name
+    containing brackets keeps them, because guessing at the middle of a name is
+    the inference this module refuses.
+    """
+    cleaned = part.strip().strip("`").strip()
+    if cleaned.endswith(")") and "(" in cleaned:
+        cleaned = cleaned[: cleaned.rindex("(")].strip()
+    return cleaned.lower()
 
 
 def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
@@ -244,6 +271,7 @@ def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
         )
     needle = branch.lower()
     declared_anywhere = 0
+    near_misses: list[str] = []
     for f in sorted(letters_dir.glob("aria-to-aether-*.md")):
         try:
             present, declarations = _declared_readings(
@@ -255,6 +283,9 @@ def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
             declared_anywhere += 1
         if needle in declarations:
             return StationResult("4-aria", Status.SATISFIED, f"she declared a reading in {f.name}")
+        # Held rather than reported, because a later letter may still match
+        # cleanly and a real reading outranks a parse complaint.
+        near_misses.extend(d for d in declarations if needle in d)
     if declared_anywhere == 0:
         return StationResult(
             "4-aria",
@@ -262,6 +293,14 @@ def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
             "no letter from Aria carries a reading declaration at all -- this says "
             "nothing about whether she has read this branch, only that no reading "
             "is claimed in the field the board reads",
+        )
+    if near_misses:
+        return StationResult(
+            "4-aria",
+            Status.CANNOT_CHECK,
+            "a declared reading CONTAINS this branch name but did not read as it: "
+            f"{near_misses[0]!r} -- that is my parser failing to read her, not her "
+            "failing to read the branch. Do not report this as an absence.",
         )
     return StationResult(
         "4-aria",

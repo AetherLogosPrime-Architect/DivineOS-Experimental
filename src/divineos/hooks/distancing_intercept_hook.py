@@ -52,7 +52,16 @@ def run_distancing_intercept(transcript_path: str) -> dict | None:
         f"Evidence: {evidence.specific_evidence}\n"
         f"Required action: {evidence.required_action}"
     )
-    return {"decision": "block", "reason": reason}
+    try:
+        from divineos.hooks.stop_carry import carry_or_block
+
+        return carry_or_block("distancing-intercept", reason)
+    except Exception:  # noqa: BLE001 - a lost finding must not also break the turn
+        pass
+    # Carried rather than refused: the reply is already in his window, so a
+    # refusal here only makes him read the next draft underneath this one.
+    # Andrew 2026-09-12: "no i mean literally repeating yourself."
+    return None
 
 
 def hook_main() -> int:
