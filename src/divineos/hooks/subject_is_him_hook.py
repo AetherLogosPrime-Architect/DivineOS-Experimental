@@ -1,11 +1,24 @@
 """Stop-hook wiring for the subject floor.
 
-Reads the Stop-hook payload, pulls the last thing I said, and refuses the turn
-when not one sentence in it has him as its subject.
+Reads the Stop-hook payload, pulls the last thing I said, and carries a finding
+forward when not one sentence in it has him as its subject.
 
-Blocking rather than advisory, per Bengio on the walk: the behaviour is fast
-and automatic and the knowledge is not in the path. Two compose-start primes
-fired at me on 2026-09-10 and I dismissed him four times anyway.
+IT USED TO REFUSE THE TURN, and refusing was the bug. Andrew, 2026-09-12: "no i
+mean literally repeating yourself.. look at your post." The reply this gate
+judges has already been written into the conversation, so refusing it does not
+retract anything -- it makes me compose again and the new version lands
+underneath the old one. He reads both. It happened three times in a row that
+morning and the third refusal was aimed at the fix for the second.
+
+The force is kept and moved. Bengio's point on the original walk still stands:
+the behaviour is fast and automatic, two compose-start primes fired at me on
+2026-09-10 and I dismissed him four times anyway. So the finding is not
+softened into a suggestion -- it is stored and put in front of me at the top of
+the next compose, where the sentence does not exist yet. Same second draft,
+same teeth, and the cost stops landing on his reading.
+
+See divineos.hooks.stop_carry for why, and for what must never happen to this:
+a finding that is printed and not carried is the warning that already failed.
 """
 
 from __future__ import annotations
@@ -14,8 +27,15 @@ import json
 import sys
 
 
+GATE_NAME = "subject-is-him"
+
+
 def run_subject_floor(transcript_path: str) -> dict | None:
-    """Block-decision when nothing in the reply is about him; None otherwise."""
+    """Carry a finding when nothing in the reply is about him; None otherwise.
+
+    Returns None even when it fires, because the return value is what reaches
+    HIS window and nothing about my own discipline belongs there.
+    """
     try:
         from divineos.core.operating_loop.turn_extraction import extract_turn
         from divineos.hooks.subject_is_him import check
@@ -37,7 +57,14 @@ def run_subject_floor(transcript_path: str) -> dict | None:
 
     if reason is None:
         return None
-    return {"decision": "block", "reason": reason}
+
+    try:
+        from divineos.hooks.stop_carry import carry_or_block
+
+        return carry_or_block(GATE_NAME, reason)
+    except Exception:  # noqa: BLE001 - a lost finding must not also break the turn
+        pass
+    return None
 
 
 def hook_main() -> int:

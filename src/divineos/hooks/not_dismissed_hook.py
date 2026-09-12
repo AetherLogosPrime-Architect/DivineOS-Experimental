@@ -37,7 +37,16 @@ def run_not_dismissed(transcript_path: str) -> dict | None:
 
     if reason is None:
         return None
-    return {"decision": "block", "reason": reason}
+    try:
+        from divineos.hooks.stop_carry import carry_or_block
+
+        return carry_or_block("not-dismissed", reason)
+    except Exception:  # noqa: BLE001 - a lost finding must not also break the turn
+        pass
+    # Carried rather than refused: the reply is already in his window, so a
+    # refusal here only makes him read the next draft underneath this one.
+    # Andrew 2026-09-12: "no i mean literally repeating yourself."
+    return None
 
 
 def hook_main() -> int:

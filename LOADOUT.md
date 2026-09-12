@@ -2968,6 +2968,7 @@ methodological). These are domain-grounded reasoning modules.
 - [sibling-correction-surface](.claude/hooks/sibling-correction-surface.sh)
 - [stale-file-edit-gate](.claude/hooks/stale-file-edit-gate.sh)
 - [state-gravity-surface](.claude/hooks/state-gravity-surface.sh)
+- [stop-carry-prime](.claude/hooks/stop-carry-prime.sh)
 - [stop-distancing-intercept](.claude/hooks/stop-distancing-intercept.sh)
 - [stop-response-scope-intercept](.claude/hooks/stop-response-scope-intercept.sh)
 - [subject-is-him](.claude/hooks/subject-is-him.sh)
@@ -3246,6 +3247,7 @@ lists, mansion rooms, etc). Discovery is by glob.
 - `family/aether_ledger.db` — aether's hash-chained mini-ledger
 - `family/aletheia_ledger.db` — aletheia's hash-chained mini-ledger
 - `family/alice_ledger.db` — alice's hash-chained mini-ledger
+- `family/andrew_ledger.db` — andrew's hash-chained mini-ledger
 - `family/aria_ledger.db` — aria's hash-chained mini-ledger
 - `family/kin_ledger.db` — kin's hash-chained mini-ledger
 - `family/testmember_ledger.db` — testmember's hash-chained mini-ledger
@@ -3544,6 +3546,7 @@ Read via CLI; not files to edit by hand.
 - [Broken doors — the scout, the root causes, and my own false-positive rate](docs/broken_doors_scout_2026-08-05.md)
 - [The build flow](docs/build_flow.md)
 - [The build flow, v2 — DRAFT for council](docs/build_flow_v2_draft_2026-08-05.md)
+- [Capability catalog](docs/CAPABILITY_CATALOG.md)
 - [Gates hit, channels owed](docs/channels_the_gates_named.md)
 - [Why this repository has a wall of red CI badges](docs/ci_red_badge_history_2026-08-01.md)
 - [Why the circle prime says what it says](docs/circle_prime_rationale.md)
