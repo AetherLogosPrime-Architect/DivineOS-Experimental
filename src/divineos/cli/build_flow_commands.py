@@ -33,7 +33,7 @@ from divineos.core.build_flow import (
     PrFlowStatus,
     StationResult,
     Status,
-    check_aria_station,
+    check_cold_read_station,
     check_audit_station,
     check_council_station,
     check_draft_station,
@@ -43,6 +43,12 @@ from divineos.core.build_flow import (
 )
 
 _LETTERS = Path.home() / ".divineos-shared" / "letters"
+# Who owns a branch, DECLARED. One file per branch, so two seats claiming the
+# same branch collide at the declaration rather than at the board. Never
+# inferred from the branch name or the commit identity: both were measured
+# wrong on 2026-09-12, and the identity source is an unconfigured-checkout
+# default that nobody chose and nothing declares.
+_OWNERS = Path.home() / ".divineos-shared" / "branch_owners"
 
 # Every one of these means "could not check", never "checked and found none" --
 # which is exactly the distinction Status carries three values for. A bare
@@ -548,7 +554,7 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
             st = PrFlowStatus(number=n, branch=branch, gravity=-1, required_lenses=-1)
             st.stations = [
                 StationResult("2-council", Status.CANNOT_CHECK, "changed files unreadable"),
-                check_aria_station(branch, _LETTERS),
+                check_cold_read_station(branch, _LETTERS, _OWNERS),
                 check_draft_station(pr.get("isDraft")),
                 check_audit_station(n, branch, audit, audit_store, _anchor_for(branch, deep, n)),
             ]
@@ -572,7 +578,7 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
                 _other_seat_lenses(paths),
                 coverage=_walk_coverage(paths),
             ),
-            check_aria_station(branch, _LETTERS),
+            check_cold_read_station(branch, _LETTERS, _OWNERS),
             check_draft_station(pr.get("isDraft")),
             check_audit_station(n, branch, audit, audit_store, _anchor_for(branch, deep, n)),
         ]

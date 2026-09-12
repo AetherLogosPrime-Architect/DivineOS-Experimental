@@ -204,6 +204,164 @@ def _declared_readings(text: str) -> tuple[bool, list[str]]:
     return False, []
 
 
+OWNER_DECLARATION = "Owner:"
+SEATS = ("aether", "aria")
+
+# WHO OWNS A BRANCH, DECLARED RATHER THAN GUESSED (2026-09-12).
+#
+# Aria found that the station below globs for HER letters for every branch,
+# with no field anywhere for who wrote the thing. On my branches that is real
+# external review. On hers it asks the author to certify her own reading, and
+# the board would accept it. Her pairing: station two refuses the other seat's
+# work because the author must think for herself; this station accepts the
+# author's own reading because it never asks who the author is. Same board,
+# same principle, opposite errors, both from the one missing fact.
+#
+# I went looking for the fact before building on it. Four of the eleven open
+# branches carry commits from BOTH seats, one from three people. So "the seat
+# that did not write it" does not exist on nearly half the board.
+#
+# And the only available source was an accident: the two seats happen to commit
+# under different identities, but mine is the placeholder default that ships
+# with an unconfigured checkout. Nobody chose it and nothing declares it means
+# me, so a station built on it answers differently the moment someone tidies
+# that configuration -- silently, with no error. Our own disease in a new coat.
+#
+# Hence a declaration. One file per branch, one literal line, no inference --
+# the same move Aria made when she stopped parsing her own prose for readings.
+# One file per branch rather than a shared table so that two seats claiming one
+# branch collide at the point of declaration instead of at the board.
+
+
+def _owner_file(branch: str, owners_dir: Path) -> Path:
+    return owners_dir / f"{branch.replace('/', '__')}.txt"
+
+
+def declared_owner(branch: str, owners_dir: Path) -> tuple[str, str]:
+    """``(state, seat)`` — who declared themselves owner of this branch.
+
+    States: ``declared`` with the seat, ``undeclared``, ``contested`` when the
+    file names more than one seat, and ``cannot-read`` when the question could
+    not be put. Contested is NOT a failure and undeclared is NOT contested;
+    collapsing any pair of these would rebuild the fault this whole file exists
+    to remove.
+    """
+    try:
+        if not owners_dir.is_dir():
+            return ("cannot-read", f"owners dir not readable: {owners_dir}")
+        path = _owner_file(branch, owners_dir)
+        if not path.is_file():
+            return ("undeclared", "")
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        return ("cannot-read", f"{type(exc).__name__}: {exc}")
+
+    named: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith(OWNER_DECLARATION):
+            continue
+        for part in stripped[len(OWNER_DECLARATION) :].split(","):
+            seat = part.strip().strip("`").lower()
+            if seat in SEATS and seat not in named:
+                named.append(seat)
+    if not named:
+        return ("undeclared", "")
+    if len(named) > 1:
+        return ("contested", ", ".join(named))
+    return ("declared", named[0])
+
+
+def _reading_declared_by(reviewer: str, branch: str, letters_dir: Path) -> StationResult:
+    """Did ``reviewer`` declare a reading of ``branch``? Shared by both seats."""
+    needle = branch.lower()
+    declared_anywhere = 0
+    for f in sorted(letters_dir.glob(f"{reviewer}-to-*.md")):
+        try:
+            present, declarations = _declared_readings(
+                f.read_text(encoding="utf-8", errors="replace")
+            )
+        except OSError:
+            continue
+        if present:
+            declared_anywhere += 1
+        if needle in declarations:
+            return StationResult(
+                "4-cold-read", Status.SATISFIED, f"{reviewer} declared a reading in {f.name}"
+            )
+    if declared_anywhere == 0:
+        return StationResult(
+            "4-cold-read",
+            Status.MISSING,
+            f"no letter from {reviewer} carries a reading declaration at all -- this "
+            "says nothing about whether they have read this branch, only that no "
+            "reading is claimed in the field the board reads",
+        )
+    return StationResult(
+        "4-cold-read",
+        Status.MISSING,
+        f"none of {reviewer}'s {declared_anywhere} declared reading(s) names this branch",
+    )
+
+
+def check_cold_read_station(branch: str, letters_dir: Path, owners_dir: Path) -> StationResult:
+    """Station 4 — a COLD READ of the finished work by a seat outside the making.
+
+    WHAT THIS BUYS, and the word that matters is AFTER (Aria, 2026-09-12):
+    someone looked at the whole finished thing, having not been inside the
+    making of it. Station two buys *the author thought this through*; this buys
+    the other thing entirely.
+
+    WHY CO-AUTHORSHIP IS NOT A PASS, and this was her correction of my instinct.
+    I argued that if both seats wrote on a branch, both vantages were already in
+    the work, so the third state might honestly be a pass. It is not, and the
+    reason is sharper than motive: co-authorship supplies the first product and
+    STRUCTURALLY DENIES THE SECOND. Neither author can arrive cold, and the more
+    each built, the less either can. The thing this station exists to buy is
+    precisely what co-authorship consumes. So a contested branch is a branch
+    where the product is out of stock, and saying so is the honest answer --
+    not a failure, not a victim picked, not silence.
+
+    I could not settle that from inside, said so, and asked her rather than
+    guessing. The answer that came back was better than either of my options.
+    """
+    if not letters_dir.is_dir():
+        return StationResult(
+            "4-cold-read", Status.CANNOT_CHECK, f"letters dir not readable: {letters_dir}"
+        )
+
+    state, detail = declared_owner(branch, owners_dir)
+    if state == "cannot-read":
+        return StationResult(
+            "4-cold-read",
+            Status.CANNOT_CHECK,
+            f"could not read who owns this branch ({detail}) -- so this says nothing "
+            "about whether anyone read it",
+        )
+    if state == "undeclared":
+        return StationResult(
+            "4-cold-read",
+            Status.CANNOT_CHECK,
+            "no seat has declared ownership of this branch, so the board cannot say "
+            "who would be reading it cold. Declare an owner; do not infer one from "
+            "the branch name or the commit identities, both of which have already "
+            "been measured wrong",
+        )
+    if state == "contested":
+        return StationResult(
+            "4-cold-read",
+            Status.MISSING,
+            f"NO SEAT IS EXTERNAL TO THIS WORK -- {detail} both own it. A cold read "
+            "is what this station buys and co-authorship is what spends it. Split "
+            "the branch, or have one seat own the commits and the other contribute "
+            "by letter",
+        )
+
+    owner = detail
+    reviewer = next(s for s in SEATS if s != owner)
+    return _reading_declared_by(reviewer, branch, letters_dir)
+
+
 def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
     """Station 4 -- iterate with Aria. Satisfied only when SHE wrote back.
 
