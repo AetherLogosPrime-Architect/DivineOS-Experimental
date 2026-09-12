@@ -709,6 +709,7 @@ src/divineos/
     listening_surface.py       Something that listens to the room and fetches without being asked.
     substrate_eviction.py      Get the letters off a code branch, safely, without a person doing it by hand.
     andrew_digest.py           The file he can actually read, and the thing that will not let me skip it.
+    questions_from_him.py      Questions built from what he actually said, not drawn from a list.
 
   analysis/
     _session_types.py          Session analysis type definitions
