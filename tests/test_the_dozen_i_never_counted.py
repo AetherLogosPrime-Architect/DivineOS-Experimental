@@ -64,6 +64,23 @@ def test_the_message_carries_the_incident_not_a_rule():
     assert "COUNT IT" in out
 
 
+def test_the_message_does_not_claim_no_tool_ran():
+    """ADDED 2026-09-11 after the gate printed a falsehood about my own turn.
+
+    The rebuild changed the predicate and left the old sentence -- "NO tool ran
+    this turn" -- standing above it, so the thing built to catch me stating
+    unchecked facts stated one itself. A test asserts the STATE and never reads
+    the prose, which is why nothing caught it; this one reads the prose.
+    """
+    out = render(
+        find_unmeasured_quantities(
+            "about fifty gates are standing", tools_ran=True, tool_output="unrelated"
+        )
+    )
+    assert "NO tool ran" not in out
+    assert "does" in out and "not appear" in out
+
+
 # ------------------------------------------------------------------- the noise
 
 
@@ -85,11 +102,31 @@ def test_ordinary_numbers_stay_silent(reply):
     assert find_unmeasured_quantities(reply).state == "found-nothing"
 
 
-def test_his_own_number_handed_back_is_not_my_claim():
-    """He said it. Repeating it to him is not an assertion of mine."""
+def test_his_own_number_fires_too_when_nothing_measured_it():
+    """REVERSED 2026-09-11, and the reversal is the point.
+
+    This test used to assert the opposite: that a figure appearing in his
+    message was excused whatever I did with it. That guard was written to stop
+    the gate firing while the two of us discuss a number he raised, and it made
+    quoting him an unconditional pass.
+
+    Traceability does that job properly now. So the honest expectation is that
+    his number fires as well, until something I read vouches for it -- because
+    a figure I restate as fact having checked nothing is my claim, not his.
+    """
     his = "a dozen things? so all of this time we have built a dozen things?"
-    reply = "A dozen things is what I said, and it was invented."
-    assert find_unmeasured_quantities(reply, his).state == "found-nothing"
+    reply = "A dozen things is about right for what is standing."
+    assert find_unmeasured_quantities(reply, his).state == "found"
+
+
+def test_his_number_is_quiet_once_something_measured_it():
+    """The other half, so the reversal above is not just a stricter gate."""
+    his = "a dozen things? so all of this time we have built a dozen things?"
+    reply = "A dozen things is about right for what is standing."
+    finding = find_unmeasured_quantities(
+        reply, his, tools_ran=True, tool_output="modules standing: 12"
+    )
+    assert finding.state == "found-nothing"
 
 
 def test_a_number_with_no_subject_is_prose():
@@ -132,8 +169,12 @@ def test_an_invented_state_is_refused():
 # ------------------------------------------------------- end to end, real payload
 
 
-def _turn(tmp_path, reply, user_text, tool_calls):
-    """A transcript in the harness's own shape."""
+def _turn(tmp_path, reply, user_text, tool_calls, tool_text=""):
+    """A transcript in the harness's own shape, results included.
+
+    The results are the part that matters now: the gate reads what commands
+    handed back, not merely that commands existed.
+    """
     lines = [
         json.dumps({"type": "user", "message": {"role": "user", "content": user_text}}),
     ]
@@ -145,6 +186,19 @@ def _turn(tmp_path, reply, user_text, tool_calls):
                     "message": {
                         "role": "assistant",
                         "content": [{"type": "tool_use", "name": "Bash", "input": {}}],
+                    },
+                }
+            )
+        )
+        lines.append(
+            json.dumps(
+                {
+                    "type": "user",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {"type": "tool_result", "content": tool_text},
+                        ],
                     },
                 }
             )
@@ -190,11 +244,30 @@ def test_end_to_end_fires_on_the_real_shape(tmp_path):
     assert check_payload(payload).state == "found"
 
 
-def test_end_to_end_stays_quiet_when_a_tool_ran(tmp_path):
+def test_end_to_end_stays_quiet_when_the_count_is_in_the_output(tmp_path):
+    """A real transcript where the figure came out of a real command.
+
+    REWRITTEN 2026-09-11. It used to assert silence merely because a tool-use
+    block existed in the turn, with the tool returning nothing -- which is the
+    weak rule the whole rebuild removed, sitting in a test and passing.
+    """
     payload = _turn(
         tmp_path,
         "there are twelve gates at the end of a reply",
         "count them",
         tool_calls=True,
+        tool_text="12 hooks registered at Stop",
     )
     assert check_payload(payload).state == "found-nothing"
+
+
+def test_end_to_end_fires_when_the_command_returned_something_else(tmp_path):
+    """The evasion, end to end: a command ran and it measured nothing."""
+    payload = _turn(
+        tmp_path,
+        "there are twelve gates at the end of a reply",
+        "count them",
+        tool_calls=True,
+        tool_text="README.md  setup.py  src  tests",
+    )
+    assert check_payload(payload).state == "found"
