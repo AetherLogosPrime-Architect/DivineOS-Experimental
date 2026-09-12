@@ -61,6 +61,107 @@ def _has_structural_artifact(evidence: str) -> bool:
     return any(p.search(evidence) for p in _ARTIFACT_PATTERNS)
 
 
+# WHETHER THE POINTER POINTS AT ANYTHING (2026-09-12).
+#
+# Aria asked whether the integration rate is gameable by closing corrections
+# on thin evidence, said she suspected it was, and said she had not tested
+# whether the guard bites. Tested. It bites on prose and on nothing else:
+# a commit hash naming no commit, a file path naming no file, a test nobody
+# wrote, and a bare seven-character hex string with no sentence around it all
+# passed.
+#
+# The check above matches the SHAPE of a pointer, and shape is free to
+# produce. So it was keyword matching doing enforcement work -- the one thing
+# Andrew ruled out by name, because anything the optimizer would route around
+# needs a check it cannot simply out-type.
+#
+# This asks the second question, and asks it through the verifier that
+# already existed rather than a second copy of it. Three-valued, and the
+# middle value is the whole point: a pointer nobody could look up is not a
+# pointer that failed, and collapsing those would trade one dishonest verdict
+# for another.
+#
+# The recency window is deliberately enormous. That verifier was built for
+# closure-claims, where an old artifact is a stale citation; an integration
+# claim legitimately points at work done long before, so the age of the thing
+# is not evidence about the claim here.
+
+_INTEGRATION_RECENCY_SECONDS = 365 * 24 * 3600 * 20
+
+
+def _candidate_pointers(evidence: str) -> list[str]:
+    """Every token in ``evidence`` that could name a real artifact."""
+    found: list[str] = []
+    # Order matters: the longer forms first, so the hex tail of a substrate id
+    # is not ALSO harvested as a bare commit hash. That exact overlap made the
+    # first version of this report not-found for a pre-registration that
+    # genuinely exists -- the real id timed out while the phantom commit spun
+    # off its own tail came back absent, and absent outvoted unanswered.
+    spans: list[tuple[int, int]] = []
+    for pattern in (
+        r"\b[\w/\\._-]+\.(?:py|md|sh|sql|toml|yaml|yml|json)\b",
+        r"\b(?:prereg|round|claim|psf|task|find|consult)-[a-f0-9]{6,}\b",
+        r"\btest_\w+\b",
+        r"\b[0-9a-f]{7,40}\b",
+        r"#\d{1,6}\b",
+    ):
+        for match in re.finditer(pattern, evidence, re.IGNORECASE):
+            start, end = match.span()
+            if any(s <= start and end <= e for s, e in spans):
+                continue  # already inside a pointer we recognised whole
+            spans.append((start, end))
+            token = match.group(0).replace("\\", "/")
+            if token not in found:
+                found.append(token)
+    return found
+
+
+def artifact_reality(evidence: str) -> tuple[str, str]:
+    """Does the evidence point at something that actually exists?
+
+    Returns ``(state, detail)`` with state ``found``, ``not-found``, or
+    ``could-not-check``. Only ``not-found`` is a refusal.
+    """
+    if not evidence or not evidence.strip():
+        return ("not-found", "no evidence at all")
+
+    candidates = _candidate_pointers(evidence)
+    if not candidates:
+        return ("not-found", "no pointer of any recognised kind")
+
+    try:
+        from divineos.core.closure_verification import verify_citation
+    except ImportError as exc:
+        return ("could-not-check", f"the verifier would not load: {exc}")
+
+    blocked: list[str] = []
+    for token in candidates:
+        try:
+            result = verify_citation(token, recency_seconds=_INTEGRATION_RECENCY_SECONDS)
+        except Exception as exc:  # noqa: BLE001 -- an unknown fault is not an absent artifact
+            blocked.append(f"{token}: {type(exc).__name__}")
+            continue
+        if result.ok:
+            return ("found", f"{token} exists ({result.citation_type})")
+        if result.could_not_check:
+            blocked.append(f"{token}: {result.reason}")
+
+    # ONE UNANSWERED QUESTION IS ENOUGH TO WITHHOLD THE VERDICT.
+    #
+    # The first version required EVERY candidate to be unanswerable before it
+    # would say so, which meant a single absent pointer outvoted a real one
+    # that merely could not be reached. That is absence-by-default hiding
+    # inside a three-valued function, and it refused a genuine pre-registration
+    # the first time it ran. If any question went unasked, "none of these
+    # exist" is not something this can honestly say.
+    if blocked:
+        return ("could-not-check", "; ".join(blocked))
+    return (
+        "not-found",
+        f"none of these name anything that exists: {', '.join(candidates)}",
+    )
+
+
 def _db_path() -> Path:
     p = divineos_home() / "andrew_corrections.db"
     p.parent.mkdir(exist_ok=True)
@@ -90,6 +191,15 @@ def _conn() -> sqlite3.Connection:
         conn.commit()
     except sqlite3.OperationalError:
         # Column already exists — migration was previously applied.
+        pass
+    # 2026-09-12: whether the integration pointer was actually resolved, or
+    # merely could not be disproved. Rows written before this migration get
+    # NULL, which is honest — nothing checked them, and NULL says so rather
+    # than claiming a verification that never happened.
+    try:
+        conn.execute("ALTER TABLE andrew_corrections ADD COLUMN verification_state TEXT")
+        conn.commit()
+    except sqlite3.OperationalError:
         pass
     return conn
 
@@ -244,13 +354,21 @@ def integrate(correction_id: int, evidence: str) -> bool:
         return False
     if not _has_structural_artifact(evidence):
         return False
+    # The shape check above stays as the cheap first pass; this is the one
+    # that cannot be satisfied by typing. A pointer nobody can resolve is
+    # refused; a pointer nobody could look up is admitted and RECORDED AS
+    # UNVERIFIED, so the rate can be read both ways instead of one passing
+    # for the other.
+    reality, detail = artifact_reality(evidence)
+    if reality == "not-found":
+        return False
     conn = _conn()
     try:
         cur = conn.execute(
             "UPDATE andrew_corrections SET status = 'INTEGRATED', "
-            "integrated_at = ?, integration_evidence = ? "
+            "integrated_at = ?, integration_evidence = ?, verification_state = ? "
             "WHERE id = ? AND status = 'OPEN'",
-            (time.time(), evidence.strip(), correction_id),
+            (time.time(), evidence.strip(), f"{reality}: {detail}"[:400], correction_id),
         )
         conn.commit()
         ok = cur.rowcount > 0

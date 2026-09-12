@@ -86,6 +86,21 @@ class VerificationResult:
     citation: str
     citation_type: str  # "file" | "substrate_id" | "commit" | "test" | "pr" | "unknown"
     reason: str
+    # COULD-NOT-LOOK IS NOT THE SAME ANSWER AS LOOKED-AND-ABSENT (2026-09-12).
+    #
+    # Every verifier here returned ok=False both when the artifact genuinely
+    # did not exist and when the tool needed to settle the question was
+    # missing -- git off PATH, gh absent, a timeout. The reason string said
+    # which, and no caller read the reason, so a broken instrument has been
+    # indistinguishable from a fabricated citation for as long as this file
+    # has existed.
+    #
+    # Defaults False so every existing construction keeps its meaning: an
+    # explicit verdict of absent. Only the branches that genuinely could not
+    # look set it. ok stays the headline and stays False in both cases,
+    # because failing closed is right here -- what changes is that the gate
+    # can now SAY it is refusing without having looked.
+    could_not_check: bool = False
 
 
 # Pattern classifiers — each returns the citation type if it matches,
@@ -187,7 +202,11 @@ def _verify_substrate_id(citation: str, reference_ts: float, recency: float) -> 
     divineos = shutil.which("divineos")
     if divineos is None:
         return VerificationResult(
-            False, citation, "substrate_id", "divineos CLI not on PATH for lookup"
+            False,
+            citation,
+            "substrate_id",
+            "divineos CLI not on PATH for lookup",
+            could_not_check=True,
         )
     try:
         result = subprocess.run(
@@ -197,7 +216,9 @@ def _verify_substrate_id(citation: str, reference_ts: float, recency: float) -> 
             timeout=10,
         )
     except (OSError, subprocess.TimeoutExpired) as e:
-        return VerificationResult(False, citation, "substrate_id", f"lookup failed: {e}")
+        return VerificationResult(
+            False, citation, "substrate_id", f"lookup failed: {e}", could_not_check=True
+        )
     if result.returncode != 0:
         snippet = (result.stderr or result.stdout or "")[:120].strip().replace("\n", " ")
         return VerificationResult(
@@ -242,7 +263,9 @@ def _verify_commit(citation: str, reference_ts: float, recency: float) -> Verifi
         return VerificationResult(False, citation, "commit", "not a commit-hash form")
     git = shutil.which("git")
     if git is None:
-        return VerificationResult(False, citation, "commit", "git not on PATH")
+        return VerificationResult(
+            False, citation, "commit", "git not on PATH", could_not_check=True
+        )
     try:
         result = subprocess.run(
             [git, "cat-file", "-t", s],
@@ -251,7 +274,9 @@ def _verify_commit(citation: str, reference_ts: float, recency: float) -> Verifi
             timeout=5,
         )
     except (OSError, subprocess.TimeoutExpired) as e:
-        return VerificationResult(False, citation, "commit", f"git lookup failed: {e}")
+        return VerificationResult(
+            False, citation, "commit", f"git lookup failed: {e}", could_not_check=True
+        )
     if result.returncode != 0 or result.stdout.strip() != "commit":
         return VerificationResult(False, citation, "commit", "hash does not resolve to a commit")
     # Check commit recency
@@ -264,7 +289,9 @@ def _verify_commit(citation: str, reference_ts: float, recency: float) -> Verifi
         )
         commit_ts = float(result.stdout.strip())
     except (OSError, subprocess.TimeoutExpired, ValueError):
-        return VerificationResult(False, citation, "commit", "could not read commit timestamp")
+        return VerificationResult(
+            False, citation, "commit", "could not read commit timestamp", could_not_check=True
+        )
     age = reference_ts - commit_ts
     if age > recency:
         return VerificationResult(
@@ -332,7 +359,7 @@ def _verify_pr(citation: str, reference_ts: float, recency: float) -> Verificati
     num = m.group(1)
     gh = shutil.which("gh")
     if gh is None:
-        return VerificationResult(False, citation, "pr", "gh CLI not on PATH")
+        return VerificationResult(False, citation, "pr", "gh CLI not on PATH", could_not_check=True)
     try:
         result = subprocess.run(
             [gh, "pr", "view", num, "--json", "number,updatedAt"],
@@ -341,7 +368,9 @@ def _verify_pr(citation: str, reference_ts: float, recency: float) -> Verificati
             timeout=15,
         )
     except (OSError, subprocess.TimeoutExpired) as e:
-        return VerificationResult(False, citation, "pr", f"gh lookup failed: {e}")
+        return VerificationResult(
+            False, citation, "pr", f"gh lookup failed: {e}", could_not_check=True
+        )
     if result.returncode != 0:
         return VerificationResult(False, citation, "pr", f"gh pr view #{num} returned non-zero")
     # The recency check on a PR is whether it was updated recently; the
