@@ -208,8 +208,21 @@ corrections store, not here.
    room where I speak without checking myself. One narrow grammar: the
    sentence that says what someone does not have.
 
-Complement to the VERIFY-CLAIM gate at Stop time. This prime removes
-the reach; the gate catches it after. Two layers, one discipline.
+WHAT IS BEHIND THIS PRIME, EXACTLY. One narrow check at Stop time, and
+it is new: it fires when a reply states a quantity about this system and
+nothing ran that turn to measure it. That is the whole of the second
+layer. It does NOT read claims generally, and a wrong number in a turn
+where any command ran goes straight past it.
+
+This paragraph used to read "Complement to the VERIFY-CLAIM gate at Stop
+time. This prime removes the reach; the gate catches it after. Two
+layers, one discipline." No such gate existed, in any form, for as long
+as this prime has been running -- a door painted on a wall, and worse
+than nothing, because it told me a backstop was there while I leaned on
+it. Found and built 2026-09-11 after Andrew asked why a number I gave
+him was never counted. Corrected here rather than deleted, so the shape
+stays visible: a mechanism that DESCRIBES its own coverage can overstate
+it exactly the way I can.
 EOF
 
 exit 0

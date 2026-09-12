@@ -694,6 +694,7 @@ src/divineos/
     anchor_self_invalidation.py A letter carrying an anchor must not be committed onto the branch it anchors.
     substrate_paths.py         Which paths are substrate, and which are work in progress.
     substrate_retarget.py      Commit substrate files to a named branch without touching HEAD.
+    unmeasured_quantity.py     A quantity about this system, stated with an empty action-stream behind it. The Stop-time layer the verify-claim prime had been promising and that never existed. Narrow on purpose: the predicted death is noise.
     sibling_audit_rounds.py    Audit rounds filed by the other seat, read-only.
     sibling_council_walks.py   Council walks recorded by the other seat: seen, never satisfying.
     prior_art_by_name.py       Find files on ANY branch whose names resemble one about to be created.
