@@ -267,6 +267,83 @@ def register(cli: click.Group) -> None:
                 + f"  {p.mechanism}: {p.claim[:70]}"
             )
         click.echo("\nReview each with: divineos prereg assess <id> --outcome ...")
+        click.echo(
+            "If the evidence is behind the gate: "
+            'divineos prereg reviewing <id> --purpose "<what you will look at>"'
+        )
+
+    @prereg_group.command("reviewing")
+    @click.argument("prereg_id")
+    @click.option(
+        "--purpose",
+        required=True,
+        help="What you are going to LOOK AT to settle this review",
+    )
+    @click.option("--actor", default="aether", help="Who is doing the review")
+    @click.option("--minutes", default=0, help="Window length; 0 uses the default")
+    def prereg_reviewing_cmd(prereg_id: str, purpose: str, actor: str, minutes: int) -> None:
+        """Declare that an overdue review is being worked on right now.
+
+        The overdue gate blocks substantive tool use, which includes the tools
+        that produce the evidence a review needs. This says out loud which
+        review is happening and stands that gate down for a bounded stretch.
+
+        It is not a bypass: it refuses unless the named pre-registration is
+        genuinely overdue, and a window that never produces an assessment is
+        recorded and surfaced by name under ``divineos prereg windows``.
+        """
+        from divineos.core.pre_registrations.review_window import (
+            DEFAULT_MINUTES,
+            WindowRefused,
+            open_window,
+        )
+
+        try:
+            state = open_window(
+                prereg_id,
+                actor,
+                purpose,
+                minutes=minutes or DEFAULT_MINUTES,
+            )
+        except WindowRefused as exc:
+            click.secho(f"[!] {exc}", fg="red")
+            return
+
+        click.secho(f"[+] review window open on {state.prereg_id}", fg="green", bold=True)
+        click.echo(f"    purpose: {state.purpose}")
+        click.echo(f"    {state.seconds_left // 60} minutes. Recording the outcome closes it.")
+
+    @prereg_group.command("windows")
+    def prereg_windows_cmd() -> None:
+        """Review windows opened that never produced an assessment.
+
+        This is the cost of the window mechanism, kept visible. A growing list
+        means windows are being used as a bypass, which is the falsifier for
+        the design rather than something asserted about it.
+        """
+        from divineos.core.pre_registrations.review_window import (
+            active_window,
+            lapsed_windows,
+        )
+
+        state = active_window()
+        if state.state == "could-not-check":
+            click.secho(f"[?] could not check for an open window: {state.reason}", fg="yellow")
+            click.echo("    That is a broken instrument, not a finding that none is open.")
+        elif state.state == "open":
+            click.secho(f"[+] open now: {state.prereg_id}", fg="green")
+            click.echo(f"    purpose: {state.purpose}")
+            click.echo(f"    {state.seconds_left // 60} minutes left")
+        else:
+            click.echo("[~] no review window open.")
+
+        lapsed = lapsed_windows()
+        if not lapsed:
+            click.secho("[~] no lapsed windows — every declared review was delivered.", fg="green")
+            return
+        click.secho(f"\n=== Declared and never delivered ({len(lapsed)}) ===\n", fg="yellow")
+        for prereg_id, purpose, count in lapsed:
+            click.echo(f"  {prereg_id:24} x{count}  {purpose[:70]}")
 
     @prereg_group.command("assess")
     @click.argument("prereg_id")

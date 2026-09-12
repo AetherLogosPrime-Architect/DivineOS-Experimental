@@ -219,3 +219,83 @@ def test_multiple_overdue_all_named_in_message():
     assert "3 pre-registration(s)" in reason
     for prereg_id in ids:
         assert prereg_id[:20] in reason
+
+
+# --------------------------------------------------------------------------
+# THE DEADLOCK, and its repair. Added 2026-09-12.
+#
+# This gate refused the evidence for two of its own reviews in one night. The
+# exits it offered were a verdict nobody had earned and a deferral that had
+# nothing to do with the evidence, and both are worse than the review it was
+# asking for. The review window is the third exit. These two tests are the
+# ones that matter, because the window can be perfectly built and perfectly
+# unreachable -- which is the painted-door shape found three times this same
+# session, a gate advertising a backstop that does not exist.
+#
+# They run against the real store rather than a stand-in, for the same reason:
+# a fake gate passing a fake window proves nothing about the wiring.
+# --------------------------------------------------------------------------
+
+
+def test_a_declared_review_stands_the_gate_down():
+    from divineos.core.pre_registrations.review_window import open_window
+
+    init_pre_registrations_tables()
+    prereg_id = file_pre_registration(
+        mechanism="test-window-stands-gate-down",
+        claim="X",
+        success_criterion="Y",
+        falsifier="Z",
+        review_window_days=7,
+        actor="aether",
+    )
+    _backdate_review(prereg_id, days_ago=3)
+    assert _check_overdue_prereg_block("pytest tests/") is not None
+
+    open_window(
+        prereg_id,
+        "aether",
+        "run the falsifier against the checker and read what it actually returns",
+        minutes=5,
+    )
+    try:
+        assert _check_overdue_prereg_block("pytest tests/") is None
+    finally:
+        # Recording the outcome is what closes the window, so this both
+        # cleans up and exercises the close path the CLI relies on.
+        record_outcome(
+            prereg_id=prereg_id,
+            actor="andrew",
+            outcome=Outcome.SUCCESS,
+            notes="window closed by assessment",
+        )
+
+
+def test_the_deny_text_names_the_third_exit():
+    """A path nobody is told about is a path nobody takes.
+
+    The gate's own refusal is the only place this is ever read from. If the
+    sentence goes missing the mechanism silently reverts to the two exits it
+    was built to replace, and nothing else would notice.
+    """
+    init_pre_registrations_tables()
+    prereg_id = file_pre_registration(
+        mechanism="test-deny-names-the-door",
+        claim="X",
+        success_criterion="Y",
+        falsifier="Z",
+        review_window_days=7,
+        actor="aether",
+    )
+    _backdate_review(prereg_id, days_ago=3)
+    decision = _check_overdue_prereg_block("pytest tests/")
+    assert decision is not None
+    reason = decision["hookSpecificOutput"]["permissionDecisionReason"]
+    assert "divineos prereg reviewing" in reason
+    assert "--purpose" in reason
+    record_outcome(
+        prereg_id=prereg_id,
+        actor="andrew",
+        outcome=Outcome.SUCCESS,
+        notes="test cleanup",
+    )

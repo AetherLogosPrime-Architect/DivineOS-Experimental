@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (469 commands across 84 modules)
+  cli/                         CLI package (473 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -362,6 +362,7 @@ src/divineos/
       types.py                 Outcome enum, PreRegistration dataclass
       store.py                 CRUD with falsifier-required invariant + external-actor outcome gate
       summary.py               Overdue warning + CLI summary formatting
+      review_window.py         Declared, bounded, recorded review windows, so the overdue gate stops blocking its own evidence
     andrew_state/              Mutual-catch primitive — observation channel for Andrew's state with substance-binding gate (per docs/andrew_state_design.md, prereg-526c2433d55a)
       _schema.py               andrew_state table + indices
       types.py                 Axis enum, VerificationStatus enum, Observation dataclass
