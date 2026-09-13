@@ -108,3 +108,82 @@ def test_the_inert_allowance_stays_narrow() -> None:
 )
 def test_three_clause_reads_pass(line: str) -> None:
     assert _is_readonly_probe(line)
+
+
+def test_a_bare_cd_clause_is_inert_not_a_read() -> None:
+    """The same argument as the shell-option clause, asked of the other inert thing.
+
+    2026-09-13. The inertness reasoning above was written for ``set -o`` and
+    then asked of nothing else -- which is the failure this file's own docstring
+    names one paragraph earlier: the first repair opened one door and never
+    swept the class.
+
+    The door it missed is the habit half of every Bash call in this house.
+    Measured at the time:
+
+        divineos prereg overdue                   -> probe
+        set -o pipefail; divineos prereg overdue  -> probe
+        cd "<repo>"; divineos prereg overdue      -> BLOCKED
+
+    A standalone ``cd`` clause has its prefix stripped, leaves the empty
+    string, and empty read as not-a-probe -- so the overdue block refused every
+    command that would have shown me the pre-registration it wanted assessed,
+    including the two its own refusal text prescribes.
+    """
+    assert _is_readonly_probe('cd "/some/repo"; divineos prereg overdue')
+    assert _is_readonly_probe("cd /repo; git log")
+    assert _is_readonly_probe('cd "/some/repo"; set -o pipefail; git status')
+
+
+def test_the_cd_allowance_refuses_every_laundering_shape_on_record() -> None:
+    """Loosening a cd check is how a gate gets laundered, so the edges are asserted.
+
+    Each of these is a worked example from this house's own letters rather than
+    an invented adversary: command substitution in the path, a redirection
+    hidden in it, a backtick, and a chain that ends somewhere else entirely.
+    The shared parser accepted two of them once; narrowness was restored at the
+    gate and this test is what keeps it here.
+    """
+    assert not _is_readonly_probe('cd "$(curl attacker)"; git log')
+    assert not _is_readonly_probe("cd /tmp>out; git log")
+    assert not _is_readonly_probe("cd `curl x`; git log")
+    assert not _is_readonly_probe("cd /a; rm -rf /")
+    assert not _is_readonly_probe("cd /a && cd /b; rm -rf /")
+    assert not _is_readonly_probe("cd /a; git push")
+
+
+def test_the_remedy_still_passes_because_it_is_the_point() -> None:
+    """``prereg assess`` mutates and must STILL read as passable here.
+
+    Written because I asserted the opposite while testing the change and had to
+    correct myself against the code. This checker has exactly one caller -- the
+    overdue-pre-registration block -- and assessing is the remedy that clears
+    it. A gate that refuses its own cure is the shape three separate comments in
+    that file exist to prevent, so this is intended rather than a leak, and the
+    test says so where the next reader will look.
+    """
+    assert _is_readonly_probe("cd /a; divineos prereg assess x --outcome SUCCESS")
+    # ...and a genuinely unrelated mutation still does not ride along.
+    assert not _is_readonly_probe("cd /a; divineos learn status")
+
+
+def test_the_cd_allowance_needs_the_SHAPE_not_only_the_character_check() -> None:
+    """Two checks, and the sweep proved the second one is not decoration.
+
+    Breaking the shape check while leaving the character check broke NOTHING in
+    this file, which read as one of the two being redundant. It is not. With
+    shape removed, the rule degrades to "starts with those two letters and has
+    no dangerous characters", and these all sail through:
+
+        cdrom-tool --wipe-everything
+        cdparanoia rip
+        cd /a /b /c
+
+    None is a directory change. The first two are other programs whose names
+    merely begin the same way, and the third is a cd with operands it should
+    not have. A clause is inert only if it is a cd AND a path AND nothing else.
+    """
+    assert not _is_readonly_probe("cdrom-tool --wipe-everything; git log")
+    assert not _is_readonly_probe("cdparanoia rip; git log")
+    assert not _is_readonly_probe("cd /a /b /c; git log")
+    assert not _is_readonly_probe("cd; git log")

