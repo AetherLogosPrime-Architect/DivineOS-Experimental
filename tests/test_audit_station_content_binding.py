@@ -108,12 +108,41 @@ def test_the_cheap_view_says_it_skipped_the_check() -> None:
     unchecked, and a round nobody could even tell was signed, are different
     facts and both used to render as this one sentence. The cheap view is the
     first, so this now says so; the second has its own test next door.
+
+    THE POINTER WAS PAINTED ON, 2026-09-12. This sentence used to end "use the
+    board command for that", and there has never been a board command -- the
+    only build-flow command is status. So the one station honest enough to say
+    it skipped a check sent the reader to a door that opens on nothing, and the
+    admission was worth exactly what the check was. It now names the command
+    that genuinely asks the question, and the test below refuses to let that
+    name drift back into fiction.
     """
     result = check_audit_station(
         447, "instruments/clean", REFS, anchor="not-run", has_external_confirm=True
     )
     assert result.status is Status.SATISFIED
-    assert "not checked in this view" in result.detail
+    assert "NOT checked here" in result.detail
+    assert result.scope_limited is True, "the skip must be readable, not merely sayable"
+
+
+def test_the_command_the_skip_points_at_actually_exists() -> None:
+    """A remedy a gate names has to be reachable.
+
+    The previous pointer named a command nobody ever built. A warning that
+    sends the reader nowhere is indistinguishable from no warning, and costs
+    more, because it spends the reader's trust on the way out.
+    """
+    from click.testing import CliRunner
+
+    from divineos.cli import cli
+
+    result = check_audit_station(
+        447, "instruments/clean", REFS, anchor="not-run", has_external_confirm=True
+    )
+    named = result.detail.split("ask with: ")[1].split(" <pr>")[0].strip()
+    assert named.startswith("divineos ")
+    invoked = CliRunner().invoke(cli, [*named.split()[1:], "--help"])
+    assert invoked.exit_code == 0, f"{named} is not a real command: {invoked.output}"
 
 
 def test_no_anchor_supplied_keeps_the_old_verdict_and_now_names_its_scope() -> None:

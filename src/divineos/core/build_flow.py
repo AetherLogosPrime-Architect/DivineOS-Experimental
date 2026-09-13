@@ -72,6 +72,11 @@ class StationResult:
     station: str
     status: Status
     detail: str
+    # A pass whose deeper question this view did not pay to ask. The detail
+    # string has always said so; nothing above could READ that, so the
+    # headline kept calling such a request READY while the tool that does ask
+    # refused it. A flag is readable; prose is not.
+    scope_limited: bool = False
 
 
 @dataclass
@@ -475,6 +480,7 @@ def check_audit_station(
                 Status.SATISFIED,
                 f"audit round names {named} (name match only — that round "
                 "predates content binding, so drift since would not show)",
+                scope_limited=True,
             )
         if anchor == "holds":
             return StationResult(
@@ -512,13 +518,16 @@ def check_audit_station(
                     Status.SATISFIED,
                     f"audit round names {named} and carries an external-AI "
                     "confirm; whether it still covers the current content was "
-                    "not checked in this view — use the board command for that",
+                    "NOT checked here — ask with: divineos stamp-ready <pr> "
+                    "--dry-run",
+                    scope_limited=True,
                 )
             return StationResult(
                 "8-audit",
                 Status.SATISFIED,
                 f"audit round names {named}, but NEITHER whether anyone signed "
                 "it NOR whether that still holds could be checked here",
+                scope_limited=True,
             )
         if has_external_confirm is None:
             # COULD-NOT-LOOK IS THE THIRD STATE and it has bitten this station
@@ -533,6 +542,7 @@ def check_audit_station(
                 Status.SATISFIED,
                 f"audit round names {named} (name match; whether anyone signed "
                 "it was NOT CHECKED here)",
+                scope_limited=True,
             )
         return StationResult("8-audit", Status.SATISFIED, f"audit round names {named}")
     # THE ANSWER CARRIES ITS OWN SCOPE. Aria, 2026-08-28, after going to verify

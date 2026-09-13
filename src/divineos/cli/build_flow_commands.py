@@ -773,7 +773,28 @@ def render(statuses: list[PrFlowStatus]) -> str:
     attention: list[int] = []
     for s in sorted(statuses, key=lambda x: x.number):
         if s.mergeable:
-            flag = "READY — every checked station proven"
+            # THE HEADLINE USED TO OUTRUN THE STATIONS UNDER IT (2026-09-12).
+            # Three requests read READY here while divineos stamp-ready --
+            # the tool that actually asks whether the signature still covers
+            # the content -- refused all three, because every signature named
+            # a tree the branch has since moved off. Both answers were in this
+            # output at once: READY on the headline, "not checked here" in the
+            # station line four rows below. A reader takes the headline.
+            #
+            # The station was never wrong to skip the deep check; paying for
+            # it every turn is the toll booth that gets the board switched
+            # off. What was wrong is a summary word that did not carry the
+            # skip upward. So the check stays cheap and the word gets honest.
+            unchecked = [r.station for r in s.stations if r.scope_limited]
+            if unchecked:
+                flag = (
+                    "READY AS FAR AS THIS VIEW LOOKED — "
+                    f"{', '.join(unchecked)} passed a shallower question than the "
+                    "one merging asks; confirm with: divineos stamp-ready "
+                    f"{s.number} --dry-run"
+                )
+            else:
+                flag = "READY — every checked station proven"
             ready += 1
         elif _is_draft(s):
             flag = f"in flight — {len(s.blocking)} station(s) still ahead of it"
