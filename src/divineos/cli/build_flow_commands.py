@@ -223,6 +223,66 @@ def _changed_paths(pr: int) -> tuple[str, ...] | None:
     return paths
 
 
+_JUDGE_FILES = ("src/divineos/core/build_flow.py", "src/divineos/core/council_walk.py")
+
+
+def _judge_version_line() -> str:
+    """Say WHICH VERSION OF ITSELF produced this verdict.
+
+    THE BOARD JUDGES BRANCHES USING WHATEVER COPY OF ITSELF IS CHECKED OUT,
+    and until 2026-09-12 it never said so. Found by accident: I rebuilt a
+    branch off main, and from there the board reported SIX pieces of work
+    ready. Stepping back onto the branch carrying the day's repairs, the same
+    twelve at the same moment reported ZERO. Two opposite verdicts, minutes
+    apart, neither announcing which judge had spoken.
+
+    That is worse than any single wrong answer, because both readings looked
+    equally authoritative and I nearly reported the flattering one. A verdict
+    whose value depends on where the reader is standing has to say where it
+    was standing, or it is a number without units.
+
+    Three states, as everywhere else today: a named version, a version that
+    differs from the shared one (so the reading is not comparable to anyone
+    else's), and could-not-tell -- which must never be silence.
+    """
+    import subprocess
+
+    try:
+        done = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=False,
+        )
+        if done.returncode != 0:
+            return "  [judge] COULD NOT TELL which version of this board spoke -- git refused."
+        here = done.stdout.strip()
+        drift = subprocess.run(
+            ["git", "diff", "--quiet", "origin/main", "--", *_JUDGE_FILES],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return (
+            f"  [judge] COULD NOT TELL which version of this board spoke -- {type(exc).__name__}."
+        )
+
+    if drift.returncode == 0:
+        return f"  [judge] this verdict comes from the shared version of the board ({here})."
+    if drift.returncode == 1:
+        return (
+            f"  [judge] this verdict comes from the board as it stands on THIS branch ({here}), "
+            "which differs from the shared one. Another branch would answer differently."
+        )
+    return (
+        f"  [judge] board version {here}; COULD NOT TELL whether it differs from the shared one, "
+        "so this verdict may not be comparable with one read elsewhere."
+    )
+
+
 def _walk_coverage(paths: tuple[str, ...] | None) -> "Coverage":
     """Is there a CLOSED walk scoped to these files, with every lens settled?
 
@@ -639,6 +699,7 @@ def render(statuses: list[PrFlowStatus]) -> str:
     # and became about whichever seat did not write the branch. The board was
     # naming a station it no longer runs -- small, and the same class as every
     # other sentence in this house that stopped being true and told nobody.
+    lines.append(_judge_version_line())
     lines.append("  Checked: 2-council, 4-cold-read, 7-draft, 8-audit. NOT checked:")
     lines.append("  1-draft, 3-build, 5-test, 6-more-council, 9-merge — four of nine.")
     lines.append("")
