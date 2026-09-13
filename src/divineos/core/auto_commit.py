@@ -28,7 +28,7 @@ from __future__ import annotations
 import logging
 import shutil
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from divineos.core.uncommitted_work_check import (
@@ -106,12 +106,92 @@ def _unstage_self_invalidating(repo_root: str | Path) -> list[str]:
     return hits
 
 
+def _unstage_substrate_on_a_code_branch(repo_root: str | Path) -> list[str]:
+    """Drop staged personal writing when the branch is not a substrate branch.
+
+    NINE CONTAMINATED BRANCHES, NINE REBUILDS, ZERO FIXES (2026-09-12). This
+    function saves work by staging everything, and on a code branch that
+    everything included the whole letters directory. The push gate refused each
+    branch -- correctly, every time -- and the cure was always another manual
+    rebuild. Twice in one session it happened WHILE the previous contamination
+    was being cleaned up. Once it made me tell Andrew a branch carried no
+    personal writing when it carried two hundred and four files.
+
+    THE TENSION THIS DISSOLVES was stated one screen below as unresolved: making
+    the working tree go clean and keeping substrate off the branch were held to
+    exclude each other. They only do if EVERY file on disk must be committed
+    somewhere reachable from HEAD, and no rule says that. Drop that unwritten
+    premise and the contradiction goes away rather than needing a winner.
+
+    NOTHING IS LOST AND NOTHING MOVES. Staging never removed the working copy,
+    so unstaging cannot destroy one. The letters stay on disk, and they stay
+    delivered to the shared channel outside every tree, which is where the
+    crossing actually happens. The in-repo copy was always the archive, never
+    the load-bearing one.
+
+    WHAT IT COSTS, named rather than discovered: a code branch's working tree
+    now carries untracked letters indefinitely. That is noise in a status
+    listing, against a refused push, a rebuild, and a false claim about a
+    branch's contents. Those are not close.
+
+    THE HALF STILL OWED: archiving substrate to its own ref by plumbing and
+    clearing it out of the code branch's tree. Deliberately not done here --
+    that half REMOVES letter files from a working tree, and a removal that
+    cannot prove two other copies exist is a loss with good intentions. It gets
+    its own pass and a three-copy check. Per walk-c2dde7ba5565, fifteen lenses.
+
+    Returns what was dropped, for the caller to report. A silent refusal would
+    leave a tree that looks clean while letters sit untracked, and the next
+    stage-everything sweeps them straight back -- the loop that has now run nine
+    times. Fail-soft like its sibling above, and equally loud about it.
+    """
+    from divineos.core.anchor_self_invalidation import current_branch
+    from divineos.core.substrate_paths import partition
+
+    root = Path(repo_root)
+    branch = current_branch(root)
+    if branch is None:
+        logger.warning(
+            "auto_commit: could not read the branch, so the substrate-scope "
+            "check did NOT run. This is not 'clean'."
+        )
+        return []
+    if branch.startswith("substrate/"):
+        return []  # a substrate branch is exactly where this writing belongs
+
+    staged = _staged_paths(root)
+    if staged is None:
+        logger.warning("auto_commit: substrate-scope check could NOT list staged files")
+        return []
+    substrate, _work = partition(staged)
+    if not substrate:
+        return []
+
+    if not _run_pathspec(root, ["git", "restore", "--staged"], substrate):
+        logger.warning("auto_commit: could not unstage substrate paths; leaving them staged")
+        return []
+
+    logger.warning(
+        "auto_commit: left %d personal-writing file(s) UNSTAGED because '%s' is "
+        "not a substrate branch. They remain on disk and remain delivered; they "
+        "are simply not committed here.",
+        len(substrate),
+        branch,
+    )
+    return substrate
+
+
 @dataclass(frozen=True)
 class AutoCommitResult:
     committed: bool
     reason: str  # human-readable outcome (for CLI surfacing)
     files_synced: int = 0  # external files copied into repo_mirror
     dirty_lines: int = 0  # git status --porcelain lines seen
+    # Personal writing this run refused to put on a code branch. Named in the
+    # result because an unreported side effect is the vulnerability, not the
+    # side effect -- a caller that cannot see this reports a clean checkpoint
+    # over a tree that still has letters sitting in it.
+    substrate_left_unstaged: tuple[str, ...] = ()
 
 
 def _sync_external_channels(
@@ -291,6 +371,7 @@ def auto_commit_substrate(
     # delivered -- the shared directory is outside every tree and is where the
     # crossing actually happens. Only the archive copy waits.
     _unstage_self_invalidating(repo_root)
+    left_unstaged = _unstage_substrate_on_a_code_branch(repo_root)
 
     staged_check = subprocess.run(
         ["git", "diff", "--cached", "--quiet"],
@@ -334,7 +415,35 @@ def auto_commit_substrate(
     # finds them again. Making the tree go clean and keeping substrate off the
     # branch are in tension, and I have not resolved it. This is the half that
     # is safe under either answer.
-    return _commit_in_two_parts(repo_root, reason, files_synced, dirty_lines, channels)
+    #
+    # AMENDED 2026-09-12, AND THE PARAGRAPH ABOVE IS KEPT BECAUSE IT WAS RIGHT
+    # ABOUT ITS OWN LIMITS. The tension it names is not a real one. It holds
+    # only if every file on disk must be committed somewhere reachable from
+    # HEAD, and no rule says that; drop the unwritten premise and the two goals
+    # stop excluding each other. What kept it standing was that the cost of each
+    # arm was never written down -- untracked letters in a working tree are
+    # noise in a status listing, against a refused push, a manual rebuild, and
+    # once a false claim to Andrew about what a branch held.
+    #
+    # So the staging half now refuses substrate on a code branch outright (see
+    # _unstage_substrate_on_a_code_branch), which cannot lose anything: staging
+    # never removed a working copy, so unstaging cannot destroy one. The split
+    # below stays, for substrate branches where both kinds legitimately land.
+    #
+    # STILL OWED: archiving substrate to its own ref and clearing it from the
+    # code branch's tree. Not done here on purpose -- that half REMOVES letter
+    # files, and a removal that cannot prove two other copies exist is a loss
+    # with good intentions.
+    #
+    # The refusal is attached to the result HERE rather than threaded through
+    # every exit of the split below. That function has five returns; adding a
+    # parameter to all of them to carry a fact none of them use would be more
+    # surface than the change is worth, and a field set in one place cannot be
+    # forgotten on one branch of five.
+    outcome = _commit_in_two_parts(repo_root, reason, files_synced, dirty_lines, channels)
+    if left_unstaged:
+        return replace(outcome, substrate_left_unstaged=tuple(left_unstaged))
+    return outcome
 
 
 def _staged_paths(repo_root: Path) -> list[str] | None:

@@ -20,6 +20,23 @@ here is narrow and it is the whole point:
   * when both kinds are present they land in SEPARATE commits, work first, so
     a code branch that picked up letters is trimmed by dropping the tip.
 
+THE THIRD BULLET IS NOW HISTORY, AND THESE TESTS MOVED BRANCH BECAUSE OF IT
+(2026-09-12). The split was built to make a contaminated code branch cheap to
+trim. It never stopped the contamination, and nine branches were rebuilt by
+hand -- twice in one session while the previous one was being cleaned up.
+
+The checkpointer now refuses to stage personal writing on a code branch at all,
+so both kinds can only be present together on a SUBSTRATE branch, which is
+where this fixture now runs. The split still earns its keep there: a substrate
+branch legitimately carries both, and one commit per kind is still the tidier
+save.
+
+The first bullet is narrowed rather than false: nothing is excluded from
+EXISTING -- every file stays on disk and stays delivered to the shared channel
+outside every tree. What changed is where it gets committed. The code-branch
+contract is pinned in test_auto_commit.py, which asserts the refusal happens,
+names what it left, and proves the letter never leaves the disk.
+
 The failure directions matter more than the happy path: every way the split can
 fail must fall back to the single commit, because losing the split costs a
 manual cleanup and losing the save costs the work itself.
@@ -49,7 +66,11 @@ def _git(*args: str, cwd: Path) -> str:
 def repo(tmp_path):
     root = tmp_path / "repo"
     (root / "family" / "letters").mkdir(parents=True)
-    _git("init", "-q", "-b", "main", cwd=root)
+    # A SUBSTRATE branch, deliberately: since 2026-09-12 both kinds can only be
+    # staged together here, because the checkpointer refuses personal writing on
+    # a code branch. Seeding this on main would test a state that can no longer
+    # occur, and would go green again only if that refusal were removed.
+    _git("init", "-q", "-b", "substrate/letters-and-code", cwd=root)
     _git("config", "user.email", "t@example.com", cwd=root)
     _git("config", "user.name", "t", cwd=root)
     (root / "seed.txt").write_text("seed\n", encoding="utf-8")
@@ -78,7 +99,10 @@ def channels(tmp_path):
 
 
 def _subjects(root: Path) -> list[str]:
-    out = _git("log", "--format=%s", "main", cwd=root)
+    # HEAD rather than a branch name: the fixture's branch is now part of what
+    # is under test, and a helper that hardcodes one would have to be edited
+    # every time the scenario moves.
+    out = _git("log", "--format=%s", "HEAD", cwd=root)
     return [line for line in out.splitlines() if line.strip()]
 
 
