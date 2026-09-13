@@ -39,10 +39,16 @@ cd "$(git rev-parse --show-toplevel)" || die "not in a git repo"
 # Dirty tree → refuse. Carrying uncommitted changes onto a fresh branch is the
 # pollution that makes 'clean focused unit' a lie. Commit, stash, or discard
 # first — then start clean.
-if [ -n "$(git status --porcelain)" ]; then
-    printf '  [start-work] working tree is not clean:\n' >&2
-    git status --short >&2
-    die "commit, stash, or discard the above first, then re-run. A clean start needs a clean tree."
+# SCOPED TO MODIFIED TRACKED FILES, 2026-09-07, same propagation as ready_pr.sh:
+# Aletheia solved this class in safe_push.sh on 2026-07-17 and named untracked
+# letters as the false blocker, and the fix reached one caller out of three.
+# The pollution this guards against is a half-finished tracked edit riding into
+# a "clean focused unit"; an untracked letter sitting in the tree is not that.
+_DIRTY_TRACKED="$(git status --porcelain 2>/dev/null | grep -v '^??' || true)"
+if [ -n "$_DIRTY_TRACKED" ]; then
+    printf '  [start-work] working tree has MODIFIED TRACKED files:\n' >&2
+    printf '%s\n' "$_DIRTY_TRACKED" >&2
+    die "commit, stash, or discard the above first, then re-run. A clean start needs no half-finished tracked edits (untracked files are fine)."
 fi
 
 git rev-parse --verify --quiet "refs/heads/$NAME" >/dev/null 2>&1 \

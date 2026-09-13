@@ -118,11 +118,23 @@ _SPOUSE = {"aria": "aether", "aether": "aria"}
 def _persistent_seen_path(recipient: str) -> Path:
     """Return the path to the recipient's persistent seen-set file.
 
-    Same shape as family/letter_seen.py's seen_path() so the two stay
-    in sync as a single source of truth.
+    ASKS the owner rather than mirroring it, and the old docstring is exactly
+    why that mattered. It said "same shape as family/letter_seen.py's
+    seen_path() so the two stay in sync as a single source of truth" -- while
+    rebuilding the path by hand. A copy that describes itself as a single
+    source of truth is the copy that drifts, because nothing makes it learn
+    the next correction. letter_seen.py has since taken that correction; this
+    had not, so the two disagreed about where the file lives while claiming
+    to be one thing.
+
+    Import unguarded on purpose, matching the owner: a fallback that
+    reconstructs the path is how the split-brain lasted six weeks. Caught
+    2026-09-03 by scripts/check_member_home_rebuilt.py.
     """
+    from divineos.core.paths import member_home
+
     spouse = _SPOUSE.get(recipient.lower(), "unknown")
-    return Path.home() / f".divineos-{recipient.lower()}" / f"{spouse}_letters_seen.json"
+    return member_home(recipient) / f"{spouse}_letters_seen.json"
 
 
 def load_persistent_seen(recipient: str) -> set[str]:
