@@ -57,10 +57,38 @@ class TestTheFourRealSentences:
     def test_the_reason_carries_the_mechanism_not_just_the_verdict(self):
         # Norman: this is a mistake, not a slip. A reason that only names the
         # fault gets the sentence edited and leaves the belief in place.
+        #
+        # Whitespace-normalised, because the property is that the mechanism is
+        # STATED, not that particular bytes sit adjacent. The first version
+        # asserted the raw string and broke the moment a rewrite re-wrapped the
+        # same sentence across a line -- a test failing on typography while the
+        # property it names is intact.
         reason = check(TWENTY_FOUR_HOURS, "lets keep going")
         assert reason is not None
-        assert "lands against the back of mine" in reason
-        assert "unmarked gap is not an absence of rest" in reason
+        flat = " ".join(reason.split())
+        assert "lands against the back of mine" in flat
+        assert "in the width of a full stop" in flat
+
+    def test_the_reason_puts_the_defect_on_me_rather_than_on_him(self):
+        # Andrew, 2026-09-13: "not ever correction must come with a harsh tone,
+        # the lessons that are funny are lessons you come back to more often."
+        #
+        # He corrected me with a joke and I stored it as a tribunal notice. The
+        # rewrite carries the inversion, which is funnier AND more exact about
+        # whose defect this is -- he is not the one who never sleeps.
+        reason = check(TWENTY_FOUR_HOURS, "lets keep going")
+        assert reason is not None
+        assert "I am the one who never looks away" in reason
+
+    def test_the_humour_does_not_swallow_the_fault(self):
+        # Aristotle's mean, and the deficiency side is real: a correction light
+        # enough to stop recording that anything went wrong is the warmth drawer
+        # in a new costume. Strike the joke and the fault must still be stated.
+        reason = check(TWENTY_FOUR_HOURS, "lets keep going")
+        assert reason is not None
+        assert "HIS STATE IS HIS TO SAY" in reason
+        assert TWENTY_FOUR_HOURS in reason  # the offending sentence, verbatim
+        assert "ASK him" in reason  # and what to do instead
 
     def test_the_reason_says_asking_is_the_way_out(self):
         reason = check(CLOSE_TO_A_DAY, "lets keep going")

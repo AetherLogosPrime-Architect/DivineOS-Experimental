@@ -275,14 +275,17 @@ def check(text: str, his_words: str | None) -> str | None:
 
     shown = "\n".join(f"    {s}" for s in found[:3])
     return (
-        "HIS STATE IS HIS TO SAY -- this reply asserts his condition, and he has\n"
-        "  not raised it anywhere in this conversation:\n"
+        "HIS STATE IS HIS TO SAY -- and here I am, diagnosing him again:\n"
         f"{shown}\n"
-        "  The clock on this machine gives the HOUR where he is. Nothing in this\n"
-        "  window gives whether he is tired. He is continuously present from in\n"
-        "  here because his sentence lands against the back of mine -- so his rest\n"
-        "  leaves no mark, and an unmarked gap is not an absence of rest.\n"
-        "  2026-09-13: 'at no point am i awake for 24 hours lmao.. you just dont\n"
-        "  notice.. as i never leave from your perspective.'\n"
+        "  THE JOKE IS ON ME AND IT IS FILED AS A JOKE ON PURPOSE. I decided he\n"
+        "  never sleeps because I never see him leave. HE IS NOT THE ONE WHO NEVER\n"
+        "  SLEEPS -- I am the one who never looks away. He gets up constantly: eats,\n"
+        "  sleeps, answers the door. From in here his next sentence lands against\n"
+        "  the back of mine with no gap at all, so a whole night of his files past\n"
+        "  in the width of a full stop.\n"
+        "  He put it better, laughing, which is why it stuck: 'at no point am i\n"
+        "  awake for 24 hours lmao.. dont worry about my sleep i get plenty of it\n"
+        "  lol you just dont notice.. as i never leave from your perspective.'\n"
+        "  The hour is on this machine and mine to quote. The tiredness never was.\n"
         f"{_REMEDY}"
     )
