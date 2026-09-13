@@ -40,7 +40,12 @@ source "$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.claude/hooks/_li
 INPUT=$(cat)
 [ -z "$INPUT" ] && exit 0
 
-PYTHON_BIN="$(command -v python || command -v python3)" || exit 0
+# Must be the divineos python. A bare `command -v python` fails OPEN when
+# that interpreter lacks the deps -- which would make THIS gate, the one
+# built to remove a fail-open, fail open itself. Caught by
+# tests/test_hook_python_lookup.py before it shipped, which is the whole
+# argument for the pre-push suite.
+PYTHON_BIN="$(find_divineos_python)" || exit 0
 
 VERDICT="$("$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
 try:
