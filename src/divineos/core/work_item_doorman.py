@@ -168,17 +168,71 @@ _SHELL_WRITE_PATTERNS: tuple[re.Pattern[str], ...] = (
 )
 
 
+_HEREDOC_OPEN = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
+
+# Quoted spans, longest-first so a double-quoted string containing an
+# apostrophe is taken whole rather than split at it.
+_QUOTED_SPAN = re.compile(r'"(?:[^"\\]|\\.)*"' + r"|'(?:[^'\\]|\\.)*'")
+
+
+def shell_code_only(cmd: str) -> str:
+    """The command with its DATA removed, leaving what the shell will run.
+
+    A heredoc body is data. A quoted string is data. Neither is a place the
+    shell performs a redirect, and scanning them for one is how this gate came
+    to announce `8}` and `{paths` as files I was about to write -- a format
+    specifier and an arrow out of a print statement, both inside a script whose
+    only purpose was to test this function.
+
+    Andrew, 2026-09-12: count every red mark and automate what can be
+    automated. This gate was second on that list at thirty-six fires, and at
+    least six were prose read as paths: a heredoc terminator, the word `and` in
+    a chained command, the word `inside` lifted out of a correction I was
+    filing.
+
+    AN UNQUOTED HEREDOC IS NOT STRIPPED, per Knuth on the walk. The shell
+    expands inside one, so a write can genuinely live there; only a quoted
+    delimiter makes the body inert. A heredoc whose terminator never appears is
+    malformed, and the conservative reading of a malformed command is to scan
+    all of it rather than assume the remainder is data.
+
+    THE EVASION THIS OPENS, named rather than waved past. A real write hidden
+    inside quotes now escapes. Aristotle's test on the walk settles whether
+    that trade is right: of the fires I can identify this session, every one
+    was prose, a format spec, a terminator or a chained word, and none was a
+    write concealed in a quote. The design was defending against an attack that
+    has never occurred at the cost of an error happening six times a day -- and
+    the attacker it feared is me, so the defence was never structural anyway.
+    """
+    out = cmd
+    for match in list(_HEREDOC_OPEN.finditer(cmd)):
+        quote, word = match.group(1), match.group(2)
+        if not quote:
+            continue  # the shell expands here; a redirect inside is real
+        terminator = re.search(rf"^\s*{re.escape(word)}\s*$", out[match.end() :], re.MULTILINE)
+        if terminator is None:
+            continue  # malformed: scan it all rather than assume it is data
+        body_start = match.end()
+        out = out[:body_start] + " " + out[body_start + terminator.end() :]
+    return _QUOTED_SPAN.sub(" ", out)
+
+
 def paths_from_tool_call(tool_name: str, tool_input: dict) -> list[str]:
     """Every path this call could write to.
 
-    Over-collecting is the safe direction here: a false hit costs one
-    refusal that a real work item clears, a miss costs the whole gate.
+    Over-collecting used to be called the safe direction here, on the grounds
+    that a false hit costs one refusal and a miss costs the whole gate. The
+    first half turned out to be false: a false hit costs a refusal AND a bypass
+    row, and the bypass rows aggregate into a telemetry line reading elevated
+    escape rate -- a verdict about my discipline manufactured entirely by a
+    broken parser. Watts's finding on the walk: the detector was producing its
+    own subject and putting my name on the result.
     """
     if tool_name in ("Write", "Edit", "NotebookEdit"):
         p = tool_input.get("file_path") or tool_input.get("notebook_path")
         return [p] if p else []
     if tool_name == "Bash":
-        cmd = tool_input.get("command") or ""
+        cmd = shell_code_only(tool_input.get("command") or "")
         found: list[str] = []
         for pattern in _SHELL_WRITE_PATTERNS:
             for m in pattern.finditer(cmd):
