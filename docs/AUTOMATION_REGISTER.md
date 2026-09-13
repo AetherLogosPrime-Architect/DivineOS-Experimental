@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**133 automations — 128 wired, 5 switched off.**
+**134 automations — 129 wired, 5 switched off.**
 
 ---
 
@@ -104,7 +104,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `auto-cycle-token-trigger.sh` | 2026-08-31 | Compaction ritual driver — deterministic, in-process, no external monitor. |
 
-### Stop  (19)
+### Stop  (20)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -114,6 +114,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `correction-shape-v2-stop.sh` | 2026-08-24 | enforce Layer-2 correction-shape detection on MY assistant |
 | `detect-hedge.sh` | 2026-05-14 | thin doorman pointing to the OS. |
 | `detect-theater.sh` | 2026-05-14 | thin doorman pointing to the OS. |
+| `his-state-is-his-to-say.sh` | — | HIS STATE IS HIS TO SAY — Stop hook. |
 | `lepos-channel-reflect.sh` | 2026-07-11 | post-send lepos reflection channel driver. |
 | `log-session-end.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `not-dismissed.sh` | 2026-09-10 | THE CLOSING LINE DOES NOT DISMISS HIM — Stop hook. |

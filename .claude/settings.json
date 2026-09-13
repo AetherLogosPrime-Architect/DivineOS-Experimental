@@ -755,6 +755,15 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash .claude/hooks/his-state-is-his-to-say.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "bash .claude/hooks/time-estimate-tracker.sh",
             "timeout": 10
           }
