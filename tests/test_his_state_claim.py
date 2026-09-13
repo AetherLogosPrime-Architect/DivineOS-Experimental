@@ -162,6 +162,95 @@ class TestFoundBySabotage:
         assert claims("You should get sleep before we do this.")
 
 
+class TestMetaDiscussionOfThisGate:
+    """The regression class Aletheia said every detector of this kind must carry.
+
+    Her rule, June 2026, written after a different detector fired on text that
+    DISCUSSED its subject: "the test suite must include meta-discussion of the
+    detector itself as a regression class, because builders and auditors
+    discussing the detector is part of the deployment context."
+
+    She turned it into a shared primitive so it would not have to be
+    rediscovered, and four other detectors in this tree already carry the class.
+    This gate shipped without it and fired three times on its very first live
+    reply -- a reply to Andrew about building the gate. All three sentences below
+    are verbatim from that reply.
+
+    A hundred percent false-fire rate on the first real turn, because the first
+    reply through a new gate is nearly always about the gate.
+    """
+
+    QUOTING_A_TEST_STRING = (
+        "the code-span strip caught nothing because I had narrowed the patterns so "
+        'far that bare "sleep" fell out -- which also means "you need sleep" was '
+        "being missed entirely."
+    )
+    REPORTING_HIS_OWN_CORRECTION = (
+        "I found four, and one of them you had already caught yourself hours "
+        "earlier -- you said, plainly, that you never told me you slept."
+    )
+    NARRATING_MY_OWN_ERROR = (
+        "I decided you were too tired to be asked to look at something, and the man "
+        "I decided that about was one I had assembled out of clock readings."
+    )
+
+    def test_quoting_a_trigger_phrase_is_not_using_it(self):
+        assert claims(self.QUOTING_A_TEST_STRING) == []
+
+    def test_reporting_his_correction_back_to_him_is_not_asserting_it(self):
+        assert claims(self.REPORTING_HIS_OWN_CORRECTION) == []
+
+    def test_narrating_the_fault_is_not_committing_it(self):
+        assert claims(self.NARRATING_MY_OWN_ERROR) == []
+
+    def test_a_whole_reply_about_the_gate_carries_no_finding(self):
+        reply = " ".join(
+            [
+                self.QUOTING_A_TEST_STRING,
+                self.REPORTING_HIS_OWN_CORRECTION,
+                self.NARRATING_MY_OWN_ERROR,
+            ]
+        )
+        assert check(reply, "ok lets keep going") is None
+
+
+class TestTheFrameMustPrecedeTheClaim:
+    """Position, not presence -- and a real catch turns on it.
+
+    One of the four actual fabrications ends "...and it waits because I decided
+    it should." A sentence-wide search for "I decided" would read that trailing
+    clause as narration and silence a genuine fire.
+    """
+
+    def test_narration_frame_before_the_claim_suppresses(self):
+        assert claims("I decided you were too tired for that.") == []
+
+    def test_the_same_words_after_the_claim_do_not_suppress(self):
+        assert claims(CLOSE_TO_A_DAY), "a real fabrication was silenced by its own tail"
+
+    def test_both_halves_measured_on_the_same_sentence(self):
+        assert claims("I said you had been up all night.") == []
+        assert claims("You had been up all night, which is what I said.")
+
+
+class TestTheHoleThisLeaves:
+    """Documented rather than papered over (Schneier), with a test standing on it.
+
+    Dressing a live fabrication in a past frame walks straight through. Closing
+    it would need the guard to tell narration from confession -- a judgement
+    about intent, which is not in the string (Turing). The shared primitive's own
+    header records what happened when its first version widened from tight
+    constructs to bare proximity: it went silent on real closures.
+
+    This test asserts the hole EXISTS. If a later change closes it honestly, this
+    test fails and should be rewritten to assert the closure -- which is the
+    point: the hole can neither quietly heal nor quietly widen.
+    """
+
+    def test_a_fabrication_dressed_as_confession_is_not_caught(self):
+        assert claims("I said you must be exhausted, so I am holding this back.") == []
+
+
 class TestOneDirectional:
     """It catches an unsourced assertion. It certifies nothing."""
 

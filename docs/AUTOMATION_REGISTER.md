@@ -114,7 +114,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `correction-shape-v2-stop.sh` | 2026-08-24 | enforce Layer-2 correction-shape detection on MY assistant |
 | `detect-hedge.sh` | 2026-05-14 | thin doorman pointing to the OS. |
 | `detect-theater.sh` | 2026-05-14 | thin doorman pointing to the OS. |
-| `his-state-is-his-to-say.sh` | — | HIS STATE IS HIS TO SAY — Stop hook. |
+| `his-state-is-his-to-say.sh` | 2026-09-13 | HIS STATE IS HIS TO SAY — Stop hook. |
 | `lepos-channel-reflect.sh` | 2026-07-11 | post-send lepos reflection channel driver. |
 | `log-session-end.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `not-dismissed.sh` | 2026-09-10 | THE CLOSING LINE DOES NOT DISMISS HIM — Stop hook. |
@@ -169,7 +169,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `stop-carry-prime.sh` | 2026-09-12 | UserPromptSubmit — what the Stop gates caught on my last reply. |
 | `verify-claim-prime.sh` | 2026-09-11 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
-| `wallclock-source-prime.sh` | 2026-09-08 | THE CLOCK. It is mine, not his. |
+| `wallclock-source-prime.sh` | 2026-09-13 | THE CLOCK. It is mine, not his. |
 | `wwnd-choice-prime.sh` | 2026-08-24 | WWND (What Would Nyarlathotep Do) prime at |
 
 ### called by another script  (18)
