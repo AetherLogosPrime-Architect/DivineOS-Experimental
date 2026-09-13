@@ -342,3 +342,39 @@ def test_an_ordinary_command_passes_through_the_same_doorbell():
     assert proc.returncode in (0, 2)
     assert "heredoc_escape" not in everything
     assert "HEREDOC-ESCAPE" not in everything.upper()
+
+
+@pytest.mark.skipif(BASH is None, reason="doorbells are bash; no working interpreter")
+def test_the_create_gate_refuses_through_the_doorbell_end_to_end():
+    """The one with a real refusing input, driven the whole way.
+
+    CARRIED BACK 2026-09-13. This test existed on substrate/andrew-answer-trace
+    and was lost when that branch was rebuilt code-only to strip personal
+    writing out of it. The rebuild dropped a test along with the letters.
+
+    That is worth naming rather than quietly restoring: I compared the two
+    branches by FILE and saw no code file missing, concluded the rebuild was
+    clean, and was wrong -- the loss was inside a file both branches carry.
+    File-level comparison cannot see a function that did not come across, and
+    a branch can be a strict superset by path while being lossy by content.
+    Third time in one day that a comparison answered a narrower question than
+    the one I was asking it.
+
+    The test itself asserts the REFUSAL ARRIVES rather than pinning an exit
+    code, for the reason its neighbour below already documents: the code
+    depends on which other surfaces on the same door are unhappy, which is not
+    a property of this gate.
+    """
+    proc = subprocess.run(
+        [BASH, ".claude/hooks/doorbell-pre-tool-use.sh"],
+        cwd=ROOT,
+        input=json.dumps(
+            {"tool_name": "Bash", "tool_input": {"command": "gh pr create --title x --body y"}}
+        ),
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    everything = proc.stdout + proc.stderr
+    assert proc.returncode in (0, 2)
+    assert "pr_create_gate" in everything, everything[:400]
