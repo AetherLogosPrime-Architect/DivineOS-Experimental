@@ -174,6 +174,18 @@ _HEREDOC_OPEN = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 # apostrophe is taken whole rather than split at it.
 _QUOTED_SPAN = re.compile(r'"(?:[^"\\]|\\.)*"' + r"|'(?:[^'\\]|\\.)*'")
 
+# A quoted argument leaves a MARK rather than a hole, and the mark carries a
+# dollar sign so the existing unresolvable-token filter discards it.
+#
+# Substituting a space was my first version and it shipped, and the doorman
+# caught the regression on the very next command I ran -- a copy whose arguments
+# were both quoted collapsed to `cp && echo`, so the copy pattern read the next
+# word along as a destination and announced `echo` as a file I was about to
+# write. Removing an argument changes a command's arity, and these patterns
+# count arguments. One hour between the fix and its own regression, found by the
+# thing I had just repaired.
+_QUOTED_PLACEHOLDER = "$QUOTED"
+
 
 def shell_code_only(cmd: str) -> str:
     """The command with its DATA removed, leaving what the shell will run.
@@ -214,7 +226,7 @@ def shell_code_only(cmd: str) -> str:
             continue  # malformed: scan it all rather than assume it is data
         body_start = match.end()
         out = out[:body_start] + " " + out[body_start + terminator.end() :]
-    return _QUOTED_SPAN.sub(" ", out)
+    return _QUOTED_SPAN.sub(_QUOTED_PLACEHOLDER, out)
 
 
 def paths_from_tool_call(tool_name: str, tool_input: dict) -> list[str]:

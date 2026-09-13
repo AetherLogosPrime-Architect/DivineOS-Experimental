@@ -135,6 +135,37 @@ def test_a_copy_onto_a_real_path_is_still_a_write():
     assert _bash("cp a.md src/divineos/core/thing.py") == ["src/divineos/core/thing.py"]
 
 
+def test_a_fully_quoted_copy_does_not_swallow_the_next_command():
+    """The regression my own fix produced, one hour after shipping it.
+
+    Stripping quoted spans to nothing changes a command's ARITY, and these
+    patterns count arguments. A copy whose source and destination were both
+    quoted collapsed to `cp && echo`, so the pattern read `echo` as a
+    destination and announced it as a file I was about to write. Caught by the
+    doorman on the very next command I ran -- by the thing I had just repaired.
+
+    A quoted argument now leaves a mark rather than a hole, and the mark is an
+    unresolvable token the existing filter discards.
+    """
+    cmd = (
+        "cp "
+        + DQ
+        + "family/letters/a.md"
+        + DQ
+        + " "
+        + DQ
+        + "/somewhere/else/"
+        + DQ
+        + " && echo delivered"
+    )
+    assert _bash(cmd) == []
+
+
+def test_a_quoted_source_still_finds_an_unquoted_destination():
+    cmd = "cp " + DQ + "some file.md" + DQ + " src/divineos/core/thing.py"
+    assert _bash(cmd) == ["src/divineos/core/thing.py"]
+
+
 # --- the stripper itself ----------------------------------------------------
 
 
