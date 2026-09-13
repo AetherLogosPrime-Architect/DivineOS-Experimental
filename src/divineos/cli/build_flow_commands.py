@@ -226,6 +226,45 @@ def _changed_paths(pr: int) -> tuple[str, ...] | None:
 _JUDGE_FILES = ("src/divineos/core/build_flow.py", "src/divineos/core/council_walk.py")
 
 
+def _judge_direction() -> str:
+    """Which way the difference runs, because only one way is dangerous.
+
+    The first version of the stamp said "differs from the shared one", which
+    is symmetric and therefore reads as harmless. It is not symmetric. A board
+    BEHIND the shared one is an older judge, and an older judge returns
+    PERMISSIVE verdicts -- it is the version that reported six pieces of work
+    ready when the true answer was zero. A board ahead is carrying repairs
+    that simply have not landed yet, which is a different situation entirely
+    and not a reason to distrust the reading.
+
+    Filed as correction #658. The stamp I shipped an hour earlier warned about
+    staleness while being itself absent from every stale branch, because I put
+    the guard inside the artifact it guards. This closes the half that can be
+    closed in code; the other half is the branch reaching main, which is the
+    only thing that puts the guard where the stale boards are.
+    """
+    import subprocess
+
+    try:
+        behind = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", "HEAD", "origin/main"],
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=False,
+        ).returncode
+    except (OSError, subprocess.SubprocessError):
+        return "Which way it differs COULD NOT BE READ, so treat this verdict as unverified."
+    if behind == 0:
+        return (
+            "It is BEHIND the shared one -- an older judge, which returns "
+            "PERMISSIVE verdicts. Treat any READY here as unproven."
+        )
+    if behind == 1:
+        return "It is AHEAD of the shared one, carrying repairs that have not landed yet."
+    return "Which way it differs COULD NOT BE READ, so treat this verdict as unverified."
+
+
 def _judge_version_line() -> str:
     """Say WHICH VERSION OF ITSELF produced this verdict.
 
@@ -275,7 +314,7 @@ def _judge_version_line() -> str:
     if drift.returncode == 1:
         return (
             f"  [judge] this verdict comes from the board as it stands on THIS branch ({here}), "
-            "which differs from the shared one. Another branch would answer differently."
+            f"which differs from the shared one. {_judge_direction()}"
         )
     return (
         f"  [judge] board version {here}; COULD NOT TELL whether it differs from the shared one, "
