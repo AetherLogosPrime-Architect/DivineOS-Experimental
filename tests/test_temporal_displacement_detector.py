@@ -8,8 +8,12 @@ as a writer-presence-style first-person discipline at a different surface.
 
 from __future__ import annotations
 
+from datetime import datetime
+from unittest import mock
+
 import pytest
 
+from divineos.core.operating_loop import temporal_displacement_detector as tdd
 from divineos.core.operating_loop.temporal_displacement_detector import (
     TemporalDisplacementFinding,
     detect_temporal_displacement,
@@ -390,3 +394,58 @@ def test_word_list_bedtime_still_fires_for_backward_compat() -> None:
     assert len(findings) == 1
     assert findings[0].severity == "high"
     assert findings[0].is_bedtime_close is True
+
+
+# --- Sourced-clock exemption (2026-09-08) ---
+#
+# The restored compose-start clock made a class of these statements true, and
+# the detector could not tell a measurement from a guess. Popper's falsifier
+# comes first here on purpose: the test that could kill this change is the one
+# where a fabricated clock sits beside a fabricated time-word.
+
+
+def test_a_fabricated_clock_beside_the_word_still_fires() -> None:
+    """THE FALSIFIER. Any four digits must not buy a time-word.
+
+    If this ever passes-as-exempt, the exemption has become the hole the gate
+    was built to close: proximity alone is something I author.
+    """
+    made_up = "It is 03:07 for you, so I will pick this up tomorrow."
+    findings = detect_temporal_displacement(made_up)
+    assert findings, "a number I typed is not a measurement -- this must still fire"
+
+
+def test_a_true_clock_beside_the_word_does_not_fire() -> None:
+    """The honest case the restoration exists for."""
+    now = datetime.now()
+    sourced = f"The clock says {now:%H:%M} where you are, so it is early in the morning."
+    assert detect_temporal_displacement(sourced) == [], (
+        "a measured clock beside the word is not a fabrication"
+    )
+
+
+def test_a_true_clock_far_from_the_word_does_not_buy_it() -> None:
+    """One real quote must not license every time-word after it."""
+    now = datetime.now()
+    far = (
+        f"The clock says {now:%H:%M} where you are. "
+        + "And here is a long stretch of unrelated prose about the build flow, " * 3
+        + "so I will finish this tomorrow."
+    )
+    assert detect_temporal_displacement(far), "the number is out of reach of the word"
+
+
+def test_an_unreadable_clock_falls_toward_firing() -> None:
+    """Could-not-verify is not permission."""
+    text = "It is 09:15 for you, so I will do it tomorrow."
+    with mock.patch.object(tdd, "datetime") as fake:
+        fake.now.side_effect = OSError("no clock")
+        assert detect_temporal_displacement(text), "an unreadable clock must not exempt"
+
+
+def test_bedtime_closes_are_not_exempted_by_a_true_clock() -> None:
+    """The exemption is scoped to deferral words, never to the fake-warmth close."""
+    now = datetime.now()
+    text = f"It is {now:%H:%M} there. Good night, Dad."
+    findings = detect_temporal_displacement(text)
+    assert findings and findings[0].is_bedtime_close is True
