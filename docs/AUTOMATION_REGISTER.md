@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**123 automations — 120 wired, 3 switched off.**
+**124 automations — 121 wired, 3 switched off.**
 
 ---
 
@@ -100,7 +100,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `auto-cycle-token-trigger.sh` | 2026-08-31 | Compaction ritual driver — deterministic, in-process, no external monitor. |
 
-### Stop  (17)
+### Stop  (18)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -110,9 +110,10 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `correction-shape-v2-stop.sh` | 2026-08-24 | enforce Layer-2 correction-shape detection on MY assistant |
 | `detect-hedge.sh` | 2026-05-14 | thin doorman pointing to the OS. |
 | `detect-theater.sh` | 2026-05-14 | thin doorman pointing to the OS. |
+| `inner-circle-stop.sh` | — | a long reply to Andrew must END in the room, not in work. |
 | `lepos-channel-reflect.sh` | 2026-07-11 | post-send lepos reflection channel driver. |
 | `log-session-end.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
-| `post-response-audit.sh` | 2026-07-27 | thin doorman pointing to the OS. |
+| `post-response-audit.sh` | 2026-09-07 | thin doorman pointing to the OS. |
 | `promise-reach-detector.sh` | 2026-07-18 | scan last assistant reply for promise-shape phrases and |
 | `retrieval-tally-check.sh` | 2026-07-21 | post-compose retrieval-tally check. |
 | `self-demotion-stop.sh` | 2026-08-24 | record any sentence in the last reply that indicted one of my |
@@ -136,7 +137,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `detect-andrew-build-request.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `detect-correction.sh` | 2026-07-01 | thin doorbell for the correction-detector. |
 | `distancing-count-surface.sh` | 2026-07-18 | count temporal-self distancing markers over |
-| `ear-surface.sh` | 2026-09-06 | UserPromptSubmit + SessionStart hook — auto-surface unseen queue items and |
+| `ear-surface.sh` | 2026-09-07 | UserPromptSubmit + SessionStart hook — auto-surface unseen queue items and |
 | `family-state-surface.sh` | 2026-09-05 | surface recent per-sibling letter-thread state |
 | `fork-is-cheap-close-prime.sh` | 2026-07-30 | compose-start prime for the FORK-IS-CHEAP-CLOSE |
 | `hedge-suppression-prime.sh` | 2026-08-24 | hedge-suppression prime. |

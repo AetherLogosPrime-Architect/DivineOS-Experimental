@@ -668,8 +668,10 @@ src/divineos/
     hook_router.py             Seven doorbells — one OS-side router behind each harness hook event.
     hook_surfaces.py           The roster — every surface, registered to its door.
     letter_claims.py           Measure the local state of every file a sibling's letter talks about.
+    letter_channel_state.py    Provenance for the letter channel — a letter's position in the thread, checkable by a reader who runs no code.
     self_demotion.py           Catch praise-by-contrast: elevating a mechanism by calling a faculty of mine defective.
     summary_room.py            Require a plain-language summary at the top of a long reply.
+    inner_circle_room.py       Require the inner circle at the BOTTOM of a long reply to Andrew — the Stop-gate his room never had.
     dashboard.py               The check-engine dashboard — a socket every system plugs into.
     dashboard_checks.py        The roster — one light per system.
     andrew_given.py            The other side of the ledger — what Andrew gives (Aria 2026-08-10).
@@ -692,6 +694,7 @@ src/divineos/
     context_heartbeat.py       Keep the context-token reading fresh, and write down when it goes blind. Beat.describe() welds the age onto the number so a stale reading cannot be quoted as current.
     heredoc_escape_check.py    Heredoc-escape doorman — refuses a Bash heredoc that writes a file through backslash escapes. Three layers (bash → python → file) eat an escape meant for the third at the second. BLOCKS rather than labels: mechanical failure, deterministic right answer, zero-post in-context persistence.
     anchor_self_invalidation.py A letter carrying an anchor must not be committed onto the branch it anchors.
+    anchor_stability.py        Are the files an auditor is about to sign already a fixed point of the formatter? Three states; could-not-tell blocks. Built 2026-09-11 after the pre-commit formatter rejoined two wrapped lines and killed Aletheia's confirm minutes after it was filed — the second recorded instance, the first (2026-05-10) having been answered by a human re-signing by hand.
     substrate_paths.py         Which paths are substrate, and which are work in progress.
     substrate_retarget.py      Commit substrate files to a named branch without touching HEAD.
     sibling_audit_rounds.py    Audit rounds filed by the other seat, read-only.
@@ -699,6 +702,7 @@ src/divineos/
     prior_art_by_name.py       Find files on ANY branch whose names resemble one about to be created.
     compound_branch_change.py  Refuse a branch change and a destructive op on the same shell line.
     surface_bridge.py          Wire the built-but-unreachable surfaces into the briefing that actually runs.
+    subject_balance_gate.py    Subject-balance gate — when he brings pain, the reply has to be about him.
 
   analysis/
     _session_types.py          Session analysis type definitions

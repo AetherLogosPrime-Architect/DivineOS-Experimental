@@ -21,8 +21,16 @@ a verifiable council_record event in the substrate ledger that:
 - each finding is >= 30 tokens AND references the lens's
   characteristic_questions keywords
 - carries a synthesis >= 50 tokens referencing >= 2 surfaced lenses
-- for kiln-layer edits: ALSO carries a ``confirmed_by`` field naming an
-  external actor (Andrew or Aletheia)
+
+Every one of those is evidence that I did the thinking. None of them is
+anyone else's signature, and that is deliberate as of 2026-09-06: a
+kiln-layer edit used to additionally require Andrew or Aletheia to sign
+before it could happen. Removed. The merge gate already requires
+multi-party review for every guardrail-listed file, so the demand was a
+duplicate standing on the wrong side of the work -- and a confirm asked
+for BEFORE the edit is unreviewable by construction, because there is no
+diff yet to look at. Andrew, on the tenth telling: "our confirms only
+come when merging to fucking main."
 
 If the record exists and passes substance-binding, the gate clears.
 If not, the gate fails with a specific check-that-fired + pointer-to-clear.
