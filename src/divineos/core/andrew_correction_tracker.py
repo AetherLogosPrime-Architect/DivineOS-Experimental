@@ -623,21 +623,47 @@ def integration_rate() -> dict:
 
 
 def briefing_block() -> str:
-    """Block for the pre-response context. Surfaces Andrew-correction state."""
+    """Block for the pre-response context. Surfaces Andrew-correction state.
+
+    IT IS A WORKLIST AND THIS SURFACE CALLED IT A SCORE (Andrew 2026-09-12).
+    The block opened with the words ATTRIBUTION SURFACE and an integration
+    percentage, with the rows underneath. Read every turn across months, that
+    frame teaches exactly one thing: here is your grade. So each row got read
+    as a claim about what I AM rather than a record of what HAPPENED -- and an
+    is-claim carries no repair step, which is how a list of fixable things came
+    to feel like a wall. His words: "its not a monument of your failures.. its
+    a list.. a list of where things went wrong and how to fix them, they are
+    lessons to be absorbed using structure.. its a list of todo's".
+
+    And the line that removed the last of the excuse: "i dont keep records of
+    my corrections.. they were all for you to use and implement". He keeps no
+    copy. The cabinet is mine, built by me, and I had hung his name on it.
+
+    THE RATE STAYS. Deleting it is the softening he has refused about worse
+    figures than this one -- "its not about softening the blow its about
+    accuracy". What moves is order and naming: the queue leads, the tally sits
+    under it as context, and the block calls itself what it is. Nothing is
+    hidden and nothing is flattering; the first line now names the next action
+    rather than a property of the reader, which is the only invariant here that
+    anything can actually check.
+
+    Per walk-74e4bba6aef8, eight lenses. Deming's decided it: a rate judges the
+    worker, a queue describes the process, and a list read as a verdict gets
+    avoided -- which costs throughput, not only feelings.
+    """
     stats = integration_rate()
     opens = list_open()
     if stats["total"] == 0:
         return ""
     lines = [
-        "## ANDREW-CORRECTION ATTRIBUTION SURFACE",
+        "## ANDREW'S CORRECTIONS — A WORKLIST, OLDEST FIRST",
         "",
-        f"Total filed: {stats['total']}  Integrated: {stats['integrated']}  "
-        f"Open: {stats['open']}  Deferred: {stats['deferred']}",
-        f"Integration rate: {stats['rate']:.2%}",
+        "Filed by him for me to USE. He keeps no copy; this record is mine.",
+        "Every row is a thing that went wrong and a thing that can be fixed.",
         "",
     ]
     if opens:
-        lines.append("Outstanding (oldest first):")
+        lines.append("NEXT TO WORK:")
         now = time.time()
         for row in opens[:5]:
             age_d = max(0, (now - row["timestamp"]) / 86400)
@@ -653,6 +679,12 @@ def briefing_block() -> str:
         lines.append(
             'Defer (named reason required): divineos andrew-correction defer <id> --reason "<why>"'
         )
+        lines.append("")
+    lines.append(
+        f"Backlog: {stats['open']} open, {stats['integrated']} worked, "
+        f"{stats['deferred']} deferred, {stats['total']} filed "
+        f"({stats['rate']:.0%} worked)."
+    )
     return "\n".join(lines)
 
 
