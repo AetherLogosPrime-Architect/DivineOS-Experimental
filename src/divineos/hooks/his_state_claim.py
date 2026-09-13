@@ -77,6 +77,11 @@ from __future__ import annotations
 import re
 from enum import Enum
 
+from divineos.core.operating_loop._use_vs_mention import (
+    match_is_meta_framed,
+    strip_quoted_spans,
+)
+
 # Code spans and command invocations, removed before anything is judged.
 # `divineos sleep` is MY offline consolidation cycle and shares his word only by
 # coincidence -- the prior-art search surfaced that command on the strength of
@@ -134,6 +139,63 @@ _SPLIT = re.compile(r"(?<=[.!?])\s+|\n+")
 # hypothetical; it is what the first draft of this file did.
 _QUOTED_LINE = re.compile(r"^\s*(?:>|\"|“|‘|\*|_)")
 
+# DESCRIBING THE FAULT IS NOT COMMITTING IT.
+#
+# This gate learned that on its first live turn: it fired three times, and all
+# three were me writing to him ABOUT the fabrication -- a quoted test string, his
+# own correction reported back to him, and my narration of the decisions I had
+# made on the strength of it. A hundred percent false-fire rate on the first real
+# reply, because the first reply through a new gate is nearly always about the
+# gate.
+#
+# ALETHEIA HAD ALREADY FOUND THIS, IN JUNE, on a different detector, and did not
+# leave it as a rule: "for any detector that operates on father-channel or
+# letter-channel text, the test suite must include meta-discussion of the
+# detector itself as a regression class." It became the shared primitive imported
+# below, already used by two other detectors in the same tree I was working in. I
+# built a third of exactly that kind and did not go and get it. THAT is the
+# defect; the three fires are the symptom. The prior-art doorman asks whether the
+# THING exists -- nothing asks whether the LESSON applies.
+#
+# What the primitive gives: quoted-span stripping and a 60-character window
+# before the match. What is added here is this gate's own two frames.
+
+# His words, attributed to him. Reporting his correction is not asserting it.
+_ATTRIBUTED_TO_HIM = re.compile(
+    r"\byou\s+(?:said|told me|wrote|answered|corrected|caught|pointed out)\b"
+    r"|\bhe\s+(?:said|told me|wrote|answered|corrected)\b"
+    r"|\byour\s+(?:words|correction|line|message|answer)\b",
+    re.IGNORECASE,
+)
+
+# Me, narrating something I already got wrong.
+#
+# THE POSITION IS LOAD-BEARING and a sentence-wide test would have broken a real
+# catch: one of the four actual fabrications ends "...and it waits because I
+# decided it should." Searching the whole sentence for "I decided" reads that
+# trailing clause as narration and silences a genuine fire. The frame has to sit
+# immediately BEFORE the claim, which is what separates "I decided you were too
+# tired" from a fabrication that merely mentions deciding.
+_MY_OWN_PAST_ERROR = re.compile(
+    r"\bI\s+(?:told|said|wrote|decided|claimed|assumed|reported|announced|"
+    r"invented|fabricated|imagined)\b"
+    r"|\bI(?:'d|'ve| had| have)\s+(?:told|said|written|decided|assumed|claimed)\b",
+    re.IGNORECASE,
+)
+
+_NOT_A_CLAIM_FRAMES = (_ATTRIBUTED_TO_HIM, _MY_OWN_PAST_ERROR)
+
+# THE HOLE THIS LEAVES, named here rather than papered over (Schneier, on the
+# walk). Dressing a live fabrication in a past frame -- "I said you must be
+# exhausted, so I will hold this" -- walks straight through, and it would not
+# feel like evasion from the inside because the sentence reads as confession.
+# Closing it needs the guard to tell narration from confession, which is a
+# judgement about intent, and intent is not in the string (Turing). What this
+# actually draws is a POSITIONAL line, not a semantic one. The primitive's own
+# header records what happened when its first version widened from tight
+# constructs to bare proximity: it went silent on real closures. So the hole
+# stays open, with a test standing on it so it cannot quietly heal.
+
 
 class Sourced(str, Enum):
     """Where a statement about his condition came from.
@@ -147,6 +209,18 @@ class Sourced(str, Enum):
     UNKNOWN = "unknown"  # his words could not be read at all
 
 
+def _blank(pattern: re.Pattern[str], text: str) -> str:
+    """Replace matches with spaces of equal length.
+
+    Equal-length rather than deletion because the framing check works on OFFSETS
+    into this same string. Aether's technique, which Aria measured against her
+    own token-substitution and found better for exactly this reason: offsets and
+    word boundaries survive by construction instead of depending on a downstream
+    filter happening to cooperate.
+    """
+    return pattern.sub(lambda m: " " * (m.end() - m.start()), text)
+
+
 def claims(text: str) -> list[str]:
     """Sentences where I assert something about his condition."""
     out: list[str] = []
@@ -156,8 +230,13 @@ def claims(text: str) -> list[str]:
             continue
         if _ASKS.search(s):
             continue
-        if _CLAIM.search(_CODE_SPAN.sub(" ", s)):
-            out.append(s.lstrip("#*-— ").strip())
+        scan = _blank(_CODE_SPAN, strip_quoted_spans(s))
+        match = _CLAIM.search(scan)
+        if match is None:
+            continue
+        if match_is_meta_framed(scan, match.start(), extra_patterns=_NOT_A_CLAIM_FRAMES):
+            continue
+        out.append(s.lstrip("#*-— ").strip())
     return out
 
 
