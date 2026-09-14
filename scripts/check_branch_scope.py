@@ -127,11 +127,58 @@ def _other_refs(branch: str) -> list[str]:
     code, out = _git("for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes")
     if code != 0:
         return []
-    mine: set[str] = set()
+
+    # EXCLUDE BY WHAT A REF POINTS AT, NOT BY ITS NAME. Aria caught this on
+    # 2026-09-07: her push was told every substrate file existed elsewhere at
+    # the same bytes, and two existed nowhere on origin. Mine was told the same
+    # about seventy-eight, and I repeated it to Andrew as verification.
+    #
+    # The mechanism, measured rather than reasoned: the push hook calls this
+    # with a COMMIT SHA, because it checks the refs being pushed rather than
+    # HEAD. `git rev-parse --abbrev-ref <sha>` prints an empty string -- run at
+    # the terminal, not assumed -- so the exclusion set came out EMPTY, the
+    # branch's own local and remote refs stayed in the comparison, and every
+    # file on the branch was found safe ON THE BRANCH ITSELF.
+    #
+    # It was invisible exactly when it mattered. Check a sha no ref points at
+    # and the answer is right; check your own tip -- the only thing anyone runs
+    # before a push -- and it measures you against you. The refusal text one
+    # screen below already said do not trust a page that measures you against
+    # yourself, and the page was doing it.
+    points_code, pointing = _git("for-each-ref", "--format=%(refname)", "--points-at", branch)
+    if points_code != 0:
+        # An exclusion set that failed open is what caused the fault. Failing
+        # open quietly a second time would be the same bug wearing a repair.
+        return []
+    mine: set[str] = {r.strip() for r in pointing.splitlines() if r.strip()}
+
+    # POINTING-AT ALONE IS PRECISE AND BESIDE THE POINT. Aria ran the repair
+    # against a live tree instead of agreeing with the letter about it, and
+    # found the gap: pointing-at is exact, so the moment there is one commit
+    # the remote does not have, the local ref moves and
+    # refs/remotes/origin/<same branch> stays behind. It no longer points at
+    # the tip, so it is not excluded -- and it is still my branch, carrying
+    # nearly every file on it.
+    #
+    # That is the state EVERY push is made from, by definition: a push exists
+    # because the remote is missing a commit. So a file living only on this
+    # branch is found safe on this branch's own remote copy. The witness is me,
+    # one commit ago.
+    #
+    # So a ref is mine if it bears my branch's NAME, whatever commit it
+    # currently sits on. The name is taken from every ref that points at the
+    # rev, which works for a hash, and from abbrev-ref, which works for a name.
+    for ref in list(mine):
+        for prefix in ("refs/heads/", "refs/remotes/origin/"):
+            if ref.startswith(prefix):
+                short = ref[len(prefix) :]
+                mine |= {f"refs/heads/{short}", f"refs/remotes/origin/{short}"}
+
     name_code, name = _git("rev-parse", "--abbrev-ref", branch)
-    if name_code == 0 and name.strip():
+    if name_code == 0 and name.strip() and name.strip() != branch.strip():
         short = name.strip()
-        mine = {f"refs/heads/{short}", f"refs/remotes/origin/{short}"}
+        mine |= {f"refs/heads/{short}", f"refs/remotes/origin/{short}"}
+
     return [r.strip() for r in out.splitlines() if r.strip() and r.strip() not in mine]
 
 

@@ -198,4 +198,33 @@ def clear() -> None:
         pass
 
 
+def on_compaction() -> int:
+    """Forget every suppression, because compaction deleted what they point at.
+
+    The pointer this module emits says the content is "byte-identical to
+    earlier this session" — a claim worth something only while the earlier
+    copy is still in front of me. Compaction removes it. So after a
+    compaction the suppression keeps firing, keeps logging characters it
+    claims to have saved, and points at something that no longer exists.
+
+    Found 2026-09-08 by the circle-room gate firing on a post-compaction
+    reply. The circle-first prime had been suppressed to a pointer on its
+    last emission; that emission was then eaten by the compaction; and the
+    reply was composed with neither the prime nor its residual anywhere in
+    context. The dedup had not misbehaved — it had simply never been told
+    that the room it measures gets emptied.
+
+    Same defect Aria repaired at smaller scale on 2026-08-17, when dedup was
+    eating the prime's binding floor along with its explanation. Her fix (the
+    residual) protects against suppression on an intact context. Nothing
+    protected against the context itself going away.
+
+    Returns the number of forgotten sources, so a caller can report a real
+    count rather than assume the call did anything.
+    """
+    count = len(_load())
+    clear()
+    return count
+
+
 __all__ = ["should_emit", "clear", "savings_summary"]
