@@ -124,6 +124,57 @@ def score_pr_gravity(changed_paths: tuple[str, ...]) -> tuple[int, tuple[str, ..
 _UNGRIPPABLE_PREFIXES = ("family/letters/", "exploration/", "dreams/", "docs/archives/")
 
 
+def check_scope_station(
+    changed_paths: tuple[str, ...] | list[str] | None,
+    branch: str = "",
+) -> StationResult:
+    """Station 3 -- one branch carries one kind of thing.
+
+    THE HOLE, 2026-09-14. I handed Aletheia four branches as ready. One of them
+    is a small gate repair carrying a hundred and sixty-one letters and archive
+    files out of a hundred and eighty-one, put there by an automatic checkpoint
+    four days earlier. It had read READY on this board the whole time, and I
+    quoted that word onward without re-deriving what it covers.
+
+    THE QUESTION WAS ASKED ONLY AT THE DOOR. The push gate asks exactly this and
+    refuses a mixed branch -- but it fires at PUBLISH time, so a branch polluted
+    by a local checkpoint and never pushed again is never asked at all. Four
+    stations answered honestly and none of them was the question, which is the
+    same shape as the supersession hole closed in this module the same morning.
+    A publish-time check cannot protect a branch nobody publishes.
+
+    Deliberately the SAME prefix list the lens requirement uses, for the reason
+    written above it: two lists of what counts as substrate would drift, and
+    that drift is the defect the sweep repair exists to end.
+
+    An unreadable changed-file set is could-not-check, never clean -- an outage
+    must not upgrade a mixed branch to a tidy one.
+
+    A branch that is ALL substrate and no code is not mixed and passes. The
+    fault is the mixture, not the writing: writing belongs on a writing branch
+    and this station says so rather than forbidding prose outright.
+    """
+    if changed_paths is None:
+        return StationResult(
+            "3-scope", Status.CANNOT_CHECK, "changed files unreadable -- scope unknown, not clean"
+        )
+    substrate = [p for p in changed_paths if p.startswith(_UNGRIPPABLE_PREFIXES)]
+    code = [p for p in changed_paths if not p.startswith(_UNGRIPPABLE_PREFIXES)]
+    if not substrate:
+        return StationResult("3-scope", Status.SATISFIED, f"{len(code)} file(s), no writing")
+    if not code:
+        return StationResult(
+            "3-scope", Status.SATISFIED, f"{len(substrate)} file(s), all writing -- not mixed"
+        )
+    return StationResult(
+        "3-scope",
+        Status.MISSING,
+        f"MIXED -- {len(substrate)} writing file(s) riding on {len(code)} code file(s). "
+        "A reviewer given that ratio skims. Rebuild against main with the code only, "
+        "after verifying each writing file is on the writing branch by name",
+    )
+
+
 def required_lens_count(gravity: int, changed_paths: tuple[str, ...] | list[str]) -> int:
     """Lenses required at station 2, scaled to what is actually at stake.
 

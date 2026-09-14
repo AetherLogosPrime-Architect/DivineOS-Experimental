@@ -36,6 +36,7 @@ from divineos.core.build_flow import (
     check_audit_station,
     check_council_station,
     check_draft_station,
+    check_scope_station,
     check_supersession_station,
     declared_author,
     fingerprint,
@@ -571,6 +572,7 @@ def collect(
             st = PrFlowStatus(number=n, branch=branch, gravity=-1, required_lenses=-1)
             st.stations = [
                 StationResult("2-council", Status.CANNOT_CHECK, "changed files unreadable"),
+                check_scope_station(None, branch),
                 check_aria_station(branch, _LETTERS, declared_author(pr.get("body"))),
                 check_draft_station(pr.get("isDraft")),
                 check_audit_station(n, branch, audit, audit_store, *_anchor_for(branch, deep, n)),
@@ -590,6 +592,7 @@ def collect(
             # paths, not branch: council walks are keyed by edit
             # fingerprint. See _lenses_applied for the measurement.
             check_council_station(branch, need, _lenses_applied(paths), _other_seat_lenses(paths)),
+            check_scope_station(paths, branch),
             check_aria_station(branch, _LETTERS, declared_author(pr.get("body"))),
             check_draft_station(pr.get("isDraft")),
             check_audit_station(n, branch, audit, audit_store, *_anchor_for(branch, deep, n)),
@@ -695,7 +698,7 @@ def render(
         lines.append(f"  Needing attention: {', '.join(f'#{n}' for n in attention)}")
     else:
         lines.append("  Nothing is off-track. Drafts with stations ahead of them are drafts.")
-    lines.append("  Checked: 2-council, 4-aria, 7-draft, 8-audit, 9-superseded.")
+    lines.append("  Checked: 2-council, 3-scope, 4-aria, 7-draft, 8-audit, 9-superseded.")
     vague = unresolved_supersession_claims(roster)
     if vague:
         named = ", ".join(f"#{n}" for n in vague)
