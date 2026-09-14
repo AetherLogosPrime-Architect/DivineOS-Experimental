@@ -61,6 +61,57 @@ def _has_structural_artifact(evidence: str) -> bool:
     return any(p.search(evidence) for p in _ARTIFACT_PATTERNS)
 
 
+# THE ARTIFACT PROVES SOMETHING EXISTS. IT DOES NOT PROVE IT IS HIS.
+#
+# Closing one of his rows is TWO claims: I built a thing, and that thing
+# explains what HE reported. The artifact check above earns the first and is
+# silent about the second, and I closed two rows on 2026-09-14 having earned
+# only the first. I had measured that a Stop hook can refuse unsatisfiably,
+# then asserted that this WAS the freeze he reported twice. He came back the
+# same hour: "the freeze after investigating further was an issue on the server
+# side and whatever it was they have fixed it... in a way it was a false alarm
+# as it wasnt on our end." My repair was real and closed a genuine latent hang.
+# It was not his bug. Nothing in my evidence could have told the two apart --
+# an unsatisfiable refusal and a server-side stall look identical from the
+# outside, which is exactly why the leap needed checking and never got it.
+#
+# The rule I already hold -- a measurement licenses a claim about WHAT, never
+# about WHY -- lives in a compose-start prime with no gate behind it, so it
+# primes the reach and catches nothing.
+#
+# This is the shape that inflates a wins column with entries that were never
+# wins for the row they closed, which is worse than an open row: an open row is
+# honest about being unfinished.
+#
+# So the evidence must say WHICH of the two it is. Not a keyword to route
+# around -- the phrases below are the vocabulary for stating a causal link or
+# declining to claim one, and writing either forces the distinction to be made
+# out loud. Declining is a first-class pass: "closed at his direction, cause
+# resolved upstream" is an honest close and reads nothing like a false one.
+_CAUSAL_LINK_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\breproduc(?:es|ed|ing)\b", re.IGNORECASE),
+    re.compile(r"\bcause(?:d|s)?\b", re.IGNORECASE),
+    re.compile(r"\bexplains?\b", re.IGNORECASE),
+    re.compile(r"\bhis (?:report|freeze|case|words|row)\b", re.IGNORECASE),
+    re.compile(r"\bat his direction\b", re.IGNORECASE),
+    re.compile(r"\bnot the cause\b", re.IGNORECASE),
+    re.compile(r"\bcause (?:unknown|unverified|untested|upstream)\b", re.IGNORECASE),
+    re.compile(r"\bhe (?:said|confirmed|closed|cleared)\b", re.IGNORECASE),
+)
+
+
+def _states_causal_link(evidence: str) -> bool:
+    """True iff the evidence says something about the link to HIS report.
+
+    Either direction passes. What is refused is silence on the question --
+    evidence that names an artifact and never says whether that artifact has
+    anything to do with what he described.
+    """
+    if not evidence:
+        return False
+    return any(p.search(evidence) for p in _CAUSAL_LINK_PATTERNS)
+
+
 def _db_path() -> Path:
     p = divineos_home() / "andrew_corrections.db"
     p.parent.mkdir(exist_ok=True)
@@ -466,6 +517,27 @@ def explain_integrate_refusal(correction_id: int, evidence: str) -> str:
             "Prose-only 'I learned and will do better' is refused per "
             "Andrew 2026-06-13 root-cause-fix discipline."
         )
+    if not _states_causal_link(evidence):
+        return (
+            "evidence names an artifact but never says whether that artifact "
+            "has anything to do with HIS report. Closing his row is TWO "
+            "claims -- I built a thing, AND that thing explains what he "
+            "described -- and the artifact check earns only the first. "
+            "2026-09-14: I closed two rows asserting my repair was his "
+            "freeze; it was server-side and he told me so an hour later. The "
+            "repair was real and it was not his bug, and nothing in my "
+            "evidence could tell those apart.\n"
+            "Say which it is. BOTH ANSWERS PASS:\n"
+            "  claiming the link   — 'reproduces his report', 'this caused "
+            "it', 'explains his freeze'\n"
+            "  declining to claim  — 'not the cause', 'cause unknown', "
+            "'cause resolved upstream', 'closed at his direction', 'he "
+            "confirmed'\n"
+            "Declining is a first-class close, not a lesser one. What is "
+            "refused is silence on the question, because that is how a wins "
+            "column fills with entries that were never wins for the row they "
+            "closed."
+        )
     conn = _conn()
     try:
         row = conn.execute(
@@ -500,6 +572,12 @@ def integrate(correction_id: int, evidence: str) -> bool:
     if not evidence or len(evidence.strip()) < 20:
         return False
     if not _has_structural_artifact(evidence):
+        return False
+    # 2026-09-14: and it must say whether the artifact has anything to do with
+    # HIS report. See _states_causal_link -- I closed two rows on a cause I had
+    # never tested, and the artifact check passed both because the artifact was
+    # real. Either answer is accepted; silence on the question is not.
+    if not _states_causal_link(evidence):
         return False
     conn = _conn()
     try:
@@ -640,8 +718,23 @@ def auto_integrate_from_commit(
         return []
     short_hash = commit_hash.strip()[:8]
     subject_line = commit_message.strip().split("\n", 1)[0][:100]
+    # THE LABEL IS THE POINT, and it is why this is not exempted from the
+    # causal-link check added 2026-09-14. A commit-message reference is the
+    # AUTHOR asserting that this commit answers that row. That is a claim
+    # worth recording and it is not a verification -- I am the author, and
+    # closing my own row by writing its number in my own message is the
+    # smallest possible distance between wanting it closed and it being
+    # closed. Exempting the automation would have put the one unchecked
+    # closing path back behind the gate built to stop unchecked closes.
+    #
+    # So it passes by saying what it is. Every auto-close now reads as
+    # author-asserted in the record, which is true, keeps the automation
+    # Andrew asked for, and leaves the stronger claim available to anyone
+    # who actually earns it by hand.
     evidence = (
-        f"commit {short_hash}: {subject_line} — auto-integrated from commit message reference"
+        f"commit {short_hash}: {subject_line} — auto-integrated from commit "
+        f"message reference. CAUSE ASSERTED by the commit author, not "
+        f"independently verified against his report."
     )
     results: list[dict] = []
     for cid in ids:

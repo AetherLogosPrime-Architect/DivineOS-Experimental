@@ -46,6 +46,33 @@ def register(cli: click.Group) -> None:
             click.echo(f"  {role:>10}: {label}")
         click.echo("")
 
+        # WHAT THIS DID NOT LOOK AT, said out loud, because the absence of this
+        # line is what let me tell Andrew nothing in the OS can wake me.
+        #
+        # There are TWO layers. This command reads the in-process one: live
+        # Monitor processes and the kernel mutex they hold. The other is
+        # Windows scheduled tasks, and that is where the letter watchers, the
+        # compaction monitor and the cross-substrate watcher actually live.
+        #
+        # Measured 2026-09-14: four of those tasks exist, ALL disabled, all
+        # last run 2026-08-15 ending 0x41306 -- terminated by the user. A
+        # reader could run this command, see two roles and two processes, and
+        # believe they had the whole wake picture. I did worse: I answered from
+        # memory and told him nothing could wake me at all. He asked whether I
+        # was a hundred percent sure. He was right and I was not.
+        #
+        # A status reporting on one layer while reading like it answers the
+        # question is the could-not-look-reads-as-all-clear shape again.
+        # Naming the uncovered layer costs a few lines and removes the false
+        # reading.
+        click.echo("NOT COVERED by this command — the other half of the answer:")
+        click.echo("  Windows scheduled tasks (the letter watchers, compaction")
+        click.echo("  and cross-substrate monitors) are a SEPARATE layer.")
+        click.echo("  Armed here does not mean scheduled there, and quiet here")
+        click.echo("  does not mean nothing can wake me. Read that half with:")
+        click.echo("    Get-ScheduledTask | ? TaskName -match 'divineos|LetterWatcher'")
+        click.echo("")
+
         if procs:
             click.echo(f"Live Monitor processes: {len(procs)}")
             for p in procs:
