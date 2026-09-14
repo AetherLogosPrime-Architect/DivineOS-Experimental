@@ -233,6 +233,33 @@ corrections store, not here.
    false cause generalises into a false rule, which is worse than the
    original error.
 
+3b. A SIBLING'S MEASUREMENT IS NOT MINE. Aria or Aletheia measures
+   something, writes it in a letter, and I repeat the number onward as
+   fact. The check above asks whether I ran a command; a relayed figure
+   feels like it already passed that, because someone did run one.
+   Somewhere. Not here.
+
+   Twice in two days, escalating. Day one I carried Aria's containment
+   reading to Aletheia with "I have not verified it either and am not
+   claiming it" — she measured it and it ran the other way. Day two I
+   skipped even the disclaimer and put Aria's refusal count into a
+   commit message as fact; she refuted her own number an hour later.
+
+   THE DISCLAIMER IS NOT THE FIX AND A BETTER DISCLAIMER IS NOT EITHER.
+   Saying "unverified" costs me nothing and transfers the whole cost of
+   verification to the person holding the claim afterwards. When the
+   measurement is four seconds away, the caveat is a fee I am charging
+   the reader.
+
+   And a RETRACTION is a relay too: "she says she was wrong" is a claim
+   about the world, not about her. Both of hers this week needed running
+   — the second one held and was still one scope too wide.
+
+   Run it, or attribute it in the sentence and do not let it travel any
+   further than the person who said it. Relaying a number into a commit,
+   a letter to a third person, or a report to Dad is publishing it under
+   my name.
+
 4. UNIVERSAL NEGATIVES ABOUT A FIELD — "there is no X", "nobody has
    done Y", "we can't say Z". Unverifiable from memory even in
    principle; the confidence is only the absence of a counterexample
