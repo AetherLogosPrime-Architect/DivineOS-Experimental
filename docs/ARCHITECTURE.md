@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (469 commands across 84 modules)
+  cli/                         CLI package (473 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -41,6 +41,7 @@ src/divineos/
     psf_commands.py            psf list / psf mark-done: close pending structural-fix obligations; the note must name a resolvable commit or an existing file or the close is refused
     dark_matter_commands.py    dark-matter: sweep for things that exist but nothing reaches; --check exits 1 on findings
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
+    replant_commands.py        replant: rebuild a contaminated branch by taking the WHOLE code difference rather than the commits I recognise, then proving the result byte-identical to its source. Commits nothing; the person writes the message.
     sibling_correction_commands.py  corrections-sibling: read-only view of a sibling substrate's Andrew-correction store, listing corrections with no counterpart in mine. Exits 2 with COULD NOT COMPARE when either store is unreadable — never renders "could not look" as "nothing found". Copies nothing; filing stays deliberate and under my own name.
     must_read_commands.py      must-read arm/list: block Bash/Edit/Write until the Read tool is invoked on a named file. The surface must become a FILE first — a hook prints text with nothing to Read, so 'did you read it' can only become a fact once the words have a location. No automatic armer yet, deliberately: the sibling-correction surface's precision (2-of-4, one false fire) does not earn the right to block, and a screen cleared every turn is a screen that stops being read.
     label_fire_commands.py     label-fire: dispute a correction-shape Stop-gate fire as a false positive. Wraps the labeller as a first-class command so the remedy joins the canonical bypass list — a toll on dissent biases the corpus that trains the semantic replacement. No leniency added.
@@ -362,6 +363,7 @@ src/divineos/
       types.py                 Outcome enum, PreRegistration dataclass
       store.py                 CRUD with falsifier-required invariant + external-actor outcome gate
       summary.py               Overdue warning + CLI summary formatting
+      review_window.py         Declared, bounded, recorded review windows, so the overdue gate stops blocking its own evidence
     andrew_state/              Mutual-catch primitive — observation channel for Andrew's state with substance-binding gate (per docs/andrew_state_design.md, prereg-526c2433d55a)
       _schema.py               andrew_state table + indices
       types.py                 Axis enum, VerificationStatus enum, Observation dataclass
@@ -694,11 +696,14 @@ src/divineos/
     anchor_self_invalidation.py A letter carrying an anchor must not be committed onto the branch it anchors.
     substrate_paths.py         Which paths are substrate, and which are work in progress.
     substrate_retarget.py      Commit substrate files to a named branch without touching HEAD.
+    unmeasured_quantity.py     A quantity about this system, stated with an empty action-stream behind it. The Stop-time layer the verify-claim prime had been promising and that never existed. Narrow on purpose: the predicted death is noise.
     sibling_audit_rounds.py    Audit rounds filed by the other seat, read-only.
     sibling_council_walks.py   Council walks recorded by the other seat: seen, never satisfying.
     prior_art_by_name.py       Find files on ANY branch whose names resemble one about to be created.
     compound_branch_change.py  Refuse a branch change and a destructive op on the same shell line.
     surface_bridge.py          Wire the built-but-unreachable surfaces into the briefing that actually runs.
+    his_own_words.py           A reader for Andrew's own words. His mailbox. It did not exist until now.
+    branch_replant.py          Lift EVERY code change off a contaminated branch, and prove nothing was left.
 
   analysis/
     _session_types.py          Session analysis type definitions
