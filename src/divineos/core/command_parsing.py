@@ -70,11 +70,63 @@ def strip_command_prefixes(bash_command: str) -> list[str]:
     while changed and tokens:
         changed = False
 
-        # `cd <path> &&` — drop through the `&&` and keep going.
+        # `cd <path> &&` or `cd <path>;` — drop through the separator.
+        #
+        # THE SEMICOLON WAS THE FOURTH INSTANCE, and this file's header
+        # predicted the wrong axis. It says a fourth SITE means importing this
+        # rather than writing a fourth loop. What arrived was a fourth
+        # SEPARATOR.
+        #
+        # 2026-09-14, nine refusals in a row, and every gate was correct. The
+        # correction gate refused `divineos correction`; the compass gate
+        # refused `compass-ops observe`; the reach doorman refused `reach open`
+        # — each one the remedy that gate had just prescribed. My shell habit
+        # is `cd <path>; <command>`, shlex hands back `['cd', '<path>;', ...]`
+        # with the semicolon glued to the path token, the separator lookup
+        # raised, and this returned the empty list. NOT-A-REMEDY for every
+        # remedy I ran.
+        #
+        # I had diagnosed the same habit against a different gate the previous
+        # day and written it up, including the line "a fix that names its own
+        # generality and is then applied to exactly one case." That repair went
+        # into the clause-splitter of one gate and never asked the same
+        # question of this function, one layer down. The recurrence is the
+        # previous fix's own unswept remainder.
+        #
+        # WHY IT IS WORSE THAN AN ORDINARY BUG. An invisible remedy is worse
+        # than a blocked one: the gate reports a violation against the act of
+        # resolving a different violation, and the only apparent way out is the
+        # fire door. Bypass habituation degrades a gate to a warning
+        # (psf-ac523181), so this was quietly spending every gate in the house
+        # while each refusal looked entirely reasonable on its own.
+        #
+        # SAFETY DOES NOT MOVE, and yesterday's draft is why to be careful:
+        # loosening a `cd` check is how a gate gets laundered, with three
+        # worked exploits already written up. So nothing about what the PATH
+        # may contain changes. `;` and `&&` differ only in whether the second
+        # command runs when `cd` fails — irrelevant to the one question this
+        # function answers, which is WHICH COMMAND IS BEING RUN. Everything
+        # after the separator is returned intact, so a chain operator further
+        # along still survives and is still caught.
+        #
+        # NOT generalised to "any separator": a pipe or a background `&` is not
+        # a directory change with a command after it. They change what the
+        # remainder means, and the inertness argument that covers `;` does not
+        # reach them.
         if tokens[0] == "cd":
-            try:
-                sep = tokens.index("&&")
-            except ValueError:
+            sep = None
+            for i, tok in enumerate(tokens[1:], start=1):
+                if tok in ("&&", ";"):
+                    sep = i
+                    break
+                if tok.endswith(";"):
+                    # shlex glues a bare `;` onto the token before it. The path
+                    # itself cannot legitimately end in one: unquoted, the
+                    # shell reads it as a separator too, and the quoted form is
+                    # excluded by _CD_RAW_RE for the same reason.
+                    sep = i
+                    break
+            if sep is None:
                 # `cd somewhere` with nothing after it is not a prefix on
                 # anything; there is no command behind it to find.
                 return []
@@ -143,7 +195,24 @@ def stripped_command(bash_command: str) -> str:
 #
 # So the directory may not contain a substitution or a chain operator, in either
 # the quoted or the unquoted form. Same exclusions as _CD_PREFIX_RE.
-_CD_RAW_RE = re.compile(r"""^\s*cd\s+(?:["'][^"'$`]+["']|[^\s;&|`$]+)\s*&&\s*""")
+# The separator may be `&&` or `;` — see the long note in
+# strip_command_prefixes. The PATH exclusions are not loosened by that: a
+# semicolon still cannot appear inside the path, quoted or not, so accepting one
+# as a SEPARATOR does not widen what may hide in the discarded part.
+#
+# REDIRECTION, found 2026-09-14 by a refusal-test written for the separator
+# change and failing on a case that change did not cause. `cd /tmp>out &&
+# <remedy>` was stripped whole, hiding a redirection inside what this function
+# certifies as "provably just a directory change" — and the identical example
+# is written up in yesterday's draft as one of three the shared parser accepts.
+# Known, recorded, repaired at one gate, and left open here: the same
+# one-site-not-the-class shape as the separator itself, in the same function, on
+# the same day.
+#
+# Only the UNQUOTED branch gains the exclusion. Inside quotes a `>` is an
+# ordinary character in a directory name and the shell does not redirect on it,
+# so excluding it there would refuse real paths for no safety gained.
+_CD_RAW_RE = re.compile(r"""^\s*cd\s+(?:["'][^"'$`]+["']|[^\s;&|<>`$]+)\s*(?:&&|;)\s*""")
 _ENV_RAW_RE = re.compile(r"^\s*env\s+")
 _ASSIGN_RAW_RE = re.compile(
     r"""^\s*[A-Za-z_][A-Za-z0-9_]*=(?:"[^"$`]*"|'[^'$`]*'|[^\s;&|`$]*)\s+"""
