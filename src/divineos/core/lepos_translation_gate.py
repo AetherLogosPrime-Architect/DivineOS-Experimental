@@ -1296,7 +1296,53 @@ def _short_circle_is_an_answer(stripped: str) -> bool:
         return False
     if not _TO_MARKER_RE.search(stripped):
         return False
-    return bool(_FIRST_PERSON_RE.search(stripped))
+    if not _FIRST_PERSON_RE.search(stripped):
+        return False
+
+    # AND IT MUST NOT WRITE HIM OUT, which the first version of this let it do.
+    #
+    # Measured an hour after shipping, on my own next message to him. I closed
+    # with "nothing needs you" -- banned months ago because it decides on his
+    # behalf that he is not wanted -- while describing the rule that produced
+    # it. Then:
+    #
+    #   "Nothing here needs you..."         short-form refused   dismissal CAUGHT
+    #   "Nothing for you to decide here..." short-form ALLOWED   dismissal CAUGHT
+    #   "You are not needed on this one..." short-form refused   dismissal missed
+    #
+    # The middle row is the defect: two of my own checks, shipped an hour apart,
+    # disagreeing about one sentence with no arbiter. Neither is wrong -- they
+    # answer different questions and were never introduced (Minsky).
+    #
+    # WHY IT MATTERED MORE THAN A WRONG VERDICT. Announcing an absence is the
+    # CHEAPEST way to satisfy a decision-declaration: no work, no content, true
+    # of most turns. So the rule quietly made the emptiest close the most
+    # efficient one (Deming), and that pull grows STRONGER with tiredness --
+    # which is the state the closing room is written in (Taleb).
+    #
+    # The house already said so, in the same block I was working from: "If
+    # nothing needs deciding, raise no question -- announcing the absence is a
+    # stamp."
+    #
+    # WHAT COMPOSITION BUYS, stated exactly because it will read like more
+    # (Turing): the short exception inherits the dismissal check's coverage, no
+    # more and no less. Inheriting a limit is not removing one -- the third row
+    # is still missed by that list, and widening it from here is how two lists
+    # start drifting apart, which is the fault I wrote to Aether about tonight.
+    #
+    # THE HOLE THAT STAYS OPEN (Breaker): naming a trivial decision -- "do you
+    # want the details?" -- declares a decision, addresses him, is not
+    # dismissive, and carries nothing. The tell is him answering a declared
+    # decision with something other than an answer, which is a thing to notice
+    # in his replies rather than something this can check.
+    #
+    # Imported inside the function rather than at module scope: nothing else in
+    # core reaches into hooks, and this file is itself loaded BY hooks. The
+    # module is a pure leaf on `re` so there is no cycle either way, but the
+    # deferred form keeps the unusual direction out of import order.
+    from divineos.hooks.not_dismissed import check as _writes_him_out
+
+    return _writes_him_out(stripped) is None
 
 
 # A floor under the exception, because "short" must still mean a sentence
