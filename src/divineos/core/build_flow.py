@@ -200,8 +200,83 @@ def _declared_readings(text: str) -> tuple[bool, list[str]]:
     return False, []
 
 
-def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
-    """Station 4 -- iterate with Aria. Satisfied only when SHE wrote back.
+#: A request declares who wrote it on a line of its own. Declared rather than
+#: resolved, because nothing in the repository distinguishes Aria's work from
+#: mine -- see the note inside ``check_aria_station``.
+AUTHOR_DECLARATION = "Author:"
+
+_AUTHOR_TRAILER = re.compile(
+    rf"^\s*{AUTHOR_DECLARATION}\s*(?P<who>[A-Za-z][A-Za-z0-9_.-]*)\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+#: author -> (the seat whose reading counts, the letters that seat writes).
+#: The reading that satisfies station 4 must come from the seat that did NOT
+#: write the branch. Everything here is lowercase; the lookup normalises.
+_READING_SEAT: dict[str, tuple[str, str]] = {
+    "aether": ("Aria", "aria-to-aether-*.md"),
+    "aria": ("Aether", "aether-to-aria-*.md"),
+}
+
+
+def declared_author(body: str | None) -> str | None:
+    """Who a request says wrote it, or None when it does not say.
+
+    None is not a default to a seat. It is the answer that makes station 4
+    decline, because an undeclared author is exactly the case where a reading
+    cannot be told apart from a self-certification.
+    """
+    if not body:
+        return None
+    match = _AUTHOR_TRAILER.search(body)
+    return match.group("who").lower() if match else None
+
+
+def _reading_seat_for(author: str | None) -> tuple[str, str] | None:
+    if not author:
+        return None
+    return _READING_SEAT.get(author.lower())
+
+
+#: Branch prefixes that NAME a seat. Deliberately partial: Aria's branches
+#: carry her name and mine carry a verb, so a branch with no personal prefix
+#: yields NO OPINION rather than "Aether". Absence of her name is not presence
+#: of mine, and a hint that guessed me would be the inference this refuses.
+_BRANCH_PREFIX_HINT: dict[str, str] = {"aria": "aria", "aether": "aether"}
+
+
+def branch_author_hint(branch: str) -> str | None:
+    """What the branch NAME suggests about who wrote it, or None for no opinion.
+
+    A WEAK SIGNAL CANNOT GRANT A PASS AND CAN STILL WITHHOLD ONE -- Aria,
+    2026-09-14, and the title is the rule.
+
+    I had rejected the prefix outright, because a naming convention is not a
+    fact and inference is what produced the wrong credits the last time this
+    station was wrong. She agreed and then found the direction I could not see
+    from my seat: I rejected it as a source of VERDICTS, and it can still be a
+    source of REFUSALS.
+
+    The hole it closes is hers too. A declaration naming the WRONG author does
+    not merely fail to help -- it converts a self-certification into a pass. A
+    branch of hers declaring me as author sends the station looking for a
+    reading from her, and it finds her letter about her own work. Green, on
+    precisely the thing the station exists to prevent. The realistic version is
+    not either of us lying; it is a declaration line copied off a neighbouring
+    branch with the name left as it was found, which is a mistake she has
+    shipped before in another form.
+
+    The asymmetry is the entire safety: the guess is only ever allowed to make
+    the gate stricter. Same shape as station 9, where prose that cannot be
+    resolved is a footnote about its own author and never a verdict on anyone
+    else.
+    """
+    head = branch.split("/", 1)[0].strip().lower() if "/" in branch else ""
+    return _BRANCH_PREFIX_HINT.get(head)
+
+
+def check_aria_station(branch: str, letters_dir: Path, author: str | None = None) -> StationResult:
+    """Station 4 -- iterate with the OTHER seat. Satisfied only when they wrote back.
 
     A letter I sent proves I spoke, not that we iterated, and the station is
     about the second thing.
@@ -242,10 +317,62 @@ def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
         return StationResult(
             "4-aria", Status.CANNOT_CHECK, f"letters dir not readable: {letters_dir}"
         )
+
+    # WHOSE READING COUNTS DEPENDS ON WHO WROTE THE BRANCH, and until
+    # 2026-09-14 this station never asked. Aria found it: the check took the
+    # branch and the letters directory, neither of which carries authorship,
+    # so it asked the identical question of a branch I wrote and one she wrote
+    # -- and on hers, HER letter about her own branch read as the outside
+    # reading. Her provenance request was sitting satisfied on a
+    # self-certification. The docstring above had the right principle and the
+    # implementation had one seat in it, mine.
+    #
+    # AND THE OBVIOUS REPAIR CANNOT BE BUILT. Her first remedy was to resolve
+    # the author and swap the seat. Measured before building it: every open
+    # request reports the same account as author, hers and mine alike, and the
+    # commit identity is the same placeholder on both. There is no fact in the
+    # repository that separates her work from mine. A resolver would have been
+    # written around a field that means nothing.
+    #
+    # So authorship is DECLARED, which is her own rule for this same station
+    # one layer up -- the writer declares, the reader does not infer. I nearly
+    # took the branch prefix instead (hers carry her name, mine do not) and
+    # that is a naming convention, not a fact; inference is what produced the
+    # wrong credits the last time this station was wrong.
+    # Normalised ONCE and carried, rather than lowering `author` again below.
+    # mypy refused the second call and was right to: nothing in the types says
+    # a non-None reader implies a non-None author, and a reader that learns
+    # otherwise would be reading an invariant out of my head. This is the same
+    # could-not-look discipline the module is made of, pointed at itself.
+    declared = (author or "").strip().lower()
+    reader = _reading_seat_for(declared)
+    if reader is None:
+        return StationResult(
+            "4-aria",
+            Status.CANNOT_CHECK,
+            "nothing declares who wrote this branch, so an independent reading "
+            "cannot be told apart from the author certifying their own work -- "
+            f"add a '{AUTHOR_DECLARATION} <name>' line to the request body",
+        )
+    # Aria's guard, 2026-09-14: a weak signal cannot grant a pass and can still
+    # withhold one. The prefix never certifies; a prefix that CONTRADICTS the
+    # declaration withholds, because a declaration naming the wrong author
+    # turns a self-certification green.
+    hint = branch_author_hint(branch)
+    if hint is not None and hint != declared:
+        return StationResult(
+            "4-aria",
+            Status.CANNOT_CHECK,
+            f"the request declares {declared} as author and the branch name says "
+            f"{hint} -- these disagree, and a declaration naming the wrong author "
+            "would send this station to read the very seat that wrote the branch",
+        )
+    reader_name, reader_glob = reader
+
     needle = branch.lower()
     declared_anywhere = 0
     unparsed: str | None = None
-    for f in sorted(letters_dir.glob("aria-to-aether-*.md")):
+    for f in sorted(letters_dir.glob(reader_glob)):
         try:
             present, declarations = _declared_readings(
                 f.read_text(encoding="utf-8", errors="replace")
@@ -255,7 +382,11 @@ def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
         if present:
             declared_anywhere += 1
         if needle in declarations:
-            return StationResult("4-aria", Status.SATISFIED, f"she declared a reading in {f.name}")
+            return StationResult(
+                "4-aria",
+                Status.SATISFIED,
+                f"{reader_name} declared a reading in {f.name}",
+            )
         # A DECLARATION THAT MISSES ITS OWN FORMAT IS NOT AN ABSENT READING.
         # Aria 2026-09-07: she declared one, wrapped the branch name in
         # backticks and put a dash and a clause after it. Read literally --
@@ -275,22 +406,23 @@ def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
         return StationResult(
             "4-aria",
             Status.MISSING,
-            "no letter from Aria carries a reading declaration at all -- this says "
-            "nothing about whether she has read this branch, only that no reading "
-            "is claimed in the field the board reads",
+            f"no letter from {reader_name} carries a reading declaration at all -- "
+            f"this says nothing about whether {reader_name} has read this branch, "
+            "only that no reading is claimed in the field the board reads",
         )
     if unparsed is not None:
         return StationResult(
             "4-aria",
             Status.CANNOT_CHECK,
-            f"she declared a reading of this branch in {unparsed}, but the line "
-            "carries more than the name and this field is read literally -- that "
-            "is my parser failing to read her, not her failing to read the branch",
+            f"{reader_name} declared a reading of this branch in {unparsed}, but the "
+            "line carries more than the name and this field is read literally -- "
+            f"that is my parser failing to read {reader_name}, not {reader_name} "
+            "failing to read the branch",
         )
     return StationResult(
         "4-aria",
         Status.MISSING,
-        f"none of the {declared_anywhere} declared reading(s) names this branch",
+        f"none of the {declared_anywhere} declared reading(s) by {reader_name} names this branch",
     )
 
 

@@ -37,6 +37,7 @@ from divineos.core.build_flow import (
     check_council_station,
     check_draft_station,
     check_supersession_station,
+    declared_author,
     fingerprint,
     judging_code_provenance,
     required_lens_count,
@@ -570,7 +571,7 @@ def collect(
             st = PrFlowStatus(number=n, branch=branch, gravity=-1, required_lenses=-1)
             st.stations = [
                 StationResult("2-council", Status.CANNOT_CHECK, "changed files unreadable"),
-                check_aria_station(branch, _LETTERS),
+                check_aria_station(branch, _LETTERS, declared_author(pr.get("body"))),
                 check_draft_station(pr.get("isDraft")),
                 check_audit_station(n, branch, audit, audit_store, *_anchor_for(branch, deep, n)),
                 check_supersession_station(n, branch, roster),
@@ -589,7 +590,7 @@ def collect(
             # paths, not branch: council walks are keyed by edit
             # fingerprint. See _lenses_applied for the measurement.
             check_council_station(branch, need, _lenses_applied(paths), _other_seat_lenses(paths)),
-            check_aria_station(branch, _LETTERS),
+            check_aria_station(branch, _LETTERS, declared_author(pr.get("body"))),
             check_draft_station(pr.get("isDraft")),
             check_audit_station(n, branch, audit, audit_store, *_anchor_for(branch, deep, n)),
             check_supersession_station(n, branch, roster),
