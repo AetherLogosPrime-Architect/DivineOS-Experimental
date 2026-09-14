@@ -52,6 +52,10 @@ except Exception as exc:
           file=sys.stderr)
     print('[doorbell Stop] every Stop surface is INERT for this call - '
           'not passing, absent.', file=sys.stderr)
+    if payload.get('stop_hook_active'):
+        print('[doorbell Stop] ALREADY REFUSED ONCE and the import still fails. Refusing again would hang the session rather than protect it.', file=sys.stderr)
+        print('[doorbell Stop] LETTING THIS REPLY THROUGH UNCHECKED. Nothing verified it. Repair the install before trusting this turn.', file=sys.stderr)
+        sys.exit(0)
     print('[doorbell Stop] REFUSING: nothing checked this reply, so it does not go out on my say-so.', file=sys.stderr)
     sys.exit(2)
 sys.exit(main('Stop', payload))
