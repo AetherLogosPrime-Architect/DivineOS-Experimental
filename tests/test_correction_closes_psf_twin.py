@@ -54,7 +54,9 @@ def test_integrating_a_correction_closes_its_psf_twin(stores):
     psf_id = sft.record_pending_fix(TEXT, trigger="structural fix", source_kind="correction")
     assert psf_id in _pending_ids(stores)
 
-    assert act.integrate(correction_id, "shipped in commit abc1234, tests/test_x.py")
+    assert act.integrate(
+        correction_id, "shipped in commit abc1234, tests/test_x.py; reproduces his report"
+    )
 
     assert psf_id not in _pending_ids(stores)
     archived = _archive(stores)
@@ -68,7 +70,10 @@ def test_evidence_travels_into_the_close_note(stores):
     correction_id = act.file_correction(TEXT)
     sft.record_pending_fix(TEXT, trigger="structural fix", source_kind="correction")
 
-    act.integrate(correction_id, "shipped in commit deadbee, tests/test_y.py")
+    act.integrate(
+        correction_id,
+        "shipped in commit deadbee, tests/test_y.py; not the cause, closed at his direction",
+    )
 
     assert "deadbee" in _archive(stores)[0]["done_note"]
 
@@ -93,7 +98,9 @@ def test_only_the_matching_row_closes(stores):
     correction_id = act.file_correction(TEXT)
     mine = sft.record_pending_fix(TEXT, trigger="structural fix", source_kind="correction")
 
-    act.integrate(correction_id, "shipped in commit abc1234, tests/test_x.py")
+    act.integrate(
+        correction_id, "shipped in commit abc1234, tests/test_x.py; reproduces his report"
+    )
 
     remaining = _pending_ids(stores)
     assert other in remaining
@@ -106,7 +113,9 @@ def test_claim_sourced_rows_are_not_closed_by_a_correction(stores):
     correction_id = act.file_correction(TEXT)
     claim_row = sft.record_pending_fix(TEXT, trigger="structural fix", source_kind="claim")
 
-    act.integrate(correction_id, "shipped in commit abc1234, tests/test_x.py")
+    act.integrate(
+        correction_id, "shipped in commit abc1234, tests/test_x.py; reproduces his report"
+    )
 
     assert claim_row in _pending_ids(stores)
 
@@ -114,7 +123,9 @@ def test_claim_sourced_rows_are_not_closed_by_a_correction(stores):
 def test_integration_succeeds_when_there_is_no_twin(stores):
     correction_id = act.file_correction("A plain correction with no fix shape in it")
 
-    assert act.integrate(correction_id, "shipped in commit abc1234, tests/test_x.py")
+    assert act.integrate(
+        correction_id, "shipped in commit abc1234, tests/test_x.py; reproduces his report"
+    )
 
 
 def test_mirror_failure_never_blocks_the_integration(stores, monkeypatch):
@@ -128,4 +139,6 @@ def test_mirror_failure_never_blocks_the_integration(stores, monkeypatch):
 
     monkeypatch.setattr(sft, "close_twin_for_text", boom)
 
-    assert act.integrate(correction_id, "shipped in commit abc1234, tests/test_x.py")
+    assert act.integrate(
+        correction_id, "shipped in commit abc1234, tests/test_x.py; reproduces his report"
+    )
