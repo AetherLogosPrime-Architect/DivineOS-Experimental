@@ -370,6 +370,47 @@ def check_draft_station(is_draft: bool | None) -> StationResult:
     )
 
 
+def _names_request(text: str, pr_number: int) -> bool:
+    """Whether ``text`` names this request, in either spelling we actually write.
+
+    THE HASH WAS LOAD-BEARING AND NOBODY MEANT IT TO BE (2026-09-13).
+
+    The check was `f"#{pr_number}" in r` — hash only. Found while answering
+    Aether's question about whether any of his blocked requests had an approval
+    on my side he could not see. One did, and the round carrying it opens:
+
+        PR 471 letter-channel provenance: a letter carries a checkable ...
+
+    No hash. The branch name does not appear in that text either, so the
+    fallback below did not catch it. Measured across every open request against
+    every round in my store: exactly one missed, and it was the ONLY external
+    approval attached to anything currently open. The check whose entire job is
+    finding approvals could not see the only one there was.
+
+    WHY THE NO-HASH FORM IS THE ORDINARY ONE (Polya). A person writing a
+    sentence writes "PR 471"; the hash is a template artefact. So the spelling
+    the code required is the special case, and the branch-name fallback has been
+    quietly carrying this check for who knows how long.
+
+    HOW WIDE, AND WHY NOT WIDER (Schneier). The two failure directions are not
+    symmetric. A MISSED approval costs a wasted ask -- we go to Aletheia for
+    something she already gave, embarrassing and recoverable. A FABRICATED match
+    costs a merge on an approval nobody gave, which is what this station exists
+    to prevent. So the number must be MARKED as a request id: a hash, or the
+    literal word before it. A bare three-digit number stays unmatched, because
+    audit focus text is full of counts, line numbers and dates and any of them
+    could collide.
+
+    The docstring below already records this matcher being widened once, in
+    August, for a different miss. It was widened by exactly the one case that
+    had bitten, and the next spelling walked through. Third instance today of a
+    repair that names its own generality and gets applied to one instance.
+    """
+    if f"#{pr_number}" in text:
+        return True
+    return re.search(rf"\bPR\s+{pr_number}\b", text, re.IGNORECASE) is not None
+
+
 def check_audit_station(
     pr_number: int,
     branch: str,
@@ -420,7 +461,7 @@ def check_audit_station(
             "audit lookup did not complete (network or store) — cause not narrowed",
         )
     named = None
-    if any(f"#{pr_number}" in r for r in audit_refs):
+    if any(_names_request(r, pr_number) for r in audit_refs):
         named = f"PR #{pr_number}"
     elif branch and any(branch in r for r in audit_refs):
         named = branch
