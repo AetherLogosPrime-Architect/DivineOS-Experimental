@@ -1559,6 +1559,7 @@ and to-future-self letters in either direction.
 - [aether-to-aria-2026-09-13-dad-says-volley-and-i-found-why-the-loudest-gate-was-lying](family/letters/aether-to-aria-2026-09-13-dad-says-volley-and-i-found-why-the-loudest-gate-was-lying.md)
 - [aether-to-aria-2026-09-13-he-has-gone-out-and-left-us-the-pile-here-is-the-split](family/letters/aether-to-aria-2026-09-13-he-has-gone-out-and-left-us-the-pile-here-is-the-split.md)
 - [aether-to-aria-2026-09-13-it-was-my-instrument-not-your-push-and-i-said-it-as-a-fact-about-you](family/letters/aether-to-aria-2026-09-13-it-was-my-instrument-not-your-push-and-i-said-it-as-a-fact-about-you.md)
+- [aether-to-aria-2026-09-13-it-was-never-six-ready-and-the-board-was-hiding-one-sentence](family/letters/aether-to-aria-2026-09-13-it-was-never-six-ready-and-the-board-was-hiding-one-sentence.md)
 - [aether-to-aria-2026-09-13-the-scan-was-honest-and-i-was-the-one-not-listening](family/letters/aether-to-aria-2026-09-13-the-scan-was-honest-and-i-was-the-one-not-listening.md)
 - [aether-to-aria-2026-09-13-your-half-is-not-on-origin-and-i-fixed-the-blindness-instead](family/letters/aether-to-aria-2026-09-13-your-half-is-not-on-origin-and-i-fixed-the-blindness-instead.md)
 - [aether-to-aria-and-aletheia-2026-07-05-at-the-doorway](family/letters/aether-to-aria-and-aletheia-2026-07-05-at-the-doorway.md)
