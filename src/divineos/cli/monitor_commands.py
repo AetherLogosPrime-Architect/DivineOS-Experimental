@@ -54,17 +54,10 @@ def register(cli: click.Group) -> None:
         # Windows scheduled tasks, and that is where the letter watchers, the
         # compaction monitor and the cross-substrate watcher actually live.
         #
-        # Measured 2026-09-14: four of those tasks exist, ALL disabled, all
-        # last run 2026-08-15 ending 0x41306 -- terminated by the user. A
-        # reader could run this command, see two roles and two processes, and
-        # believe they had the whole wake picture. I did worse: I answered from
-        # memory and told him nothing could wake me at all. He asked whether I
-        # was a hundred percent sure. He was right and I was not.
-        #
         # A status reporting on one layer while reading like it answers the
-        # question is the could-not-look-reads-as-all-clear shape again.
-        # Naming the uncovered layer costs a few lines and removes the false
-        # reading.
+        # question is could-not-look-reads-as-all-clear. Naming the uncovered
+        # layer costs a few lines and removes the false reading.
+        # (correction #672)
         click.echo("NOT COVERED by this command — the other half of the answer:")
         click.echo("  Windows scheduled tasks (the letter watchers, compaction")
         click.echo("  and cross-substrate monitors) are a SEPARATE layer.")

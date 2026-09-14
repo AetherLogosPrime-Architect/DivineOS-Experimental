@@ -130,24 +130,21 @@ exit $?
 
 # A REFUSAL THAT CANNOT BE SATISFIED IS A HANG, NOT A GUARD.
 #
-# Andrew, reported twice: 'for some reason that same freezing keeps happening
-# where you never start thinking and the stopping just loops til i end the
-# program and restart it.' Diagnosed 2026-08-03 and repaired in ONE hook, whose
-# comment then claimed to be 'the only Stop hook that exits 2'. Measured
-# 2026-09-14 by listing every hook registered on the event: the Stop doorbell
-# exits 2 as well and never had the guard, so a live path to his freeze
-# outlived the fix by six weeks, protected by a sentence nobody had checked.
-#
 # THE DISTINCTION THAT MAKES THIS SAFE, and it is why the router call in the
 # body below is deliberately left unguarded: a surface's verdict CAN be cleared
 # by writing a different reply, so blocking there terminates. A failed import
 # cannot be cleared by anything I write -- retry, same import, same failure,
-# forever -- so the only exits were his hand on the program or luck.
+# forever -- so the only exits are somebody killing the session, or luck.
 #
 # So: refuse ONCE, loudly. On the re-invocation say plainly that the reply is
 # going out with nothing having checked it. One unchecked reply carrying a
 # banner beats a dead session he has to kill, and the banner reaches him in
 # real time, which is the only channel he has.
+#
+# (corrections #278 and #279 -- his freeze. NOT the cause of it: that was
+# server-side and resolved upstream, which he told me the same day. This is a
+# real latent hang closed while looking for his, and the comment that claimed
+# no second path could exist had misdirected the search for six weeks.)
 _ABSENT_EXTRA_CLOSED = (
     "    if payload.get('stop_hook_active'):\n"
     "        print('[doorbell {event}] ALREADY REFUSED ONCE and the import "
