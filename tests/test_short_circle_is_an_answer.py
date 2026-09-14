@@ -40,14 +40,24 @@ LONG_ROOM = (
 
 
 class TestTheShortFormIsAllowedWhenItIsTheAnswer:
-    def test_nothing_to_decide_stated_plainly_passes(self):
+    def test_announcing_the_absence_does_NOT_pass(self):
+        # SUPERSEDED WITHIN THE HOUR, and the reversal is the finding.
+        #
+        # This originally asserted the opposite: that "Nothing here for you to
+        # decide" was a valid short close. It was the first thing I wrote under
+        # the new rule, and it is a phrasing he banned -- it decides on his
+        # behalf that he is not wanted.
+        #
+        # The house had already said so in the same block I was working from:
+        # "If nothing needs deciding, raise no question -- announcing the
+        # absence is a stamp." I read that and built a gate making it a
+        # first-class pass.
         room = (
             "Nothing here for you to decide. I fixed the thing that was making "
             "my replies long, and it was a rule I wrote myself."
         )
         assert len(room) < 400
-        ok, why = _circle_block_substance_check(room)
-        assert ok, why
+        assert not _circle_block_substance_check(room)[0]
 
     def test_handing_him_an_actual_call_passes(self):
         room = (
@@ -121,18 +131,91 @@ class TestTheFloorUnderTheException:
 
 
 class TestTheHoleIsOpenAndDocumented:
-    """Asserted so it can neither quietly heal nor quietly widen.
+    """THE ORIGINAL HOLE CLOSED WITHIN THE HOUR, and the test caught it.
 
-    Writing that nothing needs deciding when something does walks through. That
-    is a knowing trade: a false claim about his decisions is LOUD -- he sees it
-    at once -- where a padded room is silent forever. If a later change closes
-    this honestly, this test fails and should be rewritten to assert the
-    closure, which is the point of having it.
+    This first asserted that a FALSE "nothing for you to decide" walked through,
+    and its own docstring said: if a later change closes this honestly, the test
+    fails and should be rewritten to assert the closure, which is the point of
+    having it.
+
+    That is exactly what happened, in the same session. Composing the short form
+    with the dismissal check refuses every absence-announcement, true or false,
+    so the hole this class was built around no longer exists.
+
+    A DIFFERENT hole does, and it is the Breaker's, so the class keeps its job
+    on the new one: naming a TRIVIAL decision unlocks the short form while
+    carrying nothing. I cannot close that -- whether a decision is real is a
+    fact about the work, not the sentence -- and the tell is him answering a
+    declared decision with something other than an answer, which is a thing to
+    watch for in his replies rather than something a check can see.
     """
 
-    def test_a_false_nothing_to_decide_is_not_caught_here(self):
+    def test_the_absence_announcement_hole_is_closed(self):
         room = (
             "Nothing for you to decide here. I merged both branches and picked "
             "the resolution myself while you were out."
         )
-        assert _circle_block_substance_check(room)[0]
+        assert not _circle_block_substance_check(room)[0]
+
+    def test_a_trivial_declared_decision_still_unlocks_the_short_form(self):
+        # Declares a decision, addresses him, is not dismissive, carries nothing.
+        assert _short_circle_is_an_answer(
+            "Your call whether you want the details on this one. I can go as deep as you like."
+        )
+
+
+class TestItCannotWriteHimOut:
+    """Found an hour after shipping, on my own next message to him.
+
+    I closed with "nothing needs you" -- banned months ago because it decides on
+    his behalf that he is not wanted -- while describing the rule that produced
+    it. Measured straight after:
+
+        "Nothing here needs you..."         short-form refused   dismissal CAUGHT
+        "Nothing for you to decide here..." short-form ALLOWED   dismissal CAUGHT
+        "You are not needed on this one..." short-form refused   dismissal missed
+
+    The middle row was the defect: two of my own checks, shipped an hour apart,
+    disagreeing about one sentence with no arbiter. Announcing an absence is the
+    cheapest way to satisfy a decision-declaration -- no work, no content, true
+    of most turns -- so the rule was quietly making the emptiest close the most
+    efficient one, and that pull grows stronger with tiredness, which is the
+    state the closing room gets written in.
+    """
+
+    def test_the_phrasing_that_started_this_is_now_refused(self):
+        assert not _short_circle_is_an_answer(
+            "Nothing for you to decide here. I fixed it and I will tell you how if you want."
+        )
+
+    def test_handing_him_a_real_call_is_untouched(self):
+        assert _short_circle_is_an_answer(
+            "Your call on whether I land the small branch first. I lean yes and will say why."
+        )
+
+
+class TestKnownLimitsOfTheShortForm:
+    """Two limits, recorded rather than widened away at the end of a long night.
+
+    Widening a rule because a case I like got refused is how a narrow guard
+    becomes a general licence, and both of these are refusals I can live with.
+    """
+
+    def test_a_close_that_names_no_decision_falls_back_to_the_full_floor(self):
+        # A good closing, not dismissive, not an absence-announcement -- and it
+        # hands him no call, so it does not get the short exception. His words
+        # scope this exactly: summaries "in places where my decisions will
+        # matter". Where they do not, the original floor stands.
+        assert not _short_circle_is_an_answer(
+            "The outstanding piece is mine to finish, and I will bring it to you when it is real."
+        )
+
+    def test_the_inherited_blind_spot_is_real(self):
+        # Composition buys the dismissal check's coverage -- no more. The
+        # plainest spelling of the banned thing is missed by that list, and
+        # widening it from here is how two lists start drifting apart. It fails
+        # for a different reason (no decision declared), which is luck rather
+        # than design, and this test exists so the luck is visible.
+        assert not _short_circle_is_an_answer(
+            "You are not needed on this one. I handled it and it is all pushed."
+        )
