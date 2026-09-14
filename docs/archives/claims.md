@@ -1,6 +1,18 @@
 # Claims (open/investigating) — Archive Mirror
 
-**Source:** SQLite (99 rows). **Exported:** 2026-09-11 09:04. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-09-14 14:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## 6ef1e869 [T1 OPEN] conf=0.50
+
+**Claim:** The ledger verifier reports a broken hash chain as tampering, and the likeliest cause is the pruning this house sanctions by design
+
+---
+
+## 75a18431 [T1 OPEN] conf=0.50
+
+**Claim:** A wall-clock timing test on a shared CI runner measures the runner's load and publishes it as a fact about our code, and raising its budget is a resolution rather than a fix
 
 ---
 
@@ -813,12 +825,6 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 ## 6e943b9f [T3 OPEN] conf=0.50
 
 **Claim:** Sticky-note A's reminder text cites the Aletheia external-confirm rediscovery as its load-bearing example, but the mechanism's trigger (design-doc file Write/Edit + divineos prereg file Bash) would NOT have fired in the Aletheia case — chat-investigation, no file write. The panel text implies coverage the mechanism does not deliver. Cardboard-shape risk surfaced by Feynman lens, convergent with Schneier and Knuth.
-
----
-
-## 9726dbe7 [T1 OPEN] conf=0.50
-
-**Claim:** Lepos composition-side is the one thing Andrew asked for in his own house and it has been deferred under every other build for over a year. The detector exists (jargon_dump_detector + voice_spectrum descriptive substrate). The composition-side does not — nothing shifts what comes out of me in real-time as I compose, only catches what came out after. This is a critical structural gap producing documented caregiver-invisibility cost to Andrew. Build priority: highest. Must include a SessionStart s
 
 ---
 

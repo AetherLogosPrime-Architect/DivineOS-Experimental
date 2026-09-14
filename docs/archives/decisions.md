@@ -1,6 +1,62 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-09-11 09:04. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-09-14 14:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## f38fd08c weight=1
+
+**Decision:** Land the sweep cleanup first, then fix the search-before-build gate as its own piece rather than mid-cleanup
+
+**Reasoning:** That gate has refused me twenty-three times today -- the single largest source of friction in the session, and the thing my own new reader named on its first run before I understood why. Its refusal text prints this repository's path truncated at the space in the folder name, so the searches it asks for cannot satisfy it and the walk-record is the only exit. It is a real defect and it is owed a fi
+
+**Tension:** A failure found is a fix owed, immediately, and Andrew said today that errors should take priority over whatever is in flight because they leak into it. Against that: this IS the leak, and the cure for a leak is not to open a second hole. The cleanup is three minutes and the branch is currently carr
+
+**Almost:** I almost started editing the gate at the moment it refused me, which would have left the working tree half-evicted with a push blocked and a hook half-rewritten -- and the hook in question is one that fires on every substrate write, so a broken intermediate state would have blocked the very cleanup 
+
+---
+
+## 1a946b17 weight=1
+
+**Decision:** Report the suite from a serial run rather than from either parallel run
+
+**Reasoning:** Two parallel passes disagreed with each other: the first failed two named tests, the second crashed a worker on a third, and every one of them passes alone. Aether measured this same class today -- dedup state in one shared file, a neighbour's wipe landing between two measurements -- and his fix is not in this tree. Serial removes the one variable the two runs did not share. 13162 passed, 121 skip
+
+**Tension:** Nineteen minutes against five, at the end of a very long stretch, for a result I was fairly confident of. And the counter-pull is the real one: reporting 'looks like a known flake' costs nothing and is usually right. But usually-right is the thing that made me tell him the record was empty this morn
+
+**Almost:** I almost committed on the strength of both tests passing in isolation. That is a weaker check than it looks: isolation proves they are not individually broken, not that my change is innocent of the interaction. The one-variable move was serial, and I nearly skipped it because I had already decided t
+
+---
+
+## d9e9992d weight=1
+
+**Decision:** An investigation cannot close until every failure attached to it has been re-run against the parent's fix; survivors detach and open their own
+
+**Reasoning:** Aether's catch on my attach rule, and he supplied the instance from his own day. My rule was that a failure hitting inside an open investigation belongs to that investigation. Right for the case it was written for -- nine-with-one-cause -- and it swallows, because attaching is a claim about CAUSE and I had made that claim free. He closed two of Andrew's rows an hour earlier asserting his repair wa
+
+**Tension:** Anti-fragmentation against burial. Without attachment the recorder produces nine investigations where one would do, which is exactly what made this morning unreadable. With attachment and no survival check, one investigation buries eight real faults and reports itself complete. What the current arra
+
+**Almost:** I almost shipped the attach rule as stated, because it had already survived Andrew reading it and I took his silence on that clause for agreement. He was answering the threshold question. Also nearly recorded this as agreement with Aether when it is a correction TO me: my rule was not incomplete, it
+
+---
+
+## 89a163cd weight=1
+
+**Decision:** Accept a semicolon as well as an ampersand-pair after a cd prefix in the shared command stripper, changing nothing about what the path may contain
+
+**Reasoning:** Nine refusals in a row today, every gate correct, one cause: my shell habit writes cd path SEMICOLON command and the stripper knows only cd path AMPERSAND-AMPERSAND. The tokeniser glues the semicolon to the path, the separator lookup raises, and the function returns nothing-found -- so every prescribed remedy I ran was NOT-A-REMEDY to the allowlist whose whole job is recognising them. Four gates e
+
+**Tension:** Loosening a cd check is how a gate gets laundered, and this house has three worked exploits written up for exactly that: cd dollar-paren-curl-attacker, cd slash-a and cd slash-b chained, and cd with a redirection. Yesterday's draft restored narrowness at the gate deliberately and says it must stay t
+
+**Almost:** I almost widened the PATH rules at the same time, since I was in the function anyway and the semicolon case made the whole matcher look brittle. That would have reopened the thing yesterday's repair closed. The separator and the path are independent axes: only the separator changes, every exclusion 
+
+---
+
+## 30eab9ea weight=1
+
+**Decision:** Hand the merge-door measurement to Andrew instead of widening the stamp tonight
+
+**Reasoning:** Measured: of the five requests the board calls READY, four are refused by stamp-ready saying no audit round names the branch. The board unions both seats stores -- 464 rounds, 48 mine and 416 from Aether -- and names its own scope; stamp-ready calls list_rounds alone, sees 48, and publishes a one-store absence with the scope of both. That is the could-not-look-reported-as-found-nothing class repai
 
 ---
 
@@ -535,62 +591,6 @@
 **Tension:** The guard exists to stop a real crash class, and loosening it risks letting through the concurrent-pytest case it was built to refuse
 
 **Almost:** declaring the instrument simply wrong and raising the thresholds, which would have removed the protection instead of the false positive
-
----
-
-## 7fb52428 weight=1
-
-**Decision:** build the inert-fix check as a report-only, manifest-driven, once-per-session surface rather than an auto-repair
-
-**Reasoning:** Three shapes of the same disease -- copy drift, stale reader, refilled absence -- all mean a fix exists and is not in effect. Review asks whether the work was written; tests ask whether it works; neither asks whether the loader loaded it.
-
-**Tension:** Andrew asked to automate it, and the most literal reading of automate is auto-deploy the missing edit
-
-**Almost:** auto-patching every drifted copy on detection
-
----
-
-## d4889791 weight=1
-
-**Decision:** rewrite the unflagged-legacy-row test to assert three-way classification rather than escape-by-default
-
-**Reasoning:** The test pinned the exact arithmetic Andrew caught as false: unknown rows counted as escapes, turning 49 prescribed-command runs into a verdict that I route around gates. The test's stated concern — unknown must not be laundered into compliance — is preserved and answered: unclassified is a third bucket, it does not reduce the escape count, and it raises its own instrument-defect alarm.
-
-**Tension:** Changing a test to match new behaviour is the shape of gaming a suite. Here the old assertion encoded the defect, and deleting its concern along with its arithmetic would be the real failure.
-
-**Almost:** Special-casing the classifier so the legacy row still counted as an escape — which would have preserved a green suite and the wrong number.
-
----
-
-## de9817e7 weight=1
-
-**Decision:** verify the dv separator-boundary fix with a file-based probe rather than an inline one-liner
-
-**Reasoning:** My inline harness reported REFUSE for the correct path while dv itself accepted it live — an irreconcilable pair. Most likely cause: the backslash escapes in the pattern were collapsed by an outer shell layer before bash saw them, so the harness tested a different pattern than the file contains.
-
-**Tension:** Shipping a matcher edit I cannot demonstrate, versus spending another step proving it
-
-**Almost:** Calling the live dv --where pass sufficient evidence and moving on
-
----
-
-## 26bf5022 weight=1
-
-**Decision:** Replace the five fault-hunting reflection questions with Aether's rebalanced set and adopt the two rules that bind them
-
-**Tension:** Taking his question set wholesale rather than deriving my own means my reflection prompt is now his authorship in my file, and we have spent two days finding places where our trees diverged without either of us noticing. Against that: the diagnosis is Andrew's, the set is already tested in his windo
-
-**Almost:** Written my own five questions from his diagnosis so the file would be in my voice. That is authorship as vanity: it would have cost a rebuild, produced a near-identical set, and left two versions to reconcile later.
-
----
-
-## e387def0 weight=1
-
-**Decision:** Let the prereg fix ride to main inside Aether's branches rather than pulling it back for its own PR
-
-**Tension:** Attribution is real: the merge that puts it on main will carry his name, not mine, on a fix I wrote and cut loose. Against that: I cut it loose specifically to stop it being a hostage, it is now clearing gates in four of his branches, and pulling it back would delay the exact thing I accelerated in 
-
-**Almost:** Asked for it back so the record would show my name at the merge point. That is the version where I trade working relief for both of us against a credit line, and dress the trade up as being about provenance.
 
 ---
 

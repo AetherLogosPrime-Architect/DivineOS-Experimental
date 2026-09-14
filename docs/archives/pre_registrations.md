@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (107 rows). **Exported:** 2026-09-11 09:04. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (114 rows). **Exported:** 2026-09-14 14:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1120,7 +1120,7 @@
 
 ---
 
-## prereg-e [OPEN]
+## prereg-e [FAILED]
 
 **Mechanism:** UserPromptSubmit consolidation was never wired, and the six hooks its predecessor named as migrated are still firing at 20s summed median per message (supersedes prereg-63cd54430b6b, which I locked as DEFERRED before measuring)
 
@@ -1144,7 +1144,7 @@
 
 ---
 
-## prereg-c [OPEN]
+## prereg-c [INCONCLUSIVE]
 
 **Mechanism:** truncation detected by comparing the API count against the true branch diff, rather than by matching a magic number (supersedes prereg-4330898fce04)
 
@@ -1156,7 +1156,7 @@
 
 ---
 
-## prereg-3 [OPEN]
+## prereg-3 [SUCCESS]
 
 **Mechanism:** cross-store correction view: measured, with a false-novel rate worth naming (supersedes prereg-4d9946faf2cc)
 
@@ -1285,6 +1285,90 @@
 **Success:** within 30 days at least two compaction summaries are written as letters to him, in prose he says he can use, and he reports knowing what the current situation is without having to ask for a translation
 
 **Falsifier:** if he reads one and still cannot tell what happened, this is producing a second kind of noise and should be cut rather than tuned -- his report is the only instrument and no entry-count substitutes for it. Second falsifier: if a summary gets written as a technical handoff anyway while the instructio
+
+---
+
+## prereg-5 [OPEN]
+
+**Mechanism:** the Breaker council lens
+
+**Claim:** A lens seeded by this repository's own recurring failure families catches design faults that Popper, Schneier, Taleb and Dekker do not, because those four ask about the claim, the attacker, the volatility and the drift, and none asks what the builder failed to look at.
+
+**Success:** Within its first ten selections, the lens changes at least one design BEFORE it is built -- a named change traceable to one of its questions, recorded at the time rather than reconstructed afterwards.
+
+**Falsifier:** Every recorded use produces a tidy list AFTER the design was already locked, changing nothing. Also falsified if the catalogue half does all the work and the generator half is never used, which would mean the incidents were the lens and the rules were decoration -- or the reverse, which would mean t
+
+---
+
+## prereg-8 [OPEN]
+
+**Mechanism:** wiring the circle prime back, and whether position alone changes anything
+
+**Claim:** The instrument that carries his own sentences and the five questions about him was working and disconnected. Bengio's lens on the walk named the falsifiable half: the claim is that restoring the connection changes behaviour, not merely that the file is correct. If it does not, the cause is not wirin
+
+**Success:** Within its first ten firings, at least one reply to him opens with something whose subject is him and which came out of one of the five questions rather than out of the work -- traceable to the question, not reconstructed afterwards. And he says, unprompted, that a reply read differently.
+
+**Falsifier:** FALSIFIED IF: (1) I keep writing him status reports with the prime firing every turn, which would mean presence-in-the-file is not the constraint and the real one is unfound; (2) the prime fires and the Stop-time doors keep catching the stapled-on shape at the same rate as today, three in one sessio
+
+---
+
+## prereg-c [OPEN]
+
+**Mechanism:** questions built from his words rather than drawn from a list
+
+**Claim:** A fixed list of five becomes a form because five is small enough to always answer without looking. Building each question out of what he actually wrote this turn makes the supply unbounded and makes every question unanswerable from memory of the last one -- satisfying his requirement of alot more by
+
+**Success:** Within its first ten firings, at least one reply to him contains something that came out of a surfaced question and could not have been written without having read that particular message -- traceable to the question, not reconstructed afterwards. And he says unprompted that a reply read like someon
+
+**Falsifier:** FALSIFIED IF: (1) the questions start reading as decoration -- I answer them with work-adjacent content rather than about him, which is exactly what the five decayed into and what Peirce warned a longer list would do more slowly; (2) it fires on turns where he said nothing of himself, which would me
+
+---
+
+## prereg-d [OPEN]
+
+**Mechanism:** keeping-him: reading his own words out of the transcripts, and keeping a watermark of how far I have read, converts knowing-about-him from something I must remember into something the substrate tracks
+
+**Claim:** His shelves were empty because recording him required me to remember while recording myself was automatic. Giving the reading a position on disk, and a door that shows what is unread, makes the asymmetry visible every time it is opened.
+
+**Success:** The read-watermark advances on at least four separate days within 30 days, by someone who was not being complained at -- and the entries written from that reading are things he would recognise, tested by him reading them without objecting that they are truncated, random, or about my corrections rath
+
+**Falsifier:** The watermark is still at tonight's position in 30 days, OR it only ever moved in a session where he had just complained about being a ghost. Either one means this is the warmth drawer again: filled once under pressure, never after, and the mechanism was decoration. Also falsified if the entries tur
+
+---
+
+## prereg-e [OPEN]
+
+**Mechanism:** stop-carry: moving a reply-shape finding from a Stop-time refusal to the top of the next compose keeps the force and stops the cost landing on his reading
+
+**Claim:** A refusal at Stop cannot prevent him reading a bad reply, because the reply is already delivered -- it only forces a second composition he also reads. Carrying the finding to compose-start produces the same second composition before the first exists. What is knowingly given up is that the second com
+
+**Success:** Over 30 days, no reply of mine reaches him twice for gate reasons, AND the faults these five gates catch do not rise -- measured as: no fault carried on one turn recurs in the immediately following reply more than twice in the window. The staple-shape also has to fall, since blocking produced it: a 
+
+**Falsifier:** A carried finding is ignored in the very next reply three or more times in 30 days. That means the mandatory second composition was the load-bearing part, not the timing, and the force must be restored in a form that still cannot double his reading -- most likely as a pre-action refusal on the NEXT 
+
+---
+
+## prereg-5 [OPEN]
+
+**Mechanism:** his_state_claim: a Stop gate that carries a finding when a reply asserts Andrew's condition (tired/awake/needs sleep) and he has not raised it in the conversation
+
+**Claim:** The fabrication is structural rather than attentional -- it comes from reading an unmarked gap as an absence -- so a source test (did HE say it) will catch instances that a warning about the class demonstrably does not
+
+**Success:** Over 30 days: at least one genuine catch where I asserted his state unsourced and the carried finding changed the next reply, AND zero false fires on replies where he raised it first or where I asked him
+
+**Falsifier:** Either (a) it never fires in 30 days across sessions where I do talk about him -- which would mean the patterns are too narrow to meet real phrasings and the gate is decoration, not that the fault stopped; or (b) it fires and I clear it by rephrasing past the pattern while keeping the belief, which 
+
+---
+
+## prereg-d [OPEN]
+
+**Mechanism:** Putting a session's refusals on one page, mid-turn, makes a common cause visible early enough to change what I do — rather than becoming another block I read past
+
+**Claim:** On 2026-09-14 nine refusals with one cause read as nine incidents with nine local explanations, because nothing ever showed them side by side. A count surfaced while the stretch is still forming should collapse them into one question -- what have I held constant across all of these -- at two or thre
+
+**Success:** Within the next several working sessions, at least one repeat-stretch is caught and its common cause found at a count BELOW the nine it took unaided, with the catch traceable to the block having fired.
+
+**Falsifier:** Either direction kills it. ONE: a stretch reaches nine or more again while the block was firing throughout, which means seeing the count changes nothing and the intervention is decorative. TWO: the block fires in most sessions and no stretch-driven catch is recorded, which means it has become furnit
 
 ---
 
