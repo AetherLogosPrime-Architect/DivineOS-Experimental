@@ -1250,17 +1250,25 @@ def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
     # goes looking for damage that does not exist.
     window_error = ""
     window_absent = False
+    # TWO TRIES, NOT ONE, and the reason is a hole Aria's stronger design
+    # exposed in mine. With the import and the CALL under one try, an
+    # ImportError raised from INSIDE active_window -- a dependency of its own
+    # gone missing -- lands in the absent branch, and the gate then announces
+    # that a module which imported perfectly well has never been importable
+    # here. A true-sounding sentence about the wrong subject: the exact class
+    # this repair exists to close, reproduced inside the repair. Only the
+    # import statement itself is allowed to raise the absent verdict.
+    window = None
     try:
         from divineos.core.pre_registrations.review_window import active_window
-
-        window = active_window()
     except ImportError as exc:
-        window = None
         window_absent = True
         window_error = f"{type(exc).__name__}: {exc}"
-    except Exception as exc:  # noqa: BLE001 -- not swallowed; see the deny below
-        window = None
-        window_error = f"{type(exc).__name__}: {exc}"
+    else:
+        try:
+            window = active_window()
+        except Exception as exc:  # noqa: BLE001 -- not swallowed; see the deny below
+            window_error = f"{type(exc).__name__}: {exc}"
 
     if window is not None and window.state == "open":
         return None

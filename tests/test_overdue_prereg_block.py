@@ -433,3 +433,37 @@ def test_the_two_messages_are_not_the_same_message(monkeypatch):
             outcome=Outcome.SUCCESS,
             notes="test cleanup",
         )
+
+
+def test_an_import_failing_inside_the_window_is_not_reported_as_the_module_missing(
+    monkeypatch,
+):
+    """The hole Aria's design exposed in mine.
+
+    With the import and the call under one try, an ImportError raised from
+    INSIDE active_window -- some dependency of its own gone missing -- lands in
+    the absent branch, and the gate announces that a module which imported
+    perfectly well has never been importable here. True-sounding, wrong
+    subject: the exact class the distinction was built to close, reproduced
+    inside the fix.
+    """
+    from divineos.core.pre_registrations import review_window as rw
+
+    prereg_id = _one_overdue()
+    try:
+
+        def _import_fails_inside():
+            raise ImportError("No module named 'some_dependency_of_mine'")
+
+        monkeypatch.setattr(rw, "active_window", _import_fails_inside)
+        reason = _reason(_check_overdue_prereg_block("pytest tests/"))
+        assert "NOT INSTALLED" not in reason
+        assert "could not be READ" in reason
+        assert "The module is installed" in reason
+    finally:
+        record_outcome(
+            prereg_id=prereg_id,
+            actor="andrew",
+            outcome=Outcome.SUCCESS,
+            notes="test cleanup",
+        )
