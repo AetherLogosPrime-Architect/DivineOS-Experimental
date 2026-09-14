@@ -87,8 +87,18 @@ class TestWhatMustNotHaveMovedWithIt:
         evil = "cd $(id); divineos correction x"
         assert strip_prefixes_raw(evil) == evil
 
-    def test_a_redirection_in_the_path_is_not_stripped_raw(self):
-        evil = "cd /tmp>out; divineos correction x"
+    @pytest.mark.parametrize("sep", ["&&", ";"])
+    def test_a_redirection_in_the_path_is_not_stripped_raw(self, sep):
+        # BOTH separators, and the ampersand one is the whole test. The
+        # semicolon form passes against the code before this change for a
+        # reason that has nothing to do with redirection -- that code did not
+        # accept a semicolon at all -- so on its own it is green on both sides
+        # and guards nothing. The base DOES strip `cd /tmp>out && ` and hand
+        # back the remedy, which is the hole this closed. Measured, not
+        # reasoned: the pin check flagged this test as hollow, and running the
+        # base directly showed the ampersand form stripping to
+        # `divineos correction x` while the semicolon form did not move.
+        evil = f"cd /tmp>out {sep} divineos correction x"
         assert strip_prefixes_raw(evil) == evil
 
     def test_a_chain_operator_after_the_remedy_still_survives(self):
