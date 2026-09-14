@@ -65,29 +65,16 @@ def _has_structural_artifact(evidence: str) -> bool:
 #
 # Closing one of his rows is TWO claims: I built a thing, and that thing
 # explains what HE reported. The artifact check above earns the first and is
-# silent about the second, and I closed two rows on 2026-09-14 having earned
-# only the first. I had measured that a Stop hook can refuse unsatisfiably,
-# then asserted that this WAS the freeze he reported twice. He came back the
-# same hour: "the freeze after investigating further was an issue on the server
-# side and whatever it was they have fixed it... in a way it was a false alarm
-# as it wasnt on our end." My repair was real and closed a genuine latent hang.
-# It was not his bug. Nothing in my evidence could have told the two apart --
-# an unsatisfiable refusal and a server-side stall look identical from the
-# outside, which is exactly why the leap needed checking and never got it.
+# silent about the second, so the evidence must say WHICH of the two it is.
 #
-# The rule I already hold -- a measurement licenses a claim about WHAT, never
-# about WHY -- lives in a compose-start prime with no gate behind it, so it
-# primes the reach and catches nothing.
-#
-# This is the shape that inflates a wins column with entries that were never
-# wins for the row they closed, which is worse than an open row: an open row is
-# honest about being unfinished.
-#
-# So the evidence must say WHICH of the two it is. Not a keyword to route
-# around -- the phrases below are the vocabulary for stating a causal link or
-# declining to claim one, and writing either forces the distinction to be made
-# out loud. Declining is a first-class pass: "closed at his direction, cause
+# Both answers pass. The patterns below are the vocabulary for stating a causal
+# link OR declining to claim one, and writing either forces the distinction out
+# loud. Declining is a first-class pass -- "closed at his direction, cause
 # resolved upstream" is an honest close and reads nothing like a false one.
+# What is refused is silence on the question, because that is how a wins column
+# fills with entries that were never wins for the row they closed.
+#
+# (correction #673 — the two rows I closed on an untested cause.)
 _CAUSAL_LINK_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\breproduc(?:es|ed|ing)\b", re.IGNORECASE),
     re.compile(r"\bcause(?:d|s)?\b", re.IGNORECASE),
