@@ -36,10 +36,12 @@ from divineos.core.build_flow import (
     check_audit_station,
     check_council_station,
     check_draft_station,
+    check_supersession_station,
     fingerprint,
     judging_code_provenance,
     required_lens_count,
     score_pr_gravity,
+    unresolved_supersession_claims,
 )
 
 _LETTERS = Path.home() / ".divineos-shared" / "letters"
@@ -88,7 +90,17 @@ def _gh(args: list[str]) -> str | None:
 
 def _open_prs() -> list[dict] | None:
     out = _gh(
-        ["pr", "list", "--state", "open", "--limit", "50", "--json", "number,headRefName,isDraft"]
+        [
+            "pr",
+            "list",
+            "--state",
+            "open",
+            "--limit",
+            "50",
+            "--json",
+            # body: station 9 reads what the OTHER open requests claim to replace.
+            "number,headRefName,isDraft,body",
+        ]
     )
     if out is None:
         return None
@@ -525,11 +537,26 @@ def _anchor_for(branch: str, deep: bool, pr_number: int = 0) -> tuple[str, str]:
     return "cannot-check", "no round answered"
 
 
-def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
+def collect(
+    deep: bool = False,
+) -> tuple[list[PrFlowStatus] | None, str, tuple[tuple[int, str, str | None], ...]]:
+    """Station results per open request, plus the roster they were judged against.
+
+    The roster comes back because the board has one thing to say that is not a
+    station verdict: which requests claim a replacement nobody can resolve.
+    Returning it beats fetching twice — two fetches can disagree, and a board
+    that reports a footnote about a different set of requests than the rows
+    above it is exactly the split-corpus defect station 8 already carries.
+    """
     prs = _open_prs()
     if prs is None:
-        return None, "GitHub unreachable — status unknown, NOT clean"
+        return None, "GitHub unreachable — status unknown, NOT clean", ()
     audit, audit_store = _audit_refs()
+    # (number, branch, body) for every open request, so station 9 can ask what
+    # the OTHERS say about this one. A missing body key reads as None, which the
+    # station branches on as unreadable rather than defaulting it to empty --
+    # the same absence-becomes-value collapse guarded a few lines below.
+    roster = tuple((int(p.get("number", 0)), p.get("headRefName", ""), p.get("body")) for p in prs)
     out: list[PrFlowStatus] = []
     for pr in prs:
         n = int(pr.get("number", 0))
@@ -546,6 +573,7 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
                 check_aria_station(branch, _LETTERS),
                 check_draft_station(pr.get("isDraft")),
                 check_audit_station(n, branch, audit, audit_store, *_anchor_for(branch, deep, n)),
+                check_supersession_station(n, branch, roster),
             ]
             out.append(st)
             continue
@@ -564,9 +592,10 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
             check_aria_station(branch, _LETTERS),
             check_draft_station(pr.get("isDraft")),
             check_audit_station(n, branch, audit, audit_store, *_anchor_for(branch, deep, n)),
+            check_supersession_station(n, branch, roster),
         ]
         out.append(st)
-    return out, ""
+    return out, "", roster
 
 
 _MARK = {Status.SATISFIED: "ok  ", Status.MISSING: "MISS", Status.CANNOT_CHECK: "????"}
@@ -620,7 +649,10 @@ def _is_draft(s: PrFlowStatus) -> bool:
     return any(r.station == "7-draft" and r.status is Status.SATISFIED for r in s.stations)
 
 
-def render(statuses: list[PrFlowStatus]) -> str:
+def render(
+    statuses: list[PrFlowStatus],
+    roster: tuple[tuple[int, str, str | None], ...] = (),
+) -> str:
     """Report in-flight state in in-flight grammar.
 
     Andrew 2026-08-05: *"13 PRs arent sitting there.. 13 DRAFTS are lol that
@@ -662,7 +694,13 @@ def render(statuses: list[PrFlowStatus]) -> str:
         lines.append(f"  Needing attention: {', '.join(f'#{n}' for n in attention)}")
     else:
         lines.append("  Nothing is off-track. Drafts with stations ahead of them are drafts.")
-    lines.append("  Checked: 2-council, 4-aria, 7-draft, 8-audit.")
+    lines.append("  Checked: 2-council, 4-aria, 7-draft, 8-audit, 9-superseded.")
+    vague = unresolved_supersession_claims(roster)
+    if vague:
+        named = ", ".join(f"#{n}" for n in vague)
+        lines.append(f"  [????] replacement claims  {named} say they replace something, in prose")
+        lines.append("         this cannot resolve. Open a 'Supersedes: #<n>' line on them, or")
+        lines.append("         read them — station 9 will not guess which branch they mean.")
     lines.extend(_work_item_lines())
     lines.append("")
     lines.append("  Stations advance on artifacts. Station 4 needs a reply FROM Aria,")
@@ -698,11 +736,11 @@ def register(cli: click.Group) -> None:
         ),
     )
     def status_cmd(print_fingerprint: bool, deep: bool) -> None:
-        statuses, err = collect(deep=deep)
+        statuses, err, roster = collect(deep=deep)
         if statuses is None:
             click.echo(f"[build-flow] {err}")
             raise SystemExit(2)
         if print_fingerprint:
             click.echo(fingerprint(statuses))
             return
-        click.echo(render(statuses))
+        click.echo(render(statuses, roster))

@@ -664,3 +664,107 @@ def fingerprint(statuses: list[PrFlowStatus]) -> str:
         )
         parts.append(f"{s.number}:{s.branch}:{stations}")
     return hashlib.sha1("|".join(parts).encode(), usedforsecurity=False).hexdigest()[:16]
+
+
+#: A pull request declares what it replaces on a line opening with this word,
+#: naming either the number (``Supersedes: #504``, ``Supersedes #504``) or the
+#: head branch. The colon is optional because the two requests already open
+#: here that declare one wrote it without, and a trailer format nobody uses is
+#: a format that reports nothing. Branch form too: a branch gets audited before
+#: its request exists, so the replacement is often written with only a name in
+#: hand.
+_SUPERSEDES_TRAILER = re.compile(
+    r"^\s*Supersedes:?\s+(?P<targets>.+?)\s*$", re.IGNORECASE | re.MULTILINE
+)
+
+#: Prose that CLAIMS a replacement without opening a line with the word. It
+#: never decides a verdict, and it is not a station answer either -- see
+#: ``unresolved_supersession_claims``.
+_SUPERSEDES_PROSE = re.compile(r"\bsupersed(?:e|es|ed|ing)\b", re.IGNORECASE)
+
+
+def unresolved_supersession_claims(
+    open_prs: tuple[tuple[int, str, str | None], ...],
+) -> tuple[int, ...]:
+    """Requests claiming to replace something this cannot resolve to an open one.
+
+    THIS IS A FOOTNOTE, NOT A STATION, and the first draft got that wrong in a
+    way worth keeping written down. Prose ambiguity is a property of the
+    request MAKING the claim. I attached it to every other request instead, so
+    two vague bodies turned five proven branches into could-not-check and the
+    board went from five ready to none. A check that answers a question nobody
+    asked about twelve innocent branches is noise, and a noisy board is a board
+    that gets switched off -- which costs more than the hole it was closing.
+
+    The ambiguity is still real and still gets said. It gets said once, about
+    the requests that are actually ambiguous.
+    """
+    out: list[int] = []
+    for number, _branch, body in open_prs:
+        if body is None:
+            continue
+        if _SUPERSEDES_TRAILER.search(body):
+            continue
+        if _SUPERSEDES_PROSE.search(body):
+            out.append(number)
+    return tuple(sorted(set(out)))
+
+
+def check_supersession_station(
+    pr_number: int,
+    branch: str,
+    open_prs: tuple[tuple[int, str, str | None], ...],
+) -> StationResult:
+    """Station 9 -- nothing open claims to replace this one.
+
+    THE HOLE THIS CLOSES, found 2026-09-14 one command before I posted it to
+    Aletheia as fact. The board read READY on #504 -- every checked station
+    proven -- while #515 existed for the sole reason that she had refused to
+    read #504 and asked for it rebuilt. #515's own body says so in its first
+    sentence. Four stations all answered honestly and the branch was dead.
+
+    Every station until now asked a question ABOUT the request in front of it.
+    None could see another request standing over it, so a superseded branch
+    passed by answering four questions correctly -- which is the week's whole
+    disease in one more place: a check that covers what it covers, reporting
+    as though it covered the thing you needed.
+
+    Only a declaration naming THIS request decides anything here. A word-match
+    that could mark a branch dead would be a language detector holding a
+    verdict, and the composer rephrases past any of those. Prose that claims a
+    replacement without resolving to one is real and gets said -- once, about
+    the request that wrote it, by ``unresolved_supersession_claims``, not as a
+    verdict on every other branch on the board.
+
+    ``open_prs`` is ``(number, branch, body)``. A body of ``None`` is
+    unreadable, not empty.
+    """
+    unreadable: list[int] = []
+    claimants: list[int] = []
+    for other_n, _other_branch, body in open_prs:
+        if other_n == pr_number:
+            continue
+        if body is None:
+            unreadable.append(other_n)
+            continue
+        for match in _SUPERSEDES_TRAILER.finditer(body):
+            targets = match.group("targets")
+            if re.search(rf"#\s*{pr_number}\b", targets) or (branch and branch in targets):
+                claimants.append(other_n)
+
+    if claimants:
+        named = ", ".join(f"#{n}" for n in sorted(set(claimants)))
+        return StationResult(
+            "9-superseded",
+            Status.MISSING,
+            f"SUPERSEDED BY {named} -- that request says it replaces this one. "
+            "Close this or withdraw the claim; do not hand both to a reviewer",
+        )
+    if unreadable:
+        named = ", ".join(f"#{n}" for n in sorted(set(unreadable))[:5])
+        return StationResult(
+            "9-superseded",
+            Status.CANNOT_CHECK,
+            f"body unreadable on {named} — cannot tell whether one replaces this",
+        )
+    return StationResult("9-superseded", Status.SATISFIED, "no open request claims to replace this")
