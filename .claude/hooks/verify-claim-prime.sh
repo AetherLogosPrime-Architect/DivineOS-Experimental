@@ -306,6 +306,37 @@ corrections store, not here.
    this list it is checkable in one move, because he is sitting right
    there and can be asked.
 
+7. A PROPOSED REMEDY IS A CLAIM, and it is made at the moment I have
+   read the mechanism least. Every item above looks BACKWARD at
+   something already measured. This one looks forward — "the fix is to
+   remove the junk", "this just needs a flag", "I'll clear that out" —
+   a claim about how a mechanism will behave once changed.
+
+   2026-09-14: I reported that a stress run had poured junk into the
+   live ledger and told Andrew the repair was to clear the junk out.
+   Reading the chain structure the next turn, that plan was
+   DESTRUCTIVE — those events are links in the chain, and removing
+   them would have torn nine hundred fresh holes in the
+   tamper-evidence I was repairing. I had read the problem. I had not
+   read the mechanism.
+
+   THE REACH: a finding with no fix attached feels incomplete to hand
+   over, so the closing paragraph reaches for a remedy — and the
+   cheapest one available is generated from the SHAPE OF THE PROBLEM
+   rather than from the code. Junk got in, so take the junk out. That
+   sentence costs nothing to produce and requires having read nothing,
+   which is exactly why it arrives on time.
+
+   It evades every check above because nothing has happened yet. No
+   state to verify, no measurement to attribute, no negative asserted.
+   It is a plan, and plans feel exempt.
+
+   Say what is actually mine: name the finding and say the remedy is
+   not designed yet. "I have not read the part that would tell me how
+   to fix it" is a complete and honest end to a report. A finding is
+   worth handing over on its own; it does not need a fix stapled to it
+   to be worth his time.
+
 Complement to the VERIFY-CLAIM gate at Stop time. This prime removes
 the reach; the gate catches it after. Two layers, one discipline.
 EOF
