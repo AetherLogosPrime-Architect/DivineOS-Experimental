@@ -417,11 +417,19 @@ def _audit_refs() -> tuple[tuple[str, ...] | None, str | None]:
     return rounds, where
 
 
-def _anchor_for(branch: str, deep: bool, pr_number: int = 0) -> str:
+def _anchor_for(branch: str, deep: bool, pr_number: int = 0) -> tuple[str, str]:
     """Whether the round covering ``branch`` still covers it by CONTENT.
 
-    Returns the state string station eight understands, or "not-run" when the
-    caller declined to pay for it.
+    Returns the state string station eight understands plus the REASON, or
+    ("not-run", "") when the caller declined to pay for it.
+
+    The reason was computed and dropped on the floor. Station eight could then
+    only render "could not be determined", which reads as a broken instrument
+    and invites a shrug — while the real answer one frame below was "no
+    external-AI CONFIRM in round X", an ask somebody can act on now. Eight
+    open requests wore the broken-instrument costume on the strength of that
+    discard. A refusal that cannot say what it could not do teaches nothing,
+    and this station is the last one before a merge.
 
     THE COST IS WHY THIS IS OPTIONAL, and it was measured rather than
     guessed: one check runs about five seconds, because it fetches and
@@ -437,12 +445,12 @@ def _anchor_for(branch: str, deep: bool, pr_number: int = 0) -> str:
     undo the point.
     """
     if not deep or not branch:
-        return "not-run"
+        return "not-run", ""
     try:
         from divineos.cli.audit_commands import anchor_state_for_round
         from divineos.core.watchmen.store import list_rounds
-    except _BF_ERRORS:
-        return "cannot-check"
+    except _BF_ERRORS as exc:
+        return "cannot-check", f"audit store not importable: {type(exc).__name__}"
     try:
         # MATCH THE SAME WAY THE STATION DOES, or this answers about a
         # different corpus than the verdict it feeds -- which is the exact
@@ -472,8 +480,8 @@ def _anchor_for(branch: str, deep: bool, pr_number: int = 0) -> str:
             return bool(branch and (branch in text or (tail and tail in text)))
 
         matches = [r for r in list_rounds(limit=_ROUND_SCAN_LIMIT) if _names_it(r)]
-    except _BF_ERRORS:
-        return "cannot-check"
+    except _BF_ERRORS as exc:
+        return "cannot-check", f"round scan failed: {type(exc).__name__}"
     if not matches:
         # THE OTHER SEAT'S STORE. The station matches against the UNION of
         # both seats' rounds; this function can only read mine, and
@@ -487,7 +495,10 @@ def _anchor_for(branch: str, deep: bool, pr_number: int = 0) -> str:
         # shape wearing a politer word. This return is only ever surfaced
         # when the station DID match by name -- a request with no round at
         # all takes the MISSING branch and never consults this.
-        return "cannot-check"
+        return (
+            "cannot-check",
+            "the naming round lives in the other seat's store, which this check cannot read",
+        )
 
     # ASK EVERY ROUND, NEWEST FIRST, AND LET A HOLDING ONE WIN. A branch
     # re-audited after moving has two rounds naming it: an old one that has
@@ -499,17 +510,19 @@ def _anchor_for(branch: str, deep: bool, pr_number: int = 0) -> str:
     # correct "no longer holds" into "could not determine" the moment a newer
     # round without a confirm appeared. Taking the newest is not the same as
     # taking the one that answers.
-    verdicts = []
+    verdicts: list[tuple[str, str]] = []
     for rnd in matches:
-        state, _detail = anchor_state_for_round(getattr(rnd, "round_id", ""), branch)
+        state, detail = anchor_state_for_round(getattr(rnd, "round_id", ""), branch)
         if state == "holds":
-            return "holds"
-        verdicts.append(state)
-    if "stale" in verdicts:
-        return "stale"
-    if "unanchored" in verdicts:
-        return "unanchored"
-    return "cannot-check"
+            return "holds", detail
+        verdicts.append((state, detail))
+    for wanted in ("stale", "unanchored"):
+        for state, detail in verdicts:
+            if state == wanted:
+                return wanted, detail
+    if verdicts:
+        return "cannot-check", verdicts[0][1]
+    return "cannot-check", "no round answered"
 
 
 def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
@@ -532,7 +545,7 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
                 StationResult("2-council", Status.CANNOT_CHECK, "changed files unreadable"),
                 check_aria_station(branch, _LETTERS),
                 check_draft_station(pr.get("isDraft")),
-                check_audit_station(n, branch, audit, audit_store, _anchor_for(branch, deep, n)),
+                check_audit_station(n, branch, audit, audit_store, *_anchor_for(branch, deep, n)),
             ]
             out.append(st)
             continue
@@ -550,7 +563,7 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
             check_council_station(branch, need, _lenses_applied(paths), _other_seat_lenses(paths)),
             check_aria_station(branch, _LETTERS),
             check_draft_station(pr.get("isDraft")),
-            check_audit_station(n, branch, audit, audit_store, _anchor_for(branch, deep, n)),
+            check_audit_station(n, branch, audit, audit_store, *_anchor_for(branch, deep, n)),
         ]
         out.append(st)
     return out, ""

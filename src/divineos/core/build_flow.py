@@ -361,6 +361,7 @@ def check_audit_station(
     audit_refs: tuple[str, ...] | None,
     store_label: str | None = None,
     anchor: str | None = None,
+    anchor_detail: str = "",
 ) -> StationResult:
     """Station 8 -- Aletheia. Last, and never self-serviceable.
 
@@ -450,11 +451,19 @@ def check_audit_station(
         if anchor == "cannot-check":
             # Could-not-look is not all-clear, and this station is the last
             # one before a merge.
+            #
+            # THE REASON IS NOT DECORATION. Without it this line reads as a
+            # broken instrument and gets shrugged past, while the commonest
+            # actual cause — "no external-AI CONFIRM in round X" — is a clear
+            # ask somebody can act on. Eight open requests sat behind the
+            # wordless version of this sentence, looking unmeasurable when
+            # they were merely unaudited.
+            because = f": {anchor_detail}" if anchor_detail else ""
             return StationResult(
                 "8-audit",
                 Status.CANNOT_CHECK,
                 f"audit round names {named}, but whether its confirm still "
-                "holds could not be determined — not a pass",
+                f"holds could not be determined — not a pass{because}",
             )
         if anchor == "unanchored":
             # Confirms filed before patch-id binding record no anchor at all.
