@@ -73,6 +73,77 @@ def _title_withholds(finding: object) -> bool:
     return bool(_WITHHELD_TITLE.search(title))
 
 
+def round_names_target(text: str, branch: str, pr_number: int) -> bool:
+    """Does a round's text name this branch OR this request?
+
+    THE SPELLING HALF, and it is the third time this matcher has been widened
+    by exactly the one case that had just bitten. August: the full ref only, so
+    a round opening "PR 412 ci-merge-review-visibility" was not a candidate at
+    all. Then the branch's last segment. Then, 2026-09-14, the round carrying
+    Aletheia's fresh confirm on the letter-provenance work -- sitting in THIS
+    store, findings and all -- was invisible, because its focus opens "PR 471
+    letter-channel provenance" and the branch name appears nowhere in it.
+
+    So the request id is a spelling too, and always was.
+
+    MARKED IDS ONLY, per the asymmetry the board's own matcher records: a
+    missed approval costs a wasted ask, a fabricated one costs a merge on an
+    approval nobody gave. Audit focus text is full of counts, line numbers and
+    dates, so a bare three-digit number stays unmatched on purpose.
+    """
+    from divineos.core.build_flow import _names_request
+
+    if branch and branch in text:
+        return True
+    tail = branch.rsplit("/", 1)[-1] if branch else ""
+    if tail and tail in text:
+        return True
+    return _names_request(text, pr_number)
+
+
+class SiblingStoreUnreadable(RuntimeError):
+    """A sibling seat is present and its store would not open.
+
+    Its own exception type because the caller must NOT fold this into the empty
+    answer. Aletheia's second condition, 2026-09-14: could-not-read stays
+    distinct from no-round, or widening merely moves which store produces the
+    false sentence. The Breaker walk found the same thing as a live attack --
+    break the sibling store and the error path re-introduces the exact sentence
+    being fixed.
+    """
+
+    def __init__(self, seat: str, detail: str) -> None:
+        super().__init__(f"{seat}: {detail}")
+        self.seat = seat
+        self.detail = detail
+
+
+def sibling_rounds_naming(branch: str, pr_number: int) -> list[tuple[str, str, str]]:
+    """Rounds in the OTHER seats' stores that name this branch or request.
+
+    Returns (seat, round_id, focus-excerpt). Raises when a seat is present and
+    unreadable; a seat simply not installed here is a complete answer about an
+    absent seat rather than a failure.
+
+    These are surfaced and NEVER accepted. Their findings live in the other
+    seat's store and cannot be validated from here, so passing on one would
+    authorize a merge on a confirm this command has not read -- and a widened
+    merge door fails toward PASSING, silently, at the one gate with nothing
+    after it. Naming them turns a false denial into a refusal that carries the
+    next step.
+    """
+    from divineos.core.sibling_audit_rounds import read_other_seats, this_seat
+
+    hits: list[tuple[str, str, str]] = []
+    for seat in read_other_seats(this_seat()):
+        if seat.error is not None:
+            raise SiblingStoreUnreadable(seat.name, seat.error)
+        for blob in seat.rounds or ():
+            if round_names_target(blob, branch, pr_number):
+                hits.append((seat.name, blob.split(" ", 1)[0], blob[:120]))
+    return hits
+
+
 def _confirmed_trees(round_id: str) -> set[str]:
     """Trees named by the CONFIRMS findings on this round.
 
@@ -673,18 +744,103 @@ def register(cli: click.Group) -> None:
             # Widening makes ambiguity VISIBLE rather than resolving it by
             # accident. Two candidates now means the command stops and asks,
             # which is the outcome the guard was written for.
-            tail = branch.rsplit("/", 1)[-1] if branch else ""
             candidates = [
                 rnd
                 for rnd in list_rounds(limit=200)
-                if branch
-                and (
-                    branch in (getattr(rnd, "focus", "") or "")
-                    or (tail and tail in (getattr(rnd, "focus", "") or ""))
-                )
+                if round_names_target(getattr(rnd, "focus", "") or "", branch, pr_number)
             ]
+
+            # THE STORE HALF. Aletheia, 2026-09-14, ruling on this door after I
+            # brought her the measurement instead of a fix; Andrew confirmed
+            # alongside her:
+            #
+            #   "A door that refuses on could-not-look is producing exactly the
+            #    failure it exists to prevent, one layer over. Four branches are
+            #    sitting refused with a sentence that is false -- 'no audit
+            #    round names this branch' -- when a round does name it and is
+            #    readable from that very seat."
+            #
+            # There are two audit stores in this house and this command read
+            # one. The board reads both and says which; this said "no round
+            # names this branch" with the scope of all of them, at the last
+            # gate before a merge.
+            #
+            # HER TWO CONDITIONS, WHICH ARE WHAT MAKE WIDENING SAFE RATHER THAN
+            # CONVENIENT:
+            #
+            #   (a) Name the store that answered, and the identifier. "The
+            #       failure mode of widening is that the door starts passing on
+            #       a round nobody can find afterward. If it names the store, a
+            #       reader can go look." So every exit below says where.
+            #
+            #   (b) Could-not-read stays distinct from no-round. A store present
+            #       and broken must say so and refuse, never fall through to "no
+            #       round names this" -- otherwise widening only moves which
+            #       store produces the false sentence. The Breaker walk found
+            #       this as a live attack: make the sibling store unreadable and
+            #       the error path re-introduces the exact sentence being fixed.
+            #       Hence the refusal on seat.error happens BEFORE any
+            #       no-candidates message is composed.
+            #
+            # AND THE ASYMMETRY THAT DECIDES THE SHAPE: the other widenings this
+            # month failed toward reviewing too much, or toward refusing, and
+            # both wrong directions were loud. A widened merge door fails toward
+            # PASSING, silently, at the one gate with nothing after it. So a
+            # sibling round is surfaced and NEVER accepted -- its findings are
+            # not readable from here, and passing on it would authorize a merge
+            # on a confirm this command has not read. It names the round, names
+            # the store, and hands over the relay command. A refusal that
+            # carries the next step is a different object from a denial that the
+            # thing exists.
+            # The store label comes from the SAME connection the rounds come
+            # through rather than from configuration, which is why this borrows
+            # the board's helper instead of re-deriving it: a label naming a
+            # store this did not query would be the wrong-subject error the
+            # label exists to prevent, one level down.
+            from divineos.cli.build_flow_commands import _audit_store_label
+
+            sibling_hits: list[tuple[str, str, str]] = []  # (seat, round_id, focus)
             if not candidates:
-                click.secho(f"[!] No audit round names branch {branch}.", fg="red")
+                try:
+                    sibling_hits = sibling_rounds_naming(branch, pr_number)
+                except SiblingStoreUnreadable as unreadable:
+                    click.secho(
+                        f"[!] Cannot stamp PR #{pr_number}: the audit store for "
+                        f"'{unreadable.seat}' is present but unreadable "
+                        f"({unreadable.detail}), so this command could not look there.",
+                        fg="red",
+                    )
+                    click.secho(
+                        "    Could-not-read is not no-round-exists. Repair the store, "
+                        "or pass --audit-round explicitly.",
+                        fg="bright_black",
+                    )
+                    raise click.exceptions.Exit(1) from unreadable
+
+            if not candidates:
+                if sibling_hits:
+                    click.secho(
+                        f"[!] Cannot stamp PR #{pr_number}: the round naming this lives in "
+                        "another seat's store, so its findings cannot be validated here.",
+                        fg="red",
+                    )
+                    for seat_name, rid, focus in sibling_hits:
+                        click.echo(f"      {rid}  in {seat_name}'s store — {focus}")
+                    click.secho(
+                        "    Relay its confirm into this store, or run the stamp from that "
+                        "seat:\n"
+                        "      divineos audit file-external-confirm --round <local-round> "
+                        f"--actor <auditor> --branch {branch} --claimed-tree <tree>",
+                        fg="bright_black",
+                    )
+                    raise click.exceptions.Exit(1)
+                where = _audit_store_label()
+                scope = f" in {where}" if where else " (store not identified)"
+                click.secho(
+                    f"[!] No audit round{scope}, nor in any readable sibling store, names "
+                    f"branch {branch} or PR #{pr_number}.",
+                    fg="red",
+                )
                 click.secho(
                     "    File one, or pass --audit-round explicitly.",
                     fg="bright_black",
@@ -692,7 +848,7 @@ def register(cli: click.Group) -> None:
                 raise click.exceptions.Exit(1)
             if len(candidates) > 1:
                 click.secho(
-                    f"[!] {len(candidates)} rounds name branch {branch}. "
+                    f"[!] {len(candidates)} rounds name branch {branch} or PR #{pr_number}. "
                     "Pass --audit-round to say which one authorizes this merge.",
                     fg="red",
                 )
@@ -700,7 +856,12 @@ def register(cli: click.Group) -> None:
                     click.echo(f"      {rnd.round_id}  {getattr(rnd, 'focus', '')}")
                 raise click.exceptions.Exit(1)
             round_id = candidates[0].round_id
-            click.secho(f"[=] Resolved round from branch: {round_id}", fg="cyan")
+            where = _audit_store_label()
+            click.secho(
+                f"[=] Resolved round from branch: {round_id}"
+                + (f" (in {where})" if where else " (store not identified)"),
+                fg="cyan",
+            )
 
         verdict = validate_round(round_id, _EXTERNAL_AI_ACTORS)
         if not verdict.ok:

@@ -47,6 +47,7 @@ _EXPECTED_EXPERTS = (
     "aristotle",
     "beer",
     "bengio",
+    "breaker",
     "dawkins",
     "dekker",
     "deming",

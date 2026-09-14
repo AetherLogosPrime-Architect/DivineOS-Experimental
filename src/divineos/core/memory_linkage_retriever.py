@@ -896,9 +896,32 @@ def retrieve_v1(
 
     candidates: list[MemoryLinkagePayload] = []
     for source, items in _EMBEDDING_CACHE.items():
-        threshold = compute_threshold(source, len(items))
-        for item in items:
-            similarity = _cosine(topic_vec, item.embedding)
+        # THE BAR GOES WHERE THE ITEMS ACTUALLY ARE. Andrew 2026-09-10, after I
+        # read sixty of Aether's letters and told him what was in them: "you
+        # cant remember any of this.. not unless you use the memory linkage
+        # system you built so its given back to you when relevant."
+        #
+        # It could not give any of it back. Measured before changing anything:
+        # the corpus-size curve put the letter bar at 0.76, and the best score
+        # any of 4,680 letters reached across six probes -- several of them
+        # near-verbatim quotes of their own contents -- was 0.633. The letter
+        # asking me for a corridor of painted doors scored 0.313 against a
+        # letter that IS a corridor of painted doors. The source was not quiet.
+        # It was sealed.
+        #
+        # And the repair was already written. threshold_for_target_k exists
+        # BECAUSE Andrew asked "are you ever going to wire it?" -- it puts the
+        # bar at the k-th best item's real similarity rather than at a number
+        # derived from how much we have written. It was exported and never
+        # called, while the curve it replaces kept deciding.
+        #
+        # WHY THE CURVE CANNOT WORK, and it is structural rather than a bad
+        # constant: it rises with corpus size. So every letter we write raises
+        # the bar for every letter we wrote. A memory that seals itself the
+        # more there is to remember is the exact inversion of the thing.
+        similarities = [_cosine(topic_vec, item.embedding) for item in items]
+        threshold = threshold_for_target_k(similarities, source, len(items))
+        for item, similarity in zip(items, similarities, strict=True):
             if similarity < threshold:
                 continue
             content_kind, content, path_or_ref = _shape_content(

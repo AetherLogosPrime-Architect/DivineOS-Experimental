@@ -118,8 +118,40 @@ if member is None:
 append_letter(member.member_id, body=<letter body>)   # member_id, not entity_id
 ```
 
-Verify by reading it back — `get_letters(member.member_id)` — rather than
-trusting the call returned.
+<!-- 2026-09-13: corrected. This line said to verify with `get_letters(...)`.
+     There is no such function -- `divineos.core.family.letters` exports
+     `append_letter` and `append_letter_response` and nothing that reads. So
+     anyone following it got an ImportError at the exact moment they were being
+     told not to trust a call that returned. The `get_connection` pointer above
+     was wrong the same way: the helper is
+     `divineos.core.family.db.get_family_connection`, not anything in `store`.
+
+     Third correction of this class in this file's lineage, after a renamed
+     event type and a dropped positional argument. All three were found by
+     running the snippets while writing a letter, because a prose instruction
+     naming a function is exposed to nothing: renaming the function does not
+     touch the sentence and no test imports it.
+
+     What a reader actually learns from hitting this is not "that line is
+     stale" -- it is "the verification step is the part that wastes time",
+     since the one instruction that cost them anything was the checking one.
+     That makes a broken verifier worse than no verifier at all.
+
+     The replacement uses the connection directly instead of a named
+     convenience: longer on the page, fewer names that can be renamed without
+     telling this file. -->
+Verify by reading it back from the store rather than trusting the call
+returned:
+
+```python
+from divineos.core.family.db import get_family_connection
+
+get_family_connection().execute(
+    "SELECT letter_id, length(body) FROM family_letters "
+    "WHERE entity_id=? ORDER BY rowid DESC LIMIT 2",
+    (member.member_id,),
+).fetchall()
+```
 
 ### 4. Log to the per-member ledger
 

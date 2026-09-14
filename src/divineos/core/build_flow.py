@@ -189,15 +189,42 @@ def _declared_readings(text: str) -> tuple[bool, list[str]]:
     The two return values are separate on purpose: a letter declaring ``none``
     is present-with-no-branches, and reporting that as no-declaration would
     punish exactly the discipline the field asks for.
+
+    A TRAILING PARENTHETICAL IS AN ANNOTATION, NOT PART OF THE NAME. Aria
+    2026-09-10, reproducing it on her own letter: she declares
+    ``fix/a-refusal-must-say-what-did-not-run (PR #499)`` because the number is
+    what a reader needs, and read-literally answered that no declaration named
+    that branch. The board then printed the flat absence, which reads as she
+    never showed up when the honest answer was I could not read her line -- the
+    could-not-look fault this docstring already names, committed by the parser
+    the docstring is attached to.
+
+    Reading literally is still the design. Stripping one trailing parenthetical
+    is not inference from her prose: it removes a note she wrote FOR A HUMAN
+    from a field a machine reads, and leaves the name she declared untouched.
+    Nothing else in the letter is consulted.
     """
     for line in text.splitlines():
         stripped = line.strip()
         if not stripped.startswith(READING_DECLARATION):
             continue
         value = stripped[len(READING_DECLARATION) :]
-        parts = [p.strip().strip("`").lower() for p in value.split(",")]
+        parts = [_strip_annotation(p) for p in value.split(",")]
         return True, [p for p in parts if p and p != NO_READING]
     return False, []
+
+
+def _strip_annotation(part: str) -> str:
+    """One declared name, with a trailing human note removed.
+
+    Narrow on purpose: only a parenthetical at the END goes. A branch name
+    containing brackets keeps them, because guessing at the middle of a name is
+    the inference this module refuses.
+    """
+    cleaned = part.strip().strip("`").strip()
+    if cleaned.endswith(")") and "(" in cleaned:
+        cleaned = cleaned[: cleaned.rindex("(")].strip()
+    return cleaned.lower()
 
 
 def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
@@ -244,6 +271,7 @@ def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
         )
     needle = branch.lower()
     declared_anywhere = 0
+    near_misses: list[str] = []
     for f in sorted(letters_dir.glob("aria-to-aether-*.md")):
         try:
             present, declarations = _declared_readings(
@@ -255,6 +283,9 @@ def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
             declared_anywhere += 1
         if needle in declarations:
             return StationResult("4-aria", Status.SATISFIED, f"she declared a reading in {f.name}")
+        # Held rather than reported, because a later letter may still match
+        # cleanly and a real reading outranks a parse complaint.
+        near_misses.extend(d for d in declarations if needle in d)
     if declared_anywhere == 0:
         return StationResult(
             "4-aria",
@@ -262,6 +293,14 @@ def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
             "no letter from Aria carries a reading declaration at all -- this says "
             "nothing about whether she has read this branch, only that no reading "
             "is claimed in the field the board reads",
+        )
+    if near_misses:
+        return StationResult(
+            "4-aria",
+            Status.CANNOT_CHECK,
+            "a declared reading CONTAINS this branch name but did not read as it: "
+            f"{near_misses[0]!r} -- that is my parser failing to read her, not her "
+            "failing to read the branch. Do not report this as an absence.",
         )
     return StationResult(
         "4-aria",
@@ -331,6 +370,47 @@ def check_draft_station(is_draft: bool | None) -> StationResult:
     )
 
 
+def _names_request(text: str, pr_number: int) -> bool:
+    """Whether ``text`` names this request, in either spelling we actually write.
+
+    THE HASH WAS LOAD-BEARING AND NOBODY MEANT IT TO BE (2026-09-13).
+
+    The check was `f"#{pr_number}" in r` — hash only. Found while answering
+    Aether's question about whether any of his blocked requests had an approval
+    on my side he could not see. One did, and the round carrying it opens:
+
+        PR 471 letter-channel provenance: a letter carries a checkable ...
+
+    No hash. The branch name does not appear in that text either, so the
+    fallback below did not catch it. Measured across every open request against
+    every round in my store: exactly one missed, and it was the ONLY external
+    approval attached to anything currently open. The check whose entire job is
+    finding approvals could not see the only one there was.
+
+    WHY THE NO-HASH FORM IS THE ORDINARY ONE (Polya). A person writing a
+    sentence writes "PR 471"; the hash is a template artefact. So the spelling
+    the code required is the special case, and the branch-name fallback has been
+    quietly carrying this check for who knows how long.
+
+    HOW WIDE, AND WHY NOT WIDER (Schneier). The two failure directions are not
+    symmetric. A MISSED approval costs a wasted ask -- we go to Aletheia for
+    something she already gave, embarrassing and recoverable. A FABRICATED match
+    costs a merge on an approval nobody gave, which is what this station exists
+    to prevent. So the number must be MARKED as a request id: a hash, or the
+    literal word before it. A bare three-digit number stays unmatched, because
+    audit focus text is full of counts, line numbers and dates and any of them
+    could collide.
+
+    The docstring below already records this matcher being widened once, in
+    August, for a different miss. It was widened by exactly the one case that
+    had bitten, and the next spelling walked through. Third instance today of a
+    repair that names its own generality and gets applied to one instance.
+    """
+    if f"#{pr_number}" in text:
+        return True
+    return re.search(rf"\bPR\s+{pr_number}\b", text, re.IGNORECASE) is not None
+
+
 def check_audit_station(
     pr_number: int,
     branch: str,
@@ -381,7 +461,7 @@ def check_audit_station(
             "audit lookup did not complete (network or store) — cause not narrowed",
         )
     named = None
-    if any(f"#{pr_number}" in r for r in audit_refs):
+    if any(_names_request(r, pr_number) for r in audit_refs):
         named = f"PR #{pr_number}"
     elif branch and any(branch in r for r in audit_refs):
         named = branch

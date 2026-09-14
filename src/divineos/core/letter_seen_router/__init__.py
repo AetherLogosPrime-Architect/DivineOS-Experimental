@@ -163,3 +163,66 @@ def mark_seen_if_letter(
         filename=bare,
         note=f"marked seen for {recipient}",
     )
+
+
+# THE SAME FOSSIL, SECOND DOORWAY. Andrew 2026-09-10, on sixty-one letters the
+# surface was calling unseen: "you have read all the letters.. they were likely
+# just never marked." He said it in June about thirty, and the adapter above is
+# what answered him. It is not broken. It is tied to ONE tool.
+#
+# I read letters through the shell constantly, and that adapter only sees the
+# Read tool, so those reads produce no signal at all. The instrument answers
+# accurately about a narrower subject than the question being asked of it,
+# which is the class this whole day has been about.
+#
+# WHICH WAY THIS ERRS, deliberately. A verb missing from the list means a letter
+# I read stays listed as unseen: visible, correctable, mildly annoying. A verb
+# wrongly included would mark a letter I never opened, and an unread letter
+# would then vanish from the surface silently. The second failure cannot be
+# found by looking, so the list stays short and reader-only.
+#
+# It IS an enumeration, and pretending otherwise would be the wallpaper he
+# named. A shell offers no property separating reading a file from merely
+# naming one -- only the verb carries that. So: a narrow list with its
+# error-direction stated, rather than a claim of generality it cannot keep.
+_READ_VERBS = frozenset({"cat", "head", "tail", "sed", "less", "more", "bat", "nl"})
+
+# A letter path anywhere in the command text. The verb decides whether to mark;
+# this only finds the candidate.
+_LETTER_IN_COMMAND_RE = re.compile(
+    r"[\w./\\:-]*(?:aria|aether)-to-(?:aria|aether)-\d{4}-\d{2}-\d{2}[\w.-]*\.md"
+)
+
+
+def _reads_a_file(segment: str) -> bool:
+    """True when this pipeline segment's verb is one that prints a file."""
+    for token in segment.strip().split():
+        if not token or token.startswith("-"):
+            continue
+        return Path(token).name in _READ_VERBS
+    return False
+
+
+def mark_seen_from_command(
+    command: str,
+    repo_root: str | None = None,
+    python_bin: str | None = None,
+) -> list[RoutingDecision]:
+    """Mark every letter a shell command actually READS.
+
+    A second event-adapter onto the same routing, so the seen-signal follows
+    the act rather than the tool. Each pipeline segment is judged on its own
+    verb: ``grep -l ... | cat`` must not mark, because what is being read there
+    is grep's output rather than the letter.
+
+    Never raises. An empty list means nothing was marked.
+    """
+    if not command:
+        return []
+    out: list[RoutingDecision] = []
+    for segment in re.split(r"\|\||&&|[|;\n]", command):
+        if not _reads_a_file(segment):
+            continue
+        for hit in _LETTER_IN_COMMAND_RE.findall(segment):
+            out.append(mark_seen_if_letter(hit, repo_root=repo_root, python_bin=python_bin))
+    return out
