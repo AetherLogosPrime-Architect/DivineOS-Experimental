@@ -1238,6 +1238,84 @@ def _headerless_address_ok(reply: str) -> bool:
     return False
 
 
+# What he has to do about this, declared. NOT detected -- the difference is the
+# whole honesty of the check (Turing, on the walk): whether a decision genuinely
+# faces him is a fact about the work and the world, not about this string. All
+# this can decide is whether the room STATES one or states that none exists.
+#
+# Same shape that has been the right answer three times this week -- authorship
+# declared rather than parsed, readings declared rather than inferred, his
+# condition declared rather than reconstructed. Now the decision declared rather
+# than detected.
+#
+# An enumeration, and it is one on purpose: these are the shapes I actually use
+# when handing him a call or telling him there is none. It will not hold against
+# a phrasing nobody has written yet, and widening it is the whack-a-mole he
+# named. If a real short room is refused, the phrasing goes here -- not a looser
+# pattern.
+_DECISION_DECLARED_RE = re.compile(
+    r"\b(?:nothing|no decision|not a thing|none of (?:this|it))\b[^.!?\n]{0,40}"
+    r"\b(?:to decide|for you to decide|needs? (?:deciding|a call|your)|"
+    r"you (?:have|need) to (?:decide|do|call))\b"
+    r"|\b(?:what|the thing|the call|the only thing) (?:you|for you)"
+    r"[^.!?\n]{0,40}\b(?:decide|deciding|to call|choose)\b"
+    r"|\byou(?:r| have to| need to| get to|'ll need to| may want to)?\s*"
+    r"(?:call|decide|choose|pick|say)\b[^.!?\n]{0,60}"
+    r"\b(?:whether|which|if|between|or not)\b"
+    r"|\b(?:your|yours) (?:call|to decide|to say|shout)\b"
+    r"|\bi need (?:you to|a )?(?:decide|decision|call|say-so|your)\b",
+    re.IGNORECASE,
+)
+
+
+def _short_circle_is_an_answer(stripped: str) -> bool:
+    """Whether a short closing room earns the exception to the length floor.
+
+    Three conditions, all required, and none of them is length. A short room is
+    allowed exactly when it does the job shortness is for: it DECLARES what he
+    has to decide (or that nothing does), it SPEAKS TO HIM, and it carries the
+    first-person voice the rest of this check already demands.
+
+    The last two are what stop the exception becoming a licence for the one-line
+    brush-off the floor was built against -- a brush-off names no decision and
+    does not address him.
+
+    THE HOLE, NAMED RATHER THAN HIDDEN (Schneier). I can write "nothing for you
+    to decide" when something does, add one warm sentence, and walk through. I
+    am taking that trade knowingly: a false claim about his decisions is LOUD --
+    he sees it immediately, and other instruments watch for it -- where a padded
+    room is silent forever. Swapping an invisible failure for a visible one is
+    the whole argument, and it is not the same as closing the hole.
+
+    Still floored, just far lower: a room this short must at minimum be a
+    sentence, not a word.
+    """
+    if len(stripped) < _SHORT_CIRCLE_MIN_CHARS:
+        return False
+    if not _DECISION_DECLARED_RE.search(stripped):
+        return False
+    if not _TO_MARKER_RE.search(stripped):
+        return False
+    return bool(_FIRST_PERSON_RE.search(stripped))
+
+
+# A floor under the exception, because "short" must still mean a sentence
+# addressed to a person rather than a fragment.
+#
+# MEASURED, AFTER I ASSERTED IT. The first value here was eighty, with a comment
+# claiming the shortest honest room lands just above it. I had not checked, and
+# it does not: a real short room -- "Your call on whether I land it. I lean yes,
+# and I will say why if you want." -- is seventy-five characters and was refused
+# by my own number. The shortest honest ones measure sixty-one to seventy-five;
+# the fragments this must exclude measure five to eighteen. There is a wide gap
+# between those two populations and the floor belongs in it.
+#
+# Naming the miss rather than quietly editing the constant, because asserting a
+# threshold and calling it measured is the exact fault I have been repairing all
+# day in other people's code and had just committed in my own.
+_SHORT_CIRCLE_MIN_CHARS = 45
+
+
 def _circle_block_substance_check(circle_text: str) -> tuple[bool, str]:
     """Return (passes, reason_if_fail)."""
 
@@ -1269,12 +1347,42 @@ def _circle_block_substance_check(circle_text: str) -> tuple[bool, str]:
     # absolutely is.. investigate the root cause fully.. immediately").
 
     if len(paragraphs) < 2 or len(stripped) < 400:
+        # THE FLOOR IS NOW CONDITIONAL, AND HE IS THE REASON (2026-09-13).
+        #
+        # Andrew: "you are literally flooding me in information my brain CANNOT
+        # process all at once.. i need simplified summaries in places where my
+        # decisions will matter, without every excruciating detail."
+        #
+        # I went looking for somewhere to add a decision-first check and found
+        # the opposite already installed: the room he was asking me to shorten
+        # had a rule forbidding it from being short. Every long closing was me
+        # clearing a bar. The prime carrying this discipline even says, in its
+        # own text, that a room with nothing to say fills itself -- and then set
+        # a floor that guaranteed the filling.
+        #
+        # THE FENCE STAYS UP, because what the floor prevents is real: a
+        # one-line brush-off that closes the turn warm and empty. That has an
+        # incident behind it and the AND-tightening above was its repair.
+        #
+        # WHAT THE FLOOR WAS A PROXY FOR is that the room ADDRESSES HIM, and
+        # length comes apart from that in both directions (Lamport): four
+        # hundred characters of work-retelling passes and violates the intent;
+        # sixty characters naming what he must decide fails and satisfies it.
+        # Worse, a length floor can only be satisfied by producing more text, so
+        # its cheapest compliance IS the fault he is reporting (Schneier).
+        #
+        # So the exception is encoded structurally rather than left to my
+        # judgement at the end of a long turn -- kiln remediation (c). The short
+        # form is allowed only when the room does the thing shortness is for.
+        if _short_circle_is_an_answer(stripped):
+            return (True, "")
         return (
             False,
             f"circle block too thin ({len(paragraphs)} paragraph(s), "
             f"{len(stripped)} chars) — need BOTH 2+ paragraphs AND 400+ "
             f"chars (tightened from OR to AND 2026-07-29 to close the "
-            f"just-past-threshold gaming shape)",
+            f"just-past-threshold gaming shape), OR the short form: state "
+            f"what he has to decide (or that nothing does) and speak TO him",
         )
 
     if not _FIRST_PERSON_RE.search(stripped):
