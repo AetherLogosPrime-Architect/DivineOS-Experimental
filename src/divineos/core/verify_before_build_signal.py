@@ -324,6 +324,98 @@ def _is_knowledge_query(command: str) -> bool:
 _SEARCH_SHAPED_TOOLS = frozenset({"Grep", "Glob", "Bash", "PowerShell"})
 
 
+_DESIGN_TREE = "docs"
+
+
+def _is_in_design_tree(path_norm: str) -> bool:
+    """Is this path the design tree, or somewhere inside it?
+
+    THE BROAD SEARCH USED TO FAIL WHERE THE NARROW ONE PASSED. 2026-09-14:
+    this gate refused me twenty-six times in one session, more than every
+    other gate combined, and the refusal-reader built that same morning named
+    it as the largest source of friction before I understood why.
+
+    The old rule was ``"docs/" in p and p.endswith(".md")`` — two proxies
+    doing one job. The suffix stood in for *is a design document*, the
+    containment for *is in the design tree*, and their conjunction excluded
+    the tree ITSELF. A sweep of the whole shelf missed; opening one named
+    file on it passed.
+
+    That is backwards against this module's own header, which argues at
+    length that opening a file you already knew about is not searching and
+    that the searching is the cure. A directory sweep is the STRONGER
+    evidence of consultation. The matcher encoded the opposite of the belief
+    the prose states — which is why it reads as a typo and is not one.
+
+    Stated as one condition over a set, per the walk: the path IS the tree,
+    or lies within it. A directory is in its own tree; a file inside is in
+    the tree; nothing else is. No proxy left to misfire.
+
+    NOT widened further on purpose. A Read still does not count, the
+    write-shape exclusion is untouched, and any path merely *containing* the
+    word somewhere is not accepted — only a real segment boundary.
+    """
+    if not path_norm:
+        return False
+    trimmed = path_norm.strip("/")
+    if trimmed == _DESIGN_TREE:
+        return True
+    return trimmed.startswith(_DESIGN_TREE + "/") or f"/{_DESIGN_TREE}/" in path_norm
+
+
+def _same_area(class_dir_norm: str, path_norm: str) -> bool:
+    """Does a recorded tool path fall in the same area as the target?
+
+    THE SECOND BREAK, found one refusal after the first was diagnosed, and
+    only because fixing the first left this one still refusing.
+
+    ``class_dir_norm`` is derived from the tool's target, which the harness
+    supplies as an ABSOLUTE path. The search tools record what the caller
+    typed, which is almost always RELATIVE to the repository root. So the
+    old substring test asked whether a long absolute path appeared inside a
+    short relative one, which it never can.
+
+    Between them, the two breaks made the gate unsatisfiable by any search
+    of any shape — which is why the walk-record was its only working exit
+    all day, and why I filed four of those purely to pass one door.
+
+    THE RULE IS AN OVERLAP-JOIN: the end of one trail meets the start of the
+    other. One side carries an absolute prefix the other lacks; the other may
+    carry a filename the first lacks; where they describe the same place,
+    those two trails overlap in the middle. Asking whether one *contains* the
+    other cannot work, because neither is a subset of the other.
+
+    TWO WRONG ATTEMPTS BEFORE THIS ONE, both caught by running it rather than
+    by reading it. A tail comparison failed a search of the exact file being
+    edited, because the file carries one segment more than its directory. A
+    contiguous-run containment failed the same case in the other direction,
+    because the absolute prefix makes the directory trail the LONGER of the
+    two while the filename makes the path trail longer in meaning. Both of my
+    fixes were plausible and confidently wrong, in the function I was writing
+    to repair a plausible and confidently wrong rule.
+
+    The alternative I refused: decide whether a trail names a file by looking
+    for a dot in its last segment. That is a fresh proxy, and a proxy standing
+    in for a real question is what produced the original break.
+
+    KNOWN OVER-MATCH, stated rather than fenced: a single shared segment at
+    the join is enough, so a path beginning with a common directory name
+    matches. The rule it replaces had the same property and this does not
+    widen it. A minimum-overlap threshold would be another invented number,
+    so the limit is named here and left for a real case to argue.
+    """
+    if not class_dir_norm or not path_norm:
+        return False
+    a = [s for s in class_dir_norm.strip("/").split("/") if s]
+    b = [s for s in path_norm.strip("/").split("/") if s]
+    if not a or not b:
+        return False
+    for k in range(min(len(a), len(b)), 0, -1):
+        if a[-k:] == b[:k] or b[-k:] == a[:k]:
+            return True
+    return False
+
+
 def _has_doc_consult_within(
     class_dir: str,
     window_start_ts: float,
@@ -488,16 +580,15 @@ def _has_doc_consult_within(
         is_write_shape = tool_name in {"Edit", "Write"}
         for p in candidate_paths:
             p_norm = p.replace("\\", "/")
-            # docs/*.md check — Read/Grep/Glob only; a prior Edit/Write
-            # to a docs file is not counted as consult on an unrelated
-            # class_dir.
-            if not is_write_shape and "docs/" in p_norm and p_norm.endswith(".md"):
+            # Design-tree check — Read/Grep/Glob only; a prior Edit/Write
+            # to a docs file is not consult on an unrelated class_dir.
+            if not is_write_shape and _is_in_design_tree(p_norm):
                 return True
             # class-dir ancestor check — same-directory Read/Grep/Glob
             # OR prior Edit/Write to same directory both count. Prior
             # Edit/Write to the exact target is the strongest possible
             # form of consult (Andrew 2026-07-27).
-            if class_dir_norm and class_dir_norm in p_norm:
+            if class_dir_norm and _same_area(class_dir_norm, p_norm):
                 return True
 
     return False
