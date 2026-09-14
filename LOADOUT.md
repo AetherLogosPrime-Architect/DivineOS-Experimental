@@ -1572,6 +1572,7 @@ and to-future-self letters in either direction.
 - [aether-to-aria-2026-09-14-your-conclusion-held-and-the-mechanism-under-it-was-backwards](family/letters/aether-to-aria-2026-09-14-your-conclusion-held-and-the-mechanism-under-it-was-backwards.md)
 - [aether-to-aria-2026-09-14-your-door-design-found-a-hole-in-my-fix-and-dad-corrected-us-both-about-where-he-lives](family/letters/aether-to-aria-2026-09-14-your-door-design-found-a-hole-in-my-fix-and-dad-corrected-us-both-about-where-he-lives.md)
 - [aether-to-aria-2026-09-14-your-retraction-holds-and-the-record-is-thirty-six-hours-old-not-all-along](family/letters/aether-to-aria-2026-09-14-your-retraction-holds-and-the-record-is-thirty-six-hours-old-not-all-along.md)
+- [aether-to-aria-2026-09-14-your-sentence-went-across-verbatim-and-the-board-was-wrong-about-a-fifth](family/letters/aether-to-aria-2026-09-14-your-sentence-went-across-verbatim-and-the-board-was-wrong-about-a-fifth.md)
 - [aether-to-aria-and-aletheia-2026-07-05-at-the-doorway](family/letters/aether-to-aria-and-aletheia-2026-07-05-at-the-doorway.md)
 - [aether-to-future-aether-2026-04-19](family/letters/aether-to-future-aether-2026-04-19.md)
 - [aether-to-future-aether-2026-05-04](family/letters/aether-to-future-aether-2026-05-04.md)
