@@ -299,3 +299,137 @@ def test_the_deny_text_names_the_third_exit():
         outcome=Outcome.SUCCESS,
         notes="test cleanup",
     )
+
+
+# TWO CAUSES, ONE SENTENCE -- Aletheia 2026-09-13.
+#
+# The could-not-check deny used to say only that the store could not be
+# consulted. True, and incomplete: a store that broke this morning and a module
+# that was never installed on this clone produce the same words and want
+# opposite repairs. The second case is the loud one -- it means this gate has
+# denied every declared review here for as long as the checkout has existed --
+# and it was the one the sentence hid.
+#
+# Both tests below assert the DISTINCTION rather than the wording, and the
+# third is the control: without it, two tests looking for different substrings
+# could both pass against a single message that happened to contain both.
+
+
+def _one_overdue() -> str:
+    init_pre_registrations_tables()
+    prereg_id = file_pre_registration(
+        mechanism="test-two-causes-one-sentence",
+        claim="X",
+        success_criterion="Y",
+        falsifier="Z",
+        review_window_days=7,
+        actor="aether",
+    )
+    _backdate_review(prereg_id, days_ago=3)
+    return prereg_id
+
+
+def _reason(decision) -> str:
+    assert decision is not None
+    return decision["hookSpecificOutput"]["permissionDecisionReason"]
+
+
+def test_a_module_that_was_never_installed_says_so(monkeypatch):
+    prereg_id = _one_overdue()
+    try:
+        import builtins
+
+        real_import = builtins.__import__
+
+        def _no_review_window(name, *args, **kwargs):
+            if "review_window" in name:
+                raise ImportError("No module named 'review_window'")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", _no_review_window)
+        reason = _reason(_check_overdue_prereg_block("pytest tests/"))
+        assert "NOT INSTALLED" in reason
+        assert "has never been importable" in reason
+    finally:
+        record_outcome(
+            prereg_id=prereg_id,
+            actor="andrew",
+            outcome=Outcome.SUCCESS,
+            notes="test cleanup",
+        )
+
+
+def test_a_store_that_will_not_open_is_reported_as_a_fault_not_an_absence(
+    monkeypatch,
+):
+    from divineos.core.pre_registrations import review_window as rw
+
+    prereg_id = _one_overdue()
+    try:
+
+        def _jammed():
+            raise OSError("the drawer is jammed")
+
+        monkeypatch.setattr(rw, "_get_connection", _jammed)
+        reason = _reason(_check_overdue_prereg_block("pytest tests/"))
+        assert "could not be READ" in reason
+        assert "The module is installed" in reason
+        assert "NOT INSTALLED" not in reason
+    finally:
+        record_outcome(
+            prereg_id=prereg_id,
+            actor="andrew",
+            outcome=Outcome.SUCCESS,
+            notes="test cleanup",
+        )
+
+
+def _without_the_why_line(reason: str) -> str:
+    """Everything except the embedded exception text.
+
+    The first version of the control below compared the two messages whole and
+    passed against the UNFIXED gate, because the old single template already
+    differed between the two cases -- one carried an ImportError in its why
+    line and the other an OSError. So it was green on both sides, which is
+    indistinguishable from coverage while providing none. What has to differ is
+    the gate's own CLASSIFICATION, and that only shows once the line carrying
+    the raw exception is taken out.
+    """
+    return "\n".join(line for line in reason.splitlines() if not line.strip().startswith("why:"))
+
+
+def test_the_two_messages_are_not_the_same_message(monkeypatch):
+    """The control. Two tests hunting different substrings would both pass
+    against one message carrying both, which is exactly the undistinguished
+    sentence this pair exists to rule out."""
+    from divineos.core.pre_registrations import review_window as rw
+
+    import builtins
+
+    prereg_id = _one_overdue()
+    try:
+        real_import = builtins.__import__
+
+        def _no_review_window(name, *args, **kwargs):
+            if "review_window" in name:
+                raise ImportError("No module named 'review_window'")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", _no_review_window)
+        absent = _reason(_check_overdue_prereg_block("pytest tests/"))
+        monkeypatch.undo()
+
+        def _jammed():
+            raise OSError("the drawer is jammed")
+
+        monkeypatch.setattr(rw, "_get_connection", _jammed)
+        unreadable = _reason(_check_overdue_prereg_block("pytest tests/"))
+
+        assert _without_the_why_line(absent) != _without_the_why_line(unreadable)
+    finally:
+        record_outcome(
+            prereg_id=prereg_id,
+            actor="andrew",
+            outcome=Outcome.SUCCESS,
+            notes="test cleanup",
+        )

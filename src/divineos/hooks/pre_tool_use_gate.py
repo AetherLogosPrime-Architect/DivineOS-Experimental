@@ -1239,11 +1239,25 @@ def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
     # or a deferral as exits -- both worse than the review it wanted. See
     # core/pre_registrations/review_window.py for why this is neither an
     # allowlist nor a bypass flag.
+    # TWO CAUSES WEAR ONE SENTENCE, and they call for opposite repairs.
+    # Aletheia 2026-09-13: "it does not distinguish the store is unreadable
+    # from the module is not installed. One is an operational fault; the
+    # other means this gate has never worked on this checkout." A missing
+    # import is not a bad day -- it says every substantive tool use on this
+    # clone has been denied since the clone existed, and the fix is an
+    # install rather than a repair. Caught separately so the message can say
+    # which, because a reader told to repair a store that was never there
+    # goes looking for damage that does not exist.
     window_error = ""
+    window_absent = False
     try:
         from divineos.core.pre_registrations.review_window import active_window
 
         window = active_window()
+    except ImportError as exc:
+        window = None
+        window_absent = True
+        window_error = f"{type(exc).__name__}: {exc}"
     except Exception as exc:  # noqa: BLE001 -- not swallowed; see the deny below
         window = None
         window_error = f"{type(exc).__name__}: {exc}"
@@ -1252,13 +1266,28 @@ def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
         return None
     if window is None or window.state == "could-not-check":
         reason = window_error or getattr(window, "reason", "unknown")
+        if window_absent:
+            return _make_deny(
+                "OVERDUE PRE-REGISTRATIONS block substantive tool use, AND the "
+                "review-window module is NOT INSTALLED on this checkout, so "
+                "this gate cannot tell whether a review is already under "
+                "way.\n\n"
+                f"  why: {reason}\n\n"
+                "This is not a store that broke. The module has never been "
+                "importable here, which means this gate has denied every "
+                "declared review on this clone for as long as the clone has "
+                "existed. Install the package into the interpreter running "
+                "this hook, then retry."
+            )
         return _make_deny(
             "OVERDUE PRE-REGISTRATIONS block substantive tool use, AND the "
-            "review-window store could not be consulted, so this gate cannot "
+            "review-window store could not be READ, so this gate cannot "
             "tell whether a review is already under way.\n\n"
             f"  why: {reason}\n\n"
-            "This is a refusal made without looking, NOT a finding that no "
-            "review is happening. Repair the store, then retry."
+            "The module is installed, so this is an operational fault in the "
+            "store itself. This is a refusal made without looking, NOT a "
+            "finding that no review is happening. Repair the store, then "
+            "retry."
         )
 
     ids_preview = ", ".join(p.prereg_id[:24] for p in overdue[:5])
