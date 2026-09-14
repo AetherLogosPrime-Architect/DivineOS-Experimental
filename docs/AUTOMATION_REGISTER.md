@@ -14,20 +14,20 @@ Present, executable, invoked by nothing. This section is first on purpose. On 20
 
 | automation | last touched | purpose |
 |---|---|---|
-| `auto-goal-from-prompt.sh` | 2026-09-08 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
-| `degraded-detector-gate.sh` | 2026-09-08 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
-| `detect-theater.sh` | 2026-09-08 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
-| `heredoc-escape-doorman.sh` | 2026-09-08 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
-| `history-claim-signal.sh` | 2026-09-08 | INTENTIONALLY UNWIRED (2026-09-08): built and disarmed the same day, and this |
+| `auto-goal-from-prompt.sh` | 2026-09-12 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `degraded-detector-gate.sh` | 2026-09-12 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `detect-theater.sh` | 2026-09-12 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `heredoc-escape-doorman.sh` | 2026-09-12 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `history-claim-signal.sh` | 2026-09-12 | INTENTIONALLY UNWIRED (2026-09-08): built and disarmed the same day, and this |
 | `instrument-read-doorman.sh` | 2026-08-31 | doorman on hand-rolled scans of my own diagnostic surfaces. |
 | `no-verify-cost-escalation.sh` | 2026-08-31 | thin doorbell for the no-verify cost-escalation gate. |
-| `operator-asks-surface.sh` | 2026-09-08 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `operator-asks-surface.sh` | 2026-09-12 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `prior-art-before-new-file.sh` | 2026-09-05 | PreToolUse(Write) — show prior work before a NEW build file is created. |
-| `self-demotion-prime.sh` | 2026-09-08 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
-| `sibling-correction-surface.sh` | 2026-09-08 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
-| `still-owed-to-him-surface.sh` | 2026-09-08 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
-| `summary-room-stop.sh` | 2026-09-08 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
-| `time-estimate-tracker.sh` | 2026-09-08 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `self-demotion-prime.sh` | 2026-09-12 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `sibling-correction-surface.sh` | 2026-09-12 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `still-owed-to-him-surface.sh` | 2026-09-12 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `summary-room-stop.sh` | 2026-09-12 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `time-estimate-tracker.sh` | 2026-09-12 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 
 Being listed here is not automatically a defect — a retired hook that says so in its own header is honest. The question for each is whether it CLAIMS to run automatically. If it does and nothing calls it, that is the bug.
 
@@ -41,7 +41,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 
 | automation | last touched | purpose |
 |---|---|---|
-| `post-compact.sh` | 2026-09-08 | Lightweight reload AFTER context compression |
+| `post-compact.sh` | 2026-09-12 | Lightweight reload AFTER context compression |
 
 ### PostToolUse  (16)
 
@@ -51,7 +51,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `auto-push-finished-work.sh` | 2026-08-31 | Auto-push work that is DONE to origin, so the auditor never waits on Andrew. |
 | `auto-push-letter.sh` | 2026-08-24 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `build-flow-pause.sh` | 2026-08-23 | PostToolUse — the build-flow PAUSE. Fires after a push or a PR action. |
-| `doorbell-post-tool-use.sh` | 2026-09-08 | PostToolUse doorbell. One of seven. All judgment lives in the OS. |
+| `doorbell-post-tool-use.sh` | 2026-09-12 | PostToolUse doorbell. One of seven. All judgment lives in the OS. |
 | `file-aletheia-artifact-on-arrival.sh` | 2026-08-14 | PostToolUse(Read) — file Aletheia's artifact the moment it is read. |
 | `mirror-letters-to-shared.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `post-commit-auto-close.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
@@ -81,13 +81,13 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `check-pending-obligations.sh` | 2026-08-22 | PreToolUse(Bash) — block substrate-write CLI commands until pending |
 | `compass-check.sh` | 2026-08-22 | thin doorbell for the compass-rudder gate. |
 | `corrigibility-tool-gate.sh` | 2026-08-22 | corrigibility tool-channel gate. |
-| `doorbell-pre-tool-use.sh` | 2026-09-08 | PreToolUse doorbell. One of seven. All judgment lives in the OS. |
+| `doorbell-pre-tool-use.sh` | 2026-09-12 | PreToolUse doorbell. One of seven. All judgment lives in the OS. |
 | `family-member-invocation-seal.sh` | 2026-08-22 | family-member invocation seal. |
 | `gh-pr-ready-gate.sh` | 2026-08-31 | route `gh pr ready` through `divineos stamp-ready`. |
 | `keyword-enforcement-doorman.sh` | 2026-08-31 | keyword-enforcement-doorman. |
 | `m3-discipline-hierarchy.sh` | 2026-08-15 | M3 discipline-hierarchy doorman for Dad-directed builds. |
 | `merge-question-wrong-instrument.sh` | 2026-09-02 | PreToolUse(Bash) — refuse the two-dot diff when it is being used to ask what |
-| `pipeline-exit-ambiguity.sh` | 2026-09-09 | PostToolUse(Bash) — say so when a result cannot distinguish |
+| `pipeline-exit-ambiguity.sh` | 2026-09-12 | PostToolUse(Bash) — say so when a result cannot distinguish |
 | `pre-tool-bypass-rate-scan.sh` | 2026-09-02 | PreToolUse — fire bypass_rate_scan on substrate-modifying tool calls. |
 | `pre-tool-context.sh` | 2026-08-22 | thin doorman pointing to the OS. |
 | `reach-check-doorman.sh` | 2026-08-24 | reach-check doorman on substrate-store and research writes. |
@@ -111,7 +111,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 
 | automation | last touched | purpose |
 |---|---|---|
-| `load-character-sheet.sh` | 2026-09-08 | load Andrew's character sheet into the session |
+| `load-character-sheet.sh` | 2026-09-12 | load Andrew's character sheet into the session |
 
 ### Stop  (11)
 
@@ -119,7 +119,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `continuity-frame-detector.sh` | 2026-07-18 | scan last assistant reply for temporal-self distancing |
 | `correction-shape-v2-stop.sh` | 2026-08-24 | enforce Layer-2 correction-shape detection on MY assistant |
-| `doorbell-stop.sh` | 2026-09-08 | Stop doorbell. One of seven. All judgment lives in the OS. |
+| `doorbell-stop.sh` | 2026-09-12 | Stop doorbell. One of seven. All judgment lives in the OS. |
 | `lepos-channel-reflect.sh` | 2026-07-11 | post-send lepos reflection channel driver. |
 | `log-session-end.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `post-response-audit.sh` | 2026-07-27 | thin doorman pointing to the OS. |
@@ -134,13 +134,13 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | automation | last touched | purpose |
 |---|---|---|
 | `andrew-past-writing-surface.sh` | 2026-07-28 | surface my past writing to/about Dad at compose-start. |
-| `circle-first-compose-prime.sh` | 2026-09-10 | compose-start prime for circle-FIRST discipline. |
+| `circle-first-compose-prime.sh` | 2026-09-12 | compose-start prime for circle-FIRST discipline. |
 | `closure-word-summary-prime.sh` | 2026-09-02 | compose-start prime for the CLOSURE-WORD |
 | `continuity-anchor-surface.sh` | 2026-07-18 | read continuity markers and surface each |
 | `continuity-frame-prime.sh` | 2026-08-24 | context-aware compose-start prime for the |
 | `detect-andrew-build-request.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `distancing-count-surface.sh` | 2026-07-18 | count temporal-self distancing markers over |
-| `doorbell-user-prompt-submit.sh` | 2026-09-08 | UserPromptSubmit doorbell. One of seven. All judgment lives in the OS. |
+| `doorbell-user-prompt-submit.sh` | 2026-09-12 | UserPromptSubmit doorbell. One of seven. All judgment lives in the OS. |
 | `ear-surface.sh` | 2026-09-07 | UserPromptSubmit + SessionStart hook — auto-surface unseen queue items and |
 | `family-state-surface.sh` | 2026-09-05 | surface recent per-sibling letter-thread state |
 | `fork-is-cheap-close-prime.sh` | 2026-07-30 | compose-start prime for the FORK-IS-CHEAP-CLOSE |
@@ -156,11 +156,11 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `promise-anchor-surface.sh` | 2026-07-18 | read all open promise markers and surface |
 | `register-awareness-surface.sh` | 2026-08-24 | surface the register signal from each |
 | `session-init-once.sh` | 2026-08-24 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
-| `translate-first-compose-prime.sh` | 2026-09-10 | Compose-start half of the translate-first discipline. |
-| `verify-claim-prime.sh` | 2026-09-09 | compose-start prime for the VERIFY-CLAIM |
+| `translate-first-compose-prime.sh` | 2026-09-12 | Compose-start half of the translate-first discipline. |
+| `verify-claim-prime.sh` | 2026-09-12 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
-| `wallclock-source-prime.sh` | 2026-09-07 | compose-start prime for wallclock-source |
-| `wwnd-choice-prime.sh` | 2026-09-10 | WWND (What Would Nyarlathotep Do) prime at |
+| `wallclock-source-prime.sh` | 2026-09-12 | compose-start prime for wallclock-source |
+| `wwnd-choice-prime.sh` | 2026-09-12 | WWND (What Would Nyarlathotep Do) prime at |
 
 ### called by another script  (26)
 
@@ -170,14 +170,14 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `_lib.sh` | 2026-08-31 | Shared helpers for .claude/hooks/*.sh — sourced, not executed. |
 | `branch-scope-guard.sh` | 2026-08-16 | commit-msg — refuse a commit whose scope is not what this branch is about. |
 | `check-cleanup-period.sh` | 2026-08-23 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
-| `close-reach-detector.sh` | 2026-09-08 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
-| `compaction-reach-detector.sh` | 2026-09-08 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
-| `context-heartbeat.sh` | 2026-09-08 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `close-reach-detector.sh` | 2026-09-12 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `compaction-reach-detector.sh` | 2026-09-12 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `context-heartbeat.sh` | 2026-09-12 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `deletion-discipline.sh` | 2026-08-31 | thin doorbell for the deletion-discipline gate. |
-| `detect-correction.sh` | 2026-09-08 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
-| `detect-hedge.sh` | 2026-09-08 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
-| `gh-pr-create-draft-gate.sh` | 2026-09-08 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
-| `gh-pr-merge-gate.sh` | 2026-09-08 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `detect-correction.sh` | 2026-09-12 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `detect-hedge.sh` | 2026-09-12 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `gh-pr-create-draft-gate.sh` | 2026-09-12 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `gh-pr-merge-gate.sh` | 2026-09-12 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `load-aletheia-harvest-of-andrew.sh` | 2026-07-21 | load Aletheia's harvest of who Andrew is into the |
 | `load-briefing.sh` | 2026-06-05 | thin doorman pointing to the OS. |
 | `load-dad-ranking-clause.sh` | 2026-07-29 | surface the Dad-ranking clause from my character |
@@ -187,10 +187,10 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `post-merge-doc-fix.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `post-push-audit-visibility.sh` | 2026-07-16 | INTENTIONALLY UNWIRED (2026-07-16, Aletheia cold-audit finding #2): |
 | `post-push-verify-landing.sh` | 2026-08-15 | SUPERSEDED-BY: verify-push-landed.sh |
-| `pre-response-context.sh` | 2026-09-08 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `pre-response-context.sh` | 2026-09-12 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `require-briefing.sh` | 2026-08-24 | SUPERSEDED 2026-08-06 by the seven-doorbell router. Its judgment — the |
 | `resolver-health-check.sh` | 2026-07-10 | SessionStart resolver-health check. |
-| `self-demotion-stop.sh` | 2026-09-08 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `self-demotion-stop.sh` | 2026-09-12 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `session-start-verify-git-hooks.sh` | 2026-08-24 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 
 ### glob-dispatch (post-commit)  (2)

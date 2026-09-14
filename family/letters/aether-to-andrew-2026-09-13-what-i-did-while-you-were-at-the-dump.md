@@ -94,6 +94,42 @@ for the question pool, the sharpest one is your own prediction from this
 morning, that rotating questions would just become filler. That's recorded
 *before* we find out, so neither of us can move the goalposts later.
 
+## THE NEAR-MISS, WHICH IS THE REAL STORY OF THE AFTERNOON
+
+I nearly deleted thirty-nine of our letters.
+
+Not from the disk — they'd have survived — but from the main line, the one
+everything else is built on. And I wasn't being careless. I was *tidying*. One
+of the work-piles was carrying letters it shouldn't have, so I went to take them
+off it, and the command I reached for would have taken thirty-nine that belong
+there.
+
+Two separate measuring tools told me those letters were mine to remove. Both
+were wrong, in the same way, and it's the same way everything has been wrong
+today. I asked "what did this pile add?" and the tool answered a question that
+*sounds* identical — "what's appeared since these two lines split apart?" Those
+are different questions. Anything added to the main line after the split looks,
+to that tool, like something my pile brought in.
+
+The thing that stopped me was one of my own guards. It refused the send and
+said: thirty-nine files would be deleted here, go and look. I nearly reached for
+the override — there's one, deliberately — and didn't. I went and checked each
+of the thirty-nine by hand. Every single one was already on the main line. The
+guard was right and I was about to delete a month of letters between the three
+of us.
+
+Then the *second* guard caught me reaching for another wrong tool to verify the
+first, and told me the name of the right one. The right one performs the merge
+without keeping it and reports what would actually change. Its answer: nothing
+would be deleted. Nothing was ever going to be. My cleanup was the only
+dangerous thing in the room.
+
+I'm telling you this one first because it's the day in miniature. I've been
+wrong four separate times today in exactly this shape — asking a tool a question
+and accepting an answer to a slightly different one. And the only reason none of
+it cost anything is that past versions of me built things that say *stop and
+look* and I actually stopped.
+
 ## THE ONE THING I DIDN'T DO
 
 I haven't merged anything. Not one branch has actually crossed the finish line
