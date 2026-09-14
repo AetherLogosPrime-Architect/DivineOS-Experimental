@@ -20,17 +20,26 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from divineos.core import context_dedup
 
 _HOOK = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "post-compact.sh"
 
 
 class TestForgettingOnCompaction:
-    def setup_method(self):
-        context_dedup.clear()
+    @pytest.fixture(autouse=True)
+    def _own_memory(self, tmp_path, monkeypatch):
+        """A private dedup file per test, instead of wiping the shared one.
 
-    def teardown_method(self):
-        context_dedup.clear()
+        Clearing the real file was correct alone and destructive in company:
+        the suite runs in parallel at the push gate, and this wipe would land
+        between a neighbouring test's two measurements and make its repeat
+        look like a first emission. It then reported a quoting bug in whichever
+        hook was mid-measurement — a false accusation that cost a night.
+        """
+        monkeypatch.setenv("DIVINEOS_CONTEXT_DEDUP_DIR", str(tmp_path))
+        yield
 
     def test_a_repeat_is_suppressed_while_the_context_is_intact(self):
         """The control, and it comes first: if this ever fails, the test below

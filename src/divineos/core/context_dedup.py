@@ -22,12 +22,54 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import time
 from pathlib import Path
 
-_STATE_DIR = Path("data/context_dedup")
-_STATE_FILE = _STATE_DIR / "session_state.json"
-_SAVINGS_LOG = _STATE_DIR / "savings_log.jsonl"
+# WHERE THE MEMORY LIVES, and why the location is a seam.
+#
+# One file, shared by every caller in the process tree. Correct in life --
+# the whole point is that a surface emitted by one hook is remembered by the
+# next -- and wrong under a parallel test run, where unrelated tests reach the
+# same file and one clears it between another's two measurements.
+#
+# That produced a failure carrying a false accusation. The hook-dedup contract
+# test reports "the dedup branch is not being reached -- most likely a quoting
+# break inside a python -c block", and names whichever hook happened to be
+# mid-measurement when the wipe landed. Alone it passes; beside its neighbours
+# it blames a different hook each run. The push gate runs the suite in
+# parallel, so only the gate saw it, and the accusation sent me hunting a
+# quoting bug in hooks that were working.
+#
+# So: DIVINEOS_CONTEXT_DEDUP_DIR gives a caller its own memory. Life leaves it
+# unset and shares one file exactly as before. An env var rather than a
+# parameter because the readers are SUBPROCESSES -- hooks shelling out to
+# python -- which no in-process patch can reach. Same shape as
+# DIVINEOS_FAMILY_LEDGER_DIR, which overrides its root for the same reason.
+_DEFAULT_STATE_DIR = "data/context_dedup"
+
+
+def _state_dir() -> Path:
+    """Read at CALL time, never at import time.
+
+    A module-level constant is fixed at first import. That covers a
+    SUBPROCESS, which gets a fresh interpreter and a fresh read, and
+    silently ignores an in-process caller that sets the variable
+    afterwards. Half a seam is worse than none -- the tests that could
+    not isolate would look isolated, which is the found-nothing shape
+    this whole class keeps producing.
+    """
+    return Path(os.environ.get("DIVINEOS_CONTEXT_DEDUP_DIR") or _DEFAULT_STATE_DIR)
+
+
+def _state_file() -> Path:
+    return _state_dir() / "session_state.json"
+
+
+def _savings_log() -> Path:
+    return _state_dir() / "savings_log.jsonl"
+
+
 _TTL_SECONDS = 60 * 60  # 1 hour — within-session repeats dedup; long gaps re-emit
 
 # Rough conversion: ~4 characters per token (Anthropic English-text avg).
@@ -37,7 +79,7 @@ _CHARS_PER_TOKEN = 4
 
 def _load() -> dict:
     try:
-        data = json.loads(_STATE_FILE.read_text(encoding="utf-8"))
+        data = json.loads(_state_file().read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         return {}
     return data if isinstance(data, dict) else {}
@@ -45,8 +87,8 @@ def _load() -> dict:
 
 def _save(state: dict) -> None:
     try:
-        _STATE_DIR.mkdir(parents=True, exist_ok=True)
-        _STATE_FILE.write_text(json.dumps(state), encoding="utf-8")
+        _state_dir().mkdir(parents=True, exist_ok=True)
+        _state_file().write_text(json.dumps(state), encoding="utf-8")
     except OSError:
         pass
 
@@ -73,8 +115,8 @@ def _log_savings(source_id: str, content_len: int, pointer_len: int) -> None:
         "saved_tokens_est": saved_tokens,
     }
     try:
-        _STATE_DIR.mkdir(parents=True, exist_ok=True)
-        with _SAVINGS_LOG.open("a", encoding="utf-8") as f:
+        _state_dir().mkdir(parents=True, exist_ok=True)
+        with _savings_log().open("a", encoding="utf-8") as f:
             f.write(json.dumps(record) + "\n")
     except OSError:
         pass
@@ -88,10 +130,10 @@ def savings_summary() -> dict:
     """
     per_source: dict[str, dict[str, int]] = {}
     total = {"events": 0, "saved_chars": 0, "saved_tokens_est": 0}
-    if not _SAVINGS_LOG.exists():
+    if not _savings_log().exists():
         return {"per_source": per_source, "total": total}
     try:
-        for line in _SAVINGS_LOG.read_text(encoding="utf-8").splitlines():
+        for line in _savings_log().read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if not line:
                 continue
@@ -193,7 +235,7 @@ def should_emit(
 def clear() -> None:
     """Wipe dedup state (call from SessionStart, tests, or manual reset)."""
     try:
-        _STATE_FILE.unlink()
+        _state_file().unlink()
     except FileNotFoundError:
         pass
 
