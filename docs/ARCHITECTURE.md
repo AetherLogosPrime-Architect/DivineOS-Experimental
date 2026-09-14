@@ -688,6 +688,7 @@ src/divineos/
     reach_check.py             Knowing something and not reaching for it — the automatable half.
     work_item_doorman.py       No code edit without an open piece of work; the refusal is what opens it.
     read_gate.py               Primes that are gates — a surface can require proof it was opened.
+    refusal_stretches.py       What refused me this session, so nine incidents can be seen as one stretch.
     andrew_operator_shape_detector.py Andrew-operator-shape detector — MIRROR (not judge) for operator-shape
     component_register_surface.py Surface the component register at briefing time.
     instruments.py             The instruments index — what I can measure about myself, and whether it is answering.
