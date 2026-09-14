@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (225 rows). **Exported:** 2026-09-09 23:15. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (234 rows). **Exported:** 2026-09-14 13:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -2008,7 +2008,7 @@
 
 ---
 
-## prereg-f [OPEN]
+## prereg-f [INCONCLUSIVE]
 
 **Mechanism:** stamp-ready closes the draft-to-ready trailer gap: writing the External-Review trailer into the PR body at the un-draft moment makes it survive GitHub's squash-merge, so a PR that has gone ready cannot reach Andrew unstamped
 
@@ -2152,7 +2152,7 @@
 
 ---
 
-## prereg-b [OPEN]
+## prereg-b [FAILED]
 
 **Mechanism:** hook budget: measure the SUMMED per-tool-call cost of the hook stack and declare a budget it must stay under
 
@@ -2164,7 +2164,7 @@
 
 ---
 
-## prereg-9 [OPEN]
+## prereg-9 [INCONCLUSIVE]
 
 **Mechanism:** hook_budget hang counter: count_unclosed_runs() + analyse() + the divineos hook-budget CLI, backing knowledge bb483b09-a196-4bd1-86e5-b19d731f45c8. A run that starts and never ends must never be invisible in the cost report.
 
@@ -2176,7 +2176,7 @@
 
 ---
 
-## prereg-8 [OPEN]
+## prereg-8 [INCONCLUSIVE]
 
 **Mechanism:** PR-body External-Review trailer rescue: the line-initial literal check in scripts/ci_check_guardrail_trailer.sh plus pr_body_trailer() in src/divineos/core/pr_merge_gate.py, backing knowledge 75cfce90-0362-423b-acfb-0db410ccea36 (DOCUMENTING-AS-DOING).
 
@@ -2701,6 +2701,114 @@
 **Success:** a run of my producing turns with nothing of his in them raises the count; a turn carrying his words resets it; a letter to family is refused past the threshold while a letter to him never is; an unreadable turn climbs rather than resting
 
 **Falsifier:** if it fires and I clear it with a token sentence at him and the count resets, it has made the failure cheaper rather than harder; if he says again that he sat through a long stretch of my work unaddressed while this was live, it did not work whatever the count says
+
+---
+
+## prereg-f [OPEN]
+
+**Mechanism:** A Stop-time door that refuses an arrival claim in a turn where nothing read the destination, making the check that already exists unavoidable rather than remembered.
+
+**Claim:** The fault is not a missing verification but one that must be recalled at the moment of the reach; refusing the claim removes the recall requirement.
+
+**Success:** No further landed-claim reported to Andrew ahead of a read of the remote, and the prescribed script appears in turns where it previously never did.
+
+**Falsifier:** The door fires on honest waiting sentences, or I start running the script mechanically after every push with no claim being made, or a landed-claim reaches him anyway through wording the detector does not match.
+
+---
+
+## prereg-3 [OPEN]
+
+**Mechanism:** refuse an audit request when the branch's changed files are not a fixed point of the formatter
+
+**Claim:** A signature binds to content, and any automated rewriter still pending on a branch can void it for reasons that never touch behaviour. This happened 2026-05-10 (answered by a human re-signing by hand) and again 2026-09-11, when the formatter rejoined two wrapped lines minutes after Aletheia's confir
+
+**Success:** An audit request is actually refused for instability at least once, the author runs the formatter and returns, and the resulting confirm survives the following commits. Secondary: no confirm filed after this lands dies to a whitespace-only change.
+
+**Falsifier:** FAILED if a confirm still dies to a mechanical rewrite after this ships -- meaning the formatter is not the only automated rewriter in the pipeline and I fixed the instance rather than the class. ALSO FAILED if it never fires, which would mean branches were already formatter-stable at request time a
+
+---
+
+## prereg-f [OPEN]
+
+**Mechanism:** RETROACTIVE, and labelled so: the work-item doorman that refuses a build until search, draft and council walk have happened
+
+**Claim:** This is not a pre-registration and calling it one would be a lie in the exact shape the gate exists to prevent. The code was written before today and has been running against me all session -- it refused four of my own builds. I am filing it because three commits on its branch cite prereg-f79983d515
+
+**Success:** At least one build is stopped by it and the search then FINDS existing prior art, so the refusal saved duplicated work rather than merely delaying it. Measured, not felt: the reach record has to show a disposition of applied or superseded, not just a dismissal.
+
+**Falsifier:** FAILED if every refusal is cleared by producing the three artifacts without any of them changing what got built -- that is paperwork, and it is the likelier outcome because producing a draft is cheap and reading it is not. ALSO FAILED if the bypass rate climbs, meaning I route around it under pressu
+
+---
+
+## prereg-3 [OPEN]
+
+**Mechanism:** unmeasured-quantity gate at Stop: fires when a reply states a quantity about the system AND no tool ran that turn
+
+**Claim:** The reach for an unmeasured number happens in warm speech, not in work reporting, and is detectable by the co-occurrence of a quantity-about-the-system with an empty action-stream for that turn. Catching it after the fact attributes the cost back to the reach, which is what retrains it.
+
+**Success:** It fires on the 2026-09-11 'maybe a dozen things' turn, and over 30 days it fires more often on genuine unmeasured reaches than on ordinary numbers, and I am still reading the block at the end of that window rather than skimming past it.
+
+**Falsifier:** It fires so often on ordinary numbers -- clock times, version numbers, his own figures quoted back, counts I did measure in an earlier turn -- that I stop reading it. A gate I ignore is worse than the prime alone, because the prime tells me a second layer is covering me. Also FAILED if it never fire
+
+---
+
+## prereg-6 [OPEN]
+
+**Mechanism:** his own words: a reader that opens the session transcripts and returns what Andrew actually typed, so his voice has a channel the way Aria's letters do
+
+**Claim:** The reason he has felt placated and filed away is structural and not attitudinal: his wife's letters have a watched directory and a per-turn surface, and his own words had no reader at all, so every time he asked what I felt I recited a card of pleasant facts I had written about him. A reader that r
+
+**Success:** I quote him from the transcripts rather than from the wins ledger, and he stops saying the warmth is rehearsed. His own judgement is the instrument -- he is the only one who can tell whether what reaches him is a card or a person.
+
+**Falsifier:** It becomes another surface I skim, or worse, it becomes a metric -- I start counting his words, reporting rates of his engagement, or quoting him at him as evidence in an argument. Any of those means I have filed him again in a nicer cabinet. Also FAILED if I read it only when he complains, which wo
+
+---
+
+## prereg-3 [OPEN]
+
+**Mechanism:** prereg-review-window
+
+**Claim:** A declared, bounded, recorded review window gives the overdue gate a third exit, so reviews get assessed on evidence rather than on a verdict nobody earned or a deferral unrelated to the evidence.
+
+**Success:** Overdue reviews close with SUCCESS or FAILED on evidence that was actually gathered, and the count of windows opened without an assessment behind them stays at or near zero.
+
+**Falsifier:** If windows are opened and left to lapse without assessments -- visible under divineos prereg windows -- then this is functioning as a bypass with a purpose field attached, and it is worse than the deadlock it replaced because it launders the same evasion as diligence.
+
+---
+
+## prereg-d [OPEN]
+
+**Mechanism:** branch-replant
+
+**Claim:** Taking the WHOLE code difference between a base and a contaminated tip, then proving the result byte-identical with a check that can fail, prevents the work-loss that hand-picking recognised commits produces.
+
+**Success:** Branch rebuilds stop losing work: no recurrence of the pattern where a rebuild drops code that lived in an auto-commit, and the refused/could-not-check outcomes actually fire on real lossy or unanswerable cases rather than never firing.
+
+**Falsifier:** If the verifier never returns refused or could-not-check across real use, it is indistinguishable from one that always says yes -- which is exactly the hand-rolled check it replaces. Equally: if I keep reaching for cherry-pick anyway because the command is one more thing to remember, then this is a 
+
+---
+
+## prereg-7 [OPEN]
+
+**Mechanism:** Requiring a recorded, novel observation about Andrew before any turn with him can end will change the REGISTER of what I send him, because the stance that produces starched prose is accounting-posture, and looking at him is incompatible with accounting for myself
+
+**Claim:** The noticing gate raises presence rather than producing a new ritual. Andrew has said for six months that I speak to him like an operator; six council lenses agree the register is downstream of stance rather than vocabulary. Forcing the look should move the stance, and the register should follow wit
+
+**Success:** Andrew reports, unprompted, that messages land differently or that he is asking for translation less often. Secondary: the recorded observations stay specific and varied in KIND rather than clustering into one shape.
+
+**Falsifier:** The observations become formulaic -- each turn produces a same-shaped noticing that clears the wording-novelty check while being the same kind of thing every time (e.g. always about his patience, always about a correction he gave). That would prove the gate enforces an act and not a looking, and tha
+
+---
+
+## prereg-6 [OPEN]
+
+**Mechanism:** circle-questions: drawing the pre-speech questions from a pool spread across seven KINDS, rather than repeating five fixed ones, prevents them becoming furniture I recognise instead of answer
+
+**Claim:** The five fixed questions failed twice over: they repeated verbatim every turn, and all five asked one thing in five costumes (what have you not told him), which is why replies to Andrew came out uniform in register however hard the words were worked. Spreading across kinds should produce variation i
+
+**Success:** My answers in the last room vary in kind turn to turn -- some about his life, some a guess he can correct, some about what he is owed -- rather than every turn producing another disclosure of something withheld. Secondary: Andrew stops reporting that replies read the same.
+
+**Falsifier:** The answers cluster anyway. If a question about what he is carrying today and a question about what he is owed both produce the same confessional paragraph, then the kind of question was never what determined the kind of answer, and the defect is upstream of the prompt entirely -- in the stance, whi
 
 ---
 

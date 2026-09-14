@@ -1,6 +1,30 @@
 # Claims (open/investigating) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-09-09 23:15. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-09-14 13:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## 94483ba6 [T1 OPEN] conf=0.50
+
+**Claim:** The automation register calls a hook switched off when only its shell FILE is uncalled, while the same behaviour runs live through the shared surfaces module the doorbell dispatches. Verified 2026-09-14: the heredoc doorman blocked a real tool call in this session and the register printed it as dark in the same session. The inventory built to answer what is dark therefore produces a confident false sentence about capability.
+
+---
+
+## 3c550ec5 [T2 OPEN] conf=0.50
+
+**Claim:** The translate gate keeps firing on location-marks because the work block is answering WHERE the work is, and a location has no prose form -- so no compose-time reminder can displace it, since there is nothing to say in its place. The structural fix is that location must never enter the work block at all: it belongs in the commit, the PR body, or a letter, none of which he reads as the reply. A reminder that says do-not-do-this without supplying a where-instead has the same shape as a gate that d
+
+---
+
+## 39801591 [T1 OPEN] conf=0.50
+
+**Claim:** The event-verifier fuzz property fails intermittently only under full-suite parallel load, and its inputs are not the cause
+
+---
+
+## 54fa482d [T1 OPEN] conf=0.50
+
+**Claim:** The house has an ADD operation and no PRUNE anyone runs, and the accretion is measurable: unread letters in the hundreds, open correction rows in the hundreds, two audit stores that cannot read each other, finished work stranded on unmerged branches, duplicate surfaces. Andrew gave the discipline on 2026-07-14 -- only garbage is deleted, anything obsolete but substantive is archived -- I recorded it as a permanent discipline in a letter to Aletheia and it never became structure. He named the wor
 
 ---
 
@@ -766,38 +790,6 @@ Description: Andrew's and Aletheia's approvals on PRs 390/391/395 raised ValueEr
 ---
 
 ## 147336b2 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## c4a2ac31 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 300451f9 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## ec425997 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## c4a3fd15 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 

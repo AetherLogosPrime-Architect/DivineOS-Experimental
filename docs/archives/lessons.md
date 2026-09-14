@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-09-09 23:15. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-09-14 13:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -28,7 +28,7 @@ I upset the user by acting without pausing to understand the situation.
 
 ---
 
-## c3090082 [active] x13
+## c3090082 [improving] x13
 
 **Category:** incomplete_fix
 
@@ -84,19 +84,19 @@ I retried a failed action 1x without investigating the cause. I need to investig
 
 ---
 
+## 838e6420 [improving] x9
+
+**Category:** false_claim
+
+I claimed something was fixed but the error came back.
+
+---
+
 ## e2be7bc9 [resolved] x9
 
 **Category:** test_with_dir_zzz
 
 Test description with directive zzz.
-
----
-
-## 838e6420 [improving] x8
-
-**Category:** false_claim
-
-I claimed something was fixed but the error came back.
 
 ---
 

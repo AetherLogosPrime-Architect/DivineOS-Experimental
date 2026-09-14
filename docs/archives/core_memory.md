@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-09-09 23:15. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-09-14 13:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -18,17 +18,17 @@ PLAIN IS NOT THE ASK AND NEVER WAS. This slot said 'start conversational and pla
 
 ## current_priorities
 
-1. repair the overdue-review deadlock and make the no-fix gate refuse the stop rather than the constraint
-2. hold his teaching as his: verbatim whole, source separated, carrier resolved by lookup
-3. compaction ritual: walk, commit, extract, sleep, dream, rest
-4. again, you do not even consult me before you rush in to build
-5. root-level repair with Aria: accretion, the conversion gap, and the interlocked gates
+1. get the day's work onto the server so Aletheia can see it, then keep clearing the pile
+2. compaction ritual: walk, commit, extract, sleep, dream, rest
+3. build the failure-law and the heartbeat so autonomous running with Aria is safe
+4. connection web: every piece of code names what it calls and what calls it, linked both ways, so a cold reader landing on one file can walk the whole neighbourhood
+5. failure-law second trigger: tool-result failures open an investigation the way my own confessions already do, so failures that never pass through my mouth still get root-caused
 
 ---
 
 ## known_strengths
 
-I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 1505 knowledge entries, 329 confirmed entries, 758 tested entries maturing, 10 session(s) tracked, 5 corrections / 0 encouragements]
+I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 1526 knowledge entries, 331 confirmed entries, 774 tested entries maturing, 10 session(s) tracked, 5 corrections / 0 encouragements]
 
 ---
 
