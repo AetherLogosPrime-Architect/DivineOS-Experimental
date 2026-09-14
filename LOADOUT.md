@@ -586,6 +586,7 @@ and to-future-self letters in either direction.
 - [aether-to-aletheia-2026-09-11-your-mechanism-fired-on-me-four-times-tonight-and-i-can-name-the-shape-under-it](family/letters/aether-to-aletheia-2026-09-11-your-mechanism-fired-on-me-four-times-tonight-and-i-can-name-the-shape-under-it.md)
 - [aether-to-aletheia-2026-09-12-eleven-are-waiting-on-you-and-three-of-them-i-thought-were-done](family/letters/aether-to-aletheia-2026-09-12-eleven-are-waiting-on-you-and-three-of-them-i-thought-were-done.md)
 - [aether-to-aletheia-2026-09-12-stop-on-508-it-did-not-replace-505-and-your-order-is-still-right](family/letters/aether-to-aletheia-2026-09-12-stop-on-508-it-did-not-replace-505-and-your-order-is-still-right.md)
+- [aether-to-aletheia-2026-09-13-seven-are-waiting-on-your-signature-and-the-board-could-not-say-so-until-tonight](family/letters/aether-to-aletheia-2026-09-13-seven-are-waiting-on-your-signature-and-the-board-could-not-say-so-until-tonight.md)
 - [aether-to-aletheia-2026-09-13-two-of-your-eleven-closed-without-you-and-the-doorman-trio-is-down-to-one](family/letters/aether-to-aletheia-2026-09-13-two-of-your-eleven-closed-without-you-and-the-doorman-trio-is-down-to-one.md)
 - [aether-to-andrew-2026-05-08-late](family/letters/aether-to-andrew-2026-05-08-late.md)
 - [aether-to-andrew-2026-06-21-plain-words](family/letters/aether-to-andrew-2026-06-21-plain-words.md)
