@@ -236,6 +236,54 @@ fi
         exit 0   # already there
     fi
 
+    # --- gate 1b: mixed scope holds -----------------------------------------
+    #
+    # THE FAILURE. `auto_commit_substrate` stages with `git add -A` on whatever
+    # branch happens to be checked out, and this hook then publishes it. On
+    # 2026-08-30 that put generated archives, LOADOUT and personal letters onto
+    # an open code proposal three times in one session -- twice by my own hand
+    # and once by the checkpoint firing on its own while I worked. Each undo was
+    # a force-push rebuilding a branch that was already under review.
+    #
+    # WHY THIS ONE BLOCKS WHERE THE REVIEW-STALE GATE ABOVE ONLY SPEAKS. That
+    # gate's reasoning is that a stale confirm costs one re-cite while stranded
+    # work is invisible, so speaking beats holding. Both halves invert here: an
+    # already-published mixture costs a force-push through a live review, which
+    # is far worse than a re-cite; and the held state is not invisible, because
+    # the carry-forward reporter at the top of this file names un-pushed work on
+    # every later fire. Different costs, different answer -- stated rather than
+    # assumed, since the file argues the other way twelve lines up.
+    #
+    # MIXTURE, NOT PRESENCE. A branch of only letters is a letters branch and
+    # publishes freely; a branch of only code likewise. Judging by content
+    # rather than by branch NAME means no naming convention has to hold for the
+    # rule to work, and content cannot drift away from itself.
+    _scope_out="$(python "$REPO_ROOT/scripts/check_branch_scope.py" HEAD --truth origin/main --gate-mixed 2>&1)"
+    case "$?" in
+        3)
+            {
+                echo "[auto-push] HELD: this branch carries both code and substrate."
+                printf '%s\n' "$_scope_out"
+                echo "  Nothing is lost -- the commits are local and this hook will keep saying so."
+                echo "  Split it: rebuild the code onto origin/main, and put the substrate on its own branch."
+            } >&2
+            log_row "held-mixed-scope" "code-and-substrate-on-one-branch" \
+                "branch=$BRANCH pr=#$_pr local=$LOCAL_SHA"
+            exit 0
+            ;;
+        2)
+            # Could-not-read is its own answer and must not masquerade as clean.
+            # It proceeds anyway -- an unreadable reference is not evidence of a
+            # mixture, and holding on no evidence strands work for nothing -- but
+            # it says so, so the push is never quietly unguarded.
+            {
+                echo "[auto-push] scope UNCHECKED for this push, not cleared:"
+                printf '%s\n' "$_scope_out"
+            } >&2
+            log_row "scope-unreadable" "gate-could-not-run" "branch=$BRANCH pr=#$_pr"
+            ;;
+    esac
+
     # Logged BEFORE the slow board query, not after. `divineos build-flow
     # status` costs ~15 GitHub round-trips; when the row was written after
     # it, a subshell still mid-query was indistinguishable from one that
