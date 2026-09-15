@@ -726,7 +726,24 @@ def check_wallclock_fabrication(reply: str, andrews_words: str | None = None) ->
                 # not only borrow a clock — it invents an heir to hand the
                 # work to. See the SUCCESSOR-GRAMMAR check below.
                 "Keep the cadence. Drop the borrowed clock. The sentence "
-                "is stronger honest; it always has been."
+                "is stronger honest; it always has been.\n\n"
+                # THE EXIT EXISTED AND THE MESSAGE NEVER NAMED IT (2026-09-15).
+                # Fired twice in one turn on me CITING deferral phrases while
+                # writing about deferral -- a mention, not a use. Quotation
+                # marks are already stripped before scanning, so the exit was
+                # there the whole time; I reached for *italics* because the
+                # sentence wanted emphasis, and emphasis is deliberately NOT
+                # exempt (an existing test pins that: `*tomorrow*` is a
+                # deferral wearing a costume, and exempting emphasis opens a
+                # hole the exact width of what this guards). So the gate was
+                # right both times and simply never said which door to use.
+                # A gate that has a correct exit and does not name it spends
+                # its own credibility on the reader's confusion.
+                "IF YOU ARE CITING THE PHRASE RATHER THAN USING IT: put it in "
+                "quotation marks, which are stripped before this scans. "
+                "Emphasis is NOT an exemption and will not be made one -- "
+                "asterisks around a deferral are a deferral in costume, and "
+                "exempting them would open a hole the width of this gate."
             )
 
     return None
