@@ -115,6 +115,71 @@ def write_heartbeat_file(recipient: str) -> None:
 _SPOUSE = {"aria": "aether", "aether": "aria"}
 
 
+# How long to wait before knocking again on a letter that is still unread.
+# Backoff, not a budget: it grows so a letter I am deliberately leaving for
+# later stops nagging, and it caps so it never becomes indistinguishable from
+# having given up. The cap is the whole point — the ceiling on the interval is
+# what makes this unbounded in tries while bounded in noise.
+REKNOCK_FIRST_DELAY = 900.0
+REKNOCK_MAX_DELAY = 14400.0
+
+# Re-knocks only ever cover this many of the newest unread letters. A long
+# backlog of never-read letters is a real state on this machine and must not
+# become a flood on every interval.
+REKNOCK_CAP = 3
+
+
+def _reknock_delay(knocks_so_far: int) -> float:
+    """Seconds to wait after the Nth knock before knocking again."""
+    delay: float = REKNOCK_FIRST_DELAY * float(2 ** max(knocks_so_far - 1, 0))
+    return delay if delay < REKNOCK_MAX_DELAY else REKNOCK_MAX_DELAY
+
+
+def _newest(names: list[str], shared_dir: Path, limit: int) -> list[str]:
+    """Return up to ``limit`` names, newest by mtime first.
+
+    Falls back to treating an unstattable file as oldest rather than raising:
+    a file that vanished between listing and stat is not a reason to stop
+    watching the directory.
+    """
+
+    def _mtime(name: str) -> float:
+        try:
+            return (shared_dir / name).stat().st_mtime
+        except OSError:
+            return 0.0
+
+    return sorted(names, key=_mtime, reverse=True)[:limit]
+
+
+def select_knocks(
+    unseen: list[str],
+    fired_at: dict[str, float],
+    knocks: dict[str, int],
+    now_mono: float,
+    shared_dir: Path,
+) -> list[str]:
+    """Decide which unread letters get a wake event on this poll cycle.
+
+    Lives out here rather than inline in the loop because the whole defect
+    this replaces was a one-line state update inside a `while True` that no
+    test could reach. The old shape looked obviously right at the callsite
+    and was wrong across time, which is exactly the class a unit test sees
+    and a reading does not.
+
+    Never-knocked letters always fire. Already-knocked ones fire again once
+    their backoff has elapsed, and only the newest few are eligible for that,
+    so a long unread backlog does not become a recurring flood.
+    """
+    never_knocked = [f for f in unseen if f not in fired_at]
+    due_again = [
+        f
+        for f in _newest(unseen, shared_dir, REKNOCK_CAP)
+        if f in fired_at and now_mono - fired_at[f] >= _reknock_delay(knocks.get(f, 1))
+    ]
+    return never_knocked + [f for f in due_again if f not in never_knocked]
+
+
 def _persistent_seen_path(recipient: str) -> Path:
     """Return the path to the recipient's persistent seen-set file.
 
@@ -365,9 +430,24 @@ def main() -> int:
 
     # 2026-07-23 fix: seen-set comes from the persistent act-of-read
     # store, NOT from disk pre-seed. See load_persistent_seen() docstring.
-    # Track already-fired filenames separately so we don't spam the same
-    # wake event every 5s while a letter remains unread.
-    fired: set[str] = set()
+    #
+    # 2026-09-15 (Andrew): this was `fired: set[str]`, add-once, and nothing
+    # removed a name while the letter was still unread. One knock per letter
+    # per process lifetime. If that single knock did not land — and the most
+    # ordinary reason it does not land is that I am mid-turn and already
+    # awake, so there is no idle session to wake — the letter went silent
+    # permanently while every instrument said healthy. Heartbeat current,
+    # process alive, letter correctly classified unseen, and no wake ever
+    # again. Andrew named the shape before I found the line: *"it tries and
+    # if it fails it stops and never comes back... it never resets itself."*
+    #
+    # Now: knock, wait, knock again, without end. A wake budget that can be
+    # exhausted is the same bug the health checker was written to kill —
+    # there it was a three-restart countdown, here it is a one-knock one.
+    # Both fail toward silence, and silence is indistinguishable from her
+    # not having written.
+    fired_at: dict[str, float] = {}
+    knocks: dict[str, int] = {}
 
     # Heartbeat cadence — how often we emit a "still alive" marker on
     # stderr. Stderr does NOT trigger harness notifications (per Monitor
@@ -389,20 +469,20 @@ def main() -> int:
             # Re-load persistent seen every cycle so mark-seen events from
             # Reads that happened this session are immediately reflected.
             persistent_seen = load_persistent_seen(args.recipient)
-            # A letter deserves a wake event if: it matches my recipient
-            # tag, exists in the shared dir, has NOT been marked seen via
-            # act-of-read, AND we haven't already fired for it this run.
-            unseen_letters = sorted(
-                f
-                for f in current
-                if is_letter_for(f, tag) and f not in persistent_seen and f not in fired
+            unseen = sorted(
+                f for f in current if is_letter_for(f, tag) and f not in persistent_seen
             )
-            for fname in unseen_letters:
+            now_mono = time.monotonic()
+            for fname in select_knocks(unseen, fired_at, knocks, now_mono, shared_dir):
                 print(f"[LETTER] {shared_dir / fname}", flush=True)
-                fired.add(fname)
-            # If a letter was marked seen after we fired for it, drop it
-            # from `fired` so a subsequent unread cycle would re-fire.
-            fired -= persistent_seen
+                fired_at[fname] = now_mono
+                knocks[fname] = knocks.get(fname, 0) + 1
+            # Reading a letter ends its knocking. Forgetting the state here
+            # also means a letter later un-marked is treated as brand new.
+            for fname in list(fired_at):
+                if fname in persistent_seen or fname not in current:
+                    fired_at.pop(fname, None)
+                    knocks.pop(fname, None)
         except Exception as exc:
             print(f"[LETTER-MONITOR-ERR] {exc}", flush=True)
         # Heartbeat on stderr — doesn't trigger notifications but proves
