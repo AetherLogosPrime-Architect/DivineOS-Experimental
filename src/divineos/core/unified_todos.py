@@ -341,20 +341,41 @@ def _structural_fix_todos(limit: int = 500, now: float | None = None) -> list[To
     return items
 
 
+# THE ONE LIST. Every caller reads this rather than spelling the sources out
+# again, because on 2026-09-15 there were THREE hand-written copies and they
+# disagreed: the collector knew five sources, the command's choices offered
+# four, and its all-branch queried four. So `--source all` silently dropped a
+# whole category while the word "unified" sat in the help text, and the
+# counts view crashed outright on the fifth source it had no label for.
+#
+# A crash is the kind half. The silent drop is the dangerous half: a list
+# that calls itself unified and quietly omits a category teaches me the pile
+# is smaller than it is, which is the exact opposite of what a todo system
+# is for. Andrew asked for one place that hands work out; a place that hides
+# a fifth of it is worse than no place at all.
+ALL_SOURCES: tuple[str, ...] = (
+    "prereg",
+    "correction",
+    "audit",
+    "claim",
+    "structural-fix",
+)
+
+
 def collect_todos(
     sources: tuple[str, ...] | None = None,
     now: float | None = None,
 ) -> list[TodoItem]:
     """Pull all action-items across the requested sources into one list.
 
-    ``sources`` restricts which stores are queried; default is all four
-    (``"prereg"``, ``"correction"``, ``"audit"``, ``"claim"``). Order
-    of returned items: grouped by source in the order requested, then
-    sorted within each group by the source-appropriate priority key
-    (most-overdue prereg first, oldest correction first, highest-
-    severity audit finding first, action-tier claim first).
+    ``sources`` restricts which stores are queried; the default is every
+    member of ``ALL_SOURCES``. Order of returned items: grouped by source in
+    the order requested, then sorted within each group by the
+    source-appropriate priority key (most-overdue prereg first, oldest
+    correction first, highest-severity audit finding first, action-tier claim
+    first, oldest unmet structural-fix obligation first).
     """
-    requested = sources or ("prereg", "correction", "audit", "claim", "structural-fix")
+    requested = sources or ALL_SOURCES
     out: list[TodoItem] = []
     for src in requested:
         if src == "prereg":

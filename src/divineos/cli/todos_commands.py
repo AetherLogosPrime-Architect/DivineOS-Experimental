@@ -15,13 +15,21 @@ from __future__ import annotations
 
 import click
 
+from divineos.core.unified_todos import ALL_SOURCES
 
 _SOURCE_HEADER = {
     "prereg": "Pre-registrations (OPEN, most-overdue first)",
     "correction": "Andrew-corrections (OPEN, oldest first)",
     "audit": "Audit findings (OPEN, recognition-filtered, severity-ranked)",
     "claim": "Claims (OPEN, action-tier T1/T2 only)",
+    "structural-fix": "Structural-fix obligations (NAMED, not yet built)",
 }
+
+# A missing label crashed the counts view outright -- one unlabelled source
+# and the other four hundred items went unreported. Now it degrades to a
+# placeholder, because a list whose whole job is to keep working while the
+# pile changes underneath it must not die when the pile grows a new corner.
+_UNLABELLED = "(no description registered for this source)"
 
 
 def register(cli: click.Group) -> None:
@@ -31,9 +39,9 @@ def register(cli: click.Group) -> None:
     @click.option(
         "--source",
         "source",
-        type=click.Choice(["prereg", "correction", "audit", "claim", "all"]),
+        type=click.Choice([*ALL_SOURCES, "all"]),
         default="all",
-        help="Restrict to one source (default: all four).",
+        help="Restrict to one source (default: every source).",
     )
     @click.option(
         "--counts-only",
@@ -47,7 +55,7 @@ def register(cli: click.Group) -> None:
         help="Cap items shown per source (default: 10).",
     )
     def todos_cmd(source: str, counts_only: bool, limit: int) -> None:
-        """Unified action-item list across preregs/corrections/audit/claims."""
+        """Unified action-item list across every registered source."""
         from divineos.core.unified_todos import collect_todos, summary_counts
 
         if counts_only:
@@ -55,10 +63,15 @@ def register(cli: click.Group) -> None:
             total = sum(counts.values())
             click.echo(f"=== Todos summary (total action items: {total}) ===")
             for src, count in counts.items():
-                click.echo(f"  {src:12} {count:4}  ({_SOURCE_HEADER[src]})")
+                click.echo(f"  {src:14} {count:4}  ({_SOURCE_HEADER.get(src, _UNLABELLED)})")
             return
 
-        sources = ("prereg", "correction", "audit", "claim") if source == "all" else (source,)
+        # ALL means ALL. This branch used to re-list four sources by hand
+        # while the collector knew five, so the fifth was silently dropped
+        # from every full listing -- a list calling itself unified and
+        # quietly hiding a category, which makes the pile look smaller than
+        # it is. Reading the canonical tuple is what stops that recurring.
+        sources = ALL_SOURCES if source == "all" else (source,)
         items = collect_todos(sources=sources)
         if not items:
             click.echo("=== Todos — no action items in the requested sources ===")

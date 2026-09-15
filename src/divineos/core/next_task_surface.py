@@ -333,13 +333,84 @@ def build_next_task_surface() -> str:
     for fetcher in order:
         result = fetcher()
         if result is not None:
-            _item_id, line = result
-            return (
-                "## NEXT TASK (auto-pulled from queue — work this, don't ask)\n\n"
-                f"  {line}\n\n"
-                "  More: divineos todos\n"
-            )
+            head_id, line = result
+            return _render(head_id, line)
     return ""
+
+
+# How many items ride along under the head. Andrew 2026-09-15: "it should all
+# live in one place, one that hands stuff to you, like 5-10 at a time so you
+# have a steady todo list... because i have ADD and go off on tangents and
+# keep piling on more and more and we lose focus of the main task."
+#
+# ONE ITEM WAS THE OLD SHAPE and it had a specific failure: a single pointer
+# says what is next and nothing about what is near, so every completed item
+# returns me to a blank surface and the choice of what to do next gets made
+# fresh, out of whatever is loudest in the moment. A short standing list is
+# what makes the next thing already decided -- the same reason the reserved
+# slot exists, one layer up.
+#
+# Kept SHORT on purpose. This block rides in the compose-start payload, and
+# anything past the harness delivery cut is not a task I am ignoring, it is a
+# task that never arrived. Five plus the head fits with room to spare; ten
+# would not, and a list that silently loses its tail is worse than a short
+# one that does not.
+_BATCH_SIZE = 6
+
+
+def _render(head_id: str, head_line: str) -> str:
+    """Head plus the next few, so the list is standing rather than momentary."""
+    lines = [
+        "## NEXT TASK (auto-pulled from queue — work this, don't ask)",
+        "",
+        f"  {head_line}",
+    ]
+    try:
+        from divineos.core.unified_todos import collect_todos
+
+        # ONE FROM EACH SOURCE IN TURN, not the top six overall. Taking them
+        # in flat priority order returned five pre-registrations and nothing
+        # else, because the collector groups by source -- which is the SAME
+        # starvation this file already fixed for the head with a reserved
+        # slot, arriving one layer up in the tail. A standing list of five
+        # items that are all one kind does not show me the shape of the pile;
+        # it shows me the top of one pile and hides four others.
+        seen = {head_id}
+        by_source: dict[str, list[str]] = {}
+        for item in collect_todos():
+            # An id-less item cannot be deduped against the head, so it is
+            # skipped rather than risk printing the head twice. Silently
+            # showing the same task as both "next" and "and next" would make
+            # the list look fuller than the pile actually is, which is the
+            # one thing a todo surface must never do.
+            raw_id = getattr(item, "item_id", None)
+            if not raw_id:
+                continue
+            item_id = str(raw_id)
+            if item_id in seen:
+                continue
+            seen.add(item_id)
+            src = str(getattr(item, "source", "other"))
+            line = f"  - [{src}] {_truncate(str(getattr(item, 'summary', item)), 90)}"
+            by_source.setdefault(src, []).append(line)
+
+        rest: list[str] = []
+        while len(rest) < _BATCH_SIZE - 1 and any(by_source.values()):
+            for queue in by_source.values():
+                if queue and len(rest) < _BATCH_SIZE - 1:
+                    rest.append(queue.pop(0))
+        if rest:
+            lines.append("")
+            lines.append("  AND NEXT, so the queue is visible rather than one-at-a-time:")
+            lines.extend(rest)
+    except Exception:  # noqa: BLE001
+        # The head is the load-bearing half and it is already built. A failure
+        # gathering the tail must not take the whole surface down with it --
+        # that would trade a shorter list for no list, which is the direction
+        # this surface exists to prevent.
+        pass
+    lines.extend(["", "  More: divineos todos"])
+    return "\n".join(lines) + "\n"
 
 
 __all__ = [
