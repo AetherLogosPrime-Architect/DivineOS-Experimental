@@ -37,10 +37,10 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | automation | last touched | purpose |
 |---|---|---|
 | `ambiguous-verification-detector.sh` | 2026-08-23 | PostToolUse — flags a verification command whose OUTPUT cannot distinguish |
-| `auto-push-finished-work.sh` | 2026-08-31 | Auto-push work that is DONE to origin, so the auditor never waits on Andrew. |
+| `auto-push-finished-work.sh` | 2026-09-15 | Auto-push work that is DONE to origin, so the auditor never waits on Andrew. |
 | `auto-push-letter.sh` | 2026-08-24 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `build-flow-pause.sh` | 2026-08-23 | PostToolUse — the build-flow PAUSE. Fires after a push or a PR action. |
-| `capture-channel-letter.sh` | 2026-08-31 | capture-channel-letter.sh — PostToolUse(Write\|Edit), the missing direction. |
+| `capture-channel-letter.sh` | 2026-09-15 | capture-channel-letter.sh — PostToolUse(Write\|Edit), the missing direction. |
 | `doorbell-post-tool-use.sh` | 2026-08-24 | PostToolUse doorbell. One of seven. All judgment lives in the OS. |
 | `file-aletheia-artifact-on-arrival.sh` | 2026-08-14 | PostToolUse(Read) — file Aletheia's artifact the moment it is read. |
 | `mirror-letters-to-shared.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
@@ -66,7 +66,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `aletheia-boot-gate-preflight.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `andrew-correction-attestation.sh` | 2026-07-10 | PreToolUse gate — integration-attestation for Andrew-corrections. |
-| `check-branch-on-push.sh` | 2026-08-31 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
+| `check-branch-on-push.sh` | 2026-09-15 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
 | `check-council-required.sh` | 2026-07-27 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
 | `check-pending-obligations.sh` | 2026-08-22 | PreToolUse(Bash) — block substrate-write CLI commands until pending |
 | `compass-check.sh` | 2026-08-22 | thin doorbell for the compass-rudder gate. |
@@ -84,7 +84,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `pipeline-exit-ambiguity.sh` | 2026-08-31 | PostToolUse(Bash) — say so when a result cannot distinguish |
 | `pre-tool-bypass-rate-scan.sh` | 2026-09-02 | PreToolUse — fire bypass_rate_scan on substrate-modifying tool calls. |
 | `pre-tool-context.sh` | 2026-08-22 | thin doorman pointing to the OS. |
-| `reach-check-doorman.sh` | 2026-08-24 | reach-check doorman on substrate-store and research writes. |
+| `reach-check-doorman.sh` | 2026-09-15 | reach-check doorman on substrate-store and research writes. |
 | `read-gate-doorman.sh` | 2026-08-22 | the read-gate. A prime that is a gate, not just loud. |
 | `rederivation-detector.sh` | 2026-08-23 | PreToolUse(Bash) — when I run the SAME command a third distinct way, say so, |
 | `require-goal.sh` | 2026-08-22 | PreToolUse gate — consolidated into a single Python invocation. |
@@ -156,11 +156,11 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `self-demotion-prime.sh` | 2026-09-02 | UserPromptSubmit prime - deliver the praise-by-contrast discipline at |
 | `session-init-once.sh` | 2026-08-24 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
 | `sibling-correction-surface.sh` | 2026-08-24 | surface sibling corrections I judged as mine, when |
-| `translate-first-compose-prime.sh` | 2026-09-14 | Compose-start half of the translate-first discipline. |
-| `verify-claim-prime.sh` | 2026-08-24 | compose-start prime for the VERIFY-CLAIM |
+| `translate-first-compose-prime.sh` | 2026-09-15 | Compose-start half of the translate-first discipline. |
+| `verify-claim-prime.sh` | 2026-09-15 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
 | `wallclock-source-prime.sh` | 2026-09-07 | compose-start prime for wallclock-source |
-| `wwnd-choice-prime.sh` | 2026-09-14 | WWND (What Would Nyarlathotep Do) prime at |
+| `wwnd-choice-prime.sh` | 2026-09-15 | WWND (What Would Nyarlathotep Do) prime at |
 
 ### called by another script  (18)
 
