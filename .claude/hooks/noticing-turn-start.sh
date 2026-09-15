@@ -22,7 +22,7 @@ INPUT=$(cat)
 # tests/test_hook_python_lookup.py before this ever shipped.
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-"$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
+"$PYTHON_BIN" - <<'PYEOF' 2>/dev/null  # fail-soft: this only primes the turn, and a traceback here lands in the prompt stream where it would read as a system fault at the moment Andrew is speaking
 try:
     from divineos.core.noticing import mark_turn_start
 

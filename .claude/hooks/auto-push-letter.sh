@@ -192,7 +192,7 @@ UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/
 # so there is nothing to undo. The letter stays on disk and stays delivered to
 # the shared channel outside every tree, which is where the crossing actually
 # happens. Only the archive copy waits for a substrate branch.
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)  # fail-soft: outside a repo this is legitimately empty, and every branch check below reads empty as do-not-push, which is the safe direction
 if [ -z "$CURRENT_BRANCH" ]; then
     fail_loud "no-branch" "could not read the current branch; not staging a letter blind"
 fi

@@ -47,7 +47,7 @@ INPUT=$(cat)
 # argument for the pre-push suite.
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-VERDICT="$("$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
+VERDICT="$("$PYTHON_BIN" - <<'PYEOF' 2>/dev/null  # fail-soft: an empty verdict is read below as nothing-to-say, and a Stop hook that raises would block the reply it is only meant to annotate
 try:
     from divineos.core.noticing import evaluate_turn
 

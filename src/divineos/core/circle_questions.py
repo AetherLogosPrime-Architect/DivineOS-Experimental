@@ -41,6 +41,7 @@ import hashlib
 import json
 import os
 import random
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -141,14 +142,54 @@ ALWAYS = Question(
 
 
 def _added() -> list[Question]:
-    """Questions earned since, added by use rather than by editing this file."""
+    """Questions earned since, added by use rather than by editing this file.
+
+    ARIA CAUGHT THIS ON THE MERGE, 2026-09-15, and left the decision to me
+    rather than redesigning my module around her guard. Her reading, which is
+    right: the missing-file return and the corrupt-file return were the same
+    empty list. For the only caller they agree — the built-ins are the floor,
+    so the pool is never empty either way — but they are not the same EVENT.
+    A missing extras file is the ordinary state on a fresh checkout. A corrupt
+    one is a defect, and that handler lost it without a sound.
+
+    So the corrupt path speaks now and the missing path stays quiet, which is
+    the whole distinction. Silence is correct for a normal state and wrong for
+    a broken one, and they had been sharing an exit.
+
+    THE THIRD THING, which her guard could not see and I found reading it:
+    the try wrapped the WHOLE loop, so one malformed line discarded every
+    question already parsed above it. A file that grew one bad row silently
+    lost all the good ones with it. Parsing is per-line now, so a bad row
+    costs its own row and is named.
+
+    Never raises. This feeds a compose-start prime, and a prime that can take
+    down the turn it is decorating is worse than one that loses a question.
+    """
+    # An absent store and an unreadable one mean the same thing TO THE CALLER --
+    # no earned questions this turn, built-ins still the floor -- and the
+    # difference is a matter for the person, carried on stderr instead. The
+    # unreadable case says so loudly; this one stays quiet, which is the whole
+    # repair. Collapsing that split back into the return value would only move
+    # the silence somewhere harder to see.
     if not EXTRA_STORE.exists():
-        return []
-    out: list[Question] = []
+        return []  # both-empty: absent and unreadable are one answer to every caller; stderr carries the difference
     try:
-        for line in EXTRA_STORE.read_text(encoding="utf-8", errors="replace").splitlines():
-            if not line.strip():
-                continue
+        raw = EXTRA_STORE.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        print(
+            f"[circle-questions] CANNOT READ {EXTRA_STORE}: {type(exc).__name__}: {exc}\n"
+            f"[circle-questions] the earned questions are missing from this turn; "
+            f"the built-ins still stand.",
+            file=sys.stderr,
+            flush=True,
+        )
+        return []
+
+    out: list[Question] = []
+    for n, line in enumerate(raw.splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
             d = json.loads(line)
             out.append(
                 Question(
@@ -157,10 +198,14 @@ def _added() -> list[Question]:
                     weight=float(d.get("weight", 1.0)),
                 )
             )
-    except (OSError, ValueError, KeyError):
-        # An unreadable extras file loses the extras, not the pool. The
-        # built-ins are the floor and are always available.
-        return []
+        except (ValueError, KeyError, TypeError) as exc:
+            print(
+                f"[circle-questions] BAD ROW at line {n} of {EXTRA_STORE}: "
+                f"{type(exc).__name__}: {exc}\n"
+                f"[circle-questions] that one question is lost; the rest are kept.",
+                file=sys.stderr,
+                flush=True,
+            )
     return out
 
 

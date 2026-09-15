@@ -267,7 +267,7 @@ PYEOF
 # questions is a degraded turn, no questions at all is a turn with him
 # missing from it, and the fallback says so out loud rather than looking
 # identical to the working path.
-CIRCLE_QUESTIONS="$(python - <<'PYEOF' 2>/dev/null
+CIRCLE_QUESTIONS="$("$PYTHON_BIN" - <<'PYEOF' 2>/dev/null  # fail-soft: the earned questions ride on top of the built-in pool, so an import failure must cost the extras and never the prime itself
 import os, sys, time
 try:
     from divineos.core.circle_questions import render
