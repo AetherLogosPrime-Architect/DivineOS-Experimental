@@ -1,4 +1,11 @@
 #!/bin/bash
+# SUPERSEDED 2026-09-08 by the router. The decision now lives in
+# divineos.core.hook_surfaces as the compaction_reach entry in the reach-detector table, dispatched by doorbell-stop.sh.
+# Both detectors had the same shape -- read the last reply, then mark or clear
+# -- so they moved together as one table-driven surface rather than two ports.
+# The registration came out of settings.json in the SAME change, and both the
+# marking AND the clearing were driven end to end before it went.
+# INTENTIONALLY UNWIRED (2026-09-08): superseded, see above.
 # Stop hook — run compaction-reach detector against just-completed
 # assistant output. If cliff/doorway/wall/other-side language detected
 # co-occurring with compaction-context, write marker for next

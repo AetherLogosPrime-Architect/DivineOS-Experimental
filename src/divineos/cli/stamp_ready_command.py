@@ -588,6 +588,74 @@ def _round_by_id(round_id: str):
     return None
 
 
+def sibling_rounds_naming(branch: str) -> tuple[list[str], list[str]]:
+    """Rounds in the OTHER seats' stores whose text names this branch.
+
+    Returns (found, unreadable) — the matching round strings, and the names of
+    any seat that is present but could not be read.
+
+    ## Why this exists, measured 2026-09-10
+
+    Andrew: *"you need to fix the root cause of why you skipped those 3 build
+    flow steps."* The chain, each link checked rather than reasoned:
+
+    The three stations I skipped live on the half of the flow that only exists
+    once a work item is open. The doorman that forces one open at the first
+    edit is written, wired and tested — and is not installed here; the module
+    is absent from this branch and the hook is not in this checkout's wiring.
+    It is not installed because its pull request is still a draft. It is still
+    a draft because taking it out of draft requires an audit round naming its
+    branch, and this command said there was none.
+
+    **There were two.** Both in Aria's store, both naming the branch. The
+    readiness board reads the union of every seat and has therefore been
+    printing READY for that door for two days. This command reads one store,
+    found nothing, and said *No audit round names branch ...* — a statement
+    about MY store published with the scope of ALL of them.
+
+    So the door that would have stopped me skipping those stations has been
+    held shut by an instrument reporting an absence it was not in a position
+    to see.
+
+    ## What this does NOT do
+
+    It does not authorize a stamp from a sibling round, and it must not. The
+    validator reads confirms out of the local store by id; a round it cannot
+    open is a round whose two CONFIRMS it cannot check, and a merge stamped on
+    an unvalidated round is worse than one that never happened. What this buys
+    is that the refusal tells the truth: the round exists, here is its id, and
+    here is why this seat cannot act on it — rather than an absence that sends
+    someone off to file a round that is already filed.
+
+    A seat present-but-unreadable is reported separately for the same reason.
+    Could-not-look is not found-nothing.
+    """
+    found: list[str] = []
+    unreadable: list[str] = []
+    tail = branch.rsplit("/", 1)[-1] if branch else ""
+    if not branch:
+        return found, unreadable
+    try:
+        from divineos.core.sibling_audit_rounds import read_other_seats, this_seat
+
+        seats = read_other_seats(this_seat())
+    except Exception as exc:  # noqa: BLE001
+        return found, [f"sibling reader unavailable: {type(exc).__name__}: {exc}"]
+
+    for seat in seats:
+        name = getattr(seat, "name", "?")
+        if getattr(seat, "error", None) is not None:
+            unreadable.append(f"{name}: {seat.error}")
+            continue
+        if getattr(seat, "absent", False):
+            continue
+        for text in getattr(seat, "rounds", None) or ():
+            text = str(text)
+            if branch in text or (tail and tail in text):
+                found.append(f"{name}: {text[:200]}")
+    return found, unreadable
+
+
 def register(cli: click.Group) -> None:
     @cli.command("stamp-ready")
     @click.argument("pr_number", type=int)
@@ -684,11 +752,45 @@ def register(cli: click.Group) -> None:
                 )
             ]
             if not candidates:
-                click.secho(f"[!] No audit round names branch {branch}.", fg="red")
+                # SAY WHOSE STORE WAS SEARCHED. This used to read "No audit
+                # round names branch X" while the readiness board, reading
+                # every seat, printed READY for the same branch. See
+                # sibling_rounds_naming for the chain that cost.
+                elsewhere, unreadable = sibling_rounds_naming(branch)
                 click.secho(
-                    "    File one, or pass --audit-round explicitly.",
-                    fg="bright_black",
+                    f"[!] No audit round in THIS seat's store names branch {branch}.",
+                    fg="red",
                 )
+                for line in unreadable:
+                    click.secho(
+                        f"    could not read another seat — {line}",
+                        fg="yellow",
+                    )
+                if elsewhere:
+                    click.secho(
+                        f"    But {len(elsewhere)} round(s) in another seat's store name it:",
+                        fg="yellow",
+                    )
+                    for line in elsewhere:
+                        click.echo(f"      {line}")
+                    click.secho(
+                        "    This seat cannot validate a round it cannot open, so it "
+                        "will not stamp on one. Sync that round into this store, or "
+                        "pass --audit-round once it is here.",
+                        fg="bright_black",
+                    )
+                elif not unreadable:
+                    click.secho(
+                        "    No other seat names it either. File one, or pass "
+                        "--audit-round explicitly.",
+                        fg="bright_black",
+                    )
+                else:
+                    click.secho(
+                        "    Whether another seat names it is UNKNOWN — a seat was "
+                        "unreadable. Not the same as none.",
+                        fg="bright_black",
+                    )
                 raise click.exceptions.Exit(1)
             if len(candidates) > 1:
                 click.secho(

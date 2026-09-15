@@ -644,6 +644,45 @@ else
             LAST_LOG="${HOME}/.divineos-${MEMBER}/last_pre_push_pytest.log"
             mkdir -p "$(dirname "$LAST_LOG")"
             cp "$PYTEST_LOG" "$LAST_LOG"
+
+            # NOTHING RAN IS NOT THE SAME AS SOMETHING FAILED, and this exit
+            # called them the same thing for as long as it has existed.
+            #
+            # The comment below already knows pytest exits non-zero for
+            # several distinct reasons and lists four marker shapes. The fifth
+            # is that the suite never started: workers come up, collection
+            # yields nothing, "no tests ran" in about a second. Exit non-zero,
+            # no FAILED marker anywhere, and the block below then prints
+            # "tests failing" and "Do NOT push red" over a tree where nothing
+            # is red.
+            #
+            # It cost a full local suite run to disprove a failure that did
+            # not exist, and the advertised remedy is the opposite of the real
+            # one: nothing to fix in the code, something to fix in the run.
+            # Observed trigger is the worker count -- refused at sixteen under
+            # memory pressure, clean at two on a retry minutes later against
+            # an identical tree.
+            #
+            # Could-not-look reading as a finding, at the last door before the
+            # server, which is where it costs the most. (correction #675)
+            if grep -qE "^no tests ran|collected 0 items" "$PYTEST_LOG"; then
+                echo "" >&2
+                echo "[push-readiness] === Last 40 lines of pytest output ===" >&2
+                tail -40 "$LAST_LOG" >&2
+                rm -f "$PYTEST_LOG"
+                echo "" >&2
+                echo "[push-readiness] BLOCKED — THE SUITE NEVER RAN (exit 11)." >&2
+                echo "[push-readiness] pytest exited non-zero having collected" >&2
+                echo "[push-readiness] and run NO tests. Nothing here is red." >&2
+                echo "[push-readiness] This is a could-not-check, NOT a finding" >&2
+                echo "[push-readiness] against the work. Do not go hunting a" >&2
+                echo "[push-readiness] failing test; there is not one." >&2
+                echo "[push-readiness] Known trigger: worker startup under" >&2
+                echo "[push-readiness] memory pressure. Check free memory, then" >&2
+                echo "[push-readiness] retry -- it often clears on its own." >&2
+                echo "[push-readiness] Full log persisted: $LAST_LOG" >&2
+                exit 11
+            fi
             # Surface failures explicitly — multiple patterns because pytest
             # exits non-zero for several distinct reasons, each leaving a
             # different marker shape in the log:

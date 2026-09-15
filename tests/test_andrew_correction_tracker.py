@@ -139,7 +139,12 @@ class TestFileCorrectionDedupe:
     def test_dedupe_only_matches_open_corrections(self):
         first_id = act.file_correction("please stop doing X")
         # Integrate first — subsequent identical correction should file fresh.
-        assert act.integrate(first_id, "landed in commit abc1234 tests/test_x.py") is True
+        assert (
+            act.integrate(
+                first_id, "landed in commit abc1234 tests/test_x.py; reproduces his report"
+            )
+            is True
+        )
         second_id = act.file_correction("please stop doing X")
         assert second_id != first_id
         # One integrated, one open — total 2 rows.
@@ -159,19 +164,29 @@ class TestIntegrateGuards:
 
     def test_integrate_succeeds_with_real_evidence(self):
         cid = act.file_correction("a real correction")
-        ok = act.integrate(cid, "landed in commit abc1234 — behavior changed in module X")
+        ok = act.integrate(
+            cid, "landed in commit abc1234 — behavior changed in module X; explains his report"
+        )
         assert ok is True
         assert act.list_open() == []
 
     def test_integrate_only_transitions_open(self):
         cid = act.file_correction("a real correction")
-        act.integrate(cid, "landed in commit abc1234 — behavior changed in module X")
+        act.integrate(
+            cid, "landed in commit abc1234 — behavior changed in module X; explains his report"
+        )
         # Second integrate on an already-integrated row affects nothing.
-        again = act.integrate(cid, "another evidence string with commit deadbeef long enough")
+        again = act.integrate(
+            cid,
+            "another evidence string with commit deadbeef; not the cause, closed at his direction",
+        )
         assert again is False
 
     def test_integrate_nonexistent_id(self):
-        assert act.integrate(9999, "evidence with PR #123 long enough to pass guard") is False
+        assert (
+            act.integrate(9999, "evidence with PR #123 long enough to pass; reproduces his report")
+            is False
+        )
 
 
 class TestStructuralArtifactGate:
@@ -179,6 +194,17 @@ class TestStructuralArtifactGate:
     verifiable artifact pointer, not prose alone. Prose-as-integration
     is exactly the shape that lets the same lesson recur — the gate
     must check structure, not just length.
+
+    CONTRACT GAINED A SECOND HALF 2026-09-14, and the fixtures below carry
+    it now. An artifact proves a thing exists; it says nothing about whether
+    that thing explains HIS report. I closed two rows on an untested cause
+    and every artifact in the evidence was real. Evidence must now also
+    state the causal link or decline to claim one — both pass, silence does
+    not. See test_the_artifact_does_not_prove_it_is_his.py.
+
+    These tests were correct for the old rule. They are not weakened here:
+    each still asserts that its artifact TYPE is recognised, with a causal
+    clause added so it clears the second half too.
     """
 
     def test_prose_only_evidence_refused(self):
@@ -191,28 +217,44 @@ class TestStructuralArtifactGate:
 
     def test_commit_hash_satisfies(self):
         cid = act.file_correction("a real correction")
-        assert act.integrate(cid, "fixed in commit a1b2c3d behavior changed") is True
+        assert (
+            act.integrate(cid, "fixed in commit a1b2c3d behavior changed; reproduces his report")
+            is True
+        )
 
     def test_pr_number_satisfies(self):
         cid = act.file_correction("a real correction")
-        assert act.integrate(cid, "landed in PR #189 with full test coverage") is True
+        assert (
+            act.integrate(cid, "landed in PR #189 with full test coverage; this caused his case")
+            is True
+        )
 
     def test_file_path_satisfies(self):
         cid = act.file_correction("a real correction")
         assert (
-            act.integrate(cid, "added guard in andrew_correction_tracker.py at integrate()") is True
+            act.integrate(
+                cid,
+                "added guard in andrew_correction_tracker.py at integrate(); explains his report",
+            )
+            is True
         )
 
     def test_test_name_satisfies(self):
         cid = act.file_correction("a real correction")
         assert (
-            act.integrate(cid, "covered by test_prose_only_evidence_refused in test suite") is True
+            act.integrate(
+                cid,
+                "covered by test_prose_only_evidence_refused in suite; not the cause, closed at his direction",
+            )
+            is True
         )
 
     def test_claim_id_satisfies(self):
         cid = act.file_correction("a real correction")
         assert (
-            act.integrate(cid, "investigation opened as claim e9377969 with promotes/demotes")
+            act.integrate(
+                cid, "claim e9377969 opened with promotes/demotes; cause unknown, not claimed here"
+            )
             is True
         )
 
@@ -246,7 +288,7 @@ class TestListOpen:
         a = act.file_correction("will integrate")
         b = act.file_correction("will defer")
         act.file_correction("stays open")
-        act.integrate(a, "evidence string with commit abcdef1 long enough to pass")
+        act.integrate(a, "evidence string with commit abcdef1; reproduces his report exactly")
         act.defer(b, "deferred for a clearly named and sufficiently long reason")
         opens = act.list_open()
         assert len(opens) == 1
@@ -264,7 +306,7 @@ class TestIntegrationRate:
         act.file_correction("two")
         b = act.file_correction("three")
         c = act.file_correction("four")
-        act.integrate(a, "evidence string with commit abcdef1 long enough to pass")
+        act.integrate(a, "evidence string with commit abcdef1; reproduces his report exactly")
         act.defer(b, "deferred for a clearly named and sufficiently long reason")
         act.defer(c, "another clearly named and sufficiently long deferral reason")
         stats = act.integration_rate()

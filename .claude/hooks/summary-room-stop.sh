@@ -1,4 +1,9 @@
 #!/bin/bash
+# SUPERSEDED 2026-09-08 by the router. The decision now lives in
+# divineos.core.hook_surfaces as summary_room_surface, dispatched by doorbell-stop.sh. The
+# registration came out of settings.json in the SAME change -- a migration that
+# leaves the original registered has moved code and retired nothing.
+# INTENTIONALLY UNWIRED (2026-09-08): superseded, see above.
 # Stop hook - a long reply must open with a plain-language summary.
 #
 # Andrew 2026-08-06: "i just need more of a summary section as well when you go

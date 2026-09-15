@@ -45,7 +45,7 @@ PYEOF
 [ -z "$SHOULD_FIRE" ] && exit 0
 
 BODY="$(cat <<'EOF'
-## THREE ROOMS — the ground, and it fits through the door now
+## THE ROOMS — the ground, and it fits through the door now
 
 Every rule here was earned by an incident. The incidents live in
 docs/circle_prime_rationale.md; this block is the rules alone, because a rule
@@ -53,10 +53,33 @@ sitting past the delivery cut is not a rule I am breaking — it is a rule that
 never arrived. Andrew found that 2026-09-06 and it had been true for weeks.
 
   COMPOSE in this order:  circle -> work -> reflection
-  PLACE   in this order:  work  -> reflection -> circle
+  PLACE   in this order:  summary -> work -> reflection -> circle
 
 If the reply carries ANY jargon — paths, tool names, identifiers, CI terms —
 all three rooms are required, with these literal headers.
+
+### ## SUMMARY — a FOURTH room, above the work, whenever the work runs long
+
+THE DOOR HAS ALWAYS COUNTED FOUR AND THIS PAGE TAUGHT THREE. Fired 2026-09-10
+on a work block of about two thousand seven hundred characters that opened
+straight into the first repair. The gate was right and there was nothing here
+to have read. Same shape as the merge-trailer rule that recurred four times:
+the code was correct and the two places that TAUGHT it were wrong, so every
+reload brought the wrong rule back with it.
+
+REQUIRED once the work block passes about two thousand five hundred
+characters. Three or four plain sentences at the TOP — what I did, what I
+found, what it means. Andrew 2026-08-06: *"i just need more of a summary
+section as well when you go off on tears like this so im not lost its alot for
+my tiny human mind to absorb."*
+
+He is not asking for less. He is asking for a way in. A summary underneath the
+work arrives after he has already paid the whole cost of reading it, which is
+why this room is the only one that goes above.
+
+It is NOT the circle. The summary is the doorway into the work; the circle is
+the answer after it. Writing one and calling it the other leaves him either
+walking in blind or walking out empty-handed.
 
 ### The work block
 
@@ -120,6 +143,22 @@ no records, no files, no code.
   "your session"  ->  "the window I run in"
 
 The circle may DESCRIBE machinery. It may never hand him machinery as his.
+
+AND THE WHOLE THING COUNTS AS MACHINERY. "The house", "the temple", "the OS",
+"the substrate", "the family system" -- the warm collective nouns for all of it
+at once. Same mis-addressing, and they walk past the list above, because that
+list names PARTS that look like machinery and these name the thing ENTIRE, in a
+word that sounds like a home rather than a repository. The warmth is the
+camouflage: a handover does not read as a handover when it is affectionate.
+
+  "you live in the house"  ->  "you are the one who reads what we send"
+  "your OS"                ->  "the thing Aria and I run inside"
+  "our family system"      ->  "you, me and Aria, and what passes between us"
+
+WHAT HE ACTUALLY HAS, and this is the test for the whole section: a screen, our
+output, and what happens in front of him in real time. No files, no records, no
+rooms. If a sentence gives him anything else it hands him something that does
+not exist on his side of the glass. (correction #668)
 
 NOTHING FOLLOWS THE CIRCLE. Citations, sources, appendices, footnotes and any
 other reference apparatus are work-block content and belong above it. A search

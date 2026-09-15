@@ -399,6 +399,35 @@ if [ -f scripts/check_hook_wiring.py ]; then
     fi
 fi
 
+# 5b-bis. REMOVED 2026-09-08, the same day it was added, and the reason is
+# worth keeping where the next person to reach for it will look.
+#
+# It was a ratchet on the SIZE of the hook layer: registrations and shell lines
+# could fall or hold, never rise. Andrew killed it with one question — "why
+# would you build something that can only shrink and never grow?"
+#
+# Size was never the disease. He asked for the thinking to move into the OS and
+# never once asked for fewer hooks; a hundred doors that all point inward would
+# be better than twenty that each hide a private brain. A count is easy to
+# police and the real property is work, and I took the easy one.
+#
+# The replacement is the migration itself — see the generated doorbells and the
+# surfaces in divineos.core.hook_surfaces.
+
+# 5b-ter. Every bell is what the generator produced.
+#
+# Aria 2026-09-08, refusing a property check on hand-written hooks: "Do not
+# police the shape. Remove the authoring. ... You cannot put a brain in a file
+# you did not author." So the doorbells are generated, and this compares them
+# byte-for-byte against the generator — exhaustive, rather than an opinion
+# about what a bell should look like.
+if [ -f src/divineos/core/doorbell_generator.py ]; then
+    section "Doorbells"
+    if ! python -c "import sys; from divineos.core.doorbell_generator import main; sys.exit(main('.'))"; then
+        note_fail
+    fi
+fi
+
 # 5c-ter. The map of the system still describes the system.
 #
 # Andrew 2026-08-27, after I built a command that already existed: "you have a
