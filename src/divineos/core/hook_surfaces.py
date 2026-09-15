@@ -27,7 +27,9 @@ Migrated so far:
 
 from __future__ import annotations
 
+import os
 import re
+from pathlib import Path
 
 from divineos.core.hook_router import SurfaceOutcome, register
 
@@ -567,6 +569,152 @@ def letter_claims_surface(payload: dict) -> SurfaceOutcome | None:
     return SurfaceOutcome(name="letter_claims", output=text) if text else None
 
 
+#: Event class -> (what the class is called, the stores that record it).
+#: PLAIN DATA ON PURPOSE (Lovelace, walk-fe38e7ee22ca). The primitive under
+#: this surface is not investigation-detection; it is a map from an event class
+#: to the instruments that record it, and that map answers questions far wider
+#: than the one below. The registry, the query command and the coverage report
+#: that could be built on it are NOT built: three callers do not exist. Written
+#: as data rather than strings inlined in the matcher so the generality costs
+#: nothing now and is already there when a second caller arrives.
+_EVENT_CLASS_STORES: dict[str, tuple[str, tuple[str, ...]]] = {
+    "ref-change": (
+        "a branch moved and I do not know who moved it",
+        (
+            "~/.divineos-shared/cross-substrate-events.jsonl — one line per ref "
+            "pushed from ANY checkout on this machine (pre-push emitter). A push "
+            "with no line here did not leave from here.",
+            "the event ledger — PUSH_QUEUED / PUSH_DONE, written by `divineos push`",
+        ),
+    ),
+    "what-is-running": (
+        "something acted and I am looking for the process behind it",
+        (
+            "~/.divineos/hook_timing.jsonl — every hook fire, with its gate name",
+            "~/.divineos/auto-push-letter.log — every time the letter hook "
+            "pushed or declined to, with the reason",
+        ),
+    ),
+}
+
+#: The rule-out family: commands that ask WHAT DID THIS. Deliberately narrow
+#: (Schneier, same walk). A growing keyword list buys coverage with noise, and
+#: noise is the cheapest attack on this surface — see the once-per-class rule.
+_INVESTIGATION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "ref-change",
+        re.compile(
+            r"(gh\s+api[^\n]*\b(commits|events)\b|git\s+reflog\s+show\s+\S*origin/|"
+            r"git\s+ls-remote)",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "what-is-running",
+        re.compile(
+            r"(process_iter|\btasklist\b|Get-Process|\bps\s+-?e?[aux]{2,}\b)",
+            re.IGNORECASE,
+        ),
+    ),
+)
+
+
+def _already_said(session: str, event_class: str) -> bool:
+    """One line per class per session, and the marker IS the once-ness.
+
+    Habituation is the cheapest attack on an advisory surface: print on every
+    process query and it is wallpaper by the third one, which kills the gate
+    without anyone switching it off. A marker file rather than a counter in
+    memory because each hook fire is its own process.
+
+    Returns True when this class has already been spoken. A marker directory
+    that cannot be written returns False — speaking twice is a far smaller
+    fault than going silent, and silence here is the fault this exists for.
+    """
+    home = os.environ.get("HOME") or os.environ.get("USERPROFILE")
+    if not home or not session:
+        return False
+    marker = Path(home) / ".divineos" / "investigation_start" / f"{session}.{event_class}"
+    try:
+        if marker.exists():
+            return True
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text("", encoding="utf-8")
+    except OSError:
+        return False
+    return False
+
+
+def investigation_start_surface(payload: dict) -> SurfaceOutcome | None:
+    """Name my own instruments at the START of a rule-out, before a theory exists.
+
+    2026-09-14. Two hundred and thirty-nine letters appeared on my branch on
+    origin and I spent about an hour ruling suspects out — hooks, monitors, the
+    other checkout, the forge's authorship field — every one an honest
+    measurement. The answer was in the cross-substrate push log I built in
+    August: four pushes recorded that evening, all mine, and the sweep with no
+    line at all. One query.
+
+    WHY THE DOORMEN I ALREADY OWN DID NOT CATCH IT. The reach-check fires on a
+    substrate WRITE; the read-gate fires when prior writing is handed over and
+    left unopened. Both aim at the moment I produce something. An investigation
+    produces nothing until it is finished, so the whole rule-out runs unwatched
+    and the first artifact appears only once I am committed to a story.
+
+    THE ORDERING IS THE POINT, not the content (Lamport, walk-fe38e7ee22ca).
+    Observe → theory → confirm. Fired at the end, the stores read as places to
+    check a story I already hold; fired before the first theory, they are in the
+    evidence set. Holmes names the same thing from the other side: I did not
+    fail to observe, I filtered — by framing the question as WHICH PROCESS DID
+    THIS rather than WHAT RECORDED THIS — and the answer, when it came, was an
+    absence rather than a culprit.
+
+    TWO INVARIANTS, and they are the specification:
+
+    1. IT NEVER BLOCKS. A gate that stops a search dictates an outcome and will
+       be switched off inside a day, at which point it guards nothing (Jacobs).
+    2. SILENCE NEVER ASSERTS COVERAGE. An unclassified command says so rather
+       than going dark, because a quiet gate meaning could-not-tell is
+       indistinguishable from one meaning nothing-covers-this — the exact
+       collapse this whole family of fault is made of.
+    """
+    if (payload.get("tool_name") or "") != "Bash":
+        return None
+    command = str((payload.get("tool_input") or {}).get("command") or "")
+    if not command.strip():
+        return None
+
+    session = str(payload.get("session_id") or "").strip()
+    for event_class, pattern in _INVESTIGATION_PATTERNS:
+        if not pattern.search(command):
+            continue
+        if _already_said(session, event_class):
+            return None
+        question, stores = _EVENT_CLASS_STORES[event_class]
+        lines = [
+            "## INVESTIGATION START — my own instruments, before the first theory",
+            "",
+            f"  This asks: {question}",
+            "",
+            "  These record that class. Open them before the process list:",
+        ]
+        lines.extend(f"    - {s}" for s in stores)
+        lines.extend(
+            [
+                "",
+                "  Named at the START on purpose. Once a theory exists these read as",
+                "  places to confirm it rather than as evidence, and the answer is as",
+                "  often an ABSENCE — a missing line where mine all appear — as a name.",
+                "",
+                "  Not exhaustive, and silence about other stores is not a claim that",
+                "  none exist. Said once per class per session so it does not become",
+                "  wallpaper. Nothing here blocks the search.",
+            ]
+        )
+        return SurfaceOutcome(name="investigation_start", output="\n".join(lines))
+    return None
+
+
 def install() -> None:
     """Register every surface. Idempotent — safe to call from each doorbell."""
     from divineos.core.hook_router import registered
@@ -606,6 +754,14 @@ def install() -> None:
     # nobody dispatches is the alarm in the box with the cable coiled beside it.
     if "compound_branch_change" not in registered("PreToolUse"):
         register("PreToolUse", "compound_branch_change", compound_branch_change_surface)
+
+    # PreToolUse and not Post, and that is the entire design. It has to land
+    # BEFORE the command it rides on, because the thing it protects is the
+    # moment before a theory exists. Fired afterwards it would be advice about
+    # a search already under way, which is the position every other doorman I
+    # own already occupies.
+    if "investigation_start" not in registered("PreToolUse"):
+        register("PreToolUse", "investigation_start", investigation_start_surface)
 
     # Second door. PostToolUse carries surfaces that report on what just
     # happened rather than gating what is about to.
