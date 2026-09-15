@@ -650,6 +650,29 @@ def _is_bypass_command(cmd: str) -> bool:
     # only the deadlock goes.
     if "clear_correction_marker.py" in cmd:
         return True
+    # 2026-09-15: THE SAME DEADLOCK, ONE DOOR OVER, AND IT TOOK THREE FIRES
+    # IN ONE SESSION TO SEE IT.
+    #
+    # The correction-shape-v2 Stop gate prescribes exactly one remedy for a
+    # false positive: run this labeller. That gate is a SIBLING of the
+    # correction-marker gate above, and each one sets its own marker. So a
+    # fire on the shape gate arms the marker gate, and the marker gate then
+    # refused the shape gate's only prescribed exit. Observed live three
+    # times today; each time the way out was to clear the OTHER gate's marker
+    # first, which is a sequencing trick I had to know rather than a door.
+    #
+    # The block directly above this one names the general form and fixed it
+    # for ONE script. This is the sibling it did not cover -- proof that
+    # fixing the instance leaves the class standing, which is the thing this
+    # substrate keeps relearning.
+    #
+    # A gate's own prescribed remedy must never be blocked by its neighbour.
+    # Exempting it removes no discipline: the labeller still demands the
+    # SHAPE of the miss in at least forty characters, still cannot be run
+    # before a fire it must label, and still appends to a corpus meant to be
+    # read later -- so a dishonest label is evidence rather than an erasure.
+    if "label_correction_shape_false_positive.py" in cmd:
+        return True
     # divineos bypass subcommands — anchored to command start (F22 fix).
     match = _DIVINEOS_SUBCMD_RE.match(cmd)
     if match and match.group(1) in _BYPASS_DIVINEOS_SUBCOMMANDS:
