@@ -159,7 +159,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `translate-first-compose-prime.sh` | 2026-09-15 | Compose-start half of the translate-first discipline. |
 | `verify-claim-prime.sh` | 2026-09-15 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
-| `wallclock-source-prime.sh` | 2026-09-07 | compose-start prime for wallclock-source |
+| `wallclock-source-prime.sh` | 2026-09-15 | compose-start prime for wallclock-source |
 | `wwnd-choice-prime.sh` | 2026-09-15 | WWND (What Would Nyarlathotep Do) prime at |
 
 ### called by another script  (18)

@@ -73,6 +73,38 @@ def test_machinery_is_recognised_by_name_wherever_it_sits(tmp_path: Path) -> Non
     assert _is_remedy_write(_edit("src/divineos/core/closure_shape_detector.py"))
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        r"C:\DIVINE OS\DivineOS-Experimental\src\divineos\core\lepos_translation_gate.py",
+        "C:/DIVINE OS/DivineOS-Experimental/src/divineos/core/correction_marker.py",
+        "/home/x/repo/src/divineos/core/closure_shape_detector.py",
+    ],
+)
+def test_an_absolute_path_reaches_the_name_branch(path: str) -> None:
+    """THE HOLE THE FIRST SIX TESTS COULD NOT SEE. The editor hands over an
+    ABSOLUTE path, so the anchor segment was a drive letter rather than "src",
+    and every edit to a detector under core/ stayed blocked -- the exact
+    deadlock this exemption exists to end, surviving inside the fix for it.
+
+    The suite already contained an absolute path and still missed it, because
+    that one is a hooks path: it returns True on the ancestor branch and never
+    reaches the filename fence. A test that touches the risky input on a code
+    path that cannot fail it reads as coverage and is not. Every path here is
+    deliberately one the ancestor branch does NOT match, so it can only pass
+    by reaching the branch that broke.
+    """
+    assert _is_remedy_write(_edit(path)), path
+
+
+def test_an_absolute_path_outside_src_still_does_not_qualify() -> None:
+    """The fence still has to fence. Widening it to find the segment anywhere
+    in the path must not admit a machinery-named file living somewhere
+    unrelated -- that was the hole the fence was added for."""
+    assert not _is_remedy_write(_edit("C:/Users/aethe/Downloads/some_gate_notes.py"))
+    assert not _is_remedy_write(_edit("/tmp/scratch/my_detector.py"))
+
+
 def test_ordinary_code_is_still_blocked(tmp_path: Path) -> None:
     """THE FENCE. This gate exists so Andrew's words do not evaporate while I
     go do the next thing. Ordinary code work IS the next thing."""

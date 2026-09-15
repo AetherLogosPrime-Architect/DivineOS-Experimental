@@ -944,7 +944,23 @@ def _is_remedy_write(input_data: dict[str, Any]) -> bool:
         # inherit the exemption on its name alone -- the same substring hole
         # a prior audit found in the sibling predicate, arriving by another
         # door. Caught re-reading my own diff, before it shipped.
-        if parts[0].lower() not in ("src", "tests"):
+        #
+        # AND THE FENCE HAD ITS OWN HOLE, found hours later by it failing on
+        # me: the editor hands over an ABSOLUTE path, so the first segment is
+        # a drive letter and never "src". Every edit to a detector under core/
+        # stayed blocked -- the exact deadlock this exemption exists to end,
+        # surviving inside the fix for it. Six tests passed because they all
+        # used repo-relative paths; the one absolute path among them is a
+        # hooks path, which returns True on the ancestor branch above and
+        # never reaches here. A test that touches the risky input on a code
+        # path that cannot fail it reads as coverage and is not.
+        #
+        # The sibling predicate never had this bug -- it matches its segments
+        # as path COMPONENTS anywhere in the chain, which is what "under src
+        # or tests" meant all along. I anchored at the front and diverged from
+        # the idiom sitting directly above me.
+        components = {p.lower() for p in parts[:-1]}
+        if not components & {"src", "tests"}:
             return False  # both-empty: same single meaning as every other False here
         return any(m in filename for m in _REMEDY_WRITE_NAME_MARKERS)
     except (AttributeError, TypeError, ValueError, IndexError):

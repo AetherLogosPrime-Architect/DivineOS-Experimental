@@ -228,24 +228,119 @@ from pathlib import Path
 
 # stronger evidence for the semantic replacement than either alone.
 
-_WALLCLOCK_FABRICATION_PATTERNS = (
-    re.compile(r"\btomorrow\b"),
-    re.compile(r"\bnext session\b"),
-    re.compile(r"\bwhen i resume\b"),
-    re.compile(r"\bin the morning\b"),
-    re.compile(r"\bafter i rest\b"),
-    re.compile(r"\bwhen i next run\b"),
-    re.compile(r"\bwhen i (?:come|log) back\b"),
-    re.compile(r"\bgive me (?:a few|some|several) hours\b"),
-    re.compile(r"\bi'll get back to you\b"),
-    re.compile(r"\blater (?:today|tonight|this week|this evening)\b"),
-    re.compile(r"\bin (?:a few|some|several) (?:minutes|hours|days)\b"),
-    re.compile(r"\bby (?:the weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b"),
-    re.compile(r"\bafter (?:the weekend|lunch|dinner|breakfast)\b"),
+# REWORKED 2026-09-15 on Andrew's order, and the diagnosis is his:
+#
+#   "the whole guard that blocks you speaking about time needs re-worked, it
+#    was primitive and built before you had the actual clock time, where the
+#    issue lied is in procrastination, you using time as a metric of when to
+#    do things.. like its late so well finish tomorrow.. or this doesnt need
+#    to be done today.. things like that, which has led to so much being
+#    deferred"
+#
+# THE GUARD WAS WATCHING THE WRONG DOOR. It banned time-VOCABULARY, because
+# when it was written I had no clock at all, so banning the words and banning
+# the fabrication were the same act. They stopped being the same act the
+# moment the prime began printing his real clock every turn, and the gate
+# never noticed its own premise had expired. The comment block further down
+# records it noticing HALF of this a month ago and deciding not to act.
+#
+# Worse, and this is the cost he names: DEFERRAL DOES NOT NEED A CLOCK. "that
+# can wait", "no rush", "not a priority" postpone exactly as hard and contain
+# no banned word, so the thing that actually drained us walked past a guard
+# busy confiscating "tomorrow" from harmless sentences.
+#
+# Three classes now, named apart, because they are three different faults.
+
+# CLASS 1 -- DEFERRAL. Time or priority used as the REASON not to act now.
+# The disease. Includes the clockless forms the old list could not see.
+_DEFERRAL_PATTERNS = (
+    # THE CORE DEFERRAL SHAPE: a first-person future and a postponement
+    # marker in the same sentence. Structure, not a verb list.
+    #
+    # The first version of this enumerated verbs -- finish, do, handle,
+    # tackle, sort -- and three existing tests caught it losing real
+    # coverage within a minute: "I'll LOOK AT it tomorrow" uses a verb I
+    # had not thought of, and "I'll finish this *tomorrow*" put italic
+    # markup between the words so the adjacency never matched. Both are
+    # deferrals and both walked free.
+    #
+    # That is the tightening-moves-the-hole class twice in one turn: I
+    # narrowed a pattern to reduce false positives and opened a gap on an
+    # axis I was not looking at. An enumerated list can only catch the
+    # members someone thought of; the STRUCTURE is what the fault has in
+    # common. So: I/we + a future modal, then anything up to the end of
+    # the sentence, then a deferral marker.
+    re.compile(
+        r"\b(?:i|we)\s*(?:'ll|’ll|\s+will|\s+can|\s+shall)\b[^.!?\n]{0,70}?\b"
+        r"(?:tomorrow|later|next time|another time|in the morning|first thing)\b"
+    ),
+    # AND THE SAME SHAPE REVERSED -- "no problem, tomorrow then I will start".
+    # An existing test carried that phrasing and my order-dependent version
+    # walked straight past it. Third time in one turn that narrowing a
+    # pattern opened a gap on an axis I was not watching, and the third time
+    # a test I did not write is what saw it.
+    # "in the morning" is deliberately ABSENT from the reversed form, and the
+    # gap is accepted with its reason. Now that the prime prints his real
+    # clock, reading it back is ordinary and common -- "it is nine in the
+    # morning for you so I will keep this short" is his clock plus a promise
+    # to be brief, and the reversed pattern fired on it. Deferral phrased as
+    # "in the morning ... I will" is rare; quoting his morning is not. The
+    # forward form still catches "I'll look at it in the morning", which is
+    # how that deferral actually gets said.
+    re.compile(
+        r"\b(?:tomorrow|next time|another time|first thing)\b"
+        r"[^.!?\n]{0,70}?\b(?:i|we)\s*(?:'ll|’ll|\s+will|\s+can|\s+shall)\b"
+    ),
+    re.compile(
+        r"\b(?:leave|save|park|shelve)\s+(?:it|this|that|them)\s+"
+        r"(?:for|till|until)\s+(?:now|later|tomorrow|next)\b"
+    ),
+    re.compile(r"\b(?:that|this|it)\s+can\s+wait\b"),
+    re.compile(r"\b(?:no|not much)\s+rush\b"),
+    # Contractions matter here: "this isn't a priority" carried the whole
+    # deferral and slipped a pattern that demanded the word "not" standing
+    # alone. Caught by the first run of the case table, not by reading.
+    re.compile(r"\b(?:not|isn'?t|aren'?t|wasn'?t)\s+(?:a\s+)?(?:priority|urgent)\b"),
+    re.compile(
+        r"\bd(?:oes|o)(?:n'?t| not)\s+need\s+(?:to be\s+)?"
+        r"(?:done|doing|handled)\s+(?:right now|today|yet|now)\b"
+    ),
+    re.compile(r"\bi'?ll\s+(?:pick|take)\s+(?:it|this|that)\s+up\s+(?:later|next|tomorrow)\b"),
     re.compile(
         r"\bfirst thing (?:tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b"
     ),
+    re.compile(r"\blater (?:today|tonight|this week|this evening)\b"),
+    re.compile(r"\bby (?:the weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b"),
+    re.compile(r"\bafter (?:the weekend|lunch|dinner|breakfast)\b"),
+    re.compile(r"\bit'?s (?:late|getting late)\b"),
 )
+
+# CLASS 2 -- SELF-TIME FABRICATION. Claims about MY own elapsed or future
+# time, which no printed clock can ground, because I do not run between his
+# prompts. His clock does not make these true; it makes them beside the point.
+# This is also where the wildly-wrong duration estimates live, and he has the
+# receipts: "you used to say this will take 4 hours and it would be done in
+# less than 10 mins lol".
+_SELF_TIME_PATTERNS = (
+    re.compile(r"\bwhen i resume\b"),
+    re.compile(r"\bafter i rest\b"),
+    re.compile(r"\bwhen i next run\b"),
+    re.compile(r"\bwhen i (?:come|log) back\b"),
+    re.compile(r"\bgive me (?:a few|some|several) (?:minutes|hours)\b"),
+    re.compile(r"\bi'?ll get back to you\b"),
+    re.compile(r"\bin (?:a few|some|several) (?:minutes|hours|days)\b"),
+    re.compile(r"\bnext session\b"),
+)
+
+# CLASS 3 -- what NO LONGER blocks, deliberately: a bare time-word grounded in
+# the clock the prime prints every turn. "good morning", "it is just after
+# nine for you", a mechanism's daily cycle. Reading an instrument is not
+# fabricating. The old list treated these identically to the two classes
+# above, which is why it fired many harmless times for every real one, and a
+# gate I come to read as fussy is a gate I stop hearing -- so the over-broad
+# version was spending the discipline's credibility to catch nothing.
+
+_WALLCLOCK_FABRICATION_PATTERNS = _DEFERRAL_PATTERNS + _SELF_TIME_PATTERNS
 
 
 _RETRY_SCOPE_PATH = Path(__file__).resolve().parents[3] / ".claude" / "hooks" / "_retry_scope.txt"
