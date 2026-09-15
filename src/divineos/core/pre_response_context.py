@@ -45,6 +45,15 @@ from divineos.core.paths import divineos_home, marker_path
 _SURFACE_FILE = divineos_home() / "surfaced_context.md"
 _RECENT_WINDOW_S = 600  # only surface findings from the last 10 minutes
 
+# How many bytes of needs-RATIONALE may ride along on one firing. The rules
+# themselves are never budgeted -- they are the actionable half and cost about
+# a fifth of what their why-paragraphs cost. Sized so the whole assembled
+# payload stays under what the harness inlines; above that limit the tail is
+# written to a file and replaced by a preview, and in practice those files are
+# never opened. See scripts/check_hook_output_fits.py, which measures it and
+# blocks rather than warning.
+_NEEDS_WHY_BUDGET_BYTES = 1600
+
 
 def run_surfacer(prompt: str) -> None:
     """Surface relevant substrate context for the user's prompt.
@@ -984,10 +993,52 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
                 "the violation is structural, not a discipline failure.",
                 "",
             ]
+            # EVERY RULE, ROTATING RATIONALES (2026-09-15). This block had
+            # grown past what the harness actually delivers, so its tail was
+            # written every turn and never arrived -- in a surface that opens
+            # by calling its own contents non-deferrable. Text past the cut is
+            # not a rule I am breaking; it is a rule that never reached me,
+            # which is worse, because from the authoring end it looks whole.
+            #
+            # The rules cost about a fifth of what their why-paragraphs cost,
+            # so the rules are never cut -- they are the actionable half and
+            # they are cheap. The rationales rotate through a byte budget and
+            # the block SAYS how many are held and that they cycle. The choice
+            # was never full-versus-partial: the tail was already not arriving.
+            # It was partial-and-labelled versus partial-and-silent.
+            #
+            # Rotation is deterministic on the date ordinal, reusing the idiom
+            # the multiplex survival panel already uses: no new state, stable
+            # within a day so in-session reads stay consistent, and the whole
+            # set is covered across successive days.
+            import datetime as _dt
+
+            offset = _dt.date.today().toordinal() % len(needs) if needs else 0
+            shown = 0
+            held = 0
+            keep: dict[str, str] = {}
+            for n in needs[offset:] + needs[:offset]:
+                why = n.get("why") or ""
+                if not why:
+                    continue
+                if shown + len(why) <= _NEEDS_WHY_BUDGET_BYTES:
+                    keep[str(n.get("id", "?"))] = why
+                    shown += len(why)
+                else:
+                    held += 1
             for n in needs:
                 lines.append(f"  - [{n.get('id', '?')}] {n.get('text', '')}")
-                if n.get("why"):
-                    lines.append(f"      why: {n['why']}")
+                why = keep.get(str(n.get("id", "?")))
+                if why:
+                    lines.append(f"      why: {why}")
+            if held:
+                lines.append("")
+                lines.append(
+                    f"  ({held} rationale(s) held back this firing so the block fits "
+                    "what the harness delivers; they rotate, so a different set "
+                    "arrives next time. Every RULE is above -- none is abridged. "
+                    "All of them: `divineos motivation`.)"
+                )
             # Compact summary of the other four slots.
             other_counts = {s: len(list_slot(s)) for s in SLOTS if s != "need"}
             if any(other_counts.values()):
