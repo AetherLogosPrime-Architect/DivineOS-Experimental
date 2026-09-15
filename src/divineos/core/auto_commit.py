@@ -114,16 +114,218 @@ class AutoCommitResult:
     dirty_lines: int = 0  # git status --porcelain lines seen
 
 
+#: Where substrate goes when it is staged on a branch that does not own it.
+#: The same branch channel_letter_capture already writes to, deliberately not a
+#: second declaration -- two names for the writing branch would drift, and the
+#: drift would be silent.
+SUBSTRATE_BRANCH = "substrate/aether"
+
+
+def _retarget_staged_substrate(repo_root: Path) -> None:
+    """Send staged substrate to its own branch instead of to whatever is checked out.
+
+    THE PREVENTION HALF, and Aletheia named the gap in exactly these terms:
+    the scope station added this same day reports the mixture on every READ and
+    does nothing about the WRITE. Her evidence was the cleanest available -- I
+    removed one letter by hand from the branch whose entire purpose is refusing
+    that mixture, and a checkpoint put two hundred and forty-four back two
+    minutes later, while I was writing to her about having fixed it.
+
+    THE TENSION A PRIOR SESSION COULD NOT RESOLVE, quoted from its own note
+    further down this file: committing substrate to its branch by plumbing
+    "leaves the letters permanently dirty in the working tree of the code
+    branch... so every later checkpoint finds them again. Making the tree go
+    clean and keeping substrate off the branch are in tension, and I have not
+    resolved it."
+
+    It is resolved now, by two pieces that did not exist when that was written.
+    The sync repair above means the bulk never arrives in the tree at all, so
+    what remains is the handful genuinely written this session. And
+    ``_remove_scaffolding`` takes those down once it can PROVE they are
+    redundant -- same bytes on the branch by blob id, and untracked here --
+    refusing to delete on either check failing.
+
+    NO FALLBACK, and that is the whole contract of the mechanism this calls.
+    When the branch will not resolve, the paths are unstaged and left on disk
+    rather than committed here: committing them to HEAD is the defect, so a
+    fallback would reintroduce it on the rare path where it is hardest to
+    notice. The letter survives in the shared channel either way, which is
+    where the crossing actually happens.
+    """
+    staged = _staged_paths(repo_root)
+    if staged is None:
+        logger.warning(
+            "auto_commit: could NOT list staged paths, so substrate cannot be "
+            "separated from code. Nothing retargeted -- this is a could-not-look, "
+            "not a clean tree."
+        )
+        return
+
+    try:
+        from divineos.core.substrate_paths import NoChannelsDeclared, partition
+    except ImportError:
+        logger.warning("auto_commit: substrate declaration unavailable; nothing retargeted")
+        return
+
+    try:
+        # Returns (substrate, code) as plain lists. Checked against the live
+        # signature rather than assumed -- an attribute access here would have
+        # thrown inside a checkpoint, where the failure surfaces as a lost save
+        # rather than as an error anybody reads.
+        substrate, _code = partition(staged)
+    except NoChannelsDeclared:
+        logger.warning("auto_commit: no substrate channels declared; nothing retargeted")
+        return
+
+    if not substrate:
+        return
+
+    current = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if current.returncode == 0 and current.stdout.strip() == SUBSTRATE_BRANCH:
+        return  # Already the branch that owns writing; committing here is correct.
+
+    # NO DESTINATION MEANS NO RETARGET, AND THAT IS NOT THE FALLBACK THE
+    # MECHANISM FORBIDS. Its refusal exists so substrate never lands on HEAD
+    # *instead of* its own branch. Where no such branch exists at all -- a fresh
+    # clone, a test fixture, somebody else's checkout -- there is no contamination
+    # question to answer, only a save question, and the two-commit split below
+    # already answers that correctly and is already tested.
+    #
+    # Checked here rather than caught from the refusal, because the difference
+    # matters: a branch that is MISSING is a repo without a writing home, and a
+    # retarget that FAILS on a repo that has one is a fault worth shouting about.
+    # Collapsing them would turn every fresh clone into a warning and teach me to
+    # ignore the shout.
+    exists = subprocess.run(
+        ["git", "rev-parse", "--verify", f"refs/heads/{SUBSTRATE_BRANCH}"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if exists.returncode != 0:
+        logger.info(
+            "auto_commit: no %s branch here, so substrate stays with the split "
+            "commit -- nothing to route it to.",
+            SUBSTRATE_BRANCH,
+        )
+        return
+
+    try:
+        from divineos.core.channel_letter_capture import _remove_scaffolding
+        from divineos.core.substrate_retarget import RetargetRefused, commit_paths_to_branch
+    except ImportError:
+        logger.warning("auto_commit: retarget mechanism unavailable; nothing retargeted")
+        return
+
+    try:
+        commit_paths_to_branch(
+            repo_root,
+            SUBSTRATE_BRANCH,
+            substrate,
+            f"substrate(checkpoint): {len(substrate)} path(s) routed off a code branch",
+        )
+    except RetargetRefused as exc:
+        logger.warning(
+            "auto_commit: REFUSING to commit %d substrate path(s) here -- %s. "
+            "They stay on disk and in the shared channel. Committing them to the "
+            "checked-out branch is the defect this avoids, so there is no fallback.",
+            len(substrate),
+            exc,
+        )
+
+    # Unstaged either way. A retarget that refused must not leave them staged to
+    # be swept into the very commit this is keeping them out of.
+    _run_pathspec(repo_root, ["git", "restore", "--staged"], substrate)
+    for rel in substrate:
+        _remove_scaffolding(repo_root, repo_root / rel, rel, SUBSTRATE_BRANCH)
+
+
+def _names_anywhere_in_history(repo_root: Path, mirror_rel: Path | str) -> set[str] | None:
+    """Every filename this mirror path has EVER held, across all refs.
+
+    None means the question could not be asked -- which is not the same as
+    "nothing is in history", and the caller must not read it that way.
+
+    One walk over all refs rather than a per-file probe: measured at well under
+    a second across three thousand paths, because the alternative is a git call
+    per candidate and there are hundreds of candidates every checkpoint.
+    """
+    # POSIX separators both ways. git emits forward slashes in --name-only
+    # regardless of platform, so a Windows-flavoured prefix would match nothing
+    # and every file would read as at-risk -- the sweep restored in its worst
+    # form, by a path separator.
+    rel = Path(mirror_rel).as_posix().rstrip("/")
+
+    # ASK THE REPOSITORY I MEAN, NOT WHICHEVER ONE GIT FINDS. Without this,
+    # a directory that is not itself a repo but sits inside one gets git's
+    # answer about the ENCLOSING repo -- a confident reply about the wrong
+    # tree, which is worse than a refusal. Caught by the could-not-read test,
+    # which asserted None and got an empty set: history saying "never held"
+    # about a path it was never asked about, and every file then reading as
+    # at-risk. That is the sweep restored, by a working-directory accident.
+    if not (repo_root / ".git").exists():
+        logger.warning("auto_commit: %s is not a repository root -- cannot read history", repo_root)
+        return None  # both-empty: this and the git-failure return below both mean COULD NOT ASK, and the caller's honest action is identical either way -- copy nothing, say so. They are deliberately indistinguishable to the caller and distinguished only in the log line each writes, because a caller branching on which kind of blindness it hit would be acting on a difference that changes nothing.
+
+    try:
+        proc = subprocess.run(
+            ["git", "log", "--all", "--name-only", "--pretty=format:", "--", rel],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
+            check=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        logger.warning("auto_commit: could NOT read channel history for %s", mirror_rel)
+        return None
+    prefix = rel + "/"
+    return {line[len(prefix) :] for line in proc.stdout.splitlines() if line.startswith(prefix)}
+
+
 def _sync_external_channels(
     channels: tuple[ExternalChannel, ...],
     repo_root: Path,
 ) -> int:
-    """Copy new external-channel files into their repo_mirror.
+    """Copy external-channel files that exist NOWHERE in the repository yet.
 
-    Same sync semantics as check_uncommitted_work.scan_external_channels,
-    but performs the copy instead of only reporting. Returns the count
-    of files copied. Append-only channels only (name-equality suffices;
-    no content-diff needed).
+    THE SWEEP, DIAGNOSED 2026-09-15 AFTER DOING IT ALL DAY. This compared the
+    shared channel against ``mirror.glob()`` -- the CURRENT BRANCH's working
+    tree. On the branch that keeps writing, that tree already holds every
+    letter, so nothing copied and nothing went wrong. On a code branch it holds
+    almost none, so every letter in the channel read as missing and got copied
+    in; ``git add -A`` then staged them and the checkpoint committed them.
+
+    Hundreds, deterministically, every checkpoint fired while a code branch was
+    checked out. Predicted from the branch's tracked set before reproducing it:
+    246 letters. The sweep that had just landed carried 246.
+
+    MISSING FROM THIS BRANCH IS NOT MISSING FROM THE REPOSITORY, and that is the
+    whole confusion. The rescue this function exists for is real -- a letter
+    living only in the shared directory is one disk failure from gone -- but a
+    letter already committed on the writing branch is SAFE, and copying it onto
+    a code branch rescues nothing while contaminating a branch whose one claim
+    is that it carries no writing.
+
+    So the comparison moves from "is it in this tree" to "has this repository
+    ever held it, on any ref". Measured at the time of the fix: of the whole
+    shared channel, the number genuinely at risk was ZERO -- every one was
+    already on a branch that keeps writing. The old rule would have copied
+    hundreds anyway.
+
+    A history walk that FAILS is not an empty history. When the question cannot
+    be asked, nothing is copied and the caller is told, because the alternative
+    is treating an unreadable answer as permission to sweep -- which is the
+    absence-becomes-value collapse this house keeps finding.
     """
     copied = 0
     for channel in channels:
@@ -131,9 +333,27 @@ def _sync_external_channels(
             continue
         mirror = repo_root / channel.repo_mirror
         mirror.mkdir(parents=True, exist_ok=True)
-        mirror_names = {p.name for p in mirror.glob(channel.pattern)}
+
+        ever_held = _names_anywhere_in_history(repo_root, channel.repo_mirror)
+        if ever_held is None:
+            logger.warning(
+                "auto_commit: SKIPPING channel %s -- could not read its history, "
+                "so a file's absence here cannot be told from its absence "
+                "everywhere. Nothing copied; this is a could-not-check, not a "
+                "clean channel.",
+                channel.name,
+            )
+            continue
+
+        present_here = {p.name for p in mirror.glob(channel.pattern)}
+        safe_elsewhere = 0
         for src_file in channel.source.glob(channel.pattern):
-            if src_file.name in mirror_names:
+            if src_file.name in present_here:
+                continue
+            if src_file.name in ever_held:
+                # Already committed somewhere. Copying it HERE would put writing
+                # on whatever branch happens to be checked out.
+                safe_elsewhere += 1
                 continue
             try:
                 shutil.copy2(src_file, mirror / src_file.name)
@@ -145,6 +365,13 @@ def _sync_external_channels(
                     channel.name,
                     e,
                 )
+        if safe_elsewhere:
+            logger.info(
+                "auto_commit: %s -- %d file(s) absent from this branch and "
+                "already held on another ref; left alone rather than swept in.",
+                channel.name,
+                safe_elsewhere,
+            )
     return copied
 
 
@@ -291,6 +518,7 @@ def auto_commit_substrate(
     # delivered -- the shared directory is outside every tree and is where the
     # crossing actually happens. Only the archive copy waits.
     _unstage_self_invalidating(repo_root)
+    _retarget_staged_substrate(repo_root)
 
     staged_check = subprocess.run(
         ["git", "diff", "--cached", "--quiet"],

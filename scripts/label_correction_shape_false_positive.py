@@ -71,6 +71,63 @@ from divineos.core.paths import divineos_home  # noqa: E402
 _MIN_REASON_LEN = 40
 _FIRES_FILENAME = "correction_shape_v2_fires.jsonl"
 
+# The Stop gate's own block text, which is what lands in the marker's
+# trigger field when this gate's fire is re-read as a user correction at
+# the next prompt. Narrow on purpose -- see _lift_marker_set_by_this_gate.
+_STOP_GATE_SIGNATURE = "[correction-shape-v2 stop-gate]"
+
+
+def _lift_marker_set_by_this_gate() -> str:
+    """Clear the correction marker IF this gate's own fire is what set it.
+
+    THE THIRD HEAD OF THE SAME DEADLOCK, 2026-09-15. This script exists
+    because the Stop gate advertised an exit that could not execute --
+    "a gate that offers a remedy which cannot execute is a cage, not a
+    keel". It fixed that for the fire log and stopped one step short: the
+    gate's block message is itself re-read as a correction at the next
+    prompt, which sets the UserPromptSubmit marker and blocks Bash, Edit
+    and Read. Labelling the fire never touched that marker. So an HONEST
+    false-positive label left me exactly as stuck as before, with the only
+    remaining exits being to file a correction that did not happen, or the
+    fire door -- the two outcomes this script was written to prevent.
+
+    WHY THIS IS NOT A BLANKET CLEAR. The marker is shared: a real
+    correction from Andrew sets it too, and wiping that would destroy the
+    protection outright. So the lift is conditional on the marker's own
+    trigger text carrying this gate's signature. A marker set by anything
+    else -- above all by Andrew -- is left standing untouched, and the
+    label still costs a reason of real length, still cannot be run
+    pre-emptively, and still appends to a corpus where a dishonest label
+    is evidence rather than an erasure.
+
+    Returns a human-readable outcome line; never raises.
+    """
+    try:
+        from divineos.core.correction_marker import clear_marker, read_marker
+    except ImportError as exc:  # pragma: no cover - machinery absent
+        return f"marker untouched: cannot import correction_marker ({exc})"
+
+    try:
+        marker = read_marker()
+    except (OSError, ValueError) as exc:
+        return f"marker untouched: unreadable ({exc})"
+
+    if not marker:
+        return "no correction marker was set; nothing to lift"
+
+    trigger = str(marker.get("trigger", "") or "")
+    if _STOP_GATE_SIGNATURE not in trigger:
+        return (
+            "marker LEFT STANDING -- it was set by something other than this "
+            f"gate (trigger: {trigger[:70]!r}). That one still needs filing."
+        )
+
+    try:
+        clear_marker()
+    except (OSError, ValueError) as exc:
+        return f"marker lift FAILED ({exc}) -- still blocked, and that is honest"
+    return "marker lifted: this gate set it, and I have gone on record against it"
+
 
 def fires_path() -> Path:
     """Location of the fire log the Stop hook appends to."""
@@ -165,6 +222,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"    detector said : {detector_reason} (confidence {confidence})")
     print(f"    I say         : {reason}")
     print(f"    corpus        : {path}")
+    print(f"    marker        : {_lift_marker_set_by_this_gate()}")
     print(
         "    This is a disagreement with my own detector, on the record. If "
         "the label was dishonest, it is now evidence, not an erasure."

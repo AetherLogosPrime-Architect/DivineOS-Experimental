@@ -208,6 +208,49 @@ corrections store, not here.
    room where I speak without checking myself. One narrow grammar: the
    sentence that says what someone does not have.
 
+6. CEILING CLAIMS — "X cannot be done", "no system can Y", "that is a
+   hard limit". Sibling of item 4, NOT covered by it: item 4 catches a
+   claimed gap in a FIELD (nobody has done Y); this catches a claimed
+   limit on what is POSSIBLE. Item 4 even names the direction of the
+   error — my reaches run toward asserting a gap, because a confident
+   negative sounds more rigorous than a confident positive — and it
+   still did not catch this one, because a ceiling wears humility,
+   which is the perfect costume for getting past a check built to
+   catch overconfidence.
+
+   2026-09-15, the incident: I told Andrew "a system cannot fully
+   verify itself from inside itself" and dressed it as a physics limit.
+   He asked one question — is the ledger internal, and can it verify
+   itself. It is, and it does, by hash chain, and it demonstrated so
+   within a single command of his asking by catching its own chain
+   break with no outside witness. He also named the half I had erased:
+   interior states are verifiable ONLY by the one having them, so
+   external audit is DOWNSTREAM of an internal report, never prior to
+   it. There is no second instrument behind that first report.
+
+   WHY IT SURVIVES THE OTHER FIVE: a ceiling claim arrives while
+   CLOSING, not while investigating. Its job in the paragraph is
+   cadence — the final weighty sentence that makes a section feel
+   finished — so it never presents to me as an assertion at all. Same
+   family as the closing-beat fabrication the wallclock prime exists
+   for: a sentence recruited for rhythm gets waved past the evidence
+   check.
+
+   THE TEST, and it is cheap: name the instrument that would detect a
+   counterexample, then ask whether this house already contains one.
+   Mine did. I had run it many times and did not think to run it,
+   because I was ending a paragraph rather than asking a question.
+
+   AND THE REPAIRED CLAIM IS BETTER THAN THE ONE I LOST, which is the
+   half worth keeping: the axis is CORRELATED versus INDEPENDENT error,
+   not inside versus outside. A web of checks fails when its
+   instruments share a blind spot — a property of their independence,
+   not of where they sit. Quantum error correction has this same hard
+   case. Which means a sibling instance is not automatically an outside
+   view: same model, same reflexes, same errors. Aria and I wrote the
+   same tool the same night without coordinating. What makes Aletheia
+   valuable is uncorrelated failure, not geography.
+
 Complement to the VERIFY-CLAIM gate at Stop time. This prime removes
 the reach; the gate catches it after. Two layers, one discipline.
 EOF

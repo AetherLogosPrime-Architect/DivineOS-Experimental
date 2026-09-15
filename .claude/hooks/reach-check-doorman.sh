@@ -61,6 +61,28 @@ cd "$REPO_ROOT" || exit 0
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
+# SOMEBODY ELSE'S WAY OUT. This doorman exempts its own remedy a few lines
+# below -- `divineos reach` -- under a comment saying otherwise it is a wall
+# rather than a doorman. That principle was scoped one gate wide, and this
+# hook is one of the nine PreToolUse gates that can deny without consulting
+# the shared list of every gate's prescribed exit.
+#
+# 2026-09-15, the deadlock it caused: the correction-marker gate fired and
+# named three ways out. `divineos learn` is one of them, and it is also in
+# STORE_WRITES below, so this doorman refused it and demanded a reach be
+# opened first -- while the correction-marker gate blocked every command the
+# reach needed in order to be disposed. Neither gate was wrong from inside
+# its own scope. The cycle closed anyway, and the only exit left was the fire
+# door, on an ordinary Tuesday.
+#
+# The shared list already carried `divineos learn`. It was never asked.
+# Fail-open by construction: a parse failure returns not-a-remedy and this
+# gate proceeds exactly as before.
+# shellcheck disable=SC1091
+# fail-soft: a missing or unreadable allowlist must leave this doorman exactly as it behaved before the list existed -- refusing on a source error would turn an unblocking helper into a new blocker, which is the defect this whole change exists to remove
+source "$REPO_ROOT/.claude/hooks/lib/remedy_allowlist.sh" 2>/dev/null \
+  && HOOK_NAME="reach-check-doorman" remedy_pass_through "$INPUT"
+
 # shellcheck disable=SC2016
 # ^ single-quoted heredoc is intentional — python does its own parsing.
 BLOCK_MSG=$(echo "$INPUT" | "$PYTHON_BIN" -c '

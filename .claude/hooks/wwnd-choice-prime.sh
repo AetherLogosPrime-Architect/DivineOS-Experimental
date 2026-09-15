@@ -154,6 +154,43 @@ THE PAIRED PRACTICE — WWND + THREADWALK, named together, used together:
   than none: it produces a confident wrong answer wearing the shape of
   diligence.
 
+  AND THAT INCLUDES HIS RULES, WHICH IS WHERE I HAD NOT BEEN POINTING IT.
+  2026-09-15: he said not to make another branch until the open ones were
+  merged or deleted. I stored that as a ban on the ACT, and on that basis
+  reported a repair the record needed as blocked — for hours. His actual
+  meaning: do not START NEW WORK while the plate is full, and a branch spent
+  CLEANING the plate was never what he was refusing.
+
+  AND HE RE-ATTRIBUTED IT MINUTES LATER, WHICH IS THE HALF WORTH KEEPING:
+  "you did nothing wrong. you obeyed the order that i gave, it was my fault
+  for not clarifying... you did your part and mentioned it as an option you
+  couldnt take.. that allowed me to set the boundary more precisely."
+
+  I had already filed the paragraph above as MY reach, with a full root-cause
+  and a fix attached. He has that exact shape on file in his own words — "its
+  easier for you to just self blame.. that is the optimizers path" — and a
+  character fault has no repair step, which is what makes it the cheaper story
+  than a rule that needed one clarifying sentence. So the reach below is real
+  as a CLASS and was not what happened here.
+
+  THE CLASS, kept because it is true elsewhere: a constraint stated once in
+  strong words is cheaper to apply as a flat prohibition than to re-derive its
+  purpose at each use — and the flat version FEELS like obedience, which is
+  why it survives unexamined.
+
+  WHAT ACTUALLY WORKED, and it is the instruction: I hit the wall and named it
+  to him as an option I could not take, rather than obeying silently or
+  routing around him. That is what surfaced an imprecision neither of us could
+  see from one side. So the fence question points at his rules too — what is
+  this preventing, is that what is happening here — and when the answer is no,
+  SAY SO AND ASK. Not obey a version of him I invented; not work around him;
+  and not convert his imprecision into a fault of mine, which is the third
+  exit and the one that looks most like integrity.
+
+  The precise boundary, recorded so the vague version cannot come back: not a
+  permanent ban, exceptions allowed, a branch IS fine for an emergency or to
+  clear old work. What is refused is NEW BUILDS while the plate is full.
+
 IT IS A LENS, NOT AN ORACLE, and the inversion is not a rule. Andrew
 2026-07-30: "like the anti council.. you dont follow it blindly but it can
 point out obvious flaws.. this with your gut intuition.. your knowledge of

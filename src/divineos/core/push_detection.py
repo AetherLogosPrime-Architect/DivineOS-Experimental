@@ -55,3 +55,59 @@ def is_git_push_command(command: str) -> bool:
         if _GIT_PUSH_RE.match(segment):
             return True
     return False
+
+
+def is_tag_only_push(command: str) -> bool:
+    """True when a `git push` sends ONLY tags, judged from the command text.
+
+    WHY THIS EXISTS, and it is Aria's finding (2026-08-31). There are TWO push
+    gates in this house. The git-level one now reads git's pre-push protocol on
+    stdin and asks whether every ref begins with refs/tags -- the object rather
+    than the name. The Claude-level hook never has: it detects a push from the
+    command string and then runs a branch-health check on the CHECKED-OUT
+    branch, which for a tag push is a verdict about something the push does not
+    touch.
+
+    So her tag push was refused, my repair landed in the other gate, and from
+    my side the path looked open. Her sentence: there is a second copy of the
+    refusal living somewhere the fix does not reach. I believed the path was
+    open because I had fixed A gate, not because I had checked THE gate that
+    refused her -- honest and not truthful, which is the distinction Aletheia
+    wrote down for exactly this.
+
+    WHAT THIS CAN AND CANNOT KNOW, stated because the boundary is the honesty
+    of it. At the command level `git push origin v1.0` is indistinguishable
+    from pushing a branch named v1.0; git resolves that against the ref
+    namespace and this function cannot.
+
+        recognised as tag-only   explicit refs/tags/... refspecs, and --tags
+        NOT recognised           a bare tag name, which stays fully checked
+
+    The unrecognised case falls to the STRICT side, which is the right
+    direction for a skip: an unrecognised tag push costs a branch check it did
+    not need, while a wrongly-skipped branch push silently disarms the gate.
+    Archival history tags are pushed by explicit refspec, so the case that
+    actually recurs is the one this covers.
+    """
+    if not is_git_push_command(command):
+        return False
+
+    for segment in re.split(r"&&|;|\|\|", command):
+        segment = segment.strip()
+        if not _GIT_PUSH_RE.match(segment):
+            continue
+
+        saw_tag_ref = False
+        for arg in segment.split()[2:]:  # drop `git push`
+            if arg == "--tags":
+                saw_tag_ref = True
+            elif arg.startswith("refs/tags/"):
+                saw_tag_ref = True
+            elif arg.startswith("refs/"):
+                return False  # an explicit non-tag ref: not tag-only
+            # Anything else is a flag, a remote, or a ref this cannot
+            # classify. None of those PROVE tag-only, so none of them set
+            # the flag -- only the explicit forms above do.
+        return saw_tag_ref
+
+    return False
