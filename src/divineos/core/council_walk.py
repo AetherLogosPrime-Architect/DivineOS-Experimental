@@ -75,6 +75,7 @@ def _conn() -> sqlite3.Connection:
             state TEXT NOT NULL DEFAULT 'OPEN',
             content TEXT,
             settled_at REAL,
+            origin TEXT NOT NULL DEFAULT 'scored',
             PRIMARY KEY (walk_id, lens)
         );
         """
@@ -84,6 +85,19 @@ def _conn() -> sqlite3.Connection:
     # a second run no-ops.
     try:
         conn.execute("ALTER TABLE walks ADD COLUMN consumed_at REAL")
+    except sqlite3.OperationalError:
+        pass
+    # Seat provenance, added when seating moved from fit-scoring to a draw.
+    # Rows written before it default to 'scored', which is what they were.
+    try:
+        conn.execute("ALTER TABLE walk_lenses ADD COLUMN origin TEXT NOT NULL DEFAULT 'scored'")
+    except sqlite3.OperationalError:
+        pass
+    # What this seat changed in the artifact, written as the change is made.
+    # NULL means no change credited, which on an older row means the question
+    # was never asked rather than that the answer was no.
+    try:
+        conn.execute("ALTER TABLE walk_lenses ADD COLUMN changed_artifact TEXT")
     except sqlite3.OperationalError:
         pass
     conn.commit()
@@ -102,22 +116,35 @@ def _conn() -> sqlite3.Connection:
 GRAVITY_FLOORS: dict[str, int] = {"normal": 5, "high": 9, "severe": 12, "critical": 15}
 
 
-def _surface_lenses(problem: str, floor: int = 5) -> list[str]:
-    """The manager's selection. Never an argument — see module docstring."""
+def _surface_seats(problem: str, floor: int = 5, rng: Any = None) -> list[Any]:
+    """Seat the council: most drawn by lot, the remainder by score.
+
+    This was the manager's fit-scoring alone until 2026-09-09, when two blind
+    probes — Aether's and Aria's, built from the statement of the test and
+    nothing else — showed the same thing. A problem the roster is plainly
+    well-covered on, stated without the scorer's own vocabulary, seats five or
+    six lenses of whom nearly all score exactly zero and are simply the
+    alphabetically-first names the quorum fill reached. The bench looks like a
+    council either way.
+
+    Displaying the scores does not fix it: a printed zero reads as a verdict
+    against a lens, and ranking by fit puts the divergent lenses last, which is
+    where the value was. So the wording is taken out of the seating.
+    """
     # get_council_engine(), NOT CouncilEngine(). A bare engine has an EMPTY
     # expert dict — experts are registered by _register_all_experts, which
     # only the singleton accessor calls. My first draft constructed a bare
-    # one and surfaced ZERO lenses, silently: select_experts on an empty
-    # dict returns [] rather than raising. A walk built on that would have
-    # opened with no council at all and looked fine.
+    # one and surfaced ZERO lenses, silently: scoring an empty dict returns
+    # [] rather than raising. A walk built on that would have opened with no
+    # council at all and looked fine.
+    from divineos.core.council.draw import draw_council
     from divineos.core.council.engine import get_council_engine
-    from divineos.core.council.manager import select_experts
 
     experts = get_council_engine().experts
     if not experts:
         raise WalkRefused("the council engine registered no experts — refusing to guess a council")
-    scores = select_experts(problem, experts, min_experts=floor, max_experts=max(floor, 8))
-    return [score.expert_name for score in scores]
+    size = min(max(floor, 8), len(experts))
+    return draw_council(problem, experts, size=size, rng=rng)
 
 
 def open_walk(problem: str, gravity: str = "normal") -> dict[str, Any]:
@@ -129,14 +156,15 @@ def open_walk(problem: str, gravity: str = "normal") -> dict[str, Any]:
         raise WalkRefused(f"gravity must be one of {', '.join(GRAVITY_FLOORS)} — got {gravity!r}")
 
     floor = GRAVITY_FLOORS[gravity]
-    lenses = _surface_lenses(problem, floor=floor)
-    if not lenses:
-        raise WalkRefused("the manager surfaced no lenses; refusing to open an empty walk")
-    if len(lenses) < floor:
+    seats = _surface_seats(problem, floor=floor)
+    if not seats:
+        raise WalkRefused("the seating produced no lenses; refusing to open an empty walk")
+    if len(seats) < floor:
         raise WalkRefused(
-            f"{gravity} gravity requires at least {floor} lenses; the manager surfaced "
-            f"{len(lenses)}. Refusing rather than opening an undersized walk."
+            f"{gravity} gravity requires at least {floor} lenses; the seating produced "
+            f"{len(seats)}. Refusing rather than opening an undersized walk."
         )
+    lenses = [seat.expert_name for seat in seats]
 
     walk_id = "walk-" + hashlib.sha256(f"{problem}{time.time()}".encode()).hexdigest()[:12]
     conn = _conn()
@@ -146,13 +174,17 @@ def open_walk(problem: str, gravity: str = "normal") -> dict[str, Any]:
             (walk_id, problem, time.time()),
         )
         conn.executemany(
-            "INSERT INTO walk_lenses (walk_id, lens) VALUES (?, ?)",
-            [(walk_id, lens) for lens in lenses],
+            "INSERT INTO walk_lenses (walk_id, lens, origin) VALUES (?, ?, ?)",
+            [(walk_id, seat.expert_name, seat.origin) for seat in seats],
         )
         conn.commit()
     finally:
         conn.close()
-    return {"walk_id": walk_id, "lenses": lenses}
+    return {
+        "walk_id": walk_id,
+        "lenses": lenses,
+        "seats": [{"lens": s.expert_name, "origin": s.origin, "score": s.score} for s in seats],
+    }
 
 
 def _settle(walk_id: str, lens: str, state: str, content: str, minimum: int) -> None:
@@ -238,8 +270,8 @@ def add_lens(walk_id: str, lens: str, why: str) -> None:
         if not conn.execute("SELECT 1 FROM walk_lenses WHERE walk_id = ?", (walk_id,)).fetchone():
             raise WalkRefused(f"no such walk: {walk_id}")
         conn.execute(
-            "INSERT INTO walk_lenses (walk_id, lens, state, content, settled_at) "
-            "VALUES (?, ?, 'OPEN', ?, NULL)",
+            "INSERT INTO walk_lenses (walk_id, lens, state, content, settled_at, origin) "
+            "VALUES (?, ?, 'OPEN', ?, NULL, 'added')",
             (walk_id, lens, f"ADDED: {why}"),
         )
         conn.commit()
@@ -255,6 +287,89 @@ def apply_lens(walk_id: str, lens: str, finding: str) -> None:
 def exclude_lens(walk_id: str, lens: str, reason: str) -> None:
     """Exclude a lens WITH a reason. Silent narrowing is what this stops."""
     _settle(walk_id, lens, "EXCLUDED", reason, MIN_EXCLUSION_CHARS)
+
+
+MIN_CHANGE_CHARS = 30
+
+
+def credit_seat(walk_id: str, lens: str, what_changed: str) -> None:
+    """Record that this lens changed the thing being built, as it changes.
+
+    Aria 2026-09-09, taking apart the measure I had just shipped: divergence
+    compares a seat's finding against the other findings on the same walk, and
+    I wrote all of them — so it measures how far one of my paragraphs sits from
+    my other paragraphs, which is a fact about my prose variety and not about
+    the lens. A seat I happened to phrase in a different register reads as
+    divergent; one that genuinely broke the frame but came out in the same
+    voice reads as conformist. And it moves if I vary my wording, with no
+    intent to game it at all.
+
+    Her replacement was already in my own hands: *four of those findings
+    changed the commit before it was made.* That is what divergence was
+    standing in for, it is binary, and it is about the artifact rather than
+    about the text. Distance-from-the-others was chosen because it was
+    computable; changed-the-artifact is the thing itself.
+
+    REFUSED ON A CLOSED WALK, and that is the whole discipline rather than a
+    convenience. Her caution: credit recorded after the fact is a receipt
+    written once the outcome is known, which is the anchoring class arriving
+    inside the fix for it. Closing the walk closes the window.
+    """
+    what_changed = (what_changed or "").strip()
+    if len(what_changed) < MIN_CHANGE_CHARS:
+        raise WalkRefused(
+            f"name what changed, in at least {MIN_CHANGE_CHARS} characters. "
+            "'it helped' is not an artifact."
+        )
+    conn = _conn()
+    try:
+        row = conn.execute(
+            "SELECT w.closed_at FROM walks w JOIN walk_lenses l ON l.walk_id = w.id "
+            "WHERE w.id = ? AND l.lens = ?",
+            (walk_id, lens),
+        ).fetchone()
+        if row is None:
+            raise WalkRefused(f"{lens!r} is not on walk {walk_id}")
+        if row[0] is not None:
+            raise WalkRefused(
+                f"{walk_id} is closed. Credit is recorded as the change is made, never "
+                "after — a receipt written once the outcome is known is the anchoring "
+                "shape this whole line of work is about."
+            )
+        conn.execute(
+            "UPDATE walk_lenses SET changed_artifact = ? WHERE walk_id = ? AND lens = ?",
+            (what_changed, walk_id, lens),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def exclusion_tally(limit: int = 15) -> list[dict[str, Any]]:
+    """How often each lens has been excluded, across all walks.
+
+    Aria's guard, and she moved the target to get here. I had flagged the
+    hand-add path as the override I kept for myself; she refused that reading.
+    A hand-add can only WIDEN the council, costs a written reason, and is what
+    put four of the fourteen lenses on the walk that found the defect at all.
+
+    The narrowing door is this one. Draw nine, exclude the three that feel
+    useless, and fit-selection is back by hand with a paper trail that reads as
+    diligence. No single exclusion looks like that; a tally does. If one name
+    keeps being excluded it is either a genuinely useless lens — a finding
+    about the roster — or a voice I keep declining to hear, which is a finding
+    about me. Neither is visible one exclusion at a time.
+    """
+    conn = _conn()
+    try:
+        rows = conn.execute(
+            "SELECT lens, COUNT(*) AS n FROM walk_lenses WHERE state = 'EXCLUDED' "
+            "GROUP BY lens ORDER BY n DESC, lens ASC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    finally:
+        conn.close()
+    return [{"lens": lens, "exclusions": n} for lens, n in rows]
 
 
 def status(walk_id: str) -> dict[str, Any]:
@@ -377,6 +492,173 @@ def open_walks(limit: int = 5) -> list[dict[str, Any]]:
         }
         for r in rows
     ]
+
+
+def _attach_divergence(result: dict[str, Any]) -> None:
+    """Mean distance of each origin's findings from the rest of their walk.
+
+    Reported as UNAVAILABLE rather than as zero when the embedding model
+    cannot load. An unmeasured divergence is not a low one, and the two must
+    never render the same way — that confusion is the defect this whole change
+    was built against, one level down.
+    """
+    conn = _conn()
+    try:
+        rows = conn.execute(
+            "SELECT l.walk_id, l.lens, l.origin, l.content FROM walk_lenses l "
+            "JOIN walks w ON w.id = l.walk_id "
+            "WHERE w.closed_at IS NOT NULL AND l.state = 'APPLIED' AND l.content IS NOT NULL"
+        ).fetchall()
+    finally:
+        conn.close()
+
+    walks: dict[str, list[tuple[str, str]]] = {}
+    for walk_id, _lens, origin, content in rows:
+        walks.setdefault(walk_id, []).append((origin, content))
+
+    # Nothing to compare means nothing to load. The embedding model costs
+    # seconds to bring up, and a walk of one seat has no "rest of the walk"
+    # to stand apart from, so the import belongs behind this check.
+    if not any(len(seats) >= 2 for seats in walks.values()):
+        for stats in result["origins"].values():
+            stats["divergence"] = None
+            stats["divergence_unavailable"] = "no closed multi-seat walk carried this origin"
+        return  # both-empty: this and the ImportError below both leave divergence None, and the caller tells them apart by the reason string set alongside rather than by the None — nothing-to-measure and could-not-measure must stay distinguishable, which is this function's own subject one level down
+
+    try:
+        from divineos.core.semantic_store import embed
+    except ImportError as exc:  # pragma: no cover - optional extra
+        for stats in result["origins"].values():
+            stats["divergence"] = None
+            stats["divergence_unavailable"] = f"embeddings unavailable: {exc}"
+        return
+
+    def cosine(a: list[float], b: list[float]) -> float:
+        dot = sum(x * y for x, y in zip(a, b, strict=True))
+        na = sum(x * x for x in a) ** 0.5
+        nb = sum(y * y for y in b) ** 0.5
+        return dot / (na * nb) if na and nb else 0.0
+
+    per_origin: dict[str, list[float]] = {}
+    for seats in walks.values():
+        if len(seats) < 2:
+            continue
+        vectors = [embed(content) for _origin, content in seats]
+        if any(v is None for v in vectors):
+            continue
+        for i, (origin, _content) in enumerate(seats):
+            others = [cosine(vectors[i], vectors[j]) for j in range(len(seats)) if j != i]  # type: ignore[arg-type]
+            per_origin.setdefault(origin, []).append(1.0 - (sum(others) / len(others)))
+
+    for origin, stats in result["origins"].items():
+        values = per_origin.get(origin, [])
+        stats["divergence"] = round(sum(values) / len(values), 3) if values else None
+        if not values:
+            stats["divergence_unavailable"] = "no closed multi-seat walk carried this origin"
+
+
+def seat_evidence(min_walks: int = 20) -> dict[str, Any]:
+    """Did the drawn seats earn their keep, or did the scored ones?
+
+    The seating starts mostly-drawn on an argument, not on evidence: a useless
+    drawn lens announces itself at once and costs one written exclusion, while
+    a scored council that omits the divergent lens shows nothing at all — you
+    cannot miss what was never surfaced. When one error is loud and the other
+    silent, start at the loud end.
+
+    That argument is a starting point and it is meant to be overturnable. This
+    is the instrument that could overturn it: what share of each origin's seats
+    settled with a finding rather than an exclusion. If the scored seats
+    materially out-produce the drawn ones over a real sample, the share should
+    move toward score on this number rather than on anyone's preference for the
+    familiar names.
+
+    Reports its own insufficiency instead of ruling early — `verdict` stays
+    "insufficient" until `min_walks` walks have closed, because a split moved
+    on four walks is a preference wearing a number.
+
+    TWO measures, and the second exists because the first is nearly dead.
+    Applied-versus-excluded was the obvious discriminator and the first run of
+    this function reported both origins at exactly 1.000 — across every walk in
+    the store I have never once written an exclusion. A rate that cannot vary
+    cannot falsify anything, so on its own this would have been a falsifier in
+    name only, which is the shape of failure this whole change was built to
+    stop. `divergence` is the second measure: how far each seat's finding sits
+    from the rest of its walk, by embedding distance. The claim being tested is
+    that drawn seats bring what fit-selection cannot — so what matters is not
+    that a drawn seat spoke, but that it said something the others did not. It
+    is also the harder number to bend, because I am not scoring it by hand.
+    """
+    conn = _conn()
+    try:
+        rows = conn.execute(
+            "SELECT l.origin, l.state, COUNT(*) FROM walk_lenses l "
+            "JOIN walks w ON w.id = l.walk_id "
+            "WHERE w.closed_at IS NOT NULL AND l.state IN ('APPLIED', 'EXCLUDED') "
+            "GROUP BY l.origin, l.state"
+        ).fetchall()
+        credits = conn.execute(
+            "SELECT l.origin, COUNT(*) FROM walk_lenses l "
+            "JOIN walks w ON w.id = l.walk_id "
+            "WHERE w.closed_at IS NOT NULL AND l.changed_artifact IS NOT NULL "
+            "GROUP BY l.origin"
+        ).fetchall()
+        closed_walks = conn.execute(
+            "SELECT COUNT(*) FROM walks WHERE closed_at IS NOT NULL"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+
+    by_origin: dict[str, dict[str, int]] = {}
+    for origin, state, count in rows:
+        bucket = by_origin.setdefault(origin, {"APPLIED": 0, "EXCLUDED": 0})
+        bucket[state] = count
+    credited_by_origin = dict(credits)
+
+    result: dict[str, Any] = {"closed_walks": closed_walks, "origins": {}}
+    for origin, counts in sorted(by_origin.items()):
+        settled = counts["APPLIED"] + counts["EXCLUDED"]
+        credited = credited_by_origin.get(origin, 0)
+        result["origins"][origin] = {
+            "applied": counts["APPLIED"],
+            "excluded": counts["EXCLUDED"],
+            "settled": settled,
+            "applied_rate": round(counts["APPLIED"] / settled, 3) if settled else None,
+            "changed_artifact": credited,
+            "change_rate": round(credited / settled, 3) if settled else None,
+        }
+
+    _attach_divergence(result)
+
+    if closed_walks < min_walks:
+        result["verdict"] = "insufficient"
+        result["why"] = (
+            f"{closed_walks} closed walk(s); {min_walks} is the floor before this "
+            "number says anything about the split."
+        )
+    else:
+        # CHANGE-RATE decides. Divergence is still reported and is still the
+        # weaker measure of the two: it compares a seat's finding against the
+        # other findings on the same walk, all of which I wrote, so it tracks
+        # how much my own phrasing varied between paragraphs. Changing the
+        # artifact is about the artifact, is binary, and cannot be moved by
+        # writing the same thought in a different register.
+        drawn = result["origins"].get("drawn", {}).get("change_rate")
+        scored = result["origins"].get("scored", {}).get("change_rate")
+        if drawn is None or scored is None:
+            result["verdict"] = "insufficient"
+            result["why"] = "one of the two origins has no settled seats to compare."
+        elif drawn == 0 and scored == 0:
+            result["verdict"] = "insufficient"
+            result["why"] = (
+                "no seat of either origin has been credited with changing anything. "
+                "That is a fact about whether credit is being recorded, not about "
+                "the split."
+            )
+        else:
+            result["verdict"] = "scored-ahead" if scored > drawn else "drawn-holds"
+            result["why"] = f"drawn {drawn} vs scored {scored} rate of changing the artifact."
+    return result
 
 
 def finding_distinctness(walk_id: str) -> dict[str, Any]:
