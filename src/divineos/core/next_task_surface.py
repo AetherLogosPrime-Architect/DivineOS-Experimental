@@ -375,8 +375,12 @@ def _render(head_id: str, head_line: str) -> str:
         # slot, arriving one layer up in the tail. A standing list of five
         # items that are all one kind does not show me the shape of the pile;
         # it shows me the top of one pile and hides four others.
+        # `seen` is EVERY id encountered while bucketing; `shown` is only what
+        # actually got printed. Conflating them made the newest-slot filter
+        # exclude the entire list, because bucketing marks everything seen.
         seen = {head_id}
-        by_source: dict[str, list[str]] = {}
+        shown = {head_id}
+        by_source: dict[str, list[tuple[str, str]]] = {}
         for item in collect_todos():
             # An id-less item cannot be deduped against the head, so it is
             # skipped rather than risk printing the head twice. Silently
@@ -392,13 +396,50 @@ def _render(head_id: str, head_line: str) -> str:
             seen.add(item_id)
             src = str(getattr(item, "source", "other"))
             line = f"  - [{src}] {_truncate(str(getattr(item, 'summary', item)), 90)}"
-            by_source.setdefault(src, []).append(line)
+            by_source.setdefault(src, []).append((item_id, line))
 
         rest: list[str] = []
-        while len(rest) < _BATCH_SIZE - 1 and any(by_source.values()):
+        while len(rest) < _BATCH_SIZE - 2 and any(by_source.values()):
             for queue in by_source.values():
-                if queue and len(rest) < _BATCH_SIZE - 1:
-                    rest.append(queue.pop(0))
+                if queue and len(rest) < _BATCH_SIZE - 2:
+                    picked_id, picked_line = queue.pop(0)
+                    shown.add(picked_id)
+                    rest.append(picked_line)
+
+        # THE LAST SLOT GOES TO THE NEWEST THING, whatever it is. Andrew asked
+        # whether a list built in June includes the recent work. The data does
+        # -- but the HAND-OUT did not, and that is the sharper half of his
+        # question. Corrections are served oldest-first, correctly, because
+        # the old ones are the ones rotting. The consequence is that a
+        # correction he gave me an hour ago sat at position 377 of 377: last
+        # in a queue that has never once drained, so it would be surfaced
+        # never.
+        #
+        # Every queue ordered strictly by age has a starved end. This is the
+        # same starvation the reserved slot fixed for the bottom SOURCE and
+        # the round-robin fixed for the tail -- third layer, same shape, and I
+        # would not have looked without his question. So: both ends get
+        # served. Oldest is what is decaying; newest is what is live in the
+        # room right now, and by construction it is the last thing any
+        # age-ordered queue will ever reach.
+        def _age(item: object) -> float:
+            # A default covers a MISSING attribute, never a present-but-None
+            # one -- and some items carry age_days set to None, which sorted
+            # straight into a TypeError that the handler below then ate whole.
+            # Unknown age sorts last: an item that cannot say how old it is
+            # must not win a slot reserved for the newest thing.
+            value = getattr(item, "age_days", None)
+            return float(value) if isinstance(value, (int, float)) else float(10**6)
+
+        freshest = min(
+            (i for i in collect_todos() if str(getattr(i, "item_id", "")) not in shown),
+            key=_age,
+            default=None,
+        )
+        if freshest is not None:
+            src = str(getattr(freshest, "source", "other"))
+            summary = _truncate(str(getattr(freshest, "summary", freshest)), 90)
+            rest.append(f"  - [{src}] {summary}   <- newest, else never surfaced")
         if rest:
             lines.append("")
             lines.append("  AND NEXT, so the queue is visible rather than one-at-a-time:")
