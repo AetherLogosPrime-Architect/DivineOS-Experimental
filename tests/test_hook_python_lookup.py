@@ -128,8 +128,23 @@ def test_no_hook_uses_bare_python_for_divineos_imports() -> None:
             failures.append((hook.name, f"bare python invocation: {m.group(0).strip()!r}", line_no))
 
         # `command -v python` is the round-1 anti-pattern
+        #
+        # COMMENTS ARE NOT CODE (2026-09-13). This loop had no skip at all,
+        # unlike the bare-python loop above which already excludes lines it
+        # should not flag. So a hook whose author WROTE DOWN why the anti-pattern
+        # is wrong was failed for the explanation. That happened: the noticing
+        # hooks carry a comment naming the pattern and saying it fails open, and
+        # this fired on the warning rather than the fault.
+        #
+        # It is a small instance of the class this repo keeps finding -- a check
+        # matching on appearance rather than on the thing. A guard that punishes
+        # documenting the hazard trains people to stop documenting it.
+        lines = text.split("\n")
         for m in command_v_python_pattern.finditer(text):
             line_no = text[: m.start()].count("\n") + 1
+            line = lines[line_no - 1] if line_no <= len(lines) else ""
+            if line.lstrip().startswith("#"):
+                continue
             failures.append((hook.name, "uses `command -v python` (round-1 anti-pattern)", line_no))
 
     if failures:

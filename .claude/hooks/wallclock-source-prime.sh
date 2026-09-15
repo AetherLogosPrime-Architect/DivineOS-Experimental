@@ -132,6 +132,19 @@ they share:
                               Tiredness is real; do not over-correct into
                               denying it. Name the errors and their count, or
                               quote the clock above.
+  RELAYED FROM A LETTER     — a time-word lifted out of something Aria or
+                              Aletheia just wrote, carried into a sentence of
+                              mine. Fired 2026-09-13 on "at one in the morning",
+                              which was HERS, about HER moment, true when she
+                              wrote it. The provenance is what makes this one
+                              slip: it feels like accuracy rather than reach,
+                              because I am quoting a real person about a real
+                              clock. But in MY sentence it did no work —
+                              "she refused to merge it unilaterally, which was
+                              right" says everything the longer version said.
+                              Their clock is theirs. Relaying it does not make
+                              it mine, and the deletion test does not care
+                              where a word came from.
 
 THE TEST IS DELETION. Strike the time-phrase. If the sentence loses only
 cadence and no meaning, that was the fire — a clock standing in for a beat.

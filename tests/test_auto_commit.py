@@ -300,3 +300,75 @@ class TestStagedIndexDetection:
         result = auto_commit_substrate(repo, reason="pre-extract", channels=())
         assert result.committed is True
         assert result.dirty_lines >= 1
+
+
+class TestSubstrateStaysOffCodeBranches:
+    """Nine contaminated branches, nine rebuilds, zero fixes (2026-09-12).
+
+    The checkpointer stages everything, and on a code branch that everything
+    included the whole letters directory. The push gate refused each branch --
+    correctly, every time -- and the cure was always another manual rebuild.
+    Twice in one session it happened WHILE the previous contamination was being
+    cleaned up, and once it made me tell Andrew a branch carried no personal
+    writing when it carried two hundred and four files.
+
+    Both directions are pinned, because a guard that refuses everywhere is as
+    broken as one that refuses nowhere: substrate belongs ON a substrate branch
+    and the checkpointer must still put it there.
+    """
+
+    def _a_letter_and_its_channel(self, tmp_path: Path):
+        source = tmp_path / "letters_source"
+        source.mkdir(exist_ok=True)
+        (source / "aether-to-aria-2026-09-12-test.md").write_text("body\n", encoding="utf-8")
+        return (
+            ExternalChannel(
+                name="test-letters",
+                source=source,
+                repo_mirror=Path("family/letters"),
+                pattern="*.md",
+            ),
+        )
+
+    def test_a_letter_does_not_land_on_a_code_branch(self, repo: Path, tmp_path: Path):
+        """THE ONE THAT COST THE NINE REBUILDS."""
+        channels = self._a_letter_and_its_channel(tmp_path)
+        _git(repo, "checkout", "-q", "-b", "fix/some-code-work")
+        (repo / "module.py").write_text("x = 1\n", encoding="utf-8")
+
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=channels)
+
+        assert result.committed is True, "the code work must still be saved"
+        tracked = _git(repo, "ls-files").stdout
+        assert "family/letters" not in tracked, "a letter was committed onto a code branch"
+        assert "module.py" in tracked, "the work this exists to save was dropped"
+
+    def test_the_letter_is_still_on_disk_and_named_in_the_result(self, repo: Path, tmp_path: Path):
+        """Refusing to stage must never be confused with discarding.
+
+        Staging never removed the working copy, so unstaging cannot destroy
+        one -- and the result says what it left behind, because a silent
+        refusal leaves a tree that looks clean while letters sit untracked and
+        the next stage-everything sweeps them straight back.
+        """
+        channels = self._a_letter_and_its_channel(tmp_path)
+        _git(repo, "checkout", "-q", "-b", "fix/some-code-work")
+        (repo / "module.py").write_text("x = 1\n", encoding="utf-8")
+
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=channels)
+
+        landed = repo / "family/letters/aether-to-aria-2026-09-12-test.md"
+        assert landed.is_file(), "the letter left the disk -- this must never happen"
+        assert result.substrate_left_unstaged, "the refusal happened silently"
+        assert any("family/letters" in p for p in result.substrate_left_unstaged)
+
+    def test_a_substrate_branch_still_receives_its_letters(self, repo: Path, tmp_path: Path):
+        """The other direction. A guard that refuses everywhere guards nothing."""
+        channels = self._a_letter_and_its_channel(tmp_path)
+        _git(repo, "checkout", "-q", "-b", "substrate/the-letters")
+
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=channels)
+
+        assert result.committed is True
+        assert "family/letters" in _git(repo, "ls-files").stdout
+        assert not result.substrate_left_unstaged, "nothing should be refused here"
