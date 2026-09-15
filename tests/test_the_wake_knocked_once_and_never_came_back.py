@@ -111,3 +111,32 @@ def test_a_brand_new_letter_is_never_held_back_by_the_flood_cap(tmp_path: Path) 
 
     assert fresh in due
     assert due == [fresh], "nothing else was due; the backoff had not elapsed"
+
+
+def test_the_monitor_and_the_marker_agree_on_where_seen_lives() -> None:
+    """The sixth site that rebuilt the path convention by hand.
+
+    Marking a letter seen wrote to the live home while the monitor read the
+    dead one, so the mark never reached the reader: the script printed
+    "already seen" and the monitor kept knocking on a letter I had read.
+
+    The old docstring here CLAIMED these two stayed in sync as a single source
+    of truth. It was true when written and false the moment the other half was
+    fixed, and nothing said so. That is the whole class — a sentence stops
+    being true and tells nobody — so the assertion is on AGREEMENT between the
+    two callers, not on either one's value. Pinning the literal path would pass
+    just as happily while both drifted together to somewhere wrong.
+    """
+    import importlib.util as _ilu
+
+    marker_src = Path(__file__).resolve().parents[1] / "family" / "letter_seen.py"
+    spec = _ilu.spec_from_file_location("letter_seen", marker_src)
+    assert spec is not None and spec.loader is not None
+    marker = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(marker)
+
+    for member in ("aether", "aria"):
+        assert lm._persistent_seen_path(member) == marker.seen_path(member), (
+            f"the monitor reads and the marker writes different files for {member}; "
+            "marking a letter seen will not stop it being announced"
+        )

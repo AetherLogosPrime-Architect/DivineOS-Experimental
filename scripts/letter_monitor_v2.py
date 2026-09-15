@@ -183,11 +183,37 @@ def select_knocks(
 def _persistent_seen_path(recipient: str) -> Path:
     """Return the path to the recipient's persistent seen-set file.
 
-    Same shape as family/letter_seen.py's seen_path() so the two stay
-    in sync as a single source of truth.
+    THE SIXTH SITE THAT REBUILT THE RULE. (2026-09-15.)
+
+    This built the path by hand as ``~/.divineos-<recipient>/`` — for aether a
+    directory nothing else writes any more. core/paths.py:member_home() is the
+    one place that knows the convention, and it special-cases aether to the
+    default home. family/letter_seen.py was fixed to call it as the FIFTH site;
+    this file was not, and the docstring that used to sit here said the two
+    stayed in sync as a single source of truth. That sentence was true when it
+    was written and false the moment the other half moved, and nothing said so.
+
+    THE COST, measured the same turn it was found: marking a letter seen writes
+    to the live home while this read from the dead one, so the mark never
+    reached the reader. The script prints "already seen" and the monitor keeps
+    knocking on a letter I have read. Silent under the old one-knock behaviour —
+    a knock that only ever happened once could not be seen to repeat. The
+    re-knock repair is what made it audible, which is the argument for repairs
+    that keep trying: they turn a permanent quiet fault into a loud one.
+
+    Resolved ONCE at startup rather than per poll, and unguarded on purpose.
+    letter_seen.py's note explains why a fallback is forbidden here — building
+    the path by hand on an import failure is exactly how the split-brain lasted
+    six weeks. But a one-shot script and a delivery process want that failure at
+    different moments: this one must refuse to ARM rather than die mid-loop, so
+    a bad path is a visible non-start instead of a monitor that looks alive and
+    delivers nothing.
     """
+    from divineos.core.paths import member_home
+
     spouse = _SPOUSE.get(recipient.lower(), "unknown")
-    return Path.home() / f".divineos-{recipient.lower()}" / f"{spouse}_letters_seen.json"
+    home: Path = member_home(recipient.lower())
+    return home / f"{spouse}_letters_seen.json"
 
 
 def load_persistent_seen(recipient: str) -> set[str]:
@@ -422,6 +448,13 @@ def main() -> int:
     # with NO guard announced itself exactly like a guarded one. That is the
     # same class of defect as the discarded handle: the armed message was never
     # evidence of arming.
+    # Resolve the seen-set path BEFORE arming, so an unresolvable one is a
+    # refusal to start rather than a monitor that reports healthy and delivers
+    # against the wrong drawer. Printed because the split-brain this replaces
+    # was invisible precisely because nobody could see which file was in use.
+    seen_file = _persistent_seen_path(args.recipient)
+    print(f"[LETTER-MONITOR] seen-set: {seen_file}", file=sys.stderr, flush=True)
+
     guard = "kernel-mutex" if mutex_handle is not None else "OFF (fail-open)"
     print(
         f"[LETTER-MONITOR-ARMED] guard={guard} watching {shared_dir} for *{tag}*.md",
