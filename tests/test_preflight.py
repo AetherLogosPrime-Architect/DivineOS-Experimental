@@ -104,7 +104,7 @@ class TestPreflightCheck:
             assert handoff["passed"] is True
 
     def test_all_checks_present(self, tmp_path: Path) -> None:
-        """Preflight always returns all 8 checks."""
+        """Preflight always returns all 9 checks."""
         with (
             patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path),
             patch("divineos.core.hud_handoff._ensure_hud_dir", return_value=tmp_path),
@@ -113,6 +113,10 @@ class TestPreflightCheck:
             check_names = {c["name"] for c in result["checks"]}
             assert check_names == {
                 "data_home_ownership",
+                # Added 2026-09-15. A required per-checkout setting that
+                # nothing verified; an undeclared destination made every
+                # checkpoint refuse in silence for weeks.
+                "substrate_destination",
                 "briefing",
                 "engagement",
                 "handoff",

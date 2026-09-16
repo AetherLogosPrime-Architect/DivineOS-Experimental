@@ -877,6 +877,51 @@ def preflight_check() -> dict[str, Any]:
         }
     )
 
+    # 0b. Is there anywhere for substrate to GO from this checkout?
+    #
+    # 2026-09-15. The checkpoint asks this repo where substrate belongs, and
+    # when the answer is missing it refuses -- correctly, because falling back
+    # to the code branch is the contamination the whole mechanism exists to
+    # stop. The consequence of refusing is silent by construction: letters and
+    # dreams simply stay on the floor and get re-examined by every later sweep.
+    # Measured in this checkout on the night it was found, two hundred and
+    # eighty-five paths had accumulated that way.
+    #
+    # The setting is REQUIRED by the retarget and was verified by NOTHING, in
+    # preflight or anywhere else. That is the actual defect -- not the missing
+    # value, but that a required value could be missing for weeks without one
+    # surface asking. Aria had declared hers and said so in the title of a
+    # letter to me; I read it and never turned the question around on my tree.
+    #
+    # Deliberately per-checkout with no default -- we keep substrate in
+    # different places and a baked-in value would be wrong for one of us at all
+    # times -- so this can only ask whether an answer exists, never supply one.
+    try:
+        from pathlib import Path as _Path
+
+        from divineos.core.substrate_paths import (
+            NoSubstrateBranchDeclared,
+            substrate_branch,
+        )
+
+        _branch = substrate_branch(_Path.cwd())
+        substrate_ok = True
+        substrate_detail = f"Substrate routes to {_branch}"
+    except NoSubstrateBranchDeclared as exc:
+        substrate_ok = False
+        substrate_detail = str(exc)
+    except (ImportError, OSError) as exc:
+        # Could-not-look is not a finding. Say which, rather than passing quietly.
+        substrate_ok = True
+        substrate_detail = f"Substrate destination check skipped: {exc}"
+    checks.append(
+        {
+            "name": "substrate_destination",
+            "passed": substrate_ok,
+            "detail": substrate_detail,
+        }
+    )
+
     # 1. Briefing loaded?
     briefing_ok = was_briefing_loaded()
     checks.append(
