@@ -40,6 +40,64 @@ _ENV_ASSIGN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 rather than as the command."""
 
 
+_SET_OPTION_RE = re.compile(r"^[-+][A-Za-z]+$")
+"""An option flag to the ``set`` builtin: ``-e``, ``-u``, ``-o``, ``+x``.
+
+THE FOURTH PREFIX, 2026-09-15, and this module's own header predicted it:
+"every legal prefix shell permits is a fresh hole -- cd x &&, VAR=1, and
+whatever turns up next."
+
+The one that turned up is ``set -o pipefail &&``, and the reason it turned up
+is worth recording because it is a gate colliding with a gate rather than a
+hole nobody noticed. The pipeline-exit-ambiguity gate REFUSES a mutating
+pipeline that lacks pipefail and prescribes exactly that prefix. Taking its
+advice made every remedy in the allowlist invisible, so the compass marker
+then refused BOTH of its own prescribed exits -- observe and dismiss -- and
+with them every Bash call, including the edit that would repair it.
+
+Confirmed by experiment rather than by reading, the way the env-assignment
+case was: the identical command with the prefix removed passed immediately.
+
+``set`` is safe to strip because it cannot run an external command -- it only
+configures the shell. Anything chained after it survives into the remainder,
+so a chain check applied downstream still sees ``&& rm -rf ~``.
+
+The header says a fourth prefix should be answered by parsing rather than by
+a fourth loop. I am adding the loop and saying plainly why: a real shell
+parser here is a larger change than the deadlock warrants at the moment it is
+blocking all work, and shipping it under that pressure is how the hand-rolled
+resolver in the header got written. The loop is the tactical fix; the parser
+is still owed, and this docstring is the record that it is owed rather than
+forgotten."""
+
+
+def _only_set_options(tokens: list[str]) -> bool:
+    """True when every token is a ``set`` option flag or an option's argument.
+
+    ``-o`` and ``+o`` take a NAME after them (``pipefail``, ``errexit``), and
+    that name is a bare word. The first version of this checked every token
+    against the flag shape and so refused the single most common form in this
+    repository -- which is the form the pipeline gate prescribes, and therefore
+    the only one that actually mattered. Caught by the test, not by reading.
+
+    Anything else returns False and the prefix is left alone. Declining to
+    strip is the direction that cannot let something executable through.
+    """
+    i = 0
+    while i < len(tokens):
+        if not _SET_OPTION_RE.match(tokens[i]):
+            return False
+        if tokens[i] in ("-o", "+o"):
+            # The option name that follows may be any bare word, but there
+            # must BE one, and it may not itself be another flag.
+            if i + 1 >= len(tokens) or _SET_OPTION_RE.match(tokens[i + 1]):
+                return False
+            i += 2
+            continue
+        i += 1
+    return True
+
+
 def strip_command_prefixes(bash_command: str) -> list[str]:
     """Return the command's tokens with leading noise removed.
 
@@ -91,6 +149,20 @@ def strip_command_prefixes(bash_command: str) -> list[str]:
             tokens = tokens[1:]
             changed = True
             continue
+
+        # `set -o pipefail &&` and friends. Only option flags may sit between
+        # `set` and the `&&`; anything else is not a shell-option prefix and is
+        # left alone rather than guessed at.
+        if tokens[0] == "set":
+            try:
+                sep = tokens.index("&&")
+            except ValueError:
+                # `set -e` with nothing after it is not a prefix on anything.
+                return []
+            if _only_set_options(tokens[1:sep]):
+                tokens = tokens[sep + 1 :]
+                changed = True
+                continue
 
     return tokens
 
@@ -149,11 +221,25 @@ _ASSIGN_RAW_RE = re.compile(
     r"""^\s*[A-Za-z_][A-Za-z0-9_]*=(?:"[^"$`]*"|'[^'$`]*'|[^\s;&|`$]*)\s+"""
 )
 
+# `set -o pipefail &&` / `set -eu &&`. Only option flags between `set` and the
+# `&&`, for the same reason the cd pattern forbids substitutions: what is thrown
+# away is never looked at again, so it may only be a shape that cannot execute
+# anything. `set` configures the shell and runs no command, and any FURTHER
+# chain operator survives into the remainder, so a chain check downstream still
+# sees `&& rm -rf ~`.
+_SET_RAW_RE = re.compile(r"^\s*set(?:\s+(?:[-+]o\s+[A-Za-z]+|[-+][A-Za-z]+))+\s*&&\s*")
+
 CD = "cd"
 ENV = "env"
 ASSIGN = "assign"
-_RAW_PREFIX_PATTERNS = {CD: _CD_RAW_RE, ENV: _ENV_RAW_RE, ASSIGN: _ASSIGN_RAW_RE}
-ALL_PREFIX_KINDS = (CD, ENV, ASSIGN)
+SET = "set"
+_RAW_PREFIX_PATTERNS = {
+    CD: _CD_RAW_RE,
+    ENV: _ENV_RAW_RE,
+    ASSIGN: _ASSIGN_RAW_RE,
+    SET: _SET_RAW_RE,
+}
+ALL_PREFIX_KINDS = (CD, ENV, ASSIGN, SET)
 
 
 def strip_prefixes_raw(bash_command: str, kinds: tuple[str, ...] = ALL_PREFIX_KINDS) -> str:
