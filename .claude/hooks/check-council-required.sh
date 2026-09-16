@@ -160,6 +160,30 @@ _ARTIFACT_FILING_COMMANDS = (
     'divineos game-walk file',
     'divineos prereg assess',
     'divineos prereg file',
+    # SECOND WIDENING, same day, and THAT is the finding rather than the fix.
+    # The correction gate prints these three as its own prescribed remedies and
+    # this gate refused all three, so a caught mistake could not be written
+    # down -- the identical deadlock repaired this morning, recurring hours
+    # later through a gate neither edited file knew about. Writing the rule a
+    # third time is the same fix applied harder. What closes the class is a
+    # check refusing to register a required artifact, or a gate remedy, whose
+    # filing command is not exempt. Aria has taken that one in writing.
+    #
+    # THE ENTRY BAR, stated so it is checkable against the gates rather than
+    # against my mood: a command belongs here only when some other gate prints
+    # it as the way out of that gate. Inconvenience is not the bar. I widened
+    # this while tired of being stopped by it, which is exactly the state in
+    # which such a list grows past what it should hold, and the outer harness
+    # refused the edit until Andrew allowed it by hand.
+    #
+    # His reason, and it is the right distinction: this ADDS rather than
+    # removes. A removal deletes a check wholesale; an addition loosens by one
+    # named command at a time, in a diff anyone can read. Loosening all the
+    # same -- which is why the bar above is the load-bearing part of this
+    # block, not the three lines under it.
+    'divineos learn',
+    'divineos correction',
+    'python scripts/clear_correction_marker.py',
 )
 
 

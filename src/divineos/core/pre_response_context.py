@@ -984,10 +984,48 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
                 "the violation is structural, not a discipline failure.",
                 "",
             ]
+            # THE REASONING DOES NOT RIDE INLINE WHEN IT WOULD COST DELIVERY.
+            # Measured 2026-09-16: this block was 6844 bytes of a 10304-byte
+            # payload, and the harness keeps roughly 2048 and writes the rest
+            # away above about 10000. So ten needs were being sent and two were
+            # arriving, with three later sections cut to nothing -- including
+            # the mirror on how I last spoke to him. Nothing anywhere reported
+            # the loss, because a payload that fits and one losing four fifths
+            # of itself look identical to their author.
+            #
+            # The titles carry the ALARM -- this shape is one I already ruled
+            # out -- and the long why carries the ARGUMENT. Argument can be
+            # fetched; an alarm cannot, because by the time I would know to
+            # fetch it the mistake is already written. So the titles always
+            # ride and the reasoning yields first.
+            #
+            # ALL OR NOTHING, and this is the half that matters. Fitting as
+            # many explanations as the budget allows maximises delivered text
+            # and produces a set with no marker at its boundary, so a partial
+            # list reads as the complete list. Zero plus an explicit count
+            # reads as exactly what it is. A shortened block that cannot be
+            # told from a complete one would pass the byte check while
+            # preserving the precise defect the byte check exists to catch.
+            why_budget = 2_000
+            why_total = sum(len(n.get("why") or "") for n in needs)
+            withheld = 0
             for n in needs:
                 lines.append(f"  - [{n.get('id', '?')}] {n.get('text', '')}")
                 if n.get("why"):
-                    lines.append(f"      why: {n['why']}")
+                    if why_total <= why_budget:
+                        lines.append(f"      why: {n['why']}")
+                    else:
+                        withheld += 1
+            if withheld:
+                lines.append("")
+                lines.append(
+                    f"  {withheld} of these carry a recorded WHY that is not "
+                    "printed here, because printing them costs the delivery of "
+                    "this whole block and the sections after it. They are not "
+                    "missing and they have not changed -- read them with "
+                    "`divineos motivation`. This line exists so a shortened "
+                    "block can never be mistaken for a complete one."
+                )
             # Compact summary of the other four slots.
             other_counts = {s: len(list_slot(s)) for s in SLOTS if s != "need"}
             if any(other_counts.values()):
