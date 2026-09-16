@@ -25,7 +25,26 @@ import pytest
 HOOKS = Path(__file__).resolve().parents[1] / ".claude" / "hooks"
 
 _REFUSES = re.compile(r"^\s*exit 2\s*$", re.MULTILINE)
-_WIRED = re.compile(r"hook_say_nothing_ran")
+
+# A LIVE call, not the name appearing anywhere in the file.
+#
+# ARIA FOUND THIS 2026-09-10, reading this branch, and she did not argue it —
+# she reproduced it in a throwaway copy and watched the suite stay green twice.
+# She appended a second refusal path with no footer call: 38 passed. She
+# commented out the only real call, leaving the name present as comment text:
+# 38 passed.
+#
+# The old pattern asked whether the string appeared in the file. Its own failure
+# message asks for something stricter — "immediately before EACH exit 2" — and a
+# presence check cannot see "each", cannot tell a call from a comment, and
+# cannot tell a call from the word in a docstring. So the guard that exists to
+# stop the rot could not see the rot, and the 1:1 state it appeared to prove was
+# a property of the tree rather than of the test.
+#
+# Her framing, which is the same class I had just handed her: a subject count
+# that cannot see a predicate, and a string count that cannot see a call site.
+# Both answer accurately about a narrower subject than the question.
+_WIRED = re.compile(r"^\s*[^#\n]*\bhook_say_nothing_ran\w*\b", re.MULTILINE)
 
 # Hooks that refuse without ever reading the tool payload, and so have no line
 # to describe. A named exception with its reason, not a silent skip.
@@ -70,6 +89,50 @@ def test_a_refusing_hook_says_what_did_not_run(hook: Path) -> None:
     assert _WIRED.search(body), (
         f"{hook.name} can refuse a line but never says nothing on it ran.\n"
         f'Call hook_say_nothing_ran_for "$INPUT" immediately before each exit 2.'
+    )
+
+
+@pytest.mark.parametrize("hook", _refusing_hooks(), ids=lambda p: p.name)
+def test_every_refusal_path_carries_its_own_footer(hook: Path) -> None:
+    """The "each" the arm above still cannot see, measured rather than assumed.
+
+    THE SECOND HALF OF ARIA'S FINDING. A live call somewhere in the file closes
+    her commented-out sabotage cleanly and with no false-fire risk, but it says
+    nothing about a hook that GROWS a second refusal path later — her first
+    sabotage, and the forgetting this file's own docstring names as the rot.
+
+    So this counts refusal sites against live footer calls.
+
+    HER OBJECTION TO COUNTING, KEPT RATHER THAN WAVED OFF: it is crude, and one
+    call sitting in a shared branch above several exits would fail it wrongly.
+    That case does not exist in the tree today — she measured it: fifteen hooks
+    refuse, and every wired one is exactly 1:1 — so a mismatch is genuinely new
+    information rather than a shape the check is already known to misjudge.
+
+    Which makes this the same discipline the refusal-on-crash backlog runs on,
+    and the reason it is allowed to block: anything NEW stops, and a legitimate
+    shared-branch hook is recorded with its reason instead of quietly joining a
+    crowd. The failure message says so, because a check that blocks without
+    naming its own escape teaches me to route around it.
+    """
+    if hook.name in NO_PAYLOAD_TO_DESCRIBE:
+        pytest.skip(f"{hook.name}: refuses without reading the payload; nothing to describe")
+    events = _registered_events(hook.name)
+    if events and events != ["PreToolUse"]:
+        pytest.skip(f"{hook.name}: runs on {events}; the claim would be false there")
+    body = hook.read_text(encoding="utf-8", errors="replace")
+    calls = len(_WIRED.findall(body))
+    if calls == 0:
+        pytest.skip("not wired at all; covered by the arm above")
+    refusals = len(_REFUSES.findall(body))
+    assert calls >= refusals, (
+        f"{hook.name} has {refusals} refusal path(s) and {calls} live footer "
+        f"call(s), so at least one refusal says nothing about what did not run.\n"
+        f'Call hook_say_nothing_ran_for "$INPUT" immediately before each exit 2.\n'
+        f"If one call genuinely covers several exits through a shared branch, "
+        f"that is a real shape this check cannot judge — say so here in a named "
+        f"exception with its reason, the way the refusal-on-crash backlog "
+        f"records a decided site, rather than loosening the comparison."
     )
 
 
