@@ -137,15 +137,65 @@ def _other_refs(branch: str) -> list[str]:
     Returns [] when the ref list cannot be read, and the caller treats that as
     could-not-look rather than as nowhere-else -- this whole file's discipline.
     """
-    code, out = _git("for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes")
+    code, out = _git(
+        "for-each-ref", "--format=%(refname) %(objectname)", "refs/heads", "refs/remotes"
+    )
     if code != 0:
         return []
-    mine: set[str] = set()
-    name_code, name = _git("rev-parse", "--abbrev-ref", branch)
-    if name_code == 0 and name.strip():
-        short = name.strip()
-        mine = {f"refs/heads/{short}", f"refs/remotes/origin/{short}"}
-    return [r.strip() for r in out.splitlines() if r.strip() and r.strip() not in mine]
+
+    # EXCLUDE BY IDENTITY, NOT BY SPELLING. This used to resolve the branch to a
+    # short name and paste it into two strings -- a local head and a remote by
+    # that name -- then drop those. It worked for a plain branch name and
+    # silently excluded NOTHING for any other spelling.
+    #
+    # Measured 2026-09-16, and this is how it surfaced: the push gate invokes
+    # this with a COMMIT identifier. Asked for the short name of a commit, git
+    # returns an empty string, so the two refs constructed were a bare prefix
+    # with nothing after them. Neither exists. Nothing was excluded, the branch
+    # matched its own blobs on every file, and the scan reported eleven
+    # substrate files as existing on another ref at the same bytes when every
+    # one of them was unique to that branch. Following the advice would have
+    # destroyed them.
+    #
+    # AND LOOK WHERE IT SAT. The comparison below was changed from asking
+    # whether a file by that NAME existed elsewhere to comparing blob identity,
+    # after Aria asked which of the two it was. That repair went to the half
+    # that had been caught and stopped one line short of the half that had not.
+    # The exclusion set was still matching by name. Same fault, same function,
+    # above the line that documents fixing it.
+    head = _resolve_commit(branch)
+    if head is None:
+        # Could-not-resolve is its own answer. An unresolvable branch and a
+        # branch with nothing to exclude previously both produced an empty set,
+        # and the scan then ran blind against itself. The caller reads [] as
+        # could-not-look, which is the honest verdict here.
+        return []
+
+    refs: list[str] = []
+    for line in out.splitlines():
+        parts = line.strip().split(None, 1)
+        if len(parts) != 2:
+            continue
+        name, obj = parts[0], parts[1].strip()
+        if obj == head:
+            # The branch under test, and anything sitting on the same commit.
+            # Exactly those -- never by resemblance, because every ref wrongly
+            # excluded is one that can no longer prove a file survives.
+            continue
+        refs.append(name)
+    return refs
+
+
+def _resolve_commit(rev: str) -> str | None:
+    """The commit a revision names, or None when it cannot be resolved.
+
+    Separate from the caller so the failure has somewhere to be returned from
+    rather than collapsing into an empty result that reads as success.
+    """
+    code, out = _git("rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}")
+    if code != 0 or not out.strip():
+        return None
+    return out.strip()
 
 
 def only_here(branch: str, paths: list[str]) -> tuple[list[str], list[str], bool]:
