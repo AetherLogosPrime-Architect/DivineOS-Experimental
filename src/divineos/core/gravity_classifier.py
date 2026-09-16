@@ -24,6 +24,7 @@ __guardrail_required__ = True
 
 import math
 import re
+import shlex
 from dataclasses import dataclass
 
 
@@ -238,50 +239,100 @@ def _normalize_to_repo_relative(path: str, repo_root: str) -> str | None:
     return norm
 
 
-# Shapes that write a file from the shell. DELIBERATELY SHORT AND STATED AS
-# INCOMPLETE. Each entry captures the write target so the existing path
-# features can judge it exactly as they judge a tool-written path.
-#
-# What is NOT here, and is therefore still invisible: copying a prepared file
-# into place, moving one, a language runtime opening a file and writing it, an
-# editor invoked in batch mode, anything behind a variable. Shell is arbitrary
-# and a complete list does not exist. This closes the shapes the harness
-# actually recommends -- redirects and heredocs -- and leaves the rest open
-# rather than implying coverage it does not have.
-_SHELL_WRITE_PATTERNS = (
-    # `> path` and `>> path`, the redirect forms, including after a heredoc.
-    re.compile(r">>?\s*[\"']?([A-Za-z0-9_./\\-]+\.[A-Za-z0-9]+)[\"']?"),
-    # `tee path` / `tee -a path`
-    re.compile(r"\btee\s+(?:-a\s+)?[\"']?([A-Za-z0-9_./\\-]+\.[A-Za-z0-9]+)[\"']?"),
-    # `sed -i ... path` — in-place edit, no redirect involved.
-    re.compile(r"\bsed\s+-i[^\s]*\s+(?:[^\s]+\s+)*?[\"']?([A-Za-z0-9_./\\-]+\.[A-Za-z0-9]+)[\"']?"),
-)
+# Redirects to these are not writes to the tree. Swallowing output is not
+# editing a file, and counting it as one would fire the gate on nearly every
+# command -- which is how a gate gets turned off.
+_NOT_A_WRITE = ("/dev/null", "nul", "/dev/stderr", "/dev/stdout", "-")
 
-# Redirects to these are not writes to the tree and must not raise gravity:
-# swallowing output is not editing a file, and treating it as one would fire
-# the gate on nearly every command, which is how a gate gets disabled.
-_NOT_A_WRITE = ("/dev/null", "nul", "/dev/stderr", "/dev/stdout")
+# In-place editors: the write has no redirect to spot, the path is an argument.
+_INPLACE_WRITERS = ("tee",)
 
 
-def _shell_write_targets(command: str) -> tuple[str, ...]:
-    """Repo-relative paths this shell command appears to write.
+def _shell_write_targets(command: str) -> tuple[str, ...] | None:
+    """Paths this shell command appears to write, or None when it cannot read it.
 
-    Returns an empty tuple when it sees none -- which is NOT a claim that none
-    exist. See the note at the call site: the honest completion is an explicit
-    "I was not shown this" state, not a confident zero from here.
+    NONE IS NOT AN EMPTY TUPLE, and that distinction is the whole point
+    (council-24d8ef269a1e). An empty tuple says "I read this command and it
+    writes nothing." None says "I could not read it." The first version
+    returned the same value for both, which is exactly the shape Aria named
+    from the other side: *I could not see this change* and *this change is
+    harmless* coming back as the same small number. The repo's own
+    silent-swallow check flagged it here before either of us had to argue.
+
+    The caller fails toward scrutiny on None. A blind spot that reports clean
+    is the failure this whole day has been about; an occasional false refusal
+    on an oddly quoted command is loud and arguable, and a permanent quiet
+    hole is neither.
+
+    TOKENISED, NOT PATTERN-MATCHED, and that distinction was earned within a
+    minute of shipping the first version. A regex over the raw string fired on
+    my own probe -- a command that merely NAMED those paths inside a quoted
+    argument, writing nothing. A gate that fires on any command discussing a
+    path is a gate that gets disabled, which is the degradation the walk named.
+
+    ``shlex`` respects quoting, so a redirect inside a quoted argument stays
+    inside one token and does not match, while a real redirect is its own
+    token. That is the difference between a command that writes a file and a
+    command that talks about one.
+
+    Returns an empty tuple when it sees no write, which is NOT a claim that
+    none happened. Copying a prepared file into place, a language runtime
+    opening a file, an editor in batch mode, anything behind a variable: all
+    still invisible. Shell is arbitrary and no complete list exists. The honest
+    completion is an explicit "I was not shown this" state rather than a
+    confident zero from here.
     """
     if not command:
         return ()
+    try:
+        tokens = shlex.split(command, posix=True)
+    except ValueError:
+        # Unbalanced quotes: this cannot read the command, so it must not
+        # report on it. None, not empty -- see the docstring.
+        return None
+
     found: list[str] = []
-    for pattern in _SHELL_WRITE_PATTERNS:
-        for target in pattern.findall(command):
-            norm = target.replace("\\", "/").strip()
-            if not norm or norm.lower() in _NOT_A_WRITE:
-                continue
-            if norm.startswith("/dev/"):
-                continue
-            if norm not in found:
-                found.append(norm)
+
+    def _as_target(raw: str) -> str:
+        """The normalised write target, or empty string if this is not one.
+
+        Returns a STRING rather than an optional, so the only None in this
+        whole function is the one that means "could not read the command".
+        Two different nothings in one function is the exact confusion this
+        change exists to remove, and a void helper with bare returns reads as
+        a second one to anything scanning for the shape.
+        """
+        norm = raw.replace("\\", "/").strip().strip("\"'")
+        if not norm or norm.lower() in _NOT_A_WRITE or norm.startswith("/dev/"):
+            return ""
+        # No extension on the last segment: far more likely a flag value or a
+        # directory than a file being written.
+        if "." not in norm.rsplit("/", 1)[-1]:
+            return ""
+        return norm
+
+    def _take(raw: str) -> None:
+        norm = _as_target(raw)
+        if norm and norm not in found:
+            found.append(norm)
+
+    for i, tok in enumerate(tokens):
+        nxt = tokens[i + 1] if i + 1 < len(tokens) else ""
+        # `>` / `>>` as their own token, or glued to the target (`>file`).
+        if tok in (">", ">>") and nxt:
+            _take(nxt)
+        elif tok.startswith(">") and len(tok) > 1 and not tok.startswith(">&"):
+            _take(tok.lstrip(">"))
+        elif tok in _INPLACE_WRITERS:
+            for cand in tokens[i + 1 :]:
+                if cand.startswith("-"):
+                    continue
+                _take(cand)
+                break
+        elif tok == "sed" or tok.endswith("/sed"):
+            in_place = any(t.startswith("-i") for t in tokens[i + 1 :])
+            if in_place and tokens[i + 1 :]:
+                _take(tokens[-1])
     return tuple(found)
 
 
@@ -329,7 +380,16 @@ def score_substrate_modification(
     # shown this" instead of a confident zero -- Aria is building that state.
     # This only widens what gets seen.
     shell_written = _shell_write_targets(cmd) if tool == "Bash" else ()
-    if shell_written:
+    if shell_written is None:
+        # COULD NOT READ THE COMMAND. Not the same as reading it and finding
+        # no write, and the whole reason those return different values now.
+        # Fail toward scrutiny: an unreadable command is treated as touching
+        # the source tree, so it earns a walk rather than a silent pass. Rare
+        # by construction (it takes unbalanced quotes), and the alternative is
+        # a permanent quiet blind spot -- which is the fault being fixed.
+        fired.append("edit-src-divineos")
+        shell_written = ()
+    elif shell_written:
         # Scored as the write it is. The command may ALSO carry a git-commit or
         # a substrate CLI call, and those features read `cmd`, which is
         # untouched -- so a compound command fires everything it earns.

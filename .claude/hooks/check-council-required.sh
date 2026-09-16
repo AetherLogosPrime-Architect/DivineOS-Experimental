@@ -125,8 +125,7 @@ try:
         COUNCIL_RECENCY_MINUTES,
         RETRY_WINDOW_SECONDS,
         GateOutcome,
-        _normalize_edit_fingerprint,
-        bash_act,
+        fingerprint_for,
     )
     from divineos.core.gravity_classifier import score_substrate_modification
     from divineos.cli.council_required_commands import _load_expert_keywords
@@ -176,10 +175,7 @@ def _is_artifact_filing(cmd: str) -> bool:
 # an import failure, because the gate would answer with the wrong key instead
 # of saying it could not run.
 def _primary_fingerprint() -> str:
-    primary = file_paths[0] if file_paths else ''
-    if not primary and bash_command:
-        primary = bash_act(bash_command)
-    return _normalize_edit_fingerprint(primary, tool_name)
+    return fingerprint_for(tool_name, file_paths, bash_command)
 
 
 try:

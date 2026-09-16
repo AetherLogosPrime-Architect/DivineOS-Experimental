@@ -64,7 +64,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | automation | last touched | purpose |
 |---|---|---|
 | `aletheia-boot-gate-preflight.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
-| `an-open-ask-holds-the-work.sh` | — | AN OPEN ASK TO ANDREW HOLDS NEW WORK. |
+| `an-open-ask-holds-the-work.sh` | 2026-09-16 | AN OPEN ASK TO ANDREW HOLDS NEW WORK. |
 | `andrew-correction-attestation.sh` | 2026-09-15 | PreToolUse gate — integration-attestation for Andrew-corrections. |
 | `check-branch-on-push.sh` | 2026-08-31 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
 | `check-council-required.sh` | 2026-09-16 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |

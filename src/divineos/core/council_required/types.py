@@ -221,6 +221,39 @@ def bash_act(command: str) -> str:
     return flat.split("&&")[0].strip() or flat
 
 
+def fingerprint_for(tool_name: str, file_paths: tuple[str, ...], bash_command: str) -> str:
+    """The one fingerprint every gate should use for a proposed edit.
+
+    ONE DERIVATION, BOTH CALLERS (council-0cf89990d60f). The act-anchor was
+    written in the hook first while ``gate.decide`` kept its own copy, and the
+    two disagreed within minutes -- the refusal named one fingerprint while the
+    lookup searched another, so doing exactly what the message said still got
+    you refused. That is why this exists rather than a second private copy.
+
+    A SHELL WRITE IS NAMED BY ITS FILE, NOT BY THE COMMAND. When the assessor
+    learned to see redirects and heredocs, the gate began refusing them
+    correctly but naming the edit by the command shape -- so a single walk
+    filed against two words of shell would have cleared every heredoc write in
+    the tree afterwards, with both the refusal and the walk looking correct in
+    isolation. Failing by permitting, while looking healthy.
+
+    Parity is deliberate: the same file written two ways gets the same
+    fingerprint, so one walk covers the act rather than the implementation
+    detail. The accepted risk, named in the walk: a walk filed for a careful
+    tool edit will clear a careless shell one to the same path. That is why the
+    path stays exact rather than being widened to a directory.
+    """
+    if tool_name == "Bash" and bash_command:
+        from divineos.core.gravity_classifier import _shell_write_targets
+
+        written = _shell_write_targets(bash_command)
+        if written:
+            return _normalize_edit_fingerprint(written[0], "Write")
+        return _normalize_edit_fingerprint(bash_act(bash_command), tool_name)
+    primary = file_paths[0] if file_paths else ""
+    return _normalize_edit_fingerprint(primary, tool_name)
+
+
 def _normalize_edit_fingerprint(file_path: str, tool_kind: str) -> str:
     """Compute the canonical fingerprint binding a council_record to a
     specific proposed edit.
