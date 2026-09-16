@@ -488,6 +488,23 @@ def _read_baseline() -> set[str]:
     return out
 
 
+def find_same_commit_amnesty(
+    orphan_paths: set[str], baselined: set[str], added_this_commit: set[str]
+) -> list[str]:
+    """Orphans the commit is ADDING while also listing them in the backlog.
+
+    Exactly the intersection of three facts: it has no caller, it is on the
+    acknowledged-backlog list, and this commit is the one introducing it. Any
+    two of those are fine on their own -- inherited debt sits on the list
+    legitimately, and a new file is allowed as long as something calls it.
+
+    Pulled out of main() so it can be exercised directly rather than only
+    through a whole run. A branch reachable solely by staging real files is a
+    branch that gets tested once, by hand, on the day it is written.
+    """
+    return sorted(orphan_paths & baselined & added_this_commit)
+
+
 def main() -> int:
     orphans = find_orphans()
     known = _read_baseline()
@@ -518,6 +535,70 @@ def main() -> int:
         print("A surface with an interface and no wiring is SILENT, and silent is")
         print("indistinguishable from having nothing to say. That is the whole")
         print(f"failure. Wire it, or add it to {DARK_BASELINE.name} with a reason.")
+        return 1
+
+    # THE BACKLOG IS FOR INHERITED DEBT, NEVER FOR TONIGHT'S WORK.
+    #
+    # Andrew 2026-09-16: "while i agree not every single code change requires
+    # the full build flow, there are some steps that should be mandatory no
+    # matter what, dogfooding is one of them."
+    #
+    # The paragraph at the top of this file used to say a module that lands
+    # before its caller "belongs in the baseline with that stated as its
+    # reason". That is true of debt this repository INHERITED — something
+    # written weeks ago, now owed a wire-or-retire decision. It became an
+    # amnesty the moment I used it on a module I had written an hour earlier.
+    #
+    # 2026-09-15, my own commit: a module with nine passing tests, no caller,
+    # and no execution anywhere. This gate caught it. I wrote a reason into the
+    # baseline and committed it, and the reason was honest — and the module
+    # still had never run. Tests are not dogfooding. A test supplies its own
+    # inputs and agrees with itself about what an input looks like; running in
+    # the real loop is the only thing that finds out whether anything calls it.
+    #
+    # So a baseline line cannot absorb a file this commit is ADDING. New file,
+    # no caller, never executed — there is nothing to defer a decision about,
+    # because the decision is simply whether it was dogfooded, and it was not.
+    # Inherited entries are untouched; this narrows the escape to exactly the
+    # case where it was never legitimate.
+    try:
+        from check_prereg_for_new_infra import _staged_new_files
+    except ImportError:
+        try:
+            sys.path.insert(0, str(ROOT / "scripts"))
+            from check_prereg_for_new_infra import _staged_new_files
+        except ImportError as exc:  # pragma: no cover - reported, never silent
+            print(f"[orphan] COULD NOT CHECK same-commit amnesty: {exc}")
+            print("[orphan] That is unknown, not clean. The rest of this run still stands.")
+            _staged_new_files = None  # type: ignore[assignment]
+
+    same_commit_amnesty: list[str] = []
+    if _staged_new_files is not None:
+        added = {p.replace("\\", "/") for p in _staged_new_files()}
+        same_commit_amnesty = find_same_commit_amnesty(set(found), known, added)
+
+    if same_commit_amnesty:
+        print(f"BLOCKED — {len(same_commit_amnesty)} module(s) added by THIS commit are")
+        print("listed in the backlog instead of being run:")
+        for rel in same_commit_amnesty:
+            print(f"  {rel}: {found[rel]}")
+        print()
+        print("The backlog is for debt this repository INHERITED — something written")
+        print("long ago and now owed a wire-or-retire decision. A file you are adding")
+        print("right now has no decision to defer. It was either run in the real loop")
+        print("or it was not, and a module with no caller was not.")
+        print()
+        print('Andrew 2026-09-16: "there are some steps that should be mandatory no')
+        print('matter what, dogfooding is one of them."')
+        print()
+        print("TESTS ARE NOT DOGFOODING. A test supplies its own inputs and has")
+        print("already agreed with itself about what an input looks like. Running it")
+        print("in the path that will actually call it is what finds out whether")
+        print("anything calls it at all.")
+        print()
+        print("  (a) Wire it into a production code path and run that path")
+        print("  (b) Add `# AGENT_RUNTIME` if something outside the CLI graph runs it")
+        print("  (c) Do not land it yet")
         return 1
 
     if not fresh and not stale:
