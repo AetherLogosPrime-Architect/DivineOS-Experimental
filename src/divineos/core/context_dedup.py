@@ -22,10 +22,31 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import time
 from pathlib import Path
 
-_STATE_DIR = Path("data/context_dedup")
+# One directory per session, overridable, and the override exists because the
+# single shared path made a pre-push test flaky in a way that reported the wrong
+# thing entirely.
+#
+# 2026-09-15. test_repeat_emission_shrinks clears this state, runs a hook twice,
+# and asserts the second emission is smaller. Correct, and it controls its own
+# state -- but only against itself. Under parallel workers every test process
+# shares this one file, so a neighbour's clear() lands between the two runs and
+# the second emission comes back full size. The test then reports that the
+# dedup branch is not being reached, naming a quoting break inside a python
+# block as the likely cause. Nothing of the sort had happened.
+#
+# That is the session's own theme arriving in a test: a measurement whose answer
+# depends on something it does not control, delivered as a fact about its
+# subject. It passed alone and failed in the suite, which is the signature.
+#
+# The cost of leaving it is worse than the flake. A pre-push check that fails
+# for reasons unrelated to the change teaches exactly one lesson -- that the
+# suite is noise and the bypass is the way through -- and that lesson is
+# expensive and hard to unlearn.
+_STATE_DIR = Path(os.environ.get("DIVINEOS_DEDUP_STATE_DIR") or "data/context_dedup")
 _STATE_FILE = _STATE_DIR / "session_state.json"
 _SAVINGS_LOG = _STATE_DIR / "savings_log.jsonl"
 _TTL_SECONDS = 60 * 60  # 1 hour — within-session repeats dedup; long gaps re-emit

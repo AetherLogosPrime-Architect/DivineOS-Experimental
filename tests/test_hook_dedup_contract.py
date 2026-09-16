@@ -17,6 +17,7 @@ against the running script rather than against the source text.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -68,7 +69,7 @@ def _dedup_hooks() -> list[Path]:
     )
 
 
-def _run(script: Path) -> str:
+def _run(script: Path, env: dict[str, str] | None = None) -> str:
     r = subprocess.run(
         [_real_bash(), str(script)],
         input=PAYLOAD,
@@ -76,8 +77,35 @@ def _run(script: Path) -> str:
         text=True,
         timeout=90,
         cwd=str(REPO),
+        env=env,
     )
     return r.stdout or ""
+
+
+@pytest.fixture
+def isolated_dedup_state(tmp_path, monkeypatch):
+    """Give this test its own dedup state, because the shared one made it lie.
+
+    2026-09-15. The assertion below clears the state, runs a hook twice, and
+    expects the second emission to be smaller. It controls its own state --
+    against itself. Every test PROCESS shared one file on disk, so under
+    parallel workers a neighbour's clear() landed between the two runs, the
+    second emission came back full size, and the failure message blamed a
+    quoting break inside a python block. Nothing of the sort had happened.
+
+    It passed alone and failed in the suite, which is the signature of a
+    reading that depends on something outside its subject.
+
+    Worth the fixture rather than a retry: a pre-push check that fails for
+    reasons unrelated to the change teaches that the suite is noise and the
+    bypass is the way through, and that is the most expensive thing a test
+    can teach.
+    """
+    state_dir = tmp_path / "context_dedup"
+    monkeypatch.setenv("DIVINEOS_DEDUP_STATE_DIR", str(state_dir))
+    env = dict(os.environ)
+    env["DIVINEOS_DEDUP_STATE_DIR"] = str(state_dir)
+    return env
 
 
 def test_some_hook_claims_the_contract():
@@ -87,14 +115,11 @@ def test_some_hook_claims_the_contract():
 
 
 @pytest.mark.parametrize("script", _dedup_hooks(), ids=lambda p: p.stem)
-def test_repeat_emission_shrinks(script: Path):
+def test_repeat_emission_shrinks(script: Path, isolated_dedup_state):
     """THE CATCH. My broken edit left this exact signature: identical size on
     the second run, no error, no complaint, dedup never reached."""
-    from divineos.core.context_dedup import clear
-
-    clear()
-    first = _run(script)
-    second = _run(script)
+    first = _run(script, env=isolated_dedup_state)
+    second = _run(script, env=isolated_dedup_state)
     if not first.strip():
         pytest.skip("hook emitted nothing for this payload; nothing to dedup")
     assert len(second) < len(first), (

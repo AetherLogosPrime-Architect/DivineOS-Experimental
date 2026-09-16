@@ -107,6 +107,26 @@ Rewrite it to say who actually owns the thing.
 
 The circle may DESCRIBE machinery. It may never hand him machinery as his.
 
+THE CASE THAT BREAKS THIS HONESTLY, and it fired 2026-09-15. Sometimes the
+circle carries a real ASK — something only he can do — and the natural reach is
+to put the command right beside the ask, so the thing he needs is where he is
+standing when he reads it. That reach is not laziness. It is the same instinct
+the room exists to serve: put the answer where his search lands.
+
+It is still wrong, and the reason is worth stating rather than just forbidding.
+A command in that room makes him the operator of a machine he does not read.
+The room's whole premise is that he arrives with no records and no code, and a
+pasteable line quietly assumes otherwise.
+
+THE SHAPE THAT SATISFIES BOTH: the command goes in the work block, where
+commands live and where he can find it if he wants it. The circle names the ask
+in his words and says the command is above. He loses nothing -- the thing is one
+scroll away -- and the room stays what it is.
+
+Recorded here because the previous wording forbade the outcome without covering
+the case that produces it, and a rule that does not name its hardest instance
+gets broken by someone following its spirit.
+
 If the reply carries ANY jargon (paths, tool names, identifiers, CI
 terms), ALL THREE rooms are required, with these literal headers:
 
