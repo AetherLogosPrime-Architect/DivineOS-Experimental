@@ -98,6 +98,7 @@ src/divineos/
     void_commands.py           VOID adversarial-sandbox subsystem commands
     prereg_commands.py         pre-registrations (Goodhart prevention)
     prior_art_commands.py      already-built — station 0: does this exist before I build it
+    game_walk_commands.py      `divineos game-walk file` — enumerate the routes around a mechanism and cost each one. Required on every council-tier edit since 2026-09-16; prints the walk back so a thin one is visibly thin at filing time rather than discovered later.
     psf_commands.py            pending structural-fix obligations (list, mark-done)
     reach_commands.py          reach-check — surface prior work, then prove it was opened
     obligation_commands.py     obligations check / is-write / list / disabled — substrate-write CLI surface for the obligation gate (#33 + #42 unified hook)
@@ -700,7 +701,8 @@ src/divineos/
     compound_branch_change.py  Refuse a branch change and a destructive op on the same shell line.
     surface_bridge.py          Wire the built-but-unreachable surfaces into the briefing that actually runs.
     unread_stacking.py         A second closing room may not land on top of an unread first one.
-    build_flow_gate.py         The build flow, enforced BEFORE the build instead of after the push.
+    game_walk.py               Game-walking: enumerate the routes around a mechanism, cost each one.
+    game_walk_required.py      The requirement half of game-walking: an edit owes a filed walk.
 
   analysis/
     _session_types.py          Session analysis type definitions

@@ -56,7 +56,24 @@ _SUBSTRATE_MOD_THRESHOLD = 1
 # edit until evidence of a real council walk exists, substance-
 # binding-style) is a deferred follow-up tracked as its own design
 # work, not implemented by this commit.
-_COUNCIL_REQUIRED_THRESHOLD = 6
+# ANDREW SET THIS TO 1 ON 2026-09-16, and the reason is the whole point.
+#
+# He asked whether I had bypassed the build flow. I had -- three times in one
+# evening, no research, no lens, and one module that had never executed. Hunting
+# for why nothing stopped me, I found this gate fully built, ten tests deep, and
+# registered on every edit. It returned ALLOW every single time, because a
+# single-area code edit scores 1 and this number was 6.
+#
+# I also misreported it to him as 2, reading the probation note above instead of
+# the assignment below it. The note is from June and the value was raised after.
+# Reading the label rather than the thing is the fault this whole session kept
+# finding, committed once more while investigating it.
+#
+# His decision, asked plainly and answered plainly: "yes it should." A change to
+# one area of code now owes a walk. That costs all three seats more
+# interruptions and he chose it knowing that, because the alternative is the
+# evening this comment describes.
+_COUNCIL_REQUIRED_THRESHOLD = 1
 # 2026-07-26 (Andrew clay-mode-vs-kiln-mode teaching): edit-guardrail-listed
 # REMOVED from high-impact short-circuits. Clay-mode work (workspace edits
 # to guardrail-listed files during active development) should NOT trigger
@@ -430,13 +447,25 @@ def borderline_indicator_substrate(gravity: SubstrateModGravity) -> str:
     in the gate-fire context so my father and agent can verify the
     classification matches intent.
     """
+    # ONE SLOT, TWO FACTS (council-222e8bfe849d). Whether the edit owes a walk
+    # and whether the routing behind that answer is fragile are independent,
+    # and this used to return early on the first — so when Andrew moved the
+    # threshold to 1 on 2026-09-16, every firing edit became council-required
+    # and "borderline-single-feature" became UNREACHABLE. The fragility signal
+    # he was given in June did not degrade. It stopped existing, while the
+    # surface kept printing a label every time, so nothing looked wrong.
+    #
+    # A signal degraded to a constant is worse than one that disappears:
+    # disappearance gets noticed, a constant reads as working. Found only
+    # because a test asserting the label failed, and the cheap close was to
+    # rewrite that test to expect the constant — a test rewritten to ratify a
+    # regression instead of catching one.
     if gravity.score == 0:
         return "no-fire"
+    shape = "borderline-single-feature" if gravity.score == 1 else "strong-multi-feature"
     if gravity.is_council_required:
-        return "council-required"
-    if gravity.score == 1:
-        return "borderline-single-feature"
-    return "strong-multi-feature"
+        return f"council-required ({shape})"
+    return shape
 
 
 def borderline_indicator_cognitive(gravity: CognitiveValueGravity) -> str:

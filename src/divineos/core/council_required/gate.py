@@ -38,6 +38,7 @@ from divineos.core.council_required.types import (
     GateDecision,
     GateOutcome,
     _normalize_edit_fingerprint,
+    bash_act,
 )
 
 
@@ -224,8 +225,15 @@ def decide(
     # an unrelated file in the same call clear the gate by collision.
     primary_path = file_paths[0] if file_paths else ""
     if not primary_path and bash_command:
-        # For Bash tools the fingerprint anchors on the command head.
-        primary_path = bash_command.strip().split(maxsplit=1)[0] if bash_command else ""
+        # For Bash tools the fingerprint anchors on the ACT the command
+        # performs, via the one shared derivation (council-6eb1492e2ed0).
+        # This used to take the command's first word, which made a directory
+        # change the subject of the gate -- and once the hook was improved and
+        # this was not, the refusal named one fingerprint while the lookup
+        # searched for another, so doing exactly what the message said still
+        # got you refused. Deletion rather than reconciliation: the answer
+        # lives in one place now.
+        primary_path = bash_act(bash_command)
     fingerprint = _normalize_edit_fingerprint(primary_path, tool_name)
 
     # Instance 4 (operator-authorization) — explicit alternative_clearance
