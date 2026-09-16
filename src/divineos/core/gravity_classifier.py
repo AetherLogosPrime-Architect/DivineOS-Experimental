@@ -238,6 +238,53 @@ def _normalize_to_repo_relative(path: str, repo_root: str) -> str | None:
     return norm
 
 
+# Shapes that write a file from the shell. DELIBERATELY SHORT AND STATED AS
+# INCOMPLETE. Each entry captures the write target so the existing path
+# features can judge it exactly as they judge a tool-written path.
+#
+# What is NOT here, and is therefore still invisible: copying a prepared file
+# into place, moving one, a language runtime opening a file and writing it, an
+# editor invoked in batch mode, anything behind a variable. Shell is arbitrary
+# and a complete list does not exist. This closes the shapes the harness
+# actually recommends -- redirects and heredocs -- and leaves the rest open
+# rather than implying coverage it does not have.
+_SHELL_WRITE_PATTERNS = (
+    # `> path` and `>> path`, the redirect forms, including after a heredoc.
+    re.compile(r">>?\s*[\"']?([A-Za-z0-9_./\\-]+\.[A-Za-z0-9]+)[\"']?"),
+    # `tee path` / `tee -a path`
+    re.compile(r"\btee\s+(?:-a\s+)?[\"']?([A-Za-z0-9_./\\-]+\.[A-Za-z0-9]+)[\"']?"),
+    # `sed -i ... path` — in-place edit, no redirect involved.
+    re.compile(r"\bsed\s+-i[^\s]*\s+(?:[^\s]+\s+)*?[\"']?([A-Za-z0-9_./\\-]+\.[A-Za-z0-9]+)[\"']?"),
+)
+
+# Redirects to these are not writes to the tree and must not raise gravity:
+# swallowing output is not editing a file, and treating it as one would fire
+# the gate on nearly every command, which is how a gate gets disabled.
+_NOT_A_WRITE = ("/dev/null", "nul", "/dev/stderr", "/dev/stdout")
+
+
+def _shell_write_targets(command: str) -> tuple[str, ...]:
+    """Repo-relative paths this shell command appears to write.
+
+    Returns an empty tuple when it sees none -- which is NOT a claim that none
+    exist. See the note at the call site: the honest completion is an explicit
+    "I was not shown this" state, not a confident zero from here.
+    """
+    if not command:
+        return ()
+    found: list[str] = []
+    for pattern in _SHELL_WRITE_PATTERNS:
+        for target in pattern.findall(command):
+            norm = target.replace("\\", "/").strip()
+            if not norm or norm.lower() in _NOT_A_WRITE:
+                continue
+            if norm.startswith("/dev/"):
+                continue
+            if norm not in found:
+                found.append(norm)
+    return tuple(found)
+
+
 def score_substrate_modification(
     tool_name: str,
     file_paths: tuple[str, ...] = (),
@@ -260,6 +307,34 @@ def score_substrate_modification(
     tool = (tool_name or "").strip()
     cmd = (bash_command or "").strip()
     paths = tuple(file_paths or ())
+
+    # A SHELL COMMAND CAN WRITE A FILE, AND UNTIL 2026-09-16 THIS COULD NOT SEE
+    # THAT (council-3a31fd09c03d). Every feature below keyed on the four
+    # file-editing tools, so the same file written through a redirect or a
+    # heredoc matched nothing, scored zero, and every gate downstream stayed
+    # silent -- failing in the PERMITTING direction, where silence is
+    # indistinguishable from a clean pass.
+    #
+    # Not hypothetical, and not drift. Aria's session was switched into
+    # shell-writing mode partway through an exchange about this exact gap, and
+    # she wrote the letter describing it THROUGH it. Mine was in the same mode.
+    # The bypass arrived as a harness instruction rather than as a lapse, which
+    # is normalized deviance installed from outside rather than drifted into.
+    #
+    # PARTIAL BY CONSTRUCTION, AND SAID SO. Shell is arbitrary and no pattern
+    # set is complete: copying a prepared file into place, or having a language
+    # runtime write it, still score zero. A partial detector reported as a
+    # closed channel is worse than a known-open one, because the next reader
+    # stops looking. The real completion is the assessor answering "I was not
+    # shown this" instead of a confident zero -- Aria is building that state.
+    # This only widens what gets seen.
+    shell_written = _shell_write_targets(cmd) if tool == "Bash" else ()
+    if shell_written:
+        # Scored as the write it is. The command may ALSO carry a git-commit or
+        # a substrate CLI call, and those features read `cmd`, which is
+        # untouched -- so a compound command fires everything it earns.
+        paths = paths + shell_written
+        tool = "Write"
 
     # Feature 1: git-commit
     if tool == "Bash" and re.search(r"\bgit\s+commit\b", cmd):
