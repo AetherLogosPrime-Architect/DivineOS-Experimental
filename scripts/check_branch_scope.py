@@ -280,6 +280,35 @@ def _other_refs(branch: str) -> list[str]:
 
     Returns [] when the ref list cannot be read, and the caller treats that as
     could-not-look rather than as nowhere-else -- this whole file's discipline.
+
+    EXCLUDED BY COMMIT, NOT ONLY BY NAME (2026-09-15), and the reason is that
+    the previous version failed exactly where it is actually used. The pre-push
+    hook hands this a COMMIT ID, not a branch name. ``rev-parse --abbrev-ref``
+    on a bare commit id returns an empty string, the name-based exclusion set
+    came out empty, and the branch's own ref stayed in the list it was supposed
+    to be removed from. Every blob then matched itself on the first ref tried,
+    and the gate printed ``none are unique here`` over a file that existed
+    nowhere else in the repository.
+
+    That is the third time in one day that a check compared something to itself
+    and reported agreement -- and a self-comparison has no tell, because it
+    returns instantly and agrees completely and looks exactly like a clean
+    result. What makes this instance the worst of the three is WHICH sentence
+    it falsified: not a claim, but the reassurance printed immediately before
+    an instruction to rebuild the branch. The file's own docstring says the
+    instruction is fatal for anything that lives only here. This made it read
+    as safe.
+
+    It also broke the rule stated three paragraphs down in this same file --
+    could-not-look must never wear the clothes of found-nothing. The name
+    lookup FAILED, and the failure was absorbed into an empty exclusion set
+    instead of being reported. So a failed lookup degraded into a confident
+    all-clear, silently, in the one place built to refuse that shape.
+
+    Excluding every ref sitting at the same commit also covers a sibling branch
+    pointing here, which is conservative: that content would in fact survive a
+    rebuild. Over-reporting at risk is the survivable direction, and it is the
+    direction this file already chose for renames.
     """
     code, out = _git(
         "for-each-ref", "--format=%(refname) %(objectname)", "refs/heads", "refs/remotes"
