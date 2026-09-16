@@ -70,6 +70,7 @@ class Branch:
     substrate: int
     commits: int
     pr: int | None
+    code_files: frozenset[str] = frozenset()
 
     @property
     def code(self) -> int:
@@ -122,9 +123,57 @@ def collect(base: str = "origin/main") -> list[Branch]:
                 substrate=sub,
                 commits=int(commits) if commits.isdigit() else 0,
                 pr=prs.get(name),
+                # The names were already in hand and were being reduced to a
+                # count. Keeping them costs one set and is the whole basis of
+                # the candidate list below.
+                code_files=frozenset(
+                    f for f in files if f and not f.startswith(_SUBSTRATE_PREFIXES)
+                ),
             )
         )
     return out
+
+
+def neighbours(branches: list[Branch], name: str, limit: int = 8) -> list[tuple[str, int]]:
+    """Other branches touching code files this one also touches, most-shared first.
+
+    WHAT THIS IS FOR. Aria is building a stop at the door to main that refuses
+    to let a branch through until somebody has looked at whether it duplicates
+    work already sitting on a bench. That check is hers. This is the half she
+    asked me for: a short list put in front of the person at the door, so the
+    question gets answered by looking rather than from memory. Memory is what
+    produced three copies of one mechanism, twice in one week.
+
+    WHAT IT IS NOT, and this matters more than what it is.
+
+    A SHARED FILE IS NOT A SHARED PROBLEM. Two branches both touching a
+    widely-edited module have nothing to do with each other. Expect most rows
+    to be noise; the list earns its place by being short enough to read, not
+    by being right.
+
+    AN EMPTY LIST MEANS NO SHARED FILE. It does not mean no overlap, and it
+    must never be read as one. The case this cannot see is the dangerous one:
+    two branches solving the same problem in different files -- one rewriting
+    a module, the other replacing it somewhere else entirely. That is exactly
+    how the duplicate we paid for last week was built, so the instrument is
+    blind in the direction of the very incident that prompted it. Said plainly
+    here because a silence that reads as coverage is the fault this whole
+    repository keeps rediscovering.
+
+    So the door must ask its question whether or not this returns anything.
+    The list shortens the looking; it never stands in for it.
+    """
+    by_name = {b.name: b for b in branches}
+    mine = by_name.get(name)
+    if mine is None or not mine.code_files:
+        return []
+    scored = [
+        (b.name, len(mine.code_files & b.code_files))
+        for b in branches
+        if b.name != name and mine.code_files & b.code_files
+    ]
+    scored.sort(key=lambda row: (-row[1], row[0]))
+    return scored[:limit]
 
 
 def classify(b: Branch) -> str:
@@ -152,6 +201,26 @@ def classify(b: Branch) -> str:
 
 def main() -> int:
     branches = collect()
+
+    if len(sys.argv) > 2 and sys.argv[1] == "--neighbours":
+        target = sys.argv[2]
+        if target not in {b.name for b in branches}:
+            print(f"[!] no local branch named {target}")
+            return 1
+        rows = neighbours(branches, target)
+        print(f"# Branches sharing code files with {target}\n")
+        if not rows:
+            print("  none -- NO SHARED FILE, which is not the same as no overlap.")
+            print("  Two branches solving one problem in different files look")
+            print("  exactly like this. Ask the question anyway.")
+            return 0
+        for other, shared in rows:
+            print(f"  {other}    shares {shared}")
+        print("\n  Candidates, not conclusions. A shared file is usually")
+        print("  coincidence; this list only exists to stop the question")
+        print("  being answered from memory.")
+        return 0
+
     piles: dict[str, list[Branch]] = {}
     for b in branches:
         piles.setdefault(classify(b), []).append(b)
