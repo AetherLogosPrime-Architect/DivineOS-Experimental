@@ -335,6 +335,29 @@ def evict_committed_paths(repo_root: Path, result: RetargetResult) -> EvictionRe
 
         try:
             target.unlink()
+        except FileNotFoundError:
+            # REACHED-AND-IT-WAS-NOT-THERE IS NOT REACHED-AND-IT-WAS-STUCK.
+            #
+            # 2026-09-15. Eleven of Aria's record-books came back reported as
+            # "committed but LEFT on disk", each with a not-found error beside
+            # it, and both of us read that as the retarget having failed to
+            # cover a path -- hours after we had agreed the class was closed.
+            # It had covered it. The file was gone. The only thing that failed
+            # was the sentence describing the outcome.
+            #
+            # The exists() check above skips this case, so arriving here means
+            # the file vanished between the look and the removal -- another
+            # process, or the occupant's own tidy. Either way the postcondition
+            # this function exists to establish is TRUE: the substrate is on
+            # the branch and it is not on the floor. Calling that a hold
+            # inflates the ledger of stuck files every night while the room
+            # stands empty, and sends whoever reads it hunting for a coverage
+            # hole that is not there.
+            #
+            # An absence and an obstruction feel identical from inside a grip.
+            # The remedy is not a better grip; it is the second column.
+            evicted.append(rel_path)
+            continue
         except OSError as exc:
             held.append((rel_path, f"removal failed: {exc}"))
             continue
