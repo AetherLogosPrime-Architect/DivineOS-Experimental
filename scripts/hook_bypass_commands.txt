@@ -68,6 +68,19 @@ divineos corrections
 divineos audit
 divineos prereg
 
+# --- artifact filing — the deadlock fix, 2026-09-16. The overdue-prereg gate
+#     blocked all work until a verdict was recorded; the council gate blocked
+#     recording it until a walk existed; and this list did not carry the walk
+#     commands, so there was no legal move left and the only exit was the fire
+#     door. Stated so a later gate inherits it: RECORDING AN ARTIFACT THAT ANY
+#     GATE REQUIRES CANNOT ITSELF REQUIRE ARTIFACTS. The narrow version is what
+#     made the hole — each list exempted the commands ITS OWN gate reads, and
+#     the gate standing in my way was never the one I was filing for. Any new
+#     required artifact adds its filing command here in the same change that
+#     makes it required, or it ships with this deadlock already inside it.
+divineos council
+divineos game-walk
+
 # --- mansion subcommands — needed for private-exit/private-status ---
 divineos mansion
 

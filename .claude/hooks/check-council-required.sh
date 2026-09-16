@@ -147,17 +147,78 @@ except Exception as e:
 # a predicate can be satisfied by anything inconvenient, a list has to be
 # appended to in a visible edit to a guardrail file. If it grows past the
 # commands that record artifacts, that growth is the thing to question.
+# WIDENED 2026-09-16, after the door did lock the key inside. Three entries was
+# not the wrong RULE, it was the rule applied only to the artifacts THIS gate
+# reads -- and the gate standing in the way was the overdue-prereg one, whose
+# filing command was not here. So every command that records something any gate
+# reads belongs in this tuple, not only the ones read locally.
 _ARTIFACT_FILING_COMMANDS = (
     'divineos council log',
     'divineos council walk',
+    'divineos council authorize-bypass',
+    'divineos council emergency-skip',
     'divineos game-walk file',
+    'divineos prereg assess',
+    'divineos prereg file',
 )
 
 
+# Segments that only prepare the ground for the command after them. They carry
+# no act of their own, so requiring THEM to be exempt refuses an ordinary filing
+# command typed with a directory change in front of it -- which it did, within a
+# minute of the tightening below. The shared act-anchor skips this same set.
+_SHELL_WRAPPERS = ('cd', 'set', 'export', 'env', 'source', '.', 'exec', 'sudo', 'time')
+
+_SEGMENT_SEPARATORS = ('&&', '||', ';', '|', '&')
+
+
 def _is_artifact_filing(cmd: str) -> bool:
-    flat = ' '.join(cmd.split())
-    return any(seg.strip().startswith(_ARTIFACT_FILING_COMMANDS)
-               for seg in flat.replace(';', '&&').replace('|', '&&').split('&&'))
+    # EVERY non-wrapper segment must be exempt, not any. It read 'any' until the
+    # game-walk filed against this very file went hunting for a cheaper route:
+    # one legitimate first segment exempted the whole line, so a filing command
+    # with the real work chained behind it walked through, and widening the list
+    # above would have widened that hole in proportion.
+    #
+    # THE SEGMENTS ARE TOKENISED, NOT TEXT-SPLIT, and that is a repair rather
+    # than a flourish. The first version replaced separator characters in the raw
+    # string, which was survivable while the rule was permissive and fatal once
+    # every segment had to pass: the filing commands take their routes as text
+    # with a pipe inside, so the command's own arguments split into fragments
+    # that could not possibly be exempt, and the gate refused the only command
+    # able to clear it. Same class as the regex-over-raw-command fault fixed in
+    # the gravity assessor the same day, fixed the same way, so the two
+    # derivations agree instead of needing a special case remembered twice.
+    #
+    # A command that cannot be tokenised returns False rather than True. Could
+    # not read it and read it and found nothing must not be one answer, and for
+    # an exemption the unreadable side is the side that keeps the gate shut.
+    import shlex
+
+    try:
+        lexer = shlex.shlex(cmd, posix=True, punctuation_chars=True)
+        lexer.whitespace_split = True
+        tokens = list(lexer)
+    except ValueError:
+        return False
+
+    segments = []
+    current = []
+    for token in tokens:
+        if token in _SEGMENT_SEPARATORS:
+            if current:
+                segments.append(current)
+            current = []
+        else:
+            current.append(token)
+    if current:
+        segments.append(current)
+
+    acts = [seg for seg in segments if seg and seg[0] not in _SHELL_WRAPPERS]
+    # No act at all is not a filing. all() of an empty list is True, and that
+    # vacuous pass is the failing-in-the-permitting-direction shape again.
+    if not acts:
+        return False
+    return all(' '.join(seg).startswith(_ARTIFACT_FILING_COMMANDS) for seg in acts)
 
 
 # NO TRIPLE-QUOTED STRINGS ANYWHERE IN THIS BLOCK. The whole program is a
