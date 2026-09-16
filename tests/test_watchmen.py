@@ -284,6 +284,13 @@ class TestReservedExternalVantageShapes:
                     continue
                 if "audit_rounds" in path.parts:
                     continue  # a record of what was filed, not an instruction
+                if "worktrees" in path.parts:
+                    # Checkouts of OTHER branches, parked on disk and ignored by
+                    # git. They are not this tree's instructions, and a stale
+                    # line in one of them is that branch's to fix -- failing here
+                    # blames the checked-out branch for a neighbour's text, and
+                    # the failure follows whoever happens to have worktrees open.
+                    continue
                 text = path.read_text(encoding="utf-8", errors="replace")
                 opened.append(path.name)
                 for n, line in enumerate(text.splitlines(), 1):
