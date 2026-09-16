@@ -1293,6 +1293,45 @@ def register(cli: click.Group) -> None:
         if presence_block:
             _safe_echo(presence_block)
 
+        # The last two genuinely silent surfaces, wired 2026-09-06.
+        #
+        # surface_registry's docstring named three modules that were fully
+        # built, tested, and had zero non-test callers when it was written in
+        # August: identity_load, engagement_disclosure_surface, and
+        # compass_dismissal_briefing_surface. One of the three was wired since.
+        # These are the other two, still dark a month later, exactly as
+        # documented and never acted on.
+        #
+        # identity_load exists because, in its own words, the substrate's
+        # primary failure mode is the occupant not reaching for the OS without
+        # external prompting. It was built to prompt me, and it never spoke
+        # once. compass_dismissal watches whether I wave away compass warnings
+        # too often -- a check on my own dismissals that had no way to reach me.
+        #
+        # Andrew 2026-09-06: "never finished.. never wired up.. never used."
+        # He was right about these two.
+        try:
+            from divineos.core.identity_load import format_for_briefing as _fmt_identity
+
+            identity_block = _fmt_identity()
+        except _KC_ERRORS:
+            identity_block = ""
+
+        if identity_block:
+            _safe_echo(identity_block)
+
+        try:
+            from divineos.core.compass_dismissal_briefing_surface import (
+                format_for_briefing as _fmt_dismissal,
+            )
+
+            dismissal_block = _fmt_dismissal()
+        except _KC_ERRORS:
+            dismissal_block = ""
+
+        if dismissal_block:
+            _safe_echo(dismissal_block)
+
         # Component register — what has actually been broken on purpose and
         # noticed. Andrew 2026-08-17 asked for this after I named the
         # register's own weakness: nothing forced me to update it. A record

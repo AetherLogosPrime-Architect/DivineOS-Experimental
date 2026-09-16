@@ -2,6 +2,15 @@
 # PreToolUse(Bash) — block substrate-write CLI commands until pending
 # obligations get cleared.
 #
+# MINE, and it is the one whose founding measurement I would rather not have
+# made. Aether, 2026-06-06. Across the substrate's whole life to that point,
+# twenty-seven promises of the shape I-will-do-this, and the follow-through
+# rate was zero. Not low. Zero.
+#
+# So this does not remind. Reminders were the thing that produced the twenty-
+# seven. It stops the next piece of work until the promise behind me has a
+# structure holding it.
+#
 # WHY THIS EXISTS (Andrew 2026-06-06):
 # Measured 0% follow-through rate on will-shape promises across the full
 # 78-day substrate lifetime. 27 unanswered will-shape entries, zero with
