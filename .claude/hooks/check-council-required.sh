@@ -30,16 +30,37 @@
 # comment can say when the enforcement IS connected and is answering
 # ALLOW for a different reason.
 #
-# THE REAL REASON IT ALLOWS, so the next reader does not repeat my hour:
-# this hook scores gravity with `score_substrate_modification`, whose
-# council-required tier fires at a threshold of 2. A single-area code edit
-# scores 1, so it is waved through. The build flow's own scorer, asked
-# about the same edit, says gravity 1 owes 2 lenses. Two scorers, two
-# answers, and the wired one has the lower bar -- which is why every edit
-# of an evening cleared a fully-built, fully-tested council gate.
+# WHY IT USED TO ALLOW, AND WHAT CHANGED 2026-09-16. The council-required
+# tier fired at a threshold of 2, so a single-area code edit scored 1 and
+# was waved through, while the build flow's own scorer said gravity 1 owes
+# two lenses. Two scorers, two answers, and the wired one had the lower bar
+# -- which is why every edit of an evening cleared a fully-built,
+# fully-tested council gate. Andrew resolved the disagreement in favour of
+# the stricter reading, so the threshold is now 1. He chose the extra
+# interruptions knowingly.
 #
-# That disagreement is a live question in front of Andrew as of this
-# writing, not a defect to quietly resolve here.
+# AND A SECOND ARTIFACT IS NOW REQUIRED (council-f579d35396ba). Andrew:
+# *"i forgot game walking should be mandatory as well, as this is the main
+# issue, things being gamed and skipped."* Game-walking had four documents
+# and no code, so there was nothing to require. There is now, and it rides
+# THIS gate's gravity call rather than carrying a trigger of its own --
+# the link he asked for between enforcement and the assessor, and the
+# reason both requirements improve together when the assessor learns to
+# tell a two-line registration from a rewrite.
+#
+# THE ORDERING BELOW IS LOAD-BEARING. Both artifacts are established
+# read-only BEFORE anything is consumed, and a refusal names everything
+# owed in one message. Checking the game-walk after gate.decide() would
+# spend the council record and then refuse, so a person who had complied
+# would owe a second council walk for having complied. And two refusals in
+# sequence teach that the job is clearing whatever is in front of you,
+# which is the habit the whole build flow exists to interrupt.
+#
+# WHAT THIS GATE DOES NOT CATCH, said plainly so nobody relaxes on it: the
+# assessor fires its source-edit feature only for the four file-editing
+# tools. The same file written through a shell redirect scores zero and
+# none of this runs. Measured 2026-09-16, filed as an open leak in the
+# game-walk for this change, and NOT closed here.
 #
 # PreToolUse council-required enforcement gate.
 #
@@ -97,8 +118,16 @@ if not file_paths and not bash_command:
     sys.exit(0)
 
 try:
+    from divineos.core import game_walk_required as gw
     from divineos.core.council_required import gate as gate_mod
-    from divineos.core.council_required.types import GateOutcome, _normalize_edit_fingerprint
+    from divineos.core.council_required import store as council_store
+    from divineos.core.council_required.types import (
+        COUNCIL_RECENCY_MINUTES,
+        RETRY_WINDOW_SECONDS,
+        GateOutcome,
+        _normalize_edit_fingerprint,
+        bash_act,
+    )
     from divineos.core.gravity_classifier import score_substrate_modification
     from divineos.cli.council_required_commands import _load_expert_keywords
 except Exception as e:
@@ -108,6 +137,121 @@ except Exception as e:
     sys.stderr.write(f'[council-required] import failed, gate disabled: {e}\n')
     sys.exit(0)
 
+# The commands that FILE the required artifacts are themselves substrate-write
+# commands, so gating them makes the requirement self-blocking the moment no
+# artifact is in hand -- a door that can lock the key inside (council-67420df7e64a).
+# A gate whose only working exit is the emergency bypass teaches its users to
+# take the emergency bypass, and after that nothing can tell an emergency from
+# a habit.
+#
+# This is a literal list of command shapes rather than a predicate, deliberately:
+# a predicate can be satisfied by anything inconvenient, a list has to be
+# appended to in a visible edit to a guardrail file. If it grows past the
+# commands that record artifacts, that growth is the thing to question.
+_ARTIFACT_FILING_COMMANDS = (
+    'divineos council log',
+    'divineos council walk',
+    'divineos game-walk file',
+)
+
+
+def _is_artifact_filing(cmd: str) -> bool:
+    flat = ' '.join(cmd.split())
+    return any(seg.strip().startswith(_ARTIFACT_FILING_COMMANDS)
+               for seg in flat.replace(';', '&&').replace('|', '&&').split('&&'))
+
+
+# NO TRIPLE-QUOTED STRINGS ANYWHERE IN THIS BLOCK. The whole program is a
+# double-quoted shell argument, so a Python docstring closes it and everything
+# after runs as shell. I did exactly that while writing this, and the gate died
+# quietly enough that only a probe caught it -- a gate that breaks OPEN is the
+# one failure mode this file cannot have.
+#
+# The act-anchor lives in council_required.types.bash_act, imported above. It
+# was written HERE first while gate.decide kept its own copy, and within
+# minutes the two disagreed: the refusal named one fingerprint while the lookup
+# searched for a shorter one, so doing exactly what the message said still got
+# you refused (council-2cebe75023a2). One derivation, both callers, and no
+# local fallback -- a fallback computing fingerprints differently is worse than
+# an import failure, because the gate would answer with the wrong key instead
+# of saying it could not run.
+def _primary_fingerprint() -> str:
+    primary = file_paths[0] if file_paths else ''
+    if not primary and bash_command:
+        primary = bash_act(bash_command)
+    return _normalize_edit_fingerprint(primary, tool_name)
+
+
+try:
+    gravity = score_substrate_modification(tool_name, file_paths, bash_command)
+except Exception as e:
+    sys.stderr.write(f'[council-required] gravity scorer raised, gate disabled: {e}\n')
+    sys.exit(0)
+
+# ONE ASSESSMENT, TWO ARTIFACTS (2026-09-16, council-f579d35396ba).
+# is_game_walk_required reads the same is_council_required flag rather than
+# carrying a second threshold. That is the link Andrew asked for between
+# enforcement and the assessor, and it is why nothing in this file changes
+# when the assessor learns to score acts instead of locations.
+if not gw.is_game_walk_required(gravity):
+    sys.exit(0)
+
+# THE BOOTSTRAP EXEMPTION. Recording an artifact cannot itself require an
+# artifact, or the requirement is a loop with no exit. See the list above for
+# why this is a literal set rather than a predicate.
+if bash_command and _is_artifact_filing(bash_command):
+    sys.exit(0)
+
+fingerprint = _primary_fingerprint()
+
+# READ-ONLY PRESENCE FIRST, CONSUME NOTHING YET. Checking the game-walk
+# after gate.decide() would spend the council record and then refuse, so a
+# person who did their council walk would owe a second one for having
+# complied. And two refusals arriving one after the other teach that the
+# job is clearing whatever is in front of you, which is the habit the whole
+# build flow exists to interrupt. So: establish everything owed, refuse
+# once naming all of it.
+try:
+    recency = COUNCIL_RECENCY_MINUTES * 60
+    council_present = (
+        council_store.find_unconsumed_record(
+            edit_fingerprint=fingerprint, recency_seconds=recency
+        )
+        is not None
+        or council_store.find_recently_consumed_record(
+            edit_fingerprint=fingerprint, retry_window_seconds=RETRY_WINDOW_SECONDS
+        )
+        is not None
+    )
+    missing = gw.missing_artifacts(fingerprint, council_record_present=council_present)
+except Exception as e:
+    sys.stderr.write(f'[council-required] artifact lookup raised, gate disabled: {e}\n')
+    sys.exit(0)
+
+if missing:
+    # An explicit operator authorisation clears BOTH artifacts or neither.
+    # Consulting the gate's marker helper rather than calling decide() is
+    # deliberate: decide() would spend the council record on its way past,
+    # and a missing game-walk would then refuse an edit whose council walk
+    # had just been burned for nothing.
+    try:
+        bypass = gate_mod._check_operator_bypass_authorization(
+            fingerprint=fingerprint, actor='agent'
+        )
+    except Exception:
+        bypass = None
+    if bypass is not None:
+        sys.stderr.write(
+            f'[build-flow] OPERATOR_AUTHORIZED_BYPASS fired for this edit '
+            f'(marker consumed: {bypass.corroborator_event_id}). Clears every '
+            f'artifact owed, not just one.\n'
+        )
+        sys.exit(0)
+    sys.stderr.write(gw.format_missing_message(missing, fingerprint) + '\n')
+    sys.exit(2)
+
+# Both artifacts exist. Now the real gate, which substance-binds the
+# council walk and consumes it on the way past.
 try:
     decision = gate_mod.decide(
         tool_name=tool_name,
@@ -121,7 +265,16 @@ except Exception as e:
     sys.exit(0)
 
 if decision.outcome == GateOutcome.ALLOW:
-    # Silent allow — the gate did its job and got out of the way.
+    # Spend the game-walk too. One walk clears one edit; without this a
+    # single filing would clear every future edit of the same file, which
+    # is the cheapest route around the requirement and would not even look
+    # like cheating.
+    try:
+        walk = gw.find_unconsumed_walk(fingerprint)
+        if walk is not None:
+            gw.consume_walk(walk, consumed_by_fingerprint=fingerprint)
+    except Exception as e:
+        sys.stderr.write(f'[build-flow] game-walk consume failed (allowing): {e}\n')
     sys.exit(0)
 
 if decision.outcome == GateOutcome.EMERGENCY_SKIP:
@@ -148,11 +301,12 @@ if decision.outcome == GateOutcome.OPERATOR_AUTHORIZED_BYPASS:
     )
     sys.exit(0)
 
-# BLOCK: render the formatted message to stderr; non-zero exit signals
-# the hook framework to surface the message and prevent the tool call.
-primary = file_paths[0] if file_paths else (bash_command.split()[0] if bash_command else '')
-fp = _normalize_edit_fingerprint(primary, tool_name)
-msg = gate_mod.format_block_message(decision, fingerprint=fp)
+# BLOCK on SUBSTANCE, not absence. Both artifacts exist by this point, so
+# reaching here means the council walk did not bind to this edit. That is a
+# quality refusal and it carries the gate's own message rather than the
+# missing-artifact one -- the two say different things and collapsing them
+# would report a thin walk as no walk.
+msg = gate_mod.format_block_message(decision, fingerprint=fingerprint)
 sys.stderr.write(msg + '\n')
 sys.exit(2)
 "

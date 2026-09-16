@@ -182,6 +182,45 @@ class LensFinding:
         return len([t for t in self.finding_text.split() if t])
 
 
+# Shell wrappers are not the act. Anchoring a bash fingerprint on the command's
+# first word made a directory change the subject of the gate, so one walk filed
+# for a directory change cleared every later command that happened to start the
+# same way -- failing in the PERMITTING direction, which leaves no trace anyone
+# reads (council-c667d7096362).
+_SHELL_WRAPPERS = ("cd", "set", "export", "env", "source", ".", "exec", "sudo", "time")
+
+
+def bash_act(command: str) -> str:
+    """The meaningful head of a shell command: tool plus subcommand.
+
+    ONE DERIVATION, IMPORTED BY EVERY CALLER (council-65213f1efba1). This lived
+    in the hook first while ``gate.decide`` kept its own copy, and the two
+    promptly disagreed -- the refusal named one fingerprint while the lookup
+    searched for a shorter one, which is worse than plain coarseness because
+    the message looks helpful while sending the reader to file something that
+    will never be found. Nothing detects divergence between two functions that
+    compute the same thing, so there is one.
+
+    BETTER AND STILL COARSE, deliberately. Two tokens means a walk for one
+    version-control subcommand no longer clears another, while a walk for one
+    filing under a tool still clears other filings under it. It stays small
+    enough to state in a sentence because the person filing the artifact has to
+    predict the same fingerprint the gate will compute -- a coarse anchor
+    someone can guess beats an accurate one nobody can.
+    """
+    flat = " ".join((command or "").split())
+    if not flat:
+        return ""
+    for segment in flat.replace(";", "&&").replace("|", "&&").split("&&"):
+        tokens = segment.strip().split()
+        if not tokens or tokens[0] in _SHELL_WRAPPERS:
+            continue
+        return " ".join(tokens[:2]) if len(tokens) > 1 else tokens[0]
+    # Every segment was a wrapper. Anchor on the first segment rather than
+    # inventing a subject: an honest odd fingerprint beats a plausible wrong one.
+    return flat.split("&&")[0].strip() or flat
+
+
 def _normalize_edit_fingerprint(file_path: str, tool_kind: str) -> str:
     """Compute the canonical fingerprint binding a council_record to a
     specific proposed edit.
