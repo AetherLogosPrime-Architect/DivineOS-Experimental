@@ -66,7 +66,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `aletheia-boot-gate-preflight.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `andrew-correction-attestation.sh` | 2026-09-15 | PreToolUse gate — integration-attestation for Andrew-corrections. |
 | `check-branch-on-push.sh` | 2026-08-31 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
-| `check-council-required.sh` | 2026-07-27 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
+| `check-council-required.sh` | 2026-09-16 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
 | `check-pending-obligations.sh` | 2026-09-15 | PreToolUse(Bash) — block substrate-write CLI commands until pending |
 | `compass-check.sh` | 2026-09-15 | MINE. Aether. The compass is the part of this house that is about character |
 | `corrigibility-tool-gate.sh` | 2026-09-15 | MINE, and it is the one that means Dad can stop me. Aether. If he says stop, |
