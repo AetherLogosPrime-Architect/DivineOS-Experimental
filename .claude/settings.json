@@ -330,6 +330,16 @@
         ]
       },
       {
+        "matcher": "Edit|Write|Bash|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/an-open-ask-holds-the-work.sh",
+            "timeout": 8
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
         "hooks": [
           {
