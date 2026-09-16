@@ -87,6 +87,39 @@ def _git(*args: str) -> tuple[int, str]:
     return proc.returncode, proc.stdout
 
 
+def _worktree_blob(path: str) -> str | None:
+    """The blob id git WOULD give the working-tree file at ``path``, or None
+    when nothing is there.
+
+    Added 2026-09-16 after this scan skipped eleven files as "nothing to
+    lose" and printed an all-clear over what remained. A commit that
+    untracks a file removes it from the branch and LEAVES IT ON DISK, and
+    that copy can be the only one of its version anywhere. Asking git for
+    the branch's blob returns nothing, which is exactly where the loss
+    became invisible.
+
+    ``hash-object`` WITHOUT ``-w`` computes the id without writing an
+    object. That is load-bearing, not incidental: with the writing form the
+    object lands in the store and any later existence probe finds proof the
+    check itself manufactured. The scan must never be able to create the
+    evidence that a file is safe.
+
+    Honest limit: reading the working tree makes the verdict depend on the
+    state of a directory rather than on committed history, so the same
+    branch answers differently from a clean checkout. That is correct here,
+    because the loss being prevented IS a loss of working-tree content — but
+    it means a reviewer elsewhere cannot reproduce this from the repository
+    alone.
+    """
+    candidate = REPO_ROOT / path
+    if not candidate.is_file():
+        return None
+    code, out = _git("hash-object", "--", path)
+    if code != 0 or not out.strip():
+        return None
+    return out.strip()
+
+
 def _resolve(ref: str) -> bool:
     code, _ = _git("rev-parse", "--verify", "--quiet", ref)
     return code == 0
@@ -237,7 +270,16 @@ def only_here(branch: str, paths: list[str]) -> tuple[list[str], list[str], bool
     "exists nowhere" about a file they know they pushed will believe the gate is
     wrong and stop reading it.
 
-    A path deleted on this branch has no content here to lose and is skipped.
+    A PATH DELETED ON THIS BRANCH IS NOT AUTOMATICALLY SAFE, and the version
+    of this sentence that said so cost eleven files on 2026-09-16. It read:
+    "a path deleted on this branch has no content here to lose and is
+    skipped." It was written in good faith, it reads as obviously true, and
+    it survived every reading by being readable. It is false whenever a
+    commit untracked the file and left it in the working tree -- the shape of
+    every take-the-substrate-off-the-code-branch commit. Git reports no blob
+    while the only current copy sits on disk. So the disk is asked before any
+    path is dropped, and only a path gone from BOTH is skipped.
+
     Content that survives under a DIFFERENT name is not credited -- a rename
     reports as at-risk, which errs toward preserving something that did not need
     it. That direction is the survivable one.
@@ -260,10 +302,20 @@ def only_here(branch: str, paths: list[str]) -> tuple[list[str], list[str], bool
     newer: list[str] = []
     for path in paths:
         mine_code, mine_blob = _git("rev-parse", f"{branch}:{path}")
-        if mine_code != 0:
-            # Deleted on this branch. Nothing here for a rebuild to take.
-            continue
-        mine_blob = mine_blob.strip()
+        if mine_code == 0:
+            mine_blob = mine_blob.strip()
+        else:
+            # NOT "nothing to lose" -- that was the 2026-09-16 defect, and it
+            # nearly cost eleven files. A commit that UNTRACKS a file removes
+            # it from the branch and leaves it in the working tree, so git
+            # reports no blob here while the only current copy of the content
+            # sits on disk. Ask the disk before concluding there is nothing.
+            disk_blob = _worktree_blob(path)
+            if disk_blob is None:
+                # Gone from the branch AND from disk. Genuinely nothing here
+                # for a rebuild to take.
+                continue
+            mine_blob = disk_blob
         name_found = False
         for ref in refs:
             code, theirs = _git("rev-parse", f"{ref}:{path}")
