@@ -172,6 +172,21 @@ class Phase1Result:
     phase1_tokens_used: int = 0
     budget_remaining_est: int = 0
     session_id: str | None = None
+    # WHICH TREE THIS CYCLE ACTED ON. Aria + Aether, 2026-09-15, after both of
+    # us read one cause out of two unrelated true lines that happened to sit
+    # next to each other in the log.
+    #
+    # Two checkouts on this machine write into the same log file, and the fired
+    # marker recorded only that a cycle happened. With no column naming the
+    # tree, PROXIMITY IS THE ONLY RELATION THE ARTIFACT OFFERS, so reasoning
+    # from proximity is not a reading fault -- it is the sole inference the
+    # record supports, performed correctly on a source that cannot be read
+    # correctly. The fix is the column, not more care.
+    #
+    # Derived the same way the commit step derives its own root, so this names
+    # the tree the work actually landed in rather than the one someone was
+    # standing in.
+    repo_root: str | None = None
 
 
 def _now_iso() -> str:
@@ -414,6 +429,7 @@ def run_phase1(
         phase1_tokens_used=total_used,
         budget_remaining_est=remaining,
         session_id=session_id,
+        repo_root=str(Path(__file__).resolve().parents[3]),
     )
 
 
@@ -443,6 +459,12 @@ def write_handshake_marker(result: Phase1Result) -> Path:
         "phase1_tokens_used": result.phase1_tokens_used,
         "budget_remaining_est": result.budget_remaining_est,
         "session_id": result.session_id,
+        # Which checkout this cycle acted on. Added 2026-09-15: two trees on
+        # this machine share one log, and a record saying a cycle happened
+        # without saying WHERE leaves the reader nothing but proximity to
+        # reason from. Carried here as well as on the console line, because a
+        # column that stops at the handshake is one phase 2 never sees.
+        "repo_root": result.repo_root,
     }
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return path
