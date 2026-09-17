@@ -65,7 +65,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `aletheia-boot-gate-preflight.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `andrew-correction-attestation.sh` | 2026-09-15 | PreToolUse gate — integration-attestation for Andrew-corrections. |
-| `blanket-staging-doorman.sh` | — | refuse a blanket `git add` in a tree where substrate is |
+| `blanket-staging-doorman.sh` | 2026-09-17 | refuse a blanket `git add` in a tree where substrate is |
 | `check-branch-on-push.sh` | 2026-09-04 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
 | `check-council-required.sh` | 2026-07-27 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
 | `check-pending-obligations.sh` | 2026-09-15 | PreToolUse(Bash) — block substrate-write CLI commands until pending |

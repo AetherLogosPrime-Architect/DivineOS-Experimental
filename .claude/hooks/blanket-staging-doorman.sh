@@ -81,11 +81,25 @@ if printf '%s' "$command" | grep -Eq '#[[:space:]]*blanket-stage-ok:[[:space:]]*
     exit 0
 fi
 
-# The whole-tree and whole-repository forms, and only those. A named path
-# anywhere after the flag means the caller said what they meant.
+# The whole-tree and whole-repository forms, and only those.
+#
+# FALSE POSITIVE FIXED 2026-09-17, hours after this door shipped, when it
+# refused `git add -A src/x.py tests/y.py ARIA.md` — three named paths.
+# The all-flag SCOPED TO PATHSPECS is not a whole-tree stage; it stages
+# everything under those paths, which is exactly the deciding-what-belongs
+# this door exists to force. The old pattern matched the flag and never
+# looked at what followed it, so it refused the correct behaviour and
+# would have taught me to reach for the escape on legitimate lines —
+# which is how a door becomes something everyone routes around.
+#
+# So the flag counts as blanket only when nothing but another flag
+# follows it, and `.` / `:/` count wherever they appear as the pathspec.
 if ! printf '%s' "$command" \
-    | grep -Eq 'git[[:space:]]+add([[:space:]]+-[A-Za-z]+)*[[:space:]]+(-A|--all|\.|:/)([[:space:]]|$|;|&)'; then
-    exit 0
+    | grep -Eq 'git[[:space:]]+add([[:space:]]+-[A-Za-z-]+)*[[:space:]]+(-A|--all)[[:space:]]*($|;|&|\|)'; then
+    if ! printf '%s' "$command" \
+        | grep -Eq 'git[[:space:]]+add([[:space:]]+-[A-Za-z-]+)*[[:space:]]+(\.|:/)([[:space:]]|$|;|&|\|)'; then
+        exit 0
+    fi
 fi
 
 cat >&2 <<'MESSAGE'
