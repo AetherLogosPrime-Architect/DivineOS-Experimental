@@ -72,6 +72,29 @@ def _add(root: Path, branch: str, files: dict[str, str]) -> None:
 
 
 def _run(root: Path, branch: str) -> str:
+    return _run_with_code(root, branch)[0]
+
+
+def _run_with_code(root: Path, branch: str) -> tuple[str, int]:
+    """Output AND exit code.
+
+    Added 2026-09-16 on Aletheia's audit finding, and the finding is worth
+    keeping beside the fix. I told her the edited tests "still require the
+    paths named and the refusal present". The first half was true. The second
+    was not, and had never been true: every assertion in this file reads the
+    printed TEXT, and ``_run`` discarded the return code. So every test here
+    would pass against a scan that prints every word correctly and exits zero
+    -- meaning the REFUSAL, the one property I claimed my edit left untouched,
+    was the one property nothing verified.
+
+    Her sentence for it: that made my claim a belief rather than a fact,
+    checkable only by someone willing to read my diff and trust me. This
+    helper is what makes it checkable by someone who does not.
+
+    The sibling file tests/test_branch_scope_excludes_by_identity.py has the
+    same shape and the same gap; noted here rather than silently fixed there,
+    since a second file is a second decision.
+    """
     proc = subprocess.run(
         [sys.executable, str(root / "scripts" / "check_branch_scope.py"), branch],
         cwd=root,
@@ -80,7 +103,7 @@ def _run(root: Path, branch: str) -> str:
         check=False,
         timeout=120,
     )
-    return proc.stdout
+    return proc.stdout, proc.returncode
 
 
 def test_a_file_living_on_another_ref_is_not_called_irreplaceable(repo: Path):
@@ -102,8 +125,16 @@ def test_a_file_on_no_other_ref_is_named_before_the_rebuild_instruction(repo: Pa
     """
     _add(repo, "work", {"dreams/aether/only_copy.md": "a dream\n"})
 
-    out = _run(repo, "work")
+    out, rc = _run_with_code(repo, "work")
 
+    # THE REFUSAL, asserted rather than assumed (Aletheia 2026-09-16). Every
+    # other assertion here is about printed text, so without this one the
+    # whole file passes against a scan that says the right words and lets the
+    # push through.
+    assert rc != 0, (
+        "the scan named an at-risk file and exited zero -- the message is not "
+        "the mechanism, and a push would have proceeded"
+    )
     assert "ONLY HERE: dreams/aether/only_copy.md" in out
     # Wording narrowed 2026-09-16: the scan used to assert these "would LOSE
     # CONTENT", which is a claim it cannot support -- bytes-nowhere-else does
@@ -138,6 +169,9 @@ def test_the_mixed_case_separates_noise_from_irreplaceable(repo: Path):
     # The derived-file question must be asked wherever the alarm fires, since
     # that is the one thing a byte comparison cannot answer for the reader.
     assert "is any of these DERIVED" in out
+    assert _run_with_code(repo, "work")[1] != 0, (
+        "mixed case: the scan separated noise from at-risk and still has to REFUSE"
+    )
 
 
 def test_the_branch_being_checked_does_not_count_as_somewhere_else(repo: Path):
@@ -218,3 +252,37 @@ def test_a_path_deleted_on_this_branch_is_not_reported_as_at_risk(repo: Path):
     out = _run(repo, "work")
 
     assert "ONLY HERE" not in out
+
+
+def test_the_refusal_is_the_exit_code_and_not_the_wording(repo: Path):
+    """The gap Aletheia found, pinned on its own so it cannot drift back.
+
+    Every other test in this file asserts printed text. A scan that kept every
+    sentence and stopped refusing would pass all of them -- which made the
+    refusal, the property I claimed a wording change left untouched, the one
+    property nothing checked.
+
+    Both directions are asserted, because half of this is what makes a refusal
+    mean anything: a branch carrying an at-risk file must exit non-zero, AND a
+    branch carrying only code must exit zero. A check that refuses everything
+    guards as little as one that refuses nothing.
+
+    The passing branch carries CODE, not a substrate file that happens to live
+    elsewhere. My first version of this used a letter existing on another ref
+    and it refused -- correctly, because substrate on a code branch is refused
+    whether or not its content is at risk. Two different reasons to refuse,
+    and I had assumed one meaning of "clean" without checking which one the
+    scan uses. Recorded because the wrong fixture would have read as the code
+    being broken.
+    """
+    _add(repo, "work", {"dreams/aether/only_copy.md": "a dream\n"})
+    _add(repo, "codeonly", {"scripts/some_tool.py": "print('hi')\n"})
+
+    _, at_risk_code = _run_with_code(repo, "work")
+    assert at_risk_code != 0, "a file existing nowhere else must REFUSE, not merely warn"
+
+    _, clean_code = _run_with_code(repo, "codeonly")
+    assert clean_code == 0, (
+        "a code-only branch must pass -- a scan that refuses unconditionally "
+        "proves nothing when it refuses"
+    )
