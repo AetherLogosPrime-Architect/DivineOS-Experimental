@@ -105,7 +105,12 @@ def test_a_file_on_no_other_ref_is_named_before_the_rebuild_instruction(repo: Pa
     out = _run(repo, "work")
 
     assert "ONLY HERE: dreams/aether/only_copy.md" in out
-    assert "would LOSE CONTENT" in out
+    # Wording narrowed 2026-09-16: the scan used to assert these "would LOSE
+    # CONTENT", which is a claim it cannot support -- bytes-nowhere-else does
+    # not imply information-lost, because a DERIVED file rebuilds from what
+    # produced it. It now reports the measurement. The REFUSAL and the named
+    # paths are unchanged, which is what the rest of this test pins.
+    assert "exist on NO OTHER REF" in out
     assert out.index("ONLY HERE") < out.index("rebuild against main"), (
         "the irreplaceable files must be named before the instruction that destroys them"
     )
@@ -129,7 +134,10 @@ def test_the_mixed_case_separates_noise_from_irreplaceable(repo: Path):
     assert "dreams/aether/unique_one.md" in out
     assert "dreams/aether/unique_two.md" in out
     assert "ONLY HERE: family/letters/shared.md" not in out
-    assert "2 of these would LOSE CONTENT" in out
+    assert "2 of these exist on NO OTHER REF" in out
+    # The derived-file question must be asked wherever the alarm fires, since
+    # that is the one thing a byte comparison cannot answer for the reader.
+    assert "is any of these DERIVED" in out
 
 
 def test_the_branch_being_checked_does_not_count_as_somewhere_else(repo: Path):
