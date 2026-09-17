@@ -104,18 +104,33 @@ def test_pinned_reading_is_recorded(home, monkeypatch):
 
 
 def test_threshold_arithmetic_is_the_number_andrew_named(home, monkeypatch):
-    """0.92 of the window is 920,000 -- the figure the ritual fires on."""
+    """0.88 of the window is 880,000 -- the figure the ritual fires on.
+
+    MOVED DOWN FROM 920,000 (2026-09-17). Andrew: compaction had started
+    arriving around 960,000 rather than at the window's stated end, so firing
+    at 920,000 left the whole ritual -- walk, commit, extract, dream, rest --
+    to happen inside the last 40,000 tokens. He asked for it back at 900,000
+    or 880,000 "to give you room."
+
+    THE PIN IS DELIBERATELY A LITERAL, and this test earned the right to say
+    so: the threshold moved in the same session and this test is what caught
+    that its pin had not. Deriving the figure from the constant would make
+    both sides move together and assert nothing -- a tautology wearing a
+    test's name. The literal is the point. When the number changes again,
+    this failing is correct behaviour, and the fix is to change it here on
+    purpose rather than to make it un-fail-able.
+    """
     from divineos.core.auto_cycle import TRIGGER_THRESHOLD
 
-    assert ch.CONTEXT_WINDOW_TOKENS * TRIGGER_THRESHOLD == 920_000
-    _patch_snapshot(monkeypatch, FakeSnap(True, 920_000))
+    assert ch.CONTEXT_WINDOW_TOKENS * TRIGGER_THRESHOLD == 880_000
+    _patch_snapshot(monkeypatch, FakeSnap(True, 880_000))
     assert ch.beat().pct >= TRIGGER_THRESHOLD
 
 
 def test_just_below_threshold_does_not_reach(home, monkeypatch):
     from divineos.core.auto_cycle import TRIGGER_THRESHOLD
 
-    _patch_snapshot(monkeypatch, FakeSnap(True, 919_999))
+    _patch_snapshot(monkeypatch, FakeSnap(True, 879_999))
     assert ch.beat().pct < TRIGGER_THRESHOLD
 
 

@@ -129,7 +129,26 @@ fi
 # say why on stderr: losing the suppression costs tokens, losing the prime
 # costs the discipline it carries.
 if [ -z "$PY" ]; then
-    echo "[dedup-wrap] no divineos python resolved -- emitting $SOURCE_ID in full, suppressing nothing." >&2
+    # WORDED SO IT CANNOT READ AS A COMMAND (2026-09-17, council-24bb9a7003d3).
+    # This said "no divineos python resolved", and the check that every
+    # prescribed command actually resolves read those three words as an
+    # invocation and refused the push. Second time today a scanner has parsed
+    # my English as instructions; the first was an apostrophe.
+    #
+    # THE SCANNER IS NOT WRONG AND MUST NOT BE LOOSENED. Its claim is about
+    # what the docs PRESCRIBE, which is a claim about intent, and intent is not
+    # derivable from text -- so matching on SHAPE is the strongest decidable
+    # version of it, and it errs toward a false alarm rather than toward
+    # missing a real broken instruction. Loosening it by tone would let a
+    # genuinely broken instruction pass if written narratively, in a place
+    # nobody visits, and nobody re-tightens a check that has stopped
+    # complaining.
+    #
+    # A hook file is one channel carrying both commands and prose ABOUT
+    # commands, with no delimiter between them. That collision is structural.
+    # What is free is keeping the two vocabularies apart, so this names the
+    # interpreter without using a word that is also a command.
+    echo "[dedup-wrap] interpreter lookup failed -- emitting $SOURCE_ID in full, suppressing nothing." >&2
     printf '%s\n' "$CONTENT"
     exit 0
 fi
