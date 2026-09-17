@@ -62,6 +62,58 @@ from divineos.core.uncommitted_work_check import (
 logger = logging.getLogger(__name__)
 
 
+def _git_paths_on_stdin(
+    repo_root: str | Path,
+    args: list[str],
+    paths: list[str],
+    *,
+    timeout: float | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Run a git command whose pathspecs travel on stdin, not on argv.
+
+    Windows caps the whole command line at a fixed length, and the cap is not
+    reported as a git error: the process is never spawned, so Python raises
+    OSError before git sees anything. That is why the ``except
+    CalledProcessError`` around these call sites never caught it -- it covers
+    the case where git runs and refuses, not the case where git never starts.
+
+    There is no breakage event for this. The substrate grows a file at a time,
+    every path is legal, and one day their sum crosses a number that has never
+    moved. It worked on every prior run and then did not.
+
+    A chunk size would be a second fixed number, wrong the day either the limit
+    or the average path length changes, and wrong silently. Stdin has no cap,
+    so there is nothing left to tune. NUL rather than newline because a newline
+    is a legal character in a filename, and a separator that can occur inside a
+    value is not a separator.
+
+    Same repair as the substrate weave's update-index call, one layer up.
+
+    An OSError here is re-raised, deliberately. The callers' fail-soft paths are
+    written for git-refused; reusing them for git-never-ran would turn a loud
+    failure into a quiet skip. The game-walk on this edit named that swallow as
+    the one route cheaper than complying.
+    """
+    try:
+        return subprocess.run(
+            ["git", *args, "--pathspec-from-file=-", "--pathspec-file-nul"],
+            cwd=str(repo_root),
+            input="\0".join(paths) + "\0",
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=True,
+        )
+    except OSError:
+        logger.error(
+            "auto_commit: git could not be STARTED for 'git %s' over %d path(s). "
+            "This is not git refusing the work -- the process never ran.",
+            " ".join(args),
+            len(paths),
+        )
+        raise
+
+
 def _unstage_self_invalidating(repo_root: str | Path) -> list[str]:
     """Drop staged files whose own anchor this commit would falsify.
 
@@ -106,14 +158,7 @@ def _unstage_self_invalidating(repo_root: str | Path) -> list[str]:
         return []
 
     try:
-        subprocess.run(
-            ["git", "restore", "--staged", *hits],
-            cwd=str(root),
-            capture_output=True,
-            text=True,
-            timeout=15,
-            check=True,
-        )
+        _git_paths_on_stdin(root, ["restore", "--staged"], hits, timeout=15)
     except (OSError, subprocess.SubprocessError) as exc:
         logger.warning("auto_commit: could not unstage self-invalidating files: %s", exc)
         return []
@@ -217,13 +262,7 @@ def _commit_work_in_progress(repo_root: Path, paths: list[str], reason: str) -> 
     if not paths:
         return False
     try:
-        subprocess.run(
-            ["git", "add", "--", *paths],
-            cwd=repo_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        _git_paths_on_stdin(repo_root, ["add"], paths)
         subprocess.run(
             [
                 "git",
