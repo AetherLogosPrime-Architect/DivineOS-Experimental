@@ -59,7 +59,18 @@ class RetargetResult:
     paths: tuple[str, ...]
 
 
-def _git(repo_root: Path, *args: str, env: dict[str, str] | None = None) -> str:
+def _git(
+    repo_root: Path,
+    *args: str,
+    env: dict[str, str] | None = None,
+    stdin_data: str | None = None,
+) -> str:
+    """Run git, raising RetargetRefused on any nonzero exit.
+
+    ``stdin_data`` exists so a caller can hand git an unbounded list of paths
+    through the pipe rather than as arguments. See commit_paths_to_branch for
+    why that is not a style preference.
+    """
     full_env = {**os.environ, **(env or {})}
     proc = subprocess.run(
         ["git", *args],
@@ -68,6 +79,7 @@ def _git(repo_root: Path, *args: str, env: dict[str, str] | None = None) -> str:
         text=True,
         env=full_env,
         check=False,
+        input=stdin_data,
     )
     if proc.returncode != 0:
         raise RetargetRefused(
@@ -125,7 +137,44 @@ def commit_paths_to_branch(
 
         # --add --remove together so a deleted substrate file records as
         # deleted rather than silently persisting on the branch forever.
-        _git(repo_root, "update-index", "--add", "--remove", "--", *paths, env=env)
+        #
+        # THE PATHS GO THROUGH THE PIPE, NOT THE ARGUMENT LIST (2026-09-17,
+        # council-54984c91a492). They used to be splatted as arguments, and
+        # Windows refuses a command line past a fixed length. With hundreds of
+        # letters and dreams declared as substrate, that line is too long and
+        # the weave dies here with an error about the filename being too long
+        # — which is confusing, because no filename is too long.
+        #
+        # IT DID NOT BREAK, IT CROSSED. The mechanism is arithmetic: path count
+        # against a fixed limit, and the count only grows as substrate
+        # accumulates. There was a day it fit and a day it did not, and nothing
+        # marks the boundary. It will cross again anywhere, the same way.
+        #
+        # WHY THIS WAS INVISIBLE: the council gate refused `divineos extract`
+        # outright, so the crash sat behind a wall and was reported as a policy
+        # decision rather than a fault. A gate that refuses a command is a
+        # command nobody has tested.
+        #
+        # WHY NOT BATCH THE PATHS INSTEAD. A chunk size is a literal standing
+        # for a platform limit, with nothing linking the limit back to the
+        # literal — the exact defect that cost two full suite runs on the night
+        # this was written. This form has no number in it at all.
+        #
+        # WHY NUL AND NOT NEWLINE: a newline is legal inside a filename, so a
+        # newline-separated list would silently split such a path into two
+        # entries. NUL cannot occur in a path, which is why this input form
+        # exists. It is also stronger than the `--` it replaces: nothing
+        # arriving on stdin is parsed as an option at all.
+        _git(
+            repo_root,
+            "update-index",
+            "--add",
+            "--remove",
+            "-z",
+            "--stdin",
+            env=env,
+            stdin_data="\0".join(paths) + "\0",
+        )
 
         tree = _git(repo_root, "write-tree", env=env)
 
