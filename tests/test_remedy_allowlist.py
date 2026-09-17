@@ -139,12 +139,53 @@ class TestNotABypassSurface:
         assert not _is_remedy(f'cd "C:/x" && DIVINEOS_SKIP_TESTS=1 {_GIT} {_PUSH} --force')
 
     def test_non_remedy_divineos_command(self):
-        """Being a divineos command is not enough — it must be somebody's exit."""
-        assert not _is_remedy("divineos sleep")
+        """Being a divineos command is not enough — it must be somebody's exit.
+
+        EXAMPLE CHANGED 2026-09-17, PRINCIPLE UNTOUCHED. This asserted
+        `divineos sleep`, and that stopped being a valid example the moment the
+        list learned what the context governor already knew: its own docstring
+        says extract and sleep "are bypassed in `_is_bypass_command` so the gate
+        can never block its own remedy." Sleep IS somebody's printed exit, so it
+        was the wrong stand-in for an arbitrary non-exit command.
+
+        This test earned the right to be taken seriously rather than edited
+        away: it is the standing guard on the promise that the list only ever
+        carries recording actions, and it caught the change that widened the
+        list, which is precisely its job. What survives is the sentence above.
+        What moved is one example that went stale under it.
+
+        The replacement was VERIFIED rather than assumed: it appears in no hook
+        block message at all, so no gate prints it as a way through. Scope of
+        that check: the hooks directory, which is where block messages live.
+        """
+        assert not _is_remedy("divineos progress")
 
     def test_remedy_named_inside_a_larger_argument(self):
         """Anchoring: a mention of the remedy is not an invocation of it."""
         assert not _is_remedy(f'{_GIT} commit -m "ran divineos correction earlier"')
+
+
+class TestTheWeaveIsSomebodysExit:
+    """2026-09-17. The context governor blocks substrate writes at the hard line
+    until the self is woven, and names these two as the way through — in its own
+    docstring, in the same words this list quotes at the top: the gate can never
+    block its own remedy. The council gate, which sources this list, refused
+    both anyway, twice in one session, on the command CLAUDE.md names as the
+    session's learning checkpoint.
+
+    These pin the addition positively, so the entry has a witness of its own
+    rather than resting on the absence of a failure elsewhere.
+    """
+
+    def test_the_weave_passes(self):
+        assert _is_remedy("divineos extract")
+
+    def test_the_companion_passes(self):
+        assert _is_remedy("divineos sleep")
+
+    def test_the_weave_behind_a_directory_change(self):
+        """The prefix strippers must reach it like any other remedy."""
+        assert _is_remedy('cd "C:/x" && divineos extract')
 
 
 class TestFailsTowardNotARemedy:
