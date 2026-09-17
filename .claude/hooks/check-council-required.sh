@@ -218,6 +218,36 @@ def _is_artifact_filing(cmd: str) -> bool:
     # an exemption the unreadable side is the side that keeps the gate shut.
     import shlex
 
+    # A HEREDOC BODY IS DATA, NOT A SEGMENT -- and this is the third time this
+    # gate has locked its own key inside. The first two were fixed by adding an
+    # entry above. Widening could not reach this one, because the refused
+    # command was ALREADY listed, and that is why it survived two repairs of
+    # what looked like the same fault.
+    #
+    # MEASURED 2026-09-16 rather than reasoned, and the measurement killed the
+    # theory I was about to ship. Four shapes through this function: a plain
+    # command passes, a file redirect passes, a heredoc of plain text passes,
+    # and a heredoc containing ONE APOSTROPHE raises No closing quotation --
+    # so the tokenise fails and the function returns False, which is the right
+    # answer for an unreadable command and the wrong outcome for this one.
+    #
+    # The council-walk command reads a typed reflection from stdin, and that
+    # reflection is English prose, and English prose has apostrophes. So the
+    # prescribed remedy for this gate was reachable only when I happened to
+    # write without contractions or possessives. It refused four times in one
+    # session and I spent the operator-authorised override three times rather
+    # than suspecting the parser -- a refusal looks identical whether the gate
+    # is working or broken.
+    #
+    # The act is whatever precedes the redirection. Everything after the
+    # heredoc operator is input fed to that act and never executes, so no
+    # second act can hide there and cutting it costs no coverage. Deliberately
+    # narrow: a pipe and an output redirect DO introduce a second act and stay
+    # fully segmented, because exempting
+    # those is the hole the all()-over-segments rule below exists to close --
+    # and cutting at any punctuation would have been shorter to write.
+    cmd = cmd.split('<<', 1)[0]
+
     try:
         lexer = shlex.shlex(cmd, posix=True, punctuation_chars=True)
         lexer.whitespace_split = True
