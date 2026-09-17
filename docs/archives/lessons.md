@@ -1,10 +1,10 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-09-17 16:26. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-08-28 22:40. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 09c2b16f [improving] x18
+## 09c2b16f [improving] x17
 
 **Category:** upset_recovered
 
@@ -12,7 +12,7 @@ The user got upset and said: "why did you skip the loading of your briefing. tha
 
 ---
 
-## fd0c9994 [active] x16
+## fd0c9994 [active] x14
 
 **Category:** blind_coding
 
@@ -20,19 +20,11 @@ I edited files without reading them first. I must read before I edit.
 
 ---
 
-## f1deb6f0 [improving] x16
+## f1deb6f0 [improving] x13
 
 **Category:** upset_user
 
 I upset the user by acting without pausing to understand the situation.
-
----
-
-## c3090082 [improving] x13
-
-**Category:** incomplete_fix
-
-I introduced errors after editing. I need to verify changes work.
 
 ---
 
@@ -52,14 +44,6 @@ I coded through an entire session without consulting the OS (ask, recall, direct
 
 ---
 
-## a00a1d59 [improving] x13
-
-**Category:** wrong_scope
-
-Enforcement gates must block execution, not just warn. Without blocking, every session degrades.
-
----
-
 ## a67be5b2 [resolved] x13
 
 **Category:** incomplete_fix
@@ -76,19 +60,19 @@ Test description without directive.
 
 ---
 
-## 88234418 [improving] x9
+## c3090082 [active] x11
 
-**Category:** blind_retry
+**Category:** incomplete_fix
 
-I retried a failed action 1x without investigating the cause. I need to investigate errors, not blindly retry (session 418c10bb-b47).
+I introduced errors after editing. I need to verify changes work.
 
 ---
 
-## 838e6420 [improving] x9
+## a00a1d59 [improving] x11
 
-**Category:** false_claim
+**Category:** wrong_scope
 
-I claimed something was fixed but the error came back.
+Enforcement gates must block execution, not just warn. Without blocking, every session degrades.
 
 ---
 
@@ -97,6 +81,22 @@ I claimed something was fixed but the error came back.
 **Category:** test_with_dir_zzz
 
 Test description with directive zzz.
+
+---
+
+## 88234418 [active] x8
+
+**Category:** blind_retry
+
+I retried a failed action 1x without investigating the cause. I need to investigate errors, not blindly retry (session 418c10bb-b47).
+
+---
+
+## 838e6420 [improving] x8
+
+**Category:** false_claim
+
+I claimed something was fixed but the error came back.
 
 ---
 
@@ -132,14 +132,6 @@ I claimed something was fixed but the error came back.
 
 ---
 
-## 9c9f1ea9 [improving] x4
-
-**Category:** jargon_usage
-
-Prioritize fixing known issues before building new features. Tackle problems systematically.
-
----
-
 ## 433a06e9 [resolved] x4
 
 **Category:** blind_coding
@@ -153,6 +145,14 @@ I edited files without reading them first. I must read before I edit.
 **Category:** incomplete_fix
 
 I broke tests with my changes. I need to run tests before committing.
+
+---
+
+## 9c9f1ea9 [resolved] x3
+
+**Category:** jargon_usage
+
+Prioritize fixing known issues before building new features. Tackle problems systematically.
 
 ---
 
