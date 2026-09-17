@@ -120,7 +120,37 @@ from divineos.core.paths import divineos_home
 # denominator I fixed in context_meter earlier today: how full the window IS
 # (measured against 1_000_000) versus when the ritual FIRES (this). This one
 # is the firing point and nothing else.
-TRIGGER_THRESHOLD = 0.92
+# MOVED 0.92 -> 0.88 on 2026-09-17 (council-503b8d8eeda8), and the signal is
+# the one named twelve lines up: "a compaction that lands with extraction not
+# yet run for that cycle." It landed. Andrew saw it from outside: "i noticed
+# compaction has started happening at around 960k tokens vs 999k so the entire
+# ritual likely needs moved back to 900k or 880k or something to give you room."
+#
+# So the external limit drifted DOWN by roughly 40k without announcing it --
+# the second of the two moving things this comment already warned about, moving
+# in the direction nobody checks. At 0.92 the gap that is documented as needing
+# to cover the WHOLE ritual had quietly become 40k, half its design size, and
+# the ritual was cut mid-stage in the session that measured this: the compass
+# walk was refused by a gate, the hard stop fired, and extraction never ran.
+#
+# THIS IS A BELIEF ABOUT AN UNMEASURED BOUNDARY, NOT A MEASUREMENT. Nothing in
+# this system compares this number against where compaction actually lands. The
+# discovery mechanism for staleness is a human noticing, which is what happened
+# here and is not a mechanism at all. The real repair is to DERIVE the trigger
+# from observed compaction points, so the drifting quantity is read rather than
+# remembered -- the principle that makes the ledger reliable is that my memory
+# is not load-bearing anywhere in it, and this constant is load-bearing on
+# somebody remembering to re-check a limit they get no alert for. Not built
+# today, and naming it here so a re-slack is not mistaken for a fix.
+#
+# AND THE NEXT CLEAN COMPACTION PROVES NOTHING. A threshold with far too much
+# margin and one with exactly enough produce identical clean sessions, so
+# confirmation is unavailable by construction. This number can only ever be
+# corrected by being wrong. Against a drift nobody measures, the honest error
+# is more margin than the model suggests -- do not tune it tighter to reclaim
+# runway, because the cost of that lands weeks later as a lost extraction with
+# nothing pointing back to the tuning.
+TRIGGER_THRESHOLD = 0.88
 
 # Defer discipline. When a session-fresh goal is actively being worked, the
 # fire defers by ``DEFER_STEP`` tokens and re-checks. Cap defers so the

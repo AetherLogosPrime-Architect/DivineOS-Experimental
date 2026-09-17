@@ -1,4 +1,23 @@
 #!/usr/bin/env bash
+# INTENTIONALLY UNWIRED (2026-09-17, council-e94f39f7aba2) — AND THE CONDITION
+# THAT EXPIRES THAT IS NAMED, because a header saying "not yet" with no
+# condition is a parking space, and the register prints this claim without
+# checking it.
+#
+# THE CONDITION: this cannot be wired until each prime it would wrap has a
+# floor file at .claude/hooks/residuals/<source_id>.txt naming what survives
+# suppression. Those files do not exist yet. Anyone can look in that directory
+# and see whether the excuse has run out — the day they exist, this header is
+# stale and should be challenged.
+#
+# WHY IT IS NOT SIMPLY DELETED, since that case is strong: Andrew reframed what
+# this does as a stopgap — it answers whether TEXT repeated, not whether the
+# thing was already in mind — and Aria supplied the design that answers the real
+# question. But the measurement that prompted it stands unaddressed: roughly
+# 6500 tokens ahead of every prompt and 2500 riding each substrate-touching
+# call, much of it byte-identical repetition. Deleting the response does not
+# delete the cost.
+#
 # dedup-wrap.sh — put context_dedup in FRONT of a prime instead of inside it.
 #
 # WHY THIS EXISTS. Andrew 2026-09-17: "is something being injected every post?
@@ -50,7 +69,7 @@
 set -uo pipefail
 
 SOURCE_ID="${1:-}"
-shift || true
+shift || true  # fail-soft: the swallowed error is shift's complaint when no arguments were passed at all. Losing it is safe because the very next block catches that exact case by testing SOURCE_ID and the argument count, and reports it loudly on stderr as BROKEN rather than proceeding — so the condition is surfaced one line later with a better message than shift would have given.
 
 if [ -z "$SOURCE_ID" ] || [ "$#" -eq 0 ]; then
   # Misconfiguration. Run nothing rather than guess, and say so on stderr
@@ -86,8 +105,34 @@ fi
 
 RESIDUAL_FILE=".claude/hooks/residuals/${SOURCE_ID}.txt"
 
-PY="${DIVINEOS_HOOK_PYTHON:-python}"
-command -v "$PY" >/dev/null 2>&1 || PY=python3
+# SHARED INTERPRETER LOOKUP, NOT A BARE NAME (2026-09-17, council-149295eb93ce).
+# This file reached for a bare interpreter and `command -v`, and a test that
+# already existed caught both. The rule is not stylistic: a bare name resolves
+# to whatever the shell finds first, and on this machine that has been proven
+# to be something that cannot start -- my own probe hit it an hour before this
+# was written and silently never ran the gate it was testing. Same class, twice
+# in one day.
+#
+# This wrapper happens to fail safe (a missing interpreter prints the full
+# content rather than going quiet) but a convention that holds everywhere
+# except the newest file is not a convention, and whoever copies this as a
+# template inherits the hole.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || true  # fail-soft: the swallowed error is a missing or unreadable shared library. Losing it is safe because the interpreter lookup it provides is tested for directly on the next lines, and its absence takes the loud path — printing the prime in FULL and saying why on stderr. Suppressing here only stops a sourcing complaint from landing in the gate's own error channel where it would read as the prime having failed.
+if command -v find_divineos_python >/dev/null 2>&1; then
+    PY="$(find_divineos_python)"
+else
+    PY=""
+fi
+# No resolver and no interpreter is not a reason to go quiet. Print in full and
+# say why on stderr: losing the suppression costs tokens, losing the prime
+# costs the discipline it carries.
+if [ -z "$PY" ]; then
+    echo "[dedup-wrap] no divineos python resolved -- emitting $SOURCE_ID in full, suppressing nothing." >&2
+    printf '%s\n' "$CONTENT"
+    exit 0
+fi
 
 CONTENT="$CONTENT" SOURCE_ID="$SOURCE_ID" RESIDUAL_FILE="$RESIDUAL_FILE" \
 "$PY" - <<'PYEOF' || { printf '%s\n' "$CONTENT"; exit 0; }

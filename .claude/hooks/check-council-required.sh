@@ -92,6 +92,79 @@ if [ -z "$PYTHON_BIN" ]; then
     exit 0
 fi
 
+# NO GATE MAY BLOCK ANOTHER GATE'S PRESCRIBED EXIT (2026-09-17, council-fd64195d31af).
+#
+# UNREVIEWED AT TIME OF WRITING. Andrew authorised this edit with a condition:
+# "as long as Aria knows about it and has taken a look to make sure its
+# correct." She has been written to and has not yet replied. This must not
+# reach main until she has.
+#
+# This gate kept a private exemption tuple and consulted nothing else, while a
+# SHARED remedy allowlist has existed since 2026-08-18 for exactly this class
+# and is sourced by nineteen other gates. Andrew's line in that file: "no gate
+# should ever be blocking its own remedy" -- and Aria's 2026-06-16 design says
+# the same one level up, that every gate needs an exit so I do not end up
+# trapped by my own keel.
+#
+# Today it closed three ways in one session. The verify-before-build gate
+# printed `divineos decide` as its remedy and this gate refused that command.
+# The compaction ritual printed `divineos compass-ops observe` as the way to
+# advance its own first stage and this gate refused that too. Both commands
+# were ALREADY in the shared list. The only gate that could not see them was
+# this one, because it was reading its own tuple instead of the file whose
+# entire purpose is holding the fact THIS COMMAND IS SOMEBODY ELSE'S WAY OUT.
+#
+# My reach was to widen the private tuple a third time. That tuple's own
+# comment warns that writing the rule a third time is the same fix applied
+# harder, and names what would actually close the class: a check refusing a
+# gate remedy whose filing command is not exempt. The shared list IS that, and
+# I extended the structure I was standing in rather than looking for it --
+# which is how all nineteen local exemptions came to be written separately.
+#
+# WHAT THIS DOES NOT DO. It does not loosen a single thing this gate refuses.
+# Every entry in the shared list is a RECORDING action, and that file pins as
+# permanent that it may never match git, gh, pytest, rm, or an editor. The
+# worst outcome of passage here is true things being written into the
+# substrate, which is the behaviour every one of these gates exists to produce.
+#
+# HOW TO TELL THIS BROKE, because a gate that went blind feels exactly like a
+# gate that got fixed and is strictly more pleasant to work next to: passage
+# through the shared list appends to ~/.divineos/remedy_passthrough.log. A
+# command that stops being blocked and leaves NO line there was let through by
+# something else, and this comment is then wrong about why.
+#
+# Fail-open by construction: a missing or broken allowlist short-circuits the
+# `&&` and this gate proceeds exactly as strict as it was before.
+# HOOK_NAME is read by remedy_pass_through inside the library sourced on the
+# next line, and the analyser cannot follow a path built at runtime, so it
+# reports an unused variable. That is it being unable to look, not a defect
+# here — and the proof is behavioural rather than a reading: every line in
+# ~/.divineos/remedy_passthrough.log carries a hook name, which it could not if
+# this were unread. Directive copied verbatim from check-pending-obligations.sh,
+# which solved this weeks ago and recorded what skipping it costs: without it
+# the wiring is uncommittable, which is how that file came to sit on disk
+# unversioned. Exporting instead would shape running code around a tool's blind
+# spot, which is how a blind spot becomes a design.
+# shellcheck disable=SC2034
+HOOK_NAME=check-council-required
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/lib/remedy_allowlist.sh" 2>/dev/null && remedy_pass_through "$INPUT"  # fail-soft: swallows a missing or broken shared library, and the failure runs toward STRICTNESS - the && short-circuits, the pass-through never runs, this gate keeps refusing. It cannot go permissive. Full argument, the untested partial-source case, and what to watch if it breaks are in the block directly below.
+# fail-soft: the swallowed error is a missing, unreadable or broken shared
+# library. WHICH WAY IT FAILS, and this is the part the line cannot show: the
+# `&&` short-circuits, the pass-through never runs, and this gate proceeds at
+# FULL strictness. A broken library cannot make this gate permissive — only
+# stricter. A warning is deliberately NOT printed because this gate's stderr is
+# where its REFUSALS are written, so a sourcing complaint there would read as
+# the gate itself failing and send the reader to the wrong file; a message that
+# misattributes a failure is worse than an absent one. WHAT TO EXPECT IF IT
+# BREAKS, since the error that would have said so is what is being discarded:
+# gates start refusing prescribed remedies again — the deadlock this repair
+# exists to end — and the tell that distinguishes a broken library from broken
+# gates is ~/.divineos/remedy_passthrough.log going quiet while refusals rise.
+# NOT TESTED: a PARTIALLY sourced file could define remedy_pass_through and
+# then fail, leaving it callable. The short-circuit argument above does not
+# cover that case and I have not manufactured it.
+
 echo "$INPUT" | "$PYTHON_BIN" -c "
 import json
 import sys

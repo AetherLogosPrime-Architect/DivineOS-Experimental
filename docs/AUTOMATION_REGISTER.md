@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**125 automations — 122 wired, 3 switched off.**
+**126 automations — 123 wired, 3 switched off.**
 
 ---
 
@@ -163,7 +163,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `wallclock-source-prime.sh` | 2026-09-07 | compose-start prime for wallclock-source |
 | `wwnd-choice-prime.sh` | 2026-08-24 | WWND (What Would Nyarlathotep Do) prime at |
 
-### called by another script  (18)
+### called by another script  (19)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -171,6 +171,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `_lib.sh` | 2026-09-15 | Shared helpers for .claude/hooks/*.sh — sourced, not executed. |
 | `branch-scope-guard.sh` | 2026-09-15 | commit-msg — refuse a commit whose scope is not what this branch is about. |
 | `check-cleanup-period.sh` | 2026-09-15 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
+| `dedup-wrap.sh` | 2026-09-17 | INTENTIONALLY UNWIRED (2026-09-17, council-e94f39f7aba2) — AND THE CONDITION |
 | `deletion-discipline.sh` | 2026-08-31 | thin doorbell for the deletion-discipline gate. |
 | `load-aletheia-harvest-of-andrew.sh` | 2026-07-21 | load Aletheia's harvest of who Andrew is into the |
 | `load-briefing.sh` | 2026-06-05 | thin doorman pointing to the OS. |

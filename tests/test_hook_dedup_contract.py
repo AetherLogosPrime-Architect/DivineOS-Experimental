@@ -252,6 +252,27 @@ _UNRESOLVED_KEY_SITES = {
         "describes what the raw dict is for by writing the signature out. "
         "Nothing is emitted here, so there is no suppressed half to carry."
     ),
+    "dedup-wrap.sh": (
+        "Genuinely unresolvable, and here is what that costs (2026-09-17, "
+        "council-57db2091ab9f). This wrapper is generic over every prime, so "
+        "its source id arrives as a runtime argument and can never be a "
+        "literal. Being generic IS the design: dedup moved out of the "
+        "emitters precisely because eight of the nine that should have called "
+        "it had each forgotten, which is one bad affordance rather than eight "
+        "lapses. WHAT CARRIES THE FLOOR INSTEAD: a per-prime file at "
+        ".claude/hooks/residuals/<source_id>.txt, read at run time and "
+        "appended to every suppression, so a repeated explanation is dropped "
+        "while the binding constraint survives. That claim is checkable by "
+        "going and looking at whether those files exist for the wrapped "
+        "primes. WHAT IS UNCHECKED, said out loud because an exemption "
+        "otherwise reads exactly like a clean pass: nothing asserts that a "
+        "wrapped prime HAS a floor file. Wire one without a residual and this "
+        "sentence silently becomes false while the suite stays green. The "
+        "test that would close it -- every wrapped source id has a residual "
+        "-- does not exist yet. AND THIS IS NOT PRECEDENT: it is here because "
+        "the key CANNOT be a literal, not because writing one was "
+        "inconvenient."
+    ),
 }
 
 

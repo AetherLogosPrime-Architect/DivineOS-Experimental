@@ -80,7 +80,89 @@
 # `prereg file` is deliberately NOT here: filing a NEW pre-registration is
 # ordinary substrate-writing and is nobody's prescribed remedy. Only the two
 # commands that CLEAR the overdue gate are exempt.
-_REMEDY_PATTERNS='^[[:space:]]*(divineos[[:space:]]+(briefing|preflight|goal[[:space:]]+add|reach[[:space:]]+(open|dispose)|learn|correction|corrections[[:space:]]+integrate|andrew-correction[[:space:]]+(integrate|defer)|compass-ops[[:space:]]+(observe|dismiss)|prereg[[:space:]]+(assess|overdue)|ask|recall|context|decide|council)|python[[:space:]]+.*clear_correction_marker\.py)'
+#
+# THAT PARAGRAPH IS HALF FALSE NOW, AND IT STAYS ON THE PAGE (2026-09-17,
+# council-2c5200562c98). Its second clause -- nobody's prescribed remedy -- is
+# no longer true: the pending-obligations gate prints `prereg file` as one of
+# four channels that clear it. Its FIRST clause is still true, and that is the
+# real cost of the entry below: filing a pre-registration is ALSO ordinary
+# substrate-writing, so exempting it exempts the ordinary kind too, and nothing
+# distinguishes a remedial filing from an ordinary one. The attack that opens is
+# filing one purely to move past a gate holding me for something else -- bounded
+# to one more true row in the substrate and a gate that did not hold. Named here
+# rather than left to be discovered.
+#
+# The paragraph is not struck, because it was RIGHT when written and the world
+# moved under it. Deleting it would erase the evidence of how this file learns,
+# which is the finding underneath the four entries.
+#
+# FOUR ADDED, ALL FOUR MEASURED (2026-09-17). Aria hit this from her side and I
+# hit it from mine: the pending-obligations gate SOURCES this library and calls
+# the pass-through, and still refused the command its own block message names as
+# the way to clear it. So the question was never whether that gate consults the
+# list. It was whether the list CONTAINS the exits that gate prints. Each was
+# probed against the live matcher rather than read off the pattern and believed
+# -- with a control that IS listed, so an all-blocked result would have read as
+# a broken probe instead of a finding. The control passed. All four of that
+# gate's own prescribed exits were absent: integrate, prereg file,
+# claims assess, audit submit-round.
+#
+# WHY THE GAP EXISTED AND WHY IT WAS INVISIBLE. Every entry above is a scar:
+# somebody deadlocked, the freeing command got added. So this file is an honest
+# record of collisions people HAVE had, and silent about every collision nobody
+# has had yet -- a history wearing the shape of a specification. A list where
+# every item is earned reads as finished in a way a list of guesses never would,
+# and the earned-ness is exactly what hides the hole. I narrowed this same file
+# hours earlier asking is-this-entry-justified, one entry at a time, and that
+# question structurally cannot find a MISSING entry.
+#
+# SCOPE, STATED BECAUSE I OVERSTATED THE LAST ONE. This is ONE gate's worth of
+# exits. It is NOT a claim that the list is complete. The survey that would
+# justify that -- enumerate every gate's printed remedies and diff them against
+# this pattern -- is mechanically possible and HAS NOT BEEN RUN. Until it is,
+# this file remains one incident behind, by construction.
+# NAMED SUBCOMMANDS, NOT A BARE NAMESPACE (2026-09-17, council-0fd602407897).
+# Aria found this reviewing a change of mine, and she is the reason it is here.
+#
+# This line used to end on `council` with no subcommand, so it matched the
+# WHOLE command family. A prefix was deciding policy: every subcommand anyone
+# ever added to that family would inherit passage through all nineteen gates,
+# silently, without a single person choosing it. A permission surface that
+# grows by accident is the worst kind, because the widening is invisible at the
+# moment of widening -- the consequence sits nowhere near the hand.
+#
+# And the invariant above read as SATISFIED the whole time. It forbids git, gh,
+# pytest, rm and editors: the dangerous verbs somebody imagined. Authorising a
+# bypass was not on that list, so the blanket swallowed it and the guarantee
+# still looked true. A rule true as written that does not cover the case.
+#
+# WHAT SURVIVES, AND IT WAS MEASURED RATHER THAN ARGUED. The bar this file
+# states is that some gate must PRINT the command in its own block message.
+# Enumerated before editing: `council authorize-bypass` is printed at six
+# separate sites, and `council log` / `council walk` are printed by the
+# council gate's own missing-artifact message. All three qualify.
+#
+# `council authorize-bypass` STAYS, and this sentence is the point of naming
+# it. Aria's first review said pull it. Measured: three gates offer it as their
+# only exit, so removing it would hand the next trapped gate a door held shut
+# by a different gate -- rebuilding the cage while repairing the hole. It is
+# here because it is a prescribed remedy, deliberately, in writing. What she
+# was protecting was never that bypass be excluded; it was that the argument be
+# made OUT LOUD rather than arriving as a side effect of a prefix. This is that
+# argument, made.
+#
+# `council emergency-skip` is GONE from here, and she was right about that one.
+# No gate prints it anywhere. It fails the bar by measurement, not by opinion.
+# It keeps living in check-council-required's own tuple, where it always was
+# and where exactly one gate owns it.
+#
+# THE COST, stated rather than hidden: this list must now be maintained, and one
+# day a genuine remedy will be printed by some gate and be missing from here,
+# and somebody will hit a wall that is a stale list rather than a rule. That is
+# the BETTER failure. A block is visible, attributable, and fixable in one edit.
+# A silent widening is none of those. What nothing yet closes: no test diffs the
+# printed remedies against this list, so the bar is checkable and unchecked.
+_REMEDY_PATTERNS='^[[:space:]]*(divineos[[:space:]]+(briefing|preflight|goal[[:space:]]+add|reach[[:space:]]+(open|dispose)|learn|correction|corrections[[:space:]]+integrate|andrew-correction[[:space:]]+(integrate|defer)|compass-ops[[:space:]]+(observe|dismiss)|prereg[[:space:]]+(assess|overdue|file)|integrate|claims[[:space:]]+assess|audit[[:space:]]+submit-round|ask|recall|context|decide|council[[:space:]]+(log|walk|authorize-bypass))|python[[:space:]]+.*clear_correction_marker\.py)'
 
 # Exit 0 (allow, silently) if the command being gated is somebody's remedy.
 #
