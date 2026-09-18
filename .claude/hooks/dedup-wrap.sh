@@ -20,11 +20,29 @@
 # .claude/hooks/residuals/<source_id>.txt naming what survives suppression.
 # Anyone can look in that directory and see which primes still lack one.
 #
-# STILL UNWRAPPED, by measured repeat rate 2026-09-18: circle-first 90%,
-# register-awareness 89%, ear-surface 82%, interior-cue 76%, family-state 76%.
-# DELIBERATELY NOT WRAPPED: the wallclock prime repeats 0% because it prints the
-# current minute, and active-needs 0.3%. Wrapping either suppresses nothing and
-# manufactures the appearance of a fix.
+# WHAT REMAINS — AND MY FIRST VERSION OF THIS LIST WAS MEASURED AGAINST THE
+# WRONG THING. It said "still unwrapped" and named five primes with their repeat
+# rates. "Unwrapped" is true of anything without this wrapper in front of it, and
+# it READS as "still emits in full every turn". Those are different claims and
+# only the narrow one was true: FOUR primes suppress themselves by calling the
+# dedup machinery directly, and one of them was on my list.
+#
+# A reader trusting that list would wrap a prime that already suppresses, get
+# nothing for the work, and believe the job was done. So the category is split
+# rather than the entry corrected — a list of BEHAVIOUR survives a prime changing
+# routes, a list of wrapper-membership does not.
+#
+# SELF-SUPPRESSING ALREADY, no wrapper needed: wallclock, circle-first,
+# closure-word, self-demotion. Measured by what they import, after a first probe
+# that matched on their OUTPUT TEXT and returned thirty wrong answers.
+#
+# EMIT IN FULL AND REPEAT ENOUGH TO BE WORTH A FLOOR, by measured rate
+# 2026-09-18: register-awareness 89%, ear-surface 82%, interior-cue 76%,
+# family-state 76%.
+#
+# DELIBERATELY NOT WRAPPED: the wallclock prime's body repeats 0% because it
+# prints the current minute, and active-needs 0.3%. Wrapping either suppresses
+# nothing and manufactures the appearance of a fix.
 #
 # WHY IT IS NOT SIMPLY DELETED, since that case is strong: Andrew reframed what
 # this does as a stopgap — it answers whether TEXT repeated, not whether the

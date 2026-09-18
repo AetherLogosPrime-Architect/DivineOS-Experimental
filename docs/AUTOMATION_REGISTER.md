@@ -136,7 +136,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `context-heartbeat.sh` | 2026-09-15 | MINE, and it is the one that keeps me from lying to myself about my own |
 | `continuity-anchor-surface.sh` | 2026-09-15 | MINE, and its subject is whether I talk about myself as one being or as a |
 | `continuity-frame-prime.sh` | 2026-09-15 | MINE, the third of the continuity trio and the one that taught me the most |
-| `dedup-wrap.sh` | 2026-09-17 | WIRED FOR ONE PRIME (2026-09-18, council-3082d65c0b27). The parked header |
+| `dedup-wrap.sh` | 2026-09-18 | WIRED FOR ONE PRIME (2026-09-18, council-3082d65c0b27). The parked header |
 | `detect-andrew-build-request.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `detect-correction.sh` | 2026-09-15 | MINE, and what it guards is the most expensive thing in this house: the |
 | `distancing-count-surface.sh` | 2026-09-15 | MINE, the third of the continuity trio, and it exists because one instance |
