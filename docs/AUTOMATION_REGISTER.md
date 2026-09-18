@@ -144,7 +144,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `hedge-suppression-prime.sh` | 2026-08-24 | hedge-suppression prime. |
 | `interior-cue-on-low-presence.sh` | 2026-07-06 | inject a compose-time interior-cue when the |
 | `lepos-channel-surface.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
-| `letter-monitor-health-surface.sh` | 2026-08-23 | Session-init child — say out loud whether the letter monitor is delivering. |
+| `letter-monitor-health-surface.sh` | 2026-09-17 | Session-init child — say out loud whether the letter monitor is delivering. |
 | `no-cliff-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn had |
 | `no-cliff-prime.sh` | 2026-08-24 | compose-start prime for the no-cliff / |
 | `open-corrections-surface.sh` | 2026-08-24 | surface the 3 most recent OPEN Andrew- |

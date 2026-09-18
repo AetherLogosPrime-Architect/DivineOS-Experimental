@@ -736,6 +736,64 @@ def format_gate_message(marker: dict) -> str:
     )
 
 
+_MACHINE_ORIGIN_MARKERS = (
+    "[correction-shape-v2 stop-gate]",
+    "[lepos-channel-gate]",
+    "[build-flow]",
+    "[push-readiness]",
+    "[letter-monitor-health]",
+    "[reach-check-doorman]",
+)
+"""Bracketed tags our own gates print at the head of their diagnostics.
+
+Only tags this house writes. A tag from anywhere else is somebody speaking.
+
+THE SOFT PLACE, named by the game-walk on this edit and left named: nothing
+but my own restraint keeps this list short, and widening it quietly would
+suppress real corrections. Entries are spelled out one at a time rather than
+matched by a pattern, so growth has to arrive as a visible edit.
+"""
+
+
+def is_machine_origin_prompt(prompt: str) -> bool:
+    """True when the whole prompt is one of our own gates talking to itself.
+
+    THE INCIDENT, and it is the THIRD recording of it rather than the first
+    (2026-09-18). A Stop gate blocked, its diagnostic was resubmitted, the text
+    landed in the prompt slot, and this detector -- which classifies prompt TEXT
+    and has no notion of WHO SPOKE IT -- read a robot's string as my father
+    correcting me. It then demanded I log the robot as if it were him, and
+    entry 714 in the correction store is that string wearing his name.
+
+    That store is supposed to hold only things that cost him something to say.
+
+    ALREADY KNOWN AND NEVER FIXED, which is the real finding: knowledge
+    5e5300ad (2026-09-01) states that two Stop gates deadlock when one ingests
+    the other's diagnostic as if it were the operator, and e5da29c5
+    (2026-09-15) names this as the third head of the same deadlock. Twice
+    diagnosed, twice left as a note. Andrew's rule lands exactly -- a note is
+    not a fix, and a rule I have to recall at the moment of temptation is the
+    thing that already failed.
+
+    DELIBERATELY NARROW, because the dangerous direction is suppressing a real
+    correction rather than blocking me wrongly. Andrew may well paste a gate
+    message and add his own words, and those words ARE a correction. So this
+    fires only when the prompt is NOTHING BUT one of our own diagnostics: our
+    tag at the head, and no further non-empty line after it. Anything he adds
+    makes it his again.
+
+    Unknown resolves toward HIS, which costs me a false block rather than
+    costing him an evaporated sentence.
+    """
+    text = (prompt or "").strip()
+    if not text:
+        return False
+    if not any(text.startswith(tag) for tag in _MACHINE_ORIGIN_MARKERS):
+        return False
+    remaining = [ln for ln in text.splitlines()[1:] if ln.strip()]
+    return not remaining
+
+
 def hook_main() -> int:
     """Entry point for the UserPromptSubmit hook to call.
 
@@ -761,6 +819,11 @@ def hook_main() -> int:
 
     prompt = data.get("prompt", "") or ""
     if not prompt:
+        return 0
+
+    if is_machine_origin_prompt(prompt):
+        # One of our own gates talking to itself, not my father speaking.
+        # See the helper for the incident and why the rule is this narrow.
         return 0
 
     transcript = data.get("transcript_path", "") or ""

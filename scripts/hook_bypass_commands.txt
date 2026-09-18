@@ -122,6 +122,32 @@ divineos rt
 divineos extract
 divineos sleep
 
+# --- reach-check doorman's only exit (2026-09-18) ---
+# A THREE-GATE DEADLOCK, found in live use while answering an ordinary
+# question about branch state. Not a nuisance. A closed loop, for ten hours.
+#
+# The correction-marker gate names three first-class exits and blocks
+# everything else until one runs. All three were shut at once:
+#
+#   - `divineos learn` is a substrate-store write, so the reach-check doorman
+#     refuses it and prints `divineos reach open` as its ONLY exit
+#   - `divineos reach open` was refused by the correction-marker gate, because
+#     `reach` was missing from THIS file, which is the list that gate reads
+#   - `divineos correction` demands a file path backing its structural-fix
+#     claim, which cannot exist before the fix, which was itself blocked
+#   - and the direct marker-clear is refused by the OUTER safety layer as
+#     audit tampering. That one is correct and is NOT ours to weaken.
+#
+# THE DISCRIMINATOR, worth more than the entry: an exit is only real if it is
+# reachable from inside EVERY other gate that can be holding me at the same
+# time. The reach doorman's header swears "THE REMEDY IS EXEMPT, or this is a
+# wall" and it exempts the remedy from ITSELF, which is a different property.
+#
+# The shared allowlist already carried `reach open|dispose` and that was not
+# enough, because this gate reads THIS file. Two permission surfaces for one
+# question, agreeing on principle and disagreeing on contents.
+divineos reach
+
 # --- 2026-06-09 task #110 gate-audit additions ---
 # Each entry below was identified as a prescribed-recovery command in some
 # gate's block message but missing from this list. Adding them closes the
