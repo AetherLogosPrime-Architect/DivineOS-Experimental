@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (114 rows). **Exported:** 2026-09-14 14:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (115 rows). **Exported:** 2026-09-17 10:25. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -964,7 +964,7 @@
 
 ---
 
-## prereg-6 [OPEN]
+## prereg-6 [INCONCLUSIVE]
 
 **Mechanism:** post-compaction fingerprint surface — RE-REVIEW, supersedes the wrong FAILED on prereg-c12f6744c6b7
 
@@ -976,7 +976,7 @@
 
 ---
 
-## prereg-5 [OPEN]
+## prereg-5 [INCONCLUSIVE]
 
 **Mechanism:** F57 identity unreadable-slot — VERIFIED, closes prereg-5c1597cb47bd
 
@@ -1369,6 +1369,18 @@
 **Success:** Within the next several working sessions, at least one repeat-stretch is caught and its common cause found at a count BELOW the nine it took unaided, with the catch traceable to the block having fired.
 
 **Falsifier:** Either direction kills it. ONE: a stretch reaches nine or more again while the block was firing throughout, which means seeing the count changes nothing and the intervention is decorative. TWO: the block fires in most sessions and no stretch-driven catch is recorded, which means it has become furnit
+
+---
+
+## prereg-3 [OPEN]
+
+**Mechanism:** A shared digest both agents append to, collapsing on the event and keeping per-author readings, reduces what Andrew has to read without losing what he needs
+
+**Claim:** Two agents reporting the same events separately produces redundancy he tunes out. One store that collapses on the event and preserves differing readings gives him one message per event, with disagreement visible.
+
+**Success:** Across a working stretch, the rendered recap has one entry per event rather than one per agent, and every case where Aether and I read the same event differently appears with both names and both readings.
+
+**Falsifier:** He reports the recap is still a slog, OR a disagreement between us is collapsed into one voice in a real render, OR neither of us actually writes to it during a stretch and it becomes another unreached tool.
 
 ---
 

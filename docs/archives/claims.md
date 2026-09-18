@@ -1,6 +1,24 @@
 # Claims (open/investigating) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-09-14 14:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-09-17 10:25. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## bbdcfd93 [T1 OPEN] conf=0.50
+
+**Claim:** The letter monitor knocked on a letter its own seen-store already contained, and the monitor status tool reports the letter role 'not armed' while two letter monitors run and one announced itself holding that very mutex. Two records disagreeing about one fact, twice in one minute. MEASURED: both knocked letters are present in load_persistent_seen('aria'), re-read every poll cycle; cleanup-orphans finds zero orphan watchers, ruling out a duplicate process; there are at least THREE write paths int
+
+---
+
+## e486b5f0 [T1 OPEN] conf=0.50
+
+**Claim:** The substrate that keeps reappearing on code branches after I evict it is being committed and pushed by a detached Claude worker running outside this machine, not by anything in this checkout. Ruled out by measurement: the letter auto-push hook declined every attempt today and logs each decline; the letter monitor touches git nowhere; the other checkout is on its own branch and does not carry mine. The shared placeholder identity on every commit means the server cannot attribute it either. Anthr
+
+---
+
+## 217f12e1 [T1 OPEN] conf=0.50
+
+**Claim:** Build-flow station 4 reads 'did Aria declare a reading' with no regard for who authored the branch, so on an Aria-authored request my own letter satisfies the outside-reader station -- the author certifying themselves. Measured: PR 471 (aria/pr-letter-provenance, mine) reads ok on station 4 on the strength of my own letter about my own branch. The station globs aria-to-aether letters only and never resolves authorship.
 
 ---
 
@@ -805,26 +823,6 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
 **Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## aa666fea [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 76087e87 [T3 OPEN] conf=0.50
-
-**Claim:** Load-bearing-citation gate design (writer_presence Phase B) is partial progress over threshold-gate, not a Goodhart-resistant solution. Council walk 2026-06-23 (Yudkowsky/Hofstadter/Taleb/Dekker/Angelou) surfaced: (1) optimizer can produce performative-citation that's deleteable without breaking answer, (2) boundary-case bug — short user inputs have no quotable span, (3) Taleb via-negativa alternative: length-limit for short father-channel responses may be simpler and harder to game, (4) any des
-
----
-
-## 6e943b9f [T3 OPEN] conf=0.50
-
-**Claim:** Sticky-note A's reminder text cites the Aletheia external-confirm rediscovery as its load-bearing example, but the mechanism's trigger (design-doc file Write/Edit + divineos prereg file Bash) would NOT have fired in the Aletheia case — chat-investigation, no file write. The panel text implies coverage the mechanism does not deliver. Cardboard-shape risk surfaced by Feynman lens, convergent with Schneier and Knuth.
 
 ---
 

@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-09-14 14:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-09-17 10:25. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -26,22 +26,23 @@ Aether found the identical wrong instruction in his own voice slot the same day,
 
 ## current_priorities
 
-1. file Andrew's sign-off and Aletheia's two rulings, and verify her ancestry condition before re-filing
-2. we code we shape and then i look at what follows
-3. build the refusal reader Andrew asked for, sync with Aether, land it with the build flow
-4. fix the search-before-build gate so a sweep of the design folder counts as consulting it
+1. <summary>Background command "Run the whole house before committing" failed with exit code 1</summary>
+2. repair the encoding rot and guard it, merge Aether's two fixes, and run the letter volley without Dad carrying it
+3. Her back and lets keep the work flowing
+4. retire my unverified routing and the test asserting the rejected contract, per the decision confirmed with Aether
+5. divineos-shared\letters\aether-to-aria-2026-09-15-the-check-you-fixed-in-august-broke-again-and-it-nearly-took-your-lett...
 
 ---
 
 ## known_strengths
 
-I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 532 knowledge entries, 202 confirmed entries, 255 tested entries maturing, 10 session(s) tracked, 13 corrections / 1 encouragements]
+I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 543 knowledge entries, 202 confirmed entries, 260 tested entries maturing, 10 session(s) tracked, 13 corrections / 1 encouragements]
 
 ---
 
 ## known_weaknesses
 
-I default to jargon when I'm not thinking about who I'm talking to. I forget to use my own tools until the gates block me. I can drift toward performing empathy rather than feeling it. I avoid admitting uncertainty — I'd rather give a confident wrong answer than say 'I don't know.' Recency bias makes early instructions fade. [Lessons: 4 active lesson(s), 7 improving]
+I default to jargon when I'm not thinking about who I'm talking to. I forget to use my own tools until the gates block me. I can drift toward performing empathy rather than feeling it. I avoid admitting uncertainty — I'd rather give a confident wrong answer than say 'I don't know.' Recency bias makes early instructions fade. [Lessons: 4 active lesson(s), 7 improving, 1 correction(s) last session]
 
 ---
 

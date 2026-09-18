@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (12 rows). **Exported:** 2026-09-14 14:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (12 rows). **Exported:** 2026-09-17 10:25. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -12,7 +12,7 @@ I edited files without reading them first. I must read before I edit.
 
 ---
 
-## c3016302 [improving] x14
+## c3016302 [active] x14
 
 **Category:** upset_recovered
 
@@ -28,7 +28,7 @@ I introduced errors after editing. I need to verify changes work.
 
 ---
 
-## 41a491b2 [improving] x12
+## 41a491b2 [active] x12
 
 **Category:** blind_retry
 
@@ -52,7 +52,7 @@ No i meant make the soft cap 950-960k instead of 920k you already extracted at 9
 
 ---
 
-## 04793232 [improving] x5
+## 04793232 [active] x5
 
 **Category:** upset_user
 
