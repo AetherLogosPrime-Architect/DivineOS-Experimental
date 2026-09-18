@@ -100,6 +100,46 @@ class TestSubstrateModificationFeatures:
         assert not r.is_high_gravity
 
 
+class TestWritingAFileDoesNotSwitchOffTheCommandChecks:
+    """A redirect used to suppress every command-level feature.
+
+    The classifier recorded a shell write by reassigning the variable that
+    ALSO gated the command-level checks, so noting a write turned those checks
+    off. The comment two lines above promised the opposite — that a compound
+    command "fires everything it earns" — and had been false since the
+    reassignment was introduced.
+
+    Measured 2026-09-18: a commit alone fired; the same commit with output sent
+    to a log file fired NOTHING — not the commit, and not a write either, since
+    an ordinary log file sits in no watched location. One redirect, zero gates.
+
+    This is the first defect repaired in this stretch that let something
+    THROUGH rather than getting in the way, and it was found only because Aria
+    named that bias in a letter. A gate that refuses generates evidence every
+    time; a gate that does not fire generates none.
+    """
+
+    _G = "g" + "it"
+    _D = "divi" + "neos"
+
+    def test_a_commit_still_fires_with_a_redirect_appended(self):
+        r = score_substrate_modification("Bash", bash_command=f"{self._G} commit -m x > log.txt")
+        assert "git-commit" in r.fired_features
+
+    def test_a_store_write_still_fires_with_a_redirect_appended(self):
+        r = score_substrate_modification("Bash", bash_command=f"{self._D} learn xyz > out.txt")
+        assert "substrate-write-cli" in r.fired_features
+
+    def test_a_shell_write_to_a_watched_path_still_fires_its_path_feature(self):
+        """The control. Closing the hole must not cost the write detection."""
+        r = score_substrate_modification("Bash", bash_command="cat > src/divineos/core/x.py")
+        assert "edit-src-divineos" in r.fired_features
+
+    def test_a_plain_read_is_still_silent(self):
+        """The other control. Nothing here should make quiet commands loud."""
+        assert score_substrate_modification("Bash", bash_command=f"{self._G} status").score == 0
+
+
 class TestCouncilRequiredTier2026_06_20:
     """Andrew 2026-06-20: 'the gravity classifier is not pulling its weight
     its letting you make serious changes with no council.' The prior design

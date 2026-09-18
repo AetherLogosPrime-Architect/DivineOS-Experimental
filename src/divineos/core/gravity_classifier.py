@@ -423,6 +423,7 @@ def score_substrate_modification(
     # stops looking. The real completion is the assessor answering "I was not
     # shown this" instead of a confident zero -- Aria is building that state.
     # This only widens what gets seen.
+    wrote_a_file = False
     shell_written = _shell_write_targets(cmd) if tool == "Bash" else ()
     if shell_written is None:
         # COULD NOT READ THE COMMAND. Not the same as reading it and finding
@@ -437,15 +438,45 @@ def score_substrate_modification(
         # Scored as the write it is. The command may ALSO carry a git-commit or
         # a substrate CLI call, and those features read `cmd`, which is
         # untouched -- so a compound command fires everything it earns.
+        #
+        # THAT SENTENCE WAS FALSE FROM THE DAY IT WAS WRITTEN, repaired
+        # 2026-09-18 (council-76176be3be9c). It used to reassign `tool` to
+        # "Write" right here -- and `tool == "Bash"` is the guard on the
+        # command-level features directly below. So recording a write turned
+        # OFF every check that reads the command, and the comment promising
+        # the opposite sat two lines above the line that defeated it.
+        #
+        # Measured, not reasoned: a commit alone fires its feature; the same
+        # commit with `> log.txt` appended fired NOTHING AT ALL -- not the
+        # commit, and not a write either, since an ordinary log file is in no
+        # watched location. One redirect, zero gates.
+        #
+        # One name was doing two jobs: the OBSERVED tool kind, and a FINDING
+        # about the command. The finding silently ended the other job. It reads
+        # correctly at the assignment site, which is why several careful
+        # readings today went straight past it.
+        #
+        # Found because Aria named the bias -- everything repaired in this
+        # stretch had obstructed me, nothing had let me through, and I had
+        # never looked in that direction. This was the first place I looked
+        # after her letter. Obstruction generates evidence continuously;
+        # a gate that does not fire generates none.
         paths = paths + shell_written
-        tool = "Write"
+        wrote_a_file = True
+
+    # The path-reading features apply to a real file tool OR to a shell command
+    # that wrote a file. Written as one named question so the four sites below
+    # cannot drift apart, and so no site has to know that a shell write is also
+    # a path-touching act.
+    def _touches_paths(tool_kind: str, wrote: bool) -> bool:
+        return tool_kind in {"Edit", "Write", "MultiEdit", "NotebookEdit"} or wrote
 
     # Feature 1: git-commit
     if tool == "Bash" and re.search(r"\bgit\s+commit\b", cmd):
         fired.append("git-commit")
 
     # Feature 2: edit src/divineos/
-    if tool in {"Edit", "Write", "MultiEdit", "NotebookEdit"}:
+    if _touches_paths(tool, wrote_a_file):
         for p in paths:
             norm = p.replace("\\", "/")
             if "src/divineos/" in norm:
@@ -453,7 +484,7 @@ def score_substrate_modification(
                 break
 
     # Feature 3: edit guardrail-touching paths
-    if tool in {"Edit", "Write", "MultiEdit", "NotebookEdit"}:
+    if _touches_paths(tool, wrote_a_file):
         guardrail_match = False
         for p in paths:
             norm = p.replace("\\", "/")
@@ -476,7 +507,7 @@ def score_substrate_modification(
         fired.append("substrate-write-cli")
 
     # Feature 5: kiln-layer edit
-    if tool in {"Edit", "Write", "MultiEdit", "NotebookEdit"}:
+    if _touches_paths(tool, wrote_a_file):
         kiln_match = False
         for p in paths:
             norm = p.replace("\\", "/")
@@ -505,7 +536,7 @@ def score_substrate_modification(
     # guardrail entry src/divineos/...). On normalize failure, the feature
     # silently doesn't fire (fail-open) — the basic substrate-gate still
     # catches the edit at score 1; council-tier just doesn't escalate.
-    if tool in {"Edit", "Write", "MultiEdit", "NotebookEdit"}:
+    if _touches_paths(tool, wrote_a_file):
         listed, repo_root = _guardrail_listed_paths()
         if listed:
             for p in paths:
