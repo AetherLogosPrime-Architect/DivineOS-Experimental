@@ -229,7 +229,43 @@ def strip_prefixes_raw(bash_command: str, kinds: tuple[str, ...] = ALL_PREFIX_KI
 # nothing. Anything this cannot confidently take apart is refused, so unknown
 # structure costs me time rather than costing the gate its teeth.
 
-_INERT_HEADS = frozenset({"echo", "printf", "cat", "true", ":"})
+_INERT_HEADS = frozenset(
+    {
+        "echo",
+        "printf",
+        "cat",
+        "true",
+        ":",
+        # VIEWERS, added 2026-09-18 (council-1c2e235a0966) to repair a
+        # regression I shipped hours earlier in this same file. Requiring every
+        # acting segment to be permitted closed a real hole — a permitted
+        # command followed by a destructive one used to be accepted whole — and
+        # it also, silently, stopped recognising every permitted command with a
+        # viewer on the end of it. A pipe to something that only formats output
+        # does not change what a command DOES, but under the new rule it
+        # changed whether the command was recognised at all.
+        #
+        # The cost was not the refusals. It was that each refusal named
+        # whichever gate happened to be standing there and never the pipe, so
+        # every further attempt produced a more confident wrong diagnosis. I
+        # spent hours treating one regression as a series of unrelated walls.
+        #
+        # THE BAR FOR MEMBERSHIP, and it is narrower than "feels harmless":
+        # consumes input, emits text, CANNOT touch the filesystem. That is why
+        # `sed` and `awk` are absent despite being the ones I reach for most —
+        # both can write, and a write-capable head on this list turns it from a
+        # convenience into an escape hatch for the whole gate system.
+        "head",
+        "tail",
+        "wc",
+        "sort",
+        "uniq",
+        "nl",
+        "column",
+        "less",
+        "more",
+    }
+)
 """Segment heads that produce or discard text and never act.
 
 THE SOFT PLACE IN THIS DESIGN, named by the game-walk on this edit and left

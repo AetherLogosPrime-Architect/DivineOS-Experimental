@@ -194,8 +194,53 @@ class TestTheInertListIsPinnedByName:
     """
 
     def test_the_inert_heads_are_exactly_these(self):
-        assert _INERT_HEADS == frozenset({"echo", "printf", "cat", "true", ":"})
+        assert _INERT_HEADS == frozenset(
+            {
+                "echo",
+                "printf",
+                "cat",
+                "true",
+                ":",
+                # Viewers, 2026-09-18. See the module for why, and for the bar.
+                "head",
+                "tail",
+                "wc",
+                "sort",
+                "uniq",
+                "nl",
+                "column",
+                "less",
+                "more",
+            }
+        )
 
     def test_nothing_inert_can_write_or_destroy(self):
         for head in _INERT_HEADS:
             assert head not in {"rm", "mv", "cp", "dd", "tee", "curl", "wget", "sh", "bash"}
+
+    def test_the_write_capable_filters_stay_out(self):
+        """The two I reach for most, and the two that would make this an escape.
+
+        Both read like viewers and both can write — one in place, one by
+        redirecting from inside its own program text. A head on this list is
+        trusted by EVERY gate at once, so convenience is not a qualification.
+        """
+        assert "sed" not in _INERT_HEADS
+        assert "awk" not in _INERT_HEADS
+
+    def test_a_permitted_command_piped_to_a_viewer_is_still_that_command(self):
+        """The regression this addition repairs, pinned so it cannot return.
+
+        Requiring every acting segment to be permitted was correct and closed a
+        real hole. It also stopped recognising every permitted command with a
+        viewer on the end, which is the shape nearly every remedy is typed in.
+        """
+        # The splitter re-joins parsed tokens, so quoting is normalised away.
+        assert acting_segments("divineos prereg file 'x' | tail -8") == ["divineos prereg file x"]
+        assert acting_segments("divineos council log --edit a | head -20") == [
+            "divineos council log --edit a"
+        ]
+
+    def test_a_forbidden_command_behind_a_viewer_is_still_forbidden(self):
+        """The control. Widening the inert set must not launder an acting head."""
+        assert acting_segments("tail -5 notes.txt && rm -rf /tmp/x") == ["rm -rf /tmp/x"]

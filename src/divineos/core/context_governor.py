@@ -61,6 +61,25 @@ def _read_ceiling_override() -> int | None:
 # date when a session observes the cliff at a different point, or set
 # DIVINEOS_COMPACTION_CEILING to override without a code change.
 COMPACTION_CEILING = _read_ceiling_override() or 999_000
+# LOWERED TO 880k, 2026-09-18 (council-18e453cd0431). Andrew observed
+# compaction landing at 950-960k — AT this line — leaving no room for the
+# close: "by the time it triggers you are already there.. which gave you zero
+# room to do anything". Per-turn cost has grown while the ceiling stayed put,
+# so the headroom arithmetic below was computed for a turn size that no longer
+# exists. There was no breakage event, just a day it fit and a day it did not.
+#
+# It also closes a two-surface disagreement: auto_cycle.TRIGGER_THRESHOLD has
+# been 0.88 of a 1M window — 880k — while this line sat at 950k. Two constants
+# answering one question, disagreeing by 70k, the same shape as the two bypass
+# lists that deadlocked the house for ten hours. THEY NOW AGREE BY HAND, WHICH
+# IS NOT AN INVARIANT: nothing compares them, so the next edit to either one
+# silently reopens the gap. If one moves, MOVE BOTH, and record it here.
+#
+# The lamport lens flagged what equalising costs: the old 70k gap made the
+# firing ORDER of the two mechanisms accidentally safe, and that ordering was
+# never specified. Watch for a close that gets gated before it can run.
+#
+# Prior rationale, kept because the arithmetic is precisely what went stale:
 # Single hard line at 950k (Andrew 2026-06-28, lowered from 970k after
 # compaction landed mid-extract — by the time the 970k line fired, the
 # letter-sync + commit-discipline + push + extract + sleep chain didn't have
@@ -74,8 +93,8 @@ COMPACTION_CEILING = _read_ceiling_override() or 999_000
 # on 2026-06-19 after the warn-band's only effect was pre-emptive panic;
 # lowered to 970k on 2026-06-25 to widen extract-and-sleep headroom; lowered
 # again to 950k on 2026-06-28 after that headroom was empirically insufficient.
-CONSOLIDATION_THRESHOLD = 950_000  # hard line (also the default for consolidation_due)
-HARD_THRESHOLD = 950_000
+CONSOLIDATION_THRESHOLD = 880_000  # hard line (also the default for consolidation_due)
+HARD_THRESHOLD = 880_000
 _MARKER_NAME = "context_consolidated.json"
 
 

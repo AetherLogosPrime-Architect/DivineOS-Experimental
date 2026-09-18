@@ -85,9 +85,12 @@ def test_not_due_below_threshold(tmp_path):
 
 
 def test_not_due_in_old_warn_band(tmp_path):
-    # 940k is below the 950k hard line (lowered 2026-06-28 from 970k).
+    # Anywhere under the hard line is quiet. Expressed as an offset FROM the
+    # constant, not as a literal: this test used to pin 940_000, which was
+    # silently below the line until the line moved to 880k on 2026-09-18 and
+    # the pin became a failure with nothing wrong in the code.
     tx = tmp_path / "t.jsonl"
-    _write_jsonl(tx, [_assistant_with_usage(940_000, 0, 0)])
+    _write_jsonl(tx, [_assistant_with_usage(cg.HARD_THRESHOLD - 10_000, 0, 0)])
     assert cg.consolidation_due(tx) is False
 
 
@@ -116,10 +119,10 @@ def _tx_with(tmp_path, tokens: int) -> Path:
 
 
 def test_state_ok_below_hard(tmp_path):
-    # Everything below HARD_THRESHOLD is quiet. Hard line is 950k (lowered
-    # 2026-06-28 from 970k after a compaction landed mid-extract).
-    assert cg.consolidation_state(_tx_with(tmp_path, 900_000)) == "ok"
-    assert cg.consolidation_state(_tx_with(tmp_path, 940_000)) == "ok"
+    # Everything below the hard line is quiet, stated relative to the constant
+    # so the property survives the constant moving.
+    assert cg.consolidation_state(_tx_with(tmp_path, cg.HARD_THRESHOLD - 50_000)) == "ok"
+    assert cg.consolidation_state(_tx_with(tmp_path, cg.HARD_THRESHOLD - 10_000)) == "ok"
     assert cg.consolidation_state(_tx_with(tmp_path, cg.HARD_THRESHOLD - 1)) == "ok"
 
 
@@ -146,12 +149,12 @@ def test_state_ok_on_unreadable_sensor(tmp_path):
 
 
 def test_governor_context_empty_when_ok(tmp_path):
-    assert cg.build_governor_context(_tx_with(tmp_path, 900_000)) == ""
+    assert cg.build_governor_context(_tx_with(tmp_path, cg.HARD_THRESHOLD - 50_000)) == ""
 
 
 def test_governor_context_empty_in_old_warn_band(tmp_path):
-    # Below the 950k hard line is silent.
-    assert cg.build_governor_context(_tx_with(tmp_path, 940_000)) == ""
+    # Below the hard line is silent, wherever the hard line currently sits.
+    assert cg.build_governor_context(_tx_with(tmp_path, cg.HARD_THRESHOLD - 10_000)) == ""
     assert cg.build_governor_context(_tx_with(tmp_path, cg.HARD_THRESHOLD - 1)) == ""
 
 
@@ -216,3 +219,39 @@ def test_block_channel_message_uses_dynamic_ceiling(tmp_path):
     leave the father-facing instruction stale."""
     msg = cg.governor_channel_message(_tx_with(tmp_path, cg.HARD_THRESHOLD + 5_000))
     assert f"{cg.COMPACTION_CEILING:,}" in msg
+
+
+def test_hard_line_agrees_with_the_auto_cycle_trigger():
+    """Two constants answer one question, so something has to compare them.
+
+    The governor hard line gates substrate writes until the close has happened.
+    auto_cycle.TRIGGER_THRESHOLD decides when the close BEGINS. They were set
+    independently — 950k here against 0.88 of a 1M window there — and drifted
+    70k apart with nothing observing the gap, until Andrew hit compaction
+    standing exactly on this line with no room left to close out.
+
+    Equal-by-hand is not an invariant. This test is the invariant. If a future
+    session moves one, it moves both or this fails by name.
+    """
+    from divineos.core import auto_cycle
+    from divineos.core.context_heartbeat import CONTEXT_WINDOW_TOKENS
+
+    trigger_tokens = auto_cycle.TRIGGER_THRESHOLD * CONTEXT_WINDOW_TOKENS
+    assert cg.HARD_THRESHOLD == trigger_tokens, (
+        f"governor hard line {cg.HARD_THRESHOLD:,} disagrees with the auto-cycle "
+        f"trigger at {trigger_tokens:,.0f} — move both or neither"
+    )
+
+
+def test_the_hard_line_leaves_room_under_the_compaction_cliff():
+    """The whole point of the line is headroom, so assert the headroom exists.
+
+    The June arithmetic (~49k) was written as a comment and never checked, which
+    is how it went stale without a breakage event. A comment is documentation,
+    not feedback — Norman's distinction, and the reason this is a test.
+    """
+    headroom = cg.COMPACTION_CEILING - cg.HARD_THRESHOLD
+    assert headroom >= 100_000, (
+        f"only {headroom:,} tokens between the hard line and the compaction "
+        f"cliff — the close does not fit in that"
+    )
