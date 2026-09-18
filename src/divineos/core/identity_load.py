@@ -242,10 +242,14 @@ def format_for_briefing() -> str:
     unconfirmed_lines: list[str] = []
     if _resolve_occupant()[1]:
         unconfirmed_lines = [
+            # No date in this string. Panel content is checked for hardcoded
+            # dates and this one leaked -- the incident belongs in the comments
+            # above, where a reader looking for history will find it, not in a
+            # surface that renders every session.
             "*OWNERSHIP UNCONFIRMED: the substrate could not be asked who lives "
             "here, so this document was located by filename convention rather "
-            "than by confirming it is mine. If it is somebody else's, that is "
-            "the 2026-09-17 defect and the identity below is not mine to load.*",
+            "than by confirming it is mine. If it belongs to somebody else, the "
+            "identity below is not mine to load.*",
             "",
         ]
 
