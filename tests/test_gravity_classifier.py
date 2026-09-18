@@ -12,6 +12,7 @@ unfinished-mechanism backlog the repaired initiative dial surfaced.
 
 from divineos.core.gravity_classifier import (
     _HIGH_IMPACT_FEATURES,
+    _shell_write_targets,
     CognitiveValueGravity,
     SubstrateModGravity,
     borderline_indicator_cognitive,
@@ -479,3 +480,45 @@ class TestCognitiveBorderlineIndicator:
     def test_boundary_values(self):
         assert borderline_indicator_cognitive(self._make(0.30)) == "borderline-high"
         assert borderline_indicator_cognitive(self._make(0.40)) == "clearly-high"
+
+
+class TestAnInlineBodyDoesNotHideTheFileBeingWritten:
+    """The module promises a shell write is named by its FILE, not the command.
+
+    It stopped being true for writes carrying an inline body: the body is
+    arbitrary text, an apostrophe in it broke the tokeniser, and the edit was
+    then named by two words of shell. The module's own docstring says why that
+    matters — one walk filed against two words of shell clears every write of
+    that shape in the tree, with the refusal and the walk each looking correct
+    on their own. Measured 2026-09-18 before the fix: same write, body and no
+    body, gave the filename in one case and the command shape in the other.
+    """
+
+    _NL = "\n"
+    _Q = "'"
+
+    def _heredoc(self, body: str) -> str:
+        return self._NL.join([f"cat >> tests/foo.py <<{self._Q}EOF{self._Q}", body, "EOF"])
+
+    def test_a_body_with_an_apostrophe_no_longer_hides_the_target(self):
+        assert _shell_write_targets(self._heredoc("don't stop")) == ("tests/foo.py",)
+
+    def test_a_body_with_an_unbalanced_double_quote_too(self):
+        assert _shell_write_targets(self._heredoc('a " quote')) == ("tests/foo.py",)
+
+    def test_a_write_after_the_body_is_still_found(self):
+        """The drop ends at the terminator — it does not swallow the rest."""
+        cmd = self._NL.join([f"cat > a.txt <<{self._Q}EOF{self._Q}", "data", "EOF", "cat > b.txt"])
+        assert _shell_write_targets(cmd) == ("a.txt", "b.txt")
+
+    def test_a_plain_write_is_unaffected(self):
+        assert _shell_write_targets("cat >> tests/foo.py") == ("tests/foo.py",)
+
+    def test_a_genuinely_unreadable_command_still_returns_none(self):
+        """The control that matters most: fail-toward-scrutiny is preserved.
+
+        None means could-not-read and is NOT an empty tuple. If this ever
+        returns () the blind spot reports clean, which is the fault the
+        could-not-read answer exists to prevent.
+        """
+        assert _shell_write_targets(f"echo {self._Q}unterminated") is None

@@ -248,6 +248,49 @@ _NOT_A_WRITE = ("/dev/null", "nul", "/dev/stderr", "/dev/stdout", "-")
 _INPLACE_WRITERS = ("tee",)
 
 
+_HEREDOC_RE = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
+
+
+def _without_heredoc_bodies(command: str) -> str:
+    """The command with inline bodies removed, so the command itself can be read.
+
+    WHY (2026-09-18, council-3b878b445dcc). A body supplied inline is arbitrary
+    text and routinely carries an unbalanced apostrophe, which makes the
+    tokeniser below refuse the whole command. The reader then honestly reports
+    that it could not read it, the caller correctly fails toward scrutiny, and
+    the edit gets named by the COMMAND SHAPE instead of by the file.
+
+    That is the precise outcome this module's own docstring says must not
+    happen: a walk filed against two words of shell clears every write of that
+    shape in the tree, with the refusal and the walk each looking correct in
+    isolation. The property was stated, and it had quietly stopped holding for
+    one of the commonest ways a file gets written here.
+
+    The assumption that broke it was treating BODY-CARRYING and UNREADABLE as
+    one category. They are not. The body is data; the line above it is a
+    perfectly readable command. Measured before changing anything: the same
+    write with and without a body gave the file name in one case and two words
+    of shell in the other.
+
+    The drop ends at the terminator rather than swallowing the rest of the
+    line, so a second write appearing after the body is still found.
+    """
+    match = _HEREDOC_RE.search(command)
+    if not match:
+        return command
+    lines = command.split("\n")
+    out: list[str] = []
+    pending: list[str] = []  # terminators we are currently inside
+    for line in lines:
+        if pending:
+            if line.strip() == pending[0]:
+                pending.pop(0)
+            continue  # body line: data, not command
+        out.append(line)
+        pending = [m.group(2) for m in _HEREDOC_RE.finditer(line)]
+    return "\n".join(out)
+
+
 def _shell_write_targets(command: str) -> tuple[str, ...] | None:
     """Paths this shell command appears to write, or None when it cannot read it.
 
@@ -284,6 +327,7 @@ def _shell_write_targets(command: str) -> tuple[str, ...] | None:
     """
     if not command:
         return ()
+    command = _without_heredoc_bodies(command)
     try:
         tokens = shlex.split(command, posix=True)
     except ValueError:

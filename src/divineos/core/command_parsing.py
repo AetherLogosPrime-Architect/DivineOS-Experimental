@@ -264,6 +264,28 @@ _INERT_HEADS = frozenset(
         "column",
         "less",
         "more",
+        # SHELL OPTIONS, added 2026-09-18 (council-de235c61e79d), because two
+        # guards were composing into a block that neither contained.
+        #
+        # The pipeline guard refuses a pipeline with no failure-propagation
+        # option — earned, since a swallowed exit code once reported a REFUSED
+        # push as landed — and its prescribed remedy is a `set -o pipefail`
+        # prefix. This matcher then saw that prefix as an acting segment on no
+        # permitted list, and the whole line stopped being a recognised remedy.
+        # So obeying one guard reliably disqualified me from the other, and the
+        # refusal that followed talked about my discipline and never once
+        # mentioned the prefix.
+        #
+        # Checked against the bar per candidate, not by category — "builtins"
+        # as a class would admit things that write. This one changes flags for
+        # the current shell, sets positional parameters, and prints the
+        # environment: no filesystem, no network, no child program.
+        #
+        # It launders nothing behind it. Stripping removes only the segment
+        # whose head matched; every other segment is still tested, so a
+        # destructive command after the prefix still fails. Pinned by test.
+        "set",
+        "shopt",
     }
 )
 """Segment heads that produce or discard text and never act.

