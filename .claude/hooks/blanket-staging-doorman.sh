@@ -62,7 +62,12 @@
 
 set -uo pipefail
 
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+
 payload=$(cat)
+INPUT="$payload"
 
 command=$(printf '%s' "$payload" | python -c '
 import json, sys
@@ -139,7 +144,9 @@ it.
 
 If this is the genuine case - a tree with no substrate in it, a harness that
 only echoes the form, or a one-off where you have read the full dirty list
-first - append this to the line and re-issue:
+first - append this to the line and re-issue (the shared nothing-ran notice
+follows this message; it is printed by the house helper rather than written
+out here, which is a lesson this door learned from its own test):
 
   # blanket-stage-ok: <reason, at least twenty characters>
 
@@ -154,11 +161,14 @@ nor an export on the same line is visible to the hook deciding. The exit did
 not exist. It was caught by this door's own acceptance test on the first
 fire.
 
--- nothing on this line ran --
-This refusal fired before the shell saw the command, and the line may join
-more than one clause. No clause executed: not the ones after the part named
-above, and not the ones before it. Answer the objection, then re-issue the
-WHOLE line.
 MESSAGE
+
+# The nothing-ran notice comes from the house helper rather than from prose
+# typed into the message above. I hand-wrote my own copy when I built this
+# door and the repo's own invariant test caught it: every refusing hook must
+# CALL this, so the wording stays one thing in one place instead of drifting
+# per door. Which is the fault this whole week has been about, committed by me
+# inside a door I built to catch a cousin of it.
+hook_say_nothing_ran_for "$INPUT"
 
 exit 2

@@ -120,7 +120,26 @@ from divineos.core.paths import divineos_home
 # denominator I fixed in context_meter earlier today: how full the window IS
 # (measured against 1_000_000) versus when the ritual FIRES (this). This one
 # is the firing point and nothing else.
-TRIGGER_THRESHOLD = 0.92
+# 2026-09-18, Andrew: compaction moved again, to ~950k from ~999k, and the
+# ritual now starts at 880k. So this drops from 0.92 to 0.87.
+#
+# 0.88 IS 880k, matching the driver's start exactly rather than sitting under
+# it. I first set 0.87 to keep a margin below the driver, citing the
+# paragraph above — and the tests caught it. That paragraph describes the
+# 0.82 era; by the time the value was 0.92 it already EQUALLED the driver's
+# 920k, so the below-the-driver property had been gone for a month and I was
+# restoring an invariant from a stale comment rather than from the code.
+#
+# Equality is safe here and the comparison is why: should_fire returns early
+# only when context_pct is STRICTLY below the threshold, so at exactly 0.88 it
+# fires. There is no band where the driver announces a ritual the pipeline
+# then declines.
+#
+# The lineage in the comment above has a third entry now: 970k, then 1M, then
+# 950k. Twice the platform moved and said nothing, and both times every number
+# in this house stayed where it was. That is the thing to notice about this
+# literal — it is not tuned, it is *reported*, and nothing reports it but him.
+TRIGGER_THRESHOLD = 0.88
 
 # Defer discipline. When a session-fresh goal is actively being worked, the
 # fire defers by ``DEFER_STEP`` tokens and re-checks. Cap defers so the
