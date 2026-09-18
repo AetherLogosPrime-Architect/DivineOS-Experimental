@@ -147,6 +147,54 @@ def test_a_search_with_no_docs_anywhere_is_not_a_consult():
     assert _consult_seen({"path": "src/divineos", "glob": "*.py", "pattern": "foo"}) is False
 
 
+def test_searching_the_class_directory_relatively_counts_as_a_consult():
+    """The twin of the docs repair, found by being blocked an hour later.
+
+    The class dir arrives ABSOLUTE. A search may name the same directory
+    RELATIVELY. The absolute string is not contained in the relative one, so
+    the substring test answered no to a question whose true answer was yes —
+    it decided string shape where the question was about place.
+
+    Hit live: two real prior-art searches of that exact directory were
+    invisible, and the identical search written absolutely passed. The fix a
+    dozen lines above it, made the same day, had corrected only the instance
+    then obstructing me.
+    """
+    import sys
+    import time as _time
+    import types
+
+    now = _time.time()
+    fake = types.ModuleType("divineos.core.tool_logbook")
+
+    def get_recent_events(**_kwargs):
+        return [
+            {
+                "timestamp": now - 5,
+                "payload": {"tool_name": "Grep", "tool_input": {"path": "scripts"}},
+            }
+        ]
+
+    fake.get_recent_events = get_recent_events  # type: ignore[attr-defined]
+    original = sys.modules.get("divineos.core.tool_logbook")
+    sys.modules["divineos.core.tool_logbook"] = fake
+    try:
+        seen = vbb._has_doc_consult_within(
+            "C:/DIVINE OS/DivineOS-Experimental/scripts", now - 1800, now, search_only=True
+        )
+    finally:
+        if original is not None:
+            sys.modules["divineos.core.tool_logbook"] = original
+        else:
+            del sys.modules["divineos.core.tool_logbook"]
+    assert seen is True
+
+
+def test_an_unrelated_directory_is_still_not_a_consult():
+    """The control on the widening. A different place must not pass."""
+    assert _consult_seen({"path": "family/letters"}, search_only=True) is False
+
+
 def test_a_markdown_glob_outside_docs_is_not_a_consult():
     """Both halves are required — a file-type alone is not a design-doc read."""
     assert _consult_seen({"path": "family/letters", "glob": "*.md"}) is False

@@ -522,6 +522,38 @@ def _has_doc_consult_within(
             # form of consult (Andrew 2026-07-27).
             if class_dir_norm and class_dir_norm in p_norm:
                 return True
+            # THE SAME CHECK, RELATIVE FORM (2026-09-18, council-de31dcd3fa6f).
+            #
+            # The substring test above only matches when the consult happened
+            # to be written in the SAME path shape as the class dir. The class
+            # dir arrives absolute; a search may name the same directory
+            # relatively; and the absolute string is not contained in the
+            # relative one. So the comparison answers NO to a question whose
+            # true answer is YES — it decides string shape where the question
+            # is about PLACE.
+            #
+            # Hit live: two real prior-art searches of that exact directory were
+            # invisible, and the identical search with an absolute path passed.
+            # Same family as the docs/*.md repair a dozen lines above, made
+            # earlier the same day — I fixed the instance obstructing me and
+            # left its twin standing, and what found the twin was being blocked
+            # again rather than reviewing my own work.
+            #
+            # WEAKER ON PURPOSE: comparing the final segment can be fooled by a
+            # same-named directory elsewhere in the tree. The stronger version
+            # resolves both sides to real paths, which means filesystem calls
+            # inside a hook that must never be slow or throw. Cost named rather
+            # than the stronger property claimed.
+            #
+            # STILL OWED, and not substituted for by this: the refusal should
+            # list the searches it DID see and judged insufficient, so a false
+            # negative is legible in one glance instead of requiring the reader
+            # to already suspect the mechanism.
+            if class_dir_norm:
+                tail = class_dir_norm.rstrip("/").rsplit("/", 1)[-1]
+                stripped = p_norm.rstrip("/")
+                if tail and (stripped.endswith("/" + tail) or stripped == tail):
+                    return True
 
     return False
 
