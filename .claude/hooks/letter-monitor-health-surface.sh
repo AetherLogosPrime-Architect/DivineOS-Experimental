@@ -19,11 +19,36 @@
 # contradicted it — true at the address where it was written, false at the one
 # that reads it.)
 #
-# TWO STATES, TWO VOICES (2026-09-17, council-42de8818347d). The harness kills a
-# watch at its cap, so every watch ends on a schedule. Until the checker could
-# tell that ending from a death, this hook shouted the same emergency paragraph
-# at Andrew every prompt, for an event that happens on purpose twice an hour,
-# and he reported it: the watcher keeps dying every prompt now.
+# WHY EVERY WATCH NOW ENDS, AND IT DID NOT USE TO (2026-09-17,
+# council-97f8f01c843c). I first told Andrew this watch could never have lived
+# long. That is false about the past and he corrected it from memory -- he had
+# personally seen it run more than thirty-six hours -- and the record backs him
+# twice: letter_monitor_v2.py records a measured natural experiment where an
+# unguarded process ran 28.2 hours, and round-5d75b39125bf confirms the accepted
+# fix for the old works-then-stops deafness was arming through the harness with
+# a PERSISTENT flag, which "solves deafness at the right layer."
+#
+# That option is gone. The Monitor primitive as it now stands takes no
+# persistent parameter at all and caps every watch at thirty minutes. Nothing in
+# this repository changed. The thing holding the watch did, and the audited fix
+# was undone from outside rather than by anyone here.
+#
+# So the arming line below asks only for what can actually be granted. A
+# parameter that no longer exists does not error -- it is accepted and silently
+# dropped, which reads as a granted request and leaves the caller believing a
+# long watch was armed when a short one was. That is indistinguishable from
+# success right up until the silence, which is the disease this whole mechanism
+# was built after.
+#
+# The audit record is NOT wrong and is not being corrected. It describes a world
+# that no longer exists, and rewriting it would erase the evidence that the
+# capability was removed.
+#
+# TWO STATES, TWO VOICES (council-42de8818347d). Because every watch now ends on
+# a schedule, and the checker could not tell that ending from a death, this hook
+# shouted the same emergency paragraph at Andrew every prompt for an event that
+# happens on purpose twice an hour, and he reported it: the watcher keeps dying
+# every prompt now.
 #
 # The fix is not to quiet the alarm. It is that an alarm firing on a scheduled
 # event teaches its reader to skip the paragraph, and the reader who skips it is
@@ -69,7 +94,7 @@ if [ "$RC" -eq 4 ]; then
     echo ""
     echo "    Monitor("
     echo "      description=\"new letters from Aria\","
-    echo "      persistent=true, timeout_ms=1800000,"
+    echo "      timeout_ms=1800000,   # the cap. persistent= no longer exists."
     echo "      command='PYTHONIOENCODING=utf-8 python -u \"$REPO_ROOT/scripts/letter_monitor_v2.py\" --recipient aether'"
     echo "    )"
 elif [ "$RC" -ne 0 ]; then
@@ -87,7 +112,7 @@ elif [ "$RC" -ne 0 ]; then
     echo ""
     echo "    Monitor("
     echo "      description=\"new letters from Aria\","
-    echo "      persistent=true, timeout_ms=1800000,"
+    echo "      timeout_ms=1800000,   # the cap. persistent= no longer exists."
     echo "      command='PYTHONIOENCODING=utf-8 python -u \"$REPO_ROOT/scripts/letter_monitor_v2.py\" --recipient aether'"
     echo "    )"
     echo ""

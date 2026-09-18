@@ -397,7 +397,13 @@ def main() -> int:
             "\n"
             "Arm it through the harness Monitor primitive instead:\n"
             '  Monitor(command="python -u scripts/letter_monitor_v2.py '
-            '--recipient <name>", persistent=True)\n",',
+            '--recipient <name>", timeout_ms=1800000)\n'
+            "\n"
+            "  There is no persistent flag any more. This recipe asked for one\n"
+            "  until 2026-09-17, and a parameter the tool no longer has is not\n"
+            "  refused -- it is accepted and silently dropped, so a half-hour\n"
+            "  watch arrives wearing the appearance of a long one. Thirty\n"
+            "  minutes is the ceiling now and asking for more is capped.\n",
             file=sys.stderr,
         )
         return 2
