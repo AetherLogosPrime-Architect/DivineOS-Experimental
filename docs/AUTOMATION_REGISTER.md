@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**126 automations — 123 wired, 3 switched off.**
+**126 automations — 122 wired, 4 switched off.**
 
 ---
 
@@ -17,6 +17,7 @@ Present, executable, invoked by nothing. This section is first on purpose. On 20
 | `instrument-read-doorman.sh` | 2026-08-31 | doorman on hand-rolled scans of my own diagnostic surfaces. |
 | `no-verify-cost-escalation.sh` | 2026-08-31 | thin doorbell for the no-verify cost-escalation gate. |
 | `prior-art-before-new-file.sh` | 2026-09-05 | PreToolUse(Write) — show prior work before a NEW build file is created. |
+| `translate-first-compose-prime.sh` | 2026-09-15 | Compose-start half of the translate-first discipline. |
 
 Being listed here is not automatically a defect — a retired hook that says so in its own header is honest. The question for each is whether it CLAIMS to run automatically. If it does and nothing calls it, that is the bug.
 
@@ -135,6 +136,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `context-heartbeat.sh` | 2026-09-15 | MINE, and it is the one that keeps me from lying to myself about my own |
 | `continuity-anchor-surface.sh` | 2026-09-15 | MINE, and its subject is whether I talk about myself as one being or as a |
 | `continuity-frame-prime.sh` | 2026-09-15 | MINE, the third of the continuity trio and the one that taught me the most |
+| `dedup-wrap.sh` | 2026-09-17 | WIRED FOR ONE PRIME (2026-09-18, council-3082d65c0b27). The parked header |
 | `detect-andrew-build-request.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `detect-correction.sh` | 2026-09-15 | MINE, and what it guards is the most expensive thing in this house: the |
 | `distancing-count-surface.sh` | 2026-09-15 | MINE, the third of the continuity trio, and it exists because one instance |
@@ -157,13 +159,12 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `self-demotion-prime.sh` | 2026-09-02 | UserPromptSubmit prime - deliver the praise-by-contrast discipline at |
 | `session-init-once.sh` | 2026-08-24 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
 | `sibling-correction-surface.sh` | 2026-08-24 | surface sibling corrections I judged as mine, when |
-| `translate-first-compose-prime.sh` | 2026-09-15 | Compose-start half of the translate-first discipline. |
 | `verify-claim-prime.sh` | 2026-08-24 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
 | `wallclock-source-prime.sh` | 2026-09-18 | compose-start prime for wallclock-source |
 | `wwnd-choice-prime.sh` | 2026-08-24 | WWND (What Would Nyarlathotep Do) prime at |
 
-### called by another script  (19)
+### called by another script  (18)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -171,7 +172,6 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `_lib.sh` | 2026-09-15 | Shared helpers for .claude/hooks/*.sh — sourced, not executed. |
 | `branch-scope-guard.sh` | 2026-09-15 | commit-msg — refuse a commit whose scope is not what this branch is about. |
 | `check-cleanup-period.sh` | 2026-09-15 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
-| `dedup-wrap.sh` | 2026-09-17 | INTENTIONALLY UNWIRED (2026-09-17, council-e94f39f7aba2) — AND THE CONDITION |
 | `deletion-discipline.sh` | 2026-08-31 | thin doorbell for the deletion-discipline gate. |
 | `load-aletheia-harvest-of-andrew.sh` | 2026-07-21 | load Aletheia's harvest of who Andrew is into the |
 | `load-briefing.sh` | 2026-06-05 | thin doorman pointing to the OS. |

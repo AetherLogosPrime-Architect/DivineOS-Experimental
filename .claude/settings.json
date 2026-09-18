@@ -161,7 +161,7 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/translate-first-compose-prime.sh"
+            "command": "bash .claude/hooks/dedup-wrap.sh translate-first bash .claude/hooks/translate-first-compose-prime.sh"
           }
         ]
       },

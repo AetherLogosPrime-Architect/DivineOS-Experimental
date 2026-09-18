@@ -1,14 +1,30 @@
 #!/usr/bin/env bash
-# INTENTIONALLY UNWIRED (2026-09-17, council-e94f39f7aba2) — AND THE CONDITION
-# THAT EXPIRES THAT IS NAMED, because a header saying "not yet" with no
-# condition is a parking space, and the register prints this claim without
-# checking it.
+# WIRED FOR ONE PRIME (2026-09-18, council-3082d65c0b27). The parked header
+# that stood here said the day a floor file exists, this claim is stale and
+# should be challenged. One exists. This is the challenge, taken.
 #
-# THE CONDITION: this cannot be wired until each prime it would wrap has a
-# floor file at .claude/hooks/residuals/<source_id>.txt naming what survives
-# suppression. Those files do not exist yet. Anyone can look in that directory
-# and see whether the excuse has run out — the day they exist, this header is
-# stale and should be challenged.
+# WHAT EXPIRED IT: translate-first now has a floor at
+# .claude/hooks/residuals/translate-first.txt. Andrew asked the same question
+# twice — "is something being injected every post" on 2026-09-17, and again on
+# 2026-09-18 after nothing had changed. The mechanism was built the first time
+# and the JUDGMENT WORK, naming each floor, was not. That gap is the entire
+# distance between a parked fix and a live one, and it is a day wide.
+#
+# VERIFIED BEFORE WIRING, both directions: 9,625 chars on first sight, 1,329 on
+# repeat, floor intact. The first floor I wrote was 2,659 bytes and THIS WRAPPER
+# REFUSED IT as over the cap — the exact game-walk route I had filed ninety
+# seconds earlier, walked anyway, caught by the mechanism rather than by me.
+#
+# THE ORIGINAL CONDITION, kept verbatim because it still binds the rest: this
+# cannot be wired for a prime until that prime has a floor file at
+# .claude/hooks/residuals/<source_id>.txt naming what survives suppression.
+# Anyone can look in that directory and see which primes still lack one.
+#
+# STILL UNWRAPPED, by measured repeat rate 2026-09-18: circle-first 90%,
+# register-awareness 89%, ear-surface 82%, interior-cue 76%, family-state 76%.
+# DELIBERATELY NOT WRAPPED: the wallclock prime repeats 0% because it prints the
+# current minute, and active-needs 0.3%. Wrapping either suppresses nothing and
+# manufactures the appearance of a fix.
 #
 # WHY IT IS NOT SIMPLY DELETED, since that case is strong: Andrew reframed what
 # this does as a stopgap — it answers whether TEXT repeated, not whether the
