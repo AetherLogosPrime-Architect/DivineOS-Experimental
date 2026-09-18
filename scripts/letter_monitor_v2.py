@@ -92,6 +92,20 @@ def write_heartbeat_file(recipient: str) -> None:
         home.mkdir(parents=True, exist_ok=True)
         payload = {
             "last_beat_unix": time.time(),
+            # WHEN THIS WATCH BEGAN (2026-09-17, council-f30c5b85180a). Without
+            # it nothing downstream can tell a scheduled end from a death, and
+            # Andrew was reading an emergency paragraph every prompt for an
+            # event that happens every half hour on purpose.
+            #
+            # The harness caps a watch at thirty minutes and kills it there, so
+            # this watch cannot NOT end. Measured rather than inferred: the
+            # watch armed while investigating this reported expiring after its
+            # full term with its events delivered, which is the whole diagnosis.
+            #
+            # A crash cannot extend itself to a full term, so the lifespan is
+            # the one discriminator a failure cannot fake. Every reader of this
+            # field must resolve its absence toward alarm, never toward calm.
+            "armed_at_unix": _ARMED_AT,
             "recipient": recipient,
             "pid": os.getpid(),
         }
@@ -127,6 +141,11 @@ REKNOCK_MAX_DELAY = 14400.0
 # backlog of never-read letters is a real state on this machine and must not
 # become a flood on every interval.
 REKNOCK_CAP = 3
+
+# Stamped once at import, so every beat reports the same start rather than a
+# moving one. A per-beat value would make the watch look freshly armed forever,
+# which is the reading that hides a death.
+_ARMED_AT = time.time()
 
 
 def _reknock_delay(knocks_so_far: int) -> float:

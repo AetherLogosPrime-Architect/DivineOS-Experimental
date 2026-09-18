@@ -65,6 +65,51 @@ HEARTBEAT_NAME = "letter_monitor_heartbeat.json"
 # the next check rather than thirteen days later.
 STALE_AFTER_SECONDS = 90
 
+# The harness kills a watch at thirty minutes. That is a ceiling, not a setting:
+# asking for longer is capped silently, so no watch ever lives past it and every
+# watch therefore ends. Before 2026-09-17 this file could not tell that ending
+# from a death, so a scheduled event rendered as an emergency and Andrew read
+# the emergency at the top of every prompt: "the Aria letter watcher keeps dying
+# every prompt now."
+#
+# An alarm that fires on a scheduled event teaches its reader to skip the
+# paragraph, and the reader who skips it is the one who misses a real death.
+# That is not hypothetical here — thirteen silent days happened because every
+# layer had stopped carrying meaning. So this distinction PROTECTS the alarm
+# rather than quieting it.
+MONITOR_LIFESPAN_SECONDS = 30 * 60
+
+# How far short of the full term still counts as having run its life. A watch is
+# not killed to the second, and the beat before the kill can be up to one poll
+# interval old, so the window absorbs both without being wide enough to let an
+# early stop pass as complete.
+LIFESPAN_GRACE_SECONDS = 120
+
+
+def _ran_its_full_term(armed_at: float | None, last_beat: float) -> bool:
+    """True only when this watch demonstrably lived its whole allotted life.
+
+    THE DISCRIMINATOR IS LIFESPAN, because it is the one thing a failure cannot
+    fake: a crash cannot extend itself to a full term. Timing alone would not do
+    — a crash could happen to occur at a routine-looking moment — which is why
+    the question is how long it LIVED rather than when it stopped.
+
+    Every uncertain answer resolves to False, i.e. to the loud case:
+
+      - no start time recorded (an older monitor, or an unreadable field)
+      - a start time in the future, or a life longer than the cap, either of
+        which means this record is not describing the watch it appears to
+
+    Unknown must land on alarm. The failure this file exists to end is silence
+    read as health, and a quiet branch that grows is how it would come back.
+    """
+    if armed_at is None:
+        return False
+    lifespan = last_beat - armed_at
+    if lifespan < 0 or lifespan > MONITOR_LIFESPAN_SECONDS + LIFESPAN_GRACE_SECONDS:
+        return False
+    return lifespan >= MONITOR_LIFESPAN_SECONDS - LIFESPAN_GRACE_SECONDS
+
 
 def heartbeat_path() -> Path:
     try:
@@ -95,12 +140,23 @@ def check(now: float | None = None) -> tuple[int, str]:
         # failure mode the whole file exists to prevent.
         return 3, f"CANNOT TELL — heartbeat unreadable ({exc.__class__.__name__}: {exc})"
 
+    try:
+        armed_at: float | None = float(raw["armed_at_unix"])
+    except Exception:  # noqa: BLE001 — absent or unreadable both mean "cannot tell"
+        armed_at = None
+
     age = now - beat
     if age > STALE_AFTER_SECONDS:
+        if _ran_its_full_term(armed_at, beat):
+            return 4, (
+                f"EXPIRED ON SCHEDULE — ran its full term and the harness "
+                f"stopped it, {age:.0f}s ago, recipient={recipient}. Nothing "
+                f"broke. Re-arm when a wake is wanted."
+            )
         return 1, (
             f"STALE — last beat {age:.0f}s ago (threshold {STALE_AFTER_SECONDS}s), "
-            f"recipient={recipient}. The monitor is not delivering. It died and "
-            f"nothing restarted it."
+            f"recipient={recipient}. It stopped BEFORE its term was up, so this "
+            f"is a death rather than the scheduled end, and nothing restarted it."
         )
 
     return 0, f"HEALTHY — last beat {age:.0f}s ago, recipient={recipient}"
