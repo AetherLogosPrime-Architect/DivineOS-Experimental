@@ -41,10 +41,18 @@ anything was wrong was Andrew noticing letters had stopped arriving.
    always named. A stale heartbeat says how stale. A missing file says missing.
    Neither renders as OK.
 
-Exit codes: 0 healthy, 1 stale, 2 never started / no heartbeat, 3 cannot tell.
-"3 cannot tell" is deliberately distinct from all of the above — an unreadable
-state must never be reported as a healthy one, which is the whole disease this
-substrate keeps producing.
+Exit codes: 0 healthy, 1 died early, 2 never started / no heartbeat, 3 cannot
+tell, 4 expired on schedule. "3 cannot tell" is deliberately distinct from all
+of the above — an unreadable state must never be reported as a healthy one,
+which is the whole disease this substrate keeps producing.
+
+**4 is not a degree of 1** (2026-09-17). The harness kills a watch at its cap,
+so every watch ends; before this code existed, that scheduled ending and a real
+death were the same verdict, and the caller shouted an emergency at Andrew every
+prompt for something that happens on purpose twice an hour. Splitting them is
+what keeps 1 worth reading. It is also NOT a quiet success: a scheduled end
+still means no letter can wake anyone, so 4 still asks for a re-arm — in one
+calm line instead of a siren.
 """
 
 from __future__ import annotations
