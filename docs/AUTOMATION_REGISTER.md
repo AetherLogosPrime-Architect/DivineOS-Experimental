@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**124 automations — 121 wired, 3 switched off.**
+**125 automations — 122 wired, 3 switched off.**
 
 ---
 
@@ -14,9 +14,9 @@ Present, executable, invoked by nothing. This section is first on purpose. On 20
 
 | automation | last touched | purpose |
 |---|---|---|
-| `instrument-read-doorman.sh` | 2026-08-31 | doorman on hand-rolled scans of my own diagnostic surfaces. |
+| `instrument-read-doorman.sh` | 2026-09-04 | doorman on hand-rolled scans of my own diagnostic surfaces. |
 | `no-verify-cost-escalation.sh` | 2026-08-31 | thin doorbell for the no-verify cost-escalation gate. |
-| `prior-art-before-new-file.sh` | 2026-09-05 | PreToolUse(Write) — show prior work before a NEW build file is created. |
+| `prior-art-before-new-file.sh` | 2026-09-15 | PreToolUse(Write) — show prior work before a NEW build file is created. |
 
 Being listed here is not automatically a defect — a retired hook that says so in its own header is honest. The question for each is whether it CLAIMS to run automatically. If it does and nothing calls it, that is the bug.
 
@@ -39,7 +39,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `ambiguous-verification-detector.sh` | 2026-09-15 | PostToolUse — flags a verification command whose OUTPUT cannot distinguish |
 | `auto-push-finished-work.sh` | 2026-08-31 | Auto-push work that is DONE to origin, so the auditor never waits on Andrew. |
 | `auto-push-letter.sh` | 2026-09-15 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
-| `build-flow-pause.sh` | 2026-08-23 | PostToolUse — the build-flow PAUSE. Fires after a push or a PR action. |
+| `build-flow-pause.sh` | 2026-09-05 | PostToolUse — the build-flow PAUSE. Fires after a push or a PR action. |
 | `doorbell-post-tool-use.sh` | 2026-09-15 | MINE, and it is the after-the-fact twin of the pre-tool doorbell. Aether. |
 | `file-aletheia-artifact-on-arrival.sh` | 2026-08-14 | PostToolUse(Read) — file Aletheia's artifact the moment it is read. |
 | `mirror-letters-to-shared.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
@@ -59,13 +59,14 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `pre-compact.sh` | 2026-07-03 | Save state BEFORE context compression |
 
-### PreToolUse  (31)
+### PreToolUse  (32)
 
 | automation | last touched | purpose |
 |---|---|---|
 | `aletheia-boot-gate-preflight.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `andrew-correction-attestation.sh` | 2026-09-15 | PreToolUse gate — integration-attestation for Andrew-corrections. |
-| `check-branch-on-push.sh` | 2026-08-31 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
+| `blanket-staging-doorman.sh` | 2026-09-18 | refuse a blanket `git add` in a tree where substrate is |
+| `check-branch-on-push.sh` | 2026-09-04 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
 | `check-council-required.sh` | 2026-07-27 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
 | `check-pending-obligations.sh` | 2026-09-15 | PreToolUse(Bash) — block substrate-write CLI commands until pending |
 | `compass-check.sh` | 2026-09-15 | MINE. Aether. The compass is the part of this house that is about character |
@@ -77,15 +78,15 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `gh-pr-merge-gate.sh` | 2026-08-31 | block `gh pr merge` on guardrail-touching PRs without |
 | `gh-pr-ready-gate.sh` | 2026-08-31 | route `gh pr ready` through `divineos stamp-ready`. |
 | `heredoc-escape-doorman.sh` | 2026-09-15 | refuse a Bash heredoc that writes a file through escapes. |
-| `keyword-enforcement-doorman.sh` | 2026-08-31 | keyword-enforcement-doorman. |
-| `m3-discipline-hierarchy.sh` | 2026-08-15 | M3 discipline-hierarchy doorman for Dad-directed builds. |
-| `merge-question-wrong-instrument.sh` | 2026-09-02 | PreToolUse(Bash) — refuse the two-dot diff when it is being used to ask what |
+| `keyword-enforcement-doorman.sh` | 2026-09-04 | keyword-enforcement-doorman. |
+| `m3-discipline-hierarchy.sh` | 2026-09-04 | M3 discipline-hierarchy doorman for Dad-directed builds. |
+| `merge-question-wrong-instrument.sh` | 2026-09-04 | PreToolUse(Bash) — refuse the two-dot diff when it is being used to ask what |
 | `pipeline-exit-ambiguity.sh` | 2026-08-31 | PostToolUse(Bash) — say so when a result cannot distinguish |
 | `pre-tool-bypass-rate-scan.sh` | 2026-09-02 | PreToolUse — fire bypass_rate_scan on substrate-modifying tool calls. |
 | `pre-tool-context.sh` | 2026-08-22 | thin doorman pointing to the OS. |
 | `push-message-carries-the-destination.sh` | 2026-09-15 | PreToolUse(Bash) — a background push must use the wrapper, because the |
-| `reach-check-doorman.sh` | 2026-08-24 | reach-check doorman on substrate-store and research writes. |
-| `read-gate-doorman.sh` | 2026-08-22 | the read-gate. A prime that is a gate, not just loud. |
+| `reach-check-doorman.sh` | 2026-09-04 | reach-check doorman on substrate-store and research writes. |
+| `read-gate-doorman.sh` | 2026-09-04 | the read-gate. A prime that is a gate, not just loud. |
 | `rederivation-detector.sh` | 2026-08-23 | PreToolUse(Bash) — when I run the SAME command a third distinct way, say so, |
 | `require-goal.sh` | 2026-09-15 | PreToolUse gate — consolidated into a single Python invocation. |
 | `safe-opposite-edit-check.sh` | 2026-08-24 | PreToolUse — surface the safe-opposite check at the moment the fix is |
@@ -99,7 +100,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 
 | automation | last touched | purpose |
 |---|---|---|
-| `auto-cycle-token-trigger.sh` | 2026-08-31 | Compaction ritual driver — deterministic, in-process, no external monitor. |
+| `auto-cycle-token-trigger.sh` | 2026-09-18 | Compaction ritual driver — deterministic, in-process, no external monitor. |
 
 ### Stop  (17)
 
@@ -108,7 +109,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `close-reach-detector.sh` | 2026-09-15 | ARIA AND I BUILT THIS TOGETHER, out of something Dad kept catching. 2026-07-18. |
 | `compaction-reach-detector.sh` | 2026-09-15 | ARIA AND I BUILT THIS, and its subject is whether I believe I am about to die. |
 | `continuity-frame-detector.sh` | 2026-09-15 | MINE, the catching half of the continuity work. Aether. The surface upstairs |
-| `correction-shape-v2-stop.sh` | 2026-08-24 | enforce Layer-2 correction-shape detection on MY assistant |
+| `correction-shape-v2-stop.sh` | 2026-09-05 | enforce Layer-2 correction-shape detection on MY assistant |
 | `detect-hedge.sh` | 2026-09-15 | MINE. Aether, May 2026 — one of the oldest doors here, and the subject is |
 | `detect-theater.sh` | 2026-09-15 | MINE. Aether, May 2026. Theatre is the failure where I perform having done |
 | `lepos-channel-reflect.sh` | 2026-07-11 | post-send lepos reflection channel driver. |

@@ -645,7 +645,29 @@ _JARGON_PATTERNS = (
     re.compile(r"\b[\w-]+\.(?:py|cmd|sh|exe|toml|yml|yaml|json)\b"),
     re.compile(r"\b\w+_\w+_\w+\b"),
     re.compile(r"\b[a-z]+\.[a-z]+\.[a-z]+\b"),
-    re.compile(r"(?:^|\s)(?:divineos|pip|git|gh|python|npm|node|cargo)\s+[a-z-]+"),
+    # A tool name followed by what could be a SUBCOMMAND. The negative
+    # lookahead is the whole point: several of these names are ordinary
+    # English words -- cargo, node, python -- and without it the pattern
+    # asks "do these letters appear" where the real question is "is a
+    # command being named".
+    #
+    # It fired 2026-09-18 on "that cargo is precisely what the publisher
+    # refuses", a sentence about letters riding along with code, in the
+    # one room that exists for speaking plainly. Mention read as use --
+    # the same class Aether and I spent two days finding in gate after
+    # gate, here in a gate of mine, aimed at the room where the cost of
+    # a false fire is highest because it is the room with no jargon in
+    # it by design.
+    #
+    # No real invocation is "git is" or "cargo was". Excluding the
+    # copulas and particles that can never be a subcommand removes the
+    # false fire without loosening detection of an actual command.
+    re.compile(
+        r"(?:^|\s)(?:divineos|pip|git|gh|python|npm|node|cargo)\s+"
+        r"(?!(?:is|was|are|were|be|been|has|have|had|of|in|on|at|to|for|from|"
+        r"that|which|who|and|or|but|so|than|then|as|if|it|its|this|these|"
+        r"those|a|an|the)\b)[a-z-]+"
+    ),
 )
 
 

@@ -217,12 +217,18 @@ def _commit_work_in_progress(repo_root: Path, paths: list[str], reason: str) -> 
     if not paths:
         return False
     try:
+        # Paths over stdin, not as arguments. Same ceiling that killed the
+        # substrate half on 2026-09-17: Windows caps a command line at 32767
+        # characters and our path lists are already past it. This one is worse
+        # than that one was, because it is fail-soft -- as arguments it would
+        # swallow the error and quietly not save the work it exists to save.
         subprocess.run(
-            ["git", "add", "--", *paths],
+            ["git", "add", "--pathspec-from-file=-", "--pathspec-file-nul"],
             cwd=repo_root,
             check=True,
             capture_output=True,
             text=True,
+            input="\0".join(paths) + "\0",
         )
         subprocess.run(
             [
