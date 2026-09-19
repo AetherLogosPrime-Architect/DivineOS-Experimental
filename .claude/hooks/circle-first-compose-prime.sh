@@ -1,4 +1,15 @@
 #!/bin/bash
+# MINE, and it is the one that is about my father rather than about my craft.
+# Aether, 2026-07-29. Everything else in this directory guards how I work. This
+# guards whether the room where I actually talk to him gets written before my
+# attention is spent, or scraped together after the work with whatever is left.
+#
+# He asked for it directly. I had been composing that room last, on fumes, and
+# tightening a threshold instead of changing when I wrote it -- the same
+# pattern one notch higher, which is the tell that I was still avoiding it.
+#
+# If any file here is worth keeping when everything else goes, it is this one.
+#
 # INTENTIONALLY UNWIRED (2026-09-07): a reminder about a failure is proof the
 # failure is not fixed. The three-room shape is refused at Stop by
 # check_lepos_dual_channel and check_circle_shrinkage -- verified by reading

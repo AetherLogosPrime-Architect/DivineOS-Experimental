@@ -41,12 +41,25 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # Paths written by the substrate itself rather than by deliberate work.
-_SUBSTRATE_PREFIXES = (
-    "family/letters/",
-    "exploration/",
-    "dreams/",
-    "docs/archives/",
-)
+#
+# IMPORTED, not restated. Until 2026-09-10 this was a second copy, and the
+# checkpoint splitter answered the same question from the declared channels
+# instead -- so the splitter filed archives and dreams as WORK while this gate
+# refused the branch for carrying SUBSTRATE. One word, two definitions, three
+# of four entries in disagreement, and the only symptom was a branch that could
+# not be pushed and could not be fixed by the component that made it.
+try:
+    from divineos.core.substrate_paths import LOCAL_SUBSTRATE_PREFIXES as _SUBSTRATE_PREFIXES
+except ImportError:  # pragma: no cover - a checkout without the package installed
+    # Loud rather than a silent second copy: a fallback list here would be the
+    # exact duplication this import exists to end, and it would drift quietly.
+    print(
+        "[scope] CANNOT CLASSIFY: divineos.core.substrate_paths is not importable, "
+        "so this gate has no definition of substrate. That is could-not-look, not "
+        "a clean branch. Install the package (pip install -e .) and re-run.",
+        file=sys.stderr,
+    )
+    raise SystemExit(24)
 
 
 @dataclass(frozen=True)
