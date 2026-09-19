@@ -101,3 +101,113 @@ jobs:
     - name: Run slow tests with pytest
       run: |
         pytest tests/ -v --tb=short -m "slow" --timeout=120
+
+  # ---------------------------------------------------------------------
+  # draft-suite — the measurement that was missing while everything sat
+  # in draft.
+  #
+  # Aletheia 2026-09-19, refusing a different request and separating out
+  # the real finding: "A branch I cannot see test results for is one I
+  # can read and cannot verify." Nobody ever decided review should happen
+  # against unmeasured code. It is what two correct decisions produced
+  # when they met -- drafts skip the suite so red marks do not accumulate
+  # pre-audit, and every open branch is a draft.
+  #
+  # Her constraint, in her words: "run the suite on drafts and report it
+  # somewhere that is not the public badge", because "a red badge on an
+  # unread branch is a false public statement; a test result in a place I
+  # can read is not."
+  #
+  # THIS JOB'S GREEN MEANS IT RAN. IT DOES NOT MEAN THE SUITE PASSED.
+  # That is the whole trade and it is the one dishonest-looking thing
+  # here, so it is stated three times: in the job name, in the summary
+  # heading, and here. The verdict lives in the run summary. A reader who
+  # takes the tick as a pass has been misled by a badge this job never
+  # claimed to own.
+  #
+  # This is not a new convention. The merge-review job already reports a
+  # green badge meaning PENDING rather than APPROVED, fixed 2026-08-01
+  # after a check that could never say yes taught everyone to ignore the
+  # whole panel. See docs/ci_red_badge_history_2026-08-01.md, which is
+  # also where the intended draft process is written down: open as draft,
+  # Aletheia reads the branch, the trailer follows, THEN promotion. This
+  # job adds a measurement inside that second step and changes no part of
+  # it. Same states-table discipline as that fix:
+  #
+  #   RAN       the suite completed -- verdict is in the summary   green
+  #   UNCHECKED no exit code, so nothing was measured              green
+  #   (there is no red state, and that is the cost being paid)
+  #
+  # Same shape as the coverage step above -- measure first, publish the
+  # number, do not hard-gate -- and for the same reason Aletheia gave
+  # then: a gate that turns everything red before anyone knows the number
+  # gets its threshold lowered, which converts an honest signal into a
+  # rubber stamp.
+  #
+  # WHAT THIS DOES NOT COVER, so the quiet is not read as coverage: the
+  # workflow triggers only on requests aimed at the main line. A draft
+  # aimed at a sibling branch fires nothing at all and stays exactly as
+  # unmeasured as before. At least one open request is in that shape
+  # today. Widening the trigger is a separate change with its own cost
+  # and has not been made.
+  # ---------------------------------------------------------------------
+  draft-suite:
+    name: draft-suite (ran, not passed -- verdict in summary)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == true
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Run the suite, capturing the verdict rather than failing on it
+      id: suite
+      run: |
+        set +e
+        pytest tests/ --tb=short -m "not slow" > suite.log 2>&1
+        echo "code=$?" >> "$GITHUB_OUTPUT"
+        set -e
+
+    # Written whatever happened. A step that only reports success would
+    # leave a crash indistinguishable from a clean run, which is the
+    # failure this whole job exists to remove.
+    - name: Write the verdict where a reviewer reads it
+      if: always()
+      run: |
+        {
+          echo "## Draft suite — this tick means it RAN, not that it passed"
+          echo
+          if [ "${{ steps.suite.outputs.code }}" = "0" ]; then
+            echo "**PASSED.** The suite ran to completion with no failures."
+          elif [ -z "${{ steps.suite.outputs.code }}" ]; then
+            echo "**UNCHECKED.** The suite never reported an exit code, so"
+            echo "nothing was measured. This is not a pass and not a failure."
+          else
+            echo "**FAILED** with exit code ${{ steps.suite.outputs.code }}."
+            echo "This branch is NOT ready to review as green."
+          fi
+          echo
+          echo '<details><summary>Last 60 lines</summary>'
+          echo
+          echo '```'
+          tail -60 suite.log 2>/dev/null || echo "(no log captured)"
+          echo '```'
+          echo '</details>'
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Keep the whole log as an artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: draft-suite-log
+        path: suite.log
+        if-no-files-found: warn
