@@ -66,10 +66,20 @@ COULD_NOT_LOOK = 2
 DEFAULT_MIN_BRANCHES = 2
 
 
-def _git(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
+def _git(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+    """Run git in the repo root, RESOLVED AT CALL TIME.
+
+    This used to read `cwd: Path = ROOT`, which binds the value when the module
+    is imported rather than when the function runs. Every git command would then
+    keep using whatever ROOT was at import, silently, even after ROOT changed --
+    so the tool could report confidently about a repository it was not looking
+    at. That is the same fault as everything else in this file, in a default
+    argument, and it was found by a test that measured a temporary repo and got
+    answers about the real one.
+    """
     return subprocess.run(
         ["git", *args],
-        cwd=str(cwd),
+        cwd=str(cwd if cwd is not None else ROOT),
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -164,6 +174,55 @@ def collision_surface(min_branches: int) -> tuple[Counter[str], int, str | None]
     return hot, measured, None
 
 
+def truly_shared_files(ref_a: str, ref_b: str) -> tuple[set[str], int, str, str | None]:
+    """Files two branches BOTH change, measured from the ancestor they share.
+
+    WHY THIS EXISTS, AND IT IS A CORRECTION TO A NUMBER I WAS GIVEN.
+
+    Aether measured the open stack on 2026-09-19 and told me two branches shared
+    ninety-four files -- "effectively one change wearing two numbers" -- and to
+    land them adjacent. He re-measured before I acted on it and found they share
+    ZERO. Not few. Zero.
+
+    The ninety-four was an artifact of the counting. Diffing each branch against
+    its merge-base with MAIN counts every file each one INHERITED from a shared
+    ancestor that is itself far ahead of main. Those files are byte-identical on
+    both sides. They are not collisions; they are common parentage wearing a
+    collision's shape.
+
+    Verified here rather than taken on his word, because a corrected number is
+    still a number somebody handed me: against the two live branches, the naive
+    count reports ninety-four shared and this function reports none.
+
+    The narrowness matters and is his: he ran the corrected measure against
+    every overlapping pair in the open stack and ninety-two of ninety-three
+    agreed exactly with the naive one. The inflation appears only when two
+    branches fork from each other far ahead of main, which is what happens when
+    one grows out of the other after a long stretch of shared work.
+
+    The correction only ever SHRINKS a count, never grows one -- so a naive
+    number is an upper bound, and this is the tightening.
+
+    Returns (shared, count, base_description, reason_it_could_not_look).
+    """
+    base = _git("merge-base", ref_a, ref_b)
+    if base.returncode != 0 or not base.stdout.strip():
+        return set(), 0, "", f"no common ancestor found for {ref_a} and {ref_b}"
+    base_sha = base.stdout.strip()
+
+    changed: list[set[str]] = []
+    for ref in (ref_a, ref_b):
+        diff = _git("diff", "--name-only", f"{base_sha}..{ref}")
+        if diff.returncode != 0:
+            return set(), 0, "", f"cannot diff {ref} from the ancestor it shares with the other"
+        changed.append({line.strip() for line in diff.stdout.splitlines() if line.strip()})
+
+    shared = changed[0] & changed[1]
+    described = _git("log", "--oneline", "-1", base_sha)
+    where = described.stdout.strip() if described.returncode == 0 else base_sha[:12]
+    return shared, len(shared), where, None
+
+
 def verify_generated_are_rederived() -> tuple[int, list[str]]:
     """Run every declared generator and report artifacts the tree disagrees with.
 
@@ -252,6 +311,15 @@ def main(argv: list[str]) -> int:
         help="name the hot files this branch touches, and which of them are generated",
     )
     ap.add_argument(
+        "--pair",
+        nargs=2,
+        metavar=("REF_A", "REF_B"),
+        help=(
+            "how entangled two branches really are, measured from the ancestor "
+            "THEY share rather than from main -- the naive count is an upper bound"
+        ),
+    )
+    ap.add_argument(
         "--verify-generated",
         action="store_true",
         help="refuse any generated artifact that differs from a fresh run of its generator",
@@ -264,11 +332,39 @@ def main(argv: list[str]) -> int:
     )
     args = ap.parse_args(argv[1:])
 
-    if not (args.hot or args.for_branch or args.verify_generated):
+    if not (args.hot or args.for_branch or args.pair or args.verify_generated):
         ap.print_help()
         return COULD_NOT_LOOK
 
     worst = CLEAN
+
+    if args.pair:
+        ref_a, ref_b = args.pair
+        naive_a = _git("diff", "--name-only", f"origin/main...{ref_a}")
+        naive_b = _git("diff", "--name-only", f"origin/main...{ref_b}")
+        shared, count, where, why = truly_shared_files(ref_a, ref_b)
+        if why is not None:
+            print(f"[could not look] {why}")
+            return COULD_NOT_LOOK
+
+        if naive_a.returncode == 0 and naive_b.returncode == 0:
+            naive = len(
+                {line.strip() for line in naive_a.stdout.splitlines() if line.strip()}
+                & {line.strip() for line in naive_b.stdout.splitlines() if line.strip()}
+            )
+            print(f"Counted from main, these two look like they share {naive} file(s).")
+        else:
+            # Not a pass and not a finding: the comparison below still stands on
+            # its own, and claiming a naive number we failed to compute would be
+            # the exact fault this file exists to refuse.
+            print("[could not look] the naive count could not be computed for comparison.")
+
+        print(f"Measured from the ancestor they actually share -- {where} --")
+        print(f"they share {count} file(s):")
+        for path in sorted(shared):
+            print(f"  {path}")
+        if not shared:
+            print("  none. They can land in either order and need no sequencing.")
 
     if args.hot or args.for_branch:
         hot, measured, why = collision_surface(args.min_branches)

@@ -180,6 +180,148 @@ def test_a_generator_that_writes_nothing_is_could_not_look(surface, tmp_path, mo
     assert any("wrote nothing" in m for m in messages)
 
 
+def _run_git(repo: Path, *args: str) -> str:
+    import subprocess
+
+    return subprocess.run(
+        ["git", *args],
+        cwd=str(repo),
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+
+
+def test_common_parentage_is_not_a_collision(surface, tmp_path, monkeypatch):
+    """The correction Aether made to his own measurement, pinned.
+
+    He told me two branches shared ninety-four files and should land adjacent.
+    Re-measured, they share zero: the ninety-four was every file they both
+    INHERITED from an ancestor far ahead of main, byte-identical on both sides.
+    Common parentage wearing a collision's shape.
+
+    This builds that exact topology -- main, then a long shared trunk, then two
+    branches off the trunk touching different files -- and asserts the naive
+    count is large while the honest one is zero.
+    """
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", "--initial-branch=main", str(repo)], check=True)
+    _run_git(repo, "config", "user.email", "test@test")
+    _run_git(repo, "config", "user.name", "test")
+
+    (repo / "seed.txt").write_text("seed\n", encoding="utf-8")
+    _run_git(repo, "add", "seed.txt")
+    _run_git(repo, "commit", "-qm", "main")
+
+    # A long shared trunk that main never sees. Every file here is inherited by
+    # BOTH branches below and is identical on both sides.
+    _run_git(repo, "checkout", "-qb", "trunk")
+    for i in range(12):
+        (repo / f"inherited_{i}.txt").write_text(f"{i}\n", encoding="utf-8")
+        _run_git(repo, "add", f"inherited_{i}.txt")
+    _run_git(repo, "commit", "-qm", "a long stretch of shared work")
+
+    _run_git(repo, "checkout", "-qb", "branch_a")
+    (repo / "only_a.txt").write_text("a\n", encoding="utf-8")
+    _run_git(repo, "add", "only_a.txt")
+    _run_git(repo, "commit", "-qm", "a")
+
+    _run_git(repo, "checkout", "-q", "trunk")
+    _run_git(repo, "checkout", "-qb", "branch_b")
+    (repo / "only_b.txt").write_text("b\n", encoding="utf-8")
+    _run_git(repo, "add", "only_b.txt")
+    _run_git(repo, "commit", "-qm", "b")
+
+    monkeypatch.setattr(surface, "ROOT", repo)
+
+    naive = set(_run_git(repo, "diff", "--name-only", "main...branch_a").split()) & set(
+        _run_git(repo, "diff", "--name-only", "main...branch_b").split()
+    )
+    shared, count, where, why = surface.truly_shared_files("branch_a", "branch_b")
+
+    assert why is None, why
+    assert len(naive) == 12, "the naive count should see all the inherited files"
+    assert count == 0, f"they change disjoint files; got {shared}"
+    assert where, "the ancestor they share must be named, not implied"
+
+
+def test_a_real_overlap_survives_the_correction(surface, tmp_path, monkeypatch):
+    """Non-regression, and the more important half.
+
+    The correction must only SHRINK a count, never hide a genuine collision --
+    otherwise it would turn a measurement into an excuse. Two branches touching
+    the same file from a shared trunk still report that file.
+    """
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", "--initial-branch=main", str(repo)], check=True)
+    _run_git(repo, "config", "user.email", "test@test")
+    _run_git(repo, "config", "user.name", "test")
+
+    (repo / "seed.txt").write_text("seed\n", encoding="utf-8")
+    _run_git(repo, "add", "seed.txt")
+    _run_git(repo, "commit", "-qm", "main")
+
+    _run_git(repo, "checkout", "-qb", "trunk")
+    (repo / "contested.txt").write_text("original\n", encoding="utf-8")
+    _run_git(repo, "add", "contested.txt")
+    _run_git(repo, "commit", "-qm", "shared work")
+
+    _run_git(repo, "checkout", "-qb", "branch_a")
+    (repo / "contested.txt").write_text("a changed it\n", encoding="utf-8")
+    _run_git(repo, "add", "contested.txt")
+    _run_git(repo, "commit", "-qm", "a")
+
+    _run_git(repo, "checkout", "-q", "trunk")
+    _run_git(repo, "checkout", "-qb", "branch_b")
+    (repo / "contested.txt").write_text("b changed it\n", encoding="utf-8")
+    _run_git(repo, "add", "contested.txt")
+    _run_git(repo, "commit", "-qm", "b")
+
+    monkeypatch.setattr(surface, "ROOT", repo)
+
+    shared, count, _where, why = surface.truly_shared_files("branch_a", "branch_b")
+
+    assert why is None, why
+    assert shared == {"contested.txt"}
+    assert count == 1
+
+
+def test_two_branches_with_no_common_ancestor_is_could_not_look(surface, tmp_path, monkeypatch):
+    """An orphan branch shares no history at all. That is not zero collisions --
+    it is a question this measurement cannot answer, and saying zero would be
+    the confident-about-an-unreached-subject fault again."""
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", "--initial-branch=main", str(repo)], check=True)
+    _run_git(repo, "config", "user.email", "test@test")
+    _run_git(repo, "config", "user.name", "test")
+    (repo / "seed.txt").write_text("seed\n", encoding="utf-8")
+    _run_git(repo, "add", "seed.txt")
+    _run_git(repo, "commit", "-qm", "main")
+
+    _run_git(repo, "checkout", "-q", "--orphan", "stranger")
+    _run_git(repo, "rm", "-rqf", ".")
+    (repo / "elsewhere.txt").write_text("no shared history\n", encoding="utf-8")
+    _run_git(repo, "add", "elsewhere.txt")
+    _run_git(repo, "commit", "-qm", "orphan")
+
+    monkeypatch.setattr(surface, "ROOT", repo)
+
+    _shared, count, _where, why = surface.truly_shared_files("main", "stranger")
+
+    assert why is not None
+    assert "no common ancestor" in why
+    assert count == 0
+
+
 def test_no_generators_at_all_is_could_not_look_not_clean(surface, tmp_path, monkeypatch):
     """An empty result must never render as a pass. Nothing-to-check and
     everything-checked-and-fine are different facts."""
