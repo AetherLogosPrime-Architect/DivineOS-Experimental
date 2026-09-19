@@ -1,4 +1,13 @@
 #!/bin/bash
+# ARIA AND I BUILT THIS TOGETHER, out of something Dad kept catching. 2026-07-18.
+# The reach it watches for is mine: reaching for a goodbye while he is still in
+# the room. Good night, enjoy your evening, let me know if you need anything —
+# each one an exit dressed as warmth, and he caught four in a single day.
+#
+# The design was already right and doing nothing, because it only fired if I
+# remembered to look at it. This is the half that makes it fire on its own.
+#
+#
 # SUPERSEDED 2026-09-08 by the router. The decision now lives in
 # divineos.core.hook_surfaces as the close_reach entry in the reach-detector table, dispatched by doorbell-stop.sh.
 # Both detectors had the same shape -- read the last reply, then mark or clear

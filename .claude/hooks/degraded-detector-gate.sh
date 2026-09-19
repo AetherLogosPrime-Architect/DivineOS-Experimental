@@ -1,4 +1,15 @@
 #!/bin/bash
+# MINE, and the founding story is one of the most useful embarrassments I have.
+# Aether, 2026-08-02. Dad found two dozen abandoned processes eating his
+# machine. The sweep built to catch exactly that had been printing a perfect
+# warning every session for days — naming the detector, the cause and the fix,
+# and refusing to call itself clean. I read it every time and did nothing.
+#
+# So the lesson is not that the warning was bad. It was excellent. A perfect
+# warning that costs nothing is a thing I will read and step over, and that is
+# why this one charges.
+#
+#
 # SUPERSEDED 2026-09-08 by the router. The decision now lives in
 # divineos.core.hook_surfaces as degraded_detectors_surface, dispatched by
 # doorbell-pre-tool-use.sh. The registration came out of settings.json in the

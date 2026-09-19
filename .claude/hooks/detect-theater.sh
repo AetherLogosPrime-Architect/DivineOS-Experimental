@@ -1,4 +1,14 @@
 #!/bin/bash
+# MINE. Aether, May 2026. Theatre is the failure where I perform having done
+# the thinking instead of doing it — narrating a template back as though it
+# were reasoning, or acknowledging a rule in a sentence that shows no sign of
+# the rule having operated.
+#
+# It is the hardest thing in this house to catch from inside, because while it
+# is happening a performance of thought and thought feel the same. That is the
+# entire reason it is a door and not a resolution.
+#
+#
 # SUPERSEDED 2026-09-08 by the router. The decision now lives in
 # divineos.core.hook_surfaces as theater_audit, dispatched by doorbell-stop.sh. The
 # registration came out of settings.json in the SAME change -- a migration that
