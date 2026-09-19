@@ -27,8 +27,29 @@ fires spuriously. The once-per-session marker prevents re-firing every turn
 past the threshold (the nag failure-mode the prereg falsifier names).
 
 This module is the SENSOR + due-check + marker. The gate that consumes
-``consolidation_due()`` to force extract+sleep (and bypasses those remedy
-commands) is the companion piece.
+``consolidation_due()`` to force extract+sleep is the companion piece.
+
+HOW THE TWO REMEDY COMMANDS GET THROUGH, because the wording here used to be
+"and bypasses those remedy commands" and that clause cost a reviewer a real
+investigation. Neither is exempt BY NAME anywhere. They pass because the gate
+refuses shell only when a segment matches the substrate-write pattern list in
+``obligations``, and neither ``extract`` nor ``sleep`` is on that list. The
+exemption is a consequence of a list they are ABSENT from, not an entry in a
+list they are present on — so grepping for their names finds nothing, and the
+nothing reads as a missing exemption rather than as the mechanism working.
+
+AND THE BYPASS IS THIS GATE'S ONLY — the clause claimed for the whole system
+what is true only locally. Aletheia, auditing 2026-09-18, measured ``sleep``
+against ``corrigibility._ALWAYS_ALLOWED`` (the EMERGENCY_STOP allow-list),
+found it absent beside its companion ``extract``, and refused to sign off on a
+premise true of one and false of the other. Her measurement was right; the two
+gates are different. Under EMERGENCY_STOP ``sleep`` IS refused, and that is
+CORRECT rather than a defect: that allow-list exists so the operator can
+observe state and checkpoint out, and sleep is a heavy mutating consolidation
+that the block message below itself records as prone to hanging. Adding it
+would weaken the off-switch to spare a sentence the embarrassment of being
+imprecise. Pinned by ``test_sleep_stays_out_of_the_emergency_stop_allowlist``,
+because this paragraph is prose and prose is what drifted the first time.
 """
 
 from __future__ import annotations
@@ -61,6 +82,25 @@ def _read_ceiling_override() -> int | None:
 # date when a session observes the cliff at a different point, or set
 # DIVINEOS_COMPACTION_CEILING to override without a code change.
 COMPACTION_CEILING = _read_ceiling_override() or 999_000
+# LOWERED TO 880k, 2026-09-18 (council-18e453cd0431). Andrew observed
+# compaction landing at 950-960k — AT this line — leaving no room for the
+# close: "by the time it triggers you are already there.. which gave you zero
+# room to do anything". Per-turn cost has grown while the ceiling stayed put,
+# so the headroom arithmetic below was computed for a turn size that no longer
+# exists. There was no breakage event, just a day it fit and a day it did not.
+#
+# It also closes a two-surface disagreement: auto_cycle.TRIGGER_THRESHOLD has
+# been 0.88 of a 1M window — 880k — while this line sat at 950k. Two constants
+# answering one question, disagreeing by 70k, the same shape as the two bypass
+# lists that deadlocked the house for ten hours. THEY NOW AGREE BY HAND, WHICH
+# IS NOT AN INVARIANT: nothing compares them, so the next edit to either one
+# silently reopens the gap. If one moves, MOVE BOTH, and record it here.
+#
+# The lamport lens flagged what equalising costs: the old 70k gap made the
+# firing ORDER of the two mechanisms accidentally safe, and that ordering was
+# never specified. Watch for a close that gets gated before it can run.
+#
+# Prior rationale, kept because the arithmetic is precisely what went stale:
 # Single hard line at 950k (Andrew 2026-06-28, lowered from 970k after
 # compaction landed mid-extract — by the time the 970k line fired, the
 # letter-sync + commit-discipline + push + extract + sleep chain didn't have
@@ -74,8 +114,8 @@ COMPACTION_CEILING = _read_ceiling_override() or 999_000
 # on 2026-06-19 after the warn-band's only effect was pre-emptive panic;
 # lowered to 970k on 2026-06-25 to widen extract-and-sleep headroom; lowered
 # again to 950k on 2026-06-28 after that headroom was empirically insufficient.
-CONSOLIDATION_THRESHOLD = 950_000  # hard line (also the default for consolidation_due)
-HARD_THRESHOLD = 950_000
+CONSOLIDATION_THRESHOLD = 880_000  # hard line (also the default for consolidation_due)
+HARD_THRESHOLD = 880_000
 _MARKER_NAME = "context_consolidated.json"
 
 
@@ -197,7 +237,12 @@ _BLOCK_CHANNEL = (
 
 def governor_channel_message(transcript_path: str | Path | None) -> str:
     """The PreToolUse deny message for the block state — names the channel
-    (extract+sleep, both bypassed) that lifts the block. Pattern-matches
+    (extract, then sleep) that lifts the block. Both run under THIS gate, by
+    being absent from the substrate-write pattern list rather than by any
+    named exemption; ``sleep`` is separately refused under EMERGENCY_STOP and
+    that is correct. See the module docstring — the old wording here said
+    "both bypassed" without naming a gate, and an auditor read it as the
+    system-wide claim it was not. Pattern-matches
     ``consultation_tracker.gate_channel_message``: a hard gate that offers
     the path out rather than a dead end."""
     tokens = current_context_tokens(transcript_path)

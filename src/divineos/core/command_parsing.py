@@ -78,6 +78,23 @@ def strip_command_prefixes(bash_command: str) -> list[str]:
                 # `cd somewhere` with nothing after it is not a prefix on
                 # anything; there is no command behind it to find.
                 return []
+            # A DIRECTORY THAT IS REALLY A COMMAND IS NOT A PREFIX (2026-09-17,
+            # council-fc0b3ac97658). The raw-text stripper below has always
+            # refused this, and its comment names the exploit: the substitution
+            # runs, so what the text says is not what happens, and dropping it
+            # as benign hands a clean-looking command to whatever is matching.
+            #
+            # This path had no such guard, because shlex returns the whole
+            # substitution as one ordinary-looking word. Two strippers for one
+            # job and the protection was on the other one — found by probing
+            # the shared remedy allowlist end to end rather than by reading,
+            # since reading is what missed it for a month.
+            #
+            # Refusing leaves the head as the directory change itself, which is
+            # honest, and every caller gets the guard rather than only the one
+            # that happened to be probed.
+            if any(mark in token for token in tokens[:sep] for mark in _SUBSTITUTION_MARKS):
+                return tokens
             tokens = tokens[sep + 1 :]
             changed = True
             continue
@@ -185,3 +202,181 @@ def strip_prefixes_raw(bash_command: str, kinds: tuple[str, ...] = ALL_PREFIX_KI
                 text = new_text
                 changed = True
     return text.strip()
+
+
+# THE FOURTH PREFIX ARRIVED AND IT WAS NOT A PREFIX (2026-09-17,
+# council-69e2c6a431c0). This module's own header says a fourth site means
+# importing it rather than writing a fourth loop, and the shared remedy
+# allowlist says the same thing in its own words: if a fourth prefix appears the
+# answer is to parse the command, not to add a fourth strip. This is that.
+#
+# What actually arrived was three refusals in one stretch, and only one of them
+# was a prefix at all:
+#
+#   - an assignment whose VALUE contained the name of the watched action, so a
+#     gate read my storage of a name as an instance of the thing named
+#   - the remedy behind a pipe, which is the form the tool's own printed usage
+#     shows, so the gate's documented usage is not exempt under the gate's rule
+#   - two commands joined, where the pair took the identity of the first
+#
+# A strip for any one of those is the same mistake in a new coat. The matcher's
+# real fault is that it asks WHAT DOES THIS LINE START WITH when the question is
+# WHAT IS THIS LINE DOING, and every miss falls on somebody complying — anyone
+# routing around would simply put the permitted word first.
+#
+# THE RULE, and it is deliberately not "does any part look like a remedy": every
+# part that ACTS must be a remedy. Inert companions ride along because they do
+# nothing. Anything this cannot confidently take apart is refused, so unknown
+# structure costs me time rather than costing the gate its teeth.
+
+_INERT_HEADS = frozenset(
+    {
+        "echo",
+        "printf",
+        "cat",
+        "true",
+        ":",
+        # VIEWERS, added 2026-09-18 (council-1c2e235a0966) to repair a
+        # regression I shipped hours earlier in this same file. Requiring every
+        # acting segment to be permitted closed a real hole — a permitted
+        # command followed by a destructive one used to be accepted whole — and
+        # it also, silently, stopped recognising every permitted command with a
+        # viewer on the end of it. A pipe to something that only formats output
+        # does not change what a command DOES, but under the new rule it
+        # changed whether the command was recognised at all.
+        #
+        # The cost was not the refusals. It was that each refusal named
+        # whichever gate happened to be standing there and never the pipe, so
+        # every further attempt produced a more confident wrong diagnosis. I
+        # spent hours treating one regression as a series of unrelated walls.
+        #
+        # THE BAR FOR MEMBERSHIP, and it is narrower than "feels harmless":
+        # consumes input, emits text, CANNOT touch the filesystem. That is why
+        # `sed` and `awk` are absent despite being the ones I reach for most —
+        # both can write, and a write-capable head on this list turns it from a
+        # convenience into an escape hatch for the whole gate system.
+        "head",
+        "tail",
+        "wc",
+        "sort",
+        "uniq",
+        "nl",
+        "column",
+        "less",
+        "more",
+        # SHELL OPTIONS, added 2026-09-18 (council-de235c61e79d), because two
+        # guards were composing into a block that neither contained.
+        #
+        # The pipeline guard refuses a pipeline with no failure-propagation
+        # option — earned, since a swallowed exit code once reported a REFUSED
+        # push as landed — and its prescribed remedy is a `set -o pipefail`
+        # prefix. This matcher then saw that prefix as an acting segment on no
+        # permitted list, and the whole line stopped being a recognised remedy.
+        # So obeying one guard reliably disqualified me from the other, and the
+        # refusal that followed talked about my discipline and never once
+        # mentioned the prefix.
+        #
+        # Checked against the bar per candidate, not by category — "builtins"
+        # as a class would admit things that write. This one changes flags for
+        # the current shell, sets positional parameters, and prints the
+        # environment: no filesystem, no network, no child program.
+        #
+        # It launders nothing behind it. Stripping removes only the segment
+        # whose head matched; every other segment is still tested, so a
+        # destructive command after the prefix still fails. Pinned by test.
+        "set",
+        "shopt",
+    }
+)
+"""Segment heads that produce or discard text and never act.
+
+THE SOFT PLACE IN THIS DESIGN, named by the game-walk on this edit and left
+named: nothing enforces this set's bar except the sentence above it, so a later
+addition of something that only LOOKS harmless would widen every gate at once.
+A test pins these contents by name, which does not prevent an addition but does
+make one arrive as a visible edit to a test rather than as a quiet line here.
+"""
+
+_SUBSTITUTION_MARKS = ("$(", "`", "${")
+
+_SEGMENT_SEPARATORS = ("&&", "||", "|", ";", "&")
+
+
+def split_shell_segments(bash_command: str) -> list[str] | None:
+    """Split on unquoted separators, or ``None`` if it cannot be done safely.
+
+    Quote-aware, because this module has already been bitten by the opposite:
+    a semicolon inside an evidence string is data, not a chain, and a splitter
+    that cannot tell them apart rejects legitimate remedies.
+
+    Returns ``None`` — meaning *refuse to decide* — when the command contains a
+    command substitution or a backtick anywhere, quoted or not. That is the
+    exploit this module's own comment records as the reason the directory
+    pattern is strict, and the same caution applies with more force here: a
+    substitution's text is not what runs, so nothing read out of it can be
+    trusted to describe the command. Callers treat ``None`` as not-a-remedy.
+    """
+    if not bash_command:
+        return None
+    if any(mark in bash_command for mark in _SUBSTITUTION_MARKS):
+        return None
+
+    segments: list[str] = []
+    current: list[str] = []
+    quote: str | None = None
+    i = 0
+    while i < len(bash_command):
+        ch = bash_command[i]
+        if quote:
+            current.append(ch)
+            if ch == quote:
+                quote = None
+            i += 1
+            continue
+        if ch in ("'", '"'):
+            quote = ch
+            current.append(ch)
+            i += 1
+            continue
+        for sep in _SEGMENT_SEPARATORS:
+            if bash_command.startswith(sep, i):
+                segments.append("".join(current))
+                current = []
+                i += len(sep)
+                break
+        else:
+            current.append(ch)
+            i += 1
+    if quote:
+        # Unbalanced quoting: the text does not mean what it appears to mean.
+        return None
+    segments.append("".join(current))
+    return [s.strip() for s in segments if s.strip()]
+
+
+def acting_segments(bash_command: str) -> list[str] | None:
+    """The segments that actually do something, each with prefixes stripped.
+
+    Inert segments — a bare assignment, a text producer, a no-op — are dropped,
+    since they cannot be the thing a gate is holding back. Everything else is
+    returned for the caller to judge against its own list.
+
+    ``None`` means the command could not be taken apart safely and the caller
+    should treat it as not-a-remedy. An empty list means the command does
+    nothing at all, which is likewise not a remedy.
+    """
+    segments = split_shell_segments(bash_command)
+    if segments is None:
+        return None
+
+    acting: list[str] = []
+    for segment in segments:
+        stripped = stripped_command(segment)
+        if not stripped:
+            # Nothing but assignments or prefixes: it sets up, it does not act.
+            continue
+        head = stripped.split()[0].lower()
+        if head in _INERT_HEADS:
+            continue
+        acting.append(stripped)
+    return acting

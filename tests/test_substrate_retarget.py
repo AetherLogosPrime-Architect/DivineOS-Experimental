@@ -146,8 +146,16 @@ def test_concurrent_branch_move_is_refused_not_clobbered(repo: Path) -> None:
     real_commit_tree = sr._git
     state = {"moved": False}
 
-    def racing_git(root: Path, *args: str, env: dict[str, str] | None = None) -> str:
-        out = real_commit_tree(root, *args, env=env)
+    def racing_git(
+        root: Path,
+        *args: str,
+        env: dict[str, str] | None = None,
+        stdin_data: str | None = None,
+    ) -> str:
+        # stdin_data forwarded, not dropped: the path list travels through the
+        # pipe now, so a stand-in that swallowed it would build an empty index
+        # and this test would pass for the wrong reason.
+        out = real_commit_tree(root, *args, env=env, stdin_data=stdin_data)
         if args and args[0] == "commit-tree" and not state["moved"]:
             state["moved"] = True
             # Someone else advances substrate while we were building the tree.
@@ -165,3 +173,67 @@ def test_concurrent_branch_move_is_refused_not_clobbered(repo: Path) -> None:
             commit_paths_to_branch(repo, "substrate", ["letter.md"], "m")
     finally:
         sr._git = real_commit_tree
+
+
+def test_paths_do_not_travel_as_command_line_arguments(repo: Path) -> None:
+    """The path list goes through the pipe, so a length limit cannot reach it.
+
+    2026-09-17. This used to splat every declared substrate path as a separate
+    argument, and Windows refuses a command line past a fixed length. With
+    hundreds of letters and dreams declared, that line was too long and the
+    weave died with an error about a filename being too long -- confusing,
+    because no filename was.
+
+    WHY THIS IS SHAPED AS A PROPERTY RATHER THAN A SIZE. The faithful
+    reproduction needs enough files to exceed an operating-system limit, which
+    means choosing a number to stand for that limit -- a literal with nothing
+    linking it back to the fact it represents. That is the exact defect that
+    cost two full suite runs on the night this was written, and putting it in
+    the test for the fix would be remarkable.
+
+    So this asserts what is true at ANY size on ANY platform: the paths are not
+    in the argument list. It fails on the old code for the right reason and
+    passes on the new one for the right reason, with no constant to go stale.
+
+    WHAT IT DOES NOT PROVE, said because a green result would otherwise imply
+    it: that git accepts this input form with these flags. No assertion about
+    this code can establish a fact about another program. That evidence came
+    from running the real weave end to end, separately, and the two must not be
+    collapsed into one result.
+    """
+    from divineos.core import substrate_retarget as sr
+
+    (repo / "letter.md").write_text("hello\n", encoding="utf-8")
+    (repo / "second.md").write_text("also\n", encoding="utf-8")
+    real_git = sr._git
+    seen: list[tuple[tuple[str, ...], str | None]] = []
+
+    def recording_git(
+        root: Path,
+        *args: str,
+        env: dict[str, str] | None = None,
+        stdin_data: str | None = None,
+    ) -> str:
+        if args and args[0] == "update-index":
+            seen.append((args, stdin_data))
+        return real_git(root, *args, env=env, stdin_data=stdin_data)
+
+    sr._git = recording_git
+    try:
+        result = commit_paths_to_branch(repo, "substrate", ["letter.md", "second.md"], "m")
+    finally:
+        sr._git = real_git
+
+    assert result is not None, "the commit must still land"
+    assert seen, "update-index must still be the call that stages the paths"
+    args, stdin_data = seen[0]
+
+    for path in ("letter.md", "second.md"):
+        assert path not in args, f"{path} still travels as a command-line argument"
+        assert stdin_data is not None and path in stdin_data, f"{path} must arrive on stdin"
+
+    # The separator is NUL, not newline: a newline is legal inside a filename,
+    # so a newline-separated list would silently split such a path in two.
+    assert chr(0) in stdin_data
+    assert "-z" in args
+    assert "--stdin" in args

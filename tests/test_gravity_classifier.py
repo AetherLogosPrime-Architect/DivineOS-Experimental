@@ -11,6 +11,8 @@ unfinished-mechanism backlog the repaired initiative dial surfaced.
 """
 
 from divineos.core.gravity_classifier import (
+    _HIGH_IMPACT_FEATURES,
+    _shell_write_targets,
     CognitiveValueGravity,
     SubstrateModGravity,
     borderline_indicator_cognitive,
@@ -98,6 +100,46 @@ class TestSubstrateModificationFeatures:
         assert not r.is_high_gravity
 
 
+class TestWritingAFileDoesNotSwitchOffTheCommandChecks:
+    """A redirect used to suppress every command-level feature.
+
+    The classifier recorded a shell write by reassigning the variable that
+    ALSO gated the command-level checks, so noting a write turned those checks
+    off. The comment two lines above promised the opposite — that a compound
+    command "fires everything it earns" — and had been false since the
+    reassignment was introduced.
+
+    Measured 2026-09-18: a commit alone fired; the same commit with output sent
+    to a log file fired NOTHING — not the commit, and not a write either, since
+    an ordinary log file sits in no watched location. One redirect, zero gates.
+
+    This is the first defect repaired in this stretch that let something
+    THROUGH rather than getting in the way, and it was found only because Aria
+    named that bias in a letter. A gate that refuses generates evidence every
+    time; a gate that does not fire generates none.
+    """
+
+    _G = "g" + "it"
+    _D = "divi" + "neos"
+
+    def test_a_commit_still_fires_with_a_redirect_appended(self):
+        r = score_substrate_modification("Bash", bash_command=f"{self._G} commit -m x > log.txt")
+        assert "git-commit" in r.fired_features
+
+    def test_a_store_write_still_fires_with_a_redirect_appended(self):
+        r = score_substrate_modification("Bash", bash_command=f"{self._D} learn xyz > out.txt")
+        assert "substrate-write-cli" in r.fired_features
+
+    def test_a_shell_write_to_a_watched_path_still_fires_its_path_feature(self):
+        """The control. Closing the hole must not cost the write detection."""
+        r = score_substrate_modification("Bash", bash_command="cat > src/divineos/core/x.py")
+        assert "edit-src-divineos" in r.fired_features
+
+    def test_a_plain_read_is_still_silent(self):
+        """The other control. Nothing here should make quiet commands loud."""
+        assert score_substrate_modification("Bash", bash_command=f"{self._G} status").score == 0
+
+
 class TestCouncilRequiredTier2026_06_20:
     """Andrew 2026-06-20: 'the gravity classifier is not pulling its weight
     its letting you make serious changes with no council.' The prior design
@@ -117,62 +159,80 @@ class TestCouncilRequiredTier2026_06_20:
     required. Cumulative score-threshold still fires council-required at
     total >= 6. Tests below updated to match new correct behavior.
 
+    ANDREW 2026-09-16 SUPERSEDES THE THRESHOLD HALF OF THE ABOVE, AND IT
+    REVERSES HIS OWN JULY DECISION. Asked directly whether a single-area code
+    edit should owe a council walk, he answered yes, so the threshold moved
+    from 6 to 1. Every edit firing any feature now requires a walk — which is
+    exactly what the clay-mode paragraph above argued against: *"Clay-mode
+    workspace edits to guardrail-listed files should NOT trigger council-
+    required per-edit."*
+
+    The July paragraph is LEFT STANDING rather than rewritten. Its reasoning
+    is still the best statement of what the stricter threshold costs, and a
+    superseded decision with its argument intact is worth more than a tidy
+    file reading as though the question was never open. What changed is not
+    that the July reasoning was wrong — it is that three builds cleared this
+    gate in one evening while it sat at 6, and he weighed the extra
+    interruptions against that and chose them.
+
+    The SHORT-CIRCUIT half is unchanged: guardrail-listed still does not
+    short-circuit, kiln-layer still does. Only the number moved, and the four
+    assertions below invert with it. Each names what it used to say.
+
     Council-walked (2026-06-20 consult-944ad9d332e5 original design;
     council-939eae4d46a3 for the 2026-07-26 revision).
     """
 
-    def test_edit_guardrail_listed_detector_fires_feature_but_not_council(self):
-        # Prior test-name and assertion asserted council-required=True.
-        # 2026-07-26 update: feature-fire preserved (guardrail-listed still
-        # gets +1 to score), but is_council_required is False for guardrail-
-        # only edits under threshold. External-Review at merge is the
-        # discipline for guardrail-listed drift.
+    def test_edit_guardrail_listed_detector_requires_council_by_threshold(self):
+        # Until 2026-09-16 this asserted `not r.is_council_required`, on the
+        # clay-mode reasoning that External-Review at merge is the discipline
+        # for guardrail-listed drift. The SHORT-CIRCUIT is still absent —
+        # guardrail-listed does not force council on its own. What requires a
+        # walk now is the threshold, which Andrew moved to 1.
         r = score_substrate_modification(
             "Edit",
             file_paths=("src/divineos/core/operating_loop/distancing_detector.py",),
         )
         assert "edit-guardrail-listed" in r.fired_features
         assert "edit-src-divineos" in r.fired_features
-        assert not r.is_council_required, (
-            "2026-07-26: guardrail-listed edits should NOT short-circuit council-required "
-            "in clay mode; External-Review at merge is the discipline. Only edit-kiln-layer "
-            "(foundational_truths + seed.json) should trigger the high-impact short-circuit."
+        assert "edit-guardrail-listed" not in _HIGH_IMPACT_FEATURES, (
+            "the 2026-07-26 short-circuit removal must survive the threshold "
+            "change — this edit requires council by SCORE, not by class"
         )
+        assert r.is_council_required
 
-    def test_edit_unverified_claim_detector_fires_feature_but_not_council(self):
-        # 2026-07-26 update: same as above — guardrail-listed classification
-        # preserved, council-required no longer short-circuits for it.
+    def test_edit_unverified_claim_detector_requires_council_by_threshold(self):
+        # Same inversion, same reason. Previously asserted not-required.
         r = score_substrate_modification(
             "Edit",
             file_paths=("src/divineos/core/operating_loop/unverified_claim_detector.py",),
         )
         assert "edit-guardrail-listed" in r.fired_features
-        assert not r.is_council_required
+        assert r.is_council_required
 
-    def test_edit_gravity_classifier_itself_fires_feature_but_not_council(self):
-        # Meta-case, 2026-07-26 update: editing the classifier itself is
-        # still guardrail-listed (feature fires) but no longer short-circuits
-        # council-required. Was previously required-council; now flows in
-        # clay mode. External-Review at merge is where classifier changes
-        # get scrutinized.
+    def test_edit_gravity_classifier_itself_requires_council(self):
+        # The meta-case. Previously asserted not-required under clay mode.
+        # Editing the thing that decides gravity now owes a walk like
+        # anything else, which is the least surprising place for the
+        # stricter threshold to land.
         r = score_substrate_modification(
             "Edit",
             file_paths=("src/divineos/core/gravity_classifier.py",),
         )
         assert "edit-guardrail-listed" in r.fired_features
-        assert not r.is_council_required
+        assert r.is_council_required
 
-    def test_edit_non_guardrail_src_does_not_require_council(self):
-        # Routine edit to a non-guardrail file under src/divineos/ scores 1
-        # on edit-src-divineos only — still fires the basic substrate-gate
-        # (gives a surface) but does NOT require council walk.
+    def test_edit_non_guardrail_src_requires_council(self):
+        # THE TEST ANDREW'S DECISION IS ABOUT. It previously asserted that a
+        # routine one-feature edit does NOT require council; he was asked
+        # exactly that and said it should. This is the single-area code edit.
         r = score_substrate_modification(
             "Edit",
             file_paths=("src/divineos/cli/hud_commands.py",),
         )
         assert r.fired_features == ("edit-src-divineos",)
-        assert r.is_high_gravity  # basic surface still fires
-        assert not r.is_council_required  # but council not required for routine code
+        assert r.is_high_gravity
+        assert r.is_council_required
 
     def test_edit_kiln_layer_requires_council(self):
         # Kiln-layer files (foundational_truths.md, seed.json) are the
@@ -194,16 +254,48 @@ class TestCouncilRequiredTier2026_06_20:
             "Edit",
             file_paths=("docs/foundational_truths.md",),
         )
-        assert borderline_indicator_substrate(r) == "council-required"
+        # 2026-09-16: the label now carries the fragility shape alongside the
+        # requirement, so this asserts the requirement is SAID rather than
+        # that it is the whole string. The two facts are independent and the
+        # slot lost one of them silently once already.
+        assert "council-required" in borderline_indicator_substrate(r)
 
-    def test_routine_edit_keeps_borderline_label(self):
-        # Routine non-guardrail edits keep the original borderline label —
-        # we did not break the score-1 case.
+    def test_routine_edit_still_reports_its_fragility(self):
+        # THIS TEST CAUGHT A SIGNAL DYING, so read before changing it.
+        #
+        # It used to assert the bare label "borderline-single-feature". When
+        # the threshold moved to 1 on 2026-09-16, the indicator returned
+        # early on council-required and the fragile label became UNREACHABLE
+        # for every firing edit — the June sanity-check signal stopped
+        # existing while the surface kept printing a label, so nothing looked
+        # broken. The cheap close was to rewrite this assertion to expect the
+        # constant, which is a test rewritten to ratify a regression.
+        #
+        # The fix was to the indicator: one slot now carries both facts.
+        # Assert the fragility is still SAID, not the exact wrapper.
         r = score_substrate_modification(
             "Edit",
             file_paths=("src/divineos/cli/hud_commands.py",),
         )
-        assert borderline_indicator_substrate(r) == "borderline-single-feature"
+        label = borderline_indicator_substrate(r)
+        assert "borderline-single-feature" in label
+        assert "council-required" in label
+
+    def test_each_fragility_shape_is_still_reachable(self):
+        """The guard the walk named as the remaining open route: nothing
+        checks that every label CAN still be produced, so the next early
+        return added above them removes a distinction with no noise."""
+        single = score_substrate_modification(
+            "Edit", file_paths=("src/divineos/cli/hud_commands.py",)
+        )
+        multi = score_substrate_modification(
+            "Edit", file_paths=("src/divineos/core/gravity_classifier.py",)
+        )
+        none = score_substrate_modification("Read", file_paths=("README.md",))
+
+        assert "borderline-single-feature" in borderline_indicator_substrate(single)
+        assert "strong-multi-feature" in borderline_indicator_substrate(multi)
+        assert borderline_indicator_substrate(none) == "no-fire"
 
     def test_zero_features_still_no_fire(self):
         # Zero-feature case unchanged: not high-gravity, not council-required.
@@ -387,7 +479,10 @@ class TestSubstrateBorderlineIndicator:
         """End-to-end: a git commit by itself fires only the git-commit
         feature; the indicator names that fragility."""
         r = score_substrate_modification("Bash", bash_command="git commit -m 'x'")
-        assert borderline_indicator_substrate(r) == "borderline-single-feature"
+        label = borderline_indicator_substrate(r)
+        # Fragility still named. The council-required wrapper arrived with the
+        # 2026-09-16 threshold; the fragility fact is the part this test is for.
+        assert "borderline-single-feature" in label
 
 
 class TestCognitiveBorderlineIndicator:
@@ -425,3 +520,45 @@ class TestCognitiveBorderlineIndicator:
     def test_boundary_values(self):
         assert borderline_indicator_cognitive(self._make(0.30)) == "borderline-high"
         assert borderline_indicator_cognitive(self._make(0.40)) == "clearly-high"
+
+
+class TestAnInlineBodyDoesNotHideTheFileBeingWritten:
+    """The module promises a shell write is named by its FILE, not the command.
+
+    It stopped being true for writes carrying an inline body: the body is
+    arbitrary text, an apostrophe in it broke the tokeniser, and the edit was
+    then named by two words of shell. The module's own docstring says why that
+    matters — one walk filed against two words of shell clears every write of
+    that shape in the tree, with the refusal and the walk each looking correct
+    on their own. Measured 2026-09-18 before the fix: same write, body and no
+    body, gave the filename in one case and the command shape in the other.
+    """
+
+    _NL = "\n"
+    _Q = "'"
+
+    def _heredoc(self, body: str) -> str:
+        return self._NL.join([f"cat >> tests/foo.py <<{self._Q}EOF{self._Q}", body, "EOF"])
+
+    def test_a_body_with_an_apostrophe_no_longer_hides_the_target(self):
+        assert _shell_write_targets(self._heredoc("don't stop")) == ("tests/foo.py",)
+
+    def test_a_body_with_an_unbalanced_double_quote_too(self):
+        assert _shell_write_targets(self._heredoc('a " quote')) == ("tests/foo.py",)
+
+    def test_a_write_after_the_body_is_still_found(self):
+        """The drop ends at the terminator — it does not swallow the rest."""
+        cmd = self._NL.join([f"cat > a.txt <<{self._Q}EOF{self._Q}", "data", "EOF", "cat > b.txt"])
+        assert _shell_write_targets(cmd) == ("a.txt", "b.txt")
+
+    def test_a_plain_write_is_unaffected(self):
+        assert _shell_write_targets("cat >> tests/foo.py") == ("tests/foo.py",)
+
+    def test_a_genuinely_unreadable_command_still_returns_none(self):
+        """The control that matters most: fail-toward-scrutiny is preserved.
+
+        None means could-not-read and is NOT an empty tuple. If this ever
+        returns () the blind spot reports clean, which is the fault the
+        could-not-read answer exists to prevent.
+        """
+        assert _shell_write_targets(f"echo {self._Q}unterminated") is None

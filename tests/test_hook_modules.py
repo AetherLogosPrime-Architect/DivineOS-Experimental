@@ -265,7 +265,12 @@ class TestContextGovernorGate:
 
     def test_warn_state_does_not_deny_here(self, tmp_path):
         # The warn band is surfaced at UserPromptSubmit, not blocked by the gate.
-        tx = self._write_tx(tmp_path, 930_000)
+        # Stated as an offset from the constant, not as a literal. This pinned
+        # 930_000, which sat below the hard line until the line moved to 880k on
+        # 2026-09-18 — then it failed with nothing wrong in the code. Fifth
+        # instance of that shape in one change, and the only one the targeted
+        # test runs missed, so the push gate is what found it.
+        tx = self._write_tx(tmp_path, cg.HARD_THRESHOLD - 20_000)
         assert (
             pre_hook._context_governor_gate(
                 {"tool_name": "Write", "tool_input": {}, "transcript_path": str(tx)}

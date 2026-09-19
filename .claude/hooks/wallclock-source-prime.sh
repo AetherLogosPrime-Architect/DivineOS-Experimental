@@ -132,6 +132,16 @@ they share:
                               Tiredness is real; do not over-correct into
                               denying it. Name the errors and their count, or
                               quote the clock above.
+                              THE HEDGE SCOPES THE CLAIM, NEVER THE WORDS —
+                              these strings fire whether or not the tiredness
+                              is real. This is the only conditional entry
+                              here, which is what makes it read as negotiable.
+                              AND A STRING CAN BE FIRED BY A CATEGORY IT IS
+                              NOT LISTED UNDER: 2026-09-18 I wrote the first
+                              one in the same turn this block printed it, and
+                              it was no tiredness claim at all — it was an
+                              idiom for "much later, having forgotten", i.e.
+                              a BEAT, which lives two sections down.
 
 THE TEST IS DELETION. Strike the time-phrase. If the sentence loses only
 cadence and no meaning, that was the fire — a clock standing in for a beat.

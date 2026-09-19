@@ -611,7 +611,166 @@ def render(statuses: list[PrFlowStatus]) -> str:
     lines.append("  not a letter from me — an artifact I can produce alone proves only")
     lines.append("  that I spoke. '????' is not a pass; it means the check could not run.")
     lines.append("")
+    lines.extend(_outside_the_flow_lines({f"origin/{s.branch}" for s in statuses}))
     return "\n".join(lines)
+
+
+# Substrate branches are archives and are SUPPOSED to sit there; counting them
+# as unfinished work makes the estate look worse than it is and trains the
+# reader to ignore the number.
+#
+# CLASSIFIED BY CONTENT, NOT BY NAME. The first version keyed on the branch
+# name and immediately mis-sorted a branch called `aria/substrate` into
+# "carrying unlanded work" with 453 files, because the word sat in the wrong
+# position. A name is a claim about a branch; its files are the branch. Names
+# lie by accident, which is the whole subject of this day's work.
+_CODE_PREFIXES = ("src/", "tests/", "scripts/", ".claude/")
+
+
+def classify_branch(unlanded: list[str]) -> tuple[str, int]:
+    """What a branch is, from the files of its that main does not have.
+
+    Returns the verdict and the count of unlanded CODE files: ``landed``
+    (nothing of it is missing from main), ``substrate`` (things are missing
+    but none of them is code — an archive), or ``carrying`` (real unlanded
+    code, a decision somebody owes).
+
+    EXTRACTED SO IT CAN BE CHECKED WITHOUT A REMOTE (council-b02b23372ca0).
+    The rule lived inside the git-shelling loop, so the only way to exercise
+    it was to run the whole board against a live remote — untestable by
+    construction, and exactly where a wrong rule hides. It already misfired
+    once, sorting an archive into unfinished work because it keyed on the
+    branch NAME, and I caught that by eye. Catching a thing by eye is not a
+    mechanism; the next drift would be a slightly different count nobody
+    queries.
+
+    Names lie by accident. Files do not.
+    """
+    if not unlanded:
+        return "landed", 0
+    code = [p for p in unlanded if p.startswith(_CODE_PREFIXES)]
+    if not code:
+        return "substrate", 0
+    return "carrying", len(code)
+
+
+def _outside_the_flow_lines(in_flow: set[str]) -> list[str]:
+    """Branches on the remote with no open request — the work nobody can see.
+
+    WHY THIS EXISTS (council-27a00feec90a). The board above reports open
+    requests and says nothing about everything else, so the instrument the
+    house uses to see its own work has been blind to roughly four fifths of
+    it. That is why Andrew says seventy branches and the board says twelve.
+    Deming: a queue nobody can see cannot be drained, and no amount of
+    inspection substitutes for the system being able to observe itself.
+
+    Feathers: for branches nobody remembers writing, the first artifact is
+    not a plan, it is a record of what each one currently holds. The
+    dangerous failure is not the branch that breaks loudly; it is the one
+    that quietly stops existing while nobody was watching that shelf.
+
+    EVERY LINE CARRIES A VERDICT, NOT A NAME (Dekker). The predictable drift
+    is this becoming a wall of names, each addition reasonable, growing past
+    the point of being read until its presence is indistinguishable from its
+    absence -- the pile itself moved one level up. A name is scrolled past. A
+    verdict is something a reader can disagree with.
+
+    Computed from refs already fetched, so it costs no network. A listing
+    slow enough to skip is a listing that stops being run.
+    """
+    import subprocess
+
+    def _git(*args: str) -> str:
+        try:
+            out = subprocess.run(
+                ["git", *args], capture_output=True, text=True, timeout=30, check=False
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise RuntimeError(str(exc)) from exc
+        if out.returncode != 0:
+            raise RuntimeError(out.stderr.strip() or f"git {' '.join(args)} failed")
+        return out.stdout
+
+    header = ["=== OUTSIDE THE FLOW — branches with no open request ===", ""]
+    try:
+        refs = [
+            r.strip()
+            for r in _git(
+                "for-each-ref", "--format=%(refname:short)", "refs/remotes/origin"
+            ).splitlines()
+            if r.strip() not in ("origin", "origin/HEAD", "origin/main")
+        ]
+    except RuntimeError as exc:
+        # SAY IT COULD NOT LOOK. Reporting an empty estate because git failed
+        # is the could-not-see / this-is-fine collapse the whole surface exists
+        # to prevent.
+        return header + [
+            f"  COULD NOT LOOK: {exc}",
+            "  This is NOT 'no branches outside the flow'. The check did not run.",
+            "",
+        ]
+
+    outside = [r for r in refs if r not in in_flow]
+    if not outside:
+        return header + ["  Nothing outside the flow. Every branch has an open request.", ""]
+
+    landed: list[str] = []
+    substrate: list[str] = []
+    carrying: list[tuple[int, str]] = []
+    unreadable: list[str] = []
+
+    for ref in sorted(outside):
+        try:
+            changed = [
+                p
+                for p in _git("diff", "--name-only", f"origin/main...{ref}").splitlines()
+                if p.strip()
+            ]
+            unlanded = [
+                p
+                for p in changed
+                if _git("diff", "--name-only", "origin/main", ref, "--", p).strip()
+            ]
+        except RuntimeError:
+            # An orphan branch has no merge base and cannot be compared. Named
+            # rather than silently dropped -- a branch that vanishes from the
+            # listing is the failure this listing is for.
+            unreadable.append(ref)
+            continue
+        verdict, code_count = classify_branch(unlanded)
+        if verdict == "landed":
+            landed.append(ref)
+        elif verdict == "substrate":
+            substrate.append(f"{ref}  ({len(unlanded)} file(s), none of it code)")
+        else:
+            carrying.append((code_count, ref))
+
+    lines = list(header)
+    if carrying:
+        lines.append(f"  CARRYING UNLANDED WORK ({len(carrying)}) — real decisions, not clutter:")
+        for count, ref in sorted(carrying, reverse=True):
+            lines.append(f"    {count:>3} code file(s) unlanded   {ref}")
+        lines.append("")
+    if landed:
+        lines.append(f"  ALREADY IN MAIN ({len(landed)}) — nothing of theirs is missing:")
+        for ref in landed:
+            lines.append(f"      {ref}")
+        lines.append("")
+    if substrate:
+        lines.append(f"  SUBSTRATE ({len(substrate)}) — archives, meant to sit here:")
+        for ref in substrate:
+            lines.append(f"      {ref}")
+        lines.append("")
+    if unreadable:
+        lines.append(f"  COULD NOT COMPARE ({len(unreadable)}) — no merge base, judge by hand:")
+        for ref in unreadable:
+            lines.append(f"      {ref}")
+        lines.append("")
+    lines.append("  A branch here is outside the flow entirely — no request, no stations,")
+    lines.append("  nobody reviewing it. 'Already in main' is the only line that means")
+    lines.append("  retireable, and even then check what it carries besides code.")
+    lines.append("")
+    return lines
 
 
 def register(cli: click.Group) -> None:

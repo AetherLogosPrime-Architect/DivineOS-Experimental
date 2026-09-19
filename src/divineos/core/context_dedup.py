@@ -22,10 +22,36 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import sys
 import time
 from pathlib import Path
 
-_STATE_DIR = Path("data/context_dedup")
+# THE LOCATION WAS ALREADY BEING DECIDED SOMEWHERE OTHER THAN THE CALLER.
+#
+# This was a bare relative path, so the effective directory was wherever the
+# process happened to start. That is not a design, it is an accident with a
+# default that usually works -- the same fault class as the register that
+# measured itself from wherever you stood.
+#
+# Naming it adds NO mode. With nothing set the behaviour is byte-for-byte what
+# it was, and the hooks still share one file across invocations, which is the
+# design and the whole point of dedup.
+#
+# WHAT IT BUYS, measured 2026-09-19. The contract suite runs hook scripts as
+# subprocesses, calls clear() on this one shared file, then runs a hook twice
+# expecting the second output to shrink. Under nine parallel workers there is
+# no ordering between one worker's clear and another worker's pair of runs, so
+# a wipe landing between a first and second emission is an ordinary schedule
+# rather than a rare window -- and whichever hook loses is the one blamed. Four
+# runs: the failing test MOVED identity between them and once produced two
+# failures, which a deterministic fault cannot do.
+#
+# AN ATOMIC WRITE COULD NEVER HAVE FIXED THIS. That buys visibility; what a
+# two-step sequence needs is exclusion. The contention is an artefact of many
+# workers against one file rather than a property of the system, so the repair
+# removes the sharing where it is accidental and leaves it where it is meant.
+_STATE_DIR = Path(os.environ.get("DIVINEOS_DEDUP_STATE_DIR", "data/context_dedup"))
 _STATE_FILE = _STATE_DIR / "session_state.json"
 _SAVINGS_LOG = _STATE_DIR / "savings_log.jsonl"
 _TTL_SECONDS = 60 * 60  # 1 hour — within-session repeats dedup; long gaps re-emit
@@ -44,11 +70,52 @@ def _load() -> dict:
 
 
 def _save(state: dict) -> None:
+    """Persist the seen-hashes atomically, and say so out loud when it fails.
+
+    TWO FAULTS REPAIRED HERE 2026-09-19, and both are the shape this whole
+    week has been about: a thing that goes quiet is indistinguishable from a
+    thing that had nothing to say.
+
+    THE SWALLOW. This was ``except OSError: pass``. A failed write means the
+    seen-hashes never persist, so every block re-emits in full for the rest
+    of the run -- which looks exactly like a session where nothing has
+    repeated yet. The feature can be entirely dead and the only symptom is a
+    context window filling faster than it should, which nobody measures.
+    Found while chasing the wrong cause for a parallel-suite failure: it
+    could produce that symptom, it was not the cause, and it is a real fault
+    either way.
+
+    Still fail-soft, because a dedup cache is not worth killing a hook over.
+    Fail-soft and fail-silent are separate decisions that had been collapsed
+    into one; only the silence is removed.
+
+    THE TORN WRITE. ``write_text`` truncates before writing, so a reader
+    arriving in that interval gets a partial file and ``_load`` returns an
+    empty mapping without signalling. Under a parallel suite the hooks run
+    concurrently against one state file, so the interval is not rare.
+    Writing a sibling temp and replacing makes the transition atomic: a
+    reader sees the whole old file or the whole new one, never a fragment.
+
+    WHAT IS STILL OPEN, named rather than implied. A lost update between two
+    interleaved writers remains possible and costs exactly one redundant
+    emission, which is the right price for a cache and would not be for a
+    log. And the message is printed rather than recorded, so a caller that
+    discards the error stream gets the old silence back -- closing that
+    means storing the failure somewhere a later reader can find it, which is
+    a larger change than this one.
+    """
     try:
         _STATE_DIR.mkdir(parents=True, exist_ok=True)
-        _STATE_FILE.write_text(json.dumps(state), encoding="utf-8")
-    except OSError:
-        pass
+        tmp = _STATE_FILE.with_name(f"{_STATE_FILE.name}.{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(state), encoding="utf-8")
+        os.replace(tmp, _STATE_FILE)
+    except OSError as e:
+        print(
+            f"[context-dedup] state not saved ({e}) -- dedup is OFF for the "
+            f"rest of this run and every repeated block will re-emit in full. "
+            f"Fail-soft, not fail-silent.",
+            file=sys.stderr,
+        )
 
 
 def _hash(content: str) -> str:

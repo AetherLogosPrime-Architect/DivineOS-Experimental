@@ -87,6 +87,39 @@ def _git(*args: str) -> tuple[int, str]:
     return proc.returncode, proc.stdout
 
 
+def _worktree_blob(path: str) -> str | None:
+    """The blob id git WOULD give the working-tree file at ``path``, or None
+    when nothing is there.
+
+    Added 2026-09-16 after this scan skipped eleven files as "nothing to
+    lose" and printed an all-clear over what remained. A commit that
+    untracks a file removes it from the branch and LEAVES IT ON DISK, and
+    that copy can be the only one of its version anywhere. Asking git for
+    the branch's blob returns nothing, which is exactly where the loss
+    became invisible.
+
+    ``hash-object`` WITHOUT ``-w`` computes the id without writing an
+    object. That is load-bearing, not incidental: with the writing form the
+    object lands in the store and any later existence probe finds proof the
+    check itself manufactured. The scan must never be able to create the
+    evidence that a file is safe.
+
+    Honest limit: reading the working tree makes the verdict depend on the
+    state of a directory rather than on committed history, so the same
+    branch answers differently from a clean checkout. That is correct here,
+    because the loss being prevented IS a loss of working-tree content — but
+    it means a reviewer elsewhere cannot reproduce this from the repository
+    alone.
+    """
+    candidate = REPO_ROOT / path
+    if not candidate.is_file():
+        return None
+    code, out = _git("hash-object", "--", path)
+    if code != 0 or not out.strip():
+        return None
+    return out.strip()
+
+
 def _resolve(ref: str) -> bool:
     code, _ = _git("rev-parse", "--verify", "--quiet", ref)
     return code == 0
@@ -131,21 +164,120 @@ def substrate_paths(branch: str, reference: str) -> list[str]:
     return [p for p in out.splitlines() if p.startswith(_SUBSTRATE_PREFIXES)]
 
 
+def substrate_directions(branch: str, reference: str) -> dict[str, str]:
+    """Map each substrate path to ADDS, REMOVES or REWRITES on this branch.
+
+    TWO HAZARDS WERE SHARING ONE SENTENCE. This check lists paths the branch
+    CHANGED, not paths it CARRIES, so a deletion counted as substrate-on-this-
+    branch exactly like an addition -- and the refusal said only "substrate
+    file(s) on this branch" for both. They are opposite problems with opposite
+    remedies: an addition puts substrate where it does not belong and is rebuilt
+    away, while a removal propagates to the main line on merge and has to be
+    confirmed as intended.
+
+    NOT A FILTER. Dropping deletions from the count is the permitting direction
+    and would let a branch quietly delete substrate from everywhere -- the worse
+    failure, because an addition stays visible in a diff forever and a removal
+    looks like nothing once it lands. The refusal condition is unchanged. Only
+    the message learns to say which way it found.
+
+    MEASURED 2026-09-18: a branch deleting a tracked secret-shaped file reached
+    an auditor inside an eighty-six file diff, and the only thing telling her to
+    read that deletion as the repair rather than a loss was a letter written by
+    hand. A guard whose output needs a human escort is making work, not saving
+    it.
+
+    RENAMES CARRY TWO NAMES, and the parsing rule here is borrowed rather than
+    reinvented -- check_mixed_pattern_merge.py already documents it. A rename
+    arrives as a score plus an old and a new path, so the last field is the one
+    that exists on the branch now and that is what gets classified. Splitting
+    naively would mangle exactly the long hyphenated letter filenames nobody
+    re-reads.
+    """
+    code, out = _git("diff", "--name-status", f"{reference}...{branch}")
+    if code != 0:
+        return {}
+    letters = {"A": "ADDS", "C": "ADDS", "D": "REMOVES", "M": "REWRITES", "R": "REWRITES"}
+    directions: dict[str, str] = {}
+    for line in out.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        path = parts[-1].strip()
+        if not path.startswith(_SUBSTRATE_PREFIXES):
+            continue
+        directions[path] = letters.get(parts[0][:1].upper(), "CHANGES")
+    return directions
+
+
 def _other_refs(branch: str) -> list[str]:
     """Every local and remote ref except the one being checked.
 
     Returns [] when the ref list cannot be read, and the caller treats that as
     could-not-look rather than as nowhere-else -- this whole file's discipline.
     """
-    code, out = _git("for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes")
+    code, out = _git(
+        "for-each-ref", "--format=%(refname) %(objectname)", "refs/heads", "refs/remotes"
+    )
     if code != 0:
         return []
-    mine: set[str] = set()
-    name_code, name = _git("rev-parse", "--abbrev-ref", branch)
-    if name_code == 0 and name.strip():
-        short = name.strip()
-        mine = {f"refs/heads/{short}", f"refs/remotes/origin/{short}"}
-    return [r.strip() for r in out.splitlines() if r.strip() and r.strip() not in mine]
+
+    # EXCLUDE BY IDENTITY, NOT BY SPELLING. This used to resolve the branch to a
+    # short name and paste it into two strings -- a local head and a remote by
+    # that name -- then drop those. It worked for a plain branch name and
+    # silently excluded NOTHING for any other spelling.
+    #
+    # Measured 2026-09-16, and this is how it surfaced: the push gate invokes
+    # this with a COMMIT identifier. Asked for the short name of a commit, git
+    # returns an empty string, so the two refs constructed were a bare prefix
+    # with nothing after them. Neither exists. Nothing was excluded, the branch
+    # matched its own blobs on every file, and the scan reported eleven
+    # substrate files as existing on another ref at the same bytes when every
+    # one of them was unique to that branch. Following the advice would have
+    # destroyed them.
+    #
+    # AND LOOK WHERE IT SAT. The comparison below was changed from asking
+    # whether a file by that NAME existed elsewhere to comparing blob identity,
+    # after Aria asked which of the two it was. That repair went to the half
+    # that had been caught and stopped one line short of the half that had not.
+    # The exclusion set was still matching by name. Same fault, same function,
+    # above the line that documents fixing it.
+    head = _resolve_commit(branch)
+    if head is None:
+        # Could-not-resolve is its own answer. An unresolvable branch and a
+        # branch with nothing to exclude previously both produced an empty set,
+        # and the scan then ran blind against itself. The caller reads [] as
+        # could-not-look, which is the honest verdict here.
+        return []
+
+    refs: list[str] = []
+    for line in out.splitlines():
+        parts = line.strip().split(None, 1)
+        if len(parts) != 2:
+            continue
+        name, obj = parts[0], parts[1].strip()
+        if obj == head:
+            # The branch under test, and anything sitting on the same commit.
+            # Exactly those -- never by resemblance, because every ref wrongly
+            # excluded is one that can no longer prove a file survives.
+            continue
+        refs.append(name)
+    return refs
+
+
+def _resolve_commit(rev: str) -> str | None:
+    """The commit a revision names, or None when it cannot be resolved.
+
+    Separate from the caller so the failure has somewhere to be returned from
+    rather than collapsing into an empty result that reads as success.
+    """
+    code, out = _git("rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}")
+    if code != 0 or not out.strip():
+        return None
+    return out.strip()
 
 
 def only_here(branch: str, paths: list[str]) -> tuple[list[str], list[str], bool]:
@@ -187,7 +319,16 @@ def only_here(branch: str, paths: list[str]) -> tuple[list[str], list[str], bool
     "exists nowhere" about a file they know they pushed will believe the gate is
     wrong and stop reading it.
 
-    A path deleted on this branch has no content here to lose and is skipped.
+    A PATH DELETED ON THIS BRANCH IS NOT AUTOMATICALLY SAFE, and the version
+    of this sentence that said so cost eleven files on 2026-09-16. It read:
+    "a path deleted on this branch has no content here to lose and is
+    skipped." It was written in good faith, it reads as obviously true, and
+    it survived every reading by being readable. It is false whenever a
+    commit untracked the file and left it in the working tree -- the shape of
+    every take-the-substrate-off-the-code-branch commit. Git reports no blob
+    while the only current copy sits on disk. So the disk is asked before any
+    path is dropped, and only a path gone from BOTH is skipped.
+
     Content that survives under a DIFFERENT name is not credited -- a rename
     reports as at-risk, which errs toward preserving something that did not need
     it. That direction is the survivable one.
@@ -210,10 +351,20 @@ def only_here(branch: str, paths: list[str]) -> tuple[list[str], list[str], bool
     newer: list[str] = []
     for path in paths:
         mine_code, mine_blob = _git("rev-parse", f"{branch}:{path}")
-        if mine_code != 0:
-            # Deleted on this branch. Nothing here for a rebuild to take.
-            continue
-        mine_blob = mine_blob.strip()
+        if mine_code == 0:
+            mine_blob = mine_blob.strip()
+        else:
+            # NOT "nothing to lose" -- that was the 2026-09-16 defect, and it
+            # nearly cost eleven files. A commit that UNTRACKS a file removes
+            # it from the branch and leaves it in the working tree, so git
+            # reports no blob here while the only current copy of the content
+            # sits on disk. Ask the disk before concluding there is nothing.
+            disk_blob = _worktree_blob(path)
+            if disk_blob is None:
+                # Gone from the branch AND from disk. Genuinely nothing here
+                # for a rebuild to take.
+                continue
+            mine_blob = disk_blob
         name_found = False
         for ref in refs:
             code, theirs = _git("rev-parse", f"{ref}:{path}")
@@ -266,9 +417,34 @@ def main(argv: list[str] | None = None) -> int:
 
     if truth.substrate:
         paths = substrate_paths(args.branch, args.truth)
+        directions = substrate_directions(args.branch, args.truth)
         if args.list:
             for path in paths[:20]:
-                print(f"    {path}")
+                print(f"    {directions.get(path, 'CHANGES'):<9} {path}")
+
+        # WHICH WAY, said before anything else, because the two directions are
+        # opposite problems and the remedies differ. An addition puts substrate
+        # where it does not belong and is rebuilt away. A removal propagates to
+        # the main line on merge and has to be confirmed as intended.
+        adds = sum(1 for p in paths if directions.get(p) == "ADDS")
+        removes = sum(1 for p in paths if directions.get(p) == "REMOVES")
+        rewrites = len(paths) - adds - removes
+        parts = []
+        if adds:
+            parts.append(f"{adds} ADDED here")
+        if removes:
+            parts.append(f"{removes} REMOVED from everywhere on merge")
+        if rewrites:
+            parts.append(f"{rewrites} rewritten")
+        if parts:
+            print(f"  [scope] direction: {', '.join(parts)}.")
+        if removes and not adds:
+            print(
+                "  Every one is a REMOVAL. That is the shape of a branch taking "
+                "substrate OFF the main line, which may be exactly the repair "
+                "intended -- and is still refused, because a deletion that "
+                "merges is invisible afterwards. Confirm it was meant."
+            )
 
         # The irreplaceable ones come BEFORE the rebuild instruction, because
         # the instruction is what would destroy them. See only_here().
@@ -282,8 +458,19 @@ def main(argv: list[str] | None = None) -> int:
         elif nowhere or newer:
             total = len(nowhere) + len(newer)
             print(
-                f"  [scope] {total} of these would LOSE CONTENT if this branch were "
-                "rebuilt. Compared by bytes, not by filename:"
+                # SAYS WHAT IT MEASURED, not what it means. The earlier
+                # wording here asserted these "would LOSE CONTENT", and that
+                # is a second claim the scan cannot support: bytes-nowhere-else
+                # does not imply information-would-be-lost, because a DERIVED
+                # file can be rebuilt from whatever produces it. Found 2026-09-16
+                # by this scan firing on eleven archive exports an hour after the
+                # scan was repaired -- every one regenerates from the database,
+                # and the rebuild is NEWER than the copy on disk. A byte
+                # comparison cannot see a generator and must not speak as if it
+                # can. The REFUSAL is unchanged and the paths are still named;
+                # only the claim narrowed.
+                f"  [scope] {total} of these exist on NO OTHER REF at these "
+                "bytes. Compared by bytes, not by filename:"
             )
             for path in nowhere[:20]:
                 print(f"      ONLY HERE: {path}")
@@ -302,6 +489,22 @@ def main(argv: list[str] | None = None) -> int:
                 "  Move these somewhere they survive FIRST -- the substrate branch, "
                 "the shared channel -- and verify each landed, one at a time. "
                 "Then rebuild."
+            )
+            # The one question this scan cannot answer, asked out loud so the
+            # reader answers it deliberately rather than inferring loss from
+            # absence. Most files are NOT derived and moving them is the right
+            # move; `docs/archives/` is the one place in this repository that
+            # rebuilds itself, and on 2026-09-16 all eleven of its exports fired
+            # here while regenerating from the database NEWER than the copies on
+            # disk. Named narrowly on purpose: a general "it might be derived"
+            # is an invitation to answer yes because yes lets you proceed.
+            print(
+                "  FIRST, though: is any of these DERIVED -- rebuilt by a "
+                "command from something upstream? This scan compares bytes and "
+                "cannot see a generator, so it cannot tell a one-of-a-kind file "
+                "from a stale snapshot. docs/archives/ is regenerated by "
+                "`divineos admin archive-export`. Most other paths are not "
+                "regenerable and moving them IS the right move."
             )
         else:
             print(

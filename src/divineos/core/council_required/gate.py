@@ -38,6 +38,7 @@ from divineos.core.council_required.types import (
     GateDecision,
     GateOutcome,
     _normalize_edit_fingerprint,
+    fingerprint_for,
 )
 
 
@@ -222,11 +223,14 @@ def decide(
     # one council walk per primary file. A follow-up could fingerprint
     # the entire path-set, but doing so risks letting a generic walk on
     # an unrelated file in the same call clear the gate by collision.
-    primary_path = file_paths[0] if file_paths else ""
-    if not primary_path and bash_command:
-        # For Bash tools the fingerprint anchors on the command head.
-        primary_path = bash_command.strip().split(maxsplit=1)[0] if bash_command else ""
-    fingerprint = _normalize_edit_fingerprint(primary_path, tool_name)
+    # ONE DERIVATION, SHARED (council-232ba7486c96). This had its own copy
+    # twice: first anchoring on the command's first word, which made a
+    # directory change the subject of the gate, and then -- once the hook
+    # learned to name a shell WRITE by its file -- searching by command shape
+    # while the refusal named the path, so a walk filed exactly as instructed
+    # could not be found. A refusal whose instructions cannot be satisfied
+    # teaches people to stop believing refusals. Deletion, not reconciliation.
+    fingerprint = fingerprint_for(tool_name, file_paths, bash_command)
 
     # Instance 4 (operator-authorization) — explicit alternative_clearance
     # per the ForcedWorkGate primitive design (Aria + Aether 2026-07-16).

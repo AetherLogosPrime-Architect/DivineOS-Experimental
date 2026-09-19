@@ -300,3 +300,66 @@ class TestStagedIndexDetection:
         result = auto_commit_substrate(repo, reason="pre-extract", channels=())
         assert result.committed is True
         assert result.dirty_lines >= 1
+
+
+class TestTheCheckpointOutgrewItsCommandLine:
+    """The checkpoint handed every dirty path to one command line.
+
+    Windows refuses a command line past a fixed length by never starting the
+    process at all, so this surfaced as a file-not-found rather than as a git
+    error, and the handler — which names the exception git raises when git
+    RUNS and refuses — did not cover it. There was no breakage event: the
+    substrate grew a file at a time until their sum crossed a number that has
+    never moved.
+
+    These pin the PROPERTY rather than a length. A test asserting "survives N
+    paths" is the same fixed number the defect was made of, one layer over.
+    """
+
+    def test_paths_do_not_travel_as_command_line_arguments(self, monkeypatch):
+        """The pathspecs must be absent from argv and present on stdin."""
+        from divineos.core import auto_commit as ac
+
+        seen: dict[str, object] = {}
+
+        def _capture(cmd, **kwargs):
+            seen["cmd"] = cmd
+            seen["input"] = kwargs.get("input")
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+
+        monkeypatch.setattr(ac.subprocess, "run", _capture)
+
+        paths = ["notes/alpha.md", "notes/beta.md", "notes/gamma.md"]
+        ac._git_paths_on_stdin(Path("."), ["add"], paths)
+
+        argv = seen["cmd"]
+        stdin = seen["input"]
+        for p in paths:
+            assert p not in argv, f"{p} reached the command line"
+            assert p in stdin, f"{p} never reached stdin"
+        assert "--pathspec-from-file=-" in argv
+        assert "--pathspec-file-nul" in argv
+        assert chr(0) in stdin, "separator must be NUL — a newline is legal in a filename"
+
+    def test_a_tree_whose_paths_exceed_one_command_line_still_commits(self, repo: Path):
+        """End to end, with the symptom manufactured rather than mocked.
+
+        Enough files that their names alone overrun a single command line.
+        Before the repair this raised before git ever started; the checkpoint
+        reported a failed step and the occupant's open work stayed uncommitted.
+        """
+        limit = 32767  # the Windows command-line cap this used to cross
+        name_len = 90
+        total = 0
+        made = 0
+        while total < limit * 2:
+            name = f"long_{made:04d}_" + ("x" * name_len) + ".md"
+            (repo / name).write_text("open work\n", encoding="utf-8")
+            total += len(name) + 1
+            made += 1
+
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=())
+
+        assert result.committed is True
+        committed = _git(repo, "show", "--stat", "--name-only", "HEAD").stdout
+        assert f"long_{made - 1:04d}_" in committed, "the last file never made it in"

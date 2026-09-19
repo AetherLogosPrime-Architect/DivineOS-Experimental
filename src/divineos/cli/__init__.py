@@ -378,6 +378,8 @@ from divineos.cli import (  # noqa: E402
     motivation_commands,
     prior_art_commands,
     prereg_commands,
+    game_walk_commands,
+    operator_ask_commands,
     reach_commands,
     admin_reset_template,
     admin_migrate_family,
@@ -513,6 +515,8 @@ correction_commands.register(cli)
 prereg_commands.register(cli)
 prior_art_commands.register(cli)
 psf_commands.register(cli)
+game_walk_commands.register(cli)
+operator_ask_commands.register(cli)
 reach_commands.register(cli)
 synchronicity_commands.register(cli)
 empirica_commands.register(cli)

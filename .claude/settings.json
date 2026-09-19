@@ -41,7 +41,7 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/ear-surface.sh",
+            "command": "bash .claude/hooks/dedup-wrap.sh ear bash .claude/hooks/ear-surface.sh",
             "timeout": 10
           },
           {
@@ -161,7 +161,7 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/translate-first-compose-prime.sh"
+            "command": "bash .claude/hooks/dedup-wrap.sh translate-first bash .claude/hooks/translate-first-compose-prime.sh"
           }
         ]
       },
@@ -325,6 +325,16 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/check-council-required.sh",
+            "timeout": 8
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|Bash|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/an-open-ask-holds-the-work.sh",
             "timeout": 8
           }
         ]
