@@ -55,6 +55,22 @@ def repo(tmp_path):
     (root / "seed.txt").write_text("seed\n", encoding="utf-8")
     _git("add", "-A", cwd=root)
     _git("commit", "-q", "-m", "seed", cwd=root)
+    # THE DESTINATION MOVED, THE CONTRACTS DID NOT (2026-09-11).
+    #
+    # These were written against the interim split, which committed BOTH kinds
+    # to the checked-out branch -- so substrate landed on the code branch, one
+    # commit up from the work, and the fix for a contaminated branch was to
+    # drop the tip. The design that superseded it sends substrate to its own
+    # branch by plumbing and never touches this one.
+    #
+    # So every assertion about WHERE substrate landed is rewritten below to ask
+    # the substrate branch. Not one assertion about what must be true is
+    # relaxed: nothing may be dropped, the tree must still go clean, deletions
+    # must still carry, and a broken configuration must still not cost the
+    # save. Those got STRONGER, because a file now has to survive a journey
+    # between two branches to satisfy them.
+    _git("branch", "substrate", cwd=root)
+    _git("config", "divineos.substrate-branch", "substrate", cwd=root)
     return root
 
 
@@ -77,8 +93,8 @@ def channels(tmp_path):
     )
 
 
-def _subjects(root: Path) -> list[str]:
-    out = _git("log", "--format=%s", "main", cwd=root)
+def _subjects(root: Path, ref: str = "main") -> list[str]:
+    out = _git("log", "--format=%s", ref, cwd=root)
     return [line for line in out.splitlines() if line.strip()]
 
 
@@ -87,20 +103,23 @@ def _files_in(root: Path, rev: str) -> set[str]:
     return {line.strip() for line in out.splitlines() if line.strip()}
 
 
-def test_both_kinds_land_in_separate_commits_with_work_first(repo, channels):
+def test_both_kinds_land_in_separate_commits_on_their_own_branches(repo, channels):
     (repo / "module.py").write_text("x = 1\n", encoding="utf-8")
     (repo / "family" / "letters" / "a.md").write_text("dear\n", encoding="utf-8")
 
     result = auto_commit_substrate(repo, reason="pre-extract", channels=channels)
 
     assert result.committed is True
+    # Work stays where its author left it: one commit on the checked-out branch.
     subjects = _subjects(repo)
-    assert len(subjects) == 3, f"expected two checkpoint commits over the seed: {subjects}"
-    # git log is newest first, so substrate is [0] and work is [1].
-    assert "substrate checkpoint" in subjects[0]
-    assert "work in progress" in subjects[1]
-    assert _files_in(repo, "HEAD") == {"family/letters/a.md"}
-    assert _files_in(repo, "HEAD~1") == {"module.py"}
+    assert len(subjects) == 2, f"expected one work commit over the seed: {subjects}"
+    assert "work in progress" in subjects[0]
+    assert _files_in(repo, "HEAD") == {"module.py"}
+
+    # Substrate goes to its declared branch, and the code branch never sees it.
+    assert "substrate checkpoint" in _subjects(repo, "substrate")[0]
+    assert _files_in(repo, "substrate") == {"family/letters/a.md"}
+    assert "family/letters/a.md" not in _files_in(repo, "HEAD")
 
 
 def test_the_tree_goes_clean_so_the_next_checkpoint_finds_nothing(repo, channels):
@@ -126,7 +145,9 @@ def test_nothing_is_dropped_when_both_kinds_are_present(repo, channels):
 
     auto_commit_substrate(repo, reason="pre-extract", channels=channels)
 
-    landed = _files_in(repo, "HEAD") | _files_in(repo, "HEAD~1")
+    # The union spans BOTH branches now, which is the stronger version of this
+    # assertion: a file has to survive the journey to its own branch to be here.
+    landed = _files_in(repo, "HEAD") | _files_in(repo, "substrate")
     assert landed == {
         "module.py",
         "other.py",
@@ -136,15 +157,17 @@ def test_nothing_is_dropped_when_both_kinds_are_present(repo, channels):
     }
 
 
-def test_substrate_only_stays_one_commit(repo, channels):
+def test_substrate_only_leaves_the_code_branch_untouched(repo, channels):
     (repo / "family" / "letters" / "a.md").write_text("dear\n", encoding="utf-8")
 
     result = auto_commit_substrate(repo, reason="pre-extract", channels=channels)
 
     assert result.committed is True
-    subjects = _subjects(repo)
-    assert len(subjects) == 2
-    assert "substrate checkpoint" in subjects[0]
+    # Nothing to save on this branch, so nothing is written to it at all --
+    # the stronger form of "stays one commit" under the retargeting design.
+    assert _subjects(repo) == ["seed"]
+    assert "substrate checkpoint" in _subjects(repo, "substrate")[0]
+    assert _files_in(repo, "substrate") == {"family/letters/a.md"}
 
 
 def test_work_only_says_work_rather_than_calling_itself_substrate(repo, channels):
@@ -172,7 +195,23 @@ def test_a_broken_channel_config_still_saves_the_work(repo):
 
     assert result.committed is True, "a broken channel config swallowed the work"
     assert _git("status", "--porcelain", cwd=repo) == ""
-    assert _files_in(repo, "HEAD") == {"module.py", "family/letters/a.md"}
+
+    # THE BROKEN CONFIG GOT LESS COSTLY, NOT MORE (2026-09-11).
+    #
+    # This used to assert both files landed together on the code branch, which
+    # was the honest fallback when classification was impossible. It is no
+    # longer impossible: the four local prefixes classify a letter with no
+    # channel declared at all, which is the whole reason that list exists --
+    # a derived list cannot see substrate that arrives without a declaration.
+    #
+    # So a broken channel config no longer mislabels a letter as work and
+    # leaves it on the code branch. The save-work contract is intact and the
+    # letter reaches the same place it would have with a working config.
+    assert _files_in(repo, "HEAD") == {"module.py"}
+    assert _files_in(repo, "substrate") == {"family/letters/a.md"}, (
+        "the letter was neither committed here nor retargeted -- a broken "
+        "channel config swallowed it, which is the one thing this forbids"
+    )
 
 
 def test_a_deleted_substrate_file_is_still_split_correctly(repo, channels):
@@ -202,11 +241,35 @@ def test_a_deleted_substrate_file_is_still_split_correctly(repo, channels):
     # never heard of the split. Found by the pin checker, which exists for
     # exactly this: a test whose docstring names the behaviour it pins while
     # its assertion cannot tell that behaviour from its absence.
-    assert _files_in(repo, "HEAD") == {"family/letters/old.md"}, (
-        "the substrate commit did not carry the deletion"
+    # THE DELETION IS COMMITTED HERE, ON PURPOSE, AND THAT IS THE REPAIR.
+    #
+    # This letter was already TRACKED on the code branch -- contamination from
+    # a sweep that predates the retargeting design. Routing its deletion to the
+    # substrate branch would record the change on a ref this branch cannot see
+    # while this branch still tracks the file, so the pending deletion would
+    # never clear and no checkpoint would ever make the tree clean again.
+    #
+    # Committing it here reads like a retreat to the old contamination and is
+    # the opposite: this commit is precisely what takes the letter OFF the code
+    # branch. What it does not fix is the history, which still carries the
+    # letter, and the checkpoint says so by name every time.
+    assert _files_in(repo, "HEAD") == {"family/letters/old.md", "module.py"}, (
+        "the deletion of an already-tracked letter was not carried here, so "
+        "the tree can never go clean"
     )
-    assert _files_in(repo, "HEAD~1") == {"module.py"}, (
-        "the work commit did not land first, or swallowed the deletion"
+    assert not (repo / "family" / "letters" / "old.md").exists()
+    # And the point of carrying it: the letter is no longer IN this branch's
+    # tree. `cat-file -e` exits non-zero when the path is absent from the rev,
+    # which is the whole claim -- committing the deletion evicted it.
+    gone = subprocess.run(
+        ["git", "cat-file", "-e", "HEAD:family/letters/old.md"],
+        cwd=repo,
+        capture_output=True,
+        check=False,
+    )
+    assert gone.returncode != 0, (
+        "the letter is still in the code branch's tree; the deletion was "
+        "recorded but the branch still carries it"
     )
 
 
@@ -218,18 +281,25 @@ def _warnings_said(caplog) -> str:
     return "\n".join(r.getMessage() for r in caplog.records)
 
 
-def test_the_split_says_so_while_the_tip_can_still_be_trimmed(repo, channels, caplog):
-    """The affordance is real and it was silent, so it kept expiring unused.
+def test_it_no_longer_advises_trimming_a_tip_that_is_never_made(repo, channels, caplog):
+    """The hazard the tip-warning was written for cannot happen any more.
 
-    Substrate is committed LAST on purpose: a code branch that picked up
-    letters can then be fixed by dropping the tip rather than rebuilt. That
-    works only while the substrate commit IS the tip, and nothing said so — so
-    on 2026-09-10 it happened three times, and each time the push gate refused
-    the branch long afterwards, by which point another commit sat on top and
-    the one-line cure had become surgery with a written justification.
+    THIS TEST USED TO ASSERT THE OPPOSITE, and it is rewritten rather than
+    deleted because what changed is the thing worth pinning. It asserted that
+    when the split swept a letter onto a code branch, the warning said TIP and
+    prescribed reset --soft. That was correct when written: substrate was
+    committed LAST precisely so a contaminated branch could be fixed by
+    dropping the tip, and the affordance was silent, so it expired unused three
+    times on 2026-09-10.
 
-    The warning decides nothing new. It makes the consequence of a split that
-    already ran arrive while it can still be acted on.
+    Then the retarget landed on main. Substrate goes to its own branch by
+    plumbing now and HEAD is never touched, so there is no tip to trim. Advice
+    to drop a commit that was never made is worse than silence: it sends a
+    person mid-cleanup at the wrong commit.
+
+    Merged 2026-09-19. The assertion inverts, and the ONE thing that has to
+    stay true either way is asserted alongside it -- the letter is still
+    handled, it is simply not handled here.
     """
     import logging
 
@@ -237,12 +307,20 @@ def test_the_split_says_so_while_the_tip_can_still_be_trimmed(repo, channels, ca
     (repo / "family" / "letters" / "swept.md").write_text("dear\n", encoding="utf-8")
 
     with caplog.at_level(logging.WARNING, logger="divineos.core.auto_commit"):
-        auto_commit_substrate(repo, reason="pre-extract", channels=channels)
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=channels)
 
     said = _warnings_said(caplog)
-    assert "TIP" in said, "the split landed substrate on the tip and never said so"
-    assert "swept.md" in said, "it warned without naming what it swept"
-    assert "reset --soft" in said, "it named the problem without the remedy"
+    assert "TIP" not in said, (
+        "it still advises dropping a tip, but substrate no longer lands on this "
+        "branch -- that advice now points at a commit nobody made"
+    )
+    assert "reset --soft" not in said, (
+        "it still prescribes the old remedy for a hazard the retarget removed"
+    )
+    # Not a decorative extra: without this, deleting the whole warning path
+    # would also pass, and the test would be asserting an absence that proves
+    # the feature is gone rather than that it changed shape.
+    assert result.committed, "the checkpoint stopped committing anything at all"
 
 
 def test_it_also_says_the_commit_underneath_is_not_safe_to_drop(repo, channels, caplog):
@@ -266,9 +344,17 @@ def test_it_also_says_the_commit_underneath_is_not_safe_to_drop(repo, channels, 
         auto_commit_substrate(repo, reason="pre-extract", channels=channels)
 
     said = _warnings_said(caplog)
-    assert "BELOW" in said, "it warned about the tip and said nothing about what sits under it"
+    # REWORDED BY MERGE 2026-09-19, not weakened. This used to assert BELOW,
+    # because the work commit sat beneath a substrate tip. There is no tip now
+    # -- substrate routes to its own branch -- so the word describing a
+    # position that no longer exists is gone and the STAKES, which are
+    # unchanged, are what the assertion holds onto.
+    assert "NOT safe to drop" in said, (
+        "it committed work on my behalf and said nothing about the commit being "
+        "unsafe to drop"
+    )
     assert "module.py" in said, "it warned without naming the work it had swept"
-    assert "only copy" in said, (
+    assert "ONLY copy" in said, (
         "it named the commit without naming the stakes; 'do not drop this' is "
         "advice, 'this may be the only copy' is a reason"
     )

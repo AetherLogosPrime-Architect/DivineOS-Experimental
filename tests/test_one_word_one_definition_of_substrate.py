@@ -31,7 +31,7 @@ from pathlib import Path
 
 import pytest
 
-from divineos.core.substrate_paths import LOCAL_SUBSTRATE_PREFIXES, is_substrate_path
+from divineos.core.substrate_paths import LOCAL_SUBSTRATE_PREFIXES, is_declared_substrate_path
 
 _GATE = Path(__file__).resolve().parents[1] / "scripts" / "check_branch_scope.py"
 
@@ -69,7 +69,7 @@ def test_the_three_the_splitter_used_to_call_work(path):
     branch refused. The letters directory is deliberately NOT here: it was the
     one entry both sides already agreed on, so it proves nothing about the fix.
     """
-    assert is_substrate_path(path) is True, (
+    assert is_declared_substrate_path(path) is True, (
         f"{path} is filed as work again; the push gate will refuse the branch "
         "carrying it and the splitter will keep putting it there"
     )
@@ -88,7 +88,7 @@ def test_ordinary_code_is_still_work():
         "scripts/precommit.sh",
         "docs/foundational_truths.md",  # under docs/, but NOT docs/archives/
     ):
-        assert is_substrate_path(path) is False, (
+        assert is_declared_substrate_path(path) is False, (
             f"{path} classified as substrate; the split would divert real work "
             "onto the substrate branch"
         )
