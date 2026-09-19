@@ -350,6 +350,20 @@ DRIFTED = 1
 COULD_NOT_CHECK = 2
 
 
+def _why_nothing_was_produced(produced: Path) -> str | None:
+    """Say why the generator's output cannot be compared, or None if it can.
+
+    Separated from the check so the decision can be exercised without standing
+    up a worktree. The whole point is that "the generator wrote nothing" must
+    never reach the diff, where absence compares unequal and reads as drift.
+    """
+    if not produced.is_file():
+        return "the generator exited cleanly and wrote no register"
+    if produced.stat().st_size == 0:
+        return "the generator exited cleanly and wrote an empty register"
+    return None
+
+
 def _second_tree_path() -> Path:
     """Where the clean worktree goes, and why it is deliberately SHORT.
 
@@ -451,6 +465,30 @@ def _check_reproduces() -> int:
             print("could not check: the generator failed inside the clean tree")
             for line in (gen.stderr or "").strip().splitlines()[-3:]:
                 print(f"  {line}")
+            return COULD_NOT_CHECK
+
+        # A ZERO EXIT IS NOT PROOF THAT ANYTHING WAS WRITTEN.
+        #
+        # Aletheia attacked this design on 2026-09-19 and half of the attack
+        # lands. Her case: the tree builds, the generator runs, and the
+        # generator itself fails or produces nothing -- is that a third-outcome
+        # case or a mismatch? A crash is already covered directly above: a
+        # non-zero exit returns COULD_NOT_CHECK and never reaches the diff.
+        #
+        # What was NOT covered is the quieter half. A generator that exits zero
+        # and writes nothing -- or writes an empty file -- leaves a register
+        # that compares unequal to the committed one, and the diff below would
+        # have called that DRIFTED. Her point about the failure direction is
+        # the sharp part: drift sends someone to regenerate the file, which is
+        # the remedy for drift and does nothing for a generator that produced
+        # no bytes. A correct-sounding instruction pointing at the wrong
+        # repair.
+        #
+        # Trusting the exit code alone was one instrument asked once. The
+        # output is now looked at directly.
+        unwritten = _why_nothing_was_produced(dest / OUTPUT.relative_to(ROOT))
+        if unwritten is not None:
+            print(f"could not check: {unwritten}")
             return COULD_NOT_CHECK
 
         rel = str(OUTPUT.relative_to(ROOT)).replace("\\", "/")
