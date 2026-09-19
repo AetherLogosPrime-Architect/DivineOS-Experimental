@@ -14,6 +14,54 @@
 
 set -e
 
+# STEP ZERO: WHICH COPY OF THIS PROJECT IS ABOUT TO BE CHECKED?
+#
+# Every check below runs through `python`, and on this machine `python` can
+# resolve to a sibling checkout -- one global editable-install slot, claimed by
+# whoever ran the install last. When that happens the whole run is honest about
+# a tree nobody is committing to: lint, types and tests all pass or fail about
+# somebody else's source while reporting on this commit.
+#
+# Measured 2026-09-19: a full test run in one worktree was resolving the
+# package to a different repository entirely, and the venv this repo insists on
+# had neither pytest nor mypy -- so the gate forbidding the wrong interpreter
+# was forbidding the only one that could run anything.
+#
+# The command doing the asking has existed since July, describes this exact
+# fault in its own help text, was audited, was catalogued -- and had ZERO
+# callers for two months, while the person who wrote it got bitten by the fault
+# and found it by hand. Aether counted the callers 2026-09-19. This is the
+# caller. It was given a verdict first, because until then it printed which
+# copy it loaded and never judged whether that copy was the right one, and a
+# check that narrates instead of refusing is the same defect one layer along.
+#
+# Deliberately BEFORE the staged-file detection: which tree is being measured
+# is a precondition for every answer below it, including "nothing staged".
+# THREE OUTCOMES HERE TOO, and the third one is why this is not a one-liner.
+# A copy of the package older than this change does not have the option at
+# all, and click answers that with its own usage exit. Treating that as "wrong
+# interpreter" would block every checkout whose install predates this commit
+# and blame the wrong thing while doing it. So a usage exit is COULD-NOT-CHECK
+# and warns; only a real verdict stops the run.
+PRECOMMIT_REPO_ROOT=$(git rev-parse --show-toplevel)
+set +e
+python -m divineos doctor verify-import divineos --must-be-under "$PRECOMMIT_REPO_ROOT"
+PRECOMMIT_IMPORT_RC=$?
+set -e
+if [ "$PRECOMMIT_IMPORT_RC" -eq 1 ]; then
+    echo ""
+    echo "STOPPING BEFORE ANY CHECK RUNS. The interpreter this script uses does"
+    echo "not load this repository, so every result below would be about a"
+    echo "different tree. Nothing was checked; this exit is not a pass."
+    exit 1
+elif [ "$PRECOMMIT_IMPORT_RC" -ne 0 ]; then
+    echo ""
+    echo "  !  could not check which copy of the project this interpreter loads"
+    echo "     (the installed divineos predates --must-be-under, or the CLI did"
+    echo "      not run). Continuing, but the results below are UNVERIFIED as to"
+    echo "      which tree they describe."
+fi
+
 STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
 
 # SELECT SHELL SCRIPTS BY SHEBANG TOO, NOT ONLY BY EXTENSION.
