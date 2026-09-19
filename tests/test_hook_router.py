@@ -234,3 +234,68 @@ class TestWireProtocol:
         hr.register("PreToolUse", "boom", _boom("boom"))
         hr.main("PreToolUse", {})
         assert "COULD NOT RUN" in capsys.readouterr().err
+
+
+class TestDeliveryBudget:
+    """What actually reaches me, and what gets named instead.
+
+    THE CONSTRAINT, found 2026-09-08 by consolidating six compose-start hooks
+    onto one doorbell and watching the byte-checker fail immediately: the
+    harness budgets delivery PER HOOK OUTPUT. Six hooks each under the cap
+    arrived whole; one hook carrying all six became a preview plus a file
+    nobody opens.
+
+    Consolidation does not create the shortage, it makes it honest -- 87
+    percent of hook text was already being discarded before any of this,
+    spread thin enough across many hooks that every one passed its own check.
+    """
+
+    def test_whole_surfaces_are_kept_and_the_oversized_one_is_named(self):
+        result = hr.RouterResult(event="UserPromptSubmit")
+        result.ran = [
+            SurfaceOutcome(name="small_first", output="x" * 100),
+            SurfaceOutcome(name="huge", output="y" * hr.DELIVERY_BUDGET),
+            SurfaceOutcome(name="small_last", output="z" * 100),
+        ]
+        text, withheld = result.deliverable()
+
+        assert withheld == ["huge"]
+        # NEVER a mid-sentence cut: a prime sliced in half reads as the whole
+        # rule, which is worse than one that is absent and says its own name.
+        assert "y" not in text
+        # And a surface AFTER the oversized one still gets through -- one big
+        # payload must not starve everything behind it.
+        assert "x" * 100 in text and "z" * 100 in text
+
+    def test_everything_fits_when_it_fits(self):
+        result = hr.RouterResult(event="UserPromptSubmit")
+        result.ran = [
+            SurfaceOutcome(name="a", output="a" * 10),
+            SurfaceOutcome(name="b", output="b" * 10),
+        ]
+        text, withheld = result.deliverable()
+        assert withheld == []
+        assert "a" * 10 in text and "b" * 10 in text
+
+    def test_the_withheld_are_announced_rather_than_dropped_quietly(self, capsys):
+        hr.register(
+            "UserPromptSubmit",
+            "over",
+            lambda p: SurfaceOutcome(name="over", output="q" * (hr.DELIVERY_BUDGET + 1)),
+        )
+        hr.main("UserPromptSubmit", {})
+        captured = capsys.readouterr()
+        assert "withheld" in captured.err
+        assert "over" in captured.err
+        assert "Not silent, not delivered" in captured.err
+        # Control: the payload itself did NOT arrive, so this is a real
+        # withholding rather than a warning printed beside delivered text.
+        assert "q" * 100 not in captured.out
+
+    def test_stdout_still_returns_everything_for_callers_that_want_it_all(self):
+        """``deliverable`` is the delivery view; ``stdout`` stays the full
+        record, so a test or an audit can still see what the surfaces said."""
+        result = hr.RouterResult(event="UserPromptSubmit")
+        result.ran = [SurfaceOutcome(name="huge", output="y" * (hr.DELIVERY_BUDGET + 50))]
+        assert len(result.stdout()) > hr.DELIVERY_BUDGET
+        assert result.deliverable()[0] == ""
