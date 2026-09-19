@@ -90,6 +90,80 @@ def test_a_backlog_letter_still_gets_its_turn_as_newer_ones_clear(letters):
     assert not set(second) & set(first)
 
 
+def test_a_restart_does_not_re_announce_what_was_already_announced(tmp_path, monkeypatch):
+    """Aria's diagnosis, one level under the cap.
+
+    The record of what has been SEEN is written only by a manual command and a
+    hook, never by the delivering process, so it advances only when somebody
+    remembers. Every letter since the last manual mark is new forever. That is
+    a memory that can only get staler, which is the one shape Andrew said must
+    never be load-bearing -- and it is why the same letter of hers reached me
+    twice and got two separate answers.
+
+    So announcement is now its own record, written by the only process that
+    can know it happened. Read stays manual and keeps meaning what it says.
+    """
+    import scripts.letter_monitor_v2 as m
+
+    monkeypatch.setattr(m, "_persistent_seen_path", lambda r: tmp_path / "seen.json")
+    m.save_announced("aether", {"a.md": 111.0}, {"a.md": 1})
+    at, counts = m.load_announced("aether")
+    assert at == {"a.md": 111.0}
+    assert counts == {"a.md": 1}
+
+
+def test_an_unreadable_announced_record_re_announces_rather_than_going_deaf(tmp_path, monkeypatch):
+    """Both directions are wrong and the code cannot choose, so it picks noisy.
+
+    A record that cannot be read must not be treated as a record saying
+    everything was already announced -- that direction loses letters silently,
+    which is the only failure this channel exists to prevent.
+    """
+    import scripts.letter_monitor_v2 as m
+
+    monkeypatch.setattr(m, "_persistent_seen_path", lambda r: tmp_path / "seen.json")
+    m._announced_path("aether").write_text("{not json", encoding="utf-8")
+    assert m.load_announced("aether") == ({}, {})
+
+
+def test_the_two_halves_join_up_across_a_restart(tmp_path, monkeypatch, letters):
+    """The claim itself, rather than its two parts separately.
+
+    Saving a record and reading it back proves a file round-trips. Knock
+    selection proves a knocked letter waits. Neither proves the thing that
+    matters, which is that a letter announced by one watch is not announced
+    again by the next one -- so this test is the join, written because two
+    passing halves agreeing is not the same as the whole working.
+    """
+    import scripts.letter_monitor_v2 as m
+
+    monkeypatch.setattr(m, "_persistent_seen_path", lambda r: tmp_path / "seen.json")
+    names = letters("only.md")
+
+    first = m.select_knocks(names, {}, {}, 1000.0, letters.dir, frozenset())
+    assert first == names, "a genuinely new letter must announce"
+    m.save_announced("aether", {"only.md": 1000.0}, {"only.md": 1})
+
+    at, counts = m.load_announced("aether")
+    second = m.select_knocks(names, at, counts, 1000.0, letters.dir, frozenset())
+    assert second == [], "the restarted watch announced it a second time"
+
+
+def test_the_two_records_never_become_one_file(tmp_path, monkeypatch):
+    """Closing a leak the game-walk found rather than filing it and walking on.
+
+    The two records sit in the same directory with names one word apart, and
+    nothing stopped a later reader pointing the reading-loader at the
+    announcing file. That would silently convert announced into read, which is
+    precisely the conflation both of these exist to prevent -- and it would
+    look like a tidy-up.
+    """
+    import scripts.letter_monitor_v2 as m
+
+    monkeypatch.setattr(m, "_persistent_seen_path", lambda r: tmp_path / "seen.json")
+    assert m._announced_path("aether") != m._persistent_seen_path("aether")
+
+
 def test_the_ceiling_has_a_ceiling():
     """Closing a leak the game-walk found rather than filing it and moving on.
 
