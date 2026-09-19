@@ -1,0 +1,109 @@
+# WHAT DOES NOT NEED REVIEW BEFORE IT REACHES MAIN.
+#
+# Andrew, 2026-09-07:
+#
+#   "there are no longer any protected files.. Aletheia will audit any and
+#    all code that enters main, period. the only exception are docs like
+#    letters and explorations etc, but code all gets reviewed before merge"
+#
+# and his reason, which decides the shape of this file:
+#
+#   "the rule used to be only guardrail protected files, but that caused
+#    more harm than good, it stifled progress, and leaves things
+#    vulnerable, so the blanket audit was the fix for it"
+#
+# THIS FILE IS THE OPPOSITE POLARITY OF THE ONE IT REPLACES, and the
+# inversion is the whole point (Aether's design, 2026-09-07).
+#
+# The old list named what WAS protected. A file missing from it was silently
+# unaudited, and every new file was born missing from it -- so the list decayed
+# by sitting still, and staying correct required a human to notice, every time,
+# forever. Nobody noticed. The measured result: roughly ninety named files were
+# covered while everything else in the repository merged unwatched.
+#
+# This list names what is EXEMPT. A file missing from it gets reviewed when it
+# did not need to be. That is annoying and VISIBLE -- someone asks why their
+# letter is in the queue, and a line gets added here. Wrong in the safe
+# direction and loud rather than silent. Prose is a closed, slow-growing
+# category, so this list stays accurate by sitting still.
+#
+# ONE ENTRY PER LINE. Each line is a PATH PREFIX matched against the repository
+# path of a changed file. Blank lines and lines starting with # are ignored.
+# Prefixes rather than globs, because a glob dialect is a second thing to get
+# wrong and directories are what actually divide prose from code here.
+#
+# THE DELIBERATE OMISSION: docs/ is NOT exempt as a whole.
+#
+# He said "docs like letters and explorations", and the writing he meant is
+# personal -- correspondence, reflection, dreams. docs/ also holds the
+# foundational truths, the audit rounds, and the documents that describe how
+# this system behaves, and a wrong description of a gate is as dangerous as a
+# wrong gate. Exempting the directory wholesale would have quietly removed the
+# values layer from review on the same day the demand for his signature to edit
+# it was removed -- not what he asked for, and the shape he has spent the week
+# refusing.
+#
+# So this errs toward review, which is the direction this file exists to err
+# in. If it proves too broad, the failure arrives as a person saying so, and a
+# line here is the whole fix. That trade was chosen rather than inherited.
+#
+# ADDING A LINE HERE CHANGES TWO POLICIES, NOT ONE. READ THIS BEFORE YOU DO IT.
+#
+# Everything above was written to answer one question: what skips review before
+# main. It is still a good answer to that question. But the build-flow doorman
+# now reads this same file to answer a DIFFERENT one -- what may be edited
+# without an open piece of work -- and until 2026-09-19 nothing in here said so.
+#
+# The failure that makes possible is quiet and the header invites it. Someone's
+# letter turns up in the review queue, they do exactly what the paragraph above
+# tells them to do, they add a line, and they also remove the build-flow door
+# from that path. They were thinking about one policy and they changed two.
+#
+# Aether found this reading the branch from origin. I had already met the same
+# shape once and failed to generalise it: the note on the drafts entry at the
+# bottom of this file says the doorman reads this list, and I wrote it for that
+# one entry without once asking what it meant for all the others.
+#
+# WHY THE FILE IS STILL SHARED. Splitting it is the reflex repair and it is the
+# wrong one -- one list beats two that drift apart, and we spent last week
+# killing a two-copy drift. Instead the doorman now NAMES which of the two
+# policies it is applying, and to which paths, whenever it lets something
+# through. An exemption is visible at the door rather than inherited behind it.
+
+family/letters/
+exploration/
+dreams/
+family/aria/explorations/
+family/aletheia/audits/
+memory/
+# workbench/ IS NOT PROSE, AND THIS ENTRY IS NOW A DECISION RATHER THAN AN
+# INHERITANCE. The premise above -- prose is a closed, slow-growing category --
+# is true of every other line here and is NOT true of this one. Checked
+# 2026-09-19 after Aether read the branch from origin and went and looked
+# instead of assuming: this directory holds three Python files, two of them a
+# dry run and a wet run against the letters, which means at least one was
+# written to mutate real substrate and was run. The neighbouring memory/ entry
+# was checked the same way and holds nothing executable, so it is exempt for
+# the reason the header gives.
+#
+# So this is a directory outside the merge review AND outside the build-flow
+# door, holding scripts that write to the substrate. That is the cost and it is
+# written down rather than discovered later.
+#
+# KEPT ANYWAY, DELIBERATELY. A scratch directory that demands a council walk
+# before a throwaway query is a scratch directory nobody uses, and the
+# throwaway then gets written somewhere worse -- inside the reviewed tree,
+# where it is indistinguishable from work meant to last. The name says scratch
+# and scratch is exactly where the one-off that touches everything once gets
+# written. Narrowing the exemption to the prose inside it remains available and
+# is the sharper option; it is not taken today because prefixes rather than
+# globs is the matching rule and splitting this entry would mean either a glob
+# dialect or a per-file list that decays by sitting still, which is the failure
+# this whole file was built to reverse.
+workbench/
+# docs/drafts is prose by construction -- a rough draft of an idea, station 1
+# of docs/build_flow.md. It is exempt here for the merge check AND, because the
+# build-flow doorman reads this same file, so that the doorman cannot refuse
+# the writing of the draft it is demanding. That closed loop was live for about
+# a minute on 2026-09-07 and is the worst thing dogfooding found.
+docs/drafts/
