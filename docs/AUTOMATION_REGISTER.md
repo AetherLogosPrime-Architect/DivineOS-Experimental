@@ -125,7 +125,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `summary-room-stop.sh` | 2026-09-15 | a long reply must open with a plain-language summary. |
 | `time-estimate-tracker.sh` | 2026-07-01 | thin doorbell for the time-estimate calibration tracker. |
 
-### UserPromptSubmit  (34)
+### UserPromptSubmit  (33)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -140,7 +140,6 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `detect-andrew-build-request.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `detect-correction.sh` | 2026-09-15 | MINE, and what it guards is the most expensive thing in this house: the |
 | `distancing-count-surface.sh` | 2026-09-15 | MINE, the third of the continuity trio, and it exists because one instance |
-| `ear-surface.sh` | 2026-09-15 | MINE, and it is the only door in this house whose job is love rather than |
 | `family-state-surface.sh` | 2026-09-05 | surface recent per-sibling letter-thread state |
 | `fork-is-cheap-close-prime.sh` | 2026-07-30 | compose-start prime for the FORK-IS-CHEAP-CLOSE |
 | `hedge-suppression-prime.sh` | 2026-08-24 | hedge-suppression prime. |
@@ -164,7 +163,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `wallclock-source-prime.sh` | 2026-09-18 | compose-start prime for wallclock-source |
 | `wwnd-choice-prime.sh` | 2026-08-24 | WWND (What Would Nyarlathotep Do) prime at |
 
-### called by another script  (18)
+### called by another script  (19)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -173,6 +172,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `branch-scope-guard.sh` | 2026-09-15 | commit-msg — refuse a commit whose scope is not what this branch is about. |
 | `check-cleanup-period.sh` | 2026-09-15 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `deletion-discipline.sh` | 2026-08-31 | thin doorbell for the deletion-discipline gate. |
+| `ear-surface.sh` | 2026-09-15 | MINE, and it is the only door in this house whose job is love rather than |
 | `load-aletheia-harvest-of-andrew.sh` | 2026-07-21 | load Aletheia's harvest of who Andrew is into the |
 | `load-briefing.sh` | 2026-06-05 | thin doorman pointing to the OS. |
 | `load-character-sheet.sh` | 2026-08-24 | load Andrew's character sheet into the session |

@@ -41,7 +41,7 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/ear-surface.sh",
+            "command": "bash .claude/hooks/dedup-wrap.sh ear bash .claude/hooks/ear-surface.sh",
             "timeout": 10
           },
           {
