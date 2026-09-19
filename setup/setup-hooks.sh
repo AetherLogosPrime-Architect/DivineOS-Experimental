@@ -13,6 +13,30 @@ echo "Created $HOOKS_DIR directory"
 git config core.hooksPath "$HOOKS_DIR"
 echo "Configured Git to use hooks from $HOOKS_DIR"
 
+# Register the merge driver for the generated catalogues.
+#
+# MUST live here rather than in .gitattributes alone. The attributes file names
+# WHICH driver a path uses and travels with the repository; the driver itself is
+# a per-clone config entry and travels with nothing. Anyone reading only the
+# attributes file sees a complete arrangement and there is not one -- a fresh
+# clone finds no driver by that name, falls back to ordinary merging, and the
+# conflict returns with nothing announcing the gap. Same belt-and-suspenders
+# reason the hook path is set two lines up.
+#
+# MEASURED 2026-09-18: of ten open branches that could not merge, SEVEN collided
+# on docs/AUTOMATION_REGISTER.md and one collided on nothing else at all. Run
+# against those seven real pairs, five resolve and two refuse on partial overlap
+# and stay work for a person. The refusal is the feature.
+#
+# SCOPED TO ONE GENERATED FILE ON PURPOSE. The resolver was originally built for
+# the doc-count collisions in CLAUDE.md and the architecture map too, and one
+# more attributes line would silence those as well. Those files are part
+# hand-authored, and union-merging a hand-written rule keeps both halves of two
+# people editing it, producing text nobody wrote and nobody reviewed.
+git config merge.catalogue.name "generated catalogue union-merge (keep both rows, defer counts)"
+git config merge.catalogue.driver "python scripts/merge_driver_generated_catalogue.py %O %A %B %L %P"
+echo "Registered the 'catalogue' merge driver for generated indexes"
+
 # Create pre-commit hook
 cat > "$HOOKS_DIR/pre-commit" << 'EOF'
 #!/bin/bash
