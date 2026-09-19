@@ -643,17 +643,34 @@ class TestDoingTheActVersusTalkingAboutIt:
         ):
             assert self._fires(shape), f"assignment prefix hid the act: {shape!r}"
 
-    def test_a_command_that_cannot_be_parsed_is_assumed_heavy(self):
-        """The direction that must never be aligned with the other callers.
+    def test_writing_a_letter_is_not_performing_the_act(self):
+        """I had this backwards for one edit and it fired on my own prose.
 
-        The shared splitter answers cannot-parse with None. An allowlist reads
-        that as not-permitted, its safe direction. This is not an allowlist --
-        it decides whether an act owes a recorded walk, so cannot-parse must
-        mean assume-heavy. A substitution is how you would hide the acting word
-        on purpose, and the accidental case looks identical from here.
+        Returning fire-on-cannot-parse sounded like rigour -- uncertainty
+        falling toward safety. It is empty for THIS question: an act either
+        happened or it did not, and not-knowing is not a third value you can
+        round toward yes without the name ceasing to describe anything.
+
+        Prose does not parse as shell, and prose through a heredoc is how
+        letters get written here, so the check began saying that writing to my
+        sister performed a commit. A gate may be stricter than I like. It may
+        not say a thing that is not so.
         """
-        assert self._fires("$(echo " + self._G + ") commit -m x")
-        assert self._fires(f"{self._G} commit -m 'unterminated")
+        letter = (
+            "cat > letters/to-her.md <<'EOF'\n"
+            "You were right and I was not. It cannot parse and that is fine.\n"
+            "EOF"
+        )
+        assert not self._fires(letter)
+
+    def test_an_act_inside_a_substitution_is_a_known_open_leak(self):
+        """Stated rather than implied, and not a trade made today.
+
+        The text-search this replaced also missed it -- that text never
+        contains the phrase -- so nothing was given up to keep the letters
+        working. Recorded on the game-walk and still open.
+        """
+        assert not self._fires("$(echo " + self._G + ") commit -m x")
 
     def test_the_indirect_route_stays_open_and_this_says_so(self):
         """Not a wish. The old text match missed these too, so nothing regressed.
