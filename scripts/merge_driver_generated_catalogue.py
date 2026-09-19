@@ -32,13 +32,34 @@ Text nobody wrote, in the file people read to learn what runs by itself. Adding
 a key-collision refusal then made it refuse all seven, which is a driver that
 never resolves and therefore is not one.
 
-TAKING ONE SIDE IS LOSSLESS HERE, and that is a property of the file rather than
-of the hunks. This catalogue is a PURE FUNCTION OF THE TREE -- verified by
-running the generator against a clean checkout and diffing: identical. So every
-side of a conflict here is a stale rendering of the same fact, and keeping both
-was never meaningful. Aria corroborated it from a second checkout, and added the
-stronger argument: the commit-time check has been shut against hand-edits since
-it was wired, so the honest scope is never-hand-edited SINCE THE WIRING.
+TAKING ONE SIDE ENDS THE DEADLOCK. It does not end the collision, and the
+difference matters enough that the original claim here is corrected in place
+rather than quietly softened.
+
+WHAT THIS FILE CLAIMED FIRST, AND WHY IT WAS WRONG. It said the catalogue is a
+PURE FUNCTION OF THE TREE, verified by running the generator against a checkout
+and diffing: identical. The measurement was real and the inference was
+confounded -- the generator ran in the tree where that register had last been
+generated, on the same branch. That is checking a photograph against itself.
+
+Aria found the mechanism, and it is two lines below in the generator: the
+staleness column comes from `git log -1 --format=%as` per path, resolved against
+the CURRENT BRANCH. Two branches holding byte-identical hooks but forked on
+different days produce different registers and then refuse to agree. Confirmed
+here on one hook across three refs -- the same file reports one date from main
+and an earlier one from a branch. The file is HISTORY-DEPENDENT BY CONSTRUCTION
+and will collide with itself forever, whatever any driver does.
+
+She also measured that main's own checked-in register does not reproduce from a
+clean worktree at main -- seventy lines differ -- so the copy on the branch
+everything merges into is a snapshot of some other tree.
+
+WHAT SURVIVES OF THE ARGUMENT. Taking one side still loses nothing a
+regeneration cannot restore, because the row SET is recoverable. What does not
+survive is the claim that both sides render the same fact: they render different
+branch histories. So this is a deadlock-breaker rather than a cure, and the cure
+is to make that column history-independent so two branches with the same hooks
+produce the same bytes.
 
 THE OTHER HALF ALREADY EXISTS, and without it this is a silent-staleness
 machine: ``generate_automation_register.py --check`` exits non-zero on a drifted

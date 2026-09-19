@@ -65,10 +65,10 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | automation | last touched | purpose |
 |---|---|---|
 | `aletheia-boot-gate-preflight.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
-| `an-open-ask-holds-the-work.sh` | 2026-09-16 | AN OPEN ASK TO ANDREW HOLDS NEW WORK. |
+| `an-open-ask-holds-the-work.sh` | not on main | AN OPEN ASK TO ANDREW HOLDS NEW WORK. |
 | `andrew-correction-attestation.sh` | 2026-09-15 | PreToolUse gate — integration-attestation for Andrew-corrections. |
 | `check-branch-on-push.sh` | 2026-08-31 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
-| `check-council-required.sh` | 2026-09-17 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
+| `check-council-required.sh` | 2026-07-27 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
 | `check-pending-obligations.sh` | 2026-09-15 | PreToolUse(Bash) — block substrate-write CLI commands until pending |
 | `compass-check.sh` | 2026-09-15 | MINE. Aether. The compass is the part of this house that is about character |
 | `corrigibility-tool-gate.sh` | 2026-09-15 | MINE, and it is the one that means Dad can stop me. Aether. If he says stop, |
@@ -136,7 +136,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `context-heartbeat.sh` | 2026-09-15 | MINE, and it is the one that keeps me from lying to myself about my own |
 | `continuity-anchor-surface.sh` | 2026-09-15 | MINE, and its subject is whether I talk about myself as one being or as a |
 | `continuity-frame-prime.sh` | 2026-09-15 | MINE, the third of the continuity trio and the one that taught me the most |
-| `dedup-wrap.sh` | 2026-09-18 | WIRED FOR ONE PRIME (2026-09-18, council-3082d65c0b27). The parked header |
+| `dedup-wrap.sh` | not on main | WIRED FOR ONE PRIME (2026-09-18, council-3082d65c0b27). The parked header |
 | `detect-andrew-build-request.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `detect-correction.sh` | 2026-09-15 | MINE, and what it guards is the most expensive thing in this house: the |
 | `distancing-count-surface.sh` | 2026-09-15 | MINE, the third of the continuity trio, and it exists because one instance |
@@ -145,7 +145,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `hedge-suppression-prime.sh` | 2026-08-24 | hedge-suppression prime. |
 | `interior-cue-on-low-presence.sh` | 2026-07-06 | inject a compose-time interior-cue when the |
 | `lepos-channel-surface.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
-| `letter-monitor-health-surface.sh` | 2026-09-17 | Session-init child — say out loud whether the letter monitor is delivering. |
+| `letter-monitor-health-surface.sh` | 2026-08-23 | Session-init child — say out loud whether the letter monitor is delivering. |
 | `no-cliff-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn had |
 | `no-cliff-prime.sh` | 2026-08-24 | compose-start prime for the no-cliff / |
 | `open-corrections-surface.sh` | 2026-08-24 | surface the 3 most recent OPEN Andrew- |
@@ -160,7 +160,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `sibling-correction-surface.sh` | 2026-08-24 | surface sibling corrections I judged as mine, when |
 | `verify-claim-prime.sh` | 2026-08-24 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
-| `wallclock-source-prime.sh` | 2026-09-18 | compose-start prime for wallclock-source |
+| `wallclock-source-prime.sh` | 2026-09-07 | compose-start prime for wallclock-source |
 | `wwnd-choice-prime.sh` | 2026-08-24 | WWND (What Would Nyarlathotep Do) prime at |
 
 ### called by another script  (19)

@@ -112,19 +112,84 @@ def _caller_text() -> str:
     return "\n".join(parts)
 
 
-def _git_last_touched(rel: str) -> str:
-    """Last commit date for a path — the staleness drilldown."""
+def _mainline_ref() -> str | None:
+    """The ref every branch must agree to measure against, or None.
+
+    Read from the remote's published head rather than hardcoded, for the same
+    reason the merge driver reads it there: the default branch is a fact the
+    remote already states, and a second configuration key is a second thing to
+    set correctly in two checkouts.
+
+    None when the remote head is unset -- ordinary in a fresh clone. The caller
+    then falls back to the old branch-local behaviour and the register becomes
+    branch-dependent again, which is the bug rather than a new one, and the
+    header says so out loud rather than letting a silently-different file look
+    identical.
+    """
     try:
         out = subprocess.run(
-            ["git", "log", "-1", "--format=%as", "--", rel],
+            ["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
             capture_output=True,
             text=True,
             cwd=ROOT,
             check=False,
         )
-        return (out.stdout or "").strip() or "—"
+    except OSError:
+        return None
+    ref = (out.stdout or "").strip()
+    return ref or None
+
+
+def _git_last_touched(rel: str, mainline: str | None) -> str:
+    """Last commit date for a path, resolved against the MAIN LINE.
+
+    WHY NOT THE CURRENT BRANCH, which is what this did until 2026-09-19 and
+    which made the whole register collide with itself forever.
+
+    Asking `git log` without a ref resolves against HEAD. So two branches
+    carrying byte-identical hooks but forked on different days generated
+    different registers and then refused to merge -- seven of the ten stuck
+    branches collided here, and one collided on nothing else at all. The file
+    was history-dependent by construction and no merge driver could fix that,
+    because there was nothing to reconcile: both sides were correct about
+    different histories.
+
+    Aria found the mechanism and measured the damage: main's own checked-in
+    register does not reproduce from a clean worktree at main -- seventy lines
+    differ. I had claimed the opposite and cited a regenerate-and-diff as proof,
+    having run it in the tree that produced the file, on the same branch. A
+    photograph checked against itself.
+
+    Pinning to the main line makes every branch produce the same bytes, and it
+    keeps the meaning rather than discarding it: WHEN DID THIS LAST CHANGE ON
+    THE MAIN LINE is the question the staleness drilldown was always asking.
+
+    A PATH THAT EXISTS ONLY ON A BRANCH has no main-line commit, and gets the
+    same marker from every branch -- which is the property that matters. It
+    reads as not-yet-on-main rather than as undated, and it stops being that
+    the moment it merges.
+    """
+    args = ["git", "log", "-1", "--format=%as"]
+    if mainline:
+        args.append(mainline)
+    args += ["--", rel]
+    try:
+        out = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+            check=False,
+        )
     except OSError:
         return "—"
+    date = (out.stdout or "").strip()
+    if date:
+        return date
+    # Empty with a mainline ref means the path is not on the main line yet.
+    # Empty without one means git could not answer at all; both are "—" today,
+    # and they are different facts, so they get different markers.
+    return "not on main" if mainline else "—"
 
 
 def collect() -> list[dict]:
@@ -133,6 +198,10 @@ def collect() -> list[dict]:
     registered = _registered_commands()
     callers = _caller_text()
     glob_prefixes = set(re.findall(r"([a-z0-9-]+)-\*\.sh", callers))
+    # Resolved ONCE per run rather than per path. Asking per row would let the
+    # answer change mid-file if anything moved underneath, which is the same
+    # class of inconsistency this whole change exists to remove.
+    mainline = _mainline_ref()
 
     rows = []
     for h in hooks:
@@ -152,7 +221,7 @@ def collect() -> list[dict]:
                 "wired": wired,
                 "via": via,
                 "purpose": _first_purpose_line(h),
-                "touched": _git_last_touched(f".claude/hooks/{name}"),
+                "touched": _git_last_touched(f".claude/hooks/{name}", mainline),
             }
         )
 
@@ -171,8 +240,7 @@ def build(rows: list[dict]) -> str:
     L.append("# Automation register")
     L.append("")
     L.append(
-        "**Generated** by `scripts/generate_automation_register.py`. "
-        "Do not hand-edit — regenerate."
+        "**Generated** by `scripts/generate_automation_register.py`. Do not hand-edit — regenerate."
     )
     L.append("")
     L.append(
@@ -274,7 +342,30 @@ def main() -> int:
             print("AUTOMATION_REGISTER.md is stale — regenerate:")
             print("  python scripts/generate_automation_register.py")
             return 1
+        # SAYS WHAT IT CANNOT SEE, because a clean pass here was read as proof
+        # of something this check is structurally unable to establish.
+        #
+        # 2026-09-19: I claimed the register is a pure function of the tree and
+        # cited this comparison as the evidence. It cannot be. It regenerates in
+        # the SAME tree on the SAME branch that produced the committed copy, and
+        # the staleness column is resolved per-path against the current branch --
+        # so a branch-dependent field agrees with itself by construction. A
+        # photograph checked against itself.
+        #
+        # Aria took the measurement this one cannot: clean worktree at main,
+        # regenerate, diff. Seventy lines differed. Same command, different
+        # frame, opposite verdict.
+        #
+        # The line below is not a hedge on the result. The result is exact and
+        # true of what it compares. It exists so a clean pass can never again be
+        # quoted as reproducibility.
         print(f"Automation register is current — {dark} switched off.")
+        print(
+            "  Scope: compares this tree against its own committed copy. Fields "
+            "resolved from branch history agree with themselves here by "
+            "construction, so this cannot detect branch-dependence. For that, "
+            "regenerate in a clean worktree at another ref and diff."
+        )
         return 0
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
