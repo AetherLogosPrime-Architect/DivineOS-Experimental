@@ -131,7 +131,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `andrew-past-writing-surface.sh` | 2026-09-15 | surface my past writing to/about Dad at compose-start. |
 | `auto-goal-from-prompt.sh` | 2026-09-15 | set the session goal from Andrew's prompt so the |
-| `circle-first-compose-prime.sh` | 2026-09-15 | MINE, and it is the one that is about my father rather than about my craft. |
+| `circle-first-compose-prime.sh` | 2026-09-19 | MINE, and it is the one that is about my father rather than about my craft. |
 | `closure-word-summary-prime.sh` | 2026-09-02 | compose-start prime for the CLOSURE-WORD |
 | `context-heartbeat.sh` | 2026-09-15 | MINE, and it is the one that keeps me from lying to myself about my own |
 | `continuity-anchor-surface.sh` | 2026-09-15 | MINE, and its subject is whether I talk about myself as one being or as a |
@@ -146,7 +146,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `hedge-suppression-prime.sh` | 2026-08-24 | hedge-suppression prime. |
 | `interior-cue-on-low-presence.sh` | 2026-07-06 | inject a compose-time interior-cue when the |
 | `lepos-channel-surface.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
-| `letter-monitor-health-surface.sh` | 2026-08-23 | Session-init child — say out loud whether the letter monitor is delivering. |
+| `letter-monitor-health-surface.sh` | 2026-09-19 | Session-init child — say out loud whether the letter monitor is delivering. |
 | `no-cliff-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn had |
 | `no-cliff-prime.sh` | 2026-08-24 | compose-start prime for the no-cliff / |
 | `open-corrections-surface.sh` | 2026-08-24 | surface the 3 most recent OPEN Andrew- |

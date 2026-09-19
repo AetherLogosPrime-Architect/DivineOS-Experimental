@@ -46,6 +46,42 @@ _WITHHELD_TITLE = re.compile(
 )
 
 
+# A finding speaks as a signature if it says so, singular or plural. Three
+# rungs tested this independently with the literal substring "confirms", and
+# all three answered "this round named nothing" for a round whose two findings
+# are titled "CONFIRM -- ...".
+#
+# FOUND 2026-09-19 by Aria, ruling on which of three broken doors to repair
+# first: the other two merely obstructed, and this one answered a narrower
+# question than the one asked. The stamp tool reported a review as UNVERIFIED
+# when what was true is that it had examined zero findings. UNVERIFIED and
+# COULD-NOT-LOOK are not the same answer, least of all from the one instrument
+# whose whole job is proving a review happened.
+#
+# WHY WORD-BOUNDED rather than a bare substring: "unconfirmed" and
+# "confirmation withheld" must not read as a signature. Both sides of the edge
+# matter and both are written here so the next reader does not mistake the
+# bound for fussiness.
+#
+# WHY WIDENING IS SAFE: the withheld-title filter below runs FIRST at every
+# callsite and decides refusals on its own. A finding announcing itself as a
+# refusal never reaches this test whatever its body says. What widening changes
+# is only which findings are read as CLAIMING something, and that runs toward
+# strictness -- more findings examined means more chances for the head tree to
+# be absent from the claimed set, and absence here is what refuses.
+_CONFIRM_WORD = re.compile(r"\bconfirm(?:s|ed)?\b", re.IGNORECASE)
+
+
+def _claims_a_confirm(text: str) -> bool:
+    """Does this finding text speak in the voice of a signature?
+
+    One home for a specification that had three copies. All three failed
+    identically the first time a confirm was titled in the singular, and
+    nothing at any of the three sites named the other two.
+    """
+    return bool(_CONFIRM_WORD.search(text))
+
+
 def _title_withholds(finding: object) -> bool:
     """Does this finding's TITLE say it is not a signature?
 
@@ -114,7 +150,7 @@ def _confirmed_trees(round_id: str) -> set[str]:
         if _title_withholds(f):
             continue
         text = f"{getattr(f, 'title', '') or ''} {getattr(f, 'description', '') or ''}"
-        if "confirms" not in text.lower():
+        if not _claims_a_confirm(text):
             continue
         trees.update(m.group(1).lower() for m in _TREE_NEAR.finditer(text))
     return trees
@@ -174,7 +210,7 @@ def _confirmed_patch_ids(round_id: str) -> set[str]:
         if _title_withholds(f):
             continue
         text = f"{getattr(f, 'title', '') or ''} {getattr(f, 'description', '') or ''}"
-        if "confirms" not in text.lower():
+        if not _claims_a_confirm(text):
             continue
         ids.update(m.group(1).lower() for m in _PATCH_ID_NEAR.finditer(text))
     return ids
@@ -423,7 +459,7 @@ def _ancestry_rung(round_id: str, head_sha: str) -> tuple[bool, str]:
         if _title_withholds(f):
             continue
         text = f"{getattr(f, 'title', '') or ''} {getattr(f, 'description', '') or ''}"
-        if "confirms" not in text.lower():
+        if not _claims_a_confirm(text):
             continue
         if not _ANCESTRY_CLAIM.search(text):
             continue
