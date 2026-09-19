@@ -41,24 +41,37 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # Paths written by the substrate itself rather than by deliberate work.
-_SUBSTRATE_PREFIXES = (
-    "family/letters/",
-    "exploration/",
-    "dreams/",
-    "docs/archives/",
-    # LOADOUT.md is the survey of my own writing -- regenerated from the
-    # substrate, swept by the same checkpoint, and personal in exactly the way
-    # the four above are. It arrived on fix/mixed-scope-publish-gate and never
-    # reached main; a test on that branch asserts it counts, and that test is
-    # the only reason the omission surfaced here.
-    #
-    # THIRD DISJOINT PIECE IN THIS ONE FILE, and it is why this merge is a
-    # union rather than a choice: main holds the byte check, the branch holds
-    # the mixed-scope gate, and the branch alone holds this line. Every
-    # one-sided resolution destroys something, and the loss is invisible from
-    # whichever side you are standing on.
-    "LOADOUT.md",
-)
+#
+# IMPORTED, not restated. Until 2026-09-10 this was a second copy, and the
+# checkpoint splitter answered the same question from the declared channels
+# instead -- so the splitter filed archives and dreams as WORK while this gate
+# refused the branch for carrying SUBSTRATE. One word, two definitions, three
+# of four entries in disagreement, and the only symptom was a branch that could
+# not be pushed and could not be fixed by the component that made it.
+#
+# MERGE NOTE, 2026-09-19. This branch and main each held a DIFFERENT third
+# piece, and my own comment on the branch side predicted it: main replaced the
+# hardcoded tuple with this import, while the branch had added LOADOUT.md to
+# the tuple. Taking either side alone destroys the other's work silently --
+# main's side loses the entry, the branch's side loses the single definition
+# and restores the two-copy drift that caused the original defect.
+#
+# Resolved as a union in the only place a union survives: the import stays, and
+# LOADOUT.md moved UP into LOCAL_SUBSTRATE_PREFIXES so every component asking
+# what substrate means gets the same answer including that file. The branch's
+# test asserting LOADOUT.md counts still passes, now against the shared source.
+try:
+    from divineos.core.substrate_paths import LOCAL_SUBSTRATE_PREFIXES as _SUBSTRATE_PREFIXES
+except ImportError:  # pragma: no cover - a checkout without the package installed
+    # Loud rather than a silent second copy: a fallback list here would be the
+    # exact duplication this import exists to end, and it would drift quietly.
+    print(
+        "[scope] CANNOT CLASSIFY: divineos.core.substrate_paths is not importable, "
+        "so this gate has no definition of substrate. That is could-not-look, not "
+        "a clean branch. Install the package (pip install -e .) and re-run.",
+        file=sys.stderr,
+    )
+    raise SystemExit(24)
 
 
 @dataclass(frozen=True)
