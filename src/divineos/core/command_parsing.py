@@ -299,7 +299,24 @@ make one arrive as a visible edit to a test rather than as a quiet line here.
 
 _SUBSTITUTION_MARKS = ("$(", "`", "${")
 
-_SEGMENT_SEPARATORS = ("&&", "||", "|", ";", "&")
+_SEGMENT_SEPARATORS = ("&&", "||", "|", ";", "&", "\n")
+# A NEWLINE IS A STATEMENT SEPARATOR AND THIS LIST DID NOT KNOW IT
+# (2026-09-19, found by Aletheia auditing a caller that had reinvented this
+# module rather than importing it).
+#
+# Every caller inherited the gap. A multi-line command collapsed into a single
+# segment whose head was whatever the first line began with, so anything
+# reading the head saw a shell builtin and the acting command two lines down
+# was never examined at all.
+#
+# SAFE BENEATH CALLERS NOT BEING EDITED, and here is the argument rather than
+# the feeling: this can only ever produce MORE segments, never fewer. Each
+# acting line must now justify itself where previously only the first was
+# read. Nothing newly passes. Something that used to pass may now be refused,
+# and in every case I could construct the refused thing was a line nobody was
+# looking at. What the argument cannot settle is whether some caller issues a
+# routine multi-line invocation that depended on the old looseness -- that is
+# answered by their suites rather than by my reasoning, so they were run.
 
 
 def split_shell_segments(bash_command: str) -> list[str] | None:

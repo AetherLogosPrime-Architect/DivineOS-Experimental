@@ -494,20 +494,56 @@ def score_substrate_modification(
         older than this change and stays open, which is worth saying plainly
         rather than calling the narrowing safe.
         """
-        # NEWLINES ARE SEPARATORS TOO, and the act-anchor does not treat them
-        # as such. Checked rather than copied: a multi-line command whose
-        # commit sits on its own line flattens into one segment there, and
-        # reusing that split would have let a real commit through. Under-firing
-        # is the one direction this must not take, so the separator set is
-        # wider here and the two functions are deliberately not shared.
-        from divineos.core.council_required.types import _SHELL_WRAPPERS
+        # CALLS THE SHARED HOME NOW, after being the fifth site to reinvent it
+        # badly (2026-09-19, found by Aletheia). The private version stripped a
+        # seven-word list of shell builtins and did not know that a bare
+        # ``VAR=value`` prefix is assignment syntax rather than a command, so a
+        # backdated or scripted commit -- an ordinary idiom, not an exotic
+        # trick -- escaped entirely. Which means the narrowing DID admit
+        # something the previous text-search refused. The claim that it could
+        # not was mine, it was written into a letter as settled, and it was
+        # false on the third shape she tried.
+        #
+        # THE UNCERTAINTY FALLS THE OTHER WAY HERE THAN FOR THE OTHER CALLERS,
+        # which is why this is written at the callsite and not trusted to a
+        # docstring two files away. The splitter answers cannot-parse with
+        # None. An allowlist reads that as not-permitted, its safe direction.
+        # This is not an allowlist -- it decides whether an act is heavy enough
+        # to owe a recorded walk, so cannot-parse must mean ASSUME HEAVY.
+        # Aligning this with the neighbouring callers at some later tidy-up
+        # would look like consistency and would turn every unparseable command
+        # into a silent pass across the whole gate system. A substitution is
+        # how you would hide the acting word if you wanted to, and the
+        # accidental case is indistinguishable from the deliberate one.
+        from divineos.core.command_parsing import resolve_command_head, split_shell_segments
 
-        for segment in re.split(r"[\n;&|]+", command or ""):
-            tokens = segment.strip().split()
-            while tokens and tokens[0] in _SHELL_WRAPPERS:
-                tokens = tokens[1:]
-            if tokens and tokens[0] == "git" and "commit" in tokens:
-                return True
+        # ONE TOKEN THE SHARED STRIPPER DELIBERATELY DOES NOT HANDLE, and
+        # pushing it there would have been the wrong repair. The shared home
+        # knows nothing about `sudo`, and my own earlier test caught the
+        # regression the moment I swapped wholesale -- which is the risk the
+        # Feathers walk named and I walked into anyway.
+        #
+        # It does not belong upstream, because the correct treatment differs by
+        # caller and in opposite directions. For an allowlist, a permitted
+        # command must NOT inherit its permission under privilege escalation:
+        # running it as another user is a different act. For this gate, an act
+        # performed under escalation is still that act and must still owe a
+        # walk. Adding it upstream would silently widen every allowlist.
+        #
+        # So it is handled here, as one named token with the reason attached --
+        # not as a private reinvention of head resolution, which is the thing
+        # that caused today's finding.
+        segments = split_shell_segments(command)
+        if segments is None:
+            return True
+        for segment in segments:
+            stripped = segment.strip()
+            while stripped.lower().startswith("sudo "):
+                stripped = stripped[5:].lstrip()
+            head = resolve_command_head(stripped)
+            if head == "git" or head.startswith("git "):
+                if "commit" in stripped.split():
+                    return True
         return False
 
     def _touches_paths(tool_kind: str, wrote: bool) -> bool:

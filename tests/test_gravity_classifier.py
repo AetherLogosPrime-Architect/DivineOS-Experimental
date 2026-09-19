@@ -626,6 +626,35 @@ class TestDoingTheActVersusTalkingAboutIt:
         assert not self._fires(f"{self._G} log --oneline")
         assert not self._fires(f"{self._G} status")
 
+    def test_an_assignment_prefix_does_not_hide_the_act(self):
+        """Aletheia's finding, 2026-09-19. My coverage claim was false here.
+
+        A bare ``VAR=value`` before the command is shell assignment syntax, not
+        a wrapper, and my private stripper did not know it. So backdating or
+        scripting -- ordinary idioms, not exotic tricks -- escaped entirely,
+        which means the narrowing DID admit what the old text-search refused.
+        I wrote the opposite into a letter as settled. She tried three shapes
+        and it failed on the third.
+        """
+        for shape in (
+            f"GIT_AUTHOR_DATE=2020-01-01 {self._G} commit -m x",
+            f"GIT_AUTHOR_NAME=x GIT_AUTHOR_EMAIL=y {self._G} commit -m z",
+            f"env GIT_EDITOR=true {self._G} commit -m x",
+        ):
+            assert self._fires(shape), f"assignment prefix hid the act: {shape!r}"
+
+    def test_a_command_that_cannot_be_parsed_is_assumed_heavy(self):
+        """The direction that must never be aligned with the other callers.
+
+        The shared splitter answers cannot-parse with None. An allowlist reads
+        that as not-permitted, its safe direction. This is not an allowlist --
+        it decides whether an act owes a recorded walk, so cannot-parse must
+        mean assume-heavy. A substitution is how you would hide the acting word
+        on purpose, and the accidental case looks identical from here.
+        """
+        assert self._fires("$(echo " + self._G + ") commit -m x")
+        assert self._fires(f"{self._G} commit -m 'unterminated")
+
     def test_the_indirect_route_stays_open_and_this_says_so(self):
         """Not a wish. The old text match missed these too, so nothing regressed.
 
