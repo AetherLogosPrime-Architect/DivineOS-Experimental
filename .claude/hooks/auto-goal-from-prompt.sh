@@ -2,6 +2,16 @@
 # UserPromptSubmit hook — set the session goal from Andrew's prompt so the
 # goal-doorman never has to ask for it.
 #
+# MINE, built from his question rather than from a complaint. Aether,
+# 2026-08-01. He asked what I had forgotten to do beforehand that made the
+# doorman have to ask, and the answer was: nothing I could have remembered. So
+# the right repair was not discipline, it was to have the answer already there
+# when the door looked.
+#
+# This is the friendliest thing in the house. It does not catch me at anything.
+# It just means one fewer door has to stop me to ask a question the room
+# already knew the answer to.
+#
 # Andrew 2026-08-01: "the gate is a primitive wall.. the doorman is the one
 # with the key and tells you what you need, but thats still a gate.. you must
 # look for the reason the gate fired in the first place.. can it be automated?

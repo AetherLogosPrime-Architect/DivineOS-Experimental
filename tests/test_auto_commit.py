@@ -343,13 +343,24 @@ class TestSubstrateStaysOffCodeBranches:
         assert "family/letters" not in tracked, "a letter was committed onto a code branch"
         assert "module.py" in tracked, "the work this exists to save was dropped"
 
-    def test_the_letter_is_still_on_disk_and_named_in_the_result(self, repo: Path, tmp_path: Path):
-        """Refusing to stage must never be confused with discarding.
+    def test_the_letter_is_still_on_disk_and_the_refusal_is_named(self, repo: Path, tmp_path: Path):
+        """Refusing must never be confused with discarding, nor happen silently.
 
-        Staging never removed the working copy, so unstaging cannot destroy
-        one -- and the result says what it left behind, because a silent
-        refusal leaves a tree that looks clean while letters sit untracked and
-        the next stage-everything sweeps them straight back.
+        THE MECHANISM MOVED UNDER THIS TEST AND WHAT IT GUARDS DID NOT. The
+        checkpoint no longer stages substrate and then unstages it; it routes
+        substrate to a DECLARED branch, and with nothing declared it refuses
+        outright rather than falling back to HEAD. So the two facts this test
+        exists to hold -- the letter survives, and the refusal says so out
+        loud -- were re-asserted against where they now live instead of being
+        deleted along with the field they used to read.
+
+        ONE THING GENUINELY DID NOT SURVIVE, and it is named here rather than
+        papered over: the old result enumerated the paths it left behind, and
+        this refusal names only the reason. The files are equally safe either
+        way -- on disk and in the shared channel that is their source of truth
+        -- but an author looking for WHICH letters were held has to read the
+        log rather than the result. That is a real, if small, loss of
+        resolution, and it belongs in the record.
         """
         channels = self._a_letter_and_its_channel(tmp_path)
         _git(repo, "checkout", "-q", "-b", "fix/some-code-work")
@@ -359,16 +370,29 @@ class TestSubstrateStaysOffCodeBranches:
 
         landed = repo / "family/letters/aether-to-aria-2026-09-12-test.md"
         assert landed.is_file(), "the letter left the disk -- this must never happen"
-        assert result.substrate_left_unstaged, "the refusal happened silently"
-        assert any("family/letters" in p for p in result.substrate_left_unstaged)
+        assert "substrate refused" in result.reason, "the refusal happened silently"
+        assert "substrate-branch" in result.reason, "the refusal did not say why"
 
-    def test_a_substrate_branch_still_receives_its_letters(self, repo: Path, tmp_path: Path):
-        """The other direction. A guard that refuses everywhere guards nothing."""
+    def test_a_declared_substrate_branch_still_receives_its_letters(
+        self, repo: Path, tmp_path: Path
+    ):
+        """The other direction. A guard that refuses everywhere guards nothing.
+
+        Standing ON a branch named like substrate no longer routes a letter to
+        it; the branch has to be DECLARED. That is the whole point of the
+        replacement -- a name is a coincidence and a declaration is a decision
+        -- so this declares one and then checks the letter actually arrived.
+        """
         channels = self._a_letter_and_its_channel(tmp_path)
-        _git(repo, "checkout", "-q", "-b", "substrate/the-letters")
+        _git(repo, "branch", "substrate/the-letters")
+        _git(repo, "config", "divineos.substrate-branch", "substrate/the-letters")
+        _git(repo, "checkout", "-q", "-b", "fix/some-code-work")
 
         result = auto_commit_substrate(repo, reason="pre-extract", channels=channels)
 
         assert result.committed is True
-        assert "family/letters" in _git(repo, "ls-files").stdout
-        assert not result.substrate_left_unstaged, "nothing should be refused here"
+        on_substrate = _git(repo, "ls-tree", "-r", "--name-only", "substrate/the-letters").stdout
+        assert "family/letters" in on_substrate, "the letter never reached the declared branch"
+        assert "family/letters" not in _git(repo, "ls-files").stdout, (
+            "the letter was left on the code branch it was routed away from"
+        )
