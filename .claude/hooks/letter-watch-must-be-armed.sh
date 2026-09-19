@@ -70,7 +70,26 @@ fi
 # Gate-recovery commands always pass. Shared canonical list rather than a
 # local copy -- widening it weakens every gate at once, which makes that
 # visible rather than quiet.
-CMD=$(printf '%s' "$INPUT" | "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null >/dev/null; printf '%s' "$INPUT")
+# shellcheck source=/dev/null
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+PYTHON_BIN="$(find_divineos_python)" || exit 0
+
+# THE COMMAND, not the envelope it arrived in. My first version piped the
+# input into a library file, threw both streams away, and handed back the raw
+# JSON -- so every bypass comparison matched against the wrong string,
+# silently, because a failed match just means the gate fires. That would have
+# inverted this hook into the blanket-refusal shape its own docstring argues
+# against, blocking the exact recovery commands it promises to let through.
+# Read how a sibling does it rather than reproducing the silhouette.
+CMD=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    print((d.get('tool_input') or {}).get('command') or '')
+except Exception:
+    print('')
+" 2>/dev/null)
+
 BYPASS="$REPO_ROOT/scripts/hook_bypass_commands.txt"
 if [ -f "$BYPASS" ]; then
     while IFS= read -r line; do
