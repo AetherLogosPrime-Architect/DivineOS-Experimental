@@ -107,7 +107,7 @@ def test_a_textually_merged_artifact_is_a_finding(surface, tmp_path, monkeypatch
     code, messages = surface.verify_generated_are_rederived()
 
     assert code == surface.FINDING
-    assert any("was not what its generator produces" in m for m in messages)
+    assert any("is not what its generator produces" in m for m in messages)
 
 
 def test_a_rederived_artifact_is_clean(surface, tmp_path, monkeypatch):

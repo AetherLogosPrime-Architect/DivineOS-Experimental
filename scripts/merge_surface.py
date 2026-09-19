@@ -369,9 +369,17 @@ def verify_generated_are_rederived() -> tuple[int, list[str]]:
 
         if artifact.read_bytes() != before_bytes:
             messages.append(
-                f"[FINDING] {rel} was not what its generator produces. "
-                f"It was merged textually rather than re-derived. "
-                f"The regenerated file is now in the tree -- review and stage it."
+                # NAMES THE FACT, NOT THE CAUSE. This used to assert "it was
+                # merged textually rather than re-derived", which is one cause
+                # among several -- the committed file can also simply be stale,
+                # as it was the first time this check fired in anger, on my own
+                # commit, because I had added a script the register had never
+                # seen. Asserting the merge story would have sent the reader
+                # hunting a merge that never happened.
+                f"[FINDING] {rel} is not what its generator produces. "
+                f"Either it was merged textually rather than re-derived, or it "
+                f"is simply stale. The regenerated file is now in the tree -- "
+                f"review and stage it."
             )
             worst = max(worst, FINDING)
         else:
