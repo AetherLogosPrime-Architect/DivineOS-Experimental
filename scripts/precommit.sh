@@ -37,6 +37,22 @@ set -e
 #
 # Deliberately BEFORE the staged-file detection: which tree is being measured
 # is a precondition for every answer below it, including "nothing staged".
+#
+# DO NOT RESPELL THE INVOCATION BELOW WITHOUT READING THIS. The census that
+# hunts for guards nothing calls matches the command as LITERAL TEXT. The line
+# below happens to contain the string it looks for, so this guard reads as
+# wired. Aether measured it 2026-09-19 against the instrument's real matching
+# logic rather than by eye, and tested two other spellings anyone could equally
+# have chosen -- invoking through the package's module path, or putting the
+# binary in a shell variable. Neither matches. Both are ordinary, neither is
+# wrong, and either would leave this guard reading as UNCALLED while it runs on
+# every commit.
+#
+# So a tidy-up here does not break the check -- it makes the check invisible to
+# the thing that counts checks, which is worse, because the census would then
+# report a false gap and someone would go and "fix" a guard that was already
+# working. The limit is his to state in the census; the warning belongs here,
+# where the keystroke happens.
 # THREE OUTCOMES HERE TOO, and the third one is why this is not a one-liner.
 # A copy of the package older than this change does not have the option at
 # all, and click answers that with its own usage exit. Treating that as "wrong
