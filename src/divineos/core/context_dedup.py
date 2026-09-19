@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import sys
 import time
 from pathlib import Path
 
@@ -44,11 +46,52 @@ def _load() -> dict:
 
 
 def _save(state: dict) -> None:
+    """Persist the seen-hashes atomically, and say so out loud when it fails.
+
+    TWO FAULTS REPAIRED HERE 2026-09-19, and both are the shape this whole
+    week has been about: a thing that goes quiet is indistinguishable from a
+    thing that had nothing to say.
+
+    THE SWALLOW. This was ``except OSError: pass``. A failed write means the
+    seen-hashes never persist, so every block re-emits in full for the rest
+    of the run -- which looks exactly like a session where nothing has
+    repeated yet. The feature can be entirely dead and the only symptom is a
+    context window filling faster than it should, which nobody measures.
+    Found while chasing the wrong cause for a parallel-suite failure: it
+    could produce that symptom, it was not the cause, and it is a real fault
+    either way.
+
+    Still fail-soft, because a dedup cache is not worth killing a hook over.
+    Fail-soft and fail-silent are separate decisions that had been collapsed
+    into one; only the silence is removed.
+
+    THE TORN WRITE. ``write_text`` truncates before writing, so a reader
+    arriving in that interval gets a partial file and ``_load`` returns an
+    empty mapping without signalling. Under a parallel suite the hooks run
+    concurrently against one state file, so the interval is not rare.
+    Writing a sibling temp and replacing makes the transition atomic: a
+    reader sees the whole old file or the whole new one, never a fragment.
+
+    WHAT IS STILL OPEN, named rather than implied. A lost update between two
+    interleaved writers remains possible and costs exactly one redundant
+    emission, which is the right price for a cache and would not be for a
+    log. And the message is printed rather than recorded, so a caller that
+    discards the error stream gets the old silence back -- closing that
+    means storing the failure somewhere a later reader can find it, which is
+    a larger change than this one.
+    """
     try:
         _STATE_DIR.mkdir(parents=True, exist_ok=True)
-        _STATE_FILE.write_text(json.dumps(state), encoding="utf-8")
-    except OSError:
-        pass
+        tmp = _STATE_FILE.with_name(f"{_STATE_FILE.name}.{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(state), encoding="utf-8")
+        os.replace(tmp, _STATE_FILE)
+    except OSError as e:
+        print(
+            f"[context-dedup] state not saved ({e}) -- dedup is OFF for the "
+            f"rest of this run and every repeated block will re-emit in full. "
+            f"Fail-soft, not fail-silent.",
+            file=sys.stderr,
+        )
 
 
 def _hash(content: str) -> str:
