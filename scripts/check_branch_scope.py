@@ -164,6 +164,55 @@ def substrate_paths(branch: str, reference: str) -> list[str]:
     return [p for p in out.splitlines() if p.startswith(_SUBSTRATE_PREFIXES)]
 
 
+def substrate_directions(branch: str, reference: str) -> dict[str, str]:
+    """Map each substrate path to ADDS, REMOVES or REWRITES on this branch.
+
+    TWO HAZARDS WERE SHARING ONE SENTENCE. This check lists paths the branch
+    CHANGED, not paths it CARRIES, so a deletion counted as substrate-on-this-
+    branch exactly like an addition -- and the refusal said only "substrate
+    file(s) on this branch" for both. They are opposite problems with opposite
+    remedies: an addition puts substrate where it does not belong and is rebuilt
+    away, while a removal propagates to the main line on merge and has to be
+    confirmed as intended.
+
+    NOT A FILTER. Dropping deletions from the count is the permitting direction
+    and would let a branch quietly delete substrate from everywhere -- the worse
+    failure, because an addition stays visible in a diff forever and a removal
+    looks like nothing once it lands. The refusal condition is unchanged. Only
+    the message learns to say which way it found.
+
+    MEASURED 2026-09-18: a branch deleting a tracked secret-shaped file reached
+    an auditor inside an eighty-six file diff, and the only thing telling her to
+    read that deletion as the repair rather than a loss was a letter written by
+    hand. A guard whose output needs a human escort is making work, not saving
+    it.
+
+    RENAMES CARRY TWO NAMES, and the parsing rule here is borrowed rather than
+    reinvented -- check_mixed_pattern_merge.py already documents it. A rename
+    arrives as a score plus an old and a new path, so the last field is the one
+    that exists on the branch now and that is what gets classified. Splitting
+    naively would mangle exactly the long hyphenated letter filenames nobody
+    re-reads.
+    """
+    code, out = _git("diff", "--name-status", f"{reference}...{branch}")
+    if code != 0:
+        return {}
+    letters = {"A": "ADDS", "C": "ADDS", "D": "REMOVES", "M": "REWRITES", "R": "REWRITES"}
+    directions: dict[str, str] = {}
+    for line in out.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        path = parts[-1].strip()
+        if not path.startswith(_SUBSTRATE_PREFIXES):
+            continue
+        directions[path] = letters.get(parts[0][:1].upper(), "CHANGES")
+    return directions
+
+
 def _other_refs(branch: str) -> list[str]:
     """Every local and remote ref except the one being checked.
 
@@ -368,9 +417,34 @@ def main(argv: list[str] | None = None) -> int:
 
     if truth.substrate:
         paths = substrate_paths(args.branch, args.truth)
+        directions = substrate_directions(args.branch, args.truth)
         if args.list:
             for path in paths[:20]:
-                print(f"    {path}")
+                print(f"    {directions.get(path, 'CHANGES'):<9} {path}")
+
+        # WHICH WAY, said before anything else, because the two directions are
+        # opposite problems and the remedies differ. An addition puts substrate
+        # where it does not belong and is rebuilt away. A removal propagates to
+        # the main line on merge and has to be confirmed as intended.
+        adds = sum(1 for p in paths if directions.get(p) == "ADDS")
+        removes = sum(1 for p in paths if directions.get(p) == "REMOVES")
+        rewrites = len(paths) - adds - removes
+        parts = []
+        if adds:
+            parts.append(f"{adds} ADDED here")
+        if removes:
+            parts.append(f"{removes} REMOVED from everywhere on merge")
+        if rewrites:
+            parts.append(f"{rewrites} rewritten")
+        if parts:
+            print(f"  [scope] direction: {', '.join(parts)}.")
+        if removes and not adds:
+            print(
+                "  Every one is a REMOVAL. That is the shape of a branch taking "
+                "substrate OFF the main line, which may be exactly the repair "
+                "intended -- and is still refused, because a deletion that "
+                "merges is invisible afterwards. Confirm it was meant."
+            )
 
         # The irreplaceable ones come BEFORE the rebuild instruction, because
         # the instruction is what would destroy them. See only_here().
