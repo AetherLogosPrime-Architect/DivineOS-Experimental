@@ -209,46 +209,125 @@ def measure_knowledge_drift(lookback_days: int = 14) -> dict[str, Any]:
         conn.close()
 
 
+def _assess_ratio(ratio: float) -> str:
+    """Three verdicts for a ratio that was actually measured."""
+    if ratio < 0.3:
+        return "healthy"
+    if ratio < 0.6:
+        return "mixed"
+    return "struggling"
+
+
+def _unmeasured(reason: str, source: str) -> dict[str, Any]:
+    """The fourth verdict, with its reason travelling beside it.
+
+    ratio is None rather than 0.0 on purpose: a zero printed next to
+    "unmeasured" still reads as good news, and absent is honest where
+    zero is a claim.
+    """
+    return {
+        "corrections": 0,
+        "encouragements": 0,
+        "ratio": None,
+        "assessment": "unmeasured",
+        "source": source,
+        "unmeasured_reason": reason,
+    }
+
+
+def _correction_rate_from_stores() -> dict[str, Any]:
+    """Whole-history rate, read from the stores the CLI writes to.
+
+    Either store failing to load is reported as unmeasured with the reason,
+    never as a count of zero -- cannot-read and none-exist are different
+    facts and collapsing them is what produced the false all-clear.
+    """
+    try:
+        from divineos.core.corrections import load_corrections
+
+        corrections = len(load_corrections())
+    except Exception as e:  # noqa: BLE001 - unreadable is not zero
+        return _unmeasured(f"correction store unreadable ({e})", "stores")
+
+    try:
+        from divineos.core.success_ledger import load_successes
+
+        encouragements = len(load_successes())
+    except Exception as e:  # noqa: BLE001 - unreadable is not zero
+        return _unmeasured(f"wins store unreadable ({e})", "stores")
+
+    total = corrections + encouragements
+    if total == 0:
+        return _unmeasured("both stores readable and empty", "stores")
+
+    ratio = corrections / total
+    return {
+        "corrections": corrections,
+        "encouragements": encouragements,
+        "ratio": round(ratio, 3),
+        "assessment": _assess_ratio(ratio),
+        "source": "stores",
+        "unmeasured_reason": None,
+    }
+
+
 def measure_correction_rate(session_id: str | None = None) -> dict[str, Any]:
     """Measure the ratio of corrections to encouragements.
 
-    Uses the session analysis signals (corrections, encouragements) stored
-    as EPISODE knowledge entries. A high correction rate means the user is
-    spending energy fixing the AI instead of doing productive work.
+    AN EMPTY MEASUREMENT REPORTS ``unmeasured``, NEVER ``healthy``.
 
-    If session_id is given, measures just that session.
-    Otherwise, measures across all sessions.
+    Andrew, 2026-09-19, having had to remind me that my own history exists:
+    "the tool that came back empty on it needs fixed as well." It did worse
+    than come back empty. It scraped EPISODE knowledge rows for the phrase
+    "N corrections" -- a wording nothing writes any more -- found none,
+    divided zero by zero, and called the result HEALTHY. The same report
+    printed 106 corrections from the real store four lines further down.
+
+    So the one view I have of my own trajectory carried a confident zero and
+    a clean bill of health, sourced from a question no row could answer. A
+    false all-clear is worse than a blank: a blank sends you looking.
+
+    The loop had its sign flipped. The writing side moved to a real store and
+    kept working, so nothing downstream complained; the reading side went
+    quiet, and quiet from this instrument reads as good news. It therefore
+    spoke most confidently exactly when it knew least, and the only party who
+    would notice was the one reading the comforting number.
+
+    The old test pinned it -- ``test_correction_rate_empty`` ASSERTED that no
+    data returns "healthy". The contract itself was the defect, so the test
+    changed with the code instead of being worked around.
+
+    Now it reads the stores the CLI actually writes to, and an unreadable
+    store yields ``unmeasured`` with its reason rather than a count of zero,
+    per the discipline already written into ``success_ledger.ledger_balance``:
+    zero and cannot-count are different facts. ``ratio`` is None when nothing
+    was measured, because absent is honest and zero is a claim.
+
+    STILL SCRAPING: the single-session path, because the real stores are not
+    partitioned by session. Named here rather than implied fixed.
 
     Returns:
         {
             "corrections": int,
             "encouragements": int,
-            "ratio": float,  # corrections / (corrections + encouragements), 0.0-1.0
-            "assessment": str,  # "healthy", "mixed", or "struggling"
+            "ratio": float | None,  # None when nothing was measured
+            "assessment": str,  # "healthy" | "mixed" | "struggling" | "unmeasured"
+            "source": str,
+            "unmeasured_reason": str | None,
         }
     """
+    if session_id is None:
+        return _correction_rate_from_stores()
     conn = _get_connection()
     try:
-        if session_id:
-            tag = f"session-{session_id[:12]}"
-            rows = conn.execute(
-                """SELECT content FROM knowledge
-                   WHERE knowledge_type = 'EPISODE'
-                     AND superseded_by IS NULL
-                     AND tags LIKE ?""",
-                (f"%{tag}%",),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                """SELECT content FROM knowledge
-                   WHERE knowledge_type = 'EPISODE'
-                     AND superseded_by IS NULL
-                     AND (tags LIKE '%session-analysis%'
-                          OR tags LIKE '%session-feedback%'
-                          OR tags LIKE '%episode%')
-                     AND (content LIKE '%correct%'
-                          OR content LIKE '%encourag%')""",
-            ).fetchall()
+        tag = f"session-{session_id[:12]}"
+        rows = conn.execute(
+            """SELECT content FROM knowledge
+               WHERE knowledge_type = 'EPISODE'
+                 AND superseded_by IS NULL
+                 AND tags LIKE ?""",
+            (f"%{tag}%",),
+        ).fetchall()
 
         total_corrections = 0
         total_encouragements = 0
@@ -262,20 +341,24 @@ def measure_correction_rate(session_id: str | None = None) -> dict[str, Any]:
                 total_encouragements += int(enc_match.group(1) or enc_match.group(2))
 
         total = total_corrections + total_encouragements
-        ratio = total_corrections / max(total, 1)
+        if total == 0:
+            # The old code divided by max(total, 1) here and returned
+            # healthy. No rows matched means the question found nothing,
+            # not that the session was clean.
+            return _unmeasured(
+                f"no episode rows carry counts for session {session_id[:12]}",
+                "episode-scrape",
+            )
 
-        if ratio < 0.3:
-            assessment = "healthy"
-        elif ratio < 0.6:
-            assessment = "mixed"
-        else:
-            assessment = "struggling"
-
+        ratio = total_corrections / total
+        assessment = _assess_ratio(ratio)
         result = {
             "corrections": total_corrections,
             "encouragements": total_encouragements,
             "ratio": round(ratio, 3),
             "assessment": assessment,
+            "source": "episode-scrape",
+            "unmeasured_reason": None,
         }
         logger.debug(
             f"Correction rate: {total_corrections}c/{total_encouragements}e "
