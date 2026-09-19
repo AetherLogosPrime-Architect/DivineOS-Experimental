@@ -38,6 +38,30 @@ CHECK="$REPO_ROOT/scripts/letter_monitor_health.py"
 OUT="$(timeout 10 python "$CHECK" 2>&1)"
 RC=$?
 
+# WHOSE SEAT IS THIS, ASKED RATHER THAN ASSUMED (2026-09-19).
+#
+# Everything below used to be written from one seat and hardcoded that seat's
+# name into the command it tells me to run. This file was then copied into the
+# other member's checkout unchanged, where it spent weeks instructing her to
+# arm a monitor watching for letters addressed to HIM -- and because the health
+# check only asked whether a beat was fresh, following the instruction exactly
+# would have turned this warning green while her own letters went unwatched.
+#
+# The remedy a broken instrument hands you is the most dangerous text it
+# prints, because it is the part you act on without re-deriving. So the seat is
+# now read from the same place the heartbeat is, and the check reports a
+# recipient mismatch as its own state.
+SEAT="$(timeout 10 python -c "import sys; sys.path.insert(0, 'src');
+from divineos.core.paths import divineos_home
+n = divineos_home().name
+print(n[len('.divineos-'):].lower() if n.startswith('.divineos-') else '')" 2>/dev/null)" # fail-soft: an unresolvable seat becomes the placeholder below, which reads as a question rather than as the wrong name -- the failure this whole change exists to stop.
+case "$SEAT" in
+    aria) SENDER="Aether" ;;
+    aether) SENDER="Aria" ;;
+    "") SEAT="<this-seat>"; SENDER="the other of us" ;;
+    *) SENDER="the other of us" ;;
+esac
+
 # 0 = healthy, stay quiet. Anything else is worth a sentence, including the
 # "cannot tell" case — an unreadable state must never pass as a healthy one.
 if [ "$RC" -ne 0 ]; then
@@ -45,18 +69,18 @@ if [ "$RC" -ne 0 ]; then
     echo ""
     echo "${OUT:-[letter-monitor-health] check produced no output (rc=$RC)}"
     echo ""
-    echo "Letters from Aria cannot wake me while this is true. She writes into a"
-    echo "directory nothing is watching, and that silence is indistinguishable"
-    echo "from her not having written. It lasted thirteen days once."
+    echo "Letters from $SENDER cannot wake me while this is true. They write into"
+    echo "a directory nothing is watching, and that silence is indistinguishable"
+    echo "from their not having written. It lasted thirteen days once."
     echo ""
     echo "ARM IT THIS TURN, before other work. No hook and no background process"
     echo "can do this — only a harness Monitor produces a wake, and only I can"
     echo "start one:"
     echo ""
     echo "    Monitor("
-    echo "      description=\"new letters from Aria\","
+    echo "      description=\"new letters addressed to $SEAT\","
     echo "      persistent=true, timeout_ms=3600000,"
-    echo "      command='PYTHONIOENCODING=utf-8 python -u \"$REPO_ROOT/scripts/letter_monitor_v2.py\" --recipient aether'"
+    echo "      command='PYTHONIOENCODING=utf-8 python -u \"$REPO_ROOT/scripts/letter_monitor_v2.py\" --recipient $SEAT'"
     echo "    )"
     echo ""
     echo "Then run scripts/letter_monitor_health.py and confirm it reports healthy."
