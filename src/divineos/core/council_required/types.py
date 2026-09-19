@@ -208,17 +208,41 @@ def bash_act(command: str) -> str:
     predict the same fingerprint the gate will compute -- a coarse anchor
     someone can guess beats an accurate one nobody can.
     """
-    flat = " ".join((command or "").split())
-    if not flat:
+    # THE KEY WAS MOVING, WHICH IS WHY FILING NEVER STUCK (2026-09-19).
+    #
+    # This flattened newlines into spaces and split only on the chaining
+    # operators, so a multi-line command produced ONE segment headed by a shell
+    # builtin -- and the fallback then returned the ENTIRE command text as the
+    # anchor. Including, on a commit, the message being written.
+    #
+    # So the anchor differed on every attempt. File the required thinking
+    # against the key the refusal names, retry, key has changed because the
+    # text changed, refused again. Four filings in one session, none findable
+    # afterwards. I read that as the cost of discipline for hours.
+    #
+    # And the escape telemetry counts what that loop produces, then prints a
+    # verdict about whether I route around gates -- so a process defect was
+    # being measured as a fact about me. Deming on the walk: look at the
+    # process before concluding anything about the operator.
+    #
+    # Delegates to the shared home now, which is quote-aware and treats a
+    # newline as the statement separator it is. Sixth site to stop keeping a
+    # private copy of this.
+    from divineos.core.command_parsing import resolve_command_head, split_shell_segments
+
+    if not (command or "").strip():
         return ""
-    for segment in flat.replace(";", "&&").replace("|", "&&").split("&&"):
-        tokens = segment.strip().split()
-        if not tokens or tokens[0] in _SHELL_WRAPPERS:
-            continue
-        return " ".join(tokens[:2]) if len(tokens) > 1 else tokens[0]
-    # Every segment was a wrapper. Anchor on the first segment rather than
-    # inventing a subject: an honest odd fingerprint beats a plausible wrong one.
-    return flat.split("&&")[0].strip() or flat
+    segments = split_shell_segments(command)
+    if segments is None:
+        # Cannot be taken apart safely. Anchor on the flattened text rather
+        # than inventing a subject -- an honest odd key beats a plausible wrong
+        # one, which is the same refusal the old fallback made.
+        return " ".join(command.split())
+    for segment in segments:
+        head = resolve_command_head(segment)
+        if head and head.split()[0] not in _SHELL_WRAPPERS:
+            return head
+    return " ".join(command.split())
 
 
 def fingerprint_for(tool_name: str, file_paths: tuple[str, ...], bash_command: str) -> str:
