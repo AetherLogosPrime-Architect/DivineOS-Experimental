@@ -104,6 +104,27 @@ def test_the_real_repository_is_measured_rather_than_assumed():
     assert "divineos doctor verify-import" in missing
 
 
+def test_the_instrument_does_not_count_its_own_documentation_as_a_caller():
+    """The failure this file's real-repository test caught, pinned.
+
+    The scope note names an example spelling so a reader can copy the form that
+    registers. That example is literal text, and this instrument lives inside
+    the directories it searches -- so it read its own documentation and
+    concluded the guard was wired. A silent false NEGATIVE, a real gap hidden,
+    which is the direction argued all night to be worse than the noisy one.
+
+    Anyone moving the example, or adding a second one, re-introduces it. This
+    asserts the exclusion rather than the symptom, because the symptom is
+    exactly what an instrument cannot see about itself.
+    """
+    own_text = (REPO_ROOT / "scripts" / "check_guards_have_callers.py").read_text(encoding="utf-8")
+    assert "divineos doctor verify-import" in own_text, (
+        "the example spelling left the file, so this test now proves nothing"
+    )
+    blob, _ = guards.automation_text()
+    assert "MATCHING: an invocation registers only if" not in blob
+
+
 def test_the_group_name_does_not_make_every_subcommand_a_guard():
     """The first version matched on the whole command path, so every
     subcommand of the audit group came back as guard-shaped on its group name

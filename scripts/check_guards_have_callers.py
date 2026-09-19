@@ -144,6 +144,21 @@ def automation_text(root: Path | None = None) -> tuple[str, int]:
         for path in base.rglob("*"):
             if not path.is_file() or "__pycache__" in str(path):
                 continue
+            # THIS FILE IS NOT A CALLER, AND SAYING SO COST A REAL FAILURE.
+            #
+            # The scope note names an example spelling so a reader can copy the
+            # form that registers. That example is literal text, this file
+            # lives inside the searched directories, so the instrument read its
+            # own documentation and concluded the guard was wired. A silent
+            # false NEGATIVE -- a real gap hidden -- which is the direction I
+            # had just argued is worse than the noisy one, introduced by the
+            # sentence written to make the noisy one actionable.
+            #
+            # Caught 2026-09-19 by the test that measures the real repository
+            # instead of a fixture, on the run immediately after the note
+            # changed. Nothing else would have seen it.
+            if path.resolve() == Path(__file__).resolve():
+                continue
             try:
                 chunks.append(path.read_text(encoding="utf-8", errors="replace"))
             except OSError:
@@ -185,13 +200,38 @@ def uncalled_guards(root: Path | None = None) -> tuple[list[str], int, int]:
     return sorted(missing), len(guards), file_count
 
 
+# THE REMEDY CLAUSE IS LOAD-BEARING AND WILL LOOK VERBOSE TO A TIDY-UP.
+#
+# The note used to state the spelling hazard without saying which spelling
+# works, which left a reader knowing a risk existed with no way to act on it.
+# Measured 2026-09-19 on the first real caller this instrument ever met: it
+# matched BY ACCIDENT. Two equally ordinary spellings of the same command --
+# invoking through the package's module path, and putting the binary in a shell
+# variable -- do NOT match, verified by running all three through the matching
+# logic rather than reasoning about them.
+#
+# The direction of that error is why it earns the words. A respelled invocation
+# does not break the guard; the guard still runs on every commit. It breaks the
+# CENSUS, which then reports a gap that does not exist, and somebody goes and
+# repairs a thing that was already working. That failure costs an afternoon and
+# ends with a person distrusting the instrument, which is worse for the house
+# than the instrument having stayed quiet.
+#
+# Aria put a warning directly above the invocation, where the keystroke
+# happens. This is the half nearest the report, for the different reader who
+# is looking at findings and deciding what they mean.
 SCOPE_NOTE = (
     "[guard-callers] SCOPE: guards are found by the verb in their name, so one "
     "named otherwise is invisible here -- silence is not coverage. A guard meant "
     "to be TYPED by a person is not a fault, and intent is deliberately not "
     "guessed. A command named in a comment counts as called. A guard called from "
     "a script nobody runs passes. Nothing here says a called guard does anything "
-    "useful when it runs."
+    "useful when it runs.\n"
+    "[guard-callers] MATCHING: an invocation registers only if it contains the "
+    "command as literal text, e.g. `divineos doctor verify-import` or `python -m "
+    "divineos doctor verify-import`. A module-path or shell-variable spelling of "
+    "the SAME command does not register and its guard will be listed here while "
+    "running fine. Copying the form above does not make the rest visible."
 )
 
 
