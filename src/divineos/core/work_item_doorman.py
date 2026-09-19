@@ -631,7 +631,30 @@ def decide(tool_name: str, tool_input: dict, session: str = "") -> Decision:
 
     code_paths = needs_an_item(paths)
     if not code_paths:
-        return Decision(State.OPEN, "prose only -- letters and drafts do not open work")
+        # NAME THE POLICY BEING APPLIED, rather than inheriting it in silence.
+        # Aether's reading 2026-09-19: this list was written to answer ONE
+        # question -- what skips review before main -- and every word of its
+        # header is about review. It now answers a second question too, what
+        # may be edited without an open piece of work, and nothing in the file
+        # knows that. So someone adds a line to stop a letter appearing in the
+        # review queue, exactly as the header invites them to, and silently
+        # removes this door from that path as well. They are thinking about one
+        # policy and changing two.
+        #
+        # Splitting the file would be the reflex repair and it is the wrong one:
+        # one list beats two that drift, and we killed a two-copy drift last
+        # week. So the list stays shared and the door says out loud which of the
+        # two policies it is applying, and to which paths. An exemption is then
+        # visible at the door instead of inherited behind it.
+        exempted = ", ".join(sorted(paths)) or "(none)"
+        return Decision(
+            State.OPEN,
+            "no work opened -- every changed path is on the review-exemption "
+            f"list: {exempted}. That list answers WHAT SKIPS REVIEW BEFORE MAIN; "
+            "this door is borrowing it to answer WHAT MAY BE EDITED WITHOUT AN "
+            "OPEN PIECE OF WORK. If one of these should still pass through the "
+            "build flow, the shared list is where that was decided.",
+        )
 
     existing = open_item_for_branch(session=session)
     if existing is None:

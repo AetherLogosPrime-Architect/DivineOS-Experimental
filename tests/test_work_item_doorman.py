@@ -44,6 +44,35 @@ def test_an_unreadable_exempt_list_holds_rather_than_guesses(monkeypatch) -> Non
     assert "could not read" in decision.message
 
 
+def test_an_exemption_names_which_policy_let_it_through() -> None:
+    """The door borrows a list written to answer a different question.
+
+    That list says what skips review before main. This door uses it to decide
+    what may be edited without an open piece of work, and for a while it said
+    nothing about the borrowing -- so a person adding a line to keep a letter
+    out of the review queue also removed this door from that path, while
+    thinking about one policy and changing two. Aether found it reading the
+    branch from origin 2026-09-19.
+
+    The repair is that the exemption is stated rather than inherited, so this
+    pins the stating. It deliberately does not pin the exact wording; what must
+    survive is that both questions are named and the exempted path is shown,
+    because an operator who cannot see WHICH path was let through cannot tell
+    this outcome from the door simply not running.
+    """
+    decision = doorman.decide("Write", {"file_path": str(ROOT / "family/letters/a.md")})
+    assert decision.state is doorman.State.OPEN
+    assert decision.allows
+    assert "family/letters/a.md" in decision.message.replace("\\", "/"), (
+        "the exemption did not say WHICH path it let through"
+    )
+    lowered = decision.message.lower()
+    assert "review" in lowered, "the exemption did not name the review policy"
+    assert "open piece of work" in lowered, (
+        "the exemption did not name the build-flow policy it was borrowing for"
+    )
+
+
 def test_prose_does_not_open_work() -> None:
     """If letters were held, the first thing refused would be the letter
     telling Aether the doorman exists."""
