@@ -330,55 +330,6 @@ def _commit_work_in_progress(repo_root: Path, paths: list[str], reason: str) -> 
         return False
 
 
-def _dirty_paths(repo_root: Path) -> list[str]:
-    """Repo-relative paths of everything dirty or untracked, newest git first.
-
-    Uses ``--porcelain -z`` rather than the human format on purpose. The
-    default output quotes paths containing spaces or non-ASCII and splits
-    renames on an arrow, so any parser that splits on whitespace mangles
-    exactly the filenames least likely to be noticed -- and our letters are
-    long hyphenated names that would survive it, which is worse, because the
-    breakage would only appear on someone else's file.
-
-    NUL-separated output needs no quoting and no unescaping. Rename entries
-    carry both names; the destination is what exists on disk now, so that is
-    the one that gets classified.
-    """
-    # -uall lists every untracked FILE. Without it git collapses a wholly
-    # untracked directory to its topmost new folder -- a fresh checkout
-    # reports "family/" rather than "family/letters/the-letter.md", and
-    # "family/" sits ABOVE the declared mirror, so every letter in it
-    # classified as work in progress and nothing reached substrate. Caught
-    # by the end-to-end test; the classifier was right and was being fed
-    # the wrong subject.
-    proc = subprocess.run(
-        ["git", "status", "--porcelain", "-z", "-uall"],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-    )
-    if proc.returncode != 0:
-        logger.warning("auto_commit: git status failed: %s", proc.stderr)
-        return []
-
-    fields = proc.stdout.split("\0")
-    paths: list[str] = []
-    i = 0
-    while i < len(fields):
-        entry = fields[i]
-        i += 1
-        if len(entry) < 4:
-            continue
-        status, path = entry[:2], entry[3:]
-        if status[0] in ("R", "C"):
-            # Rename/copy: this field holds the DESTINATION, and the source
-            # follows as its own NUL-separated field. Consume it so it is not
-            # read as a separate entry with a status of its own.
-            i += 1
-        paths.append(path)
-    return paths
-
-
 def _tracked_here(repo_root: Path, rel_path: str) -> bool:
     """True when the checked-out branch already tracks ``rel_path``.
 
@@ -395,49 +346,6 @@ def _tracked_here(repo_root: Path, rel_path: str) -> bool:
         check=False,
     )
     return proc.returncode == 0
-
-
-def _commit_work_in_progress(repo_root: Path, paths: list[str], reason: str) -> bool:
-    """Commit the occupant's unfinished work to HEAD, where it already lives.
-
-    This is the half of the old sweep that was worth keeping: nothing the
-    occupant has open should be lost to a compaction. It stays on HEAD
-    because that is where its author put it, and it is staged by explicit
-    path rather than ``add -A`` so it cannot pick up substrate on the way.
-
-    Fail-soft, as the original was. A checkpoint that blocks on git noise
-    fails at the one job it has.
-    """
-    if not paths:
-        return False
-    try:
-        subprocess.run(
-            ["git", "add", "--", *paths],
-            cwd=repo_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        subprocess.run(
-            [
-                "git",
-                "commit",
-                "-m",
-                f"auto-commit ({reason}): work in progress",
-                "-m",
-                "Unfinished work saved before a checkpoint. Substrate goes to "
-                "its own branch in a separate commit; this is only what was "
-                "open on this branch.",
-            ],
-            cwd=repo_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        return True
-    except subprocess.CalledProcessError as e:
-        logger.warning("auto_commit: work-in-progress commit failed: %s", e.stderr)
-        return False
 
 
 def _sync_external_channels(
