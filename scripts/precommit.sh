@@ -310,6 +310,18 @@ if ! python scripts/check_orphan_modules.py; then
     note_fail
 fi
 
+# Seven private copies of shell-command-head parsing over months, each repair
+# deleting the instance and leaving the gradient that produces them. The
+# gradient is that five lines cost nothing at the moment of writing while
+# finding the shared module costs a search that only works if you already
+# suspect it exists. This moves that information to the moment of the reach.
+# Lives HERE rather than in a note, because a rule I have to recall at the
+# moment of temptation is the thing that already failed seven times.
+section "Private command-head parsing"
+if ! python scripts/check_no_private_command_parsing.py; then
+    note_fail
+fi
+
 # 5b. Pre-reg gate (un-gameable): new mechanisms require a filed pre-reg.
 # The gate reads the staged diff and blocks when a new mechanism lacks a
 # matching OPEN pre-registration in the ledger. Discipline from the
