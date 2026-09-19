@@ -1,4 +1,13 @@
 #!/bin/bash
+# MINE, and it is the after-the-fact twin of the pre-tool doorbell. Aether.
+# Same rule, same reason: it knocks and steps aside, and if it ever grows a
+# branch the branch belongs in the OS where a test can reach it.
+#
+# What fires here is everything that can only be known once an action has
+# happened — what the command actually returned, whether the picture changed,
+# what the reply actually said. None of that is knowable before the fact, which
+# is why there are two doorbells and not one.
+#
 # PostToolUse doorbell. One of seven. All judgment lives in the OS.
 #
 # Andrew 2026-06-30: "Make the hooks dumber so they can't be wrong; put the

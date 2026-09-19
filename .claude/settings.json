@@ -257,6 +257,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash .claude/hooks/push-message-carries-the-destination.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
             "command": "bash .claude/hooks/check-pending-obligations.sh",
             "timeout": 10
           },
