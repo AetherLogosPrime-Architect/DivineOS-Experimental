@@ -51,7 +51,16 @@ RC=$?
 # prints, because it is the part you act on without re-deriving. So the seat is
 # now read from the same place the heartbeat is, and the check reports a
 # recipient mismatch as its own state.
-SEAT="$(timeout 10 python -c "import sys; sys.path.insert(0, 'src');
+#
+# THE INTERPRETER IS ASKED FOR, NOT ASSUMED. A bare `python` here would
+# resolve through whichever checkout last ran an editable install, so this
+# hook could read ANOTHER worktree's home and hand back another seat's name --
+# a fresh way to produce exactly the fault above. The shared helper resolves
+# the repo's own interpreter and prepends this checkout's source.
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+PYTHON_BIN="$(find_divineos_python)" || exit 0
+SEAT="$(timeout 10 "$PYTHON_BIN" -c "
 from divineos.core.paths import divineos_home
 n = divineos_home().name
 print(n[len('.divineos-'):].lower() if n.startswith('.divineos-') else '')" 2>/dev/null)" # fail-soft: an unresolvable seat becomes the placeholder below, which reads as a question rather than as the wrong name -- the failure this whole change exists to stop.
