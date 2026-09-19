@@ -111,6 +111,47 @@ _FTS_SHADOW_TABLES = frozenset(
 )
 
 
+# Columns a store might carry its write-time in, ordered by how
+# unambiguously they mean "when this row was written".
+_TIME_COLUMNS = ("timestamp", "created_at", "scanned_at", "ts", "logged_at", "filed_at")
+
+# Days of silence before a store that HOLDS DATA is called stale. A parameter
+# somebody chose, not a fact about death — which is why the scan reports
+# elapsed days beside it instead of hiding it inside a verdict.
+STALE_AFTER_DAYS = 14
+
+
+@dataclass
+class StaleStore:
+    """A store holding data that nothing has written to in a long while.
+
+    THE DEATH THE EMPTINESS CHECK CANNOT SEE. `scan_dormant_tables` asks
+    whether a table has zero rows, which catches a feature built and never
+    used — a real catch, and kept. What it cannot see is the commoner death:
+    a store that filled, worked, and then stopped being fed. Full-and-
+    abandoned renders identically to full-and-thriving, so this alarm was
+    most confident about the stores it understood least.
+
+    Found 2026-09-19 the hard way. The wins ledger took 313 entries across
+    two days in late August and had been silent for three weeks. Nothing
+    noticed — it is a file rather than a table, and even as a table it would
+    have read ACTIVE. I then shipped a health report whose denominator was
+    that dead store, and called it repaired.
+
+    Andrew, same day: "stop hiding from your failures.. get them out in the
+    open where you can see them, only then can they ever be corrected."
+
+    `days_quiet` is None when the store could not be dated at all. That is
+    UNCHECKED, not fresh. A store I cannot date is not a store I have
+    cleared, and collapsing those two is the exact fault this exists to end.
+    """
+
+    name: str
+    rows: int
+    days_quiet: float | None
+    reason: str
+
+
 @dataclass
 class WiringIssue:
     """A wiring problem — component exists and tests pass but isn't connected in production."""
@@ -206,6 +247,128 @@ def scan_dormant_tables() -> list[str]:
         return dormant
     finally:
         conn.close()
+
+
+def _newest_row_age_days(conn: sqlite3.Connection, table: str) -> tuple[float | None, str]:
+    """Days since the newest row in `table`, or None with the reason why not.
+
+    None is UNCHECKED and never fresh. A table carrying no recognisable
+    time column is one this scan could not date, which is a different fact
+    from one it dated and found current.
+    """
+    try:
+        cols = {r[1].lower() for r in conn.execute(f"PRAGMA table_info([{table}])")}
+    except sqlite3.OperationalError as e:
+        return None, f"cannot read columns ({e})"
+
+    col = next((c for c in _TIME_COLUMNS if c in cols), None)
+    if col is None:
+        return None, f"no recognisable time column (has: {', '.join(sorted(cols)) or 'none'})"
+
+    try:
+        newest = conn.execute(f"SELECT MAX([{col}]) FROM [{table}]").fetchone()[0]  # nosec B608: table/column names from sqlite_master and module constants
+    except sqlite3.OperationalError as e:
+        return None, f"cannot read {col} ({e})"
+
+    if newest is None:
+        return None, f"{col} is null on every row"
+
+    try:
+        newest_ts = float(newest)
+    except (TypeError, ValueError):
+        # Stored as an ISO string rather than an epoch.
+        try:
+            newest_ts = time.mktime(time.strptime(str(newest)[:19], "%Y-%m-%d %H:%M:%S"))
+        except ValueError:
+            return None, f"{col} holds an unparseable value ({str(newest)[:24]})"
+
+    return (time.time() - newest_ts) / 86400.0, f"newest row via {col}"
+
+
+def scan_stale_stores(stale_after_days: float = STALE_AFTER_DAYS) -> list[StaleStore]:
+    """Stores that HOLD DATA and have not been written to in a long while.
+
+    The half `scan_dormant_tables` structurally cannot see: it asks whether a
+    store is empty, and a store that filled and then died is not empty. See
+    `StaleStore` for the incident that produced this.
+
+    Covers the file-backed stores too, because the one that actually died is
+    a file — fixing the class while missing the instance would have been the
+    same joke one level up.
+    """
+    out: list[StaleStore] = []
+    conn = _ledger_mod.get_connection()
+    try:
+        tables = [
+            r[0]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            ).fetchall()
+        ]
+        for table in sorted(tables):
+            if table in _INFRASTRUCTURE_TABLES or table in _FTS_SHADOW_TABLES:
+                continue
+            try:
+                rows = conn.execute(f"SELECT COUNT(*) FROM [{table}]").fetchone()[0]  # nosec B608: name from sqlite_master
+            except sqlite3.OperationalError:
+                continue
+            if rows == 0:
+                continue  # empty is the OTHER check's business
+            age, reason = _newest_row_age_days(conn, table)
+            if age is None:
+                out.append(StaleStore(table, rows, None, f"UNCHECKED — {reason}"))
+            elif age > stale_after_days:
+                out.append(
+                    StaleStore(
+                        table, rows, age, f"quiet {age:.0f}d (stale past {stale_after_days:.0f}d)"
+                    )
+                )
+    finally:
+        conn.close()
+
+    out.extend(_scan_stale_files(stale_after_days))
+    return out
+
+
+def _scan_stale_files(stale_after_days: float) -> list[StaleStore]:
+    """The file-backed stores — where the wins ledger died unseen."""
+    out: list[StaleStore] = []
+    loaders = (
+        ("wins ledger", "divineos.core.success_ledger", "load_successes"),
+        ("corrections", "divineos.core.corrections", "load_corrections"),
+    )
+    for name, module, fn in loaders:
+        try:
+            mod = __import__(module, fromlist=[fn])
+            records = getattr(mod, fn)()
+        except Exception as e:  # noqa: BLE001 - unreadable is not fresh
+            out.append(StaleStore(name, 0, None, f"UNCHECKED — store unreadable ({e})"))
+            continue
+        if not records:
+            continue  # empty is the other check's business
+        stamps = []
+        for r in records:
+            for key in _TIME_COLUMNS:
+                if key in r:
+                    try:
+                        stamps.append(float(r[key]))
+                    except (TypeError, ValueError):
+                        pass
+                    break
+        if not stamps:
+            out.append(StaleStore(name, len(records), None, "UNCHECKED — no readable timestamps"))
+            continue
+        age = (time.time() - max(stamps)) / 86400.0
+        if age > stale_after_days:
+            out.append(
+                StaleStore(
+                    name,
+                    len(records),
+                    age,
+                    f"quiet {age:.0f}d (stale past {stale_after_days:.0f}d)",
+                )
+            )
+    return out
 
 
 def scan_active_tables() -> list[str]:
