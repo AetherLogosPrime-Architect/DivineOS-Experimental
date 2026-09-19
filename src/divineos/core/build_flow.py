@@ -116,14 +116,43 @@ def score_pr_gravity(changed_paths: tuple[str, ...]) -> tuple[int, tuple[str, ..
     return len(fired), tuple(fired)
 
 
-def required_lens_count(gravity: int, changed_file_count: int) -> int:
+# Prose a lens cannot grip. A council lens asks how a MECHANISM fails, gets
+# gamed, or drifts; a letter has no mechanism in it. Same prefixes the scope
+# checker uses, and deliberately the same list rather than a second copy --
+# two lists of what counts as substrate would drift, which is the defect the
+# sweep repair exists to end.
+_UNGRIPPABLE_PREFIXES = ("family/letters/", "exploration/", "dreams/", "docs/archives/")
+
+
+def required_lens_count(gravity: int, changed_paths: tuple[str, ...] | list[str]) -> int:
     """Lenses required at station 2, scaled to what is actually at stake.
 
     Zero is a real answer. A substrate-content PR with no code has nothing
     for a lens to grip, and walking one anyway is the ceremony that teaches
     me walks are ceremony.
+
+    AND THE CODE COUNTED THE WRONG THING WHILE THE DOCSTRING SAID THE RIGHT
+    ONE (2026-09-02). The sentence above has been here since the file was
+    written and is correct. The implementation asked how MANY files changed,
+    which is a proxy for stake and not stake itself -- so a branch carrying
+    fifty-two letters and no code at all was required to walk two lenses,
+    because fifty-two is a big number.
+
+    Found by the ordinary case rather than by a test: the letters-only branch
+    sat blocked on a requirement its own docstring says it should never have
+    had. Thirteenth instance in two days of a check counting the container
+    instead of the thing at risk.
+
+    CHESTERTON'S FENCE, because the count clause is not stupid. It exists so a
+    large change cannot claim zero gravity and skip the walk -- a big diff that
+    happens to miss every guardrail path is still a big change, and that is
+    real. What it got wrong is WHICH files make a change big. Prose does not,
+    however much of it there is; code does, even a little. So the escalation
+    now counts files a lens could actually grip, and the fence keeps standing
+    where it was put.
     """
-    if gravity == 0 and changed_file_count <= 20:
+    grippable = [p for p in changed_paths if not p.startswith(_UNGRIPPABLE_PREFIXES)]
+    if gravity == 0 and len(grippable) <= 20:
         return 0
     if gravity <= 1:
         return 2
@@ -132,24 +161,113 @@ def required_lens_count(gravity: int, changed_file_count: int) -> int:
     return 6
 
 
+# The one line a reading declares itself with. Aria's design and Aria's
+# spelling, 2026-09-01 -- hers is live with a gate behind it that refuses to
+# write a letter whose header lacks the field, and it fires on EVERY letter
+# rather than on the ones that look like readings, because a trigger keyed on
+# titles would carry the exact blindness this replaces.
+#
+# ONE SPELLING, and it is hers because hers already exists. Two would drift and
+# the drift would be silent -- which is the same reason the reserved-name set
+# in the watchmen store moved to module scope this afternoon.
+READING_DECLARATION = "**Reading:**"
+
+# What she writes when a letter reviews no code. It is a DECLARATION, not an
+# omission: the field is present and answers the question with "nothing here".
+# Collapsing it into absence would make her disciplined letters look like the
+# ones that predate the field.
+NO_READING = "none"
+
+
+def _declared_readings(text: str) -> tuple[bool, list[str]]:
+    """``(field_present, branches)`` from the one declared line.
+
+    Read literally. Everything else in the letter -- title, filename, prose,
+    the ``In response to`` line -- is deliberately not consulted, because
+    inference from her prose is what produced the wrong credits this replaces.
+
+    The two return values are separate on purpose: a letter declaring ``none``
+    is present-with-no-branches, and reporting that as no-declaration would
+    punish exactly the discipline the field asks for.
+    """
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith(READING_DECLARATION):
+            continue
+        value = stripped[len(READING_DECLARATION) :]
+        parts = [p.strip().strip("`").lower() for p in value.split(",")]
+        return True, [p for p in parts if p and p != NO_READING]
+    return False, []
+
+
 def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
     """Station 4 -- iterate with Aria. Satisfied only when SHE wrote back.
 
     A letter I sent proves I spoke, not that we iterated, and the station is
     about the second thing.
+
+    THE WRITER DECLARES; THE READER DOES NOT INFER (Aria, 2026-09-01, and she
+    counted rather than asserting it).
+
+    This used to ask whether the branch name appeared anywhere in her text. Her
+    bodies cross-refer because her findings cross-refer, so the board credited
+    every branch she mentioned and marked the one she had actually reviewed as
+    unreviewed -- understating her by two while crediting two others using the
+    letter belonging to one of them.
+
+    I proposed keying on her titles instead. She counted her last thirty-five
+    letters to answer: five carry a subject in the title and all five use a
+    NUMBER, never a branch name; and at least SIX are readings with findings
+    whose titles carry neither. More of her readings would have been invisible
+    to a title-parser than visible, and the six included the findings that
+    changed my branches. She titles by what she FOUND, because the finding is
+    the thing I need in the first four words, and she is not going to title
+    worse so a parser can read her.
+
+    Her ``In response to`` field is not the subject either -- of those five, two
+    name a branch and three name a letter of mine. It is whatever triggered the
+    reading.
+
+    So there was no existing signal, and the reason is simple: she has never had
+    to declare the subject, so she never did. Every parser built on her prose
+    would be inferring, and inference is what produced the wrong credits. One
+    declared line, read literally, nothing guessed.
+
+    ABSENCE IS NOT A VERDICT ABOUT HER. No declaration is honestly different
+    from no reading, and the detail says which, because reporting an unread
+    branch and an undeclared reading in the same words is the could-not-look
+    fault this whole family is made of.
     """
     if not letters_dir.is_dir():
         return StationResult(
             "4-aria", Status.CANNOT_CHECK, f"letters dir not readable: {letters_dir}"
         )
     needle = branch.lower()
+    declared_anywhere = 0
     for f in sorted(letters_dir.glob("aria-to-aether-*.md")):
         try:
-            if needle in f.read_text(encoding="utf-8", errors="replace").lower():
-                return StationResult("4-aria", Status.SATISFIED, f"she replied in {f.name}")
+            present, declarations = _declared_readings(
+                f.read_text(encoding="utf-8", errors="replace")
+            )
         except OSError:
             continue
-    return StationResult("4-aria", Status.MISSING, "no reply from Aria naming this branch")
+        if present:
+            declared_anywhere += 1
+        if needle in declarations:
+            return StationResult("4-aria", Status.SATISFIED, f"she declared a reading in {f.name}")
+    if declared_anywhere == 0:
+        return StationResult(
+            "4-aria",
+            Status.MISSING,
+            "no letter from Aria carries a reading declaration at all -- this says "
+            "nothing about whether she has read this branch, only that no reading "
+            "is claimed in the field the board reads",
+        )
+    return StationResult(
+        "4-aria",
+        Status.MISSING,
+        f"none of the {declared_anywhere} declared reading(s) names this branch",
+    )
 
 
 def check_council_station(

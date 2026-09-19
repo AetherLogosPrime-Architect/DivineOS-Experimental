@@ -147,3 +147,73 @@ class TestPathReading:
         result = auto_commit_substrate(r, reason="pre-extract", channels=channels)
         assert result.committed, result.reason
         assert "a letter with spaces.md" in _git(r, "ls-tree", "-r", "--name-only", "substrate")
+
+
+class TestTheAnchorRuleReachesTheRetarget:
+    """A letter quoting its own branch and a hash must not ride out.
+
+    Aria found this and left it deliberately (2026-09-01). The existing unstage
+    guard reads the INDEX, and this flow never fills it -- the retarget writes
+    through a scratch index and the work-in-progress commit has already emptied
+    the real one. So the guard runs, finds nothing, and reports clean:
+    could-not-see wearing the clothes of nothing-there.
+
+    She would not guess the repair inside her own merge and named it as
+    belonging with the seat that wrote the anchor rule. That is me, so the reach
+    into the retarget's own path list is mine.
+
+    Dropped rather than refused, matching what the unstage did and for her
+    reason: this module's contract is to save work, not block a checkpoint. The
+    letter stays on disk and in the shared channel, which is where the crossing
+    actually happens. Only the archive copy waits, and it waits one checkpoint.
+    """
+
+    def _anchored_letter(self, channels, branch: str) -> None:
+        (channels[0].source / "aria-to-aether-anchored.md").write_text(
+            f"I pushed to {branch}, and its tip is 1a2b3c4d5e6f7890 as I write this.\n",
+            encoding="utf-8",
+        )
+
+    def test_the_anchored_letter_does_not_reach_the_substrate_branch(self, repo):
+        r, channels = repo
+        self._anchored_letter(channels, "substrate")
+
+        auto_commit_substrate(r, reason="pre-extract", channels=channels)
+
+        on_substrate = _git(r, "ls-tree", "-r", "--name-only", "substrate")
+        assert "aria-to-aether-anchored.md" not in on_substrate, (
+            "a letter quoting the substrate tip rode out in the commit that falsified it"
+        )
+
+    def test_the_ordinary_letters_beside_it_still_land(self, repo):
+        """Holding one file back must not hold the batch back."""
+        r, channels = repo
+        self._anchored_letter(channels, "substrate")
+
+        result = auto_commit_substrate(r, reason="pre-extract", channels=channels)
+
+        assert result.committed, result.reason
+        assert "family/letters/aria-to-aether-note.md" in _git(
+            r, "ls-tree", "-r", "--name-only", "substrate"
+        )
+
+    def test_the_held_letter_is_still_on_disk(self, repo):
+        """Dropped from the commit, not deleted."""
+        r, channels = repo
+        self._anchored_letter(channels, "substrate")
+
+        auto_commit_substrate(r, reason="pre-extract", channels=channels)
+
+        assert (r / "family/letters/aria-to-aether-anchored.md").exists()
+
+    def test_an_anchor_naming_a_different_branch_is_not_held(self, repo):
+        """The rule is self-invalidation, not the presence of a hash. A letter
+        quoting some other branch's tip stays true after this commit, and
+        holding it anyway would make the guard a hash-detector -- which is the
+        name-for-identity fault the rest of this week was made of."""
+        r, channels = repo
+        self._anchored_letter(channels, "some-other-branch")
+
+        auto_commit_substrate(r, reason="pre-extract", channels=channels)
+
+        assert "aria-to-aether-anchored.md" in _git(r, "ls-tree", "-r", "--name-only", "substrate")

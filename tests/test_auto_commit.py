@@ -177,8 +177,27 @@ class TestExternalChannelSync:
 
         # A clean run has nothing refused, so the flag must not simply mirror
         # "substrate did not commit".
+        #
+        # THE CLEAN RUN HAS TO BE MADE CLEAN NOW, and that is a real change
+        # rather than a test detail. This used to pass ``channels=()`` and stop
+        # there, on the rule that with nothing declared nothing is substrate.
+        # Main reversed that rule on 2026-09-11 because it failed open: a
+        # letter written by someone who declared no channel is still a letter,
+        # and calling it code is how the push gate came to refuse a branch over
+        # 183 substrate files the split had filed as work.
+        #
+        # So the local prefixes classify whether or not anybody declared
+        # anything, and the letter synced above is STILL owed a branch on a
+        # second pass. Passing no channels no longer produces a run with
+        # nothing owed; it produces a run with the same thing owed and no
+        # channel to explain it. Removing the letter is what makes the tree
+        # actually clean, which is what this assertion was always about.
+        (repo / "family" / "letters" / "aria-to-aether-2026-07-06-test.md").unlink()
         clean = auto_commit_substrate(repo, reason="pre-sleep", channels=())
-        assert clean.substrate_refused is False
+        assert clean.substrate_refused is False, (
+            "nothing was owed a branch and it still reported a refusal -- the "
+            "flag has collapsed back into mirroring 'substrate did not commit'"
+        )
 
 
 class TestWhatTheOperatorIsActuallyTold:

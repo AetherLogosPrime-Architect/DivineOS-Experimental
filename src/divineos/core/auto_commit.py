@@ -22,6 +22,14 @@ Discipline:
     to be a single `git add -A`, which over one evening swept our letters
     onto six branches and twice onto proposals already open for review.
     One commit was doing two jobs whose correct destinations differ.
+  - IT REMOVES FILES FROM THE WORKING TREE, which is the most surprising
+    thing here and so it is said before the gentler items. Substrate that
+    has been committed to its own branch is then deleted from disk, because
+    routing by plumbing leaves it behind as an untracked file on a branch
+    that cannot see the commit holding it -- so every later checkpoint
+    finds it again, forever. A file is removed ONLY when its bytes hash to
+    exactly the object in the commit that just landed; anything else is
+    kept and named. Both the removals and the keeps are logged.
   - Fail-soft: subprocess failures log-and-continue rather than raising.
     The point is to save work, not to block the checkpoint on git noise.
   - Idempotent: clean tree → no-op, no empty commit.
@@ -40,7 +48,11 @@ from divineos.core.substrate_paths import (
     partition,
     substrate_branch,
 )
-from divineos.core.substrate_retarget import RetargetRefused, commit_paths_to_branch
+from divineos.core.substrate_retarget import (
+    RetargetRefused,
+    commit_paths_to_branch,
+    evict_committed_paths,
+)
 from divineos.core.uncommitted_work_check import (
     DEFAULT_CHANNELS,
     ExternalChannel,
@@ -318,6 +330,116 @@ def _commit_work_in_progress(repo_root: Path, paths: list[str], reason: str) -> 
         return False
 
 
+def _dirty_paths(repo_root: Path) -> list[str]:
+    """Repo-relative paths of everything dirty or untracked, newest git first.
+
+    Uses ``--porcelain -z`` rather than the human format on purpose. The
+    default output quotes paths containing spaces or non-ASCII and splits
+    renames on an arrow, so any parser that splits on whitespace mangles
+    exactly the filenames least likely to be noticed -- and our letters are
+    long hyphenated names that would survive it, which is worse, because the
+    breakage would only appear on someone else's file.
+
+    NUL-separated output needs no quoting and no unescaping. Rename entries
+    carry both names; the destination is what exists on disk now, so that is
+    the one that gets classified.
+    """
+    # -uall lists every untracked FILE. Without it git collapses a wholly
+    # untracked directory to its topmost new folder -- a fresh checkout
+    # reports "family/" rather than "family/letters/the-letter.md", and
+    # "family/" sits ABOVE the declared mirror, so every letter in it
+    # classified as work in progress and nothing reached substrate. Caught
+    # by the end-to-end test; the classifier was right and was being fed
+    # the wrong subject.
+    proc = subprocess.run(
+        ["git", "status", "--porcelain", "-z", "-uall"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        logger.warning("auto_commit: git status failed: %s", proc.stderr)
+        return []
+
+    fields = proc.stdout.split("\0")
+    paths: list[str] = []
+    i = 0
+    while i < len(fields):
+        entry = fields[i]
+        i += 1
+        if len(entry) < 4:
+            continue
+        status, path = entry[:2], entry[3:]
+        if status[0] in ("R", "C"):
+            # Rename/copy: this field holds the DESTINATION, and the source
+            # follows as its own NUL-separated field. Consume it so it is not
+            # read as a separate entry with a status of its own.
+            i += 1
+        paths.append(path)
+    return paths
+
+
+def _tracked_here(repo_root: Path, rel_path: str) -> bool:
+    """True when the checked-out branch already tracks ``rel_path``.
+
+    Fails toward NOT tracked: on any error this says False, which routes the
+    path to the retarget rather than to a commit on the code branch. Getting
+    that wrong in the safe direction leaves a dirty tree; getting it wrong the
+    other way puts substrate on a branch that never carried it.
+    """
+    proc = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", "--", rel_path],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return proc.returncode == 0
+
+
+def _commit_work_in_progress(repo_root: Path, paths: list[str], reason: str) -> bool:
+    """Commit the occupant's unfinished work to HEAD, where it already lives.
+
+    This is the half of the old sweep that was worth keeping: nothing the
+    occupant has open should be lost to a compaction. It stays on HEAD
+    because that is where its author put it, and it is staged by explicit
+    path rather than ``add -A`` so it cannot pick up substrate on the way.
+
+    Fail-soft, as the original was. A checkpoint that blocks on git noise
+    fails at the one job it has.
+    """
+    if not paths:
+        return False
+    try:
+        subprocess.run(
+            ["git", "add", "--", *paths],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        subprocess.run(
+            [
+                "git",
+                "commit",
+                "-m",
+                f"auto-commit ({reason}): work in progress",
+                "-m",
+                "Unfinished work saved before a checkpoint. Substrate goes to "
+                "its own branch in a separate commit; this is only what was "
+                "open on this branch.",
+            ],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return True
+    except subprocess.CalledProcessError as e:
+        logger.warning("auto_commit: work-in-progress commit failed: %s", e.stderr)
+        return False
+
+
 def _sync_external_channels(
     channels: tuple[ExternalChannel, ...],
     repo_root: Path,
@@ -479,6 +601,35 @@ def auto_commit_substrate(
     # can see it. Neither piece works alone.
     declared_substrate, work_in_progress = partition(_dirty_paths(repo_root), channels)
 
+    # SUBSTRATE THAT IS ALREADY TRACKED HERE IS THIS BRANCH'S PROBLEM NOW.
+    #
+    # Retargeting keeps NEW substrate off the code branch. It does nothing
+    # about substrate that a previous sweep already committed onto it -- and
+    # for those paths the plumbing route leaves the tree permanently dirty,
+    # because the change is recorded on a ref this branch cannot see while the
+    # branch itself still tracks the file. A deleted letter is the sharpest
+    # case: it shows as a pending deletion that no checkpoint will ever clear.
+    #
+    # So a path already tracked here is committed HERE. That is not a retreat
+    # to the old contamination -- it is the repair. For a modification it keeps
+    # the tree honest; for a deletion the commit is precisely what takes the
+    # letter OFF the code branch. The loud line exists because the branch is
+    # carrying substrate in its history either way, and only a history repair
+    # fixes that, which is not a thing a checkpoint may do unattended.
+    already_tracked = [p for p in declared_substrate if _tracked_here(repo_root, p)]
+    if already_tracked:
+        logger.warning(
+            "auto_commit: %d substrate path(s) are ALREADY TRACKED on this branch "
+            "and are being committed here rather than retargeted: %s. Retargeting "
+            "them would leave the tree permanently dirty. The branch carries "
+            "substrate in its history; that needs a history repair, not a checkpoint.",
+            len(already_tracked),
+            ", ".join(already_tracked),
+        )
+        tracked = set(already_tracked)
+        declared_substrate = [p for p in declared_substrate if p not in tracked]
+        work_in_progress = work_in_progress + already_tracked
+
     # TWO COMMITS, NOT ONE, AND NOT ONE-AND-DISCARD.
     #
     # The first draft of this change committed substrate and left work in
@@ -542,6 +693,54 @@ def auto_commit_substrate(
     # with the seat that built the anchor rule rather than being guessed at
     # inside a merge. Named to him by letter the same day.
     _unstage_self_invalidating(repo_root)
+
+    # THE REPAIR SHE NAMED AND LEFT (Aether, 2026-09-01, taking it).
+    #
+    # She was exactly right that the call above is dead in this flow, and right
+    # not to guess the fix inside her own merge. Confirmed by reading rather
+    # than assumed: it lists `git diff --cached`, i.e. the INDEX, and this path
+    # never stages anything -- commit_paths_to_branch writes through a scratch
+    # index, and the work-in-progress commit above has already emptied the real
+    # one. So the guard runs, finds nothing, and reports clean, which is
+    # could-not-see wearing the clothes of nothing-there for the fourth time
+    # today.
+    #
+    # The anchor rule is mine, so the reach into declared_substrate is mine.
+    # Same rule, same function, applied to the list this flow actually commits
+    # instead of to an index it never fills.
+    #
+    # DROPPED, NOT REFUSED, matching what the unstage did and for her reason:
+    # this module's contract is to save work rather than block a checkpoint.
+    # The letter stays on disk and stays delivered -- the shared channel is
+    # outside every tree and is where the crossing happens. Only the archive
+    # copy waits, and it waits for one checkpoint, not forever.
+    #
+    # And the branch asked for is the SUBSTRATE branch, not HEAD. A letter is
+    # self-invalidating with respect to the branch it lands on; asking about
+    # HEAD would answer a question about a commit that is not being made.
+    # Failing to resolve that branch is not evidence of cleanliness, so it says
+    # so and carries everything rather than silently dropping.
+    try:
+        substrate_target = substrate_branch(repo_root)
+    except NoSubstrateBranchDeclared:
+        substrate_target = None
+    if substrate_target is not None and declared_substrate:
+        from divineos.core.anchor_self_invalidation import self_invalidating_files
+
+        invalidating = self_invalidating_files(
+            declared_substrate, substrate_target, repo_root=Path(repo_root)
+        )
+        if invalidating:
+            logger.warning(
+                "auto_commit: holding %d self-invalidating file(s) out of the "
+                "substrate commit to %s: %s. They remain on disk and in the "
+                "shared channel; the archive copy waits for the next checkpoint.",
+                len(invalidating),
+                substrate_target,
+                ", ".join(invalidating),
+            )
+            held = set(invalidating)
+            declared_substrate = [p for p in declared_substrate if p not in held]
 
     # NO staged-check here. His flow ends with a staged index and asks whether
     # the add produced anything; this one never stages, so the same question
@@ -625,6 +824,50 @@ def auto_commit_substrate(
             reason=f"substrate already current on {branch}",
             files_synced=files_synced,
             dirty_lines=dirty_lines,
+        )
+
+    # AND NOW TAKE THEM OFF THIS BRANCH'S FLOOR.
+    #
+    # Routing by plumbing is what makes the commit safe -- HEAD, the index and
+    # the working tree are never touched -- and it is also why, without this
+    # step, the letters sit on disk as untracked files on a branch that cannot
+    # see the commit holding them. Every later checkpoint finds them again.
+    # The interim split named that tension in its own comment and shipped the
+    # half that was safe under either answer; this is the answer.
+    #
+    # Nothing here is destructive in the sense the word usually carries: a file
+    # is removed only when the bytes on disk hash to exactly the object in the
+    # commit that just landed, so the copy being deleted is the copy that was
+    # saved. Everything else is HELD and said out loud, because a removal that
+    # quietly skipped a file would be the same could-not-see-wearing-the-
+    # clothes-of-nothing-there that this module keeps finding in itself.
+    # AND SAY WHERE THEY WENT (Foucault lens, walk-22c6fe67d394).
+    #
+    # The first version logged only the files it HELD, which inverts the record
+    # exactly the wrong way: the ones that stayed were announced and the ones
+    # that vanished were not. Someone who writes a letter, checkpoints, and
+    # looks for it would find it gone with nothing saying where. The copies are
+    # safe, so this is not data loss -- it is the author losing sight of their
+    # own writing, which is its own cost and not one this substrate gets to
+    # impose quietly.
+    eviction = evict_committed_paths(repo_root, result)
+    if eviction.evicted:
+        logger.info(
+            "auto_commit: %d substrate file(s) moved off this branch's working "
+            "tree and onto %s at %s: %s. They are on that branch and in the "
+            "shared channel; `git show %s:<path>` reads any of them back.",
+            len(eviction.evicted),
+            branch,
+            result.commit[:12],
+            ", ".join(eviction.evicted),
+            branch,
+        )
+    if eviction.held:
+        logger.warning(
+            "auto_commit: %d substrate file(s) committed to %s but LEFT on disk: %s",
+            len(eviction.held),
+            branch,
+            "; ".join(f"{p} ({why})" for p, why in eviction.held),
         )
 
     return AutoCommitResult(

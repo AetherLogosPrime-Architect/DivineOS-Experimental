@@ -35,14 +35,32 @@ class TestMirrorsComeFromTheDeclaration:
     def test_mirrors_derived_not_restated(self):
         assert [str(m) for m in substrate_mirrors(CHANNELS)] == ["family/letters"]
 
-    def test_empty_channels_means_nothing_is_substrate(self):
-        # Reversed same-day: this used to raise, on the argument that an
-        # empty set was an unreadable config. A caller passing empty on
-        # purpose is stating a fact, and the honest answer is that with no
-        # channels nothing is substrate -- the fail direction this module
-        # commits to everywhere else.
+    def test_empty_channels_empties_the_derived_half_only(self):
+        # REVERSED AGAIN, AND THIS TIME BY THE INCIDENT RATHER THAN BY
+        # ARGUMENT (2026-09-11).
+        #
+        # It used to raise. Then it was changed to say that with no channels
+        # NOTHING is substrate, on the reasoning that a caller passing empty
+        # is stating a fact. That reasoning is sound about the DERIVED half
+        # and fails open on the other one: "nothing was declared" became "a
+        # letter is code", which is precisely how the push gate came to refuse
+        # a branch over 183 substrate files the split had filed as work.
+        #
+        # Aria's rule is what settles it: for any door whose guard is a LIST,
+        # ask what SEEDED the list. A list derived from declarations
+        # structurally cannot see substrate that arrives without one -- and a
+        # letter written by someone who declared no channel is still a letter.
+        # So the four local prefixes are the half that does not depend on
+        # anybody having declared anything, and they still answer here.
         assert substrate_mirrors(()) == ()
-        assert not is_declared_substrate_path("family/letters/x.md", ())
+        assert is_declared_substrate_path("family/letters/x.md", ()), (
+            "with no channel declared a letter classified as code -- the "
+            "fail-open direction, and the one that deadlocked the push gate"
+        )
+        # The control: ordinary code is still code with no channels declared,
+        # so the assertion above is about the prefixes rather than about the
+        # classifier having become permissive.
+        assert not is_declared_substrate_path("src/divineos/core/ledger.py", ())
 
 
 class TestClassification:
@@ -79,6 +97,16 @@ class TestFailDirection:
     def test_the_exact_sweep_that_caused_this(self):
         # The real shape: letters correctly synced, plus a tree full of
         # unrelated dirt that `git add -A` took along with them.
+        #
+        # SUPERSEDED IN ONE ENTRY, 2026-09-10, and the entry is the finding.
+        # This originally pinned docs/archives/claims.md as WORK, which was
+        # right by this module's own rule and wrong about the house: the push
+        # gate counted that same directory as SUBSTRATE and refused any branch
+        # carrying it. So the split put archives in the work commit and the
+        # gate then refused the branch, with no component able to see the
+        # disagreement -- 183 files, unpushable and unfixable by the thing that
+        # made it. The definition is now shared (LOCAL_SUBSTRATE_PREFIXES) and
+        # archives classify as what they have always been.
         swept = [
             "family/letters/aether-to-aria-note.md",
             "scripts/wiring_gap_phase1.py",
@@ -89,11 +117,11 @@ class TestFailDirection:
         substrate, work = partition(swept, CHANNELS)
         assert substrate == [
             "family/letters/aether-to-aria-note.md",
+            "docs/archives/claims.md",
             "family/letters/aria-to-aether-reply.md",
         ]
         assert work == [
             "scripts/wiring_gap_phase1.py",
-            "docs/archives/claims.md",
             "tests/test_wiring_gap_phase1.py",
         ]
 

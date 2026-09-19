@@ -181,10 +181,19 @@ def index_corpus(
     everything.
 
     Returns counts dict: ``{"chunks_seen": N, "chunks_indexed": M,
-    "chunks_skipped": K, "files_processed": F}``. ``skipped`` includes
-    chunks already at the current model version.
+    "chunks_skipped": K, "chunks_failed": X, "files_processed": F}``.
+    ``skipped`` includes chunks already at the current model version;
+    ``failed`` counts chunks whose embedding could not be produced.
+
+    ``chunks_seen == chunks_indexed + chunks_skipped + chunks_failed``
+    always holds, and that is the point of the ``failed`` bucket. Before
+    2026-09-02 a chunk that could not be embedded incremented nothing, so
+    this run walked 46,323 chunks, stored none, and reported ``indexed:
+    0  skipped: 0`` — arithmetic that does not add up and which no caller
+    could detect. The cause was an interpreter without the ml extras, and
+    the count of zero read exactly like a corpus with nothing new in it.
     """
-    chunks_seen = chunks_indexed = chunks_skipped = files_processed = 0
+    chunks_seen = chunks_indexed = chunks_skipped = chunks_failed = files_processed = 0
     with _connect(db_path) as conn:
         for path in paths:
             file_chunks = chunk_file(path)
@@ -204,6 +213,7 @@ def index_corpus(
                         continue
                 vec = embed(c.text, model_name=model_name)
                 if vec is None:
+                    chunks_failed += 1
                     continue
                 conn.execute(
                     "INSERT OR REPLACE INTO semantic_search_chunks "
@@ -226,6 +236,7 @@ def index_corpus(
         "chunks_seen": chunks_seen,
         "chunks_indexed": chunks_indexed,
         "chunks_skipped": chunks_skipped,
+        "chunks_failed": chunks_failed,
         "files_processed": files_processed,
     }
 

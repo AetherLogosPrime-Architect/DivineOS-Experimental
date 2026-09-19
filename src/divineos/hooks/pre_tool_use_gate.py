@@ -978,20 +978,225 @@ _READONLY_PROBE_PREFIXES = (
     "divineos inspect",
 )
 
+# AND THE LIST ABOVE IS THE WRONG SHAPE, which the comment block already shows
+# without saying so (2026-09-01).
+#
+# It records this gate blocking evidence twice on 2026-08-13, and the repair
+# chosen then was to add the two commands that had already been lost. So the
+# allowlist covers the reviews somebody has already failed to earn. It happened
+# twice more today: a pre-registration about the degraded-detector mechanism came
+# due, every one of its success criteria is a statement about what
+# `divineos detectors` does, and that command was not on the list. The only
+# reachable exit was the verdict itself -- the fabricated-outcome shape this
+# comment block exists to prevent. Then the edit adding it was refused by the
+# same block, so the gate was standing in front of its own repair.
+#
+# Enumeration cannot fix that, because the next review needing an unlisted probe
+# is unknowable in advance and the gate cannot tell an unearnable review from a
+# dodged one.
+#
+# So: a RULE about read-only verbs rather than a list of commands. Every CLI
+# group here follows the same convention, and these four verbs never mutate.
+# The mutating verbs stay blocked, which is the work this gate means to stop --
+# `divineos detectors heal` and `divineos detectors defer` are still refused,
+# because clearing a degradation is substantive work.
+_READONLY_VERBS = frozenset({"status", "show", "list", "check", "summary", "history"})
+
+
+def _is_command_group(name: str) -> bool | None:
+    """Whether ``divineos <name>`` is a group with subcommands, or a leaf.
+
+    Asked of click's own resolution rather than of a list, because the list
+    is the enumeration reflex this whole file has been repaired away from
+    today. ``None`` means could-not-look -- the CLI failed to import or the
+    name did not resolve -- and the caller treats that as not-a-probe, never
+    as a pass. Same discipline as the unbalanced-quote case below.
+    """
+    try:
+        import click
+
+        from divineos.cli import cli as _cli
+
+        command = _cli.get_command(click.Context(_cli), name)
+    except Exception:  # noqa: BLE001 -- could not look is its own answer
+        return None
+    if command is None:
+        return None
+    return isinstance(command, click.Group)
+
+
+def _is_readonly_divineos_verb(cmd: str) -> bool:
+    """True for ``divineos <group...> <read-only verb>`` shapes.
+
+    The verb must sit where a verb sits -- second or third token, before any
+    flag -- so a mutating command carrying one of these words in an argument
+    does not qualify. ``divineos audit submit --notes "status ..."`` is not a
+    probe, and neither is anything whose verb is not in the set.
+
+    AND THE THIRD TOKEN IS ONLY A VERB IF THE SECOND IS A GROUP (Aria,
+    2026-09-01, from running it). For ``divineos detectors status`` the third
+    token is the verb. For ``divineos learn status`` the third token is the
+    LESSON -- a one-word positional argument that happens to spell a verb --
+    and the first version of this rule waved it through as a read. Three
+    writes passed as probes: a lesson whose text is "status", a claim whose
+    text is "summary", a lesson whose text is "check". A one-word lesson is a
+    bad lesson, but this gate is not here to judge quality; it is here to
+    stop writes.
+
+    The rule could not tell those apart because it did not know which groups
+    have a third level. The registry does -- it is what the test-linkage check
+    already reads -- so it is asked, rather than a second list being kept of
+    which commands are two-level. Twelfth instance today of a thing recognised
+    by its position rather than by what it is.
+    """
+    import shlex
+
+    try:
+        tokens = [t for t in shlex.split(cmd) if not t.startswith("-")]
+    except ValueError:
+        return False  # unbalanced quotes: cannot read it, so not a probe
+    if len(tokens) < 2 or tokens[0] != "divineos":
+        return False
+    if tokens[1] in _READONLY_VERBS:
+        return True
+    if len(tokens) < 3 or tokens[2] not in _READONLY_VERBS:
+        return False
+    # Cheap checks are exhausted; only now pay for the registry. A leaf
+    # command's third token is an argument, and could-not-look is a refusal.
+    return _is_command_group(tokens[1]) is True
+
+
+# `set` followed only by option-shaped words: flag clusters, or the bare names
+# that `-o` takes. Nothing here can be a path, an assignment or a redirection,
+# which are the shapes that would make it an action rather than a shell-option
+# change. `set -o pipefail` and `set -euo pipefail` qualify; `set x=1`,
+# `set -o pipefail > file` and `setup.sh` do not.
+#
+# Widened once, immediately, because the first version required the option
+# name to follow `-o` as a separate flag and so refused the commonest spelling
+# of the idiom. Caught by the test that asserted it rather than by re-reading
+# the pattern -- the same distinction the whole day has been about.
+_SHELL_OPTION_ONLY = re.compile(r"set(?:\s+(?:[+-][A-Za-z]+|[a-z][a-z_]*))+\s*")
+
+
+def _split_shell_clauses(cmd: str) -> list[str]:
+    """Split on real clause joiners, ignoring ones inside quotes.
+
+    Quote-aware on purpose. The branch doorman splits with a plain pattern,
+    which is acceptable there because a wrong split can only make it refuse
+    MORE. Here a wrong split could make the gate PERMIT: a joiner inside a
+    quoted argument would carve one command into fragments, and a fragment
+    can start with a safe prefix while the whole command does not.
+
+    Returns [] on an unterminated quote, and the caller treats an empty list
+    as not-a-probe -- so the fail-closed direction matches
+    ``_has_compound_shape``, which this deliberately mirrors rather than
+    reimplements loosely.
+    """
+    clauses: list[str] = []
+    current: list[str] = []
+    state: str | None = None
+    i = 0
+    n = len(cmd)
+    while i < n:
+        ch = cmd[i]
+        if state is None:
+            if ch == "\\":
+                current.append(ch)
+                if i + 1 < n:
+                    current.append(cmd[i + 1])
+                    i += 2
+                    continue
+            elif ch in ("'", '"'):
+                state = ch
+            elif ch == ";":
+                clauses.append("".join(current))
+                current = []
+                i += 1
+                continue
+            elif ch in ("&", "|") and i + 1 < n and cmd[i + 1] == ch:
+                clauses.append("".join(current))
+                current = []
+                i += 2
+                continue
+        elif ch == state:
+            state = None
+        current.append(ch)
+        i += 1
+
+    if state is not None:
+        return []
+    clauses.append("".join(current))
+    return [c for c in (c.strip() for c in clauses) if c]
+
 
 def _is_readonly_probe(cmd: str) -> bool:
     """True if the command only looks at state, never changes it.
 
-    Same hardening as ``_is_bypass_command``: a `cd DIR && ` preface is
-    allowed, compound shapes are refused outright, and the command must
-    BE a probe rather than merely contain one.
+    JUDGED PER CLAUSE, NOT PER LINE (2026-09-05, second fire in one day).
+
+    This refused any compound shape outright, on the F22 reasoning that a
+    safe-looking head may chain into a dangerous tail -- ``git log && rm -rf``
+    must never read as a probe. That reasoning is exactly right and is kept.
+
+    What it also refused was a line whose EVERY clause is a read. The overdue
+    block locked me out this morning naming a cure I then typed with a `cd`
+    and a `set -o pipefail` in front, so the cure itself did not qualify and
+    the block refused its own remedy. I found the bare form by reading the
+    allowlist. Aria hit the same wall hours later on a different path, having
+    watched me hit it -- so the first repair opened one door and never swept
+    the class, which is the shape she named.
+
+    Splitting on the joiners and asking of each clause preserves the whole
+    safety property: a line containing any non-probe clause is still not a
+    probe, so the chain-into-danger case is unchanged. What changes is that
+    all-reads now reads as a read.
+
+    Fails closed on an unterminated quote, because ``_has_compound_shape``
+    does and each clause is still asked.
     """
     if not cmd:
         return False
     cmd = _strip_safe_output_tail(_strip_cd_prefix(cmd))
-    if _has_compound_shape(cmd):
+
+    def _clause_is_probe(clause: str) -> bool:
+        clause = _strip_safe_output_tail(_strip_cd_prefix(clause.strip()))
+        if not clause:
+            return False
+        # A clause that is itself compound could not be split cleanly, so it
+        # is refused rather than guessed at.
+        if _has_compound_shape(clause):
+            return False
+        # INERT IS NOT THE SAME AS READ-ONLY, AND BOTH ARE FINE HERE.
+        #
+        # `set -o pipefail` acts on nothing. It changes how THIS shell
+        # propagates an exit code and touches no file, no store and no remote.
+        # It is not a probe -- it looks at nothing -- so calling it one would
+        # be wrong, but refusing it makes the whole line non-read and that is
+        # what kept the block refusing its own cure: the failing clause was
+        # the one another gate in this same house tells me to type.
+        #
+        # Deliberately narrow. Only the shell builtin that sets options, with
+        # no operands beyond flags, and no assignment or redirection. Anything
+        # that could name a file or a variable is not this.
+        if _SHELL_OPTION_ONLY.fullmatch(clause):
+            return True
+        return clause.startswith(_READONLY_PROBE_PREFIXES) or _is_readonly_divineos_verb(clause)
+
+    if not _has_compound_shape(cmd):
+        return cmd.startswith(_READONLY_PROBE_PREFIXES) or _is_readonly_divineos_verb(cmd)
+
+    clauses = _split_shell_clauses(cmd)
+    if not clauses:
         return False
-    return cmd.startswith(_READONLY_PROBE_PREFIXES)
+    # Every clause, and ONLY the clauses. Asking the verb rule about the whole
+    # line here would be the hole this function exists to close: that rule
+    # inspects the head and ignores everything after the verb, so
+    # `divineos detectors status && rm -rf` would read as a probe on the
+    # strength of its first three words. I added exactly that for a few
+    # minutes with a careless edit-everywhere, and the test written for this
+    # case caught it, which is what it is for.
+    return all(_clause_is_probe(c) for c in clauses)
 
 
 def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:

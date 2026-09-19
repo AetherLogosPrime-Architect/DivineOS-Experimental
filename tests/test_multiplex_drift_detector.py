@@ -151,7 +151,12 @@ class TestPanelsRespondToStateChange:
         from divineos.core.multiplex_panels import _identity_panel_content
 
         content = _identity_panel_content()
-        assert "47 days old" not in content
+        # ANCHORED. Same time-bomb its sibling in test_identity_panel_
+        # parameterization.py detonated on 2026-09-06: a plain substring over a
+        # growing number gets swallowed by a larger correct one, and "147 days
+        # old" contains "47 days old". Found by sweeping for the class after
+        # that failure rather than waiting for this one to go off too.
+        assert not re.search(r"\b47 days old", content)
         # Should either have age-clause or fallback unreadable
         has_age = "days old" in content
         has_fallback = "unreadable" in content.lower()

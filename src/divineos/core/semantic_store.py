@@ -116,6 +116,7 @@ from __future__ import annotations
 import math
 import sqlite3
 import struct
+import sys
 import warnings
 from typing import Any
 
@@ -131,12 +132,19 @@ _DEFAULT_DIM = 384
 _embedding_model: Any | None = None
 _embedding_model_name: str | None = None
 
+# Why the last load attempt failed, as "ExcType: message", or None when the
+# model is loaded or has never been tried. Added 2026-09-02: the indexer
+# walked 46,323 chunks, stored none, and exited 0. The load exception was
+# discarded here, so every layer above could see only "no vector" and had
+# no way to tell nothing-to-do from cannot-look.
+_embedding_model_error: str | None = None
+
 
 def _ensure_model(model_name: str = _DEFAULT_MODEL_NAME) -> Any | None:
     """Lazily load the embedding model. Returns None if unavailable
     (the ml extras aren't installed). Subsequent calls reuse the
     loaded model; calling with a different model_name reloads."""
-    global _embedding_model, _embedding_model_name
+    global _embedding_model, _embedding_model_name, _embedding_model_error
     if _embedding_model is not None and _embedding_model_name == model_name:
         return _embedding_model
     try:
@@ -156,11 +164,33 @@ def _ensure_model(model_name: str = _DEFAULT_MODEL_NAME) -> Any | None:
 
             _embedding_model = SentenceTransformer(model_name, device=select_device())
             _embedding_model_name = model_name
+            _embedding_model_error = None
         return _embedding_model
-    except _ERRORS:
+    except _ERRORS as exc:
         _embedding_model = None
         _embedding_model_name = None
+        _embedding_model_error = f"{type(exc).__name__}: {exc}"
         return None
+
+
+def model_status(model_name: str = _DEFAULT_MODEL_NAME) -> tuple[bool, str]:
+    """Return ``(available, detail)`` for the embedding model.
+
+    The third state every caller was missing. ``embed`` returning ``None``
+    is ambiguous between "empty text", "zero-norm result" and "this
+    interpreter cannot embed at all"; only the last means the answer is
+    cannot-look rather than a real count of zero.
+
+    ``detail`` names the running interpreter, because the failure this was
+    written for was an interpreter mismatch: the CLI runs inside a sealed
+    venv without the ml extras while the system Python has them, so the
+    same code embedded correctly in every hand-test and never once under
+    the command being debugged.
+    """
+    if _ensure_model(model_name) is not None:
+        return True, f"{model_name} loaded"
+    reason = _embedding_model_error or "model unavailable (no exception recorded)"
+    return False, f"{reason} [interpreter: {sys.executable}]"
 
 
 def embed(text: str, model_name: str = _DEFAULT_MODEL_NAME) -> list[float] | None:
