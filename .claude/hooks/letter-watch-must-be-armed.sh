@@ -88,7 +88,7 @@ try:
     print((d.get('tool_input') or {}).get('command') or '')
 except Exception:
     print('')
-" 2>/dev/null)
+" 2>/dev/null)  # fail-soft: malformed hook input yields an empty command, which fails every bypass comparison and lands on refuse rather than pass -- the safe direction, unlike the detector call above
 
 BYPASS="$REPO_ROOT/scripts/hook_bypass_commands.txt"
 if [ -f "$BYPASS" ]; then
@@ -104,7 +104,18 @@ fi
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-REASON=$("$PYTHON_BIN" "$REPO_ROOT/scripts/letter_monitor_health.py" 2>/dev/null)
+# STDERR IS MERGED, NOT DISCARDED, and the two swallows in this file are not
+# the same thing despite being spelled the same. Throwing this one away made
+# the refusal MUTE rather than soft: if the detector crashes, the exit code is
+# unrecognised, the door correctly refuses, and it prints an empty reason. A
+# silent refusal reads as a broken door rather than a broken sensor, which
+# sends the investigation at the wrong component -- exactly what it cost today
+# when a refusal named whichever gate happened to be standing there.
+#
+# The invariant, written here because it was nowhere: a refusal must carry the
+# reason it refused. The detector promises never to raise, so in the ordinary
+# case this adds no noise at all.
+REASON=$("$PYTHON_BIN" "$REPO_ROOT/scripts/letter_monitor_health.py" 2>&1)
 STATE=$?
 
 # 0 = healthy. Anything else is not-proven-alive, including cannot-tell.
