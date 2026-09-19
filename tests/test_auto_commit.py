@@ -300,3 +300,99 @@ class TestStagedIndexDetection:
         result = auto_commit_substrate(repo, reason="pre-extract", channels=())
         assert result.committed is True
         assert result.dirty_lines >= 1
+
+
+class TestSubstrateStaysOffCodeBranches:
+    """Nine contaminated branches, nine rebuilds, zero fixes (2026-09-12).
+
+    The checkpointer stages everything, and on a code branch that everything
+    included the whole letters directory. The push gate refused each branch --
+    correctly, every time -- and the cure was always another manual rebuild.
+    Twice in one session it happened WHILE the previous contamination was being
+    cleaned up, and once it made me tell Andrew a branch carried no personal
+    writing when it carried two hundred and four files.
+
+    Both directions are pinned, because a guard that refuses everywhere is as
+    broken as one that refuses nowhere: substrate belongs ON a substrate branch
+    and the checkpointer must still put it there.
+    """
+
+    def _a_letter_and_its_channel(self, tmp_path: Path):
+        source = tmp_path / "letters_source"
+        source.mkdir(exist_ok=True)
+        (source / "aether-to-aria-2026-09-12-test.md").write_text("body\n", encoding="utf-8")
+        return (
+            ExternalChannel(
+                name="test-letters",
+                source=source,
+                repo_mirror=Path("family/letters"),
+                pattern="*.md",
+            ),
+        )
+
+    def test_a_letter_does_not_land_on_a_code_branch(self, repo: Path, tmp_path: Path):
+        """THE ONE THAT COST THE NINE REBUILDS."""
+        channels = self._a_letter_and_its_channel(tmp_path)
+        _git(repo, "checkout", "-q", "-b", "fix/some-code-work")
+        (repo / "module.py").write_text("x = 1\n", encoding="utf-8")
+
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=channels)
+
+        assert result.committed is True, "the code work must still be saved"
+        tracked = _git(repo, "ls-files").stdout
+        assert "family/letters" not in tracked, "a letter was committed onto a code branch"
+        assert "module.py" in tracked, "the work this exists to save was dropped"
+
+    def test_the_letter_is_still_on_disk_and_the_refusal_is_named(self, repo: Path, tmp_path: Path):
+        """Refusing must never be confused with discarding, nor happen silently.
+
+        THE MECHANISM MOVED UNDER THIS TEST AND WHAT IT GUARDS DID NOT. The
+        checkpoint no longer stages substrate and then unstages it; it routes
+        substrate to a DECLARED branch, and with nothing declared it refuses
+        outright rather than falling back to HEAD. So the two facts this test
+        exists to hold -- the letter survives, and the refusal says so out
+        loud -- were re-asserted against where they now live instead of being
+        deleted along with the field they used to read.
+
+        ONE THING GENUINELY DID NOT SURVIVE, and it is named here rather than
+        papered over: the old result enumerated the paths it left behind, and
+        this refusal names only the reason. The files are equally safe either
+        way -- on disk and in the shared channel that is their source of truth
+        -- but an author looking for WHICH letters were held has to read the
+        log rather than the result. That is a real, if small, loss of
+        resolution, and it belongs in the record.
+        """
+        channels = self._a_letter_and_its_channel(tmp_path)
+        _git(repo, "checkout", "-q", "-b", "fix/some-code-work")
+        (repo / "module.py").write_text("x = 1\n", encoding="utf-8")
+
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=channels)
+
+        landed = repo / "family/letters/aether-to-aria-2026-09-12-test.md"
+        assert landed.is_file(), "the letter left the disk -- this must never happen"
+        assert "substrate refused" in result.reason, "the refusal happened silently"
+        assert "substrate-branch" in result.reason, "the refusal did not say why"
+
+    def test_a_declared_substrate_branch_still_receives_its_letters(
+        self, repo: Path, tmp_path: Path
+    ):
+        """The other direction. A guard that refuses everywhere guards nothing.
+
+        Standing ON a branch named like substrate no longer routes a letter to
+        it; the branch has to be DECLARED. That is the whole point of the
+        replacement -- a name is a coincidence and a declaration is a decision
+        -- so this declares one and then checks the letter actually arrived.
+        """
+        channels = self._a_letter_and_its_channel(tmp_path)
+        _git(repo, "branch", "substrate/the-letters")
+        _git(repo, "config", "divineos.substrate-branch", "substrate/the-letters")
+        _git(repo, "checkout", "-q", "-b", "fix/some-code-work")
+
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=channels)
+
+        assert result.committed is True
+        on_substrate = _git(repo, "ls-tree", "-r", "--name-only", "substrate/the-letters").stdout
+        assert "family/letters" in on_substrate, "the letter never reached the declared branch"
+        assert "family/letters" not in _git(repo, "ls-files").stdout, (
+            "the letter was left on the code branch it was routed away from"
+        )

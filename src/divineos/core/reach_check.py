@@ -552,16 +552,83 @@ def satisfied_recently(now: float | None = None) -> tuple[bool, str]:
         # Nothing is waved through: a zero-item check means prior_art was asked
         # and answered empty. Recency is the only guard it needs, and it has it.
         empty = conn.execute(
-            "SELECT c.check_id, c.symptom FROM reach_checks c "
+            # opened_at comes back because the prose-axis check below needs to
+            # ask "since WHEN" -- a prose search run before the check was
+            # opened was about something else.
+            "SELECT c.check_id, c.symptom, c.opened_at FROM reach_checks c "
             "LEFT JOIN reach_items i ON i.check_id = c.check_id "
             "WHERE i.item_id IS NULL AND c.opened_at >= ? "
             "ORDER BY c.opened_at DESC LIMIT 1",
             (cutoff,),
         ).fetchone()
         if empty is not None:
-            return True, (
-                f"reach-check satisfied: {empty[0]} ({empty[1]}) - "
-                "asked, and nothing existed to open"
+            # ONE AXIS ASKED IS NOT THE SEARCH DONE (2026-09-12). The comment
+            # above says a zero-item check means prior_art "was asked and
+            # answered empty". It was asked on ONE axis. Three lines below, in
+            # the same output, the CLI prints the four prose surfaces it did
+            # NOT query, by name, with their commands.
+            #
+            # So "asked" meant one axis here and four axes there, and nothing
+            # could read across the gap. Same shape as the registry that called
+            # a deliberately-wired module dark: two mechanisms, two definitions
+            # of one word, no wire between them.
+            #
+            # WHAT IT COST, measured rather than feared. On 2026-09-12 I opened
+            # a check on the checkpointer sweeping letters onto code branches,
+            # got NOT FOUND, ran none of the four, and built a guard. The
+            # semantic search returns -- top hit, seconds -- a letter about a
+            # repair stranded on an unmerged branch. The knowledge store returns
+            # at FULL confidence an entry I had written describing this exact
+            # failure of this exact tool. And the machinery to do the job
+            # properly was already on main, built and tested and called by
+            # nothing.
+            #
+            # MORE PROSE WOULD NOT HAVE HELPED, and that is the whole argument
+            # for a wire instead. The message is already honest, already names
+            # the axes, already draws the not-found/not-checked distinction. I
+            # read it and built anyway, twice. Angelou's lens on the walk: a
+            # well-made caveat reads as a matter already handled by someone
+            # thorough, and a reader in motion cannot tell that from handled.
+            #
+            # The evidence source is the one the disposition step already
+            # trusts for the harder question -- the harness transcript, which I
+            # cannot author and in which a command that never ran cannot
+            # appear. Reading is the proof; saying so is not.
+            #
+            # Per walk-c1935b1d6bb5, six lenses.
+            ran, why_unknown = _prose_axis_run_since(empty[2] or 0.0)
+            if ran:
+                return True, (
+                    f"reach-check satisfied: {empty[0]} ({empty[1]}) - "
+                    "asked on every axis, and nothing existed to open"
+                )
+            if why_unknown:
+                # COULD-NOT-LOOK IS NOT A SKIPPED SEARCH. An unreadable
+                # transcript says nothing about what I ran, and this gate has
+                # walled me in twice already -- both instances are in the
+                # comments of this file. Absence of evidence about my behaviour
+                # is not evidence about it, so this falls back to the old pass
+                # and SAYS which question went unasked.
+                return True, (
+                    f"reach-check satisfied: {empty[0]} ({empty[1]}) - "
+                    f"code axis asked and empty; whether the prose axes ran "
+                    f"could NOT be checked ({why_unknown})"
+                )
+            # NOT SATISFIED, AND IT MUST SAY WHY OR IT IS THE WALL AGAIN.
+            # The deadlock this module rebuilt twice was never "zero items
+            # failed to pass" -- it was a refusal whose only named remedy was
+            # the step already taken. So this path carries the remaining step
+            # and the exact commands, and the doorman prints it instead of its
+            # generic open-a-reach text.
+            names = ", ".join(cmd for cmd, _what in prior_art.UNSEARCHED_SURFACES)
+            return False, (
+                f"reach-check {empty[0]} asked the code axis and it came back empty.\n"
+                "That is one axis of four. The prose surfaces have not been queried\n"
+                "since this check opened, and NOT-FOUND on one axis is not a finding.\n\n"
+                f"  {names}\n\n"
+                "On 2026-09-12 this exact shape cost a duplicate build: the semantic\n"
+                "search held the answer at the top of its results and the knowledge\n"
+                "store held my own note about this failing before, and I ran neither."
             )
         row = conn.execute(
             "SELECT c.check_id, c.symptom, MAX(i.disposed_at), COUNT(*) "
@@ -585,6 +652,36 @@ def satisfied_recently(now: float | None = None) -> tuple[bool, str]:
         # family as the _gh() encoding fix earlier today, one console over.
         f"reach-check satisfied: {check_id} ({symptom}) - {count} artifact(s) disposed {mins}m ago"
     )
+
+
+def _prose_axis_run_since(opened_at: float) -> tuple[bool, str]:
+    """(ran, why_unknown) — did a prose-axis search actually fire since then?
+
+    The commands are the four the CLI already prints by name when a check
+    surfaces nothing, so this asks exactly the question that printout raises
+    and nothing more. It reads the harness transcript rather than any state I
+    write, for the same reason the disposition step does: I cannot author it,
+    and a command that never ran cannot appear in it.
+
+    ``why_unknown`` is populated ONLY when the transcript could not be read.
+    That is a third answer and it must never collapse into "you skipped it" --
+    absence of evidence about my behaviour is not evidence about my behaviour,
+    and this gate has walled me in twice for less.
+
+    Window: from the check opening to now. A prose search run BEFORE the check
+    was opened was asking about something else, and counting it would let any
+    unrelated earlier search satisfy every later check.
+    """
+    window = max(60.0, time.time() - opened_at)
+    calls, why_empty = action_stream_from_transcript(window_seconds=window)
+    if why_empty:
+        return False, why_empty
+    wanted = tuple(cmd for cmd, _what in prior_art.UNSEARCHED_SURFACES)
+    for _name, target in calls:
+        text = str(target)
+        if any(cmd in text for cmd in wanted):
+            return True, ""
+    return False, ""
 
 
 def _active_transcript_including_worktrees() -> Path | None:

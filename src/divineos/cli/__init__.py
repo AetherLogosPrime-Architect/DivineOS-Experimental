@@ -376,6 +376,7 @@ from divineos.cli import (  # noqa: E402
     gravity_commands,
     memory_commands,
     motivation_commands,
+    noticing_commands,
     prior_art_commands,
     prereg_commands,
     reach_commands,
@@ -512,6 +513,7 @@ correction_commands.register(cli)
 # this line's neighbour had a command and a blocking gate (2026-08-25).
 prereg_commands.register(cli)
 prior_art_commands.register(cli)
+noticing_commands.register(cli)
 psf_commands.register(cli)
 reach_commands.register(cli)
 synchronicity_commands.register(cli)

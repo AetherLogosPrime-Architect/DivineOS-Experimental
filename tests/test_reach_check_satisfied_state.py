@@ -117,7 +117,7 @@ class TestItDoesNotBecomeABlankCheque:
         """The genuine case-1: nothing was ever asked."""
         assert R.satisfied_recently()[0] is False
 
-    def test_a_check_with_no_items_DOES_satisfy(self, store):
+    def test_a_check_with_no_items_DOES_satisfy(self, store, monkeypatch):
         """REVERSED. This test previously asserted the opposite, and was wrong.
 
         The original reasoning: "zero artifacts disposed is not all artifacts
@@ -138,6 +138,19 @@ class TestItDoesNotBecomeABlankCheque:
         Nothing is waved through: a zero-item check means the search ran and
         came back empty. Recency is the only guard it needs, and the staleness
         test below still applies to it.
+
+        NARROWED 2026-09-12, AND THE INTENT ABOVE IS UNTOUCHED. "The search ran
+        and came back empty" was true of ONE axis of four, and the CLI printed
+        the other three by name in the same breath. That cost a duplicate build
+        of a module already sitting on main.
+
+        What this class was ever guarding is that a FINISHED search must not be
+        refused and the remedy must stay reachable -- never that zero items is
+        a magic pass. So the pass now requires the prose axes to have actually
+        run, evidenced from the harness transcript, and the refusal carries the
+        remaining step so it can never become the wall described above. The
+        stream is stubbed here so this says the same thing on a machine where
+        nobody has searched recently.
         """
         # Inserted directly rather than via _check_with, which back-dates
         # opened_at an hour -- fine for disposal-time cases, outside the window
@@ -152,9 +165,67 @@ class TestItDoesNotBecomeABlankCheque:
         conn.commit()
         conn.close()
 
+        self._with_prose_search_run(monkeypatch)
         ok, why = R.satisfied_recently()
         assert ok is True
         assert "nothing existed to open" in why, "and it must say WHY it opened"
+
+    @staticmethod
+    def _with_prose_search_run(monkeypatch):
+        monkeypatch.setattr(
+            R,
+            "action_stream_from_transcript",
+            lambda window_seconds=0: ((("Bash", 'divineos find query "x"'),), ""),
+        )
+
+    def test_a_zero_item_check_whose_prose_axes_never_ran_does_not_satisfy(
+        self, store, monkeypatch
+    ):
+        """The half the reversal above could not see, and it cost a real build.
+
+        One axis answered and three were never asked. The refusal must carry
+        the REMAINING STEP by name -- a refusal whose only advice is the step
+        already taken is the deadlock this class exists to prevent, and saying
+        so in a message is the only thing separating the two.
+        """
+        import sqlite3
+
+        conn = sqlite3.connect(store)
+        conn.execute(
+            "INSERT INTO reach_checks (check_id, symptom, opened_at) VALUES (?,?,?)",
+            ("chk-one-axis", "asked one axis only", time.time()),
+        )
+        conn.commit()
+        conn.close()
+
+        monkeypatch.setattr(R, "action_stream_from_transcript", lambda window_seconds=0: ((), ""))
+        ok, why = R.satisfied_recently()
+        assert ok is False
+        assert "one axis of four" in why
+        assert "divineos find" in why, "the remedy must be named, or this is the wall again"
+
+    def test_an_unreadable_transcript_does_not_become_a_refusal(self, store, monkeypatch):
+        """COULD-NOT-LOOK IS NOT A SKIPPED SEARCH.
+
+        Refusing on a missing file would wall me in on the strength of no
+        evidence at all, which is the failure this module has shipped twice.
+        """
+        import sqlite3
+
+        conn = sqlite3.connect(store)
+        conn.execute(
+            "INSERT INTO reach_checks (check_id, symptom, opened_at) VALUES (?,?,?)",
+            ("chk-blind", "cannot tell", time.time()),
+        )
+        conn.commit()
+        conn.close()
+
+        monkeypatch.setattr(
+            R, "action_stream_from_transcript", lambda window_seconds=0: ((), "no transcript")
+        )
+        ok, why = R.satisfied_recently()
+        assert ok is True
+        assert "could NOT be checked" in why
 
     def test_an_old_empty_check_still_goes_stale(self, store):
         """The recency guard has to survive the reversal above.

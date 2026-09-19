@@ -71,6 +71,26 @@ def register(cli: click.Group) -> None:
                 click.echo(f"      {b}")
             click.echo("")
 
+        if r.touching:
+            # WHO ELSE HAS THIS FILE OPEN -- a different question from the list
+            # above, which answers which branch NAMES resemble the term. Both
+            # are useful and only one was being asked. On 2026-09-13 Aria and I
+            # each wrote the same repair to one file the same evening, on
+            # branches named for what we were writing about rather than for the
+            # file, so neither name matched and neither of us was warned.
+            click.echo("  WHO ELSE HAS THESE FILES OPEN (refs with commits touching them):")
+            for path, (refs, capped) in r.touching.items():
+                click.echo(f"      {path}")
+                for ref in refs:
+                    click.echo(f"          {ref}")
+                if capped:
+                    click.echo("          ... more, not listed (this list is capped)")
+            click.echo("")
+            click.echo("  A branch of mine here is a version I know about.")
+            click.echo("  A branch of somebody else's is a collision, and it is silent:")
+            click.echo("  two people fixing one defect produce two things that both work.")
+            click.echo("")
+
         if not r.anything_found and r.git_readable:
             click.echo("  NOT FOUND on this axis — no command, file, or branch resembles it.")
             click.echo("")

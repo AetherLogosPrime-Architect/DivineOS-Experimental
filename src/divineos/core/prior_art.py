@@ -77,6 +77,12 @@ class PriorArt:
     working_tree: list[str] = field(default_factory=list)
     elsewhere_in_git: list[tuple[str, str, str]] = field(default_factory=list)
     branches: list[str] = field(default_factory=list)
+    # path -> (refs whose commits touch it, whether that list was capped).
+    # Separate from `branches` on purpose: that field answers "which branch
+    # NAMES resemble your term" and this one answers "who else has this file
+    # open". They are two questions and one of them was going unasked, which
+    # is how two people built the same repair on one evening.
+    touching: dict[str, tuple[list[str], bool]] = field(default_factory=dict)
     git_readable: bool = True
 
     @property
@@ -175,6 +181,52 @@ def find_branches(term: str) -> list[str]:
     )[:15]
 
 
+_TOUCHING_CAP = 12
+
+
+def branches_touching(path: str) -> tuple[list[str], bool]:
+    """(refs carrying a commit that touches ``path``, was_capped).
+
+    THE QUESTION find_branches ONLY LOOKED LIKE IT ANSWERED (2026-09-13). That
+    one returns branches whose NAME resembles the term. Asked about the
+    work-item doorman it returned eight, every single one carrying the module
+    name in its branch name -- which reads as a thorough answer and is really
+    the tool reporting one surface feature. Both of Aria's branches were
+    missing, because hers are named for what she was writing about rather than
+    for the file. Those two were the whole point: a branch of mine is a version
+    I already know about, a branch of hers is the collision.
+
+    And the collision was real. We each wrote a quoted-span stripper for that
+    file the same evening, hours apart, neither knowing, on a file that has
+    never once been on main. Eight refs carry a version of it.
+
+    THE COLLISION CLASS HAS NO OTHER WITNESS. A contaminated branch is refused
+    at push; a bad measurement is contradicted by the next one. Two people
+    independently fixing one defect produces two things that both work, both
+    pass, and never meet -- so the only witness is whoever happens to read
+    both, which happened by accident.
+
+    Einstein's test on the walk, for why this is the answer carrying the
+    information: imagine every branch renamed to a random string. The
+    name-match answer collapses to nothing. This one is unchanged.
+
+    Bounded, and the bound SAYS SO rather than truncating quietly -- nearly
+    every file here is touched by dozens of stale checkpoints, and a silent cut
+    would be this same disease inside its own repair. Per walk-7c4350c62013,
+    ten lenses.
+    """
+    out = _git(["log", "--all", "--source", "--format=%S", "--", path])
+    if out is None:
+        return [], False
+    seen: list[str] = []
+    for line in out.splitlines():
+        ref = line.strip().replace("refs/remotes/", "").replace("refs/heads/", "")
+        if not ref or "dead/" in ref or ref in seen:
+            continue
+        seen.append(ref)
+    return seen[:_TOUCHING_CAP], len(seen) > _TOUCHING_CAP
+
+
 def search(term: str) -> PriorArt:
     result = PriorArt(term=term)
     listing = _git(["ls-files"])
@@ -186,4 +238,12 @@ def search(term: str) -> PriorArt:
     if result.git_readable:
         result.elsewhere_in_git = find_elsewhere_in_git(term, here)
         result.branches = find_branches(term)
+        # For every path this search actually surfaced, ask the question the
+        # branch list only resembled: who else has this file open. Cheap --
+        # measured at a tenth of a second for one path.
+        paths = list(result.working_tree) + [p for p, _c, _b in result.elsewhere_in_git]
+        for p in dict.fromkeys(paths):
+            refs, capped = branches_touching(p)
+            if refs:
+                result.touching[p] = (refs, capped)
     return result

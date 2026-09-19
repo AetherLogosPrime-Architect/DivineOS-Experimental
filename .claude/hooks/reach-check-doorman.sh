@@ -159,9 +159,31 @@ try:
 except Exception as exc:
     print(f"[reach-check-doorman] satisfied-state check errored, blocking: {exc}", file=sys.stderr)
     satisfied = False
+    why = ""
 
 if satisfied:
     sys.exit(0)
+
+# NOT SATISFIED NOW MEANS TWO DIFFERENT THINGS, and one message for both would
+# rebuild the wall described in the comment above, a third time. "I never
+# opened a check" needs the text below. "I opened one, the code axis came back
+# empty, and the prose axes were never queried" needs the REMAINING STEP --
+# and being told to open a reach I already opened is that same deadlock in new
+# paint.
+#
+# So when satisfied_recently returns a reason on the refusing path, that reason
+# IS the message, and it names the four commands.
+#
+# NO APOSTROPHES ANYWHERE IN THIS BLOCK, INCLUDING COMMENTS. Everything here is
+# the argument to python -c inside a SINGLE-QUOTED shell string, so one
+# apostrophe closes the string and bash begins parsing python. Writing a
+# possessive into this comment on 2026-09-12 broke the hook for every tool call
+# -- and being a PreToolUse gate, it then refused the edit that would fix it.
+# The repair had to come through a different tool. Say "the wall in this file",
+# never "this file" with an s after an apostrophe.
+if why:
+    print(why)
+    sys.exit(7)
 
 print(
     "REACH-CHECK -- I am about to write into a substrate store or a research\n"

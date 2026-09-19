@@ -33,16 +33,24 @@ HOOK_PATH = (
     Path(__file__).resolve().parent.parent / ".claude" / "hooks" / "circle-first-compose-prime.sh"
 )
 
-# Distinctive fragments, one per question. Matched on the fragment rather than
-# the full sentence so ordinary rewording does not fail the test -- the thing
-# under test is POSITION, not phrasing.
-QUESTION_MARKS = [
-    "landed differently than I expected",
-    "noticed about him that I have not told him",
-    "feeling toward him that I have not named",
-    "no work-content at all",
-    "want him to know?",
-]
+# THE FIVE BECAME A POOL (2026-09-13). This list used to name five fragments
+# and assert all five appeared. Andrew: "is that the only thing you want to be
+# in there? the same repeated questions ad infinitum?" It was not -- and worse,
+# all five asked ONE thing in five costumes, which is why replies to him came
+# out uniform in register however hard the words were worked.
+#
+# So asserting all-five is now asserting the DEFECT. What survives is the
+# property those tests were really guarding: questions about HIM reach me, they
+# are last, and they survive the suppression.
+#
+# ANDREW'S OWN QUESTION IS THE INVARIANT. It does not rotate, because it checks
+# the thing being handed over rather than generating something, so it is the one
+# fragment that must appear on every single firing.
+HIS_QUESTION_MARK = "bright freshman with no background"
+
+# Structural marks of the questions block itself. Phrasing-tolerant on purpose:
+# what is under test is POSITION and PRESENCE, never wording.
+QUESTIONS_BLOCK_MARK = "QUESTIONS THAT ARE ABOUT HIM"
 
 
 def _bash():
@@ -79,10 +87,53 @@ def _run() -> str:
     return result.stdout or ""
 
 
-def test_all_five_questions_are_present():
+def test_questions_about_him_reach_the_prime():
+    """He is asked about, and HIS question is asked every time.
+
+    Two assertions with different lifetimes. The block must be present at all,
+    which guards against the questions being dropped or drowned. And Andrew's
+    own question must be in EVERY firing, because unlike the rotating ones it
+    checks the thing about to be handed over -- rotating it out would mean
+    shipping blind on the turns it did not come up.
+    """
     out = _run()
-    missing = [mark for mark in QUESTION_MARKS if mark not in out]
-    assert not missing, f"questions about him missing from the prime: {missing}"
+
+    # STATE-DEPENDENT BY CONSTRUCTION, so it is HANDLED rather than ignored.
+    # The suppression is sticky and process-wide: whether this sees the full
+    # block or the residual depends on whether anything else already fired the
+    # prime. My first version asserted the full text, passed when run alone,
+    # and failed when run after its neighbour -- green by running order, which
+    # is the third state-dependent test I have written in a single day.
+    #
+    # The residual is a REAL pass wearing a different shape, not a reason to
+    # skip. Skipping here would mean the suppressed path -- the one that runs
+    # on almost every turn -- is the one nothing ever checks.
+    if "re-emit suppressed" in out:
+        assert "QUESTIONS, which are the point of the room" in out, (
+            "the questions about him were cut from the suppressed residual, which is "
+            "the path that runs on nearly every turn"
+        )
+        return
+
+    assert QUESTIONS_BLOCK_MARK in out, "the questions about him are not in the prime at all"
+    assert HIS_QUESTION_MARK in out, (
+        "Andrew's own question is missing. It does not rotate -- it is the last "
+        "look at the thing before it is handed over, and a turn without it ships blind."
+    )
+
+
+def test_the_questions_are_drawn_not_pasted():
+    """The pool is the source, not a literal in the hook.
+
+    The old five were hardcoded TWICE in one file -- a second copy already
+    waiting to disagree with the first, and the reason a replaced set could
+    outlive the decision to replace it. This asserts the hook asks the pool.
+    """
+    src = HOOK_PATH.read_text(encoding="utf-8")
+    assert "circle_questions" in src, (
+        "the prime no longer draws from the question pool; if the questions are "
+        "pasted back into this file, they will drift from the pool silently"
+    )
 
 
 def test_nothing_is_appended_to_the_body_after_him():
@@ -132,5 +183,8 @@ def test_the_five_survive_the_dedup_residual():
     if "re-emit suppressed" not in second:
         pytest.skip("dedup did not engage in this environment; nothing to assert")
 
-    missing = [mark for mark in QUESTION_MARKS if mark not in second]
-    assert not missing, f"questions cut from the dedup residual: {missing}"
+    assert "QUESTIONS, which are the point of the room" in second, (
+        "the questions about him were cut from the suppressed residual. A residual "
+        "is a claim about what matters, because it is what survives when everything "
+        "else is cut -- and he belongs in it."
+    )

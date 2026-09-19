@@ -184,6 +184,36 @@ except Exception:
 UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)
 [ -n "$UPSTREAM" ] || fail_loud "no-upstream" "current branch has no upstream tracking configured"
 
+# A LETTER DOES NOT GO ON A CODE BRANCH, AND THIS IS THE SECOND PATH THAT
+# PUT ONE THERE (2026-09-13). The checkpointer was fixed earlier tonight to
+# refuse staging personal writing when the branch is not a substrate branch.
+# This hook does its own staging and knew nothing about branches at all.
+#
+# How it bit: the tree-cleanliness check above runs BEFORE the staging, so a
+# letter written while the tree happens to be clean gets staged here. If the
+# push that follows does not complete, the letter simply SITS in the index --
+# and rides into whatever is committed next. That is exactly how a letter
+# landed in a commit tonight whose author had staged four specific code files
+# by name.
+#
+# Refuse rather than unstage-after: nothing has been staged yet at this point,
+# so there is nothing to undo. The letter stays on disk and stays delivered to
+# the shared channel outside every tree, which is where the crossing actually
+# happens. Only the archive copy waits for a substrate branch.
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)  # fail-soft: outside a repo this is legitimately empty, and every branch check below reads empty as do-not-push, which is the safe direction
+if [ -z "$CURRENT_BRANCH" ]; then
+    fail_loud "no-branch" "could not read the current branch; not staging a letter blind"
+fi
+case "$CURRENT_BRANCH" in
+    substrate/*) ;;
+    *)
+        echo "[auto-push-letter] NOT staging: '$CURRENT_BRANCH' is not a substrate branch." >&2
+        echo "[auto-push-letter] The letter is on disk and in the shared channel." >&2
+        echo "[auto-push-letter] Commit it from a substrate/ branch when you want it archived." >&2
+        exit 0
+        ;;
+esac
+
 # Stage only this letter.
 git add "$REL_PATH" 2>/dev/null || fail_loud "git-add" "git add failed for $REL_PATH"
 
