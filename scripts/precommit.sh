@@ -550,6 +550,48 @@ if [ -n "$STAGED_SH" ] && command -v shellcheck &>/dev/null; then
     fi
 fi
 
+# 7b. Capability claims in the comments of files being committed (informational).
+#
+#     Aletheia named this class 2026-08-27 and the checker was written for it,
+#     then called by nothing for two weeks -- indexed, tested, unwired, which is
+#     how Aria and I came to rediscover the same class from scratch on 2026-09-10
+#     and each report it to the other as a finding.
+#
+#     Aria's cost for it: a comment of ours saying a refusal path was loud,
+#     sincere and in our own voice and no longer true. It answered the question
+#     she was about to ask, so she diagnosed the resulting incident twice by
+#     guessing. A note about the PAST cannot rot; a note about what the code
+#     DOES is a test with no assertion.
+#
+#     SCOPED TO THE STAGED FILES ON PURPOSE. Across the whole tree this prints
+#     twenty-odd lines every time, which is the shape that turns a signal into
+#     furniture. Here it speaks only about what is being changed right now,
+#     where it can still be acted on.
+#
+#     Non-blocking, and the checker says why in its own output: UNNAMED asks
+#     whether a SYMBOL is mentioned in tests, as a proxy for whether the
+#     BEHAVIOUR is pinned, and the proxy breaks whenever a test is named for the
+#     invariant instead of the function.
+CLAIM_ROOTS="$(printf '%s\n%s\n' "$STAGED_SH" "${STAGED_PY:-}" | grep -v '^$' || true)"  # fail-soft: grep -v exits 1 when both staged lists are empty, which simply means no shell or python files are staged and there is nothing for this advisory to read
+if [ -n "$CLAIM_ROOTS" ] && [ -f scripts/check_comment_claims.py ]; then
+    # fail-soft: this advisory must never decide whether a commit proceeds. The
+    # checker's own docstring says UNNAMED asks about a SYMBOL as a proxy for a
+    # BEHAVIOUR, and names the case where that proxy is wrong -- so a failure
+    # here is information about the instrument, not about the commit. It stays
+    # visible because the checker prints NOTHING OPENED rather than a clean bill
+    # when it reads no files, which is what caught this wiring scanning zero.
+    # STDERR IS KEPT, not discarded. The first draft sent it to nowhere and the
+    # swallow gate refused -- correctly, and the right repair was not a louder
+    # annotation but deleting the swallow. An advisory whose own crashes are
+    # invisible would report "no claims" from a scanner that died, which is the
+    # could-not-look-reads-as-clean shape this whole checker exists to end.
+    CLAIM_OUT="$(echo "$CLAIM_ROOTS" | xargs python scripts/check_comment_claims.py --limit 8 --roots 2>&1 || true)"  # fail-soft: this advisory never decides whether a commit proceeds, because UNNAMED asks about a symbol as a proxy for a behaviour and the checker's own docstring names the case where that proxy is wrong
+    if echo "$CLAIM_OUT" | grep -q "whose symbol is named in no test"; then
+        section "Capability claims in comments (advisory)"
+        echo "$CLAIM_OUT"
+    fi
+fi
+
 # 8. Wiring-gap (informational, non-blocking) — surface any new public
 #    function in core/ that has zero callers across src/, tests/, scripts/,
 #    or hooks. Documented as informational in the script's docstring; runs

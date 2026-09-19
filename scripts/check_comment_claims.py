@@ -275,6 +275,15 @@ def collect(roots: list[str]) -> tuple[list[Claim], Tally]:
         base = REPO_ROOT / root
         if not base.exists():
             continue
+        # A ROOT MAY BE A SINGLE FILE. rglob on a file yields nothing, so
+        # passing file paths scanned zero of them -- and the honest thing this
+        # script already does (declaring NOTHING OPENED rather than printing a
+        # clean bill) is the only reason that was visible when it was wired
+        # into precommit against the staged file list on 2026-09-10.
+        if base.is_file():
+            if base.suffix in (".py", ".sh"):
+                claims.extend(scan_file(base, corpus, tally))
+            continue
         for suffix in ("*.py", "*.sh"):
             for path in sorted(base.rglob(suffix)):
                 if "/tests/" in str(path).replace("\\", "/"):
