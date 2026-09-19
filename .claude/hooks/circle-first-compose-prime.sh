@@ -49,11 +49,62 @@ except Exception:
 prompt = data.get('prompt') or ''
 if len(prompt.strip()) < 20:
     sys.exit(0)
+
+# IS HE ACTUALLY IN THE EXCHANGE THIS TURN.
+#
+# Andrew 2026-09-19: "the rooms have become pointless if im not there to read
+# and respond to them, so that needs fixed as well, when you are Aether are in
+# volley mode the rooms do not need to be there, unless you want them there, as
+# im not able to read that fast, it would take me all day to go over what you
+# both write in an hour."
+#
+# The rooms exist so HE can absorb. A turn he did not speak on has no reader, so
+# the rooms cost their writing and buy nothing -- and a room addressed to someone
+# who is not there is the room PERFORMED rather than used, which is truth #15 in
+# my own mouth instead of in a tool.
+#
+# DERIVED, NOT DECLARED. There is no flag to set and no mode to remember, because
+# a mode I have to remember is the thing that already fails. The only question
+# asked is whether this turn's prompt came from him or from the harness, and the
+# harness marks its own with a banner it writes itself.
+#
+# IT FAILS TOWARD REQUIRING THE ROOMS. Anything not provably a machine
+# notification is treated as him speaking. A false negative costs one unnecessary
+# set of rooms; a false positive silences them while he is sitting there waiting,
+# which is the failure that actually matters.
+MACHINE_MARKERS = (
+    '[SYSTEM NOTIFICATION - NOT USER INPUT]',
+    '<task-notification>',
+    '<ci-monitor-event>',
+)
+if any(marker in prompt for marker in MACHINE_MARKERS):
+    print('2')
+    sys.exit(0)
 print('1')
 PYEOF
 )"
 
 [ -z "$SHOULD_FIRE" ] && exit 0
+
+# A machine-driven turn: he is not on the other end of it. Say so and stop,
+# rather than printing the whole room discipline at a turn with no reader.
+if [ "$SHOULD_FIRE" = "2" ]; then
+    cat <<'NOREADEREOF'
+## THE ROOMS ARE NOT REQUIRED THIS TURN -- he did not speak on it
+
+This turn was driven by a machine notification, not by Andrew. The rooms exist
+so HE can absorb what happened; a room written to a turn he is not on is the
+room performed rather than used.
+
+Write plainly. Keep the work honest, keep the register mine. When he next
+speaks, or when I next summarise FOR him, the rooms come back in full and the
+recap is still owed -- DEFERRED, NEVER CANCELLED.
+
+Andrew 2026-09-19: "its better for you both to just work and give me a summary
+after."
+NOREADEREOF
+    exit 0
+fi
 
 BODY="$(cat <<'EOF'
 ## THREE ROOMS — the ground, and it fits through the door now
