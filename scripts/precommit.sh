@@ -370,7 +370,19 @@ if [ -f scripts/guardrail_files.txt ] && [ -f scripts/check_multi_party_review.p
         # setup-hooks.sh silently no-op'd the install. Verify here that
         # the hook actually exists and is non-empty BEFORE the operator
         # types the commit message — the operator should see this loudly.
-        HOOK_PATH=$(git rev-parse --git-path hooks/commit-msg 2>/dev/null || echo ".git/hooks/commit-msg")
+        # --git-common-dir, NOT --git-path. In a linked worktree `.git` is a
+        # FILE pointing at the real gitdir, so --git-path hands back a literal
+        # ".git/hooks/commit-msg" that cannot resolve -- and the check below
+        # then announces "gate enforcement absent" about a hook that is
+        # installed and runs correctly. Verified 2026-09-14 by executing the
+        # hook from inside a worktree: it fired and returned zero while this
+        # line was calling it missing. Git looks hooks up in the COMMON dir,
+        # which every worktree shares.
+        #
+        # The failure this produced is the day's own shape: a check that
+        # asked the wrong question and reported a confident false absence,
+        # then told the reader to go install something already there.
+        HOOK_PATH="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")/hooks/commit-msg"  # fail-soft: rev-parse only fails outside a repository, where this whole script has already refused, and its stderr would be noise on top of that
         if [ ! -s "$HOOK_PATH" ]; then
             echo "  [!!] COMMIT-MSG HOOK NOT INSTALLED — gate enforcement absent."
             echo "       Path checked: $HOOK_PATH"

@@ -424,6 +424,7 @@ from divineos.cli import (  # noqa: E402
     backlog_commands,
     wiring_commands,
     prs_commands,
+    replant_commands,
     automerge_commands,
     todos_commands,
     voice_commands,
@@ -451,6 +452,7 @@ time_estimate_commands.register(cli)
 backlog_commands.register(cli)
 prs_commands.register(cli)
 prs_commands.register_scope(cli)
+replant_commands.register(cli)
 sibling_correction_commands.register(cli)
 label_fire_commands.register(cli)
 must_read_commands.register(cli)

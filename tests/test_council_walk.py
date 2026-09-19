@@ -21,14 +21,47 @@ def _isolated(tmp_path, monkeypatch):
 
 
 def test_lens_set_comes_from_the_manager_not_from_me():
-    """The one load-bearing decision: I cannot name my own council."""
+    """The one load-bearing decision: I cannot name my own council.
+
+    WIDENED 2026-09-11, and widening a guard to admit my own change is exactly
+    the move that deserves suspicion, so here is the reasoning in full.
+
+    This pinned the signature to {problem, gravity}, which is stronger than the
+    property it protects and caught a ``scope`` parameter naming FILES rather
+    than lenses. Scope is what lets the build-flow board find a walk at all --
+    without it a walk knows its problem and nothing about the work, which is
+    why the board counted lens events instead and why four self-chosen ones
+    satisfied it.
+
+    A signature pin is a proxy. The property is that NOTHING I pass can change
+    which lenses I face. So the allowlist is named explicitly here, and the
+    test below proves the property behaviourally rather than by shape -- which
+    is the stronger guard, not the weaker one.
+    """
     import inspect
 
     sig = inspect.signature(cw.open_walk)
-    assert set(sig.parameters) == {"problem", "gravity"}, (
-        "open_walk must not accept a lens list — if I can name the lenses, "
-        "I pick the low end every time and the mechanism becomes a form."
+    assert set(sig.parameters) <= {"problem", "gravity", "scope"}, (
+        "open_walk gained a parameter that is not problem/gravity/scope. If it "
+        "can carry lenses, I pick the low end every time and the mechanism "
+        "becomes a form I fill in."
     )
+
+
+def test_scope_cannot_change_which_lenses_i_face():
+    """The property the signature pin was standing in for.
+
+    Same problem and gravity, wildly different scope: the manager's selection
+    must be identical, because it is derived from the PROBLEM and nothing I
+    hand it may steer it.
+    """
+    bare = cw.open_walk(PROBLEM, gravity="normal")
+    scoped = cw.open_walk(
+        PROBLEM,
+        gravity="normal",
+        scope=("src/anything.py", "tests/whatever.py", "docs/a.md"),
+    )
+    assert bare["lenses"] == scoped["lenses"]
 
 
 def test_close_refuses_while_a_lens_is_open():
