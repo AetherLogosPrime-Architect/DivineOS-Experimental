@@ -209,6 +209,57 @@ def _git_last_touched(rel: str, mainline: str | None) -> str:
     return "not on main" if mainline else "—"
 
 
+# Phrases a hook uses to say why it is deliberately not switched on. Read as
+# prose rather than matched as a flag: the reason itself goes to the reader.
+_OFF_REASON_MARKERS = (
+    "INTENTIONALLY UNWIRED",
+    "SUPERSEDED",
+    "DELIBERATELY UNWIRED",
+    "NOT WIRED ON PURPOSE",
+    "STAGED",
+)
+
+
+def declared_off_reason(path: Path, max_lines: int = 12) -> str | None:
+    """The reason a hook gives, in its own header, for being switched off.
+
+    WHY THIS EXISTS. The register printed `dark: <name>` and nothing else, and
+    a bare name under the word dark can only be read one way. I read it that
+    way myself on 2026-09-19 — reported three guards to Andrew as switched off
+    like it was a finding, then opened them and found all three deliberate,
+    each with a dated reason in its first few lines. The information that would
+    have stopped me was written months ago by whoever switched them off, into
+    the very files I was describing, and was discarded at this boundary.
+
+    So this is transport, not recording. Nothing new is produced; the reason
+    already exists and simply never reached the page anyone reads.
+
+    DECLARES, NEVER APPROVED. A reason is a claim by the person who switched it
+    off. Nothing here re-checks whether the decision still holds, and the
+    wording must not let a reader take prose for verification.
+
+    NOT the existing `_has_intent_marker` in dead_architecture_alarm, which was
+    the obvious reuse and is wrong here: its vocabulary is two specific tokens
+    and none of the three real cases use either, so it would have called all
+    three unexplained and manufactured the alarm this removes. Checked before
+    reusing, which is the only reason this is not worse than what it replaces.
+
+    Returns None when the header declares nothing — the case that matters,
+    and the one the caller makes louder rather than quieter.
+    """
+    try:
+        with open(path, encoding="utf-8") as fh:
+            head = [next(fh, "") for _ in range(max_lines)]
+    except OSError:
+        return None
+
+    for raw in head:
+        line = raw.lstrip("#").strip()
+        if any(m in line.upper() for m in _OFF_REASON_MARKERS):
+            return line[:120]
+    return None
+
+
 def collect() -> list[dict]:
     """Scan every automation and resolve whether anything actually calls it."""
     hooks = sorted(HOOKS_DIR.glob("*.sh"), key=lambda p: p.name)
@@ -393,9 +444,19 @@ def main() -> int:
     OUTPUT.write_text(text, encoding="utf-8", newline="\n")
     print(f"Wrote {OUTPUT.relative_to(ROOT)} — {len(rows)} automations, {dark} switched off")
     if dark:
+        unexplained = 0
         for r in rows:
             if not r["wired"]:
-                print(f"    dark: {r['name']}")
+                reason = declared_off_reason(HOOKS_DIR / r["name"])
+                if reason:
+                    print(f"    dark: {r['name']} — declares: {reason}")
+                else:
+                    unexplained += 1
+                    print(f"    dark: {r['name']} — NO REASON DECLARED")
+        if unexplained:
+            print(
+                f"    {unexplained} of {dark} declare nothing. Those are the ones to look at."
+            )
     return 0
 
 
