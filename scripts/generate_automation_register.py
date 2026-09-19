@@ -85,9 +85,26 @@ def _registered_commands() -> dict[str, list[str]]:
     for event, groups in (data.get("hooks") or {}).items():
         for group in groups:
             for hook in group.get("hooks", []):
-                m = re.search(r"([\w.-]+\.sh)", hook.get("command", ""))
-                if m:
-                    out.setdefault(m.group(1), []).append(event)
+                # EVERY hook named in the command, not just the first.
+                #
+                # This used to take the first match only, which made any hook
+                # invoked through a wrapper invisible. The registration reads
+                #     bash .../dedup-wrap.sh <tag> bash .../the-real-hook.sh
+                # so the first filename is the wrapper and the hook that
+                # actually runs sits second — and the register reported it as
+                # NOTHING CALLS THIS while it fired on every single prompt.
+                #
+                # Found 2026-09-19: the register listed four automations as
+                # switched off, one of them the prime that shapes how I write
+                # to Andrew. It had been firing the whole time.
+                #
+                # THE OTHER THREE WERE GENUINELY DARK. Checking that before
+                # changing anything is what stopped this "fix" from declaring
+                # three dead guards alive — an inventory that over-reports
+                # wiring is worse than one that under-reports it, because a
+                # guard believed live is a guard nobody re-checks.
+                for name in re.findall(r"([\w.-]+\.sh)", hook.get("command", "")):
+                    out.setdefault(name, []).append(event)
     return out
 
 
