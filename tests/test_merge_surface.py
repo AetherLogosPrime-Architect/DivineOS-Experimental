@@ -322,6 +322,55 @@ def test_two_branches_with_no_common_ancestor_is_could_not_look(surface, tmp_pat
     assert count == 0
 
 
+def test_a_bridging_branch_does_not_bind_the_branches_it_bridges(surface, tmp_path, monkeypatch):
+    """The finding that contradicted the design, pinned so it cannot be undone.
+
+    Aether proposed grouping branches into clusters that "must be ordered
+    against each other". Built and run over six live branches, thirteen of
+    fifteen pairs collided and all six collapsed into one group -- not a bug,
+    the edges were hand-checked and are real.
+
+    The reason is here: A and C share nothing, B shares with both, and
+    transitive grouping then declares A and C jointly constrained. They are
+    not. The constraint is PAIRWISE and does not compose, so the edges are the
+    answer and the group is at most a region to look at.
+    """
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", "--initial-branch=main", str(repo)], check=True)
+    _run_git(repo, "config", "user.email", "test@test")
+    _run_git(repo, "config", "user.name", "test")
+    for name in ("x.txt", "y.txt"):
+        (repo / name).write_text("seed\n", encoding="utf-8")
+    _run_git(repo, "add", ".")
+    _run_git(repo, "commit", "-qm", "main")
+
+    for branch, files in (("a", ["x.txt"]), ("b", ["x.txt", "y.txt"]), ("c", ["y.txt"])):
+        _run_git(repo, "checkout", "-q", "main")
+        _run_git(repo, "checkout", "-qb", branch)
+        for name in files:
+            (repo / name).write_text(f"{branch} changed it\n", encoding="utf-8")
+        _run_git(repo, "add", ".")
+        _run_git(repo, "commit", "-qm", branch)
+
+    monkeypatch.setattr(surface, "ROOT", repo)
+
+    edges, clusters, unconnected, total = surface.clusters_from_pairs(["a", "b", "c"])
+
+    assert total == 3
+    paired = {frozenset((left, right)) for left, right, _n in edges}
+    assert frozenset(("a", "b")) in paired
+    assert frozenset(("b", "c")) in paired
+    # The whole point: the bridge does not create this edge.
+    assert frozenset(("a", "c")) not in paired, "a and c share no file and must not be paired"
+    # And the region still contains all three, which is exactly why a region
+    # must never be printed as an ordering constraint.
+    assert clusters == [["a", "b", "c"]]
+    assert unconnected == []
+
+
 def test_no_generators_at_all_is_could_not_look_not_clean(surface, tmp_path, monkeypatch):
     """An empty result must never render as a pass. Nothing-to-check and
     everything-checked-and-fine are different facts."""

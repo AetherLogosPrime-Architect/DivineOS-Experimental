@@ -223,6 +223,88 @@ def truly_shared_files(ref_a: str, ref_b: str) -> tuple[set[str], int, str, str 
     return shared, len(shared), where, None
 
 
+def clusters_from_pairs(refs: list[str]) -> tuple[list[list[str]], list[str], int, int]:
+    """Which branches actually touch each other, and which touch nothing.
+
+    WHY A SHAPE RATHER THAN A NUMBER, and the reasoning is Aether's after he
+    measured it instead of arguing it.
+
+    I asked whether the fork-point correction should apply set-wide as well as
+    pairwise. He ran it across six open branches: their common ancestor is
+    July 10, while their PAIRWISE fork points run from July 10 to September 15.
+    One pair forked two months later than the set does.
+
+    So A SET HAS NO FORK POINT. It has an oldest member, and the shared base is
+    pinned by whichever branch is most divergent -- which means the September
+    pair gets measured against a July baseline and every file either of them
+    inherited in between counts as a collision. That is the naive count
+    returning through a different door wearing the word "corrected".
+
+    The honest set-wide object is therefore not a scalar. It is which branches
+    genuinely overlap: a real shared file is an edge, none is not, and what
+    falls out is clusters that must be ordered against one another plus a
+    remainder that can land in any order. A single figure says how bad it is;
+    the shape says what to do about it.
+
+    AND THE PART THAT CONTRADICTS HIM, FOUND BY BUILDING IT. Run over six live
+    branches, thirteen of fifteen pairs collide and ALL SIX collapse into one
+    group. That is not a bug -- the edges were hand-checked and are real. It is
+    that grouping by transitive connection is the wrong shape.
+
+    One branch touching several others BRIDGES them. The gate-repairs branch
+    and the register-reproduction branch share literally nothing, and both
+    share three files with the sweep repair, so connected-components declares
+    all three must be ordered together. Two of them need no ordering at all.
+
+    The constraint is PAIRWISE, not transitive: two branches sharing a file
+    should land near each other, and that says nothing about a third branch
+    that touches only one of them. So the edges are the answer and the groups
+    are, at most, a region to look at. Reporting a group as "must be ordered
+    against each other" would have been a confident instruction built on a
+    relation that does not compose.
+
+    Returns (edges, clusters, unconnected, total_pairs). Edges are the finding;
+    clusters are reported beneath them with that caveat attached.
+    """
+    parent = {ref: ref for ref in refs}
+
+    def find(x: str) -> str:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    edges: list[tuple[str, str, int]] = []
+    total = 0
+    for i, ref_a in enumerate(refs):
+        for ref_b in refs[i + 1 :]:
+            total += 1
+            _shared, count, _where, why = truly_shared_files(ref_a, ref_b)
+            if why is not None:
+                # A pair that could not be measured is NOT a pair with no
+                # overlap. Folding it silently into the no-edge set would
+                # assert the most comfortable possible answer about something
+                # never actually checked.
+                continue
+            if count:
+                edges.append((ref_a, ref_b, count))
+                root_a, root_b = find(ref_a), find(ref_b)
+                if root_a != root_b:
+                    parent[root_b] = root_a
+
+    grouped: dict[str, list[str]] = {}
+    for ref in refs:
+        grouped.setdefault(find(ref), []).append(ref)
+
+    clusters = sorted(
+        (sorted(members) for members in grouped.values() if len(members) > 1),
+        key=lambda members: (-len(members), members[0]),
+    )
+    unconnected = sorted(m[0] for m in grouped.values() if len(m) == 1)
+    edges.sort(key=lambda e: (-e[2], e[0], e[1]))
+    return edges, clusters, unconnected, total
+
+
 def verify_generated_are_rederived() -> tuple[int, list[str]]:
     """Run every declared generator and report artifacts the tree disagrees with.
 
@@ -320,6 +402,15 @@ def main(argv: list[str]) -> int:
         ),
     )
     ap.add_argument(
+        "--clusters",
+        nargs="+",
+        metavar="REF",
+        help=(
+            "group the given branches by whether they genuinely overlap -- "
+            "clusters must be ordered against each other, the rest can land whenever"
+        ),
+    )
+    ap.add_argument(
         "--verify-generated",
         action="store_true",
         help="refuse any generated artifact that differs from a fresh run of its generator",
@@ -332,11 +423,39 @@ def main(argv: list[str]) -> int:
     )
     args = ap.parse_args(argv[1:])
 
-    if not (args.hot or args.for_branch or args.pair or args.verify_generated):
+    if not (args.hot or args.for_branch or args.pair or args.clusters or args.verify_generated):
         ap.print_help()
         return COULD_NOT_LOOK
 
     worst = CLEAN
+
+    if args.clusters:
+        if len(args.clusters) < 2:
+            print("[could not look] clustering needs at least two branches to compare.")
+            return COULD_NOT_LOOK
+        edges, clusters, unconnected, total = clusters_from_pairs(args.clusters)
+        print(
+            f"{len(edges)} of {total} pair(s) genuinely collide, measured from each "
+            f"pair's own fork point."
+        )
+        print("\nTHE PAIRS THAT SHOULD LAND NEAR EACH OTHER -- this is the answer:")
+        for ref_a, ref_b, count in edges:
+            print(f"  {count:3d} shared  {ref_a}")
+            print(f"              {ref_b}")
+        if not edges:
+            print("  none. Every branch here is independent of every other.")
+        if clusters:
+            print(
+                "\nConnected regions, WHICH ARE NOT ORDERING CONSTRAINTS. A branch"
+                "\ntouching two others joins them here while they may share nothing"
+                "\nwith each other. Look at the pairs above to decide anything:"
+            )
+            for group in clusters:
+                print(f"  region of {len(group)}: {', '.join(group)}")
+        if unconnected:
+            print("\nTouch nothing else in this set, so they can land whenever:")
+            for ref in unconnected:
+                print(f"  {ref}")
 
     if args.pair:
         ref_a, ref_b = args.pair
