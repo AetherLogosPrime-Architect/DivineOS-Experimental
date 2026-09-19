@@ -562,3 +562,78 @@ class TestAnInlineBodyDoesNotHideTheFileBeingWritten:
         could-not-read answer exists to prevent.
         """
         assert _shell_write_targets(f"echo {self._Q}unterminated") is None
+
+
+class TestDoingTheActVersusTalkingAboutIt:
+    """The feature matched the phrase anywhere, so three unlike sentences scored alike.
+
+    One performs the act. One computes what the act would be named. One is a
+    council walk whose findings have to SAY what is being walked -- and that
+    third is what broke, 2026-09-19. Writing the required artifact counted as
+    doing the thing, so the prerequisite became unfileable: two refusals in a
+    row, the second one for filing the cure named by the first.
+
+    The only door left open by that is the documented bypass, and every use of
+    it records as routing-around-a-gate. So the telemetry that measures my
+    gate discipline was being fed by a defect in a gate, which makes this a
+    repair to a measurement as much as to a door.
+
+    The name is built from pieces for the same reason the class above does it:
+    a test file about this feature must not trip it.
+    """
+
+    _G = "g" + "it"
+
+    def _fires(self, command: str) -> bool:
+        return (
+            "git-commit"
+            in score_substrate_modification("Bash", bash_command=command).fired_features
+        )
+
+    def test_the_act_fires_however_it_is_reached(self):
+        """The direction that must never regress."""
+        for shape in (
+            f"{self._G} commit -m hello",
+            f"cd somewhere && {self._G} commit -am done",
+            f"{self._G} -C /elsewhere commit -m done",
+            f"sudo {self._G} commit -m done",
+            f"cd somewhere ; {self._G} commit --amend",
+        ):
+            assert self._fires(shape), f"a real commit escaped: {shape!r}"
+
+    def test_a_multiline_command_is_split_on_its_newlines(self):
+        """Named separately because the act-anchor does NOT split on newlines.
+
+        Reusing that split would have let every multi-line invocation through:
+        the commit sits on its own line, and flattened into one segment the
+        head is a shell builtin. Checked rather than copied.
+        """
+        assert self._fires(f"set -o pipefail\ncd somewhere\n{self._G} commit -q -F -")
+
+    def test_a_walk_describing_the_act_is_not_the_act(self):
+        """The refusal that made its own cure unfileable."""
+        walk = (
+            "divi" + "neos council log --edit anchor "
+            f'--finding "norman=the refusal names {self._G} commit and cannot be followed"'
+        )
+        assert not self._fires(walk)
+
+    def test_a_read_only_computation_mentioning_the_act_is_not_the_act(self):
+        probe = f'python -c "print(anchor(t, p, c))"  # what {self._G} commit resolves to'
+        assert not self._fires(probe)
+
+    def test_a_neighbouring_subcommand_is_not_the_act(self):
+        assert not self._fires(f"{self._G} log --oneline")
+        assert not self._fires(f"{self._G} status")
+
+    def test_the_indirect_route_stays_open_and_this_says_so(self):
+        """Not a wish. The old text match missed these too, so nothing regressed.
+
+        A command assembled from a variable, or one hiding inside a script the
+        classifier never reads, is invisible -- and was invisible before. The
+        game-walk recorded both as leaks left open. This is here so the gap is
+        a written fact rather than something a later reader rediscovers by
+        being surprised.
+        """
+        assert not self._fires("$VC $SUBCOMMAND -m done")
+        assert not self._fires("bash scripts/ship.sh")

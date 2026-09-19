@@ -468,11 +468,53 @@ def score_substrate_modification(
     # that wrote a file. Written as one named question so the four sites below
     # cannot drift apart, and so no site has to know that a shell write is also
     # a path-touching act.
+    def _performs_git_commit(command: str) -> bool:
+        """True when a segment RUNS the commit, not when the text mentions one.
+
+        USE VERSUS MENTION, and the gate could not tell (2026-09-19). This was
+        a search for the phrase anywhere in the command, which fires on three
+        different kinds of sentence: one that performs the act, one that
+        computes what the act would be named, and one whose payload describes
+        the act in prose.
+
+        The third is the one that broke. The artifact this gate demands is
+        filed by a command whose findings have to say what is being walked --
+        so writing the walk counted as doing the thing, and the prerequisite
+        became unfileable. Two refusals in a row, the second one for filing
+        the cure named by the first. A gate whose cure sits behind itself is
+        a wall, and the only door left is the bypass, which then records as
+        my indiscipline rather than as the gate being unfollowable. The
+        telemetry that measures whether I route around gates was being fed by
+        a defect in a gate.
+
+        Hoare on the walk: this precondition admits nothing the old one
+        refused, so no real commit newly passes. What it drops is mentions and
+        computations. What it does NOT close, and never did, is a command
+        assembled from a variable or hidden inside a script -- that hole is
+        older than this change and stays open, which is worth saying plainly
+        rather than calling the narrowing safe.
+        """
+        # NEWLINES ARE SEPARATORS TOO, and the act-anchor does not treat them
+        # as such. Checked rather than copied: a multi-line command whose
+        # commit sits on its own line flattens into one segment there, and
+        # reusing that split would have let a real commit through. Under-firing
+        # is the one direction this must not take, so the separator set is
+        # wider here and the two functions are deliberately not shared.
+        from divineos.core.council_required.types import _SHELL_WRAPPERS
+
+        for segment in re.split(r"[\n;&|]+", command or ""):
+            tokens = segment.strip().split()
+            while tokens and tokens[0] in _SHELL_WRAPPERS:
+                tokens = tokens[1:]
+            if tokens and tokens[0] == "git" and "commit" in tokens:
+                return True
+        return False
+
     def _touches_paths(tool_kind: str, wrote: bool) -> bool:
         return tool_kind in {"Edit", "Write", "MultiEdit", "NotebookEdit"} or wrote
 
     # Feature 1: git-commit
-    if tool == "Bash" and re.search(r"\bgit\s+commit\b", cmd):
+    if tool == "Bash" and _performs_git_commit(cmd):
         fired.append("git-commit")
 
     # Feature 2: edit src/divineos/

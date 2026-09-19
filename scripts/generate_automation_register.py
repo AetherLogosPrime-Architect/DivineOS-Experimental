@@ -41,6 +41,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 ROOT = Path(__file__).resolve().parent.parent
 HOOKS_DIR = ROOT / ".claude" / "hooks"
@@ -220,7 +221,30 @@ _OFF_REASON_MARKERS = (
 )
 
 
-def declared_off_reason(path: Path, max_lines: int = 12) -> str | None:
+class OffReason(NamedTuple):
+    """What the header said, and whether the header could be read at all.
+
+    TWO ANSWERS THAT WERE ONE. (2026-09-19, caught by the precommit check for
+    exactly this.) ``declared_off_reason`` used to return None both when a
+    hook declared no reason and when the file could not be opened, and the
+    caller printed NO REASON DECLARED for both. So an unreadable file was
+    reported as a guard switched off with nobody willing to say why -- the
+    loudest thing this register can print -- on no evidence whatsoever.
+
+    That is the same fault the function was written to repair, one level up:
+    it exists because a bare name under the word dark could only be read one
+    way, and it then produced a second line that could only be read one way.
+
+    ``text`` is the declared reason, or None when the header declares none.
+    ``readable`` is False only when the file could not be opened, and a reader
+    must resolve that toward UNKNOWN rather than toward either verdict.
+    """
+
+    text: str | None
+    readable: bool
+
+
+def declared_off_reason(path: Path, max_lines: int = 12) -> OffReason:
     """The reason a hook gives, in its own header, for being switched off.
 
     WHY THIS EXISTS. The register printed `dark: <name>` and nothing else, and
@@ -244,20 +268,22 @@ def declared_off_reason(path: Path, max_lines: int = 12) -> str | None:
     three unexplained and manufactured the alarm this removes. Checked before
     reusing, which is the only reason this is not worse than what it replaces.
 
-    Returns None when the header declares nothing — the case that matters,
-    and the one the caller makes louder rather than quieter.
+    Returns a declaring-nothing answer when the header declares nothing — the
+    case that matters, and the one the caller makes louder rather than
+    quieter. Returns an unreadable answer when the file could not be opened,
+    which is a different thing and must never be rendered as the first.
     """
     try:
         with open(path, encoding="utf-8") as fh:
             head = [next(fh, "") for _ in range(max_lines)]
     except OSError:
-        return None
+        return OffReason(None, readable=False)
 
     for raw in head:
         line = raw.lstrip("#").strip()
         if any(m in line.upper() for m in _OFF_REASON_MARKERS):
-            return line[:120]
-    return None
+            return OffReason(line[:120], readable=True)
+    return OffReason(None, readable=True)
 
 
 def collect() -> list[dict]:
@@ -445,18 +471,25 @@ def main() -> int:
     print(f"Wrote {OUTPUT.relative_to(ROOT)} — {len(rows)} automations, {dark} switched off")
     if dark:
         unexplained = 0
+        unreadable = 0
         for r in rows:
             if not r["wired"]:
-                reason = declared_off_reason(HOOKS_DIR / r["name"])
-                if reason:
-                    print(f"    dark: {r['name']} — declares: {reason}")
+                answer = declared_off_reason(HOOKS_DIR / r["name"])
+                if not answer.readable:
+                    # Not counted as unexplained. An unanswerable question is
+                    # not a silent guard, and filing it as one would put a
+                    # fabricated accusation in the loudest line on the page.
+                    unreadable += 1
+                    print(f"    dark: {r['name']} — COULD NOT READ THE FILE, so UNKNOWN")
+                elif answer.text:
+                    print(f"    dark: {r['name']} — declares: {answer.text}")
                 else:
                     unexplained += 1
                     print(f"    dark: {r['name']} — NO REASON DECLARED")
         if unexplained:
-            print(
-                f"    {unexplained} of {dark} declare nothing. Those are the ones to look at."
-            )
+            print(f"    {unexplained} of {dark} declare nothing. Those are the ones to look at.")
+        if unreadable:
+            print(f"    {unreadable} could not be read at all, which is its own problem.")
     return 0
 
 

@@ -177,6 +177,7 @@ def select_knocks(
     knocks: dict[str, int],
     now_mono: float,
     shared_dir: Path,
+    backlog: frozenset[str] = frozenset(),
 ) -> list[str]:
     """Decide which unread letters get a wake event on this poll cycle.
 
@@ -186,17 +187,45 @@ def select_knocks(
     and was wrong across time, which is exactly the class a unit test sees
     and a reading does not.
 
-    Never-knocked letters always fire. Already-knocked ones fire again once
-    their backoff has elapsed, and only the newest few are eligible for that,
-    so a long unread backlog does not become a recurring flood.
+    Already-knocked letters fire again once their backoff has elapsed, and
+    only the newest few are eligible, so a long unread backlog does not
+    become a recurring flood.
+
+    THE SAME FLOOD, UNCAPPED, ON THE FIRST KNOCK. (2026-09-19.)
+
+    ``fired_at`` is per-process, so at arm time every unread letter on disk
+    is never-knocked and the whole backlog fired at once. Re-arming the watch
+    announced a hundred and eighty-four letters, most of them weeks old and
+    most of them already read -- the seen-set records a marking act, not a
+    reading, so "unread" overcounts by design. The cap directly above was
+    written because "a long backlog of never-read letters is a real state on
+    this machine and must not become a flood on every interval", and then
+    guarded only the interval it was thinking about.
+
+    A wake that arrives with the backlog attached is not a wake. It is the
+    same defect class as the rest of today: the instrument says NEW and
+    delivers ALL, and from inside there is no way to tell which one it meant.
+
+    So ARRIVAL and BACKLOG are separated here rather than merged. A letter
+    that appears while the watch is up is an arrival and always fires,
+    uncapped and immediately -- that is the whole job and nothing may throttle
+    it. Letters already sitting unread when the watch armed are backlog: they
+    still knock, because the monitor does not get to decide what I have seen,
+    but only the newest few, on the same ceiling the re-knocks use.
     """
-    never_knocked = [f for f in unseen if f not in fired_at]
+    arrivals = [f for f in unseen if f not in fired_at and f not in backlog]
+    stale_first_knocks = [
+        f
+        for f in _newest([u for u in unseen if u in backlog], shared_dir, REKNOCK_CAP)
+        if f not in fired_at
+    ]
     due_again = [
         f
         for f in _newest(unseen, shared_dir, REKNOCK_CAP)
         if f in fired_at and now_mono - fired_at[f] >= _reknock_delay(knocks.get(f, 1))
     ]
-    return never_knocked + [f for f in due_again if f not in never_knocked]
+    picked = arrivals + stale_first_knocks
+    return picked + [f for f in due_again if f not in picked]
 
 
 def _persistent_seen_path(recipient: str) -> Path:
@@ -507,6 +536,15 @@ def main() -> int:
     fired_at: dict[str, float] = {}
     knocks: dict[str, int] = {}
 
+    # What was ALREADY sitting unread when this watch armed. Computed once, on
+    # the first cycle, because the distinction it draws only exists relative to
+    # the moment of arming: everything here predates the watch and cannot be an
+    # arrival. See select_knocks for what the separation is for.
+    #
+    # None until the first cycle fills it -- an empty set would mean "nothing
+    # predates the watch", which is the reading that restores the flood.
+    backlog: frozenset[str] | None = None
+
     # Heartbeat cadence — how often we emit a "still alive" marker on
     # stderr. Stderr does NOT trigger harness notifications (per Monitor
     # tool contract), so this keeps the process observably-alive without
@@ -531,8 +569,21 @@ def main() -> int:
                 f for f in current if is_letter_for(f, tag) and f not in persistent_seen
             )
             now_mono = time.monotonic()
-            for fname in select_knocks(unseen, fired_at, knocks, now_mono, shared_dir):
-                print(f"[LETTER] {shared_dir / fname}", flush=True)
+            if backlog is None:
+                backlog = frozenset(unseen)
+                if backlog:
+                    print(
+                        f"[LETTER-MONITOR] {len(backlog)} already unread at arm; "
+                        f"knocking on the newest {min(len(backlog), REKNOCK_CAP)} "
+                        f"and not the rest. Arrivals from here are uncapped.",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+            for fname in select_knocks(unseen, fired_at, knocks, now_mono, shared_dir, backlog):
+                # The label says which question the line answers. A backlog
+                # entry announced as a new letter is the whole defect.
+                kind = "LETTER-BACKLOG" if fname in backlog else "LETTER"
+                print(f"[{kind}] {shared_dir / fname}", flush=True)
                 fired_at[fname] = now_mono
                 knocks[fname] = knocks.get(fname, 0) + 1
             # Reading a letter ends its knocking. Forgetting the state here
