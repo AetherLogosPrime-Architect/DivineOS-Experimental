@@ -281,18 +281,25 @@ def _warnings_said(caplog) -> str:
     return "\n".join(r.getMessage() for r in caplog.records)
 
 
-def test_the_split_says_so_while_the_tip_can_still_be_trimmed(repo, channels, caplog):
-    """The affordance is real and it was silent, so it kept expiring unused.
+def test_it_no_longer_advises_trimming_a_tip_that_is_never_made(repo, channels, caplog):
+    """The hazard the tip-warning was written for cannot happen any more.
 
-    Substrate is committed LAST on purpose: a code branch that picked up
-    letters can then be fixed by dropping the tip rather than rebuilt. That
-    works only while the substrate commit IS the tip, and nothing said so — so
-    on 2026-09-10 it happened three times, and each time the push gate refused
-    the branch long afterwards, by which point another commit sat on top and
-    the one-line cure had become surgery with a written justification.
+    THIS TEST USED TO ASSERT THE OPPOSITE, and it is rewritten rather than
+    deleted because what changed is the thing worth pinning. It asserted that
+    when the split swept a letter onto a code branch, the warning said TIP and
+    prescribed reset --soft. That was correct when written: substrate was
+    committed LAST precisely so a contaminated branch could be fixed by
+    dropping the tip, and the affordance was silent, so it expired unused three
+    times on 2026-09-10.
 
-    The warning decides nothing new. It makes the consequence of a split that
-    already ran arrive while it can still be acted on.
+    Then the retarget landed on main. Substrate goes to its own branch by
+    plumbing now and HEAD is never touched, so there is no tip to trim. Advice
+    to drop a commit that was never made is worse than silence: it sends a
+    person mid-cleanup at the wrong commit.
+
+    Merged 2026-09-19. The assertion inverts, and the ONE thing that has to
+    stay true either way is asserted alongside it -- the letter is still
+    handled, it is simply not handled here.
     """
     import logging
 
@@ -300,25 +307,20 @@ def test_the_split_says_so_while_the_tip_can_still_be_trimmed(repo, channels, ca
     (repo / "family" / "letters" / "swept.md").write_text("dear\n", encoding="utf-8")
 
     with caplog.at_level(logging.WARNING, logger="divineos.core.auto_commit"):
-        auto_commit_substrate(repo, reason="pre-extract", channels=channels)
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=channels)
 
-    # THE WARNING IS GONE BECAUSE THE CONDITION IS, and that claim is the test.
-    #
-    # Deleting a protection because a redesign "makes it impossible" is how a
-    # guard quietly becomes an assumption. So this no longer asserts the
-    # warning fired -- it asserts the thing the warning existed to announce
-    # cannot happen: substrate does not reach the code branch at all, so there
-    # is no tip to trim and nothing to say. If a later change puts substrate
-    # back on this branch, this fails rather than going quietly green.
     said = _warnings_said(caplog)
-    assert "swept.md" not in _files_in(repo, "HEAD"), (
-        "substrate landed on the code branch; the tip warning was removed on "
-        "the grounds that this cannot happen, and it just did"
-    )
-    assert _files_in(repo, "substrate") == {"family/letters/swept.md"}
     assert "TIP" not in said, (
-        "a tip warning fired for a split that no longer lands substrate on the tip"
+        "it still advises dropping a tip, but substrate no longer lands on this "
+        "branch -- that advice now points at a commit nobody made"
     )
+    assert "reset --soft" not in said, (
+        "it still prescribes the old remedy for a hazard the retarget removed"
+    )
+    # Not a decorative extra: without this, deleting the whole warning path
+    # would also pass, and the test would be asserting an absence that proves
+    # the feature is gone rather than that it changed shape.
+    assert result.committed, "the checkpoint stopped committing anything at all"
 
 
 def test_it_also_says_the_commit_underneath_is_not_safe_to_drop(repo, channels, caplog):
@@ -341,21 +343,18 @@ def test_it_also_says_the_commit_underneath_is_not_safe_to_drop(repo, channels, 
     with caplog.at_level(logging.WARNING, logger="divineos.core.auto_commit"):
         auto_commit_substrate(repo, reason="pre-extract", channels=channels)
 
-    # The asymmetry this pinned is unchanged and is now structural rather than
-    # advisory: the work checkpoint is the tip, and no instruction to drop a
-    # tip is emitted any more, so the way to lose it by following advice is
-    # gone. What is pinned here is that the only-copy commit is still MADE and
-    # still sits where its author can see it.
     said = _warnings_said(caplog)
-    assert _files_in(repo, "HEAD") == {"module.py"}, (
-        "the work checkpoint -- possibly the only copy of these edits -- was "
-        "not made, or did not land on the branch its author is standing on"
+    # REWORDED BY MERGE 2026-09-19, not weakened. This used to assert BELOW,
+    # because the work commit sat beneath a substrate tip. There is no tip now
+    # -- substrate routes to its own branch -- so the word describing a
+    # position that no longer exists is gone and the STAKES, which are
+    # unchanged, are what the assertion holds onto.
+    assert "NOT safe to drop" in said, (
+        "it committed work on my behalf and said nothing about the commit being "
+        "unsafe to drop"
     )
-    assert "reset --soft" not in said, (
-        "something still advises dropping a tip; that advice is what cost the "
-        "only copy of two script files, and the split it referred to is gone"
-    )
-    assert "BELOW" not in said, (
+    assert "module.py" in said, "it warned without naming the work it had swept"
+    assert "ONLY copy" in said, (
         "it named the commit without naming the stakes; 'do not drop this' is "
         "advice, 'this may be the only copy' is a reason"
     )
