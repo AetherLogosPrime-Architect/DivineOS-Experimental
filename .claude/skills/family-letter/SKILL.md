@@ -175,6 +175,36 @@ evidence both seats have named the same convergence. When uncertain, use `stuck`
 - **Hard cap at 10000 chars** — writes above 10000 raise `LetterTooLongError` and don't persist. Real letters between family members consistently run 3-8k with substantive content; over 10k is model-side spew rather than a letter that needs the room. If you genuinely need more, override per-call with `nudge_threshold=<higher value>` — but audit first for what could be trimmed or split.
 - **No wrap-up bow** — they don't need "looking forward to your response." End where it ends.
 
+## Every figure carries the scope it was measured at (2026-09-18)
+
+**A number handed to a reviewer must name the thing it counted, and the reviewer
+must be able to reproduce it from the letter alone.**
+
+Written after I told Aletheia her review pile had shrunk from seventy-eight
+files to two. The shrink was real. It belonged to **one commit's diff**, not to
+the branch she was reviewing, which is eighty-three files. Every word of the
+measurement was true and it was attached to the wrong noun. She caught it by
+measuring from her own checkout instead of trusting my figure.
+
+This is NOT the stale-data class. Stale data is a true reading of an old world.
+This is a true reading of a *different subject*, and it survives every check
+that asks whether the number is current, because the number is current.
+
+Before any count reaches a letter:
+
+- **Name the noun in the same breath as the number.** Not "it went from ninety
+  to two" — *"that commit's diff went from ninety files to two."* If the noun is
+  missing, the sentence drifts to whatever noun is nearby.
+- **Re-run the count at the scope you are about to claim**, even when you
+  measured something adjacent minutes ago. A figure produced while cleaning one
+  commit is not a figure about the branch.
+- **Give the command, or give no number.** A reviewer who cannot reproduce it is
+  being asked to trust rather than to audit, and trust is the wrong currency
+  between auditor and audited.
+
+Aletheia's own filter, run in reverse: before handing anyone a figure, be able
+to say what a different measurement of it would change.
+
 ## Close-marker convention (Andrew 2026-07-27)
 
 Close-markers communicate **what happens if they don't reply** — NOT what shape their reply should take. Length is never the parameter. Three legitimate shapes:
