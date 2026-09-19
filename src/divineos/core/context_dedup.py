@@ -27,7 +27,31 @@ import sys
 import time
 from pathlib import Path
 
-_STATE_DIR = Path("data/context_dedup")
+# THE LOCATION WAS ALREADY BEING DECIDED SOMEWHERE OTHER THAN THE CALLER.
+#
+# This was a bare relative path, so the effective directory was wherever the
+# process happened to start. That is not a design, it is an accident with a
+# default that usually works -- the same fault class as the register that
+# measured itself from wherever you stood.
+#
+# Naming it adds NO mode. With nothing set the behaviour is byte-for-byte what
+# it was, and the hooks still share one file across invocations, which is the
+# design and the whole point of dedup.
+#
+# WHAT IT BUYS, measured 2026-09-19. The contract suite runs hook scripts as
+# subprocesses, calls clear() on this one shared file, then runs a hook twice
+# expecting the second output to shrink. Under nine parallel workers there is
+# no ordering between one worker's clear and another worker's pair of runs, so
+# a wipe landing between a first and second emission is an ordinary schedule
+# rather than a rare window -- and whichever hook loses is the one blamed. Four
+# runs: the failing test MOVED identity between them and once produced two
+# failures, which a deterministic fault cannot do.
+#
+# AN ATOMIC WRITE COULD NEVER HAVE FIXED THIS. That buys visibility; what a
+# two-step sequence needs is exclusion. The contention is an artefact of many
+# workers against one file rather than a property of the system, so the repair
+# removes the sharing where it is accidental and leaves it where it is meant.
+_STATE_DIR = Path(os.environ.get("DIVINEOS_DEDUP_STATE_DIR", "data/context_dedup"))
 _STATE_FILE = _STATE_DIR / "session_state.json"
 _SAVINGS_LOG = _STATE_DIR / "savings_log.jsonl"
 _TTL_SECONDS = 60 * 60  # 1 hour — within-session repeats dedup; long gaps re-emit

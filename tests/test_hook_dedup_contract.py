@@ -17,6 +17,7 @@ against the running script rather than against the source text.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -68,7 +69,10 @@ def _dedup_hooks() -> list[Path]:
     )
 
 
-def _run(script: Path) -> str:
+def _run(script: Path, state_dir: Path | None = None) -> str:
+    env = dict(os.environ)
+    if state_dir is not None:
+        env["DIVINEOS_DEDUP_STATE_DIR"] = str(state_dir)
     r = subprocess.run(
         [_real_bash(), str(script)],
         input=PAYLOAD,
@@ -76,6 +80,7 @@ def _run(script: Path) -> str:
         text=True,
         timeout=90,
         cwd=str(REPO),
+        env=env,
     )
     return r.stdout or ""
 
@@ -87,14 +92,27 @@ def test_some_hook_claims_the_contract():
 
 
 @pytest.mark.parametrize("script", _dedup_hooks(), ids=lambda p: p.stem)
-def test_repeat_emission_shrinks(script: Path):
+def test_repeat_emission_shrinks(script: Path, tmp_path: Path):
     """THE CATCH. My broken edit left this exact signature: identical size on
-    the second run, no error, no complaint, dedup never reached."""
-    from divineos.core.context_dedup import clear
+    the second run, no error, no complaint, dedup never reached.
 
-    clear()
-    first = _run(script)
-    second = _run(script)
+    EACH CASE GETS ITS OWN STATE DIRECTORY, and that is load-bearing rather
+    than tidy. This previously called ``clear()`` on the ONE shared state file
+    and then ran the hook twice. Under nine parallel workers there is no
+    ordering between one worker's wipe and another worker's pair of runs, so a
+    wipe landing between a first and second emission is an ordinary schedule --
+    and the worker that loses gets blamed for a dedup fault it does not have.
+
+    Measured 2026-09-19 across four runs: the failing case MOVED identity
+    between them and once produced two failures. A deterministic fault cannot
+    do that. Handing each case its own directory removes the shared object the
+    workers were ordering operations on, so the schedule can no longer express
+    the failure. Production still shares one file across hook invocations,
+    which is the design and must not change.
+    """
+    state_dir = tmp_path / "dedup_state"
+    first = _run(script, state_dir)
+    second = _run(script, state_dir)
     if not first.strip():
         pytest.skip("hook emitted nothing for this payload; nothing to dedup")
     assert len(second) < len(first), (
