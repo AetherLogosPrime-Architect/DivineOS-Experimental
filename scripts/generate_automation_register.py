@@ -37,6 +37,7 @@ layer up: this register is for tools that stopped reaching for THEMSELVES.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -312,7 +313,18 @@ def build(rows: list[dict]) -> str:
     L.append("")
     L.append(
         "`--check` exits non-zero when the file has drifted, for wiring into "
-        "a pre-commit or CI step."
+        "a pre-commit or CI step. It compares this tree against its own "
+        "committed copy, so it cannot see branch-dependence."
+    )
+    L.append("")
+    L.append(
+        "`--check-reproduces` takes the measurement `--check` structurally "
+        "cannot: it builds a clean worktree at the main line, runs THAT "
+        "tree's own copy of this generator, and diffs the result against the "
+        "copy committed there. Two sides from two sources. It exits 0 when "
+        "the register reproduces, 1 when it does not, and **2 when it could "
+        "not look at all** — a missing main-line ref, a worktree that would "
+        "not build. Could-not-look is never reported as either answer."
     )
     L.append("")
     L.append(
@@ -325,7 +337,169 @@ def build(rows: list[dict]) -> str:
     return "\n".join(L)
 
 
+# Three outcomes, not two, and the third is the reason this exists.
+#
+# A check with a pass and a fail has nowhere to put "I could not look," so
+# could-not-look gets filed as one of the two -- and in every instance we have
+# found, it gets filed as the reassuring one. Aether's --check was quoted as
+# proof of reproducibility it could not establish; my own probe for this
+# feature happily reported on the contents of a directory that had failed to
+# be created. Same shape twice in one day.
+REPRODUCES = 0
+DRIFTED = 1
+COULD_NOT_CHECK = 2
+
+
+def _second_tree_path() -> Path:
+    """Where the clean worktree goes, and why it is deliberately SHORT.
+
+    The first run of this check put the second tree under the session
+    scratchpad, roughly 120 characters deep. On Windows, `git worktree add`
+    got 70% of the way through the checkout, failed on the first letter
+    filename that crossed the limit, and left a half-built tree behind --
+    while the probe standing next to it cheerfully answered questions about
+    the directory that did not exist. The length is not incidental; every
+    other working copy in this house already sits at a short path and nobody
+    had written down why.
+
+    Overridable, because a short writable root is a property of the machine
+    rather than of this repository.
+    """
+    override = os.environ.get("DIVINEOS_REPRO_WORKTREE")
+    if override:
+        return Path(override)
+    anchor = Path(ROOT.anchor) if ROOT.anchor else Path("/tmp")
+    return anchor / "divineos-repro-wt"
+
+
+def _check_reproduces() -> int:
+    """Regenerate in a clean tree at the main line and diff against it.
+
+    THE POINT IS THAT THE TWO SIDES COME FROM DIFFERENT SOURCES. `--check`
+    regenerates in the tree that produced the committed file, on the branch
+    that produced it, so any field resolved from branch history agrees with
+    itself by construction -- a photograph checked against itself. This runs
+    the OTHER tree's own copy of the generator, against the copy committed in
+    that tree, and nothing either side knows comes from here.
+
+    That independence is why it found something: main's committed register
+    did not rebuild from main, and all seventy differing lines were the one
+    branch-dependent column. A same-tree check reported clean throughout.
+    """
+    # --against <ref> checks a branch BEFORE it merges, which is when the
+    # answer is still cheap to act on. It also makes the reproduces-clean
+    # verdict demonstrable: with the ref pinned to the main line and the main
+    # line currently drifted, this check could never have returned that answer
+    # at all, and an instrument that has never produced one of its outcomes is
+    # untested in that direction.
+    if "--against" in sys.argv:
+        at = sys.argv.index("--against") + 1
+        if at >= len(sys.argv):
+            print("could not check: --against needs a ref")
+            return COULD_NOT_CHECK
+        mainline = sys.argv[at]
+    else:
+        mainline = _mainline_ref()
+    if mainline is None:
+        # The fixed point is read from the remote's published head, which a
+        # fresh CI checkout frequently does not set. Without it the generator
+        # falls back to branch-local dates, so a comparison here would be
+        # measuring the fallback rather than the file. Refuse, loudly.
+        print("could not check: no main-line ref (refs/remotes/origin/HEAD is unset)")
+        print("  set it with: git remote set-head origin --auto")
+        return COULD_NOT_CHECK
+
+    dest = _second_tree_path()
+    if dest.exists():
+        print(f"could not check: {dest} already exists — remove it or set")
+        print("  DIVINEOS_REPRO_WORKTREE to an unused short path")
+        return COULD_NOT_CHECK
+
+    add = subprocess.run(
+        ["git", "worktree", "add", "--detach", str(dest), mainline],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if add.returncode != 0:
+        # Measured 2026-09-19: on a path-length failure git removes the
+        # half-built tree itself, so this prune found nothing to do. It stays
+        # because the cost is one command and the failure it guards against --
+        # a stale registry entry that makes every later run refuse with a
+        # message about a path nobody chose -- is silent and permanent.
+        subprocess.run(["git", "worktree", "prune"], cwd=ROOT, capture_output=True, check=False)
+        print(f"could not check: worktree at {dest} would not build")
+        for line in (add.stderr or "").strip().splitlines()[-3:]:
+            print(f"  {line}")
+        return COULD_NOT_CHECK
+
+    try:
+        script = dest / "scripts" / "generate_automation_register.py"
+        if not script.is_file():
+            print(f"could not check: {mainline} carries no generator to run")
+            return COULD_NOT_CHECK
+
+        gen = subprocess.run(
+            [sys.executable, str(script)],
+            cwd=dest,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if gen.returncode != 0:
+            print("could not check: the generator failed inside the clean tree")
+            for line in (gen.stderr or "").strip().splitlines()[-3:]:
+                print(f"  {line}")
+            return COULD_NOT_CHECK
+
+        rel = str(OUTPUT.relative_to(ROOT)).replace("\\", "/")
+        diff = subprocess.run(
+            ["git", "diff", "--quiet", "--", rel],
+            cwd=dest,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if diff.returncode == 0:
+            print(f"Register reproduces from a clean tree at {mainline}.")
+            return REPRODUCES
+        if diff.returncode == 1:
+            stat = subprocess.run(
+                ["git", "diff", "--stat", "--", rel],
+                cwd=dest,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            print(f"Register does NOT reproduce from a clean tree at {mainline}:")
+            for line in (stat.stdout or "").strip().splitlines():
+                print(f"  {line}")
+            print("  the committed copy is a snapshot of some other tree")
+            return DRIFTED
+        # Any other code is git failing to answer, which is its own fact.
+        print("could not check: git could not compare the regenerated file")
+        return COULD_NOT_CHECK
+    finally:
+        removed = subprocess.run(
+            ["git", "worktree", "remove", "--force", str(dest)],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if removed.returncode != 0:
+            # Say it rather than leaving a tree that makes the NEXT run refuse
+            # with a message about a path the operator never chose.
+            print(f"  note: the clean tree at {dest} could not be removed; delete it by hand")
+
+
 def main() -> int:
+    if "--check-reproduces" in sys.argv:
+        # Before collect(), because this check is about another tree entirely
+        # and has no use for anything measured in this one.
+        return _check_reproduces()
+
     rows = collect()
     text = build(rows)
     # Count from the DATA, not by grepping the rendered text. The first
@@ -364,7 +538,8 @@ def main() -> int:
             "  Scope: compares this tree against its own committed copy. Fields "
             "resolved from branch history agree with themselves here by "
             "construction, so this cannot detect branch-dependence. For that, "
-            "regenerate in a clean worktree at another ref and diff."
+            "run --check-reproduces, which builds a clean tree at the main "
+            "line and runs that tree's own generator."
         )
         return 0
 
