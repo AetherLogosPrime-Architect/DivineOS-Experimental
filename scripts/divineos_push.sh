@@ -47,9 +47,46 @@ done
 # This is the only way to preserve exit code without arithmetic on
 # PIPESTATUS or pipefail (both of which have their own subtle gotchas
 # in different bash versions / shells).
-echo "[divineos-push] running: git push $*" >&2
-git push "$@"
-PUSH_EC=$?
+# WAIT FOR MEMORY RATHER THAN MAKING ME DO IT BY HAND (2026-09-19).
+#
+# The pre-push suite refuses to spawn below a memory floor, which is a correct
+# guard -- the machine has been driven into swap by a test run before. But the
+# refusal is TRANSIENT and the correct response is always the same: wait, then
+# retry. Three times in one session I wrote that waiting loop by hand.
+#
+# Andrew, the same session: "you keep making the same mistake over and over,
+# and even being fully aware of it does not help.. only structure does.. make
+# the mistake impossible to do, by automating the correct choice before you
+# need to make it." Hand-writing the wait is not a mistake exactly, but it is
+# the same shape -- a correct step that depends on me remembering it, three
+# times, with a real failure each time I forgot and reported a blocked push as
+# in-flight.
+#
+# THIS IS NOT A BYPASS AND MUST NOT BECOME ONE. It never lowers the floor and
+# never skips the suite. It waits for the condition the guard is asking for.
+# Bounded, so a machine that never frees memory fails loudly rather than
+# hanging forever, and every wait says so on stderr.
+_push_once() {
+    echo "[divineos-push] running: git push $*" >&2
+    git push "$@"
+}
+
+_WAIT_TOTAL=0
+_WAIT_CAP=1800
+while :; do
+    _OUT="$(_push_once "$@" 2>&1)"
+    PUSH_EC=$?
+    printf '%s\n' "$_OUT"
+    if [[ "$PUSH_EC" -eq 0 ]]; then break; fi
+    if ! grep -qi "needs at least .* GB free" <<<"$_OUT"; then break; fi
+    if [[ "$_WAIT_TOTAL" -ge "$_WAIT_CAP" ]]; then
+        echo "[divineos-push] memory never freed after ${_WAIT_TOTAL}s — giving up loudly" >&2
+        break
+    fi
+    echo "[divineos-push] refused for memory, not for readiness. Waiting 60s (${_WAIT_TOTAL}s so far)." >&2
+    sleep 60
+    _WAIT_TOTAL=$((_WAIT_TOTAL + 60))
+done
 
 if [[ "$PUSH_EC" -ne 0 ]]; then
     echo ""
