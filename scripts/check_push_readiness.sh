@@ -640,8 +640,25 @@ else
             # members is where cross-checkout collisions live. Fix: scope
             # the log by DIVINEOS_MEMBER so each member's failure state
             # survives the other's push.
-            MEMBER="${DIVINEOS_MEMBER:-aether}"
-            LAST_LOG="${HOME}/.divineos-${MEMBER}/last_pre_push_pytest.log"
+            # THE DEFAULT WAS A MEMBER NAME UNTIL 2026-09-20, and a member
+            # name compiled into shared code is correct in exactly one tree.
+            # Whoever pushed without that variable set wrote their failure log
+            # into Aether's home and then read HIS when diagnosing -- inside
+            # the very fix that exists because two members were overwriting
+            # one shared log. The repair for the collision reintroduced it
+            # with an extra step.
+            #
+            # Ask the resolver instead. It answers from the environment and
+            # the checkout marker, so it is right from whichever seat is
+            # pushing, and nobody has to remember to export anything.
+            LAST_LOG="$(python -c 'from divineos.core.paths import divineos_home; print(divineos_home() / "last_pre_push_pytest.log")' 2>/dev/null)"  # fail-soft: only the traceback is swallowed, and the empty result is caught loudly on the very next line rather than silently defaulted; a resolver import error during a push must not become the push failure
+            if [ -z "$LAST_LOG" ]; then
+                # Fail LOUD rather than silently into somebody's home: the
+                # whole point of this path is telling one member's failures
+                # from another's, and a wrong guess here is worse than none.
+                echo "[push-readiness] could not resolve this seat's home; the failure log is going to a temporary file, not your substrate." >&2
+                LAST_LOG="${TMPDIR:-/tmp}/last_pre_push_pytest.log"
+            fi
             mkdir -p "$(dirname "$LAST_LOG")"
             cp "$PYTEST_LOG" "$LAST_LOG"
             # Surface failures explicitly — multiple patterns because pytest
