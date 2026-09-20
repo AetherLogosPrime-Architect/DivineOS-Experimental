@@ -102,7 +102,18 @@ class TestTheVerdictsReachTheCaller:
             },
         )
         code, reason = health.check(now=now)
-        assert code == 4
+        # 5, NOT 4, SINCE 2026-09-19. This state and the wrong-recipient state
+        # were written on two branches at once and both took 4. The docstrings
+        # collided so git stopped; the two function bodies merged cleanly and
+        # one number briefly meant two things. Wrong-recipient was already on
+        # the main line, so it kept 4 and this moved.
+        #
+        # THIS TEST IS WHY THAT RENUMBER WAS SAFE TO MAKE. The merge commit
+        # claimed nothing asserted these codes, which was wrong -- this file
+        # did, the pre-push suite failed on it, and the push was refused before
+        # anything left the machine. The reading that produced that claim
+        # searched the source and the two readers and never searched the tests.
+        assert code == 5
         assert "EXPIRED ON SCHEDULE" in reason
         assert "Nothing broke" in reason
 
