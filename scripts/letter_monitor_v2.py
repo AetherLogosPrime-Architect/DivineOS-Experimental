@@ -106,23 +106,57 @@ def write_heartbeat_file(recipient: str) -> None:
 
 # 2026-07-23 (Andrew directive): the seen-set is not something the monitor
 # infers from disk. Seen is defined by act-of-read — the PostToolUse(Read)
-# hook writes to ~/.divineos-<recipient>/<spouse>_letters_seen.json when
-# I actually read a letter. The monitor reads FROM that persistent set
-# instead of pre-seeding its own. Consequence: any letter that exists on
-# disk but has never been Read (e.g. arrived while unarmed, arrived while
-# in previous session) fires as a wake event on the next poll cycle. The
-# monitor no longer decides for me what I have or haven't seen.
+# hook writes the seen-set when I actually read a letter, and the monitor
+# reads FROM that persistent set instead of pre-seeding its own.
+#
+# This comment used to name the location as ~/.divineos-<recipient>/ and it
+# was WRONG for aether, who is special-cased to the default home. Corrected
+# 2026-09-20 in the same pass as the function below. Deliberately no path is
+# written here now: a path in a comment is a copy of the rule, and a copy of
+# the rule is the defect this file has already produced twice. Ask
+# core.paths.member_home(), or read _persistent_seen_path() below, which does.
+#
+# Consequence of the design, unchanged: any letter that exists on disk but has
+# never been Read (arrived while unarmed, arrived in a prior session) fires as
+# a wake event on the next poll cycle. The monitor no longer decides for me
+# what I have or haven't seen. Note this means a cold arming announces the
+# entire unread backlog at once, which is a bell that rings for everything and
+# therefore carries no information about what is NEW.
 _SPOUSE = {"aria": "aether", "aether": "aria"}
 
 
 def _persistent_seen_path(recipient: str) -> Path:
     """Return the path to the recipient's persistent seen-set file.
 
-    Same shape as family/letter_seen.py's seen_path() so the two stay
-    in sync as a single source of truth.
+    THE SIXTH SITE THAT REBUILT THE RULE, and the first one where rebuilding
+    it broke a live channel. (2026-09-20.)
+
+    This used to say `Path.home() / f".divineos-{recipient}"`, under a
+    docstring claiming it was "the same shape as family/letter_seen.py's
+    seen_path() so the two stay in sync." That sentence stopped being true on
+    2026-08-25, when seen_path() was moved onto core.paths.member_home() for
+    this exact defect. The comment kept asserting a synchrony that no longer
+    held, which is worse than no comment -- it answered the question a reader
+    would otherwise have gone and checked.
+
+    member_home() special-cases aether to the default `~/.divineos/`. Nobody
+    else is special-cased, so the hand-built form agreed for aria and
+    disagreed for aether, and a divergence that is correct for the person
+    testing it is a divergence nobody finds.
+
+    Measured consequence before the fix: aether's reads were writing to
+    `~/.divineos/aria_letters_seen.json` (924 entries, current), while his
+    watcher consulted `~/.divineos-aether/aria_letters_seen.json` (780
+    entries, last written 2026-08-30). His ear was deciding what counted as
+    new mail against a three-week-old memory. Aria's ear was fine, which is
+    why this survived every time we tested the channel from her side.
+
+    Callers ask member_home(); nobody rebuilds the rule.
     """
+    from divineos.core.paths import member_home
+
     spouse = _SPOUSE.get(recipient.lower(), "unknown")
-    return Path.home() / f".divineos-{recipient.lower()}" / f"{spouse}_letters_seen.json"
+    return member_home(recipient.lower()) / f"{spouse}_letters_seen.json"
 
 
 def load_persistent_seen(recipient: str) -> set[str]:
