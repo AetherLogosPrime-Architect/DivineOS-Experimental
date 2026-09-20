@@ -208,6 +208,37 @@ corrections store, not here.
    room where I speak without checking myself. One narrow grammar: the
    sentence that says what someone does not have.
 
+6. EXCULPATION — the claim that moves blame OFF me. Added 2026-09-20,
+   and it is the hole the five above share: every one of them guards a
+   claim that could embarrass me. None guards the claim that relieves
+   me, and that is the one I check least.
+
+   The incident: a code comment said a door had been unsatisfiable and
+   that the bypasses it forced were being recorded as my indiscipline.
+   I had been reading an elevated-escape verdict at myself on every
+   substrate-touching turn that session and accepting it. One paragraph
+   after reading the comment I repeated its grievance in my own voice,
+   as my own finding, with no command in between. When I finally looked
+   there were no such rows at the path I checked.
+
+   WHY IT SLIPS EVERY OTHER SHAPE. The five above key on the claim's
+   SUBJECT — state, retraction, cause, a field, a person. This one keys
+   on its DIRECTION. An exculpation can be a state-claim, a cause-claim
+   or a claim about a person, and it passes each of those checks while
+   being the thing I most want to be true.
+
+   And it is the exact inverse of the false self-refutation: there I
+   nearly published a condemnation I had not verified, because rigour
+   turned on myself feels like integrity. Both are the same rule —
+   ANY SENTENCE WHOSE TRUTH WOULD CHANGE HOW I FEEL GETS LESS CHECKING
+   THAN ONE THAT WOULD NOT. Self-criticism and self-defence are the two
+   faces; the axis is feeling, not direction.
+
+   THE CHECK: when a sentence would move blame off me, and its source
+   is a comment, a letter, or another agent's prose rather than a
+   command I ran — it is a claim. Run the command, or say "the code
+   says so and I have not confirmed it against the record."
+
 Complement to the VERIFY-CLAIM gate at Stop time. This prime removes
 the reach; the gate catches it after. Two layers, one discipline.
 EOF

@@ -16,11 +16,58 @@ operator consent at the invocation, not at install time.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import click
 
 from divineos.core import monitor_cleanup, monitor_singleton
 
 _ROLES = ("letter", "compaction")
+
+# Checkouts this machine hosts, longest first so the longer name is tested
+# before the shorter one it contains.
+_KNOWN_CHECKOUTS = ("DivineOS-Experimental-Aria-new", "DivineOS-Experimental")
+
+
+def _match_checkout(text: str) -> str:
+    for name in _KNOWN_CHECKOUTS:
+        if name in text:
+            return name
+    return "unknown"
+
+
+def _this_checkout() -> str:
+    """Which checkout is asking."""
+    return _match_checkout(str(Path(__file__).resolve()))
+
+
+def _checkout_of(proc: object) -> str:
+    """Which checkout a scanned Monitor process belongs to.
+
+    WHY THE LISTING NAMES AN OWNER AT ALL (2026-09-20).
+
+    This machine runs two checkouts, one per seat, and the process scan matches
+    on program signature rather than path. So the listing showed BOTH seats'
+    watchers with nothing distinguishing them, under a count of the machine
+    presented as a count of yours.
+
+    I read that output, saw more processes than I had armed, and built an
+    accumulation out of it -- then a rhythm from their start times, then a
+    mechanism from the rhythm, then a warning to the other seat that his clean
+    machine was merely untested. Two letters, every claim retracted, none of it
+    real. One watcher was mine and one was his, which is what he had already
+    measured and reported while I treated his correct answer as the anomaly.
+
+    The instrument was not broken. It could find every case it should find --
+    it found his. What was never defined was the POPULATION, and no amount of
+    care inside an undefined set repairs that: each further step was rigorous
+    and took me deeper into a story about something that was not happening.
+
+    So the fix is not a better scan; the scan was right. It is that the output
+    must say whose, and the count must say how many are yours, because a number
+    without an owner invites the reader to supply one.
+    """
+    return _match_checkout(getattr(proc, "command_line", "") or "")
 
 
 def register(cli: click.Group) -> None:
@@ -47,12 +94,20 @@ def register(cli: click.Group) -> None:
         click.echo("")
 
         if procs:
-            click.echo(f"Live Monitor processes: {len(procs)}")
+            here = _this_checkout()
+            mine = [p for p in procs if _checkout_of(p) == here]
+            click.echo(
+                f"Live Monitor processes: {len(procs)} on this machine, "
+                f"{len(mine)} from this checkout"
+            )
             for p in procs:
                 marker = "[KEEP]" if p in keep else "[ORPHAN]"
+                seat = _checkout_of(p)
+                whose = "THIS CHECKOUT" if seat == here else f"other checkout: {seat}"
                 click.echo(
                     f"  {marker} pid={p.pid} role={p.role} name={p.name} created={p.creation_date}"
                 )
+                click.echo(f"         {whose}")
             if orphans:
                 click.echo("")
                 click.echo(
