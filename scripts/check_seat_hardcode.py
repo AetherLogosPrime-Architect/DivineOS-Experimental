@@ -360,7 +360,13 @@ def main() -> int:
 
     violations = find_violations(added)
     if not violations:
-        print("[seat-hardcode] no new seat-deciding lines on this branch.")
+        # THE ALL-CLEAR NAMES WHAT IT EXAMINED. "no new seat-deciding lines"
+        # reads identically whether the diff held the whole branch or came
+        # back nearly empty because the read half-failed. With the count
+        # beside it, a broken read looks wrong to whoever is standing there.
+        # A message that cannot look wrong cannot be caught by looking, and
+        # looking is the only thing that has caught any of these.
+        print(f"[seat-hardcode] no new seat-deciding lines among {len(added)} added line(s).")
         return 0
 
     print(
