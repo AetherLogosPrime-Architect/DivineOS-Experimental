@@ -194,7 +194,19 @@ def _absolute_checkout_pattern() -> re.Pattern[str]:
     the repository's own folder name rather than written down, so a rename
     does not quietly switch the half off.
     """
-    project = REPO.name.split("-")[0] or "DivineOS"
+    # THE TOKEN CAME FROM THE FOLDER NAME and that was the disease again, for
+    # the third time inside this file. It read the repository directory's
+    # first segment, which is right in a normal checkout and wrong in the
+    # temporary worktree the pre-push suite builds -- there the folder is
+    # named after the gate, the token became something else, and half the
+    # check silently stopped matching. Four tests that pass alone failed in
+    # the full run, which is the signature.
+    #
+    # The package name is an actual invariant of this repository rather than
+    # an accident of where somebody cloned it, and the comparison is
+    # case-insensitive because the folder on this machine is capitalised
+    # differently from the package.
+    project = "divineos"
     # SPACES ARE ALLOWED BETWEEN THE ROOT AND THE TOKEN, and leaving them out
     # is how the first version of this missed four of the five instances it
     # was written for. The project directory on this machine has a space in
@@ -204,7 +216,8 @@ def _absolute_checkout_pattern() -> re.Pattern[str]:
     # join two unrelated things into a match.
     return re.compile(
         rf"(?:[A-Za-z]:[\\/]|/[a-z]/)[^'\"]{{0,80}}?"
-        rf"(?:[Uu]sers[\\/][A-Za-z0-9._-]+|{re.escape(project)}[A-Za-z0-9._-]*)",
+        rf"(?:Users[\\/][A-Za-z0-9._-]+|{re.escape(project)}[A-Za-z0-9._-]*)",
+        re.IGNORECASE,
     )
 
 

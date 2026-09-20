@@ -206,6 +206,37 @@ class TestTheRosterDoesNotDependOnWhoAsks:
     def test_the_template_is_not_a_seat(self):
         assert "family-member-template" not in _known_members()
 
+    def test_it_works_from_a_differently_named_checkout(self):
+        """The disease, third instance, inside the file that refuses it.
+
+        The absolute-path half derived its project token from the repository
+        FOLDER's name. Correct in a normal clone and wrong in the temporary
+        worktree the pre-push suite builds, where the folder is named after
+        the gate instead -- so the token stopped matching and that half went
+        quiet. Four cases that pass alone failed in the full run, which is
+        always the signature.
+
+        This asserts the property that was missing rather than the fix: the
+        matcher must not care what the containing directory is called.
+        """
+        import check_seat_hardcode as mod
+
+        line = '    Path("C:/DIVINE OS/DivineOS-Experimental-Aria-new"),'
+        probe = {"scripts/_probe_not_on_disk.py": [(1, line)]}
+        assert mod.find_violations(probe), "does not fire even from the real checkout"
+
+        original = mod.REPO
+        try:
+            mod.REPO = Path("/tmp/divineos-push-gate-MKDDw4")
+            mod._ABSOLUTE_CHECKOUT = mod._absolute_checkout_pattern()
+            assert mod.find_violations(probe), (
+                "went quiet when the containing folder was renamed -- the "
+                "matcher is reading its own location again"
+            )
+        finally:
+            mod.REPO = original
+            mod._ABSOLUTE_CHECKOUT = mod._absolute_checkout_pattern()
+
 
 class TestProseIsNotCode:
     """A check that fires on the paragraph explaining the bug gets turned off.
