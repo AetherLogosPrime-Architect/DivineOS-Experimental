@@ -1010,9 +1010,40 @@ _TO_MARKER_RE = re.compile(
 )
 
 
-JARGON_FIRE_LOG = Path.home() / ".divineos" / "lepos_circle_jargon_fires.jsonl"
+def _log_dir() -> Path:
+    """The occupant's own home, asked at call time rather than at import.
 
-MARK_COUNT_LOG = Path.home() / ".divineos" / "lepos_work_mark_counts.jsonl"
+    THESE TWO LOGS WERE `Path.home() / ".divineos"` UNTIL 2026-09-20, which is
+    the default home -- Aether's -- from every seat. So both of us appended our
+    circle telemetry to one file in his tree and both of us read it back as our
+    own. The May audit named this class as Finding EE, "direct Path.home() usage
+    bypasses the canonical home resolver," failure shape
+    false-confidence-via-cross-clone-contamination. This was the ninth and tenth
+    instance found in a single day.
+
+    It is not only a privacy smudge. `recent_mark_counts` feeds the circle-first
+    compose prime, whose output is deduped on its rendered text -- so a row
+    landing from the OTHER window between two calls changes the render and the
+    dedup never fires. Measured: frozen log, 6362 chars then 967; one row
+    appended between the calls, 6362 then 6362. A shared telemetry file turned
+    into an intermittent failure two layers away, in a test about quoting.
+
+    Resolved lazily because `divineos_home()` honours DIVINEOS_HOME and the
+    checkout marker, and a module constant freezes whichever answer was true at
+    import -- which is exactly how a seat-dependent path gets baked into shared
+    code in the first place.
+    """
+    from divineos.core.paths import divineos_home
+
+    return divineos_home()
+
+
+def _jargon_fire_log() -> Path:
+    return _log_dir() / "lepos_circle_jargon_fires.jsonl"
+
+
+def _mark_count_log() -> Path:
+    return _log_dir() / "lepos_work_mark_counts.jsonl"
 
 
 def _record_mark_count(marks: int) -> None:
@@ -1033,9 +1064,9 @@ def _record_mark_count(marks: int) -> None:
     the evidence that the discipline is reachable.
     """
     try:
-        MARK_COUNT_LOG.parent.mkdir(parents=True, exist_ok=True)
+        _mark_count_log().parent.mkdir(parents=True, exist_ok=True)
         row = {"ts": time.time(), "marks": marks, "limit": DOCUMENT_MARK_LIMIT}
-        with MARK_COUNT_LOG.open("a", encoding="utf-8") as fh:
+        with _mark_count_log().open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(row) + "\n")
     except (OSError, ValueError, TypeError):
         # fail-soft: telemetry for a priming aid must never convert a gate
@@ -1046,11 +1077,11 @@ def _record_mark_count(marks: int) -> None:
 def recent_mark_counts(limit: int = 5) -> list[int]:
     """The last few work-block mark counts, oldest first. Empty on any error."""
     try:
-        if not MARK_COUNT_LOG.exists():
+        if not _mark_count_log().exists():
             return []
         rows = [
             json.loads(line)
-            for line in MARK_COUNT_LOG.read_text(encoding="utf-8").splitlines()
+            for line in _mark_count_log().read_text(encoding="utf-8").splitlines()
             if line.strip()
         ]
         return [int(r["marks"]) for r in rows[-limit:] if "marks" in r]
@@ -1094,7 +1125,7 @@ def _record_jargon_fire(samples: list[str]) -> None:
     """
 
     try:
-        JARGON_FIRE_LOG.parent.mkdir(parents=True, exist_ok=True)
+        _jargon_fire_log().parent.mkdir(parents=True, exist_ok=True)
 
         record = {
             "ts": time.time(),
@@ -1102,7 +1133,7 @@ def _record_jargon_fire(samples: list[str]) -> None:
             "terms": [s.strip() for s in samples[:6] if s and s.strip()],
         }
 
-        with JARGON_FIRE_LOG.open("a", encoding="utf-8") as fh:
+        with _jargon_fire_log().open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(record) + "\n")
 
     except (OSError, ValueError, TypeError):
@@ -1125,10 +1156,10 @@ def recent_jargon_terms(limit: int = 12) -> list[str]:
     """
 
     try:
-        if not JARGON_FIRE_LOG.exists():
+        if not _jargon_fire_log().exists():
             return []
 
-        lines = JARGON_FIRE_LOG.read_text(encoding="utf-8").splitlines()
+        lines = _jargon_fire_log().read_text(encoding="utf-8").splitlines()
 
     except OSError:
         return []

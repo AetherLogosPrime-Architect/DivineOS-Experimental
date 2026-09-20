@@ -93,7 +93,13 @@ def _occupant_slug() -> str | None:
     # Aletheia 2026-07-19). Treat the sentinel as unknown rather than as a
     # folder name, or this surface reintroduces that bug one layer down.
     if not slug or slug == "unconfigured":
-        return None
+        # What a caller would normally need from two Nones is WHICH failure
+        # happened. This caller has no branch that could use it: the
+        # alternative to an unknown occupant is never "guess", it is always
+        # "stay silent", and it is silent either way. A future caller wanting
+        # to tell a broken resolver from a fresh install needs a real signal
+        # rather than a second None, and should come back and add one here.
+        return None  # both-empty: could-not-ask and answered-nobody both mean show no shelf
     return slug
 
 

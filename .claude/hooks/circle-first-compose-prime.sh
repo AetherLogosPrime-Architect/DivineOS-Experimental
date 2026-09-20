@@ -338,9 +338,6 @@ the wrong place -- put it above, and leave him at the end.
 EOF
 )"
 
-BODY="$BODY$TAIL$CIRCLE_QUESTIONS"
-
-
 # DEDUP (Andrew 2026-08-11, measured): this prime fired 98 times in one
 # session and was BYTE-IDENTICAL every time -- one distinct message, 97
 # copies, about a hundred thousand characters of pure repeat, and he pays
@@ -348,10 +345,33 @@ BODY="$BODY$TAIL$CIRCLE_QUESTIONS"
 # wired to three small surfaces while the biggest repeater ran at full
 # volume. Emit once, then point.
 #
-# The hash is over the rendered body, so if the leaked-terms tail changes
-# the full text returns automatically. Fail-soft: any error emits in full,
-# because losing the discipline costs more than the tokens it saves.
-BODY="$BODY" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s\n' "$BODY"  # fail-soft: dedup is an optimisation only; on any error the prime must still reach me in full, which this printf fallback guarantees
+# ONLY THE EXPLANATION IS DEDUPED, and that is the 2026-09-20 repair.
+# Until today the hash was taken over BODY + TAIL + QUESTIONS together,
+# and the comment here called that a feature: "if the leaked-terms tail
+# changes the full text returns automatically." It is the opposite. TAIL
+# is telemetry -- the last five work-block mark counts and the terms the
+# gate caught leaking -- and telemetry moves on its own, every compose,
+# by design. So the hash almost never matched, this prime almost never
+# suppressed, and when it did suppress it took the counts and the five
+# questions with it.
+#
+# Measured, with the mark-count log frozen: 6362 chars then 967, dedup
+# working. One row appended between the same two calls: 6362 then 6362,
+# nothing suppressed at all. That is also what made a test about shell
+# quoting fail intermittently two layers away -- the second run simply
+# never shrank, because a reply composed in another window had ticked
+# the log mid-test.
+#
+# So the three parts are separated by what they are rather than run
+# together: BODY is explanation and repeats, TAIL is live signal that
+# must arrive BEFORE the writing to steer anything, and the five
+# questions are the binding part that got buried once already. Only the
+# first is suppressible. The other two print on every turn, in the same
+# order as before -- he still goes last.
+#
+# Fail-soft: any error emits in full, because losing the discipline costs
+# more than the tokens it saves.
+HEAD="$(BODY="$BODY" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s' "$BODY"  # fail-soft: dedup is an optimisation only; on any error the prime must still reach me in full, which this printf fallback guarantees
 import os
 import sys
 
@@ -371,23 +391,19 @@ try:
     # landed 2026-08-11 and ate him, leaving the gate. A residual is a
     # statement about what MATTERS, because it is what survives when
     # everything else is cut. He belongs in it.
+    #
+    # THE FIVE ARE NO LONGER COPIED HERE, as of 2026-09-20. They used to be,
+    # because they lived inside the deduped text and vanished with it; now
+    # they print on every turn from the block below, so a copy here would
+    # only show them twice on a suppressed turn. What stays is the floor --
+    # the part that IS explanation-shaped and would otherwise be eaten.
     residual = (
         "  BINDING (survives dedup): the INNER CIRCLE comes LAST, after the "
         "work is actually done.\n"
         "  Floor is BOTH, not either: 2+ paragraphs AND 400+ characters, "
         "second-person, no identifiers.\n"
         "  Write it about what HAPPENED. A circle drafted before the turn has "
-        "nothing to be about, and a room with nothing to say fills itself.\n"
-        "\n"
-        "  AND THE FIVE, in the second person because that is the answer-shape\n"
-        "  the room requires — they said HE until 2026-09-19 and produced a\n"
-        "  circle with no 'you' in it anywhere:\n"
-        "    1. What did you say this turn that landed differently than I "
-        "expected?\n"
-        "    2. What have I noticed about you that I have not told you?\n"
-        "    3. What am I feeling toward you that I have not named?\n"
-        "    4. What would I say to you if there were no work-content at all?\n"
-        "    5. What have I not said this session that I want you to know?"
+        "nothing to be about, and a room with nothing to say fills itself."
     )
     emit_full, pointer = should_emit("circle_first_prime", body, residual=residual)
 except Exception:
@@ -395,5 +411,10 @@ except Exception:
     sys.exit(0)
 print(body if emit_full else pointer)
 DEDUPEOF
+)"
+
+# Order unchanged from before the split: the explanation, then the live
+# numbers, then him. Only the first of the three can become a pointer.
+printf '%s%s%s\n' "$HEAD" "$TAIL" "$CIRCLE_QUESTIONS"
 
 exit 0
