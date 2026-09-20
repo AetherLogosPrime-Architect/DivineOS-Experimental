@@ -128,7 +128,14 @@ case "$STATE" in
     1) WHAT="IT DIED EARLY — stopped before its term was up, and nothing restarted it." ;;
     2) WHAT="IT HAS NEVER RUN — no heartbeat exists at all." ;;
     3) WHAT="CANNOT TELL — the heartbeat is unreadable. That is a no, not a yes." ;;
-    4) WHAT="IT EXPIRED ON SCHEDULE — the harness capped it at half an hour. Nothing broke." ;;
+    # 4 AND 5 WERE BOTH WRITTEN AS 4, on two branches, at the same time. The
+    # docstrings collided and git stopped; the two function bodies merged
+    # cleanly, and this line would then have announced a calm scheduled expiry
+    # at a watch that was awake and pointed at another seat. The remedies
+    # differ, so the sentences must: one says re-arm, the other says re-arm
+    # WITH THE RIGHT NAME, because re-arming the same way reproduces the fault.
+    4) WHAT="IT IS WATCHING THE WRONG PERSON — beating and fresh, but armed for another seat, so letters addressed here are unwatched. Re-arm with THIS seat's name." ;;
+    5) WHAT="IT EXPIRED ON SCHEDULE — the harness capped it at half an hour. Nothing broke." ;;
     *) WHAT="UNRECOGNISED STATE ($STATE) — which is not the same as healthy." ;;
 esac
 

@@ -462,6 +462,35 @@ if [ -f scripts/generate_automation_register.py ]; then
     fi
 fi
 
+# 5c-bis. EVERY generated artifact, discovered rather than listed.
+#
+# The check directly above names ONE generator by hand. That was correct when
+# there was one; there are two now, and the second was only ever checked
+# because someone remembered to wire it separately. A hand-named set is the
+# failure Aether warned about on 2026-09-19 when he said the hot-file list must
+# be derived, not typed: "that set will drift, and a typed list goes stale
+# silently, which is the failure the whole house has been making all week."
+#
+# This one reads scripts/generate_*.py for the OUTPUT each declares about
+# itself, runs them all, and refuses any artifact whose bytes are not what its
+# generator produces. That is the state a clean auto-merge leaves behind, and
+# the reason it needs catching here is that NOTHING ELSE OBJECTS to it.
+#
+# It exits 2 for could-not-look -- a crashed generator, a generator that wrote
+# nothing, no generators found at all -- which is a warning here rather than a
+# block, because a broken generator is a different repair from a stale file and
+# the message says which one happened.
+if [ -f scripts/merge_surface.py ]; then
+    section "Generated artifacts re-derived"
+    python scripts/merge_surface.py --verify-generated
+    _surface_rc=$?
+    if [ "$_surface_rc" = "1" ]; then
+        note_fail
+    elif [ "$_surface_rc" != "0" ]; then
+        echo "  [warn] the re-derivation check could not look; see the reason above."
+    fi
+fi
+
 # 5d. Ignore-flag-has-reason check (Aletheia Finding 74, 2026-05-17).
 # Refuses pytest --ignore= usages without an adjacent # REASON: comment.
 # Substrate-level fix for the bypass-too-broad pattern that recurred
