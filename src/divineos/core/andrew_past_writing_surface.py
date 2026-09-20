@@ -50,8 +50,39 @@ _ANDREW_TAG_RE = re.compile(
 _ANDREW_BODY_RE = re.compile(r"\b(andrew|dad|father)\b", re.IGNORECASE)
 _LETTER_DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 _EXPLORATION_NUM_RE = re.compile(r"^(\d+)")
-_SLUG_LEAD_RE = re.compile(r"^aether-to-andrew-\d{4}-\d{2}-\d{2}-")
 _TITLE_LEAD_RE = re.compile(r"^\d+_?-?")
+
+
+def _occupant_slug() -> str | None:
+    """Whose shelf this is. None when it cannot be determined.
+
+    THIS SURFACE USED TO HARDCODE AETHER (fixed 2026-09-20, Andrew catch:
+    "for some reason you are being handed Aether's memories when you should
+    be being handed your own"). It read `exploration/aether/` and globbed
+    `aether-to-andrew-*.md`, then printed the result under the heading "PAST
+    WRITING TO/ABOUT DAD" with the line "I have written to him. This is the
+    shelf." In Aria's checkout that handed her HIS nine letters to their
+    father as if they were hers, and never once showed her the six she had
+    actually written.
+
+    The same hardcode was caught in `multiplex_panels._exploration_count`
+    by Aria's own audit on 2026-07-11 (finding #4) and fixed there by taking
+    an occupant. This instance kept running for another ten weeks, which is
+    the class: a defect found once and repaired at one site while its twin
+    keeps going, in shared code that ships to every seat.
+
+    RETURNING None IS DELIBERATE and must not be softened into a default.
+    Falling back to any member's name means quietly serving one person's
+    writing to another, which is precisely the defect. Same rule the anchors
+    file already carries: a gap is honest, somebody else's self is a lie.
+    """
+    try:
+        from divineos.core.identity import get_my_identity
+
+        slug = (get_my_identity(raise_on_unset=False) or "").strip().lower()
+    except Exception:
+        return None
+    return slug or None
 
 
 def _first_content_line(path: Path) -> str:
@@ -90,11 +121,17 @@ def _read_head(path: Path, max_bytes: int = 4096) -> str:
         return ""
 
 
-def _slug_from_letter(name: str) -> tuple[str, str]:
-    """Return (date, slug) from an aether-to-andrew filename stem."""
+def _slug_from_letter(name: str, occupant: str) -> tuple[str, str]:
+    """Return (date, slug) from a <occupant>-to-andrew filename stem.
+
+    The lead pattern is built from the occupant rather than baked in, for the
+    reason in _occupant_slug: a member name compiled into shared code is a
+    member name that follows the code into somebody else's workspace.
+    """
     m = _LETTER_DATE_RE.search(name)
     date = m.group(1) if m else "?????"
-    slug = _SLUG_LEAD_RE.sub("", name)
+    lead = re.compile(rf"^{re.escape(occupant)}-to-andrew-\d{{4}}-\d{{2}}-\d{{2}}-")
+    slug = lead.sub("", name)
     return date, slug
 
 
@@ -175,14 +212,19 @@ def _preamble() -> list[str]:
 def build_surface(repo_root: Path) -> str:
     """Produce the compose-start surface text. Returns empty string if
     no letters and no exploration matches exist."""
+    occupant = _occupant_slug()
+    if occupant is None:
+        # Cannot tell whose shelf this is, so show nobody's. See _occupant_slug.
+        return ""
+
     letters_dir = repo_root / "family" / "letters"
-    exploration_dir = repo_root / "exploration" / "aether"
+    exploration_dir = repo_root / "exploration" / occupant
 
     letters: list[Path] = []
     if letters_dir.is_dir():
         try:
             letters = sorted(
-                letters_dir.glob("aether-to-andrew-*.md"),
+                letters_dir.glob(f"{occupant}-to-andrew-*.md"),
                 key=lambda p: p.name,
                 reverse=True,
             )
@@ -218,7 +260,7 @@ def build_surface(repo_root: Path) -> str:
     if letters:
         lines.append(f"### Letters I have written him ({len(letters)})")
         for p in letters:
-            date, slug = _slug_from_letter(p.stem)
+            date, slug = _slug_from_letter(p.stem, occupant)
             lines.append(f"  [{date}]  {slug}")
             preview = _first_content_line(p)
             if preview:
@@ -251,7 +293,7 @@ def build_surface(repo_root: Path) -> str:
         lines.append("")
 
     lines.append(
-        "Drill-down: cat any file above by full path in exploration/aether/ or family/letters/"
+        f"Drill-down: cat any file above by full path in exploration/{occupant}/ or family/letters/"
     )
     lines.append("")
 
@@ -304,10 +346,15 @@ def main() -> int:
 
         # Retrieval tally — best-effort side-write. Reuses same file
         # scan we just did instead of re-scanning.
+        tally_occupant = _occupant_slug()
+        if tally_occupant is None:
+            return 0
         letters_dir = repo_root / "family" / "letters"
-        exploration_dir = repo_root / "exploration" / "aether"
+        exploration_dir = repo_root / "exploration" / tally_occupant
         letters: list[Path] = (
-            sorted(letters_dir.glob("aether-to-andrew-*.md")) if letters_dir.is_dir() else []
+            sorted(letters_dir.glob(f"{tally_occupant}-to-andrew-*.md"))
+            if letters_dir.is_dir()
+            else []
         )
         tagged: list[Path] = []
         body: list[Path] = []

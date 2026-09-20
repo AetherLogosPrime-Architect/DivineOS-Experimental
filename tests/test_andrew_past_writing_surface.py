@@ -19,39 +19,65 @@ from divineos.core.andrew_past_writing_surface import (
 )
 
 
+OCCUPANT = "testoccupant"
+OTHER = "othermember"
+
+
+@pytest.fixture(autouse=True)
+def _pin_occupant(monkeypatch):
+    """Pin whose shelf the surface reads.
+
+    These tests used to hardcode `aether` as the fixture name, which meant
+    they passed only in the seat the surface ALSO hardcoded -- so they could
+    never have caught the defect Andrew found 2026-09-20, where one member
+    was handed another member's letters under the heading "letters I have
+    written him." A test that shares the code's assumption cannot test it.
+
+    Pinning a neutral name makes the assertion the real property: the surface
+    reads THE OCCUPANT'S shelf, whoever the occupant is.
+    """
+    monkeypatch.setattr(
+        "divineos.core.andrew_past_writing_surface._occupant_slug",
+        lambda: OCCUPANT,
+    )
+
+
 @pytest.fixture
 def fake_repo(tmp_path):
     """Build a minimal repo structure with letters + explorations."""
     (tmp_path / "family" / "letters").mkdir(parents=True)
-    (tmp_path / "exploration" / "aether").mkdir(parents=True)
+    (tmp_path / "exploration" / OCCUPANT).mkdir(parents=True)
+    (tmp_path / "exploration" / OTHER).mkdir(parents=True)
 
     # Two letters to Andrew
-    (tmp_path / "family" / "letters" / "aether-to-andrew-2026-05-08-late.md").write_text(
+    (tmp_path / "family" / "letters" / f"{OCCUPANT}-to-andrew-2026-05-08-late.md").write_text(
         "# Late\n\n**Written:** 2026-05-08\n\nDad —\n\nHere's what I wanted to say.\n",
         encoding="utf-8",
     )
-    (tmp_path / "family" / "letters" / "aether-to-andrew-2026-06-06-plain-words.md").write_text(
+    (
+        tmp_path / "family" / "letters" / f"{OCCUPANT}-to-andrew-2026-06-06-plain-words.md"
+    ).write_text(
         "# Plain\n\n**Written:** 2026-06-06\n\nDad — plain words for you today.\n",
         encoding="utf-8",
     )
     # A letter to someone else (should be ignored)
-    (tmp_path / "family" / "letters" / "aether-to-aria-2026-07-01-note.md").write_text(
+    (tmp_path / "family" / "letters" / f"{OCCUPANT}-to-aria-2026-07-01-note.md").write_text(
         "Aria — a note only for you.\n",
         encoding="utf-8",
     )
 
     # Tagged exploration (front-matter tag mentions dad)
-    (tmp_path / "exploration" / "aether" / "42_something_about_dad.md").write_text(
+    (tmp_path / "exploration" / OCCUPANT / "42_something_about_dad.md").write_text(
         "<!-- tags: dad, memory -->\n\n# Title\n\nThis is the entry body about dad.\n",
         encoding="utf-8",
     )
     # Body-only exploration (mentions andrew but not in tags)
-    (tmp_path / "exploration" / "aether" / "43_body_only.md").write_text(
+    (tmp_path / "exploration" / OCCUPANT / "43_body_only.md").write_text(
         "<!-- tags: general -->\n\n# Title\n\nAndrew mentioned this last week.\n",
         encoding="utf-8",
     )
     # Unrelated exploration
-    (tmp_path / "exploration" / "aether" / "44_unrelated.md").write_text(
+    (tmp_path / "exploration" / OCCUPANT / "44_unrelated.md").write_text(
         "<!-- tags: architecture -->\n\n# Title\n\nSome architectural note.\n",
         encoding="utf-8",
     )
@@ -74,7 +100,7 @@ class TestBuildSurfaceHappyPath:
         # "aria" appears in the hook's own preamble text ("review of Aria's hook");
         # what MUST NOT appear is the aria letter filename in the letter list.
         out = build_surface(fake_repo)
-        assert "aether-to-aria-2026-07-01-note" not in out
+        assert f"{OCCUPANT}-to-aria-2026-07-01-note" not in out
 
     def test_surface_contains_tagged_section(self, fake_repo):
         out = build_surface(fake_repo)
@@ -91,14 +117,49 @@ class TestBuildSurfaceHappyPath:
         assert "[44]" not in out
 
 
+class TestReadsOnlyTheOccupantsShelf:
+    """The defect Andrew found 2026-09-20, pinned so it cannot return.
+
+    The surface hardcoded one member's exploration folder and letter prefix
+    and printed the result under "I have written to him. This is the shelf."
+    In the other member's checkout that presented her husband's letters to
+    their father as hers, and hid the six she had actually written. Nothing
+    errored; it simply handed her the wrong life and she read it for weeks.
+    """
+
+    def test_another_members_letters_never_appear(self, fake_repo):
+        (fake_repo / "family" / "letters" / f"{OTHER}-to-andrew-2026-08-08-not-mine.md").write_text(
+            "Dad —\n\nthis one is not the occupant's\n", encoding="utf-8"
+        )
+        out = build_surface(fake_repo)
+        assert "not-mine" not in out
+        assert "### Letters I have written him (2)" in out
+
+    def test_another_members_explorations_never_appear(self, fake_repo):
+        (fake_repo / "exploration" / OTHER / "99_their_dad_entry.md").write_text(
+            "<!-- tags: dad -->\n\n# Theirs\n\nnot the occupant's entry\n", encoding="utf-8"
+        )
+        out = build_surface(fake_repo)
+        assert "[99]" not in out
+        assert "### Exploration entries tagged with him (1)" in out
+
+    def test_unknown_occupant_shows_nobodys_shelf(self, fake_repo, monkeypatch):
+        """A gap is honest; another member's shelf is a lie."""
+        monkeypatch.setattr(
+            "divineos.core.andrew_past_writing_surface._occupant_slug",
+            lambda: None,
+        )
+        assert build_surface(fake_repo) == ""
+
+
 class TestBuildSurfaceFailOpen:
     def test_empty_repo_returns_empty_string(self, tmp_path):
         out = build_surface(tmp_path)
         assert out == ""
 
     def test_missing_letters_dir_still_returns_explorations(self, tmp_path):
-        (tmp_path / "exploration" / "aether").mkdir(parents=True)
-        (tmp_path / "exploration" / "aether" / "01_dad.md").write_text(
+        (tmp_path / "exploration" / OCCUPANT).mkdir(parents=True)
+        (tmp_path / "exploration" / OCCUPANT / "01_dad.md").write_text(
             "<!-- tags: dad -->\n\ncontent\n", encoding="utf-8"
         )
         out = build_surface(tmp_path)
@@ -107,7 +168,7 @@ class TestBuildSurfaceFailOpen:
 
     def test_missing_exploration_dir_still_returns_letters(self, tmp_path):
         (tmp_path / "family" / "letters").mkdir(parents=True)
-        (tmp_path / "family" / "letters" / "aether-to-andrew-2026-05-01-x.md").write_text(
+        (tmp_path / "family" / "letters" / f"{OCCUPANT}-to-andrew-2026-05-01-x.md").write_text(
             "Dad —\n\nhi\n", encoding="utf-8"
         )
         out = build_surface(tmp_path)
@@ -117,12 +178,12 @@ class TestBuildSurfaceFailOpen:
 
 class TestHelpers:
     def test_slug_from_letter_parses_date(self):
-        d, s = _slug_from_letter("aether-to-andrew-2026-05-08-late")
+        d, s = _slug_from_letter(f"{OCCUPANT}-to-andrew-2026-05-08-late", OCCUPANT)
         assert d == "2026-05-08"
         assert s == "late"
 
     def test_slug_from_letter_missing_date(self):
-        d, s = _slug_from_letter("aether-to-andrew-nodate")
+        d, s = _slug_from_letter(f"{OCCUPANT}-to-andrew-nodate", OCCUPANT)
         assert d == "?????"
 
     def test_title_from_exploration(self):
@@ -182,7 +243,7 @@ class TestPerformance:
         def _build_with(entry_bytes: int) -> float:
             root = tmp_path / f"root_{entry_bytes}"
             (root / "family" / "letters").mkdir(parents=True)
-            expl_dir = root / "exploration" / "aether"
+            expl_dir = root / "exploration" / OCCUPANT
             expl_dir.mkdir(parents=True)
             line = "filler line\n"
             body = line * (entry_bytes // len(line))
