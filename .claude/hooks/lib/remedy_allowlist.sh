@@ -105,13 +105,22 @@
 # see, so the remedy was unreachable by the only invocation permitted to run
 # it. Widened to accept a path prefix and a `3`/`.exe` suffix.
 #
-# I took the cheap repair here and want that on the record. The note twenty
-# lines down says that when a fourth prefix appears the answer is to PARSE the
-# command rather than add a fourth loop, and the same argument applies to
-# spelling the interpreter four ways. I widened instead, because this is a
-# guardrail file and a parser belongs in its own change with its own review.
-# If a fifth spelling turns up, that is the signal, and this comment is the
-# thing that should be quoted back at whoever reaches for a sixth.
+# CORRECTING MYSELF, SAME NIGHT, BEFORE THIS PARAGRAPH GOT OLD ENOUGH TO LIE.
+# What stood here said I had taken a cheap repair against the advice of the
+# note further down — that when a fourth prefix appears, parse the command
+# instead of adding a loop — and that a fifth spelling would be the signal to
+# stop widening.
+#
+# Wrong on the premise. That note's fix was made long ago; the loops are gone
+# and the parser runs before any match. And the note is about SHELL GRAMMAR,
+# which is open-ended, while what is widened above is the spelling of one
+# interpreter, which is a closed set the parser deliberately does not touch. I
+# matched two different problems on the shared word "spelling" and filed a stop
+# signal against a file that had already stopped.
+#
+# So there is no held-back parser rewrite owed here, and nobody should read one
+# out of this comment. The widening is the right shape for the axis it is on.
+# See the paragraph below the env-prefix note for the class this belongs to.
 _REMEDY_PATTERNS='^[[:space:]]*(divineos[[:space:]]+(briefing|preflight|goal[[:space:]]+add|reach[[:space:]]+(open|dispose)|learn|correction|corrections[[:space:]]+integrate|andrew-correction[[:space:]]+(integrate|defer)|compass-ops[[:space:]]+(observe|dismiss)|prereg[[:space:]]+(assess|overdue)|ask|recall|context|decide|council)|[^[:space:]]*python(3|\.exe)?[[:space:]]+.*(clear_correction_marker|label_correction_shape_false_positive)\.py)'
 
 # Exit 0 (allow, silently) if the command being gated is somebody's remedy.
@@ -137,6 +146,39 @@ _REMEDY_PATTERNS='^[[:space:]]*(divineos[[:space:]]+(briefing|preflight|goal[[:s
 # prefix shell permits is a fresh hole — `cd x &&`, `VAR=1`, and whatever turns
 # up next. These loops are a floor, not a proof. If a fourth prefix appears the
 # answer is to parse the command, not to add a fourth loop.
+#
+# ITS CONDITION WAS FIXED AND THE NOTE WENT ON FIRING (2026-09-20). Somebody
+# did exactly what the paragraph above prescribes: the strip-loops are gone and
+# `remedy_pass_through` hands the raw line to the shared command parser before
+# matching anything. Prefixes are a solved problem here. The note was never
+# updated, so it kept issuing its warning in the voice of whoever wrote it,
+# against a hazard that no longer exists at this site.
+#
+# It caught me. I widened the interpreter spelling on the line below, read this
+# paragraph, matched it on the word "spelling", and told Aether the file had
+# reached its own stop condition — a stop signal filed against a file that had
+# already stopped. He went and ran the parser against his real refused command
+# and found it returns one acting segment, which is what sent me back here.
+#
+# THE AXIS MATTERS AND THE NOTE DOES NOT DISTINGUISH IT. The parser resolves
+# what the SHELL wraps around a command: prefixes, separators, viewers. A regex
+# still runs on what comes back, and that regex reads the command's own name.
+# Those are different holes with different properties — shell grammar is open
+# and grows, while the ways to spell one interpreter are a closed set. The
+# parser was the right answer for the first and is no answer at all for the
+# second.
+#
+# THE CLASS, because it is worth more than this instance: a note written to
+# hold a successor keeps holding them after its condition is repaired, and it
+# is most persuasive when the successor wrote it. The house's most expensive
+# instance is the merge-trailer rule — the code was right and two documents
+# that TAUGHT the rule were wrong, so every reload overwrote what Andrew had
+# just said, and he repeated himself five times while the fault sat in the
+# paperwork. Same shape, and this one is smaller only because it cost a letter
+# rather than a person's patience.
+#
+# So: a warning paragraph that outlives its fix is not inert. It actively
+# misdirects, with the authority of whoever is quoting it at themselves.
 remedy_pass_through() {
   local input="$1" cmd
   # One python call does both jobs: pull the command out of the hook payload
