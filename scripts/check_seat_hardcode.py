@@ -38,6 +38,26 @@ THE ESCAPE HATCH IS REAL AND NAMED. Genuinely-shared state exists -- the
 letters directory both members read is the obvious one -- and it should be
 spelled out loudly so sharing is a decision rather than a leftover. Say so on
 the line with `# shared-by-design: <why>` and this stands aside.
+
+WHAT IT CATCHES, AND WHAT IT DOES NOT. Aether asked for this paragraph rather
+than for a wider matcher, and he was right: a check that catches one shape of
+a two-shape class reads to the next person as covering the class. That is how
+an observability comment in his own builder stopped being a promise and became
+a label.
+
+  CAUGHT   a bare home lookup in either language
+           a member variable defaulting to one person
+           an absolute path through a user home or a checkout of this project
+
+  NOT CAUGHT, and these are the ones to go looking for by hand:
+           a path assembled at runtime from pieces, where no single line
+           carries the fingerprint
+           a member name arriving from configuration or a database row
+           a default buried in a function signature rather than at a path
+           anything semantically seat-deciding with no lexical tell at all
+
+SILENCE FROM THIS CHECK IS NOT COVERAGE. It is the absence of the three
+shapes above, which is a smaller claim and the only one it can make.
 """
 
 from __future__ import annotations
@@ -152,6 +172,45 @@ _SHELL_MEMBER_DEFAULT = re.compile(
 )
 
 
+def _absolute_checkout_pattern() -> re.Pattern[str]:
+    """An absolute path naming a particular person's tree or home.
+
+    THE SECOND SHAPE, added because Aether counted it rather than guessed:
+    five source files carry an absolute literal pointing at one checkout, with
+    no member variable anywhere near them, so the shape above walks straight
+    past. One of the five is the retriever we spent the day inside -- its
+    project roots still list both our checkouts as literals, and the repair
+    put the running checkout in FRONT of them rather than removing them, which
+    fixes the order and leaves the shape.
+
+    Another names a checkout that has not existed for months. It is guarded,
+    so the fallback does the real work and nothing misroutes -- but the line
+    still declares where somebody lives, and it is wrong.
+
+    NOT a blanket ban on absolute paths. Plenty are legitimate and decide no
+    seat at all: the interpreter probe that names the real shell is the
+    obvious one. This narrows to paths that pass through a user's home or
+    through a checkout of THIS project, and the project token is derived from
+    the repository's own folder name rather than written down, so a rename
+    does not quietly switch the half off.
+    """
+    project = REPO.name.split("-")[0] or "DivineOS"
+    # SPACES ARE ALLOWED BETWEEN THE ROOT AND THE TOKEN, and leaving them out
+    # is how the first version of this missed four of the five instances it
+    # was written for. The project directory on this machine has a space in
+    # its name, so a pattern that stopped at whitespace never reached the
+    # token it was looking for and reported clean. Bounded by the enclosing
+    # quote and by a length cap, so it cannot wander across a long line and
+    # join two unrelated things into a match.
+    return re.compile(
+        rf"(?:[A-Za-z]:[\\/]|/[a-z]/)[^'\"]{{0,80}}?"
+        rf"(?:[Uu]sers[\\/][A-Za-z0-9._-]+|{re.escape(project)}[A-Za-z0-9._-]*)",
+    )
+
+
+_ABSOLUTE_CHECKOUT = _absolute_checkout_pattern()
+
+
 # Where a hardcode is the right answer, or where it is data rather than a
 # decision. Each entry is a claim somebody can dispute, which is the point.
 _EXEMPT_SUFFIXES = (
@@ -258,6 +317,8 @@ def find_violations(added: dict[str, list[tuple[int, str]]]) -> list[str]:
             hit = next((name for pat, name in _PATTERNS if pat.search(text)), None)
             if hit is None and _SHELL_MEMBER_DEFAULT.search(text):
                 hit = "a member variable defaulting to one person"
+            if hit is None and _ABSOLUTE_CHECKOUT.search(text):
+                hit = "an absolute path naming one particular tree"
             if hit is None and member_re and member_re.search(text):
                 hit = "a member name deciding the path"
             if hit:

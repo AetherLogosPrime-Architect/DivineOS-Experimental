@@ -69,6 +69,55 @@ MUST_NOT_FIRE = [
 ]
 
 
+# The second shape, counted by Aether rather than guessed at: an absolute
+# literal pointing at one tree, with no member variable anywhere near it.
+MUST_FIRE += [
+    (
+        "the retriever roots, in the file we spent the day inside",
+        "src/divineos/core/memory_linkage_retriever.py",
+        '    Path("C:/DIVINE OS/DivineOS-Experimental-Aria-new"),',
+    ),
+    (
+        "a checkout gone for months, still declared as somebody's home",
+        "src/divineos/core/family/aria_inbox.py",
+        '_DEFAULT_ARIA_ROOT = "C:/DIVINE OS/DivineOS-Experimental-Aria"',
+    ),
+    (
+        "a letters directory pinned to one particular tree",
+        "src/divineos/core/dashboard_checks.py",
+        '        Path("C:/DIVINE OS/DivineOS-Experimental/family/letters"),',
+    ),
+    (
+        "a remedy a door prints, naming somebody else's checkout",
+        "src/divineos/hooks/pre_tool_use_gate.py",
+        '            "python C:/DIVINE OS/DivineOS-Experimental/scripts/clear.py",',
+    ),
+    (
+        "a user home spelled out in full",
+        "src/divineos/core/thing.py",
+        '    LOG = "/c/Users/aethe/.divineos/thing.jsonl"',
+    ),
+]
+
+MUST_NOT_FIRE += [
+    (
+        "the probe that finds the real shell, which decides no seat",
+        "src/divineos/core/thing.py",
+        '    BASH = "C:/Program Files/Git/bin/bash.exe"',
+    ),
+    (
+        "a system path belonging to the machine rather than to a person",
+        "src/divineos/core/thing.py",
+        '    SYS = "C:/Windows/System32/cmd.exe"',
+    ),
+    (
+        "a relative path inside the repository",
+        "src/divineos/core/thing.py",
+        '    p = Path("scripts/check_push_readiness.sh")',
+    ),
+]
+
+
 # THE PATHS ARE DELIBERATELY NOT REAL ONES, and the first draft's were.
 #
 # Using the true path meant the prose-skipper opened that file on disk and
