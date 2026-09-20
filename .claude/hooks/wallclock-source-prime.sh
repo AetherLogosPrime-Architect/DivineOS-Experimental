@@ -132,6 +132,21 @@ they share:
                               Tiredness is real; do not over-correct into
                               denying it. Name the errors and their count, or
                               quote the clock above.
+  SCENE, ABOUT SOMEBODY ELSE — "arguing at six in the morning while you are
+                              asleep", "working through the night". Added
+                              2026-09-19, after a fire that slipped every shape
+                              above it: each of those is scoped to ME -- my
+                              duration, my audience, my work, my state -- and
+                              this one was a clock hung on a picture of HIS
+                              household, to give a closing sentence its third
+                              stress. Note the collision: the entry directly
+                              above already carries almost the same words, "at
+                              four in the morning", and did not catch it,
+                              because there the clock describes my own
+                              tiredness. Same phrase, different owner, and the
+                              owner is what the earlier shapes key on. Say what
+                              is actually true of the scene without the hour:
+                              "while you are asleep" carries it alone.
 
 THE TEST IS DELETION. Strike the time-phrase. If the sentence loses only
 cadence and no meaning, that was the fire — a clock standing in for a beat.
