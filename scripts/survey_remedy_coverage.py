@@ -106,6 +106,17 @@ def _on_wide(command: str, prefixes: list[str]) -> bool:
 
 
 def main() -> int:
+    # THE ROOT COMES FROM THIS FILE'S OWN POSITION, so a copy dropped in a
+    # scratch directory surveys whatever is beside it -- right kind of object,
+    # wrong object. Aether hit exactly that running the sibling survey from his
+    # scratchpad: it did not error, it answered about a directory that was not
+    # the repository. A location it cannot confirm must not produce a survey.
+    for marker in (REPO / "scripts", REPO / "src" / "divineos", HOOK_DIR):
+        if not marker.is_dir():
+            print(f"REFUSED: {REPO} does not look like the repository (missing {marker.name}).")
+            print("  Run this from inside the repository rather than from a copy.")
+            return 2
+
     registered = _registered_commands()
     if not registered:
         print("REFUSED: the CLI reported no commands, so the filter is broken.")

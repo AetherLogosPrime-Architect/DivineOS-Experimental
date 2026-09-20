@@ -42,6 +42,29 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 
 
+def _refuse_if_not_the_repository() -> str | None:
+    """Return a refusal message if this file is not sitting in the tree.
+
+    The root is derived from this file's own position, so a copy dropped in a
+    scratch directory reads whatever happens to be beside it -- right kind of
+    object, wrong object, which is the fault this whole house has been chasing.
+    Aether hit it running this from his scratchpad, 2026-09-20: it did not
+    error, it surveyed a directory that was not the repository.
+
+    A location it cannot confirm must not produce a clean-looking survey.
+    """
+    for marker in (REPO / "scripts", REPO / "src" / "divineos", REPO / ".claude" / "hooks"):
+        if not marker.is_dir():
+            return (
+                f"REFUSED: {REPO} does not look like the repository "
+                f"(missing {marker.relative_to(REPO)}).\n"
+                "  This file locates the tree from its own position, so a copy "
+                "outside it\n  surveys the wrong directory. Run it from inside "
+                "the repository."
+            )
+    return None
+
+
 def _is_emptiness_test(node: ast.expr) -> bool:
     # if not <thing>:
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
@@ -148,6 +171,11 @@ def _clean_message_carries_a_denominator(path: Path) -> bool:
 
 
 def main() -> int:
+    wrong_tree = _refuse_if_not_the_repository()
+    if wrong_tree:
+        print(wrong_tree)
+        return 2
+
     scripts = sorted((REPO / "scripts").glob("check_*.py"))
     if not scripts:
         print("REFUSED: found no check scripts, so the probe is broken.")
