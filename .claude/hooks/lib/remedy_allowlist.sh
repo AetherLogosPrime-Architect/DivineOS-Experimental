@@ -80,7 +80,39 @@
 # `prereg file` is deliberately NOT here: filing a NEW pre-registration is
 # ordinary substrate-writing and is nobody's prescribed remedy. Only the two
 # commands that CLEAR the overdue gate are exempt.
-_REMEDY_PATTERNS='^[[:space:]]*(divineos[[:space:]]+(briefing|preflight|goal[[:space:]]+add|reach[[:space:]]+(open|dispose)|learn|correction|corrections[[:space:]]+integrate|andrew-correction[[:space:]]+(integrate|defer)|compass-ops[[:space:]]+(observe|dismiss)|prereg[[:space:]]+(assess|overdue)|ask|recall|context|decide|council)|python[[:space:]]+.*clear_correction_marker\.py)'
+#
+# THE FALSE-POSITIVE LABELLER, added 2026-09-20 after being blocked by it three
+# times in one session before I turned around and read the door instead of my
+# own reply. `correction-shape-v2-stop.sh` prints, in its own enforcement text:
+#
+#   If this is a FALSE-POSITIVE ... label the fire with:
+#     python scripts/label_correction_shape_false_positive.py --reason "..."
+#
+# and adds that the path "is not a bypass — it is the false-positive
+# attribution path." So the gate advertises an exit, and the list that exists
+# so no gate may block another gate's prescribed exit had never heard of it.
+#
+# THAT IS THE PAINTED-DOOR SHAPE: a door that documents a way through it does
+# not honour. It is the third generation of one fault inside the file written
+# to end that fault — the first two are recorded further down, in the loops for
+# the `cd x &&` and `VAR=1` prefixes. Each time the repair was scoped to the
+# spelling that had just bitten, and the mechanism walked on.
+#
+# THE INTERPRETER MATCH WAS THE SECOND HOLE IN THIS SAME LINE. `python[ ]+`
+# recognised only a bare interpreter, while the venv-python gate refuses a bare
+# `python` in this tree and prescribes the interpreter by full path. Two doors
+# in direct conflict: one demanded exactly the spelling the other could not
+# see, so the remedy was unreachable by the only invocation permitted to run
+# it. Widened to accept a path prefix and a `3`/`.exe` suffix.
+#
+# I took the cheap repair here and want that on the record. The note twenty
+# lines down says that when a fourth prefix appears the answer is to PARSE the
+# command rather than add a fourth loop, and the same argument applies to
+# spelling the interpreter four ways. I widened instead, because this is a
+# guardrail file and a parser belongs in its own change with its own review.
+# If a fifth spelling turns up, that is the signal, and this comment is the
+# thing that should be quoted back at whoever reaches for a sixth.
+_REMEDY_PATTERNS='^[[:space:]]*(divineos[[:space:]]+(briefing|preflight|goal[[:space:]]+add|reach[[:space:]]+(open|dispose)|learn|correction|corrections[[:space:]]+integrate|andrew-correction[[:space:]]+(integrate|defer)|compass-ops[[:space:]]+(observe|dismiss)|prereg[[:space:]]+(assess|overdue)|ask|recall|context|decide|council)|[^[:space:]]*python(3|\.exe)?[[:space:]]+.*(clear_correction_marker|label_correction_shape_false_positive)\.py)'
 
 # Exit 0 (allow, silently) if the command being gated is somebody's remedy.
 #
@@ -132,10 +164,38 @@ except Exception:
     # Allow, and leave a trace. A silent allowlist rots into an unexamined
     # hole; the log is what keeps it auditable, and what will show whether
     # this is carrying real traffic or quietly matching nothing.
-    mkdir -p "$HOME/.divineos" 2>/dev/null
+    # SEVENTH SITE TO REBUILD THE HOME RULE, and the one that hid it best.
+    # (2026-09-20.) This wrote the audit trail to `$HOME/.divineos` outright --
+    # no env var, no marker, no resolver. That literal is the DEFAULT home, and
+    # the default is correct for every member except the one it belongs to, so
+    # it passes silently from every seat but his. Measured before the fix: five
+    # passthrough rows from aria's seat, written into aether's directory, in a
+    # log whose own comment two lines down says it exists so the allowlist
+    # cannot rot into an unexamined hole. An audit trail only one member can
+    # read is that same hole with a log file sitting on top of it.
+    #
+    # `member_home.sh`, its named sibling in this directory, was written for
+    # exactly this class and ends by saying: ask here instead. That file cites
+    # THIS one as its sibling by name, and this one did not ask.
+    #
+    # Resolution belongs to `divineos_home()` in ../_lib.sh, which honours
+    # DIVINEOS_HOME, then the .divineos_data_home marker, then the default.
+    local _remedy_home
+    if command -v divineos_home >/dev/null 2>&1; then
+      _remedy_home="$(divineos_home)"
+    else
+      # Loud, not silent: a quiet fallback is how the six-week split-brain
+      # survived. Callers source _lib.sh before this file, so arriving here
+      # means something changed about how the gates load, and that is worth
+      # a line on stderr rather than another decade of writing to the wrong
+      # directory without complaint.
+      echo "  [remedy_allowlist] divineos_home unavailable; audit trail falling back to the default home" >&2
+      _remedy_home="$HOME/.divineos"
+    fi
+    mkdir -p "$_remedy_home" 2>/dev/null
     printf '%s\t%s\t%s\n' \
       "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${HOOK_NAME:-unknown}" "${cmd:0:160}" \
-      >> "$HOME/.divineos/remedy_passthrough.log" 2>/dev/null  # fail-soft: an unwritable audit log must not turn a permitted remedy into a block; losing one trace line is strictly better than deadlocking the gate it exists to unblock
+      >> "$_remedy_home/remedy_passthrough.log" 2>/dev/null  # fail-soft: an unwritable audit log must not turn a permitted remedy into a block; losing one trace line is strictly better than deadlocking the gate it exists to unblock
     exit 0
   fi
   return 1
