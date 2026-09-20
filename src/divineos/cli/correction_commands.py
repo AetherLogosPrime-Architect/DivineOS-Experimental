@@ -595,7 +595,8 @@ def register(cli: click.Group) -> None:
         required=True,
         help=(
             "Why this gate-fire is NOT a real correction. >= 30 chars. "
-            "Logged to ~/.divineos/false_positive_clears.jsonl for audit."
+            "Logged to false_positive_clears.jsonl in your own data home, "
+            "for audit."
         ),
     )
     def correction_false_positive_cmd(reason: str) -> None:
@@ -622,7 +623,6 @@ def register(cli: click.Group) -> None:
         be cleared with a one-word excuse.
         """
         import json
-        from pathlib import Path
 
         reason = (reason or "").strip()
         if len(reason) < 30:
@@ -647,7 +647,18 @@ def register(cli: click.Group) -> None:
             except (json.JSONDecodeError, OSError):
                 marker_data = {}
 
-        log_dir = Path.home() / ".divineos"
+        # ASK THE RESOLVER. This wrote every member's false-positive clears
+        # into the bare default home, which belongs to one particular member,
+        # so the record of who dismissed which detector fire was a single
+        # shared file that each of us read back as our own.
+        #
+        # Same class as the circle telemetry found earlier today, and the
+        # worst place in the house for it: a dismissal filed under the wrong
+        # name is a judgement about somebody's conduct, sitting in their
+        # record, attributed to them.
+        from divineos.core.paths import divineos_home
+
+        log_dir = divineos_home()
         log_dir.mkdir(parents=True, exist_ok=True)
         log_path = log_dir / "false_positive_clears.jsonl"
 
