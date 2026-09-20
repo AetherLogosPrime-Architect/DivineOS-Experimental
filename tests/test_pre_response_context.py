@@ -19,7 +19,6 @@ from divineos.core.pre_response_context import (
     build_warning_text,
     run_surfacer,
 )
-from divineos.core.memory_linkage import MemoryLinkagePayload
 
 
 def test_build_baseline_text_returns_string() -> None:
@@ -127,49 +126,46 @@ def test_build_combined_context_returns_string() -> None:
     assert isinstance(out, str)
 
 
-def test_live_compose_path_calls_v2_memory_linkage_and_renders_pointer() -> None:
-    """The real compose path must ask memory, not only the mock seam test.
+def test_live_compose_path_does_not_invoke_the_memory_linkage_retriever() -> None:
+    """Compose must NOT ask the linkage retriever, and this used to assert the
+    exact opposite. Both intents are kept here on purpose.
 
-    Regression for the installed-but-unplugged failure: v2, its install seam,
-    and renderer all existed while no production caller invoked them.
+    THE ORIGINAL, written 2026-09-20 and right about its own problem: v2, its
+    install seam and its renderer all existed while no production caller
+    invoked them, so a passing suite proved only that a handset could reach a
+    mock exchange. That test asserted the live path called retrieve_v2 and
+    rendered its pointer, and it passed.
+
+    WHY IT IS REVERSED, the same day, by measurement rather than by taste. The
+    retriever fills a module-level embedding cache that dies with its process
+    and embeds every substrate item one at a time through a freshly loaded
+    transformer. Compose runs in a new process per prompt, so wiring it here
+    re-embedded the whole substrate every turn: the UserPromptSubmit hook
+    emitted zero bytes and had not returned at 110 seconds, and being fail-open
+    it reported that outage as silence. Unwired, the same hook emits in about a
+    second. Nine tests in this suite were dying as worker crashes because they
+    crossed the per-test time limit, which is what surfaced it.
+
+    So this now guards the opposite property, and the ORIGINAL concern is not
+    retired by that — it is deferred, with its condition written at the call
+    site in pre_response_context: embeddings must survive the process (the
+    sqlite-vec store in core/semantic_store.py already exists for this) and the
+    hook must be timed end to end in the suite. When both hold, this test
+    should flip back rather than be deleted, and the paragraph above is why.
     """
-    payload = MemoryLinkagePayload(
-        source="knowledge",
-        id="lunkhead-wrong-referent",
-        tier="topic",
-        similarity=0.81,
-        recency_days=0,
-        importance_score=0.8,
-        composite_rank=0.79,
-        title="The patient is healthy; we examined his neighbor",
-        content=(
-            "Valid evidence can support the wrong referent. Verify the active "
-            "runtime, checkout, data home, process, or ledger before accepting green."
-        ),
-        matched_reason="semantic causal-shape match",
-    )
-
     from divineos.core import memory_linkage
 
     original_retriever = memory_linkage._ACTIVE_RETRIEVER
     try:
-        with (
-            patch(
-                "divineos.core.memory_linkage_retriever_v2.retrieve_v2",
-                return_value=[payload],
-            ) as retrieve,
-            patch(
-                "divineos.core.context_dedup.should_emit",
-                return_value=(True, None),
-            ),
-        ):
+        with patch(
+            "divineos.core.memory_linkage_retriever_v2.retrieve_v2",
+            return_value=[],
+        ) as retrieve:
             out = build_combined_context(
                 "The dashboard is green, but which process supplied its data?"
             )
     finally:
         memory_linkage.set_retriever(original_retriever)
 
-    retrieve.assert_called_once()
-    assert "PRIOR SUBSTRATE — knowledge / topic" in out
-    assert "The patient is healthy; we examined his neighbor" in out
-    assert "wrong referent" in out
+    retrieve.assert_not_called()
+    assert isinstance(out, str)

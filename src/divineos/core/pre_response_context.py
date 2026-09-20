@@ -911,56 +911,45 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
     except Exception:  # noqa: BLE001 - observability boundary
         pass
 
-    # General memory-linkage surface — the ordinary associative lane.
+    # General memory-linkage surface — DELIBERATELY NOT WIRED. Read this before
+    # connecting it, because I connected it on 2026-09-20 and it took the whole
+    # pre-response surface down without saying a word.
     #
-    # The producer, v2 ranking/priming engine, renderer, and mock seam all
-    # existed, but no production composition path installed or called them.
-    # Tests proved that a handset could connect to a mock exchange; no live
-    # caller proved the handset was plugged into the wall. Bind v2 here and
-    # carry its bounded pointers into the same UserPromptSubmit context that
-    # the real hook emits. This is distinct from regulatory_surface above:
-    # regulatory retrieval is flood-triggered and priming-immune; this lane is
-    # ordinary relevance plus bounded spreading activation.
+    # The producer, v2 ranking engine, renderer and mock seam all exist and are
+    # tested. What never existed was a live caller, so I added one: install v2,
+    # call retrieve_for_context, render its bounded pointers. The code was
+    # correct. The placement was not.
+    #
+    # WHAT IT COSTS. retrieve_for_context fills memory_linkage_retriever's
+    # _EMBEDDING_CACHE, which is a module-level dict and therefore dies with the
+    # process. Its five source adapters then embed their items ONE AT A TIME
+    # through a freshly loaded sentence-transformer. This composition runs in a
+    # new process on every prompt, so the whole substrate is re-embedded every
+    # single turn. Measured on this box: the UserPromptSubmit hook emitted zero
+    # bytes and had not finished at 110 seconds, against a ~10.5KB context
+    # composed without this block.
+    #
+    # WHY IT WENT UNSEEN, which is the half worth keeping. The hook is fail-open
+    # by design and sends its own stderr to nowhere, so a hook killed mid-compose
+    # and a hook with nothing to say emit byte-identical silence. Every surface
+    # below this line stopped reaching the turn and nothing reported it. The
+    # liveness recorder added the same day sits ABOVE this block, so it kept
+    # writing healthy rows from a process that was about to be killed — a
+    # recorder cannot report a death that happens after it runs.
+    #
+    # THE CONDITION FOR RE-WIRING, stated so it can be checked rather than
+    # believed: the embeddings must survive the process. core/semantic_store.py
+    # already exists for this — a sqlite-vec backed store built 2026-06-11 as
+    # the structural floor for substrate semantic work — and this lane does not
+    # use it. Route the cache through a persistent store, then time THIS hook
+    # end to end and require it to emit inside the harness budget, with that
+    # timing asserted in the suite rather than observed once by hand.
+    #
+    # WHAT THIS REPAIR DOES NOT CLOSE (game-walk, edit fingerprint above): a
+    # comment does not enforce, so nothing structural stops a future me
+    # re-wiring it without meeting the condition — and any other heavy surface
+    # added to this function takes the context down the same silent way.
     memory_linkage_text = ""
-    try:
-        from divineos.core.memory_linkage import render_payload, retrieve_for_context
-        from divineos.core.memory_linkage_retriever_v2 import install as install_memory_linkage
-
-        memory_convo = ""
-        if transcript_path:
-            try:
-                from divineos.core.operating_loop.turn_extraction import (
-                    recent_turns_text as _memory_recent_turns_text,
-                )
-
-                memory_convo = _memory_recent_turns_text(transcript_path)
-            except Exception:  # noqa: BLE001 - observability boundary
-                memory_convo = ""
-        install_memory_linkage()
-        payloads = retrieve_for_context(prompt, memory_convo or None)
-        rendered_payloads = [render_payload(payload) for payload in payloads]
-        memory_linkage_text = "\n\n".join(rendered for rendered in rendered_payloads if rendered)
-        if memory_linkage_text:
-            try:
-                from divineos.core.context_dedup import should_emit
-
-                emit_full, pointer = should_emit(
-                    "memory_linkage",
-                    memory_linkage_text,
-                    semantic_key=[payload.as_semantic_key() for payload in payloads],
-                    residual=(
-                        "  RETRIEVAL SURVIVES DEDUP: the matched substrate items are "
-                        "UNCHANGED, not absent. If one bears on this decision, read "
-                        "it before composing. Constraint-tier items remain binding; "
-                        "a compact pointer is not permission to ignore them."
-                    ),
-                )
-                if not emit_full and pointer:
-                    memory_linkage_text = pointer
-            except Exception:  # noqa: BLE001 - observability boundary
-                pass
-    except Exception:  # noqa: BLE001 - retrieval is fail-soft at composition boundary
-        memory_linkage_text = ""
 
     # Foundational-truths surface (Andrew 2026-07-10 memory-linkage-day
     # directive: 'everything you want to be able to remember without searching
