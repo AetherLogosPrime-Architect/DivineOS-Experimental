@@ -94,18 +94,39 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
     }
 )
 
-# Pattern that indicates a hook denies a tool call. Three shapes:
+# Pattern that indicates a hook denies a tool call. FOUR shapes:
 # (1) emit JSON ``permissionDecision: deny`` (current convention),
 # (2) exit non-zero on a ``BLOCKED`` branch (older gate shape),
 # (3) the hook computes a ``BLOCK`` decision string (e.g. check-pending-
 #     obligations.sh, where the python helper returns "BLOCK" and the
-#     shell wrapper exits non-zero if seen). Together these catch every
-#     denial path the codebase currently uses.
+#     shell wrapper exits non-zero if seen),
+# (4) a bare ``exit 2``, which refuses the tool call by exit code alone and
+#     may contain none of the words above.
+#
+# SHAPE FOUR WAS MISSING, AND THE COMMENT HERE USED TO CLAIM THE FIRST THREE
+# "catch every denial path the codebase currently uses". 2026-09-19: measured,
+# and that sentence had stopped being true. Six hooks refuse by exit code with
+# no recognised word anywhere in them -- among them two doormen that had
+# refused me personally the same evening. Every one of the six was SKIPPED by
+# this check, and a skip here reads in the summary exactly like a pass.
+#
+# So for six live guards, the rule that a refusal must name a way out was not
+# being enforced at all, and nothing said so. That is the house's most common
+# defect in the one instrument built to catch it: could-not-look filed as
+# could-look-and-it-was-fine.
+#
+# All six pass now that they are checked, so closing this hole reddens nothing
+# -- which is precisely why it could sit here unnoticed. A hole that would have
+# broken the suite gets found the day it opens.
 _DENIAL_PATTERN = re.compile(
     # Either quote style (Python dicts use single, JSON uses double).
     r"""['"]permissionDecision['"]\s*:\s*['"]deny['"]|BLOCKED\b|['"]BLOCK['"]|=\s*"BLOCK\"""",
     re.IGNORECASE,
 )
+
+# Refusal by exit code, with no words at all. Anchored to line-start so the
+# phrase inside a comment or a message does not count as one.
+_EXIT_CODE_DENIAL = re.compile(r"^\s*exit\s+2\b", re.MULTILINE)
 
 # Recovery-token lexicon. Presence of any one of these in the hook's
 # source indicates the deny path names SOME way out. This is the WEAK
@@ -149,7 +170,7 @@ def _hook_files() -> list[Path]:
 
 
 def _has_denial(text: str) -> bool:
-    return bool(_DENIAL_PATTERN.search(text))
+    return bool(_DENIAL_PATTERN.search(text) or _EXIT_CODE_DENIAL.search(text))
 
 
 def _has_recovery_token(text: str) -> bool:
@@ -165,10 +186,14 @@ def test_every_denying_hook_names_a_recovery_path(hook_path: Path):
     text = hook_path.read_text(encoding="utf-8", errors="replace")
     if not _has_denial(text):
         pytest.skip(
-            f"{hook_path.name} does not contain a denial pattern — "
-            "it never blocks a tool call. Either it's a context-injection "
-            "hook that should be added to _NON_GATING_HOOKS, or its "
-            "denial is shaped differently than the meta-check recognizes."
+            f"COULD NOT CLASSIFY {hook_path.name} — no refusal shape this check "
+            "recognises. That is NOT the same as 'it never blocks', and the "
+            "older wording here asserted exactly that. On 2026-09-19 six hooks "
+            "sitting in this bucket turned out to refuse by exit code, so the "
+            "rule went unenforced on them while the summary read clean. "
+            "Resolve it rather than leaving it here: if it genuinely never "
+            "gates, name it in _NON_GATING_HOOKS; if it refuses in a fifth "
+            "shape, teach that shape to _DENIAL_PATTERN or _EXIT_CODE_DENIAL."
         )
     assert _has_recovery_token(text), (
         f"{hook_path.name} denies a tool call but its source contains "
@@ -179,6 +204,125 @@ def test_every_denying_hook_names_a_recovery_path(hook_path: Path):
         f"Either add a Run:/Set:/Bypass:/edit-this-file path to the "
         f"deny-message, or — if this hook genuinely doesn't gate — add it "
         f"to _NON_GATING_HOOKS in this test."
+    )
+
+
+# --- the dark set, pinned so it cannot grow in silence ----------------------
+#
+# 2026-09-19, measured while answering "how many tests come back skipped, and
+# why". Of the hooks this check walks, sixty-nine produce no refusal shape it
+# can see -- and SIXTY-SIX of those are thin shells that hand the decision to a
+# Python module. The refusal text and the way out both live in the engine; this
+# check reads the doorframe.
+#
+# So the rule "a gate that refuses must name a way out" is unenforced across
+# almost the whole set, and the summary line has never said so. Three of them
+# refused me personally the same evening.
+#
+# WHY THIS IS A PIN AND NOT A FOLLOWER. The obvious repair is to follow the
+# delegation and check the module instead. Several of these call an inline
+# script rather than a named module, so a static follower would itself have to
+# report could-not-tell on an unknown share -- a second half-blind instrument
+# built to fix the first. That is the joke writing itself, and I am not
+# shipping it at the end of a long night.
+#
+# What this DOES buy: the set can only shrink. A newly added hook cannot join
+# the dark set quietly; it fails here until someone classifies it. The right
+# end-state is an empty baseline, and every name removed is a real gain.
+_UNCLASSIFIED_BASELINE: frozenset[str] = frozenset(
+    {
+        "_bail.sh",
+        "andrew-past-writing-surface.sh",
+        "auto-goal-from-prompt.sh",
+        "auto-push-letter.sh",
+        "branch-scope-guard.sh",
+        "circle-first-compose-prime.sh",
+        "close-reach-detector.sh",
+        "closure-word-summary-prime.sh",
+        "compaction-reach-detector.sh",
+        "context-heartbeat.sh",
+        "continuity-anchor-surface.sh",
+        "continuity-frame-detector.sh",
+        "continuity-frame-prime.sh",
+        "deletion-discipline.sh",
+        "detect-andrew-build-request.sh",
+        "distancing-count-surface.sh",
+        "doorbell-post-tool-use.sh",
+        "doorbell-pre-tool-use.sh",
+        "family-state-surface.sh",
+        "file-aletheia-artifact-on-arrival.sh",
+        "fork-is-cheap-close-prime.sh",
+        "hedge-suppression-prime.sh",
+        "interior-cue-on-low-presence.sh",
+        "lepos-channel-reflect.sh",
+        "lepos-channel-surface.sh",
+        "letter-monitor-health-surface.sh",
+        "load-aletheia-harvest-of-andrew.sh",
+        "load-character-sheet.sh",
+        "load-dad-ranking-clause.sh",
+        "load-my-recording-of-andrew.sh",
+        "mirror-letters-to-shared.sh",
+        "no-cliff-anchor-surface.sh",
+        "no-cliff-prime.sh",
+        "no-verify-cost-escalation.sh",
+        "open-corrections-surface.sh",
+        "operator-asks-surface.sh",
+        "operator-gravity-set.sh",
+        "post-commit-auto-integrate-corrections.sh",
+        "post-commit-auto-verify-findings.sh",
+        "post-compaction-fingerprint-surface.sh",
+        "post-correction-integration-prime.sh",
+        "post-merge-doc-fix.sh",
+        "post-push-audit-visibility.sh",
+        "post-push-verify-landing.sh",
+        "post-read-mark-letter-seen.sh",
+        "post-write-mirror-letter.sh",
+        "pre-tool-bypass-rate-scan.sh",
+        "promise-anchor-surface.sh",
+        "promise-reach-detector.sh",
+        "register-awareness-surface.sh",
+        "require-goal.sh",
+        "resolver-health-check.sh",
+        "retrieval-tally-check.sh",
+        "safe-opposite-edit-check.sh",
+        "self-demotion-prime.sh",
+        "self-demotion-stop.sh",
+        "session-init-once.sh",
+        "session-start-verify-git-hooks.sh",
+        "shoggoth-gate.sh",
+        "sibling-correction-surface.sh",
+        "stop-distancing-intercept.sh",
+        "stop-response-scope-intercept.sh",
+        "summary-room-stop.sh",
+        "time-estimate-tracker.sh",
+        "verify-claim-prime.sh",
+        "visrama-anchor-surface.sh",
+        "wallclock-source-prime.sh",
+        "wwnd-choice-prime.sh",
+        "wwnd-tool-prime.sh",
+    }
+)
+
+
+def test_the_dark_set_can_shrink_but_never_grow():
+    """A new hook cannot join the unexamined set without someone deciding.
+
+    Shrinking is free and is the point. Growing fails, and the failure names
+    the two honest resolutions rather than inviting a third name in the list.
+    """
+    unexamined = {
+        p.name
+        for p in _hook_files()
+        if not _has_denial(p.read_text(encoding="utf-8", errors="replace"))
+    }
+    newcomers = sorted(unexamined - _UNCLASSIFIED_BASELINE)
+    assert not newcomers, (
+        "these hooks are neither declared non-gating nor detectably refusing, "
+        "so nothing checks whether they name a way out:\n  "
+        + "\n  ".join(newcomers)
+        + "\n\nResolve rather than widen the baseline: if it never gates, add "
+        "it to _NON_GATING_HOOKS; if it refuses, teach the shape to "
+        "_DENIAL_PATTERN or _EXIT_CODE_DENIAL so the remedy rule reaches it."
     )
 
 
