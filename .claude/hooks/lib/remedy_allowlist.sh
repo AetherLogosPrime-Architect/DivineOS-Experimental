@@ -41,13 +41,59 @@ try:
 except Exception:
     sys.exit(0)
 raw = (d.get('tool_input') or {}).get('command', '') or ''
+
+# THE PATTERN BELOW IS START-ANCHORED AND THEREFORE BLIND TO THE TAIL.
+# Serein's audit found a substitution riding a genuine remedy; testing that
+# here turned up the plainer one, which needs no substitution at all -- a real
+# remedy, an operator, then anything. The pattern matches the front and never
+# reads the rest. This library is consulted near the top of every gate that
+# sources it and exits ALLOW on a match, so whatever rides in behind a remedy
+# skips that entire gate.
+#
+# A quote-AWARE check is what closes it, and it already existed rather than
+# needing writing. Quote-aware is not fussiness: the re-joined text drops
+# quoting, so a note that legitimately contains a semicolon comes back looking
+# exactly like a chained command, and a plain search would refuse honest
+# remedies. That trap is recorded in the parser's own comments from August and
+# I still nearly walked into it.
+#
+# STILL OPEN, AND NOT MINE TO CLOSE TODAY: a substitution inside DOUBLE quotes
+# survives, because the checker blanks the contents of both quote kinds while
+# single quotes are inert and double quotes expand. Aether found that half and
+# is repairing it where it lives, so this note never reads as full coverage.
+#
+# AND THE CHECK RUNS ON THE TAIL, NOT ON THE WHOLE LINE. My first version
+# asked it about the raw command and refused a perfectly good remedy issued
+# from another directory, because the operator joining the directory change to
+# the remedy is itself a chain operator. That is the precise failure this
+# whole file exists to prevent -- a gate blocking somebody's prescribed exit.
+# Caught by putting the legitimate prefixed case in the probe alongside the
+# attacks, which is the only reason I saw it before shipping.
+#
+# The prefix-stripper that preserves quoting exists for exactly this: a
+# quote-aware check on what is left once the leading noise is gone.
 try:
-    from divineos.core.command_parsing import stripped_command
+    from divineos.core.command_parsing import stripped_command, strip_prefixes_raw
+    from divineos.hooks.pre_tool_use_gate import _has_unquoted_chain_shape
+
+    if _has_unquoted_chain_shape(strip_prefixes_raw(raw)):
+        print('__TAIL__')
+        sys.exit(0)
     print(stripped_command(raw))
 except Exception:
+    # Could-not-check is not a pass. Falling back to the raw command preserves
+    # the old matcher behaviour, and the marker is deliberately NOT printed
+    # here, because an import failure must never become a verdict of safe.
     print(raw)
 " 2>/dev/null)  # fail-soft: a traceback here would land in the calling gate's stderr and read as that gate failing; the empty case is caught below and returns not-a-remedy
   [ -z "$cmd" ] && return 1
+
+  if [ "$cmd" = "__TAIL__" ]; then
+    # Loud, because a refused remedy looks from outside exactly like a gate
+    # being wrong, and whoever meets it deserves to know which it is.
+    echo "  [remedy_allowlist] this wears a remedy at the front and carries more behind it, so it is NOT being waved through. Run the remedy on its own." >&2
+    return 1
+  fi
 
   if printf '%s' "$cmd" | grep -qE "$_REMEDY_PATTERNS"; then
     # Allow, and leave a trace. A silent allowlist rots into an unexamined
