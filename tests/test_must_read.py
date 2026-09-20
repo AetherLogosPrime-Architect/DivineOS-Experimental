@@ -98,3 +98,60 @@ def test_multiple_pending_sorted_by_arm_time(tmp_path):
     mr.require_read("second", "b words here", "r", home=tmp_path)
     items, _ = mr.pending(home=tmp_path)
     assert [i.key for i in items] == ["first", "second"]
+
+
+class TestTheDoorMustOpenOntoSomething:
+    """2026-09-20: a block was armed on a file nothing could open.
+
+    The key came from a live caller and it was a good name for the situation
+    -- a hook filename, which carries a colon. On Windows a colon in a path
+    opens an alternate data stream rather than failing: the write returned
+    cleanly, the existence check passed, and the folder held a zero-byte stub
+    under the name truncated at the colon. The gate then demanded a file that
+    could not be read, and because it clears on the attempt rather than the
+    result, the failed read satisfied it.
+
+    The real key is used here rather than a made-up one carrying a colon,
+    because the made-up version proves only that I can construct the input I
+    already fixed for.
+    """
+
+    REAL_KEY = "broken-hook:circle-first-compose-prime.sh"
+
+    def test_the_key_that_broke_it_now_produces_a_readable_file(self, tmp_path):
+        p = mr.require_read(self.REAL_KEY, "the room behind the door", "r", home=tmp_path)
+        assert p is not None
+        # The property is readability, not spelling: whatever the name became,
+        # opening it must return what was stored.
+        assert p.path.read_text(encoding="utf-8") == "the room behind the door"
+        assert p.path.name in {f.name for f in p.path.parent.iterdir()}
+
+    def test_the_armed_path_is_the_one_the_block_tells_me_to_open(self, tmp_path):
+        mr.require_read(self.REAL_KEY, "the room behind the door", "r", home=tmp_path)
+        items, _ = mr.pending(home=tmp_path)
+        assert str(items[0].path) in mr.render_block(items)
+        assert items[0].path.read_text(encoding="utf-8") == "the room behind the door"
+
+    def test_a_write_that_leaves_nothing_readable_refuses_to_arm(self, tmp_path, monkeypatch):
+        """The class, not the character. Any silently-empty write must refuse.
+
+        A door onto nothing is worse than no door: it stops me, cannot let me
+        through, and the thing it was guarding goes unread either way.
+        """
+        monkeypatch.setattr(mr.Path, "write_text", lambda self, *a, **k: None)
+        with pytest.raises(OSError, match="is not openable"):
+            mr.require_read("k", "content that never lands", "r", home=tmp_path)
+
+    def test_the_guard_catches_it_even_with_the_sanitiser_bypassed(self, tmp_path, monkeypatch):
+        """Belt and braces, each proven to hold on its own.
+
+        The sanitiser stops the key becoming a stream. This asserts the guard
+        behind it would have caught the same thing unaided -- which the first
+        version of that guard did NOT, because it compared content only, and
+        reading a stream back in Python succeeds. What was missing was a
+        directory entry, and a directory entry is what the reader the block
+        names actually needs.
+        """
+        monkeypatch.setattr(mr, "_safe_key", lambda k: k)
+        with pytest.raises(OSError, match="is not openable"):
+            mr.require_read(self.REAL_KEY, "the room behind the door", "r", home=tmp_path)

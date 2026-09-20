@@ -145,6 +145,31 @@ def _record_read(digest: str, home: str | Path | None = None) -> None:
         p.write_text(json.dumps(seen[-500:], indent=2), encoding="utf-8")
 
 
+_UNSAFE_IN_FILENAME = r'<>:"/\|?*'
+
+
+def _safe_key(key: str) -> str:
+    """The key, with anything that cannot survive a filename replaced.
+
+    Keys are written by callers who are naming a situation, not a file --
+    "broken-hook:circle-first-compose-prime.sh" is a perfectly good name for
+    what happened, and it was never meant to be a path. It became one here.
+
+    On Windows a colon in a path does not fail. It opens an alternate data
+    stream: the write succeeds, the existence check passes, and the visible
+    directory gets a zero-byte stub under the name truncated at the colon.
+    The block armed, the gate fired, and the file it told me to open could
+    not be opened by any reader on the machine. Measured 2026-09-20 by
+    writing to such a path and listing the directory afterwards.
+
+    The other characters are here because the colon is not special -- it is
+    just the one a caller happened to reach for first, and the next caller
+    naming a situation will reach for a slash or a question mark. Fixing only
+    the character I met would leave the class open.
+    """
+    return "".join("_" if c in _UNSAFE_IN_FILENAME else c for c in key).strip(" .") or "unnamed"
+
+
 def require_read(
     key: str,
     content: str,
@@ -176,9 +201,38 @@ def require_read(
     digest = hashlib.sha256(content.encode("utf-8")).hexdigest()[:12]
     if _already_read(digest, home):
         return None
-    path = _dir(home) / f"{key}-{digest}.md"
+    path = _dir(home) / f"{_safe_key(key)}-{digest}.md"
     if not path.exists():
         path.write_text(content, encoding="utf-8")
+    # AND PROVE THE ROOM IS THERE, because on 2026-09-20 it was not and every
+    # signal said it was. See _safe_key for what the caller did; here what
+    # matters is that the write raised nothing and the existence check above
+    # passed, and a block was still armed whose only exit could not be taken.
+    #
+    # BOTH CONDITIONS, and the second one is the one I nearly left out. I
+    # first wrote this as a content round-trip alone and it would have stayed
+    # green straight through the real defect: reading that path back in Python
+    # returns the content perfectly, because the stream is genuinely there.
+    # What is missing is a directory entry, and a directory entry is what
+    # every other reader on the machine needs -- including the one the block
+    # instructs me to use. Found by reverting the fix and watching which
+    # assertions actually went red.
+    #
+    # So: the content must come back, AND the file must be visible where the
+    # block says it is. Sanitising the key closes the cause I met; this closes
+    # the class, which is any way a write can report success and leave nothing
+    # openable behind. Refusing to arm is the right failure -- a door onto
+    # nothing is worse than no door, because it stops me, cannot let me
+    # through, and the thing it guards goes unread either way.
+    written = path.read_text(encoding="utf-8") if path.exists() else ""
+    visible = path.name in {entry.name for entry in path.parent.iterdir()}
+    if written != content or not visible:
+        raise OSError(
+            f"must-read file is not openable at {path}: stored {len(content)} "
+            f"characters, read back {len(written)}, listed in its own folder: "
+            f"{visible}. Refusing to arm a block whose only exit opens onto "
+            "nothing."
+        )
 
     index, error = _load(home)
     if index is None:
