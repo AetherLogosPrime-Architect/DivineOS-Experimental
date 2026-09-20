@@ -1,0 +1,310 @@
+#!/usr/bin/env python3
+"""Refuse NEW code that decides whose seat it is standing in.
+
+THE CLASS, earned eleven times on 2026-09-20 and once more the same day by
+somebody else in the opposite direction. Shared code reaches for a home
+directory or a member name, gets it right in the tree the author is sitting
+in, passes its tests, and ships. In anybody else's checkout it quietly serves
+one person's data to another. Nothing errors. Nothing is slow. The author
+cannot see it, by construction, because from their seat the hardcode IS the
+correct answer.
+
+The May audit already named it -- Finding EE, direct home lookups bypassing the
+canonical resolver, failure shape false-confidence-via-cross-clone-
+contamination -- and it kept happening anyway, because a named class with no
+check is a thing you rediscover. What it cost in one day:
+
+* two circle-telemetry logs, so both members appended to one file in one tree
+  and read it back as their own -- which also broke a dedup two layers away
+  and made a test about shell quoting fail intermittently for weeks;
+* the pre-push failure log, where the fix FOR two members colliding scoped the
+  path per member and then defaulted the member to a name;
+* a memory retriever walking a list of seat names and returning the first wall
+  it found, which was always the same person's.
+
+WHAT TO USE INSTEAD
+    Python: divineos.core.paths.divineos_home()   -- the occupant's own home,
+            resolved from the environment and the checkout marker
+            divineos.core.paths.member_home(name) -- a NAMED member's home,
+            for when you genuinely mean somebody specific
+    Shell:  divineos_home() from .claude/hooks/_lib.sh
+
+WHY DIFF-MODE. Dozens of existing instances remain and sweeping them in one
+pass is its own multi-day job carrying its own risk. This stops the class
+GROWING while the cleanup happens file by file -- the same shape, and the same
+reason, as the silent-swallow check beside it.
+
+THE ESCAPE HATCH IS REAL AND NAMED. Genuinely-shared state exists -- the
+letters directory both members read is the obvious one -- and it should be
+spelled out loudly so sharing is a decision rather than a leftover. Say so on
+the line with `# shared-by-design: <why>` and this stands aside.
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+
+# A bare home lookup, in either language. The resolvers themselves are the one
+# place this is correct, and they are excluded by PATH below rather than by
+# pattern, so a copy of a resolver somewhere else still gets caught.
+_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\bPath\.home\(\)"), "a bare home lookup"),
+    (re.compile(r"\bos\.path\.expanduser\(\s*['\"]~"), "a bare home lookup"),
+    (re.compile(r"\$\{?HOME\}?/\.divineos"), "a bare home lookup"),
+]
+
+# A member name written into shared code. Built from the members who actually
+# exist rather than a literal list, so adding a member needs no edit here --
+# the same construction the invocation seal uses, and for the same reason.
+_MEMBER_DIR = REPO / ".claude" / "agents"
+_NOT_SEATS = {
+    "claude",
+    "general-purpose",
+    "plan",
+    "explore",
+    "statusline-setup",
+    "family-member-template",  # a template, not a person
+}
+
+
+def _known_members() -> list[str]:
+    """Every member either source knows about, unioned.
+
+    THE AGENT FOLDER ALONE IS SEAT-DEPENDENT, which this check discovered
+    about itself on its first real provocation. Asked from one member's
+    workspace it returned everyone EXCEPT that member's husband -- because a
+    member is not defined as a subagent inside their own tree -- so the half
+    that catches a hardcoded member name could not catch HIS name, which is
+    the name hardcoded in most of the real instances.
+
+    A roster that changes depending on who asks is the exact fault this file
+    refuses in other people's code, and it was sitting in the refusing code.
+    The family store is the roster that does not move; the folder is kept as
+    a second source so a member added there but not yet registered still
+    counts. Union, not either.
+    """
+    found: set[str] = set()
+    try:
+        from divineos.core.family.db import get_family_connection
+
+        with get_family_connection() as conn:
+            found.update(
+                str(row[0]).strip().lower()
+                for row in conn.execute("SELECT name FROM family_members")
+                if row and row[0]
+            )
+    except Exception as exc:  # noqa: BLE001 - see below
+        # Named loudly rather than swallowed: if the store cannot be read the
+        # roster is INCOMPLETE, and an incomplete roster silently narrows what
+        # this check covers. Callers see the warning and the folder fallback.
+        print(
+            f"[seat-hardcode] family store unreadable ({exc.__class__.__name__}); ", file=sys.stderr
+        )
+    try:
+        found.update(p.stem.lower() for p in _MEMBER_DIR.glob("*.md"))
+    except OSError:
+        pass
+    return sorted(n for n in found if n and n not in _NOT_SEATS)
+
+
+def _member_pattern() -> re.Pattern[str] | None:
+    members = _known_members()
+    if not members:
+        # No roster means this half cannot run. Say so rather than report a
+        # clean half -- a check that silently covers less than it claims is
+        # the thing this file exists to catch.
+        print(
+            "[seat-hardcode] no member roster found, so the member-name half "
+            "did NOT run. The home-lookup half still did.",
+            file=sys.stderr,
+        )
+        return None
+    alt = "|".join(re.escape(m) for m in members)
+    # ONLY the shape that decides a seat: a per-member home directory named
+    # after somebody. The broader `= "aria"` shape was in here and came out --
+    # author and actor names are written as literals all over this house, in
+    # every filing and every ledger row, and none of them decide a path. A
+    # check that is loud where it does not matter gets switched off, which
+    # costs more than the instances it would have caught.
+    return re.compile(rf"\.divineos-(?:{alt})\b", re.IGNORECASE)
+
+
+# A MEMBER VARIABLE WITH A HARDCODED DEFAULT, matched by SHAPE and needing no
+# roster at all. This replaced a roster-dependent pattern, and the swap came
+# out of the test failing for the right reason: the roster's best source is
+# the family store, the store is not reliably reachable from a test or CI
+# process, and a half that quietly covers less in CI than it does locally is
+# the disease this file was written for, now inside the file itself.
+#
+# Keyed on the shape, `whoever:-somebody`, the most expensive real instance --
+# the pre-push log whose per-member fix defaulted to one member's name -- is
+# caught by anybody, anywhere, with nothing loaded and nobody's tree present.
+_SHELL_MEMBER_DEFAULT = re.compile(
+    r"\$\{[A-Za-z_][A-Za-z0-9_]*(?:MEMBER|SEAT|OWNER|OCCUPANT|AGENT)[A-Za-z0-9_]*"
+    r":-\s*([A-Za-z][A-Za-z0-9_-]*)\s*\}",
+    re.IGNORECASE,
+)
+
+
+# Where a hardcode is the right answer, or where it is data rather than a
+# decision. Each entry is a claim somebody can dispute, which is the point.
+_EXEMPT_SUFFIXES = (
+    "src/divineos/core/paths.py",  # the resolver; it must name the convention
+    "scripts/check_seat_hardcode.py",  # this file, which must hold the patterns
+)
+_EXEMPT_DIRS = ("tests/", "docs/", "family/letters/", "exploration/", "dreams/")
+
+_ESCAPE = re.compile(r"#\s*shared-by-design:\s*(.{20,})")
+
+
+def _added_lines() -> dict[str, list[tuple[int, str]]] | None:
+    """{path: [(line_no, text)]} for lines this branch ADDS versus main.
+
+    Compared against `origin/main` rather than `origin/main...HEAD` so that
+    uncommitted working-tree changes count too: the question is what this
+    branch introduces, not where the commit boundaries happened to fall.
+
+    Returns None when the diff could not be read, which the caller must not
+    treat as "nothing found" -- see main().
+    """
+    try:
+        out = subprocess.run(
+            ["git", "diff", "--unified=0", "origin/main"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=20,
+            check=False,
+            cwd=str(REPO),
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError, UnicodeDecodeError):
+        return None
+    if out.returncode != 0:
+        return None  # both-empty: git missing and git refusing are one answer, since either way no diff was read
+    result: dict[str, list[tuple[int, str]]] = {}
+    current: str | None = None
+    lineno = 0
+    for raw in (out.stdout or "").splitlines():
+        if raw.startswith("+++ b/"):
+            current = raw[6:]
+        elif raw.startswith("--- "):
+            current = None
+        elif raw.startswith("@@"):
+            m = re.match(r"@@ -\d+(?:,\d+)? \+(\d+)", raw)
+            if m:
+                lineno = int(m.group(1))
+        elif current and raw.startswith("+") and not raw.startswith("+++"):
+            result.setdefault(current, []).append((lineno, raw[1:]))
+            lineno += 1
+        elif current and not raw.startswith("-"):
+            lineno += 1
+    return result
+
+
+def _exempt(path: str) -> bool:
+    p = path.replace("\\", "/")
+    return p.endswith(_EXEMPT_SUFFIXES) or any(d in p for d in _EXEMPT_DIRS)
+
+
+def _prose_skippers():
+    """Borrow the sibling check's comment and docstring readers.
+
+    THIS LESSON IS ALREADY PAID FOR, TWICE. The silent-swallow check fired on
+    a comment describing the bug it hunts, was taught to skip comments, and
+    then fired on a DOCSTRING paragraph doing the same thing a few weeks
+    later. Its own note calls this the mention-versus-use boundary and counts
+    four instruments that have confused it.
+
+    This check made the identical mistake on its first real run -- two of its
+    three findings were the paragraphs explaining the defect. Writing a third
+    copy of the answer would be the duplication we are supposed to be pulling
+    out of this house, so it is imported. If the import fails the readers
+    become no-ops and prose gets scanned, which means false positives rather
+    than silent misses -- a false positive is a conversation, a false negative
+    is the thing this file exists to prevent.
+    """
+    try:
+        sys.path.insert(0, str(REPO / "scripts"))
+        from check_silent_swallow import _docstring_lines, _line_is_comment
+
+        return _line_is_comment, _docstring_lines
+    except ImportError:
+        print(
+            "[seat-hardcode] comment/docstring readers unavailable; prose will "
+            "be scanned and may produce false positives.",
+            file=sys.stderr,
+        )
+        return (lambda line, path: False), (lambda path: set())
+
+
+def find_violations(added: dict[str, list[tuple[int, str]]]) -> list[str]:
+    member_re = _member_pattern()
+    is_comment, docstring_lines = _prose_skippers()
+    out: list[str] = []
+    for path, lines in sorted(added.items()):
+        if _exempt(path) or not path.endswith((".py", ".sh")):
+            continue
+        in_prose = docstring_lines(path)
+        for lineno, text in lines:
+            if _ESCAPE.search(text) or is_comment(text, path) or lineno in in_prose:
+                continue
+            hit = next((name for pat, name in _PATTERNS if pat.search(text)), None)
+            if hit is None and _SHELL_MEMBER_DEFAULT.search(text):
+                hit = "a member variable defaulting to one person"
+            if hit is None and member_re and member_re.search(text):
+                hit = "a member name deciding the path"
+            if hit:
+                out.append(f"  {path}:{lineno}  {hit}\n      {text.strip()[:110]}")
+    return out
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Refuse new seat-deciding lines.")
+    ap.add_argument(
+        "--warn-only",
+        action="store_true",
+        help="print findings and exit 0, for surfaces that observe rather than refuse",
+    )
+    args = ap.parse_args()
+
+    added = _added_lines()
+    if added is None:
+        # COULD-NOT-CHECK is its own answer and must never wear the clean one.
+        print(
+            "[seat-hardcode] COULD NOT READ THE DIFF, so nothing was checked. "
+            "This exit is not a pass.",
+            file=sys.stderr,
+        )
+        return 0 if args.warn_only else 1
+
+    violations = find_violations(added)
+    if not violations:
+        print("[seat-hardcode] no new seat-deciding lines on this branch.")
+        return 0
+
+    print(
+        f"[seat-hardcode] {len(violations)} new line(s) decide whose seat this is:\n",
+        file=sys.stderr,
+    )
+    for v in violations:
+        print(v, file=sys.stderr)
+    print(
+        "\nEach of these passes from the seat that wrote it and serves one\n"
+        "person's data to another everywhere else. Use divineos_home() in\n"
+        "Python or the _lib.sh helper in shell; member_home(name) when you\n"
+        "mean somebody specific. If the state is genuinely shared, say so on\n"
+        "the line with `# shared-by-design: <why>` and this stands aside.",
+        file=sys.stderr,
+    )
+    return 0 if args.warn_only else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

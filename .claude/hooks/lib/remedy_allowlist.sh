@@ -52,14 +52,26 @@ except Exception:
   if printf '%s' "$cmd" | grep -qE "$_REMEDY_PATTERNS"; then
     # Allow, and leave a trace. A silent allowlist rots into an unexamined
     # hole; the log is what keeps it auditable.
-    local _remedy_home
+    local _remedy_home=""
     if command -v divineos_home >/dev/null 2>&1; then
       _remedy_home="$(divineos_home)"
-    else
-      # Loud, never silent — a quiet fallback here once sent one member's
-      # audit trail into another member's directory for weeks.
-      echo "  [remedy_allowlist] divineos_home unavailable; audit trail falling back to the default home" >&2
-      _remedy_home="$HOME/.divineos"
+    fi
+    if [ -z "$_remedy_home" ]; then
+      # NO GUESS, and this replaced a loud one. The old branch fell back to
+      # the bare default home with a warning beside it, which was still the
+      # defect wearing a notice: that directory belongs to one particular
+      # member, so the fallback filed one member's audit trail under another
+      # member's name and announced it to a stream nobody re-reads.
+      #
+      # Unlike member_home below, nobody has told this function whose seat it
+      # is in -- it is ASKING. So there is nothing to fall back to. Skipping
+      # costs this one row; guessing puts a wrong row in somebody's permanent
+      # record where it reads as theirs forever.
+      #
+      # Found by the seat-hardcode check within an hour of writing that check,
+      # on a line written this morning by the same person.
+      echo "  [remedy_allowlist] divineos_home unavailable — remedy ALLOWED but NOT logged, because a guessed home files this under the wrong member" >&2
+      exit 0
     fi
     mkdir -p "$_remedy_home" 2>/dev/null
     printf '%s\t%s\t%s\n' \

@@ -290,6 +290,22 @@ if ! python scripts/check_silent_swallow.py; then
     note_fail
 fi
 
+# 5b. Lines that decide whose seat the code is standing in (2026-09-20).
+#
+# Eleven instances found in one day, plus one more pointing the other way,
+# and every one of them correct in the tree its author was sitting in. The
+# May audit had already named the class; a named class with no check is a
+# class you rediscover.
+#
+# WARN-ONLY ON PURPOSE, and this is a relational choice rather than a
+# technical one. Making it blocking would gate a push in the other member's
+# window on the strength of a matcher written this afternoon, without his
+# having seen it fire once. He gets to watch it for a while and say whether
+# the shape is right; it becomes blocking when we both want it to. That
+# conversation is cheaper before the first false refusal than after it.
+section "Seat Hardcodes (advisory)"
+python scripts/check_seat_hardcode.py --warn-only || true  # fail-soft: advisory by design until both members have seen it run; the flag already returns 0 and this guards a crash in the check itself
+
 # 5a2. A test's SETUP must not reach outside its sandbox (2026-08-25).
 # A fixture junctioned the real .venv into a temp repo so the gate under test
 # would find an interpreter; pytest's temp cleanup then walked the junction and

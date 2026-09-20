@@ -39,9 +39,26 @@
 #
 #   member_home <member-slug> [python-bin]
 member_home() {
-  local member="${1:-aether}"
+  local member="${1:-}"
   local py="${2:-}"
   local out=""
+
+  # THE DEFAULT WAS A MEMBER'S NAME until 2026-09-20, so a caller that forgot
+  # the argument silently received one particular person's home and never knew
+  # it had asked a question nobody answered. In the helper written to solve
+  # exactly that class -- which is the whole lesson of the day: the hardcode
+  # arrives where the author is concentrating hardest, and it is correct from
+  # their chair.
+  #
+  # Refusing is right HERE and would be wrong in divineos_home(), and the
+  # difference is who is supposed to know. This function is told whose home to
+  # return; if nobody told it, the question is unanswered and inventing an
+  # answer is worse than saying so. divineos_home() is the one doing the
+  # knowing, from the environment and the checkout marker.
+  if [ -z "$member" ]; then
+    echo "  [member_home] called with no member — refusing to guess. Say whose home you mean, or use divineos_home() for the seat you are standing in." >&2
+    return 1
+  fi
 
   if [ -z "$py" ] && command -v find_divineos_python >/dev/null 2>&1; then
     py="$(find_divineos_python 2>/dev/null)"  # fail-soft: the helper narrates its own probing on stderr and that noise is not this caller's business; an empty result falls through to the plain python3/python probe below, and total failure is announced loudly at the end
