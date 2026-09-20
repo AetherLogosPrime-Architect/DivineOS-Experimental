@@ -94,6 +94,33 @@ for arg in "$@"; do
     esac
 done
 
+# A REFSPEC HAS TWO HALVES AND THIS READ ONLY ONE. Pushing
+# `HEAD:some-branch` left the whole string as the branch name, so the local
+# lookup asked for a path inside a commit and the remote lookup asked for a
+# ref with a colon in its name. Both found nothing, and the wrapper announced
+# that the remote ref was missing after a push that claimed success.
+#
+# It had landed. Verified by fetching and comparing by hand, which is the only
+# reason I know. So this tool -- whose entire purpose is that its verdict
+# matches reality -- reported a clean push as a failure the first time it was
+# called with an ordinary git form it had simply never seen.
+#
+# FAILING SAFE IS NOT THE SAME AS BEING RIGHT. The direction was lucky: it
+# cried failure over a success rather than the reverse, so nobody would ship
+# on a false green. But a refusal nobody can trust gets re-run or ignored, and
+# both of those end with the verdict carrying no information.
+#
+# Split the halves: the left names what is being sent and is resolved locally,
+# the right names where it lands and is what the remote is asked for. With no
+# colon both are the same string, which is the ordinary case and unchanged.
+PUSH_SOURCE="$TARGET_BRANCH"
+case "$TARGET_BRANCH" in
+    *:*)
+        PUSH_SOURCE="${TARGET_BRANCH%%:*}"
+        TARGET_BRANCH="${TARGET_BRANCH##*:}"
+        ;;
+esac
+
 # Run the actual push. NO pipe — let the output go through unmodified.
 # This is the only way to preserve exit code without arithmetic on
 # PIPESTATUS or pipefail (both of which have their own subtle gotchas
@@ -159,11 +186,13 @@ if [[ -z "$TARGET_BRANCH" ]]; then
     exit 0
 fi
 
-LOCAL_SHA="$(git rev-parse "$TARGET_BRANCH" 2>/dev/null)"
+# Resolve the LEFT half of the refspec -- what is being sent. With no colon
+# this is the same string as the destination, which is the ordinary case.
+LOCAL_SHA="$(git rev-parse "$PUSH_SOURCE" 2>/dev/null)"  # fail-soft: an unresolvable source is reported as UNVERIFIED two lines below rather than swallowed, so the error text would only duplicate a verdict the caller already gets in words
 if [[ -z "$LOCAL_SHA" ]]; then
     echo ""
-    echo "[divineos-push] result: exit=0 (PUSHED+UNVERIFIED, local ref '$TARGET_BRANCH' missing)"
-    say_verdict "PUSHED+UNVERIFIED exit=0 -- local ref '$TARGET_BRANCH' missing, so no comparison was possible"
+    echo "[divineos-push] result: exit=0 (PUSHED+UNVERIFIED, local ref '$PUSH_SOURCE' missing)"
+    say_verdict "PUSHED+UNVERIFIED exit=0 -- local ref '$PUSH_SOURCE' missing, so no comparison was possible"
     exit 0
 fi
 
