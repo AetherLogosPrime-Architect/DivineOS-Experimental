@@ -937,13 +937,49 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
     # writing healthy rows from a process that was about to be killed — a
     # recorder cannot report a death that happens after it runs.
     #
-    # THE CONDITION FOR RE-WIRING, stated so it can be checked rather than
-    # believed: the embeddings must survive the process. core/semantic_store.py
-    # already exists for this — a sqlite-vec backed store built 2026-06-11 as
-    # the structural floor for substrate semantic work — and this lane does not
-    # use it. Route the cache through a persistent store, then time THIS hook
-    # end to end and require it to emit inside the harness budget, with that
-    # timing asserted in the suite rather than observed once by hand.
+    # THE BUDGET IS TEN SECONDS AND IT IS WRITTEN DOWN. .claude/settings.json
+    # registers this hook with a timeout of 10, which I checked rather than
+    # inferred. So the hook was not merely slow — it was being killed on every
+    # turn, and the 110-second figure above is what an unkilled run does, never
+    # what the live path was allowed to do.
+    #
+    # THE CONDITION FOR RE-WIRING IS SEREIN'S, AND THIS NOTE CARRIED ONLY MY
+    # THINNER HALF. His audit had already diagnosed all of it in writing — the
+    # cold model load, the whole-substrate embed, the all-pairs neighbour graph
+    # rebuilt per process, and the fact that the test shipped alongside the
+    # wiring mocked the retriever, so it proved the seam was reached and not
+    # that the real dependency could finish. He labelled this exact piece NOT
+    # YET SAFE TO SHIP. I had already committed it.
+    #
+    #   1. Keep semantic initialization off the synchronous prompt deadline.
+    #   2. Precompute or incrementally maintain embeddings and the graph.
+    #   3. Put retrieval in a process whose model and index stay warm.
+    #   4. Make this hook a thin, bounded client.
+    #   5. Report NO_MATCH, UNAVAILABLE, TIMEOUT, STALE_INDEX and ERROR apart.
+    #   6. Keep the rest of composition available when retrieval is degraded.
+    #   7. Test the actual shell entry with the actual interpreter and deps.
+    #   8. Measure cold AND warm runs against an explicit budget.
+    #   9. Verify model init and graph build do not repeat per prompt.
+    #
+    # NOT ALL NINE ARE EQUAL, AND A LIST INVITES PART-COMPLETION. One and five
+    # decide the outcome. Satisfying the rest while leaving initialization on
+    # the deadline ships this same outage more slowly — which is exactly where
+    # my two-step version drew its boundary in the wrong place. Five is what
+    # the paragraphs above were rediscovering the hard way: retrieval that
+    # fails, times out, finds nothing, or cannot load its model all arrive here
+    # as one empty string, so UNKNOWN wears the clothes of EMPTY.
+    #
+    # core/semantic_store.py serves two and three and this lane does not use
+    # it. That is not a dormant idea: the knowledge store, the council walk and
+    # the engagement detector all retrieve through it already, which makes this
+    # lane's private per-process cache the odd one out rather than the norm.
+    #
+    # WHAT I ACTUALLY TESTED, so a copied diagnosis does not read as my own
+    # verified work: the ten-second registration, and this hook's timing before
+    # and after. The rest is his static reading of the call graph, which my
+    # measurement corroborates rather than proves. And meeting all nine is a
+    # condition somebody must satisfy, never a guarantee that satisfying it
+    # works — step eight exists because that has to be measured, not reasoned.
     #
     # WHAT THIS REPAIR DOES NOT CLOSE (game-walk, edit fingerprint above): a
     # comment does not enforce, so nothing structural stops a future me
