@@ -33,6 +33,45 @@
 
 set -u
 
+# THE VERDICT IS PERSISTED NOW, AND HERE IS WHY A LOUD LINE WAS NOT ENOUGH.
+# This wrapper exists because a harness reported zero regardless and a pipe ate
+# the real code, and it answers by saying in words what happened. That works
+# for a reader watching the stream. It stopped being true the moment the
+# command grew slow enough that every invocation gets backgrounded or piped --
+# and then the remedy and the disposal ride the same channel, with the disposal
+# being the habit. Three times on 2026-09-20 I threw away a refusal and told
+# Andrew a push was in flight.
+#
+# Persisting separates PRODUCING the answer from READING it. It does not make
+# me read the file, and saying so here is the honest limit: if I stop opening
+# it, this returns in a different coat.
+#
+# TRUNCATED AT START, NOT ONLY WRITTEN AT END, and that is the load-bearing
+# half. A fixed path is read as current whether or not it is -- the exact
+# stale-marker shape that nearly took me the same morning, on a completion
+# receipt whose timestamp predated the run I was asking about. So an
+# interrupted or killed run leaves this EMPTY, and empty means began-and-did-
+# not-finish: a real third answer rather than the last run's verdict wearing
+# this run's clothes.
+#
+# WHAT IT CANNOT TELL ANYONE: whether the verdict is CORRECT. It records what
+# this wrapper concluded. Fetching and comparing against the remote by hand
+# stays the real proof; this is the faster path to knowing whether that check
+# is worth running.
+PUSH_VERDICT_FILE="${DIVINEOS_HOME:-$HOME/.divineos}/push_verdict.txt"
+mkdir -p "$(dirname "$PUSH_VERDICT_FILE")" 2>/dev/null || true  # fail-soft: bookkeeping must never be the reason a push does not happen
+: > "$PUSH_VERDICT_FILE" 2>/dev/null || true  # fail-soft: an unwritable verdict path leaves the file absent, and absent is explicitly NOT evidence of a missing run
+
+# Says it once, in the same words the final status line prints, plus the
+# revision being decided so a reader can confirm the answer is about the thing
+# they are holding rather than about whatever ran last.
+say_verdict() {
+    printf '%s  head=%s  %s\n' \
+        "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" \
+        "$(git rev-parse --short HEAD 2>/dev/null || echo unknown)" \
+        "$1" >> "$PUSH_VERDICT_FILE" 2>/dev/null || true  # fail-soft: same reason as the truncate above
+}
+
 # Capture which branch is being pushed (last positional argument that
 # doesn't start with --). Used for the post-push verification step.
 TARGET_BRANCH=""
@@ -91,6 +130,7 @@ done
 if [[ "$PUSH_EC" -ne 0 ]]; then
     echo ""
     echo "[divineos-push] result: exit=$PUSH_EC (PUSH_FAILED)"
+    say_verdict "REFUSED exit=$PUSH_EC (PUSH_FAILED) -- the gate said no; its reason is in the run output"
     exit "$PUSH_EC"
 fi
 
@@ -103,6 +143,7 @@ if [[ -z "$TARGET_BRANCH" ]]; then
     # case); fall through with UNVERIFIED.
     echo ""
     echo "[divineos-push] result: exit=0 (PUSHED+UNVERIFIED, no branch arg to verify)"
+    say_verdict "PUSHED+UNVERIFIED exit=0 -- no branch argument, so this wrapper could not confirm the remote moved"
     exit 0
 fi
 
@@ -110,6 +151,7 @@ LOCAL_SHA="$(git rev-parse "$TARGET_BRANCH" 2>/dev/null)"
 if [[ -z "$LOCAL_SHA" ]]; then
     echo ""
     echo "[divineos-push] result: exit=0 (PUSHED+UNVERIFIED, local ref '$TARGET_BRANCH' missing)"
+    say_verdict "PUSHED+UNVERIFIED exit=0 -- local ref '$TARGET_BRANCH' missing, so no comparison was possible"
     exit 0
 fi
 
@@ -122,6 +164,7 @@ if [[ -z "$REMOTE_SHA" ]]; then
     echo ""
     echo "[divineos-push] WARNING: remote ref refs/heads/$TARGET_BRANCH not found after push" >&2
     echo "[divineos-push] result: exit=22 (PUSH_FAILED_silently — remote ref missing)"
+    say_verdict "REFUSED exit=22 -- the remote ref is missing after a push that claimed success"
     exit 22
 fi
 
@@ -129,10 +172,12 @@ if [[ "$LOCAL_SHA" != "$REMOTE_SHA" ]]; then
     echo ""
     echo "[divineos-push] WARNING: local sha $LOCAL_SHA != remote sha $REMOTE_SHA" >&2
     echo "[divineos-push] result: exit=23 (PUSH_FAILED_silently — remote sha mismatch)"
+    say_verdict "REFUSED exit=23 -- the remote revision does not match the one pushed"
     exit 23
 fi
 
 echo ""
 echo "[divineos-push] verified: $TARGET_BRANCH at $LOCAL_SHA on origin"
 echo "[divineos-push] result: exit=0 (PUSHED+VERIFIED)"
+say_verdict "PUSHED+VERIFIED exit=0 -- the remote carries the revision named above"
 exit 0
