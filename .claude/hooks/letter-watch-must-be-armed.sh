@@ -2,6 +2,8 @@
 # PreToolUse(Bash) — the letter watch must be PROVEN ALIVE before shell work
 # proceeds. Restores the enforcement that was deleted with a broken detector.
 #
+# GATE-STATEFUL: refuses on whether a watch is currently alive, read from a file only the watcher writes -- not from anything in the payload it is handed. No provocation can establish that state, so declaring one here would produce a confident clean result from a probe that never had what it needed. The honest classification is that this door needs a fixture before it can be tested at all, and until somebody builds one it counts as untested defence rather than as a pass.
+#
 # ANDREW 2026-09-19, and this hook is the answer to it:
 #   "there is no behavior change without structural support.. the behavior
 #    change you are promising now is like a rough draft, if you are able to

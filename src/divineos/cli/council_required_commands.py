@@ -129,6 +129,18 @@ def register(cli: click.Group) -> None:
         help="External actor (Andrew/Aletheia) — required for kiln-layer edits",
     )
     @click.option("--actor", default="agent", help="Walker identity")
+    @click.option(
+        "--scope",
+        "scope_arg",
+        default="",
+        help=(
+            "Other edit fingerprints this SAME walk covers, comma-separated. "
+            "For when one piece of thinking spans several files -- the job, "
+            "not the file. Each named edit is cleared once. Names are exact; "
+            "there is no prefix or directory form, so a walk can never reach "
+            "a file nobody listed."
+        ),
+    )
     def cmd_log(
         edit_fp: str,
         lenses: str,
@@ -136,6 +148,7 @@ def register(cli: click.Group) -> None:
         synthesis: str,
         confirmed_by: str,
         actor: str,
+        scope_arg: str,
     ) -> None:
         """Write a council walk record. Substance-binding runs at log-time;
         rejected walks emit a COUNCIL_WALK_REJECTED event rather than a
@@ -151,6 +164,7 @@ def register(cli: click.Group) -> None:
             lens_findings=tuple(findings),
             synthesis=synthesis,
             confirmed_by=confirmed_by or None,
+            scope_fingerprints=tuple(name.strip() for name in scope_arg.split(",") if name.strip()),
         )
         keywords = _load_expert_keywords()
         # Kiln detection is best-effort here — the CLI does not have the

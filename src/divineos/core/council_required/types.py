@@ -356,6 +356,34 @@ class CouncilRecord:
     synthesis: str  # cross-lens integration text
     confirmed_by: str | None = None  # populated for kiln-layer; Andrew/Aletheia
     consumed_at: float | None = None  # consume-on-use marker (Catch 2)
+    # THE JOB THIS WALK COVERS, enumerated at filing time (Andrew 2026-09-20).
+    #
+    # Empty means self-only: the record clears exactly the fingerprint it was
+    # filed against, which is every walk ever written before this field
+    # existed. Nothing already in the ledger widens retroactively, because
+    # absent and self-only are deliberately the same value.
+    #
+    # WHY IT EXISTS. The ceremony binds to an artifact when the thinking binds
+    # to a JOB. Declaring a behaviour-check on each guard in this house is one
+    # piece of reasoning applied to many files, and one-walk-per-file turned it
+    # into six walks for a single file, the last two about a comment. Andrew,
+    # seeing that: "you are applying the ceremony to each individual piece when
+    # you could be applying it to the entire job at once."
+    #
+    # WHY IT DOES NOT REOPEN THE HAZARD THIS MODULE ALREADY NAMES. The closed
+    # door is a walk clearing edits it never contemplated -- the shell-write
+    # case, where one walk against two words of shell would have cleared every
+    # heredoc write in the tree, failing by permitting while looking healthy.
+    # Membership here is EXACT STRING EQUALITY against names a person typed
+    # when filing. There is no prefix, no directory, no pattern. A scope cannot
+    # reach a file nobody listed, and the per-edit content-overlap check still
+    # runs, so a file the walk never engages with fails on its own terms.
+    #
+    # THE LEAK, left open and named: enumerating is cheap and thinking is not,
+    # so a wide thin scope passes exactly like a wide honest one and nothing
+    # measures the ratio. Only a reader can tell them apart, which is why the
+    # list lives on the record where an auditor meets it.
+    scope_fingerprints: tuple[str, ...] = ()
 
     @property
     def synthesis_token_count(self) -> int:
