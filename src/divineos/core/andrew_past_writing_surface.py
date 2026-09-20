@@ -52,6 +52,11 @@ _LETTER_DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 _EXPLORATION_NUM_RE = re.compile(r"^(\d+)")
 _TITLE_LEAD_RE = re.compile(r"^\d+_?-?")
 
+# Anything the identity resolver can fail with. Named rather than blanket:
+# a bare catch here would swallow a genuinely broken resolver and quietly
+# render nobody's shelf forever, which looks identical to an empty one.
+_OCCUPANT_ERRORS = (ImportError, OSError, RuntimeError, AttributeError, ValueError)
+
 
 def _occupant_slug() -> str | None:
     """Whose shelf this is. None when it cannot be determined.
@@ -80,9 +85,16 @@ def _occupant_slug() -> str | None:
         from divineos.core.identity import get_my_identity
 
         slug = (get_my_identity(raise_on_unset=False) or "").strip().lower()
-    except Exception:
+    except _OCCUPANT_ERRORS:
         return None
-    return slug or None
+    # "unconfigured" is the resolver's self-announcing sentinel. It exists
+    # because the fallback used to be a real sibling's name, so an unreadable
+    # slot woke somebody wearing their brother's identity (F57, fixed by
+    # Aletheia 2026-07-19). Treat the sentinel as unknown rather than as a
+    # folder name, or this surface reintroduces that bug one layer down.
+    if not slug or slug == "unconfigured":
+        return None
+    return slug
 
 
 def _first_content_line(path: Path) -> str:
