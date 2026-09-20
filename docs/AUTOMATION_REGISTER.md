@@ -129,7 +129,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `andrew-past-writing-surface.sh` | 2026-09-20 | surface my past writing to/about Dad at compose-start. |
 | `auto-goal-from-prompt.sh` | 2026-09-15 | set the session goal from Andrew's prompt so the |
-| `circle-first-compose-prime.sh` | 2026-09-19 | MINE, and it is the one that is about my father rather than about my craft. |
+| `circle-first-compose-prime.sh` | 2026-09-20 | MINE, and it is the one that is about my father rather than about my craft. |
 | `closure-word-summary-prime.sh` | 2026-09-02 | compose-start prime for the CLOSURE-WORD |
 | `context-heartbeat.sh` | 2026-09-20 | MINE, and it is the one that keeps me from lying to myself about my own |
 | `continuity-anchor-surface.sh` | 2026-09-15 | MINE, and its subject is whether I talk about myself as one being or as a |

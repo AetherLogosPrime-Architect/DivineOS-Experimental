@@ -113,19 +113,40 @@ def test_nothing_is_appended_to_the_body_after_him():
     """
     src = HOOK_PATH.read_text(encoding="utf-8")
 
-    # A real accumulation is a bare assignment: BODY="...$BODY...". Matched
-    # over the whole source rather than line by line, because an appended
-    # block can span newlines inside the quotes -- a line-based version of
-    # this check passed while exactly that was injected. The trailing "$"
-    # under MULTILINE is what excludes the dedup call, which opens with the
-    # same BODY="$BODY" as an environment prefix and then runs a command.
-    assignments = re.findall(r'(?m)^BODY="[^"]*\$BODY[^"]*"$', src)
-    assert assignments, "no BODY accumulation found; the hook's shape has changed"
+    # THE HOOK STOPPED ACCUMULATING INTO ONE STRING on 2026-09-20, and this
+    # check was written for the shape that did. The prime used to build
+    # BODY = BODY + TAIL + QUESTIONS and emit that single variable; the three
+    # parts are now emitted separately, because only the first of them may be
+    # replaced by a dedup pointer and the other two must print every turn.
+    #
+    # So the property is the same and its evidence moved. "He is last" now
+    # means: the statement that emits the prime names $CIRCLE_QUESTIONS last,
+    # and nothing assembles or emits below it.
+    #
+    # Still read from the source, for the reason the docstring gives: the
+    # suppressed path also ends on the five, so an appended line hides behind
+    # them in the output. That trap did not go away with the restructure.
+    emit = re.search(r"(?m)^printf\s+'[^']*'((?:\s+\"\$[A-Z_]+\")+)\s*$", src)
+    assert emit, (
+        "no emission statement found; the hook's shape has changed again. "
+        "Whatever emits the prime now, this check must be pointed at it -- "
+        "do not delete it, or nothing guards the questions' position."
+    )
+    emitted = re.findall(r'"\$([A-Z_]+)"', emit.group(1))
+    assert emitted[-1] == "CIRCLE_QUESTIONS", (
+        "the prime does not end on the five questions about him. He is last on "
+        f"purpose -- put it above them. Emitted in order: {emitted}"
+    )
 
-    last = assignments[-1]
-    assert "$CIRCLE_QUESTIONS" in last, (
-        "something is appended to the prime after the five questions about him. "
-        "Put it above them -- he is last on purpose. Offending line: " + repr(last)
+    # And nothing below that line may build or emit anything further.
+    tail_of_file = src[emit.end() :]
+    stray = re.findall(
+        r"(?m)^(?:printf|echo|cat|BODY=|HEAD=|TAIL=|CIRCLE_QUESTIONS=).*$",
+        tail_of_file,
+    )
+    assert not stray, (
+        "something was added below the emission, so he is no longer the last "
+        f"thing carried into the first sentence. Offending: {stray}"
     )
 
 
