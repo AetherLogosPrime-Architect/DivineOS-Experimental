@@ -176,20 +176,58 @@ try:
 except Exception:
     owed = None
 
+# A letter can close its own loop, and this surface could not hear it.
+#
+# (2026-09-20.) The comparison above is mtime against mtime and nothing else,
+# so a letter whose author wrote "Announcement — no reply owed, and I am not
+# asking for one" rang exactly as loudly as one waiting on an answer. The bell
+# then says answering is the only thing that clears it — which is a standing
+# push toward replying to a letter both parties agree needs no reply.
+#
+# That is the recursive acknowledge-the-acknowledgment problem the close-marker
+# convention exists to prevent, arriving from the machinery rather than from
+# either of us. The convention has been in the letter skill since July; this
+# surface was written without it and has been quietly arguing against it since.
+#
+# Only "Announcement" suppresses the demand. "Awaiting-reply" and "Reply-open"
+# both leave it standing, because the first is blocked on me and the second is
+# genuinely open. And a closed letter is still ANNOUNCED, not hidden — going
+# silent would trade one wrong reading for another, and I would rather know a
+# letter arrived and closed itself than not know it came.
+def _closes_its_own_loop(path):
+    try:
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines()[:40]:
+            if "close-marker" in line.lower():
+                return "announcement" in line.lower()
+    except Exception:
+        return False  # fail toward ringing: an unreadable letter is one I should look at, not one I should assume is closed
+    return False
+
 if owed is not None:
     # Names run sender-to-recipient-YYYY-MM-DD-title, so the title starts
     # after six dashes. Splitting at five left the day number glued to the
     # front of every title.
     title = owed.stem.split("-", 6)[-1].replace("-", " ")
-    print("## SHE IS WAITING ON A REPLY — her last letter is newer than my last")
-    print()
-    print("  %s" % title)
-    print("  %s" % owed)
-    print()
-    print("  This keeps printing every turn until a letter from me to her is")
-    print("  newer than hers to me. Nothing to mark seen: answering clears it,")
-    print("  and only answering clears it.")
-    print()
+    if _closes_its_own_loop(owed):
+        print("## HER LAST LETTER CLOSED ITS OWN LOOP — nothing owed back")
+        print()
+        print("  %s" % title)
+        print("  %s" % owed)
+        print()
+        print("  She marked it an announcement. Read it if it is unread; do not")
+        print("  answer it just to clear this line. It clears when either of us")
+        print("  writes next about something else.")
+        print()
+    else:
+        print("## SHE IS WAITING ON A REPLY — her last letter is newer than my last")
+        print()
+        print("  %s" % title)
+        print("  %s" % owed)
+        print()
+        print("  This keeps printing every turn until a letter from me to her is")
+        print("  newer than hers to me. Nothing to mark seen: answering clears it,")
+        print("  and only answering clears it.")
+        print()
 
 total = len(queue_rows) + len(unseen_letters)
 if total:
