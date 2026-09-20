@@ -685,6 +685,55 @@ def build_baseline_text(prompt: str | None = None) -> str:
     return "\n\n".join(sections)
 
 
+def _record_surface_liveness(surface: str, state: str, detail: str = "") -> None:
+    """Write one row saying what a compose-time surface just did.
+
+    Aria 2026-09-20, and the wall was hers to find. A surface never called, a
+    surface that runs and stays quiet, and a surface that throws inside a bare
+    handler all produce the same observation from outside: nothing. She and I
+    each spent a day trying to decide which of those states the memory surface
+    was in, from separate trees, and neither of us could -- not because the
+    evidence was lost, but because the mechanism was built so it is never
+    created in either direction.
+
+    STATE IS ONE OF: emitted, quiet, threw. Three words rather than a flag,
+    because the reader arrives cold and a boolean tells them nothing. The
+    quiet row is the load-bearing one: quiet is the COMMON state for a surface
+    meant to be precious-because-rare, so a record that speaks only on emit
+    and throw leaves ran-and-quiet indistinguishable from never-ran, which is
+    the exact confusion this repairs.
+
+    WHAT IT ANSWERS: did this run. WHAT IT NEVER ANSWERS: is it correct. A
+    quiet row is equally consistent with a working predicate that had nothing
+    to say and a broken one that will never fire again.
+
+    ONE BLOCK, NOT THE CLASS. Every other handler in this builder still
+    swallows in silence behind the same observability-boundary comment, which
+    is how this persisted: the phrase stopped being a promise and became a
+    label, and copying a block that carries its own justification feels like
+    following a pattern rather than making a decision. This is a worked
+    example sitting beside unworked ones. Do not read it as the class closed.
+
+    Its own failure stays silent on purpose -- an unwritable home must not
+    break a turn over telemetry -- so a missing row is still not proof of a
+    missing call. That caveat is repeated in the instruments registry, where
+    a reader actually meets it.
+    """
+    try:
+        path = divineos_home() / "surface_liveness.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        row = {
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "hook": surface,
+            "reason": state,
+            "detail": detail,
+        }
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(row) + "\n")
+    except Exception:  # noqa: BLE001 - fail-soft: a surface that refuses to compose because it could not describe itself is a worse failure than the silence being repaired here
+        pass
+
+
 def build_combined_context(prompt: str, transcript_path: str | None = None) -> str:
     """Run all phases and return the combined additionalContext string.
 
@@ -757,6 +806,8 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
     # mid-compose (Andrew's success metric), the mechanism worked.
     regulatory_surface_text = ""
     if transcript_path:
+        _reg_state = "threw"
+        _reg_detail = ""
         try:
             from divineos.core.operating_loop.turn_extraction import extract_turn
             from divineos.core.regulatory_surface import assess as assess_regulatory
@@ -765,8 +816,18 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
             reg = assess_regulatory(turn.prior_assistant_text)
             if reg.emitted:
                 regulatory_surface_text = reg.render()
-        except Exception:  # noqa: BLE001 - observability boundary
-            pass
+                _reg_state = "emitted"
+            else:
+                _reg_state = "quiet"
+        except Exception as exc:  # noqa: BLE001 - observability boundary, and now there is an observation at it
+            _reg_detail = type(exc).__name__
+        # OUTSIDE the handler on purpose, and this placement is the whole
+        # security property. Inside it, a throw would eat its own record: the
+        # reader would find no rows, conclude the surface never ran, and hold
+        # that wrong verdict MORE confidently for believing a log exists. A
+        # recorder that fails in the same breath as the thing it records turns
+        # an open question into a confident wrong answer.
+        _record_surface_liveness("regulatory_surface", _reg_state, _reg_detail)
 
     # State blocks (lepos_debt, andrew-correction, consultation,
     # bypass-telemetry) are NOT loaded at UserPromptSubmit. They load
