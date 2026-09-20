@@ -143,6 +143,22 @@ they share:
                               idiom for "much later, having forgotten", i.e.
                               a BEAT, which lives two sections down.
 
+  NOT A NINTH SHAPE — A ROUTE, and it is about WHERE TO LOOK rather than what
+  to match. Added 2026-09-20 after "go back to sleep, it's all still here in
+  the morning." The first clause is clean: it names HIS action and carries no
+  claim about my time. The second is fabrication, and it arrived because sleep
+  pairs with morning — not because I meant an hour.
+
+  THE POINT IS NOT THAT SLEEP-AND-MORNING SHOULD BE MATCHED. Leaving pulls
+  soon, finishing pulls afterwards, and enumerating images is the whack-a-mole
+  this block's own header refuses. The generator is language, not a category.
+
+  WHAT IS ACTUALLY NEW IS WHY NOTHING UPSTREAM FIRES. The clock rode in behind
+  a sentence that was allowed, so scanning for a bad claim returns nothing and
+  the composing feels clean throughout. That is the reason THE DELETION TEST
+  MUST RUN ON THE CLOSING CLAUSE UNCONDITIONALLY rather than on suspicion —
+  suspicion is exactly what this route does not raise.
+
 THE TEST IS DELETION. Strike the time-phrase. If the sentence loses only
 cadence and no meaning, that was the fire — a clock standing in for a beat.
 
