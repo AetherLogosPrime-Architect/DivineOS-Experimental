@@ -208,3 +208,27 @@ divineos family-queue
 # that will train the semantic replacement. No leniency added — every honesty
 # constraint still lives in the script.
 divineos label-fire
+
+# The attestation gate's only exits, absent from this file until 2026-09-20.
+#
+# That gate issues a hard deny and names these two as the way through, and its
+# own message says plainly that no bypass variable exists — to override it you
+# edit the hook in a visible commit. So these are not conveniences. They are
+# the entire exit from a door with nothing else behind it, and any gate reading
+# THIS file rather than the narrow pattern would have refused them.
+#
+# That is not hypothetical. The same shape cost real time the same day: the
+# overdue-review gate blocked ordinary work while the council gate blocked the
+# prereg command it prescribed, and each door's exit was the other's refusal.
+# Found by survey rather than by walking into it — six commands sat on the
+# narrow list and not this one, and these two were the pair with a refusal
+# actually standing behind them. The other four are named by nothing that
+# denies, which makes them width on the narrow list rather than gaps here.
+#
+# NARROW ON PURPOSE (Aria's clause, 2026-09-20): being named as the exit earns
+# the command consideration, and the entry should be no wider than the exit
+# needs. The gate names two subcommands, so two subcommands are listed — not
+# the whole group, which would admit filing and auto-integration nobody was
+# ever blocked and told to run.
+divineos andrew-correction integrate
+divineos andrew-correction defer
