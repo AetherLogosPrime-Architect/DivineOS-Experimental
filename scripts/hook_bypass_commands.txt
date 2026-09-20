@@ -232,3 +232,25 @@ divineos label-fire
 # ever blocked and told to run.
 divineos andrew-correction integrate
 divineos andrew-correction defer
+
+# The draft-gate's replacement command, found by reading rather than scanning.
+#
+# That gate refuses a bare ready-flip outright and its message says "Use
+# instead:" followed by this command — a blocked actor told exactly what to run
+# to proceed, which is the definition this file works to. It was on neither
+# list.
+#
+# HOW IT WAS NEARLY MISSED, which matters more than the entry. I wrote a
+# matcher to decide which candidates were named as exits, and it reported this
+# one clean. It also reported that the attestation gate does not name its own
+# read-command, which is false — I had read that message myself minutes
+# earlier. One demonstrated false negative makes every clean result unproven,
+# so the matcher was abandoned and the remaining candidates were read by hand.
+# This is the one the reading caught and the scanning did not.
+#
+# The refusal messages have no common shape to match on: some name the exit
+# after "Use instead", some name the failing check as the REASON for the block,
+# some merely mention a command while explaining themselves. There is no
+# registry of refusal-exits to ask, which is why this is reading work and was
+# always going to be.
+divineos stamp-ready
