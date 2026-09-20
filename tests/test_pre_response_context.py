@@ -19,6 +19,7 @@ from divineos.core.pre_response_context import (
     build_warning_text,
     run_surfacer,
 )
+from divineos.core.memory_linkage import MemoryLinkagePayload
 
 
 def test_build_baseline_text_returns_string() -> None:
@@ -124,3 +125,51 @@ def test_build_combined_context_returns_string() -> None:
     """The convenience function returns a string."""
     out = build_combined_context("test prompt longer than five characters")
     assert isinstance(out, str)
+
+
+def test_live_compose_path_calls_v2_memory_linkage_and_renders_pointer() -> None:
+    """The real compose path must ask memory, not only the mock seam test.
+
+    Regression for the installed-but-unplugged failure: v2, its install seam,
+    and renderer all existed while no production caller invoked them.
+    """
+    payload = MemoryLinkagePayload(
+        source="knowledge",
+        id="lunkhead-wrong-referent",
+        tier="topic",
+        similarity=0.81,
+        recency_days=0,
+        importance_score=0.8,
+        composite_rank=0.79,
+        title="The patient is healthy; we examined his neighbor",
+        content=(
+            "Valid evidence can support the wrong referent. Verify the active "
+            "runtime, checkout, data home, process, or ledger before accepting green."
+        ),
+        matched_reason="semantic causal-shape match",
+    )
+
+    from divineos.core import memory_linkage
+
+    original_retriever = memory_linkage._ACTIVE_RETRIEVER
+    try:
+        with (
+            patch(
+                "divineos.core.memory_linkage_retriever_v2.retrieve_v2",
+                return_value=[payload],
+            ) as retrieve,
+            patch(
+                "divineos.core.context_dedup.should_emit",
+                return_value=(True, None),
+            ),
+        ):
+            out = build_combined_context(
+                "The dashboard is green, but which process supplied its data?"
+            )
+    finally:
+        memory_linkage.set_retriever(original_retriever)
+
+    retrieve.assert_called_once()
+    assert "PRIOR SUBSTRATE — knowledge / topic" in out
+    assert "The patient is healthy; we examined his neighbor" in out
+    assert "wrong referent" in out

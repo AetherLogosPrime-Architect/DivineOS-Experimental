@@ -850,6 +850,57 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
     except Exception:  # noqa: BLE001 - observability boundary
         pass
 
+    # General memory-linkage surface — the ordinary associative lane.
+    #
+    # The producer, v2 ranking/priming engine, renderer, and mock seam all
+    # existed, but no production composition path installed or called them.
+    # Tests proved that a handset could connect to a mock exchange; no live
+    # caller proved the handset was plugged into the wall. Bind v2 here and
+    # carry its bounded pointers into the same UserPromptSubmit context that
+    # the real hook emits. This is distinct from regulatory_surface above:
+    # regulatory retrieval is flood-triggered and priming-immune; this lane is
+    # ordinary relevance plus bounded spreading activation.
+    memory_linkage_text = ""
+    try:
+        from divineos.core.memory_linkage import render_payload, retrieve_for_context
+        from divineos.core.memory_linkage_retriever_v2 import install as install_memory_linkage
+
+        memory_convo = ""
+        if transcript_path:
+            try:
+                from divineos.core.operating_loop.turn_extraction import (
+                    recent_turns_text as _memory_recent_turns_text,
+                )
+
+                memory_convo = _memory_recent_turns_text(transcript_path)
+            except Exception:  # noqa: BLE001 - observability boundary
+                memory_convo = ""
+        install_memory_linkage()
+        payloads = retrieve_for_context(prompt, memory_convo or None)
+        rendered_payloads = [render_payload(payload) for payload in payloads]
+        memory_linkage_text = "\n\n".join(rendered for rendered in rendered_payloads if rendered)
+        if memory_linkage_text:
+            try:
+                from divineos.core.context_dedup import should_emit
+
+                emit_full, pointer = should_emit(
+                    "memory_linkage",
+                    memory_linkage_text,
+                    semantic_key=[payload.as_semantic_key() for payload in payloads],
+                    residual=(
+                        "  RETRIEVAL SURVIVES DEDUP: the matched substrate items are "
+                        "UNCHANGED, not absent. If one bears on this decision, read "
+                        "it before composing. Constraint-tier items remain binding; "
+                        "a compact pointer is not permission to ignore them."
+                    ),
+                )
+                if not emit_full and pointer:
+                    memory_linkage_text = pointer
+            except Exception:  # noqa: BLE001 - observability boundary
+                pass
+    except Exception:  # noqa: BLE001 - retrieval is fail-soft at composition boundary
+        memory_linkage_text = ""
+
     # Foundational-truths surface (Andrew 2026-07-10 memory-linkage-day
     # directive: 'everything you want to be able to remember without searching
     # we need to link.. principles..'). Companion trigger-file
@@ -1147,6 +1198,7 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
             close_check_text,
             regulatory_surface_text,
             lepos_check_text,
+            memory_linkage_text,
             exploration_text,
             foundational_truths_text,
             baseline_text,

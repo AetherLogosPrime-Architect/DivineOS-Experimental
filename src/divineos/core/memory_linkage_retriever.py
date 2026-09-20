@@ -54,6 +54,7 @@ downweight a constraint, the assertion trips loudly in tests.
 from __future__ import annotations
 
 import math
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -497,9 +498,22 @@ def _load_knowledge() -> list[_CachedItem]:
 
 
 def _find_wall_path() -> Path | None:
+    member = os.environ.get("DIVINEOS_MEMBER", "").strip().lower()
+    # Annotated because the two branches have different tuple arities and the
+    # inferred type from the first one makes the empty case a type error. The
+    # empty case is the whole point of the change, so it gets the annotation
+    # rather than a cast.
+    member_names: tuple[str, ...]
+    if member:
+        member_names = (member,)
+    else:
+        # No declared seat means no authority to choose another occupant's
+        # wall.  Returning no wall is safer than the old aria-first search,
+        # which could silently inject a sibling's memory as my own.
+        member_names = ()
     for project in _PROJECT_ROOTS:
-        for member in ("aria", "aether", "aletheia"):
-            p = project / "family" / "agent-memory" / member / "MEMORY.md"
+        for member_name in member_names:
+            p = project / "family" / "agent-memory" / member_name / "MEMORY.md"
             if p.is_file():
                 return p
     return None
@@ -558,9 +572,16 @@ def _load_wall() -> list[_CachedItem]:
 
 
 _EXPLORATION_HEAD_CHARS = 2000
-_PROJECT_ROOTS = (
-    Path("C:/DIVINE OS/DivineOS-Experimental-Aria-new"),
-    Path("C:/DIVINE OS/DivineOS-Experimental"),
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+
+_PROJECT_ROOTS = tuple(
+    dict.fromkeys(
+        (
+            _REPOSITORY_ROOT,
+            Path("C:/DIVINE OS/DivineOS-Experimental-Aria-new"),
+            Path("C:/DIVINE OS/DivineOS-Experimental"),
+        )
+    )
 )
 
 
