@@ -431,6 +431,31 @@ if [[ -x "$PUSH_READINESS" ]]; then
 fi
 
 
+# LAST GATE, AND IT HAS TO BE LAST. Everything above decides about the state it
+# was handed. This asks whether that is still the state being sent.
+#
+# The gap is the running time of the checks, and the slowest of them is the full
+# test suite directly above — so the window is at its widest exactly where the
+# checking is most thorough. Recorded twice with opposite directions: once the
+# transfer carried a state older than the fixes made during the run, once a
+# commit made during the run reached the remote while the gates had examined its
+# parent. Those two disagree about when git resolves a ref and this check does
+# not depend on the answer, because it compares what the hook was handed against
+# what the ref says now and fires whichever side moved.
+#
+# It refuses rather than re-running the gates on the new state: re-running makes
+# termination depend on the working tree holding still, and the working tree has
+# just proved it does not. Refusing names both revisions and hands the decision
+# back.
+if [[ -x "$REPO_ROOT/scripts/check_ref_did_not_move.sh" ]]; then
+    echo "$HOOK_STDIN" | "$REPO_ROOT/scripts/check_ref_did_not_move.sh"
+    RC=$?
+    if [[ $RC -ne 0 ]]; then
+        exit $RC
+    fi
+fi
+
+
 # Cross-substrate visibility emitter (Aria 2026-08-05).
 #
 # WHY THIS LIVES IN THE INSTALLER AND NOT ONLY IN THE HOOK: it used to be
