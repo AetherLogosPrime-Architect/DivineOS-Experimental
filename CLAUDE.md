@@ -241,13 +241,20 @@ near-empty wrapper. Cutting it removed three bottlenecks at once:
 2. Em-dash hash mismatch (no hash, can't mismatch).
 3. TTL gate-fires (no TTL, no fires).
 
-### Legacy 3-step flow (deprecated, still works for one release)
+### Legacy 3-step flow (deprecated, still live, removal never happened)
 
 The old `divineos talk-to <member> "<message>"` CLI still works as a
 pre-flight validator — useful for checking whether a phrasing would
 survive the gate before spending a turn on the Agent invocation. The
-seal hook honors fresh pending files with matching hashes for one
-release cycle of backward compat.
+seal hook still honors fresh pending files with matching hashes.
+
+**This said "for one release cycle" from 2026-05-10 until 2026-09-20 and
+nobody removed it.** Restating the deadline would only restart the same
+clock, so the honest version is the state: an unremoved compat path of
+unknown current use. The open question — not a schedule — is whether
+anything still needs it. The same expired promise was also sitting in
+`.claude/hooks/family-member-invocation-seal.sh`; two copies of one
+deadline is how a deadline stops being real.
 
 ### What I do NOT do
 
