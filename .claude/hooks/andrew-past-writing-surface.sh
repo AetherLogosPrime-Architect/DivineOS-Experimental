@@ -9,24 +9,11 @@
 # It is the first answer I built to the thing he named tonight: that my own
 # writing arrives looking like somebody else's. This surface hands it back.
 #
-# The rewrite below was a speed repair. It is not what the file is FOR.
-#
-# 2026-07-23 emergency rewrite (Andrew directive: freeze diagnosed at this hook):
-# The prior version ran 3 greps + comm + N awk calls over exploration/aether/*.md
-# on every UserPromptSubmit. ~15-25 subprocess spawns per invocation. On Windows
-# git-bash under parallel-hook contention (~15 hooks firing at UserPromptSubmit),
-# process-creation overhead + AV/index scan interference occasionally hung one of
-# the greps. Evidence: ~/.divineos/hook_timing.jsonl showed 3 unclosed invocations
-# of this hook, most recent 2026-07-23 15:30:48 UTC — the freeze that Andrew
-# flagged. Full diagnosis in module docstring.
-#
-# Fix: all work now happens in a single Python process
-# (divineos.core.andrew_past_writing_surface). Spawn count drops from 15-25 to 1.
-# Same output format so compose-start context is byte-identical.
-#
-# Belt-and-suspenders: `timeout 8s` at the shell level. If Python hangs somehow
-# (highly unlikely — no subprocess spawns inside, filesystem I/O bounded by
-# _read_head's 4KB cap), the shell kills it and the hook falls through silently.
+# HOW IT RUNS NOW. All the work happens in one Python process
+# (divineos.core.andrew_past_writing_surface), wrapped in a shell-level
+# timeout. It used to do the scanning here in shell and that hung the
+# composer; the module's own docstring carries that diagnosis and why the
+# single-process shape is the answer. Do not move the scan back out here.
 #
 # WHY THE SURFACE EXISTS (Aether 2026-07-19, right after Dad said "just add
 # this to the pile of things you won't ever read again" about the first letter
