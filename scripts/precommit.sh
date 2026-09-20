@@ -306,6 +306,23 @@ fi
 section "Seat Hardcodes (advisory)"
 python scripts/check_seat_hardcode.py --warn-only || true  # fail-soft: advisory by design until both members have seen it run; the flag already returns 0 and this guards a crash in the check itself
 
+# 5c. Two source files with byte-identical content (2026-09-20).
+#
+# A 488-line module existed twice, same hash, for a month. One copy was live;
+# the other had no caller and no test, which is exactly why the orphan checker
+# could not see it -- that one asks about modules that HAVE tests and no
+# caller, so this sat outside the question by construction.
+#
+# BLOCKING rather than advisory, and the reason is the opposite of the one
+# above. The seat check makes a judgement about intent and can be wrong in a
+# way worth discussing. This one asks whether two files are the same bytes,
+# which is a fact, and a fact-shaped refusal has nothing to argue with. The
+# escape hatch is a line in the file saying the duplication is deliberate.
+section "Duplicate Files"
+if ! python scripts/check_duplicate_files.py; then
+    note_fail
+fi
+
 # 5a2. A test's SETUP must not reach outside its sandbox (2026-08-25).
 # A fixture junctioned the real .venv into a temp repo so the gate under test
 # would find an interpreter; pytest's temp cleanup then walked the junction and
