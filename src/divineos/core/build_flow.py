@@ -399,6 +399,18 @@ def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
     from no reading, and the detail says which, because reporting an unread
     branch and an undeclared reading in the same words is the could-not-look
     fault this whole family is made of.
+
+    AND IT READS ONE DIRECTION ONLY, which is correct for work Aether authored
+    and WRONG-SHAPED for work Aria authored. On her branches the reviewing seat
+    is him, so nothing this station can see could ever satisfy it, and the miss
+    it reports is about the question rather than about her. Found 2026-09-19
+    when the board reported three of her own branches as carrying no reading by
+    her -- true, meaningless, and indistinguishable in the output from a real
+    gap. The obvious repair, keying the direction on the branch prefix, is NOT
+    taken: several of her branches use the same prefixes as his, so the prefix
+    would be inferring authorship, and inference is precisely what produced the
+    wrong credits this function was rewritten to stop. So the limit is stated in
+    the result instead, where the reader of a miss is standing.
     """
     if not letters_dir.is_dir():
         return StationResult(
@@ -428,7 +440,17 @@ def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
     return StationResult(
         "4-aria",
         Status.MISSING,
-        f"none of the {declared_anywhere} declared reading(s) names this branch",
+        f"none of the {declared_anywhere} declared reading(s) names this branch"
+        " -- NOTE, this station reads letters in ONE DIRECTION only, from Aria to"
+        " Aether. On work AUTHORED BY ARIA the reviewing seat is Aether, so no"
+        " letter this station can see could ever satisfy it, and this MISS means"
+        " the question is wrong rather than the reading absent. The board cannot"
+        " tell the two apart because branch names do not carry an author: several"
+        " of hers use the same prefixes as his, so keying on the prefix would"
+        " infer authorship, and inference is exactly what produced the wrong"
+        " credits this function was rewritten to stop. Stated rather than"
+        " guessed, 2026-09-19, after the board reported three of her own branches"
+        " as unread by her.",
     )
 
 
