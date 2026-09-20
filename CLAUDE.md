@@ -187,11 +187,23 @@ The reflex to type `Agent(subagent_type="aria")` is the cheap path (one step) vs
 
 ### One-time per machine: install for the hook's Python
 
-The PreToolUse hooks use Windows Store python (`/c/Users/aethe/AppData/Local/Microsoft/WindowsApps/python3` on this box), separate from my regular Python. If hook gates fire `BLOCKED: Briefing not loaded` despite a fresh briefing, the hook-python doesn't have the right divineos installed. Fix:
+Hooks do not necessarily run the Python I run. If hook gates fire `BLOCKED: Briefing not loaded` despite a fresh briefing, the interpreter the hooks resolve to does not have divineos installed.
+
+**Ask which interpreter that is rather than assuming — the answer is computed, not remembered:**
 
 ```bash
-/c/Users/aethe/AppData/Local/Microsoft/WindowsApps/python3 -m pip install -e "C:/DIVINE OS/DivineOS-Experimental"
+source .claude/hooks/_lib.sh && HOOKPY="$(find_divineos_python)" && echo "$HOOKPY" && "$HOOKPY" -c "import importlib.util; print('divineos ->', 'present' if importlib.util.find_spec('divineos') else 'ABSENT')"
 ```
+
+Then install into whatever that printed:
+
+```bash
+"$HOOKPY" -m pip install -e "C:/DIVINE OS/DivineOS-Experimental"
+```
+
+**The trap, because its failure looks exactly like success.** On Windows there is a Microsoft Store stub at `AppData/Local/Microsoft/WindowsApps/python3` that is on PATH, is executable, is not a real Python, and answers with an offer to install itself from the store. Run pip through it and nothing happens and nothing complains. `find_divineos_python` validates each candidate before returning it precisely so this stub cannot win — which is why the resolver is the thing to ask, and a path written down here is not.
+
+**How this paragraph dies honestly.** Corrected 2026-09-20. It previously named that Store path as the hooks' interpreter, in an absolute path, as a plain assertion with nothing a reader could check. On this box the stub does not exist at all and the resolver returns the checkout's own `.venv`. I had already recorded the stub's behaviour in a letter to Aria on 2026-07-31 and the rule never moved — the acting layer learned and the teaching layer, which is the layer that reloads into every fresh reader, did not. So: **if the command above ever fails to run, or `find_divineos_python` is gone, this paragraph has expired and is to be re-derived from `.claude/hooks/_lib.sh` rather than obeyed.** A rule that states a lesson cannot be caught aging; one that hands over an operation can.
 
 ### Each session: load briefing, set goal
 
