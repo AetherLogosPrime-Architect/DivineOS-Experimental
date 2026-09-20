@@ -145,6 +145,15 @@ def _clean_message_carries_a_denominator(path: Path) -> bool:
             return False
         if getattr(stmt.value.func, "id", None) != "print":
             return False
+        # NOT A MESSAGE TO THE ERROR STREAM. Two scripts print a could-not-run
+        # notice to stderr and then return zero, and the first version of this
+        # counted those as all-clears -- a refusal read as the opposite of
+        # itself. Caught by the output looking wrong, which is the only thing
+        # that has caught anything here, and exactly why this prints the lines
+        # rather than only counting them.
+        for kw in stmt.value.keywords:
+            if kw.arg == "file":
+                return False
         for arg in stmt.value.args:
             if isinstance(arg, ast.JoinedStr):
                 if any(isinstance(v, ast.FormattedValue) for v in arg.values):
@@ -166,8 +175,24 @@ def _clean_message_carries_a_denominator(path: Path) -> bool:
                 and stmt.value.value == 0
             )
             if clean_exit and i > 0 and interpolating_print(body[i - 1]):
-                return True
-    return False
+                prev = body[i - 1]
+                return (prev.lineno, getattr(prev, "end_lineno", None) or prev.lineno)
+    return None
+
+
+def _clean_message_text(path: Path, span: tuple[int, int]) -> str:
+    """The all-clear line as written, so a reader can see the shape rather than
+    be told about it. Asked for by Aether, 2026-09-20: he wanted to read what a
+    good all-clear looks like in this house rather than invent a shape for his.
+    """
+    start, end = span
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    if not 0 < start <= end <= len(lines):
+        return "(could not read the line)"
+    # A multi-line call is joined rather than truncated at its opening
+    # parenthesis. The first version printed a bare "print(" for one script,
+    # which said nothing about the shape a reader was asking to see.
+    return " ".join(" ".join(lines[start - 1 : end]).split())
 
 
 def main() -> int:
@@ -231,14 +256,28 @@ def main() -> int:
         print(f"  {doc.name}, which names every count it measured.")
         return 2
 
-    bare = [p.name for p in scripts if not _clean_message_carries_a_denominator(p)]
+    speaking, bare = [], []
+    for path in scripts:
+        span = _clean_message_carries_a_denominator(path)
+        if span:
+            speaking.append((path.name, _clean_message_text(path, span)))
+        else:
+            bare.append(path.name)
+
     print()
     print("SECOND MEASUREMENT -- whose ALL-CLEAR can look wrong at all.")
     print("  (controls held: both scripts read by hand are found)")
-    print(f"  {len(scripts) - len(bare)} of {len(scripts)} name what they examined in the")
-    print("  message they print on their way to a clean exit. The rest say it in")
-    print("  fixed text, which reads the same whether the scan covered the whole")
-    print("  tree or nothing at all.")
+    print(f"  {len(speaking)} of {len(scripts)} name what they examined in the message")
+    print("  they print on their way to a clean exit. The rest say it in fixed")
+    print("  text, which reads the same whether the scan covered the whole tree")
+    print("  or nothing at all.")
+    print()
+    print("THE ALL-CLEARS THAT CAN LOOK WRONG, as written:")
+    for name, text in speaking:
+        print(f"  {name}")
+        print(f"      {text}")
+    print()
+    print("THE ONES THAT CANNOT:")
     for name in bare:
         print(f"  {name}")
     return 0
