@@ -244,10 +244,51 @@ try:
     from divineos.core.command_parsing import acting_segments, stripped_command
     parts = acting_segments(raw)
     if parts is None:
-        # Refused decomposition -- a substitution, a backtick, or unbalanced
-        # quoting. Fall back to the single-command form, which is
-        # start-anchored and so cannot match a hidden second command either.
-        print(stripped_command(raw))
+        # CANNOT-PARSE IS NOT PERMISSION. This used to fall back to the
+        # single-command form, defended by a comment saying start-anchored
+        # matching cannot hide a second command. That sentence was true about
+        # the threat its author had just fixed -- a command tacked on behind a
+        # remedy -- and silent about the one that refusal-to-decompose actually
+        # signals: the payload sitting INSIDE the remedy's own quoted argument.
+        # The parser refuses precisely because of the substitution, and the
+        # fallback then cannot see it, so the shape that defeats decomposition
+        # was the shape waved through.
+        #
+        # PROVEN, not reasoned: a genuine remedy carrying a substitution in its
+        # argument passed this door on 2026-09-20 and reached the corrigibility
+        # gate, which sources this library near its top and ends on a match --
+        # i.e. the emergency stop. Serein found the class from outside; three of
+        # his four payloads were already refused here and this one was not.
+        #
+        # ASYMMETRY: refusing costs one command re-run with its value written
+        # out. Passing costs the stop button at the moment somebody reaches for
+        # it. So an undecomposable command is NOT a remedy, and the reason is
+        # printed so whoever meets this at the worst moment is pointed at the
+        # workaround rather than at the wrong suspect.
+        #
+        # STILL OPEN AND NOT FIXED HERE: this library is consulted BEFORE each
+        # caller runs its own logic, so a match ends that hook entirely. The
+        # emergency stop deserves its own narrow recovery surface rather than
+        # sharing the general one. Named so this repair cannot be mistaken for
+        # having closed it.
+        # SINGLE QUOTES ONLY, AND THIS COMMENT IS THE RECEIPT. This program is
+        # a string handed through the shell to an interpreter, so it ENDS at
+        # the first unescaped double quote -- a rule that has nothing to do
+        # with the language these lines appear to be written in. The first
+        # attempt at this repair used a double quote here. It read as correct
+        # Python, because it WAS correct Python, and it truncated the program
+        # one layer out. Nothing errored: a truncated program prints nothing,
+        # empty is treated as not-a-remedy below, and the three already-refused
+        # payloads stayed refused. Only the single payload under test showed
+        # any difference, so checking any other one would have confirmed a
+        # repair that had not happened.
+        #
+        # No double quote, dollar sign, backtick or backslash may appear in
+        # this block. The newline comes from a character code because a
+        # backslash escape would be eaten by the shell before the interpreter
+        # ever saw it -- the same silent truncation in a different coat.
+        sys.stderr.write('remedy-allowlist: refusing -- this command cannot be decomposed safely (a substitution, a backtick, or unbalanced quoting). Re-run the remedy with the value written out rather than computed inside the argument.' + chr(10))
+        sys.exit(0)
     else:
         # One acting segment per line. The caller requires EVERY line to match,
         # so a real action riding alongside a remedy refuses the whole command.

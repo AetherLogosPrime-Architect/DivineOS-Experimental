@@ -65,11 +65,23 @@ mkdir -p "$(dirname "$PUSH_VERDICT_FILE")" 2>/dev/null || true  # fail-soft: boo
 # Says it once, in the same words the final status line prints, plus the
 # revision being decided so a reader can confirm the answer is about the thing
 # they are holding rather than about whatever ran last.
+# EACH VALUE ON ITS OWN STATEMENT, and the reason is mechanical rather than
+# stylistic: a continuation must be the last character on its line, so no note
+# can sit beside a call that is split across lines. The two silences here are
+# answering DIFFERENT questions -- a clock that will not answer, and a revision
+# lookup outside a repository -- and one shared sentence for two decisions is
+# the shape that rots, because a later reader checking whether the clock case
+# still holds would find a note about both and have to guess which half is
+# theirs.
+#
+# Both fall back to the literal word unknown rather than an empty field. A
+# degraded row stays readable and says WHICH part was unavailable; an empty
+# field reads as a format change and tells the reader nothing.
 say_verdict() {
-    printf '%s  head=%s  %s\n' \
-        "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" \
-        "$(git rev-parse --short HEAD 2>/dev/null || echo unknown)" \
-        "$1" >> "$PUSH_VERDICT_FILE" 2>/dev/null || true  # fail-soft: same reason as the truncate above
+    local ts rev
+    ts=$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)  # fail-soft: a clock that will not answer yields the word unknown, which keeps the row parseable instead of losing it
+    rev=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)  # fail-soft: run outside a repository this has no answer, and naming that beats a row with a hole where the revision belongs
+    printf '%s  head=%s  %s\n' "$ts" "$rev" "$1" >> "$PUSH_VERDICT_FILE" 2>/dev/null || true  # fail-soft: an unwritable verdict path must never be the reason a push does not happen, and a missing file is explicitly not evidence of a missing run
 }
 
 # Capture which branch is being pushed (last positional argument that

