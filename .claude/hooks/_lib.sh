@@ -471,9 +471,29 @@ sys.exit(0 if got == want else 3)
 #   COMMAND=$(extract from stdin JSON)
 #   if is_bypass_command "$COMMAND"; then exit 0; fi
 #
-# Splits the command on shell separators (&&, ;, |, newline) and
-# returns 0 if ANY segment starts with a documented bypass prefix
-# after trimming whitespace.
+# ONE LIST, TWO MATCHERS, AND ONLY ONE OF THEM WAS HARDENED (2026-09-20).
+#
+# The canonical file has two consumers: pre_tool_use_gate._is_bypass_command
+# on the Python side, and this function on the shell side. They read the same
+# list and, until now, decided by completely different rules.
+#
+# The Python one is head-anchored, refuses any chain operator outside quotes,
+# and validates whatever it discards as a prefix. This one split the command
+# on separators and returned ALLOW if ANY segment matched -- so anything at
+# all could ride in FRONT of a documented remedy and the whole line skipped
+# the gate. Measured before the change, with a negative control alongside:
+#
+#   rm -rf <path> && divineos ask "x"   -> WAVED THROUGH (python: gated)
+#   git push --force ; divineos briefing -> WAVED THROUGH (python: gated)
+#   git push --force                     -> gated        (control held)
+#
+# This is the same legal-prefix class we spent the day on, arriving a fifth
+# time, in the opposite direction, on the WIDER of the two lists -- the one
+# every outer Bash-gating hook consults. A second implementation of a
+# security rule is not redundancy; it is the weaker of the two deciding.
+#
+# So this no longer implements the rule. It ASKS the implementation. That is
+# the only shape in which the two cannot drift apart again.
 is_bypass_command() {
   local cmd="$1"
   [ -z "$cmd" ] && return 1
@@ -481,25 +501,54 @@ is_bypass_command() {
   repo_root="$(_lib_repo_root)"
   local bypass_file="$repo_root/scripts/hook_bypass_commands.txt"
   [ -f "$bypass_file" ] || return 1
-  # Split the command on shell separators into segments.
-  # IFS-based split would mangle the command; use sed for predictable
-  # multi-separator splitting.
-  local segments
-  segments=$(printf '%s' "$cmd" | sed -e 's/&&/\n/g; s/;/\n/g; s/|/\n/g')
-  local seg trimmed prefix
-  while IFS= read -r seg; do
-    trimmed="${seg#"${seg%%[![:space:]]*}"}"
-    [ -z "$trimmed" ] && continue
-    while IFS= read -r prefix; do
-      # Skip comments and empty lines
-      case "$prefix" in
-        ''|'#'*) continue ;;
-      esac
-      case "$trimmed" in
-        "$prefix"|"$prefix "*) return 0 ;;
-      esac
-    done < "$bypass_file"
-  done <<< "$segments"
+
+  local py verdict
+  py="$(find_divineos_python 2>/dev/null)"
+  if [ -n "$py" ] && [ -x "$py" ]; then
+    verdict="$("$py" -c "
+import sys
+try:
+    from divineos.hooks.pre_tool_use_gate import _is_bypass_command
+except Exception:
+    # Could-not-ask is not a verdict. Printing nothing drops us to the
+    # fallback below rather than answering on the import's behalf.
+    pass
+else:
+    print('YES' if _is_bypass_command(sys.argv[1]) else 'NO')
+" "$cmd" 2>/dev/null)"
+    case "$verdict" in
+      YES) return 0 ;;
+      NO) return 1 ;;
+    esac
+  fi
+
+  # FALLBACK, for when the interpreter cannot be reached at all. Deliberately
+  # STRICTER than the real rule rather than looser: one leading directory
+  # change is tolerated because it is how commands are habitually typed here,
+  # and any other operator means something rides along, so it is not a bypass.
+  # It is quote-blind, so a remedy carrying a semicolon inside a quoted note
+  # is refused here. That is the safe direction for a degraded path -- a
+  # refused remedy is visible and arguable; a waved-through chain is not.
+  local rest trimmed prefix
+  rest="$cmd"
+  case "$rest" in
+    cd\ *'&&'*) rest="${rest#*&&}" ;;
+  esac
+  # shellcheck disable=SC2016  # the single quotes are the point: these are
+  # literal operator characters being searched for, not expansions to perform.
+  case "$rest" in
+    *'&&'* | *';'* | *'|'* | *'`'* | *'$('*) return 1 ;;
+  esac
+  trimmed="${rest#"${rest%%[![:space:]]*}"}"
+  [ -z "$trimmed" ] && return 1
+  while IFS= read -r prefix; do
+    case "$prefix" in
+      '' | '#'*) continue ;;
+    esac
+    case "$trimmed" in
+      "$prefix" | "$prefix "*) return 0 ;;
+    esac
+  done < "$bypass_file"
   return 1
 }
 
