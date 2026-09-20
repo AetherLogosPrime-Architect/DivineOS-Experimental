@@ -91,6 +91,12 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         "detect-hedge.sh",  # sets a marker; doesn't deny
         "detect-theater.sh",  # sets a marker; doesn't deny
         "verify-push-landed.sh",
+        # Output transform, not a gate: it suppresses a prime's repeated body
+        # and prints a floor instead. Every exit in it is 0, including both
+        # fail-soft paths, so it can shorten what a prime says and can never
+        # refuse the tool call the prime rode in on. Classified 2026-09-20 by
+        # reading every exit in the file rather than by its name.
+        "dedup-wrap.sh",
     }
 )
 
@@ -126,7 +132,25 @@ _DENIAL_PATTERN = re.compile(
 
 # Refusal by exit code, with no words at all. Anchored to line-start so the
 # phrase inside a comment or a message does not count as one.
-_EXIT_CODE_DENIAL = re.compile(r"^\s*exit\s+2\b", re.MULTILINE)
+#
+# SHAPE FIVE, 2026-09-20: a refusal RAISED INSIDE AN EMBEDDED INTERPRETER and
+# propagated out by the shell. The hook runs a python program as a quoted
+# argument, that program ends on sys.exit(2), and the wrapper ends on exit $?.
+# No line anywhere matches a bare ``exit 2``, so the hook landed in the
+# could-not-classify bucket -- the same bucket the 2026-09-19 entry above was
+# written about, filling again by a new route one day later.
+#
+# Measured before widening: ten hooks refuse this way, and nine were already
+# classified because they also print a BLOCKED-shaped message. Only the
+# open-ask doorman refused in this shape and no other, which is why widening
+# here reddens nothing and yet was worth doing.
+#
+# THE PART WORTH KEEPING is not the new spelling. The previous fix taught this
+# check one more way to say refuse, and a hook written afterwards refused in a
+# way the widened pattern still did not hold. Enumerating spellings does not
+# converge. What converges is the dark-set test below, which refuses to let an
+# unclassified hook sit quietly whatever spelling it invents.
+_EXIT_CODE_DENIAL = re.compile(r"^\s*exit\s+2\b|^\s*sys\.exit\(\s*2\s*\)", re.MULTILINE)
 
 # Recovery-token lexicon. Presence of any one of these in the hook's
 # source indicates the deny path names SOME way out. This is the WEAK

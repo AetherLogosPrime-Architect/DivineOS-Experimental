@@ -101,7 +101,28 @@ def test_the_real_repository_is_measured_rather_than_assumed():
     missing, considered, files_read = guards.uncalled_guards()
     assert files_read > 0
     assert considered > 0
-    assert "divineos doctor verify-import" in missing
+    assert missing, (
+        "the instrument reported that every guard in the real tree has a "
+        "caller. That is the one result this test exists to disbelieve: an "
+        "empty result and a blind probe return the identical value."
+    )
+
+    # THE NAMED CANARY RETIRED ITSELF, 2026-09-20, and that is the outcome
+    # this file was written to produce. It asserted that `divineos doctor
+    # verify-import` appears in the missing set. It no longer does, because
+    # scripts/precommit.sh now calls it -- the guard got wired, so the example
+    # of an uncalled guard stopped being one.
+    #
+    # Re-pointing at a different uncalled guard would rebuild a test that
+    # fails the day someone fixes the thing it names, which punishes the
+    # repair. So the direction is inverted: the instrument must still find
+    # SOMETHING above, and must no longer find the one that was wired. That
+    # pins both halves -- it sees real gaps, and it notices when a gap closes
+    # -- and neither half rots when the tree improves.
+    assert "divineos doctor verify-import" not in missing, (
+        "precommit.sh invokes this guard, so the instrument reporting it as "
+        "uncalled means the search stopped seeing a caller it used to see"
+    )
 
 
 def test_the_instrument_does_not_count_its_own_documentation_as_a_caller():
