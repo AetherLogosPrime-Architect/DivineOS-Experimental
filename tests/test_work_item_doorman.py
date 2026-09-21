@@ -8,6 +8,7 @@ down is a test the next person deletes when it goes red.
 from __future__ import annotations
 
 import json
+import tempfile
 import time
 from pathlib import Path
 
@@ -57,7 +58,30 @@ def test_code_paths_do_open_work() -> None:
 
 
 def test_paths_outside_the_repo_are_not_this_gates_business() -> None:
-    assert not doorman.needs_an_item(["C:/Users/aethe/.divineos-shared/letters/x.md"])
+    """The shared letters directory, and anything else off this tree.
+
+    THE PATH IS BUILT FOR THE PLATFORM RUNNING THE TEST, and that is the whole
+    repair. It used to hardcode a Windows absolute path, which is exactly what
+    this gate sees in real use -- and on a Linux runner that same string is a
+    perfectly ordinary RELATIVE path, so it resolves inside the repo and the
+    gate correctly claims it. The test failed on CI for asserting a Windows
+    fact on a machine where it was not one, and the failure pointed at the
+    gate rather than at itself.
+    """
+    outside = Path(tempfile.gettempdir()).resolve() / "divineos-shared" / "letters" / "x.md"
+    assert outside.is_absolute()
+    assert not str(outside).startswith(str(doorman.REPO_ROOT)), (
+        "the fixture path landed inside the repo, so this test is not asking its own question"
+    )
+
+    assert not doorman.needs_an_item([outside.as_posix()])
+
+
+def test_a_path_inside_the_repo_is_still_claimed() -> None:
+    """The control. A fix that made this gate ignore everything would pass the
+    test above, and outside-is-ignored only means something beside
+    inside-is-claimed."""
+    assert doorman.needs_an_item(["src/divineos/core/anything.py"])
 
 
 # --- Schneier finding 4: the two cheapest routes around the door -------------
