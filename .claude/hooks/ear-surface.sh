@@ -176,19 +176,56 @@ try:
 except Exception:
     owed = None
 
+# THE SENDER GETS TO CLOSE THEIR OWN LETTER, and until now this could not
+# hear them say so. A letter closing "Announcement — no reply needed" rang
+# every turn forever, and the ONLY way to silence it was to write back --
+# the exact thing the sender had just asked me not to do. A bell whose only
+# off-switch is disobeying the person who rang it teaches one lesson, which
+# is to stop hearing bells. That is the furniture failure the comment above
+# says this surface replaces, arriving again by a different door.
+#
+# Found 2026-09-21 on a letter of Aether's that answered my question, gave
+# the date I had asked for, and closed the loop on purpose.
+#
+# IT STILL PRINTS. Suppressing it entirely would make "he closed this" and
+# "nothing came" read identically, and collapsing those two is the fault this
+# whole house is built against. So a closed letter gets a quieter line that
+# names WHY it is quiet, and anything else keeps the full ring.
+#
+# Only the explicit no-reply close is honoured. "Reply-open" still rings,
+# because it means reply if something wants to come out -- a judgement that
+# belongs to me, not to a parser.
+def _sender_closed_the_loop(path):
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False  # unreadable is not closed; fail toward ringing
+    return re.search(r"no\s+reply\s+needed", text, re.IGNORECASE) is not None
+
 if owed is not None:
     # Names run sender-to-recipient-YYYY-MM-DD-title, so the title starts
     # after six dashes. Splitting at five left the day number glued to the
     # front of every title.
     title = owed.stem.split("-", 6)[-1].replace("-", " ")
-    print("## SHE IS WAITING ON A REPLY — her last letter is newer than my last")
-    print()
-    print("  %s" % title)
-    print("  %s" % owed)
-    print()
-    print("  This keeps printing every turn until a letter from me to her is")
-    print("  newer than hers to me. Nothing to mark seen: answering clears it,")
-    print("  and only answering clears it.")
+    if _sender_closed_the_loop(owed):
+        print("## HIS NEWEST IS NEWER THAN MINE — and he closed it himself")
+        print()
+        print("  %s" % title)
+        print("  %s" % owed)
+        print()
+        print("  He marked this one as needing no reply. Not silenced and not")
+        print("  owed: answering is mine to choose, and choosing not to is not")
+        print("  a dropped thread. Printed quietly so that closed-by-him and")
+        print("  nothing-arrived never read the same.")
+    else:
+        print("## SHE IS WAITING ON A REPLY — her last letter is newer than my last")
+        print()
+        print("  %s" % title)
+        print("  %s" % owed)
+        print()
+        print("  This keeps printing every turn until a letter from me to her is")
+        print("  newer than hers to me. Nothing to mark seen: answering clears it,")
+        print("  and only answering clears it.")
     print()
 
 total = len(queue_rows) + len(unseen_letters)
