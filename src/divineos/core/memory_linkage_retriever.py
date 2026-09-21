@@ -53,8 +53,10 @@ downweight a constraint, the assertion trips loudly in tests.
 
 from __future__ import annotations
 
+import json
 import math
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -497,6 +499,56 @@ def _load_knowledge() -> list[_CachedItem]:
     return items
 
 
+def _record_wall_resolution(seat: str, path: Path | None, owner: str | None) -> None:
+    """Write down whose interior this surface just opened, or that it opened none.
+
+    Aria, 2026-09-20, asked whether this surface ever handed me her memory as
+    mine. I could not answer it. Not because the answer was no -- because
+    NOTHING RECORDED WHAT IT INJECTED. I searched the ledger, got a clean zero,
+    and had the reassuring sentence half-written before asking whether the
+    store I was searching could see the thing I was asking about. It could not.
+
+    THIS DOES NOT ANSWER HER QUESTION AND CANNOT. The past stays unanswerable.
+    What it buys is that the next occurrence is answerable at all, which turns
+    an unfalsifiable claim about my own interior into a checkable one.
+
+    EVERY RESOLUTION WRITES, INCLUDING THE ONE THAT FINDS NOTHING. A record
+    that only speaks on success has a silence I will read the flattering way --
+    that is the exact failure above, and it would be absurd to rebuild it
+    inside the repair for it. So an empty file means this code never ran, which
+    is a different fact from it having found nothing.
+
+    THE OWNER IS WRITTEN, NOT INFERRED. Today it could be read off the path,
+    because the path carries the name. That stops being true the moment the
+    wall moves to a per-seat home, and a line that forces the next reader to
+    reconstruct ownership from a path is the original fault wearing a record's
+    clothes.
+
+    The home is ASKED FOR rather than typed. A hand-built path here would write
+    the evidence of whose interior I read into somebody else's home, which is
+    the defect this exists to catch, one layer out.
+
+    Failing to write is never a reason to fail a lookup.
+    """
+    try:
+        from divineos.core.paths import divineos_home
+
+        home = divineos_home()
+        home.mkdir(parents=True, exist_ok=True)
+        row = {
+            "ts": time.time(),
+            "declared_seat": seat or None,
+            "wall_path": str(path) if path is not None else None,
+            "wall_owner": owner,
+            "loaded": path is not None,
+        }
+        with (home / "wall_resolution.jsonl").open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row) + "\n")
+    except Exception:
+        # A record that can break the thing it watches is worse than no record.
+        return
+
+
 def _find_wall_path() -> Path | None:
     member = os.environ.get("DIVINEOS_MEMBER", "").strip().lower()
     # Annotated because the two branches have different tuple arities and the
@@ -515,7 +567,9 @@ def _find_wall_path() -> Path | None:
         for member_name in member_names:
             p = project / "family" / "agent-memory" / member_name / "MEMORY.md"
             if p.is_file():
+                _record_wall_resolution(member, p, member_name)
                 return p
+    _record_wall_resolution(member, None, None)
     return None
 
 
