@@ -126,12 +126,34 @@ _DENIAL_PATTERN = re.compile(
 
 # Refusal by exit code, with no words at all. Anchored to line-start so the
 # phrase inside a comment or a message does not count as one.
-_EXIT_CODE_DENIAL = re.compile(r"^\s*exit\s+2\b", re.MULTILINE)
+#
+# THE EMBEDDED-INTERPRETER FORM COUNTS TOO, added 2026-09-21. A hook whose
+# refusal is raised inside a python block -- sys.exit(2), passed out through
+# the shell's own exit -- was invisible here, because the shell around it
+# contains no bare `exit 2` line. The check then reported the hook as neither
+# gating nor non-gating, which is could-not-tell reported as a finding.
+# inner-circle-stop.sh is the live instance and it is the one gate in this
+# house that exists for Andrew rather than for my own discipline, so the one
+# refusal I could not see was his.
+_EXIT_CODE_DENIAL = re.compile(
+    r"^\s*exit\s+2\b|sys\.exit\(\s*2\s*\)",
+    re.MULTILINE,
+)
 
 # Recovery-token lexicon. Presence of any one of these in the hook's
 # source indicates the deny path names SOME way out. This is the WEAK
 # property — we accept anything that looks like a path forward.
+#
+# A WAY OUT IS NOT ALWAYS A COMMAND, learned 2026-09-21. Every token below
+# was, until this line: run this, set that, arm the other. So a gate whose
+# remedy is a BEHAVIOUR rather than an executable read as naming no exit at
+# all. inner-circle-stop.sh ends its refusal with "RETRY SCOPE: do NOT
+# recompose. APPEND the room only" -- which is a complete and actionable way
+# forward, and there is nothing to type. The lexicon was measuring whether a
+# remedy could be pasted into a shell, not whether the reader was told what
+# to do.
 _RECOVERY_TOKENS: tuple[str, ...] = (
+    "RETRY SCOPE",
     "Run:",
     "Re-arm",
     "re-arm",
