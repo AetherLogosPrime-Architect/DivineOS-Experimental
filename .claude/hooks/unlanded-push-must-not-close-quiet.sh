@@ -43,7 +43,24 @@ BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"  # fail-soft: ou
 LOCAL_SHA="$(git rev-parse HEAD 2>/dev/null || true)"
 [ -n "$LOCAL_SHA" ] || exit 0
 
-REMOTE_SHA="$(git ls-remote origin "refs/heads/$BRANCH" 2>/dev/null | awk '{print $1}')"
+# IT BOUNDS ITS OWN REACH RATHER THAN BEING CUT OFF, and the cap is not
+# superstition even though the call is fast.
+#
+# Wired at stop time this runs under a budget, and a process killed at its
+# budget prints NOTHING. Everywhere else in this house silence from a check is
+# ordinary. Here silence is the same field as a landed push -- which is the one
+# confusion this whole file exists to end. So a slow remote without a cap does
+# not produce a late answer, it produces good news.
+#
+# Measured 2026-09-20 at just over one second against the live remote. The
+# number is here so it dates itself: a reader who finds this call taking ten
+# knows the situation changed rather than wondering whether the cap was ever
+# needed. A cap that fires falls through to the could-not-look branch below,
+# which says which half it could not do.
+#
+# WHAT THE CAP DOES NOT COVER: the hook being killed for a reason other than
+# this call, since the budget covers everything the file does.
+REMOTE_SHA="$(timeout 5 git ls-remote origin "refs/heads/$BRANCH" 2>/dev/null | awk '{print $1}')"
 
 # A remote that cannot be reached is NOT a landed push and NOT an unlanded one.
 # Saying nothing here would turn could-not-look into found-nothing, so it says

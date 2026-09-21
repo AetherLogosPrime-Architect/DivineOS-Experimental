@@ -324,6 +324,15 @@ _UNCLASSIFIED_BASELINE: frozenset[str] = frozenset(
         "wallclock-source-prime.sh",
         "wwnd-choice-prime.sh",
         "wwnd-tool-prime.sh",
+        # NON-GATING BY DESIGN, which is a different thing from the names
+        # above it. Those are unexamined: nobody has established whether they
+        # refuse. This one cannot refuse -- it reports whether a recorded push
+        # refusal is still unresolved and always lets the turn close, because a
+        # check that could block the close over a network reading would stop
+        # being read. Added 2026-09-20 with that decision stated rather than
+        # slipped in, since the comment above says the right end-state is an
+        # empty baseline and a name added silently makes that harder to reach.
+        "unlanded-push-must-not-close-quiet.sh",
     }
 )
 
