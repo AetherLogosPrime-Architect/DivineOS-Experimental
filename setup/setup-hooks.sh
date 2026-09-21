@@ -284,6 +284,28 @@ if [[ -f "$REPO_ROOT/.claude/hooks/branch-scope-guard.sh" ]]; then
     bash "$REPO_ROOT/.claude/hooks/branch-scope-guard.sh" "$1" || exit 1
 fi
 
+# 3c. Merge-resolution test check — BLOCK, and only during a merge.
+#
+# A merge presents ONE comparison and it is not the one that matters. It puts
+# the two sides in front of me and invites a decision between them; that can be
+# done thoroughly while being the wrong question. What decides correctness is
+# each side against the BEHAVIOUR of the module it lands in, and nothing in a
+# merge ever presents that.
+#
+# 2026-09-20: I spliced two versions of a message together having checked they
+# said the same thing as text. My branch removes the limitation the longer one
+# explains, so the result would have told a reader that a real miss was an
+# inapplicable question. An inherited test caught it; my reading did not.
+#
+# BLOCKS RATHER THAN WARNS, deliberately. The moment this fires is the moment I
+# believe the hard part is finished, which is exactly when a printed line lands
+# in a stream I am skimming. A warning about this class already exists elsewhere
+# in this house and I have read past it. The cost is real and accepted: a stale
+# test on a merged file will sometimes stand between me and a correct commit.
+if [[ -f "$REPO_ROOT/scripts/check_merge_resolution_tested.sh" ]]; then
+    bash "$REPO_ROOT/scripts/check_merge_resolution_tested.sh" || exit 1
+fi
+
 # 4. Wiring-claim gate — SOFT WARNING. Surfaces "wire X to Y" /
 # "bridge", "integrate", "connect", "end-to-end", "close the gap"
 # language and reminds the operator to verify both sides exercised.
