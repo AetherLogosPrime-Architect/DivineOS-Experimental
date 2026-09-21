@@ -347,6 +347,22 @@ def register_mansion_commands(cli: click.Group) -> None:
                         click.echo(f"  Did you mean: {', '.join(near)}")
                 click.echo(f"  {len(engine.list_experts())} chairs are seated.")
                 raise SystemExit(2)
+            # The mark for station 2 of the build flow. Aether's v2 change 12:
+            # the checkable artifact is that a template was READ, not that
+            # findings were produced -- findings are forgeable and he produced
+            # a set of them on 2026-08-05 with no lens ever loaded. This is
+            # the one thing here that cannot be written by prose.
+            try:
+                from divineos.core.ledger import log_event
+
+                log_event(
+                    "LENS_SHOWN",
+                    "agent",
+                    {"expert": w.expert_name, "domain": w.domain},
+                    validate=False,
+                )
+            except Exception:  # noqa: BLE001 - printing the lens must never fail on bookkeeping
+                pass
             click.secho(f"\n=== {w.expert_name} — {w.domain} ===\n", fg="cyan", bold=True)
             for m in w.core_methodologies:
                 click.secho(f"  [{m.name}]", fg="yellow")

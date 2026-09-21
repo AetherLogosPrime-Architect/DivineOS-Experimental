@@ -338,6 +338,7 @@ from divineos.cli import (  # noqa: E402
     instruments_commands,
     branch_health_commands,
     build_flow_commands,
+    work_item_commands,
     gate_fire_commands,
     overclaim_commands,
     closure_shape_commands,
@@ -550,6 +551,7 @@ void_commands.register(cli)
 voids_commands.register(cli)
 branch_health_commands.register(cli)
 build_flow_commands.register(cli)
+work_item_commands.register(cli)
 gate_fire_commands.register(cli)
 overclaim_commands.register(cli)
 closure_shape_commands.register(cli)
