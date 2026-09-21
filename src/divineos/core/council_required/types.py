@@ -241,9 +241,15 @@ class CouncilRecord:
     """A council walk artifact — what a real walk produces.
 
     Written to the substrate ledger as a COUNCIL_RECORD_LOGGED event.
-    All fields are required except confirmed_by (only populated for
-    kiln-layer edits per Aether Catch 3) and consumed_at (set when
-    the record is consumed on first matching edit per Catch 2).
+    All fields are required except consumed_at (set when the record is
+    consumed on first matching edit per Catch 2).
+
+    ``confirmed_by`` was removed 2026-09-06 along with the check that read
+    it. It existed only to hold Andrew's or Aletheia's signature so a
+    kiln-layer edit could proceed, and no confirm belongs on that side of
+    the work -- the merge gate carries it, where he has said ten times it
+    goes. Records written before that date still carry the field in their
+    stored payload and are read back fine; it is simply no longer loaded.
 
     The hash-chained ledger event makes the artifact tamper-evident.
     The gate verifies the event exists, the fingerprint matches the
@@ -258,7 +264,6 @@ class CouncilRecord:
     lenses_surfaced: tuple[str, ...]  # ordered list of lens names
     lens_findings: tuple[LensFinding, ...]  # one per lens in lenses_surfaced
     synthesis: str  # cross-lens integration text
-    confirmed_by: str | None = None  # populated for kiln-layer; Andrew/Aletheia
     consumed_at: float | None = None  # consume-on-use marker (Catch 2)
 
     @property
@@ -291,7 +296,14 @@ CHECK_FINDING_TOKEN_COUNT = "finding_token_count"
 CHECK_FINDING_KEYWORD = "finding_keyword"
 CHECK_SYNTHESIS_TOKEN_COUNT = "synthesis_token_count"
 CHECK_SYNTHESIS_REFERENCES_LENSES = "synthesis_references_lenses"
-CHECK_KILN_CONFIRMED_BY = "kiln_confirmed_by"
+# kiln_confirmed_by lived here until 2026-09-06 and demanded Andrew's or
+# Aletheia's signature before a kiln-layer file could be EDITED. Removed,
+# not disabled: the merge gate already requires multi-party review for every
+# guardrail-listed file, so this was a second copy of one job sitting on the
+# wrong side of the work. Andrew, counting it as the tenth time he had said
+# it: "our confirms only come when merging to fucking main." Historical
+# rejection events still carry the old name in their payload; that string is
+# their record and is left alone.
 # Andrew Failure B / Aria Q3 reshape 2026-07-16 — verify each lens
 # named in the record has a matching COUNCIL_LENS_INVOKED event in the
 # ledger. No trace → the lens was fabricated (agent-generated "Through
@@ -317,7 +329,6 @@ CHECK_NAMES: frozenset[str] = frozenset(
         CHECK_FINDING_KEYWORD,
         CHECK_SYNTHESIS_TOKEN_COUNT,
         CHECK_SYNTHESIS_REFERENCES_LENSES,
-        CHECK_KILN_CONFIRMED_BY,
         CHECK_NOT_CONSUMED,
         CHECK_LENS_LOAD_TRACE,
         CHECK_EDIT_TOKEN_OVERLAP,

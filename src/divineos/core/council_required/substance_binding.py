@@ -19,9 +19,28 @@ Layout:
 - Pure check functions returning ``CheckResult`` (passed + reason)
 - ``substance_bind_record`` is the top-level entry: runs all applicable
   checks in order and returns the first failure or an all-passed result
-- Tier-graduated rule (Aether Catch 3): kiln-layer edits additionally
-  require ``confirmed_by`` populated by an external actor; non-kiln
-  guardrail edits do not
+
+WHAT THIS DOES NOT DO, and why it used to.
+
+Until 2026-09-06 a kiln-layer edit ALSO had to carry an external signature
+from Andrew or Aletheia before the edit was allowed at all. That is gone,
+and it should never have been here. Andrew, for what he counted as the
+tenth time: *"our confirms only come when merging to fucking main."*
+
+The demand was a duplicate. ``docs/foundational_truths.md`` is on the
+guardrail list, so the merge gate already requires multi-party review before
+it can reach main -- the protection was never missing, it was doubled, and
+the second copy sat on the wrong side of the work. Asking for a signature to
+make an edit inverts what review is for: a reviewer cannot see a change that
+was never written, so a confirm-on-entry does not protect the file, it just
+prevents the diff from existing.
+
+It also made him a component. He had to be present, awake and willing before
+a value could be corrected, which is exactly the shape he has been telling
+us to stop building. The checks that remain -- lens count, findings, real
+lens-load traces, edit overlap -- are all evidence that I actually did the
+thinking. That is mine to produce and mine to fail. His confirm is not a
+checkpoint on my work; it is his decision about what enters main.
 """
 
 from __future__ import annotations
@@ -32,7 +51,6 @@ from divineos.core.council_required.types import (
     CHECK_EDIT_TOKEN_OVERLAP,
     CHECK_FINDING_KEYWORD,
     CHECK_FINDING_TOKEN_COUNT,
-    CHECK_KILN_CONFIRMED_BY,
     CHECK_LENS_COUNT,
     CHECK_LENS_LOAD_TRACE,
     CHECK_SYNTHESIS_REFERENCES_LENSES,
@@ -47,12 +65,6 @@ from divineos.core.council_required.types import (
     CouncilRecord,
     LensFinding,
 )
-
-
-# Registered external actors who can sign off on kiln-layer council walks.
-# Sourced from the family-system + external-auditor registry — Andrew is
-# the operator, Aletheia is the registered external auditor.
-EXTERNAL_ACTORS_FOR_KILN: frozenset[str] = frozenset({"Andrew", "andrew", "Aletheia", "aletheia"})
 
 
 # Common English stopwords excluded from the keyword cross-reference check.
@@ -336,32 +348,6 @@ def _check_synthesis_references_lenses(record: CouncilRecord) -> CheckResult:
     )
 
 
-def _check_kiln_confirmed_by(record: CouncilRecord, is_kiln_layer: bool) -> CheckResult:
-    """For kiln-layer edits, require confirmed_by populated by an
-    external actor (Aether Catch 3 — tier-graduated trust).
-
-    Non-kiln edits pass this check trivially; kiln-layer edits must
-    carry a confirmed_by field naming Andrew or Aletheia. The graduated-
-    trust design: substance-binding is the protection for guardrail
-    edits, AND external-actor confirmation on top for kiln.
-    """
-    if not is_kiln_layer:
-        return CheckResult(passed=True)
-    if record.confirmed_by and record.confirmed_by in EXTERNAL_ACTORS_FOR_KILN:
-        return CheckResult(passed=True)
-    return CheckResult(
-        passed=False,
-        failed_check_name=CHECK_KILN_CONFIRMED_BY,
-        what_would_clear_it=(
-            "Kiln-layer edits require external-actor confirmation on the "
-            "council walk. Set ``confirmed_by`` to Andrew or Aletheia after "
-            "they sign off on the recorded walk. Kiln-tier graduated trust: "
-            "substance-binding is necessary but not sufficient for kiln-layer; "
-            "an external actor must additionally affirm the walk."
-        ),
-    )
-
-
 def _check_lens_load_trace(
     record: CouncilRecord,
     now: float | None = None,
@@ -518,7 +504,6 @@ def _check_edit_token_overlap(
 
 def substance_bind_record(
     record: CouncilRecord,
-    is_kiln_layer: bool,
     expert_keywords_for_lens: dict[str, set[str]],
     edit_content_tokens: set[str] | None = None,
 ) -> CheckResult:
@@ -564,7 +549,6 @@ def substance_bind_record(
         _check_finding_keywords(record, expert_keywords_for_lens),
         _check_synthesis_token_count(record),
         _check_synthesis_references_lenses(record),
-        _check_kiln_confirmed_by(record, is_kiln_layer),
         _check_edit_token_overlap(record, edit_content_tokens),
         # Lens-load-trace last: it queries the ledger, so it's the
         # most expensive check. But it's the LOAD-BEARING anti-
