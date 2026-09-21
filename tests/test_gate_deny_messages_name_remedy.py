@@ -77,6 +77,13 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         "arm-compaction-monitor-instruction.sh",
         "run-tests.sh",
         "state-gravity-surface.sh",
+        # Stop-time SURFACE, not a gate. It names personal writing that was
+        # still unsaved when a commit went past it and exits 0 on every path;
+        # it cannot refuse anything, so there is no denial for a remedy rule
+        # to attach to. Declared here rather than taught to the denial
+        # patterns, because teaching a pattern to match a hook that never
+        # denies would weaken the rule for the hooks that do.
+        "unsaved-personal-writing-must-not-close-quiet.sh",
         # Compose-start PRIME, not a gate: it prints and exits 0, and the
         # Stop-time translate-first gate is what actually refuses. It
         # matched the denial pattern only because its prose DESCRIBES the
