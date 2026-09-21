@@ -92,6 +92,31 @@ class PrFlowStatus:
     def mergeable(self) -> bool:
         return not self.blocking
 
+    @property
+    def blocking_besides_draft(self) -> list[StationResult]:
+        """What is unproven OTHER than the draft flag.
+
+        WHY THIS EXISTS, 2026-09-21. The draft station reports MISSING the
+        moment a request leaves draft, which is correct as a report and fatal
+        as an ingredient. ``mergeable`` is "nothing is blocking", so once a
+        request leaves draft it can never be mergeable again -- and leaving
+        draft is the only way to reach a merge. The summary's READY branch was
+        therefore unreachable by construction, and the board printed zero ready
+        for every request it had ever seen, including two whose every other
+        station was proven.
+
+        That is the same defect as the one repaired this morning one station
+        along: three situations -- still a draft, out of draft too early, out
+        of draft and finished -- sharing two outputs, with the finished one
+        having nowhere to land. A report whose best verdict cannot occur is
+        not a report.
+
+        The station stays exactly as it is. It answers what it sees and it
+        sees the flag. This property is for the READER that has to combine it
+        with the others, which is where the judgement lives.
+        """
+        return [s for s in self.blocking if s.station != "7-draft"]
+
 
 # Binary features over changed paths, summed -- mirroring the shape of
 # gravity_classifier.score_substrate_modification. Coarse on purpose: a

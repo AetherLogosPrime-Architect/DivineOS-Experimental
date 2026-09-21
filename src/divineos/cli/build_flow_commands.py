@@ -614,11 +614,29 @@ def render(statuses: list[PrFlowStatus]) -> str:
                     " anyone else."
                 )
             in_flight += 1
-        elif s.mergeable:
-            flag = "READY — out of draft, every checked station proven. Mine to merge."
+        elif not s.blocking_besides_draft:
+            # NOT s.mergeable, AND THAT WAS THE SECOND HALF OF THE SAME BUG.
+            #
+            # The draft station reports MISSING the instant a request leaves
+            # draft -- correct as a report, fatal as an ingredient, because
+            # mergeable means "nothing blocking" and leaving draft is the only
+            # road to a merge. So this branch could not be reached by any
+            # request in any state, and the board printed zero ready for
+            # everything it had ever seen. Two requests sat in the attention
+            # column with every station proven but the flag, which is not a
+            # fault and is the last step of the flow.
+            #
+            # Found 2026-09-21 while looking at those two, hours after
+            # repairing the branch directly above for the mirror-image reason.
+            # One report, three situations -- still a draft, out too early,
+            # out and finished -- and the finished one had nowhere to land.
+            flag = "READY — out of draft, every other checked station proven. Mine to merge."
             ready += 1
         else:
-            flag = f"ATTENTION — marked ready for review, {len(s.blocking)} station(s) unproven"
+            flag = (
+                f"ATTENTION — marked ready for review, "
+                f"{len(s.blocking_besides_draft)} station(s) unproven"
+            )
             attention.append(s.number)
         lines.append(f"  #{s.number}  {s.branch}")
         lines.append(f"      gravity {s.gravity}, needs {s.required_lenses} lenses — {flag}")
