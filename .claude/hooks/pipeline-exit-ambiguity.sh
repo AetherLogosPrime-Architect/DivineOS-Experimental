@@ -240,13 +240,18 @@ atexit.register(_write_subject_record)
 # saying yes. A comment asserting a property the code lacks is worse
 # than no comment, because it answers the question that would have
 # found the bug.
-stripped = cmd.replace("||", "")
-if "|" not in stripped:
-    sys.exit(0)
-
-# Already protected: the author asked for the real exit code.
-if "pipefail" in cmd or "PIPESTATUS" in cmd or "look.sh" in cmd:
-    sys.exit(0)
+# THE TWO EXITS THAT USED TO SIT HERE NOW SIT BELOW THE SEMICOLON RULE.
+#
+# Both are about PIPES, and both fired before anything else could look at
+# the command. That is how the semicolon case got past a hook written to
+# catch exactly this class: my masked push had no pipe in it, so the
+# no-pipe exit sent the whole hook home before the new rule was reached.
+# I wrote the rule, tested it against the real incident, and got silence
+# -- from a guard three hundred lines above it.
+#
+# Nothing between here and there does anything but define; moving the
+# exits past that point changes no behaviour for pipelines and lets a
+# sequence be judged at all.
 
 # PreToolUse: no tool_response exists yet, and that is the point.
 #
@@ -333,6 +338,110 @@ def _split_unquoted(text, seps):
     out.append("".join(buf))
     return out
 
+
+MUTATING_SUBCOMMANDS = {
+    "git": {"push", "commit", "merge", "rebase", "cherry-pick", "reset",
+            "revert", "tag", "am", "apply", "update-ref", "branch"},
+    "gh": {"pr", "release", "issue", "repo", "api"},
+    "pip": {"install", "uninstall"},
+    "npm": {"install", "publish", "uninstall"},
+}
+
+
+def _clause_mutates(clause):
+    """True if this clause acts on shared state (same set as the pipe rule)."""
+    tokens = clause.strip().split()
+    if not tokens:
+        return False
+    probe = tokens[0]
+    for token in tokens:
+        if "=" in token and not token.startswith("-"):
+            continue
+        probe = token
+        break
+    probe = probe.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].removesuffix(".exe")
+    subs = MUTATING_SUBCOMMANDS.get(probe)
+    if not subs:
+        return False
+    for token in tokens[1:]:
+        if token.startswith("-"):
+            continue
+        return token in subs
+    return False
+
+
+# --- the semicolon case, added 2026-09-21 ------------------------------
+# THE PIPE RULE BELOW WOULD NOT HAVE CAUGHT THE ONE THAT BIT ME. My push
+# had no pipe in it at all:
+#
+#     git push origin <branch> 2>&1; echo "push-exit=$?"
+#
+# The push was REFUSED. Its own log said so. But the trailing echo is the
+# last command in the sequence, so the SHELL exits zero, and the harness
+# reported the background task as "completed (exit code 0)". I read that
+# and told Andrew the work was sent. It was not, and only asking the
+# server directly found it -- an hour later, by accident, while doing
+# something else.
+#
+# Same masking, one punctuation mark over. The pipe rule was written
+# against the exact shape of the last incident, so the class walked
+# around it -- the enumeration habit this whole house keeps relearning.
+#
+# NO APOSTROPHES ANYWHERE BELOW THIS LINE. The entire Python program is
+# a single-quoted shell argument, so one apostrophe in a comment ends
+# the string and drops everything after it into bash. That is exactly
+# what this block did when it was first written: it took the whole hook
+# out, on every command, until the wording was changed.
+#
+# NARROW ON PURPOSE, because a hook that fires on every sequence gets
+# switched off and the file says so twenty lines up. `git add x; git
+# commit` is fine -- the commit fails loudly on its own. What is refused
+# is a trailing command that CANNOT fail: echo, true, :, printf. Those
+# do not report anything; they guarantee a zero and erase whatever came
+# before. That is not a sequence, it is a blindfold.
+_ALWAYS_SUCCEEDS = {"echo", "true", ":", "printf"}
+_clauses = [c.strip() for c in _split_unquoted(cmd, [";"]) if c.strip()]
+if len(_clauses) > 1:
+    _tail_tokens = _clauses[-1].split()
+    _tail = _tail_tokens[0] if _tail_tokens else ""
+    if _tail in _ALWAYS_SUCCEEDS and any(_clause_mutates(c) for c in _clauses[:-1]):
+        _SUBJECT["verdict"] = "deny"
+        _SUBJECT["why"] = "trailing-always-true-after-mutation"
+        print(json.dumps({
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": (
+                    "EXIT CODE ERASED BY A TRAILING COMMAND -- refused, "
+                    "because something in this sequence mutates.\n\n"
+                    f"The last command is `{_tail}`, which cannot fail. It "
+                    "becomes the exit status of the whole sequence, so a "
+                    "refused push or a failed commit earlier in the line "
+                    "arrives as success -- to the reader AND to the harness, "
+                    "which reports background tasks by that same status.\n\n"
+                    "This happened on 2026-09-21: a push was blocked by the "
+                    "push-readiness gate, a trailing echo zeroed the exit, "
+                    "the background task was reported as completed, and "
+                    "Andrew was told the work had been sent. It had not.\n\n"
+                    "Drop the trailing command and read the raw output, or "
+                    "put the status-reporting command in a separate call so "
+                    "the exit code of the mutation survives."
+                ),
+            }
+        }))
+        sys.exit(0)
+
+# The two pipe-scoped exits, moved down from where they used to stand so
+# the sequence rule above can be reached at all. Behaviour for pipelines
+# is unchanged: anything without a real pipe still goes home here, and a
+# command that already asked for the true exit code is still left alone.
+stripped = cmd.replace("||", "")
+if "|" not in stripped:
+    sys.exit(0)
+
+# Already protected: the author asked for the real exit code.
+if "pipefail" in cmd or "PIPESTATUS" in cmd or "look.sh" in cmd:
+    sys.exit(0)
 
 stages = [s.strip() for s in _split_unquoted(cmd, ["||", "|"]) if s.strip()]
 # A lone || is a shell OR, not a pipeline. Splitting on it above keeps the
@@ -423,13 +532,9 @@ _SUBJECT["examined"] = probe
 #
 # Truth #11(b) -- the deny text carries the corrected command, so the
 # lazy path and the right path are the same keystrokes.
-MUTATING_SUBCOMMANDS = {
-    "git": {"push", "commit", "merge", "rebase", "cherry-pick", "reset",
-            "revert", "tag", "am", "apply", "update-ref", "branch"},
-    "gh": {"pr", "release", "issue", "repo", "api"},
-    "pip": {"install", "uninstall"},
-    "npm": {"install", "publish", "uninstall"},
-}
+# The table now lives once, above, beside the semicolon rule. Both rules
+# ask the same question, and two copies is how one of them goes stale
+# while still looking maintained.
 _subs = MUTATING_SUBCOMMANDS.get(first)
 _mutating = False
 if _subs:
