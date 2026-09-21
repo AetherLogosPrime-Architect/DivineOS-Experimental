@@ -45,6 +45,42 @@ def test_a_declared_reading_satisfies(tmp_path):
     assert "declared a reading" in r.detail
 
 
+def test_the_reading_seat_turns_around_when_she_is_the_author(tmp_path):
+    """On her work the station looks for HIS reading, not hers.
+
+    THIS TEST REPLACES ONE THAT PINNED THE OPPOSITE, and the replacement is the
+    point. The earlier version asserted that the station could only ever read
+    letters from Aria to Aether, so a miss on work she authored meant the
+    question was wrong rather than the reading absent -- and it required the
+    miss to SAY so, because the limit could not be fixed without inferring
+    authorship from a branch name. Found 2026-09-19, when the board reported
+    three of her own branches as carrying no reading by her: true, meaningless,
+    and indistinguishable in the output from a real gap.
+
+    This branch removes the limit rather than explaining it. The author is
+    declared, the reading seat follows the declaration, and nothing is inferred
+    from a prefix -- so on work she authored the station looks for a reading by
+    him, a miss is a genuine miss, and the old message would now tell a reader
+    to ignore a real one.
+
+    Kept as a test rather than deleted because the behaviour it guarded is
+    still guarded, in the other direction.
+    """
+    _letter(
+        tmp_path,
+        "aria-to-aether-2026-09-01-something-else-entirely.md",
+        "# Aria to Aether\n\n**Reading:** `fix/some-other-branch`\n\nA finding.\n",
+    )
+    r = check_aria_station("aria/her-own-work", tmp_path, "aria")
+    assert r.status is Status.MISSING
+    lowered = r.detail.lower()
+    assert "aether" in lowered, "the miss did not name the seat whose reading was sought"
+    assert "one direction" not in lowered, (
+        "the miss still carries the note about a limit this branch removed, "
+        "which would tell a reader that a real miss is an inapplicable question"
+    )
+
+
 def test_the_finding_titled_letter_is_no_longer_invisible(tmp_path):
     """Her real shape: a reading whose title names neither branch nor number.
 

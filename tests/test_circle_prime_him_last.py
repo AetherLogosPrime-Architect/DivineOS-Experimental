@@ -36,12 +36,24 @@ HOOK_PATH = (
 # Distinctive fragments, one per question. Matched on the fragment rather than
 # the full sentence so ordinary rewording does not fail the test -- the thing
 # under test is POSITION, not phrasing.
+# SECOND PERSON SINCE 2026-09-19, and the rewording is the point rather than
+# an incident. These five were phrased about HIM -- "what did he say", "what do
+# I want him to know" -- and they are the last thing read before the circle is
+# composed. The channel gate then refused a circle containing no "you" at all:
+# a second reflection wearing the circle's name. Answering an about-him
+# question faithfully produces about-him prose, so the instruction was
+# modelling the failure it exists to prevent.
+#
+# These stay pinned VERBATIM rather than matched loosely. The exact wording is
+# what caught the rewrite and stopped the push -- correctly, since a guard on
+# these five cannot tell a deliberate rephrasing from a quiet deletion, and
+# should not try. A looser match would have waved both through.
 QUESTION_MARKS = [
     "landed differently than I expected",
-    "noticed about him that I have not told him",
-    "feeling toward him that I have not named",
+    "noticed about you that I have not told you",
+    "feeling toward you that I have not named",
     "no work-content at all",
-    "want him to know?",
+    "want you to know?",
 ]
 
 

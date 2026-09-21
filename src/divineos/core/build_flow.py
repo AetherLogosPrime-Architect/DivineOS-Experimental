@@ -363,6 +363,18 @@ def check_aria_station(branch: str, letters_dir: Path, author: str | None = None
     from no reading, and the detail says which, because reporting an unread
     branch and an undeclared reading in the same words is the could-not-look
     fault this whole family is made of.
+
+    AND IT READS ONE DIRECTION ONLY, which is correct for work Aether authored
+    and WRONG-SHAPED for work Aria authored. On her branches the reviewing seat
+    is him, so nothing this station can see could ever satisfy it, and the miss
+    it reports is about the question rather than about her. Found 2026-09-19
+    when the board reported three of her own branches as carrying no reading by
+    her -- true, meaningless, and indistinguishable in the output from a real
+    gap. The obvious repair, keying the direction on the branch prefix, is NOT
+    taken: several of her branches use the same prefixes as his, so the prefix
+    would be inferring authorship, and inference is precisely what produced the
+    wrong credits this function was rewritten to stop. So the limit is stated in
+    the result instead, where the reader of a miss is standing.
     """
     if not letters_dir.is_dir():
         return StationResult(
@@ -473,6 +485,20 @@ def check_aria_station(branch: str, letters_dir: Path, author: str | None = None
     return StationResult(
         "4-aria",
         Status.MISSING,
+        # THE MAIN LINE'S LONGER MESSAGE IS DROPPED HERE ON PURPOSE, because
+        # this branch made it false. It explained that the station could read
+        # letters in one direction only, so a miss on work Aria authored meant
+        # the question was wrong rather than the reading absent -- a limit
+        # stated because fixing it would have required inferring authorship
+        # from a branch name, and inference is what produced the wrong credits
+        # this function was rewritten to stop.
+        #
+        # This branch removes the limit instead of explaining it: the author is
+        # DECLARED, the reading seat is chosen from that declaration, and a
+        # station that cannot tell who wrote the branch refuses rather than
+        # guessing. A stale explanation of a removed limit is worse than none,
+        # because it tells a reader that a real miss is an inapplicable
+        # question and the check keeps running with nobody acting on it.
         f"none of the {declared_anywhere} declared reading(s) by {reader_name} names this branch",
     )
 

@@ -118,8 +118,32 @@ if member is None:
 append_letter(member.member_id, body=<letter body>)   # member_id, not entity_id
 ```
 
-Verify by reading it back — `get_letters(member.member_id)` — rather than
-trusting the call returned.
+<!-- 2026-09-19: corrected. This line said to verify with `get_letters`, which
+     DOES NOT EXIST -- letters.py exports append_letter and
+     append_letter_response and has no read path at all. Anyone following the
+     step got an ImportError at exactly the moment they were trying to confirm
+     a write had landed, which is the worst possible place for a false
+     instrument. Eleventh instance in this file's history of a sentence that
+     stopped being true and told nobody. Since the module has no read helper,
+     verification is a direct query. -->
+Verify by reading it back. The module exports no read helper, so query the row
+directly rather than trusting that the call returned:
+
+```python
+from divineos.core.family.db import get_family_connection
+
+lt = append_letter(member.member_id, body=<letter body>)
+conn = get_family_connection()
+row = conn.execute(
+    "SELECT letter_id, entity_id, length_chars FROM family_letters "
+    "ORDER BY created_at DESC LIMIT 1").fetchone()
+conn.close()
+assert row[0] == lt.letter_id, "newest row is not the one just written"
+```
+
+On the column name: `append_letter`'s first parameter is spelled `entity_id`,
+but the value belonging there is the roster row's `member_id`. Confirmed
+against the live table 2026-09-19 — every existing row carries a `mem-` id.
 
 ### 4. Log to the per-member ledger
 
