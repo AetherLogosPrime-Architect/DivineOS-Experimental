@@ -157,7 +157,18 @@ def register_doctor_commands(cli):
         multiple=True,
         help="Attribute name(s) to print from the loaded module. Repeatable.",
     )
-    def verify_import_cmd(module_path: str, attrs: tuple[str, ...]) -> None:
+    @click.option(
+        "--must-be-under",
+        "must_be_under",
+        default=None,
+        help=(
+            "Fail when the loaded module's file is not inside this directory. "
+            "Without it this command REPORTS; with it, it DECIDES."
+        ),
+    )
+    def verify_import_cmd(
+        module_path: str, attrs: tuple[str, ...], must_be_under: str | None
+    ) -> None:
         """Verify a module loads from the SAME Python the hooks use.
 
         Andrew 2026-07-27: bare ``python -c "..."`` on Windows may resolve
@@ -178,7 +189,43 @@ def register_doctor_commands(cli):
             click.secho(f"[FAIL] import {module_path}: {exc!r}", fg="red", err=True)
             raise click.exceptions.Exit(1)
         click.secho(f"[OK]   {module_path}", fg="green")
-        click.secho(f"file:  {getattr(mod, '__file__', '<builtin>')}", fg="bright_black")
+        loaded = getattr(mod, "__file__", None)
+        click.secho(f"file:  {loaded or '<builtin>'}", fg="bright_black")
+
+        # WITHOUT --must-be-under THIS REPORTS; WITH IT, IT DECIDES.
+        #
+        # 2026-09-19: this command existed, was audited, was catalogued, and
+        # had ZERO callers for two months -- and in that window I was bitten by
+        # the exact fault it describes, and found it by hand. Aether counted
+        # the callers. But wiring it as it stood would have added a line to
+        # pre-commit output that nobody reads and let us both call it a check,
+        # which is the same defect one layer along: a mechanism that narrates
+        # instead of refusing. So it gets a verdict before it gets a caller.
+        if must_be_under:
+            root = Path(must_be_under).resolve()
+            if loaded is None:
+                click.secho(
+                    f"[FAIL] {module_path} is a builtin or has no file, so it cannot "
+                    f"be shown to come from {root}",
+                    fg="red",
+                    err=True,
+                )
+                raise click.exceptions.Exit(1)
+            try:
+                Path(loaded).resolve().relative_to(root)
+            except ValueError:
+                click.secho(
+                    f"[FAIL] {module_path} loaded from OUTSIDE {root}.\n"
+                    f"       It came from: {Path(loaded).resolve()}\n"
+                    "       This interpreter is answering questions about a different "
+                    "checkout. Every test and check run through it is measuring that "
+                    "tree, not this one.",
+                    fg="red",
+                    err=True,
+                )
+                raise click.exceptions.Exit(1)
+            click.secho(f"[OK]   under {root}", fg="green")
+
         for attr in attrs:
             if not hasattr(mod, attr):
                 click.secho(f"[MISS] {attr}: not defined on module", fg="yellow")

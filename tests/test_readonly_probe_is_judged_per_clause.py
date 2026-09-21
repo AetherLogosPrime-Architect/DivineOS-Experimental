@@ -108,3 +108,61 @@ def test_the_inert_allowance_stays_narrow() -> None:
 )
 def test_three_clause_reads_pass(line: str) -> None:
     assert _is_readonly_probe(line)
+
+
+# ---------------------------------------------------------------------------
+# A READ VERB HANDED SOMEWHERE TO PUT ITS OUTPUT IS NOT A READ.
+#
+# Aletheia, 2026-09-21, refusing to sign a change that carried this carve-out
+# into a second gate. She asked the question I had asked her -- is the
+# read-only set a fault now or a fault waiting -- and answered it by running
+# it rather than reasoning about it.
+#
+# The prefix match reads the start of a command and ignores everything after,
+# so every flag was invisible. Reproduced in a scratch repository before the
+# finding was accepted: log, show and diff each create a file when handed an
+# output path, and the probe called all three reads. The dangerous one is a
+# diff written over a guardrail file, which the gate would have called
+# looking. It had been live on the overdue-pre-registration gate for sixteen
+# days; the change she refused would have carried it to a second door.
+#
+# The wider one, which came from asking the probe rather than asking myself:
+# an ordinary shell redirect needs no flag at all and overwrote a file I had
+# put a word into so I would notice.
+#
+# Nothing in this suite mentioned either shape before today -- her count of
+# zero, checked across the whole tests directory rather than this file.
+#
+# The near-misses are asserted too, because a permission this narrow is only
+# safe while its edges are held: the short flag is not an output flag on
+# these verbs, and the capital is the diff orderfile, which READS a file. One
+# careless case-insensitive rule would have broken it.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "git diff --output=src/divineos/core/memory.py",
+        "git log --output=notes.txt",
+        "git show --output=.claude/hooks/x.sh",
+        "git log --oneline > .claude/hooks/overwritten.sh",
+        "git status >> appended.txt",
+        "cd /repo && git diff --output=victim.txt",
+    ],
+)
+def test_a_read_verb_given_a_destination_is_a_write(line: str) -> None:
+    assert not _is_readonly_probe(line)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "git diff -O ordering-rules.txt",  # orderfile READS a file
+        "git status 2>/dev/null",  # discard, not a destination
+        "git log --oneline 2>&1 | tail -5",  # duplicates a handle
+        "git diff --stat",
+    ],
+)
+def test_the_refusal_stays_off_the_honest_reads(line: str) -> None:
+    assert _is_readonly_probe(line)
