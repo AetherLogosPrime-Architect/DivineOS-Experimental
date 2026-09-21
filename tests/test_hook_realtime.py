@@ -39,20 +39,29 @@ _PERF_MULT = float(os.environ.get("DIVINEOS_PERF_MULTIPLIER", "4"))
 _EMIT_OVERHEAD_RATIO = 60.0
 
 
-def _seconds_per_bare_insert(db_path: str, samples: int = 50) -> float:
+def _seconds_per_bare_insert(db_path: str, samples: int = 50, payload_bytes: int = 64) -> float:
     """Time one plain sqlite insert on this machine, right now.
 
     Returned as seconds per insert. Never returns zero: a clock too coarse to
     see the loop reports the clock's own resolution instead, so a caller can
     always divide by it.
+
+    PAYLOAD SIZE IS A PARAMETER, and leaving it out was a real failure.
+    Calibrating on a 64-byte row and then applying that budget to a test that
+    writes ten-kilobyte rows measures one population and judges another: the
+    large-payload test overran its budget by under one percent and reported a
+    regression, when what it had found was that a big row costs more to write
+    than a small one. Calibrate against rows the size of the rows under test,
+    and the ratio is then about our own overhead rather than about bytes.
     """
     conn = sqlite3.connect(db_path)
+    filler = "x" * payload_bytes
     try:
         conn.execute("CREATE TABLE IF NOT EXISTS _perf_calibration (n INTEGER, s TEXT)")
         conn.commit()
         start = time.perf_counter()
         for i in range(samples):
-            conn.execute("INSERT INTO _perf_calibration (n, s) VALUES (?, ?)", (i, "x" * 64))
+            conn.execute("INSERT INTO _perf_calibration (n, s) VALUES (?, ?)", (i, filler))
             conn.commit()
         elapsed = time.perf_counter() - start
         conn.execute("DROP TABLE _perf_calibration")
@@ -63,9 +72,14 @@ def _seconds_per_bare_insert(db_path: str, samples: int = 50) -> float:
     return max(per, time.get_clock_info("perf_counter").resolution)
 
 
-def _emit_budget(db_path: str, event_count: int) -> float:
-    """Wall-clock seconds this machine may take to emit `event_count` events."""
-    return _seconds_per_bare_insert(db_path) * event_count * _EMIT_OVERHEAD_RATIO * _PERF_MULT
+def _emit_budget(db_path: str, event_count: int, payload_bytes: int = 64) -> float:
+    """Wall-clock seconds this machine may take to emit `event_count` events.
+
+    ``payload_bytes`` must match the size of the payloads the caller emits, or
+    the budget is calibrated against a different population than it judges.
+    """
+    per_insert = _seconds_per_bare_insert(db_path, payload_bytes=payload_bytes)
+    return per_insert * event_count * _EMIT_OVERHEAD_RATIO * _PERF_MULT
 
 
 @pytest.fixture(autouse=True)
@@ -365,10 +379,10 @@ class TestPerformanceValidation:
         elapsed = time.time() - start_time
 
         # Should handle large payloads efficiently
-        budget = _emit_budget(setup_realtime_tests, samples)
+        budget = _emit_budget(setup_realtime_tests, samples, payload_bytes=len(large_content))
         assert elapsed < budget, (
             f"Large payload took {elapsed:.3f}s, budget {budget:.3f}s "
-            f"(calibrated against bare sqlite inserts on this machine)"
+            f"(calibrated against bare sqlite inserts of the same size)"
         )
 
         # Verify events stored, and that each one kept its whole payload --

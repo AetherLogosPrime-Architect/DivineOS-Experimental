@@ -146,8 +146,17 @@ def test_concurrent_branch_move_is_refused_not_clobbered(repo: Path) -> None:
     real_commit_tree = sr._git
     state = {"moved": False}
 
-    def racing_git(root: Path, *args: str, env: dict[str, str] | None = None) -> str:
-        out = real_commit_tree(root, *args, env=env)
+    def racing_git(
+        root: Path,
+        *args: str,
+        env: dict[str, str] | None = None,
+        stdin: str | None = None,
+    ) -> str:
+        # stdin added 2026-09-21: the index update feeds its paths down stdin
+        # now rather than on the command line, which has a length limit the
+        # substrate outgrew. A stub that does not forward it drops the paths
+        # silently, so this signature has to track the real one.
+        out = real_commit_tree(root, *args, env=env, stdin=stdin)
         if args and args[0] == "commit-tree" and not state["moved"]:
             state["moved"] = True
             # Someone else advances substrate while we were building the tree.
