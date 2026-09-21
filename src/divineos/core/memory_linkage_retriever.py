@@ -499,6 +499,25 @@ def _load_knowledge() -> list[_CachedItem]:
     return items
 
 
+# What the wall record is allowed to swallow, and why each one is here.
+#
+#   ImportError  — the paths module moved or the package is half-installed
+#   OSError      — the home is unwritable, missing, or on a full disk
+#   TypeError    — a value reached the row that will not serialise
+#   ValueError   — the same, from the serialiser's other complaint
+#
+# WIDE ON PURPOSE, and the width is the point rather than an oversight. This
+# writer's one obligation is never to break the lookup it watches, so it covers
+# the realistic set. It is NOT wider than that: anything outside these escapes
+# and shows itself, because an unforeseen error is a bug I want to see rather
+# than a failure mode I planned for.
+#
+# A bare catch-everything sat here first. The repository-wide scan refused the
+# push over it and was right to: a swallow that cannot be wrong makes no claim
+# about what actually fails, and so nothing about it can ever be checked.
+_WALL_RECORD_ERRORS = (ImportError, OSError, TypeError, ValueError)
+
+
 def _record_wall_resolution(seat: str, path: Path | None, owner: str | None) -> None:
     """Write down whose interior this surface just opened, or that it opened none.
 
@@ -544,7 +563,7 @@ def _record_wall_resolution(seat: str, path: Path | None, owner: str | None) -> 
         }
         with (home / "wall_resolution.jsonl").open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(row) + "\n")
-    except Exception:
+    except _WALL_RECORD_ERRORS:
         # A record that can break the thing it watches is worse than no record.
         return
 
