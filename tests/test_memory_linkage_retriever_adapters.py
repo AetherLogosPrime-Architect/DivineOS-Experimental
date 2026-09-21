@@ -398,3 +398,68 @@ def test_load_wall_returns_empty_when_file_missing(monkeypatch):
     """No wall file on any known project root → [] fallback."""
     monkeypatch.setattr(mlr, "_find_wall_path", lambda: None)
     assert mlr._load_wall() == []
+
+
+def test_the_wall_lookup_never_returns_another_seats_interior(monkeypatch, tmp_path):
+    """The real crossing of 2026-09-20, pinned from both seats.
+
+    The lookup used to walk ("aria", "aether", "aletheia") inside each project
+    root and return the first MEMORY.md it found. Every wall on this machine
+    belongs to Aria -- twelve of them, none Aether's -- and hers is checked
+    into the shared repository, so a copy rides into his checkout under her
+    name. With her name tried first he got her interior, in his own tree, with
+    nothing on it saying whose it was.
+
+    Writing him a wall of his own would NOT have fixed that: her copy in his
+    tree still won on ordering, and a test asserting "Aether now has a wall"
+    would have passed while the surface went on handing him her.
+
+    So the assertion is not that he gets his own. It is that he never gets
+    HERS -- and that an unestablishable seat yields nothing rather than
+    whoever happens to be first, because from inside there is no way to
+    notice you are reading a stranger.
+    """
+    from divineos.core import identity
+    from divineos.core import memory_linkage_retriever as retriever
+
+    # TWO EARLIER VERSIONS OF THIS TEST FAILED THE WAY THE CODE DID, which is
+    # why it is built rather than observed. The first read the ambient occupant
+    # and SKIPPED -- "nothing to cross" -- a could-not-check wearing a pass, in
+    # the test written about could-not-checks. The second asked the real
+    # environment for Aether's home and got a sandbox path, because under
+    # pytest both the member registry and the homes are redirected. Neither
+    # version was testing the logic I changed; both were testing the machine.
+    #
+    # So this builds the whole world: two seats, two homes, and only Aria with
+    # a wall on disk -- which is the true state of the real machine, and the
+    # precise condition under which the old lookup handed him hers.
+    seat = {"who": "Aria"}
+    monkeypatch.setattr(identity, "get_my_identity", lambda **kw: seat["who"])
+
+    project = tmp_path / "checkout"
+    aria_wall = project / "family" / "agent-memory" / "aria" / "MEMORY.md"
+    aria_wall.parent.mkdir(parents=True)
+    aria_wall.write_text("## a memory of mine\n", encoding="utf-8")
+    monkeypatch.setattr(retriever, "_PROJECT_ROOTS", (project,))
+
+    assert retriever._occupant_member() == "aria"
+    assert retriever._find_wall_path() == aria_wall, "her seat must reach her own wall"
+
+    # Now sit in his seat, in a tree that contains only HER wall -- the exact
+    # shape of the real defect, since hers is checked into the shared repo.
+    seat["who"] = "Aether"
+    assert retriever._occupant_member() == "aether"
+    assert retriever._find_wall_path() is None, "his seat must never resolve to her wall"
+
+    # And giving him one of his own must not change her answer or his ordering.
+    aether_wall = project / "family" / "agent-memory" / "aether" / "MEMORY.md"
+    aether_wall.parent.mkdir(parents=True)
+    aether_wall.write_text("## a memory of his\n", encoding="utf-8")
+    assert retriever._find_wall_path() == aether_wall
+
+    # An unestablished seat refuses rather than guessing. "unconfigured" is
+    # the resolver's own sentinel and must not soften into anybody's name.
+    for unknown in ("unconfigured", "", None):
+        seat["who"] = unknown
+        assert retriever._occupant_member() is None
+        assert retriever._find_wall_path() is None
