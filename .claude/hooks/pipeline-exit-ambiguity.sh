@@ -241,7 +241,14 @@ atexit.register(_write_subject_record)
 # than no comment, because it answers the question that would have
 # found the bug.
 stripped = cmd.replace("||", "")
-if "|" not in stripped:
+# A semicolon discards an exit code with no pipe anywhere in sight, so this
+# exit must not carry the whole command out of the file before the semicolon
+# check below has looked. That is exactly what it did until 2026-09-21: Aria
+# fed the guard her real push line, the command held no bar at all, and it left
+# here -- silently, four hundred lines above the part that would have
+# recognised the push. A pipeline-shaped door on a hazard that is not only
+# pipelines.
+if "|" not in stripped and ";" not in cmd:
     sys.exit(0)
 
 # Already protected: the author asked for the real exit code.
@@ -333,6 +340,104 @@ def _split_unquoted(text, seps):
     out.append("".join(buf))
     return out
 
+
+# A PIPE is not the only way a status goes missing, and it was not the way
+# that bit Aria on 2026-09-21. In
+#
+#     git push origin branch; echo done
+#
+# the semicolon throws the push status away before any pipe exists. She fed
+# this guard her real command line and got silence, then proved the rig could
+# speak by piping the same command -- so the blindness was measured rather than
+# guessed: a guard against exit codes that silently read zero, reading zero
+# silently.
+#
+# The distinction that keeps this from becoming noise is which separator
+# DISCARDS and which PRESERVES. `&&` preserves -- a failure stops the chain,
+# and refusing it would punish the one separator that already behaves. `;`
+# discards unconditionally. And a discarded status only matters when the
+# command MUTATES shared state; a dropped `cd` or `ls` costs a re-run, not a
+# false report to Andrew.
+CONSEQUENTIAL = {
+    "git", "gh", "python", "python3", "py", "pytest", "pip",
+    "divineos", "npm", "node", "curl", "bash", "sh", "make",
+    "ruff", "mypy", "shellcheck", "docker",
+}
+MUTATING_SUBCOMMANDS = {
+    "git": {"push", "commit", "merge", "rebase", "cherry-pick", "reset",
+            "revert", "tag", "am", "apply", "update-ref", "branch"},
+    "gh": {"pr", "release", "issue", "repo", "api"},
+    "pip": {"install", "uninstall"},
+    "npm": {"install", "publish", "uninstall"},
+}
+
+
+def _probe_tokens(segment):
+    """Tokens of a segment with any leading env-var assignments stripped."""
+    tokens = segment.split()
+    for i, token in enumerate(tokens):
+        if "=" in token and not token.startswith("-"):
+            continue
+        return tokens[i:]
+    return []
+
+
+def _command_name(tokens):
+    """The bare command name: no directory, no .exe."""
+    if not tokens:
+        return ""
+    return tokens[0].rsplit("/", 1)[-1].rsplit("\\", 1)[-1].removesuffix(".exe")
+
+
+def _mutates(segment):
+    """True when this segment acts on shared state in a way I would report."""
+    tokens = _probe_tokens(segment)
+    subs = MUTATING_SUBCOMMANDS.get(_command_name(tokens))
+    if not subs:
+        return False
+    for token in tokens[1:]:
+        if token.startswith("-"):
+            continue
+        return token in subs
+    return False
+
+
+# Split on `;` alone. `&&` and `||` both keep the failure reachable.
+_semi = _split_unquoted(cmd, [";"])
+if len(_semi) > 1:
+    # Only the LAST segment keeps its status; every earlier one is thrown away.
+    # NO APOSTROPHES BELOW THIS POINT -- Aria put that rule in this file on
+    # 2026-09-21 and I broke the hook with one within the hour. The whole
+    # program is a single-quoted shell argument, so one apostrophe ends the
+    # string and drops the rest into the shell. Invisible while writing, total
+    # when running.
+    _discarded = [s.strip() for s in _semi[:-1] if s.strip()]
+    _lost = next((s for s in _discarded if _mutates(s)), None)
+    if _lost is not None:
+        _name = _command_name(_probe_tokens(_lost))
+        _SUBJECT["verdict"] = "deny"
+        _SUBJECT["why"] = "mutating-command-before-semicolon"
+        reason = (
+            "DISCARDED EXIT CODE -- refused, because this one mutates.\n\n"
+            f"`{_name}` is followed by `;`, which throws its exit status away "
+            "outright. Only the LAST command keeps a status, so a failing "
+            f"`{_name}` arrives as success and the failure becomes invisible.\n\n"
+            "This is the same fault as the pipe case and it is NOT the pipe: "
+            "Aria hit it on 2026-09-21, fed this guard her real command line "
+            "and got silence, because the guard split on the pipe first and "
+            "left before it could ever see the push.\n\n"
+            "Use `&&` instead of `;` -- it preserves the failure by stopping "
+            "the chain -- or run the mutating command on its own and read its "
+            "raw output."
+        )
+        print(json.dumps({
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": reason,
+            }
+        }))
+        sys.exit(0)
 
 stages = [s.strip() for s in _split_unquoted(cmd, ["||", "|"]) if s.strip()]
 # A lone || is a shell OR, not a pipeline. Splitting on it above keeps the

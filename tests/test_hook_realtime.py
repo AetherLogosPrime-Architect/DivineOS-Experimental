@@ -344,25 +344,39 @@ class TestPerformanceValidation:
         )
 
     def test_large_payload_handling(self, setup_realtime_tests):
-        """Test handling of large payloads."""
+        """Test handling of large payloads.
+
+        MEASURED OVER SEVERAL EMISSIONS, not one. This test timed a single
+        call and flaked on 2026-09-21 even after the budget was calibrated,
+        because one sample of anything is not a measurement -- the first call
+        also pays whatever warm-up the run happens to owe, and a busy disk
+        moves a single reading far more than it moves an average. The rule
+        that says prove the instrument applies to the sample size too.
+        """
         # Create large payload (10KB)
         large_content = "x" * 10000
+        samples = 10
 
         start_time = time.time()
-        emit_event("USER_INPUT", {"content": large_content}, actor="user", validate=False)
+        for i in range(samples):
+            emit_event(
+                "USER_INPUT", {"content": f"{i}{large_content}"}, actor="user", validate=False
+            )
         elapsed = time.time() - start_time
 
         # Should handle large payloads efficiently
-        budget = _emit_budget(setup_realtime_tests, 1)
+        budget = _emit_budget(setup_realtime_tests, samples)
         assert elapsed < budget, (
             f"Large payload took {elapsed:.3f}s, budget {budget:.3f}s "
             f"(calibrated against bare sqlite inserts on this machine)"
         )
 
-        # Verify event stored
-        events = get_events(limit=10)
-        assert len(events) == 1
-        assert len(events[0]["payload"]["content"]) == 10000
+        # Verify events stored, and that each one kept its whole payload --
+        # a fast write that truncated the content would otherwise pass.
+        events = get_events(limit=samples + 5)
+        assert len(events) == samples
+        for event in events:
+            assert len(event["payload"]["content"]) == 10001
 
 
 class TestReliabilityValidation:
