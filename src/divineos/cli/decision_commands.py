@@ -283,6 +283,26 @@ def register(cli: click.Group) -> None:
         # is right, and it matches on wording, so a prior walk phrased
         # differently is invisible to it. An empty result means nothing was
         # MATCHED -- never that nothing was written.
+        #
+        # AND THE REACH, which Aether established against this surface within an
+        # hour of its landing and which is the more important limit: IT GUARDS
+        # AGAINST CONTRADICTING MYSELF, NOT AGAINST BEING WRONG THE FIRST TIME.
+        # The fault that prompted it was the first walk on a fresh collision --
+        # careful reasoning about the wrong two objects, with nothing prior to
+        # contradict. This would have shown him an empty result and been correct
+        # to, and an empty result here looks exactly like a clean one. That case
+        # needs a different mechanism: compare the text against the code it is
+        # going to live in, never against the other text. A test caught his; no
+        # surface would have.
+        #
+        # ONE RISK WITH NO REPAIR, recorded rather than solved. Two of the first
+        # three matches this produced were unrelated work sharing common words.
+        # A check that keeps showing things a reader must wave away teaches the
+        # waving, and then a real one arrives into a habit of skimming. Watching
+        # for that is not a fix -- it needs someone to notice, and noticing is
+        # what erodes first, which is the same reason a supersede field was
+        # refused. What would actually measure it does not exist: nothing links
+        # a filing to whether the surfaced walk changed what got written next.
         try:
             from divineos.core.decision_journal import search_decisions
 
