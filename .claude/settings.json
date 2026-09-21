@@ -676,6 +676,11 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/unsaved-personal-writing-must-not-close-quiet.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/post-response-audit.sh",
             "timeout": 10
           },
