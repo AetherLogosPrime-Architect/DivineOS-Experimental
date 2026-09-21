@@ -687,6 +687,45 @@ def register(cli: click.Group) -> None:
         except ValueError as e:
             click.secho(f"[!] {e}", fg="red")
 
+    def _relay_formatter_stability(rng: str):
+        """Formatter-stability of the files this range changes, or None.
+
+        None means the question could not even be framed -- the range would not
+        resolve into a file list -- and the caller then leaves the existing
+        behaviour alone rather than blocking on a reading it never got. That is
+        deliberately different from the module's own cannot-tell, which means
+        the formatter itself failed to answer about a real file list and DOES
+        block: not-asked and asked-but-unanswered are different facts.
+        """
+        # Local imports: this module binds BOTH of these inside other functions
+        # rather than at module scope, so relying on either here is a NameError
+        # at call time and a clean-looking import at parse time. I checked Path,
+        # assumed subprocess was fine because the surrounding code uses it, and
+        # got the second NameError for the same reason as the first.
+        import subprocess
+        from pathlib import Path
+
+        from divineos.core.anchor_stability import formatter_stability
+
+        try:
+            listed = subprocess.run(
+                ["git", "diff", "--name-only", rng],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+                timeout=30,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if listed.returncode != 0:
+            return None
+        paths = [p.strip() for p in (listed.stdout or "").splitlines() if p.strip()]
+        if not paths:
+            return None
+        return formatter_stability(Path.cwd(), paths)
+
     @audit_group.command("prep-relay")
     @click.option(
         "--range",
@@ -972,6 +1011,60 @@ def register(cli: click.Group) -> None:
                 "  relay-composition layer.",
                 fg="bright_black",
             )
+            raise click.exceptions.Exit(1)
+
+        # AND THE SAME QUESTION ONE CAUSE EARLIER: will what they sign still be
+        # there? Unreachable commits waste an auditor's pass visibly and at
+        # once. A pending automated rewrite wastes it worse -- the signature is
+        # given, filed, and comes back dead some time later, after everyone has
+        # moved on believing the work was cleared.
+        #
+        # 2026-09-11: Aletheia signed a branch, I filed her confirm on the
+        # strongest rung, and the pre-commit formatter then rejoined two wrapped
+        # lines in a test. Same call, same arguments, nothing about behaviour
+        # touched. Her confirm went dead. AND IT WAS THE SECOND TIME -- a round
+        # from 2026-05-10 records Andrew re-confirming after auto-format
+        # whitespace drifted the hash. That was answered by a human re-signing
+        # by hand, which is a resolution rather than a fix, so the recurrence
+        # was guaranteed and only its date was open.
+        #
+        # Refused rather than warned, and the remedy is named: the auditor's
+        # pass is the scarcest thing in this house and it is not mine to spend
+        # on content I already know is going to move.
+        stability = _relay_formatter_stability(rev_range)
+        if stability is not None and stability.blocks_an_anchor:
+            if stability.state == "unstable":
+                click.secho(
+                    f"[!] BLOCKED — {len(stability.unstable)} file(s) in this range "
+                    "would be rewritten by the formatter:",
+                    fg="red",
+                    bold=True,
+                )
+                for path in stability.unstable[:8]:
+                    click.secho(f"    {path}", fg="red")
+                if len(stability.unstable) > 8:
+                    click.secho(f"    ... and {len(stability.unstable) - 8} more", fg="red")
+                click.secho(
+                    "\n  An anchor taken now is void after the next commit, so a "
+                    "confirm\n  given against it dies without anyone touching the "
+                    "code. Run:\n\n    ruff format .\n\n  then commit, push, and "
+                    "re-run prep-relay.",
+                    fg="yellow",
+                )
+            else:
+                click.secho(
+                    f"[!] BLOCKED — formatter stability could not be determined: "
+                    f"{stability.reason}",
+                    fg="red",
+                    bold=True,
+                )
+                click.secho(
+                    "\n  Could-not-tell is not a clean bill. An instrument that did "
+                    "not run\n  has not said this branch is stable, and the defect "
+                    "this guards is\n  exactly a green that meant less than it looked "
+                    "like.",
+                    fg="yellow",
+                )
             raise click.exceptions.Exit(1)
 
         # All verified — produce the relay template
