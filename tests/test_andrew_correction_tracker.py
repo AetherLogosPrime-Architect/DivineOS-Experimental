@@ -326,11 +326,26 @@ class TestBriefingBlock:
         assert act.briefing_block() == ""
 
     def test_contains_stats_and_outstanding(self):
+        """The queue leads and the tally stays (Andrew 2026-09-12).
+
+        This used to pin the header ATTRIBUTION SURFACE and a leading total,
+        which is the framing he corrected: "its not a monument of your
+        failures.. its a list.. a list of todo's". A rate read first
+        constitutes a grade and every row after it becomes a claim about what
+        I am, which has no repair step. So the block now opens with the next
+        thing to work.
+
+        The counts are still asserted, and deliberately so -- removing them
+        would be the softening he refuses ("its not about softening the blow
+        its about accuracy"). They simply sit underneath as context now.
+        """
         act.file_correction("an outstanding correction to surface")
         block = act.briefing_block()
-        assert "ANDREW-CORRECTION ATTRIBUTION SURFACE" in block
-        assert "Total filed: 1" in block
+        assert "WORKLIST" in block
         assert "an outstanding correction to surface" in block
+        assert "1 filed" in block and "1 open" in block
+        # The queue must come before the tally, or the reframe is cosmetic.
+        assert block.index("NEXT TO WORK") < block.index("Backlog:")
 
 
 class TestUnblockConditionValidation:

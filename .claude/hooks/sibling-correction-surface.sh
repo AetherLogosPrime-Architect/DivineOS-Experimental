@@ -1,4 +1,10 @@
 #!/bin/bash
+# SUPERSEDED 2026-09-08 by the router. The decision now lives in
+# divineos.core.hook_surfaces as sibling_correction, dispatched by
+# doorbell-user-prompt-submit.sh. The registration came out of settings.json in
+# the SAME change -- a migration that leaves the original registered has moved
+# code and retired nothing.
+# INTENTIONALLY UNWIRED (2026-09-08): superseded, see above.
 # UserPromptSubmit hook — surface sibling corrections I judged as mine, when
 # the current context matches their terms.
 #

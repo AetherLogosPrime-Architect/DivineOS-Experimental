@@ -48,20 +48,39 @@ def test_lens_set_comes_from_the_manager_not_from_me():
     )
 
 
-def test_scope_cannot_change_which_lenses_i_face():
+def test_scope_cannot_change_which_lenses_i_face(monkeypatch):
     """The property the signature pin was standing in for.
 
-    Same problem and gravity, wildly different scope: the manager's selection
-    must be identical, because it is derived from the PROBLEM and nothing I
-    hand it may steer it.
+    MEASURED AT THE SEATER'S DOOR, 2026-09-21, and the move was forced by a
+    merge. This compared the lenses of two walks and required them equal, which
+    worked while seating was derived from the problem alone. Seating is now a
+    DRAW BY LOT, so two walks on one problem differ by design -- the test began
+    failing on a system behaving exactly as intended, and its failure said
+    "scope steered the selection" when nothing of the sort had happened.
+
+    The claim was never really about the output. It is that scope must not
+    REACH the thing that chooses, so that is what is asserted: the seater is
+    called with identical arguments whether or not a scope was supplied. That
+    holds under a draw, under fit-scoring, and under whatever replaces them.
     """
-    bare = cw.open_walk(PROBLEM, gravity="normal")
-    scoped = cw.open_walk(
+    seen: list[tuple] = []
+    real = cw._surface_seats
+
+    def recording(problem, floor=5, rng=None):
+        seen.append((problem, floor))
+        return real(problem, floor=floor, rng=rng)
+
+    monkeypatch.setattr(cw, "_surface_seats", recording)
+
+    cw.open_walk(PROBLEM, gravity="normal")
+    cw.open_walk(
         PROBLEM,
         gravity="normal",
         scope=("src/anything.py", "tests/whatever.py", "docs/a.md"),
     )
-    assert bare["lenses"] == scoped["lenses"]
+
+    assert len(seen) == 2, seen
+    assert seen[0] == seen[1], seen
 
 
 def test_close_refuses_while_a_lens_is_open():

@@ -526,7 +526,41 @@ def auto_commit_substrate(
     # correct destinations". The answer is two commits, each to its own
     # place -- not one job dropped because its destination was the
     # complicated one.
+    # THIS COMMIT IS NOT SAFE TO DROP, and that is worth saying here because
+    # nothing else says it. It may hold the ONLY copy of edits the session had
+    # not committed itself yet -- files swept while they were mid-edit. A later
+    # `git add` of those same paths finds no diff and commits nothing, so the
+    # loss is silent and arrives much later, as a test whose subject reverted
+    # underneath it.
+    #
+    # Learned by doing it: 2026-09-10, two checkpoint commits dropped in one
+    # rebase. The stat line said one file and I read past it; four commits and a
+    # full green suite later the push failed on a test whose subject had
+    # quietly gone back.
+    #
+    # IT ARRIVED HERE BY MERGE ON 2026-09-19 and it is HALF of what it was.
+    # The other half told the reader to drop the substrate TIP of this branch,
+    # and that hazard no longer exists: substrate now goes to its own branch by
+    # plumbing and never lands on HEAD at all. That warning was correct when it
+    # was written and its subject was removed out from under it, so it is gone
+    # rather than kept as advice about a thing that cannot happen.
+    #
+    # This half survived because the commit it describes still happens, and it
+    # survived NOWHERE ELSE -- nothing on main carries it. So it is said at
+    # runtime rather than left as a comment, for the same reason it was said at
+    # runtime before: a person mid-cleanup is not reading this file.
     wip_committed = _commit_work_in_progress(repo_root, work_in_progress, reason)
+
+    if wip_committed and work_in_progress:
+        logger.warning(
+            "auto_commit: this checkpoint committed %d work path(s) on your "
+            "behalf: %s. That commit is NOT safe to drop -- it may hold the "
+            "ONLY copy of edits you had not committed yourself yet, and a "
+            "later 'git add' of those same paths will find no diff and commit "
+            "nothing, so the loss is silent and surfaces much later.",
+            len(work_in_progress),
+            ", ".join(work_in_progress[:5]) + (" ..." if len(work_in_progress) > 5 else ""),
+        )
 
     if not declared_substrate:
         return AutoCommitResult(
