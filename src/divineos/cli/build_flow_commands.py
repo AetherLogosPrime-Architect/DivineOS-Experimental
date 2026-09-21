@@ -582,12 +582,41 @@ def render(statuses: list[PrFlowStatus]) -> str:
     in_flight = 0
     attention: list[int] = []
     for s in sorted(statuses, key=lambda x: x.number):
-        if s.mergeable:
-            flag = "READY — every checked station proven"
-            ready += 1
-        elif _is_draft(s):
-            flag = f"in flight — {len(s.blocking)} station(s) still ahead of it"
+        # A DRAFT IS NEVER READY, AND THE ORDER OF THESE BRANCHES IS THE FIX.
+        #
+        # Until 2026-09-21 the first test here was s.mergeable, which means
+        # "no station is blocking" -- and the draft station is SATISFIED while
+        # the request IS a draft. So the very fact that makes a request
+        # impossible to merge was counted as a step completed toward merging,
+        # and the board printed the word that means finished. Seven said READY.
+        # All thirteen were drafts. Andrew asked for weeks why nothing landed,
+        # and the answer was read off this line and relayed to him as
+        # done-and-awaiting-review. Nothing was awaiting a reviewer.
+        #
+        # THE STATION IS NOT THE BUG and is deliberately left alone: opening as
+        # a draft is the rule, and making it report a fault would teach work to
+        # open ready instead, trading one false signal for another. Only this
+        # summary lied.
+        #
+        # Each verdict now names WHOSE MOVE IT IS, because a status with no
+        # actor in it is how three people each believe the ball is elsewhere.
+        if _is_draft(s):
+            if s.blocking:
+                flag = f"DRAFT — {len(s.blocking)} station(s) still ahead of it. Mine to finish."
+            else:
+                # The wording deliberately avoids the word this whole repair is
+                # about. A verdict on a draft that contains it can be misread at
+                # a glance as the old claim, and a glance is how this was read
+                # for weeks. Name the ACTION instead of the state.
+                flag = (
+                    "DRAFT — every checked station proven, and it still cannot"
+                    " merge. MINE TO TAKE OUT OF DRAFT; nobody is waiting on"
+                    " anyone else."
+                )
             in_flight += 1
+        elif s.mergeable:
+            flag = "READY — out of draft, every checked station proven. Mine to merge."
+            ready += 1
         else:
             flag = f"ATTENTION — marked ready for review, {len(s.blocking)} station(s) unproven"
             attention.append(s.number)
@@ -603,7 +632,21 @@ def render(statuses: list[PrFlowStatus]) -> str:
     if attention:
         lines.append(f"  Needing attention: {', '.join(f'#{n}' for n in attention)}")
     else:
-        lines.append("  Nothing is off-track. Drafts with stations ahead of them are drafts.")
+        # A DRAFT WITH NOTHING AHEAD OF IT IS OFF-TRACK, and this line used to
+        # say the opposite. "Drafts with stations ahead of them are drafts" is
+        # true and was doing real work -- it stopped me calling a healthy
+        # in-progress draft stalled. But it also covered the case where every
+        # station is proven and the thing is simply parked, which is the one
+        # that needs a hand and got reassurance instead.
+        parked = sum(1 for s in statuses if _is_draft(s) and not s.blocking)
+        if parked:
+            lines.append(
+                f"  {parked} draft(s) have every checked station proven and are"
+                " waiting on nobody. Taking those out of draft is the next move,"
+                " and it is mine."
+            )
+        else:
+            lines.append("  Nothing is off-track. Drafts with stations ahead of them are drafts.")
     lines.append("  Checked: 2-council, 4-aria, 7-draft, 8-audit. NOT checked:")
     lines.append("  1-draft, 3-build, 5-test, 6-more-council, 9-merge — four of nine.")
     lines.append("")
