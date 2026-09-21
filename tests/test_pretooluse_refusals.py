@@ -29,6 +29,42 @@ from tests._bash_resolver import bash_executable
 ROOT = Path(__file__).resolve().parents[1]
 BASH = bash_executable()
 
+
+def _doorbell_surfaces() -> list[str]:
+    """Which PreToolUse surfaces the DOORBELL's interpreter will actually run.
+
+    WHY THIS IS NOT THE SAME QUESTION as which surfaces this test process has,
+    2026-09-21. The doorbell finds its own interpreter and imports whichever
+    ``divineos`` that interpreter has installed. In a worktree that is not the
+    installed checkout that is a DIFFERENT copy of this module, so a surface
+    added on this branch is absent from the door -- and the door then says
+    nothing about a gate it does not have.
+
+    Three states share that one silence: the gate ran and stayed quiet, the
+    gate refused, and the gate was never registered at all. Without this probe
+    the third reads as the first, so the failure says "this gate is broken"
+    when the truth is "this checkout is not the installed one." I read it the
+    first way for a full run before noticing the module path in a traceback
+    pointed at a different directory than the one I was editing.
+
+    Returns the registered names, or an empty list if the probe could not run.
+    """
+    probe = subprocess.run(
+        [
+            "python",
+            "-c",
+            "from divineos.core.hook_surfaces import install;"
+            " from divineos.core.hook_router import registered;"
+            " install(); print(','.join(registered('PreToolUse')))",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    return [n for n in (probe.stdout or "").strip().split(",") if n]
+
+
 # A real entry from the protected set, so the create gate has something to
 # object to regardless of which branch this checkout is standing on.
 _A_GUARDED_FILE = "docs/foundational_truths.md"
@@ -136,8 +172,32 @@ def test_the_two_pull_request_gates_keep_their_different_protocols(monkeypatch):
     removed was never measuring it. So the touched-files lookup is now
     supplied, which is the seam that turns a characterization of my checkout
     into a test of the gate.
+
+    AND THE SAME SEAM FOR THE MERGE GATE, 2026-09-21. The paragraph above was
+    written about the create gate and the merge gate sitting three lines below
+    it kept its own inherited precondition for nine more days. That one does
+    not read the branch -- it asks the network, `gh pr view 1 --json files`,
+    and fails open when it cannot see. On this machine gh is authenticated and
+    a real PR #1 exists, so the gate blocked and the test passed. On the runner
+    gh answers nothing, the gate correctly declines to invent a touch it cannot
+    observe, and the test failed against a gate doing its job perfectly -- the
+    identical fault the docstring already names, one function call away from
+    the paragraph naming it.
+
+    Fixing one instance of a fault and leaving its neighbour is what made this
+    a second failure rather than a first. So the guardrail touch is now stated
+    here rather than fetched: `audit_pr_for_guardrail_touches` is the single
+    seam, which keeps the network out AND keeps the test independent of
+    whether guardrail_files.txt is reachable from an installed package.
     """
+    import divineos.core.pr_merge_gate as pr_merge_gate
+
     monkeypatch.setattr(pr_gate, "branch_files_changed", lambda **_: [_A_GUARDED_FILE])
+    monkeypatch.setattr(
+        pr_merge_gate,
+        "audit_pr_for_guardrail_touches",
+        lambda _pr: (True, [_A_GUARDED_FILE]),
+    )
     merge = hs.pr_merge_gate_surface(
         {"tool_name": "Bash", "tool_input": {"command": "gh pr merge 1"}}
     )
@@ -297,7 +357,20 @@ def test_the_block_case_reaches_the_harness_through_the_doorbell():
     which is not a property of this gate at all. What IS this gate's property
     is that its reason reaches the harness. Pinning the code would have made a
     test that passes or fails on unrelated state.
+
+    IT DOES CHECK THE GATE IS PRESENT FIRST, 2026-09-21. In a worktree that is
+    not the installed checkout, the door imports a different copy of the
+    surfaces module and never registers this gate -- so its silence means
+    absent, not quiet, and the two are indistinguishable in the output. The
+    probe separates them and says which one happened.
     """
+    registered_at_the_door = _doorbell_surfaces()
+    if registered_at_the_door and "heredoc_escape" not in registered_at_the_door:
+        pytest.skip(
+            "the doorbell's interpreter has a divineos without heredoc_escape "
+            f"registered (it has: {', '.join(registered_at_the_door)}). That is "
+            "an install fact about this checkout, not a verdict about the gate."
+        )
     proc = subprocess.run(
         [BASH, ".claude/hooks/doorbell-pre-tool-use.sh"],
         cwd=ROOT,
@@ -364,17 +437,47 @@ def test_the_create_gate_refuses_through_the_doorbell_end_to_end():
     code, for the reason its neighbour below already documents: the code
     depends on which other surfaces on the same door are unhappy, which is not
     a property of this gate.
+
+    AND IT NO LONGER ASSUMES THE CHECKOUT IS REFUSABLE, 2026-09-21. The
+    command handed over is refused only when the CURRENT branch touches a
+    guardrail file, so the expected answer was a property of whichever branch
+    the test happened to run on. On mine it does touch one and this passed; on
+    the runner the diff shows none, the gate correctly says nothing, and the
+    test called a working gate broken. That is the identical fault the
+    `all_the_way_through_the_router` docstring above names for its own earlier
+    version -- I fixed it there and left its neighbour, three functions away,
+    still inheriting its precondition from the machine.
+
+    So the expectation is now ASKED rather than assumed: the gate itself says
+    whether this checkout is refusable, and the door is held to that answer in
+    both directions. Neither branch of the `if` is a free pass -- on a ready
+    checkout the door must be SILENT about this gate, which is a real
+    assertion and would catch a gate that refused everything.
     """
+    registered_at_the_door = _doorbell_surfaces()
+    if registered_at_the_door and "pr_create_gate" not in registered_at_the_door:
+        pytest.skip(
+            "the doorbell's interpreter has a divineos without pr_create_gate "
+            f"registered (it has: {', '.join(registered_at_the_door)}). That is "
+            "an install fact about this checkout, not a verdict about the gate."
+        )
+
+    from divineos.core.pr_gate import check_pr_create_safe
+
+    command = "gh pr create --title x --body y"
+    this_checkout_is_refusable = check_pr_create_safe(command).blocked
+
     proc = subprocess.run(
         [BASH, ".claude/hooks/doorbell-pre-tool-use.sh"],
         cwd=ROOT,
-        input=json.dumps(
-            {"tool_name": "Bash", "tool_input": {"command": "gh pr create --title x --body y"}}
-        ),
+        input=json.dumps({"tool_name": "Bash", "tool_input": {"command": command}}),
         capture_output=True,
         text=True,
         timeout=180,
     )
     everything = proc.stdout + proc.stderr
     assert proc.returncode in (0, 2)
-    assert "pr_create_gate" in everything, everything[:400]
+    if this_checkout_is_refusable:
+        assert "pr_create_gate" in everything, everything[:400]
+    else:
+        assert "pr_create_gate" not in everything, everything[:400]
