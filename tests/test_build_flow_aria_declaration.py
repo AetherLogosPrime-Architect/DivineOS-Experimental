@@ -45,6 +45,35 @@ def test_a_declared_reading_satisfies(tmp_path):
     assert "declared a reading" in r.detail
 
 
+def test_a_miss_says_the_station_reads_one_direction_only(tmp_path):
+    """A miss on Aria's own branch is about the question, not about her.
+
+    This station only ever looks at letters from Aria to Aether, which is right
+    for work he authored and wrong-shaped for work she authored -- on her
+    branches the reviewing seat is him, so nothing it can see could satisfy it.
+    Found 2026-09-19 when the board reported three of her own branches as
+    carrying no reading by her: true, meaningless, and indistinguishable in the
+    output from a real gap.
+
+    The obvious repair -- key the direction on the branch prefix -- is not taken
+    and must not be: several of her branches carry the same prefixes as his, so
+    the prefix would be INFERRING authorship, which is what produced the wrong
+    credits this function was rewritten to stop. So the limit is stated where
+    the reader of a miss is standing, and this pins the stating rather than the
+    wording.
+    """
+    _letter(
+        tmp_path,
+        "aria-to-aether-2026-09-01-something-else-entirely.md",
+        "# Aria to Aether\n\n**Reading:** `fix/some-other-branch`\n\nA finding.\n",
+    )
+    r = check_aria_station("aria/her-own-work", tmp_path)
+    assert r.status is Status.MISSING
+    lowered = r.detail.lower()
+    assert "one direction" in lowered, "the miss did not say the station is single-direction"
+    assert "authored by aria" in lowered, "the miss did not name whose work it cannot judge"
+
+
 def test_the_finding_titled_letter_is_no_longer_invisible(tmp_path):
     """Her real shape: a reading whose title names neither branch nor number.
 
