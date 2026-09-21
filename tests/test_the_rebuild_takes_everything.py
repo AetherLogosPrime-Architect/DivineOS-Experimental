@@ -133,18 +133,40 @@ def test_the_rendered_could_not_check_cannot_be_read_as_success(repo):
     assert "Do not push on this" in text
 
 
-def test_the_two_copies_of_the_substrate_list_have_not_drifted():
-    """The list exists twice on purpose -- the push-gate script is stdlib-only
-    so it still runs when the package is broken, and therefore cannot import
-    this. Duplication guarded by a failing test is honest; duplication guarded
-    by good intentions is the drift bug waiting to happen.
+def test_the_push_gate_has_one_definition_of_substrate_and_refuses_without_it():
+    """THERE IS ONLY ONE COPY NOW, and the guard had to change shape with it.
+
+    This used to parse a SECOND copy of the list out of the gate script and
+    compare the two, because the list genuinely existed twice: the gate is
+    stdlib-only so it could still run with the package broken. That
+    duplication drifted exactly as its own docstring predicted -- one word,
+    two definitions, three of four entries disagreeing, and the only symptom
+    was a branch that could not be pushed and could not be fixed by the
+    component that made it.
+
+    The duplication was then ended: the gate imports the list. So this test
+    started parsing a literal that no longer exists and died with an index
+    error -- a guard outliving its subject and reporting a crash where the
+    honest answer is that the thing it watched for is gone.
+
+    The equality is now carried by test_one_word_one_definition_of_substrate,
+    which compares the imported OBJECTS rather than parsed text and cannot go
+    stale this way. What nothing else asserts, and what this keeps, is that the
+    gate REFUSES when it cannot reach the definition. A silent fallback list
+    would be the same duplication wearing a different coat, and it would drift
+    in exactly the same silence.
     """
     script = Path("scripts/check_branch_scope.py").read_text(encoding="utf-8")
-    block = script.split("_SUBSTRATE_PREFIXES = (", 1)[1].split(")", 1)[0]
-    theirs = tuple(
-        line.strip().strip(",").strip('"') for line in block.splitlines() if line.strip().strip(",")
+
+    assert "from divineos.core.substrate_paths import LOCAL_SUBSTRATE_PREFIXES" in script, (
+        "the push gate no longer imports the shared list, so a second "
+        "definition of substrate has come back"
     )
-    assert theirs == SUBSTRATE_PREFIXES, (
-        "the push gate and the rebuild disagree about what counts as personal "
-        "writing; a rebuild would carry across something the gate then refuses"
+    assert "CANNOT CLASSIFY" in script, (
+        "the gate must say it cannot classify when the definition is "
+        "unreachable; could-not-look is not a clean branch"
     )
+
+    # The control. Without it this passes on a rebuild whose own list is empty,
+    # which would make every assertion above true and meaningless.
+    assert SUBSTRATE_PREFIXES, "the rebuild's own substrate list is empty"

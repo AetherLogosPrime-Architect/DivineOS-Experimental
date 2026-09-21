@@ -372,7 +372,44 @@ def _verify_pr(citation: str, reference_ts: float, recency: float) -> Verificati
             False, citation, "pr", f"gh lookup failed: {e}", could_not_check=True
         )
     if result.returncode != 0:
-        return VerificationResult(False, citation, "pr", f"gh pr view #{num} returned non-zero")
+        # NON-ZERO IS NOT "THE PULL REQUEST DOES NOT EXIST", and reading it
+        # that way is how a real one gets called absent.
+        #
+        # 2026-09-21: two tests failed on CI and passed on every developer
+        # machine, because the runner has gh on PATH but no credentials. The
+        # lookup could not run, this returned a confident not-found, and the
+        # correction tracker refused an integration whose pointer was perfectly
+        # real. The failure looked like a defect in the tracker; the tracker
+        # was correct and was handed a wrong answer.
+        #
+        # Non-zero covers at least: genuinely absent, unauthenticated, offline,
+        # rate-limited, and not-inside-a-repository. Only the first is a
+        # finding. So this claims not-found ONLY when gh says so in words, and
+        # anything else -- including anything unrecognised -- withholds the
+        # verdict instead.
+        #
+        # The asymmetry is deliberate and follows this module's own rule. A
+        # wrong could-not-check costs one row recorded as unverified. A wrong
+        # not-found refuses work that was really done and tells someone their
+        # evidence was invented.
+        stderr = (result.stderr or "").lower()
+        absent_markers = (
+            "could not resolve to a pullrequest",
+            "no pull requests found",
+            "not found",
+        )
+        if any(marker in stderr for marker in absent_markers):
+            return VerificationResult(
+                False, citation, "pr", f"gh pr view #{num}: {result.stderr.strip()[:120]}"
+            )
+        return VerificationResult(
+            False,
+            citation,
+            "pr",
+            f"gh pr view #{num} failed without saying it is absent: "
+            f"{result.stderr.strip()[:120] or 'no stderr'}",
+            could_not_check=True,
+        )
     # The recency check on a PR is whether it was updated recently; the
     # default 30-minute window is generous for "PR I just touched."
     return VerificationResult(True, citation, "pr", f"PR #{num} resolved")

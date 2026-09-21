@@ -60,6 +60,23 @@ _HOOKS_DIR = _PROJECT_ROOT / ".claude" / "hooks"
 _NON_GATING_HOOKS: frozenset[str] = frozenset(
     {
         "_lib.sh",
+        # ADVISORY DESPITE ITS OWN NAME, and the gap is worth recording rather
+        # than smoothing over. It is called a stop hook, its header calls
+        # itself a gate, and it never refuses anything: the shell wrapper exits
+        # zero on every path, and the Python it calls only ever prints -- its
+        # failure paths print COULD NOT CHECK rather than denying. So it
+        # surfaces a reading into the reply and leaves the deciding to the
+        # seat, which is exactly what a non-gating surface is.
+        #
+        # Read before classifying, not inferred from the filename, because the
+        # refusal of a hook like this would live in the interpreter it calls
+        # and be invisible to anything reading only the shell around it.
+        "unmeasured-quantity-stop.sh",
+        # Additive, never a filter, and it says so in its own header: it adds
+        # instructions about who is in the room rather than forbidding terms.
+        # Andrew corrected the filter shape into this one himself, so a test
+        # treating it as a possible gate would be auditing the wrong thing.
+        "he-is-in-the-room.sh",
         "load-briefing.sh",
         "pre-response-context.sh",
         "pre-tool-context.sh",
@@ -163,10 +180,59 @@ _RECOVERY_TOKENS: tuple[str, ...] = (
 )
 
 
+def _tracked_hook_names() -> set[str] | None:
+    """Hook filenames git knows about, or None when git cannot answer.
+
+    WHY NOT A DIRECTORY GLOB, 2026-09-21. This used to glob the hooks
+    directory on whatever machine happened to be running, and a hook named
+    `unmeasured-quantity-stop.sh` failed this test on CI for three separate
+    requests. The file is in no commit: not on main, not on any of those
+    branches, not in the merge ref the runner checks out -- confirmed against
+    the server, with the probe controlled in the positive direction first so a
+    silent no could not be a broken question.
+
+    So the test was judging the RUNNER'S FILESYSTEM while reporting on the
+    change under review. Anything that drops a file in that directory -- a
+    stray editor save, a leftover from an earlier job, a hook that writes a
+    hook -- can fail a review of a tree that never contained it, and the
+    failure names the innocent tree. Population fault: measure one set, rule
+    on another.
+
+    Tracked files are the honest population, because they are what the commit
+    actually proposes. None means git could not be asked, which routes to
+    could-not-check rather than to an empty set -- an empty set would make
+    this test silently stop inspecting anything at all.
+    """
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["git", "ls-files", "--", ".claude/hooks/*.sh"],
+            cwd=_PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if out.returncode != 0:
+        return None
+    names = {Path(line.strip()).name for line in out.stdout.splitlines() if line.strip()}
+    return names or None
+
+
 def _hook_files() -> list[Path]:
-    """Return all .sh files under .claude/hooks/ that the meta-check
-    should inspect (gating hooks only)."""
-    return [p for p in sorted(_HOOKS_DIR.glob("*.sh")) if p.name not in _NON_GATING_HOOKS]
+    """Hooks this meta-check should inspect: tracked, gating, present on disk.
+
+    Falls back to the directory listing only when git cannot answer, and that
+    fallback is the WEAKER reading kept deliberately -- a machine with no git
+    should still get some coverage rather than silently none.
+    """
+    tracked = _tracked_hook_names()
+    on_disk = sorted(_HOOKS_DIR.glob("*.sh"))
+    if tracked is not None:
+        on_disk = [p for p in on_disk if p.name in tracked]
+    return [p for p in on_disk if p.name not in _NON_GATING_HOOKS]
 
 
 def _has_denial(text: str) -> bool:
