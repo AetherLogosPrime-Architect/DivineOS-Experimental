@@ -107,8 +107,23 @@ _RELAY_INTRODUCER_RE = re.compile(
 # task-notification / system-reminder / persisted-output whose payload happens
 # to contain correction-shaped words cannot false-fire (fired 3+ times across
 # the 2026-06-03 session on workflow-completion envelopes).
+#
+# ci-monitor-event added 2026-09-21, after the app announced that Auto-fix was
+# switched on and the notice contained the words "Do not run". The detector
+# read that as Andrew correcting me and blocked my next command. Nothing in it
+# was his.
+#
+# THE DEFENCE WAS RIGHT AND ITS INVENTORY WAS STALE, which is the shape worth
+# recording rather than the one missing tag. A list of known envelopes cannot
+# know about an envelope invented after it was written, so this file will go
+# quietly out of date again every time the harness grows a new block. It fails
+# in the loud direction -- a false fire blocks a command and is impossible to
+# miss -- so an enumerated list is survivable here in a way it was not for the
+# read-only probe found the same day, where the stale list failed silently and
+# let writes through.
 _HARNESS_ENVELOPE_RE = re.compile(
-    r"<(task-notification|system-reminder|persisted-output)\b[\s\S]*?(?:</\1>|\Z)",
+    r"<(task-notification|system-reminder|persisted-output|ci-monitor-event)"
+    r"\b[\s\S]*?(?:</\1>|\Z)",
     re.IGNORECASE,
 )
 
