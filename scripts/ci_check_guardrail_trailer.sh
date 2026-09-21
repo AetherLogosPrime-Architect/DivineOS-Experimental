@@ -76,6 +76,48 @@ load_guardrail_list_at() {
         | grep -vE '^[[:space:]]*(#|$)' || true
 }
 
+# The exempt list, resolved at the same commit and for the same reason: what
+# counts as prose is a property of the branch being merged, not of whatever
+# happens to be checked out in CI.
+load_exempt_list_at() {
+    local commit="$1"
+    local raw
+    raw="$(git show "$commit:scripts/review_exempt_paths.txt" 2>/dev/null)"  # fail-soft: a commit predating the list simply has no list, and an empty result means nothing is exempt, so the caller reviews everything -- the safe direction
+    printf '%s\n' "$raw" | grep -vE '^[[:space:]]*(#|$)' || true  # fail-soft: grep exits 1 on an all-comment or empty list, which is a real state and not an error
+}
+
+# Does this change need review? Under Andrew's 2026-09-07 ruling, everything
+# does except prose: "Aletheia will audit any and all code that enters main,
+# period. the only exception are docs like letters and explorations etc".
+#
+# Prints the first non-exempt path found, or nothing if every changed file is
+# prose. Called with the file list on stdin.
+#
+# FAILS TOWARD REVIEW, and that direction is the entire design. If the exempt
+# list cannot be read -- missing on an older commit, unreadable, empty -- every
+# file counts as needing review. The previous polarity failed the other way: a
+# file absent from the protected list was silently waved through, which is how
+# roughly ninety named files ended up covered while the rest of the repository
+# merged unwatched. An unreadable list must never become a green check.
+first_path_needing_review() {
+    local exempt="$1" file prefix exempt_hit
+    while IFS= read -r file; do
+        [ -z "$file" ] && continue
+        exempt_hit=""
+        while IFS= read -r prefix; do
+            [ -z "$prefix" ] && continue
+            case "$file" in
+                "$prefix"*) exempt_hit="$prefix"; break ;;
+            esac
+        done <<< "$exempt"
+        if [ -z "$exempt_hit" ]; then
+            printf '%s\n' "$file"
+            return 0
+        fi
+    done
+    return 0
+}
+
 # Parse the External-Review trailer line(s) out of a commit message.
 # Returns ALL trailer lines, one per line, or empty if none present.
 #
@@ -141,11 +183,52 @@ parse_trailer_tree_hashes() {
 # artifact the operator actually reviews. A trailer on the commit still wins;
 # this runs only when there is none.
 #
-# Fails toward the old behaviour: no gh, no token, no PR number, or any error
-# leaves the result empty and the commit blocks exactly as before.
+# THREE OUTCOMES, NOT TWO (2026-09-19). This function used to document itself
+# as "fails toward the old behaviour: no gh, no token, no PR number, or any
+# error leaves the result empty and the commit blocks exactly as before."
+# That sentence is an accurate description of a defect, written by its own
+# author, and it sat here unchallenged for a month.
+#
+# Empty meant four different things and the caller reported one of them:
+# "no External-Review trailer in the PR body either." A pull request that was
+# never located cannot be said to lack anything. That is an instrument
+# answering confidently about a subject it never reached -- the exact class
+# this gate exists to catch, living inside the gate.
+#
+# It is not hypothetical. Commit abe62a32 landed on main 2026-09-16 and
+# blocked with precisely that message. Its PR body was never read: on a push
+# event PR_NUMBER is unset, and the only other route was a "(#N)" suffix that
+# a hand-edited squash title had dropped. The rescue exists for the
+# push-to-main case above all -- a commit already on main cannot be restamped
+# without rewriting main -- and push-to-main is the one case where both of
+# its routes to a PR number are unavailable by construction.
+#
+# So there is a third route now: ask the API which pull request contains this
+# commit. That route survives a hand-edited title and needs no event context.
+# And the outcome is reported through PR_LOOKUP_STATUS so the caller can tell
+# "looked and found nothing" from "never looked":
+#
+#   found        -- a PR was located and its body was read
+#   no-pr        -- no PR number from the event, the subject, or the API
+#   no-gh        -- the gh CLI is not on PATH
+#   lookup-error -- a PR number was known but its body could not be fetched
+#
+# Only "found" with empty output licenses a claim about the PR body.
+#
+# CALL IT WITHOUT COMMAND SUBSTITUTION. `X=$(trailer_from_pr_body ...)` runs
+# the body in a subshell, and a status set in a subshell dies with it -- the
+# caller would read an empty PR_LOOKUP_STATUS every time and be back to one
+# outcome wearing four names. So the trailer is returned through
+# PR_BODY_TRAILER_RESULT alongside the status, and both are read after the
+# call. It is echoed as well, purely so the function stays readable on its own.
+PR_LOOKUP_STATUS=""
+PR_BODY_TRAILER_RESULT=""
 trailer_from_pr_body() {
     local subject="$1"
+    local sha="${2:-}"
     local pr="${PR_NUMBER:-}"
+    PR_LOOKUP_STATUS=""
+    PR_BODY_TRAILER_RESULT=""
     # On a pull_request event the workflow supplies PR_NUMBER directly.
     # Branch commits carry no "(#N)" in their subject -- only the squash
     # commit does -- so without this the fallback worked AFTER the merge and
@@ -154,10 +237,57 @@ trailer_from_pr_body() {
     if [ -z "$pr" ]; then
         pr=$(echo "$subject" | grep -oE '\(#[0-9]+\)$' | grep -oE '[0-9]+') || true
     fi
-    [ -z "$pr" ] && return 0
-    command -v gh >/dev/null 2>&1 || return 0
-    gh pr view "$pr" --json body --jq .body 2>/dev/null \
-        | grep -iE '^External-Review:[[:space:]]*\S+' | head -1 || true
+
+    if ! command -v gh >/dev/null 2>&1; then
+        PR_LOOKUP_STATUS="no-gh"
+        return 0
+    fi
+
+    # Third route: the commit itself knows which pull request carried it.
+    # Only consulted when the cheaper routes came up empty. A failed call and
+    # an empty answer are kept apart here too -- the API returns success with
+    # no rows for a commit that belongs to no PR, and that is a real answer,
+    # while a non-zero exit means the question never reached GitHub.
+    if [ -z "$pr" ] && [ -n "$sha" ] && [ -n "${GITHUB_REPOSITORY:-}" ]; then
+        if ! pr=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${sha}/pulls" --jq '.[0].number' 2>/dev/null); then # fail-soft: a failed API call is not an answer about this commit, so it becomes the lookup-error status below rather than being read as "no PR exists".
+            PR_LOOKUP_STATUS="lookup-error"
+            return 0
+        fi
+        [ "$pr" = "null" ] && pr=""
+    fi
+
+    if [ -z "$pr" ]; then
+        PR_LOOKUP_STATUS="no-pr"
+        return 0
+    fi
+
+    local body
+    # fail-soft: gh prints its own diagnostics to stderr in CI noise; the failure itself is never swallowed, it becomes the lookup-error status the caller prints.
+    if ! body=$(gh pr view "$pr" --json body --jq .body 2>/dev/null); then
+        PR_LOOKUP_STATUS="lookup-error"
+        return 0
+    fi
+    PR_LOOKUP_STATUS="found"
+    # fail-soft: grep exits non-zero purely to mean "no matching line", which is the ordinary case of a PR body carrying no trailer and is reported by the empty result.
+    PR_BODY_TRAILER_RESULT=$(echo "$body" | grep -iE '^External-Review:[[:space:]]*\S+' | head -1 || true)
+    echo "$PR_BODY_TRAILER_RESULT"
+}
+
+# Render PR_LOOKUP_STATUS as a sentence the reader can act on. Kept beside the
+# lookup so a new status cannot be added without a line here to explain it.
+pr_lookup_explanation() {
+    case "${PR_LOOKUP_STATUS:-}" in
+        found)
+            echo "    [info] the pull request was read and its body carries no External-Review trailer; adding one there resolves this." ;;
+        no-pr)
+            echo "    [info] COULD NOT LOOK: no pull request could be found for this commit, so nothing is known about any PR body." ;;
+        no-gh)
+            echo "    [info] COULD NOT LOOK: the gh CLI is unavailable here, so no PR body was consulted." ;;
+        lookup-error)
+            echo "    [info] COULD NOT LOOK: a pull request was identified but its body could not be fetched." ;;
+        *)
+            echo "    [info] COULD NOT LOOK: the PR-body rescue did not run for this commit." ;;
+    esac
 }
 
 # Extract the tree-hash field from a trailer line, if present.
@@ -247,26 +377,24 @@ if ! NET_FILES=$(git diff --name-only "${PR_BASE}" "${PR_HEAD}" 2>&1); then
     NET_FILES=""
     NET_DIFF_OK=0
 fi
-HEAD_GUARDRAIL_LIST=$(load_guardrail_list_at "${PR_HEAD}")
-NET_TOUCHES_GUARDRAIL=""
-if [ -n "$HEAD_GUARDRAIL_LIST" ]; then
-    while IFS= read -r file; do
-        [ -z "$file" ] && continue
-        while IFS= read -r guardrail_path; do
-            [ -z "$guardrail_path" ] && continue
-            if [ "$file" = "$guardrail_path" ]; then
-                NET_TOUCHES_GUARDRAIL="$file"
-                break
-            fi
-        done <<< "$HEAD_GUARDRAIL_LIST"
-        [ -n "$NET_TOUCHES_GUARDRAIL" ] && break
-    done <<< "$NET_FILES"
-fi
+# SCOPE, INVERTED 2026-09-07. This used to ask whether the net diff touched a
+# file on the protected list, and pass when it did not. Measured that day: the
+# list named about ninety files by hand in a repository of some seventeen
+# hundred, so the answer was almost always no, and this check -- the ONE the
+# merge button actually waits on -- printed a pass over unreviewed code.
+#
+# Andrew: "there are no longer any protected files.. Aletheia will audit any
+# and all code that enters main, period. the only exception are docs like
+# letters and explorations etc." So the question is no longer WHICH files are
+# special. It is whether anything here is not prose.
+HEAD_EXEMPT_LIST=$(load_exempt_list_at "${PR_HEAD}")
+NET_NEEDS_REVIEW=$(printf '%s\n' "$NET_FILES" | first_path_needing_review "$HEAD_EXEMPT_LIST")
 
-if [ -z "$NET_TOUCHES_GUARDRAIL" ] && [ "$NET_DIFF_OK" = "1" ]; then
+if [ -z "$NET_NEEDS_REVIEW" ] && [ -n "$NET_FILES" ] && [ "$NET_DIFF_OK" = "1" ]; then
     echo "=== Multi-Party-Review Gate (server-side, point-in-time) ==="
-    echo "PASS. The net diff ${PR_BASE}..${PR_HEAD} lands no guardrail-listed file."
-    echo "Individual commits in this branch's history may have touched one, but"
+    echo "PASS. Every file in the net diff ${PR_BASE}..${PR_HEAD} is exempt prose"
+    echo "(scripts/review_exempt_paths.txt). No code lands, so no review is owed."
+    echo "Individual commits in this branch's history may have touched code, but"
     echo "what merges is the net diff, and review binds to what lands."
     emit_scope_disclosure
     exit 0
@@ -282,25 +410,15 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
     if [ -z "$PARENT" ]; then
         continue
     fi
-    COMMIT_GUARDRAIL_LIST=$(load_guardrail_list_at "$PARENT")
-
-    if [ -z "$COMMIT_GUARDRAIL_LIST" ]; then
-        continue
-    fi
+    # Same inversion as the net-diff scope above, and the failure directions
+    # are opposite for a reason. The old list was skipped when EMPTY, because
+    # an empty protected list meant nothing was protected. An empty exempt list
+    # means nothing is exempt, so the walk continues and every file counts --
+    # a list that cannot be read must never buy a pass.
+    COMMIT_EXEMPT_LIST=$(load_exempt_list_at "$PARENT")
 
     FILES=$(git diff-tree --no-commit-id --name-only -r "$commit")
-    TOUCHES_GUARDRAIL=""
-    while IFS= read -r file; do
-        [ -z "$file" ] && continue
-        while IFS= read -r guardrail_path; do
-            [ -z "$guardrail_path" ] && continue
-            if [ "$file" = "$guardrail_path" ]; then
-                TOUCHES_GUARDRAIL="$file"
-                break
-            fi
-        done <<< "$COMMIT_GUARDRAIL_LIST"
-        [ -n "$TOUCHES_GUARDRAIL" ] && break
-    done <<< "$FILES"
+    TOUCHES_GUARDRAIL=$(printf '%s\n' "$FILES" | first_path_needing_review "$COMMIT_EXEMPT_LIST")
 
     if [ -z "$TOUCHES_GUARDRAIL" ]; then
         continue
@@ -311,7 +429,8 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
 
     FROM_PR_BODY=""
     if [ -z "$TRAILER" ]; then
-        TRAILER=$(trailer_from_pr_body "$(git log -1 --format=%s "$commit")")
+        trailer_from_pr_body "$(git log -1 --format=%s "$commit")" "$commit"
+        TRAILER="$PR_BODY_TRAILER_RESULT"
         if [ -n "$TRAILER" ]; then
             FROM_PR_BODY="1"
             echo "[info] $commit: trailer absent from the commit message; read from the PR body instead."
@@ -338,7 +457,8 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
         # worktree where filter-branch cannot rewrite at all. The PR body can
         # carry it and is fetched live. So when the strict rule cannot be met
         # by history, consult the channel that can still be updated.
-        PR_BODY_TRAILER=$(trailer_from_pr_body "$(git log -1 --format=%s "$commit")")
+        trailer_from_pr_body "$(git log -1 --format=%s "$commit")" "$commit"
+        PR_BODY_TRAILER="$PR_BODY_TRAILER_RESULT"
         if [ -n "$PR_BODY_TRAILER" ]; then
             TRAILER="$PR_BODY_TRAILER"
             FROM_PR_BODY="1"
@@ -349,6 +469,9 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
     if [ -z "$TRAILER" ]; then
         BLOCKED_COMMITS="$BLOCKED_COMMITS $commit"
         echo "[BLOCKED] $commit modifies guardrail file(s); no External-Review trailer."
+        # The rescue ran on the way here. Say what it saw, so "no trailer
+        # anywhere" is never confused with "nowhere was looked".
+        pr_lookup_explanation
         continue
     fi
 
@@ -404,7 +527,10 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
         elif [ "$REQUIRE_TREE_HASH" = "1" ]; then
             BLOCKED_COMMITS="$BLOCKED_COMMITS $commit"
             echo "[BLOCKED] $commit trailer is missing tree-hash binding (REQUIRE_TREE_HASH=1)."
-            echo "    [info] no External-Review trailer in the PR body either; adding one there resolves this."
+            # This line used to read "no External-Review trailer in the PR body
+            # either" in all four cases, including the ones where no PR body was
+            # ever opened. Say which of the four actually happened.
+            pr_lookup_explanation
         else
             echo "[ok] $commit trailer present (legacy; no tree-hash binding)."
             echo "    [warn] DEPRECATED: trailer should include 'tree-hash:<40-hex>' for substance binding."
@@ -439,6 +565,7 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
         echo "[BLOCKED] $commit: no trailer tree-hash matches the commit's actual tree."
         echo "    commit's actual tree-hash: $ACTUAL_TREE_HASH"
         echo "    trailer tree-hash(es) offered:"
+        # shellcheck disable=SC2001  # the value is a newline-separated LIST of hashes; ${v//} would indent only the first line and quietly mis-render the rest
         echo "$TRAILER_TREE_HASH" | sed 's/^/      /'
         echo "    -> every round was filed against a different tree; cannot authorize."
     fi

@@ -41,24 +41,25 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # Paths written by the substrate itself rather than by deliberate work.
-_SUBSTRATE_PREFIXES = (
-    "family/letters/",
-    "exploration/",
-    "dreams/",
-    "docs/archives/",
-    # LOADOUT.md is the survey of my own writing -- regenerated from the
-    # substrate, swept by the same checkpoint, and personal in exactly the way
-    # the four above are. It arrived on fix/mixed-scope-publish-gate and never
-    # reached main; a test on that branch asserts it counts, and that test is
-    # the only reason the omission surfaced here.
-    #
-    # THIRD DISJOINT PIECE IN THIS ONE FILE, and it is why this merge is a
-    # union rather than a choice: main holds the byte check, the branch holds
-    # the mixed-scope gate, and the branch alone holds this line. Every
-    # one-sided resolution destroys something, and the loss is invisible from
-    # whichever side you are standing on.
-    "LOADOUT.md",
-)
+#
+# IMPORTED, not restated. Until 2026-09-10 this was a second copy, and the
+# checkpoint splitter answered the same question from the declared channels
+# instead -- so the splitter filed archives and dreams as WORK while this gate
+# refused the branch for carrying SUBSTRATE. One word, two definitions, three
+# of four entries in disagreement, and the only symptom was a branch that could
+# not be pushed and could not be fixed by the component that made it.
+try:
+    from divineos.core.substrate_paths import LOCAL_SUBSTRATE_PREFIXES as _SUBSTRATE_PREFIXES
+except ImportError:  # pragma: no cover - a checkout without the package installed
+    # Loud rather than a silent second copy: a fallback list here would be the
+    # exact duplication this import exists to end, and it would drift quietly.
+    print(
+        "[scope] CANNOT CLASSIFY: divineos.core.substrate_paths is not importable, "
+        "so this gate has no definition of substrate. That is could-not-look, not "
+        "a clean branch. Install the package (pip install -e .) and re-run.",
+        file=sys.stderr,
+    )
+    raise SystemExit(24)
 
 
 @dataclass(frozen=True)
@@ -135,62 +136,63 @@ def _other_refs(branch: str) -> list[str]:
 
     Returns [] when the ref list cannot be read, and the caller treats that as
     could-not-look rather than as nowhere-else -- this whole file's discipline.
-
-    EXCLUDED BY IDENTITY, NOT BY ONE SPELLING (2026-08-31, class named by Aria).
-    The first version built the exclusion set from two hand-spelled forms of
-    whatever string the caller passed -- refs/heads/<it> and
-    refs/remotes/origin/<it>. A branch answers to more than one name at once,
-    so excluding one form excludes nothing: address a branch as ``origin/work``
-    and neither spelling resolves, the branch is then compared against its own
-    other name, and the self-match is read as a copy living somewhere else.
-
-    I hit exactly this by hand the same day, in a throwaway version of this
-    check, and it told me all eight files were safe. Four of them had no
-    published copy anywhere. This file's own refusal text says do not trust a
-    page that measures you against yourself, and it was doing that internally.
-
-    Aria's framing is the fix: the unit excluded was the branch's NAME; the
-    thing at risk is the branch's IDENTITY. So exclude on two grounds, unioned:
-
-      by commit  every ref resolving to the same commit -- catches every
-                 spelling at once, including remotes this does not enumerate
-      by name    every ref whose short name matches, which still matters when
-                 a local branch and its remote copy have diverged, since both
-                 are the same branch and a rebuild-and-force takes both
-
-    Both directions ADD to the exclusion set, never subtract. A larger set means
-    fewer places a file can be found, means more files reported irreplaceable --
-    the cautious direction, which is the only safe way for this check to be
-    wrong.
     """
     code, out = _git("for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes")
     if code != 0:
         return []
 
-    sha_code, sha = _git("rev-parse", branch)
-    if sha_code != 0 or not sha.strip():
-        # The branch does not resolve, so nothing can be excluded and every
-        # comparison below would be against an unknown. Could-not-look.
+    # EXCLUDE BY WHAT A REF POINTS AT, NOT BY ITS NAME. Aria caught this on
+    # 2026-09-07: her push was told every substrate file existed elsewhere at
+    # the same bytes, and two existed nowhere on origin. Mine was told the same
+    # about seventy-eight, and I repeated it to Andrew as verification.
+    #
+    # The mechanism, measured rather than reasoned: the push hook calls this
+    # with a COMMIT SHA, because it checks the refs being pushed rather than
+    # HEAD. `git rev-parse --abbrev-ref <sha>` prints an empty string -- run at
+    # the terminal, not assumed -- so the exclusion set came out EMPTY, the
+    # branch's own local and remote refs stayed in the comparison, and every
+    # file on the branch was found safe ON THE BRANCH ITSELF.
+    #
+    # It was invisible exactly when it mattered. Check a sha no ref points at
+    # and the answer is right; check your own tip -- the only thing anyone runs
+    # before a push -- and it measures you against you. The refusal text one
+    # screen below already said do not trust a page that measures you against
+    # yourself, and the page was doing it.
+    points_code, pointing = _git("for-each-ref", "--format=%(refname)", "--points-at", branch)
+    if points_code != 0:
+        # An exclusion set that failed open is what caused the fault. Failing
+        # open quietly a second time would be the same bug wearing a repair.
         return []
-    mine_sha = sha.strip()
+    mine: set[str] = {r.strip() for r in pointing.splitlines() if r.strip()}
 
-    short = ""
+    # POINTING-AT ALONE IS PRECISE AND BESIDE THE POINT. Aria ran the repair
+    # against a live tree instead of agreeing with the letter about it, and
+    # found the gap: pointing-at is exact, so the moment there is one commit
+    # the remote does not have, the local ref moves and
+    # refs/remotes/origin/<same branch> stays behind. It no longer points at
+    # the tip, so it is not excluded -- and it is still my branch, carrying
+    # nearly every file on it.
+    #
+    # That is the state EVERY push is made from, by definition: a push exists
+    # because the remote is missing a commit. So a file living only on this
+    # branch is found safe on this branch's own remote copy. The witness is me,
+    # one commit ago.
+    #
+    # So a ref is mine if it bears my branch's NAME, whatever commit it
+    # currently sits on. The name is taken from every ref that points at the
+    # rev, which works for a hash, and from abbrev-ref, which works for a name.
+    for ref in list(mine):
+        for prefix in ("refs/heads/", "refs/remotes/origin/"):
+            if ref.startswith(prefix):
+                short = ref[len(prefix) :]
+                mine |= {f"refs/heads/{short}", f"refs/remotes/origin/{short}"}
+
     name_code, name = _git("rev-parse", "--abbrev-ref", branch)
-    if name_code == 0 and name.strip():
-        short = name.strip().split("/")[-1]
+    if name_code == 0 and name.strip() and name.strip() != branch.strip():
+        short = name.strip()
+        mine |= {f"refs/heads/{short}", f"refs/remotes/origin/{short}"}
 
-    refs: list[str] = []
-    for line in out.splitlines():
-        ref = line.strip()
-        if not ref:
-            continue
-        if short and (ref == f"refs/heads/{short}" or ref.endswith(f"/{short}")):
-            continue
-        their_code, their_sha = _git("rev-parse", ref)
-        if their_code == 0 and their_sha.strip() == mine_sha:
-            continue
-        refs.append(ref)
-    return refs
+    return [r.strip() for r in out.splitlines() if r.strip() and r.strip() not in mine]
 
 
 def only_here(branch: str, paths: list[str]) -> tuple[list[str], list[str], bool]:
@@ -288,16 +290,19 @@ def _gate_mixed(branch: str, truth: Reading) -> int:
     drift away from itself. It also means a branch is judged by what it carries
     rather than by what it was called when it was created.
 
-    GRAFTED RATHER THAN MERGED (2026-08-31). This function lived only on
-    fix/mixed-scope-publish-gate; only_here and _other_refs above live only on
-    main. Neither copy of this file had the other half, so BOTH one-sided
-    resolutions destroyed something: taking the branch removes the byte check
-    that rescued four letters today, and taking main empties the proposal of
-    the gate it exists to add.
+    GRAFTED RATHER THAN MERGED (2026-08-31, grafted again 2026-09-21). This
+    function lived only on its own branch; the byte check and the identity-based
+    exclusion above live only on main. Neither copy of this file had the other
+    half, so BOTH one-sided resolutions destroyed something.
 
-    Aria caught the first direction and named the stakes. The second is the
-    same fault seen from the other end, and it is why this is a union rather
-    than a choice.
+    AND THE SECOND GRAFT CORRECTED THE FIRST. The branch also carried its own
+    rewrite of the exclusion set, which took the branch's name from abbrev-ref
+    -- empty when the caller passes a commit hash, which is exactly what the
+    push hook passes. Main's version derives the name from the refs pointing at
+    the rev instead, so it holds for a hash as well as a name. Main's test for
+    that case failed against the union and was right to: keeping both
+    implementations kept the weaker one. Main's stands; this function is what
+    the branch actually contributes.
     """
     code = truth.files - truth.substrate
 
