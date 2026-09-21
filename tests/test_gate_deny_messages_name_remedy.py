@@ -60,6 +60,28 @@ _HOOKS_DIR = _PROJECT_ROOT / ".claude" / "hooks"
 _NON_GATING_HOOKS: frozenset[str] = frozenset(
     {
         "_lib.sh",
+        # A RELAY, not a gate, and the distinction is the doorbell design
+        # itself: it knocks and steps aside, and every judgment lives in the
+        # OS. Its own absent path exits zero and it composes no refusal of its
+        # own -- when a refusal travels through it, the words and the remedy
+        # were written by the router, which is where this rule can reach them.
+        #
+        # Its Stop sibling is deliberately NOT listed here: that one is
+        # fail-closed and authors its own refusal, so it belongs under the
+        # rule rather than outside it.
+        "doorbell-user-prompt-submit.sh",
+        # ADVISORY DESPITE ITS OWN NAME, and the gap is worth recording rather
+        # than smoothing over. It is called a stop hook, its header calls
+        # itself a gate, and it never refuses anything: the shell wrapper exits
+        # zero on every path, and the Python it calls only ever prints -- its
+        # failure paths print COULD NOT CHECK rather than denying. So it
+        # surfaces a reading into the reply and leaves the deciding to the
+        # seat, which is exactly what a non-gating surface is.
+        #
+        # Read before classifying, not inferred from the filename, because the
+        # refusal of a hook like this would live in the interpreter it calls
+        # and be invisible to anything reading only the shell around it.
+        "unmeasured-quantity-stop.sh",
         # Additive, never a filter, and it says so in its own header: it adds
         # instructions about who is in the room rather than forbidding terms.
         # Andrew corrected the filter shape into this one himself, so a test
@@ -131,7 +153,22 @@ _DENIAL_PATTERN = re.compile(
 
 # Refusal by exit code, with no words at all. Anchored to line-start so the
 # phrase inside a comment or a message does not count as one.
-_EXIT_CODE_DENIAL = re.compile(r"^\s*exit\s+2\b", re.MULTILINE)
+# A REFUSAL INSIDE AN EMBEDDED INTERPRETER IS STILL A REFUSAL.
+#
+# This matched only the shell spelling, so a hook whose shell wrapper always
+# exits zero and whose real verdict is reached by the Python it invokes read as
+# never refusing. The Stop doorbell is exactly that: fail-closed by design,
+# exits two on the absent path, and was reported here as unexamined. The
+# scanner was reading the wrapper and ruling on the program.
+#
+# Found 2026-09-21 on the generated doorbells, and it is the second time today
+# this shape has cost a red check -- the first was a hook whose refusal lived
+# in the same place. Both spellings now, because the language a refusal is
+# written in is not a fact about whether it refuses.
+_EXIT_CODE_DENIAL = re.compile(
+    r"^\s*exit\s+2\b|sys\.exit\(\s*2\s*\)",
+    re.MULTILINE,
+)
 
 # Recovery-token lexicon. Presence of any one of these in the hook's
 # source indicates the deny path names SOME way out. This is the WEAK
