@@ -3,9 +3,9 @@
 #
 # One of seven doorbells. Each one knocks and steps aside; not one of them
 # decides anything. That is Dad's rule and the reason for it is that a hook
-# which thinks is a hook that can be wrong in a language nothing tests — and I
-# have shipped exactly that: fourteen branches of judgement written in shell,
-# where a unit test could not reach a single one of them.
+# which thinks is a hook that can be wrong in a language nothing tests -- and
+# I have shipped exactly that: fourteen branches of judgement written in
+# shell, where a unit test could not reach a single one of them.
 #
 # If this file ever grows a branch, the branch belongs in the OS. Keeping it
 # dumb is not laziness; it is where the testable surface lives.

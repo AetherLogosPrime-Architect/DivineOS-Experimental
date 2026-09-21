@@ -4,9 +4,9 @@
 # branch the branch belongs in the OS where a test can reach it.
 #
 # What fires here is everything that can only be known once an action has
-# happened — what the command actually returned, whether the picture changed,
-# what the reply actually said. None of that is knowable before the fact, which
-# is why there are two doorbells and not one.
+# happened -- what the command actually returned, whether the picture
+# changed, what the reply actually said. None of that is knowable before the
+# fact, which is why there are two doorbells and not one.
 #
 # PostToolUse doorbell. One of seven. All judgment lives in the OS.
 #
