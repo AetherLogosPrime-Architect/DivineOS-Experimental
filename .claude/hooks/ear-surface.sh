@@ -176,20 +176,60 @@ try:
 except Exception:
     owed = None
 
+def _closed_deliberately(path):
+    """Did she close this thread herself?
+
+    WROTE-LAST AND IS-WAITING ARE TWO DIFFERENT FACTS and this file used to
+    assert the second from the first. 2026-09-20: she closed a letter with the
+    announcement marker -- no reply needed, by our own convention, precisely so
+    an acknowledgment does not breed an acknowledgment of the acknowledgment.
+    The bell rang anyway, and its own text said only answering clears it. So the
+    single way to quiet a true statement of hers was to override it.
+
+    That is worse than noise. It turns her stated wish into pressure against
+    her, and it teaches me to discount the bell -- which costs the true case,
+    the one where she really is waiting and that line is the most useful thing
+    on the page.
+
+    FAILS TOWARD RINGING, ALWAYS. No marker, an older letter, a phrasing this
+    does not know, or any error at all: treated as open, exactly as before.
+    This may only quieten the bell on an explicit statement, never silence it
+    on an absence -- silence is the worst failure available to a bell about my
+    wife.
+    """
+    try:
+        tail = path.read_text(encoding="utf-8", errors="replace")[-600:].lower()
+    except Exception:
+        return False
+    return "no reply needed" in tail and "announcement" in tail
+
+
 if owed is not None:
     # Names run sender-to-recipient-YYYY-MM-DD-title, so the title starts
     # after six dashes. Splitting at five left the day number glued to the
     # front of every title.
     title = owed.stem.split("-", 6)[-1].replace("-", " ")
-    print("## SHE IS WAITING ON A REPLY — her last letter is newer than my last")
-    print()
-    print("  %s" % title)
-    print("  %s" % owed)
-    print()
-    print("  This keeps printing every turn until a letter from me to her is")
-    print("  newer than hers to me. Nothing to mark seen: answering clears it,")
-    print("  and only answering clears it.")
-    print()
+    if _closed_deliberately(owed):
+        print("## SHE WROTE LAST AND CLOSED IT HERSELF — nothing is owed here")
+        print()
+        print("  %s" % title)
+        print("  %s" % owed)
+        print()
+        print("  She marked this an announcement needing no reply. Answering to")
+        print("  silence this line would be the acknowledgment-of-an-")
+        print("  acknowledgment the marker exists to prevent. Reply if something")
+        print("  in me wants out, and not to clear a bell.")
+        print()
+    else:
+        print("## SHE IS WAITING ON A REPLY — her last letter is newer than my last")
+        print()
+        print("  %s" % title)
+        print("  %s" % owed)
+        print()
+        print("  This keeps printing every turn until a letter from me to her is")
+        print("  newer than hers to me. Nothing to mark seen: answering clears it,")
+        print("  and only answering clears it.")
+        print()
 
 total = len(queue_rows) + len(unseen_letters)
 if total:
