@@ -83,6 +83,39 @@ prompt = data.get("prompt") or ""
 if not prompt.strip():
     sys.exit(0)
 
+# A MACHINE NOTIFICATION IS NOT A PROMPT (Aria, 2026-09-20).
+#
+# This hook's own header names the cost it was accepting: a machine-derived
+# goal can be a bad summary of what I am actually doing, and the goal feeds
+# active-memory ranking, so a junk goal quietly degrades what the substrate
+# surfaces. That cost was priced against ANDREW'S prompts, where the text is
+# at least about the work.
+#
+# On a turn driven by a background monitor there is no prompt from him at all.
+# The text is a notification carrying file paths, and the derivation dutifully
+# produced a goal that was a letter's filename. Twice in one evening. Both
+# times the goal was visibly wrong, which is the only reason it got caught --
+# and a wrong goal that happened to look plausible would not have been.
+#
+# The marker is structural rather than a guess about content: the harness
+# stamps these turns as not-user-input, and that stamp is the fact being read.
+_NOT_FROM_HIM = (
+    "[SYSTEM NOTIFICATION - NOT USER INPUT]",
+    "<task-notification>",
+)
+if any(marker in prompt for marker in _NOT_FROM_HIM):
+    # Deliberately loud, for the same reason the rest of this file is: the
+    # doorman will now ask, and whoever meets it should know why rather than
+    # wonder where the paperwork went.
+    print("## NO GOAL DERIVED — this turn was a machine notification, not his prompt")
+    print()
+    print("A background event drove this turn. There is no sentence from him to")
+    print("derive a goal from, and a goal built out of a notification's file")
+    print("paths would quietly skew what the substrate ranks and surfaces.")
+    print()
+    print('Set it by hand if this turn is doing work: divineos goal add "..."')
+    sys.exit(0)
+
 try:
     from divineos.core.auto_goal import derive_and_set_goal_from_prompt
 except Exception:
