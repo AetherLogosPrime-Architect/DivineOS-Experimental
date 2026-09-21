@@ -350,8 +350,7 @@ def test_it_also_says_the_commit_underneath_is_not_safe_to_drop(repo, channels, 
     # position that no longer exists is gone and the STAKES, which are
     # unchanged, are what the assertion holds onto.
     assert "NOT safe to drop" in said, (
-        "it committed work on my behalf and said nothing about the commit being "
-        "unsafe to drop"
+        "it committed work on my behalf and said nothing about the commit being unsafe to drop"
     )
     assert "module.py" in said, "it warned without naming the work it had swept"
     assert "ONLY copy" in said, (
