@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**129 automations — 126 wired, 3 switched off.**
+**130 automations — 127 wired, 3 switched off.**
 
 ---
 
@@ -103,7 +103,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `auto-cycle-token-trigger.sh` | 2026-08-31 | Compaction ritual driver — deterministic, in-process, no external monitor. |
 
-### Stop  (19)
+### Stop  (20)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -115,6 +115,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `detect-theater.sh` | 2026-09-15 | MINE. Aether, May 2026. Theatre is the failure where I perform having done |
 | `lepos-channel-reflect.sh` | 2026-07-11 | post-send lepos reflection channel driver. |
 | `log-session-end.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
+| `parked-work-must-not-be-invisible.sh` | not on main | Parking work produces a clean tree, so every other surface says all-clear. |
 | `post-response-audit.sh` | 2026-07-27 | thin doorman pointing to the OS. |
 | `promise-reach-detector.sh` | 2026-07-18 | scan last assistant reply for promise-shape phrases and |
 | `retrieval-tally-check.sh` | 2026-07-21 | post-compose retrieval-tally check. |

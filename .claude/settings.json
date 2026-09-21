@@ -681,6 +681,11 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/parked-work-must-not-be-invisible.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/post-response-audit.sh",
             "timeout": 10
           },
