@@ -102,7 +102,17 @@ def test_a_read_that_deadlocked_me_is_no_longer_this_gates_problem(cmd, marker_p
 @pytest.mark.parametrize("cmd", WRITES_THAT_MUST_STILL_BLOCK)
 def test_the_repair_did_not_open_a_hole(cmd, marker_present):
     """An unrecorded correction still stops substantive work. If this fails,
-    the deadlock was traded for a gap, which is the worse of the two."""
+    the deadlock was traded for a gap, which is the worse of the two.
+
+    THIS ONE IS GREEN ON BOTH SIDES OF THE CHANGE, ON PURPOSE. The pre-push
+    pin-checker flags exactly that and is right to: a regression test that
+    passes before and after guards nothing, and is worse than no test because
+    it reads as coverage. This is not a regression test. It is the
+    no-hole guard -- its whole job is to stay green while the clause beside
+    it changes behaviour, and it would go red only if a future edit widened
+    the carve-out past reads. The test that actually pins this change is the
+    differential one below; if anyone comes here to "fix" this by making it
+    fail somewhere, that is the misreading this note exists to stop."""
     assert _CORRECTION_DENY_FRAGMENT in _deny_reason(cmd)
 
 
