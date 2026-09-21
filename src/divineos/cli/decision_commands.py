@@ -253,6 +253,76 @@ def register(cli: click.Group) -> None:
                 )
         except Exception:  # noqa: BLE001 — auto-link is observational
             pass
+
+        # PRIOR WALKS ON THE SAME QUESTION (Aether + Aria, 2026-09-20).
+        #
+        # Aether named the cost and asked for a repair. A filed walk is not only
+        # a record; it is a future obstacle to changing your mind. Retracting
+        # means stepping over an argument of your own that looks considered, and
+        # THE WEIGHT SCALES WITH HOW WELL THE WALK WAS WRITTEN -- a nasty
+        # property for a practice whose whole point is thinking carefully. He hit
+        # it on a merge: his filed reasoning made the reversal harder rather than
+        # easier, because a considered-looking case now sat on the record
+        # defending the wrong answer.
+        #
+        # His words for what the store cannot say: our walks are dated and our
+        # minds are not, and nothing marks which of two walks on the same
+        # question came second, or that the second killed the first. Knowledge,
+        # directives, teachings and the family queue all carry supersession.
+        # Decisions carry none.
+        #
+        # WHY THIS IS A SURFACE RATHER THAN A SUPERSEDE FIELD. A field I have to
+        # remember to set is the thing that already fails. Andrew's proof is the
+        # ledger: it works because nobody's memory is load-bearing anywhere in
+        # it. So this fires at filing time, unasked, and shows the earlier walks
+        # while the question is still in front of me -- the only moment I can
+        # tell whether I am building on one or contradicting it.
+        #
+        # WHAT IT CANNOT DO, said out loud because leaving it silent is the
+        # shape of nearly every fault we found today: it cannot tell which walk
+        # is right, and it matches on wording, so a prior walk phrased
+        # differently is invisible to it. An empty result means nothing was
+        # MATCHED -- never that nothing was written.
+        try:
+            from divineos.core.decision_journal import search_decisions
+
+            prior = [
+                d for d in search_decisions(what, limit=4) if d.get("decision_id") != decision_id
+            ][:3]
+            if prior:
+                click.echo()
+                click.secho(
+                    f"    [prior walks] {len(prior)} earlier decision(s) match this "
+                    "question. If one is now wrong, say so while you are here "
+                    "rather than leaving both standing:",
+                    fg="cyan",
+                )
+                for d in prior:
+                    # The column is a REAL epoch, not an ISO string. The first
+                    # version of this sliced it like text and printed ten digits
+                    # of a number at a reader expecting a date -- assuming a
+                    # format instead of checking the schema, which is the same
+                    # move that produced the merge this surface exists for.
+                    try:
+                        when = datetime.datetime.fromtimestamp(
+                            float(d.get("created_at", 0))
+                        ).strftime("%Y-%m-%d")
+                    except (TypeError, ValueError):
+                        when = "unknown date"
+                    click.secho(
+                        f"      {str(d.get('decision_id', ''))[:8]}  {when}  "
+                        f"{str(d.get('content', ''))[:70]}",
+                        fg="bright_black",
+                    )
+                click.secho(
+                    "    (matched on wording, so this is not the whole shelf)",
+                    fg="bright_black",
+                )
+        except Exception:  # noqa: BLE001 — informational; never block a filing
+            import logging
+
+            logging.getLogger(__name__).debug("prior-walk surface unavailable", exc_info=True)
+
         if tension:
             click.secho(f"    Tension: {tension[:80]}", fg="cyan")
         if almost:
