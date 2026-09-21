@@ -540,6 +540,42 @@ def _commits_behind_base(branch: str) -> tuple[int, str]:
         return 0, f"{type(exc).__name__}: {exc}"
 
 
+def stamp_abort_reason(
+    *,
+    round_confirmed: bool,
+    body_written: bool,
+    commits_unstamped: int,
+) -> str | None:
+    """What stops a request going ready. None means nothing does.
+
+    THE POLICY IN ONE PLACE, because it was three inline conditions and one of
+    them was a rule the server had already dropped.
+
+    Unstamped branch commits do NOT stop it. A squash merge puts ONE commit on
+    main carrying the request title and body; the branch commits never arrive
+    on main individually, so a trailer on them is read by nobody. The server
+    check that once demanded them stopped, and recorded why in its own margin:
+    per-commit trailers are unmeetable on a branch held by a worktree, and the
+    branch satisfies the check through the body instead.
+
+    What DOES stop it is a review nobody can reach: a round without both
+    confirms, or a body that was never written. Those two are reported
+    separately and never share a sentence -- a reader told the wrong one goes
+    and fixes the wrong thing.
+
+    ``commits_unstamped`` is accepted rather than ignored so the caller can
+    still SAY how many there are. Reporting is not refusing.
+    """
+    if not round_confirmed:
+        return "the round carries no confirm from both seats, so nothing authorizes this merge yet"
+    if not body_written:
+        return (
+            "the PR body was not written, and the body is the only place the "
+            "server reads the review from"
+        )
+    return None
+
+
 def _worktrees_holding(branch: str) -> list[str]:
     """Paths of worktrees with ``branch`` checked out. Empty when none do.
 
@@ -797,11 +833,34 @@ def register(cli: click.Group) -> None:
                 Path.cwd(), branch=branch, dry_run=dry_run, round_id=round_id
             )
         except PushReadyError as exc:
-            click.secho(f"[!] Could not stamp the branch commits: {exc}", fg="red")
-            click.secho("    PR left as-is; nothing was changed.", fg="bright_black")
-            raise click.exceptions.Exit(1) from exc
+            # STAMPING THE COMMITS IS BEST-EFFORT NOW, AND THE SERVER SAYS SO.
+            #
+            # This used to abort. On 2026-09-21 it refused a merge Andrew had
+            # confirmed, because two old commits carried no trailer and the
+            # rewrite that would add it could not run. Five attempts, three
+            # checkouts, one dedicated worktree -- unmeetable from here.
+            #
+            # The per-commit demand was added 2026-08-13 after eleven stamped
+            # requests went red. It was then dropped from the server check,
+            # whose own margin predicts this exact incident: per-commit
+            # trailers are "unmeetable on a branch (amend, force-push,
+            # worktrees where filter-branch cannot rewrite history)", and the
+            # branch now "satisfies the check through the PR body, which is
+            # editable and fetched live". The server moved; this did not.
+            #
+            # A squash merge settles it: main gets ONE commit whose message is
+            # the PR title and body. The branch commits never reach main
+            # individually, so a trailer on them is read by nobody.
+            click.secho(f"[~] Could not stamp the branch commits: {exc}", fg="yellow")
+            click.secho(
+                "    Continuing. The PR body is what the server reads, and it is written below.",
+                fg="bright_black",
+            )
+            pr_result = None
 
-        if not pr_result.needing_trailer:
+        if pr_result is None:
+            pass
+        elif not pr_result.needing_trailer:
             click.secho("[=] Branch commits already carry the trailer.", fg="cyan")
         elif dry_run:
             click.secho(
@@ -832,20 +891,19 @@ def register(cli: click.Group) -> None:
             )
             if still:
                 click.secho(
-                    f"[!] {len(still)} commit(s) STILL carry no trailer after the "
-                    "amend, whatever the amend reported:",
-                    fg="red",
+                    f"[~] {len(still)} commit(s) still carry no trailer after the amend:",
+                    fg="yellow",
                 )
                 for c in still:
                     click.echo(f"      {c.short_sha} {c.subject[:56]}")
                 click.secho(
-                    "    Not writing the body, not clearing draft. This guard "
-                    "sees the missing trailer, not the reason -- and there is "
-                    "more than one. The branch may be held by another worktree "
-                    "so its history cannot be rewritten from here; or the "
-                    "rewrite may have run against a different branch entirely. "
-                    "Check which branch is checked out here before assuming "
-                    "the worktree.",
+                    "    Writing the body anyway, because the body is what the "
+                    "server reads. A squash merge puts ONE commit on main "
+                    "carrying the PR title and body; these commits never reach "
+                    "main on their own, so a trailer on them is read by nobody. "
+                    "Stated by the server check itself, which stopped requiring "
+                    "them and said why: unmeetable on a branch held by a "
+                    "worktree, and satisfied through the PR body instead.",
                     fg="bright_black",
                 )
                 # NAME WHAT WAS TESTED, NOT WHAT IS PLAUSIBLE. This used to
@@ -871,11 +929,15 @@ def register(cli: click.Group) -> None:
                         "amends history the server has already moved past.",
                         fg="bright_black",
                     )
-                raise click.exceptions.Exit(1)
-
-            if not pr_result.pushed:
+            elif not pr_result.pushed:
+                # STILL A REFUSAL, and for a different reason than the trailer.
+                # The body binds a tree by hash. If the rewrite changed history
+                # locally and the push did not land, the body would name a tree
+                # the remote has never seen -- the review would point at
+                # nothing. That is unrelated to who reads commit trailers, so
+                # dropping the trailer demand must not drop this.
                 click.secho(
-                    "[!] Commits carry the trailer but the push failed: "
+                    "[!] The branch was rewritten locally but the push failed: "
                     f"{pr_result.push_stderr.strip()[:160]}\n"
                     "    Not writing the body -- it would bind a tree the remote "
                     "does not have.",
@@ -883,11 +945,12 @@ def register(cli: click.Group) -> None:
                 )
                 raise click.exceptions.Exit(1)
 
-            click.secho(
-                f"[+] {len(pr_result.needing_trailer)} commit(s) now carry the "
-                f"trailer for {round_id}, verified after the amend.",
-                fg="green",
-            )
+            else:
+                click.secho(
+                    f"[+] {len(pr_result.needing_trailer)} commit(s) now carry the "
+                    f"trailer for {round_id}, verified after the amend.",
+                    fg="green",
+                )
 
         tree_hash = pr_head_tree_hash(pr_number)
         if not tree_hash:

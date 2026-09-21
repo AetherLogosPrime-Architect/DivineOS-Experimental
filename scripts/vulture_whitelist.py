@@ -43,3 +43,13 @@ _ = CrossTurnScan
 clearance  # noqa: F821 — record_clearance abstract-method param (vulture whitelist by name)
 accumulated_state  # noqa: F821 — CrossTurnScan.scan abstract-method param
 just_emitted_text  # noqa: F821 — CrossTurnScan.scan abstract-method param
+
+# stamp_abort_reason's `commits_unstamped` is deliberately accepted and never
+# read, and the not-reading IS the point. Until 2026-09-21 unstamped branch
+# commits aborted the stamp; the server had already stopped requiring them,
+# and the mismatch cost a merge Andrew had confirmed. The parameter keeps the
+# negative claim visible at the call site and testable -- a test can pass any
+# number of unstamped commits and assert the answer is still "nothing stops
+# this". Delete the parameter and the claim becomes an absence, which is what
+# let the stale rule live unnoticed in the first place.
+commits_unstamped  # noqa: F821 — stamp_abort_reason param, unread on purpose
