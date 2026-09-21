@@ -97,3 +97,28 @@ def test_a_description_lead_is_never_a_find():
     r = search("zzqq-nonexistent-artifact-name")
     assert not r.anything_found
     assert r.described_by, "this term is the one that produced spurious leads"
+
+
+def test_every_state_this_tool_can_be_in_has_its_own_words(monkeypatch):
+    """Aether's test, applied here the hour he named it.
+
+    His framing, from the repair that broke the same way it was fixing: the
+    design question is not *does it work*. It is whether, for every state the
+    world can be in, the output distinguishes that state from the others. He
+    had four states reaching him as one blank while the logic stayed correct
+    throughout.
+
+    This tool has four. Three were exercised by real runs; the fourth --
+    git unreadable -- was exercised by nothing at all, which is how a
+    could-not-check quietly starts reading as a clean result.
+    """
+    from divineos.core import prior_art
+
+    monkeypatch.setattr(prior_art, "_git", lambda args: None)
+    r = prior_art.search("psf")
+
+    assert not r.git_readable, "an unreadable git must be reported, never assumed clean"
+    assert not r.elsewhere_in_git, "nothing may be claimed about git when git could not be read"
+    assert not r.branches
+    # The name axis does not need git, so it must keep working and keep saying so.
+    assert "psf" in r.commands
