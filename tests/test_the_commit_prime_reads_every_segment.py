@@ -28,13 +28,13 @@ import json
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 HOOK = REPO_ROOT / ".claude" / "hooks" / "wwnd-tool-prime.sh"
-EVENT_LOG = Path(os.path.expanduser("~")) / ".divineos" / "wwnd_tool_prime_events.jsonl"
 
 
 def _working_bash() -> str | None:
@@ -75,22 +75,45 @@ def _fired(command: str) -> bool:
     The hook prints nothing a caller can read — it writes whether it fired to
     its own event log. Reading that is the measurement; anything else would be
     a test of a copy of the logic rather than of the hook.
+
+    EACH CALL GETS ITS OWN HOME, and that is a repair rather than tidiness.
+    This used to read the LAST line of the shared log in the real home. The
+    log records no command, so a line written by anything else between the run
+    and the read is indistinguishable from mine -- and under parallel workers
+    something else is usually running. The chained-commit case failed in a full
+    suite run on 2026-09-20 and passed alone and in its own file, which is the
+    signature of reading somebody else's row.
+
+    The set I read is now the set I meant: one directory, one hook run, one
+    line. Anything more than one line means the isolation failed, and that says
+    so rather than picking the newest.
     """
     assert BASH is not None
     payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
-    before = EVENT_LOG.stat().st_size if EVENT_LOG.exists() else 0
-    subprocess.run(
-        [BASH, str(HOOK)],
-        input=payload,
-        capture_output=True,
-        text=True,
-        cwd=str(REPO_ROOT),
-        timeout=180,
-    )
-    if not EVENT_LOG.exists() or EVENT_LOG.stat().st_size <= before:
-        pytest.skip("the hook recorded nothing, so this measures the log not the prime")
-    lines = EVENT_LOG.read_text(encoding="utf-8").splitlines()
-    return bool(json.loads(lines[-1])["fired"])
+
+    with tempfile.TemporaryDirectory(prefix="prime-home-") as home:
+        env = dict(os.environ)
+        # expanduser reads USERPROFILE on Windows and HOME elsewhere, so both.
+        env["HOME"] = home
+        env["USERPROFILE"] = home
+        subprocess.run(
+            [BASH, str(HOOK)],
+            input=payload,
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+            timeout=180,
+            env=env,
+        )
+        log = Path(home) / ".divineos" / "wwnd_tool_prime_events.jsonl"
+        if not log.exists():
+            pytest.skip("the hook recorded nothing, so this measures the log not the prime")
+        lines = [ln for ln in log.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        assert len(lines) == 1, (
+            f"expected exactly one recorded decision in a private home, got {len(lines)}. "
+            "The isolation this reading depends on is not holding."
+        )
+        return bool(json.loads(lines[0])["fired"])
 
 
 def test_a_plain_commit_fires():
