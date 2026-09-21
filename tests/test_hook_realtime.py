@@ -1,6 +1,7 @@
 """Real-time testing for IDE hook integration - Phase 3."""
 
 import os
+import sqlite3
 import time
 
 import pytest
@@ -9,23 +10,76 @@ from divineos.core.knowledge import init_knowledge_table
 from divineos.core.ledger import count_events, get_events, init_db
 from divineos.event.event_emission import emit_event
 
-# CI environments and loaded machines need slack on timing assertions.
-# Bumped from 2 -> 4 on 2026-07-16 after test_high_frequency_events flaked at
-# 2.945s under the sklearn-suffixed CI runner (budget was 2.0s = 1.0 * 2).
-# 4x still catches real perf regressions (a 4x-slower-than-fast-local test IS
-# a regression) while tolerating shared-runner noise. Set the env var lower
-# locally if you want tighter enforcement on your own box.
+# WHY THESE BUDGETS ARE MEASURED RATHER THAN WRITTEN DOWN.
+#
+# These assertions used a fixed wall-clock budget scaled by a hand-set
+# multiplier. That multiplier was raised from 2 to 4 on 2026-07-16 after a
+# flake, and on 2026-09-21 the mixed-event test flaked again at 6.039s against
+# the 4.0s budget -- during a full-suite run, on a busy machine, with nothing
+# about the code changed. It blocked a push that had nothing to do with it.
+#
+# A wall-clock budget cannot tell "this code got slower" from "this machine was
+# busy". Those are two states sharing one output, which is the fault class this
+# repository keeps finding in its own instruments. Raising the multiplier again
+# treats the symptom and guarantees a third flake.
+#
+# So the budget is CALIBRATED in the same process, against the same disk, at the
+# moment the test runs: time a plain sqlite insert loop, then require our
+# emission layer to stay within a multiple of that. A uniformly slower machine
+# moves both numbers and the ratio holds. A genuine regression in our own code
+# moves only ours, and still fails.
+#
+# DIVINEOS_PERF_MULTIPLIER still applies on top, so the old tightening knob
+# keeps working for anyone who wants it.
 _PERF_MULT = float(os.environ.get("DIVINEOS_PERF_MULTIPLIER", "4"))
+
+# How much more expensive one emit_event may be than one bare sqlite insert.
+# Emission validates, serialises a payload and hash-chains the row, so it is
+# legitimately heavier; this bounds how much heavier.
+_EMIT_OVERHEAD_RATIO = 60.0
+
+
+def _seconds_per_bare_insert(db_path: str, samples: int = 50) -> float:
+    """Time one plain sqlite insert on this machine, right now.
+
+    Returned as seconds per insert. Never returns zero: a clock too coarse to
+    see the loop reports the clock's own resolution instead, so a caller can
+    always divide by it.
+    """
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute("CREATE TABLE IF NOT EXISTS _perf_calibration (n INTEGER, s TEXT)")
+        conn.commit()
+        start = time.perf_counter()
+        for i in range(samples):
+            conn.execute("INSERT INTO _perf_calibration (n, s) VALUES (?, ?)", (i, "x" * 64))
+            conn.commit()
+        elapsed = time.perf_counter() - start
+        conn.execute("DROP TABLE _perf_calibration")
+        conn.commit()
+    finally:
+        conn.close()
+    per = elapsed / samples
+    return max(per, time.get_clock_info("perf_counter").resolution)
+
+
+def _emit_budget(db_path: str, event_count: int) -> float:
+    """Wall-clock seconds this machine may take to emit `event_count` events."""
+    return _seconds_per_bare_insert(db_path) * event_count * _EMIT_OVERHEAD_RATIO * _PERF_MULT
 
 
 @pytest.fixture(autouse=True)
 def setup_realtime_tests(tmp_path, monkeypatch):
-    """Setup test environment with isolated ledger."""
+    """Setup test environment with isolated ledger.
+
+    Yields the ledger path so timing tests can calibrate their budget against
+    the same file on the same disk.
+    """
     test_db = tmp_path / "test_ledger.db"
     monkeypatch.setenv("DIVINEOS_DB", str(test_db))
     init_db()
     init_knowledge_table()
-    yield
+    yield str(test_db)
     if test_db.exists():
         test_db.unlink()
 
@@ -225,7 +279,7 @@ class TestEndToEndSessionFlow:
 class TestPerformanceValidation:
     """Test performance under realistic conditions."""
 
-    def test_high_frequency_events(self):
+    def test_high_frequency_events(self, setup_realtime_tests):
         """Test handling of high-frequency events."""
         start_time = time.time()
 
@@ -240,11 +294,13 @@ class TestPerformanceValidation:
         assert len(events) == 100
 
         # Performance should be good (< 1 second for 100 events)
-        assert elapsed < 1.0 * _PERF_MULT, (
-            f"Bulk emit took {elapsed:.3f}s, budget {1.0 * _PERF_MULT:.1f}s"
+        budget = _emit_budget(setup_realtime_tests, 100)
+        assert elapsed < budget, (
+            f"Bulk emit took {elapsed:.3f}s, budget {budget:.3f}s "
+            f"(calibrated against bare sqlite inserts on this machine)"
         )
 
-    def test_mixed_event_types_performance(self):
+    def test_mixed_event_types_performance(self, setup_realtime_tests):
         """Test performance with mixed event types."""
         start_time = time.time()
 
@@ -281,11 +337,13 @@ class TestPerformanceValidation:
         assert len(events) == 50
 
         # Performance should be good
-        assert elapsed < 1.0 * _PERF_MULT, (
-            f"Mixed events took {elapsed:.3f}s, budget {1.0 * _PERF_MULT:.1f}s"
+        budget = _emit_budget(setup_realtime_tests, 50)
+        assert elapsed < budget, (
+            f"Mixed events took {elapsed:.3f}s, budget {budget:.3f}s "
+            f"(calibrated against bare sqlite inserts on this machine)"
         )
 
-    def test_large_payload_handling(self):
+    def test_large_payload_handling(self, setup_realtime_tests):
         """Test handling of large payloads."""
         # Create large payload (10KB)
         large_content = "x" * 10000
@@ -295,8 +353,10 @@ class TestPerformanceValidation:
         elapsed = time.time() - start_time
 
         # Should handle large payloads efficiently
-        assert elapsed < 0.5 * _PERF_MULT, (
-            f"Large payload took {elapsed:.3f}s, budget {0.5 * _PERF_MULT:.1f}s"
+        budget = _emit_budget(setup_realtime_tests, 1)
+        assert elapsed < budget, (
+            f"Large payload took {elapsed:.3f}s, budget {budget:.3f}s "
+            f"(calibrated against bare sqlite inserts on this machine)"
         )
 
         # Verify event stored
