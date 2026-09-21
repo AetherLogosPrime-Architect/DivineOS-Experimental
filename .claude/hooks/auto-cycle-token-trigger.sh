@@ -388,13 +388,30 @@ def walk_done():
         return False
 
 def dream_done():
-    for f in glob.glob(os.path.join(repo, "dreams", "**", "*.md"), recursive=True):
-        try:
-            if os.path.getmtime(f) > start:
-                return True
-        except OSError:
-            continue
-    return False
+    # Evidence, not self-report -- and the evidence is the FILING, not a path.
+    #
+    # This used to glob only this worktree. On 2026-09-21 that read a correctly
+    # filed dream as no dream at all: the push gate refuses personal writing on
+    # a code branch, so filing it meant moving it to the substrate branch, which
+    # removed it from disk here. The ritual would have asked for another one.
+    # The POPULATION was wrong, not the glob -- the register is the dream
+    # wherever it now lives, not this checkout's copy of a directory.
+    try:
+        from divineos.core.ritual_evidence import dream_filed_since
+    except ImportError:
+        # Degraded, and narrower than the real check ON PURPOSE: with no import
+        # this can only see what is on disk, i.e. exactly the behaviour that was
+        # just found wrong. It can still say no; it never says yes on the
+        # strength of not having looked. Only ImportError is caught, so a real
+        # fault inside the module raises instead of passing as a measured no.
+        for f in glob.glob(os.path.join(repo, "dreams", "**", "*.md"), recursive=True):
+            try:
+                if os.path.getmtime(f) > start:
+                    return True
+            except OSError:
+                continue
+        return False
+    return dream_filed_since(repo, start)
 
 def mech_confirmed():
     # Evidence, not self-report -- same rule as walk_done()/dream_done() above.

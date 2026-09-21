@@ -704,6 +704,7 @@ src/divineos/
     unread_stacking.py         A second closing room may not land on top of an unread first one.
     game_walk.py               Game-walking: enumerate the routes around a mechanism, cost each one.
     game_walk_required.py      The requirement half of game-walking: an edit owes a filed walk.
+    ritual_evidence.py         Evidence checks for the compaction ritual's stages.
 
   analysis/
     _session_types.py          Session analysis type definitions

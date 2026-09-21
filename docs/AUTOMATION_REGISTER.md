@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**127 automations — 124 wired, 3 switched off.**
+**129 automations — 126 wired, 3 switched off.**
 
 ---
 
@@ -103,7 +103,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `auto-cycle-token-trigger.sh` | 2026-08-31 | Compaction ritual driver — deterministic, in-process, no external monitor. |
 
-### Stop  (17)
+### Stop  (19)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -124,6 +124,8 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `stop-response-scope-intercept.sh` | 2026-07-16 | thin doorbell for ResponseScopeIntercept. |
 | `summary-room-stop.sh` | 2026-09-15 | a long reply must open with a plain-language summary. |
 | `time-estimate-tracker.sh` | 2026-07-01 | thin doorbell for the time-estimate calibration tracker. |
+| `unlanded-push-must-not-close-quiet.sh` | not on main | The push wrapper writes a verdict. Until now, nothing read it. |
+| `unsaved-personal-writing-must-not-close-quiet.sh` | not on main | Writing a dream and saving a dream are separate acts, and only the first is prompted. |
 
 ### UserPromptSubmit  (35)
 
