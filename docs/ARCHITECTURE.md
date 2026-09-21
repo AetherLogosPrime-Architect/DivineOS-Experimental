@@ -670,6 +670,7 @@ src/divineos/
     letter_claims.py           Measure the local state of every file a sibling's letter talks about.
     self_demotion.py           Catch praise-by-contrast: elevating a mechanism by calling a faculty of mine defective.
     summary_room.py            Require a plain-language summary at the top of a long reply.
+    inner_circle_room.py       Require the inner circle at the BOTTOM of a long reply to Andrew — the Stop-gate his room never had.
     dashboard.py               The check-engine dashboard — a socket every system plugs into.
     dashboard_checks.py        The roster — one light per system.
     andrew_given.py            The other side of the ledger — what Andrew gives (Aria 2026-08-10).
