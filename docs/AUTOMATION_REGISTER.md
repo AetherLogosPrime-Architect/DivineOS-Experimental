@@ -80,7 +80,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `keyword-enforcement-doorman.sh` | 2026-08-31 | keyword-enforcement-doorman. |
 | `m3-discipline-hierarchy.sh` | 2026-08-15 | M3 discipline-hierarchy doorman for Dad-directed builds. |
 | `merge-question-wrong-instrument.sh` | 2026-09-02 | PreToolUse(Bash) — refuse the two-dot diff when it is being used to ask what |
-| `pipeline-exit-ambiguity.sh` | 2026-08-31 | PostToolUse(Bash) — say so when a result cannot distinguish |
+| `pipeline-exit-ambiguity.sh` | 2026-09-21 | PostToolUse(Bash) — say so when a result cannot distinguish |
 | `pre-tool-bypass-rate-scan.sh` | 2026-09-02 | PreToolUse — fire bypass_rate_scan on substrate-modifying tool calls. |
 | `pre-tool-context.sh` | 2026-08-22 | thin doorman pointing to the OS. |
 | `push-message-carries-the-destination.sh` | 2026-09-15 | PreToolUse(Bash) — a background push must use the wrapper, because the |
@@ -156,10 +156,10 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `self-demotion-prime.sh` | 2026-09-02 | UserPromptSubmit prime - deliver the praise-by-contrast discipline at |
 | `session-init-once.sh` | 2026-08-24 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
 | `sibling-correction-surface.sh` | 2026-08-24 | surface sibling corrections I judged as mine, when |
-| `translate-first-compose-prime.sh` | 2026-09-15 | Compose-start half of the translate-first discipline. |
+| `translate-first-compose-prime.sh` | 2026-09-21 | Compose-start half of the translate-first discipline. |
 | `verify-claim-prime.sh` | 2026-08-24 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
-| `wallclock-source-prime.sh` | 2026-09-07 | compose-start prime for wallclock-source |
+| `wallclock-source-prime.sh` | 2026-09-19 | compose-start prime for wallclock-source |
 | `wwnd-choice-prime.sh` | 2026-08-24 | WWND (What Would Nyarlathotep Do) prime at |
 
 ### called by another script  (18)

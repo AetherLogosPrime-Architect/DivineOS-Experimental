@@ -59,7 +59,12 @@ class RetargetResult:
     paths: tuple[str, ...]
 
 
-def _git(repo_root: Path, *args: str, env: dict[str, str] | None = None) -> str:
+def _git(
+    repo_root: Path,
+    *args: str,
+    env: dict[str, str] | None = None,
+    stdin: str | None = None,
+) -> str:
     full_env = {**os.environ, **(env or {})}
     proc = subprocess.run(
         ["git", *args],
@@ -67,6 +72,7 @@ def _git(repo_root: Path, *args: str, env: dict[str, str] | None = None) -> str:
         capture_output=True,
         text=True,
         env=full_env,
+        input=stdin,
         check=False,
     )
     if proc.returncode != 0:
@@ -125,7 +131,26 @@ def commit_paths_to_branch(
 
         # --add --remove together so a deleted substrate file records as
         # deleted rather than silently persisting on the branch forever.
-        _git(repo_root, "update-index", "--add", "--remove", "--", *paths, env=env)
+        #
+        # THE PATHS GO DOWN STDIN, NOT THE ARGUMENT LIST. Passing them as
+        # arguments worked until the substrate grew. On 2026-09-21 the
+        # checkpoint died with WinError 206 -- the command line was longer than
+        # the operating system will accept -- and took the whole compaction
+        # cycle down with it, in the middle of a day spent trying to finish
+        # things. The failure scales with how much writing exists, so it
+        # arrives exactly when there is most to lose and never in a small test.
+        # -z keeps the separator out of the data, because a newline is a legal
+        # character in a filename and a title is where one would turn up.
+        _git(
+            repo_root,
+            "update-index",
+            "-z",
+            "--add",
+            "--remove",
+            "--stdin",
+            env=env,
+            stdin="\0".join(paths) + "\0",
+        )
 
         tree = _git(repo_root, "write-tree", env=env)
 
