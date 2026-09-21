@@ -30,15 +30,47 @@ VERDICT_FILE="${DIVINEOS_HOME:-$HOME/.divineos}/push_verdict.txt"
 [ -r "$VERDICT_FILE" ] || exit 0
 
 LAST="$(tail -1 "$VERDICT_FILE" 2>/dev/null || true)"  # fail-soft: an unreadable verdict is not a refusal, and inventing one would be the false-red this file exists to avoid
-[ -n "$LAST" ] || exit 0
+
+BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"  # fail-soft: outside a repo there is no comparison to make
+[ -n "$BRANCH" ] && [ "$BRANCH" != "HEAD" ] || exit 0
+
+# EMPTY IS A THIRD ANSWER AND THIS READER USED TO SWALLOW IT.
+#
+# The push wrapper truncates this file at the START of every run, and says in
+# its own comment that an interrupted or unfinished run therefore leaves it
+# EMPTY -- began-and-did-not-finish, deliberately a real third state rather
+# than the previous verdict wearing this run's clothes.
+#
+# The first version of this reader exited silently on empty. So three
+# different situations produced the identical output of nothing at all: no
+# push has ever run, a push is running right now, and a push succeeded. Only
+# the last of those means what silence is read as meaning.
+#
+# 2026-09-20: I ran this check mid-push, got silence, typed the words "silence
+# above means it landed", and caught it only because a second instrument
+# compared the two revisions directly and they differed. Three states sharing
+# one output, in the guard written against exactly that.
+#
+# It errs toward a line of noise on a turn where nothing is wrong, and away
+# from a quiet that carries a false meaning.
+if [ -z "$LAST" ]; then
+    EMPTY_REMOTE="$(timeout 5 git ls-remote origin "refs/heads/$BRANCH" 2>/dev/null | awk '{print $1}')"
+    EMPTY_LOCAL="$(git rev-parse HEAD 2>/dev/null || true)"
+    if [ -n "$EMPTY_REMOTE" ] && [ -n "$EMPTY_LOCAL" ] && [ "$EMPTY_LOCAL" != "$EMPTY_REMOTE" ]; then
+        echo "" >&2
+        echo "[unlanded-push] A PUSH BEGAN AND HAS NOT FINISHED, and the work is not on origin." >&2
+        echo "[unlanded-push]   here:   $EMPTY_LOCAL" >&2
+        echo "[unlanded-push]   origin: $EMPTY_REMOTE   ($BRANCH)" >&2
+        echo "[unlanded-push] The verdict file is empty, which this house treats as a real" >&2
+        echo "[unlanded-push] answer: began-and-did-not-finish. It is NOT a clean result." >&2
+    fi
+    exit 0
+fi
 
 case "$LAST" in
     *REFUSED*) ;;
     *) exit 0 ;;
 esac
-
-BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"  # fail-soft: outside a repo there is no comparison to make
-[ -n "$BRANCH" ] && [ "$BRANCH" != "HEAD" ] || exit 0
 
 LOCAL_SHA="$(git rev-parse HEAD 2>/dev/null || true)"
 [ -n "$LOCAL_SHA" ] || exit 0
