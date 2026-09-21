@@ -71,6 +71,22 @@ def register(cli: click.Group) -> None:
                 click.echo(f"      {b}")
             click.echo("")
 
+        if r.described_by:
+            # WEAK AXIS, PRINTED WEAKLY ON PURPOSE. These matched on a word in
+            # the command's own description, not on its name, so one of them
+            # being wrong is expected rather than a defect. The matched word
+            # rides along so a wrong hit costs one glance — the alternative is
+            # a list the reader learns to wave away, which teaches the waving.
+            click.echo("  WORTH A LOOK — commands whose DESCRIPTION mentions your words:")
+            for name, first_line, matched in r.described_by:
+                click.echo(f"      divineos {name}".ljust(34) + f"  {first_line}")
+                click.echo(" " * 34 + f"  matched: {', '.join(matched)}")
+            click.echo("")
+            click.echo("  A shared word is weak evidence. It is here because the NAME axis")
+            click.echo("  above is a spelling test, and the command that does what you are")
+            click.echo("  describing is usually not named after your description of it.")
+            click.echo("")
+
         if not r.anything_found and r.git_readable:
             click.echo("  NOT FOUND on this axis — no command, file, or branch resembles it.")
             click.echo("")

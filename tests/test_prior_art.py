@@ -57,3 +57,43 @@ def test_unsearched_surfaces_are_named_and_real():
         sub = invocation.split()[1]
         assert sub in registered, f"{invocation!r} is named as a remedy but is not a command"
         assert what, "each unsearched surface must say what it covers"
+
+
+def test_the_description_axis_finds_what_the_name_axis_cannot():
+    """The real miss of 2026-09-20, pinned so the repair cannot quietly go.
+
+    Aether asked how a reader should judge whether two pieces of writing are
+    about the same thing, and proposed word overlap while naming that as the
+    very fault he was trying to measure. Asked whether it was already built,
+    this module said NOT FOUND -- and then printed, four lines lower in its own
+    footer, the command whose help begins "Semantic search across the indexed
+    prose corpus".
+
+    Three registered commands answered the question. None of them is SPELLED
+    like it, and the name axis is a spelling test, so all three were invisible.
+    """
+    r = search("semantic matching of two pieces of writing")
+
+    assert not r.commands, "the name axis is expected to stay blind here"
+    found = {name for name, _line, _matched in r.described_by}
+    assert {"find", "check-similar", "sis"} <= found, (
+        "the three commands that answer this question must surface on the "
+        f"description axis; got {sorted(found)}"
+    )
+
+    for _name, _line, matched in r.described_by:
+        assert matched, "every lead must carry the word that produced it"
+
+
+def test_a_description_lead_is_never_a_find():
+    """The weak axis must not be able to emit the strong verdict.
+
+    A made-up term still contains ordinary words, so leads appear for things
+    that do not exist. Rarity does not separate them: measured on the live
+    registry, the word that produced the false leads sits in 3.3% of command
+    descriptions and the word that found the three real answers sits in 1.6%.
+    So the leads may print, and `anything_found` must stay false regardless.
+    """
+    r = search("zzqq-nonexistent-artifact-name")
+    assert not r.anything_found
+    assert r.described_by, "this term is the one that produced spurious leads"

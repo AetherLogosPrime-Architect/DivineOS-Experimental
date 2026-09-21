@@ -77,10 +77,28 @@ class PriorArt:
     working_tree: list[str] = field(default_factory=list)
     elsewhere_in_git: list[tuple[str, str, str]] = field(default_factory=list)
     branches: list[str] = field(default_factory=list)
+    described_by: list[tuple[str, str, list[str]]] = field(default_factory=list)
     git_readable: bool = True
 
     @property
     def anything_found(self) -> bool:
+        """The STRONG axes only. `described_by` is deliberately excluded.
+
+        A description hit is a lead, not a find, and the weak axis is not
+        permitted to produce the strong verdict. Caught by the existing test
+        for a made-up term: "zzqq-nonexistent-artifact-name" contains the
+        ordinary word "name", which sits in six command descriptions, so the
+        weak axis had leads for a thing that plainly does not exist.
+
+        Filtering by rarity would not have saved it -- measured on the live
+        registry, that word appears in 3.3% of descriptions and "semantic",
+        which found the three real answers, appears in 1.6%. The noise is as
+        rare as the signal, so no frequency cut separates them.
+
+        So the leads print AND the not-found line prints, together, which is
+        the honest reading: nothing was found where finding is reliable, and
+        here are some weak leads that may still be worth a glance.
+        """
         return bool(self.commands or self.working_tree or self.elsewhere_in_git or self.branches)
 
 
@@ -121,6 +139,58 @@ def find_commands(term: str) -> list[str]:
         if slug in ns or (len(ns) >= 4 and ns in slug):
             out.append(n)
     return sorted(out)
+
+
+def find_commands_by_description(term: str, limit: int = 8) -> list[tuple[str, str, list[str]]]:
+    """Commands whose DESCRIPTION shares words with the term, when the NAME does not.
+
+    THE NAME AXIS IS BLIND BY CONSTRUCTION and this is the hole it leaves.
+    find_commands above is a substring test on a de-punctuated slug, so a
+    command can only be found by somebody who already half-knows its name.
+    Asked "semantic matching of two pieces of writing" on 2026-09-20 it
+    reported NOT FOUND -- while three registered commands answered exactly that
+    question: one whose help reads "Semantic search across the indexed prose
+    corpus", one that surfaces modules with semantic adjacency to a
+    description, and the integrity shield. Three prior-art hits missed by the
+    prior-art tool, because none of them is SPELLED like the question. The
+    footer even named the first of them four lines under the not-found line.
+
+    ONE SHARED WORD IS WEAK EVIDENCE AND IS RETURNED AS SUCH. The matched words
+    come back with each hit so the caller can print them, and a wrong hit takes
+    one glance to dismiss -- the same why-now discipline the foundational-truths
+    surface uses. Measured on the real case: seven commands matched, every one
+    of them at a single word, which is a readable list rather than noise.
+
+    THIS IS STILL LEXICAL AND DOES NOT CLOSE THE CLASS. A command whose
+    description says the same thing in different words stays invisible. The
+    real answer is the embedding model the search command already carries, and
+    loading it would turn a fast pre-build check into a slow one. So this is
+    the cheap axis, honestly labelled -- not the repair that ends the problem.
+    """
+    import click
+
+    from divineos.cli import cli
+
+    words = {w for w in re.findall(r"[a-z]{4,}", term.lower())}
+    if not words:
+        return []
+
+    by_name = set(find_commands(term))
+    ctx = click.Context(cli)
+    scored: list[tuple[int, str, str, list[str]]] = []
+    for n in cli.list_commands(ctx):
+        if n in by_name:
+            continue  # already surfaced on the stronger axis; never double-report
+        cmd = cli.get_command(ctx, n)
+        help_text = (getattr(cmd, "help", None) or "").strip()
+        if not help_text:
+            continue
+        matched = sorted(words & set(re.findall(r"[a-z]{4,}", help_text.lower())))
+        if matched:
+            scored.append((len(matched), n, help_text.splitlines()[0].strip(), matched))
+
+    scored.sort(key=lambda h: (-h[0], h[1]))
+    return [(n, line, m) for _, n, line, m in scored[:limit]]
 
 
 def find_in_working_tree(term: str) -> list[str]:
@@ -182,6 +252,7 @@ def search(term: str) -> PriorArt:
     here = set(listing.splitlines()) if listing else set()
 
     result.commands = find_commands(term)
+    result.described_by = find_commands_by_description(term)
     result.working_tree = find_in_working_tree(term)
     if result.git_readable:
         result.elsewhere_in_git = find_elsewhere_in_git(term, here)
