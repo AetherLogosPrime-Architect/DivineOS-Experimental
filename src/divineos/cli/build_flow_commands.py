@@ -85,9 +85,47 @@ def _gh(args: list[str]) -> str | None:
     return p.stdout
 
 
+def _check_state(pr: dict) -> str | None:
+    """What the SERVER says about this request's checks, in three states.
+
+    WHY THIS EXISTS, 2026-09-21. Andrew pasted four failing checks off the
+    actions page while I was reporting a green suite. Both were true: the suite
+    I ran was green on the one object I ran it against, and the server was red
+    on another branch I had never asked about. The board reads every open
+    request's stations and had never once read their checks, so a request could
+    show every station proven with its checks failing and nothing on this page
+    would say so.
+
+    None means the question could not be answered -- no rollup in the payload,
+    or a shape this does not recognise -- and is deliberately NOT the same as
+    "no checks failed". That collapse is the one this whole module exists
+    against, and it would land here as a green board over a red server.
+    """
+    rollup = pr.get("statusCheckRollup")
+    if not isinstance(rollup, list) or not rollup:
+        return None
+    states = [r.get("conclusion") or r.get("state") or "" for r in rollup if isinstance(r, dict)]
+    if not states:
+        return None
+    if any(s in ("FAILURE", "TIMED_OUT", "CANCELLED", "ERROR", "ACTION_REQUIRED") for s in states):
+        return "CHECKS FAILING"
+    if any(s in ("", "PENDING", "IN_PROGRESS", "QUEUED", "EXPECTED") for s in states):
+        return "checks still running"
+    return "checks passing"
+
+
 def _open_prs() -> list[dict] | None:
     out = _gh(
-        ["pr", "list", "--state", "open", "--limit", "50", "--json", "number,headRefName,isDraft"]
+        [
+            "pr",
+            "list",
+            "--state",
+            "open",
+            "--limit",
+            "50",
+            "--json",
+            "number,headRefName,isDraft,statusCheckRollup",
+        ]
     )
     if out is None:
         return None
@@ -542,7 +580,13 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
         # an empty diff; this is the same discipline one step in -- do not hand
         # a decision a summary when the thing itself is in hand.
         need = required_lens_count(gravity, paths)
-        st = PrFlowStatus(number=n, branch=branch, gravity=gravity, required_lenses=need)
+        st = PrFlowStatus(
+            number=n,
+            branch=branch,
+            gravity=gravity,
+            required_lenses=need,
+            checks=_check_state(pr),
+        )
         st.stations = [
             # paths, not branch: council walks are keyed by edit
             # fingerprint. See _lenses_applied for the measurement.
@@ -639,6 +683,17 @@ def render(statuses: list[PrFlowStatus]) -> str:
             )
             attention.append(s.number)
         lines.append(f"  #{s.number}  {s.branch}")
+        # The server's own verdict, beside mine. A station list says whether
+        # the PROCESS was followed; this says whether the CODE runs, and the
+        # board carried the first while staying silent on the second.
+        if s.checks == "CHECKS FAILING":
+            lines.append(
+                "      >>> CHECKS FAILING on the server — stations proven or not, this cannot merge"
+            )
+        elif s.checks is None:
+            lines.append("      (check state not readable — that is unknown, not passing)")
+        elif s.checks != "checks passing":
+            lines.append(f"      ({s.checks})")
         lines.append(f"      gravity {s.gravity}, needs {s.required_lenses} lenses — {flag}")
         for r in sorted(s.stations, key=lambda r: r.station):
             lines.append(f"      [{_MARK[r.status]}] {r.station:<12} {r.detail}")

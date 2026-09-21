@@ -81,6 +81,12 @@ class PrFlowStatus:
     required_lenses: int
     stations: list[StationResult] = field(default_factory=list)
 
+    # What the SERVER says about this request's checks. None means the question
+    # could not be answered, which is NOT the same as nothing failing -- the
+    # board reported every station proven on a request whose checks were red,
+    # for as long as it existed, because it had never asked.
+    checks: str | None = None
+
     @property
     def blocking(self) -> list[StationResult]:
         """Stations not yet proven. CANNOT_CHECK blocks too -- an unverified
