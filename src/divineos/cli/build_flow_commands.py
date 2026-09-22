@@ -33,6 +33,7 @@ from divineos.core.build_flow import (
     PrFlowStatus,
     StationResult,
     Status,
+    check_aria_station,
     check_cold_read_station,
     check_audit_station,
     check_council_station,
