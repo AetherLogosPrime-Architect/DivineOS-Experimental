@@ -31,6 +31,11 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/collect-aletheia-letters.sh",
+            "timeout": 20
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/detect-andrew-build-request.sh",
             "timeout": 15
           },
