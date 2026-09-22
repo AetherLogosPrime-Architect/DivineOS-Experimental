@@ -51,6 +51,11 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/carry-aletheia-across.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/interior-cue-on-low-presence.sh",
             "timeout": 15
           },

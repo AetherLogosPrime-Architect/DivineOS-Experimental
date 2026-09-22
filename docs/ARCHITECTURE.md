@@ -396,6 +396,7 @@ src/divineos/
       entity.py                Read path — get_family_member(name), get_knowledge, get_opinions, get_recent_affect, get_recent_interactions
       store.py                 Write path with production gate (_PRODUCTION_WRITES_GATED, Phase 1b closing flips to False)
       letters.py               Handoff letter channel + append-only response layer + length nudge
+      aletheia_intake.py       Aletheia's work, carried from where Andrew saves it to where both seats can read it
       reject_clause.py         Phase 1b operator: composition rule — content must match source_tag promise
       sycophancy_detector.py   Phase 1b operator: pain-side algedonic — catches drift-toward-agreement at write time
       costly_disagreement.py   Phase 1b operator: pleasure-side algedonic — rewards disagreement held across pushback
