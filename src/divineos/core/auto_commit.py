@@ -38,6 +38,7 @@ Discipline:
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -126,6 +127,41 @@ def _unstage_self_invalidating(repo_root: str | Path) -> list[str]:
         ", ".join(hits),
     )
     return hits
+
+
+def _substrate_branch_declared(repo_root: Path) -> bool:
+    """Is this branch DECLARED for substrate, rather than guessed to be?
+
+    Two declarations, both made by a person, neither inferred from content:
+
+      * the environment flag the push gate already honours, which is how a
+        substrate push is authorised today -- same word, same meaning, read in
+        a second place rather than redefined there. The two-definitions class
+        cost a branch that was neither pushable nor fixable on 2026-09-11, and
+        this is the same day.
+      * the branch-name prefix this repository actually uses for them.
+
+    Fails toward NOT-declared. A wrong no leaves letters in the shared room
+    where they already are, which is where they came from and where they are
+    read; a wrong yes puts the whole correspondence on a code branch and costs
+    a manual rebuild. The asymmetry is measured rather than assumed -- I have
+    paid the second cost three times in two days and the first cost never.
+    """
+    if os.environ.get("DIVINEOS_SUBSTRATE_BRANCH") == "1":
+        return True
+    from divineos.core.anchor_self_invalidation import current_branch
+
+    branch = current_branch(Path(repo_root))
+    if branch is None:
+        # Could-not-look is not a yes. An unreadable branch is exactly when a
+        # wrong import is least recoverable, because nothing downstream knows
+        # what to blame.
+        logger.warning(
+            "auto_commit: could not read the branch, so the external-channel "
+            "sync did NOT run. This is not 'clean' -- it is unknown."
+        )
+        return False
+    return branch.startswith("substrate/")
 
 
 @dataclass(frozen=True)
@@ -479,7 +515,49 @@ def auto_commit_substrate(
             reason="skipped auto-commit — staged index (mid-commit; occupant has authored message in flight)",
         )
 
-    files_synced = _sync_external_channels(channels, repo_root)
+    # THE LOOP THAT PUT 177 LETTERS ON A CODE BRANCH, MEASURED 2026-09-11.
+    #
+    # A letter is written -> the mirror hook copies it to the shared room ->
+    # this sync copies it BACK into the repo -> the checkpoint commits it onto
+    # whatever branch happens to be checked out. Every letter I write comes
+    # home to my code branch, and the push gate then refuses the branch.
+    #
+    # It GROWS rather than staying small because the repo mirror's contents are
+    # BRANCH-DEPENDENT. The emptiness test means to ask "has this been
+    # archived" and actually asks "is this present on the branch I am standing
+    # on", so every unvisited branch presents a fresh empty mirror and the
+    # sweep is the whole correspondence rather than today's letters. Three
+    # sweeps in two days: 171, 177, 190. I opened the middle one and counted:
+    # all 177 were letters, not one was work -- in a commit labelled "work in
+    # progress".
+    #
+    # And the sync buys NOTHING here. These files came FROM the shared room and
+    # are still in it; that is where Aria reads them and where the mirror keeps
+    # them. Copying them onto a code branch is a second copy of something
+    # already safe, placed somewhere it is then refused -- and it costs a manual
+    # branch rebuild every time. I paid that three times and called it an
+    # incident three times. It was a scheduled cost.
+    #
+    # Andrew 2026-09-11: "you must control the cost landscape so the correct and
+    # right path is also the cheapest and easiest path.. make the wrong path
+    # expensive." So the import does not happen unless the branch is DECLARED
+    # for substrate. Nothing is refused and nothing is lost; the flow is routed
+    # rather than blocked, which is why this is a valve and not a fifth warning.
+    #
+    # THE TRADE, stated rather than discovered later: a letter is not versioned
+    # until a checkpoint runs on a substrate branch. That is already true of
+    # every letter written between checkpoints, and the shared room is the
+    # channel both seats actually read from -- but it is the cost of this
+    # change and it belongs in the open.
+    if _substrate_branch_declared(repo_root):
+        files_synced = _sync_external_channels(channels, repo_root)
+    else:
+        files_synced = 0
+        logger.info(
+            "auto_commit: external-channel sync SKIPPED -- this branch is not "
+            "declared for substrate, and the shared room already holds those "
+            "files. They land on the substrate branch rather than here."
+        )
 
     report = check_uncommitted_work(repo_root, channels=channels)
     dirty_lines = len(report.repo_dirty)
@@ -550,7 +628,41 @@ def auto_commit_substrate(
     # correct destinations". The answer is two commits, each to its own
     # place -- not one job dropped because its destination was the
     # complicated one.
+    # THIS COMMIT IS NOT SAFE TO DROP, and that is worth saying here because
+    # nothing else says it. It may hold the ONLY copy of edits the session had
+    # not committed itself yet -- files swept while they were mid-edit. A later
+    # `git add` of those same paths finds no diff and commits nothing, so the
+    # loss is silent and arrives much later, as a test whose subject reverted
+    # underneath it.
+    #
+    # Learned by doing it: 2026-09-10, two checkpoint commits dropped in one
+    # rebase. The stat line said one file and I read past it; four commits and a
+    # full green suite later the push failed on a test whose subject had
+    # quietly gone back.
+    #
+    # IT ARRIVED HERE BY MERGE ON 2026-09-19 and it is HALF of what it was.
+    # The other half told the reader to drop the substrate TIP of this branch,
+    # and that hazard no longer exists: substrate now goes to its own branch by
+    # plumbing and never lands on HEAD at all. That warning was correct when it
+    # was written and its subject was removed out from under it, so it is gone
+    # rather than kept as advice about a thing that cannot happen.
+    #
+    # This half survived because the commit it describes still happens, and it
+    # survived NOWHERE ELSE -- nothing on main carries it. So it is said at
+    # runtime rather than left as a comment, for the same reason it was said at
+    # runtime before: a person mid-cleanup is not reading this file.
     wip_committed = _commit_work_in_progress(repo_root, work_in_progress, reason)
+
+    if wip_committed and work_in_progress:
+        logger.warning(
+            "auto_commit: this checkpoint committed %d work path(s) on your "
+            "behalf: %s. That commit is NOT safe to drop -- it may hold the "
+            "ONLY copy of edits you had not committed yourself yet, and a "
+            "later 'git add' of those same paths will find no diff and commit "
+            "nothing, so the loss is silent and surfaces much later.",
+            len(work_in_progress),
+            ", ".join(work_in_progress[:5]) + (" ..." if len(work_in_progress) > 5 else ""),
+        )
 
     if not declared_substrate:
         # True here is honest: there was no substrate half to fail. Nothing

@@ -253,12 +253,42 @@ def check_deletion_shape(
     artifacts) still count toward the threshold as they should —
     their blobs don't exist anywhere in the new tree.
     """
+    # MEASURED FROM THE MERGE BASE, 2026-09-21. This asked its question with a
+    # two-dot diff for its whole life, and a two-dot diff answers "what differs
+    # between these two trees" -- not "what would merging do". A file main
+    # gained AFTER this branch diverged is present on one side and absent on
+    # the other, so that form calls it a DELETION. The merge keeps it; the
+    # branch never touched it.
+    #
+    # It fired on a branch that deletes nothing, naming thirteen files, and
+    # blocked the push. The repository already carries a gate that BLOCKS me
+    # from typing this exact form by hand, with the incident written into its
+    # refusal -- so the wrong instrument was forbidden at the keyboard and
+    # shipped inside the check that does the asking. Fixing the hand-typed
+    # case and leaving the automated one is how a caught defect keeps firing.
+    #
+    # The merge base is resolved explicitly rather than by three-dot syntax
+    # because the blob-presence check below needs to read old blobs from the
+    # same commit the deletion list came from.
+    rc_base, merge_base, err_base = _run_git(["merge-base", base, "HEAD"], cwd=cwd)
+    merge_base = merge_base.strip()
+    if rc_base != 0 or not merge_base:
+        return BranchHealthFinding(
+            name="deletion_shape",
+            severity="warn",
+            message=(
+                f"Could not find the merge base with {base}, so this check did NOT run: "
+                f"{err_base[:120]}. That is not the same as finding no deletions."
+            ),
+            actionable=False,
+        )
+
     rc, raw_deleted, err = _run_git(
         [
             "diff",
             "--diff-filter=D",
             "--name-only",
-            f"{base}..HEAD",
+            f"{merge_base}..HEAD",
         ],
         cwd=cwd,
     )
@@ -291,7 +321,7 @@ def check_deletion_shape(
     moved_list: list[str] = []
     for path in raw_deleted_list:
         rc_blob, old_blob, _ = _run_git(
-            ["rev-parse", f"{base}:{path}"],
+            ["rev-parse", f"{merge_base}:{path}"],
             cwd=cwd,
         )
         old_blob = old_blob.strip()
