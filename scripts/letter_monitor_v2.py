@@ -295,38 +295,65 @@ def _announced_path(recipient: str) -> Path:
     )
 
 
-def load_announced(recipient: str) -> tuple[dict[str, float], dict[str, int]]:
-    """Knock timestamps and counts from the last run. Empty if unreadable.
+def load_announced(
+    recipient: str,
+) -> tuple[dict[str, float], dict[str, int], str | None]:
+    """Knock timestamps, knock counts, and why the record could not be read.
 
-    Fails toward the NOISY direction and says so, for the same reason the
-    seen-set loader does: an empty record re-announces, which is loud, and
-    the alternative is a letter that never wakes me.
+    Fails toward the NOISY direction, for the same reason the seen-set loader
+    does: an empty record re-announces, which is loud, and the alternative is
+    a letter that never wakes me.
+
+    THREE VALUES BECAUSE THERE ARE THREE FACTS, and both seats wrote a version
+    that carried two of them. One returned the counts and printed the failure
+    reason to stderr; the other returned the reason and had no counts. Dropping
+    the counts loses the only thing that can stop a letter knocking forever;
+    swallowing the reason leaves the flood arriving disguised as fifty new
+    letters instead of labelled as a symptom. A missing file is not a failure
+    and returns None here -- never-run and could-not-read are different states
+    and this is the third one, kept distinct on purpose.
+
+    The reason is returned rather than printed because the CALLER is the one
+    that can say what it means: not "this file is corrupt" but "I am about to
+    re-announce, and here is why."
     """
     path = _announced_path(recipient)
     if not path.exists():
-        return {}, {}
+        return {}, {}, None
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         at = {str(k): float(v) for k, v in (data.get("last_knock_unix") or {}).items()}
         counts = {str(k): int(v) for k, v in (data.get("knocks") or {}).items()}
-        return at, counts
-    except (OSError, ValueError, TypeError) as exc:
-        print(
-            f"[letter-monitor] CANNOT READ announced-set {path}: "
-            f"{type(exc).__name__}: {exc}\n"
-            f"[letter-monitor] letters already announced will be announced again. "
-            f"Noise, not loss -- but the file needs looking at.",
-            file=sys.stderr,
-            flush=True,
-        )
-        return {}, {}
+        return at, counts, None
+    except (OSError, ValueError, TypeError, AttributeError) as exc:
+        return {}, {}, f"{exc.__class__.__name__}: {exc}"
 
 
-def save_announced(recipient: str, fired_at: dict[str, float], knocks: dict[str, int]) -> None:
+def save_announced(
+    recipient: str, fired_at: dict[str, float], knocks: dict[str, int]
+) -> str | None:
     """Write-then-replace, so a reader never catches a half-written file.
 
-    Best-effort: a monitor that dies because it could not write its own
-    bookkeeping would be the bookkeeping causing the outage it records.
+    Returns a reason on failure, else None.
+
+    BOTH SEATS WROTE THIS FUNCTION AND THIS IS THE UNION, 2026-09-22. The
+    merge kept two definitions, and the later one shadowed the earlier while
+    taking a different number of arguments -- so the surviving caller would
+    have raised on the first save. Third shadowed definition found today.
+
+    The signature is the richer one, because the loop that calls it tracks
+    when each letter was last knocked AND how many times, and a record that
+    drops the count cannot stop a letter knocking forever.
+
+    The RETURN is the other side's and it is the load-bearing half. This used
+    to swallow the error and call itself best-effort, on the reasoning that a
+    monitor should not die of its own bookkeeping. True, and not a reason to
+    go quiet: a record that silently fails to save is a record that only looks
+    durable. The flood it exists to prevent comes back on the next restart and
+    the cause is invisible. So it still never raises, and it now says why.
+
+    The widened except is the other side's too. An unserialisable value is a
+    real way this fails and it is not an OSError.
     """
     path = _announced_path(recipient)
     try:
@@ -336,8 +363,76 @@ def save_announced(recipient: str, fired_at: dict[str, float], knocks: dict[str,
             json.dumps({"last_knock_unix": fired_at, "knocks": knocks}), encoding="utf-8"
         )
         tmp.replace(path)
-    except OSError:
-        pass
+        return None
+    except (OSError, ValueError, TypeError) as exc:
+        return f"{exc.__class__.__name__}: {exc}"
+
+
+# ANNOUNCED IS A SECOND RECORD, AND IT IS NOT THE SEEN-SET (2026-09-19).
+#
+# The seen-set above means ACT OF READ and is written only when I actually
+# read a letter. It is right and it does not change. What was missing is the
+# other fact: what this process has already SAID OUT LOUD.
+#
+# Until today that lived only in memory, so it died on every restart, and
+# re-arming replayed the entire backlog -- fifty letters at once. I had been
+# reading that flood as clutter since morning rather than as the channel
+# telling me it was broken. Aether found the same flood from his end and
+# separated arrivals from backlog WITHIN a run, which stops the noise while
+# the watch is up and does nothing after a restart. This is the floor his
+# repair was standing on.
+#
+# Andrew's rule is the reason it matters: a memory that advances only when
+# somebody remembers to advance it must never be load-bearing. Nothing in the
+# delivering process wrote the seen-set, so it could only ever get staler.
+#
+# THREE THINGS THIS MUST NOT DO, and the third is the one that took thinking.
+#
+# 1. It must never become a BUDGET. Aether's guard, and he is right: a letter
+#    announced once and never read has to keep knocking. The record stops
+#    REPEATS, never TRIES. So it stores WHEN each letter was last announced
+#    and knocks again on an escalating backoff, forever -- see _reknock_delay:
+#    fifteen minutes after the first knock, doubling to a four-hour ceiling it
+#    never passes.
+#
+# 2. It must never be collapsed into the seen-set. Announced and read are
+#    different facts; guessing between them is how a letter announced while
+#    nobody was looking gets silently swallowed.
+#
+# 3. An unreadable record is NEITHER "everything was announced" NOR silently
+#    "nothing was". Aether's guard says treat it as announce-again. The
+#    substrate's record of the ancestor fault says the opposite: a recorded-set
+#    that failed open to empty "re-notified every letter ever seen", which IS
+#    the flood. Both are right, which means neither answer alone is. So it
+#    announces AND says the record was unreadable -- the flood arrives labelled
+#    as a symptom instead of arriving disguised as fifty new letters.
+# THREE MORE DEFINITIONS LIVED HERE AND ARE GONE, 2026-09-22 -- a second
+# save_announced, a second load_announced, and a second _announced_path. Both
+# seats built this whole record independently, neither knowing the other was
+# in the file, and the merge kept both copies with the later one shadowing the
+# earlier at import. Seven collisions of this exact shape today; Andrew named
+# the cause as a build-flow problem rather than two careless people, and the
+# four-branch rule is the answer he chose.
+#
+# NOTHING FROM THE SHADOWED HALF WAS DROPPED. It contributed two things and
+# both are carried above: a reason RETURNED on failure rather than only
+# printed, and a widened except that catches an unserialisable value.
+#
+# IT ALSO CONTRIBUTED A CONSTANT THAT NOTHING READ. `RE_KNOCK_SECONDS` was a
+# flat six-hour cadence, and this branch's loop had already moved to an
+# escalating backoff computed per letter from its knock count. Both halves
+# survived the merge and only one of them was wired to anything -- so three
+# tests were asserting against a number no running code consulted, which is a
+# test proving its own arithmetic. The constant is gone and those tests now
+# ask `_reknock_delay`, which is what the loop actually calls.
+#
+# WHAT WAS NOT CARRIED, and it is the one genuine PICK: the other path.
+# It rebuilt `Path.home() / f".divineos-{member}"` by hand, and that rule has
+# exactly one home -- `core.paths.member_home`, which exists because the same
+# convention once lived in four places and only one of them learned. Its own
+# docstring records six weeks of writes landing in a directory nothing read.
+# So the surviving path asks member_home, and the record sits beside the
+# seen-set it is deliberately not collapsed into.
 
 
 def load_persistent_seen(recipient: str) -> set[str]:
@@ -616,7 +711,16 @@ def main() -> int:
     # the restart this record exists to survive. The cost is that a system
     # clock jump can shorten or lengthen one backoff interval, which is a
     # cadence wobble and not a lost letter.
-    fired_at, knocks = load_announced(args.recipient)
+    fired_at, knocks, unreadable = load_announced(args.recipient)
+    if unreadable:
+        print(
+            f"[LETTER-MONITOR] the announced-record could not be read "
+            f"({unreadable}). Everything still unread will be announced again "
+            f"as if this watch had never run. That flood is a SYMPTOM, not a "
+            f"delivery -- the file needs looking at.",
+            file=sys.stderr,
+            flush=True,
+        )
     if fired_at:
         print(
             f"[LETTER-MONITOR] carrying {len(fired_at)} already-announced letter(s) "
@@ -634,6 +738,16 @@ def main() -> int:
     # None until the first cycle fills it -- an empty set would mean "nothing
     # predates the watch", which is the reading that restores the flood.
     backlog: frozenset[str] | None = None
+
+    # A SECOND LOAD OF THE SAME RECORD STOOD HERE AND IS GONE, 2026-09-22.
+    # Both seats built this durable record, so the merge produced two loaders
+    # with different return shapes and two calls to them, twelve lines apart.
+    # The one kept is above; this one belonged to the loop that was replaced.
+    #
+    # Its loud unreadable-record message is NOT lost -- the surviving loader
+    # prints the same thing at the moment it fails to read, which is strictly
+    # earlier and closer to the cause. Checked rather than assumed before
+    # removing this.
 
     # Heartbeat cadence — how often we emit a "still alive" marker on
     # stderr. Stderr does NOT trigger harness notifications (per Monitor
@@ -689,7 +803,19 @@ def main() -> int:
             # five seconds would be a disk-churning heartbeat wearing the
             # costume of bookkeeping.
             if picked or dropped:
-                save_announced(args.recipient, fired_at, knocks)
+                # The reason is the load-bearing half of that return and was
+                # being thrown away at the only call site -- a record that
+                # silently fails to save only LOOKS durable, and the flood it
+                # prevents comes back on the next restart with no cause.
+                failed = save_announced(args.recipient, fired_at, knocks)
+                if failed:
+                    print(
+                        f"[LETTER-MONITOR] could not save the announced-record "
+                        f"({failed}). This watch still knows what it said; the "
+                        f"next one will not.",
+                        file=sys.stderr,
+                        flush=True,
+                    )
         except Exception as exc:
             print(f"[LETTER-MONITOR-ERR] {exc}", flush=True)
         # Heartbeat on stderr — doesn't trigger notifications but proves
