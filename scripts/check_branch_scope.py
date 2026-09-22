@@ -48,6 +48,18 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # refused the branch for carrying SUBSTRATE. One word, two definitions, three
 # of four entries in disagreement, and the only symptom was a branch that could
 # not be pushed and could not be fixed by the component that made it.
+#
+# MERGE NOTE, 2026-09-19. This branch and main each held a DIFFERENT third
+# piece, and my own comment on the branch side predicted it: main replaced the
+# hardcoded tuple with this import, while the branch had added LOADOUT.md to
+# the tuple. Taking either side alone destroys the other's work silently --
+# main's side loses the entry, the branch's side loses the single definition
+# and restores the two-copy drift that caused the original defect.
+#
+# Resolved as a union in the only place a union survives: the import stays, and
+# LOADOUT.md moved UP into LOCAL_SUBSTRATE_PREFIXES so every component asking
+# what substrate means gets the same answer including that file. The branch's
+# test asserting LOADOUT.md counts still passes, now against the shared source.
 try:
     from divineos.core.substrate_paths import LOCAL_SUBSTRATE_PREFIXES as _SUBSTRATE_PREFIXES
 except ImportError:  # pragma: no cover - a checkout without the package installed

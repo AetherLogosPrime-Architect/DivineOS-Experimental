@@ -69,15 +69,21 @@ LOCAL_SUBSTRATE_PREFIXES: tuple[str, ...] = (
     "exploration/",
     "dreams/",
     "docs/archives/",
-    # The survey of my own writing: regenerated from the substrate, swept by
-    # the same checkpoint, personal in exactly the way the four above are.
+    # LOADOUT.md is the survey of my own writing -- regenerated from the
+    # substrate, swept by the same checkpoint, and personal in exactly the way
+    # the four above are. It is a FILE rather than a directory, which is why it
+    # carries no trailing slash: the match below is a prefix test, so the bare
+    # name matches that one path and nothing else.
     #
-    # IT ARRIVED HERE BY MERGE, 2026-09-21, and where it landed is the point.
-    # The branch it came from added this entry to the scope checker's own copy
-    # of the list, because at that time the checker HAD its own copy. Main has
-    # since replaced that copy with an import from here -- one word, one
-    # definition. Re-adding it there would have rebuilt the second definition
-    # the import was written to end, and it would have drifted quietly.
+    # IT ARRIVED BY MERGE ON 2026-09-19 rather than by being written here, and
+    # the way it arrived is the argument for this tuple existing at all. The
+    # mixed-scope branch had added it to a SECOND copy of this list living
+    # inside the scope gate, during the same stretch main was replacing that
+    # copy with an import of this one. Both sides were right and either
+    # one-sided resolution destroys the other silently: keep the branch and the
+    # two-copy drift returns, keep main and the entry disappears with nothing
+    # to mark its passing. Moving it up is the only resolution where both
+    # survive -- one word, one definition, asked in one place.
     "LOADOUT.md",
 )
 
