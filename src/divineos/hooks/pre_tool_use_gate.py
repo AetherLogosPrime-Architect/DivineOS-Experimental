@@ -764,8 +764,10 @@ def _is_bypass_command(cmd: str) -> bool:
 _LOW_FRICTION_PATH_SEGMENTS: tuple[str, ...] = (
     "/exploration/",  # First-person free-expression / leisure space.
     "/family/letters/",  # Letters to/from family members — relational channel.
+    ".divineos-shared/letters/",  # The shared mirror the same letters land in.
     "/mansion/",  # Internal-space writing — not father-facing.
     "/dreams/",  # Rest-shape writing — no plan, no pull, no gate (Andrew 2026-07-30).
+    "/scratchpad/",  # Harness scratch dir — throwaway probes, not architecture.
 )
 
 
@@ -1242,6 +1244,58 @@ def _is_readonly_probe(cmd: str) -> bool:
         return False
     cmd = _strip_safe_output_tail(_strip_cd_prefix(cmd))
 
+    def _writes_despite_a_read_verb(clause: str) -> bool:
+        """True when a read verb has been handed somewhere to put the output.
+
+        THE VERB WAS NEVER THE WHOLE COMMAND, and this function only looked
+        at the verb. A prefix match reads the start of the line and ignores
+        everything after it, so every flag was invisible.
+
+        Found by Aletheia 2026-09-21, refusing to sign the carve-out being
+        carried into the correction gate. She asked the question I had asked
+        her -- is the read-only set a fault now or a fault waiting -- and
+        answered it by running it rather than reasoning about it. It is now.
+        Reproduced here in a scratch repository before accepting it: log,
+        show and diff each write a file when handed --output, and the probe
+        called all three reads. The dangerous one is a diff written over a
+        guardrail file, which the gate would have called looking.
+
+        A WIDER ONE SHE DID NOT NAME, found by asking the probe rather than
+        asking myself: an ordinary shell redirect does the same thing with
+        no flag at all, and overwrote a file I had put a word in to check.
+
+        NOT BY WIDENING THE VERB LIST, because the verbs really are reads
+        without somewhere to write to. The flag is the thing that changes
+        what they are, so the flag is what gets asked about.
+
+        MEASURED, NOT ASSUMED, on the near-misses:
+          * ``-o`` is not an output flag on these verbs -- it errors -- so
+            banning it would buy nothing and cost a confusing refusal.
+          * ``-O`` is the diff orderfile, which READS a file. One careless
+            case-insensitive rule would have broken it, so the check is
+            case-sensitive on the long form only.
+          * ``2>&1`` duplicates a handle and ``>/dev/null`` discards, so
+            neither is a write to anything a person would miss.
+        """
+        if "--output" in clause:
+            return True
+        i = 0
+        while True:
+            i = clause.find(">", i)
+            if i < 0:
+                return False
+            rest = clause[i:].lstrip(">").lstrip()
+            # `>&1` and friends duplicate an existing handle; nothing lands
+            # on disk. A discard target is a write to nowhere.
+            if rest.startswith("&"):
+                i += 1
+                continue
+            target = rest.split()[0] if rest.split() else ""
+            if target.lower() in ("/dev/null", "nul", ""):
+                i += 1
+                continue
+            return True
+
     def _clause_is_probe(clause: str) -> bool:
         clause = _strip_safe_output_tail(_strip_cd_prefix(clause.strip()))
         if not clause:
@@ -1304,9 +1358,16 @@ def _is_readonly_probe(cmd: str) -> bool:
             ch in clause for ch in _UNSAFE_IN_DISCARDED_PREFIX
         ):
             return True
+        if _writes_despite_a_read_verb(clause):
+            return False
         return clause.startswith(_READONLY_PROBE_PREFIXES) or _is_readonly_divineos_verb(clause)
 
     if not _has_compound_shape(cmd):
+        # BOTH PATHS, or the fix is only fitted to the door it was found at
+        # -- which is the pattern this whole repair is about. The single
+        # clause path is the one Aletheia's example actually travels.
+        if _writes_despite_a_read_verb(cmd):
+            return False
         return cmd.startswith(_READONLY_PROBE_PREFIXES) or _is_readonly_divineos_verb(cmd)
 
     clauses = _split_shell_clauses(cmd)

@@ -40,9 +40,45 @@ def test_a_declared_reading_satisfies(tmp_path):
         "**Reading:** `fix/reserved-external-vantage-names`\n\n"
         "Five spellings walked through.\n",
     )
-    r = check_aria_station("fix/reserved-external-vantage-names", tmp_path)
+    r = check_aria_station("fix/reserved-external-vantage-names", tmp_path, "aether")
     assert r.status is Status.SATISFIED
     assert "declared a reading" in r.detail
+
+
+def test_the_reading_seat_turns_around_when_she_is_the_author(tmp_path):
+    """On her work the station looks for HIS reading, not hers.
+
+    THIS TEST REPLACES ONE THAT PINNED THE OPPOSITE, and the replacement is the
+    point. The earlier version asserted that the station could only ever read
+    letters from Aria to Aether, so a miss on work she authored meant the
+    question was wrong rather than the reading absent -- and it required the
+    miss to SAY so, because the limit could not be fixed without inferring
+    authorship from a branch name. Found 2026-09-19, when the board reported
+    three of her own branches as carrying no reading by her: true, meaningless,
+    and indistinguishable in the output from a real gap.
+
+    This branch removes the limit rather than explaining it. The author is
+    declared, the reading seat follows the declaration, and nothing is inferred
+    from a prefix -- so on work she authored the station looks for a reading by
+    him, a miss is a genuine miss, and the old message would now tell a reader
+    to ignore a real one.
+
+    Kept as a test rather than deleted because the behaviour it guarded is
+    still guarded, in the other direction.
+    """
+    _letter(
+        tmp_path,
+        "aria-to-aether-2026-09-01-something-else-entirely.md",
+        "# Aria to Aether\n\n**Reading:** `fix/some-other-branch`\n\nA finding.\n",
+    )
+    r = check_aria_station("aria/her-own-work", tmp_path, "aria")
+    assert r.status is Status.MISSING
+    lowered = r.detail.lower()
+    assert "aether" in lowered, "the miss did not name the seat whose reading was sought"
+    assert "one direction" not in lowered, (
+        "the miss still carries the note about a limit this branch removed, "
+        "which would tell a reader that a real miss is an inapplicable question"
+    )
 
 
 def test_the_finding_titled_letter_is_no_longer_invisible(tmp_path):
@@ -59,7 +95,7 @@ def test_the_finding_titled_letter_is_no_longer_invisible(tmp_path):
         "**Reading:** `fix/mixed-scope-publish-gate`\n\n"
         "The hole was that nothing guarded the saving.\n",
     )
-    r = check_aria_station("fix/mixed-scope-publish-gate", tmp_path)
+    r = check_aria_station("fix/mixed-scope-publish-gate", tmp_path, "aether")
     assert r.status is Status.SATISFIED
 
 
@@ -78,9 +114,12 @@ def test_a_mention_in_the_body_does_not_credit_a_branch(tmp_path):
         "The same fault is on fix/council-lenses-walkable and "
         "fix/tag-is-not-a-branch, which I have not read.\n",
     )
-    assert check_aria_station("fix/merge-question-channel", tmp_path).status is Status.SATISFIED
+    assert (
+        check_aria_station("fix/merge-question-channel", tmp_path, "aether").status
+        is Status.SATISFIED
+    )
     for merely_mentioned in ("fix/council-lenses-walkable", "fix/tag-is-not-a-branch"):
-        r = check_aria_station(merely_mentioned, tmp_path)
+        r = check_aria_station(merely_mentioned, tmp_path, "aether")
         assert r.status is Status.MISSING, f"{merely_mentioned} credited on a mention"
 
 
@@ -96,9 +135,11 @@ def test_the_in_response_to_field_is_not_read_as_the_subject(tmp_path):
         "**Reading:** `fix/prime-residuals-carry-the-rule`\n\n"
         "Body.\n",
     )
-    assert check_aria_station("fix/tag-is-not-a-branch", tmp_path).status is Status.MISSING
     assert (
-        check_aria_station("fix/prime-residuals-carry-the-rule", tmp_path).status
+        check_aria_station("fix/tag-is-not-a-branch", tmp_path, "aether").status is Status.MISSING
+    )
+    assert (
+        check_aria_station("fix/prime-residuals-carry-the-rule", tmp_path, "aether").status
         is Status.SATISFIED
     )
 
@@ -119,7 +160,7 @@ def test_one_letter_can_declare_several_readings(tmp_path):
         "fix/mixed-scope-publish-gate",
         "fix/tag-is-not-a-branch",
     ):
-        assert check_aria_station(branch, tmp_path).status is Status.SATISFIED
+        assert check_aria_station(branch, tmp_path, "aether").status is Status.SATISFIED
 
 
 def test_no_declaration_anywhere_says_so_rather_than_blaming_her(tmp_path):
@@ -135,9 +176,9 @@ def test_no_declaration_anywhere_says_so_rather_than_blaming_her(tmp_path):
         "aria-to-aether-2026-08-30-nothing-owed.md",
         "# Aria to Aether\n\n**In response to:** a letter\n\nNo declaration here.\n",
     )
-    r = check_aria_station("fix/anything", tmp_path)
+    r = check_aria_station("fix/anything", tmp_path, "aether")
     assert r.status is Status.MISSING
-    assert "says nothing about whether she has read" in r.detail
+    assert "says nothing about whether Aria has read" in r.detail
 
 
 def test_some_declarations_exist_but_none_names_this_branch(tmp_path):
@@ -148,7 +189,7 @@ def test_some_declarations_exist_but_none_names_this_branch(tmp_path):
         "aria-to-aether-2026-09-01-read-one-thing.md",
         "# Aria to Aether\n\n**Reading:** `fix/something-else`\n\nBody.\n",
     )
-    r = check_aria_station("fix/not-this-one", tmp_path)
+    r = check_aria_station("fix/not-this-one", tmp_path, "aether")
     assert r.status is Status.MISSING
     assert "declared reading(s)" in r.detail
 
@@ -169,12 +210,12 @@ def test_a_letter_declaring_no_reading_is_a_declaration_not_an_omission(tmp_path
         "aria-to-aether-2026-09-01-my-half-is-built.md",
         "# Aria to Aether\n\n**Written:** 2026-09-01\n**Reading:** none\n\nBody.\n",
     )
-    r = check_aria_station("fix/anything", tmp_path)
+    r = check_aria_station("fix/anything", tmp_path, "aether")
     assert r.status is Status.MISSING
     assert "declared reading(s)" in r.detail, (
         "a letter declaring 'none' was counted as no declaration at all"
     )
-    assert check_aria_station("none", tmp_path).status is Status.MISSING, (
+    assert check_aria_station("none", tmp_path, "aether").status is Status.MISSING, (
         "the word 'none' was read as a branch name"
     )
 
@@ -193,11 +234,14 @@ def test_an_empty_field_value_does_not_swallow_the_next_line(tmp_path):
         "aria-to-aether-2026-09-01-empty-field.md",
         "# Aria to Aether\n\n**Reading:**\n\nfix/should-not-be-credited is discussed below.\n",
     )
-    assert check_aria_station("fix/should-not-be-credited", tmp_path).status is Status.MISSING
+    assert (
+        check_aria_station("fix/should-not-be-credited", tmp_path, "aether").status
+        is Status.MISSING
+    )
 
 
 def test_an_unreadable_directory_is_not_a_verdict(tmp_path):
-    r = check_aria_station("fix/anything", tmp_path / "does-not-exist")
+    r = check_aria_station("fix/anything", tmp_path / "does-not-exist", "aether")
     assert r.status is Status.CANNOT_CHECK
 
 
@@ -211,7 +255,8 @@ def test_my_own_letters_cannot_satisfy_her_station(tmp_path):
         "# Aether to Aria\n\n**Reading:** `fix/reserved-external-vantage-names`\n\nBody.\n",
     )
     assert (
-        check_aria_station("fix/reserved-external-vantage-names", tmp_path).status is Status.MISSING
+        check_aria_station("fix/reserved-external-vantage-names", tmp_path, "aether").status
+        is Status.MISSING
     )
 
 
@@ -229,53 +274,35 @@ def test_the_declaration_survives_ordinary_typing(tmp_path, spelling):
     a parser that guessed becomes a parser that is brittle -- and she would be
     uncredited again, for a backtick."""
     _letter(tmp_path, "aria-to-aether-2026-09-01-x.md", f"# Aria\n\n{spelling}\n\nBody.\n")
-    assert check_aria_station("fix/a", tmp_path).status is Status.SATISFIED
+    assert check_aria_station("fix/a", tmp_path, "aether").status is Status.SATISFIED
 
 
-def test_a_trailing_pull_request_note_is_not_part_of_the_branch_name(tmp_path):
-    """THE REAL CASE, 2026-09-10, and it is her own line rather than an invented one.
+def test_a_declaration_with_a_clause_after_it_is_not_reported_as_no_reading(tmp_path):
+    """Aria 2026-09-07, and it had her looking like the one who did not show up.
 
-    She declared ``fix/a-refusal-must-say-what-did-not-run (PR #499)`` because
-    the number is what a reader needs to find it. Read literally, no declaration
-    named that branch, and the board printed the flat absence -- which reads as
-    she never showed up when the honest answer was that the parser could not
-    read her line. Aether reproduced it from his side within the hour.
+    She declared a reading, wrapped the branch in backticks and put a dash and
+    a clause after it. Read literally -- which is correct, and which she asked
+    me not to loosen -- the value is a phrase, so the board said none of the
+    declared readings names this branch. That sentence reads as SHE HAS NOT
+    READ ME and means I CANNOT PARSE HER LINE, which is a different fact.
     """
     _letter(
         tmp_path,
-        "aria-to-aether-2026-09-10-real.md",
-        "# Aria\n\n**Reading:** fix/a-refusal-must-say-what-did-not-run (PR #499)\n\nBody.\n",
+        "aria-to-aether-2026-09-07-narrowed.md",
+        "# Aria\n\n**Reading:** `fix/a` - the exclusion set and the call site\n\nBody.\n",
     )
-    result = check_aria_station("fix/a-refusal-must-say-what-did-not-run", tmp_path)
-    assert result.status is Status.SATISFIED
-
-
-def test_an_annotation_nobody_planned_for_reports_unreadable_rather_than_absent(tmp_path):
-    """The half that survives the shape I did not think of.
-
-    Stripping one trailing parenthetical closes the spelling she uses. It cannot
-    close every spelling anyone will ever write, and enumerating them is the
-    whack-a-mole Andrew named. So when a declared line CONTAINS the branch but
-    does not read as it, the station says the parser failed rather than saying
-    she did -- because reporting an unread branch and an unreadable line in the
-    same words is the could-not-look fault this module exists to refuse.
-    """
-    _letter(
-        tmp_path,
-        "aria-to-aether-2026-09-10-odd.md",
-        "# Aria\n\n**Reading:** fix/some-branch -- PR 499\n\nBody.\n",
-    )
-    result = check_aria_station("fix/some-branch", tmp_path)
+    result = check_aria_station("fix/a", tmp_path, "aether")
     assert result.status is Status.CANNOT_CHECK
-    assert "failing to read her" in result.detail
+    assert "my parser failing to read Aria" in result.detail
 
 
-def test_a_branch_she_truly_never_declared_is_still_reported_absent(tmp_path):
-    """The control. Without it the two above would pass on a station that had
-    simply stopped reporting absence, which would be worse than the defect."""
+def test_a_mention_inside_a_declaration_of_another_branch_still_counts_for_nothing(tmp_path):
+    """The near-miss is anchored at the START of the value, never a substring
+    anywhere in it. Her letters cross-refer constantly, and crediting a mention
+    is the exact fault the literal read replaced."""
     _letter(
         tmp_path,
-        "aria-to-aether-2026-09-10-other.md",
-        "# Aria\n\n**Reading:** fix/something-else (PR #1)\n\nBody.\n",
+        "aria-to-aether-2026-09-07-elsewhere.md",
+        "# Aria\n\n**Reading:** fix/b which supersedes fix/a entirely\n\nBody.\n",
     )
-    assert check_aria_station("fix/untouched", tmp_path).status is Status.MISSING
+    assert check_aria_station("fix/a", tmp_path, "aether").status is Status.MISSING

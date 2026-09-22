@@ -1,4 +1,10 @@
 #!/bin/bash
+# SUPERSEDED 2026-09-08 by the router. The decision now lives in
+# divineos.core.hook_surfaces as auto_goal_surface, dispatched by
+# doorbell-user-prompt-submit.sh. The registration came out of settings.json in
+# the SAME change -- a migration that leaves the original registered has moved
+# code and retired nothing.
+# INTENTIONALLY UNWIRED (2026-09-08): superseded, see above.
 # UserPromptSubmit hook — set the session goal from Andrew's prompt so the
 # goal-doorman never has to ask for it.
 #

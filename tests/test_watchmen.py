@@ -285,17 +285,25 @@ class TestReservedExternalVantageShapes:
                 if "audit_rounds" in path.parts:
                     continue  # a record of what was filed, not an instruction
                 if "worktrees" in path.parts:
-                    # A WORKTREE IS A DIFFERENT TREE, and this test judges THIS
-                    # one. Scanning them made the verdict depend on which other
-                    # branches happened to be checked out on this machine: it
-                    # went red on stale instructions belonging to branches from
-                    # June, which this branch cannot fix and is not claiming to.
+                    # A WORKTREE IS ANOTHER BRANCH'S TREE, NOT THIS ONE'S
+                    # INSTRUCTIONS. 2026-09-19: this test was red, and every
+                    # offender it named lived inside
+                    # .claude/worktrees/<name>/ -- six full checkouts of other
+                    # branches nested in this one, five registered and one
+                    # orphaned. It was reading their project file, their hooks
+                    # and their letters and calling them live prescriptions
+                    # here.
                     #
-                    # Same fault as the three stages this file was written
-                    # against -- an instrument answering accurately about a
-                    # narrower or wider subject than the question asked -- and
-                    # now in the test written to cure it, which is the second
-                    # time that has happened in this one file.
+                    # A stale line on another branch is that branch's to fix,
+                    # and it surfaces there when that tree is the one being
+                    # checked. Reporting it here points the reader at a file
+                    # they cannot correct from where they are standing, which
+                    # is the same disservice as the stale prescription itself.
+                    #
+                    # THE SAME SCOPE ERROR THIS DOCSTRING ALREADY CONFESSES,
+                    # arriving from the opposite direction. The comment below
+                    # worries about looking at too FEW places. This was looking
+                    # at too many, and the extra places were copies.
                     continue
                 text = path.read_text(encoding="utf-8", errors="replace")
                 opened.append(path.name)

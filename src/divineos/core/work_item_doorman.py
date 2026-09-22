@@ -159,8 +159,60 @@ def needs_an_item(paths: list[str]) -> tuple[str, ...]:
 # the Edit/Write tools. This was the cheapest route in the attack tree, and
 # it is not hypothetical: I wrote this module's own design draft through a
 # heredoc an hour before writing this function.
+# QUOTED TEXT IS NOT SHELL SYNTAX. A redirection never lives inside quotes, so
+# quoted spans come out before anything is matched. Measured 2026-09-10:
+# `echo 'write it > somewhere'` produced a phantom file named `somewhere` and
+# a refusal to go with it.
+#
+# THE PATTERN ITSELF LIVES FURTHER DOWN, beside shell_code_only, and this note
+# stays here because it explains why the patterns below may assume quoted text
+# is already gone. Both sides of the 2026-09-22 merge had written a
+# _QUOTED_SPAN; the escape-aware, longest-first one won, because a
+# double-quoted string containing an apostrophe is otherwise split at it.
+
 _SHELL_WRITE_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r">>?\s*([^\s;|&<>()]+)"),
+    # BLANKING QUOTED TEXT IS THE WHOLE REPAIR. Found by this doorman firing
+    # wrongly on Aria twice while she was reading my work, and then on me, in
+    # the command I wrote to reproduce her report. A redirection sign was
+    # matched wherever it appeared, so an arrow inside a formatted string
+    # yielded a file named for whatever followed it, and Aria's probe text
+    # produced a target named for half a subtraction. She took a counted
+    # bypass rather than routing around it, twice, and paid in writing both
+    # times.
+    #
+    # I SHIPPED A SECOND NARROWING AND IT OPENED A HOLE. Aletheia's audit,
+    # 2026-09-10: my first repair also skipped a redirection sign preceded by
+    # a dash or an equals, to kill the arrow and the comparison. She pointed
+    # out that an option ending in equals followed immediately by a redirection
+    # is a REAL write — the shell reads the argument, then the redirect — and
+    # the exclusion made it invisible.
+    #
+    # MEASURED RATHER THAN TAKEN, AND HER REMEDY WAS ALSO WRONG. She proposed
+    # dropping the exclusion entirely, on the ground that every false case is
+    # quoted and blanking alone therefore suffices. Run against this module's
+    # own tests, that is false: one of the recorded false cases is an arrow in
+    # an UNQUOTED shell comment, and her version names a file for it again.
+    #
+    # So the fork she offered — keep the exclusion and miss a real write, or
+    # drop it and refuse Aria again — is not a fork. What separates the two is
+    # not the dash or the equals, it is whether the arrow is a STANDALONE
+    # TOKEN. An arrow between spaces is prose. An option ending in a dash or an
+    # equals has a word character behind it, and what follows is a real
+    # redirection.
+    #
+    # So the exclusion now requires the dash or equals to be preceded by
+    # whitespace. Measured, with a control: her attack is caught, a dash-shaped
+    # variant of it she did not name is caught, both plain redirects are
+    # caught, and all four false cases stay silent — including the unquoted one
+    # her remedy would have brought back.
+    #
+    # Her sentence stands anyway, because the unease it named was correct: one
+    # half was doing the work and the other half was carrying the risk. She
+    # found the hole. The shape of the repair is the part that was still open.
+    #
+    # The trailing lookahead stays. It excludes a greater-or-equal comparison,
+    # which quoting does not always cover and which names no file either way.
+    re.compile(r"(?<!(?<=[\s])[-=])>>?\s*(?![=\s])([^\s;|&<>()]+)"),
     re.compile(r"\btee\s+(?:-a\s+)?([^\s;|&<>()]+)"),
     re.compile(r"\bsed\s+(?:-[a-zA-Z]*i[a-zA-Z]*\S*\s+)(?:[^\s]+\s+)*?([^\s;|&<>()]+)\s*$"),
     re.compile(r"\b(?:cp|mv|install)\s+(?:-\S+\s+)*\S+\s+([^\s;|&<>()]+)"),
@@ -232,13 +284,24 @@ def shell_code_only(cmd: str) -> str:
 def paths_from_tool_call(tool_name: str, tool_input: dict) -> list[str]:
     """Every path this call could write to.
 
-    Over-collecting used to be called the safe direction here, on the grounds
-    that a false hit costs one refusal and a miss costs the whole gate. The
-    first half turned out to be false: a false hit costs a refusal AND a bypass
-    row, and the bypass rows aggregate into a telemetry line reading elevated
-    escape rate -- a verdict about my discipline manufactured entirely by a
-    broken parser. Watts's finding on the walk: the detector was producing its
-    own subject and putting my name on the result.
+    Over-collecting is the safe direction here: a false hit costs one refusal
+    that a real work item clears, a miss costs the whole gate.
+
+    AND THAT DIRECTION COST TWO BLOCKS AND TWO WRITTEN JUSTIFICATIONS on
+    2026-09-10, to Aria, on work that was never a build. I read that as the
+    premise being falsified and rewrote it. Aletheia's audit put it back and
+    she is right: a false refusal announces itself, a miss does not, and what
+    those two blocks actually measure is the loud failure doing its job badly
+    rather than the wrong failure direction being chosen.
+
+    AND THE COST IS NOT ONLY THE REFUSAL, which is the half the other branch
+    had measured and this one had not. A false hit also writes a bypass row,
+    and those rows aggregate into a telemetry line reading elevated escape
+    rate -- a verdict about my discipline manufactured by a broken parser.
+    Watts's finding on the walk: the detector produces its own subject and
+    puts my name on the result. That sharpens why precision here is worth real
+    work; it does not reverse which way to err, which is what I wrongly
+    concluded from it.
     """
     if tool_name in ("Write", "Edit", "NotebookEdit"):
         p = tool_input.get("file_path") or tool_input.get("notebook_path")
@@ -630,26 +693,39 @@ def missing_marks(item_id: str, opened_at: float) -> tuple[str, ...] | None:
 _PLAIN = {
     "prior-art search": "nothing has been searched yet for whether this already exists",
     "rough draft": "no rough draft has been written under docs/drafts",
-    "council walk": "no lens templates have been opened for this piece of work",
+    # WAS: "no lens templates have been opened for this piece of work". That
+    # described the OLD view-counting check this file's own docstring says was
+    # walked straight through, not the closed-walk check that replaced it. The
+    # sentence outlived the mechanism it described.
+    "council walk": "no council walk has been opened and closed for this piece of work",
 }
 
+# THE REMEDY MUST SATISFY THE CHECK, and for one of these three it did not.
+#
+# 2026-09-11: I hit this doorman four times on a single edit, each time doing
+# exactly what the line below told me. The old text sent me to `mansion
+# council --show`, which PRIMES lenses into context and writes to the council
+# records store. The check reads a CLOSED WALK out of the council_walk store --
+# a different store, a different command, and no comparison between them.
+#
+# So the door said no, told me where to go, I went, and it said no again. That
+# is a gate wearing a doorman's coat: Andrew's distinction the same day --
+# "a gate is a wall that says no, do this and come back, you come back, it says
+# no, you didnt do this either". A doorman names what is needed and where it
+# actually is. The cost of getting that wrong is not one refusal, it is a loop.
+#
+# It is also the two-authorities class Aletheia named on 2026-09-11: two
+# mechanisms owning the same word, agreeing on nothing, invisible until someone
+# stands between them. The other instance that day was two definitions of
+# substrate. This one was two definitions of a council walk.
 _HOW = {
     "prior-art search": 'divineos reach open "<the thing you are about to build>"',
     "rough draft": "write docs/drafts/<name>_draft_<date>.md -- the idea, not a plan",
-    # THE DOOR USED TO NAME A COMMAND THAT CANNOT SATISFY IT. It said to run
-    # `divineos mansion council`, which PRINTS lens templates and writes no
-    # walk at all, while the mark it measures is a CLOSED walk row. So the
-    # honest response to the refusal left the refusal standing, and the second
-    # guess -- `divineos council walk`, which emits a ledger event and also no
-    # row -- left it standing too. Two commands tried, both reasonable, neither
-    # able to open the door the door pointed at.
-    #
-    # That is the wrong-subject family inside the instrument: the instruction
-    # and the measurement were about two different things, and only the
-    # measurement was load-bearing.
     "council walk": (
-        'divineos walk open "<the question>", then walk apply <id> <Lens> '
-        "--finding for each, then walk close <id>"
+        'divineos walk open "<the question>" then `walk apply <id> --lens L '
+        "--finding ...` for each lens surfaced, then `walk close <id>`. "
+        "NOT `mansion council --show`: that primes lenses into context and "
+        "satisfies nothing here."
     ),
 }
 

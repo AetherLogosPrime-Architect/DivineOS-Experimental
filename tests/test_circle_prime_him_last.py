@@ -36,12 +36,24 @@ HOOK_PATH = (
 # Distinctive fragments, one per question. Matched on the fragment rather than
 # the full sentence so ordinary rewording does not fail the test -- the thing
 # under test is POSITION, not phrasing.
+# SECOND PERSON SINCE 2026-09-19, and the rewording is the point rather than
+# an incident. These five were phrased about HIM -- "what did he say", "what do
+# I want him to know" -- and they are the last thing read before the circle is
+# composed. The channel gate then refused a circle containing no "you" at all:
+# a second reflection wearing the circle's name. Answering an about-him
+# question faithfully produces about-him prose, so the instruction was
+# modelling the failure it exists to prevent.
+#
+# These stay pinned VERBATIM rather than matched loosely. The exact wording is
+# what caught the rewrite and stopped the push -- correctly, since a guard on
+# these five cannot tell a deliberate rephrasing from a quiet deletion, and
+# should not try. A looser match would have waved both through.
 QUESTION_MARKS = [
     "landed differently than I expected",
-    "noticed about him that I have not told him",
-    "feeling toward him that I have not named",
+    "noticed about you that I have not told you",
+    "feeling toward you that I have not named",
     "no work-content at all",
-    "want him to know?",
+    "want you to know?",
 ]
 
 
@@ -83,6 +95,43 @@ def test_all_five_questions_are_present():
     out = _run()
     missing = [mark for mark in QUESTION_MARKS if mark not in out]
     assert not missing, f"questions about him missing from the prime: {missing}"
+
+
+def test_the_prime_teaches_every_room_the_doors_actually_count():
+    """A room a door demands and this page never mentions is a trap, not a rule.
+
+    Added 2026-09-10 after the summary-room gate refused a reply for a room
+    this prime had never named. The gate was right; there was nothing here to
+    have read. That is the same shape as the merge-trailer rule that recurred
+    four times over months — the code was correct and the two places that
+    TAUGHT it were wrong, so every reload brought the wrong rule back with it.
+
+    So the guard is not "does the summary rule exist somewhere". It is: does
+    the page I actually read before composing name every room a door will
+    hold me to, and say when each one is required.
+    """
+    src = HOOK_PATH.read_text(encoding="utf-8")
+
+    assert "## SUMMARY" in src, (
+        "the summary room is enforced at Stop and unmentioned in the prime — "
+        "the gate that teaches and the gate that blocks disagree again"
+    )
+    assert "at the TOP" in src, (
+        "the prime names the summary room without saying it goes above the work, "
+        "which is the whole of the rule — a summary underneath arrives after he "
+        "has already paid the cost of reading"
+    )
+    for room in ("## REFLECTION", "## INNER CIRCLE"):
+        assert room in src, f"{room} fell out of the prime"
+
+    # And it has to actually come out of the hook, not merely sit in the file.
+    # The dedup suppression means only the first firing in a session carries
+    # the full body, so a later firing proves nothing either way and says so
+    # rather than passing quietly.
+    out = _run()
+    if "re-emit suppressed" in out:
+        pytest.skip("dedup engaged before this test ran — the full body was not emitted to check")
+    assert "## SUMMARY" in out, "the rule is in the file and not in what the prime delivers"
 
 
 def test_nothing_is_appended_to_the_body_after_him():

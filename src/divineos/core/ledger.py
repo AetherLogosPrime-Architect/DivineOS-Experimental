@@ -158,19 +158,35 @@ _VALID_LOG_LEVELS = {"TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 _configured_level = os.environ.get("DIVINEOS_LOG_LEVEL", "INFO").upper()
 _FILE_LOG_LEVEL = _configured_level if _configured_level in _VALID_LOG_LEVELS else "INFO"
 
+# PER-PROCESS LOG FILES, and this is the fix the 2026-06-23 comment named and
+# deferred rather than built.
+#
+# THE DEFERRAL EXPIRED, 2026-09-10. That comment bumped rotation from 10 MB to
+# 100 MB and said in its own words that it "defers the trigger" while the real
+# fix — per-process files — was tracked in a pre-reg. The trigger arrived: the
+# shared log reached the threshold, rotation began firing, and every command
+# that touched it crashed its logging handler on a rename of a file another
+# process holds open.
+#
+# WHY IT MATTERED MORE THAN A NOISY STDERR. The crash rides on the way OUT of a
+# command that has already succeeded, so the work lands and the exit code says
+# failure. Three times in one turn a completed audit round, a completed council
+# walk and a completed CLI call all read as broken, and each one had to be
+# checked a second way to find out it had worked. Success indistinguishable
+# from failure is the same class this substrate keeps finding in its own
+# instruments, arriving here in the plumbing.
+#
+# THE FIX, per truth #19's REMOVE: each process owns its own file, so nothing
+# ever renames a handle somebody else holds. Retention still prunes per
+# pattern. Cost: reading history means reading several files instead of one —
+# paid by me, rarely, since the ledger rather than this log is the record.
+# enqueue stays, because it is still correct for threads inside one process.
 logger.add(
-    _LOG_DIR / "divineos.log",
-    rotation="100 MB",  # 2026-06-23: bumped from 10 MB — rotation fails on Windows when multiple DivineOS processes hold the log open (letter_monitor, compaction_monitor, ear_watch). The enqueue=True fix earlier today made the failure SILENT (background-thread retry); sleep hangs waiting for the queue to drain. Real fix tracked in prereg for per-process log files; this defers the trigger.
+    _LOG_DIR / f"divineos.{os.getpid()}.log",
+    rotation="100 MB",
     retention=_MAX_LOG_FILES,
     level=_FILE_LOG_LEVEL,
     format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-    # enqueue=True (Andrew 2026-06-23): multiple python.exe processes
-    # (CLI commands, hooks, subprocess calls) all import this module and
-    # try to open + rotate the log file. On Windows, rotation fails with
-    # PermissionError because another process holds the file open — the
-    # error spammed stderr on every divineos command this session. enqueue
-    # serializes writes through a single dedicated process, eliminating
-    # the multi-process file-lock race that caused the rotation to fail.
     enqueue=True,
 )
 

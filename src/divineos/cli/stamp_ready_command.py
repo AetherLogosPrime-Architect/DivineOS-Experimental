@@ -659,6 +659,23 @@ def _round_by_id(round_id: str):
     return None
 
 
+# THE SECOND sibling_rounds_naming LIVED HERE AND IS GONE, 2026-09-22.
+#
+# Both branches wrote a function of this name into this one file, so after
+# the merge the later definition silently shadowed the earlier and the file
+# held two answers to the same question.
+#
+# The one kept is further up, and it RAISES when a sibling store is present
+# and unreadable rather than reporting the unreadable seats alongside an
+# answer. That direction is the whole reason for the choice: this command
+# authorizes a merge, and the merge gate has nothing after it, so
+# could-not-read has to stop the stamp instead of annotating it.
+#
+# The removed version's finding is not lost -- an absence published with a
+# scope it was not in a position to see -- it is carried in the surviving
+# docstring, which says the same thing about the same failure.
+
+
 def register(cli: click.Group) -> None:
     @cli.command("stamp-ready")
     @click.argument("pr_number", type=int)
@@ -841,8 +858,17 @@ def register(cli: click.Group) -> None:
                     f"branch {branch} or PR #{pr_number}.",
                     fg="red",
                 )
+                # THE THREE STATES STILL HOLD, they are just reached by a
+                # different route now. The other branch printed the unreadable
+                # seats here and carried on; this one raises the moment a seat
+                # is present and unreadable, above, so by the time control
+                # arrives here every readable seat HAS been read and the answer
+                # is a real absence rather than a silence. Reaching this line
+                # is therefore the "no other seat names it either" case, said
+                # once rather than three times.
                 click.secho(
-                    "    File one, or pass --audit-round explicitly.",
+                    "    No other seat names it either. File one, or pass "
+                    "--audit-round explicitly.",
                     fg="bright_black",
                 )
                 raise click.exceptions.Exit(1)
