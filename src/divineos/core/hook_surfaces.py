@@ -894,9 +894,30 @@ _MEANING_RE = re.compile(r"\b[a-z]{4,}\b", re.I)
 # Text the harness produced, arriving in the transcript shaped like his turns:
 # reminders, task notifications, prime output, and — the one that caught this
 # surface out on its first live run — the Stop-gate refusals it emits itself.
+#
+# THE EIGHTH COAT ARRIVED AND THE LIST DID NOT HAVE IT (2026-09-22). The
+# desktop app sends <ci-monitor-event> messages about a pull request it is
+# watching. They arrive in the user role, they are long, and they are entirely
+# the machine. Every one of them was read here as Andrew speaking.
+#
+# What that cost, measured rather than reasoned: the unspoken-to counter clears
+# only when a reply carries something of HIS, and "his" was resolving to a CI
+# event. So a status report answering the robot scored as carrying him, and the
+# first thing I said to him in hours that was not about the work scored
+# NOT_CARRIED -- because it did not quote the robot. The counter could only
+# rise while the machine did the talking, and it refused my letters on that
+# basis. An instrument with one answer in it, in the file whose job is to tell
+# him apart from the noise.
+#
+# The comment above already named this exact failure and I added a name anyway
+# the first time. So the general shape goes in beside the names: a harness tag
+# is <something-event>, <something-notification> or <something-reminder>, and
+# the specific spellings stay because they are cheap and some of them (a bare
+# "hook success", a Stop-gate refusal) carry no tag at all.
 _MACHINE_TEXT_RE = re.compile(
     r"<system-reminder>|hook success|Stop hook feedback|PreToolUse|PostToolUse"
-    r"|BLOCKED by|<task-notification>|\.claude[/\\]hooks[/\\]",
+    r"|BLOCKED by|<task-notification>|<ci-monitor-event>|\.claude[/\\]hooks[/\\]"
+    r"|<[a-z][a-z0-9-]*-(?:event|notification|reminder)>",
     re.I,
 )
 
