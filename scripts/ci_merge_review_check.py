@@ -293,27 +293,50 @@ def _round_is_logged(round_id: str) -> bool | None:
         return None
 
 
-def _pr_touches_guardrail(repo: str, pr: int) -> bool:
-    """True if the PR changes any file on the guardrail list."""
+def _pr_needs_review(repo: str, pr: int) -> bool:
+    """True if the PR changes anything that is not exempt prose.
+
+    THIS FUNCTION ASKED THE RETIRED QUESTION UNTIL 2026-09-21, and it was the
+    live gate, not a comment about one. It loaded the protected list and
+    returned False -- gate does not apply -- for any PR touching nothing on
+    it. The protected-list model was retired 2026-09-07
+    (docs/retired_rules/2026-09-07_the_protected_list_model.md) precisely
+    because that question lets a new file through by default, and the gate
+    went on asking it for two weeks while the policy above it said every line
+    entering the trunk gets audited.
+
+    Found by the retired-rules checker on the night it was built, in a
+    docstring, which is worth recording: the sentence describing the code was
+    what gave the code away.
+
+    The question now matches the merge policy. Everything counts unless it is
+    listed prose, so forgetting to list a new file produces too much review
+    rather than none.
+    """
     files = _gh_json(
         ["api", f"repos/{repo}/pulls/{pr}/files", "--paginate", "--jq", "[.[].filename]"]
     )
     if not isinstance(files, list):
-        # Cannot determine → assume it does, so the gate applies (fail safe).
+        # Cannot determine → assume review is owed, so the gate applies.
         return True
     changed = {str(f).replace("\\", "/") for f in files}
+    if not changed:
+        return False
     try:
         from pathlib import Path
 
-        guard_raw = Path("scripts/guardrail_files.txt").read_text(encoding="utf-8")
+        exempt_raw = Path("scripts/review_exempt_paths.txt").read_text(encoding="utf-8")
     except OSError:
+        # No exempt list readable means nothing can be shown to be prose,
+        # so every changed file counts. The safe direction, and the opposite
+        # of what an unreadable PROTECTED list used to mean.
         return True
-    guard = {
+    exempt = tuple(
         line.strip().replace("\\", "/")
-        for line in guard_raw.splitlines()
+        for line in exempt_raw.splitlines()
         if line.strip() and not line.strip().startswith("#")
-    }
-    return bool(changed & guard)
+    )
+    return any(not any(path.startswith(prefix) for prefix in exempt) for path in changed)
 
 
 def main(argv: list[str]) -> int:
@@ -385,8 +408,8 @@ def main(argv: list[str]) -> int:
             )
             return 0
 
-    if not _pr_touches_guardrail(args.repo, args.pr):
-        print("[merge-review] PR touches no guardrail files; gate does not apply.")
+    if not _pr_needs_review(args.repo, args.pr):
+        print("[merge-review] every changed file is exempt prose; no review is owed.")
         return 0
 
     meta = _fetch_pr_meta(args.repo, args.pr)

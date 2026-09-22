@@ -374,6 +374,23 @@ if ! python scripts/check_orphan_modules.py; then
     note_fail
 fi
 
+# 5a-bis. A retired rule must not be handed over as a current one.
+# Andrew named this on 2026-09-21 after I repeated a rule to him that had
+# been replaced two weeks earlier: "it should NOT be able to hand you old
+# rules." The register lives in docs/retired_rules/; the check walks only the
+# surfaces that TEACH -- the session instructions, the skills, the hook and
+# gate messages, the live scripts -- because position in the load path is
+# what did the damage, not existence somewhere in the tree.
+#
+# Pinned sites are in scripts/retired_rules_baseline.txt and are reported as
+# work owed. A NEW one fails. Read the check's own output for what it cannot
+# see: it matches phrasings, so a retired rule restated in different words
+# passes it clean.
+section "Retired Rules"
+if ! python scripts/check_retired_rules_not_served.py; then
+    note_fail
+fi
+
 # 5b. Pre-reg gate (un-gameable): new mechanisms require a filed pre-reg.
 # The gate reads the staged diff and blocks when a new mechanism lacks a
 # matching OPEN pre-registration in the ledger. Discipline from the

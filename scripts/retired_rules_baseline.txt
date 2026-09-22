@@ -1,0 +1,53 @@
+# SITES THAT STILL STATE A RETIRED RULE. Work owed, pinned so it cannot
+# quietly grow.
+#
+# Format: <repo-relative path>:<rule id from docs/retired_rules/>
+#
+# TAKEN 2026-09-21, the night the register was built. The first run of the
+# checker found seven sites. Widening the patterns to catch a phrasing the
+# narrow ones had missed took it to twenty-six lines across ten files, and
+# most of the new ones are a VOCABULARY rather than a rule: the adjective the
+# retired model gave to a commit, spread through comments, docstrings and
+# messages in code that is otherwise doing the right thing.
+#
+# WHAT WAS FIXED RATHER THAN PINNED, on the same night:
+#   - the project instructions loaded at every session start, in two places,
+#     including the numbered rule that sent me to Andrew with the wrong answer
+#   - the README, in two places
+#   - a live merge gate that still ASKED the retired question -- it exited
+#     clean for any request touching nothing on the protected list, which
+#     under the rule that actually governs is most of them
+#   - a dead loader inside the server-side check, and the message that check
+#     prints when it blocks somebody
+#
+# WHY THE REST ARE PINNED. Two reasons, and neither of them is tiredness.
+#
+# The vocabulary sites need reading one at a time. A blanket rename would be
+# one guess applied ten times, and several sit next to real logic where the
+# wording and the behaviour have to change together or not at all.
+# check_multi_party_review.py is the clearest case: it loads the retired list
+# AND its whole warning is built on the commit-trailer rule that Andrew
+# separately retired after saying it five times. Rewriting that blind would
+# be inventing a policy, not correcting one.
+#
+# docs/foundational_truths.md is pinned for a different reason. Editing the
+# kiln layer requires its own council walk, and one had already been walked
+# that night on exactly this question. Running a second ritual walk to change
+# one sentence would be the ceremony without the thinking. Deliberately
+# deferred, not overlooked.
+#
+# THIS SET MAY SHRINK AND NEVER GROW. A new site fails the check outright.
+# The checker prints any pinned site that has become clean, so the list
+# cannot rot in the direction that flatters me. Same discipline as
+# scripts/refusal_behind_failsoft_baseline.txt, built the same day, for the
+# same reason.
+
+.claude/hooks/session-start-verify-git-hooks.sh:protected-list-model
+docs/foundational_truths.md:protected-list-model
+scripts/check_multi_party_review.py:protected-list-model
+scripts/check_push_readiness.sh:protected-list-model
+src/divineos/cli/prs_commands.py:protected-list-model
+src/divineos/cli/push_ready_command.py:protected-list-model
+src/divineos/cli/stamp_ready_command.py:protected-list-model
+src/divineos/core/pr_gate/__init__.py:protected-list-model
+src/divineos/core/push_ready.py:protected-list-model
