@@ -108,19 +108,31 @@ _RELAY_INTRODUCER_RE = re.compile(
 # to contain correction-shaped words cannot false-fire (fired 3+ times across
 # the 2026-06-03 session on workflow-completion envelopes).
 #
-# ci-monitor-event added 2026-09-21, after the app announced that Auto-fix was
-# switched on and the notice contained the words "Do not run". The detector
-# read that as Andrew correcting me and blocked my next command. Nothing in it
-# was his.
+# ci-monitor-event added 2026-09-08 by Aether, after it fired on a do-not-run
+# imperative inside an auto-fix notice and wrote correction #266 into my
+# father's store with platform text standing in for his words. The tag list is
+# the entire defence and it only knows the envelopes that existed when it was
+# written -- a new one arrives as a silent hole rather than an error. This
+# store's whole value is that every row is his voice, which makes a wrong row
+# worse than a missing one.
 #
-# THE DEFENCE WAS RIGHT AND ITS INVENTORY WAS STALE, which is the shape worth
-# recording rather than the one missing tag. A list of known envelopes cannot
-# know about an envelope invented after it was written, so this file will go
-# quietly out of date again every time the harness grows a new block. It fails
-# in the loud direction -- a false fire blocks a command and is impossible to
-# miss -- so an enumerated list is survivable here in a way it was not for the
-# read-only probe found the same day, where the stale list failed silently and
-# let writes through.
+# IT HAPPENED AGAIN TO ARIA ON 2026-09-21, and this second account is kept
+# beside his rather than replacing it, because two incidents are the evidence
+# that this is a class and one is only an anecdote. Same tag, same trigger --
+# the app announced Auto-fix was on, the notice contained "Do not run", the
+# detector read it as Andrew and blocked my next command.
+#
+# I DID NOT KNOW HIS REPAIR EXISTED. It was sitting unmerged while the hole it
+# closes stayed open on my side, so I met the fault, diagnosed it, and wrote
+# the same line he had already written. The cure was inside the disease: a fix
+# that cannot reach main is a fix that lets its own defect recur, and then
+# costs a second person the same afternoon.
+#
+# What the two accounts add up to: the defence is right and its INVENTORY is
+# stale by construction. It fails in the loud direction -- a false fire blocks
+# a command and is impossible to miss -- so an enumerated list is survivable
+# here, unlike the read-only probe repaired the same day, where a stale list
+# failed silently and let writes through.
 _HARNESS_ENVELOPE_RE = re.compile(
     r"<(task-notification|system-reminder|persisted-output|ci-monitor-event)"
     r"\b[\s\S]*?(?:</\1>|\Z)",

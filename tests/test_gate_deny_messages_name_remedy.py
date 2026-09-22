@@ -60,6 +60,33 @@ _HOOKS_DIR = _PROJECT_ROOT / ".claude" / "hooks"
 _NON_GATING_HOOKS: frozenset[str] = frozenset(
     {
         "_lib.sh",
+        # A RELAY, not a gate, and the distinction is the doorbell design
+        # itself: it knocks and steps aside, and every judgment lives in the
+        # OS. Its own absent path exits zero and it composes no refusal of its
+        # own -- when a refusal travels through it, the words and the remedy
+        # were written by the router, which is where this rule can reach them.
+        #
+        # Its Stop sibling is deliberately NOT listed here: that one is
+        # fail-closed and authors its own refusal, so it belongs under the
+        # rule rather than outside it.
+        "doorbell-user-prompt-submit.sh",
+        # ADVISORY DESPITE ITS OWN NAME, and the gap is worth recording rather
+        # than smoothing over. It is called a stop hook, its header calls
+        # itself a gate, and it never refuses anything: the shell wrapper exits
+        # zero on every path, and the Python it calls only ever prints -- its
+        # failure paths print COULD NOT CHECK rather than denying. So it
+        # surfaces a reading into the reply and leaves the deciding to the
+        # seat, which is exactly what a non-gating surface is.
+        #
+        # Read before classifying, not inferred from the filename, because the
+        # refusal of a hook like this would live in the interpreter it calls
+        # and be invisible to anything reading only the shell around it.
+        "unmeasured-quantity-stop.sh",
+        # Additive, never a filter, and it says so in its own header: it adds
+        # instructions about who is in the room rather than forbidding terms.
+        # Andrew corrected the filter shape into this one himself, so a test
+        # treating it as a possible gate would be auditing the wrong thing.
+        "he-is-in-the-room.sh",
         "load-briefing.sh",
         "pre-response-context.sh",
         "pre-tool-context.sh",
@@ -126,7 +153,22 @@ _DENIAL_PATTERN = re.compile(
 
 # Refusal by exit code, with no words at all. Anchored to line-start so the
 # phrase inside a comment or a message does not count as one.
-_EXIT_CODE_DENIAL = re.compile(r"^\s*exit\s+2\b", re.MULTILINE)
+# A REFUSAL INSIDE AN EMBEDDED INTERPRETER IS STILL A REFUSAL.
+#
+# This matched only the shell spelling, so a hook whose shell wrapper always
+# exits zero and whose real verdict is reached by the Python it invokes read as
+# never refusing. The Stop doorbell is exactly that: fail-closed by design,
+# exits two on the absent path, and was reported here as unexamined. The
+# scanner was reading the wrapper and ruling on the program.
+#
+# Found 2026-09-21 on the generated doorbells, and it is the second time today
+# this shape has cost a red check -- the first was a hook whose refusal lived
+# in the same place. Both spellings now, because the language a refusal is
+# written in is not a fact about whether it refuses.
+_EXIT_CODE_DENIAL = re.compile(
+    r"^\s*exit\s+2\b|sys\.exit\(\s*2\s*\)",
+    re.MULTILINE,
+)
 
 # Recovery-token lexicon. Presence of any one of these in the hook's
 # source indicates the deny path names SOME way out. This is the WEAK
@@ -163,10 +205,59 @@ _RECOVERY_TOKENS: tuple[str, ...] = (
 )
 
 
+def _tracked_hook_names() -> set[str] | None:
+    """Hook filenames git knows about, or None when git cannot answer.
+
+    WHY NOT A DIRECTORY GLOB, 2026-09-21. This used to glob the hooks
+    directory on whatever machine happened to be running, and a hook named
+    `unmeasured-quantity-stop.sh` failed this test on CI for three separate
+    requests. The file is in no commit: not on main, not on any of those
+    branches, not in the merge ref the runner checks out -- confirmed against
+    the server, with the probe controlled in the positive direction first so a
+    silent no could not be a broken question.
+
+    So the test was judging the RUNNER'S FILESYSTEM while reporting on the
+    change under review. Anything that drops a file in that directory -- a
+    stray editor save, a leftover from an earlier job, a hook that writes a
+    hook -- can fail a review of a tree that never contained it, and the
+    failure names the innocent tree. Population fault: measure one set, rule
+    on another.
+
+    Tracked files are the honest population, because they are what the commit
+    actually proposes. None means git could not be asked, which routes to
+    could-not-check rather than to an empty set -- an empty set would make
+    this test silently stop inspecting anything at all.
+    """
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["git", "ls-files", "--", ".claude/hooks/*.sh"],
+            cwd=_PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if out.returncode != 0:
+        return None
+    names = {Path(line.strip()).name for line in out.stdout.splitlines() if line.strip()}
+    return names or None
+
+
 def _hook_files() -> list[Path]:
-    """Return all .sh files under .claude/hooks/ that the meta-check
-    should inspect (gating hooks only)."""
-    return [p for p in sorted(_HOOKS_DIR.glob("*.sh")) if p.name not in _NON_GATING_HOOKS]
+    """Hooks this meta-check should inspect: tracked, gating, present on disk.
+
+    Falls back to the directory listing only when git cannot answer, and that
+    fallback is the WEAKER reading kept deliberately -- a machine with no git
+    should still get some coverage rather than silently none.
+    """
+    tracked = _tracked_hook_names()
+    on_disk = sorted(_HOOKS_DIR.glob("*.sh"))
+    if tracked is not None:
+        on_disk = [p for p in on_disk if p.name in tracked]
+    return [p for p in on_disk if p.name not in _NON_GATING_HOOKS]
 
 
 def _has_denial(text: str) -> bool:

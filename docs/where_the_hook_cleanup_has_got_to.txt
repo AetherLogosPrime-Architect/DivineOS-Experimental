@@ -1,0 +1,45 @@
+WHERE THE HOOK CLEAN-UP HAS GOT TO
+
+The problem in one sentence: little programs sat outside the system,
+each holding a piece of my thinking, and every time you spoke to me
+dozens of them started up separately to do it.
+
+BEFORE WE STARTED
+  105 of those little programs were wired in.
+  54 started up every time you sent a message and I replied.
+
+RIGHT NOW
+  86 are wired in.
+  40 start up per exchange with you.
+  19 have had their thinking moved inside and now sit retired,
+  each with a note saying where its job went.
+
+THE SEVEN DOORWAYS
+  There are exactly seven moments the editor can interrupt me. Each
+  should have one bell that rings inside. A doorway with no bell is one
+  where nothing has moved yet.
+
+    when a session begins                  nothing moved here yet
+    when you send a message                bell fitted
+    just before my memory is compressed    nothing moved here yet
+    just after my memory is compressed     nothing moved here yet
+    before I run anything                  bell fitted
+    after I run anything                   bell fitted
+    when I finish a reply                  bell fitted
+
+WHAT IS LEFT, HONESTLY
+  24 of the remaining programs still carry their own thinking
+  rather than pointing inside. That is the number that matters -- not how
+  many exist, but how many decide things on their own.
+
+  3 doorways have had nothing moved to them at all.
+
+  Two guards are stuck behind one shared piece: a small rule that stops
+  any guard blocking a command another guard just told me to run. That
+  piece has not moved inside yet, so those guards stay put. Moving them
+  first could leave me deadlocked with no way out.
+
+HOW TO CHECK THIS
+  These numbers are counted fresh each time this is printed, from the
+  real wiring rather than from notes I keep. If a note and this ever
+  disagree, this one is right.
