@@ -313,20 +313,45 @@ def amend_trailers(
     branch = checked_out
     base = _resolve_base(repo, branch)
 
-    short_shas = " ".join(c.short_sha for c in needing)
+    # FULL HASHES ON BOTH SIDES, because the two ends abbreviated differently
+    # and nothing could say so (2026-09-22).
+    #
+    # The selection came from `git log --format=%h`, git's AUTO abbreviation,
+    # which grows with the repository and is NINE characters here. The filter
+    # below asked for `--short=8`. Eight never equals nine, so the match never
+    # fired, every message was rewritten to itself, git had nothing to do, and
+    # it exited zero without touching anything. Nothing lied: a rewrite that
+    # changes no message genuinely is not an error.
+    #
+    # THIS IS MOST LIKELY THE UNFOUND CAUSE OF THE 2026-08-13 INCIDENT, where
+    # eleven stamped requests went red on the server gate with no trailer on
+    # their commits. Stated as most-likely rather than proven: I have the
+    # mechanism and the recurrence, not a reproduction of that day.
+    #
+    # WHAT THE GUARD BUILT AFTERWARDS DID, AND WHY IT COST FIVE WEEKS. It
+    # caught the symptom correctly every single time and named a cause -- the
+    # branch is checked out in another worktree -- which is a real way for this
+    # to fail and was not what was happening. A confident wrong cause is worse
+    # than no cause, because no cause makes you look. Each recurrence arrived
+    # already explained, so the question never reopened.
+    #
+    # NOT AN AGREED LENGTH, WHICH IS THE OBVIOUS REPAIR AND THE WRONG ONE. Any
+    # shared constant can drift apart again exactly as these did. `$GIT_COMMIT`
+    # is the full hash and `%H` is the full hash, so there is no length left to
+    # disagree about.
+    full_shas = " ".join(c.sha for c in needing)
     trailer_line = f"External-Review: {round_id}"
 
-    # Portable POSIX msg-filter: append the trailer if the current commit's
-    # short SHA is in the target set. Uses env FILTER_BRANCH_SQUELCH_WARNING
-    # to suppress the deprecation warning (filter-branch remains functional
-    # and is the most portable in-tree message rewriter).
+    # Portable POSIX msg-filter: append the trailer if this commit is in the
+    # target set. FILTER_BRANCH_SQUELCH_WARNING suppresses the deprecation
+    # notice; filter-branch remains the most portable in-tree message rewriter.
     msg_filter = (
-        "sha=$(git rev-parse --short=8 $GIT_COMMIT); "
-        f'if echo "{short_shas}" | tr " " "\\n" | grep -qw "$sha"; then '
+        f'if echo "{full_shas}" | tr " " "\\n" | grep -qw "$GIT_COMMIT"; then '
         'cat; echo ""; '
         f'echo "{trailer_line}"; '
         "else cat; fi"
     )
+    tip_before = _run_git(["rev-parse", "HEAD"], cwd=repo).strip()
 
     env = {"FILTER_BRANCH_SQUELCH_WARNING": "1"}
     # Merge with current environment.
@@ -352,6 +377,31 @@ def amend_trailers(
     )
     if result.returncode != 0:
         raise PushReadyError("git filter-branch failed: " + (result.stderr or result.stdout))
+
+    # EXIT ZERO IS WORTHLESS HERE, and that is the whole lesson of the five
+    # weeks above. A rewrite that changes no message is not an error, so the
+    # only reading that means anything is whether the tip moved.
+    #
+    # This raises rather than returning, because the caller's guard would
+    # otherwise catch the same symptom one layer later and have to GUESS at the
+    # cause -- which is exactly what it did, confidently and wrongly, since
+    # 2026-08-13. The function that knows the rewrite did nothing is this one,
+    # and a cause reported where it is known does not have to be inferred where
+    # it is not.
+    tip_after = _run_git(["rev-parse", "HEAD"], cwd=repo).strip()
+    # An unreadable tip is its own state and must not be read as a match. Two
+    # empty strings are equal and mean nothing was measured, which is not the
+    # same fact as two hashes being equal -- and reporting a selection failure
+    # from a reading that never happened would be this same disease, committed
+    # inside its own repair.
+    if tip_before and tip_after and tip_after == tip_before:
+        raise PushReadyError(
+            f"The rewrite did not run: {branch} is still at {tip_before[:12]} and "
+            f"{len(needing)} commit(s) were supposed to be rewritten.\n"
+            "filter-branch exited 0 having changed nothing, which it does when no\n"
+            "message matched -- so this is a SELECTION failure, not a blocked\n"
+            "rewrite and not a worktree. Nothing was pushed."
+        )
     return [c.sha for c in needing]
 
 
