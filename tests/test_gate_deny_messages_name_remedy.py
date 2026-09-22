@@ -74,6 +74,22 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         # quietly, by widening a rule about naming a way out to something that
         # never refuses anybody.
         "capture-channel-letter.sh",
+        # A CARRIER TOO, and it arrived with main rather than with this branch.
+        # Andrew asked that a letter he hands me from Aletheia be copied into
+        # her audit folder, and this runs on every prompt to do it.
+        #
+        # Declared here rather than taught to the denial patterns for the same
+        # reason as the entry above, and checked the same way rather than
+        # assumed from its name: every exit in the file is zero -- three of
+        # them, two on its own failure paths -- with no deny decision and no
+        # refusal text anywhere. It cannot stop a tool call, so a rule about
+        # naming a way out has nothing in it to reach.
+        #
+        # Its failure paths say so on stderr instead of exiting quietly, which
+        # is the property worth noting: a carrier that goes silent is
+        # indistinguishable from a carrier with nothing to carry, and that
+        # confusion is what it was built to end.
+        "collect-aletheia-letters.sh",
         # A RELAY, not a gate, and the distinction is the doorbell design
         # itself: it knocks and steps aside, and every judgment lives in the
         # OS. Its own absent path exits zero and it composes no refusal of its
