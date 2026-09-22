@@ -67,6 +67,14 @@ case "$CMD" in
   *) exit 0 ;;
 esac
 
+# Sourced only once the line is known to be a push, so the thousands of calls
+# that are not one never pay for it. Fail-open here rather than at the refusal:
+# a missing library means the hook does not run at all, which is the same
+# answer it already gives for a malformed payload.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+
 # Already using the wrapper, or one of the scripts that calls it.
 case "$CMD" in
   *divineos_push*|*safe_push*|*ready_pr*|*check_push_readiness*) exit 0 ;;
@@ -98,4 +106,5 @@ infrastructure error. All four are answers. The exit code alone is not.
 Andrew built that wrapper in June after this fault recurred ten times in two
 days. I pushed six times tonight without it, and never once decided against it.
 EOF
+hook_say_nothing_ran_for "$INPUT"
 exit 2
