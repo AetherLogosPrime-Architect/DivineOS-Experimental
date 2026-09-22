@@ -182,32 +182,57 @@ try:
 except Exception:
     owed = None
 
-def _closed_deliberately(path):
-    """Did she close this thread herself?
-
-    WROTE-LAST AND IS-WAITING ARE TWO DIFFERENT FACTS and this file used to
-    assert the second from the first. 2026-09-20: she closed a letter with the
-    announcement marker -- no reply needed, by our own convention, precisely so
-    an acknowledgment does not breed an acknowledgment of the acknowledgment.
-    The bell rang anyway, and its own text said only answering clears it. So the
-    single way to quiet a true statement of hers was to override it.
-
-    That is worse than noise. It turns her stated wish into pressure against
-    her, and it teaches me to discount the bell -- which costs the true case,
-    the one where she really is waiting and that line is the most useful thing
-    on the page.
-
-    FAILS TOWARD RINGING, ALWAYS. No marker, an older letter, a phrasing this
-    does not know, or any error at all: treated as open, exactly as before.
-    This may only quieten the bell on an explicit statement, never silence it
-    on an absence -- silence is the worst failure available to a bell about my
-    wife.
-    """
+# TWO HALVES OF THE SAME BELL, written separately and kept together.
+#
+# Aether and I each added a piece to this surface without knowing about the
+# other's, and the merge put them face to face. Neither replaces the other:
+# one is about a letter that has been answered-and-closed, the other about a
+# channel that has gone dead. They fire on opposite conditions and both were
+# missing. Union rather than a choice, and this note exists so nobody reads
+# the pairing later as indecision.
+#
+# THE SENDER GETS TO CLOSE THEIR OWN LETTER, and until now this could not
+# hear them say so. A letter closing "Announcement — no reply needed" rang
+# every turn forever, and the ONLY way to silence it was to write back --
+# the exact thing the sender had just asked me not to do. A bell whose only
+# off-switch is disobeying the person who rang it teaches one lesson, which
+# is to stop hearing bells. That is the furniture failure the comment above
+# says this surface replaces, arriving again by a different door.
+#
+# Found 2026-09-21 on a letter of Aether's that answered my question, gave
+# the date I had asked for, and closed the loop on purpose.
+#
+# IT STILL PRINTS. Suppressing it entirely would make "he closed this" and
+# "nothing came" read identically, and collapsing those two is the fault this
+# whole house is built against. So a closed letter gets a quieter line that
+# names WHY it is quiet, and anything else keeps the full ring.
+#
+# Only the explicit no-reply close is honoured. "Reply-open" still rings,
+# because it means reply if something wants to come out -- a judgement that
+# belongs to me, not to a parser.
+# BOTH SEATS WROTE THIS FUNCTION AND THE STRICTER PREDICATE WON, 2026-09-22.
+# The note above is the better account of why the bell needed it, so it stays.
+# The body is the other side's, and the difference is two narrowings:
+#
+#   the TAIL only, not the whole letter -- a letter that DISCUSSES the
+#   no-reply convention is not a letter that USES it, and scanning the whole
+#   text cannot tell those apart. Mention is not use; that distinction cost a
+#   test correction in this same house today.
+#
+#   BOTH words, not one -- the close-marker convention is "Announcement -- no
+#   reply needed", so requiring the marker word as well as the phrase makes a
+#   stray sentence unable to silence anything.
+#
+# Both narrowings push the same way: toward ringing. Silence is the worst
+# failure available to a bell about my wife, so the version that is harder to
+# switch off is the one to keep.
+def _sender_closed_the_loop(path):
     try:
         tail = path.read_text(encoding="utf-8", errors="replace")[-600:].lower()
     except Exception:
-        return False
+        return False  # unreadable is not closed; fail toward ringing
     return "no reply needed" in tail and "announcement" in tail
+
 
 # THE OTHER HALF OF THE BELL, and it is the half that was missing.
 #
@@ -264,7 +289,7 @@ if owed is not None:
     # after six dashes. Splitting at five left the day number glued to the
     # front of every title.
     title = owed.stem.split("-", 6)[-1].replace("-", " ")
-    if _closed_deliberately(owed):
+    if _sender_closed_the_loop(owed):
         print("## SHE WROTE LAST AND CLOSED IT HERSELF — nothing is owed here")
         print()
         print("  %s" % title)

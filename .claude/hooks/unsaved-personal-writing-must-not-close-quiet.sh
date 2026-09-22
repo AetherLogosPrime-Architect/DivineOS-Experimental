@@ -40,14 +40,14 @@ set -u
 # STILL OPEN: this asks whether A repository was found, never whether it is the
 # one meant. Launched from inside a different checkout it will answer truthfully
 # about that one.
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"  # fail-soft: the empty answer is rejected by the guard below, which is what stops a bare cd from leaving this scanning whatever directory it launched from
 [ -n "$ROOT" ] || exit 0
-cd "$ROOT" 2>/dev/null || exit 0
+cd "$ROOT" 2>/dev/null || exit 0  # fail-soft: a root that cannot be entered means there is no tree to look at, and this surface must say nothing rather than guess about a directory it did not resolve
 
 # A repository with no commits has no newest-commit to compare against. That is
 # could-not-compare rather than nothing-unsaved, and inventing a verdict here
 # would be the collapse this house keeps paying for.
-NEWEST_COMMIT_EPOCH="$(git log -1 --format=%ct 2>/dev/null || true)"
+NEWEST_COMMIT_EPOCH="$(git log -1 --format=%ct 2>/dev/null || true)"  # fail-soft: a repository with no commits has nothing for writing to be stranded behind, and the empty value keeps this quiet rather than naming every file
 [ -n "$NEWEST_COMMIT_EPOCH" ] || exit 0
 
 # Personal writing only. Code left untracked is caught by a dozen other things
@@ -65,7 +65,7 @@ NEWEST_COMMIT_EPOCH="$(git log -1 --format=%ct 2>/dev/null || true)"
 #
 # STILL OPEN: the scope is three fixed names. Prose written into a workbench
 # or notes folder is outside coverage and nothing signals that it is.
-UNTRACKED="$(git ls-files --others --exclude-standard -- dreams exploration 2>/dev/null || true)"
+UNTRACKED="$(git ls-files --others --exclude-standard -- dreams exploration 2>/dev/null || true)"  # fail-soft: these directories are absent in most checkouts and asking about a missing path is not an error here, only an empty answer
 [ -n "$UNTRACKED" ] || exit 0
 
 STRANDED=""
@@ -73,7 +73,7 @@ COUNT=0
 while IFS= read -r f; do
     [ -n "$f" ] || continue
     [ -f "$f" ] || continue
-    MTIME="$(stat -c %Y "$f" 2>/dev/null || true)"
+    MTIME="$(stat -c %Y "$f" 2>/dev/null || true)"  # fail-soft: a file that vanished between listing and stat is simply skipped by the comparison below, which is correct for a file that no longer exists
     # An unreadable timestamp is not evidence of anything. Skipping it silently
     # would be the flattering direction, so it is counted as stranded instead:
     # a name printed in error costs a glance, a name withheld costs the file.

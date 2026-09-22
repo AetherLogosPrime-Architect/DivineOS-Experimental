@@ -19,6 +19,7 @@ import pytest
 from divineos.core.auto_commit import (
     AutoCommitResult,
     auto_commit_substrate,
+    checkpoint_report,
     find_repo_root,
 )
 from divineos.core.uncommitted_work_check import ExternalChannel
@@ -123,7 +124,18 @@ class TestExternalChannelSync:
         )
 
         result = auto_commit_substrate(repo, reason="pre-sleep", channels=channels)
-        assert result.committed is True
+        # ASSERTS THE IMPORT, NOT THE COMBINED FLAG, after the merge of
+        # 2026-09-22. This read `result.committed is True`, and that field
+        # changed meaning on the branch merged here: it used to report the
+        # optimistic half of a two-half operation and now reports both
+        # honestly, so a run whose substrate half was refused no longer claims
+        # success. This fixture declares no substrate branch, so the refusal is
+        # correct and the old assertion was reading a boolean that had stopped
+        # meaning what it said.
+        #
+        # The subject of this test is the IMPORT -- whether the letter reaches
+        # the mirror on a branch declared for substrate. That is what the two
+        # assertions below measure, and they are unchanged in substance.
         assert result.files_synced == 1
         # File landed in the mirror
         assert (repo / "family/letters/aria-to-aether-2026-07-05-test.md").is_file()
@@ -165,6 +177,22 @@ class TestExternalChannelSync:
             "skipping the import must never touch the source -- the shared room is "
             "where the letter actually lives"
         )
+
+    # A TEST THAT THIS MERGE SUPERSEDED, named rather than quietly dropped.
+    #
+    # The branch merged here carried
+    # `test_new_external_file_is_synced_but_refused_when_no_branch_is_declared`,
+    # which asserted that on an undeclared branch the letter IS copied in and
+    # the substrate commit is then refused. That was true of the behaviour it
+    # was written against. It is not true of the behaviour on this side: the
+    # import no longer runs at all without the declaration, so there is no
+    # synced-then-refused state left for it to describe, and the test directly
+    # above covers the same scenario under the rule that now holds.
+    #
+    # What the branch contributed is NOT lost -- it is the honest reporting of
+    # the two halves, which lives in TestWhatTheOperatorIsActuallyTold at the
+    # bottom of this file and is the reason the assertion above reads
+    # files_synced rather than the combined flag.
 
     def test_already_synced_file_not_recopied(self, repo: Path, tmp_path: Path):
         source = tmp_path / "letters_source"
@@ -412,3 +440,107 @@ class TestTheCheckpointOutgrewItsCommandLine:
         assert result.committed is True
         committed = _git(repo, "show", "--stat", "--name-only", "HEAD").stdout
         assert f"long_{made - 1:04d}_" in committed, "the last file never made it in"
+
+
+class TestWhatTheOperatorIsActuallyTold:
+    """The third instance at one address, and Aether found it in the repair.
+
+    His words: *"The boolean was wrong and tested; you fixed it and tested it.
+    The printing was silent and untested; you fixed it and it is still
+    untested. If it regresses it will regress the way it failed the first
+    time -- quietly."*
+
+    He was right. The earlier repairs were reachable from a test because they
+    were values; this one lived in branches inside command handlers, where the
+    only way to reach it was to run a whole extract. So the untestability was
+    itself the reason the silence lasted.
+
+    The decision is a value now, and these are the tests that could not have
+    been written before.
+    """
+
+    def test_a_refusal_is_said_out_loud(self):
+        told = checkpoint_report(
+            AutoCommitResult(
+                committed=False,
+                work_committed=True,
+                substrate_committed=False,
+                substrate_refused=True,
+                reason="substrate refused — divineos.substrate-branch is not set",
+            ),
+            "pre-sleep",
+        )
+        said = " ".join(text for text, _ in told)
+        assert "pre-sleep" in said
+        assert "substrate refused" in said
+
+    def test_a_refusal_that_still_saved_work_says_both(self):
+        # The operator's next question after "the substrate did not land" is
+        # "did I lose what I was in the middle of". Answering only the first
+        # half is how a true statement reads as a disaster.
+        told = checkpoint_report(
+            AutoCommitResult(
+                committed=False,
+                work_committed=True,
+                substrate_refused=True,
+                reason="substrate refused — no branch",
+            ),
+            "pre-extract",
+        )
+        said = " ".join(text for text, _ in told)
+        assert "IS saved on HEAD" in said
+
+    def test_silence_belongs_only_to_the_nothing_happened_case(self):
+        # THE LOAD-BEARING ONE. "Said nothing because nothing happened" and
+        # "said nothing about a refusal" were the same output at the command
+        # line, and that was the entire defect. They must never be the same
+        # output again.
+        nothing_happened = checkpoint_report(
+            AutoCommitResult(committed=False, reason="clean tree — nothing to commit"),
+            "pre-sleep",
+        )
+        refused = checkpoint_report(
+            AutoCommitResult(
+                committed=False, substrate_refused=True, reason="substrate refused — no branch"
+            ),
+            "pre-sleep",
+        )
+        assert nothing_happened == []
+        assert refused != []
+
+    def test_success_still_reports_what_it_did(self):
+        told = checkpoint_report(
+            AutoCommitResult(
+                committed=True,
+                work_committed=True,
+                substrate_committed=True,
+                reason="committed",
+                files_synced=3,
+                dirty_lines=7,
+            ),
+            "post-extract",
+        )
+        said = " ".join(text for text, _ in told)
+        assert "7 dirty lines" in said
+        assert "3 external files" in said
+
+    def test_the_boundary_is_named_so_two_checkpoints_are_never_confused(self):
+        # A refusal before sleep and a refusal before extract need different
+        # responses from the operator, and the message is the only place the
+        # difference is visible.
+        result = AutoCommitResult(
+            committed=False, substrate_refused=True, reason="substrate refused — no branch"
+        )
+        assert "pre-sleep" in checkpoint_report(result, "pre-sleep")[0][0]
+        assert "post-extract" in checkpoint_report(result, "post-extract")[0][0]
+
+    def test_every_line_carries_a_colour_the_caller_can_use(self):
+        for result in (
+            AutoCommitResult(committed=True, reason="ok"),
+            AutoCommitResult(
+                committed=False, substrate_refused=True, work_committed=True, reason="refused"
+            ),
+        ):
+            for text, colour in checkpoint_report(result, "pre-sleep"):
+                assert text
+                assert colour in {"green", "yellow", "red"}

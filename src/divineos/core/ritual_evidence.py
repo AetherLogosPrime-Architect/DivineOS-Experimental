@@ -78,8 +78,21 @@ def _committed_anywhere(repo: Path, start: float) -> bool | None:
             timeout=60,
         )
     except _GIT_ERRORS:
-        return None
-    if proc.returncode != 0:
+        proc = None
+
+    # ONE EXIT FOR THE THIRD STATE, because there is only one third state.
+    #
+    # Raising and exiting non-zero are different EVENTS and the same ANSWER:
+    # git was not consulted, so this function measured nothing. Written with
+    # two returns, that sameness lived only in the docstring, and a reader
+    # skimming the exits -- or a checker counting them -- had to take it on
+    # trust. Now the shape says it.
+    #
+    # The distinction that WOULD deserve two exits is could-not-consult versus
+    # consulted-and-found-none, and that one is already carried: None against
+    # False. The sole caller asks `is True`, so neither can be read as a
+    # measured no; checked by searching for the callers rather than recalled.
+    if proc is None or proc.returncode != 0:
         return None
     return any(line.strip() for line in proc.stdout.splitlines())
 

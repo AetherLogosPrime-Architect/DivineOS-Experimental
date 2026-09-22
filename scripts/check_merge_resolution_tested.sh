@@ -43,7 +43,7 @@ fi
 # index and in the merge's own output, neither of which is reliable at this
 # point. So the set used is every path the merge touched, which is wider than
 # the conflicted set and wrong in the safe direction.
-mapfile -t CHANGED < <(git diff --name-only HEAD MERGE_HEAD 2>/dev/null)
+mapfile -t CHANGED < <(git diff --name-only HEAD MERGE_HEAD 2>/dev/null)  # fail-soft: the empty result is caught on the very next line and announced as could-not-read rather than as a clean pass, which is the whole point of this check
 if [[ "${#CHANGED[@]}" -eq 0 ]]; then
     echo "[merge-test] could not read the merge's changed paths -- NOT a clean pass" >&2
     exit 1
@@ -64,7 +64,7 @@ for path in "${CHANGED[@]}"; do
     [[ -z "$base" ]] && continue
     while IFS= read -r hit; do
         [[ -n "$hit" ]] && TESTS["$hit"]=1
-    done < <(grep -rl --include='test_*.py' -F "$base" "$REPO_ROOT/tests" 2>/dev/null)
+    done < <(grep -rl --include='test_*.py' -F "$base" "$REPO_ROOT/tests" 2>/dev/null)  # fail-soft: this search exits non-zero simply by matching nothing, which is the ordinary case for most changed paths and is not an error worth printing
 done
 
 if [[ "${#TESTS[@]}" -eq 0 ]]; then

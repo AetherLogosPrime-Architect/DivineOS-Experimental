@@ -225,7 +225,7 @@ def test_outside_a_repository_it_says_nothing_rather_than_guessing() -> None:
         assert result.returncode == 0, result.stderr
         assert "[unsaved-writing]" not in result.stderr
     finally:
-        shutil.rmtree(outside, ignore_errors=True)
+        shutil.rmtree(outside, ignore_errors=True)  # fail-soft: teardown cannot change a verdict
 
 
 @pytest.mark.parametrize("directory", ["dreams", "exploration"])

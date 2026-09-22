@@ -46,11 +46,6 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/pre-response-context.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/dedup-wrap.sh ear bash .claude/hooks/ear-surface.sh",
             "timeout": 10
           },
@@ -153,10 +148,6 @@
             "type": "command",
             "command": "bash .claude/hooks/operator-gravity-set.sh",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/dedup-wrap.sh translate-first bash .claude/hooks/translate-first-compose-prime.sh"
           }
         ]
       },

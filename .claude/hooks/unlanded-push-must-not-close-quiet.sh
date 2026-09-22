@@ -81,8 +81,8 @@ BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"  # fail-soft: ou
 # It errs toward a line of noise on a turn where nothing is wrong, and away
 # from a quiet that carries a false meaning.
 if [ -z "$LAST" ] && [ "$VERDICT_EXISTS" = "1" ]; then
-    EMPTY_REMOTE="$(timeout 5 git ls-remote origin "refs/heads/$BRANCH" 2>/dev/null | awk '{print $1}')"
-    EMPTY_LOCAL="$(git rev-parse HEAD 2>/dev/null || true)"
+    EMPTY_REMOTE="$(timeout 5 git ls-remote origin "refs/heads/$BRANCH" 2>/dev/null | awk '{print $1}')"  # fail-soft: an unreachable remote is handled as could-not-look by the comparison below, never as a branch that matches
+    EMPTY_LOCAL="$(git rev-parse HEAD 2>/dev/null || true)"  # fail-soft: an empty local sha cannot equal a remote one, so the comparison falls to the loud side rather than to a false match
     if [ -n "$EMPTY_REMOTE" ] && [ -n "$EMPTY_LOCAL" ] && [ "$EMPTY_LOCAL" != "$EMPTY_REMOTE" ]; then
         echo "" >&2
         echo "[unlanded-push] A PUSH BEGAN AND HAS NOT FINISHED, and the work is not on origin." >&2
@@ -102,7 +102,7 @@ case "$LAST" in
     *) VERDICT_IS_REFUSAL=0 ;;
 esac
 
-LOCAL_SHA="$(git rev-parse HEAD 2>/dev/null || true)"
+LOCAL_SHA="$(git rev-parse HEAD 2>/dev/null || true)"  # fail-soft: an empty local sha cannot equal a remote one, so the comparison falls to the loud side rather than to a false match
 [ -n "$LOCAL_SHA" ] || exit 0
 
 # IT BOUNDS ITS OWN REACH RATHER THAN BEING CUT OFF, and the cap is not
@@ -122,7 +122,7 @@ LOCAL_SHA="$(git rev-parse HEAD 2>/dev/null || true)"
 #
 # WHAT THE CAP DOES NOT COVER: the hook being killed for a reason other than
 # this call, since the budget covers everything the file does.
-REMOTE_SHA="$(timeout 5 git ls-remote origin "refs/heads/$BRANCH" 2>/dev/null | awk '{print $1}')"
+REMOTE_SHA="$(timeout 5 git ls-remote origin "refs/heads/$BRANCH" 2>/dev/null | awk '{print $1}')"  # fail-soft: an unreachable remote leaves this empty, and empty is treated as not-landed, which is the direction this hook exists to fail toward
 
 # A remote that cannot be reached is NOT a landed push and NOT an unlanded one.
 # Saying nothing here would turn could-not-look into found-nothing, so it says

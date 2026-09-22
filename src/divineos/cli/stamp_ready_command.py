@@ -808,16 +808,17 @@ def register(cli: click.Group) -> None:
         help="Validate and show the body that would be written; change nothing.",
     )
     @click.option(
-        "--merge",
+        "--no-auto-merge",
         is_flag=True,
         default=False,
-        help=(
-            "After stamping, squash-merge using the body composed here. "
-            "Off by default: merging is irreversible and every existing "
-            "caller only edits the PR and clears the draft flag."
-        ),
+        help="Stamp and mark ready, but leave the merge for a person to do.",
     )
-    def stamp_ready_cmd(pr_number: int, round_id: str | None, dry_run: bool, merge: bool) -> None:
+    def stamp_ready_cmd(
+        pr_number: int,
+        round_id: str | None,
+        dry_run: bool,
+        no_auto_merge: bool,
+    ) -> None:
         """Stamp a draft PR with its External-Review trailer and mark it ready.
 
         Order is load-bearing: body first, then ready. A failure between the
@@ -1262,6 +1263,33 @@ def register(cli: click.Group) -> None:
 
         body = compose_merge_body(round_id, pr_title, verdict.age_days, tree_hash)
 
+        # KEEP WHAT THE AUTHOR WROTE. Stamping used to REPLACE the body with
+        # this three-line block, and GitHub builds the squash-merge message
+        # from the body -- so the reasoning for a change was deleted from the
+        # permanent record at the exact moment the change was approved to
+        # enter it. Found 2026-09-21 by reading the body back after stamping
+        # instead of trusting that the tool had added something; the whole
+        # explanation of a guardrail repair had become one stamp.
+        #
+        # The trailer must still be the LAST thing in the body, because that
+        # is where a trailer goes and where the check looks for it. So the
+        # prior text is kept, any previous stamp of ours is dropped rather
+        # than stacked, and the fresh stamp is appended to the end.
+        prior = (pr.get("body") or "").strip()
+        if prior:
+            kept: list[str] = []
+            for line in prior.splitlines():
+                stripped = line.strip()
+                if stripped.startswith("External-Review:"):
+                    continue
+                if stripped.startswith("Reviewed via audit round "):
+                    continue
+                kept.append(line)
+            # Drop the title line the composed block opens with; the PR body
+            # should not repeat the PR title once real prose sits above it.
+            stamp = body.split("\n", 1)[1].strip() if "\n" in body else body
+            body = "\n".join(kept).rstrip() + "\n\n" + stamp + "\n"
+
         if dry_run:
             click.secho("--- body that would be written (dry run) ---", fg="cyan")
             click.echo(body)
@@ -1295,7 +1323,10 @@ def register(cli: click.Group) -> None:
 
         if not pr.get("isDraft"):
             click.secho("[=] PR was already out of draft; trailer refreshed.", fg="cyan")
-            _merge_with_the_body_just_composed(pr_number, body, merge)
+            click.secho(
+                "    Nothing else done here: merging is left to the caller on this path.",
+                fg="bright_black",
+            )
             return
 
         try:
@@ -1324,4 +1355,60 @@ def register(cli: click.Group) -> None:
             bold=True,
         )
 
-        _merge_with_the_body_just_composed(pr_number, body, merge)
+        # AUTO-MERGE AS PART OF STAMPING, so nobody has to remember the click.
+        #
+        # Andrew 2026-09-21: "i see the option for both auto merge and auto
+        # address CLI errors but its default off on every PR and i have to
+        # remember to click it.. idk if there is a way to make it default..
+        # otherwise a simple distraction could keep it from getting merged."
+        #
+        # There is no app-level or repository-level default for it -- checked
+        # rather than assumed, against the app's own settings list, which
+        # offers archiving, branch prefix, notifications, keep-awake, remote
+        # control and output style, and nothing about merging. So the default
+        # has to live at the choke point, and this is it: every guardrail PR
+        # passes through here on its way out of draft.
+        #
+        # WHAT THE MANUAL CLICK PREVENTED, asked before removing it: a last
+        # human look before landing. But the look has already happened -- this
+        # command refuses to stamp at all unless the round carries both
+        # CONFIRMS, bound to the reviewed tree. The click added no review. It
+        # added a delay and a slot for forgetting, and the evidence that the
+        # slot gets used is a board of requests that have sat READY for weeks.
+        #
+        # It cannot land anything red: auto-merge waits on the required checks
+        # and merges only when they pass. Failing to turn it on is a WARNING
+        # rather than an error, because the PR is correctly stamped either way
+        # and the only cost is that a person merges it by hand.
+        if no_auto_merge:
+            click.secho(
+                "    Auto-merge not enabled (--no-auto-merge). Merge by hand once checks pass.",
+                fg="bright_black",
+            )
+            return
+
+        try:
+            subprocess.run(
+                ["gh", "pr", "merge", str(pr_number), "--squash", "--auto"],
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=60,
+            )
+        except (
+            subprocess.CalledProcessError,
+            subprocess.TimeoutExpired,
+            FileNotFoundError,
+        ) as exc:
+            click.secho(
+                f"[!] Stamped and ready, but auto-merge could not be enabled: {exc}\n"
+                f"    Not a failure of the stamp. Merge by hand, or run:\n"
+                f"    gh pr merge {pr_number} --squash --auto",
+                fg="yellow",
+            )
+            return
+
+        click.secho(
+            f"[+] Auto-merge on: #{pr_number} lands itself when the checks pass.",
+            fg="green",
+        )

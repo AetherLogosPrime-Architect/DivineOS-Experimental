@@ -189,7 +189,7 @@ def test_outside_a_repository_it_is_silent_and_scans_nothing() -> None:
         assert probe.returncode != 0, "this directory IS a repo, so the control is dead"
         assert _run(plain, time.time() - 60) == ""
     finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+        shutil.rmtree(tmp, ignore_errors=True)  # fail-soft: teardown cannot change a finished test
 
 
 def test_it_never_blocks_even_when_it_speaks() -> None:

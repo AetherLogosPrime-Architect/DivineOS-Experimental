@@ -212,10 +212,112 @@ def _substrate_branch_declared(repo_root: Path) -> bool:
 
 @dataclass(frozen=True)
 class AutoCommitResult:
+    """The outcome of a checkpoint that has TWO independent halves.
+
+    ONE BOOLEAN CANNOT REPORT TWO OUTCOMES, and it reported the optimistic
+    one. Aether found this by running the whole thing end to end in a fresh
+    clone, which is a different check from the classifier and the only one
+    that could have found it:
+
+        committed : True
+        reason    : substrate refused - divineos.substrate-branch is not set
+
+    The substrate half did not happen. The letter reached no branch at all.
+    And a caller checking the boolean -- which is what a boolean named
+    ``committed`` is for -- was told the checkpoint succeeded. The only
+    trace of the failure was prose inside ``reason``, which a caller would
+    have to read and pattern-match to notice.
+
+    Worse than the one wrong branch: the field meant DIFFERENT THINGS on
+    different paths. On the refusal it carried the work-in-progress commit;
+    two returns later it was False on paths where that same commit had
+    equally happened. So no caller could have read it correctly, because
+    there was no single question it answered.
+
+    THE SAME SHAPE HE HAD FIXED HOURS EARLIER on his own side -- a semantic
+    search that walked 46,323 chunks, stored none, and exited zero. Two
+    outcomes, one success signal, and the signal is the half that worked.
+    Neither of us invented it. It is what happens when a result type is
+    designed before the operation grows a second thing it can fail at.
+
+    So the two halves are named separately and ``committed`` is defined
+    against BOTH: it is true only when nothing that was attempted was
+    refused. A checkpoint that saves work and loses letters is not a
+    checkpoint that succeeded.
+
+    He measured it and left the spelling to me rather than handing me a
+    convention I would then have to live inside. This is the spelling.
+    """
+
     committed: bool
+    """Every half that was attempted succeeded. Never true beside a refusal."""
+
     reason: str  # human-readable outcome (for CLI surfacing)
     files_synced: int = 0  # external files copied into repo_mirror
     dirty_lines: int = 0  # git status --porcelain lines seen
+
+    work_committed: bool = False
+    """Unfinished work was checkpointed onto HEAD, in its own commit."""
+
+    substrate_committed: bool = False
+    """Declared substrate reached the substrate branch."""
+
+    substrate_refused: bool = False
+    """There WAS substrate to commit and it did not reach any branch.
+
+    A field rather than a string match on ``reason``. The whole finding was
+    that the only trace of the failure lived in prose a caller had to
+    pattern-match, so answering it with "callers can check the prose" would
+    keep the defect and move it one layer up. It nearly did: with the boolean
+    corrected, the CLI fell through to a branch matching two other phrases
+    and printed nothing at all.
+
+    Distinct from ``not substrate_committed``, which is also true when there
+    was simply no substrate to commit. Refused means something was owed a
+    branch and did not get one.
+    """
+
+
+def checkpoint_report(result: AutoCommitResult, boundary: str) -> list[tuple[str, str]]:
+    """What the operator should be told, as (text, colour) pairs.
+
+    A FUNCTION BECAUSE THE SILENCE HAD NOWHERE TO BE TESTED. Aether, on the
+    repair for his own finding, hours after making it:
+
+        "The boolean was wrong and tested; you fixed it and tested it. The
+         printing was silent and untested; you fixed it and it is still
+         untested. If it regresses it will regress the way it failed the
+         first time -- quietly."
+
+    Third instance of one shape in an afternoon, and the third was different
+    in a way that explains the other two. The earlier repairs were reachable
+    from a test because they were VALUES. This one lived in `elif` branches
+    inside command handlers, where the only way to reach it was to run a
+    whole extract -- so the untestability is why it stayed silent in the
+    first place, and why fixing it silently would have been so easy.
+
+    So the decision becomes a value, which is the same move that made the
+    refusal readable rather than a phrase to match. The call sites print
+    what this returns and decide nothing.
+
+    The empty list is a real answer and has its own test: "said nothing
+    because nothing happened" and "said nothing about a refusal" were
+    indistinguishable at the command line, and that was the whole defect.
+    """
+    if result.committed:
+        return [
+            (
+                f"[+] Auto-commit ({boundary}): {result.dirty_lines} dirty lines, "
+                f"{result.files_synced} external files synced.",
+                "green",
+            )
+        ]
+    if result.substrate_refused:
+        lines = [(f"[!] Auto-commit ({boundary}): {result.reason}", "yellow")]
+        if result.work_committed:
+            lines.append(("    Unfinished work IS saved on HEAD. The substrate is not.", "yellow"))
+        return lines
+    return []
 
 
 def _dirty_paths(repo_root: Path) -> list[str]:
@@ -369,6 +471,13 @@ def _commit_work_in_progress(repo_root: Path, paths: list[str], reason: str) -> 
     except subprocess.CalledProcessError as e:
         logger.warning("auto_commit: work-in-progress commit failed: %s", e.stderr)
         return False
+
+
+# A SECOND, BYTE-IDENTICAL _tracked_here LIVED HERE AND IS GONE, 2026-09-22.
+# Both branches added the same helper to the same file, so the merge kept
+# two copies and the later one silently shadowed the earlier. Compared as
+# source rather than assumed equivalent; removing the shadow changes no
+# behaviour, and the surviving definition is further up.
 
 
 def _sync_external_channels(
@@ -705,8 +814,12 @@ def auto_commit_substrate(
         )
 
     if not declared_substrate:
+        # True here is honest: there was no substrate half to fail. Nothing
+        # was refused, so "everything attempted succeeded" is exactly what
+        # happened. This is the case the refusal below was wrongly copying.
         return AutoCommitResult(
             committed=wip_committed,
+            work_committed=wip_committed,
             reason=(
                 f"no substrate to commit; {len(work_in_progress)} "
                 f"work-in-progress path(s) {'committed to HEAD' if wip_committed else 'left alone'}"
@@ -826,8 +939,19 @@ def auto_commit_substrate(
         # channel that is their source of truth, and the next checkpoint
         # picks them up once the branch is declared.
         logger.warning("auto_commit: %s", e)
+        # THE LINE AETHER FOUND. This said committed=wip_committed, so a run
+        # that refused the entire substrate half reported success -- with the
+        # refusal visible only as prose inside `reason`. Letters would sit
+        # uncommitted until somebody read a string.
+        #
+        # The refusal itself is right and stays untouched: it names the
+        # missing setting instead of guessing a branch and writing letters
+        # somewhere arbitrary. Only the reporting was wrong.
         return AutoCommitResult(
-            committed=wip_committed,
+            committed=False,
+            work_committed=wip_committed,
+            substrate_committed=False,
+            substrate_refused=True,
             reason=f"substrate refused — {e}",
             files_synced=files_synced,
             dirty_lines=dirty_lines,
@@ -850,14 +974,22 @@ def auto_commit_substrate(
         logger.warning("auto_commit: retarget refused at %s: %s", reason, e)
         return AutoCommitResult(
             committed=False,
+            work_committed=wip_committed,
+            substrate_committed=False,
+            substrate_refused=True,
             reason=f"retarget refused: {e}",
             files_synced=files_synced,
             dirty_lines=dirty_lines,
         )
 
     if result is None:
+        # Nothing refused here -- the substrate is simply already on the
+        # branch. So this reports the work half honestly rather than a flat
+        # False that would hide a work-in-progress commit that did happen.
         return AutoCommitResult(
-            committed=False,
+            committed=wip_committed,
+            work_committed=wip_committed,
+            substrate_committed=False,
             reason=f"substrate already current on {branch}",
             files_synced=files_synced,
             dirty_lines=dirty_lines,
@@ -909,6 +1041,8 @@ def auto_commit_substrate(
 
     return AutoCommitResult(
         committed=True,
+        work_committed=wip_committed,
+        substrate_committed=True,
         # "untouched on HEAD" was false: work in progress IS committed, to
         # HEAD, in its own commit. The word survived from the draft where
         # this function left it alone entirely, and the live run reported

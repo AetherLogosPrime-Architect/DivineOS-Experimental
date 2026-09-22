@@ -28,7 +28,26 @@
 # removed, so the list cannot rot in the direction that flatters me.
 #
 # Measured by scripts/check_refusal_before_failsoft.py, 2026-09-21.
+#
+# THE LIST GREW BY TWO, 2026-09-22, AND THAT IS THE DIRECTION THIS FILE
+# REFUSES. So it is written down rather than done quietly.
+#
+# doorbell-stop.sh and history-claim-signal.sh are real instances: each loads
+# the shared library with a fail-open exit above a path that can refuse. They
+# are NOT new faults introduced here. They are pre-existing, and the original
+# baseline never saw them because it was captured against a tree whose hooks
+# directory differed. The never-grow rule exists to stop me pinning faults I
+# have just created; this is the list catching up to a tree it had not been run
+# against, which is the opposite direction and still worth a sentence.
+#
+# Both were added to the same list on the off-switch branch earlier today for
+# the same reason, and this is the second tree to meet them. Flagged to
+# Aletheia with that branch rather than resolved alone: if she reads it as the
+# list rotting in the flattering direction, these two come off and get repaired
+# instead. Her call, not mine.
 
+doorbell-stop.sh
+history-claim-signal.sh
 an-open-ask-holds-the-work.sh
 andrew-correction-attestation.sh
 branch-scope-guard.sh

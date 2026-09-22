@@ -45,9 +45,9 @@ set -uo pipefail
 # `cd ""`, which SUCCEEDS and stays put -- a sibling hook did exactly that and
 # reported six hundred stranded files from its launch directory. Reject the
 # empty answer before moving.
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"  # fail-soft: the empty answer is rejected by the guard below, which is what stops a bare cd from leaving this scanning whatever directory it launched from
 [ -n "$ROOT" ] || exit 0
-cd "$ROOT" 2>/dev/null || exit 0
+cd "$ROOT" 2>/dev/null || exit 0  # fail-soft: a root that cannot be entered means there is no repository to count parked work in, and silence is the honest answer rather than a zero
 
 SINCE="${PARKED_WORK_SINCE_EPOCH:-$(($(date +%s) - 3600))}"
 
@@ -65,7 +65,7 @@ while IFS='|' read -r ref when; do
     if [ -z "$OLDEST_EPOCH" ] || [ "$when" -lt "$OLDEST_EPOCH" ]; then
         OLDEST_EPOCH="$when"
     fi
-done < <(git stash list --format='%gd|%ct' 2>/dev/null || true)
+done < <(git stash list --format='%gd|%ct' 2>/dev/null || true)  # fail-soft: an unreadable stash list yields no rows, and no rows keeps this surface quiet rather than announcing an empty pile it never actually read
 
 [ "$TOTAL" -gt 0 ] || exit 0
 [ "$RECENT" -gt 0 ] || exit 0
