@@ -200,19 +200,17 @@ def register(cli: click.Group) -> None:
             try:
                 from divineos.core.auto_commit import (
                     auto_commit_substrate,
+                    checkpoint_report,
                     find_repo_root,
                 )
 
                 _sleep_repo_root = find_repo_root(_Path.cwd())
                 if _sleep_repo_root is not None:
                     result = auto_commit_substrate(_sleep_repo_root, reason="pre-sleep")
-                    if result.committed:
-                        click.secho(
-                            f"[+] Auto-commit (pre-sleep): "
-                            f"{result.dirty_lines} dirty lines, "
-                            f"{result.files_synced} external files synced.",
-                            fg="green",
-                        )
+                    # The worst boundary to be quiet at: sleep is the one this
+                    # session may not come back from.
+                    for _line, _colour in checkpoint_report(result, "pre-sleep"):
+                        click.secho(_line, fg=_colour)
             except Exception as e:  # noqa: BLE001 — fail-soft
                 click.secho(
                     f"[!] Pre-sleep auto-commit skipped ({e}); proceeding with sleep.",

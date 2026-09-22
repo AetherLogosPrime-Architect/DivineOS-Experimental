@@ -72,15 +72,6 @@ LOCAL_SUBSTRATE_PREFIXES: tuple[str, ...] = (
 )
 
 
-class NoChannelsDeclared(RuntimeError):
-    """No external channels were declared, so nothing can be classified.
-
-    Raised rather than returning "everything is work in progress",
-    because the two are indistinguishable at the call site and only one
-    of them is correct.
-    """
-
-
 class NoSubstrateBranchDeclared(RuntimeError):
     """No substrate branch is configured, so substrate has nowhere to go.
 
@@ -140,6 +131,19 @@ def substrate_mirrors(
     # progress. That is the same asymmetry this module already commits to
     # everywhere else, and I had made the one place it mattered raise
     # instead of answer.
+    #
+    # THE CLASS ITSELF IS GONE NOW, 2026-09-19, and Aether found it. It
+    # outlived its only raise by three weeks, carrying a confident
+    # present-tense docstring saying it was raised rather than defaulting to
+    # the checked-out branch -- and nobody writes a careful explanation for
+    # something that does not happen, so a reader had every reason to believe
+    # it did. His words for it: the better the prose, the more convincing the
+    # corpse.
+    #
+    # Nothing was lost by removing it. Its docstring was a VERBATIM copy of
+    # NoSubstrateBranchDeclared's, which is raised, caught, and true -- so the
+    # argument survives on the exception it is actually about. What died was a
+    # duplicate pointing at nothing.
     return tuple(PurePosixPath(c.repo_mirror.as_posix()) for c in channels)
 
 
