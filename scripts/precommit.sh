@@ -374,6 +374,17 @@ if ! python scripts/check_orphan_modules.py; then
     note_fail
 fi
 
+# A refusing gate whose refusal sits behind a load that exits 0 on failure will
+# ALLOW what it exists to stop, the moment that load breaks. Aletheia found it
+# in the emergency stop itself, 2026-09-21. The stop is repaired; the rest are
+# pinned in a baseline that may shrink and never grow, so the next instance
+# blocks here rather than arriving quietly. Her rule from an earlier round is
+# the reason this is a check and not a note: a detector makes it a property.
+section "Refusal Order"
+if ! python scripts/check_refusal_before_failsoft.py; then
+    note_fail
+fi
+
 # Seven private copies of shell-command-head parsing over months, each repair
 # deleting the instance and leaving the gradient that produces them. The
 # gradient is that five lines cost nothing at the moment of writing while
