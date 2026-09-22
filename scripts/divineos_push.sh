@@ -127,7 +127,7 @@ fi
 # Resolved from what was PUSHED, not from the destination name. With a
 # refspec those are different refs, and a stale local branch sharing the
 # destination's name is exactly what produced a false failure here.
-LOCAL_SHA="$(git rev-parse "$LOCAL_REF" 2>/dev/null)"
+LOCAL_SHA="$(git rev-parse "$LOCAL_REF" 2>/dev/null)"  # fail-soft: the empty result is caught on the very next line and reported as UNVERIFIED naming the missing ref, so the condition is announced rather than swallowed; only rev-parse's own stderr is hidden, which would be a second copy of what is already being said
 if [[ -z "$LOCAL_SHA" ]]; then
     echo ""
     echo "[divineos-push] result: exit=0 (PUSHED+UNVERIFIED, local ref '$LOCAL_REF' missing)"

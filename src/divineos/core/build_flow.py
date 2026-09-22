@@ -614,11 +614,49 @@ def check_audit_station(
             Status.CANNOT_CHECK,
             "audit lookup did not complete (network or store) — cause not narrowed",
         )
-    named = None
-    if any(f"#{pr_number}" in r for r in audit_refs):
-        named = f"PR #{pr_number}"
-    elif branch and any(branch in r for r in audit_refs):
-        named = branch
+    # SAY WHICH ROUND, AND NOT ONLY THAT ONE EXISTS (2026-09-22).
+    #
+    # This said "audit round names PR #N" and never said WHICH round, which
+    # makes the claim unfalsifiable from the board -- the one place it is read.
+    # Andrew caught the cost on PR #499: the board reported that station green,
+    # I read it as the handoff having happened, and no round for that request
+    # existed at all. I filed one only after he asked whether I had written to
+    # Aletheia.
+    #
+    # What I can say for certain is the shape: a bare substring of a number
+    # matches wherever that number appears, including inside another round's
+    # prose and inside a LONGER number, so `#499` is found in `#4991`. Whether
+    # that is what happened on #499 I have not proven -- my own scan used a
+    # looser pattern than this function does, and two different probes
+    # disagreeing is not a measurement. So the boundary check below is argued
+    # from reading the code, and the quoted evidence is what makes the next
+    # instance answerable instead of arguable.
+    #
+    # The evidence travels WITH the verdict rather than being available on
+    # request, because a check nobody runs is a check that does not exist.
+    _digits = "0123456789"
+
+    def _names_pr(ref: str) -> bool:
+        token = f"#{pr_number}"
+        start = 0
+        while True:
+            at = ref.find(token, start)
+            if at < 0:
+                return False
+            after = at + len(token)
+            # Reject a longer number: #499 must not be found inside #4991.
+            if after >= len(ref) or ref[after] not in _digits:
+                return True
+            start = after
+
+    matched = next((r for r in audit_refs if _names_pr(r)), None)
+    named = f"PR #{pr_number}" if matched is not None else None
+    if named is None and branch:
+        matched = next((r for r in audit_refs if branch in r), None)
+        named = branch if matched is not None else None
+    if named is not None:
+        quoted = " ".join(str(matched).split())[:140]
+        named = f"{named} [{quoted}]" if quoted else named
 
     if named is not None:
         # A NAME MATCH IS NOT A CONTENT MATCH, and for most of this station's

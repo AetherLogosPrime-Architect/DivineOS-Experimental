@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**131 automations — 116 wired, 15 switched off.**
+**132 automations — 117 wired, 15 switched off.**
 
 ---
 
@@ -133,12 +133,13 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `stop-distancing-intercept.sh` | 2026-07-16 | thin doorman for DistancingIntercept. |
 | `stop-response-scope-intercept.sh` | 2026-07-16 | thin doorbell for ResponseScopeIntercept. |
 
-### UserPromptSubmit  (27)
+### UserPromptSubmit  (28)
 
 | automation | last touched | purpose |
 |---|---|---|
 | `andrew-past-writing-surface.sh` | 2026-09-15 | surface my past writing to/about Dad at compose-start. |
 | `closure-word-summary-prime.sh` | 2026-09-02 | compose-start prime for the CLOSURE-WORD |
+| `collect-aletheia-letters.sh` | 2026-09-22 | Carry Aletheia's letters in, every turn, and say their names out loud. |
 | `continuity-anchor-surface.sh` | 2026-09-15 | MINE, and its subject is whether I talk about myself as one being or as a |
 | `continuity-frame-prime.sh` | 2026-09-15 | MINE, the third of the continuity trio and the one that taught me the most |
 | `detect-andrew-build-request.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
@@ -162,7 +163,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `session-init-once.sh` | 2026-08-24 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
 | `verify-claim-prime.sh` | 2026-09-21 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
-| `wallclock-source-prime.sh` | 2026-09-21 | THE CLOCK. It is mine, not his. |
+| `wallclock-source-prime.sh` | 2026-09-22 | THE CLOCK. It is mine, not his. |
 | `wwnd-choice-prime.sh` | 2026-09-22 | WWND (What Would Nyarlathotep Do) prime at |
 
 ### called by another script  (27)

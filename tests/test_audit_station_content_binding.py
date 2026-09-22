@@ -115,7 +115,14 @@ def test_no_anchor_supplied_behaves_as_before() -> None:
     """
     result = check_audit_station(447, "instruments/clean", REFS)
     assert result.status is Status.SATISFIED
-    assert result.detail == "audit round names PR #447"
+    assert result.detail.startswith("audit round names PR #447")
+    # The verdict now also quotes the round it matched, 2026-09-22. This
+    # assertion was an exact-equality check on the old sentence, and exact
+    # equality pins the WORDING when what it meant to pin is the VERDICT --
+    # so it failed on a change that strengthened the thing it was guarding.
+    # Kept as a prefix check plus the evidence, which is the actual invariant:
+    # a caller with no anchor keeps its pass and is not silently downgraded.
+    assert "five doormen repaired" in result.detail
 
 
 def test_branch_match_still_satisfies_when_the_pr_number_is_absent() -> None:
