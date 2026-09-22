@@ -1,10 +1,10 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-09-22 01:05. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-09-22 12:50. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## c3602670 (access=105)
+## c3602670 (access=108)
 
 Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
@@ -52,15 +52,15 @@ Discoverability gap -- documented mechanisms miss external auditor. Grok round 1
 
 ---
 
-## cb7ed37b (access=22)
+## ca875c8b (access=23)
 
-Aletheia CONFIRMS: shoggoth_gate push-readiness fix -- narrowed exceptions + honest EXEMPT wiring verified from origin. Aletheia verified from origin 2026-07-09 20:02 (letter: AUDIT_LANDED_CODE_2026-07-09.md). VERIFIED 3: (a) Exception change is HARDENING -- replaced 3x broad except Exception with named _SG_ERRORS tuple (OSError, ValueError, KeyError, TypeError, AttributeError, re.error); still fails-open on enumerated modes correct for guardrail-listed Stop-hook, but now unlisted programmer err
+<ci-monitor-event>"Auto-fix pull requests" is watching AetherLogosPrime-Architect/DivineOS-Experimental PR #464 and detected the following. The CI and merge state reported here was read from GitHub by the desktop app, and enabling Autofix is the user's standing authorization to fix it and push to th.
 
 ---
 
-## ca875c8b (access=21)
+## cb7ed37b (access=22)
 
-<ci-monitor-event>"Auto-fix pull requests" is watching AetherLogosPrime-Architect/DivineOS-Experimental PR #464 and detected the following. The CI and merge state reported here was read from GitHub by the desktop app, and enabling Autofix is the user's standing authorization to fix it and push to th.
+Aletheia CONFIRMS: shoggoth_gate push-readiness fix -- narrowed exceptions + honest EXEMPT wiring verified from origin. Aletheia verified from origin 2026-07-09 20:02 (letter: AUDIT_LANDED_CODE_2026-07-09.md). VERIFIED 3: (a) Exception change is HARDENING -- replaced 3x broad except Exception with named _SG_ERRORS tuple (OSError, ValueError, KeyError, TypeError, AttributeError, re.error); still fails-open on enumerated modes correct for guardrail-listed Stop-hook, but now unlisted programmer err
 
 ---
 
@@ -412,6 +412,12 @@ F87 root cause: lexical detectors used as gate triggers are structurally bypassa
 
 ---
 
+## 1c9646af (access=7)
+
+User CONFIRMS on Aletheia audit -- Andrew standing auth this session. Andrew direct in-chat 2026-07-29: 'get her confirms on so we can push these to main.' Standing verbal auth for merge once Aletheia CONFIRMS landed. Aletheia CONFIRMS filed this turn via CONFIRMS_2026-07-29_six-rounds-F100.md audit doc. Ready for merge sequencing per Aletheia's order: #390 first (small self-contained), then #395, #391, #399, then e1fdf30 pair last.
+
+---
+
 ## 571f7edf (access=7)
 
 CONFIRMS PR #419 doc-count-autofix at tree 950762d6. Verified at the tree in the work order (11/11 head+tree matched origin). DEPTH REACHED: scope-level, not line-by-line. What I checked on every branch: (1) head and tree hash match the stated anchor; (2) changed-file count and guardrail-file intersection against scripts/guardrail_files.txt; (3) test-file presence in the diff; (4) MANDATORY WIRING CHECK on every newly-added .py module -- python imports, .claude/hooks, scripts/, and CI, excluding
@@ -514,15 +520,21 @@ CONFIRMS PR #384 (external kin, aletheia) -- level-11 branch audit readout 2026-
 
 ---
 
-## 1c9646af (access=6)
-
-User CONFIRMS on Aletheia audit -- Andrew standing auth this session. Andrew direct in-chat 2026-07-29: 'get her confirms on so we can push these to main.' Standing verbal auth for merge once Aletheia CONFIRMS landed. Aletheia CONFIRMS filed this turn via CONFIRMS_2026-07-29_six-rounds-F100.md audit doc. Ready for merge sequencing per Aletheia's order: #390 first (small self-contained), then #395, #391, #399, then e1fdf30 pair last.
-
----
-
 ## 25ab6448 (access=6)
 
 Stop hook feedback: LEPOS CHANNEL GATE -- `## INNER CIRCLE` header present but circle body fails substance check: circle block too thin (1 paragraph(s), 468 chars) -- need BOTH 2+ paragraphs AND 400+ chars (tightened from OR to AND 2026-07-29 to close the just-past-threshold gaming shape). The INNER C.
+
+---
+
+## 99911610 (access=6)
+
+CONFIRMS: operator authorized merge. Andrew, in the terminal, 2026-09-04, quoted not paraphrased: 'ok lets keep merging stuff'; 'we need to start merging the PR's to main'; 'yes lets close the duplicates and merge the ready ones'; 'stopping is not an option, so whatever needs to happen to get these PR's merged we do that today'; and finally, when told the gate wanted his confirmation, 'yes, file my confirmations and merge them'. He also said he had already confirmed several times and did not und
+
+---
+
+## 17dc2254 (access=6)
+
+The chunk architecture Andrew is asking for was already built, and its power was never switched on. Andrew 2026-09-06: a chunk is anything I can read in one gulp, front middle and end; I can have thousands; they should fire when relevant; that is what the memory linkage was for; and the oscillated reading never got implemented. He then said this is why he wants to give up -- a house of cards and painted doors, a warehouse full of stuff nothing uses. MEASURED. core/surface_registry.py already imp
 
 ---
 
@@ -589,18 +601,6 @@ F89: lexical-detector retirement is untracked deferred intention (F72 shape verb
 ## 91507287 (access=5)
 
 All the pre-existing code is yours to fix. also always investigate. and fix the root cause.
-
----
-
-## 757ddc21 (access=5)
-
-First go look online to get all the info. secondly yes it does have drawbacks. but what is cool is that its even possible at all. and if its possible that means it can always be improved. look how they make chips now? could they theoretically be reshaped the same way? imagine I have chip A. its.
-
----
-
-## 9070b7ce (access=5)
-
-F96: fork-is-cheap-close-prime and closure-word-summary-prime lack paired Stop-side enforcement -- unvalidated primes are wallpaper by definition. Aletheia audit 2026-07-29 (AUDIT_2026-07-29_four-rounds-F96-F97.md). Of three primes in PR #399: wallclock-source-prime has paired validator (check_wallclock_semantic_source, 3 refs in operating_loop_audit.py, Stop-wired). fork-is-cheap-close-prime and closure-word-summary-prime have NO paired enforcement in src/. Unvalidated prime prints into a sessi
 
 ---
 

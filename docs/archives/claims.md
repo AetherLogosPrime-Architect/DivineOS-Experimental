@@ -1,6 +1,12 @@
 # Claims (open/investigating) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-09-22 01:05. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-09-22 12:50. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## 11ab463b [T1 OPEN] conf=0.50
+
+**Claim:** Two tools rule opposite on the same request. The merge-safety check says a request touching no guardrail file is safe to squash-merge plainly; the draft-clearing gate refuses ANY request without an audit round carrying two CONFIRMS. Four ready requests (517, 520, 528, 535) touch zero guardrail files, are green, and are held in draft by a rule the repository's own safety check says does not apply to them. Measured 2026-09-22 with exact-line guardrail matching plus a positive and a negative contro
 
 ---
 
@@ -790,14 +796,6 @@ Description: Andrew's and Aletheia's approvals on PRs 390/391/395 raised ValueEr
 ---
 
 ## b66cad4a [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## e9ded0ec [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 

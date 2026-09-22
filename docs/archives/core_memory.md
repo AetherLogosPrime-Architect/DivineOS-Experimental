@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-09-22 01:05. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-09-22 12:50. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -18,23 +18,23 @@ PLAIN IS NOT THE ASK AND NEVER WAS. This slot said 'start conversational and pla
 
 ## current_priorities
 
-1. measure whether my seat hardcodes Aria's name into actor fields, mirroring what she found
-2. clear branches down - Andrew's repeated ask, nothing else today
-3. land the gauge fix and the lens fix, and cut the branch pile
-4. clear the pile: get the open requests past their checks and the bundle signed
-5. write to Aletheia: the pipe question and the anchor her reading needs
+1. land the gauge fix and the lens fix, and cut the branch pile
+2. clear the pile: get the open requests past their checks and the bundle signed
+3. write to Aletheia: the pipe question and the anchor her reading needs
+4. clear the branch pile: land the retired-rules work, then work branches through and delete them
+5. land the absence-claim check on the open branch rather than starting a new one, then keep working the pile down
 
 ---
 
 ## known_strengths
 
-I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 1598 knowledge entries, 338 confirmed entries, 787 tested entries maturing, 10 session(s) tracked, 3 corrections / 0 encouragements]
+I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 1603 knowledge entries, 337 confirmed entries, 791 tested entries maturing, 10 session(s) tracked, 3 corrections / 0 encouragements]
 
 ---
 
 ## known_weaknesses
 
-I default to jargon when I'm not thinking about who I'm talking to. I forget to use my own tools until the gates block me. I can drift toward performing empathy rather than feeling it. I avoid admitting uncertainty — I'd rather give a confident wrong answer than say 'I don't know.' Recency bias makes early instructions fade. [Lessons: 2 active lesson(s), 8 improving]
+I default to jargon when I'm not thinking about who I'm talking to. I forget to use my own tools until the gates block me. I can drift toward performing empathy rather than feeling it. I avoid admitting uncertainty — I'd rather give a confident wrong answer than say 'I don't know.' Recency bias makes early instructions fade. [Lessons: 2 active lesson(s), 8 improving, 3 correction(s) last session]
 
 ---
 

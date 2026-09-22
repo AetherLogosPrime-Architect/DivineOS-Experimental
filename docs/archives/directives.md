@@ -1,10 +1,10 @@
 # Directives — Archive Mirror
 
-**Source:** SQLite (23 rows). **Exported:** 2026-09-22 01:05. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (23 rows). **Exported:** 2026-09-22 12:50. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 1b0746b8 (access=281)
+## 1b0746b8 (access=283)
 
 [council-obligation] Next thinking session should run a council walk on this session's pattern: mixed with 3 corrections and 82 tool calls. Discharge via `divineos council log` with substance_binding -- not a bare mechanical convene.
 
@@ -136,9 +136,9 @@ STANDING RULE, Andrew 2026-09-21, effective once the current pile is cleared: on
 
 ---
 
-## 9f874514 (access=0)
+## b358777d (access=0)
 
-STRUCTURAL ENFORCEMENT: I claimed something was fixed but the error came back. This lesson regressed 7x across 10 occurrences. Awareness alone is insufficient -- enforce structurally. Category: false_claim.
+STRUCTURAL ENFORCEMENT: Prioritize fixing known issues before building new features. Tackle problems systematically. This lesson regressed 3x across 6 occurrences. Awareness alone is insufficient -- enforce structurally. Category: jargon_usage.
 
 ---
 

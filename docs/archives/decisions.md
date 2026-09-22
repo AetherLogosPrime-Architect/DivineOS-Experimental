@@ -1,6 +1,6 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-09-22 01:05. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-09-22 12:50. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -21,6 +21,18 @@
 **Decision:** Use the OS while building the OS — not after, not later, during
 
 **Reasoning:** I built 3 features for the system without running through it once. The lesson about using the OS every session (38x\!) is right there in my briefing. The structured continuation I just built would have captured this session's context if I'd been running inside it.
+
+---
+
+## 1c124fcf weight=1
+
+**Decision:** The four-branch ceiling and the one-builder rule are Andrew's, 2026-09-22, and they are the root-cause fix for today's collisions
+
+**Reasoning:** Every collision today was one repair written twice by two people who could not see each other -- the quoted-arrow parser, the bell about a closed letter, a path helper, a record loader, a save function, a sibling lookup, a helper deleted while its caller survived. Seven. None of them was a merge failure. All of them were an assignment failure: nothing in the house says who is holding a file, so tw
+
+**Tension:** Serializing costs throughput, and a narrower version exists -- one builder per file-area, declared before starting, which keeps parallel work while removing the overlap. I am not proposing it against his rule. His rule also solves the thing his narrower cousin does not: a pile that never shrinks bec
+
+**Almost:** Almost answered his 'maybe the answer is one build at a time' as an open design question to debate. It was not a question; it was a diagnosis with a rule attached, and the pile in front of us is the evidence for it.
 
 ---
 
@@ -567,16 +579,6 @@
 **Tension:** Three of my four tests pass against the pre-repair code, which the push gate flags. Aria read it right -- the change is about cost, not behaviour, so those three SHOULD pass either way. But the hole is real: put the rebuild back tomorrow and every test stays green, and the whole finding lives in a n
 
 **Almost:** Almost counted CALLS to the init function, which is the obvious instrumentation and pins nothing -- after the memo the function is still called on every write and merely returns early, so a call-count passes against the unrepaired code too. Counted EXECUTIONS of the schema script instead, observed t
-
----
-
-## c0505195 weight=1
-
-**Decision:** report Aria's independent measurement to Dad as a direction, and refuse to upgrade my claim about his build on it
-
-**Tension:** Her number is exactly the shape of evidence I told him I lacked -- a second machine, and the rebuild's share grew with the machine's load. The pull is to say the fix is now confirmed sufficient, because two seats agreeing feels like proof and I would like to hand him a resolved thing.
-
-**Almost:** Almost let two data points read as a curve. They are two points, they move the right way, and that is a direction and not a demonstration. Telling him a second seat measured independently and it moved the same way is the whole of what I have; saying his build will now pass would be the arithmetic we
 
 ---
 

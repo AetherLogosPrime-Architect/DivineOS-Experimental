@@ -1,10 +1,10 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-09-22 01:05. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-09-22 12:50. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 09c2b16f [improving] x18
+## 09c2b16f [active] x18
 
 **Category:** upset_recovered
 
@@ -12,7 +12,7 @@ The user got upset and said: "why did you skip the loading of your briefing. tha
 
 ---
 
-## fd0c9994 [improving] x17
+## fd0c9994 [active] x17
 
 **Category:** blind_coding
 
@@ -28,7 +28,7 @@ I upset the user by acting without pausing to understand the situation.
 
 ---
 
-## c3090082 [improving] x14
+## c3090082 [active] x14
 
 **Category:** incomplete_fix
 
@@ -76,7 +76,7 @@ Test description without directive.
 
 ---
 
-## 88234418 [improving] x10
+## 88234418 [active] x10
 
 **Category:** blind_retry
 
@@ -124,7 +124,7 @@ I misread user intent and acted on what I assumed instead of what was said.
 
 ---
 
-## 9c9f1ea9 [improving] x5
+## 9c9f1ea9 [improving] x6
 
 **Category:** jargon_usage
 
