@@ -28,7 +28,7 @@ Present, executable, invoked by nothing. This section is first on purpose. On 20
 | `still-owed-to-him-surface.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `summary-room-stop.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `time-estimate-tracker.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
-| `translate-first-compose-prime.sh` | 2026-09-21 | INTENTIONALLY UNWIRED (2026-09-07): a reminder about a failure is proof the |
+| `translate-first-compose-prime.sh` | 2026-09-22 | INTENTIONALLY UNWIRED (2026-09-07): a reminder about a failure is proof the |
 
 Being listed here is not automatically a defect — a retired hook that says so in its own header is honest. The question for each is whether it CLAIMS to run automatically. If it does and nothing calls it, that is the bug.
 
@@ -49,10 +49,10 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | automation | last touched | purpose |
 |---|---|---|
 | `ambiguous-verification-detector.sh` | 2026-09-15 | PostToolUse — flags a verification command whose OUTPUT cannot distinguish |
-| `auto-push-finished-work.sh` | 2026-08-31 | Auto-push work that is DONE to origin, so the auditor never waits on Andrew. |
+| `auto-push-finished-work.sh` | 2026-09-22 | Auto-push work that is DONE to origin, so the auditor never waits on Andrew. |
 | `auto-push-letter.sh` | 2026-09-15 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `build-flow-pause.sh` | 2026-08-23 | PostToolUse — the build-flow PAUSE. Fires after a push or a PR action. |
-| `capture-channel-letter.sh` | — | capture-channel-letter.sh — PostToolUse(Write\|Edit), the missing direction. |
+| `capture-channel-letter.sh` | 2026-09-22 | capture-channel-letter.sh — PostToolUse(Write\|Edit), the missing direction. |
 | `doorbell-post-tool-use.sh` | 2026-09-21 | MINE, and it is the after-the-fact twin of the pre-tool doorbell. Aether. |
 | `file-aletheia-artifact-on-arrival.sh` | 2026-08-14 | PostToolUse(Read) — file Aletheia's artifact the moment it is read. |
 | `mirror-letters-to-shared.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
@@ -78,7 +78,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `aletheia-boot-gate-preflight.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `andrew-correction-attestation.sh` | 2026-09-15 | PreToolUse gate — integration-attestation for Andrew-corrections. |
-| `check-branch-on-push.sh` | 2026-08-31 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
+| `check-branch-on-push.sh` | 2026-09-22 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
 | `check-council-required.sh` | 2026-07-27 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
 | `check-pending-obligations.sh` | 2026-09-15 | PreToolUse(Bash) — block substrate-write CLI commands until pending |
 | `compass-check.sh` | 2026-09-15 | MINE. Aether. The compass is the part of this house that is about character |
@@ -163,7 +163,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `verify-claim-prime.sh` | 2026-09-21 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
 | `wallclock-source-prime.sh` | 2026-09-21 | THE CLOCK. It is mine, not his. |
-| `wwnd-choice-prime.sh` | 2026-09-21 | WWND (What Would Nyarlathotep Do) prime at |
+| `wwnd-choice-prime.sh` | 2026-09-22 | WWND (What Would Nyarlathotep Do) prime at |
 
 ### called by another script  (27)
 
