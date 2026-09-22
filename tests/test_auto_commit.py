@@ -377,6 +377,8 @@ class TestStagedIndexDetection:
         result = auto_commit_substrate(repo, reason="pre-extract", channels=())
         assert result.committed is True
         assert result.dirty_lines >= 1
+
+
 class TestWhatTheOperatorIsActuallyTold:
     """The third instance at one address, and Aether found it in the repair.
 
@@ -479,5 +481,3 @@ class TestWhatTheOperatorIsActuallyTold:
             for text, colour in checkpoint_report(result, "pre-sleep"):
                 assert text
                 assert colour in {"green", "yellow", "red"}
-
-
