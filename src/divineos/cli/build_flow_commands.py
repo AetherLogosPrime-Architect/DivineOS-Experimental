@@ -41,10 +41,15 @@ from divineos.core.build_flow import (
     check_merge_station,
     check_more_council_station,
     check_rough_draft_station,
+    check_scope_station,
+    check_supersession_station,
     check_test_station,
+    declared_author,
     fingerprint,
+    judging_code_provenance,
     required_lens_count,
     score_pr_gravity,
+    unresolved_supersession_claims,
 )
 
 _LETTERS = Path.home() / ".divineos-shared" / "letters"
@@ -191,7 +196,17 @@ def _run_git(args: list[str]) -> str | None:
 
 def _open_prs() -> list[dict] | None:
     out = _gh(
-        ["pr", "list", "--state", "open", "--limit", "50", "--json", "number,headRefName,isDraft"]
+        [
+            "pr",
+            "list",
+            "--state",
+            "open",
+            "--limit",
+            "50",
+            "--json",
+            # body: station 9 reads what the OTHER open requests claim to replace.
+            "number,headRefName,isDraft,body",
+        ]
     )
     if out is None:
         return None
@@ -578,11 +593,19 @@ def _audit_refs() -> tuple[tuple[str, ...] | None, str | None]:
     return rounds, where
 
 
-def _anchor_for(branch: str, deep: bool, pr_number: int = 0) -> str:
+def _anchor_for(branch: str, deep: bool, pr_number: int = 0) -> tuple[str, str]:
     """Whether the round covering ``branch`` still covers it by CONTENT.
 
-    Returns the state string station eight understands, or "not-run" when the
-    caller declined to pay for it.
+    Returns the state string station eight understands plus the REASON, or
+    ("not-run", "") when the caller declined to pay for it.
+
+    The reason was computed and dropped on the floor. Station eight could then
+    only render "could not be determined", which reads as a broken instrument
+    and invites a shrug — while the real answer one frame below was "no
+    external-AI CONFIRM in round X", an ask somebody can act on now. Eight
+    open requests wore the broken-instrument costume on the strength of that
+    discard. A refusal that cannot say what it could not do teaches nothing,
+    and this station is the last one before a merge.
 
     THE COST IS WHY THIS IS OPTIONAL, and it was measured rather than
     guessed: one check runs about five seconds, because it fetches and
@@ -598,12 +621,12 @@ def _anchor_for(branch: str, deep: bool, pr_number: int = 0) -> str:
     undo the point.
     """
     if not deep or not branch:
-        return "not-run"
+        return "not-run", ""
     try:
         from divineos.cli.audit_commands import anchor_state_for_round
         from divineos.core.watchmen.store import list_rounds
-    except _BF_ERRORS:
-        return "cannot-check"
+    except _BF_ERRORS as exc:
+        return "cannot-check", f"audit store not importable: {type(exc).__name__}"
     try:
         # MATCH THE SAME WAY THE STATION DOES, or this answers about a
         # different corpus than the verdict it feeds -- which is the exact
@@ -633,8 +656,8 @@ def _anchor_for(branch: str, deep: bool, pr_number: int = 0) -> str:
             return bool(branch and (branch in text or (tail and tail in text)))
 
         matches = [r for r in list_rounds(limit=_ROUND_SCAN_LIMIT) if _names_it(r)]
-    except _BF_ERRORS:
-        return "cannot-check"
+    except _BF_ERRORS as exc:
+        return "cannot-check", f"round scan failed: {type(exc).__name__}"
     if not matches:
         # THE OTHER SEAT'S STORE. The station matches against the UNION of
         # both seats' rounds; this function can only read mine, and
@@ -648,7 +671,10 @@ def _anchor_for(branch: str, deep: bool, pr_number: int = 0) -> str:
         # shape wearing a politer word. This return is only ever surfaced
         # when the station DID match by name -- a request with no round at
         # all takes the MISSING branch and never consults this.
-        return "cannot-check"
+        return (
+            "cannot-check",
+            "the naming round lives in the other seat's store, which this check cannot read",
+        )
 
     # ASK EVERY ROUND, NEWEST FIRST, AND LET A HOLDING ONE WIN. A branch
     # re-audited after moving has two rounds naming it: an old one that has
@@ -660,24 +686,41 @@ def _anchor_for(branch: str, deep: bool, pr_number: int = 0) -> str:
     # correct "no longer holds" into "could not determine" the moment a newer
     # round without a confirm appeared. Taking the newest is not the same as
     # taking the one that answers.
-    verdicts = []
+    verdicts: list[tuple[str, str]] = []
     for rnd in matches:
-        state, _detail = anchor_state_for_round(getattr(rnd, "round_id", ""), branch)
+        state, detail = anchor_state_for_round(getattr(rnd, "round_id", ""), branch)
         if state == "holds":
-            return "holds"
-        verdicts.append(state)
-    if "stale" in verdicts:
-        return "stale"
-    if "unanchored" in verdicts:
-        return "unanchored"
-    return "cannot-check"
+            return "holds", detail
+        verdicts.append((state, detail))
+    for wanted in ("stale", "unanchored"):
+        for state, detail in verdicts:
+            if state == wanted:
+                return wanted, detail
+    if verdicts:
+        return "cannot-check", verdicts[0][1]
+    return "cannot-check", "no round answered"
 
 
-def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
+def collect(
+    deep: bool = False,
+) -> tuple[list[PrFlowStatus] | None, str, tuple[tuple[int, str, str | None], ...]]:
+    """Station results per open request, plus the roster they were judged against.
+
+    The roster comes back because the board has one thing to say that is not a
+    station verdict: which requests claim a replacement nobody can resolve.
+    Returning it beats fetching twice — two fetches can disagree, and a board
+    that reports a footnote about a different set of requests than the rows
+    above it is exactly the split-corpus defect station 8 already carries.
+    """
     prs = _open_prs()
     if prs is None:
-        return None, "GitHub unreachable — status unknown, NOT clean"
+        return None, "GitHub unreachable — status unknown, NOT clean", ()
     audit, audit_store = _audit_refs()
+    # (number, branch, body) for every open request, so station 9 can ask what
+    # the OTHERS say about this one. A missing body key reads as None, which the
+    # station branches on as unreadable rather than defaulting it to empty --
+    # the same absence-becomes-value collapse guarded a few lines below.
+    roster = tuple((int(p.get("number", 0)), p.get("headRefName", ""), p.get("body")) for p in prs)
     out: list[PrFlowStatus] = []
     for pr in prs:
         n = int(pr.get("number", 0))
@@ -689,18 +732,28 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
             # council station SATISFIED -- an outage upgrading every PR to
             # needs-no-review. Absence gets its own branch, not a default.
             st = PrFlowStatus(number=n, branch=branch, gravity=-1, required_lenses=-1)
+            # Asked once and unpacked. Keyword-bound on purpose: the two sides
+            # of this merge each widened station 8's signature -- one with the
+            # signed-off flag, one with the anchor's detail string -- and the
+            # surviving parameter order interleaves them, so a starred tuple
+            # would have landed anchor_detail in has_external_confirm and read
+            # as a bool.
+            anchor, anchor_detail = _anchor_for(branch, deep, n)
             st.stations = [
                 StationResult("2-council", Status.CANNOT_CHECK, "changed files unreadable"),
-                check_aria_station(branch, _LETTERS),
+                check_scope_station(None, branch),
+                check_aria_station(branch, _LETTERS, declared_author(pr.get("body"))),
                 check_draft_station(pr.get("isDraft")),
                 check_audit_station(
                     n,
                     branch,
                     audit,
                     audit_store,
-                    _anchor_for(branch, deep, n),
-                    _signed_for(branch, n),
+                    anchor=anchor,
+                    anchor_detail=anchor_detail,
+                    has_external_confirm=_signed_for(branch, n),
                 ),
+                check_supersession_station(n, branch, roster),
             ]
             out.append(st)
             continue
@@ -713,6 +766,7 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
         need = required_lens_count(gravity, paths)
         st = PrFlowStatus(number=n, branch=branch, gravity=gravity, required_lenses=need)
         walked = _lenses_applied(paths)
+        anchor, anchor_detail = _anchor_for(branch, deep, n)
         # The four that always ran, plus the five that never did. Andrew
         # 2026-09-07: "wire station 1, 3, 5, 6 and 9 into the board."
         earlier = [
@@ -720,8 +774,9 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
             # paths, not branch: council walks are keyed by edit
             # fingerprint. See _lenses_applied for the measurement.
             check_council_station(branch, need, walked, _other_seat_lenses(paths)),
+            check_scope_station(paths, branch),
             check_build_station(paths),
-            check_aria_station(branch, _LETTERS),
+            check_aria_station(branch, _LETTERS, declared_author(pr.get("body"))),
             check_test_station(paths, _dark_surfaces_or_none()),
             check_more_council_station(branch, walked, need, _walk_postdates_build(branch)),
             check_draft_station(pr.get("isDraft")),
@@ -730,9 +785,11 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
                 branch,
                 audit,
                 audit_store,
-                _anchor_for(branch, deep, n),
-                _signed_for(branch, n),
+                anchor=anchor,
+                anchor_detail=anchor_detail,
+                has_external_confirm=_signed_for(branch, n),
             ),
+            check_supersession_station(n, branch, roster),
         ]
         # Station 9 reads the other eight, so it is built from them rather than
         # beside them -- the difference between a board that lists stations and
@@ -742,17 +799,64 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
             check_merge_station(pr.get("isDraft"), pr.get("mergeable"), earlier),
         ]
         out.append(st)
-    return out, ""
+    return out, "", roster
 
 
 _MARK = {Status.SATISFIED: "ok  ", Status.MISSING: "MISS", Status.CANNOT_CHECK: "????"}
+
+
+def _work_item_lines() -> list[str]:
+    """The five stations the pull-request view has never been able to see.
+
+    They hang off work items rather than pull requests, because by the time
+    a pull request exists the building is over. Written 2026-09-07 for the
+    same reason the module it reads was written: an instrument with no
+    caller is the thing Andrew is angriest about, and this board is the
+    caller that keeps it from being one.
+    """
+    from divineos.core.station_marks import (
+        CANNOT_CHECK,
+        MISSING,
+        STATIONS,
+        check_all,
+        open_items,
+    )
+
+    items = open_items()
+    if items is None:
+        return [
+            "  1-draft, 3-build, 5-test, 6-more-council, 9-merge: could not look —",
+            "  the work-item store was unreadable. That is not the same as none open.",
+        ]
+    if not items:
+        return [
+            "  1-draft, 3-build, 5-test, 6-more-council, 9-merge: no work item is open,",
+            "  so there is nothing yet for these five to be about.",
+        ]
+
+    lines = ["  Work items — the five stations no pull request can show:"]
+    for item in items:
+        results = check_all(item)
+        done = sum(1 for r in results if r.state not in (MISSING, CANNOT_CHECK))
+        blind = sum(1 for r in results if r.state == CANNOT_CHECK)
+        blind_note = f", {blind} unreadable" if blind else ""
+        lines.append(f"    {item}: {done} of {len(STATIONS)} proven{blind_note}")
+        for result in results:
+            if result.state != MISSING and result.state != CANNOT_CHECK:
+                continue
+            lead = "MISS" if result.state == MISSING else "????"
+            lines.append(f"      [{lead}] {result.why}")
+    return lines
 
 
 def _is_draft(s: PrFlowStatus) -> bool:
     return any(r.station == "7-draft" and r.status is Status.SATISFIED for r in s.stations)
 
 
-def render(statuses: list[PrFlowStatus]) -> str:
+def render(
+    statuses: list[PrFlowStatus],
+    roster: tuple[tuple[int, str, str | None], ...] = (),
+) -> str:
     """Report in-flight state in in-flight grammar.
 
     Andrew 2026-08-05: *"13 PRs arent sitting there.. 13 DRAFTS are lol that
@@ -794,12 +898,27 @@ def render(statuses: list[PrFlowStatus]) -> str:
         lines.append(f"  Needing attention: {', '.join(f'#{n}' for n in attention)}")
     else:
         lines.append("  Nothing is off-track. Drafts with stations ahead of them are drafts.")
-    lines.append("  Checked: 2-council, 4-aria, 7-draft, 8-audit. NOT checked:")
-    lines.append("  1-draft, 3-build, 5-test, 6-more-council, 9-merge — four of nine.")
+    lines.append("  Checked: 2-council, 3-scope, 4-aria, 7-draft, 8-audit, 9-superseded.")
+    vague = unresolved_supersession_claims(roster)
+    if vague:
+        named = ", ".join(f"#{n}" for n in vague)
+        lines.append(f"  [????] replacement claims  {named} say they replace something, in prose")
+        lines.append("         this cannot resolve. Open a 'Supersedes: #<n>' line on them, or")
+        lines.append("         read them — station 9 will not guess which branch they mean.")
+    lines.extend(_work_item_lines())
     lines.append("")
     lines.append("  Stations advance on artifacts. Station 4 needs a reply FROM Aria,")
     lines.append("  not a letter from me — an artifact I can produce alone proves only")
     lines.append("  that I spoke. '????' is not a pass; it means the check could not run.")
+    lines.append("")
+
+    # WHOSE RULES SAID SO. Every verdict above is this checkout's copy of the
+    # station code talking, and until now the page read as if it were the
+    # repository's. Aria and I have each reported a board reading to the other
+    # from different trees more than once; both readings were honest and they
+    # were about different rulebooks.
+    prov_status, prov_detail = judging_code_provenance()
+    lines.append(f"  [{_MARK[prov_status]}] whose rules  {prov_detail}")
     lines.append("")
     return "\n".join(lines)
 
@@ -821,11 +940,11 @@ def register(cli: click.Group) -> None:
         ),
     )
     def status_cmd(print_fingerprint: bool, deep: bool) -> None:
-        statuses, err = collect(deep=deep)
+        statuses, err, roster = collect(deep=deep)
         if statuses is None:
             click.echo(f"[build-flow] {err}")
             raise SystemExit(2)
         if print_fingerprint:
             click.echo(fingerprint(statuses))
             return
-        click.echo(render(statuses))
+        click.echo(render(statuses, roster))

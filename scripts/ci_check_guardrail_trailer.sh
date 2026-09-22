@@ -81,8 +81,9 @@ load_guardrail_list_at() {
 # happens to be checked out in CI.
 load_exempt_list_at() {
     local commit="$1"
-    git show "$commit:scripts/review_exempt_paths.txt" 2>/dev/null \
-        | grep -vE '^[[:space:]]*(#|$)' || true
+    local raw
+    raw="$(git show "$commit:scripts/review_exempt_paths.txt" 2>/dev/null)"  # fail-soft: a commit predating the list simply has no list, and an empty result means nothing is exempt, so the caller reviews everything -- the safe direction
+    printf '%s\n' "$raw" | grep -vE '^[[:space:]]*(#|$)' || true  # fail-soft: grep exits 1 on an all-comment or empty list, which is a real state and not an error
 }
 
 # Does this change need review? Under Andrew's 2026-09-07 ruling, everything
