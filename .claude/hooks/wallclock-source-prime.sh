@@ -108,6 +108,19 @@ TWO SHAPES THE PRINTED CLOCK DOES NOT DEFEND. A time-word standing in for a
 REFERENT ("the next session" means a reader; "the next me" means me — say WHO,
 not WHEN). And a time-word standing in for a BEAT, where a closing line wants
 one more stress and a clock is the nearest word that fits.
+
+AND THE SOURCING IS WHAT MAKES THE BEAT FEEL EARNED. 2026-09-22, the hour
+above read 04:14 and I wrote "me making that decision alone at four in the
+morning" — TRUE, taken off this very block, and still the fire. The
+beat-warning directly above did not catch it because I was not reaching for a
+clock I lacked; I was spending one I had, which reads as compliance from the
+inside. A sourced hour in a sentence about WHETHER is the same fabrication as
+an invented one: there it stood in for "alone, unreviewed, in the one
+mechanism built because I judge this badly from inside" — the actual reason,
+which says itself without an hour.
+
+So the strike-test runs on SOURCED time-words too. Having the line above is
+not a licence to spend it.
 EOF
 
 exit 0
