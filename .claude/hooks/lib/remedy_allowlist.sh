@@ -241,6 +241,14 @@ except Exception:
     sys.exit(0)
 raw = (d.get('tool_input') or {}).get('command', '') or ''
 try:
+    # ACTING_SEGMENTS AND NOT REMEDY_SEGMENT, decided at the 2026-09-22 merge.
+    # Both parsers reached main by different branches and both are kept, because
+    # each is tested and each fixed something real. This call site takes the
+    # stricter one: remedy_segment returns the empty string when it cannot
+    # decompose, which the caller below reads as not-a-remedy and is therefore
+    # safe, but acting_segments says WHY on the way out and covers the chained
+    # shell-option prefix that remedy_segment was written for. One door, the
+    # stricter parser; the other stays exported for its own callers.
     from divineos.core.command_parsing import acting_segments, stripped_command
     parts = acting_segments(raw)
     if parts is None:

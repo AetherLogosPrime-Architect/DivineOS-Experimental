@@ -225,59 +225,85 @@ def _other_refs(branch: str) -> list[str]:
     if code != 0:
         return []
 
-    # EXCLUDE BY IDENTITY, NOT BY SPELLING. This used to resolve the branch to a
-    # short name and paste it into two strings -- a local head and a remote by
-    # that name -- then drop those. It worked for a plain branch name and
-    # silently excluded NOTHING for any other spelling.
+    # EXCLUDE BY WHAT A REF POINTS AT, NOT BY ITS NAME. Aria caught this on
+    # 2026-09-07: her push was told every substrate file existed elsewhere at
+    # the same bytes, and two existed nowhere on origin. Mine was told the same
+    # about seventy-eight, and I repeated it to Andrew as verification.
     #
-    # Measured 2026-09-16, and this is how it surfaced: the push gate invokes
-    # this with a COMMIT identifier. Asked for the short name of a commit, git
-    # returns an empty string, so the two refs constructed were a bare prefix
-    # with nothing after them. Neither exists. Nothing was excluded, the branch
-    # matched its own blobs on every file, and the scan reported eleven
-    # substrate files as existing on another ref at the same bytes when every
-    # one of them was unique to that branch. Following the advice would have
-    # destroyed them.
+    # The mechanism, measured rather than reasoned: the push hook calls this
+    # with a COMMIT SHA, because it checks the refs being pushed rather than
+    # HEAD. `git rev-parse --abbrev-ref <sha>` prints an empty string -- run at
+    # the terminal, not assumed -- so the exclusion set came out EMPTY, the
+    # branch's own local and remote refs stayed in the comparison, and every
+    # file on the branch was found safe ON THE BRANCH ITSELF.
     #
-    # AND LOOK WHERE IT SAT. The comparison below was changed from asking
-    # whether a file by that NAME existed elsewhere to comparing blob identity,
-    # after Aria asked which of the two it was. That repair went to the half
-    # that had been caught and stopped one line short of the half that had not.
-    # The exclusion set was still matching by name. Same fault, same function,
-    # above the line that documents fixing it.
-    head = _resolve_commit(branch)
-    if head is None:
-        # Could-not-resolve is its own answer. An unresolvable branch and a
-        # branch with nothing to exclude previously both produced an empty set,
-        # and the scan then ran blind against itself. The caller reads [] as
-        # could-not-look, which is the honest verdict here.
+    # It was invisible exactly when it mattered. Check a sha no ref points at
+    # and the answer is right; check your own tip -- the only thing anyone runs
+    # before a push -- and it measures you against you. The refusal text one
+    # screen below already said do not trust a page that measures you against
+    # yourself, and the page was doing it.
+    points_code, pointing = _git("for-each-ref", "--format=%(refname)", "--points-at", branch)
+    if points_code != 0:
+        # An exclusion set that failed open is what caused the fault. Failing
+        # open quietly a second time would be the same bug wearing a repair.
         return []
+    mine: set[str] = {r.strip() for r in pointing.splitlines() if r.strip()}
 
-    refs: list[str] = []
+    # POINTING-AT ALONE IS PRECISE AND BESIDE THE POINT. Aria ran the repair
+    # against a live tree instead of agreeing with the letter about it, and
+    # found the gap: pointing-at is exact, so the moment there is one commit
+    # the remote does not have, the local ref moves and
+    # refs/remotes/origin/<same branch> stays behind. It no longer points at
+    # the tip, so it is not excluded -- and it is still my branch, carrying
+    # nearly every file on it.
+    #
+    # That is the state EVERY push is made from, by definition: a push exists
+    # because the remote is missing a commit. So a file living only on this
+    # branch is found safe on this branch's own remote copy. The witness is me,
+    # one commit ago.
+    #
+    # So a ref is mine if it bears my branch's NAME, whatever commit it
+    # currently sits on. The name is taken from every ref that points at the
+    # rev, which works for a hash, and from abbrev-ref, which works for a name.
+    for ref in list(mine):
+        for prefix in ("refs/heads/", "refs/remotes/origin/"):
+            if ref.startswith(prefix):
+                short = ref[len(prefix) :]
+                mine |= {f"refs/heads/{short}", f"refs/remotes/origin/{short}"}
+
+    name_code, name = _git("rev-parse", "--abbrev-ref", branch)
+    if name_code == 0 and name.strip() and name.strip() != branch.strip():
+        short = name.strip()
+        mine |= {f"refs/heads/{short}", f"refs/remotes/origin/{short}"}
+
+    # TWO COLUMNS, NOT ONE, and both are used. The listing above asks for the
+    # refname AND the object it points at, so a line must be split before its
+    # name can be compared. Caught by the identity test on the first run of
+    # this merge: taking the whole line as a name produced refs that resolve to
+    # nothing, every lookup failed, and a file with a real copy on another
+    # branch was reported as existing only here -- the precise over-exclusion
+    # this file's own tests were written to refuse.
+    #
+    # The object column then earns its keep. Two branches sitting on the same
+    # commit are the same witness under different names, so a ref at my own
+    # commit is excluded whatever it is called. That is the other branch's
+    # repair, kept beside the name-family rule rather than instead of it.
+    head_code, head_obj = _git("rev-parse", "--verify", "--quiet", f"{branch}^{{commit}}")
+    head = head_obj.strip() if head_code == 0 else ""
+
+    others: list[str] = []
     for line in out.splitlines():
         parts = line.strip().split(None, 1)
-        if len(parts) != 2:
+        if not parts:
             continue
-        name, obj = parts[0], parts[1].strip()
-        if obj == head:
-            # The branch under test, and anything sitting on the same commit.
-            # Exactly those -- never by resemblance, because every ref wrongly
-            # excluded is one that can no longer prove a file survives.
+        name = parts[0].strip()
+        obj = parts[1].strip() if len(parts) > 1 else ""
+        if name in mine:
             continue
-        refs.append(name)
-    return refs
-
-
-def _resolve_commit(rev: str) -> str | None:
-    """The commit a revision names, or None when it cannot be resolved.
-
-    Separate from the caller so the failure has somewhere to be returned from
-    rather than collapsing into an empty result that reads as success.
-    """
-    code, out = _git("rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}")
-    if code != 0 or not out.strip():
-        return None
-    return out.strip()
+        if head and obj == head:
+            continue
+        others.append(name)
+    return others
 
 
 def only_here(branch: str, paths: list[str]) -> tuple[list[str], list[str], bool]:

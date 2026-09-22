@@ -69,10 +69,24 @@ def _dedup_hooks() -> list[Path]:
     )
 
 
-def _run(script: Path, state_dir: Path | None = None) -> str:
+def _run(script: Path, dedup_dir: Path | None = None) -> str:
+    """Run one hook. ``dedup_dir`` gives it a PRIVATE dedup memory.
+
+    Without it this test shared one state file with every other test that
+    touches dedup. Under the parallel run the push gate uses, a neighbour's
+    ``clear()`` lands between this test's two measurements, the second run
+    emits full, and the assertion below blames the HOOK -- naming a quoting
+    bug that is not there, in whichever hook happened to be mid-measurement.
+    Alone it passes. Beside its neighbours it accuses a different hook each
+    run, which is why only the push gate ever saw it.
+
+    The env var is the only route that reaches the reader, because the reader
+    is a SUBPROCESS shelling out to python and no in-process patch touches it.
+    Same isolation shape the family-ledger tests already use.
+    """
     env = dict(os.environ)
-    if state_dir is not None:
-        env["DIVINEOS_DEDUP_STATE_DIR"] = str(state_dir)
+    if dedup_dir is not None:
+        env["DIVINEOS_CONTEXT_DEDUP_DIR"] = str(dedup_dir)
     r = subprocess.run(
         [_real_bash(), str(script)],
         input=PAYLOAD,
@@ -110,9 +124,10 @@ def test_repeat_emission_shrinks(script: Path, tmp_path: Path):
     the failure. Production still shares one file across hook invocations,
     which is the design and must not change.
     """
-    state_dir = tmp_path / "dedup_state"
-    first = _run(script, state_dir)
-    second = _run(script, state_dir)
+    # Its own memory, not the shared one. Clearing the shared file is what
+    # made this test a hazard to its neighbours as well as a victim of them.
+    first = _run(script, dedup_dir=tmp_path)
+    second = _run(script, dedup_dir=tmp_path)
     if not first.strip():
         pytest.skip("hook emitted nothing for this payload; nothing to dedup")
     assert len(second) < len(first), (

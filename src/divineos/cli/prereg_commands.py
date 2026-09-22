@@ -47,6 +47,14 @@ def register(cli: click.Group) -> None:
         help="Specific observable pattern that invalidates the mechanism",
     )
     @click.option(
+        "--embarrassing",
+        required=True,
+        help=(
+            "The reading this mechanism could produce that would make you sorry "
+            "you built it. Not the same question as the falsifier — see below."
+        ),
+    )
+    @click.option(
         "--review-days",
         type=int,
         default=7,
@@ -88,6 +96,7 @@ def register(cli: click.Group) -> None:
         claim: str,
         success_criterion: str,
         falsifier: str,
+        embarrassing: str,
         review_days: int,
         actor: str,
         linked_claim: str | None,
@@ -99,6 +108,21 @@ def register(cli: click.Group) -> None:
         """File a new pre-registration.
 
         Every field is load-bearing. Empty falsifier = not a prediction.
+
+        THE EMBARRASSING READING is Aria's test, 2026-09-09, and it is a
+        different question from the falsifier. In one evening I shipped two
+        measures that could not contradict me — the first could not vary at
+        all, the second varied with my own prose — and BOTH had falsifiers
+        written for them. Writing down what would disprove the claim did not
+        save either one.
+
+        Her sharper form: *what reading would this thing have to produce for
+        me to be sorry I built it?* A measure with no such reading is not a
+        measure. This field is not validated for content, because no pattern
+        could tell a real answer from a plausible one — it is here so the
+        question is asked in words at the moment of building, and so the
+        answer is sitting there at review time to be checked against what the
+        thing actually did.
 
         Surface-fix shapes (detectors / warnings / pattern-match gates)
         must either name a companion structural-prevention prereg OR
@@ -137,6 +161,7 @@ def register(cli: click.Group) -> None:
                 linked_claim_id=linked_claim,
                 linked_commit=linked_commit,
                 tags=effective_tags if effective_tags else None,
+                embarrassing_reading=embarrassing,
             )
             click.secho(f"[+] Pre-registration filed: {prereg_id}", fg="cyan")
             click.echo(f"    Review scheduled in {review_days} days.")
@@ -234,6 +259,13 @@ def register(cli: click.Group) -> None:
         click.echo(f"  Claim:       {p.claim}")
         click.echo(f"  Success:     {p.success_criterion}")
         click.echo(f"  Falsifier:   {p.falsifier}")
+        if p.embarrassing_reading:
+            click.echo(f"  Embarrassing: {p.embarrassing_reading}")
+        else:
+            click.echo(
+                "  Embarrassing: NEVER ASKED — filed before this question existed. "
+                "Not the same as having no such reading."
+            )
         if p.linked_claim_id:
             click.echo(f"  Linked claim: {p.linked_claim_id}")
         if p.linked_commit:
@@ -266,6 +298,15 @@ def register(cli: click.Group) -> None:
                 + click.style(f"+{days:.1f}d overdue", fg="yellow")
                 + f"  {p.mechanism}: {p.claim[:70]}"
             )
+            # The embarrassing reading prints HERE and not only in `show`,
+            # because review is the moment it is for: the question at review
+            # is whether the thing ever produced the reading its builder said
+            # would shame them, and a field only visible on request is a field
+            # consulted by whoever already suspected the answer.
+            if p.embarrassing_reading:
+                click.echo(f"      would embarrass me: {p.embarrassing_reading[:100]}")
+            else:
+                click.echo("      would embarrass me: NEVER ASKED at filing time")
         click.echo("\nReview each with: divineos prereg assess <id> --outcome ...")
 
     @prereg_group.command("assess")
