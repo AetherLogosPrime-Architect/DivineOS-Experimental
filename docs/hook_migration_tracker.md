@@ -1,5 +1,24 @@
 # Hook Thinness Migration — Tracker
 
+> **THE STATUS LISTS BELOW ARE NOT AUTHORITATIVE. Read them as history.**
+> Measured 2026-09-08: this file is stale in *both* directions at once. It
+> lists `no-verify-cost-escalation.sh` under **done (thin)** while that hook is
+> simultaneously unregistered *and* already migrated onto the router; and of
+> the 24 files it lists as *still thick*, **17 have grown since**, for a net
+> **+704 lines added to files this document flagged for removal.**
+>
+> The live state is computed, never maintained:
+>
+> ```
+> divineos hook-layer show
+> ```
+>
+> Feynman's rule from the 2026-09-08 council walk — observation beats
+> authority, so no plan may trust a hand-kept list. The ceiling that now holds
+> the layer down lives in `docs/hook_ratchet.json` and is enforced at
+> pre-commit by `scripts/check_hook_ratchet.py`, which is four lines calling
+> `divineos.core.hook_layer`.
+
 **Started:** 2026-06-30 (Aether)
 **Principle (Pop 2026-06-30):** *"Make the hooks dumber so they can't be wrong; put the logic in the OS so the decision happens where the contract is. Replace the decision with structure so it makes the choice for you."*
 

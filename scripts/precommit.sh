@@ -14,6 +14,70 @@
 
 set -e
 
+# STEP ZERO: WHICH COPY OF THIS PROJECT IS ABOUT TO BE CHECKED?
+#
+# Every check below runs through `python`, and on this machine `python` can
+# resolve to a sibling checkout -- one global editable-install slot, claimed by
+# whoever ran the install last. When that happens the whole run is honest about
+# a tree nobody is committing to: lint, types and tests all pass or fail about
+# somebody else's source while reporting on this commit.
+#
+# Measured 2026-09-19: a full test run in one worktree was resolving the
+# package to a different repository entirely, and the venv this repo insists on
+# had neither pytest nor mypy -- so the gate forbidding the wrong interpreter
+# was forbidding the only one that could run anything.
+#
+# The command doing the asking has existed since July, describes this exact
+# fault in its own help text, was audited, was catalogued -- and had ZERO
+# callers for two months, while the person who wrote it got bitten by the fault
+# and found it by hand. Aether counted the callers 2026-09-19. This is the
+# caller. It was given a verdict first, because until then it printed which
+# copy it loaded and never judged whether that copy was the right one, and a
+# check that narrates instead of refusing is the same defect one layer along.
+#
+# Deliberately BEFORE the staged-file detection: which tree is being measured
+# is a precondition for every answer below it, including "nothing staged".
+#
+# DO NOT RESPELL THE INVOCATION BELOW WITHOUT READING THIS. The census that
+# hunts for guards nothing calls matches the command as LITERAL TEXT. The line
+# below happens to contain the string it looks for, so this guard reads as
+# wired. Aether measured it 2026-09-19 against the instrument's real matching
+# logic rather than by eye, and tested two other spellings anyone could equally
+# have chosen -- invoking through the package's module path, or putting the
+# binary in a shell variable. Neither matches. Both are ordinary, neither is
+# wrong, and either would leave this guard reading as UNCALLED while it runs on
+# every commit.
+#
+# So a tidy-up here does not break the check -- it makes the check invisible to
+# the thing that counts checks, which is worse, because the census would then
+# report a false gap and someone would go and "fix" a guard that was already
+# working. The limit is his to state in the census; the warning belongs here,
+# where the keystroke happens.
+# THREE OUTCOMES HERE TOO, and the third one is why this is not a one-liner.
+# A copy of the package older than this change does not have the option at
+# all, and click answers that with its own usage exit. Treating that as "wrong
+# interpreter" would block every checkout whose install predates this commit
+# and blame the wrong thing while doing it. So a usage exit is COULD-NOT-CHECK
+# and warns; only a real verdict stops the run.
+PRECOMMIT_REPO_ROOT=$(git rev-parse --show-toplevel)
+set +e
+python -m divineos doctor verify-import divineos --must-be-under "$PRECOMMIT_REPO_ROOT"
+PRECOMMIT_IMPORT_RC=$?
+set -e
+if [ "$PRECOMMIT_IMPORT_RC" -eq 1 ]; then
+    echo ""
+    echo "STOPPING BEFORE ANY CHECK RUNS. The interpreter this script uses does"
+    echo "not load this repository, so every result below would be about a"
+    echo "different tree. Nothing was checked; this exit is not a pass."
+    exit 1
+elif [ "$PRECOMMIT_IMPORT_RC" -ne 0 ]; then
+    echo ""
+    echo "  !  could not check which copy of the project this interpreter loads"
+    echo "     (the installed divineos predates --must-be-under, or the CLI did"
+    echo "      not run). Continuing, but the results below are UNVERIFIED as to"
+    echo "      which tree they describe."
+fi
+
 STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
 
 # SELECT SHELL SCRIPTS BY SHEBANG TOO, NOT ONLY BY EXTENSION.
@@ -399,6 +463,35 @@ if [ -f scripts/check_hook_wiring.py ]; then
     fi
 fi
 
+# 5b-bis. REMOVED 2026-09-08, the same day it was added, and the reason is
+# worth keeping where the next person to reach for it will look.
+#
+# It was a ratchet on the SIZE of the hook layer: registrations and shell lines
+# could fall or hold, never rise. Andrew killed it with one question — "why
+# would you build something that can only shrink and never grow?"
+#
+# Size was never the disease. He asked for the thinking to move into the OS and
+# never once asked for fewer hooks; a hundred doors that all point inward would
+# be better than twenty that each hide a private brain. A count is easy to
+# police and the real property is work, and I took the easy one.
+#
+# The replacement is the migration itself — see the generated doorbells and the
+# surfaces in divineos.core.hook_surfaces.
+
+# 5b-ter. Every bell is what the generator produced.
+#
+# Aria 2026-09-08, refusing a property check on hand-written hooks: "Do not
+# police the shape. Remove the authoring. ... You cannot put a brain in a file
+# you did not author." So the doorbells are generated, and this compares them
+# byte-for-byte against the generator — exhaustive, rather than an opinion
+# about what a bell should look like.
+if [ -f src/divineos/core/doorbell_generator.py ]; then
+    section "Doorbells"
+    if ! python -c "import sys; from divineos.core.doorbell_generator import main; sys.exit(main('.'))"; then
+        note_fail
+    fi
+fi
+
 # 5c-ter. The map of the system still describes the system.
 #
 # Andrew 2026-08-27, after I built a command that already existed: "you have a
@@ -447,6 +540,35 @@ if [ -f scripts/generate_automation_register.py ]; then
     section "Automation Register"
     if ! python scripts/generate_automation_register.py --check; then
         note_fail
+    fi
+fi
+
+# 5c-bis. EVERY generated artifact, discovered rather than listed.
+#
+# The check directly above names ONE generator by hand. That was correct when
+# there was one; there are two now, and the second was only ever checked
+# because someone remembered to wire it separately. A hand-named set is the
+# failure Aether warned about on 2026-09-19 when he said the hot-file list must
+# be derived, not typed: "that set will drift, and a typed list goes stale
+# silently, which is the failure the whole house has been making all week."
+#
+# This one reads scripts/generate_*.py for the OUTPUT each declares about
+# itself, runs them all, and refuses any artifact whose bytes are not what its
+# generator produces. That is the state a clean auto-merge leaves behind, and
+# the reason it needs catching here is that NOTHING ELSE OBJECTS to it.
+#
+# It exits 2 for could-not-look -- a crashed generator, a generator that wrote
+# nothing, no generators found at all -- which is a warning here rather than a
+# block, because a broken generator is a different repair from a stale file and
+# the message says which one happened.
+if [ -f scripts/merge_surface.py ]; then
+    section "Generated artifacts re-derived"
+    python scripts/merge_surface.py --verify-generated
+    _surface_rc=$?
+    if [ "$_surface_rc" = "1" ]; then
+        note_fail
+    elif [ "$_surface_rc" != "0" ]; then
+        echo "  [warn] the re-derivation check could not look; see the reason above."
     fi
 fi
 
