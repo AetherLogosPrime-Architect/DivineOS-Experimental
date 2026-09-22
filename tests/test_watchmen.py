@@ -300,6 +300,14 @@ class TestReservedExternalVantageShapes:
                     # they cannot correct from where they are standing, which
                     # is the same disservice as the stale prescription itself.
                     #
+                    # AND THE FAILURE FOLLOWS THE WRONG PERSON. This half came
+                    # from the branch rather than from main, and the merge kept
+                    # it because neither side says it alone: whoever happens to
+                    # have worktrees open wears a red suite for a neighbour's
+                    # text. So the offender set depends on who is standing here
+                    # rather than on what this branch actually says, and the
+                    # same commit passes or fails by accident of local layout.
+                    #
                     # THE SAME SCOPE ERROR THIS DOCSTRING ALREADY CONFESSES,
                     # arriving from the opposite direction. The comment below
                     # worries about looking at too FEW places. This was looking
