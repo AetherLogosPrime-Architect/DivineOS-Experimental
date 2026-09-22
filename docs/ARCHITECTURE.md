@@ -308,6 +308,8 @@ src/divineos/
     skill_library.py           Evidence-based skill proficiency tracking
     curiosity_engine.py        Question tracking (OPEN → INVESTIGATING → ANSWERED)
     corrections.py             Raw correction notebook (user's exact words, no framing)
+    correction_relevance.py    Ranks his open corrections against what is happening now, instead of the newest three forever. Relevance ADDS slots; recency keeps its own. Thresholds measured against the live store, not chosen.
+    correction_arrest.py       The blocking half: holds a turn ONCE when a close-enough correction went untouched. Answering it or saying why it does not apply both pass; only silence is refused.
     exploration_reader.py      Surfaces past explorations in briefing and search
     lesson_interrupt.py        Mid-session chronic lesson questions (named-voice interrupt)
     self_model.py              Unified self-model assembled from all OS systems

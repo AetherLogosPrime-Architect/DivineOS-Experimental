@@ -31,6 +31,16 @@ cd "$REPO_ROOT" || exit 0
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
+# WHAT HE JUST SAID, so the corrections can be ranked against it rather than
+# only by date (Andrew 2026-09-22: "my corrections are not tied to memory for
+# whatever reason"). Read non-blocking so a harness that hands this hook no
+# stdin cannot hang the turn -- an empty payload just means no relevance half.
+HOOK_PAYLOAD=""
+if [ ! -t 0 ]; then
+    HOOK_PAYLOAD="$(timeout 2 cat 2>/dev/null || true)"
+fi
+export DIVINEOS_HOOK_PAYLOAD="$HOOK_PAYLOAD"
+
 PYTHONIOENCODING=utf-8 "$PYTHON_BIN" -c "
 import sys
 
@@ -181,6 +191,82 @@ try:
         print()
 except Exception:  # noqa: BLE001
     print('OPEN-WALK SURFACE FAILED TO LOAD -- that is a broken reader, not zero open walks.')
+    print()
+
+# RANKED AGAINST WHAT IS HAPPENING RIGHT NOW (Andrew 2026-09-22).
+#
+# He said: the memory linkage system i set up for you is not being used, my
+# corrections are not tied to memory for whatever reason. He was right, and
+# the cause was the sort() above -- newest three, every turn, forever, while
+# two hundred and thirty-six sat open and the one that mattered was never
+# among them.
+#
+# This ADDS slots; it never takes one from recency (Lovelace, walk
+# 5a7df669c67b). A ranking that could displace the newest could silently hide
+# the correction that would have caught me, which is worse than date-ordering
+# because date-ordering never claimed to know what was relevant.
+#
+# The query is his message plus the open goal, because two words of go ahead
+# carry no signal and the correction that matters is usually about the WORK
+# rather than the sentence (Peirce).
+import json as _json
+import os as _os
+
+_ranked = None
+try:
+    from divineos.core import correction_relevance as _crel
+
+    _payload = _json.loads(_os.environ.get('DIVINEOS_HOOK_PAYLOAD') or '{}')
+    _q = str(_payload.get('prompt') or '').strip()
+    try:
+        from divineos.core.hud_state import current_goals as _cg
+
+        _goals = _cg() or []
+        _q = (_q + ' ' + ' '.join(str(g.get('text', '')) for g in _goals[:2])).strip()
+    except Exception:  # noqa: BLE001 - the prompt alone is still a query
+        pass
+    if _q:
+        _ranked = _crel.rank(open_corrections, _q)
+except Exception as _exc:  # noqa: BLE001
+    # LOUD, not soft. A relevance half that goes quiet on failure is
+    # indistinguishable from one that found nothing, and that equivalence is
+    # the whole fault this was built to answer.
+    print(f'RELEVANCE RANKING FAILED TO LOAD: {type(_exc).__name__}.')
+    print('That is a broken reader, NOT an absence of relevant corrections.')
+    print()
+
+if _ranked is not None and _ranked.relevant:
+    print('CLOSEST TO WHAT IS HAPPENING RIGHT NOW (ranked, not dated):')
+    print()
+    for _rc in _ranked.relevant:
+        _t = str(_rc.row.get('text', '') or '')
+        if len(_t) > 400:
+            _t = _t[:400] + '...'
+        print(f'  correction #{_rc.row.get(\"id\", \"?\")} -- {_rc.why}')
+        print(f'    {_t}')
+        print()
+    if _ranked.high_matches:
+        print('  One or more of those scored close enough that passing it by IS')
+        print('  the failure. Answer it in this turn or say plainly why it does')
+        print('  not apply. Reading past it is the thing he named.')
+        print()
+        # AND IT BLOCKS, which is the other half of what he said: the trigger
+        # you made was not loud nor did it block so it was ignored. Arming
+        # here; the Stop door checks whether the reply touched it and holds
+        # once if it did not.
+        try:
+            from divineos.core import correction_arrest as _carr
+
+            if _carr.arm(_ranked.high_matches) is None:
+                print('  (the hold could not be armed -- this one only warns)')
+                print()
+        except Exception as _aexc:  # noqa: BLE001
+            print(f'  ARREST COULD NOT ARM: {type(_aexc).__name__}. This turn only')
+            print('  warns, and a warning is the thing that gets read past.')
+            print()
+elif _ranked is not None and _ranked.embedder_available:
+    print('Nothing in the open corrections is close to this turn. It looked; it')
+    print('found nothing -- which is different from not having looked.')
     print()
 
 print('These are corrections I filed and have not yet marked integrated.')

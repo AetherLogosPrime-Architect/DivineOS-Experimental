@@ -1054,6 +1054,65 @@ def his_standing_verdict_surface(payload: dict) -> SurfaceOutcome | None:
     return SurfaceOutcome(name="his_standing_verdict", state="spoke", output="\n".join(lines))
 
 
+def correction_arrest_surface(payload: dict) -> SurfaceOutcome | None:
+    """Hold once when a correction that fit this turn went untouched.
+
+    Andrew 2026-09-22, in two halves. First: *"the memory linkage system i set
+    up for you is not being used, my corrections are not tied to memory for
+    whatever reason."* The corrections surface answers that by ranking against
+    what is happening rather than by date. Then the half that makes it matter:
+    *"the trigger you made was not loud nor did it block so it was ignored."*
+
+    This is the blocking half. The compose-start surface arms an arrest when a
+    correction scores close enough; this asks whether the reply touched it, and
+    refuses once if it did not. Answering it and saying plainly why it does not
+    apply both pass. Only silence is refused.
+
+    The transcript check comes first for the same reason it does in
+    ``addressed_to_him_surface``: with no transcript the reply reads as empty,
+    and empty would read as nothing-to-say — a could-not-look wearing the
+    clothes of a pass.
+    """
+    raw = payload.get("transcript_path") or payload.get("transcript") or ""
+    if not raw:
+        return SurfaceOutcome(
+            name="correction_arrest",
+            error="no transcript path — cannot tell what the reply said",
+            state="could-not-run",
+        )
+
+    try:
+        from divineos.core import correction_arrest
+    except ImportError as exc:
+        return SurfaceOutcome(
+            name="correction_arrest",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+
+    text = _last_assistant_text(payload)
+    if not text.strip():
+        return SurfaceOutcome(name="correction_arrest", state="nothing-to-say")
+
+    try:
+        refusal = correction_arrest.check(text)
+    except Exception as exc:  # noqa: BLE001 — a surface never takes the turn down
+        return SurfaceOutcome(
+            name="correction_arrest",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+
+    if refusal is None:
+        return SurfaceOutcome(name="correction_arrest", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="correction_arrest",
+        refused=True,
+        reason=refusal,
+        state="spoke",
+    )
+
+
 def addressed_to_him_surface(payload: dict) -> SurfaceOutcome | None:
     """A reply written AT him that answers nothing he said is refused.
 
@@ -2194,6 +2253,14 @@ def install() -> None:
     # instead? why not both? all data is data."*
     if "his_standing_verdict" not in registered("Stop"):
         register("Stop", "his_standing_verdict", his_standing_verdict_surface)
+    # The arresting half of the corrections surface. That one finds the
+    # correction closest to what is happening; this one is why passing it by
+    # costs something. Andrew 2026-09-22: *"the trigger you made was not loud
+    # nor did it block so it was ignored."* Registered here because it is the
+    # same family as addressed_to_him -- both ask whether the reply touched the
+    # thing it was standing on.
+    if "correction_arrest" not in registered("Stop"):
+        register("Stop", "correction_arrest", correction_arrest_surface)
     # The count of things made without a word to him. Registered after
     # addressed_to_him because they read the same evidence from opposite ends:
     # that one asks whether THIS reply reached him, this one asks how long it
