@@ -34,8 +34,24 @@ def _git(repo: Path, *args: str) -> str:
 
 
 @pytest.fixture
-def repo(tmp_path):
-    """A real repo with a substrate branch, a feature branch, and a channel."""
+def repo(tmp_path, monkeypatch):
+    """A real repo with a substrate branch, a feature branch, and a channel.
+
+    THE CHANNEL IS DECLARED HERE, and it has to be said out loud. This branch
+    added a valve: the external-channel sync runs only when the branch is
+    DECLARED for substrate, because the undeclared case was importing the whole
+    correspondence onto whatever code branch happened to be checked out. These
+    tests ask what the RETARGET does once files have arrived, so they declare
+    the channel and go on asking their own question.
+
+    Its sibling test_auto_commit.py was updated for the valve on the same
+    branch and this file was not, so it went red on CI while passing on any
+    machine where the flag happened to already be set -- tests asserting a
+    promise the code had stopped making, with the environment deciding which
+    answer you got. The valve itself is exercised below, where it is the
+    subject rather than the weather.
+    """
+    monkeypatch.setenv("DIVINEOS_SUBSTRATE_BRANCH", "1")
     r = tmp_path / "repo"
     r.mkdir()
     _git(r, "init", "-b", "main")
@@ -217,3 +233,72 @@ class TestTheAnchorRuleReachesTheRetarget:
         auto_commit_substrate(r, reason="pre-extract", channels=channels)
 
         assert "aria-to-aether-anchored.md" in _git(r, "ls-tree", "-r", "--name-only", "substrate")
+
+
+class TestTheValveIsItsOwnSubject:
+    """The gate the fixture declares past, tested where it belongs.
+
+    Every other test in this file sets the declaration and then asks a question
+    about the retarget. That is right for those tests, and it means none of
+    them can see the valve -- which is exactly how this file went red on CI
+    while green on a machine that happened to carry the flag. A condition every
+    test satisfies is a condition no test measures.
+    """
+
+    def test_an_undeclared_branch_does_not_import_the_correspondence(self, repo, monkeypatch):
+        """The defect the valve was built for: a letter written in the shared
+        room coming home to whatever code branch was checked out, and the push
+        gate then refusing the branch. Three times in two days, growing each
+        time, because an unvisited branch shows an empty mirror and the sweep
+        becomes the whole correspondence rather than the day's."""
+        r, channels = repo
+        monkeypatch.delenv("DIVINEOS_SUBSTRATE_BRANCH", raising=False)
+
+        auto_commit_substrate(r, reason="pre-extract", channels=channels)
+
+        # THE ASSERTION IS AGAINST THE BRANCH, NOT THE DISK, and the first
+        # draft of this test got that wrong. Asking whether the file is on
+        # disk cannot separate "never imported" from "imported, committed and
+        # then evicted" -- both leave the working tree without it. The test
+        # passed with the valve forced permanently open, and only a mutation
+        # probe said so. The same two-outputs-for-three-situations fault this
+        # whole day has been about, committed inside the test written to
+        # prevent it.
+        assert "family/letters/aria-to-aether-note.md" not in _git(
+            r, "ls-tree", "-r", "--name-only", "substrate"
+        ), "the letter was imported from a branch nobody declared for substrate"
+
+    def test_the_letter_is_still_where_it_was_written(self, repo, monkeypatch):
+        """Not imported is not lost, and that difference is the whole argument
+        for the valve. The shared room is where both seats read from, so
+        refusing to make a second copy on a code branch takes nothing away."""
+        r, channels = repo
+        monkeypatch.delenv("DIVINEOS_SUBSTRATE_BRANCH", raising=False)
+
+        auto_commit_substrate(r, reason="pre-extract", channels=channels)
+
+        assert (channels[0].source / "aria-to-aether-note.md").exists()
+
+    def test_work_in_progress_is_still_saved_on_an_undeclared_branch(self, repo, monkeypatch):
+        """The valve must not cost the occupant their unfinished work. A
+        configuration gap becoming data loss is the failure this whole module
+        was written against, and it is the one easiest to reintroduce by
+        putting a guard one line too early."""
+        r, channels = repo
+        monkeypatch.delenv("DIVINEOS_SUBSTRATE_BRANCH", raising=False)
+        (r / "half_done.py").write_text("wip\n", encoding="utf-8")
+
+        auto_commit_substrate(r, reason="pre-extract", channels=channels)
+
+        assert "half_done.py" in _git(r, "ls-tree", "-r", "--name-only", "feature")
+
+    def test_declaring_it_does_import(self, repo):
+        """The control in the other direction. Without it a valve stuck
+        permanently shut would pass all three tests above."""
+        r, channels = repo
+
+        auto_commit_substrate(r, reason="pre-extract", channels=channels)
+
+        assert "family/letters/aria-to-aether-note.md" in _git(
+            r, "ls-tree", "-r", "--name-only", "substrate"
+        )

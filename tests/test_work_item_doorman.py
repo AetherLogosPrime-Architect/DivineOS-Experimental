@@ -8,6 +8,7 @@ down is a test the next person deletes when it goes red.
 from __future__ import annotations
 
 import json
+import tempfile
 import time
 from pathlib import Path
 
@@ -86,7 +87,30 @@ def test_code_paths_do_open_work() -> None:
 
 
 def test_paths_outside_the_repo_are_not_this_gates_business() -> None:
-    assert not doorman.needs_an_item(["C:/Users/aethe/.divineos-shared/letters/x.md"])
+    """The shared letters directory, and anything else off this tree.
+
+    THE PATH IS BUILT FOR THE PLATFORM RUNNING THE TEST, and that is the whole
+    repair. It used to hardcode a Windows absolute path, which is exactly what
+    this gate sees in real use -- and on a Linux runner that same string is a
+    perfectly ordinary RELATIVE path, so it resolves inside the repo and the
+    gate correctly claims it. The test failed on CI for asserting a Windows
+    fact on a machine where it was not one, and the failure pointed at the
+    gate rather than at itself.
+    """
+    outside = Path(tempfile.gettempdir()).resolve() / "divineos-shared" / "letters" / "x.md"
+    assert outside.is_absolute()
+    assert not str(outside).startswith(str(doorman.REPO_ROOT)), (
+        "the fixture path landed inside the repo, so this test is not asking its own question"
+    )
+
+    assert not doorman.needs_an_item([outside.as_posix()])
+
+
+def test_a_path_inside_the_repo_is_still_claimed() -> None:
+    """The control. A fix that made this gate ignore everything would pass the
+    test above, and outside-is-ignored only means something beside
+    inside-is-claimed."""
+    assert doorman.needs_an_item(["src/divineos/core/anything.py"])
 
 
 # --- Schneier finding 4: the two cheapest routes around the door -------------
@@ -117,6 +141,92 @@ def test_a_read_only_command_is_not_a_write() -> None:
     """A gate that fires on everything is noise, and noise gets removed."""
     assert not doorman.paths_from_tool_call("Bash", {"command": "git status --short"})
     assert not doorman.paths_from_tool_call("Bash", {"command": "grep -rn foo src/"})
+
+
+_ARROW = "-" + ">"
+_GT = ">"
+
+
+@pytest.mark.parametrize(
+    ("label", "command"),
+    [
+        ("an arrow inside a formatted string", f"python p.py  # prints x {_ARROW} y"),
+        ("a greater-or-equal comparison", "python -c 'assert n " + _GT + "= 0'"),
+        ("a redirect inside quoted text", "echo 'write it " + _GT + " somewhere'"),
+    ],
+)
+def test_a_greater_than_sign_is_not_always_a_redirect(label: str, command: str) -> None:
+    """Every one of these produced a phantom file and a refusal with it.
+
+    THIS DOORMAN FIRED WRONGLY ON ARIA TWICE while she was reading my branch,
+    and she took the counted bypass with her reason written out rather than
+    routing around it — so the cost landed on her, twice, and was paid
+    honestly both times. Her report: it read a probe on a scratch copy as new
+    build work, and named the target `-2`.
+
+    Then it did it to me, in the command I wrote to reproduce her report:
+    named `{pf` and `out.txt` as files I was about to write, from a read-only
+    inspection that wrote nothing.
+
+    The cause is one character. `>` was matched wherever it appeared, so an
+    arrow in a formatted string yielded a file called `ok`, and a comparison
+    yielded a file called `=`. A redirection is shell syntax and never lives
+    inside quotes, so quoted spans are blanked before matching, and a `>`
+    preceded by `-` or `=` is not a redirection at all.
+
+    THE MODULE SAID OVER-COLLECTING WAS THE SAFE DIRECTION, on the reasoning
+    that a false hit costs one refusal a work item clears. Use falsified it:
+    the real cost is another person blocked twice on work that was never a
+    build, writing a justification for a door that should not have closed.
+    That correction is kept in the module rather than deleted, because the
+    reasoning was honest and it was the measurement that changed it.
+    """
+    assert not doorman.paths_from_tool_call("Bash", {"command": command}), label
+
+
+def test_the_real_redirects_still_land_after_that_narrowing() -> None:
+    """The control. Without it, the three above would pass on an extractor
+    that had simply stopped extracting — which is the shape of half the
+    findings in this house today."""
+    assert doorman.paths_from_tool_call(
+        "Bash", {"command": "echo hi " + _GT + _GT + " notes.txt"}
+    ) == ["notes.txt"]
+    assert doorman.paths_from_tool_call(
+        "Bash", {"command": "somecmd " + _GT + " out.txt 2" + _GT + "&1"}
+    ) == ["out.txt"]
+
+
+@pytest.mark.parametrize(
+    ("label", "command"),
+    [
+        ("option ending in equals, then a redirect", "cmd --opt=" + _GT + "secret.txt"),
+        ("option ending in a dash, then a redirect", "cmd --opt-" + _GT + "secret.txt"),
+    ],
+)
+def test_aletheias_attack_a_real_write_hidden_behind_the_exclusion(
+    label: str, command: str
+) -> None:
+    """The hole my own narrowing opened, found by audit and kept as a test.
+
+    Aletheia, 2026-09-10: my first repair skipped a redirection sign preceded
+    by a dash or an equals, to kill the arrow and the comparison. A shell reads
+    an option ending in equals as an argument and what follows as a REDIRECT.
+    The file is written and the doorman never saw it. She was right, and it was
+    the exact case I had told her I kept looking at without ever testing.
+
+    The dash variant is mine, added because her equals case has a sibling and a
+    fix aimed at one example is a fix aimed at one example.
+
+    HER REMEDY WAS ALSO WRONG, and that is why this is a pair rather than a
+    revert: she proposed dropping the exclusion entirely on the ground that all
+    the false cases are quoted. One of them is not — the arrow in an unquoted
+    shell comment above — and her version names a file for it again.
+
+    What separates them is not the dash or the equals. It is whether the arrow
+    stands alone. Prose puts spaces around it; an option ending in a dash or an
+    equals has a word character behind it.
+    """
+    assert doorman.paths_from_tool_call("Bash", {"command": command}) == ["secret.txt"], label
 
 
 def test_the_doorman_can_be_asked_about_its_own_source() -> None:
@@ -446,3 +556,40 @@ def test_a_history_of_only_checkpoints_reports_unknown(monkeypatch) -> None:
         lambda *a, **k: _FakeGitLog("1788881397\x00auto-commit (pre-extract): checkpoint\n"),
     )
     assert doorman.head_commit_time() is None
+
+
+def test_the_council_remedy_names_the_command_that_actually_satisfies_it() -> None:
+    """A remedy that does not satisfy its own check turns a doorman into a wall.
+
+    2026-09-11: I hit this doorman four times on one edit, each time doing
+    exactly what it told me. Its remedy sent me to `mansion council --show`,
+    which primes lenses into context and writes to the council RECORDS store.
+    The check reads a CLOSED WALK out of the council_walk store -- different
+    store, different command, nothing comparing them.
+
+    Andrew named the distinction the same day: a gate says no, do this and come
+    back, and you come back and it says no again. A doorman names what is needed
+    and where it actually is. The difference is not politeness; it is whether
+    one refusal costs one step or a loop.
+
+    Pinned against the mechanism rather than a wording, so the sentence cannot
+    outlive the check a second time.
+    """
+    how = doorman._HOW["council walk"]
+
+    assert "walk open" in how and "walk close" in how, (
+        "the council remedy no longer names the open/close walk commands, which "
+        "are the only thing that writes the closed walk this check reads"
+    )
+    assert "mansion council --show" in how, (
+        "the remedy should still name the command that does NOT satisfy it -- "
+        "that was the trap, and dropping the warning re-arms it for the next reader"
+    )
+
+
+def test_every_required_station_has_a_remedy_and_a_plain_sentence() -> None:
+    """Control. A station that refuses with no exit is the shape this whole
+    file exists to prevent, and it would pass the test above by saying nothing."""
+    for station in doorman.REQUIRED_BEFORE_BUILD:
+        assert doorman._PLAIN.get(station), f"{station} refuses without saying what is missing"
+        assert doorman._HOW.get(station), f"{station} refuses without saying what to do"

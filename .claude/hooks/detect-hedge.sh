@@ -8,6 +8,12 @@
 # in the OS where the contract is. This one used to be a hundred lines of
 # thinking in the wrong language. Now it knocks and steps aside.
 #
+#
+# SUPERSEDED 2026-09-08 by the router. The decision now lives in
+# divineos.core.hook_surfaces as hedge_audit, dispatched by doorbell-stop.sh. The
+# registration came out of settings.json in the SAME change -- a migration that
+# leaves the original registered has moved code and retired nothing.
+# INTENTIONALLY UNWIRED (2026-09-08): superseded, see above.
 # Stop hook — thin doorman pointing to the OS.
 #
 # Andrew 2026-05-14 night: hooks point to OS, OS does the work.

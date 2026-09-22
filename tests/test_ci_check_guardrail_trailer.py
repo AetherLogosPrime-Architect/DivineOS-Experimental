@@ -652,3 +652,103 @@ def test_pr_body_not_consulted_when_tree_hash_explicitly_disabled(repo, tmp_path
     assert result.returncode == 0, result.stdout
     assert "DEPRECATED" in result.stdout
     assert "predates the tree-hash requirement" not in result.stdout
+
+
+# --- could-not-look is its own outcome ---------------------------------------
+#
+# Every test above sets PR_NUMBER, so the branch where no pull request can be
+# identified had never run here. That is where the bug lived: on a push to
+# main the event supplies no PR number, and a hand-edited squash title carries
+# no "(#N)", so the rescue could not reach a PR at all -- and reported that as
+# a finding about the PR's body. Commit abe62a32 blocked main on 2026-09-16
+# with that message, and its PR body was never opened.
+
+
+def _stub_gh_routes(tmp_path: Path, monkeypatch, *, api_stdout: str, body: str) -> None:
+    """Put a fake `gh` on PATH that answers `gh api` and `gh pr view` apart.
+
+    `api_stdout` is what `gh api .../pulls --jq .[0].number` prints: a PR
+    number when the commit belongs to one, empty when it does not.
+    """
+    bindir = tmp_path / "stub-bin"
+    bindir.mkdir(exist_ok=True)
+    gh = bindir / "gh"
+    gh.write_text(
+        "#!/bin/sh\n"
+        'if [ "$1" = "api" ]; then\n'
+        f"  printf '%s' '{api_stdout}'\n"
+        "  exit 0\n"
+        "fi\n"
+        "cat <<'GH_BODY_EOF'\n"
+        f"{body}\n"
+        "GH_BODY_EOF\n",
+        encoding="utf-8",
+    )
+    gh.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}")
+    monkeypatch.delenv("PR_NUMBER", raising=False)
+
+
+def _legacy_guardrail_pair(repo: Path) -> tuple[str, str]:
+    """A guardrail commit carrying a pre-tree-hash trailer and no '(#N)' title."""
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {"scripts/guardrail_files.txt": "src/foo.py\n", "src/foo.py": "v1"},
+    )
+    head = _commit(
+        repo,
+        "wire the retarget into the checkpoint\n\nExternal-Review: round-abcdef\n",
+        {"src/foo.py": "v2"},
+    )
+    return base, head
+
+
+def test_no_pull_request_found_reports_could_not_look_not_an_empty_body(
+    repo, tmp_path, monkeypatch
+):
+    """The gate must not describe a PR body it never opened.
+
+    This is the shape the gate itself exists to catch -- an instrument
+    answering confidently about a subject it did not reach -- and it was
+    living inside the gate.
+    """
+    base, head = _legacy_guardrail_pair(repo)
+    _stub_gh_routes(tmp_path, monkeypatch, api_stdout="", body="irrelevant")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+
+    result = _run_script(repo, base, head)
+
+    assert result.returncode == 1, result.stdout
+    assert "COULD NOT LOOK" in result.stdout
+    assert "no pull request could be found" in result.stdout
+    # The old message asserted a fact about a body nobody had read.
+    assert "no External-Review trailer in the PR body either" not in result.stdout
+
+
+def test_pull_request_found_by_commit_sha_when_the_title_lost_its_number(
+    repo, tmp_path, monkeypatch
+):
+    """The third lookup route. A squash title edited by hand drops GitHub's
+    '(#N)' suffix, and on a push event there is no PR_NUMBER either -- but the
+    commit still knows which pull request carried it."""
+    base, head = _legacy_guardrail_pair(repo)
+    _stub_gh_routes(
+        tmp_path,
+        monkeypatch,
+        api_stdout="412",
+        body="External-Review: round-f97fa965d232 tree-hash:" + "a" * 40,
+    )
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+
+    result = _run_script(repo, base, head)
+
+    assert result.returncode == 0, result.stdout
+    assert "predates the tree-hash requirement" in result.stdout
+
+
+# NOT TESTED HERE, and named rather than left as a silent gap: the no-gh
+# outcome. Removing gh from PATH means emptying PATH, which takes git and grep
+# with it and fails the script for an unrelated reason -- a test that passes
+# for the wrong cause. The branch is three lines and reachable by reading; the
+# honest record is that it is unexercised, not that it is covered.
