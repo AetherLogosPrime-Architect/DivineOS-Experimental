@@ -61,14 +61,31 @@ done
 # at, and a verdict nobody trusts is worse than none, because it still
 # costs the reading.
 #
-# The local side is dropped rather than parsed: nothing below needs it, and
-# the sha being compared is resolved from the local ref separately.
+# AND THE LOCAL SIDE IS NOT DISPOSABLE, which I got wrong here an hour ago.
+# This comment used to say "the local side is dropped rather than parsed:
+# nothing below needs it". Something below did: the verification resolves a
+# LOCAL sha to compare against the remote, and with only the destination name
+# kept it resolved whatever local branch happened to SHARE that name.
+#
+# Measured on the very next push. The destination had a stale local branch of
+# the same name sitting at the pre-rebuild tip, so the wrapper compared that
+# old sha against the freshly-pushed remote one, found them different, and
+# reported a silent failure on a push that had landed. Third fault in this
+# one verifier, and the second was hiding behind the first -- fixing the name
+# lookup is what let execution reach this line at all.
+#
+# So both halves are kept. The source names what was PUSHED; the destination
+# names where it landed.
 #
 # CHECKED WHILE HERE: audit_visibility runs the same ls-remote shape one
 # module over. It takes a plain branch name rather than a refspec, so it
 # does not carry this defect today -- looked at rather than assumed.
+LOCAL_REF="$TARGET_BRANCH"
 case "$TARGET_BRANCH" in
-    *:*) TARGET_BRANCH="${TARGET_BRANCH##*:}" ;;
+    *:*)
+        LOCAL_REF="${TARGET_BRANCH%%:*}"
+        TARGET_BRANCH="${TARGET_BRANCH##*:}"
+        ;;
 esac
 
 # AND THE DESTINATION MAY ALREADY BE FULLY QUALIFIED. `git push origin
@@ -107,10 +124,13 @@ if [[ -z "$TARGET_BRANCH" ]]; then
     exit 0
 fi
 
-LOCAL_SHA="$(git rev-parse "$TARGET_BRANCH" 2>/dev/null)"
+# Resolved from what was PUSHED, not from the destination name. With a
+# refspec those are different refs, and a stale local branch sharing the
+# destination's name is exactly what produced a false failure here.
+LOCAL_SHA="$(git rev-parse "$LOCAL_REF" 2>/dev/null)"
 if [[ -z "$LOCAL_SHA" ]]; then
     echo ""
-    echo "[divineos-push] result: exit=0 (PUSHED+UNVERIFIED, local ref '$TARGET_BRANCH' missing)"
+    echo "[divineos-push] result: exit=0 (PUSHED+UNVERIFIED, local ref '$LOCAL_REF' missing)"
     exit 0
 fi
 
