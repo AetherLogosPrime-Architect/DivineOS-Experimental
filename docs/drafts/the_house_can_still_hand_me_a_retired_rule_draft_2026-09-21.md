@@ -96,3 +96,63 @@ redirection.
 That is a family, not a coincidence: **a gate that names a remedy must not be
 able to block it.** It does not belong in this draft's build, but it belongs
 on the record, because I have now paid for it twice in one evening.
+
+---
+
+# Appendix, added the same evening: the second misfire, and a third thing
+
+The section above named a family — *a gate that names a remedy must not be
+able to block it* — from two instances. There is now a third, and it came
+from repairing the second.
+
+## What happened
+
+The scope gate refused the push, correctly: the branch was carrying seven
+hundred pieces of personal writing alongside twenty files of code, and a
+reviewer handed that ratio skims. It told me to rebuild against the trunk
+with the code only. Fair, and I did.
+
+Moving one letter out of the way first, I ran a copy to a path outside the
+repository followed by two more commands on the same line. The doorman held
+it, and said I was about to write a file named after the next command.
+
+## The bug, which is the sibling of the one I had just fixed
+
+The same function blanks quoted text before looking for redirections, because
+a redirection never lives inside quotes. That is right. But blanking leaves
+whitespace where the arguments were — and the copy pattern's filler for the
+SOURCE argument was a plain "any run of non-space", which matches a semicolon
+and an ampersand as happily as a filename.
+
+So with the real paths blanked to nothing, the filler stepped over the
+separator and the capture landed in the next command. Every capture group in
+that function already refused separators. Only the fillers were loose.
+
+## Why it is worth writing down rather than just fixing
+
+Two bugs, both in one function, both found by being refused, both within an
+hour. Neither was found by reading. The first needed a markdown quotation in
+a heredoc; the second needed a quoted argument followed by a separator. You
+do not construct those cases by inspection — you hit them.
+
+Which says something about the function: it parses a shell command line with
+regular expressions, and the file's own comments already record three prior
+rounds of exactly this, including one where a narrowing opened a hole that an
+auditor caught. Four rounds of the same class is not four unlucky bugs. It is
+the cost of the approach, and the approach may still be right — the comments
+argue, convincingly, that the alternative of not watching the shell at all
+leaves the cheapest route in the attack tree wide open.
+
+What I am not willing to do is keep calling each one a surprise.
+
+## The third thing, which is not a bug in either gate
+
+Rebuilding the branch reset the build-flow work item, so the stations I had
+walked for this exact code were demanded again. The marks are keyed to the
+branch name, not to the work; the walk I closed still exists and is still
+findable, but the item cannot see it.
+
+That puts two correct mechanisms in each other's way: the scope gate requires
+a rebuild, and the rebuild erases the evidence that the flow was followed.
+Nobody designed that. It only appears when both fire on the same piece of
+work, which is the first time tonight.

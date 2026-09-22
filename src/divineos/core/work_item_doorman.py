@@ -165,6 +165,12 @@ def needs_an_item(paths: list[str]) -> tuple[str, ...]:
 # a refusal to go with it.
 _QUOTED_SPAN = re.compile(r"'[^']*'|\"[^\"]*\"")
 
+# The only thing a filler or a capture in _SHELL_WRITE_PATTERNS may be made
+# of: one character of a word that is not whitespace and not shell structure.
+# Declared here so the invariant "no match spans a separator" lives in one
+# place instead of being re-honoured, and eventually forgotten, at each site.
+_WORD = r"[^\s;|&<>()]"
+
 # A HEREDOC BODY IS NOT SHELL SYNTAX EITHER, which is the sentence above with
 # a different noun. The shell reads a heredoc body as data and hands it to the
 # command's stdin; no redirection written inside one can open a file. The body
@@ -277,8 +283,30 @@ _SHELL_WRITE_PATTERNS: tuple[re.Pattern[str], ...] = (
     # which quoting does not always cover and which names no file either way.
     re.compile(r"(?<!(?<=[\s])[-=])>>?\s*(?![=\s])([^\s;|&<>()]+)"),
     re.compile(r"\btee\s+(?:-a\s+)?([^\s;|&<>()]+)"),
-    re.compile(r"\bsed\s+(?:-[a-zA-Z]*i[a-zA-Z]*\S*\s+)(?:[^\s]+\s+)*?([^\s;|&<>()]+)\s*$"),
-    re.compile(r"\b(?:cp|mv|install)\s+(?:-\S+\s+)*\S+\s+([^\s;|&<>()]+)"),
+    # NO MATCH SPANS A SEPARATOR, and that invariant is now declared once
+    # rather than honoured by habit at each site. _WORD below is the only
+    # thing a filler or a capture may be made of.
+    #
+    # It was already correct in every CAPTURE group here. The FILLERS -- the
+    # parts that skip over arguments on the way to the destination -- were
+    # plain `\S+`, which matches a semicolon or an ampersand as happily as a
+    # filename. So a match could begin in one command and finish in the next.
+    #
+    # MEASURED 2026-09-21, an hour after the heredoc repair above, by being
+    # refused again. A copy to a path OUTSIDE this repo, followed by two more
+    # commands on the same line. Blanking the quoted arguments left the real
+    # paths as whitespace, the filler walked past the separator, and the
+    # doorman reported I was about to write a file named after the next
+    # command. It held a command that touches nothing in the tree.
+    #
+    # THE LIMIT THIS DOES NOT CROSS, stated because it was an unwritten
+    # assumption until the walk asked for a falsifier: a path containing one
+    # of these characters must be quoted in the shell, and a quoted span is
+    # blanked before any of this runs. Such a write is invisible to EVERY
+    # pattern here. That was already true and is not made worse by narrowing
+    # the fillers -- but it is the honest edge of what this function sees.
+    re.compile(rf"\bsed\s+(?:-[a-zA-Z]*i[a-zA-Z]*{_WORD}*\s+)(?:{_WORD}+\s+)*?({_WORD}+)\s*$"),
+    re.compile(rf"\b(?:cp|mv|install)\s+(?:-{_WORD}+\s+)*{_WORD}+\s+({_WORD}+)"),
     re.compile(r"\bpatch\s+(?:-\S+\s+)*([^\s;|&<>()]+)"),
 )
 

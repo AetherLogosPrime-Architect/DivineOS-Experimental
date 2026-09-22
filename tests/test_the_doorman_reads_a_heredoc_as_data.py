@@ -99,3 +99,52 @@ def test_a_body_holding_an_unbalanced_quote_does_not_derail_the_quote_scan():
     )
     found = _bash(command)
     assert "src/divineos/core/written_after.py" in found, found
+
+
+# ---------------------------------------------------------------------------
+# THE SECOND MISFIRE, found an hour after the first, in the same function.
+#
+# The scope gate refused a push and required the branch be rebuilt. Moving one
+# file out of the way first, a copy to a path OUTSIDE the repo was followed by
+# two more commands on the same line. With the quoted arguments blanked, the
+# copy pattern's filler -- a plain run of non-space, which matches a semicolon
+# as happily as a filename -- stepped over the separator and captured the next
+# command's name. The doorman refused a command that touches nothing in the
+# tree, naming a file that has never existed.
+#
+# Every CAPTURE group here already refused separators. Only the fillers were
+# loose, which is what an invariant looks like when it is honoured by habit at
+# each site instead of declared once.
+# ---------------------------------------------------------------------------
+
+
+def test_a_copy_does_not_reach_past_a_semicolon_for_its_destination():
+    command = 'cp "family/letters/a.md" "C:/outside/the/repo/" ; git stash push -u'
+    found = _bash(command)
+    assert "git" not in found, found
+    assert "stash" not in found, found
+
+
+def test_a_copy_does_not_reach_past_an_ampersand_either():
+    """The exact shape that fired: copy, then two more commands."""
+    command = 'cp "one.md" "C:/elsewhere/" && ls -la "C:/elsewhere/one.md" && echo ok'
+    found = _bash(command)
+    assert "ls" not in found, found
+    assert "echo" not in found, found
+
+
+def test_a_real_copy_into_the_tree_is_still_caught():
+    """The control. Narrowing the filler must not blind the pattern."""
+    assert "src/divineos/core/target.py" in _bash(
+        "cp scratch/source.py src/divineos/core/target.py"
+    )
+
+
+def test_a_real_copy_with_flags_is_still_caught():
+    assert "src/divineos/core/target.py" in _bash(
+        "cp -r --preserve scratch/source.py src/divineos/core/target.py"
+    )
+
+
+def test_an_in_place_edit_is_still_caught():
+    assert "src/divineos/core/target.py" in _bash("sed -i s/a/b/ src/divineos/core/target.py")
