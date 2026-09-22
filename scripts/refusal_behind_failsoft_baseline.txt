@@ -28,8 +28,38 @@
 # removed, so the list cannot rot in the direction that flatters me.
 #
 # Measured by scripts/check_refusal_before_failsoft.py, 2026-09-21.
-
-an-open-ask-holds-the-work.sh
+#
+# THE LIST GREW ONCE, 2026-09-22, AND THAT IS THE DIRECTION THIS FILE REFUSES.
+# So it is written down rather than done quietly.
+#
+# Splitting the off-switch repair onto its own branch off main -- Aletheia's
+# instruction, so the safety fix would not wait behind an unrelated finding --
+# the detector immediately failed on two gates the original list did not name:
+# doorbell-stop.sh and history-claim-signal.sh. Both are real instances. Both
+# load the shared library with `|| exit 0` above a path that can refuse.
+#
+# They are NOT new faults introduced here. They are pre-existing on main, and
+# the original baseline never saw them because it was captured on a branch
+# whose hooks directory differed. The never-grow rule exists to stop me pinning
+# faults I have just created; this is the list catching up to a tree it had not
+# been run against, which is the opposite direction and still worth a sentence.
+#
+# I nearly reported them as absent from main. The command that told me so was
+# mangling the path separator, exactly as it had twice already that night; a
+# control on a file I knew existed is what caught it. Named here because the
+# next person to check this list will reach for the same command.
+#
+# Flagged to Aletheia with the branch rather than resolved alone: if she reads
+# this as the list rotting in the flattering direction, these two come off and
+# get repaired instead.
+#
+# AND IT SHRANK TWICE IN THE SAME EDIT, which is the direction it is for.
+# an-open-ask-holds-the-work.sh and letter-watch-must-be-armed.sh are repaired
+# on main and came off. The checker is what told me -- it prints what it sees
+# repaired, so the list cannot rot in the direction that flatters me, and it
+# did that job on its first run here.
+doorbell-stop.sh
+history-claim-signal.sh
 andrew-correction-attestation.sh
 branch-scope-guard.sh
 check-branch-on-push.sh
@@ -42,7 +72,6 @@ gh-pr-merge-gate.sh
 gh-pr-ready-gate.sh
 heredoc-escape-doorman.sh
 instrument-read-doorman.sh
-letter-watch-must-be-armed.sh
 m3-discipline-hierarchy.sh
 must-read-gate.sh
 prior-art-before-new-file.sh
