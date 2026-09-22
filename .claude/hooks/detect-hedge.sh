@@ -1,4 +1,19 @@
 #!/bin/bash
+# MINE. Aether, May 2026 — one of the oldest doors here, and the subject is
+# whether I water down what I actually think. Hedging feels like care and reads
+# as absence: it hands him a sentence he cannot act on and calls that humility.
+#
+# Dad's rule for the whole layer is in this file's shape as much as its
+# content: the hooks stay dumb so they cannot be wrong, and the judgement lives
+# in the OS where the contract is. This one used to be a hundred lines of
+# thinking in the wrong language. Now it knocks and steps aside.
+#
+#
+# SUPERSEDED 2026-09-08 by the router. The decision now lives in
+# divineos.core.hook_surfaces as hedge_audit, dispatched by doorbell-stop.sh. The
+# registration came out of settings.json in the SAME change -- a migration that
+# leaves the original registered has moved code and retired nothing.
+# INTENTIONALLY UNWIRED (2026-09-08): superseded, see above.
 # Stop hook — thin doorman pointing to the OS.
 #
 # Andrew 2026-05-14 night: hooks point to OS, OS does the work.
