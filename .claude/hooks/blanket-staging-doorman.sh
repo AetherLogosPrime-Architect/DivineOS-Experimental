@@ -63,8 +63,32 @@
 set -uo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
-# shellcheck disable=SC1091
-source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+
+# THE LIBRARY IS LOADED AT THE REFUSAL, NOT HERE. Moved 2026-09-23.
+#
+# This line used to read `source ... || exit 0`, and exit 0 is ALLOW. So if
+# that one shared file could not be sourced -- deleted, broken, or resolved
+# against the wrong root -- this door permitted a whole-tree stage instead of
+# refusing it, silently, with nothing printed to say the check never ran.
+#
+# Measured from two places before changing anything: with the library
+# reachable, exit 2 and the refusal prints. Run from a directory where it
+# cannot be found, exit 0 and stderr is empty. Same door, same command,
+# opposite answer, and the failing case is the quiet one.
+#
+# THE RULE IS ALETHEIA'S, 2026-09-21, and the pattern is the one
+# corrigibility-tool-gate.sh already follows after she found this same shape in
+# the off-switch: THE LOAD-BEARING CHECK GOES FIRST, and depends on nothing
+# that can fail soft. Not fail-closed on the library -- that bricks the session
+# including the edit that repairs the library. The third option: put the
+# decision above the load.
+#
+# It CAN go first here because this door's whole check is grep over the command
+# text. The library is used exactly once, on the way out, to print the footer
+# saying nothing on the line ran. That trade is already written inside the
+# helper itself -- the refusal must survive, the footer is the part allowed to
+# go missing -- and this call site had inverted it. So this removes a
+# contradiction rather than adding a policy.
 
 payload=$(cat)
 INPUT="$payload"
@@ -169,6 +193,19 @@ MESSAGE
 # CALL this, so the wording stays one thing in one place instead of drifting
 # per door. Which is the fault this whole week has been about, committed by me
 # inside a door I built to catch a cousin of it.
-hook_say_nothing_ran_for "$INPUT"
+#
+# LOADED HERE, WHERE THE REFUSAL IS ALREADY DECIDED. See the note at the top:
+# the load used to sit above everything and exit 0 on failure, so a missing
+# library turned this door into a permission. Now the worst a missing library
+# can cost is this footer -- the message above has already printed and the
+# exit below is already 2.
+#
+# The `|| true` is what makes that true rather than merely intended: an
+# unreadable library leaves the function undefined, and under `set -u` an
+# undefined command would end the script before the exit line. The refusal
+# must not depend on its own postscript.
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || true  # fail-soft: the refusal is already printed and the exit below is already 2; a missing library may cost the footer and must never cost the block
+command -v hook_say_nothing_ran_for >/dev/null 2>&1 && hook_say_nothing_ran_for "$INPUT"
 
 exit 2

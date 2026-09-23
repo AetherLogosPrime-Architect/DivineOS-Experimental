@@ -67,13 +67,30 @@ case "$CMD" in
   *) exit 0 ;;
 esac
 
-# Sourced only once the line is known to be a push, so the thousands of calls
-# that are not one never pay for it. Fail-open here rather than at the refusal:
-# a missing library means the hook does not run at all, which is the same
-# answer it already gives for a malformed payload.
+# THE OLD REASONING HERE WAS WRONG, and it is worth reading before the fix
+# because it is the most persuasive version of this mistake in the tree.
+#
+# It said: fail-open at the load rather than at the refusal, because a missing
+# library means the hook does not run at all, which is the same answer it gives
+# for a malformed payload.
+#
+# The two are NOT the same answer. A malformed payload means there is nothing
+# to judge -- the door looked and found no question. A missing library means
+# the door never looked at a question that was there. Standing down because
+# there is no case, and standing down because the lights went out, are
+# different events that happened to share an exit code, and sharing the exit
+# code is what made them look identical while one was written down as the
+# reason for the other.
+#
+# Corrected 2026-09-23. The check below is grep over the command text and needs
+# nothing from the library; the library is used exactly once, at the refusal,
+# to print the footer. So the load moves down to the refusal, where the worst a
+# missing library can cost is the postscript.
+#
+# Aletheia's rule, 2026-09-21, and the pattern corrigibility-tool-gate.sh
+# already follows after she found this shape in the off-switch itself: THE
+# LOAD-BEARING CHECK GOES FIRST, and depends on nothing that can fail soft.
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
-# shellcheck disable=SC1091
-source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 
 # Already using the wrapper, or one of the scripts that calls it.
 case "$CMD" in
@@ -106,5 +123,16 @@ infrastructure error. All four are answers. The exit code alone is not.
 Andrew built that wrapper in June after this fault recurred ten times in two
 days. I pushed six times tonight without it, and never once decided against it.
 EOF
-hook_say_nothing_ran_for "$INPUT"
+# LOADED HERE, WHERE THE REFUSAL IS ALREADY PRINTED. See the note above the
+# root resolution: the load used to sit before the check and exit 0 on
+# failure, so a missing library turned this gate into a permission. Now the
+# worst it can cost is this footer.
+#
+# The `|| true` is what makes that true rather than merely intended: an
+# unreadable library leaves the function undefined, and an undefined command
+# would end the script before the exit line. The refusal must not depend on
+# its own postscript.
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || true  # fail-soft: the refusal is already printed and the exit below is already 2; a missing library may cost the footer and must never cost the block
+command -v hook_say_nothing_ran_for >/dev/null 2>&1 && hook_say_nothing_ran_for "$INPUT"
 exit 2
