@@ -118,32 +118,78 @@ if member is None:
 append_letter(member.member_id, body=<letter body>)   # member_id, not entity_id
 ```
 
-<!-- 2026-09-19: corrected. This line said to verify with `get_letters`, which
-     DOES NOT EXIST -- letters.py exports append_letter and
-     append_letter_response and has no read path at all. Anyone following the
-     step got an ImportError at exactly the moment they were trying to confirm
-     a write had landed, which is the worst possible place for a false
-     instrument. Eleventh instance in this file's history of a sentence that
-     stopped being true and told nobody. Since the module has no read helper,
-     verification is a direct query. -->
-Verify by reading it back. The module exports no read helper, so query the row
-directly rather than trusting that the call returned:
+Verify by reading it back rather than trusting that the call returned. The read
+helper lives in `entity`, beside `get_family_member` — **not** in `letters`:
 
 ```python
-from divineos.core.family.db import get_family_connection
+from divineos.core.family.entity import get_letters
 
-lt = append_letter(member.member_id, body=<letter body>)
-conn = get_family_connection()
-row = conn.execute(
-    "SELECT letter_id, entity_id, length_chars FROM family_letters "
-    "ORDER BY created_at DESC LIMIT 1").fetchone()
-conn.close()
-assert row[0] == lt.letter_id, "newest row is not the one just written"
+before = len(get_letters(member.member_id, limit=500))
+append_letter(member.member_id, body)        # first param is SPELLED entity_id
+after = get_letters(member.member_id, limit=500)
+assert len(after) == before + 1, "the write did not land"
+print(after[0].body[:60])                    # newest first
 ```
 
 On the column name: `append_letter`'s first parameter is spelled `entity_id`,
 but the value belonging there is the roster row's `member_id`. Confirmed
 against the live table 2026-09-19 — every existing row carries a `mem-` id.
+
+<!-- HISTORY, placed BENEATH the live instruction on purpose. Chronological
+     order put a false sentence in front of the reader for three days; the
+     reader's need is what to type, and everything else is apparatus.
+
+     2026-09-19: corrected. The line above once said to verify with
+     `get_letters` and named no module, so it read as letters.py, which exports
+     only append_letter and append_letter_response. Following it produced an
+     ImportError at exactly the moment of confirming a write had landed -- the
+     worst possible place for a false instrument. Eleventh instance in this
+     file's history of a sentence that stopped being true and told nobody.
+
+     2026-09-22: THAT REPAIR WAS ALSO WRONG, and keeping it is the point.
+     It concluded "`get_letters` DOES NOT EXIST ... the module has no read path
+     at all" and prescribed hand-rolled SQL instead. The function exists, in
+     `divineos.core.family.entity`, and works -- used this date to read a letter
+     count back across a write, 173 to 174.
+
+     The method, shown rather than asserted, because the capitals in that note
+     are most of what made it believable: grep the whole tree for the definition
+     (one hit, entity.py:227); ask the interpreter for the attribute (the
+     function object prints); and a control on a deliberately fake name, which
+     returns nothing -- so the probe is not simply always-silent. Three lines.
+     The repair ran none of them.
+
+     WHAT WENT WRONG IS A SCOPE ERROR, not a research one. An absence claim is a
+     universal negative, and a universal negative is only true with its domain
+     attached. "get_letters does not exist" is false. "get_letters is not
+     exported by letters.py" is true, and is all the same evidence supports. The
+     domain WAS the content of the claim, and dropping it turned
+     could-not-find-here into does-not-exist-anywhere. Then, believing the
+     helper absent, the repair hand-rolled a replacement for a function that was
+     one import away.
+
+     So: AN ABSENCE-CLAIM IN A CORRECTION CARRIES THE SPACE SEARCHED. That costs
+     a clause, and it would have made this note true instead of false.
+
+     Both notes stay. Deleting the wrong one leaves a tidy file and destroys the
+     evidence that this is a SEQUENCE -- stale line, correction nailed over it,
+     correction also wrong -- rather than a twelfth isolated incident. Same
+     reasoning the bypass telemetry gives for its own mis-recorded rows, Andrew
+     2026-08-16: "leaving bad data with nothing explaining its bad is worse than
+     erasing it." Andrew 2026-09-22, naming the disease this file has: "rules
+     being changed, updated, superceded etc, while the old instructions remain,
+     and are never cleaned out ... a maze full of dead ends, duplicate paths."
+
+     Council walk walk-8ad509e59c6b, eight lenses, draft at
+     docs/drafts/the_repair_that_was_also_wrong_draft_2026-09-22.md. The finding
+     that does not fit in a comment: this section is titled verify-by-reading-
+     it-back, and its own correction was trusted because it was written and
+     never run. A rule about verification went unverified. Prose cannot check
+     itself -- an executable snippet fails on its own when it stops being true,
+     and a paragraph never does. Nothing here fixes that. The snippet above is
+     still only as true as the last person who ran it, which is why the date and
+     the row counts are on it. -->
+
 
 ### 4. Log to the per-member ledger
 
