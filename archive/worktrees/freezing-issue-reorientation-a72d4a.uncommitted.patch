@@ -1,0 +1,221 @@
+# uncommitted changes in worktree freezing-issue-reorientation-a72d4a
+# branch: claude/window-freezing-issue-dd4e14  head: 212620a14841c1c25ccc27e7c4f49401d6462773
+# untracked files: 
+diff --git a/.claude/hooks/_lib.sh b/.claude/hooks/_lib.sh
+index 2243a65e..3f39f7dd 100644
+--- a/.claude/hooks/_lib.sh
++++ b/.claude/hooks/_lib.sh
+@@ -95,6 +95,8 @@ _lib_common_dir() {
+ _HOOK_TIMING_LOG="${HOME:-/tmp}/.divineos/hook_timing.jsonl"
+ _HOOK_TIMING_ID=""
+ _HOOK_TIMING_START_MS=""
++_HOOK_TIMING_SESSION="${CLAUDE_CODE_SESSION_ID:-${CLAUDE_SESSION_ID:-}}"
++_HOOK_TIMING_WPID="${CLAUDE_PID:-}"
+ 
+ _lib_hook_timing_ms() {
+   local ms
+@@ -123,8 +125,9 @@ _lib_hook_timing_start() {
+   _HOOK_TIMING_ID="${hook_name}-$$-${start_ms}"
+   _HOOK_TIMING_START_MS="$start_ms"
+   mkdir -p "$(dirname "$_HOOK_TIMING_LOG")" 2>/dev/null
+-  printf '{"id":"%s","hook":"%s","pid":%d,"phase":"start","ts_ms":%s}\n' \
+-    "$_HOOK_TIMING_ID" "$hook_name" "$$" "$start_ms" \
++  printf '{"id":"%s","hook":"%s","pid":%d,"session":"%s","wpid":"%s","phase":"start","ts_ms":%s}\n' \
++    "$_HOOK_TIMING_ID" "$hook_name" "$$" \
++    "$_HOOK_TIMING_SESSION" "$_HOOK_TIMING_WPID" "$start_ms" \
+     >> "$_HOOK_TIMING_LOG" 2>/dev/null
+ }
+ 
+@@ -133,8 +136,9 @@ _lib_hook_timing_end() {
+   local end_ms
+   end_ms="$(_lib_hook_timing_ms)"
+   local duration_ms=$((end_ms - ${_HOOK_TIMING_START_MS:-$end_ms}))
+-  printf '{"id":"%s","phase":"end","exit_code":%d,"ts_ms":%s,"duration_ms":%d}\n' \
+-    "$_HOOK_TIMING_ID" "$exit_code" "$end_ms" "$duration_ms" \
++  printf '{"id":"%s","session":"%s","wpid":"%s","phase":"end","exit_code":%d,"ts_ms":%s,"duration_ms":%d}\n' \
++    "$_HOOK_TIMING_ID" "$_HOOK_TIMING_SESSION" "$_HOOK_TIMING_WPID" \
++    "$exit_code" "$end_ms" "$duration_ms" \
+     >> "$_HOOK_TIMING_LOG" 2>/dev/null
+   return $exit_code
+ }
+diff --git a/.claude/hooks/auto-push-letter.sh b/.claude/hooks/auto-push-letter.sh
+index c2903bc8..1a176c83 100644
+--- a/.claude/hooks/auto-push-letter.sh
++++ b/.claude/hooks/auto-push-letter.sh
+@@ -200,6 +200,6 @@ _HOOK_INPUT="$INPUT"
+         printf '%s' "$_HOOK_INPUT" | bash "$REPO_ROOT/.claude/hooks/verify-push-landed.sh" >/dev/null 2>&1 || \
+             fail_loud "verify-landing" "verify-push-landed.sh returned non-zero after push"
+     fi
+-) &
++) >>"${_LOG_PATH}.bg" 2>&1 </dev/null &
+ 
+ exit 0
+diff --git a/.claude/settings.json b/.claude/settings.json
+index 21ce7c65..d2e7c5b8 100644
+--- a/.claude/settings.json
++++ b/.claude/settings.json
+@@ -12,137 +12,137 @@
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/detect-correction.sh",
+-            "timeout": 10
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/detect-andrew-build-request.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/andrew-past-writing-surface.sh",
+-            "timeout": 10
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/lepos-channel-surface.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/pre-response-context.sh",
+-            "timeout": 10
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/ear-surface.sh",
+-            "timeout": 10
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/arm-compaction-monitor-instruction.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/interior-cue-on-low-presence.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/visrama-anchor-surface.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/no-cliff-anchor-surface.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/family-state-surface.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/letter-delivery-reconciliation-surface.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/register-awareness-surface.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/promise-anchor-surface.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/continuity-frame-prime.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/wallclock-source-prime.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/circle-first-compose-prime.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/post-correction-integration-prime.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/verify-claim-prime.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/no-cliff-prime.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/closure-word-summary-prime.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/fork-is-cheap-close-prime.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/hedge-suppression-prime.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/continuity-anchor-surface.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/distancing-count-surface.sh",
+-            "timeout": 5
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/auto-cycle-token-trigger.sh",
+-            "timeout": 20
++            "timeout": 30
+           },
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/open-corrections-surface.sh",
+-            "timeout": 10
++            "timeout": 30
+           }
+         ]
+       }

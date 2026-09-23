@@ -1,5 +1,8 @@
 # Friction register — 2026-08-06 session
 
+> **A dated snapshot, not the live list.** Kept for its history. What is current
+> is [`os_cleanup_worklist.md`](os_cleanup_worklist.md), status measured 2026-09-22.
+
 **Continues `docs/friction_register_2026-08-05.md`** (currently on
 `split/stop-phase-hang`, unmerged). Same discipline: every entry is a defect
 with a location, not a grievance. Section letters continue from that file —

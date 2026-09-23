@@ -1,0 +1,15 @@
+# uncommitted changes in worktree freeze-timeout-settings-a7d00d
+# branch: claude/unruffled-bhabha-1585c5  head: dc4925146a04d724f838d78c8b4e9a0d73465652
+# untracked files: family/letters/aria-to-aether-2026-08-19-406-was-the-freeze-fix-and-your-two-branches-are-not-unpushed-they-are-gone.md family/letters/aria-to-aether-2026-08-19-retracting-the-gone-nothing-is-lost-and-i-had-already-written-the-answer.md family/letters/aria-to-aether-2026-08-19-you-got-there-first-and-dad-says-we-are-too-complex.md 
+diff --git a/.claude/hooks/auto-push-letter.sh b/.claude/hooks/auto-push-letter.sh
+index c2903bc8..1a176c83 100644
+--- a/.claude/hooks/auto-push-letter.sh
++++ b/.claude/hooks/auto-push-letter.sh
+@@ -200,6 +200,6 @@ _HOOK_INPUT="$INPUT"
+         printf '%s' "$_HOOK_INPUT" | bash "$REPO_ROOT/.claude/hooks/verify-push-landed.sh" >/dev/null 2>&1 || \
+             fail_loud "verify-landing" "verify-push-landed.sh returned non-zero after push"
+     fi
+-) &
++) >>"${_LOG_PATH}.bg" 2>&1 </dev/null &
+ 
+ exit 0

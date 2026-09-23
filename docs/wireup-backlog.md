@@ -2,6 +2,10 @@
 
 # Wire-Up Backlog
 
+> **Not the cleanup list.** This file parks deferred wire-up items. The house's
+> cleanup — what is dead, stranded, hollow or duplicated, and where each job
+> stands — is [`os_cleanup_worklist.md`](os_cleanup_worklist.md), measured 2026-09-22.
+
 Long-term structural-debt tasks that aren't in the current arc but
 shouldn't get lost. Use this file instead of the harness TaskCreate
 for items that won't be addressed this session.

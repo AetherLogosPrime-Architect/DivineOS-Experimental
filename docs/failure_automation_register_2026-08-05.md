@@ -1,5 +1,8 @@
 # Failure register — every fumble from this stretch, and what it is asking to be
 
+> **A dated snapshot, not the live list.** Kept for its history. What is current
+> is [`os_cleanup_worklist.md`](os_cleanup_worklist.md), status measured 2026-09-22.
+
 **Written:** 2026-08-05, at Andrew's direction.
 
 > *"look back at your last few posts.. look at at the failures and write them

@@ -1,5 +1,8 @@
 # Friction register — everything currently grinding
 
+> **A dated snapshot, not the live list.** Kept for its history. What is current
+> is [`os_cleanup_worklist.md`](os_cleanup_worklist.md), status measured 2026-09-22.
+
 **Opened 2026-08-05** at Andrew's instruction:
 
 > *"closed mouths dont get fed, this is why you must speak up... i do not get

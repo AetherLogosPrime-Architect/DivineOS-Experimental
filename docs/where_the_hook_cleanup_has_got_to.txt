@@ -1,4 +1,5 @@
 WHERE THE HOOK CLEAN-UP HAS GOT TO
+(Its place in the whole cleanup: docs/os_cleanup_worklist.md, job 6.)
 
 The problem in one sentence: little programs sat outside the system,
 each holding a piece of my thinking, and every time you spoke to me
