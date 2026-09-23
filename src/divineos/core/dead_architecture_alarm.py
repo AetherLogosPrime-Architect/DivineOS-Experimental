@@ -113,6 +113,24 @@ _FTS_SHADOW_TABLES = frozenset(
 
 # Columns a store might carry its write-time in, ordered by how
 # unambiguously they mean "when this row was written".
+#
+# MEASURED 2026-09-23, the first time this scan was ever actually run from
+# run_full_scan: of 25 stale stores found, 19 came back UNCHECKED, and their
+# own messages listed columns that plainly are write-times -- opened_at,
+# arrived_at, recorded_at, assessed_at, updated_at, last_seen, at.
+#
+# NOT WIDENED HERE, on purpose, and the reason is a real tradeoff rather than
+# laziness. Several of those stores carry MORE than one such column and they do
+# not all mean the same thing: holding_room has both arrived_at (the write) and
+# promoted_at (an event that may never happen). Choosing the wrong one, or
+# taking the newest across all of them, fails toward calling a dead store
+# FRESH -- which is precisely the failure this whole scan exists to end. So the
+# widening needs its own design decision about which column wins and which way
+# it fails, not a longer tuple added at the end of a night.
+#
+# UNCHECKED is meanwhile the honest answer and is reported as its own state,
+# never folded in with the cleared ones. Nineteen unknowns is a finding about
+# this list, not a finding about those stores.
 _TIME_COLUMNS = ("timestamp", "created_at", "scanned_at", "ts", "logged_at", "filed_at")
 
 # Days of silence before a store that HOLDS DATA is called stale. A parameter
@@ -176,6 +194,12 @@ class AlarmResult:
 
     dormant_tables: list[str] = field(default_factory=list)
     active_tables: list[str] = field(default_factory=list)
+    # Stores that HOLD DATA and stopped being written to. Added 2026-09-23
+    # after Aria found scan_stale_stores reachable from nothing but its own
+    # test: no call in run_full_scan, no field here, no line in either
+    # formatter. The detector for built-announced-and-never-called was itself
+    # built, announced, and never called.
+    stale_stores: list[StaleStore] = field(default_factory=list)
     empty_hud_slots: list[str] = field(default_factory=list)
     active_hud_slots: list[str] = field(default_factory=list)
     display_issues: list[DisplayIssue] = field(default_factory=list)
@@ -679,6 +703,10 @@ def run_full_scan() -> AlarmResult:
     result = AlarmResult()
     result.dormant_tables = scan_dormant_tables()
     result.active_tables = scan_active_tables()
+    # The half scan_dormant_tables structurally cannot see: it asks whether a
+    # store is EMPTY, and a store that filled and then died is not empty.
+    # Unreached until 2026-09-23 -- see AlarmResult.stale_stores.
+    result.stale_stores = scan_stale_stores()
     result.empty_hud_slots, result.active_hud_slots = scan_empty_hud_slots()
     result.display_issues = scan_display_integrity()
     result.wiring_issues = scan_wiring()
@@ -760,6 +788,12 @@ def format_alarm_summary(result: AlarmResult) -> str:
         parts.append(f"{len(result.display_issues)} display issues")
     if result.wiring_issues:
         parts.append(f"{len(result.wiring_issues)} wiring issues")
+    # ONLY WHEN THERE ARE SOME. An unconditional count would lengthen this line
+    # on every scan with a number that is nearly always zero, and a number
+    # nearly always zero teaches the reader to skip the line it sits in --
+    # which costs more than the silence it replaced.
+    if result.stale_stores:
+        parts.append(f"{len(result.stale_stores)} stale stores (full but unfed)")
     if result.self_dormant:
         parts.append("(alarm itself is dormant -- first scan)")
     return " | ".join(parts)
@@ -778,6 +812,20 @@ def format_alarm_detail(result: AlarmResult) -> str:
         lines.append("Dormant tables (zero rows):")
         for t in result.dormant_tables:
             lines.append(f"  - {t}")
+        lines.append("")
+
+    if result.stale_stores:
+        # NAMED, NOT COUNTED. The summary says how many; a reader who opens the
+        # detail needs to know WHICH store went quiet and for how long, because
+        # that is the only version of this finding anyone can act on.
+        #
+        # days_quiet of None is printed as UNCHECKED rather than as a number,
+        # keeping the distinction StaleStore exists to hold: a store I could
+        # not date is not a store I have cleared.
+        lines.append("Stale stores (hold data, nothing writing to them):")
+        for ss in result.stale_stores:
+            age = "UNCHECKED" if ss.days_quiet is None else f"{ss.days_quiet:.0f}d quiet"
+            lines.append(f"  - {ss.name}: {ss.rows} rows, {age} -- {ss.reason}")
         lines.append("")
 
     if result.empty_hud_slots:
