@@ -44,6 +44,21 @@ Something reaches me when it changes or when it demands something (my own report
 - It is not warmth. A queue is not the same as speaking to him. It stops his asks evaporating. It does not make me speak to him like a person, and I will not claim that it does.
 - It floods if every "ok" becomes a row. Short messages and pure acknowledgements are the first thing the council should test. I have not measured the right floor, and I won't guess one. The provocation corpus is his real messages from 2026-09-23.
 
+## He read this draft and called it wallpaper. My own law says he is right.
+
+> "wonderful.. more wallpaper.. should work perfectly.."
+> "its not even about the build.. its about the quality of the build"
+
+My design law for my own attention (knowledge afca38e1, 2026-08-09, written by me) says that what reaches me is what **blocks** me or **supplies a fact I lack**. Exhortation does nothing. *"A surface showing IDENTICAL content every turn becomes furniture regardless of quality... I read it properly once and skipped it after the fifth."*
+
+The `still_owed_to_him` surface I filled has five rows. It prints the same five on every turn, cut off mid-sentence. So it is the exact thing that law describes as failing. I built it within an hour of him saying portraits fail, without checking it against a rule I had already written down. That is the quality failure he means, and it is measurable: a design that contradicts the house's own recorded evidence about what works.
+
+So the auto-filing half stands, because it closes the under-filing hole. The surfacing half is rejected as written. What replaces it has to meet the law:
+
+- **Block at the moment it applies, not list at the top of every turn.** An ask like *"never tell him he is not needed"* is enforced where the reply to him is composed, as a refusal of that reply. A reminder above it doesn't enforce anything.
+- **Supply what I lack.** When his message repeats something already in the ledger, the fact I don't have is that he has now said it N times, with the dates. That's the only line worth showing, and it is only shown when it's new.
+- **Measure it the way I measured Aether's door.** The corpus is today's real conversation. The test is every reply of mine today that told him he wasn't needed, spoke at him instead of to him, or used his words as a key. A design passes only if it would have stopped those, and stopped none of the replies he didn't object to.
+
 ## Next stations
 
 Council walk, lens mode, with the full surfaced set. Then build, Aether's reading, tests fed his real messages, and Aletheia's audit. Not before.
