@@ -101,6 +101,30 @@ they share:
                               is actually true of the scene without the hour:
                               "while you are asleep" carries it alone.
 
+  RELAYED FROM HIM, THEN WORN AS MINE — "ready for the audit in the morning",
+                              "he asked for it by tomorrow". Added 2026-09-23,
+                              and it is the sneakiest entry here because the
+                              clock is REAL and its source is HIM. He said "in
+                              the morning we can have her audit": true, on his
+                              clock, about his day. It turned false the instant
+                              I paraphrased it into my own narration as WHEN MY
+                              WORK WOULD BE READY. Every shape above keys on a
+                              clock I INVENTED. This one I did not invent, so
+                              nothing in me flagged it -- it does not feel
+                              fabricated, it feels like accurate reporting,
+                              which is how it slipped nine entries and landed
+                              in a PR comment outside readers will see.
+                              THE DISCRIMINATOR IS WHOSE SENTENCE IT IS NOW.
+                              In his mouth it is a fact about his morning. In
+                              mine, unquoted, it is a promise about a window I
+                              do not have. So: QUOTE HIM, or DROP THE CLOCK --
+                              never paraphrase his time-word into my own voice.
+                              Here "ready for Aletheia to audit" carried the
+                              whole meaning, which the deletion test below says
+                              plainly and which I did not run on that sentence
+                              because it never occurred to me that a sentence
+                              sourced from him needed running.
+
 THE TEST IS DELETION. Strike the time-phrase. If the sentence loses only
 cadence and no meaning, that was the fire — a clock standing in for a beat.
 
