@@ -90,7 +90,23 @@ esac
 # Aletheia's rule, 2026-09-21, and the pattern corrigibility-tool-gate.sh
 # already follows after she found this shape in the off-switch itself: THE
 # LOAD-BEARING CHECK GOES FIRST, and depends on nothing that can fail soft.
+#
+# CORRECTED AGAIN 2026-09-23, by Aria, and the second correction is the one
+# that matters. My first repair MOVED this load down to the refusal. That
+# satisfies the rule above and breaks the record: loading at top level is what
+# starts this hook's timing entry and writes its liveness line, and the firing
+# map files a hook that mentions the library but never writes a row as SILENT
+# -- "can report, and never has". For this gate that is most of the time, since
+# it only refuses an unwrapped background push. A live gate reported dead.
+#
+# So the load stays here and the exit changes instead. `|| true` means a
+# failure to source no longer ends the script; the check below still runs, the
+# refusal still fires, and only the footer is lost. Searched before editing:
+# this is already the shape most hooks in this directory use. These two were
+# the outliers.
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || true  # fail-soft: an unreadable library must not end this script; the check below runs without it and only the footer is lost
 
 # Already using the wrapper, or one of the scripts that calls it.
 case "$CMD" in

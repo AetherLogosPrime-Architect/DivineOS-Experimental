@@ -64,7 +64,39 @@ set -uo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 
-# THE LIBRARY IS LOADED AT THE REFUSAL, NOT HERE. Moved 2026-09-23.
+# ONE CHARACTER, NOT A RELOCATION. Corrected 2026-09-23 by Aria, after my
+# first repair moved this load down to the refusal.
+#
+# The old line was `source ... || exit 0`, and exit 0 is ALLOW: a door whose
+# job is to refuse permitted everything if that file could not be sourced.
+# Moving the load down fixed that and broke something else.
+#
+# LOADING IS NOT ONLY THE FOOTER. At top level it starts this hook's timing
+# record and sets an EXIT trap, which is what writes the liveness line. The
+# firing map decides a hook CAN report by whether its text mentions the
+# library at all -- checked, it is a literal substring test -- and files a
+# can-report hook with no rows as SILENT, "can report, and never has".
+#
+# So loading only when refusing means this door writes nothing on every PASS,
+# and the map reports a live, working gate as silent. A false finding about a
+# healthy thing: the same class of fault as the one being repaired, pointed
+# the other way.
+#
+# `|| true` keeps both. The load happens here so a pass still leaves its
+# record, and a failure to load no longer ends the script. The footer at the
+# bottom is guarded, so a missing library costs the footer and never the block.
+#
+# AND THIS IS THE HOUSE'S EXISTING SHAPE, which neither of us said first.
+# Searched before editing: many hooks already open with `|| true` on this very
+# line. These two were the outliers carrying `|| exit 0`. So the repair is not
+# a new design, it is the convention the rest of the tree already keeps.
+#
+# Aletheia's rule stands and is satisfied -- the load-bearing check depends on
+# nothing that can fail soft. The load simply never had to move for that.
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || true  # fail-soft: an unreadable library must not end this script; the refusal below runs without it and only the footer is lost
+
+# WHAT THE FIRST REPAIR SAID, kept because the reasoning is still the reason.
 #
 # This line used to read `source ... || exit 0`, and exit 0 is ALLOW. So if
 # that one shared file could not be sourced -- deleted, broken, or resolved
