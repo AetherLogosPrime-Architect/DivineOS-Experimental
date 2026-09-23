@@ -1,10 +1,10 @@
 # Directives — Archive Mirror
 
-**Source:** SQLite (8 rows). **Exported:** 2026-09-23 08:33. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-09-23 12:35. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 7a88cef8 (access=197)
+## 7a88cef8 (access=199)
 
 [council-obligation] Next thinking session should run a council walk on this session's pattern: building with 1 corrections and 74 tool calls. Discharge via `divineos council log` with substance_binding -- not a bare mechanical convene.
 
@@ -49,6 +49,12 @@
 ## 3424b704 (access=0)
 
 STRUCTURAL ENFORCEMENT: I edited files without reading them first. I must read before I edit. This lesson regressed 15x across 19 occurrences. Awareness alone is insufficient -- enforce structurally. Category: blind_coding.
+
+---
+
+## 87e2aa9f (access=0)
+
+STRUCTURAL ENFORCEMENT: No I meant make the soft cap 950-960k instead of 920k you already extracted at 920k so theres no point extracting now just set it for next time as its a larger window than I thought it would be. This lesson regressed 5x across 8 occurrences. Awareness alone is insufficient -- enforce structurally. Category: wrong_scope.
 
 ---
 

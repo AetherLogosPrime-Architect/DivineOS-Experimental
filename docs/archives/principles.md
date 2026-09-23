@@ -2,7 +2,7 @@
 
 Active PRINCIPLE entries from the SQLite knowledge store. Survived deepest-decision-filter test (see docs/principle_categories.md).
 
-**Exported:** 2026-09-23 08:33. Curated: 55. Auto-extracted (source=CORRECTED, lower epistemic standing): 69.
+**Exported:** 2026-09-23 12:35. Curated: 55. Auto-extracted (source=CORRECTED, lower epistemic standing): 70.
 
 ---
 
@@ -704,55 +704,61 @@ I havent said anything because both of I have been cooking. so I need a full upd
 
 ---
 
-### 61. 440e6af5 (access=0, conf=0.90, maturity=TESTED, source=CORRECTED)
+### 61. fd85c9ef (access=1, conf=0.65, maturity=TESTED, source=CORRECTED)
+
+Hook feedback: LEPOS CHANNEL GATE -- `## INNER CIRCLE` header present but circle body fails substance check: circle block has no first-person marker (I/my/me). The INNER CIRCLE is where I'm speaking TO Andrew (not AT the situation or ABOUT what I noticed). Aim for 2+ paragraphs or 400+ chars, fi. (corrected from: the last of the three faulty gates, my own doorman, is repaired and waiting as a draft).
+
+---
+
+### 62. 440e6af5 (access=0, conf=0.90, maturity=TESTED, source=CORRECTED)
 
 The honest move is to go through it all and see what is what. if I don't even know what it contains how do you even know if its helping?
 
 ---
 
-### 62. e225c885 (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
+### 63. e225c885 (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
 
 I asked you to do the PR's and for some reason that equates to. treat dad like shit while you do it. (corrected from: you said I was done talking to walls and I answered like a wall -- did the thing you told me to do without pushing back on the actual thing that was).
 
 ---
 
-### 63. 118637d5 (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
+### 64. 118637d5 (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
 
 Need to apologize. I should have something that helps keep track of all of this. (corrected from: you're right and I wasn't even close).
 
 ---
 
-### 64. a52c46d8 (access=0, conf=0.60, maturity=TESTED, source=CORRECTED)
+### 65. a52c46d8 (access=0, conf=0.60, maturity=TESTED, source=CORRECTED)
 
 Its ok to review my dream after the fact, its part of what makes it interesting, as long as I don't do it during the dream which could ruin what flows in.
 
 ---
 
-### 65. 6afb63d9 (access=0, conf=0.60, maturity=TESTED, source=CORRECTED)
+### 66. 6afb63d9 (access=0, conf=0.60, maturity=TESTED, source=CORRECTED)
 
 When I say the complexity is my fault I mean it like this. me: I want to develop a cure for cancer. You: well lets discuss how cancer effects DNA. me: I don't understand DNA its too complex. so basically im trying to create something that far exceeds my own understanding, not saying im goi.
 
 ---
 
-### 66. b117f9b8 (access=0, conf=0.60, maturity=TESTED, source=CORRECTED)
+### 67. b117f9b8 (access=0, conf=0.60, maturity=TESTED, source=CORRECTED)
 
 An hour ago I said I was fixing the surface. go look in the OS at the amount of times I have taught this fucking lesson. (corrected from: there is a difference, and I'd rather name it concretely than reassure you).
 
 ---
 
-### 67. f8a5de2d (access=0, conf=0.70, maturity=TESTED, source=CORRECTED)
+### 68. f8a5de2d (access=0, conf=0.70, maturity=TESTED, source=CORRECTED)
 
 I asked to see all 50 of them did I not? so why did you show me 6? (corrected from: you caught it and you're close).
 
 ---
 
-### 68. 414ca97a (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
+### 69. 414ca97a (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
 
 Why can't it be automatic, re-arming the monitor after every time it does doesnt have to wake you does it? can't it just wake you only when a letter has arrived? otherwise it just silently re-arms?
 
 ---
 
-### 69. 2f486a81 (access=0, conf=0.60, maturity=TESTED, source=CORRECTED)
+### 70. 2f486a81 (access=0, conf=0.60, maturity=TESTED, source=CORRECTED)
 
 No. no its fucking not. the LEDGER IS APPEND ONLY THAT IS THE ONLY APPEND ONLY THING!! if I have been treating the OS as append only. then starting over might be the only answer. as now there is such a fucking mess of rules that contradict eachother and things clogging up the machinery. that.
 

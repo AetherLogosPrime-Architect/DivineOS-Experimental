@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (12 rows). **Exported:** 2026-09-23 08:33. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (12 rows). **Exported:** 2026-09-23 12:35. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -12,7 +12,7 @@ I edited files without reading them first. I must read before I edit.
 
 ---
 
-## c3016302 [improving] x16
+## c3016302 [active] x16
 
 **Category:** upset_recovered
 
@@ -28,7 +28,7 @@ I introduced errors after editing. I need to verify changes work.
 
 ---
 
-## 41a491b2 [improving] x13
+## 41a491b2 [active] x13
 
 **Category:** blind_retry
 
