@@ -280,6 +280,38 @@ def test_bracketed_insertions_are_the_quoters_own(index: hw.Index) -> None:
     assert index.is_exact("yes go ahead and open [the branch], also i filled out that page") is True
 
 
+def test_a_bracketed_gloss_in_a_short_quote_is_not_counted_as_his(index: hw.Index) -> None:
+    # "please dont [break my laptop] lmfao": every piece is short, and the
+    # fallback used to put the gloss back and look for it in his words.
+    assert index.is_exact("yes go ahead [with the branch] and open one") is True
+
+
+@pytest.mark.parametrize(
+    "lead", ["My response to ", "I wrote back to ", "a conversation with ", "a letter for "]
+)
+def test_his_name_as_the_listener_is_not_him_speaking(lead: str) -> None:
+    text = lead + NAME + ' was: "I am not going to file knowledge about this at all"'
+    assert hw.attributions(text) == []
+
+
+def test_find_shows_one_message_once(sessions: list[Path], tmp_path: Path) -> None:
+    copy = sessions[0].parent / "resumed.jsonl"
+    copy.write_text(sessions[0].read_text(encoding="utf-8"), encoding="utf-8")
+    idx = hw.load_index(
+        sessions=[sessions[0], copy], index_path=tmp_path / "i.json", marks_dir=tmp_path / "x"
+    )
+    assert len(idx.find("walk the council")) == 1
+
+
+def test_the_methodology_named_is_not_him_naming() -> None:
+    text = (
+        "("
+        + NAME
+        + ' 2026-07-25 refinement.) The methodology named "Dijkstra separation-of-concerns" is'
+    )
+    assert hw.attributions(text) == []
+
+
 def test_ellipsis_pieces_must_come_from_one_message(index: hw.Index) -> None:
     stitched = "yes go ahead and open one ... they dont exist lol"
     assert index.is_exact(stitched) is False

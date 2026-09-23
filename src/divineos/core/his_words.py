@@ -225,7 +225,10 @@ class Index:
         parts = re.split(r"\.\.\.|…|\[[^\]]*\]", quote)
         frags = [words(p) for p in parts]
         frags = [f for f in frags if len(f) >= 3]
-        return frags or [words(quote)]
+        # When every piece is short, check the pieces joined -- but never with
+        # the bracketed insertion put back: "[break my laptop]" is the quoter's
+        # gloss, and counting it as his made his real words look missing.
+        return frags or [words(re.sub(r"\[[^\]]*\]", " ", quote))]
 
     def is_exact(self, quote: str) -> bool:
         needles = [" " + " ".join(f) + " " for f in self.fragments(quote) if f]
@@ -265,7 +268,11 @@ class Index:
 
     def find(self, text: str, limit: int = 10) -> list[tuple[str, str]]:
         needle = " " + " ".join(words(text)) + " "
-        hits = [self.messages[i] for i, j in enumerate(self._joined) if needle in j]
+        # The same message can sit in two saved conversations (a resumed one
+        # carries its parent's history), so one thing he said shows once.
+        hits = list(
+            dict.fromkeys(self.messages[i] for i, j in enumerate(self._joined) if needle in j)
+        )
         return hits[:limit]
 
 
@@ -392,11 +399,15 @@ def load_index(
 #     only "Andrew's words" and lost sixty quotes, ten of them ones he had
 #     marked not his. "Andrew's sheet -- ..." he marked not his too: a quote
 #     beside his name reads as his, whatever noun sits between.
-_NOT_QUOTED_NAME = r"(?<![\"“])"
+# Also skipped: his name as the LISTENER. "My response to Andrew was: '...'"
+# quotes me, and the first version read it as him.
+_NOT_QUOTED_NAME = r"(?<![\"“])(?<!\bto )(?<!\bTo )(?<!\bwith )(?<!\bfor )"
 _NAME = r"\b(?:Andrew|Dad)(?:'s|’s)?\b"
 _DATE = r"[ ,(]*20\d\d-\d\d-\d\d[),]*"
 _SPEECH = (
-    r"(?::|\s-{1,2}\s|\s?—\s?|\bsaid\b|\bwrote\b|\basked\b|\btold\b|\bput it\b|\bwords?\b|\bnamed\b"
+    # Not "named": "The methodology named 'Dijkstra separation-of-concerns'"
+    # names a methodology, and forty characters after his name it read as him.
+    r"(?::|\s-{1,2}\s|\s?—\s?|\bsaid\b|\bwrote\b|\basked\b|\btold\b|\bput it\b|\bwords?\b"
     r"|\bruled\b|\bcorrected\b|\bcaught\b|\bsays\b|\btyped\b)"
 )
 _LEAD = (

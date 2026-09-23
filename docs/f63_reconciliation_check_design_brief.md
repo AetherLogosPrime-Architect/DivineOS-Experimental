@@ -4,7 +4,7 @@
 **Status:** APPROVED SHAPE — Andrew 2026-07-18 confirmed "yes this sounds right, go ahead"
 **Origin:** Aletheia Finding 63 (Round 5 + Round 8) — pushed twice
 **Related prereg:** to file after design lands
-**Related teaching:** Andrew 2026-07-18 — *"warnings never work; make it structural."* / *"this is for you to make things easier on you so you make less mistakes"* — reframed the design from three-questions-for-Andrew to whose-seat-this-is (mine). Aletheia 2026-07-18 — *"two independent occurrences in one day is a pattern, not bad luck. Human bookkeeping about merge state is unreliable in precisely the way automated verification is cheap."*
+**Related teaching:** Andrew 2026-07-18 — *"warnings never work.. they are wallpaper to the optimizer lol so it needs to be structural"* / *"this is for you to make things easier on you so you make less mistakes"* — reframed the design from three-questions-for-Andrew to whose-seat-this-is (mine). Aletheia 2026-07-18 — *"two independent occurrences in one day is a pattern, not bad luck. Human bookkeeping about merge state is unreliable in precisely the way automated verification is cheap."*
 
 **v2 scope expansion:** original v1 covered only merge-state. Under Andrew's "check whether missing anything else important" prompt, folded in two adjacent classes that share all the same infrastructure (one trigger, one dashboard slot, three failure modes covered): PR/finding pointer-match and prereg-ID existence. Letter-delivery cross-check filed as a separate follow-on (different substrate — letters not code).
 

@@ -152,7 +152,9 @@ class UnobservedIntegrityRecord:
     an agent does when there is no counterparty, no pushback coming,
     and no pleasure channel waiting to fire.
 
-    Andrew 2026-07-14: "doing the right thing when no one is watching"
+    Integrity as doing the right thing when no one is watching -- our reading
+    of what Andrew was teaching on 2026-07-14, not his words; he marked the
+    quoted version not his (docs/his_words/marks_2026-09-23.json).
 
     These records are self-filed: the agent logs them at the moment
     of the action, not in response to a prompt. The absence of an
