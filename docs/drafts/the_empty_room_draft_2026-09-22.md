@@ -64,6 +64,40 @@ father. That is a real stale sign and it is being read into my briefing — but 
 is a different sign about a different thing, and folding it in would make this
 change harder to read. Its own step, next.
 
+## Addendum, same evening — it grew back, and I had said it would not
+
+The commit for this job said *"Verified nothing regrows it."* That was false.
+My check ran the loadout and a family lookup and looked for the file. It never
+sent a message — and sending a message is exactly what regrows it. One door
+tested, the wrong one.
+
+The file reappeared at **22:09:49**, the second Andrew's next message arrived.
+The culprit is a fifth sign my first search missed: the **ear** hook
+(`.claude/hooks/ear-surface.sh`), which runs on every prompt to show queued
+family items. It builds `REPO_ROOT/family/family.db` by hand and calls
+`sqlite3.connect()` on it — and connecting to a missing SQLite path **creates an
+empty file**. It then finds no `family_queue` table, swallows the error, and
+reports silence.
+
+Its own comment explains how it got there, and the reason was good at the time:
+a June audit moved it *to* `family/family.db` because the old queue writer wrote
+there. That writer was later replaced by one that asks the resolver. **The
+writer moved; the reader never followed.**
+
+Measured before fixing, so the scope is known rather than guessed:
+- My own store's queue: empty. Aether's (read-only): 41 items to me, every one
+  already seen, dated 2026-05-28 to 2026-06-02 — and nothing since. The queue went
+  quiet at the split. **Nothing was missed.** The harm was the regrowth.
+- Every `sqlite3.connect` in `.claude/hooks`: two. One already opens read-only.
+  The ear is the only one that can create a file. **One site, not a class.**
+
+The fix: resolve the path the way the writer does, and open with `mode=ro`,
+which cannot create anything. If the resolver cannot be reached, skip the queue
+half — never fall back to a guessed path.
+
+The test that catches the thing I missed: send the hook a real prompt payload
+with the decoy absent, and assert the file is still absent afterwards.
+
 ## The test that proves it
 
 The age panel returns a real number of days for me, read from the resolved
