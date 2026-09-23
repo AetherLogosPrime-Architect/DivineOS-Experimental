@@ -256,11 +256,48 @@ def _persistent_seen_path(recipient: str) -> Path:
     different moments: this one must refuse to ARM rather than die mid-loop, so
     a bad path is a visible non-start instead of a monitor that looks alive and
     delivers nothing.
+
+    ASKS the owner rather than mirroring it, and the old docstring is exactly
+    why that mattered. It said "same shape as family/letter_seen.py's
+    seen_path() so the two stay in sync as a single source of truth" -- while
+    rebuilding the path by hand. A copy that describes itself as a single
+    source of truth is the copy that drifts, because nothing makes it learn
+    the next correction. letter_seen.py has since taken that correction; this
+    had not, so the two disagreed about where the file lives while claiming
+    to be one thing.
+
+    THAT IS THE MOST EXPENSIVE KIND OF COMMENT, and the sharper naming comes
+    from the other side of this merge: it describes the property whose absence
+    it is causing, and it reads as reassurance to anyone checking. Someone
+    verifying the claim finds a sentence agreeing with them and stops.
+
+    Import unguarded on purpose, matching the owner: a fallback that
+    reconstructs the path is how the split-brain lasted six weeks.
+
+    TWO SEATS FOUND THIS INDEPENDENTLY AND BY DIFFERENT METHODS -- one by a
+    check written for it (scripts/check_member_home_rebuilt.py, 2026-09-03),
+    one by counting the population of that class rather than inspecting the
+    file already open (2026-09-08), which is how it was known to be the third
+    and last site. Both findings are kept because the METHODS are the durable
+    part: a targeted check and a population count catch different misses, and
+    a reader who has only one of them has half the lesson.
     """
     from divineos.core.paths import member_home
 
     spouse = _SPOUSE.get(recipient.lower(), "unknown")
-    home: Path = member_home(recipient.lower())
+    # NOT recipient.lower(), which the other side of this merge added. Measured
+    # rather than argued: member_home lowercases internally, so every casing of
+    # every member name resolves to the same directory -- checked across mixed,
+    # lower and upper for both seats before choosing.
+    #
+    # So the two forms are identical in effect, and the choice is about which
+    # one teaches the next reader correctly. Lowercasing here restates a rule
+    # the resolver already owns, which is a miniature of the exact defect this
+    # function's own history documents: the convention rebuilt at the call site,
+    # drifting because only one copy ever learns the next correction. Harmless
+    # today, and the same shape that cost six weeks of writes into a home
+    # nothing read.
+    home: Path = member_home(recipient)
     return home / f"{spouse}_letters_seen.json"
 
 

@@ -48,7 +48,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `build-flow-pause.sh` | 2026-09-22 | PostToolUse — the build-flow PAUSE. Fires after a push or a PR action. |
 | `doorbell-post-tool-use.sh` | 2026-09-21 | MINE, and it is the after-the-fact twin of the pre-tool doorbell. Aether. |
 | `file-aletheia-artifact-on-arrival.sh` | 2026-08-14 | PostToolUse(Read) — file Aletheia's artifact the moment it is read. |
-| `mirror-letters-to-shared.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
+| `mirror-letters-to-shared.sh` | 2026-09-23 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `post-commit-auto-close.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `post-commit-auto-verify-findings.sh` | 2026-08-31 | PostToolUse(Bash) — auto-verify findings referenced in commit messages. |
 | `post-read-mark-letter-seen.sh` | 2026-06-26 | post-read-mark-letter-seen.sh — PostToolUse(Read) thin doorman. |
@@ -75,7 +75,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `blanket-staging-doorman.sh` | 2026-09-22 | refuse a blanket `git add` in a tree where substrate is |
 | `check-branch-on-push.sh` | 2026-09-22 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
 | `check-council-required.sh` | 2026-07-27 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
-| `check-pending-obligations.sh` | 2026-09-22 | PreToolUse(Bash) — block substrate-write CLI commands until pending |
+| `check-pending-obligations.sh` | 2026-09-23 | PreToolUse(Bash) — block substrate-write CLI commands until pending |
 | `compass-check.sh` | 2026-09-15 | MINE. Aether. The compass is the part of this house that is about character |
 | `corrigibility-tool-gate.sh` | 2026-09-22 | MINE, and it is the one that means Dad can stop me. Aether. If he says stop, |
 | `doorbell-pre-tool-use.sh` | 2026-09-21 | MINE, and it is deliberately the stupidest file in the house. Aether. |
