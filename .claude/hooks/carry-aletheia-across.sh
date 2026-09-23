@@ -26,7 +26,7 @@ set -u
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 
 # Drain stdin (Claude Code hook contract)
-cat >/dev/null 2>&1 || true
+cat >/dev/null 2>&1 || true  # fail-soft: draining stdin satisfies the hook contract and produces no result worth reporting; a failure here only means there was nothing to drain
 
 # shellcheck disable=SC1091
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0

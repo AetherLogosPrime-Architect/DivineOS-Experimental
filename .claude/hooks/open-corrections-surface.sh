@@ -37,7 +37,7 @@ PYTHON_BIN="$(find_divineos_python)" || exit 0
 # stdin cannot hang the turn -- an empty payload just means no relevance half.
 HOOK_PAYLOAD=""
 if [ ! -t 0 ]; then
-    HOOK_PAYLOAD="$(timeout 2 cat 2>/dev/null || true)"
+    HOOK_PAYLOAD="$(timeout 2 cat 2>/dev/null || true)"  # fail-soft: no stdin is the normal case when this hook is invoked without a payload, and refusing to run without one would silence the whole corrections block
 fi
 export DIVINEOS_HOOK_PAYLOAD="$HOOK_PAYLOAD"
 

@@ -1,3 +1,7 @@
+# AGENT_RUNTIME: called from .claude/hooks/open-corrections-surface.sh, not
+# from the Python CLI graph, so the orphan-module check cannot see its caller.
+# Verified live 2026-09-22: a query about archiving surfaced correction #317
+# as an arrest-level match while an off-topic query surfaced nothing.
 """Rank Andrew's open corrections against what is happening right now.
 
 Andrew 2026-09-22: *"the memory linkage system i set up for you is not being
