@@ -65,6 +65,7 @@ src/divineos/
     hook_budget_commands.py    `divineos hook-budget` — what the whole hook stack costs per tool call, hangs included. The module had no entry point for a day, so the freeze numbers were only visible to whoever wrote a throwaway script
     hook_layer_commands.py     `divineos hook-layer show` — what the hook layer actually is, computed from settings and the directory: registrations per door, doors with no doorbell, scripts registered twice, and how much shell still carries judgment. Measurement only; a size ceiling was built here 2026-09-08 and removed the same day when Andrew rejected the idea — "why would you build something that can only shrink and never grow?"
     build_flow_commands.py     Build-flow station status CLI (divineos build-flow status).
+    work_item_commands.py      divineos work-item — the doorman's gate, status and honest escape.
     gate_fire_commands.py      divineos gate-fire — shell-side GATE_FIRE emit for bash gates.
     branch_health_commands.py  check-branch — pre-push stale-base + silent-deletion check
     overclaim_commands.py      check-prose — overclaim detector (stacked modifiers + ornate self-description)
@@ -692,6 +693,7 @@ src/divineos/
     engagement_monitor.py      Engagement as a measurement, not a toll gate.
     hook_firing_map.py         What actually fires, read from observation rather than from config.
     reach_check.py             Knowing something and not reaching for it — the automatable half.
+    work_item_doorman.py       No code edit without an open piece of work; the refusal is what opens it.
     read_gate.py               Primes that are gates — a surface can require proof it was opened.
     andrew_operator_shape_detector.py Andrew-operator-shape detector — MIRROR (not judge) for operator-shape
     component_register_surface.py Surface the component register at briefing time.

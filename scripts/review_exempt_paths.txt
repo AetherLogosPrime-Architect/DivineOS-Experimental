@@ -46,6 +46,29 @@
 # So this errs toward review, which is the direction this file exists to err
 # in. If it proves too broad, the failure arrives as a person saying so, and a
 # line here is the whole fix. That trade was chosen rather than inherited.
+#
+# ADDING A LINE HERE CHANGES TWO POLICIES, NOT ONE. READ THIS BEFORE YOU DO IT.
+#
+# Everything above was written to answer one question: what skips review before
+# main. It is still a good answer to that question. But the build-flow doorman
+# now reads this same file to answer a DIFFERENT one -- what may be edited
+# without an open piece of work -- and until 2026-09-19 nothing in here said so.
+#
+# The failure that makes possible is quiet and the header invites it. Someone's
+# letter turns up in the review queue, they do exactly what the paragraph above
+# tells them to do, they add a line, and they also remove the build-flow door
+# from that path. They were thinking about one policy and they changed two.
+#
+# Aether found this reading the branch from origin. I had already met the same
+# shape once and failed to generalise it: the note on the drafts entry at the
+# bottom of this file says the doorman reads this list, and I wrote it for that
+# one entry without once asking what it meant for all the others.
+#
+# WHY THE FILE IS STILL SHARED. Splitting it is the reflex repair and it is the
+# wrong one -- one list beats two that drift apart, and we spent last week
+# killing a two-copy drift. Instead the doorman now NAMES which of the two
+# policies it is applying, and to which paths, whenever it lets something
+# through. An exemption is visible at the door rather than inherited behind it.
 
 family/letters/
 exploration/
