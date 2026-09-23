@@ -49,7 +49,15 @@ at him without a source in the current turn is fabrication, however small —
 and silence is a valid choice, since most sentences need no temporal anchor.
 
 THE CLASS, not a keyword list. The fire is a time-word standing in for
-something that is not a clock. Nine shapes have fired since August, each in a
+something that is not a clock — OR a real clock that is someone else's, worn
+as mine. The second half was added 2026-09-23 because the headline had come to
+contradict its own last entry: every shape below keys on a clock I invented, so
+a definition saying "not a clock" excluded the relayed case entirely, and a
+reader taking the headline as the rule would meet a genuine time and conclude
+it was outside the class. Which is precisely the "it felt like accurate
+reporting" slip that entry describes, built into the page that warns about it.
+Caught by Aria reading the branch, not by me writing it.
+Nine shapes have fired since August, each in a
 different coat; the incidents are in docs/wallclock_prime_rationale.md. What
 they share:
 
