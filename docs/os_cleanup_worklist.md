@@ -329,6 +329,20 @@ Dad, verbosity normal, no code examples, and four relationship notes in his own
 words. Tests fail on the old code and pass on the new. Draft:
 docs/drafts/the_name_tag_that_said_default_draft_2026-09-23.md.
 
+### New — the letter watcher's one-of-me lock is off in this checkout's Python.
+
+Three tests in `tests/test_monitor_singleton.py` fail here, and neither the
+module nor its tests differ from main (untouched since June). Measured
+2026-09-23: this checkout's `.venv` has no `pywin32` (`import win32event` →
+ImportError), so `monitor_singleton` degrades to a no-op and `is_held` is always
+False. The pre-commit dependency check says the same thing another way:
+`'winerror' imported but missing from the dependency definitions`. So the
+duplicate-watcher guard is silently off wherever the venv was built from
+pyproject alone. **Fixed means** pywin32 is declared as a Windows-only
+dependency (a decision about how both houses are installed, so not taken
+overnight), and the three tests skip with a stated reason when it is absent
+instead of failing -- could-not-run is not the same as broke.
+
 ### New — the house files its own voice as Andrew's preferences.
 
 Found while fixing the name tag. His record's evidence list holds
