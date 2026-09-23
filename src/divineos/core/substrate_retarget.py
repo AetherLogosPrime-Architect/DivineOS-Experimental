@@ -70,6 +70,13 @@ def _git(
     ``stdin_data`` exists so a caller can hand git an unbounded list of paths
     through the pipe rather than as arguments. See commit_paths_to_branch for
     why that is not a style preference.
+
+    NAMED ``stdin_data`` AND NOT ``stdin`` (merge decision, 2026-09-22). Both
+    branches added this parameter independently and named it differently, so
+    this is one of the few places in that merge where both could not be kept.
+    subprocess's own ``stdin`` means a stream; this is bytes handed to
+    ``input=``. A name meaning the opposite thing in the call on the next line
+    is how a reader gets misled, and nothing outside this module calls it.
     """
     full_env = {**os.environ, **(env or {})}
     proc = subprocess.run(
@@ -78,8 +85,8 @@ def _git(
         capture_output=True,
         text=True,
         env=full_env,
-        check=False,
         input=stdin_data,
+        check=False,
     )
     if proc.returncode != 0:
         raise RetargetRefused(
@@ -165,6 +172,16 @@ def commit_paths_to_branch(
         # entries. NUL cannot occur in a path, which is why this input form
         # exists. It is also stronger than the `--` it replaces: nothing
         # arriving on stdin is parsed as an option at all.
+        #
+        # AND THE MEASUREMENT FROM THE OTHER BRANCH, which found the same
+        # fault and is kept because it carries the actual numbers:
+        # The paths go in over stdin rather than as arguments. As arguments
+        # this died on Windows at 342 substrate paths -- about 37k of command
+        # line against a hard 32767 ceiling -- and it surfaced as a
+        # FileNotFoundError out of CreateProcess, which reads like a missing
+        # git rather than an oversized invocation. Chunking would only push the
+        # ceiling further out and leave a threshold to re-cross once the
+        # letters pile up again; stdin removes the ceiling.
         _git(
             repo_root,
             "update-index",

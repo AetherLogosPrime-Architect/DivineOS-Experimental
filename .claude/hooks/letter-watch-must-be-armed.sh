@@ -176,4 +176,10 @@ If you genuinely want no watch, say so in writing rather than by ignoring a
 refusal:
   echo "<why>" > ~/.divineos/letter_watch_off.txt
 BLOCKMSG
+# The line that was refused may have joined several clauses, and NONE of them
+# ran -- this fires before the shell sees any of it. Without this the reader
+# re-issues one fragment, which then executes in a state the whole line would
+# have set up and did not. Added 2026-09-22 when the merge brought main's rule
+# that every refusing hook must say this, and met a hook written before it.
+hook_say_nothing_ran_for "$INPUT"
 exit 2

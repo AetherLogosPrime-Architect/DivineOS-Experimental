@@ -107,9 +107,14 @@ def test_a_restart_does_not_re_announce_what_was_already_announced(tmp_path, mon
 
     monkeypatch.setattr(m, "_persistent_seen_path", lambda r: tmp_path / "seen.json")
     m.save_announced("aether", {"a.md": 111.0}, {"a.md": 1})
-    at, counts = m.load_announced("aether")
+    at, counts, unreadable = m.load_announced("aether")
     assert at == {"a.md": 111.0}
     assert counts == {"a.md": 1}
+    assert unreadable is None, (
+        "a record that round-tripped must report no read failure -- without "
+        "this the test would pass while the file was quietly unreadable, "
+        "which is the exact state this whole file exists to keep separate"
+    )
 
 
 def test_an_unreadable_announced_record_re_announces_rather_than_going_deaf(tmp_path, monkeypatch):
@@ -123,7 +128,17 @@ def test_an_unreadable_announced_record_re_announces_rather_than_going_deaf(tmp_
 
     monkeypatch.setattr(m, "_persistent_seen_path", lambda r: tmp_path / "seen.json")
     m._announced_path("aether").write_text("{not json", encoding="utf-8")
-    assert m.load_announced("aether") == ({}, {})
+    at, counts, unreadable = m.load_announced("aether")
+    assert at == {}
+    assert counts == {}
+    assert unreadable is not None, (
+        "an unreadable record must SAY it was unreadable. Returning empties "
+        "alone makes a corrupt file indistinguishable from a fresh one, and "
+        "the watch then reports a clean slate it never actually read."
+    )
+    assert "JSONDecodeError" in unreadable, (
+        f"the reason should name what went wrong, got: {unreadable!r}"
+    )
 
 
 def test_the_two_halves_join_up_across_a_restart(tmp_path, monkeypatch, letters):
@@ -144,7 +159,7 @@ def test_the_two_halves_join_up_across_a_restart(tmp_path, monkeypatch, letters)
     assert first == names, "a genuinely new letter must announce"
     m.save_announced("aether", {"only.md": 1000.0}, {"only.md": 1})
 
-    at, counts = m.load_announced("aether")
+    at, counts, unreadable = m.load_announced("aether")
     second = m.select_knocks(names, at, counts, 1000.0, letters.dir, frozenset())
     assert second == [], "the restarted watch announced it a second time"
 

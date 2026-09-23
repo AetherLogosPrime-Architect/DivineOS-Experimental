@@ -270,6 +270,12 @@ class TestContextGovernorGate:
         # 2026-09-18 — then it failed with nothing wrong in the code. Fifth
         # instance of that shape in one change, and the only one the targeted
         # test runs missed, so the push gate is what found it.
+        #
+        # The other branch made the same repair and said the rest of why: the
+        # test wants "in the band below the line", not any particular figure.
+        # Its version re-imported the module locally under a second alias; `cg`
+        # is already bound at module level, so that import bought nothing and
+        # left one module wearing two names in one file.
         tx = self._write_tx(tmp_path, cg.HARD_THRESHOLD - 20_000)
         assert (
             pre_hook._context_governor_gate(

@@ -81,16 +81,27 @@ def _read_ceiling_override() -> int | None:
 # change is silent — empirical observation only). Update this literal +
 # date when a session observes the cliff at a different point, or set
 # DIVINEOS_COMPACTION_CEILING to override without a code change.
-COMPACTION_CEILING = _read_ceiling_override() or 999_000
-# LOWERED TO 880k, 2026-09-18 (council-18e453cd0431). Andrew observed
-# compaction landing at 950-960k — AT this line — leaving no room for the
-# close: "by the time it triggers you are already there.. which gave you zero
-# room to do anything". Per-turn cost has grown while the ceiling stayed put,
-# so the headroom arithmetic below was computed for a turn size that no longer
-# exists. There was no breakage event, just a day it fit and a day it did not.
+# MOVED DOWN 2026-09-18, Andrew, from observation: "compaction is happening
+# around 950k tokens now not 999k". Anthropic changed it silently again, which
+# is the drift this literal was written to expect. The old value did not merely
+# become inaccurate — it put the consolidation hard line AT the cliff, so the
+# margin the whole design rests on had quietly gone to zero.
+COMPACTION_CEILING = _read_ceiling_override() or 950_000
 #
-# It also closes a two-surface disagreement: auto_cycle.TRIGGER_THRESHOLD has
-# been 0.88 of a 1M window — 880k — while this line sat at 950k. Two constants
+# BOTH BRANCHES REPAIRED THIS, in different words, and the merge kept both
+# halves (2026-09-22). They did not disagree about the world -- both quote the
+# same observation from Andrew. They disagreed about which number to move: main
+# moved the CEILING to 950k and left the trigger, this branch moved the TRIGGER
+# to 880k and left the ceiling at 999k. Each was half a repair, and either one
+# taken alone would have silently discarded the other's half.
+#
+# The ceiling is 950k because that is the number Andrew observed, which both
+# sides cite. The trigger is 880k, below, which both sides also agree on. The
+# paragraphs below are this branch's and are kept because they carry things
+# main's version does not say at all:
+#
+# IT CLOSES A TWO-SURFACE DISAGREEMENT. auto_cycle.TRIGGER_THRESHOLD has been
+# 0.88 of a 1M window -- 880k -- while this line sat at 950k. Two constants
 # answering one question, disagreeing by 70k, the same shape as the two bypass
 # lists that deadlocked the house for ten hours. THEY NOW AGREE BY HAND, WHICH
 # IS NOT AN INVARIANT: nothing compares them, so the next edit to either one
@@ -114,6 +125,22 @@ COMPACTION_CEILING = _read_ceiling_override() or 999_000
 # on 2026-06-19 after the warn-band's only effect was pre-emptive panic;
 # lowered to 970k on 2026-06-25 to widen extract-and-sleep headroom; lowered
 # again to 950k on 2026-06-28 after that headroom was empirically insufficient.
+# LOWERED TO 880k, 2026-09-18, Andrew: "compaction is happening around 950k
+# tokens now not 999k so it needs to be triggered at like 880k tokens".
+#
+# The old pair was 950k against a 999k ceiling — 49k of headroom. When the
+# cliff moved to 950k that headroom became ZERO and the hard line sat exactly
+# on the cliff, which is worse than firing late: the whole point of the line is
+# that extraction runs on the NEAR side, because extraction is what writes the
+# session down and compaction is what drops whatever was not written.
+#
+# Nothing announced this. Every number stayed where it was and the platform
+# moved underneath them, which is the second time this literal has drifted that
+# way — the file's own docstring predicted it and said to update from
+# observation.
+#
+# 880k against 950k restores 70k, wider than the 49k this design ran on before,
+# because the close has grown: a compass walk, commit, extract, sleep, dream.
 CONSOLIDATION_THRESHOLD = 880_000  # hard line (also the default for consolidation_due)
 HARD_THRESHOLD = 880_000
 _MARKER_NAME = "context_consolidated.json"

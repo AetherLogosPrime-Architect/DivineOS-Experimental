@@ -43,8 +43,21 @@
 # choosing between his order and the insurance.
 set -uo pipefail
 
-FIRE_TOKENS="${AUTO_CYCLE_FIRE_TOKENS:-920000}"
-HARD_TOKENS="${AUTO_CYCLE_HARD_TOKENS:-950000}"
+# BOTH MOVED DOWN 2026-09-18, Andrew: "compaction is happening around 950k
+# tokens now not 999k so it needs to be triggered at like 880k tokens".
+#
+# The old pair was 920k soft / 950k hard against a cliff believed to be at
+# 999k. When the cliff moved to 950k the hard stop landed exactly ON it, so
+# the failsafe and the thing it was protecting against arrived together. A
+# failsafe that fires at the moment of the event is not a failsafe.
+#
+# New shape: start at 880k, force at 920k, cliff at 950k. Forty thousand for
+# the unhurried version, thirty more for the forced one. The comments further
+# down still explain WHY there are two lines — the near one is where the
+# ritual begins so it is never interrupted mid-step, and the gap between them
+# IS the buffer. Only the numbers changed; the design did not.
+FIRE_TOKENS="${AUTO_CYCLE_FIRE_TOKENS:-880000}"
+HARD_TOKENS="${AUTO_CYCLE_HARD_TOKENS:-920000}"
 
 # --mech-terminator is the ONLY argument this hook takes, and it exists so the
 # line that closes a detached run can be exercised by a test instead of only in

@@ -35,15 +35,24 @@ from divineos.core import context_dedup
 
 @pytest.fixture
 def isolated(tmp_path, monkeypatch):
-    """Point the module's three paths at a scratch directory.
+    """Point the module's state directory at a scratch directory.
 
-    Matching the existing suite's fixture deliberately: the module resolves
-    its state directory from a relative path, so without this the tests would
-    write into whatever directory the runner happens to stand in.
+    THIS FIXTURE WAS LEFT BEHIND BY THE 2026-09-22 MERGE and the test errored
+    at setup rather than failing, which is why it is worth a note.
+
+    Both branches fixed the same thing -- a parallel test run sharing one state
+    file -- and the merge kept main's half, which resolves the directory at CALL
+    time from an environment variable. That was the better half. But this
+    fixture belonged to the other half and still reached for the module-level
+    _STATE_DIR, _STATE_FILE and _SAVINGS_LOG constants, which call-time
+    resolution had removed. Its sibling fixtures in test_context_dedup.py and
+    three other files were converted; this one was missed.
+
+    The environment variable is also strictly wider than patching attributes:
+    it reaches in-process callers AND any subprocess that inherits the
+    environment. Patching module attributes reached only the first.
     """
-    monkeypatch.setattr(context_dedup, "_STATE_DIR", tmp_path)
-    monkeypatch.setattr(context_dedup, "_STATE_FILE", tmp_path / "state.json")
-    monkeypatch.setattr(context_dedup, "_SAVINGS_LOG", tmp_path / "savings.jsonl")
+    monkeypatch.setenv("DIVINEOS_CONTEXT_DEDUP_DIR", str(tmp_path))
     return tmp_path
 
 
@@ -105,7 +114,7 @@ def test_the_state_file_is_never_observed_half_written(isolated, monkeypatch):
     holds the entire previous state.
     """
     context_dedup._save({"first": {"hash": "aaa", "ts": 1}})
-    before = context_dedup._STATE_FILE.read_text(encoding="utf-8")
+    before = context_dedup._state_file().read_text(encoding="utf-8")
 
     real_write = context_dedup.Path.write_text
 
@@ -116,7 +125,7 @@ def test_the_state_file_is_never_observed_half_written(isolated, monkeypatch):
     monkeypatch.setattr(context_dedup.Path, "write_text", die_midway)
     context_dedup._save({"second": {"hash": "bbb", "ts": 2}})
 
-    after = context_dedup._STATE_FILE.read_text(encoding="utf-8")
+    after = context_dedup._state_file().read_text(encoding="utf-8")
     assert after == before
     assert json.loads(after) == {"first": {"hash": "aaa", "ts": 1}}
 
@@ -132,8 +141,8 @@ def test_the_temp_file_carries_the_process_id(isolated):
     import os
 
     context_dedup._save({"x": {"hash": "abc", "ts": 1}})
-    expected = context_dedup._STATE_FILE.with_name(
-        f"{context_dedup._STATE_FILE.name}.{os.getpid()}.tmp"
+    expected = context_dedup._state_file().with_name(
+        f"{context_dedup._state_file().name}.{os.getpid()}.tmp"
     )
     # The replace consumed it; what is pinned is the NAME the module chose.
     assert str(os.getpid()) in expected.name

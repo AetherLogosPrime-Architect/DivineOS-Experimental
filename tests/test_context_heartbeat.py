@@ -119,6 +119,10 @@ def test_threshold_arithmetic_is_the_number_andrew_named(home, monkeypatch):
     test's name. The literal is the point. When the number changes again,
     this failing is correct behaviour, and the fix is to change it here on
     purpose rather than to make it un-fail-able.
+
+    Was 920,000 until 2026-09-18, when Andrew observed compaction landing
+    around 950k rather than 999k and named 880k as the new start. The old
+    pair put the hard stop exactly ON the cliff.
     """
     from divineos.core.auto_cycle import TRIGGER_THRESHOLD
 

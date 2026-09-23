@@ -714,6 +714,7 @@ src/divineos/
     game_walk.py               Game-walking: enumerate the routes around a mechanism, cost each one.
     game_walk_required.py      The requirement half of game-walking: an edit owes a filed walk.
     ritual_evidence.py         Evidence checks for the compaction ritual's stages.
+    shared_digest.py           One notebook two agents append to, rendered as one message for Andrew.
     andrew_answer_trace.py     Do his answers change what happens next? (Aria 2026-09-07.)
     station_marks.py           The five build-flow stations nothing has ever watched.
     andrew_request_repeats.py  How many times has he had to ask for the same thing.

@@ -450,6 +450,14 @@ def _commit_work_in_progress(repo_root: Path, paths: list[str], reason: str) -> 
     if not paths:
         return False
     try:
+        # BOTH SIDES WROTE THIS REPAIR AND THE HELPER IS THE SURVIVING ONE.
+        # Main inlined the stdin-pathspec call here with its reasoning in a
+        # comment; this branch had already extracted it. Nothing is lost by
+        # taking the helper -- its docstring carries every point that comment
+        # made and three it did not: why a chunk size is the wrong fix, why NUL
+        # rather than newline, and why an OSError is re-raised instead of
+        # joining the fail-soft path. Inlining it again would be the second
+        # copy of a repair that already has one home.
         _git_paths_on_stdin(repo_root, ["add"], paths)
         subprocess.run(
             [
