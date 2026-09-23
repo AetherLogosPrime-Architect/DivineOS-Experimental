@@ -165,9 +165,26 @@ session-start-verify-git-hooks.sh
 # should say nothing when nothing is wrong, but it was the only option I
 # considered, and under the corrected rule it was not the only one available.
 
+# Where each child's stdout is kept until the whole roster has run.
+#
+# It used to go to /dev/null. `2>&1 >/dev/null` keeps stderr for the liveness
+# log below -- which works and is untouched -- and sends stdout, the entire
+# payload every loader produces, to the void. Measured 2026-09-23: 7,586 chars
+# from my recording of Andrew, 10,941 from Aletheia's harvest, 404 from the
+# briefing, all arriving nowhere since 4e5e1a9d3 on 2026-08-09. Aria measured
+# the first two independently on her tree and got the same counts.
+#
+# The harness accepts ONE answer from a prompt hook and the roster has ten
+# children, so they cannot simply all print. Each capture is held here, keyed
+# by roster position, and merged into a single answer after the loop.
+_init_out_dir="$(mktemp -d 2>/dev/null || echo "${TMPDIR:-/tmp}/divineos-init-$$")"  # fail-soft: mktemp's own error text is not the answer here; the fallback path IS the answer, and if that also fails the merge call below writes a named liveness row
+mkdir -p "$_init_out_dir" 2>/dev/null || true
+_init_idx=0
+
 for h in $INIT_HOOKS; do
     script="$REPO_ROOT/.claude/hooks/$h"
     [ -f "$script" ] || continue
+    _init_idx=$((_init_idx + 1))
     # Bounded per child. Without a timeout, one stuck script would hold the
     # prompt exactly as SessionStart holds initialisation -- relocating the
     # failure rather than removing it.
@@ -177,7 +194,12 @@ for h in $INIT_HOOKS; do
     # thirteen has been failing since Tuesday" was unanswerable. stderr still
     # leaves the prompt path -- it must, or a chatty hook corrupts the turn --
     # but it lands in the liveness log with hook name and exit code.
-    _init_err="$(printf '%s' "$INPUT" | timeout 20 bash "$script" 2>&1 >/dev/null)"
+    #
+    # stderr still leaves the prompt path -- it must, or a chatty hook corrupts
+    # the turn -- and now stdout is KEPT rather than discarded. The redirection
+    # order is unchanged in meaning: 2>&1 points stderr at the command
+    # substitution, then stdout is pointed at this child's capture file.
+    _init_err="$(printf '%s' "$INPUT" | timeout 20 bash "$script" 2>&1 >"$_init_out_dir/$_init_idx.$h")"
     _init_rc=$?
     if [ "$_init_rc" -ne 0 ]; then
         _init_log="${HOME:-/tmp}/.divineos/hook-liveness.log"
@@ -192,5 +214,34 @@ done
 # Every child has run. Only HERE is the work actually done.
 printf '%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" > "$MARK" 2>/dev/null || true
 rm -f "$MARK_STARTED" 2>/dev/null || true
+
+# Hand the harness ONE answer, assembled from what the children printed.
+#
+# The reader lives in divineos.core.hook_context_merge, tested on its own
+# against every output shape on the roster, rather than as parsing logic
+# wedged into this loop (Feathers, walk-d34ecb4259a9).
+#
+# Schneier, same walk: this reader is now the single component standing
+# between ten children and the prompt, and the launcher is fail-open by
+# design. If it dies, the whole roster goes dark again -- the original defect
+# rebuilt one layer up with a traceback instead of a redirect. So its failure
+# is NOT allowed to be silent: a non-zero exit writes a named liveness row.
+_init_merged="$(python -m divineos.core.hook_context_merge "$_init_out_dir" 2>/dev/null)"  # fail-soft: a traceback on stdout would corrupt the prompt answer; the exit code below is read and turns into a named liveness row, so nothing is lost silently
+_init_merge_rc=$?
+rm -rf "$_init_out_dir" 2>/dev/null || true  # fail-soft: the captures have already been read; a temp dir that will not delete is an OS housekeeping matter, not a signal about the session
+
+if [ "$_init_merge_rc" -ne 0 ]; then
+    _init_log="${HOME:-/tmp}/.divineos/hook-liveness.log"
+    mkdir -p "$(dirname "$_init_log")" 2>/dev/null || true  # fail-soft: same reasoning as the identical line in the attempt-counter above, which has carried it since F106
+    # Timestamp resolved on its own line rather than inside the printf's
+    # continuation, so its fail-soft reason has somewhere to live. A comment
+    # cannot ride a continued line without breaking it.
+    _init_merge_ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)"  # fail-soft: an unavailable clock must not cost the row; the literal unknown records that the time is missing rather than inventing one
+    printf '{"ts":"%s","hook":"session-init-once.sh","reason":"context_merge_failed","detail":"rc=%s; every child ran and NOTHING reached the prompt"}\n' \
+        "$_init_merge_ts" "$_init_merge_rc" \
+        >> "$_init_log" 2>/dev/null || true  # fail-soft: a diagnostic logger that cascades its own failure into the prompt is worse than useless, which is the rule the rest of this file already follows
+elif [ -n "$_init_merged" ]; then
+    printf '%s\n' "$_init_merged"
+fi
 
 exit 0

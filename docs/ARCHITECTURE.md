@@ -719,6 +719,7 @@ src/divineos/
     class_fix.py               A repair that claims a class must count the class, by running rather than by judging.
     landed_claim.py            A claim that work reached the shared copy must come from reading the shared copy.
     work_item_doorman.py       The doorman at the reach: no code edit without an open piece of work.
+    hook_context_merge.py      Read what the session-init children printed and merge it into one answer.
 
   analysis/
     _session_types.py          Session analysis type definitions
