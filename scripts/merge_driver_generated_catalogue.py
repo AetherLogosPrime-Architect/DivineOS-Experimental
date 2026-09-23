@@ -207,11 +207,22 @@ def main(argv: list[str]) -> int:
     # With the key check in place all seven refused, which is honest and useless:
     # a driver that never resolves is the conflict it replaced.
     #
-    # The way out is a property of the file rather than of the hunks. This
-    # catalogue is a PURE FUNCTION OF THE TREE -- verified, not assumed, by
-    # running the generator against a clean checkout and diffing: identical. So
-    # the file carries no information that the tree does not, every side of a
-    # conflict here is a stale rendering, and taking one loses nothing at all.
+    # The way out is a property of the file rather than of the hunks: the row
+    # SET is recoverable by regeneration, so taking one side loses no work.
+    #
+    # THIS PARAGRAPH USED TO SAY MORE THAN THAT, and the stronger claim is
+    # refuted -- see the module docstring, under "WHAT THIS FILE CLAIMED FIRST".
+    # It called the catalogue a pure function of the tree, verified by diffing a
+    # regeneration. The diff was real; the inference was confounded, because the
+    # generator ran in the same tree on the same branch. Aria found the
+    # mechanism: one column is resolved against the CURRENT BRANCH, so two
+    # branches holding identical hooks render different bytes forever.
+    #
+    # It is corrected HERE as well as there because leaving it was the exact
+    # fault this whole night keeps finding: the new account gets written in one
+    # place, the old one is never taken out, and both sit in the same file
+    # disagreeing. A reader who starts at the function rather than the docstring
+    # gets the refuted version, stated as verified.
     #
     # WHAT MAKES THAT SAFE IS THE OTHER HALF, and it already exists:
     # `generate_automation_register.py --check` exits non-zero on a drifted

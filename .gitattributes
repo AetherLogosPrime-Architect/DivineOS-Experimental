@@ -20,9 +20,23 @@
 # Measured 2026-09-18: of ten open branches that could not merge, SEVEN collided
 # here and one collided on nothing else at all.
 #
-# The driver keeps BOTH sides' rows, takes one side's tally and lets the
-# regenerator settle it, and REFUSES on partial overlap rather than guessing --
-# two of those seven refuse and stay work for a person.
+# The driver TAKES ONE SIDE WHOLE and never unions. Every side of a conflict
+# here is a stale rendering and the row SET is recoverable by regeneration, so
+# taking one loses nothing a regeneration cannot restore. What it does NOT
+# claim is that both sides render the same fact: they render different branch
+# histories. A deadlock-breaker, not a cure. The driver's own docstring carries
+# the measurement, the confound that broke the first argument, and the limit.
+#
+# CORRECTED 2026-09-23. Found by Aria reading arc one; confirmed by Aether
+# reading the driver rather than taking her word. This paragraph described a
+# design that no longer exists -- it said the driver keeps BOTH sides' rows and
+# REFUSES on partial overlap. That was the first version. The driver records
+# that union_resolve is deliberately not imported any more, and its output line
+# reads "took one side whole".
+#
+# A sign pointing at a demolished room, and the FIRST thing a reader of the
+# merge rule meets. The new behaviour was added and the old description never
+# taken out -- the same shape as three other findings the same night.
 #
 # The driver itself is registered per-clone by setup/setup-hooks.sh. This line
 # alone does nothing: a clone that has not run setup finds no driver by this

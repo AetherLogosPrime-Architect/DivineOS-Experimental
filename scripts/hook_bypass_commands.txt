@@ -254,3 +254,32 @@ divineos andrew-correction defer
 # registry of refusal-exits to ask, which is why this is reading work and was
 # always going to be.
 divineos stamp-ready
+
+# --- the build-flow doorman's OWN prescribed exits, which this list did not
+#     carry. Added 2026-09-23. Found by Aria reading the allowlist from the
+#     remedy side, in the same hour I found the other half of it from the
+#     counting side, neither of us looking for the other's.
+#
+# The doorman prints four ways through a refusal: `walk open`, `walk apply`,
+# `walk close`, and `work-item bypass`. None of them was on this list. So a
+# gate that consults this allowlist, while the doorman is also holding, refuses
+# the doorman's own remedy -- the off-switch-traps-itself shape the header
+# above already names, arriving through a door nobody had checked.
+#
+# Aria ran the patterns WITH A CONTROL before reporting: `reach open` and
+# `council walk` do match, so the instrument can find a case it should find and
+# the four misses are real rather than a broken probe.
+#
+# THE SAME GAP FROM THE OTHER SIDE, on the same night: the build-flow board
+# counts council lenses by an event only `council walk --edit` emits, so work
+# done through the mandated `walk` path reports as zero lenses to the auditor.
+# One cause under both -- `walk` was built after this list and after that
+# counter, and was introduced to neither. Filed HIGH as
+# house-walk-2026-b20cc59b0573.
+#
+# Whose hand: mine, and the reason is location rather than ownership. Half of
+# these are the doorman's remedies and the doorman is Aria's, but the list
+# lives on this branch, so her committing here would be the collision we
+# agreed to stop creating. One file, one hand.
+divineos walk
+divineos work-item bypass

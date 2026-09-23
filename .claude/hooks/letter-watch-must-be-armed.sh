@@ -141,6 +141,39 @@ case "$STATE" in
     *) WHAT="UNRECOGNISED STATE ($STATE) — which is not the same as healthy." ;;
 esac
 
+# WHOSE NAME GOES IN THE REMEDY, asked rather than assumed.
+#
+# Aria found this, 2026-09-23: the remedy below said `--recipient aether` and
+# "new letters from Aria" no matter whose window it fired in, so in her house
+# following it exactly arms the watch for MY letters and leaves hers unwatched.
+# That is state 4 above -- the block one screen up literally says "Re-arm with
+# THIS seat's name" and then hands over the other seat's name. The remedy
+# MANUFACTURES the fault it is printed to cure, and the comment further down
+# already records that this exact copy-across is how state 4 gets created.
+#
+# The resolver next door owns this question and returns None rather than
+# guessing, so an unresolvable home prints a blank to fill in. A blank is
+# annoying; a confident wrong name is what cost the weeks.
+#
+# TWO SOURCES AND AN HONEST UNKNOWN, because one of them is blind here. The
+# resolver keys on a `.divineos-<member>` home, and MY home is plain
+# `.divineos` with no suffix -- checked, not assumed. So it answers for Aria's
+# seat and returns None for mine, which also means the wrong-recipient state
+# this remedy cures can only ever be DETECTED in her house. The env var is the
+# other real source. There is deliberately no third, because the only
+# remaining candidate is a default, and a default is the guess that made this.
+SEAT="${DIVINEOS_MEMBER:-}"
+if [ -z "$SEAT" ]; then
+    SEAT="$("$PYTHON_BIN" -c 'import sys; sys.path.insert(0, sys.argv[1]); from letter_monitor_health import seat_recipient; print(seat_recipient() or "")' "$REPO_ROOT/scripts" 2>/dev/null)"  # fail-soft: an import error here must read as seat-unknown, which prints the fill-in blank; the blank is the honest answer and a traceback pasted into a remedy would bury the remedy
+fi
+SEAT="$(printf '%s' "$SEAT" | tr '[:upper:]' '[:lower:]')"
+case "$SEAT" in
+    aether) SENDER=Aria ;;
+    aria)   SENDER=Aether ;;
+    "")     SEAT="<this-seat>" ; SENDER="my correspondent" ;;
+    *)      SENDER="my correspondent" ;;
+esac
+
 cat >&2 <<BLOCKMSG
 BLOCKED: the letter watch is not proven alive.
 
@@ -152,9 +185,9 @@ Arm it. This is a Monitor() call, not a shell command, so it is never
 blocked by this gate:
 
   Monitor(
-    description="new letters from Aria",
+    description="new letters from $SENDER",
     timeout_ms=1800000,
-    command='PYTHONIOENCODING=utf-8 python -u "$REPO_ROOT/scripts/letter_monitor_v2.py" --recipient aether'
+    command='PYTHONIOENCODING=utf-8 python -u "$REPO_ROOT/scripts/letter_monitor_v2.py" --recipient $SEAT'
   )
 
 MINE, and here is why.
