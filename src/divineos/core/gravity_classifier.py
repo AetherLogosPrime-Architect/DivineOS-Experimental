@@ -244,9 +244,6 @@ def _normalize_to_repo_relative(path: str, repo_root: str) -> str | None:
 # command -- which is how a gate gets turned off.
 _NOT_A_WRITE = ("/dev/null", "nul", "/dev/stderr", "/dev/stdout", "-")
 
-# In-place editors: the write has no redirect to spot, the path is an argument.
-_INPLACE_WRITERS = ("tee",)
-
 
 _HEREDOC_RE = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 
@@ -319,9 +316,10 @@ def _shell_write_targets(command: str) -> tuple[str, ...] | None:
     command that talks about one.
 
     Returns an empty tuple when it sees no write, which is NOT a claim that
-    none happened. Copying a prepared file into place, a language runtime
-    opening a file, an editor in batch mode, anything behind a variable: all
-    still invisible. Shell is arbitrary and no complete list exists. The honest
+    none happened. Copies and moves ARE seen now (cp, mv, install, git mv,
+    sed -i, patch -- through the shared reader, 2026-09-23). A language
+    runtime opening a file, an editor in batch mode, anything behind a
+    variable or inside a substitution: all still invisible. Shell is arbitrary and no complete list exists. The honest
     completion is an explicit "I was not shown this" state rather than a
     confident zero from here.
     """
@@ -329,54 +327,39 @@ def _shell_write_targets(command: str) -> tuple[str, ...] | None:
         return ()
     command = _without_heredoc_bodies(command)
     try:
-        tokens = shlex.split(command, posix=True)
+        shlex.split(command, posix=True)
     except ValueError:
         # Unbalanced quotes: this cannot read the command, so it must not
         # report on it. None, not empty -- see the docstring.
         return None
 
+    # THE READING ITSELF IS THE SHARED READER'S NOW (2026-09-23, Aria, walk-
+    # 421eaefacb8f). This walked raw posix tokens, which dropped the quotes
+    # (`echo '>' notes.txt` read as a write), had no command boundaries (two
+    # writes keyed as `write:a.md;`), and knew no copy -- so `cp src.md
+    # docs/foundational_truths.md` scored ZERO and the council gate never ran.
+    # Four readers of one grammar had grown in this house; this is one fewer.
+    #
+    # The could-not-read check above STAYS HERE, deliberately (Beer, on the
+    # walk). The shared reader approximates malformed quoting rather than
+    # refusing, which is right for its other callers and wrong for this one:
+    # here cannot-read must mean scrutiny, so the refusal to read is decided
+    # before the reader is asked.
+    #
+    # The extension rule that used to sit in this filter is gone with the
+    # regex walk it compensated for: it guessed that an extensionless token
+    # after `tee` was a flag value. The shared reader knows which token is the
+    # destination, and a directory or an extensionless file is still a place
+    # being written.
+    from divineos.core.command_parsing import shell_write_targets
+
     found: list[str] = []
-
-    def _as_target(raw: str) -> str:
-        """The normalised write target, or empty string if this is not one.
-
-        Returns a STRING rather than an optional, so the only None in this
-        whole function is the one that means "could not read the command".
-        Two different nothings in one function is the exact confusion this
-        change exists to remove, and a void helper with bare returns reads as
-        a second one to anything scanning for the shape.
-        """
-        norm = raw.replace("\\", "/").strip().strip("\"'")
+    for raw in shell_write_targets(command):
+        norm = raw.replace("\\", "/").strip()
         if not norm or norm.lower() in _NOT_A_WRITE or norm.startswith("/dev/"):
-            return ""
-        # No extension on the last segment: far more likely a flag value or a
-        # directory than a file being written.
-        if "." not in norm.rsplit("/", 1)[-1]:
-            return ""
-        return norm
-
-    def _take(raw: str) -> None:
-        norm = _as_target(raw)
-        if norm and norm not in found:
+            continue
+        if norm not in found:
             found.append(norm)
-
-    for i, tok in enumerate(tokens):
-        nxt = tokens[i + 1] if i + 1 < len(tokens) else ""
-        # `>` / `>>` as their own token, or glued to the target (`>file`).
-        if tok in (">", ">>") and nxt:
-            _take(nxt)
-        elif tok.startswith(">") and len(tok) > 1 and not tok.startswith(">&"):
-            _take(tok.lstrip(">"))
-        elif tok in _INPLACE_WRITERS:
-            for cand in tokens[i + 1 :]:
-                if cand.startswith("-"):
-                    continue
-                _take(cand)
-                break
-        elif tok == "sed" or tok.endswith("/sed"):
-            in_place = any(t.startswith("-i") for t in tokens[i + 1 :])
-            if in_place and tokens[i + 1 :]:
-                _take(tokens[-1])
     return tuple(found)
 
 

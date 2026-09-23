@@ -463,3 +463,258 @@ def remedy_segment(bash_command: str) -> str:
             return ""
         safe.append(candidate)
     return "\n".join(safe)
+
+
+# ------------------------------------------------------- files a command writes
+#
+# 2026-09-23. The work-item doorman found these with regexes over text whose
+# quoted spans had been blanked to spaces, and a regex's `\s+` walks straight
+# across a blank, across `&&` and across a newline into the NEXT command. In one
+# session it named `ls`, `-c`, `2` and `.venv/Scripts/python.exe` as files being
+# written, and I stepped around it with a bypass each time instead of fixing it.
+# The same blanking made a quoted destination -- `cp a "src/x.py"` -- invisible:
+# a hole nobody had seen, because false holds are loud and misses are silent.
+#
+# The module docstring above predicted this: "If a fourth prefix appears the
+# answer is to parse the command, not to add a fourth loop." So the doorman now
+# asks here, and the reading is the shell's own: quotes stay whole, a line
+# break ends a command, a heredoc body is data.
+
+_HEREDOC_OPEN = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
+
+
+def strip_quoted_heredocs(cmd: str) -> str:
+    """Remove the bodies of heredocs whose delimiter is quoted. Those bodies are
+    data -- a body quoting ``> src/x.py`` writes nothing. The opening line stays,
+    so ``cat > src/x.py <<'EOF'`` still shows its write.
+
+    AN UNQUOTED HEREDOC IS NOT STRIPPED (Knuth, on the doorman's 2026-09-22
+    walk): the shell expands inside one, so a write can genuinely live there. A
+    heredoc whose terminator never appears is malformed, and the conservative
+    reading is to scan all of it. Carried here from the doorman's
+    shell_code_only when the doorman started asking this module.
+    """
+    out = cmd
+    for match in list(_HEREDOC_OPEN.finditer(cmd)):
+        quote, word = match.group(1), match.group(2)
+        if not quote:
+            continue
+        body_start = out.find(match.group(0))
+        if body_start == -1:
+            continue
+        body_start += len(match.group(0))
+        terminator = re.search(rf"^\s*{re.escape(word)}\s*$", out[body_start:], re.MULTILINE)
+        if terminator is None:
+            continue
+        out = out[:body_start] + " " + out[body_start + terminator.end() :]
+    return out
+
+
+def _strip_comments(cmd: str) -> str:
+    """Drop shell comments the way the shell does: ``#`` at the start of a word,
+    outside quotes, to the end of the line.
+
+    shlex's own comment handling ends a word at ANY ``#``, so
+    ``curl http://a/b#frag > out.txt`` lost its redirect -- a real write hidden.
+    """
+    out: list[str] = []
+    quote = ""
+    i = 0
+    while i < len(cmd):
+        ch = cmd[i]
+        if quote:
+            if ch == "\\" and quote == '"' and i + 1 < len(cmd):
+                out.append(cmd[i : i + 2])
+                i += 2
+                continue
+            if ch == quote:
+                quote = ""
+        elif ch in "'\"":
+            quote = ch
+        elif ch == "\\" and i + 1 < len(cmd):
+            out.append(cmd[i : i + 2])
+            i += 2
+            continue
+        elif ch == "#" and (i == 0 or cmd[i - 1] in " \t\n;&|()"):
+            end = cmd.find("\n", i)
+            if end == -1:
+                break
+            i = end
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+_OPERATOR_CHARS = "();<>|&\n"
+_SEPARATOR_CHARS = frozenset(";&|\n()")
+_WRITE_REDIRECTS = frozenset({">", ">>", ">|", "&>", "&>>"})
+_DUP_REDIRECT = ">&"
+
+
+_LITERAL_OPERATOR = "QUOTEDOP"
+
+
+def _neutralise_literal_operators(cmd: str) -> str:
+    """A quoted or backslashed operator is a WORD, and must stay one.
+
+    shlex drops the quotes, so ``[ x '>' 5.0 ]`` -- a string comparison -- came
+    back as a redirect to ``5.0``, and ``echo \\>`` as a redirect too. Found by
+    replaying every command in this house's transcripts through the old reader
+    and this one: the single new false hold in 22,844 commands. A quoted span
+    made only of operator characters, or a backslash before one, is replaced by
+    a plain word before lexing. Quote-aware, so the separator in
+    ``"a" ; "b"`` is left alone.
+    """
+    out: list[str] = []
+    i = 0
+    n = len(cmd)
+    while i < n:
+        ch = cmd[i]
+        if ch == "\\" and i + 1 < n:
+            out.append(_LITERAL_OPERATOR if cmd[i + 1] in _OPERATOR_CHARS else cmd[i : i + 2])
+            i += 2
+            continue
+        if ch in "'\"":
+            j = i + 1
+            while j < n and cmd[j] != ch:
+                j += 2 if (ch == '"' and cmd[j] == "\\") else 1
+            span = cmd[i : j + 1]
+            inner = span[1:-1]
+            if inner and set(inner) <= set(_OPERATOR_CHARS + " \t"):
+                out.append(_LITERAL_OPERATOR)
+            else:
+                out.append(span)
+            i = j + 1
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def _shell_tokens(cmd: str) -> list[str]:
+    cmd = _neutralise_literal_operators(cmd)
+    lexer = shlex.shlex(cmd, posix=True, punctuation_chars=_OPERATOR_CHARS)
+    lexer.whitespace = " \t\r"
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    try:
+        return list(lexer)
+    except ValueError:
+        # Malformed quoting. Approximate rather than crash: every caller is a
+        # gate, and this module's convention is that a crashing gate is worse.
+        return cmd.split()
+
+
+def _commands(tokens: list[str]) -> list[list[str]]:
+    """Split on separators. A punctuation run such as ``;\\n`` or ``&&`` is one
+    token, so any token made only of separator characters ends a command."""
+    out: list[list[str]] = [[]]
+    for tok in tokens:
+        if tok and set(tok) <= _SEPARATOR_CHARS:
+            out.append([])
+        else:
+            out[-1].append(tok)
+    return [c for c in out if c]
+
+
+def _split_redirects(command: list[str]) -> tuple[list[str], list[str]]:
+    """(arguments, redirect targets). A descriptor digit written before a
+    redirect is part of the redirect, not an argument -- ``cp a b 2>/dev/null``
+    copies to ``b``, not to ``2``."""
+    args: list[str] = []
+    targets: list[str] = []
+    i = 0
+    while i < len(command):
+        tok = command[i]
+        nxt = command[i + 1] if i + 1 < len(command) else None
+        is_redirect = tok in _WRITE_REDIRECTS or tok == _DUP_REDIRECT or tok.startswith("<")
+        if is_redirect:
+            if args and args[-1].isdigit():
+                args.pop()
+            if nxt is not None:
+                if tok in _WRITE_REDIRECTS:
+                    targets.append(nxt)
+                elif tok == _DUP_REDIRECT and not (nxt.isdigit() or nxt == "-"):
+                    targets.append(nxt)
+                i += 2
+                continue
+        args.append(tok)
+        i += 1
+    return args, targets
+
+
+def _command_word(args: list[str]) -> tuple[str, list[str]]:
+    rest = list(args)
+    while rest and (_ENV_ASSIGN_RE.match(rest[0]) or rest[0] in ("env", "command", "sudo")):
+        rest = rest[1:]
+    if not rest:
+        return "", []
+    return rest[0].rsplit("/", 1)[-1].lower(), rest[1:]
+
+
+def _positional(args: list[str]) -> list[str]:
+    return [a for a in args if not a.startswith("-")]
+
+
+def _sed_in_place_files(args: list[str]) -> list[str]:
+    if not any(
+        a == "-i"
+        or (a.startswith("-") and not a.startswith("--") and "i" in a)
+        or a.startswith("--in-place")
+        for a in args
+    ):
+        return []
+    script_by_option = any(
+        a in ("-e", "-f", "--expression", "--file") or a.startswith(("--expression=", "--file="))
+        for a in args
+    )
+    files: list[str] = []
+    skip_next = False
+    for a in args:
+        if skip_next:
+            skip_next = False
+            continue
+        if a in ("-e", "-f", "--expression", "--file"):
+            skip_next = True
+            continue
+        if not a.startswith("-"):
+            files.append(a)
+    return files if script_by_option else files[1:]
+
+
+def shell_write_targets(cmd: str) -> list[str]:
+    """Every file this shell command writes that can be read off its text.
+
+    Covers redirects, ``tee``, ``cp``/``mv``/``install`` destinations,
+    ``sed -i`` files and ``patch``. What it CANNOT see, and says so rather than
+    implying completeness: writes made by a program the command runs (``python
+    -c`` opening a file, a script in a scratch folder), and targets built from
+    variables. Callers that must catch those need a second instrument -- the
+    doorman's is what changed on disk.
+    """
+    if not cmd:
+        return []
+    text = _strip_comments(strip_quoted_heredocs(cmd))
+    found: list[str] = []
+    for command in _commands(_shell_tokens(text)):
+        args, targets = _split_redirects(command)
+        found.extend(targets)
+        word, rest = _command_word(args)
+        positional = _positional(rest)
+        if word == "tee":
+            found.extend(positional)
+        elif word in ("cp", "mv", "install") and len(positional) >= 2:
+            found.append(positional[-1])
+        elif word == "git" and positional[:1] == ["mv"] and len(positional) >= 3:
+            # The old regexes caught this by accident, finding "mv" inside "git
+            # mv". Reading the real command word lost it, and the replay of
+            # every past command is what showed the loss.
+            found.append(positional[-1])
+        elif word == "sed":
+            found.extend(_sed_in_place_files(rest))
+        elif word == "patch" and positional:
+            found.append(positional[0])
+    # A target that begins with '=' is the tail of a comparison (`n >= 0`), not
+    # a file anybody means to write.
+    return [t for t in found if t and not t.startswith("=")]
