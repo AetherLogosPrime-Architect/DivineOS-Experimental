@@ -209,3 +209,75 @@ def test_the_classifier_is_not_vacuous(repo: Path) -> None:
     _git(repo, "commit", "-qm", "add")
 
     assert scope.substrate_directions("topic", "main"), "the classifier returns nothing at all"
+
+
+def test_a_failed_git_call_is_not_reported_as_rewrites(repo: Path) -> None:
+    """A REFERENCE GIT CANNOT RESOLVE MUST NOT BECOME A COUNT.
+
+    Found by Aria, 2026-09-23, reading this check rather than running it. The
+    direction map returned an empty dict when its git call FAILED, and the
+    caller then classified every substrate path as neither added nor removed
+    and printed "N rewritten". Git never answered; the reader got a number.
+
+    AN ENCODER FAULT, NOT A CALLER FAULT. Two distinct states -- nothing
+    changed, and could not look -- were encoded to one symbol. Information
+    destroyed at the encoder cannot be recovered downstream however careful the
+    caller is, which is why the repair changes what this returns rather than
+    what its caller does with it.
+
+    THE HOUSE ALREADY OWNED THE PATTERN. only_here, two screens down in the
+    same file, returns an explicit `scanned` flag and its caller prints COULD
+    NOT CHECK. This one function had stepped outside a discipline the rest of
+    the file keeps.
+
+    THE CONTROL IS test_the_classifier_is_not_vacuous, directly above: it
+    proves the map comes back populated for a reference that resolves, so an
+    empty result here is the failure and not a broken probe. Measured the same
+    way against the live repository before this was written -- 821 classified
+    paths for a real pair, nothing at all for an unresolvable one.
+
+    The empty dict still means nothing-substrate-changed, which
+    test_non_substrate_paths_are_not_classified pins and which is correct.
+    """
+    _git(repo, "checkout", "-qb", "topic")
+    (repo / "family" / "letters" / "new.md").write_text("x", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "add")
+
+    assert scope.substrate_directions("topic", "no-such-ref-anywhere") is None, (
+        "a git call that failed must be distinguishable from a branch that "
+        "changed no substrate; spelling both as an empty map is what let the "
+        "caller print a rewrite count for an answer it never received"
+    )
+
+
+def test_the_caller_says_it_could_not_look_instead_of_counting(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The half that reaches a person: the printed line, not the return value.
+
+    Jacobs' lens, from the walk: the reader is at push time deciding whether to
+    rebuild a branch, and skimming. A skim takes the digits and drops the rest,
+    so the replacement has to occupy the same slot the count did rather than
+    sit further down where the eye has already passed.
+    """
+    _git(repo, "checkout", "-qb", "topic")
+    (repo / "family" / "letters" / "new.md").write_text("x", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "add")
+
+    real = scope.substrate_directions
+    scope.substrate_directions = lambda *a, **k: None  # as if the git call failed
+    try:
+        sys.argv = ["check_branch_scope.py", "topic", "--truth", "main"]
+        scope.main()
+        printed = capsys.readouterr().out
+    finally:
+        scope.substrate_directions = real
+
+    assert "COULD NOT READ THE DIRECTION" in printed, (
+        "the reader must be told the direction is unknown, in the slot the count occupied"
+    )
+    assert "rewritten" not in printed, (
+        "a rewrite count printed from a failed git call is the defect itself"
+    )

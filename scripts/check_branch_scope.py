@@ -164,8 +164,11 @@ def substrate_paths(branch: str, reference: str) -> list[str]:
     return [p for p in out.splitlines() if p.startswith(_SUBSTRATE_PREFIXES)]
 
 
-def substrate_directions(branch: str, reference: str) -> dict[str, str]:
+def substrate_directions(branch: str, reference: str) -> dict[str, str] | None:
     """Map each substrate path to ADDS, REMOVES or REWRITES on this branch.
+
+    Returns None when the git call could not be made, which is NOT the same as
+    an empty map and must not be spelled like one -- see COULD-NOT-LOOK below.
 
     TWO HAZARDS WERE SHARING ONE SENTENCE. This check lists paths the branch
     CHANGED, not paths it CARRIES, so a deletion counted as substrate-on-this-
@@ -193,10 +196,28 @@ def substrate_directions(branch: str, reference: str) -> dict[str, str]:
     that exists on the branch now and that is what gets classified. Splitting
     naively would mangle exactly the long hyphenated letter filenames nobody
     re-reads.
+
+    COULD-NOT-LOOK IS ITS OWN ANSWER, and this function was the one place in
+    the file that did not say so. It returned an empty map when the git call
+    FAILED, and the caller then found no path classified as added or removed,
+    subtracted both from the total, and printed the remainder as "N rewritten".
+    Git never answered. The reader got a number.
+
+    An ENCODER fault rather than a caller fault: two distinct states -- nothing
+    changed, and could not look -- were spelled with one symbol, so no caller
+    downstream could tell them apart however carefully it was written. That is
+    why the repair is here and not there.
+
+    The empty map still means nothing-substrate-changed, which is a real case
+    with a test pinning it. Only the failure gets its own spelling.
+
+    Found by Aria 2026-09-23. The discipline was already this file's own:
+    ``only_here`` below returns an explicit scanned flag for exactly this
+    reason, and its caller prints COULD NOT CHECK.
     """
     code, out = _git("diff", "--name-status", f"{reference}...{branch}")
     if code != 0:
-        return {}
+        return None
     letters = {"A": "ADDS", "C": "ADDS", "D": "REMOVES", "M": "REWRITES", "R": "REWRITES"}
     directions: dict[str, str] = {}
     for line in out.splitlines():
@@ -444,26 +465,48 @@ def main(argv: list[str] | None = None) -> int:
     if truth.substrate:
         paths = substrate_paths(args.branch, args.truth)
         directions = substrate_directions(args.branch, args.truth)
+
+        # NO DIRECTION IS NOT A DIRECTION OF ZERO, and this is said before the
+        # per-path listing rather than after it, because the listing prints a
+        # direction column too and would otherwise fill it with the CHANGES
+        # default -- a word, reading as an answer, for a question git never got
+        # to hear. Said once here, it covers both surfaces below.
+        unread = directions is None
+        if unread:
+            directions = {}
+            print(
+                "  [scope] COULD NOT READ THE DIRECTION -- the git call behind "
+                "it failed, so whether these are additions or removals is "
+                "unknown. Not zero of either; unread."
+            )
+
         if args.list:
             for path in paths[:20]:
-                print(f"    {directions.get(path, 'CHANGES'):<9} {path}")
+                label = "UNREAD" if unread else directions.get(path, "CHANGES")
+                print(f"    {label:<9} {path}")
 
         # WHICH WAY, said before anything else, because the two directions are
         # opposite problems and the remedies differ. An addition puts substrate
         # where it does not belong and is rebuilt away. A removal propagates to
         # the main line on merge and has to be confirmed as intended.
-        adds = sum(1 for p in paths if directions.get(p) == "ADDS")
-        removes = sum(1 for p in paths if directions.get(p) == "REMOVES")
-        rewrites = len(paths) - adds - removes
-        parts = []
-        if adds:
-            parts.append(f"{adds} ADDED here")
-        if removes:
-            parts.append(f"{removes} REMOVED from everywhere on merge")
-        if rewrites:
-            parts.append(f"{rewrites} rewritten")
-        if parts:
-            print(f"  [scope] direction: {', '.join(parts)}.")
+        if unread:
+            # Every count below would be arithmetic on an answer that never
+            # arrived. The reader has already been told; nothing more is owed
+            # except silence where the number would have been.
+            adds = removes = 0
+        else:
+            adds = sum(1 for p in paths if directions.get(p) == "ADDS")
+            removes = sum(1 for p in paths if directions.get(p) == "REMOVES")
+            rewrites = len(paths) - adds - removes
+            parts = []
+            if adds:
+                parts.append(f"{adds} ADDED here")
+            if removes:
+                parts.append(f"{removes} REMOVED from everywhere on merge")
+            if rewrites:
+                parts.append(f"{rewrites} rewritten")
+            if parts:
+                print(f"  [scope] direction: {', '.join(parts)}.")
         if removes and not adds:
             print(
                 "  Every one is a REMOVAL. That is the shape of a branch taking "
