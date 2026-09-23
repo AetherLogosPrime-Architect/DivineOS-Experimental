@@ -41,11 +41,12 @@ import logging
 import os
 import shutil
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from divineos.core.substrate_paths import (
     NoSubstrateBranchDeclared,
+    is_regenerated_mirror,
     partition,
     substrate_branch,
 )
@@ -53,6 +54,7 @@ from divineos.core.substrate_retarget import (
     RetargetRefused,
     commit_paths_to_branch,
     evict_committed_paths,
+    restore_regenerated_mirrors,
 )
 from divineos.core.uncommitted_work_check import (
     DEFAULT_CHANNELS,
@@ -609,6 +611,26 @@ def auto_commit_substrate(
     # carrying substrate in its history either way, and only a history repair
     # fixes that, which is not a thing a checkpoint may do unattended.
     already_tracked = [p for p in declared_substrate if _tracked_here(repo_root, p)]
+
+    # EXCEPT A REGENERATED MIRROR, which is tracked here because MAIN tracks it.
+    #
+    # The exception above was written for letters an old sweep had put onto a
+    # branch -- history local to that branch. docs/archives/ is different: all
+    # twelve files are tracked on main, so every code branch inherits them, and
+    # this exception committed eleven of them onto whatever code branch was
+    # checked out at every checkpoint (measured 2026-09-23 on two branches, one
+    # of them a PR Aletheia had already confirmed).
+    #
+    # A mirror is a pure function of the DB, so it can take the retarget like
+    # any other substrate and then have its working copy restored to HEAD's
+    # version -- the tree goes clean without the branch carrying it. Standing on
+    # a substrate branch, committing here IS committing to substrate, so the
+    # old path is kept there.
+    mirrors: list[str] = []
+    if not _substrate_branch_declared(repo_root):
+        mirrors = [p for p in already_tracked if is_regenerated_mirror(p)]
+        already_tracked = [p for p in already_tracked if p not in set(mirrors)]
+
     if already_tracked:
         logger.warning(
             "auto_commit: %d substrate path(s) are ALREADY TRACKED on this branch "
@@ -839,6 +861,29 @@ def auto_commit_substrate(
             dirty_lines=dirty_lines,
         )
 
+    # Mirrors are restored whether or not a new commit was needed: when the
+    # branch already held these exact bytes the retarget returns None, and the
+    # working copy is just as safe to put back. The restore proves it against
+    # the branch tip either way.
+    if mirrors:
+        restored = restore_regenerated_mirrors(repo_root, branch, mirrors)
+        if restored.evicted:
+            logger.info(
+                "auto_commit: %d regenerated mirror(s) now on %s and restored to "
+                "this branch's version on disk, so the code branch does not carry "
+                "them: %s",
+                len(restored.evicted),
+                branch,
+                ", ".join(restored.evicted),
+            )
+        if restored.held:
+            logger.warning(
+                "auto_commit: %d regenerated mirror(s) LEFT modified on disk, not "
+                "committed here: %s",
+                len(restored.held),
+                "; ".join(f"{p} ({why})" for p, why in restored.held),
+            )
+
     if result is None:
         # Nothing refused here -- the substrate is simply already on the
         # branch. So this reports the work half honestly rather than a flat
@@ -876,7 +921,12 @@ def auto_commit_substrate(
     # safe, so this is not data loss -- it is the author losing sight of their
     # own writing, which is its own cost and not one this substrate gets to
     # impose quietly.
-    eviction = evict_committed_paths(repo_root, result)
+    # Mirrors were handled by the restore above; eviction would only hold them
+    # as tracked and warn about a problem that has already been dealt with.
+    mirror_set = set(mirrors)
+    eviction = evict_committed_paths(
+        repo_root, replace(result, paths=tuple(p for p in result.paths if p not in mirror_set))
+    )
     if eviction.evicted:
         logger.info(
             "auto_commit: %d substrate file(s) moved off this branch's working "

@@ -364,3 +364,63 @@ def evict_committed_paths(repo_root: Path, result: RetargetResult) -> EvictionRe
         evicted.append(rel_path)
 
     return EvictionResult(evicted=tuple(evicted), held=tuple(held))
+
+
+def restore_regenerated_mirrors(repo_root: Path, branch: str, paths: list[str]) -> EvictionResult:
+    """Put tracked mirrors back to HEAD's version once their bytes are on ``branch``.
+
+    The tracked-file counterpart to ``evict_committed_paths``, which holds every
+    tracked path -- deleting one would stage a deletion. For a regenerated
+    mirror that hold used to end one way: the checkpoint committed it onto the
+    checked-out code branch instead (measured 2026-09-23, eleven archive files
+    per checkpoint on two code branches).
+
+    SAFE ONLY FOR DB-REGENERATED MIRRORS, and the caller must enforce that: the
+    working copy is overwritten with HEAD's. For ``docs/archives/`` that loses
+    nothing, because the file is rebuilt from SQLite on demand and the new bytes
+    are on ``branch``. For a letter it could destroy the only copy.
+
+    The same proof as eviction, against the BRANCH TIP rather than a commit
+    object: the bytes on disk must hash to exactly what ``branch`` now records
+    at that path. The tip is by definition on the branch, and this also covers
+    the case where the retarget returned nothing because the branch already
+    held these bytes. Anything else is held, with the reason.
+
+    THE PROOF IS NOT THE GUARANTEE (council walk-dbd9b44bfad3, Godel lens).
+    Hash and checkout are two steps, not one. If the export rewrites the file
+    between them, the checkout overwrites bytes that were saved nowhere. That
+    is survivable here only because the file is a pure function of the DB and
+    the next export rebuilds it. So the real guarantee is the CLASSIFICATION --
+    this is only ever called on regenerated mirrors -- and the blob compare is
+    the belt, not the braces.
+
+    ``evicted`` in the result means RESTORED here; the type is shared so the
+    caller reports both halves the same way.
+    """
+    restored: list[str] = []
+    held: list[tuple[str, str]] = []
+    tip = f"refs/heads/{branch}"
+    for rel_path in paths:
+        if not (repo_root / rel_path).exists():
+            held.append((rel_path, "not on disk"))
+            continue
+        on_disk = _blob_on_disk(repo_root, rel_path)
+        on_branch = _blob_in_commit(repo_root, tip, rel_path)
+        if on_disk is None or on_branch is None:
+            held.append((rel_path, f"could not read the bytes on disk or on {branch}"))
+            continue
+        if on_disk != on_branch:
+            held.append((rel_path, f"bytes on disk are not what {branch} holds"))
+            continue
+        proc = subprocess.run(
+            ["git", "checkout", "HEAD", "--", rel_path],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.returncode != 0:
+            held.append((rel_path, f"restore failed: {proc.stderr.strip()[:200]}"))
+            continue
+        restored.append(rel_path)
+    return EvictionResult(evicted=tuple(restored), held=tuple(held))
