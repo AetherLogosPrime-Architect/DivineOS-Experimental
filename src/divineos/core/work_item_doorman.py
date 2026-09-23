@@ -416,7 +416,7 @@ def open_item_for_branch(
     branch = branch or current_branch()
     with _connect() as conn:
         row = conn.execute(
-            "SELECT item_id, opened_at, opened_dirty FROM work_items "
+            "SELECT item_id, opened_at, opened_dirty, trigger FROM work_items "
             "WHERE branch = ? AND session = ? AND closed_at IS NULL "
             "ORDER BY opened_at DESC LIMIT 1",
             (branch, session),
@@ -441,11 +441,98 @@ def open_item_for_branch(
     # walk done BEFORE the last commit still does not count -- which is the
     # protection the window existed for.
     window = landed if landed is not None and landed < row[1] else row[1]
+    window = _continuing_window(row[3], landed, window)
     try:
         snapshot: frozenset[str] | None = frozenset(json.loads(row[2])) if row[2] else None
     except (ValueError, TypeError):
         snapshot = None
     return (row[0], window, snapshot)
+
+
+def _landings(limit: int = 2) -> list[tuple[float, str]] | None:
+    """The newest ``limit`` landings on this branch as (time, sha), newest first.
+
+    Same rule as ``head_commit_time``: an auto-commit is a save, not a piece of
+    work ending, so it is skipped. None means git could not be read.
+    """
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            ["git", "log", "-60", "--format=%ct%x00%H%x00%s"],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None  # both-empty: git could not be read; the caller keeps the ordinary window rather than widening it
+    if proc.returncode != 0:
+        return None  # both-empty: same answer as above -- unknown never widens a window
+    out: list[tuple[float, str]] = []
+    for line in proc.stdout.splitlines():
+        stamp, _, rest = line.partition("\x00")
+        sha, _, subject = rest.partition("\x00")
+        if subject.strip().lower().startswith(_NOT_A_LANDING):
+            continue
+        try:
+            out.append((float(stamp.strip()), sha.strip()))
+        except ValueError:
+            return None  # both-empty: an unparseable stamp is could-not-look; do not widen
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _files_changed_by(sha: str) -> frozenset[str] | None:
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            ["git", "show", "--name-only", "--format=", "-m", sha],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None  # both-empty: could not look, so no inheritance
+    if proc.returncode != 0:
+        return None  # both-empty: same -- an unreadable commit never widens a window
+    return frozenset(p.strip() for p in proc.stdout.splitlines() if p.strip())
+
+
+def _continuing_window(trigger: str, landed: float | None, window: float) -> float:
+    """Reach back one piece of work when the edit continues the work that landed.
+
+    WORK CONTINUES ACROSS A LANDING (2026-09-23). The window starts at the last
+    landing, which ends the previous piece -- right for new work, wrong for the
+    work that just landed. Aether's case, from his store: the pre-push suite
+    refused a push, he went to fix session-init-once.sh, a file changed BY the
+    landing his window started from, and the door refused him for missing a
+    search, draft and walk that were sitting there from before the landing.
+
+    So: when the item's trigger is a file the last landing changed, the edit
+    belongs to that landed work, and its window reaches back to where THAT
+    work's window began -- the landing before the last. One piece back, never
+    further, so September's propped door (a finished piece paying for unrelated
+    work) stays shut: an edit to a file the landing did not touch gets the
+    ordinary window.
+
+    What this does NOT prove, said so it cannot be read as more: "a file the
+    landing changed" is evidence the edit continues that work, not proof. A
+    later unrelated change to the same file inherits too -- bounded to one
+    piece back, and ended by the next landing. Unreadable git never widens.
+    """
+    if landed is None or not trigger:
+        return window
+    landings = _landings(2)
+    if not landings or len(landings) < 2 or landings[0][0] != landed:
+        return window
+    changed = _files_changed_by(landings[0][1])
+    if changed is None or trigger not in changed:
+        return window
+    return min(window, landings[1][0])
 
 
 def close_item(item_id: str) -> None:

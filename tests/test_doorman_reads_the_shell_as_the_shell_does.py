@@ -133,3 +133,50 @@ def test_the_first_knock_still_holds_when_the_work_is_not_done(monkeypatch) -> N
     assert not decision.allows
     assert "has landed" in decision.message, "a new item should say it is new"
     assert "rough draft" in decision.message or "draft" in decision.message
+
+
+# --- work that continues across a landing (Aether's case 3) ---------------------
+
+
+def _window_for(monkeypatch, trigger: str, changed: frozenset[str] | None) -> tuple[float, float]:
+    """(window, previous landing) for an item opened just after a landing."""
+    now = time.time()
+    last, before = now - 100, now - 1000
+    monkeypatch.setattr(doorman, "head_commit_time", lambda: last)
+    monkeypatch.setattr(
+        doorman, "_landings", lambda limit=2: [(last, "sha-last"), (before, "sha-before")]
+    )
+    monkeypatch.setattr(doorman, "_files_changed_by", lambda sha: changed)
+    session = f"test-continue-{uuid.uuid4().hex[:8]}"
+    branch = "test-branch-continuation"
+    item_id = doorman.open_item(trigger=trigger, branch=branch, session=session)
+    try:
+        found = doorman.open_item_for_branch(branch=branch, session=session)
+    finally:
+        doorman.close_item(item_id)
+    assert found is not None
+    return found[1], before
+
+
+def test_fixing_a_file_the_landing_changed_continues_that_work(monkeypatch) -> None:
+    """Aether, 2026-09-23, from his store: the pre-push suite refused a push, he
+    went to fix session-init-once.sh -- a file the landing had changed -- and the
+    door refused him for missing marks that were sitting there from before it."""
+    window, before = _window_for(
+        monkeypatch,
+        ".claude/hooks/session-init-once.sh",
+        frozenset({".claude/hooks/session-init-once.sh"}),
+    )
+    assert window == before, "the window did not reach back to the landed work's own window"
+
+
+def test_an_unrelated_file_does_not_inherit(monkeypatch) -> None:
+    """The control, and September's propped door: a finished piece's marks must
+    not pay for an edit the landing had nothing to do with."""
+    window, before = _window_for(monkeypatch, "src/divineos/core/other.py", frozenset({"src/a.py"}))
+    assert window > before
+
+
+def test_unreadable_git_never_widens_the_window(monkeypatch) -> None:
+    window, before = _window_for(monkeypatch, "src/a.py", None)
+    assert window > before
