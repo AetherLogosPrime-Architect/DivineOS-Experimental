@@ -27,11 +27,24 @@ INPUT="$(cat 2>/dev/null || true)"
 
 command -v divineos >/dev/null 2>&1 || exit 0
 
+# Sourced for hook_say_nothing_ran_for only. A refusal that names what it
+# objected to, and never what it stopped, leaves the reader unable to tell a
+# finding from a check that never ran -- the fault this branch exists to close.
+# This hook arrived on main while that rule was being written here, so neither
+# side was wrong and only the merge could see the gap.
+#
+# The `|| exit 0` matches this file's own stated posture: fail-soft on
+# infrastructure. If the library will not load, stand aside rather than block.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+
 OUT="$(printf '%s' "$INPUT" | divineos work-item gate 2>&1)"
 RC=$?
 
 if [ "$RC" -eq 2 ]; then
     printf '%s\n' "$OUT" >&2
+    hook_say_nothing_ran_for "$INPUT"
     exit 2
 fi
 

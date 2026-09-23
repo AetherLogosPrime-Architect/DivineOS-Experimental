@@ -265,7 +265,13 @@ class TestContextGovernorGate:
 
     def test_warn_state_does_not_deny_here(self, tmp_path):
         # The warn band is surfaced at UserPromptSubmit, not blocked by the gate.
-        tx = self._write_tx(tmp_path, 930_000)
+        # Relative to the hard line rather than a literal since 2026-09-18: this
+        # said 930k, which sat under the old 950k line and above the 880k one
+        # Andrew named after compaction moved. The test wants "in the band below
+        # the line", not any particular figure.
+        from divineos.core import context_governor as _cg
+
+        tx = self._write_tx(tmp_path, _cg.HARD_THRESHOLD - 20_000)
         assert (
             pre_hook._context_governor_gate(
                 {"tool_name": "Write", "tool_input": {}, "transcript_path": str(tx)}
