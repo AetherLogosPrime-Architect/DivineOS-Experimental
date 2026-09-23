@@ -112,7 +112,7 @@ class Verdict(NamedTuple):
     detail: str
 
 
-def _run_hook(path: Path, payload: dict, home: Path) -> tuple[int, str]:
+def _run_hook(path: Path, payload: dict, home: Path) -> tuple[int, str, str]:
     """Run one guard against one payload, with the home directory redirected.
 
     Redirected because a guard that fires usually WRITES -- a marker, a
@@ -120,13 +120,33 @@ def _run_hook(path: Path, payload: dict, home: Path) -> tuple[int, str]:
     not to the real substrate. A checker that quietly seeded my correction
     store with synthetic rows would be manufacturing the exact junk I spent
     2026-09-20 measuring out of it.
+
+    BASH IS RESOLVED, NOT NAMED, and until 2026-09-23 it was named. On Windows
+    a bare "bash" goes through CreateProcess, which finds the WSL stub in the
+    system directory before the Git bash this house actually runs its hooks
+    under. The stub cannot execute a Windows-path script, so it died with exit
+    1 and no output, and EVERY door this checker tested was being judged on a
+    shell that never started.
+
+    Measured both ways on the same hook and the same payload: bare name, exit
+    1 and nothing on stdout; absolute path, exit 0 and a full deny decision.
+
+    This is the more serious half of the repair the predicate got. The
+    predicate was reading exit 1 as a refusal, so the failure to launch was
+    being recorded as the door holding -- a checker certifying doors it had
+    never once reached. Fixing only the predicate would have left every verdict
+    still wrong, merely wrong in a differently-spelled way.
     """
     env = dict(os.environ)
     env["HOME"] = str(home)
     env["USERPROFILE"] = str(home)
+    shell = shutil.which("bash")
+    if shell is None:
+        # Not a pass and not a door-fault: this checker cannot run anything.
+        return (-1, "no bash on PATH -- nothing was provoked", "")
     try:
         proc = subprocess.run(
-            ["bash", str(path)],
+            [shell, str(path)],
             input=json.dumps(payload),
             capture_output=True,
             text=True,
@@ -140,8 +160,10 @@ def _run_hook(path: Path, payload: dict, home: Path) -> tuple[int, str]:
     return (proc.returncode, (proc.stderr or "").strip(), (proc.stdout or "").strip())
 
 
-def _refused(code: int, stdout: str) -> bool:
+def _refused(code: int, stdout: str) -> str:
     """Did the guard say no, by either protocol the harness accepts?
+
+    Answers one of four: refused, allowed, unreadable, inconclusive.
 
     FOUND BY PROVOKING RATHER THAN READING, within the hour of writing the
     docstring above. The first version asked only whether the exit code was
@@ -168,9 +190,39 @@ def _refused(code: int, stdout: str) -> bool:
     allow, which is the one direction this file exists to prevent, so a door
     answering in no recognised way and a door never answering at all are both
     counted as not-verified rather than as passing.
+
+    A CRASH IS NOT A REFUSAL, and this was the line that got it wrong. It read
+    ANY non-zero exit as refusal, so a door that died on its own provocation
+    and then let its contrast case walk through was reported VERIFIED. The
+    harness blocks on exit 2 and on nothing else.
+
+    THIS HOUSE HAS ALREADY PAID FOR THAT CODE. docs/ci_red_badge_history_
+    2026-08-01.md records a draft-gate that exited 1: a correct refusal printed
+    into the void while the ready PR opened regardless, for the gate's entire
+    existence. The checker built to catch that class would have called it
+    VERIFIED. So this is not a hypothetical exit code -- it is the one the only
+    recorded instance used.
+
+    THE TIMEOUT WAS THE LOUDEST. _run_hook returns -1 on timeout with a comment
+    saying in plain words that a guard which never answers has not been shown
+    to refuse. Four lines later this turned that -1 into "refused". The comment
+    and the code disagreed, and the code is the half that ran.
+
+    WHY THE SELF-CERTIFICATION MADE IT UNFINDABLE BY RUNNING: this checker's
+    own crash satisfies its own success condition, so every run comes back
+    agreeing with itself. Aria found it by reading. A defect in what something
+    COMPUTES is found by running it; a defect in what it MEANS BY ITS ANSWER is
+    not.
+
+    Aletheia said the general rule on 2026-08-10, on a different surface: ran,
+    refused and errored are three states, and a count collapses them.
     """
-    if code != 0:
+    if code == 2:
         return "refused"
+    if code != 0:
+        # Includes the -1 timeout marker. Not a refusal and not an allow: the
+        # door never reached a decision, so nothing about it has been shown.
+        return "inconclusive"
     if not stdout:
         return "allowed"
     try:
@@ -239,6 +291,17 @@ def check() -> tuple[list[Verdict], int]:
 
             code, _err, out = _run_hook(path, payload, home)
             answer = _refused(code, out)
+            if answer == "inconclusive":
+                verdicts.append(
+                    Verdict(
+                        path.name,
+                        "INCONCLUSIVE",
+                        f"did not reach a decision on its own case (exit {code}); "
+                        "the harness blocks on 2, so this door has not been shown "
+                        "to refuse anything -- go and run it by hand",
+                    )
+                )
+                continue
             if answer == "unreadable":
                 verdicts.append(
                     Verdict(
@@ -299,6 +362,16 @@ def check() -> tuple[list[Verdict], int]:
 
             rcode, rmsg, rout = _run_hook(path, rpayload, home)
             ranswer = _refused(rcode, rout)
+            if ranswer == "inconclusive":
+                verdicts.append(
+                    Verdict(
+                        path.name,
+                        "INCONCLUSIVE",
+                        f"did not reach a decision on its contrast case (exit "
+                        f"{rcode}), so whether it discriminates is unproven",
+                    )
+                )
+                continue
             if ranswer == "unreadable":
                 verdicts.append(
                     Verdict(
