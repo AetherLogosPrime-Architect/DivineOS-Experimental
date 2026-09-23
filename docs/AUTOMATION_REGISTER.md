@@ -153,7 +153,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `post-correction-integration-prime.sh` | 2026-07-29 | post-correction integration prime. |
 | `promise-anchor-surface.sh` | 2026-07-18 | read all open promise markers and surface |
 | `register-awareness-surface.sh` | 2026-08-24 | surface the register signal from each |
-| `session-init-once.sh` | 2026-08-24 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
+| `session-init-once.sh` | 2026-09-23 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
 | `verify-claim-prime.sh` | 2026-09-22 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
 | `wallclock-source-prime.sh` | 2026-09-21 | THE CLOCK. It is mine, not his. |

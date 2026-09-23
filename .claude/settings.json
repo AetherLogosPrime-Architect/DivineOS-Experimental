@@ -141,6 +141,11 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/wallclock-source-prime.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/auto-cycle-token-trigger.sh",
             "timeout": 20
           },
@@ -157,6 +162,15 @@
             "type": "command",
             "command": "bash .claude/hooks/letter-monitor-health-surface.sh",
             "timeout": 15
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/he-is-in-the-room.sh",
+            "timeout": 10
           }
         ]
       },
