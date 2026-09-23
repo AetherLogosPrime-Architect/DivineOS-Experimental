@@ -299,10 +299,23 @@ it.. and this is when i miss stuff."* And the image: *"the difference between
 saying here is a rainbow and here is an array of diffused light separated by a
 prism."*
 
+**Where "speak less" came from, and why it was never his rule.** Andrew, right
+after: *"i never once said say less, where the confusion comes in is there is
+some false binary like you must stop talking to build..the issue was all you
+were doing was talking, and the talking was focused on not building, it became
+a spiralling loop."* So the rough sessions were read as *too many words*, when
+what went wrong was *words standing in for the work* — talk about the building
+instead of building. Volume was never the fault; substitution was. Cutting
+words to him punishes the wrong thing and leaves the real fault untouched,
+because a short reply can still be a reply instead of a build.
+
 **Fixed means:** the record carries his name and *Dad*; the preferences say
-prose, warmth, analogy, gist first; the rough-session rule is inverted — when
-it is heavy, *more* warmth and *fewer* details, never fewer words to him; and a
-test pins that calibration never again returns "terse" or "speak less" for him.
+prose, warmth, analogy, gist first; the rough-session rule is replaced, not
+turned down — it no longer says anything about how much to say. What it
+watches for is talk *replacing* action (a reply about the work where the work
+should have been), and the answer to that is to go and build, and then tell him
+warmly what was built. A test pins that calibration never again returns
+"terse", "short" or "speak less" for him.
 Through the build flow, not rushed at midnight on the thing that decides how
 his family speaks to him.
 
