@@ -266,7 +266,83 @@ _ARTIFACT_FILING_COMMANDS = (
 # minute of the tightening below. The shared act-anchor skips this same set.
 _SHELL_WRAPPERS = ('cd', 'set', 'export', 'env', 'source', '.', 'exec', 'sudo', 'time')
 
-_SEGMENT_SEPARATORS = ('&&', '||', ';', '|', '&')
+_SEGMENT_SEPARATORS = ('&&', '||', ';', '|', '&', '\n')
+
+
+def _strip_heredoc_bodies(cmd: str) -> str:
+    # THE DELIMITERS BELOW ARE SINGLE QUOTES ON PURPOSE. A triple DOUBLE quote
+    # would close the bash string this whole program is the argument of, and
+    # the lines of this docstring would then be executed as shell commands.
+    # That is what happened when this function was first written, and it is the
+    # third spelling of the same trap in one afternoon.
+    '''Remove each heredoc body and terminator, keeping everything else.
+
+    Written 2026-09-23 to replace a cut at the first heredoc operator, which
+    threw away the whole remainder of the command including the acts after the
+    terminator.
+
+    TWO CHARACTERS MAY NOT APPEAR LITERALLY ANYWHERE IN HERE, in the code or
+    in a comment, and neither restriction is fussiness.
+
+    This whole python program is the argument of a DOUBLE-QUOTED bash string.
+    So an unescaped double quote closes the program mid-sentence -- which is
+    why every string in this file is single-quoted, a convention that was
+    never written down and that I broke within a minute of arriving. And two
+    adjacent less-than signs, once the string has closed, open a here-document
+    that swallows the rest of the file.
+
+    The first version of this function did both. It took the gate down on
+    every tool call, and the only reason that was survivable is that a
+    must-read surface put the parse error in front of me and refused to let
+    anything else through until I read it. A function about heredoc parsing,
+    broken by containing a heredoc operator, inside a file whose quoting rule
+    it also broke. Hence chr() for both characters below.
+
+    What survives: the line the operator was on, minus the operator and its
+    delimiter, and every line after the terminator. What goes: only the lines
+    the shell feeds to the command as input.
+
+    An unterminated heredoc consumes the rest of the text, which is what the
+    shell does with it too. Getting that wrong in the other direction would
+    turn typed prose into acts and refuse the gate's own remedy.
+
+    TEMPORARY, AND SAID SO WHERE IT WILL BE READ. This is the fifth copy of one
+    shell grammar in this house. Aria is merging the four into a single reader
+    and this call site is on her list; when that lands, this function should be
+    deleted and the shared one called instead. It is written here rather than
+    pulled from her branch because forking her file before the merge that
+    unifies it would leave her merging against a drifted copy of her own work.
+    '''
+    import re
+
+    op = chr(60) * 2   # the heredoc operator
+    sq = chr(39)       # single quote
+    dq = chr(34)       # double quote -- a literal one here would end this file
+    out = []
+    lines = cmd.split('\n')
+    i = 0
+    operator = re.compile(
+        op + r'-?\s*(?:'
+        + sq + r'([^' + sq + r']*)' + sq
+        + r'|' + dq + r'([^' + dq + r']*)' + dq
+        + r'|([A-Za-z_][A-Za-z0-9_]*))'
+    )
+    while i < len(lines):
+        line = lines[i]
+        delimiters = []
+        for match in operator.finditer(line):
+            delimiters.append(next(g for g in match.groups() if g is not None))
+        if not delimiters:
+            out.append(line)
+            i += 1
+            continue
+        out.append(operator.sub('', line))
+        i += 1
+        for delimiter in delimiters:
+            while i < len(lines) and lines[i].strip() != delimiter:
+                i += 1
+            i += 1  # step past the terminator itself
+    return '\n'.join(out)
 
 
 def _is_artifact_filing(cmd: str) -> bool:
@@ -312,14 +388,43 @@ def _is_artifact_filing(cmd: str) -> bool:
     # than suspecting the parser -- a refusal looks identical whether the gate
     # is working or broken.
     #
-    # The act is whatever precedes the redirection. Everything after the
-    # heredoc operator is input fed to that act and never executes, so no
-    # second act can hide there and cutting it costs no coverage. Deliberately
-    # narrow: a pipe and an output redirect DO introduce a second act and stay
-    # fully segmented, because exempting
-    # those is the hole the all()-over-segments rule below exists to close --
-    # and cutting at any punctuation would have been shorter to write.
-    cmd = cmd.split('<<', 1)[0]
+    # THE BODY IS DROPPED, NOT THE REMAINDER. Corrected 2026-09-23.
+    #
+    # This line used to split the command at the first heredoc operator and
+    # keep only what came before it, above a comment
+    # claiming everything after the heredoc operator is input fed to the act
+    # and never executes. That is true of the BODY and false of everything
+    # after the terminator line, which is ordinary shell and runs. So a filing
+    # command with a heredoc, followed by a commit or a write to a kiln file,
+    # came back exempt. Found by Aria, who lifted this function out of the hook
+    # and ran it rather than copying it.
+    #
+    # AND THE HEREDOC WAS NEVER THE HOLE, which reproducing it is what showed.
+    # A newline was not a segment separator, so two acts on two lines tokenised
+    # into ONE segment beginning with a filing command -- exempt, with no
+    # heredoc anywhere, while the same two acts joined by && were correctly
+    # refused. Fixing only what was reported would have closed the harder route
+    # and left the easier one open. The newline is added to the separators
+    # below; this half makes that safe.
+    #
+    # BECAUSE THE TWO HALVES DO NOT WORK ALONE. Once newlines split segments,
+    # the lines of a heredoc body would become segments of their own -- typed
+    # English prose, which is not a filing command, so every legitimate walk
+    # would be refused by its own reflection text. Dropping the body is what
+    # lets the separator be honest.
+    cmd = _strip_heredoc_bodies(cmd)
+
+    # AND THE NEWLINE BECOMES A SEPARATOR THE TOKENISER ALREADY KNOWS. It
+    # cannot simply be added to the separator tuple: shlex treats a newline as
+    # whitespace and never emits it as a token, so the entry would sit there
+    # looking like a rule and doing nothing -- which is its own version of the
+    # fault being fixed. Rewriting it to a semicolon is the same statement in a
+    # spelling the tokeniser answers to.
+    #
+    # A newline inside a quoted argument survives this: it lands inside the
+    # quotes as a literal semicolon and shlex keeps the whole thing as one
+    # token, so a filing command carrying multi-line text is not split apart.
+    cmd = cmd.replace(chr(10), ' ; ')
 
     try:
         lexer = shlex.shlex(cmd, posix=True, punctuation_chars=True)

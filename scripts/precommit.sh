@@ -457,7 +457,19 @@ if [ -f scripts/guardrail_files.txt ] && [ -f scripts/check_multi_party_review.p
         # setup-hooks.sh silently no-op'd the install. Verify here that
         # the hook actually exists and is non-empty BEFORE the operator
         # types the commit message — the operator should see this loudly.
-        HOOK_PATH=$(git rev-parse --git-path hooks/commit-msg 2>/dev/null || echo ".git/hooks/commit-msg")
+        # THE COMMON DIR, NOT --git-path, corrected 2026-09-23. In a worktree
+        # `.git` is a POINTER FILE, and --git-path still answers
+        # `.git/hooks/commit-msg` -- a path that cannot exist there, so this
+        # announced the gate as absent in every worktree while the hook sat
+        # installed in the shared directory the whole time. --git-common-dir
+        # gives the shared one from a worktree and the same answer as before
+        # from an ordinary checkout; checked in both before changing it.
+        #
+        # A false alarm on a SAFETY gate is worse than no alarm, because the
+        # next true one reads like this one. The comment three lines down
+        # already warned that setup-hooks.sh has a worktree bug -- so the
+        # warning about worktrees was itself being printed by a worktree bug.
+        HOOK_PATH="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")/hooks/commit-msg"  # fail-soft: outside a repository this cannot answer, and the literal fallback then makes the check report the hook as absent, which is the correct and safe reading there
         if [ ! -s "$HOOK_PATH" ]; then
             echo "  [!!] COMMIT-MSG HOOK NOT INSTALLED — gate enforcement absent."
             echo "       Path checked: $HOOK_PATH"
