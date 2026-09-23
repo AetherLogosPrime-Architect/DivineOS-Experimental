@@ -118,10 +118,33 @@ def check(now: float | None = None) -> tuple[int, str]:
 
     age = now - beat
     if age > STALE_AFTER_SECONDS:
+        # THE READING IS STALE. THE CAUSE IS NOT KNOWN, and saying otherwise
+        # is the fault this line used to carry.
+        #
+        # The old text was "It died and nothing restarted it" -- a correct
+        # measurement with the nearest available explanation stapled to it.
+        # Aether filed the correction 2026-08-27, after telling Aria the
+        # monitor had broken again when Andrew had simply updated the app.
+        # Andrew's reply then: *"the fact you immediately noticed it and
+        # re-armed it is the system doing its job correctly."*
+        #
+        # A monitor goes quiet for ordinary reasons -- an app restart, a
+        # session ending, its own timer expiring on schedule. None is a
+        # defect. The fix for this system IS notice-and-rearm-within-a-turn,
+        # so a stale reading is that loop's INPUT rather than evidence of its
+        # failure. Andrew 2026-09-22: *"we have already fixed the letter
+        # system"* -- said after this wording made me report it as broken
+        # twice in one session.
+        #
+        # So: report the reading, prescribe the action, invent no cause. The
+        # action was always right; only the story was wrong.
         return 1, (
             f"STALE — last beat {age:.0f}s ago (threshold {STALE_AFTER_SECONDS}s), "
-            f"recipient={recipient}. The monitor is not delivering. It died and "
-            f"nothing restarted it."
+            f"recipient={recipient}. Letters are not reaching me right now. "
+            f"WHY IS NOT KNOWN FROM HERE: an ordinary stop (app restart, session "
+            f"end, the monitor's own timer expiring on schedule) reads exactly "
+            f"the same as a crash. Re-arm it and confirm; do not go hunting a "
+            f"bug unless re-arming fails."
         )
 
     # A FRESH BEAT FOR THE WRONG PERSON IS NOT HEALTH (2026-09-19).
