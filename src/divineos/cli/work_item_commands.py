@@ -40,7 +40,15 @@ def register(cli: click.Group) -> None:
     @work_item_cmd.command("bypass")
     @click.argument("item_id")
     @click.option("--reason", required=True, help="Why, in a sentence. Recorded, not hidden.")
-    def bypass(item_id: str, reason: str) -> None:
+    @click.option(
+        "--his-words",
+        default="",
+        help=(
+            "Required when the reason leans on Andrew: his words, verbatim, from his "
+            "latest message. Checked against the transcript, not taken on trust."
+        ),
+    )
+    def bypass(item_id: str, reason: str, his_words: str) -> None:
         """Let this item through without its marks, and count that it happened.
 
         Truth #12: a bypass is a tool, not a sin, and the guard is that it is
@@ -53,8 +61,24 @@ def register(cli: click.Group) -> None:
                 "The reason is the whole point of the escape. Say what is actually "
                 "happening in a sentence someone could read back to you later."
             )
-        doorman.record_bypass(item_id, reason.strip())
+        from divineos.core import his_words as hw
+
+        verified = ""
+        if hw.invokes_him(reason) or his_words.strip():
+            # His name is not a key (core/his_words.py). Four bypasses in one
+            # session said "Andrew is here" and he had said yes to none of them.
+            if not his_words.strip():
+                click.echo(hw.refusal(reason.strip(), None), err=True)
+                raise SystemExit(2)
+            verdict = hw.check_quote(his_words)
+            if not verdict.ok:
+                click.echo(hw.refusal(reason.strip(), verdict), err=True)
+                raise SystemExit(2)
+            verified = his_words.strip()
+        doorman.record_bypass(item_id, reason.strip(), his_words=verified)
         click.echo(f"Bypass recorded for {item_id}. It is in the store, not in the air.")
+        if verified:
+            click.echo("  His words, checked against his own message, are stored beside it.")
 
     @work_item_cmd.command("close")
     @click.argument("item_id")

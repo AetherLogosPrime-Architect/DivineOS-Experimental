@@ -45,6 +45,31 @@ The cheap path and the right path converge (truth #11 b): a reason that does not
 lean on him is never slowed down. Only borrowing his authority costs anything,
 and what it costs is exactly asking him.
 
+## What the walk changed (walk-fe4e5685ca16), added before building
+
+- **The membrane leaks, and it must be fixed in the same change** (Maturana &
+  Varela). `hook_surfaces._is_his_turn` does not recognise the PR watcher's
+  `<ci-monitor-event>` notices or `<local-command-stdout>` echoes. Measured
+  across all my transcripts: 163 ci-monitor-events and 3 command echoes pass as
+  his messages. A quote lifted from one would verify as his. It is also the
+  likely source of the fake "preferences" in his user record.
+- **Presence is not permission** (Aristotle). The check proves his words are
+  real and recent, not that they grant this act. So the quote is stored on the
+  bypass row beside the reason, for a human to read later (Beer: the S3* audit
+  channel), and nothing claims more than that.
+- **The detector cannot be complete** (Foucault). The structural half: a bypass
+  counts as his only when it carries verified words. Everything else is mine.
+- **Fail closed** (Aether, Schneier): transcript missing or unreadable means the
+  his-name path refuses, and the plain path stays open.
+- **One seam, two callers** (Feathers): work-item bypass and council
+  authorize-bypass both ask one module; a reason that does not lean on him
+  behaves exactly as before, pinned by a characterisation test.
+- **The refusal names two roads** (Tannen): ask him and wait, or give a reason
+  that stands without him.
+
+Reach re-run for this piece after the name-tag commit landed:
+reach-9fbab6dd14cf (only `divineos verify` surfaced, which is ledger integrity).
+
 ## Open questions for the walk
 
 - Keyword detection of "invokes him" is whack-a-mole (Aether #151). Is there a

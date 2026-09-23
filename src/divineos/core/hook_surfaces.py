@@ -665,6 +665,14 @@ _INJECTED_USER_MARKERS = (
     "<task-notification>",
     "Stop hook feedback",
     "Caveat:",
+    # Added 2026-09-23. Measured across every transcript in this project: 163
+    # pull-request watcher notices and 3 command echoes were passing as his
+    # messages. That is how "preference_stated" rows in his user record came to
+    # hold CI notices, and it would have let a sentence lifted from one verify as
+    # his words in core/his_words.py. Found on the walk for that module.
+    "<ci-monitor-event>",
+    "<local-command-stdout>",
+    "<local-command-stderr>",
 )
 
 

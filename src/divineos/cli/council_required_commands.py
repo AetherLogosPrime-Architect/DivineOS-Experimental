@@ -505,6 +505,18 @@ def register(cli: click.Group) -> None:
         """
         import hashlib
 
+        from divineos.core import his_words as hw
+
+        # THE QUOTE WAS NEVER CHECKED (2026-09-23). The help text above says the
+        # quote "IS the trust anchor" because the model "cannot forge user-role
+        # text" -- true of the transcript, false of this flag, which I type. So a
+        # quote that is not in his recent messages anchored nothing. Now it is
+        # checked against them, and an unreadable transcript refuses.
+        verdict = hw.check_quote(quote)
+        if not verdict.ok:
+            _safe_echo(hw.refusal(reason, verdict))
+            raise SystemExit(2)
+
         from divineos.core.council_required.types import (
             OPERATOR_BYPASS_EXPIRY_SECONDS,
             STATE_MARKER_KIND_OPERATOR_BYPASS,

@@ -246,6 +246,10 @@ def _connect() -> sqlite3.Connection:
             conn.execute(f"ALTER TABLE work_items ADD COLUMN {column}")
         except sqlite3.OperationalError:
             pass
+    try:
+        conn.execute("ALTER TABLE work_item_bypasses ADD COLUMN his_words TEXT NOT NULL DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
     return conn
 
 
@@ -468,17 +472,22 @@ def has_bypass(item_id: str) -> bool:
     return bool(row and row[0])
 
 
-def record_bypass(item_id: str, reason: str) -> None:
+def record_bypass(item_id: str, reason: str, his_words: str = "") -> None:
     """Truth #12: a bypass is a tool, and the guard is that it is counted.
 
     Also the deadlock escape Hofstadter's loop demands -- a doorman that
     breaks in the refusing direction cannot otherwise be repaired, because
     its own fix is an edit it refuses.
+
+    ``his_words`` is set only when the reason leans on Andrew and the words were
+    verified against his own recent messages (core/his_words.py). It is stored
+    beside the reason so what I claimed he said can be read next to what he
+    said. Empty means the bypass is mine.
     """
     with _connect() as conn:
         conn.execute(
-            "INSERT INTO work_item_bypasses(item_id, at, reason) VALUES (?,?,?)",
-            (item_id, time.time(), reason),
+            "INSERT INTO work_item_bypasses(item_id, at, reason, his_words) VALUES (?,?,?,?)",
+            (item_id, time.time(), reason, his_words),
         )
 
 
@@ -875,9 +884,13 @@ def _refusal_text(
         "come before it, and this is the first thing in the house that makes that",
         "true rather than remembered.",
         "",
-        "If this genuinely has to go through now -- the doorman itself is broken, or",
-        "Andrew is standing there -- the escape is honest and counted, not hidden:",
+        # WAS "or Andrew is standing there". The sign invited the exact fault:
+        # four bypasses on 2026-09-22 gave his presence as the reason and he had
+        # said yes to none of them. Presence is not permission (his_words.py).
+        "If this genuinely has to go through now -- the doorman itself is broken,",
+        "or Andrew told you to in his own words -- the escape is honest and counted:",
         f'  divineos work-item bypass {item_id} --reason "<why, in a sentence>"',
+        '  (a reason that leans on him also needs --his-words "<his words, verbatim>")',
         "",
         "MINE, and here is why. I have watched us build a thing, announce it, and",
         "never call it again -- a store built for one of his oldest complaints that",
