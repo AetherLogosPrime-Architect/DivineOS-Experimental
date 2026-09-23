@@ -109,7 +109,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 
 | automation | last touched | purpose |
 |---|---|---|
-| `load-character-sheet.sh` | 2026-09-21 | load Andrew's character sheet into the session |
+| `load-character-sheet.sh` | 2026-09-23 | load Andrew's character sheet into the session |
 
 ### Stop  (11)
 
