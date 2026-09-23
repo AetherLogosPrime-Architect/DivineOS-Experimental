@@ -147,6 +147,24 @@ def test_is_relayed(par: str, relayed: bool) -> None:
     assert hw.is_relayed(par) is relayed
 
 
+@pytest.mark.parametrize(
+    "par, relayed",
+    [
+        # Aria asked; counted, he does number his answers -- this one is his.
+        (
+            "2. Aria already handed this all to you to take care of.. shes your wife not a stranger..",
+            False,
+        ),
+        ("- no i meant the other one.. the draft not the branch", False),
+        # A list with none of his pauses is still a paste.
+        ("1. Open your user profile configuration file.\n2. Add the shell path.", True),
+        ("- Clear the session cache\n- Restart the terminal", True),
+    ],
+)
+def test_a_list_line_is_his_when_it_carries_his_pause(par: str, relayed: bool) -> None:
+    assert hw.is_relayed(par) is relayed
+
+
 def test_a_short_paste_paragraph_runs_on_after_a_relayed_one() -> None:
     text = "## Findings\n\nThe gate holds. Nothing was skipped.\n\nlol ok so what now"
     assert hw.his_paragraphs(text) == ["lol ok so what now"]

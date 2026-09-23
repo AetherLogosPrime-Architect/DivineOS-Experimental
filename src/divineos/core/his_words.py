@@ -63,7 +63,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 MARKS_DIR = REPO_ROOT / "docs" / "his_words"
 INDEX_NAME = "his_words_index.json"
 INDEX_VERSION = (
-    3  # bump whenever the hand filter changes: cached messages were judged by the old one
+    4  # bump whenever the hand filter changes: cached messages were judged by the old one
 )
 
 # Anything he said before this date was never saved, so absence proves nothing.
@@ -78,7 +78,14 @@ def words(s: str) -> list[str]:
 
 # ---------------------------------------------------------------- his hand
 
-_MARKDOWN = re.compile(r"^\s*(#{1,6}\s|\*\*|[-*]\s|>\s|```|\||\d+\.\s)", re.M)
+_MARKDOWN = re.compile(r"^\s*(#{1,6}\s|\*\*|>\s|```|\|)", re.M)
+# A list opener alone is not a paste. Aria asked whether he ever types one;
+# counted, he did: "2. Aria already handed this all to you to take care of..
+# shes your wife not a stranger.." -- numbering his own answers, and the first
+# version threw the whole paragraph out. A list line is his when it carries his
+# pause, "..", which relayed prose does not.
+_LIST_START = re.compile(r"^\s*([-*]\s|\d+\.\s)", re.M)
+_HIS_PAUSE = re.compile(r"[a-z]\.\.(?:\s|$)")
 _SENT = re.compile(r"(?<=[.!?])\s+")
 # Case matters: "Perplexity to Aether" is a header, "talk to bulma" is him.
 _HEADER = re.compile(r"^\s*[A-Z][A-Za-z]+ (?i:to|response|reply)\b")
@@ -111,6 +118,8 @@ _TRANSCRIPT_STAMP = re.compile(r"\b\d{1,2}:\d{2}\s+\d+\s+(?:seconds?|minutes?)\b
 
 def is_relayed(par: str) -> bool:
     if _MARKDOWN.search(par) or _HEADER.match(par):
+        return True
+    if _LIST_START.search(par) and not _HIS_PAUSE.search(par):
         return True
     if len(_TRANSCRIPT_STAMP.findall(par)) >= 3:
         return True
