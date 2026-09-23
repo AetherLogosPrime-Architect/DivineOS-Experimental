@@ -217,6 +217,8 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 python scripts/generate_automation_register.py
 ```
 
-`--check` exits non-zero when the file has drifted, for wiring into a pre-commit or CI step.
+`--check` exits non-zero when the file has drifted, for wiring into a pre-commit or CI step. It compares this tree against its own committed copy, so it cannot see branch-dependence.
+
+`--check-reproduces` takes the measurement `--check` structurally cannot: it builds a clean worktree at the main line, runs THAT tree's own copy of this generator, and diffs the result against the copy committed there. Two sides from two sources. It exits 0 when the register reproduces, 1 when it does not, and **2 when it could not look at all** — a missing main-line ref, a worktree that would not build. Could-not-look is never reported as either answer.
 
 Run after adding, removing, or rewiring any automation. The wired column is computed from settings.json, the installed git hooks, and glob-dispatch prefixes — it reflects what is actually reachable, not what is supposed to be.
