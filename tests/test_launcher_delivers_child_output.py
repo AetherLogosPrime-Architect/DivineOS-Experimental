@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -143,7 +144,15 @@ def _scratch_tree(tmp_path: Path) -> Path:
     (hooks / "session-init-once.sh").write_text(
         LAUNCHER.read_text(encoding="utf-8"), encoding="utf-8", newline="\n"
     )
-    (hooks / "_lib.sh").write_text("# scratch\n", encoding="utf-8", newline="\n")
+    # The scratch library must supply find_divineos_python, because the real
+    # one does and the launcher now asks for it. A stub without it would make
+    # this suite pass against a launcher that cannot resolve an interpreter in
+    # production -- the scratch tree has to model the house, not a convenience.
+    (hooks / "_lib.sh").write_text(
+        "# scratch\nfind_divineos_python() { printf '%s' \"$SCRATCH_PYTHON\"; }\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
     def child(name: str, body: str) -> None:
         (hooks / name).write_text(f"#!/bin/bash\n{body}\n", encoding="utf-8", newline="\n")
@@ -169,7 +178,14 @@ def _run_launcher(repo: Path, home: Path) -> subprocess.CompletedProcess:
         [_BASH, str(repo / ".claude" / "hooks" / "session-init-once.sh")],
         input=PAYLOAD,
         cwd=str(repo),
-        env={"HOME": str(home), "PATH": _os_path(), "SYSTEMROOT": _systemroot()},
+        env={
+            "HOME": str(home),
+            "PATH": _os_path(),
+            "SYSTEMROOT": _systemroot(),
+            # The interpreter running this suite, which has divineos importable.
+            "SCRATCH_PYTHON": sys.executable,
+            "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src"),
+        },
         capture_output=True,
         text=True,
         # Explicit, because the default on Windows is cp1252 and the launcher

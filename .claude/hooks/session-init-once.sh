@@ -51,7 +51,7 @@ source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || true
 # Session key from the harness payload, falling back to a hash of the
 # transcript path. The fallback matters: a missing session_id must not make
 # every message look like a fresh session and re-run init each time.
-SESSION_KEY="$(printf '%s' "$INPUT" | python -c "
+SESSION_KEY="$(printf '%s' "$INPUT" | python -c "  # bare-python-by-design: this snippet imports only json, sys and hashlib from the standard library and never touches divineos, so any interpreter serves; the resolver is used below where divineos IS imported. Exposed to this check 2026-09-23 when the merge call first brought the file into scope.
 import json, sys, hashlib
 try:
     d = json.load(sys.stdin)
@@ -226,8 +226,20 @@ rm -f "$MARK_STARTED" 2>/dev/null || true
 # design. If it dies, the whole roster goes dark again -- the original defect
 # rebuilt one layer up with a traceback instead of a redirect. So its failure
 # is NOT allowed to be silent: a non-zero exit writes a named liveness row.
-_init_merged="$(python -m divineos.core.hook_context_merge "$_init_out_dir" 2>/dev/null)"  # fail-soft: a traceback on stdout would corrupt the prompt answer; the exit code below is read and turns into a named liveness row, so nothing is lost silently
-_init_merge_rc=$?
+# The resolver, NOT a bare `python`. Caught by the pre-push suite on
+# 2026-09-23: hooks run under a different interpreter than my shell, and the
+# Windows Store python that serves them does not necessarily carry divineos.
+# A bare `python` here would have imported nothing, exited non-zero, and
+# returned the whole roster to darkness -- the very defect this change
+# repairs, rebuilt by the interpreter instead of by the redirect.
+PYTHON_BIN="$(find_divineos_python 2>/dev/null)"  # fail-soft: an unresolvable interpreter is handled by the empty-check below, which writes a named liveness row rather than guessing at a binary
+if [ -z "$PYTHON_BIN" ]; then
+    _init_merged=""
+    _init_merge_rc=127
+else
+    _init_merged="$("$PYTHON_BIN" -m divineos.core.hook_context_merge "$_init_out_dir" 2>/dev/null)"  # fail-soft: a traceback on stdout would corrupt the prompt answer; the exit code below is read and turns into a named liveness row, so nothing is lost silently
+    _init_merge_rc=$?
+fi
 rm -rf "$_init_out_dir" 2>/dev/null || true  # fail-soft: the captures have already been read; a temp dir that will not delete is an OS housekeeping matter, not a signal about the session
 
 if [ "$_init_merge_rc" -ne 0 ]; then
