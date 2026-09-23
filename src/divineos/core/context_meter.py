@@ -78,7 +78,12 @@ COMPACTION_CEILING_TOKENS = 1_000_000
 # one question, which is the same confusion in miniature that left a stale
 # denominator in this file. Andrew: start at 920k, finish before the window
 # fills at 1M.
-DEFAULT_FIRE_THRESHOLD = 0.92
+# Re-aligned to auto_cycle.TRIGGER_THRESHOLD 2026-09-18 when that moved to
+# 0.88 — 880k, the point Andrew named after compaction shifted to ~950k.
+# These two were deliberately matched in August and the reason still holds:
+# if this module's over-threshold flag and the thing that actually fires
+# disagree, the surface reports a state the pipeline is not in.
+DEFAULT_FIRE_THRESHOLD = 0.88
 
 
 @dataclass
