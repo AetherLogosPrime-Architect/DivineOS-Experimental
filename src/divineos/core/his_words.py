@@ -27,6 +27,12 @@ exact means these words, in this order, appear in something he typed. It does
 NOT mean he meant them in the place they are being quoted. Context is his
 first complaint and this cannot see it.
 
+TWO MORE THINGS IT CANNOT SEE, said so a silence is never read as a check:
+a quote introduced by a pronoun ("he said: ...") -- knowing who "he" is needs
+the sentence before -- and an old misquote that is READ and obeyed rather than
+re-quoted, which is how the force-push line did its harm (Meadows, on the
+loaded walk). The second wants a surface at read time; it is not built here.
+
 WHAT IS HIS HAND. He types lower-case, rarely capitalises a sentence, pauses
 with "..", and never writes markdown, bold or an em dash. Relayed AI prose
 capitalises nearly every sentence and carries all of those. Judged per
@@ -402,7 +408,11 @@ def load_index(
 # Also skipped: his name as the LISTENER. "My response to Andrew was: '...'"
 # quotes me, and the first version read it as him.
 _NOT_QUOTED_NAME = r"(?<![\"“])(?<!\bto )(?<!\bTo )(?<!\bwith )(?<!\bfor )"
-_NAME = r"\b(?:Andrew|Dad)(?:'s|’s)?\b"
+# Every name the house calls him by. Yudkowsky, on the loaded walk: the laziest
+# way past a door keyed on "Andrew|Dad" is to write "Pop said" or "my father
+# said" -- the spec satisfied, the intent not. The house uses both.
+_HIS_NAMES = r"(?:Andrew|Dad|Pops?|[Mm]y father)"
+_NAME = r"\b" + _HIS_NAMES + r"(?:'s|’s)?\b"
 _DATE = r"[ ,(]*20\d\d-\d\d-\d\d[),]*"
 _SPEECH = (
     # Not "named": "The methodology named 'Dijkstra separation-of-concerns'"
@@ -419,9 +429,19 @@ _LEAD = (
     + r")?[^\n\"“‘]{0,40}?"
     + _SPEECH
     + r"|"
-    + r"\b(?:Andrew|Dad)\b"
+    + r"\b"
+    + _HIS_NAMES
+    + r"\b"
     + _DATE
     + r"\s*"
+    # "named" only straight after his name: "Dad named 'you're both too
+    # agreeable'" is him naming a thing; forty characters on, "the methodology
+    # named 'X'" is not. Dropping the word entirely lost two he marked not his.
+    + r"|"
+    + _NAME
+    + r"(?:"
+    + _DATE
+    + r")?\s+(?:\w+\s+)?named\b(?:\s+(?:it|this|that))?"
     + r")[^\n\"“‘]{0,12}?[*_]?"
 )
 _DATE_OPT = r"(?:" + _DATE + r")?"

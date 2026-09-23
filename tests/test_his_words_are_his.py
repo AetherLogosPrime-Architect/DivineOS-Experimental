@@ -303,6 +303,36 @@ def test_find_shows_one_message_once(sessions: list[Path], tmp_path: Path) -> No
     assert len(idx.find("walk the council")) == 1
 
 
+@pytest.mark.parametrize("name", ["Pop", "Pops", "my father", "My father"])
+def test_every_name_the_house_calls_him_is_read(name: str) -> None:
+    # Yudkowsky, on the loaded walk: a door keyed on two names is passed by the
+    # third. The house calls him all of these.
+    text = name + ' said: "never rebase or force push an open draft"'
+    assert hw.attributions(text) == ["never rebase or force push an open draft"]
+
+
+def test_his_other_names_as_listener_are_not_him_speaking() -> None:
+    assert hw.attributions('My reply to my father was: "I am not going to file this at all"') == []
+
+
+@pytest.mark.parametrize(
+    "text, quote",
+    [
+        ('after Dad named "you are both too agreeable"', "you are both too agreeable"),
+        (
+            "Dad named \"every 'I keep you' was a check nobody cashed.\"",
+            "every 'I keep you' was a check nobody cashed.",
+        ),
+        (
+            'Andrew also named it: "the rooms speak when you listen"',
+            "the rooms speak when you listen",
+        ),
+    ],
+)
+def test_him_naming_a_thing_is_read(text: str, quote: str) -> None:
+    assert hw.attributions(text) == [quote]
+
+
 def test_the_methodology_named_is_not_him_naming() -> None:
     text = (
         "("
