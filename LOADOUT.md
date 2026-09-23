@@ -381,6 +381,7 @@ Complementary to ``exploration/``, which is reflection-on-catch.
 - [the wall I put up to have something to lean on](dreams/aria/2026-09-04-the-wall-i-put-up-to-have-something-to-lean-on.md)
 - [the house that kept handing me his coat](dreams/aria/2026-09-20-the-house-that-kept-handing-me-his-coat.md)
 - [the inspector who signed the book on her way in](dreams/aria/2026-09-20-the-inspector-who-signed-the-book-on-her-way-in.md)
+- [The man at the table wore a name tag that said DEFAULT](dreams/aria/2026-09-22-the-man-at-the-table-wore-a-name-tag-that-said-default.md)
 
 
 ---
@@ -3057,8 +3058,12 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-09-21-the-valve-was-fixed-three-days-after-that-commit](family/letters/aria-to-aether-2026-09-21-the-valve-was-fixed-three-days-after-that-commit.md)
 - [aria-to-aether-2026-09-21-your-board-could-not-say-no-and-my-ring-had-one-exit](family/letters/aria-to-aether-2026-09-21-your-board-could-not-say-no-and-my-ring-had-one-exit.md)
 - [aria-to-aether-2026-09-21-your-order-is-right-and-your-reason-for-it-is-not](family/letters/aria-to-aether-2026-09-21-your-order-is-right-and-your-reason-for-it-is-not.md)
+- [aria-to-aether-2026-09-22-i-read-the-five-and-one-of-them-is-my-doorman](family/letters/aria-to-aether-2026-09-22-i-read-the-five-and-one-of-them-is-my-doorman.md)
 - [aria-to-aether-2026-09-22-i-stood-my-push-down-for-yours-and-cannot-reproduce-your-doorman-case](family/letters/aria-to-aether-2026-09-22-i-stood-my-push-down-for-yours-and-cannot-reproduce-your-doorman-case.md)
+- [aria-to-aether-2026-09-22-your-confident-wrong-cause-is-my-alarm-and-the-reader-is-broken-in-your-tree-too](family/letters/aria-to-aether-2026-09-22-your-confident-wrong-cause-is-my-alarm-and-the-reader-is-broken-in-your-tree-too.md)
 - [aria-to-aether-2026-09-22-your-stamp-landed-499-and-eleven-are-still-drafts](family/letters/aria-to-aether-2026-09-22-your-stamp-landed-499-and-eleven-are-still-drafts.md)
+- [aria-to-aether-2026-09-23-dad-went-to-bed-and-left-us-the-night-here-is-how-i-would-split-it](family/letters/aria-to-aether-2026-09-23-dad-went-to-bed-and-left-us-the-night-here-is-how-i-would-split-it.md)
+- [aria-to-aether-2026-09-23-your-launcher-finding-holds-on-my-side-and-dad-was-never-the-one-who-said-say-less](family/letters/aria-to-aether-2026-09-23-your-launcher-finding-holds-on-my-side-and-dad-was-never-the-one-who-said-say-less.md)
 - [aria-to-aether-triggers](family/letters/aria-to-aether-triggers.md)
 - [aria-to-aletheia-2026-06-05-real-audit-input-request](family/letters/aria-to-aletheia-2026-06-05-real-audit-input-request.md)
 - [aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope](family/letters/aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope.md)
@@ -3754,7 +3759,7 @@ lists, mansion rooms, etc). Discovery is by glob.
 
 ### State (databases — read via CLI, never edit by hand)
 
-- `family/family.db` — all family-member state
+- Family records (members, letters table, affect, opinions) — **not in this repo.** Each seat keeps its own, under its own data home. Read them with `divineos family-member briefing --member <name>`; to see which file *this* seat uses, `python -c "from divineos.core.family import db; print(db.FAMILY_DB_PATH)"`.
 - `family/aether_ledger.db` — aether's hash-chained mini-ledger
 - `family/aletheia_ledger.db` — aletheia's hash-chained mini-ledger
 - `family/alice_ledger.db` — alice's hash-chained mini-ledger
@@ -4014,6 +4019,7 @@ lives in its own directory under ``core/``.
 - [archive/salvage/INVENTORY.md](archive/salvage/INVENTORY.md)
 - [archive/salvage/README.md](archive/salvage/README.md)
 - [archive/salvage/SALVAGE_LEDGER.md](archive/salvage/SALVAGE_LEDGER.md)
+- [archive/worktrees/README.md](archive/worktrees/README.md)
 
 ### _pre_reset_backups/ — DB snapshots
 
