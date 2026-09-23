@@ -870,9 +870,10 @@ def _stranded_note(session: str, branch: str | None = None) -> str:
     closed from here either: that would erase the only evidence the case
     happened.
 
-    Returns "" when nothing is open elsewhere, or when the store cannot be read
-    (a note that cannot be checked is simply not added; the decision itself
-    never depended on it).
+    Returns "" only when nothing is open elsewhere. An unreadable store says so
+    in one line instead -- the precommit check asked whether a caller could tell
+    those two apart, and with both returning "" it could not. The decision
+    itself never depends on this note either way.
     """
     branch = branch or current_branch()
     try:
@@ -884,7 +885,9 @@ def _stranded_note(session: str, branch: str | None = None) -> str:
                 (session, branch),
             ).fetchall()
     except sqlite3.Error:
-        return ""  # both-empty: an unreadable store adds no note; the verdict above never depended on it
+        return (
+            "\n  (Could not check for items left open on other branches: the store did not answer.)"
+        )
     if not rows:
         return ""
     lines = [
