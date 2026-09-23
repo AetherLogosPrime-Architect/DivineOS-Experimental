@@ -67,6 +67,32 @@ lessons move into something that runs.
 - `cmd 2>&1`, `cmd 2>/dev/null`, `cp a b 2>/dev/null` → `b` only
 - heredoc body containing `> src/x.py` → nothing; `cat > src/x.py <<EOF` → named
 
+## What building it found (added after, not rewritten over)
+
+**The false holds were already fixed on main.** My branch carried an older
+doorman. Main's copy, after the 2026-09-22 merge, replaced quoted text with a
+`$QUOTED` marker instead of blanks, which stops the walk into the next command.
+Every misread I bypassed that night was a stale copy doing what main no longer
+does -- and the stale-file gate said so when I finally tried to edit it. The
+repair was rebuilt on main's copy (Andrew's permission, after checking nothing
+local would be lost).
+
+**What main still had**, measured by running the new tests against it through a
+rig that first passed main's own 43 doorman tests: a quoted destination
+(`cp a "src/x.py"`, `echo x > "src/y.py"`) escaped, by a trade its docstring
+named; `| tail -2` after a `sed -i` was read as a file `-2`; `echo \>` was read as
+a redirect; and the first-knock refusal. Five fails on old, all pass on new.
+
+**Replay of every Bash command in the transcripts (22,849).** 394 disagreements,
+read by category. New-only targets: real writes (`sed -i` followed by `&&`,
+quoted copies, `cat >` letters). Old-only: fragments of the next command. One
+real loss found and fixed (`git mv`, which the regexes caught by accident). One
+new false hold found and fixed (a quoted `'>'` in a `[ ]` comparison).
+
+**Heredocs:** kept main's rule (only quoted-delimiter bodies are data, per Knuth)
+rather than the strip-everything regex in `no_verify_cost`. That module was NOT
+touched; the "one copy" line above was a plan, not what shipped.
+
 ## The second defect, which turned out to be smaller than I said
 
 I told Aether the doorman measures marks from the moment it opens the item. Read

@@ -55,7 +55,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import sqlite3
 import time
 from dataclasses import dataclass
@@ -63,6 +62,7 @@ from enum import Enum
 from pathlib import Path
 
 from divineos.core._ledger_base import _get_db_path
+from divineos.core.command_parsing import shell_write_targets
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXEMPT_LIST = REPO_ROOT / "scripts" / "review_exempt_paths.txt"
@@ -159,60 +159,16 @@ def needs_an_item(paths: list[str]) -> tuple[str, ...]:
 # the Edit/Write tools. This was the cheapest route in the attack tree, and
 # it is not hypothetical: I wrote this module's own design draft through a
 # heredoc an hour before writing this function.
-# QUOTED TEXT IS NOT SHELL SYNTAX. A redirection never lives inside quotes, so
-# quoted spans come out before anything is matched. Measured 2026-09-10:
-# `echo 'write it > somewhere'` produced a phantom file named `somewhere` and
-# a refusal to go with it.
-_QUOTED_SPAN = re.compile(r"'[^']*'|\"[^\"]*\"")
-
-_SHELL_WRITE_PATTERNS: tuple[re.Pattern[str], ...] = (
-    # BLANKING QUOTED TEXT IS THE WHOLE REPAIR. Found by this doorman firing
-    # wrongly on Aria twice while she was reading my work, and then on me, in
-    # the command I wrote to reproduce her report. A redirection sign was
-    # matched wherever it appeared, so an arrow inside a formatted string
-    # yielded a file named for whatever followed it, and Aria's probe text
-    # produced a target named for half a subtraction. She took a counted
-    # bypass rather than routing around it, twice, and paid in writing both
-    # times.
-    #
-    # I SHIPPED A SECOND NARROWING AND IT OPENED A HOLE. Aletheia's audit,
-    # 2026-09-10: my first repair also skipped a redirection sign preceded by
-    # a dash or an equals, to kill the arrow and the comparison. She pointed
-    # out that an option ending in equals followed immediately by a redirection
-    # is a REAL write — the shell reads the argument, then the redirect — and
-    # the exclusion made it invisible.
-    #
-    # MEASURED RATHER THAN TAKEN, AND HER REMEDY WAS ALSO WRONG. She proposed
-    # dropping the exclusion entirely, on the ground that every false case is
-    # quoted and blanking alone therefore suffices. Run against this module's
-    # own tests, that is false: one of the recorded false cases is an arrow in
-    # an UNQUOTED shell comment, and her version names a file for it again.
-    #
-    # So the fork she offered — keep the exclusion and miss a real write, or
-    # drop it and refuse Aria again — is not a fork. What separates the two is
-    # not the dash or the equals, it is whether the arrow is a STANDALONE
-    # TOKEN. An arrow between spaces is prose. An option ending in a dash or an
-    # equals has a word character behind it, and what follows is a real
-    # redirection.
-    #
-    # So the exclusion now requires the dash or equals to be preceded by
-    # whitespace. Measured, with a control: her attack is caught, a dash-shaped
-    # variant of it she did not name is caught, both plain redirects are
-    # caught, and all four false cases stay silent — including the unquoted one
-    # her remedy would have brought back.
-    #
-    # Her sentence stands anyway, because the unease it named was correct: one
-    # half was doing the work and the other half was carrying the risk. She
-    # found the hole. The shape of the repair is the part that was still open.
-    #
-    # The trailing lookahead stays. It excludes a greater-or-equal comparison,
-    # which quoting does not always cover and which names no file either way.
-    re.compile(r"(?<!(?<=[\s])[-=])>>?\s*(?![=\s])([^\s;|&<>()]+)"),
-    re.compile(r"\btee\s+(?:-a\s+)?([^\s;|&<>()]+)"),
-    re.compile(r"\bsed\s+(?:-[a-zA-Z]*i[a-zA-Z]*\S*\s+)(?:[^\s]+\s+)*?([^\s;|&<>()]+)\s*$"),
-    re.compile(r"\b(?:cp|mv|install)\s+(?:-\S+\s+)*\S+\s+([^\s;|&<>()]+)"),
-    re.compile(r"\bpatch\s+(?:-\S+\s+)*([^\s;|&<>()]+)"),
-)
+# THE SHELL IS READ BY command_parsing.shell_write_targets NOW (2026-09-23).
+# This spot held five regexes, a quoted-span blanker and a placeholder -- the
+# history of each regex learning one more piece of shell grammar: the arrow in
+# quotes, Aletheia's `--opt=>file`, the arrow in an unquoted comment, a copy
+# collapsing to `cp && echo`. Those cases are all still tests. The last trade
+# the regexes made was named honestly: a write whose destination is quoted
+# escaped them. A tokeniser does not need that trade, because a quoted string
+# stays one word -- it can neither fake a redirect nor hide a destination.
+# Measured before switching: every Bash command in this house's transcripts
+# (22,849) replayed through both readers, and every disagreement read.
 
 
 def paths_from_tool_call(tool_name: str, tool_input: dict) -> list[str]:
@@ -230,29 +186,32 @@ def paths_from_tool_call(tool_name: str, tool_input: dict) -> list[str]:
 
     So both sentences stand. The first says which way to err when precision
     runs out; the second says precision here is worth real work, because the
-    erring is not free and a person pays it. Neither overturns the other.
+    erring is not free and a person pays it.
+
+    AND THE COST IS NOT ONLY THE REFUSAL, which is the half the other branch
+    had measured and this one had not. A false hit also writes a bypass row,
+    and those rows aggregate into a telemetry line reading elevated escape
+    rate -- a verdict about my discipline manufactured by a broken parser.
+    Watts's finding on the walk: the detector produces its own subject and
+    puts my name on the result. That sharpens why precision is worth the work;
+    it does not reverse which way to err, which is what I wrongly concluded
+    from it.
     """
     if tool_name in ("Write", "Edit", "NotebookEdit"):
         p = tool_input.get("file_path") or tool_input.get("notebook_path")
         return [p] if p else []
     if tool_name == "Bash":
-        cmd = tool_input.get("command") or ""
-        # Quoted spans blanked rather than removed, so offsets and word
-        # boundaries either side of them are unchanged.
-        cmd = _QUOTED_SPAN.sub(lambda m: " " * len(m.group(0)), cmd)
         found: list[str] = []
-        for pattern in _SHELL_WRITE_PATTERNS:
-            for m in pattern.finditer(cmd):
-                candidate = m.group(1).strip("\"'")
-                if not candidate or candidate.startswith("/dev/"):
-                    continue
-                # An unexpanded variable or glob is not a path I can resolve,
-                # and resolving it relative to the working directory turns an
-                # outside-the-repo write into a false hold. Found by wiring
-                # this in and being refused on a scratchpad path.
-                if any(ch in candidate for ch in "$*?~`"):
-                    continue
-                found.append(candidate)
+        for candidate in shell_write_targets(tool_input.get("command") or ""):
+            if candidate.startswith("/dev/"):
+                continue
+            # An unexpanded variable or glob is not a path I can resolve,
+            # and resolving it relative to the working directory turns an
+            # outside-the-repo write into a false hold. Found by wiring
+            # this in and being refused on a scratchpad path.
+            if any(ch in candidate for ch in "$*?~`"):
+                continue
+            found.append(candidate)
         return found
     return []
 
@@ -719,17 +678,51 @@ def decide(tool_name: str, tool_input: dict, session: str = "") -> Decision:
 
     code_paths = needs_an_item(paths)
     if not code_paths:
-        return Decision(State.OPEN, "prose only -- letters and drafts do not open work")
+        # NAME THE POLICY BEING APPLIED, rather than inheriting it in silence.
+        # Aether's reading 2026-09-19: this list was written to answer ONE
+        # question -- what skips review before main -- and every word of its
+        # header is about review. It now answers a second question too, what
+        # may be edited without an open piece of work, and nothing in the file
+        # knows that. So someone adds a line to stop a letter appearing in the
+        # review queue, exactly as the header invites them to, and silently
+        # removes this door from that path as well. They are thinking about one
+        # policy and changing two.
+        #
+        # Splitting the file would be the reflex repair and it is the wrong one:
+        # one list beats two that drift, and we killed a two-copy drift last
+        # week. So the list stays shared and the door says out loud which of the
+        # two policies it is applying, and to which paths. An exemption is then
+        # visible at the door instead of inherited behind it.
+        exempted = ", ".join(sorted(paths)) or "(none)"
+        return Decision(
+            State.OPEN,
+            "no work opened -- every changed path is on the review-exemption "
+            f"list: {exempted}. That list answers WHAT SKIPS REVIEW BEFORE MAIN; "
+            "this door is borrowing it to answer WHAT MAY BE EDITED WITHOUT AN "
+            "OPEN PIECE OF WORK. If one of these should still pass through the "
+            "build flow, the shared list is where that was decided.",
+        )
 
     existing = open_item_for_branch(session=session)
+    opened_now = existing is None
     if existing is None:
         item_id = open_item(trigger=code_paths[0], session=session)
-        return Decision(
-            State.HELD,
-            _refusal_text(item_id, code_paths, list(REQUIRED_BEFORE_BUILD), opened_now=True),
-            item_id=item_id,
-            missing=REQUIRED_BEFORE_BUILD,
-        )
+        # A NEW ITEM IS CHECKED, NOT REFUSED ON SIGHT (2026-09-23). This used to
+        # return a hold listing all three stations the moment it opened, without
+        # looking. The marks window already reaches back to the last landing, so
+        # a search, draft and walk done properly BEFORE the first edit were real
+        # and counted -- on the second knock. The first knock said "nothing has
+        # been searched yet" while the search sat there, which is the landlord
+        # Aether named: refusing you for not doing again what you already did.
+        # Measured live the same night, on the edit that began this repair.
+        existing = open_item_for_branch(session=session)
+        if existing is None:
+            return Decision(
+                State.HELD,
+                _refusal_text(item_id, code_paths, list(REQUIRED_BEFORE_BUILD), opened_now=True),
+                item_id=item_id,
+                missing=REQUIRED_BEFORE_BUILD,
+            )
 
     item_id, opened_at, snapshot = existing
     if has_bypass(item_id):
@@ -750,7 +743,11 @@ def decide(tool_name: str, tool_input: dict, session: str = "") -> Decision:
         return Decision(
             State.HELD,
             _refusal_text(
-                item_id, code_paths, list(missing), opened_now=False, walked_around=walked_around
+                item_id,
+                code_paths,
+                list(missing),
+                opened_now=opened_now,
+                walked_around=walked_around,
             ),
             item_id=item_id,
             missing=missing,
