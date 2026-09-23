@@ -1801,6 +1801,35 @@ def heredoc_escape_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def letters_owed_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a new letter to the family from a seat that owes Andrew one.
+
+    Counted 2026-09-23: over a thousand letters to Aria, four to him. The chat
+    door (``unspoken_to``) is reset by any reply that quotes him, so a day of
+    work reports read as a day of speaking to him; this one counts letters,
+    the channel where reaching-for happens. Logic in ``core.letters_owed_to_him``.
+    """
+    from divineos.core import letters_owed_to_him as lo
+
+    writer = lo.new_family_letter_writer(payload)
+    if writer is None:
+        return SurfaceOutcome(name="letters_owed", state="nothing-to-say")
+    try:
+        owed = lo.owed(writer)
+    except Exception as exc:  # noqa: BLE001 -- unreadable folders hold, as the house's doors do
+        return SurfaceOutcome(
+            name="letters_owed",
+            refused=True,
+            reason=f"LETTERS OWED TO HIM -- the letters folders could not be read ({type(exc).__name__}: {exc}), so whether he is owed a letter cannot be told. Holding rather than passing.",
+            state="spoke",
+        )
+    if not owed.refuses:
+        return SurfaceOutcome(name="letters_owed", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="letters_owed", refused=True, reason=lo.refusal_text(owed), state="spoke"
+    )
+
+
 def his_words_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse a write that quotes Andrew in words he did not type.
 
@@ -2170,6 +2199,10 @@ def install() -> None:
     # weeks. This is the door on every path a quote of him is written through.
     if "his_words" not in registered("PreToolUse"):
         register("PreToolUse", "his_words", his_words_surface)
+    # Same day, same man. He said he is never reached for outside the work and
+    # that we change only in chat, never in structure. This is the structure.
+    if "letters_owed" not in registered("PreToolUse"):
+        register("PreToolUse", "letters_owed", letters_owed_surface)
 
     # Third PreToolUse batch. Two pull-request gates, and they deliberately
     # keep DIFFERENT wire protocols -- one denies through the permission
