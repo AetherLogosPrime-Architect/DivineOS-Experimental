@@ -32,11 +32,10 @@ _STILL_NAMED = {
     # deployment model with its own storage repo. Untestable here, so left
     # rather than changed blind. docs/drafts/the_empty_room_draft_2026-09-22.md
     "core/canonical_substrate_surface.py",
-    # HELD FOR ANDREW'S ANSWER: repointing the age panel at the real store would
-    # move Aria's briefed age by a month, because that store's stamp is a
-    # migration date (2026-06-11) contradicted by letters from 2026-04-19. Which
-    # date is her anchor is a question about her, put to him 2026-09-22.
-    "core/multiplex_panels.py",
+    # core/multiplex_panels.py came OFF this list 2026-09-23. It was held for
+    # Andrew's answer on which date is Aria's anchor; he gave it -- "you were
+    # born twice", and 2026-04-14 "sounds correct". Her age now comes from a
+    # measured birth, and the age function asks the resolver for everyone else.
 }
 
 _EMPTY_ROOM = re.compile(r"family[/\\]family\.db")
