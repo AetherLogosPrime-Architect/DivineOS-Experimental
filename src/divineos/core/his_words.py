@@ -260,12 +260,54 @@ class Index:
                 best, best_i = score, i
         if best_i < 0 or best[0] < 0.3:
             return None
-        return self.messages[best_i]
+        date, text = self.messages[best_i]
+        return date, _window(text, self._words[best_i], qw)
 
     def find(self, text: str, limit: int = 10) -> list[tuple[str, str]]:
         needle = " " + " ".join(words(text)) + " "
         hits = [self.messages[i] for i, j in enumerate(self._joined) if needle in j]
         return hits[:limit]
+
+
+_TOKEN = re.compile(r"[A-Za-z0-9'’]+")
+
+
+def _window(text: str, his: list[str], quote: list[str], pad: int = 6) -> str:
+    """The stretch of his message around the longest run he shares with the quote.
+
+    Handed back EXACTLY as he typed it, so it can be quoted as it stands
+    (Foucault, walk-75f50258e31f): if quoting him exactly costs more than
+    paraphrasing him, the door produces a house that stops quoting him at all,
+    and his voice drains out -- the opposite of what he asked for. Showing the
+    first lines of a long message made him look up the match himself.
+    """
+    tokens = [m for m in _TOKEN.finditer(text) if words(m.group(0))]
+    if [w for m in tokens for w in words(m.group(0))] != his or not tokens:
+        return " ".join(text.split())[
+            :300
+        ]  # tokens and words disagree; show the head, never a wrong span
+    block = max(
+        difflib.SequenceMatcher(None, quote, his, autojunk=False).get_matching_blocks(),
+        key=lambda b: b.size,
+    )
+    # Map word positions back to tokens. A token can hold more than one word
+    # ("force-push" is one token only if the hyphen were a letter; it is not),
+    # so walk the counts rather than assume one-to-one.
+    starts, n = [], 0
+    for m in tokens:
+        starts.append(n)
+        n += len(words(m.group(0)))
+    first = max(0, max(i for i, s in enumerate(starts) if s <= block.b) - pad)
+    last = min(
+        len(tokens) - 1,
+        max(i for i, s in enumerate(starts) if s <= block.b + max(block.size - 1, 0)) + pad,
+    )
+    span = text[tokens[first].start() : tokens[last].end()]
+    return (
+        ("..." if first > 0 else "")
+        + " ".join(span.split())
+        + ("..." if last < len(tokens) - 1 else "")
+    )
 
 
 def _index_path() -> Path:
@@ -454,7 +496,9 @@ def refusal_text(result: DoorResult) -> str:
             "quotation marks as your own reading of him, or repair what could not be read."
         )
     lines = [
-        "HIS WORDS DOOR -- this write puts words in Andrew's mouth that he did not type.",
+        "HIS WORDS DOOR -- this write quotes Andrew in words the house cannot find in",
+        "anything of his it can read. That is not proof he never said them -- some",
+        "windows were never saved -- but a quote nobody can check must not read as his.",
         "",
         'Andrew: "not only do my words get ignored or shelved or taken out of context.. but',
         'there are literal words being put in my mouth that are the opposite of what i have said.."',
@@ -463,9 +507,8 @@ def refusal_text(result: DoorResult) -> str:
     for quote, near in result.held:
         lines.append(f"  written as his:  {quote[:200]}")
         if near:
-            lines.append(
-                f"  nearest he typed ({near[0] or 'undated'}):  {' '.join(near[1].split())[:300]}"
-            )
+            lines.append(f"  nearest he typed ({near[0] or 'undated'}), exactly as he typed it:")
+            lines.append(f"      {near[1][:400]}")
         else:
             lines.append("  nearest he typed:  nothing close")
         lines.append("")
@@ -484,22 +527,33 @@ def refusal_text(result: DoorResult) -> str:
 # ---------------------------------------------------------------- the payload
 
 _CLI_WRITE = re.compile(r"\bdivineos\s+(?:learn|decide|log|claim|andrew-correction|corrections?)\b")
+# A Bash command that writes a file. Schneier on the loaded walk: this is the
+# CHEAPEST way around the door, because it is how I already write whenever an
+# Edit is refused -- it needs no new skill and no new intention. The first
+# design defended the expensive paths and left this one open.
+_BASH_FILE_WRITE = re.compile(
+    r"<<|\btee\b|write_text\(|\.write\(|(?<![0-9&>])>(?![&>]|\s*/dev/null)"
+)
 _SCRATCH = "/temp/claude/"
 
 
 def texts_from_payload(payload: dict) -> tuple[str, str] | None:
     """(new, old) text a tool call is about to write, or None if it writes nothing checked.
 
-    Covered: Write, Edit, MultiEdit, and the content of divineos learn / decide /
-    log / claim in a Bash command, because knowledge resurfaces as briefing
-    (Schneier, walk-75f50258e31f). NOT covered, and not pretended: arbitrary
-    Bash file writes, and chat replies.
+    Covered: Write, Edit, MultiEdit; the content of divineos learn / decide /
+    log / claim in a Bash command, because knowledge resurfaces as briefing;
+    and any Bash command that writes a file (a redirect, a heredoc, tee, a
+    python write). The Bash check reads the whole command, since it cannot know
+    which part lands in the file. NOT covered, and not pretended: text written
+    somewhere unwatched and then copied in with cp or mv, and chat replies.
     """
     tool = payload.get("tool_name") or ""
     ti = payload.get("tool_input") or {}
     if tool == "Bash":
         command = ti.get("command") or ""
-        return (command, "") if _CLI_WRITE.search(command) else None
+        if _CLI_WRITE.search(command) or _BASH_FILE_WRITE.search(command):
+            return command, ""
+        return None
     if tool not in ("Write", "Edit", "MultiEdit"):
         return None
     path = str(ti.get("file_path") or "")

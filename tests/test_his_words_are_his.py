@@ -234,6 +234,35 @@ def test_a_pasted_video_transcript_is_not_his() -> None:
     assert hw.is_relayed(transcript) is True
 
 
+def test_the_nearest_line_is_handed_back_exactly_as_he_typed_it(index: hw.Index) -> None:
+    # Foucault, on the loaded walk: if quoting him exactly costs more than
+    # paraphrasing him, the door produces a house that stops quoting him.
+    near = index.nearest("yes but you dont need to walk the council just hold up a minute.")
+    assert near is not None
+    span = near[1].strip(".")
+    assert "walk the council" in span
+    assert index.is_exact(span), "the window must be quotable as it stands"
+
+
+@pytest.mark.parametrize(
+    "command, checked",
+    [
+        # Schneier, on the loaded walk: the cheapest way around the door is to
+        # write the file through the shell, which is how I already write files.
+        ("cat > docs/x.md <<'EOF'\n" + "text\nEOF", True),
+        ("echo hi > docs/x.md", True),
+        ("echo hi | tee docs/x.md", True),
+        ("python -c \"open('x','w').write('y')\"", True),
+        ("grep -n 'force push' docs/*.md 2>&1 | head", False),
+        ("pytest tests/ -q > /dev/null", False),
+        ("ls -la", False),
+    ],
+)
+def test_bash_file_writes_are_read(command: str, checked: bool) -> None:
+    got = hw.texts_from_payload({"tool_name": "Bash", "tool_input": {"command": command}})
+    assert (got is not None) is checked
+
+
 def test_an_unquoted_paraphrase_passes(index: hw.Index) -> None:
     text = (
         f"{NAME} said, as I understood him, that a draft can be force-pushed if it is re-audited."
@@ -355,7 +384,9 @@ def test_the_surface_refuses_through_the_router(
         },
     }
     out = his_words_surface(held)
-    assert out.refused and "did not type" in out.reason
+    # "cannot find", never "he did not say": some windows were never saved, and
+    # unverifiable is not false (Foucault, on the loaded walk).
+    assert out.refused and "cannot find" in out.reason
     ok = {
         "tool_name": "Write",
         "tool_input": {"file_path": "docs/x.md", "content": said("yes go ahead and open one")},
