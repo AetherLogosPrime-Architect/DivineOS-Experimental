@@ -191,9 +191,16 @@ _SHELL_WRAPPERS = ("cd", "set", "export", "env", "source", ".", "exec", "sudo", 
 
 # Joins the per-file keys of a command that writes several files. Chosen so the
 # whole key survives being pasted into `council log --edit '...'`, and so it
-# does not collide with `--scope`, which splits on commas. A filename that
-# itself contains this sequence splits into parts nothing matches, so it
-# REFUSES -- the failure lands on asking for a walk, never on waiving one.
+# does not collide with `--scope`, which splits on commas.
+#
+# A FILENAME CONTAINING THIS SEQUENCE IS PROTECTED, NOT MERELY REFUSED -- and
+# this said "refuses" until Aether ran it (2026-09-23, reading #541). A file
+# really named `a + b.md` keys as `write:a + b.md` and its own exact walk
+# covers it through the exact-string match, which fires first. Walks filed for
+# `a` and for `b.md` cannot falsely combine to clear it: splitting yields
+# `write:a` and `b.md`, and the second part has no `write:` prefix, so no walk
+# can ever have named it. Worth saying exactly, because a comment that
+# undersells a guard invites the next reader to "fix" the refusal away.
 COMPOUND_KEY_JOINER = " + "
 
 
