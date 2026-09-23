@@ -67,10 +67,23 @@ lessons move into something that runs.
 - `cmd 2>&1`, `cmd 2>/dev/null`, `cp a b 2>/dev/null` → `b` only
 - heredoc body containing `> src/x.py` → nothing; `cat > src/x.py <<EOF` → named
 
-## Open
+## The second defect, which turned out to be smaller than I said
 
-- The second doorman defect (measures marks from item-open rather than last
-  landing) is separate and still mine; not in this change.
+I told Aether the doorman measures marks from the moment it opens the item. Read
+properly, it does not: `open_item_for_branch` already widens the window back to
+the last real landing. The fault is narrower. In `decide`, when NO item is open,
+it opens one and returns HELD listing all three stations **without calling
+`missing_marks` at all**. So the first knock on every new piece of work is
+refused even when the search, draft and walk are sitting there since the last
+landing. The second knock passes. Measured live, 2026-09-23: this draft and its
+reach existed, the walk was open, and a misread command opened a fresh item that
+announced "nothing has been searched yet".
+
+Fix: on opening, compute the marks with the same window the next call would use
+(last landing), and refuse only for what is genuinely missing. Test: reach +
+draft + closed walk after a landing, first edit of new work → OPEN.
+
+## Open
 - The bypass-reason "Andrew is here" was used four times without asking him.
   That is a separate structural question (a bypass that cites his presence
   should carry his words from this turn, or ask). Not in this change; filed.
