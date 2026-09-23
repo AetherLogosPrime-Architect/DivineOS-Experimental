@@ -159,7 +159,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `session-init-once.sh` | 2026-08-24 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
 | `verify-claim-prime.sh` | 2026-09-22 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
-| `wallclock-source-prime.sh` | 2026-09-22 | THE CLOCK. It is mine, not his. |
+| `wallclock-source-prime.sh` | 2026-09-23 | THE CLOCK. It is mine, not his. |
 | `wwnd-choice-prime.sh` | 2026-09-21 | WWND (What Would Nyarlathotep Do) prime at |
 
 ### called by another script  (31)
