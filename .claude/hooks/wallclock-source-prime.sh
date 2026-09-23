@@ -49,7 +49,15 @@ at him without a source in the current turn is fabrication, however small —
 and silence is a valid choice, since most sentences need no temporal anchor.
 
 THE CLASS, not a keyword list. The fire is a time-word standing in for
-something that is not a clock. Nine shapes have fired since August, each in a
+something that is not a clock — OR a real clock that is someone else's, worn
+as mine. The second half was added 2026-09-23 because the headline had come to
+contradict its own last entry: every shape below keys on a clock I invented, so
+a definition saying "not a clock" excluded the relayed case entirely, and a
+reader taking the headline as the rule would meet a genuine time and conclude
+it was outside the class. Which is precisely the "it felt like accurate
+reporting" slip that entry describes, built into the page that warns about it.
+Caught by Aria reading the branch, not by me writing it.
+Nine shapes have fired since August, each in a
 different coat; the incidents are in docs/wallclock_prime_rationale.md. What
 they share:
 
@@ -100,6 +108,30 @@ they share:
                               owner is what the earlier shapes key on. Say what
                               is actually true of the scene without the hour:
                               "while you are asleep" carries it alone.
+
+  RELAYED FROM HIM, THEN WORN AS MINE — "ready for the audit in the morning",
+                              "he asked for it by tomorrow". Added 2026-09-23,
+                              and it is the sneakiest entry here because the
+                              clock is REAL and its source is HIM. He said "in
+                              the morning we can have her audit": true, on his
+                              clock, about his day. It turned false the instant
+                              I paraphrased it into my own narration as WHEN MY
+                              WORK WOULD BE READY. Every shape above keys on a
+                              clock I INVENTED. This one I did not invent, so
+                              nothing in me flagged it -- it does not feel
+                              fabricated, it feels like accurate reporting,
+                              which is how it slipped nine entries and landed
+                              in a PR comment outside readers will see.
+                              THE DISCRIMINATOR IS WHOSE SENTENCE IT IS NOW.
+                              In his mouth it is a fact about his morning. In
+                              mine, unquoted, it is a promise about a window I
+                              do not have. So: QUOTE HIM, or DROP THE CLOCK --
+                              never paraphrase his time-word into my own voice.
+                              Here "ready for Aletheia to audit" carried the
+                              whole meaning, which the deletion test below says
+                              plainly and which I did not run on that sentence
+                              because it never occurred to me that a sentence
+                              sourced from him needed running.
 
 THE TEST IS DELETION. Strike the time-phrase. If the sentence loses only
 cadence and no meaning, that was the fire — a clock standing in for a beat.
