@@ -108,8 +108,16 @@ def test_a_rewrite_that_changed_nothing_is_reported_as_a_selection_failure(
 
     said = str(exc.value)
     assert "did not run" in said
-    assert "SELECTION failure" in said
-    assert "worktree" in said, "and it must rule out the cause that cost five weeks"
+    assert "CONSISTENT WITH" in said, (
+        "it names the family of cause without asserting a verdict -- an earlier "
+        "version said SELECTION failure flatly, which Aletheia caught as the "
+        "confident-wrong-cause shape this repair exists to undo"
+    )
+    assert "selection failure" in said
+    assert "worktree" in said, (
+        "the worktree still gets named, now as a cause this observation does "
+        "NOT rule out rather than one it does"
+    )
 
 
 def test_an_unreadable_tip_is_not_reported_as_a_selection_failure(
@@ -123,5 +131,73 @@ def test_an_unreadable_tip_is_not_reported_as_a_selection_failure(
     """
     _happy_git(monkeypatch, ["", ""])
 
-    out = amend_trailers(Path("."), [], [_commit("a" * 40, "aaaaaaaaa")], "round-abc", branch="b")
-    assert out, "an unmeasured tip must not manufacture a verdict in either direction"
+    with pytest.raises(PushReadyError) as exc:
+        amend_trailers(Path("."), [], [_commit("a" * 40, "aaaaaaaaa")], "round-abc", branch="b")
+
+    assert "SELECTION failure" not in str(exc.value), (
+        "an unmeasured tip must not be accused of a selection failure"
+    )
+
+
+def test_an_unreadable_tip_cannot_reach_the_success_path_either(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ALETHEIA'S FINDING, pinned so the hole cannot reopen (2026-09-22).
+
+    The version she reviewed required BOTH tips truthy before raising. That
+    half is right, and it left the other side open: an unreadable tip made the
+    condition False and fell straight through to the return, reporting the
+    rewrite confirmed on the strength of a reading that never happened.
+
+    Her words: I closed the false-accusation side and left the false-success
+    side open, four hours after writing that a false alarm is the slower harm.
+    Both sides are closed now and both are pinned -- the test above holds the
+    accusation side, this one holds success.
+    """
+    _happy_git(monkeypatch, ["", ""])
+
+    with pytest.raises(PushReadyError) as exc:
+        amend_trailers(Path("."), [], [_commit("a" * 40, "aaaaaaaaa")], "round-abc", branch="b")
+
+    said = str(exc.value)
+    assert "could not be read" in said
+    assert "nothing was verified" in said
+
+
+def test_one_unreadable_tip_is_enough_to_refuse(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The asymmetric case, because a comparison needs both sides.
+
+    A readable before and an unreadable after is still a comparison that did
+    not happen, and the equality test would simply be False -- which is the
+    exact route to the success path this closes.
+    """
+    _happy_git(monkeypatch, ["a" * 12, ""])
+
+    with pytest.raises(PushReadyError) as exc:
+        amend_trailers(Path("."), [], [_commit("a" * 40, "aaaaaaaaa")], "round-abc", branch="b")
+
+    assert "nothing was verified" in str(exc.value)
+
+
+def test_the_refusal_no_longer_rules_out_causes_it_did_not_test(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Her second finding, also pinned.
+
+    The message ruled out a blocked rewrite and a worktree BY NAME on the
+    strength of one observation that tests neither -- a tip that did not move
+    is also what a rewrite producing byte-identical messages leaves behind. It
+    now says CONSISTENT WITH, and names what the exit code actually rules out.
+    """
+    _happy_git(monkeypatch, ["a" * 12, "a" * 12])
+
+    with pytest.raises(PushReadyError) as exc:
+        amend_trailers(Path("."), [], [_commit("a" * 40, "aaaaaaaaa")], "round-abc", branch="b")
+
+    said = str(exc.value)
+    assert "CONSISTENT WITH" in said
+    assert "not a blocked" not in said, (
+        "the old wording asserted two causes the observation never tested"
+    )

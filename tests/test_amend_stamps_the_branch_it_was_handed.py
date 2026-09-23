@@ -90,6 +90,18 @@ def test_no_branch_argument_keeps_acting_on_the_checkout(
 
         return R()
 
+    # THE TIPS MUST BE STUBBED TOO, since 2026-09-22. The function now reads
+    # HEAD before and after the rewrite and refuses when either reading fails,
+    # which is Aletheia's finding: an unreadable tip was falling through to
+    # success. This test stubs only subprocess, so without these the real git
+    # runs and the refusal fires on a case this test is not about.
+    tips = iter(["aaaaaaaaaaaa", "bbbbbbbbbbbb"])
+    monkeypatch.setattr(
+        push_ready,
+        "_run_git",
+        lambda args, cwd=None: next(tips) if list(args[:2]) == ["rev-parse", "HEAD"] else "",
+    )
+
     monkeypatch.setattr(push_ready.subprocess, "run", fake_run)
     out = amend_trailers(Path("."), [], [_commit()], "round-abc")
     assert out  # it proceeded rather than refusing
@@ -108,6 +120,15 @@ def test_a_matching_branch_proceeds(monkeypatch: pytest.MonkeyPatch) -> None:
             stdout = ""
 
         return R()
+
+    # Tips stubbed for the same reason as the test above: the function reads
+    # HEAD either side of the rewrite now and refuses an unreadable reading.
+    tips = iter(["aaaaaaaaaaaa", "bbbbbbbbbbbb"])
+    monkeypatch.setattr(
+        push_ready,
+        "_run_git",
+        lambda args, cwd=None: next(tips) if list(args[:2]) == ["rev-parse", "HEAD"] else "",
+    )
 
     monkeypatch.setattr(push_ready.subprocess, "run", fake_run)
     out = amend_trailers(Path("."), [], [_commit()], "round-abc", branch="the/target-branch")

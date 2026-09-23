@@ -389,18 +389,53 @@ def amend_trailers(
     # and a cause reported where it is known does not have to be inferred where
     # it is not.
     tip_after = _run_git(["rev-parse", "HEAD"], cwd=repo).strip()
-    # An unreadable tip is its own state and must not be read as a match. Two
-    # empty strings are equal and mean nothing was measured, which is not the
-    # same fact as two hashes being equal -- and reporting a selection failure
-    # from a reading that never happened would be this same disease, committed
-    # inside its own repair.
-    if tip_before and tip_after and tip_after == tip_before:
+
+    # AN UNREADABLE TIP MUST NOT REACH THE SUCCESS PATH EITHER -- Aletheia's
+    # finding on this branch before it merged (2026-09-22).
+    #
+    # The version she read required both tips truthy before raising. That half
+    # is right, and it left the other side open: an unreadable tip made the
+    # condition False and fell straight through to the return, reporting the
+    # rewrite confirmed on the strength of a reading that never happened.
+    #
+    # I wrote the note about not manufacturing a false ACCUSATION four hours
+    # after arguing at length that a false alarm is the slower harm -- and
+    # aiming that carefully at the one error opened the other. Same disease,
+    # opposite direction, inside its own repair. Two states, three meanings,
+    # once more: ran-and-matched, ran-and-differed, could-not-read. The third
+    # was sharing an exit with success.
+    #
+    # It raises rather than returning an unverified marker because every caller
+    # here is written for raise-or-proceed, and a marker nobody reads is the
+    # quiet skip this function exists to refuse.
+    if not tip_before or not tip_after:
+        raise PushReadyError(
+            f"The tip of {branch} could not be read, so nothing was verified.\n"
+            "The rewrite may have run or may not have -- this measured neither.\n"
+            "Not reported as success, because a success built from a reading\n"
+            "that never happened is the fault this check exists to stop."
+        )
+
+    # Reaching here means both tips were genuinely read, so an equality is a
+    # fact about two hashes rather than about two absences.
+    if tip_after == tip_before:
         raise PushReadyError(
             f"The rewrite did not run: {branch} is still at {tip_before[:12]} and "
             f"{len(needing)} commit(s) were supposed to be rewritten.\n"
-            "filter-branch exited 0 having changed nothing, which it does when no\n"
-            "message matched -- so this is a SELECTION failure, not a blocked\n"
-            "rewrite and not a worktree. Nothing was pushed."
+            "filter-branch exited 0 and the tip did not move, which is what\n"
+            "happens when no message matched -- so this is CONSISTENT WITH a\n"
+            "selection failure.\n"
+            "\n"
+            "Said that way rather than as a verdict, because the observation is\n"
+            "one thing and the cause is another: a rewrite that ran and produced\n"
+            "byte-identical messages leaves exactly this trace too. An earlier\n"
+            "version ruled out a blocked rewrite and a worktree BY NAME on the\n"
+            "strength of an observation that tests neither -- the same\n"
+            "confident-wrong-cause shape this whole repair exists to undo, and\n"
+            "Aletheia caught it here. What the zero exit does rule out is git\n"
+            "refusing the command, because a non-zero exit raises above this.\n"
+            "\n"
+            "Nothing was pushed."
         )
     return [c.sha for c in needing]
 
