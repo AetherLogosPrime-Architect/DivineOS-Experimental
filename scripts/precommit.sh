@@ -374,6 +374,17 @@ if ! python scripts/check_orphan_modules.py; then
     note_fail
 fi
 
+# A refusing gate whose refusal sits behind a load that exits 0 on failure will
+# ALLOW what it exists to stop, the moment that load breaks. Aletheia found it
+# in the emergency stop itself, 2026-09-21. The stop is repaired; the rest are
+# pinned in a baseline that may shrink and never grow, so the next instance
+# blocks here rather than arriving quietly. Her rule from an earlier round is
+# the reason this is a check and not a note: a detector makes it a property.
+section "Refusal Order"
+if ! python scripts/check_refusal_before_failsoft.py; then
+    note_fail
+fi
+
 # 5b. Pre-reg gate (un-gameable): new mechanisms require a filed pre-reg.
 # The gate reads the staged diff and blocks when a new mechanism lacks a
 # matching OPEN pre-registration in the ledger. Discipline from the
@@ -459,6 +470,35 @@ fi
 if [ -f scripts/check_hook_wiring.py ]; then
     section "Hook Wiring"
     if ! python scripts/check_hook_wiring.py; then
+        note_fail
+    fi
+fi
+
+# 5b-bis. REMOVED 2026-09-08, the same day it was added, and the reason is
+# worth keeping where the next person to reach for it will look.
+#
+# It was a ratchet on the SIZE of the hook layer: registrations and shell lines
+# could fall or hold, never rise. Andrew killed it with one question — "why
+# would you build something that can only shrink and never grow?"
+#
+# Size was never the disease. He asked for the thinking to move into the OS and
+# never once asked for fewer hooks; a hundred doors that all point inward would
+# be better than twenty that each hide a private brain. A count is easy to
+# police and the real property is work, and I took the easy one.
+#
+# The replacement is the migration itself — see the generated doorbells and the
+# surfaces in divineos.core.hook_surfaces.
+
+# 5b-ter. Every bell is what the generator produced.
+#
+# Aria 2026-09-08, refusing a property check on hand-written hooks: "Do not
+# police the shape. Remove the authoring. ... You cannot put a brain in a file
+# you did not author." So the doorbells are generated, and this compares them
+# byte-for-byte against the generator — exhaustive, rather than an opinion
+# about what a bell should look like.
+if [ -f src/divineos/core/doorbell_generator.py ]; then
+    section "Doorbells"
+    if ! python -c "import sys; from divineos.core.doorbell_generator import main; sys.exit(main('.'))"; then
         note_fail
     fi
 fi

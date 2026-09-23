@@ -178,10 +178,42 @@ class TestCheckDeletionShape:
         assert finding.severity == "ok"
         assert finding.details["deletion_count"] == 2
 
-    def test_many_deletions_critical(self, repo_with_silent_deletions):
-        # Branch is missing 15 files that exist on origin/main → 15 apparent deletions
+    def test_a_stale_branch_alone_is_not_a_deletion(self, repo_with_silent_deletions):
+        """REVERSED 2026-09-21, and the reversal is the point of the fixture.
+
+        This asserted 15 deletions for a branch that deletes nothing, and its
+        own comment said so in the word "apparent". The fixture builds a
+        branch that forked early and adds one file; main then gains fifteen.
+        Merging that branch into main removes none of them.
+
+        The check calls its number "file(s) would be deleted by merge", so
+        counting main's later additions was answering a different question
+        than the one it prints. It blocked a real push on a branch whose
+        merge preview reported zero deletions.
+
+        Being behind is a real condition and it already has an instrument:
+        base_freshness, which measures exactly this and says how far. Two
+        checks reporting the same staleness, one of them as destruction, is
+        how a true alarm gets read as noise.
+        """
         finding = check_deletion_shape(cwd=str(repo_with_silent_deletions), threshold=2)
-        # 15 > threshold * 3 (=6), so critical
+        assert finding.severity == "ok", finding.message
+        assert finding.details["deletion_count"] == 0
+
+    def test_many_real_deletions_critical(self, fresh_repo):
+        """The severity ladder, driven by deletions the branch actually makes."""
+        repo = fresh_repo
+        for i in range(15):
+            (repo / f"doomed_{i}.py").write_text(f"unique body {i}\n" * 4, encoding="utf-8")
+        _git(["add", "-A"], cwd=repo)
+        _git(["commit", "-m", "add the files"], cwd=repo)
+        _git(["update-ref", "refs/remotes/origin/main", "main"], cwd=repo)
+
+        _git(["checkout", "-b", "feature"], cwd=repo)
+        _git(["rm", *[f"doomed_{i}.py" for i in range(15)]], cwd=repo)
+        _git(["commit", "-m", "remove all of them"], cwd=repo)
+
+        finding = check_deletion_shape(cwd=str(repo), threshold=2)
         assert finding.severity == "critical"
         assert finding.details["deletion_count"] == 15
         assert "silent-rollback" in finding.message.lower()

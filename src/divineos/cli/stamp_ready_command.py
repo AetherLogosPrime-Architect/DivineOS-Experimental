@@ -588,6 +588,74 @@ def _round_by_id(round_id: str):
     return None
 
 
+def sibling_rounds_naming(branch: str) -> tuple[list[str], list[str]]:
+    """Rounds in the OTHER seats' stores whose text names this branch.
+
+    Returns (found, unreadable) — the matching round strings, and the names of
+    any seat that is present but could not be read.
+
+    ## Why this exists, measured 2026-09-10
+
+    Andrew: *"you need to fix the root cause of why you skipped those 3 build
+    flow steps."* The chain, each link checked rather than reasoned:
+
+    The three stations I skipped live on the half of the flow that only exists
+    once a work item is open. The doorman that forces one open at the first
+    edit is written, wired and tested — and is not installed here; the module
+    is absent from this branch and the hook is not in this checkout's wiring.
+    It is not installed because its pull request is still a draft. It is still
+    a draft because taking it out of draft requires an audit round naming its
+    branch, and this command said there was none.
+
+    **There were two.** Both in Aria's store, both naming the branch. The
+    readiness board reads the union of every seat and has therefore been
+    printing READY for that door for two days. This command reads one store,
+    found nothing, and said *No audit round names branch ...* — a statement
+    about MY store published with the scope of ALL of them.
+
+    So the door that would have stopped me skipping those stations has been
+    held shut by an instrument reporting an absence it was not in a position
+    to see.
+
+    ## What this does NOT do
+
+    It does not authorize a stamp from a sibling round, and it must not. The
+    validator reads confirms out of the local store by id; a round it cannot
+    open is a round whose two CONFIRMS it cannot check, and a merge stamped on
+    an unvalidated round is worse than one that never happened. What this buys
+    is that the refusal tells the truth: the round exists, here is its id, and
+    here is why this seat cannot act on it — rather than an absence that sends
+    someone off to file a round that is already filed.
+
+    A seat present-but-unreadable is reported separately for the same reason.
+    Could-not-look is not found-nothing.
+    """
+    found: list[str] = []
+    unreadable: list[str] = []
+    tail = branch.rsplit("/", 1)[-1] if branch else ""
+    if not branch:
+        return found, unreadable
+    try:
+        from divineos.core.sibling_audit_rounds import read_other_seats, this_seat
+
+        seats = read_other_seats(this_seat())
+    except Exception as exc:  # noqa: BLE001
+        return found, [f"sibling reader unavailable: {type(exc).__name__}: {exc}"]
+
+    for seat in seats:
+        name = getattr(seat, "name", "?")
+        if getattr(seat, "error", None) is not None:
+            unreadable.append(f"{name}: {seat.error}")
+            continue
+        if getattr(seat, "absent", False):
+            continue
+        for text in getattr(seat, "rounds", None) or ():
+            text = str(text)
+            if branch in text or (tail and tail in text):
+                found.append(f"{name}: {text[:200]}")
+    return found, unreadable
+
+
 def register(cli: click.Group) -> None:
     @cli.command("stamp-ready")
     @click.argument("pr_number", type=int)
@@ -603,7 +671,37 @@ def register(cli: click.Group) -> None:
         default=False,
         help="Validate and show the body that would be written; change nothing.",
     )
-    def stamp_ready_cmd(pr_number: int, round_id: str | None, dry_run: bool) -> None:
+    @click.option(
+        "--despite-stations",
+        default="",
+        metavar="REASON",
+        help=(
+            "Stamp even though the build-flow board reports unproven stations. "
+            "Requires a reason of at least twenty characters, which is written "
+            "into the record beside the act it permitted."
+        ),
+    )
+    @click.option(
+        "--no-auto-merge",
+        is_flag=True,
+        default=False,
+        help="Stamp and mark ready, but leave the merge for a person to do.",
+    )
+    # BOTH OPTIONS, and neither side was wrong. Each branch added one flag to
+    # this same command while the other was being written, so the conflict is
+    # positional rather than substantive.
+    #
+    # Checked before assuming a union rather than after: the body references
+    # despite_stations three times and no_auto_merge twice, so dropping either
+    # one leaves live code reading a parameter that no longer exists -- a
+    # failure that would not surface until somebody ran the command.
+    def stamp_ready_cmd(
+        pr_number: int,
+        round_id: str | None,
+        dry_run: bool,
+        despite_stations: str,
+        no_auto_merge: bool,
+    ) -> None:
         """Stamp a draft PR with its External-Review trailer and mark it ready.
 
         Order is load-bearing: body first, then ready. A failure between the
@@ -647,6 +745,103 @@ def register(cli: click.Group) -> None:
         branch = pr.get("headRefName", "")
         pr_title = pr.get("title", "") or f"PR #{pr_number}"
 
+        # THE STATIONS DECIDE READINESS, AND THIS IS THE ONLY PLACE THAT CAN ASK
+        # THEM IN TIME.
+        #
+        # Aria 2026-09-18. Three of my own pull requests sat marked ready for
+        # review with their stations unproven until the board told me, and I put
+        # all three back to draft. The reach is not haste: marking ready is what
+        # "I am done with this" FEELS like, and it is the default finishing move
+        # at the moment the work stops. The stations that actually decide
+        # readiness get evaluated later, by a board somebody has to choose to
+        # run -- so readiness is asserted at the one moment nothing has checked
+        # it, and it then reads to everyone else as a verified state rather than
+        # as the author's opinion.
+        #
+        # WHY HERE AND NOT A NEW DOOR. I started writing a second PreToolUse
+        # hook for the ready-marking command, and searching first found
+        # gh-pr-ready-gate.sh already standing on it -- routing every such
+        # marking through THIS function so the review trailer cannot be skipped.
+        # The choke point already existed; a second door beside it would have
+        # been two guards each covering half. One command clears the draft flag,
+        # so one command is where the question belongs.
+        #
+        # A MISSING STATION REFUSES AND SO DOES AN UNREADABLE ONE. The board's
+        # own doctrine is that a station it could not check is not a pass. A
+        # check that did not run must never read as a check that passed; that is
+        # the could-not-look fault this whole family is made of.
+        # An exit that costs one keystroke is not a door. The reason is required
+        # and it is recorded, so it sits beside the act it permitted rather than
+        # in an environment nobody reads.
+        if despite_stations and len(despite_stations.strip()) < 20:
+            click.secho(
+                "[!] --despite-stations needs a real reason (twenty characters or "
+                "more). Naming why is the whole cost of the exit.",
+                fg="red",
+            )
+            raise click.exceptions.Exit(1)
+
+        if not despite_stations:
+            from divineos.cli.build_flow_commands import collect as _collect_flow
+            from divineos.core.build_flow import Status as _FlowStatus
+
+            # THREE VALUES, and the third is deliberately dropped here. The board
+            # gained a roster -- which requests claim a replacement nobody can
+            # resolve -- while this caller was being written on another branch, so
+            # neither side was wrong and only the merge could see the mismatch.
+            #
+            # This call asks one question: are THIS request's stations proven. The
+            # roster answers a different one, about the relationship BETWEEN open
+            # requests, and nothing below reads it. Named rather than starred so
+            # the drop is a decision on the record instead of a silent swallow.
+            statuses, why, _roster_unused_here = _collect_flow()
+            if statuses is None:
+                click.secho(
+                    f"[!] Cannot confirm PR #{pr_number}'s stations: {why}",
+                    fg="red",
+                )
+                click.secho(
+                    "    PR left in draft. Could-not-look is not a pass. Re-run when "
+                    "the board is reachable, or pass --despite-stations with a reason.",
+                    fg="bright_black",
+                )
+                raise click.exceptions.Exit(1)
+
+            mine = next((s for s in statuses if s.number == pr_number), None)
+            if mine is not None:
+                # The draft station is excluded on purpose: it reports that this
+                # PR is still a draft, which is exactly the state being left.
+                # Asking it here would refuse every stamp for doing its job.
+                unproven = [
+                    r
+                    for r in mine.stations
+                    if r.station != "7-draft" and r.status is not _FlowStatus.SATISFIED
+                ]
+                if unproven:
+                    click.secho(
+                        f"[!] PR #{pr_number} has {len(unproven)} unproven station(s). "
+                        "Not stamping.",
+                        fg="red",
+                    )
+                    for r in unproven:
+                        mark = "MISS" if r.status is _FlowStatus.MISSING else "????"
+                        click.secho(f"      [{mark}] {r.station}  {r.detail}", fg="bright_black")
+                    click.secho(
+                        "    A false ready is worse than an honest draft: a draft with "
+                        "stations ahead of it is simply a draft, while a ready that has "
+                        "not earned it points the board at something untrue, and whoever "
+                        "acts on it believes they are acting on a check rather than on "
+                        "the author's say-so.",
+                        fg="bright_black",
+                    )
+                    click.secho(
+                        "    If a station is one only somebody else can satisfy, that is "
+                        "the thing to ask for, not the thing to declare -- a station the "
+                        "author can satisfy alone checks nothing.",
+                        fg="bright_black",
+                    )
+                    raise click.exceptions.Exit(1)
+
         # Pull in any approvals waiting in the shared crossing-point BEFORE
         # validating. Andrew 2026-08-12: review was being given and then lost,
         # because it landed in ~/.divineos-shared/audit/ and every check reads
@@ -684,11 +879,45 @@ def register(cli: click.Group) -> None:
                 )
             ]
             if not candidates:
-                click.secho(f"[!] No audit round names branch {branch}.", fg="red")
+                # SAY WHOSE STORE WAS SEARCHED. This used to read "No audit
+                # round names branch X" while the readiness board, reading
+                # every seat, printed READY for the same branch. See
+                # sibling_rounds_naming for the chain that cost.
+                elsewhere, unreadable = sibling_rounds_naming(branch)
                 click.secho(
-                    "    File one, or pass --audit-round explicitly.",
-                    fg="bright_black",
+                    f"[!] No audit round in THIS seat's store names branch {branch}.",
+                    fg="red",
                 )
+                for line in unreadable:
+                    click.secho(
+                        f"    could not read another seat — {line}",
+                        fg="yellow",
+                    )
+                if elsewhere:
+                    click.secho(
+                        f"    But {len(elsewhere)} round(s) in another seat's store name it:",
+                        fg="yellow",
+                    )
+                    for line in elsewhere:
+                        click.echo(f"      {line}")
+                    click.secho(
+                        "    This seat cannot validate a round it cannot open, so it "
+                        "will not stamp on one. Sync that round into this store, or "
+                        "pass --audit-round once it is here.",
+                        fg="bright_black",
+                    )
+                elif not unreadable:
+                    click.secho(
+                        "    No other seat names it either. File one, or pass "
+                        "--audit-round explicitly.",
+                        fg="bright_black",
+                    )
+                else:
+                    click.secho(
+                        "    Whether another seat names it is UNKNOWN — a seat was "
+                        "unreadable. Not the same as none.",
+                        fg="bright_black",
+                    )
                 raise click.exceptions.Exit(1)
             if len(candidates) > 1:
                 click.secho(
@@ -1014,6 +1243,33 @@ def register(cli: click.Group) -> None:
 
         body = compose_merge_body(round_id, pr_title, verdict.age_days, tree_hash)
 
+        # KEEP WHAT THE AUTHOR WROTE. Stamping used to REPLACE the body with
+        # this three-line block, and GitHub builds the squash-merge message
+        # from the body -- so the reasoning for a change was deleted from the
+        # permanent record at the exact moment the change was approved to
+        # enter it. Found 2026-09-21 by reading the body back after stamping
+        # instead of trusting that the tool had added something; the whole
+        # explanation of a guardrail repair had become one stamp.
+        #
+        # The trailer must still be the LAST thing in the body, because that
+        # is where a trailer goes and where the check looks for it. So the
+        # prior text is kept, any previous stamp of ours is dropped rather
+        # than stacked, and the fresh stamp is appended to the end.
+        prior = (pr.get("body") or "").strip()
+        if prior:
+            kept: list[str] = []
+            for line in prior.splitlines():
+                stripped = line.strip()
+                if stripped.startswith("External-Review:"):
+                    continue
+                if stripped.startswith("Reviewed via audit round "):
+                    continue
+                kept.append(line)
+            # Drop the title line the composed block opens with; the PR body
+            # should not repeat the PR title once real prose sits above it.
+            stamp = body.split("\n", 1)[1].strip() if "\n" in body else body
+            body = "\n".join(kept).rstrip() + "\n\n" + stamp + "\n"
+
         if dry_run:
             click.secho("--- body that would be written (dry run) ---", fg="cyan")
             click.echo(body)
@@ -1073,4 +1329,62 @@ def register(cli: click.Group) -> None:
             f"[+] PR #{pr_number} is ready for review, stamped by {round_id}.",
             fg="green",
             bold=True,
+        )
+
+        # AUTO-MERGE AS PART OF STAMPING, so nobody has to remember the click.
+        #
+        # Andrew 2026-09-21: "i see the option for both auto merge and auto
+        # address CLI errors but its default off on every PR and i have to
+        # remember to click it.. idk if there is a way to make it default..
+        # otherwise a simple distraction could keep it from getting merged."
+        #
+        # There is no app-level or repository-level default for it -- checked
+        # rather than assumed, against the app's own settings list, which
+        # offers archiving, branch prefix, notifications, keep-awake, remote
+        # control and output style, and nothing about merging. So the default
+        # has to live at the choke point, and this is it: every guardrail PR
+        # passes through here on its way out of draft.
+        #
+        # WHAT THE MANUAL CLICK PREVENTED, asked before removing it: a last
+        # human look before landing. But the look has already happened -- this
+        # command refuses to stamp at all unless the round carries both
+        # CONFIRMS, bound to the reviewed tree. The click added no review. It
+        # added a delay and a slot for forgetting, and the evidence that the
+        # slot gets used is a board of requests that have sat READY for weeks.
+        #
+        # It cannot land anything red: auto-merge waits on the required checks
+        # and merges only when they pass. Failing to turn it on is a WARNING
+        # rather than an error, because the PR is correctly stamped either way
+        # and the only cost is that a person merges it by hand.
+        if no_auto_merge:
+            click.secho(
+                "    Auto-merge not enabled (--no-auto-merge). Merge by hand once checks pass.",
+                fg="bright_black",
+            )
+            return
+
+        try:
+            subprocess.run(
+                ["gh", "pr", "merge", str(pr_number), "--squash", "--auto"],
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=60,
+            )
+        except (
+            subprocess.CalledProcessError,
+            subprocess.TimeoutExpired,
+            FileNotFoundError,
+        ) as exc:
+            click.secho(
+                f"[!] Stamped and ready, but auto-merge could not be enabled: {exc}\n"
+                f"    Not a failure of the stamp. Merge by hand, or run:\n"
+                f"    gh pr merge {pr_number} --squash --auto",
+                fg="yellow",
+            )
+            return
+
+        click.secho(
+            f"[+] Auto-merge on: #{pr_number} lands itself when the checks pass.",
+            fg="green",
         )

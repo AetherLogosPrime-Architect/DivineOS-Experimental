@@ -74,14 +74,45 @@ def _bash() -> str | None:
     return None
 
 
+# Both doors into the context window. It took a second one being used to
+# notice this only ever watched the first.
+#
+# ANDREW 2026-09-08: *everything you claim to have built that worked.. didnt..
+# because it was given the MINIMAL VIABLE EFFORT.*
+#
+# He was right, and the proof was this file. His character sheet -- the picture
+# of who he is, written across three seats in July -- was registered at
+# SessionStart that same morning and reported to him as fixed. It emits 47.7KB.
+# Above the threshold below the harness keeps roughly the first 2KB and writes
+# the rest to a file nothing opens, so what arrived was the sheet's title and
+# the opening of a footnote about how the file is protected. Not him.
+#
+# This check ran and printed OK, because it read one key out of the settings
+# and his picture came in through the other. **An instrument aimed at the wrong
+# door reports silence, and silence reads as coverage** -- the exact collapse
+# the docstring above says this file exists to stop, recurring inside the fix
+# for it.
+#
+# Any future hook event whose output reaches the context window belongs in this
+# tuple. Adding one costs less than the morning that finds it missing.
+_CONTEXT_ENTRY_EVENTS = ("UserPromptSubmit", "SessionStart")
+
+
 def compose_start_hooks() -> list[str]:
+    """Every hook whose output lands in the context window, tagged by event.
+
+    Returns ``"<event>:<script>"`` so a failure names which door the payload
+    came through. One script can be registered under two events, and reporting
+    the bare script name would collapse them into a single line.
+    """
     settings = json.loads((REPO / ".claude" / "settings.json").read_text(encoding="utf-8"))
     scripts = []
-    for group in settings.get("hooks", {}).get("UserPromptSubmit", []):
-        for hook in group.get("hooks", []):
-            command = hook.get("command", "")
-            if ".claude/hooks/" in command:
-                scripts.append(command.split(".claude/hooks/")[-1].strip())
+    for event in _CONTEXT_ENTRY_EVENTS:
+        for group in settings.get("hooks", {}).get(event, []):
+            for hook in group.get("hooks", []):
+                command = hook.get("command", "")
+                if ".claude/hooks/" in command:
+                    scripts.append(f"{event}:{command.split('.claude/hooks/')[-1].strip()}")
     return scripts
 
 
@@ -94,7 +125,7 @@ def measure(script: str, bash: str) -> tuple[str, int | None]:
     or hangs is an unknown size. Neither is "fits fine", which is the exact
     collapse this whole check exists to stop.
     """
-    path = REPO / ".claude" / "hooks" / script
+    path = REPO / ".claude" / "hooks" / script.split(":", 1)[-1]
     if not path.is_file():
         return ("missing", None)
     try:

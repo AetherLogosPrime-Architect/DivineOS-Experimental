@@ -11,6 +11,18 @@ cd "$REPO_ROOT" || exit 0
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
+# EVERY SUPPRESSION IS NOW A LIE, so drop them all before anything else runs.
+# The dedup pointer claims its content is "byte-identical to earlier this
+# session" -- true, and worthless, once the earlier copy has been compacted
+# away. Six primes suppress through that module and nothing anywhere forgot on
+# compaction. On 2026-09-08 the circle-first prime was suppressed to a pointer,
+# that emission was eaten by this very compaction, and the next reply was
+# composed with neither the prime nor its residual anywhere in context.
+# Judgement lives in the OS; this is only the doorbell. Fail-soft: a failed
+# forget costs one over-suppressed prime, while exiting here would cost the
+# whole post-compaction reload below.
+"$PYTHON_BIN" -c "from divineos.core.context_dedup import on_compaction; on_compaction()" 2>/dev/null || true  # fail-soft: a failed forget costs one over-suppressed prime, while exiting here would cost the entire post-compaction reload below
+
 # Get ONLY the brief HUD (6 essential slots) instead of full dump
 hud_brief=$(divineos hud --brief 2>/dev/null)
 
