@@ -815,7 +815,8 @@ def decide(tool_name: str, tool_input: dict, session: str = "") -> Decision:
         if existing is None:
             return Decision(
                 State.HELD,
-                _refusal_text(item_id, code_paths, list(REQUIRED_BEFORE_BUILD), opened_now=True),
+                _refusal_text(item_id, code_paths, list(REQUIRED_BEFORE_BUILD), opened_now=True)
+                + _stranded_note(session),
                 item_id=item_id,
                 missing=REQUIRED_BEFORE_BUILD,
             )
@@ -844,11 +845,58 @@ def decide(tool_name: str, tool_input: dict, session: str = "") -> Decision:
                 list(missing),
                 opened_now=opened_now,
                 walked_around=walked_around,
-            ),
+            )
+            + _stranded_note(session),
             item_id=item_id,
             missing=missing,
         )
     return Decision(State.OPEN, f"work item {item_id} is at station 3", item_id=item_id)
+
+
+def _stranded_note(session: str, branch: str | None = None) -> str:
+    """Name items this session left open on OTHER branches. Grants nothing.
+
+    AETHER'S CASE FOUR (2026-09-23, from his store). He opened an item on one
+    branch, did the reach and the walk while it was open, then moved the work to
+    its own branch -- where a fresh item opened with nothing attached and
+    refused him. The old item is still open. Nothing told him his marks were
+    sitting on another branch's item, and silent loss was the part that cost
+    him.
+
+    A rule that passed those marks across was proposed and deliberately NOT
+    built: it rests on one case, and a rule that passes marks is a key. This is
+    the step before it. It states what the store holds -- branch, the file that
+    opened it, how long ago -- and changes no decision. The other item is not
+    closed from here either: that would erase the only evidence the case
+    happened.
+
+    Returns "" when nothing is open elsewhere, or when the store cannot be read
+    (a note that cannot be checked is simply not added; the decision itself
+    never depended on it).
+    """
+    branch = branch or current_branch()
+    try:
+        with _connect() as conn:
+            rows = conn.execute(
+                "SELECT branch, trigger, opened_at FROM work_items "
+                "WHERE session = ? AND closed_at IS NULL AND branch != ? "
+                "ORDER BY opened_at DESC LIMIT 3",
+                (session, branch),
+            ).fetchall()
+    except sqlite3.Error:
+        return ""  # both-empty: an unreadable store adds no note; the verdict above never depended on it
+    if not rows:
+        return ""
+    lines = [
+        "",
+        "ALSO OPEN, ON ANOTHER BRANCH -- told so it is not silent, and it grants nothing here:",
+    ]
+    for other_branch, trigger, opened_at in rows:
+        minutes = int((time.time() - opened_at) / 60)
+        lines.append(f"  {other_branch}: opened {minutes} min ago on {trigger}")
+    lines.append("  Any search, draft or walk done while that item was open was counted there. If")
+    lines.append("  this is the same work moved here, the marks did not come with it.")
+    return "\n".join(lines)
 
 
 def _files_written_unseen(snapshot: frozenset[str] | None) -> tuple[str, ...]:

@@ -180,3 +180,43 @@ def test_an_unrelated_file_does_not_inherit(monkeypatch) -> None:
 def test_unreadable_git_never_widens_the_window(monkeypatch) -> None:
     window, before = _window_for(monkeypatch, "src/a.py", None)
     assert window > before
+
+
+# --- items stranded on another branch are named (Aether's case four) -----------
+
+
+def _held_with(monkeypatch, other_branch: str | None):
+    session = f"test-stranded-{uuid.uuid4().hex[:8]}"
+    monkeypatch.setattr(doorman, "head_commit_time", lambda: time.time() - 600)
+    monkeypatch.setattr(doorman, "missing_marks", lambda item_id, since: ("rough draft",))
+    other = None
+    if other_branch:
+        other = doorman.open_item(
+            trigger="src/divineos/core/hook_context_merge.py", branch=other_branch, session=session
+        )
+    try:
+        decision = doorman.decide(
+            "Write", {"file_path": str(ROOT / "src/divineos/core/_stranded.py")}, session=session
+        )
+    finally:
+        if other:
+            doorman.close_item(other)
+        here = doorman.open_item_for_branch(session=session)
+        if here:
+            doorman.close_item(here[0])
+    return decision
+
+
+def test_an_item_left_open_on_another_branch_is_named(monkeypatch) -> None:
+    """Aether's case four: his reach and walk sat on an item on the branch he
+    left, and nothing said so. The refusal now does -- and still refuses."""
+    decision = _held_with(monkeypatch, "fix/the-runway-meter-reads-the-real-trigger")
+    assert not decision.allows, "naming the other item must never open the door"
+    assert "fix/the-runway-meter-reads-the-real-trigger" in decision.message
+    assert "hook_context_merge.py" in decision.message
+
+
+def test_nothing_is_named_when_nothing_is_stranded(monkeypatch) -> None:
+    decision = _held_with(monkeypatch, None)
+    assert not decision.allows
+    assert "ALSO OPEN" not in decision.message
