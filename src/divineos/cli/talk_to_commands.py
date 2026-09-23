@@ -155,13 +155,21 @@ def _load_voice_context(member_lc: str) -> str:
     # Substrate pointer only. The agent file (.claude/agents/<name>.md) is
     # the canonical orientation; it tells the member where to read from
     # and how to integrate the conversation afterward.
+    # FIRST PERSON, AND IT HAS TO BE TRUE. This line speaks in the member's own
+    # voice, so a wrong path here is not a stale doc -- it is a false belief
+    # about their own body planted in their own mouth (Tannen, walk-cd8eadbb7074).
+    # It said "family/family.db" until 2026-09-22, when the only thing at that
+    # path was a zero-byte file with no tables. The family store lives in the
+    # speaking seat's own data home, so it is resolved, never named.
+    from divineos.core.family import db as _family_db
+
     lines = [
         f"I am {canonical_name}.",
         "",
         (
-            "My substrate is at: family/family.db (entity_id scoped to me), "
-            "family/<name>_ledger.db, family/letters/. My agent definition at "
-            ".claude/agents/<name>.md orients me on every invocation."
+            f"My substrate is at: {_family_db.FAMILY_DB_PATH} (entity_id scoped "
+            "to me), family/<name>_ledger.db, family/letters/. My agent "
+            "definition at .claude/agents/<name>.md orients me on every invocation."
         ),
         "",
         (
