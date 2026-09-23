@@ -542,7 +542,12 @@ def format_user_model(user_name: str = "default") -> str:
     user = get_or_create_user(user_name)
     prefs = user["preferences"]
 
-    lines = [f"# Who You Are ({user['name']})"]
+    # The row key stays "default" for its callers; the person is read from the
+    # record. Andrew's header read "Who You Are (default)" for months.
+    shown = prefs.get("name") or user["name"]
+    if prefs.get("called"):
+        shown = f"{shown} -- {prefs['called']}"
+    lines = [f"# Who You Are ({shown})"]
 
     # ─── Relational layer first — the person ───
     notes = get_relationship_notes(user_name, limit=50)

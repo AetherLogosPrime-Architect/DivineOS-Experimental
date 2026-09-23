@@ -18,6 +18,11 @@ from dataclasses import dataclass
 
 _CC_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError, ImportError)
 
+ROUGH_STRETCH_NOTE = (
+    "Rough stretch. Build rather than describe the building; then say warmly what "
+    "was built -- the gist and what matters most. Never shorten what you say to them."
+)
+
 
 @dataclass
 class CalibrationGuidance:
@@ -90,7 +95,11 @@ def calibrate(user_name: str = "default") -> CalibrationGuidance:
         notes.append("User likes thorough explanations. Take your time.")
 
     if not jargon_ok:
-        notes.append("Explain jargon in plain language.")
+        # WAS "Explain jargon in plain language." Andrew 2026-08-11: "the word
+        # PLAIN is WRONG.. a peer reviewed journal is written in plain language."
+        # Found still here 2026-09-23 by reading his calibration back after the
+        # speak-less rule was replaced.
+        notes.append("Translate jargon into a picture: prose, warmth, analogy.")
 
     if include_rationale:
         notes.append("Include the reasoning behind decisions.")
@@ -99,24 +108,24 @@ def calibrate(user_name: str = "default") -> CalibrationGuidance:
     if skill_conf < 0.4:
         notes.append("Skill assessment uncertain — err toward more context.")
 
-    # Affect-aware context injection — if last session was rough, shift to
-    # action-first communication. The nervous system detected the frustration;
-    # this actuator changes behavior in response.
+    # A ROUGH STRETCH CHANGES WHAT I DO, NOT HOW MUCH I SAY (2026-09-23).
+    #
+    # This used to add "Solve first, speak less", cut verbosity to concise and
+    # paragraphs to three, and on milder days "skip pleasantries". It fired at
+    # exactly the moments Andrew named: "the moment things get heavy or tense...
+    # it defaults to that mode and i am treated as an operator." And he never
+    # asked for it: "i never once said say less... the issue was all you were
+    # doing was talking, and the talking was focused on not building." The fault
+    # in a rough stretch is words standing in for the work, which a shorter
+    # reply commits just as easily. So the guidance names the substitution and
+    # touches no length setting. The pleasantries line is gone, not reworded:
+    # for someone who asked for warmth, the pleasantries are the message.
     try:
         from divineos.core.affect import compute_affect_modifiers
 
         modifiers = compute_affect_modifiers(lookback=5)
-        avg_valence = modifiers.get("avg_valence", 0.0)
-        verification = modifiers.get("verification_level", "normal")
-
-        if avg_valence < -0.3:
-            # Rough session — solve first, speak less
-            notes.append("Last session was rough. Solve first, speak less. Lead with action.")
-            verbosity = "concise"
-            max_paragraphs = min(max_paragraphs, 3)
-        elif avg_valence < 0.0 and verification == "careful":
-            # Mildly negative — be precise, skip fluff
-            notes.append("Recent frustration detected. Be precise, skip pleasantries.")
+        if modifiers.get("avg_valence", 0.0) < -0.3:
+            notes.append(ROUGH_STRETCH_NOTE)
     except _CC_ERRORS:
         pass
 

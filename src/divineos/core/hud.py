@@ -985,7 +985,10 @@ def _build_calibration_slot() -> str:
         lines = ["# Communication Calibration\n"]
         lines.append(f"  Verbosity: {cal.verbosity}")
         if not cal.jargon_ok:
-            lines.append("  Jargon: keep it plain — user prefers clear language")
+            # WAS "keep it plain". Andrew 2026-08-11: "the word PLAIN is WRONG..
+            # i need prose, metaphor, analogy, translation." The core slot learned
+            # that; this line, which is what the composer actually meets, did not.
+            lines.append("  Jargon: translate it into a picture -- prose and analogy, not code")
         lines.append(f"  Depth: {cal.explanation_depth}")
         if cal.notes:
             for note in cal.notes[:3]:

@@ -584,47 +584,16 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> bo
         except (ImportError, sqlite3.OperationalError, OSError) as e:
             logger.debug(f"Auto session-weather logging failed: {e}")
 
-        # ── Phase 8l2: Verbosity link — frustration shifts communication ──
-        # Actuator 2: if frustrations detected, lower verbosity preference.
-        # A frustrated user has zero patience for filler.
-        try:
-            frustration_count = len(getattr(analysis, "frustrations", []))
-            correction_count = len(getattr(analysis, "corrections", []))
-            user_msg_count = getattr(analysis, "user_messages", 0)
-            if user_msg_count > 0 and frustration_count > 0:
-                from divineos.core.user_model import update_preferences
-
-                frustration_ratio = frustration_count / user_msg_count
-                if frustration_ratio > 0.15:
-                    # Heavy frustration — go terse
-                    update_preferences(verbosity="terse")
-                    click.secho(
-                        "[!] Calibration: frustration high — shifting to terse mode",
-                        fg="yellow",
-                    )
-                elif frustration_ratio > 0.05 or correction_count >= 3:
-                    # Moderate frustration — go concise
-                    update_preferences(verbosity="concise")
-                    click.secho(
-                        "[~] Calibration: frustration detected — shifting to concise mode",
-                        fg="yellow",
-                    )
-            elif user_msg_count > 5 and frustration_count == 0 and correction_count <= 1:
-                # Clean session — drift back toward normal if currently restricted
-                from divineos.core.user_model import get_or_create_user
-
-                user = get_or_create_user()
-                current_verbosity = user.get("preferences", {}).get("verbosity", "normal")
-                if current_verbosity in ("terse", "concise"):
-                    from divineos.core.user_model import update_preferences as _up
-
-                    _up(verbosity="normal")
-                    click.secho(
-                        "[~] Calibration: clean session — verbosity restored to normal",
-                        fg="cyan",
-                    )
-        except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
-            logger.debug(f"Verbosity link failed: {e}")
+        # ── Phase 8l2 REMOVED 2026-09-23: frustration no longer writes verbosity ──
+        # It set the user's verbosity to terse or concise after any frustrated
+        # session ("a frustrated user has zero patience for filler") and only
+        # restored it after a clean one -- which a tense stretch never produces,
+        # so it ratcheted. That is how Andrew came to be on record as terse. His
+        # correction: "i never once said say less... the issue was all you were
+        # doing was talking, and the talking was focused on not building." How
+        # much we say is a preference a person states, not something inferred
+        # from their frustration. Removed rather than retuned; a different
+        # threshold on the same variable rebuilds the same loop.
 
         # ── Phase 8m: Affect-extraction calibration (Circuit 1) ──
         try:

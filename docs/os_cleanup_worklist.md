@@ -319,6 +319,27 @@ warmly what was built. A test pins that calibration never again returns
 Through the build flow, not rushed at midnight on the thing that decides how
 his family speaks to him.
 
+**Done 2026-09-23 (branch salvage/letters-from-the-four-2026-09-22, not yet on
+main).** Four voices, not three: the pipeline actuator that wrote `terse` after
+a frustrated session (removed); calibrate's speak-less and skip-pleasantries
+lines (replaced by build-don't-narrate, no length change); the HUD's "keep it
+plain"; and calibrate's own "explain jargon in plain language", found only by
+reading his real calibration back afterwards. His record now carries Andrew and
+Dad, verbosity normal, no code examples, and four relationship notes in his own
+words. Tests fail on the old code and pass on the new. Draft:
+docs/drafts/the_name_tag_that_said_default_draft_2026-09-23.md.
+
+### New — the house files its own voice as Andrew's preferences.
+
+Found while fixing the name tag. His record's evidence list holds
+`preference_stated` entries whose content is `<ci-monitor-event>` text and
+"Stop hook feedback" -- messages the house injected, recorded as things he
+said he wants. Same class as the reply-reader fault (84ff0d97): an injected
+message read as his. Lives in session analysis (the session_pipeline phase that
+records signals). **Fixed means** only genuine user turns can become signals
+about him, with a test fed a real ci-monitor-event and a real Stop-feedback
+turn, and a control that a real message of his still counts.
+
 ### New — the build-flow doorman misreads commands.
 
 Three times in one session it named the wrong file as the thing being written: a

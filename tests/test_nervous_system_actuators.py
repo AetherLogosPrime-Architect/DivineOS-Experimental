@@ -1,7 +1,7 @@
 """Tests for the 4 nervous system actuators.
 
 Actuator 1: Threshold Hardwire — affect penalty on extraction confidence
-Actuator 2: Verbosity Link — frustration adjusts user model verbosity
+Actuator 2: Verbosity Link — REMOVED 2026-09-23; frustration no longer writes verbosity
 Actuator 3: Briefing Surface — emotional arc appears in briefing
 Actuator 4: Context Injection — negative valence injects action-first guidance
 """
@@ -180,11 +180,14 @@ class TestContextInjection:
         from divineos.core.communication_calibration import calibrate
 
         guidance = calibrate("test_negative_user")
-        # Should have the "solve first" note
-        action_notes = [
-            n for n in guidance.notes if "solve first" in n.lower() or "rough" in n.lower()
-        ]
-        assert len(action_notes) > 0, f"Expected action-first note, got: {guidance.notes}"
+        # 2026-09-23: this used to require "solve first, speak less". The note a
+        # rough stretch gets now is about building instead of narrating, and it
+        # must not shorten anything -- Andrew never asked for less.
+        action_notes = [n for n in guidance.notes if "rough" in n.lower()]
+        assert len(action_notes) > 0, f"Expected rough-stretch note, got: {guidance.notes}"
+        joined = " ".join(guidance.notes).lower()
+        assert "speak less" not in joined
+        assert guidance.verbosity == "normal", "a rough stretch must not cut verbosity"
 
     def test_neutral_affect_no_override(self):
         """Neutral affect doesn't inject the override."""
@@ -209,8 +212,11 @@ class TestContextInjection:
         ]
         assert len(action_notes) == 0, f"Unexpected override note: {guidance.notes}"
 
-    def test_mild_negative_with_careful_verification(self):
-        """Mildly negative + careful verification gets precision note."""
+    def test_mild_negative_does_not_strip_warmth(self):
+        """Mildly negative affect no longer says 'skip pleasantries'.
+
+        For someone who asked for prose and warmth, the pleasantries are the
+        message. Removed 2026-09-23 with the speak-less rule."""
         from divineos.core.affect import init_affect_log, log_affect
 
         init_affect_log()
@@ -227,7 +233,6 @@ class TestContextInjection:
         from divineos.core.communication_calibration import calibrate
 
         guidance = calibrate("test_mild_user")
-        precision_notes = [
-            n for n in guidance.notes if "precise" in n.lower() or "frustration" in n.lower()
-        ]
-        assert len(precision_notes) > 0, f"Expected precision note, got: {guidance.notes}"
+        joined = " ".join(guidance.notes).lower()
+        assert "pleasantries" not in joined, f"warmth stripped: {guidance.notes}"
+        assert guidance.verbosity == "normal"
