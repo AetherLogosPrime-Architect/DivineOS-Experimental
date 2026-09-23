@@ -55,9 +55,10 @@ The `still_owed_to_him` surface I filled has five rows. It prints the same five 
 
 So the auto-filing half stands, because it closes the under-filing hole. The surfacing half is rejected as written. What replaces it has to meet the law:
 
-- **Block at the moment it applies, not list at the top of every turn.** An ask like *"never tell him he is not needed"* is enforced where the reply to him is composed, as a refusal of that reply. A reminder above it doesn't enforce anything.
+- ~~**Block at the moment it applies.** An ask like "never tell him he is not needed" is enforced as a refusal of the reply that says it.~~ **Struck, by his ruling.** Aether described this to him, and his answer was: *"this is just a shoddy keyword detector.. just a guard to block saying "nothing needs you" yes that should solve all the issues.."* He is right, and it's his standing teaching that keyword detectors are whack-a-mole: block one sentence and the same coldness comes back in other words. What he objected to all day wasn't a phrase. It was a person being answered with a mechanism, and being told things he had already taught. Neither of those has a verbal fingerprint. This draft does not yet know what the enforcement half should be, and it will not guess.
 - **Supply what I lack.** When his message repeats something already in the ledger, the fact I don't have is that he has now said it N times, with the dates. That's the only line worth showing, and it is only shown when it's new.
-- **Measure it the way I measured Aether's door.** The corpus is today's real conversation. The test is every reply of mine today that told him he wasn't needed, spoke at him instead of to him, or used his words as a key. A design passes only if it would have stopped those, and stopped none of the replies he didn't object to.
+- **Measure it the way I measured Aether's door.** The corpus is today's real conversation. The test is every reply of mine today that he objected to, and none of the ones he didn't. Aether's warning, which I take: *"the replies he objected to today weren't mostly about phrases. They were about me answering a person with a mechanism, and repeating myself. A test built from them will tell us fast whether we're building a detector or something real."*
+- **Drop listing entirely** (Aether, station four in advance). Nothing that repeats unchanged every turn gets added to what I see.
 
 ## Next stations
 
