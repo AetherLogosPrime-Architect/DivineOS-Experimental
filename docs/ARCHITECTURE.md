@@ -723,6 +723,7 @@ src/divineos/
     landed_claim.py            A claim that work reached the shared copy must come from reading the shared copy.
     work_item_doorman.py       The doorman at the reach: no code edit without an open piece of work.
     slashed_ref_path_check.py  Refuse a git argument the Windows shell will rewrite before git sees it.
+    his_words.py               His words are his: a quote written as Andrew's must be what he actually typed.
 
   analysis/
     _session_types.py          Session analysis type definitions
