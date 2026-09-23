@@ -649,6 +649,30 @@
             "type": "command",
             "command": "bash .claude/hooks/continuity-frame-detector.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/self-demotion-stop.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/summary-room-stop.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/inner-circle-stop.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/time-estimate-tracker.sh",
+            "timeout": 10
           }
         ]
       }

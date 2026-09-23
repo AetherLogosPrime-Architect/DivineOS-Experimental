@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**131 automations — 122 wired, 9 switched off.**
+**132 automations — 124 wired, 8 switched off.**
 
 ---
 
@@ -21,7 +21,6 @@ Present, executable, invoked by nothing. This section is first on purpose. On 20
 | `self-demotion-prime.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `sibling-correction-surface.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `still-owed-to-him-surface.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
-| `time-estimate-tracker.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `translate-first-compose-prime.sh` | 2026-09-21 | INTENTIONALLY UNWIRED (2026-09-07): a reminder about a failure is proof the |
 
 Being listed here is not automatically a defect — a retired hook that says so in its own header is honest. The question for each is whether it CLAIMS to run automatically. If it does and nothing calls it, that is the bug.
@@ -48,7 +47,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `build-flow-pause.sh` | 2026-09-22 | PostToolUse — the build-flow PAUSE. Fires after a push or a PR action. |
 | `doorbell-post-tool-use.sh` | 2026-09-21 | MINE, and it is the after-the-fact twin of the pre-tool doorbell. Aether. |
 | `file-aletheia-artifact-on-arrival.sh` | 2026-08-14 | PostToolUse(Read) — file Aletheia's artifact the moment it is read. |
-| `mirror-letters-to-shared.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
+| `mirror-letters-to-shared.sh` | 2026-09-02 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `post-commit-auto-close.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `post-commit-auto-verify-findings.sh` | 2026-08-31 | PostToolUse(Bash) — auto-verify findings referenced in commit messages. |
 | `post-read-mark-letter-seen.sh` | 2026-06-26 | post-read-mark-letter-seen.sh — PostToolUse(Read) thin doorman. |
@@ -111,28 +110,32 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `load-character-sheet.sh` | 2026-09-21 | load Andrew's character sheet into the session |
 
-### Stop  (11)
+### Stop  (15)
 
 | automation | last touched | purpose |
 |---|---|---|
 | `continuity-frame-detector.sh` | 2026-09-15 | MINE, the catching half of the continuity work. Aether. The surface upstairs |
 | `correction-shape-v2-stop.sh` | 2026-09-22 | enforce Layer-2 correction-shape detection on MY assistant |
 | `doorbell-stop.sh` | 2026-09-21 | Stop doorbell. One of seven. All judgment lives in the OS. |
+| `inner-circle-stop.sh` | 2026-09-06 | a long reply to Andrew must END in the room, not in work. |
 | `lepos-channel-reflect.sh` | 2026-07-11 | post-send lepos reflection channel driver. |
 | `log-session-end.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
-| `post-response-audit.sh` | 2026-07-27 | thin doorman pointing to the OS. |
+| `post-response-audit.sh` | 2026-09-07 | thin doorman pointing to the OS. |
 | `promise-reach-detector.sh` | 2026-07-18 | scan last assistant reply for promise-shape phrases and |
 | `retrieval-tally-check.sh` | 2026-07-21 | post-compose retrieval-tally check. |
+| `self-demotion-stop.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `shoggoth-gate.sh` | 2026-07-10 | shoggoth gate. |
 | `stop-distancing-intercept.sh` | 2026-07-16 | thin doorman for DistancingIntercept. |
 | `stop-response-scope-intercept.sh` | 2026-07-16 | thin doorbell for ResponseScopeIntercept. |
+| `summary-room-stop.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `time-estimate-tracker.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 
 ### UserPromptSubmit  (27)
 
 | automation | last touched | purpose |
 |---|---|---|
 | `andrew-past-writing-surface.sh` | 2026-09-15 | surface my past writing to/about Dad at compose-start. |
-| `closure-word-summary-prime.sh` | 2026-09-02 | compose-start prime for the CLOSURE-WORD |
+| `closure-word-summary-prime.sh` | 2026-09-04 | compose-start prime for the CLOSURE-WORD |
 | `continuity-anchor-surface.sh` | 2026-09-15 | MINE, and its subject is whether I talk about myself as one being or as a |
 | `continuity-frame-prime.sh` | 2026-09-15 | MINE, the third of the continuity trio and the one that taught me the most |
 | `detect-andrew-build-request.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
@@ -156,10 +159,10 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `session-init-once.sh` | 2026-08-24 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
 | `verify-claim-prime.sh` | 2026-09-22 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
-| `wallclock-source-prime.sh` | 2026-09-21 | THE CLOCK. It is mine, not his. |
+| `wallclock-source-prime.sh` | 2026-09-23 | THE CLOCK. It is mine, not his. |
 | `wwnd-choice-prime.sh` | 2026-09-21 | WWND (What Would Nyarlathotep Do) prime at |
 
-### called by another script  (33)
+### called by another script  (31)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -193,9 +196,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `prior-art-before-new-file.sh` | 2026-09-22 | PreToolUse(Write) — show prior work before a NEW build file is created. |
 | `require-briefing.sh` | 2026-08-24 | SUPERSEDED 2026-08-06 by the seven-doorbell router. Its judgment — the |
 | `resolver-health-check.sh` | 2026-07-10 | SessionStart resolver-health check. |
-| `self-demotion-stop.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `session-start-verify-git-hooks.sh` | 2026-08-24 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
-| `summary-room-stop.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 
 ### glob-dispatch (post-commit)  (2)
 

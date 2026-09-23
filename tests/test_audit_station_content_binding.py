@@ -101,21 +101,40 @@ def test_the_cheap_view_says_it_skipped_the_check() -> None:
     thinks is the defect this whole change removes. Reproducing it in the
     fast path to save time would undo the point, so the fast path names its
     own scope instead.
+
+    THE CASE IS NOW SPECIFIED, 2026-09-11. This passed no confirm-presence
+    value, so it exercised the state where NEITHER question was answerable and
+    asserted wording about only one of them. A signed round whose currency is
+    unchecked, and a round nobody could even tell was signed, are different
+    facts and both used to render as this one sentence. The cheap view is the
+    first, so this now says so; the second has its own test next door.
     """
-    result = check_audit_station(447, "instruments/clean", REFS, anchor="not-run")
+    result = check_audit_station(
+        447, "instruments/clean", REFS, anchor="not-run", has_external_confirm=True
+    )
     assert result.status is Status.SATISFIED
-    assert "content check not run" in result.detail
+    assert "not checked in this view" in result.detail
 
 
-def test_no_anchor_supplied_behaves_as_before() -> None:
+def test_no_anchor_supplied_keeps_the_old_verdict_and_now_names_its_scope() -> None:
     """Callers that do not compute an anchor keep the old verdict.
 
     The content check lives in the caller, where git lives. A caller that
-    cannot do it must not have its work silently downgraded.
+    cannot do it must not have its work silently downgraded, and this still
+    asserts that: the STATUS is unchanged.
+
+    WHAT CHANGED, 2026-09-11, and it is an addition rather than a softening.
+    This asserted the detail EXACTLY, which pinned a sentence that said only
+    that a round names the request -- true of a round holding nothing at all.
+    Measured that day: six open requests passed this station on rounds that
+    were empty, or held only the operator's own key. So the verdict now names
+    the question it did not ask. Pinning the status protects the caller; pinning
+    the old wording byte-for-byte only protected the silence.
     """
     result = check_audit_station(447, "instruments/clean", REFS)
     assert result.status is Status.SATISFIED
-    assert result.detail == "audit round names PR #447"
+    assert result.detail.startswith("audit round names PR #447")
+    assert "NOT CHECKED" in result.detail
 
 
 def test_branch_match_still_satisfies_when_the_pr_number_is_absent() -> None:
