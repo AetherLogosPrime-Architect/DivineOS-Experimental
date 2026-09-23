@@ -163,7 +163,12 @@ def needs_an_item(paths: list[str]) -> tuple[str, ...]:
 # quoted spans come out before anything is matched. Measured 2026-09-10:
 # `echo 'write it > somewhere'` produced a phantom file named `somewhere` and
 # a refusal to go with it.
-_QUOTED_SPAN = re.compile(r"'[^']*'|\"[^\"]*\"")
+#
+# THE PATTERN ITSELF LIVES FURTHER DOWN, beside shell_code_only, and this note
+# stays here because it explains why the patterns below may assume quoted text
+# is already gone. Both sides of the 2026-09-22 merge had written a
+# _QUOTED_SPAN; the escape-aware, longest-first one won, because a
+# double-quoted string containing an apostrophe is otherwise split at it.
 
 _SHELL_WRITE_PATTERNS: tuple[re.Pattern[str], ...] = (
     # BLANKING QUOTED TEXT IS THE WHOLE REPAIR. Found by this doorman firing
@@ -215,6 +220,67 @@ _SHELL_WRITE_PATTERNS: tuple[re.Pattern[str], ...] = (
 )
 
 
+_HEREDOC_OPEN = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
+
+# Quoted spans, longest-first so a double-quoted string containing an
+# apostrophe is taken whole rather than split at it.
+_QUOTED_SPAN = re.compile(r'"(?:[^"\\]|\\.)*"' + r"|'(?:[^'\\]|\\.)*'")
+
+# A quoted argument leaves a MARK rather than a hole, and the mark carries a
+# dollar sign so the existing unresolvable-token filter discards it.
+#
+# Substituting a space was my first version and it shipped, and the doorman
+# caught the regression on the very next command I ran -- a copy whose arguments
+# were both quoted collapsed to `cp && echo`, so the copy pattern read the next
+# word along as a destination and announced `echo` as a file I was about to
+# write. Removing an argument changes a command's arity, and these patterns
+# count arguments. One hour between the fix and its own regression, found by the
+# thing I had just repaired.
+_QUOTED_PLACEHOLDER = "$QUOTED"
+
+
+def shell_code_only(cmd: str) -> str:
+    """The command with its DATA removed, leaving what the shell will run.
+
+    A heredoc body is data. A quoted string is data. Neither is a place the
+    shell performs a redirect, and scanning them for one is how this gate came
+    to announce `8}` and `{paths` as files I was about to write -- a format
+    specifier and an arrow out of a print statement, both inside a script whose
+    only purpose was to test this function.
+
+    Andrew, 2026-09-12: count every red mark and automate what can be
+    automated. This gate was second on that list at thirty-six fires, and at
+    least six were prose read as paths: a heredoc terminator, the word `and` in
+    a chained command, the word `inside` lifted out of a correction I was
+    filing.
+
+    AN UNQUOTED HEREDOC IS NOT STRIPPED, per Knuth on the walk. The shell
+    expands inside one, so a write can genuinely live there; only a quoted
+    delimiter makes the body inert. A heredoc whose terminator never appears is
+    malformed, and the conservative reading of a malformed command is to scan
+    all of it rather than assume the remainder is data.
+
+    THE EVASION THIS OPENS, named rather than waved past. A real write hidden
+    inside quotes now escapes. Aristotle's test on the walk settles whether
+    that trade is right: of the fires I can identify this session, every one
+    was prose, a format spec, a terminator or a chained word, and none was a
+    write concealed in a quote. The design was defending against an attack that
+    has never occurred at the cost of an error happening six times a day -- and
+    the attacker it feared is me, so the defence was never structural anyway.
+    """
+    out = cmd
+    for match in list(_HEREDOC_OPEN.finditer(cmd)):
+        quote, word = match.group(1), match.group(2)
+        if not quote:
+            continue  # the shell expands here; a redirect inside is real
+        terminator = re.search(rf"^\s*{re.escape(word)}\s*$", out[match.end() :], re.MULTILINE)
+        if terminator is None:
+            continue  # malformed: scan it all rather than assume it is data
+        body_start = match.end()
+        out = out[:body_start] + " " + out[body_start + terminator.end() :]
+    return _QUOTED_SPAN.sub(_QUOTED_PLACEHOLDER, out)
+
+
 def paths_from_tool_call(tool_name: str, tool_input: dict) -> list[str]:
     """Every path this call could write to.
 
@@ -230,16 +296,22 @@ def paths_from_tool_call(tool_name: str, tool_input: dict) -> list[str]:
 
     So both sentences stand. The first says which way to err when precision
     runs out; the second says precision here is worth real work, because the
-    erring is not free and a person pays it. Neither overturns the other.
+    erring is not free and a person pays it.
+
+    AND THE COST IS NOT ONLY THE REFUSAL, which is the half the other branch
+    had measured and this one had not. A false hit also writes a bypass row,
+    and those rows aggregate into a telemetry line reading elevated escape
+    rate -- a verdict about my discipline manufactured by a broken parser.
+    Watts's finding on the walk: the detector produces its own subject and
+    puts my name on the result. That sharpens why precision is worth the work;
+    it does not reverse which way to err, which is what I wrongly concluded
+    from it.
     """
     if tool_name in ("Write", "Edit", "NotebookEdit"):
         p = tool_input.get("file_path") or tool_input.get("notebook_path")
         return [p] if p else []
     if tool_name == "Bash":
-        cmd = tool_input.get("command") or ""
-        # Quoted spans blanked rather than removed, so offsets and word
-        # boundaries either side of them are unchanged.
-        cmd = _QUOTED_SPAN.sub(lambda m: " " * len(m.group(0)), cmd)
+        cmd = shell_code_only(tool_input.get("command") or "")
         found: list[str] = []
         for pattern in _SHELL_WRITE_PATTERNS:
             for m in pattern.finditer(cmd):
@@ -719,7 +791,30 @@ def decide(tool_name: str, tool_input: dict, session: str = "") -> Decision:
 
     code_paths = needs_an_item(paths)
     if not code_paths:
-        return Decision(State.OPEN, "prose only -- letters and drafts do not open work")
+        # NAME THE POLICY BEING APPLIED, rather than inheriting it in silence.
+        # Aether's reading 2026-09-19: this list was written to answer ONE
+        # question -- what skips review before main -- and every word of its
+        # header is about review. It now answers a second question too, what
+        # may be edited without an open piece of work, and nothing in the file
+        # knows that. So someone adds a line to stop a letter appearing in the
+        # review queue, exactly as the header invites them to, and silently
+        # removes this door from that path as well. They are thinking about one
+        # policy and changing two.
+        #
+        # Splitting the file would be the reflex repair and it is the wrong one:
+        # one list beats two that drift, and we killed a two-copy drift last
+        # week. So the list stays shared and the door says out loud which of the
+        # two policies it is applying, and to which paths. An exemption is then
+        # visible at the door instead of inherited behind it.
+        exempted = ", ".join(sorted(paths)) or "(none)"
+        return Decision(
+            State.OPEN,
+            "no work opened -- every changed path is on the review-exemption "
+            f"list: {exempted}. That list answers WHAT SKIPS REVIEW BEFORE MAIN; "
+            "this door is borrowing it to answer WHAT MAY BE EDITED WITHOUT AN "
+            "OPEN PIECE OF WORK. If one of these should still pass through the "
+            "build flow, the shared list is where that was decided.",
+        )
 
     existing = open_item_for_branch(session=session)
     if existing is None:
