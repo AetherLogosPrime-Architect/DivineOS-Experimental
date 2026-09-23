@@ -444,18 +444,35 @@ _WALLCLOCK_REFERENCE_PATTERNS = (
 
 # and the automatic response shape must include: diagnose why this class
 
-# fires, fix root cause structurally (or file honest no-fix reason). This
+# fires, fix root cause structurally. This footer makes the standing
 
-# footer makes the standing directive present in every gate message so it
+# directive present in every gate message so it does not have to be
 
-# does not have to be re-derived from memory per-fire.
+# re-derived from memory per-fire.
+
+#
+
+# It used to end "OR file honest no-fix reason explaining why no structural
+
+# fix is possible", under Andrew's name -- and his ruling that same day was
+
+# the opposite: "there is no honest no-fix line". The escape was taught to me
+
+# on every fire for two months and I offered it to him on 2026-09-23. A fix
+
+# not yet found is UNRESOLVED and goes on the todo list; nothing is closed as
+
+# impossible. tests/test_no_gate_teaches_the_no_fix_escape.py holds this.
 
 _ROOT_CAUSE_FIX_FOOTER = (
     " AND (Andrew 2026-07-29 standing directive): root-cause "
     "diagnostics + fix is standard for any gate fire, not per-gate add-on. "
     "Fix the current instance AND diagnose why this class fires AND apply "
-    "the root-cause fix in the same turn, OR file honest no-fix reason "
-    "explaining why no structural fix is possible for THIS instance."
+    "the root-cause fix in the same turn. If the fix is not found yet, mark it "
+    "UNRESOLVED and put it on the todo list -- never close it as impossible "
+    '(Andrew 2026-09-23: "you dont get to decide what can or cannot be built.. '
+    "you can mark it as yet unresolved.. but never are you to mark anything "
+    'impossible..").'
 )
 
 

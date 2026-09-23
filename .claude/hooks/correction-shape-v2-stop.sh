@@ -193,7 +193,7 @@ Confidence: {confidence:.2f}
 
 Per prereg-c1683e4a49ea, every fire on real self-correction must be paired with:
   1. FORMAL LOG via `divineos correction "<the correction verbatim, plus what error it names>"` — this session's correction goes into the substrate ledger, not just the transcript.
-  2. ROOT-CAUSE LINK — name the specific prior action that produced the error and either (a) file a structural fix (doorman, gate, discipline) that prevents the class OR (b) explicitly cite why no structural fix is possible for THIS instance and why that is honest.
+  2. ROOT-CAUSE LINK — name the specific prior action that produced the error and file a structural fix (doorman, gate, discipline) that prevents the class. If the fix is not found yet, mark it UNRESOLVED and put it on the todo list -- never close it as impossible (Andrew 2026-09-23: "you dont get to decide what can or cannot be built.. you can mark it as yet unresolved.. but never are you to mark anything impossible..").
 
 If this is a FALSE-POSITIVE (I was discussing correction as a topic, or reporting one I already filed and fixed, rather than admitting a new one), label the fire with:
   python scripts/label_correction_shape_false_positive.py --reason "<what class of MENTION was misread as USE, >= 40 chars>"
