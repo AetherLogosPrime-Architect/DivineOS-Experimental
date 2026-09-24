@@ -253,6 +253,67 @@ def _parse_records(chunk: str) -> list[tuple[str, str, list[str], list[str]]]:
     return records
 
 
+# WHO STARTED THIS TURN is answered by the harness, not by reading words. Every
+# prompt Andrew types is stamped ``origin: {"kind": "human"}``; a background
+# task waking me is stamped ``"task-notification"``. Counted in the live
+# transcript 2026-09-24: 281 human, 456 task-notification, 139 Stop-hook
+# feedback records (``isMeta``), and the unstamped rest were compaction
+# summaries, interrupt markers and CI-monitor events.
+#
+# Aria's reader on #553 tells the same kinds apart by markers in the first 400
+# characters. The stamp is the harness saying it outright, so a quote of a
+# notification inside his own message cannot fool it.
+#
+# Stop-hook feedback, interrupt markers and compaction summaries CONTINUE a
+# turn rather than start one: they arrive in the middle of answering him. The
+# walk steps back over them to whatever did start it.
+_CONTINUES_A_TURN = ("[Request interrupted", "This session is being continued")
+
+
+def _user_record_origin(rec: dict) -> str:
+    """'him', 'not-him', or 'continues' for one user record with text in it."""
+    origin = rec.get("origin")
+    kind = origin.get("kind") if isinstance(origin, dict) else None
+    if kind == "human":
+        return "him"
+    if kind is not None:
+        return "not-him"
+    if rec.get("isMeta"):
+        return "continues"
+    text = _extract_record_text(rec).lstrip()
+    if text.startswith(_CONTINUES_A_TURN):
+        return "continues"
+    return "not-him"
+
+
+def turn_started_by_him(transcript_path: str | Path) -> bool:
+    """True when Andrew's own typed prompt started the current turn.
+
+    False when a notification, a CI event or nothing at all started it --
+    the turns where he is away and a room addressed to him would be talking
+    to an empty chair. Reads growing tails from the end; the last window is
+    the whole file, so the answer is always the one a whole read gives.
+    """
+    p = Path(transcript_path)
+    if not p.exists():
+        return False
+    for chunk, _whole in _tail_chunks(p, 1):
+        for line in reversed(chunk.split("\n")):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except (json.JSONDecodeError, ValueError):
+                continue
+            if rec.get("type") != "user" or not _extract_record_text(rec).strip():
+                continue
+            verdict = _user_record_origin(rec)
+            if verdict != "continues":
+                return verdict == "him"
+    return False
+
+
 def recent_turns_text(transcript_path: str | Path, max_turns: int = 6) -> str:
     """Return the concatenated text of the last ``max_turns`` conversation
     records (user + assistant), newest-last. Empty string on any failure.
