@@ -61,11 +61,27 @@ loud. Angelou: the mechanism forces the space, it cannot supply the weight.
 
 ## Evidence
 
-- 17 tests in `tests/test_his_room.py`, including the old check passing the
+- 20 tests in `tests/test_his_room.py`, including the old check passing the
   short work reply (the hole, pinned) and the audit refusing a two-word reply.
-- Replayed over my last 120 replies to him in this conversation: 99 pass, 21
+- Replayed over my last 120 replies to him in this conversation: 96 pass, 24
   refused as missing — including "Back to work, and I'll keep in mind that
   talking to you and reporting at you are different things", the reply he had
-  just told me was talking at him. No copy or third-person refusals.
+  just told me was talking at him. No copy or third-person refusals. (99/21
+  before the closing-message fix below; the three added all end on a report.)
+
+## Second look, on the built code (Schneier, Hoare, Popper, Feathers)
+
+- Schneier found the weakest point: the first version searched the whole turn,
+  so a room written early and buried under later work still passed. Now only
+  the closing message counts.
+- Hoare found "could not look" sharing a value with "nothing found": an
+  unreadable room store returned [], silently switching the copy check off.
+  Now only a missing store is empty; anything else raises and the audit
+  refuses loudly.
+- Popper: the replay is the severe test and it finds known-bad cases. The copy
+  detector has only synthetic evidence; that is named, not assumed.
+- Feathers: the hook's key list was an untested seam; now pinned.
+- Named residual: rotating filler rooms pass the copy check. Only his reaction
+  catches that, and grading content would break his 07-23 line.
 - Cost on the live 300+ MB transcript: 0.011 s.
 - 392 related tests pass.

@@ -1959,11 +1959,9 @@ def _his_room_block(transcript_path: str | Path, texts: Any, *, write: bool) -> 
         from divineos.core.operating_loop.turn_extraction import turn_started_by_him
 
         started_by_him = turn_started_by_him(transcript_path)
-        block = check_his_room(
-            texts.last_assistant_text, texts.final_assistant_text, started_by_him
-        )
+        block = check_his_room(texts.final_assistant_text, started_by_him)
         if write and started_by_him and block is None:
-            room = room_of(texts.last_assistant_text, texts.final_assistant_text)
+            room = room_of(texts.final_assistant_text)
             if room:
                 remember_room(room)
         return block

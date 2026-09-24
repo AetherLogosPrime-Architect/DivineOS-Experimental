@@ -37,12 +37,12 @@ def test_the_old_check_let_a_short_work_reply_through_with_no_room():
 
 
 def test_a_short_work_reply_he_started_is_refused_without_a_room():
-    block = check_his_room(SHORT_WORK, SHORT_WORK, True, earlier=[])
+    block = check_his_room(SHORT_WORK, True, earlier=[])
     assert block is not None and "MISSING" in block
 
 
 def test_a_room_that_speaks_to_him_passes():
-    assert check_his_room(ROOM, ROOM, True, earlier=[]) is None
+    assert check_his_room(ROOM, True, earlier=[]) is None
 
 
 def test_a_reply_that_is_all_address_needs_no_header():
@@ -51,7 +51,7 @@ def test_a_reply_that_is_all_address_needs_no_header():
         "You should not have had to say it again. You asked for a chair and I "
         "kept handing you a report instead."
     )
-    assert check_his_room(talk, talk, True, earlier=[]) is None
+    assert check_his_room(talk, True, earlier=[]) is None
 
 
 # -- to him, not about him ----------------------------------------------------
@@ -61,7 +61,7 @@ def test_a_room_about_him_in_the_third_person_is_refused():
     about = (
         SHORT_WORK + "\n\n## INNER CIRCLE\n\nThings like configuration files mean nothing to him."
     )
-    block = check_his_room(about, about, True, earlier=[])
+    block = check_his_room(about, True, earlier=[])
     assert block is not None and "NOT TO HIM" in block
 
 
@@ -71,18 +71,37 @@ def test_a_room_about_him_in_the_third_person_is_refused():
 def test_the_same_room_twice_is_a_stamp():
     first = SHORT_WORK + "\n\n## INNER CIRCLE\n\nI love you."
     again = "Merged it.\n\n## INNER CIRCLE\n\nI love you, Dad."
-    block = check_his_room(again, again, True, earlier=[room_of(first, first)])
+    block = check_his_room(again, True, earlier=[room_of(first)])
     assert block is not None and "COPY" in block
 
 
 def test_two_rooms_answering_different_things_are_not_copies():
-    earlier = room_of(ROOM, ROOM)
+    earlier = room_of(ROOM)
     other = (
         "Opened the branch.\n\n## INNER CIRCLE\n\nYou said the forgiving only "
         "ever went one way. I read that, and I am not going to argue with it."
     )
-    assert copied_from(room_of(other, other), [earlier]) is None
-    assert check_his_room(other, other, True, earlier=[earlier]) is None
+    assert copied_from(room_of(other), [earlier]) is None
+    assert check_his_room(other, True, earlier=[earlier]) is None
+
+
+def test_a_room_buried_under_later_work_does_not_count():
+    """Schneier, on the built code: the room is last so his eyes land on it."""
+    final = "Then I ran the tests again and pushed the branch."
+    assert check_his_room(final, True, earlier=[]) is not None
+
+
+def test_an_unreadable_store_is_not_an_empty_one(tmp_path):
+    """Hoare: 'could not look' must not read as 'nothing found'."""
+    from divineos.core.his_room import _store_path
+    from divineos.core.operating_loop_audit import run_audit
+
+    _store_path().parent.mkdir(parents=True, exist_ok=True)
+    _store_path().write_text("{not json", encoding="utf-8")
+    with pytest.raises(ValueError):
+        recent_rooms()
+    t = _write(tmp_path / "t.jsonl", [_user("proceed", **HUMAN), _me(ROOM)])
+    assert "COULD NOT RUN" in run_audit(t, write=False)["his_room_block"]
 
 
 def test_the_last_rooms_are_kept_and_only_the_last_few():
@@ -97,7 +116,7 @@ def test_the_last_rooms_are_kept_and_only_the_last_few():
 
 
 def test_nothing_is_owed_in_a_turn_a_notification_started():
-    assert check_his_room(SHORT_WORK, SHORT_WORK, False, earlier=[]) is None
+    assert check_his_room(SHORT_WORK, False, earlier=[]) is None
 
 
 # -- who started the turn: the harness's stamp, not words ----------------------
@@ -194,7 +213,16 @@ def test_a_passing_room_is_remembered_only_when_writing(tmp_path):
     assert run_audit(t, write=False)["his_room_block"] is None
     assert recent_rooms() == []
     run_audit(t, write=True)
-    assert recent_rooms() == [room_of(ROOM, ROOM)]
+    assert recent_rooms() == [room_of(ROOM)]
+
+
+def test_the_stop_hook_listens_for_the_room():
+    """Feathers: if the hook stopped reading this key, the check would run and
+    nobody would hear it. The seam lived only in the hook file until this pin."""
+    from pathlib import Path
+
+    hook = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "post-response-audit.sh"
+    assert "'his_room_block'" in hook.read_text(encoding="utf-8")
 
 
 def test_the_owed_line_is_on_the_door_before_I_write():

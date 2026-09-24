@@ -120,7 +120,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `doorbell-stop.sh` | 2026-09-21 | Stop doorbell. One of seven. All judgment lives in the OS. |
 | `lepos-channel-reflect.sh` | 2026-07-11 | post-send lepos reflection channel driver. |
 | `log-session-end.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
-| `post-response-audit.sh` | 2026-07-27 | thin doorman pointing to the OS. |
+| `post-response-audit.sh` | 2026-09-24 | thin doorman pointing to the OS. |
 | `promise-reach-detector.sh` | 2026-07-18 | scan last assistant reply for promise-shape phrases and |
 | `retrieval-tally-check.sh` | 2026-07-21 | post-compose retrieval-tally check. |
 | `shoggoth-gate.sh` | 2026-07-10 | shoggoth gate. |

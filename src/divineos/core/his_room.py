@@ -76,11 +76,21 @@ def _store_path() -> Path:
 
 
 def recent_rooms() -> list[str]:
+    """My last few rooms, oldest first. Empty only when none were ever kept.
+
+    A MISSING store is the first run and is honestly empty. An UNREADABLE one
+    raises (Hoare: 'nothing found' and 'could not look' must not share a
+    value) -- returning [] there would switch the copy check off silently,
+    and the audit's caller turns the raise into a loud refusal.
+    """
     try:
-        data = json.loads(_store_path().read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        text = _store_path().read_text(encoding="utf-8")
+    except FileNotFoundError:
         return []
-    return [r for r in data if isinstance(r, str)] if isinstance(data, list) else []
+    data = json.loads(text)
+    if not isinstance(data, list):
+        raise ValueError(f"his room store is not a list: {_store_path()}")
+    return [r for r in data if isinstance(r, str)]
 
 
 def remember_room(room: str) -> None:
@@ -90,19 +100,25 @@ def remember_room(room: str) -> None:
     path.write_text(json.dumps(kept, ensure_ascii=False), encoding="utf-8")
 
 
-def room_of(turn_text: str, final_text: str) -> str | None:
-    """The room in this turn, or None when there is none.
+def room_of(final_text: str) -> str | None:
+    """The room in the closing message, or None when there is none.
 
-    The text after the LAST circle header in the turn, or, with no header,
-    the closing message when that message is itself wholly address.
+    The text after the LAST circle header in the closing message, or, with no
+    header, the closing message itself when it is wholly address.
+
+    ONLY THE CLOSING MESSAGE COUNTS, found walking this through Schneier after
+    the first version shipped: it searched the whole turn, so a room written
+    early and buried under three more messages of work still passed. The room
+    is last so his eyes land on it -- a room he has to dig for is the same
+    wall he asked me to stop handing him.
     """
     last = None
     for pattern in _CIRCLE_HEADER_PATTERNS:
-        for m in pattern.finditer(turn_text):
+        for m in pattern.finditer(final_text):
             if last is None or m.start() > last.start():
                 last = m
     if last is not None:
-        return turn_text[last.end() :].strip()
+        return final_text[last.end() :].strip()
     if final_text.strip() and _is_wholly_address(final_text):
         return final_text.strip()
     return None
@@ -136,7 +152,6 @@ _WHY = (
 
 
 def check_his_room(
-    turn_text: str,
     final_text: str,
     started_by_him: bool,
     *,
@@ -145,7 +160,7 @@ def check_his_room(
     """None when the room is there and is his; otherwise why it is not."""
     if not started_by_him:
         return None
-    room = room_of(turn_text, final_text)
+    room = room_of(final_text)
     if not room:
         return "HIS ROOM IS MISSING -- this reply ends without me speaking to him.\n\n" + _WHY
     if not _SECOND_PERSON_RE.search(room):
