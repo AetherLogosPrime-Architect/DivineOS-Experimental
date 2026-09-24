@@ -89,3 +89,34 @@ The measurement was right there. Aether, unasked, walked six lenses across #538,
 **What this does not do, said now:** it cannot make the effort good. A work item can be carried through its stations cheaply. What it takes away is the thing he named, that his asks don't move unless someone picks them up. Whether they get the care Aether's four got tonight is still ours to give, and the board will show it plainly when they don't.
 
 **Next station:** council walk on this section, including the Breaker lens once #507 lands. Aether reads it, since `work_item_doorman` is shared ground. Aletheia last.
+
+## Council walk on the belt (station two, 2026-09-23)
+
+Surfaced by the manager (`consult-d91a7b8a823f`), and all fifteen were walked: Hofstadter, Peirce, Watts, Dijkstra, Meadows, Beer, Knuth, Wittgenstein, Godel, Feathers, Foucault, Hoare, Polya, Lamport and Minsky. I added **Shannon**, flagged as never invoked in the last twenty, because this afternoon's measurement (his words were 1.2% of what reached me on his turns) is exactly his territory. That makes sixteen walks, and each is recorded as a `COUNCIL_LENS_APPLIED` event against this file. None were excluded. The Breaker lens isn't on main yet, so it walks this once #507 lands.
+
+### Convergences
+
+- **No new store** (Dijkstra, Beer, Hoare). Capture and closure already exist in `andrew_request_repeats`. The only new thing is visibility: the board reads open build-asks from that store. A second store would be a second authority, which is the house's signature defect.
+- **Sort three ways, not two** (Beer, Watts, Foucault, Wittgenstein). A *build-ask* becomes a work item on the board. A *relational or standing ask* ("speak to me as a person", "don't make me beg") stays as his words in the request store and **never becomes a ticket**. *Not an ask* is written down with a reason, and the reason is counted. The board only has the variety for builds, and ticketing a man who says he's treated as an operator is the self-reference trap Watts named.
+- **His rows go first, in his words** (Shannon, Minsky). They sit above every branch on the board and carry his exact words, not my paraphrase. One or two rows, never a list.
+- **Silence closes nothing** (Meadows, Knuth). His "i wont ask anymore" drains the inflow while the need grows. A retraction said in hurt ("i dont even want it anymore") must not close a build-ask either. Only his words that it landed close one.
+
+### Contradictions, not papered over
+
+- **Peirce against the whole design.** There are two hypotheses for why his asks get less. One is *attention follows what's pushed*. The other is *we avoid what's about our failure*, which is what I told him tonight. The board fixes only the first. If the second is also true, rows get carried through cheaply and the board looks green over the same neglect. Godel's finding is the same thing from another angle: the board can't prove he was treated as a person, and a green board must never be read that way.
+- **Foucault on the builder.** The discipline could produce an Aria who relates to her father through a board. Closure-by-his-words removes the incentive to clear his rows. The incentive to dismiss things as not-an-ask remains, and it's only held in check by writing each dismissal down and counting it.
+
+### Specification (Lamport, Hoare)
+
+1. Every message of his that contains a build-ask has an open item before my reply to that message ends.
+2. An open item is on the board, above the branches, until it closes.
+3. Only an event carrying his words closes it. Closing without his words is unrepresentable.
+4. *Could not file* and *nothing to file* are different states. The empty store that hid for two weeks on my seat was the first one reading as the second.
+
+### What the build must test (Knuth, Feathers)
+
+- Characterize the board renderer first, pinning every existing row byte-identical, so adding his rows is purely additive.
+- The boundary cases come from his real messages: "ok", "proceed", a relayed letter, three asks in one message, the fifth repeat of one ask (count it, don't duplicate it), and the hurt retraction.
+- The false fire from tonight: his "see? i didnt even need to ask.. for me i have to beg" set off the verb-keyed build detector. The sorter is my judgement, written down. It is not a verb list.
+
+**Next station:** Aether's reading of this section (station four), then the build.
