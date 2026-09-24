@@ -16,7 +16,8 @@ The shape in brief:
   seats already share, resolved by one function, never a hand-typed path.
 - **His record is the identity, never my paraphrase.** Filing is two steps
   because his message is not in the transcript yet when he hits enter: a
-  CANDIDATE keyed by the prompt id, then CONFIRMED onto the record's uuid when
+  CANDIDATE keyed by an id minted at the door (never the prompt id alone, which
+  many of his messages share), then CONFIRMED onto the record's uuid when
   the harness stamps it human, or WITHDRAWN with a reason when it is not his.
 - **Sorting is ours and written down.** build / standing / not_an_ask. A
   not_an_ask needs a reason. A second sort needs to name what it supersedes,
@@ -31,6 +32,7 @@ The shape in brief:
 
 from __future__ import annotations
 
+import hashlib
 import os
 import sqlite3
 import time
@@ -81,7 +83,8 @@ def _conn() -> sqlite3.Connection:
     conn.executescript(
         """
         CREATE TABLE IF NOT EXISTS messages (
-            prompt_id   TEXT PRIMARY KEY,
+            candidate_id TEXT PRIMARY KEY,
+            prompt_id   TEXT NOT NULL,
             uuid        TEXT UNIQUE,
             his_text    TEXT NOT NULL,
             said_at     TEXT NOT NULL,
@@ -119,30 +122,47 @@ def _conn() -> sqlite3.Connection:
     return conn
 
 
-def file_candidate(prompt_id: str, his_text: str, said_at: str, seat: str) -> None:
-    """Keep what he typed the moment it arrives. Idempotent on the prompt id.
+def mint_candidate_id(prompt_id: str, his_text: str, arrived_at: str) -> str:
+    """The identity a message of his gets at the door, before any record exists.
+
+    NOT the prompt id alone. Measured by Aether, 2026-09-24: one prompt id sat
+    on ten of his messages across eight hours, because a message he sends
+    while we are mid-turn fires the prompt hook with the RUNNING turn's id.
+    Keyed on that, the store kept his first message per id and silently
+    dropped the rest -- the exact failure this store exists to stop. The prompt
+    id stays, but only as a hint for finding his record.
+    """
+    material = f"{prompt_id}\x00{arrived_at}\x00{his_text}".encode("utf-8")
+    return hashlib.sha256(material).hexdigest()[:24]
+
+
+def file_candidate(
+    candidate_id: str, prompt_id: str, his_text: str, said_at: str, seat: str
+) -> None:
+    """Keep what he typed the moment it arrives. Idempotent on the candidate id.
 
     The text comes from the harness payload, never from a sentence I compose.
     A candidate is not yet known to be his: a notification arrives in his seat
     too, and only the harness's own stamp can tell them apart.
     """
-    if not (prompt_id or "").strip():
-        raise HisAsksRefused("a candidate needs the prompt id the harness gave it")
+    if not (candidate_id or "").strip():
+        raise HisAsksRefused("a candidate needs the id minted for it at the door")
     if not (his_text or "").strip():
         raise HisAsksRefused("nothing was typed; there is nothing of his to keep")
     conn = _conn()
     try:
         conn.execute(
             "INSERT OR IGNORE INTO messages "
-            "(prompt_id, his_text, said_at, seat, state, filed_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (prompt_id, his_text, said_at or "", seat, CANDIDATE, time.time()),
+            "(candidate_id, prompt_id, his_text, said_at, seat, state, filed_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (candidate_id, prompt_id or "", his_text, said_at or "", seat, CANDIDATE, time.time()),
         )
         conn.commit()
     finally:
         conn.close()
 
 
-def confirm(prompt_id: str, record_uuid: str, origin_kind: str, record_text: str) -> str:
+def confirm(candidate_id: str, record_uuid: str, origin_kind: str, record_text: str) -> str:
     """Settle a candidate once the transcript holds his record. Returns the state.
 
     ``origin_kind`` is the harness's stamp. "human" files it onto the record's
@@ -153,10 +173,10 @@ def confirm(prompt_id: str, record_uuid: str, origin_kind: str, record_text: str
     conn = _conn()
     try:
         row = conn.execute(
-            "SELECT his_text, state FROM messages WHERE prompt_id = ?", (prompt_id,)
+            "SELECT his_text, state FROM messages WHERE candidate_id = ?", (candidate_id,)
         ).fetchone()
         if row is None:
-            raise HisAsksRefused(f"no candidate was kept for prompt {prompt_id}")
+            raise HisAsksRefused(f"no candidate was kept as {candidate_id}")
         his_text, state = row
         if state != CANDIDATE:
             return str(state)
@@ -164,8 +184,8 @@ def confirm(prompt_id: str, record_uuid: str, origin_kind: str, record_text: str
         if origin_kind != "human":
             conn.execute(
                 "UPDATE messages SET state = ?, settled_at = ?, withdrawn_because = ? "
-                "WHERE prompt_id = ?",
-                (WITHDRAWN, now, f"harness stamp was {origin_kind!r}, not human", prompt_id),
+                "WHERE candidate_id = ?",
+                (WITHDRAWN, now, f"harness stamp was {origin_kind!r}, not human", candidate_id),
             )
             conn.commit()
             return WITHDRAWN
@@ -175,21 +195,22 @@ def confirm(prompt_id: str, record_uuid: str, origin_kind: str, record_text: str
                 "anyway would put these words on a message he did not send."
             )
         taken = conn.execute(
-            "SELECT prompt_id FROM messages WHERE uuid = ?", (record_uuid,)
+            "SELECT candidate_id FROM messages WHERE uuid = ?", (record_uuid,)
         ).fetchone()
-        if taken is not None and taken[0] != prompt_id:
-            # A resumed session copies his record under the same uuid. The
-            # first keeping of it stands; the copy is withdrawn as a copy.
+        if taken is not None and taken[0] != candidate_id:
+            # Two candidates are never bound to one record. A resumed session
+            # copies his record under the same uuid; the first keeping of it
+            # stands and the copy is withdrawn as a copy.
             conn.execute(
                 "UPDATE messages SET state = ?, settled_at = ?, withdrawn_because = ? "
-                "WHERE prompt_id = ?",
-                (WITHDRAWN, now, f"same record already kept as {taken[0]}", prompt_id),
+                "WHERE candidate_id = ?",
+                (WITHDRAWN, now, f"same record already kept as {taken[0]}", candidate_id),
             )
             conn.commit()
             return WITHDRAWN
         conn.execute(
-            "UPDATE messages SET state = ?, uuid = ?, settled_at = ? WHERE prompt_id = ?",
-            (FILED, record_uuid, now, prompt_id),
+            "UPDATE messages SET state = ?, uuid = ?, settled_at = ? WHERE candidate_id = ?",
+            (FILED, record_uuid, now, candidate_id),
         )
         conn.commit()
         return FILED
@@ -317,7 +338,50 @@ def pending() -> list[Kept] | None:
     return [Kept(str(r[0]), str(r[1]), str(r[2]), str(r[3])) for r in rows]
 
 
-def unsettled() -> list[str] | None:
+@dataclass(frozen=True)
+class Candidate:
+    """A message kept at the door and not yet settled onto his record.
+
+    Carries the text because a message he sends mid-turn arrives as a queue
+    slip with no prompt id of its own (Aether, 2026-09-24: 169 of his exist
+    only that way), so the door can only find its record by what he wrote.
+    """
+
+    candidate_id: str
+    prompt_id: str
+    his_text: str
+    # When the door kept it. His record cannot be older than this, so the door
+    # never settles a new "proceed" onto a record of an old one (Aether).
+    said_at: str
+
+
+def already_kept(uuids: list[str]) -> set[str] | None:
+    """Which of these records already hold a message of his. None when unreadable.
+
+    The door asks before offering a record, so a new "proceed" of his is never
+    offered the record of an old one (Aether): offered it, confirm would withdraw
+    the new message as a copy, and his second "proceed" would be lost.
+    """
+    if not uuids:
+        return set()
+    try:
+        conn = _conn()
+    except (sqlite3.Error, OSError):
+        return None
+    try:
+        marks = ",".join("?" * len(uuids))
+        rows = conn.execute(
+            f"SELECT uuid FROM messages WHERE uuid IN ({marks})",  # nosec B608 -- placeholders only
+            list(uuids),
+        ).fetchall()
+    except sqlite3.Error:
+        return None
+    finally:
+        conn.close()
+    return {str(r[0]) for r in rows}
+
+
+def unsettled() -> list[Candidate] | None:
     """Candidates never confirmed or withdrawn. Each one counts as could-not-file."""
     try:
         conn = _conn()
@@ -325,10 +389,12 @@ def unsettled() -> list[str] | None:
         return None
     try:
         rows = conn.execute(
-            "SELECT prompt_id FROM messages WHERE state = ? ORDER BY filed_at", (CANDIDATE,)
+            "SELECT candidate_id, prompt_id, his_text, said_at FROM messages "
+            "WHERE state = ? ORDER BY filed_at",
+            (CANDIDATE,),
         ).fetchall()
     except sqlite3.Error:
         return None
     finally:
         conn.close()
-    return [str(r[0]) for r in rows]
+    return [Candidate(str(r[0]), str(r[1]), str(r[2]), str(r[3])) for r in rows]
