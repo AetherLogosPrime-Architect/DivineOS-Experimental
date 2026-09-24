@@ -36,6 +36,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from divineos.core import his_asks
+from divineos.core.harness_envelopes import nothing_of_his
 
 # The record is written the moment he sends, so by the first tool call or the
 # end of the turn it sits near the end of the transcript. Reading only the tail
@@ -236,9 +237,14 @@ def settle(transcript_path: str | Path, seat: str) -> dict[str, str] | None:
         if match is None:
             continue
         taken.add(match.uuid)
+        # The stamp says who sat in the seat, not whose words these are: the
+        # harness stamps build notices human (see harness_envelopes).
+        stamp = match.stamp or ""
+        if stamp == "human" and nothing_of_his(match.text):
+            stamp = "human, but only a harness envelope"
         try:
             settled[candidate.candidate_id] = his_asks.confirm(
-                candidate.candidate_id, match.uuid, match.stamp or "", match.text
+                candidate.candidate_id, match.uuid, stamp, match.text
             )
         except Exception as exc:  # noqa: BLE001 -- one bad record must not stop the rest
             _record_failure(candidate.candidate_id, exc, seat)

@@ -188,6 +188,37 @@ def test_a_notification_that_starts_a_turn_is_withdrawn_by_its_stamp(tmp_path):
     assert list(fd.settle(path, "aether").values()) == [ha.WITHDRAWN]
 
 
+# A real build notice the harness stamped human (slip of 2026-07-17, shortened).
+REAL_CI_NOTICE = (
+    "<ci-monitor-event>AetherLogosPrime-Architect/DivineOS-Experimental PR #355 has 1 new"
+    " review comment:\n- github-actions[bot]: ## Audit-stamp reminder — guardrail-touching"
+    " PR\n\nPlease address the feedback and push a fix.</ci-monitor-event>"
+)
+
+
+def test_a_build_notice_stamped_human_is_never_filed_as_his(tmp_path):
+    """Aria, 2026-09-24: the harness stamps build notices human. Stamp plus
+    containment alone would have filed this as words he typed."""
+    fd.keep({"prompt_id": "running-turn", "prompt": REAL_CI_NOTICE}, "aether")
+    path = _transcript(tmp_path, _slip(REAL_CI_NOTICE, "u-ci", kind="human"))
+    assert list(fd.settle(path, "aether").values()) == [ha.WITHDRAWN]
+    assert ha.pending() == []
+
+
+def test_a_turn_record_that_is_only_a_reminder_is_not_his(tmp_path):
+    words = "<system-reminder>\nsomething the machine said\n</system-reminder>"
+    fd.keep({"prompt_id": "p1", "prompt": words}, "aether")
+    path = _transcript(tmp_path, _turn("p1", words))
+    assert list(fd.settle(path, "aether").values()) == [ha.WITHDRAWN]
+
+
+def test_his_words_beside_an_envelope_are_still_his(tmp_path):
+    words = f"<system-reminder>\nnoise\n</system-reminder>\n{HIS}"
+    fd.keep({"prompt_id": "p1", "prompt": words}, "aether")
+    path = _transcript(tmp_path, _turn("p1", words))
+    assert list(fd.settle(path, "aether").values()) == [ha.FILED]
+
+
 def test_an_unstamped_prompt_slip_is_left_visible_not_guessed(tmp_path):
     fd.keep({"prompt_id": "running-turn", "prompt": HIS}, "aether")
     path = _transcript(tmp_path, _slip(HIS, "u-bare", kind=None, mode="prompt"))

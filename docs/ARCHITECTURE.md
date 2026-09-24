@@ -726,6 +726,7 @@ src/divineos/
     slashed_ref_path_check.py  Refuse a git argument the Windows shell will rewrite before git sees it.
     his_asks.py                What he says, kept at the front door, in one place both of us read.
     front_door.py              The front door: every message he types is kept before anything else happens.
+    harness_envelopes.py       What the harness wraps around his seat, in one place every reader of him uses.
 
   analysis/
     _session_types.py          Session analysis type definitions
