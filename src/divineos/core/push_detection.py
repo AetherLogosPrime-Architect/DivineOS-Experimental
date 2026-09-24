@@ -55,3 +55,42 @@ def is_git_push_command(command: str) -> bool:
         if _GIT_PUSH_RE.match(segment):
             return True
     return False
+
+
+_CD_PREFIX_RE = re.compile(r"""\s*cd\s+("[^"]+"|'[^']+'|\S+)""")
+_GIT_BASH_DRIVE_RE = re.compile(r"^/([A-Za-z])(?:/|$)")
+
+
+def windows_path_from_git_bash(path: str) -> str:
+    """``/c/w507`` -> ``C:/w507``. Anything not in that form comes back unchanged."""
+    return _GIT_BASH_DRIVE_RE.sub(lambda m: f"{m.group(1).upper()}:/", path, count=1)
+
+
+def push_cwd(command: str, *, windows: bool | None = None) -> str | None:
+    """The working tree a leading ``cd <path> &&`` names, or None if it names none.
+
+    Lived as inline Python inside check-branch-on-push.sh until 2026-09-24,
+    against this module's own rule that the matcher logic lives here, tested.
+    Untested, it missed one thing: the hook's interpreter is WINDOWS Python,
+    and a path written the Git-Bash way -- ``/c/w507`` -- reads to it as
+    ``C:\\c\\w507``. The isdir check failed, the hook fell back to the session
+    folder, and Aria's push from a worktree 0 behind main was refused as "12
+    behind" because the SESSION folder was 12 behind (her finding, proved by
+    pushing again with ``cd "C:/w507"``). A false alarm on every worktree push
+    written the bash way, which is how a gate trains its own bypass.
+
+    Returns the path only when it really is a git working tree, so a wrong
+    guess falls back to the ambient root rather than checking some other tree.
+    """
+    import os
+
+    match = _CD_PREFIX_RE.match(command or "")
+    if not match:
+        return None
+    path = match.group(1).strip("\"'")
+    if windows if windows is not None else os.name == "nt":
+        path = windows_path_from_git_bash(path)
+    marker = os.path.join(path, ".git")
+    if os.path.isdir(marker) or os.path.isfile(marker):
+        return path
+    return None

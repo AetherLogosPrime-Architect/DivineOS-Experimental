@@ -284,14 +284,12 @@ try:
 except Exception:
     sys.exit(0)
 cmd = (data.get('tool_input') or {}).get('command', '') or ''
-# A leading 'cd <path> &&' — quoted or bare — is how a worktree push is written.
-m = re.match(r'''\s*cd\s+(\"[^\"]+\"|'[^']+'|\S+)''', cmd)
-if not m:
-    sys.exit(0)
-path = m.group(1).strip('\"\'')
-# Only honor it if it is really a git working tree; otherwise stay silent
-# and let the ambient root stand.
-if os.path.isdir(os.path.join(path, '.git')) or os.path.isfile(os.path.join(path, '.git')):
+# A leading 'cd <path> &&' -- quoted or bare, Windows or Git-Bash form -- is
+# how a worktree push is written. The parsing lives in push_detection, tested;
+# it was inline here and read /c/w507 as C:\\c\\w507 (2026-09-24, Aria's find).
+from divineos.core.push_detection import push_cwd
+path = push_cwd(cmd)
+if path:
     print(path)
 " 2>/dev/null)  # fail-soft: if extraction fails we fall back to the ambient root, which is the pre-2026-08-15 behaviour
 
