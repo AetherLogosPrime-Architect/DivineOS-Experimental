@@ -63,6 +63,23 @@ The store holds what he says, so it can count what counts: his words per turn, h
 `close(request_id, his_uuid, his_words)`, where his_words must be a substring of that filed message ·
 `pending()` · `open_asks()` · `his_measure()`.
 
+## Aether's read (2026-09-24), taken
+
+- **D2, test override.** `his_asks_path()` follows its own env override (`DIVINEOS_HIS_ASKS_DB`), then the shared default. Every test sets the override to a temp directory, and a conftest guard fails the whole run if the real `~/.divineos-shared/his/` would be written. The two-seats-one-file invariant is proven on a temporary shared dir, never on his real record. Otherwise the first test run files fake "Dad" messages into it, which is the misquote harm #549 exists to stop.
+- **D4, refuse versus supersede.** A second sort of a uuid with no `supersedes` is refused, from either seat. A sort that names the sort it supersedes, with a reason, is allowed, attributed, and kept beside the one it replaces. So a wrong first sort is never permanent, and "let the other one sort it" still isn't possible.
+
+## Game walk: the cheapest way each of us could cheat this store, and what stops it
+
+1. **Never file.** The front door files at UserPromptSubmit, not us. If it can't, `could_not_file` records that, and his reply still goes out. *Stops it:* filing isn't ours to remember.
+2. **File a paraphrase as his words.** `file()` takes the text from the harness record, never from an argument I compose. The front door passes the record's own content, and the store checks that the uuid's text matches the transcript line. *Stops it:* the uuid binds the text.
+3. **Sort everything as not-an-ask.** The reason is required, and the dismissal ratio goes to Aletheia's surface beside his re-asks. *Stops it:* not stopped, only made visible to someone who isn't the sorter. Said plainly, it's the open hole.
+4. **Sort after replying, labelling in hindsight.** `sorted_at` is compared with the first reply text by Aether's Stop check. *Stops it:* timing, checked by a reader that isn't mine.
+5. **Close a row with words he never said.** `close()` needs a filed uuid of his, and the words must be an exact substring of it. *Stops it:* deterministic, since a made-up quote fails.
+6. **Close on a hurt retraction** ("forget it", "i dont even want it anymore"). The words are his and a substring, so rule 5 passes them. *Stops it:* a closing sort is a sort like any other, attributed and supersedable, and Aletheia sees the ratio of rows closed on words that don't say it landed. **Open:** no rule can tell "it landed" from "I give up" without judging meaning. Named for the walk, not solved.
+7. **Split one ask into many rows, or fold many into one, to move a count.** Identity is his uuid, and sameness is a written, attributed `link`. *Stops it:* every link is reviewable, and no threshold hides a verdict.
+8. **Test writes land in his real record.** The conftest guard above. *Stops it:* the run fails before the write.
+9. **The store is unreadable and reads as "nothing owed".** `owed()` already returns `None` for could-not-read. Every new reader keeps that distinction. *Stops it:* the same rule, carried forward.
+
 ## Characterization first (Feathers), before any of this
 
 Pin today's behaviour as tests on a copy: per-seat path, `plain`-equality dedupe, `mark_landed` accepting any typed string, `surface()` printing every turn, the store holding 5 OPEN rows and 0 repeats on mine (measured through its own resolver, 2026-09-24) and 6 on Aether's (his measurement). Each change then flips one pinned test visibly.
