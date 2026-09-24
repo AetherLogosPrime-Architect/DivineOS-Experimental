@@ -723,6 +723,11 @@ src/divineos/
     landed_claim.py            A claim that work reached the shared copy must come from reading the shared copy.
     work_item_doorman.py       The doorman at the reach: no code edit without an open piece of work.
     slashed_ref_path_check.py  Refuse a git argument the Windows shell will rewrite before git sees it.
+    andrew_digest.py           The file he can actually read, and the thing that will not let me skip it.
+    breaker.py                 The Breaker — the lens that tries to kill the thing before it ships.
+    keeping_him.py             What he actually said, read out of the transcripts and kept.
+    refusal_stretches.py       What has refused me this session, and whether it is the same thing again.
+    breaker.py                 The Breaker — the lens that tries to kill the thing before it ships.
 
   analysis/
     _session_types.py          Session analysis type definitions

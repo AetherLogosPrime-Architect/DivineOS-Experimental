@@ -491,6 +491,47 @@ def hook_syntax_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def refusal_stretch_surface(payload: dict) -> SurfaceOutcome | None:
+    """Put this session's refusals on one page while the stretch is still forming.
+
+    2026-09-14. Nine refusals in one morning read as nine incidents with nine
+    local explanations and were one cause with nine faces — my own shell habit
+    making every prescribed remedy unrecognisable to the list that keeps each
+    gate's exit open. What would have collapsed them was never insight. It was
+    the count, and nothing in the house had ever put them side by side.
+
+    Andrew: *"one a failure hits it should open a root cause investigation and
+    fix immediately."* This is the half that had to exist first — the record
+    turned out to be complete and unread, so the missing piece was a reader
+    rather than the recorder I was one step from building.
+
+    SPEAKS ONLY WHEN ONE GATE HAS REFUSED TWICE. A single refusal is ordinary
+    and a block on every one becomes furniture inside a day; two of the same is
+    the first moment the question *is this the same thing again* has an answer
+    worth reading. No threshold above that: Andrew's rule to Aether, which
+    applies here — not three times, every time — because the free passes are
+    exactly where a common cause hides as separate incidents.
+    """
+    session = str(payload.get("session_id") or "").strip()
+    if not session:
+        return None  # nothing to attribute; silence beats a stretch built on a guess
+    try:
+        from divineos.core.refusal_stretches import describe, read_stretch
+    except ImportError as exc:
+        return SurfaceOutcome(name="refusal_stretch", error=f"cannot import: {exc}")
+
+    stretch = read_stretch(session)
+    if stretch.could_not_look:
+        # Could-not-look is reported rather than swallowed, because a reader
+        # that goes quiet on failure returns us to the morning it was built for.
+        return SurfaceOutcome(name="refusal_stretch", error=str(stretch.unreadable))
+    worst = stretch.worst
+    if worst is None or worst[1] < 2:
+        return None
+    block = describe(stretch)
+    return SurfaceOutcome(name="refusal_stretch", output=block) if block else None
+
+
 def letter_claims_surface(payload: dict) -> SurfaceOutcome | None:
     """After I read a sibling's letter, put the named files' local state in hand.
 
@@ -2157,6 +2198,12 @@ def install() -> None:
     # hook goes live. Checking before the edit would check the old contents.
     if "hook_syntax" not in registered("PostToolUse"):
         register("PostToolUse", "hook_syntax", hook_syntax_surface)
+
+    # PostToolUse because a refusal has already happened by the time it is worth
+    # counting, and mid-turn because session-end is far too late — the whole
+    # point is to see a stretch WHILE it is still forming.
+    if "refusal_stretch" not in registered("PostToolUse"):
+        register("PostToolUse", "refusal_stretch", refusal_stretch_surface)
 
     # Third door, 2026-09-08. Each of these retires a shell registration in the
     # SAME change -- the tracker's own rule, learned the hard way when
