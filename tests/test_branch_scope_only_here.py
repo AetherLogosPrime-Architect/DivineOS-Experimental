@@ -286,6 +286,8 @@ def test_the_refusal_is_the_exit_code_and_not_the_wording(repo: Path):
         "a code-only branch must pass -- a scan that refuses unconditionally "
         "proves nothing when it refuses"
     )
+
+
 def test_checking_a_sha_does_not_compare_the_branch_against_itself(repo: Path):
     """2026-09-07, and this one told two of us our letters were safe.
 
