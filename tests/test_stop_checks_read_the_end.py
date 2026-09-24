@@ -17,6 +17,7 @@ added later that reads the whole transcript trips the same wire.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -180,6 +181,37 @@ class TestTheHelpersReadTheEnd:
     def test_could_not_look_still_raises_for_the_action_stream(self, tmp_path):
         with pytest.raises(OSError):
             hs._this_turns_action_stream({"transcript_path": str(tmp_path / "missing.jsonl")})
+
+    def test_the_action_stream_has_no_trailing_newline_the_whole_read_lacked(
+        self, tmp_path, monkeypatch
+    ):
+        """Aria's station-four nit: a file ending in a newline split on "\\n"
+        leaves an empty last piece, and the join added a "\\n" that the
+        splitlines() reader never had. Compared against splitlines() directly,
+        not against this module in another mode, so both cannot share the bug."""
+        path = _transcript(tmp_path, old_records=50, tail=RECENT)
+        payload = {"transcript_path": path}
+        monkeypatch.setattr(hs, "_STOP_TAIL_START", 512)
+        lines = Path(path).read_text(encoding="utf-8").splitlines()
+        last_user = max(
+            i for i, line in enumerate(lines) if json.loads(line)["message"]["role"] == "user"
+        )
+        assert hs._this_turns_action_stream(payload) == "\n".join(lines[last_user:])
+
+
+def test_the_largest_window_is_actually_walked(tmp_path):
+    """Aria's second nit: with ``window < max_bytes`` a 2 MB start went 2 -> 8
+    -> whole file and never read the 32 MB window it names as its ceiling."""
+    from divineos.core.operating_loop.transcript_tail import tail_windows
+
+    path = tmp_path / "big.jsonl"
+    path.write_bytes(b"abcdefghi\n" * 500)  # 5000 bytes, bigger than the ceiling
+    windows = list(tail_windows(path, start_bytes=64, max_bytes=1024))
+    partial = [text for text, whole in windows if not whole]
+    # 64, 256 and 1024 bytes: the ceiling itself is read before the whole file.
+    assert len(partial) == 3
+    assert len(partial[-1]) > 1024 - 10  # at most one cut line short of 1024
+    assert windows[-1][1] is True
 
 
 class TestNoStopSurfaceReadsTheWholeTranscript:

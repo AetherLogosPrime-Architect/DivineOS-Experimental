@@ -737,7 +737,13 @@ def _windows(path):
     from divineos.core.operating_loop.transcript_tail import tail_windows
 
     for text, whole in tail_windows(path, start_bytes=_STOP_TAIL_START, max_bytes=_STOP_TAIL_MAX):
-        yield text.split("\n"), whole
+        lines = text.split("\n")
+        # A file ending in a newline leaves one empty piece that splitlines()
+        # never produced; without this the action stream gained a trailing "\n"
+        # the whole-file reader did not have (Aria, station four on #552).
+        if lines and lines[-1] == "":
+            lines.pop()
+        yield lines, whole
 
 
 def _messages(lines):

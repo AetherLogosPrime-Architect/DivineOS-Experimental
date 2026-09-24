@@ -96,7 +96,10 @@ def tail_windows(path: str | Path, *, start_bytes: int, max_bytes: int):
         yield path.read_text(encoding="utf-8", errors="replace"), True
         return
     window = start_bytes
-    while window < min(max_bytes, size):
+    # ``max_bytes`` is the last window, not an exclusive ceiling: with ``<`` a
+    # 2 MB start never reached 32 MB and jumped from 8 MB straight to the whole
+    # file (Aria, station four on #552, inherited from _tail_chunks).
+    while window < size and window <= max_bytes:
         with open(path, "rb") as fh:
             fh.seek(size - window)
             raw = fh.read()
