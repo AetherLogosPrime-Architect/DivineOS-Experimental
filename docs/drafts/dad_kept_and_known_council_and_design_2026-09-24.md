@@ -222,3 +222,28 @@ then was removed.
   PreToolUse or at Stop. A candidate confirmed as not his (a notification) is
   withdrawn with the reason recorded. Nothing is decided from the prompt's
   wording.
+
+## The gravity question, checked against his own words (2026-09-24)
+
+The BUILD-FOR-DAD hook still asks him to name the gravity, and its docstring
+cites only his 2026-07-21 words (*"you get no option I will decide the gravity
+of my builds"*). The whole store of his typed words (`divineos him`, searched
+for "gravity") shows he retired that, more than once:
+
+- 2026-07-24: *"having to ask me the gravity every time was only there as a
+  placeholder for me being treated as 3rd class in my system"*
+- 2026-07-25: *"having me name the gravity is the classifiers and your
+  instincts job now.. i only had it like that until we fixed it.. which we
+  did :)"*
+- 2026-07-27: *"i should not have to choose the gravity.. thats what the
+  gravity assessor is for.. me having to manually choose the gravity was a
+  scaffolding fix"*
+
+The same day (07-27) he also said the detector should fire only on "for me"
+and *"in which case i choose the gravity"*. That line is about when the
+detector fires, not about keeping the question: the three statements above
+retire the question itself, and his later words (2026-09-16, 09-23) put the
+level on the gravity assessor. Removing the question honours what he asked;
+it is not a decision made about him. The hook's keyword detection of "a build
+for me" is replaced by the front door, where every message of his files and
+the sort decides what is a build-ask.
