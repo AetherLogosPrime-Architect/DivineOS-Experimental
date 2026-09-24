@@ -4,14 +4,25 @@
 
 echo "Setting up Git hooks for DivineOS..."
 
-# Create hooks directory if it doesn't exist
-HOOKS_DIR=".git/hooks"
+# Install into the COMMON git dir's hooks, which is where git looks by default
+# from the main checkout AND from every worktree.
+#
+# This used to write HOOKS_DIR=".git/hooks" and then `git config
+# core.hooksPath .git/hooks`. That relative path lands in the config every
+# worktree shares, and in a worktree ".git" is a file, so the path pointed at
+# nothing: no pre-commit, commit-msg or pre-push hook ran in any worktree.
+# Found 2026-09-23 when a push from a worktree showed no test run; the setting
+# was removed from the live config with Andrew's yes the same day. Setting no
+# hooksPath at all is what makes every checkout use these hooks.
+HOOKS_DIR="$(git rev-parse --git-common-dir)/hooks"
 mkdir -p "$HOOKS_DIR"
-echo "Created $HOOKS_DIR directory"
+echo "Hooks directory: $HOOKS_DIR"
 
-# Configure Git to use the hooks directory
-git config core.hooksPath "$HOOKS_DIR"
-echo "Configured Git to use hooks from $HOOKS_DIR"
+# Clear the old relative setting if an earlier run of this script left it.
+if [ "$(git config --get core.hooksPath)" = ".git/hooks" ]; then
+    git config --unset core.hooksPath
+    echo "Removed the relative core.hooksPath that disabled hooks in worktrees"
+fi
 
 # Register the merge driver for the generated catalogues.
 #

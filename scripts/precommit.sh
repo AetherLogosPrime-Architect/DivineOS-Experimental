@@ -465,10 +465,17 @@ if [ -f scripts/guardrail_files.txt ] && [ -f scripts/check_multi_party_review.p
         # gives the shared one from a worktree and the same answer as before
         # from an ordinary checkout; checked in both before changing it.
         #
-        # A false alarm on a SAFETY gate is worse than no alarm, because the
-        # next true one reads like this one. The comment three lines down
-        # already warned that setup-hooks.sh has a worktree bug -- so the
-        # warning about worktrees was itself being printed by a worktree bug.
+        # CORRECTED THE SAME DAY, AND IT REVERSES THE PARAGRAPH ABOVE. That
+        # paragraph called this a false alarm. It was a TRUE alarm read for
+        # the wrong reason: core.hooksPath was set to the relative
+        # ".git/hooks", so git itself did not run the hook in any worktree.
+        # The hook was installed in the shared directory and never called.
+        # Pointing this check at the common dir silenced the one warning that
+        # was right. The setting was removed from the live config with
+        # Andrew's yes on 2026-09-23 and setup-hooks.sh no longer writes it
+        # (tests/test_hooks_run_in_worktrees.py), so the common dir is now
+        # where git really looks, and this check is true in both kinds of
+        # checkout.
         HOOK_PATH="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")/hooks/commit-msg"  # fail-soft: outside a repository this cannot answer, and the literal fallback then makes the check report the hook as absent, which is the correct and safe reading there
         if [ ! -s "$HOOK_PATH" ]; then
             echo "  [!!] COMMIT-MSG HOOK NOT INSTALLED — gate enforcement absent."
@@ -477,10 +484,9 @@ if [ -f scripts/guardrail_files.txt ] && [ -f scripts/check_multi_party_review.p
             echo "       NOT validated at commit time. The hash binding"
             echo "       between the filed round and the landed commit is"
             echo "       operator-discipline only, not structurally enforced."
-            echo "       Install: bash setup/setup-hooks.sh (note: has a"
-            echo "       worktree-compatibility bug — verify the hook"
-            echo "       actually appears at the path above after running,"
-            echo "       or write it manually)."
+            echo "       Install: bash setup/setup-hooks.sh, then check that"
+            echo "       'git config --get core.hooksPath' prints nothing -- a"
+            echo "       relative hooks path turns every hook off in worktrees."
             echo ""
             note_fail
         fi
