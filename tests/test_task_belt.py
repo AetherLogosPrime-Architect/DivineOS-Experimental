@@ -107,9 +107,7 @@ class TestTheFlow:
         ]
         assert rows[0]["closed_how"] == "closed at source"
 
-    def test_a_drawer_that_cannot_be_read_closes_nothing(
-        self, home: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_a_drawer_that_cannot_be_read_closes_nothing(self, home: Path) -> None:
         # Could-not-look must never read as closed: that would archive a whole
         # drawer the first time its store failed to open.
         belt._save_current(
@@ -125,10 +123,10 @@ class TestTheFlow:
             ]
         )
 
-        def broken() -> list:
-            raise OSError("store unreadable")
-
-        monkeypatch.setattr("divineos.core.andrew_correction_tracker.list_open", broken)
+        # Break the store the belt actually reads now. This used to break
+        # list_open(), which the belt stopped calling after Aletheia's audit --
+        # the test kept passing while exercising nothing.
+        (home / "andrew_corrections.db").write_bytes(b"this is not a sqlite database")
         assert [c["key"] for c in belt.pull(pile=[])] == ["correction:7"]
         assert not (home / "task_belt_archive.jsonl").exists()
 
@@ -143,6 +141,73 @@ class TestTheFlow:
         assert cid in {r["id"] for r in list_open()}
         belt.done(entry["key"], "fixed in src/divineos/core/task_belt.py, tests/test_task_belt.py")
         assert cid not in {r["id"] for r in list_open()}
+
+
+class TestAWrongHomeClosesNothing:
+    """Aletheia's audit, 2026-09-23: "point divineos_home at an empty temporary
+    directory, run pull, and assert nothing is archived. That is the control the
+    suite is missing -- every test gave the belt a store that existed."
+
+    The first version asked the drawers for membership, and the correction
+    tracker CREATES its store when missing, so under a wrong home every
+    correction on the belt read as closed and was archived, with nothing
+    erroring.
+    """
+
+    def _held(self) -> list[dict]:
+        return [
+            {
+                "key": "correction:261",
+                "source": "correction",
+                "item_id": "261",
+                "summary": "his",
+                "severity": "HIGH",
+                "prompts": 9,
+            },
+            {
+                "key": "structural-fix:psf-1",
+                "source": "structural-fix",
+                "item_id": "psf-1",
+                "summary": "mine",
+                "severity": "MEDIUM",
+                "prompts": 9,
+            },
+        ]
+
+    def test_an_empty_home_archives_nothing(self, home: Path) -> None:
+        belt._save_current(self._held())
+        kept = belt.pull(pile=[])
+        assert [c["key"] for c in kept] == ["correction:261", "structural-fix:psf-1"]
+        assert not (home / "task_belt_archive.jsonl").exists()
+        # And the look did not build itself an empty room to look into.
+        assert not (home / "andrew_corrections.db").exists()
+
+    def test_a_damaged_store_closes_nothing(self, home: Path) -> None:
+        (home / "pending_structural_fixes.json").write_text("{not json", encoding="utf-8")
+        belt._save_current(self._held()[1:])
+        assert [c["key"] for c in belt.pull(pile=[])] == ["structural-fix:psf-1"]
+        assert not (home / "task_belt_archive.jsonl").exists()
+
+    def test_an_item_the_store_never_heard_of_is_kept(self, home: Path) -> None:
+        # A real store that does not contain the id is "no such item", not "closed".
+        from divineos.core.andrew_correction_tracker import file_correction
+
+        file_correction("some other correction entirely, so the store exists")
+        belt._save_current(self._held()[:1])
+        assert [c["key"] for c in belt.pull(pile=[])] == ["correction:261"]
+
+
+class TestTwinsAreOnlyLabels:
+    def test_a_correction_quoting_his_words_is_not_his_words_filed_again(self, home: Path) -> None:
+        # Measured: 17 of 312 contained pairs are his raw words plus a correction
+        # I filed that quotes them and adds a root cause. Same moment, two rows.
+        raw = "yes this is why dogfooding is mandatory, all of this code is for you anyway"
+        analysis = (
+            f'Andrew 2026-08-17: "{raw}". root cause: I shipped a surface I had never '
+            "run against my own seat, so the first reader of it was him."
+        )
+        assert not belt._same_thing(belt._norm(raw), belt._norm(analysis))
+        assert belt._same_thing(belt._norm(raw), belt._norm(f"Andrew verbatim: {raw}"))
 
 
 class TestRefusals:

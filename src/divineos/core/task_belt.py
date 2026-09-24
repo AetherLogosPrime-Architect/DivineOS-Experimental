@@ -187,14 +187,9 @@ def _one_open(source: str, item_id: str) -> bool | None:
     """
     try:
         if source == "structural-fix":
-            from divineos.core.structural_fix_tracker import list_current, list_pending
-
-            ids = {e.get("id") for e in list_pending()} | {e.get("id") for e in list_current()}
-            return item_id in ids
+            return _structural_fix_open(item_id)
         if source == "correction":
-            from divineos.core.andrew_correction_tracker import list_open
-
-            return item_id in {str(r.get("id")) for r in list_open()}
+            return _correction_open(item_id)
         if source == "audit":
             from divineos.core.watchmen.store import get_finding
 
@@ -238,9 +233,83 @@ def _same_thing(a: str, b: str) -> bool:
     same day, 312 pairs of his corrections are one text contained in another.
     WHOLE-text containment, not a shared opening: a first-80-characters probe
     matched 788 pairs, because templated rows share their first line.
+
+    AND THE LONGER MAY ADD ONLY A LABEL. Aletheia's audit asked whether
+    containment could fold two different corrections that share his words.
+    Measured the same day: of the 312 contained pairs, 295 differ by 40
+    characters or fewer (a prefix like "Andrew verbatim:"), and 17 by more
+    than 200 -- his raw words, and a correction I filed that quotes them and
+    then adds its own root cause. Those 17 are about one moment but are not one
+    row, and must not close together. Nothing fell between 41 and 200.
     """
     short, long_ = sorted((a, b), key=len)
-    return len(short) >= 40 and short in long_
+    return len(short) >= 40 and short in long_ and len(long_) - len(short) <= TWIN_LABEL_MAX
+
+
+TWIN_LABEL_MAX = 40
+"""How much longer a twin may be: room for a label, not for an analysis."""
+
+
+# LOOKUP BY ID, NEVER MEMBERSHIP, AND NEVER CREATE THE STORE.
+#
+# Aletheia's audit, 2026-09-23, asked to make reconcile archive something it
+# should not, found it: the first version asked these two drawers "is this id in
+# your OPEN list?". The correction tracker's _conn() CREATES its database and
+# table when missing, and the structural-fix reader returns [] for a missing or
+# malformed file. So under a wrong home -- a fresh worktree, a changed
+# DIVINEOS_HOME -- the look SUCCEEDED, at an empty room it built for itself,
+# every answer was False, and every one of his corrections on the belt would
+# have been archived as closed with nothing erroring. Her line: "A lookup can
+# say 'no such item.' A list cannot say 'I was never really read.'"
+#
+# So: the store must already exist, it is opened read-only (the house's own
+# idiom, as in sibling_corrections and _ledger_base), the item is looked up by
+# its own id, and only an item FOUND and marked closed is False. Missing store,
+# unreadable store, or item not found are all None -- could not tell -- and
+# None is kept.
+
+
+def _correction_open(item_id: str) -> bool | None:
+    import sqlite3
+
+    path = divineos_home() / "andrew_corrections.db"
+    if not path.is_file():
+        return None
+    conn = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+    try:
+        row = conn.execute(
+            "SELECT status FROM andrew_corrections WHERE id = ?", (int(item_id),)
+        ).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        return None
+    return str(row[0]).upper() == "OPEN"
+
+
+def _structural_fix_open(item_id: str) -> bool | None:
+    from divineos.core.paths import marker_path
+
+    def ids_in(name: str, jsonl: bool = False) -> set[str] | None:
+        p = marker_path(name)
+        if not p.is_file():
+            return None
+        text = p.read_text(encoding="utf-8")
+        rows = (
+            [json.loads(ln) for ln in text.splitlines() if ln.strip()]
+            if jsonl
+            else json.loads(text)
+        )
+        return {str(r.get("id")) for r in rows if isinstance(r, dict)}
+
+    pending = ids_in("pending_structural_fixes.json")
+    if pending is None:
+        return None
+    if item_id in pending or item_id in (ids_in("current_structural_fixes.json") or set()):
+        return True
+    if item_id in (ids_in("archive_structural_fixes.jsonl", jsonl=True) or set()):
+        return False
+    return None
 
 
 def _entry(item: TodoItem, reserved: bool) -> dict[str, Any]:
