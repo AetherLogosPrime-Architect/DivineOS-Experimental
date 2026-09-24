@@ -286,7 +286,7 @@ first key.
    `queued_command`**, his words in `attachment.prompt`, the harness stamp in
    `attachment.origin.kind`, with no top-level `promptId` or `origin`. None of
    them ever gets a normal record. Across every transcript on this machine,
-   **169 of his messages in 56 transcripts exist only as queue slips.** Every
+   **169 of his messages in 56 transcripts exist only as queue slips.** *(Corrected the same day: 169 counted each transcript's copy of a slip. Deduped by record uuid the count is 139, measured after Aria's 133 disagreed; she named photocopies as the likely cause and that held. The remaining gap between 139 and 133 is not yet explained.)* Every
    reader that walks `type == "user"` has never seen them: the his-words
    corpus (`keeping_him.is_his`, #507), `turn_started_by_him` (#554), and the
    first settle in `core/front_door.py`. **Fix:** settle matches both shapes
