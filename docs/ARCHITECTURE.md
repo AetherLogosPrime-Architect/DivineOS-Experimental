@@ -64,6 +64,7 @@ src/divineos/
     hook_budget_commands.py    `divineos hook-budget` — what the whole hook stack costs per tool call, hangs included. The module had no entry point for a day, so the freeze numbers were only visible to whoever wrote a throwaway script
     hook_layer_commands.py     `divineos hook-layer show` — what the hook layer actually is, computed from settings and the directory: registrations per door, doors with no doorbell, scripts registered twice, and how much shell still carries judgment. Measurement only; a size ceiling was built here 2026-09-08 and removed the same day when Andrew rejected the idea — "why would you build something that can only shrink and never grow?"
     build_flow_commands.py     Build-flow station status CLI (divineos build-flow status).
+    work_item_commands.py      divineos work-item — the doorman's gate, status and honest escape.
     gate_fire_commands.py      divineos gate-fire — shell-side GATE_FIRE emit for bash gates.
     branch_health_commands.py  check-branch — pre-push stale-base + silent-deletion check
     overclaim_commands.py      check-prose — overclaim detector (stacked modifiers + ornate self-description)
@@ -677,6 +678,7 @@ src/divineos/
     hook_surfaces.py           The roster — every surface, registered to its door.
     doorbell_generator.py      The bells are generated, not written, so nobody can put a decision in one (Aria 2026-09-08). Stop fails CLOSED because its surfaces are refusals and a dead bell there ships a reply nothing checked; every other door fails soft.
     letter_claims.py           Measure the local state of every file a sibling's letter talks about.
+    letter_channel_state.py    Provenance for the letter channel — a letter's position in the thread, checkable by a reader who runs no code.
     self_demotion.py           Catch praise-by-contrast: elevating a mechanism by calling a faculty of mine defective.
     summary_room.py            Require a plain-language summary at the top of a long reply.
     dashboard.py               The check-engine dashboard — a socket every system plugs into.
@@ -690,6 +692,7 @@ src/divineos/
     engagement_monitor.py      Engagement as a measurement, not a toll gate.
     hook_firing_map.py         What actually fires, read from observation rather than from config.
     reach_check.py             Knowing something and not reaching for it — the automatable half.
+    work_item_doorman.py       No code edit without an open piece of work; the refusal is what opens it.
     read_gate.py               Primes that are gates — a surface can require proof it was opened.
     andrew_operator_shape_detector.py Andrew-operator-shape detector — MIRROR (not judge) for operator-shape
     component_register_surface.py Surface the component register at briefing time.
@@ -708,6 +711,7 @@ src/divineos/
     prior_art_by_name.py       Find files on ANY branch whose names resemble one about to be created.
     compound_branch_change.py  Refuse a branch change and a destructive op on the same shell line.
     surface_bridge.py          Wire the built-but-unreachable surfaces into the briefing that actually runs.
+    shared_digest.py           One notebook two agents append to, rendered as one message for Andrew.
     andrew_answer_trace.py     Do his answers change what happens next? (Aria 2026-09-07.)
     station_marks.py           The five build-flow stations nothing has ever watched.
     andrew_request_repeats.py  How many times has he had to ask for the same thing.
@@ -718,6 +722,8 @@ src/divineos/
     class_fix.py               A repair that claims a class must count the class, by running rather than by judging.
     landed_claim.py            A claim that work reached the shared copy must come from reading the shared copy.
     work_item_doorman.py       The doorman at the reach: no code edit without an open piece of work.
+    hook_context_merge.py      Read what the session-init children printed and merge it into one answer.
+    slashed_ref_path_check.py  Refuse a git argument the Windows shell will rewrite before git sees it.
     auto_cycle_phase2.py       Auto-cycle phase 2 — invitational menu after phase 1 completes.
 
   analysis/
