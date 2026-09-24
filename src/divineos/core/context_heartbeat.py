@@ -6,6 +6,10 @@ Andrew 2026-08-24: *"it should be tied to the actual token count with a
 heartbeat monitor to keep it updated every round, that way you know when 920k
 tokens has been reached and we run the ritual."*
 
+(Written 2026-08-24, when the trigger was 0.92. It is 0.88 -- 880,000 tokens --
+since 2026-09-18; read ``auto_cycle.TRIGGER_THRESHOLD`` for the live value rather
+than any number quoted in prose, including this one.)
+
 The trigger was already tied to the real count -- ``TRIGGER_THRESHOLD = 0.92``
 of a 1M window is 920,000 tokens, and ``_guess_context_pct`` reads ground truth
 from the session transcript rather than a copy. That half was built and working.
@@ -58,9 +62,11 @@ from pathlib import Path
 
 from divineos.core.paths import divineos_home
 
-# The window the percentage is against. 0.92 of this is the 920,000 Andrew
-# named. Kept here as a named constant so the arithmetic is visible rather
-# than implied by a bare ratio somewhere else.
+# The window the percentage is against. The ritual fires at
+# auto_cycle.TRIGGER_THRESHOLD of this. Kept here as a named constant so the
+# arithmetic is visible rather than implied by a bare ratio somewhere else --
+# and the firing fraction is deliberately NOT restated here, because the
+# last time it was, it went stale (0.92 in prose, 0.88 in code).
 CONTEXT_WINDOW_TOKENS = 1_000_000
 
 # A heartbeat older than this is not worth spending on a firing decision.
