@@ -240,14 +240,32 @@ def retired_but_registered(hooks_dir: Path, settings: Path) -> tuple[list[str], 
 _LAUNCHERS = ("session-init-once.sh",)
 
 
+# RUNNING A CHILD IS NOT WIRING IT (2026-09-23).
+#
+# From 4e5e1a9d3 (2026-08-09) until this change, session-init-once.sh invoked
+# every child as `bash "$script" 2>&1 >/dev/null` -- stdout to the void. Ten
+# children ran to completion and 18,931 measured characters reached nobody,
+# and this check called every one of them REGISTERED the whole time, because
+# it asked whether the launcher RUNS them and never whether it DELIVERS them.
+#
+# That is the same shape as the bug itself one level up: a green report whose
+# only evidence is that something was invoked. So the roster now confers
+# wiring only while the launcher keeps its children's stdout. If the discard
+# ever comes back, these hooks report DARK -- which would be true.
+_DISCARDS_CHILD_STDOUT = re.compile(r'bash\s+"\$script"[^\n]*>\s*/dev/null')
+
+
 def _launcher_roster(hooks_dir: Path) -> set[str]:
-    """Hook names a registered launcher invokes itself."""
+    """Hook names a registered launcher invokes AND delivers."""
     names: set[str] = set()
     for launcher in _LAUNCHERS:
         path = hooks_dir / launcher
         try:
             body = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
+            continue
+        if _DISCARDS_CHILD_STDOUT.search(body):
+            # Its children are dark whatever the roster says.
             continue
         names.update(re.findall(r"^\s*([\w.-]+\.sh)\s*$", body, re.MULTILINE))
     names.discard("")
