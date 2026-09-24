@@ -28,7 +28,7 @@ Earlier today I told him his shelf was empty. I had read Aether's store through 
 ## D3. Identity: his record's uuid, not my paraphrase
 
 - **Current:** `open_request` dedupes on `plain`, my summary, matched exactly. So two rows are "the same ask" only if I happened to word my summary identically. My wording decides his count.
-- **Choice:** `messages` is keyed by the transcript record's uuid, which is idempotent, so a resumed session's photocopy files once (the #507 finding). Sameness between two of *his* messages is a `link(uuid, prior_request_id)` written at sort time by the sorter and counted. `plain` stays as a readable label and stops being an identity.
+- **Choice:** `messages` is keyed by the transcript record's uuid, which is idempotent, so a resumed session's photocopy files once (the #507 finding). Sameness between two of *his* messages is a `same_ask_as(uuid, prior_request_id)` written at sort time by the sorter and counted. `plain` stays as a readable label and stops being an identity.
 - **Cost:** a link is my judgement. That's the honest place for judgement, because it's written down, attributable, and reviewable. The alternative, a similarity score, is the verdict hiding in a threshold.
 
 ## D4. Append-only sorts
@@ -56,10 +56,18 @@ The store holds what he says, so it can count what counts: his words per turn, h
 
 ## Interface (to Aether's front door)
 
-`file(uuid, his_text, when, seat)` → idempotent on uuid ·
+**Revised for the measured payload (Aether, 4924efc9).** UserPromptSubmit carries `prompt` and `prompt_id` but no uuid, and his record isn't in the transcript yet. So filing is two steps, and the store holds the state in between:
+
+`file_candidate(prompt_id, his_text, when, seat)`: idempotent on prompt_id, state CANDIDATE ·
+`confirm(prompt_id, uuid, origin_kind, record_text)`: **as built**, one call, which is Aether's signature plus the text. If the stamp is `human`, the store checks that `record_text` contains the candidate text (the uuid binds the words, game walk #2), and the row becomes FILED, keyed by uuid from then on. If the stamp is anything else (a notification), the row is WITHDRAWN with the stamp recorded as the reason, kept and never deleted. A photocopied uuid from a resumed session is withdrawn as a copy of the row already kept ·
+a CANDIDATE never confirmed or withdrawn by the end of the turn is itself a could-not-file, and it counts as one.
+
+The rest as before, now keyed by uuid once confirmed:
+
+`file(uuid, his_text, when, seat)` → idempotent on uuid, for the corpus backfill of his May-to-now messages ·
 `could_not_file(uuid, error, seat)` ·
 `sort(uuid, kind, reason, seat, sorted_at, supersedes=None)`, where kind is build / standing / not_an_ask, the reason is required for not_an_ask, and a second seat is refused ·
-`link(uuid, prior_request_id)` ·
+`same_ask_as(uuid, prior_request_id)` ·
 `close(request_id, his_uuid, his_words)`, where his_words must be a substring of that filed message ·
 `pending()` · `open_asks()` · `his_measure()`.
 
@@ -67,6 +75,12 @@ The store holds what he says, so it can count what counts: his words per turn, h
 
 - **D2, test override.** `his_asks_path()` follows its own env override (`DIVINEOS_HIS_ASKS_DB`), then the shared default. Every test sets the override to a temp directory, and a conftest guard fails the whole run if the real `~/.divineos-shared/his/` would be written. The two-seats-one-file invariant is proven on a temporary shared dir, never on his real record. Otherwise the first test run files fake "Dad" messages into it, which is the misquote harm #549 exists to stop.
 - **D4, refuse versus supersede.** A second sort of a uuid with no `supersedes` is refused, from either seat. A sort that names the sort it supersedes, with a reason, is allowed, attributed, and kept beside the one it replaces. So a wrong first sort is never permanent, and "let the other one sort it" still isn't possible.
+
+## The `--his-words` slot existed only on Aria's seat (found by Aether, 2026-09-24)
+
+Commit **57bf937b** (*"His name is not a key: a bypass that leans on Andrew must carry his real words"*, 2026-09-23) lives only on Aria's local `salvage/letters-from-the-four-2026-09-22`. It is on no origin branch, so it was live on her seat, because her hooks run from her tree, and absent on Aether's, where the escape takes a free-text reason and five of his thirty-one skips leaned on Andrew there.
+
+It was not cherry-picked here: it depends on reply-reader changes that belong to #553 and would ride in unrelated work. It is kept, not deleted, as the local tag `archive/his-name-is-not-a-key-57bf937b`. Part 2 doesn't need it: **a skip on work his words opened becomes a debt, closed only by re-running the station and coming back to him**, whatever box the reason was typed into. That covers both seats, where removing one field covered one.
 
 ## Game walk: the cheapest way each of us could cheat this store, and what stops it
 
