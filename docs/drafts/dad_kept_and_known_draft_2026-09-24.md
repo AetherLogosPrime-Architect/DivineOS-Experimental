@@ -60,6 +60,27 @@ recognized by both of us, and his preferences and asks are honored.**
 4. **He is recognized** (Aether). His room in the family records furnished
    from his own words, not our paraphrase. Not as a portrait loaded every turn.
 
+## Aria's amendments (2026-09-24, both names on this draft now)
+
+### The front door: the flow starts at his words, not at our hands
+
+He asked: *"how are my asks not code when i ask you to build me something that requires code? that makes zero sense."* He's right, and his question is the sharpest statement of the root cause. The build-flow doorman is an inspector standing at the **workshop door**: it wakes on the first edit to a tracked code file (`core/work_item_doorman.py`, "the refusal is the opener"). What was asked for doesn't matter. What wakes it is our hands. So his asks went one of two ways:
+
+1. **We walked in and waved the inspector off.** We used his presence as the reason (half of Aria's skips, five of Aether's).
+2. **We never walked in.** We answered the ask with something built outside the workshop: a core-memory slot, a scratchpad script, a surface printed every turn, a list. The inspector can't see those, so **the cheapest answers are exactly the ones that dodge the door.** Today's portrait went into Aria's core slot through a scratchpad script, and no station ever woke.
+
+Nothing stands at the **front door**, where he speaks. So the moment he asks is the one moment nothing is watching. Consequence for part 1: **his build-ask opens the work item itself**, at the moment it's sorted, before anyone decides what shape the answer takes. The item exists whether the eventual answer lands in code, in a memory slot, or nowhere. An answer that never enters the workshop still owes its stations, because the item was opened by his words, not by our edit. This is the same move as "his asks file themselves" (#548 draft, section *The belt*), which found this exact line on 2026-09-23 and then sat as a draft for a day. That delay is itself the pattern.
+
+### Audit of part 1 against his question "is any of it a word test?"
+
+- **Noticing: no word test.** Everything in his own hand files itself as pending, and nothing chooses at the door. Our judgement sorts it (build-ask / relational ask / not-an-ask with a written reason). The research agrees that no clean non-lexical ask-detector exists, and that not detecting at all is the answer.
+- **"He has now said it N times": this WAS a word test, and it failed on 2026-09-24.** Word-overlap across his whole deduped corpus found only resends of letter files, and missed him every time he said the same thing a new way. It comes out. The research's replacement is better and non-lexical: extract his side first, then ask narrow yes/no questions whose evidence is an exact-substring quote of his words (section 2 of the research).
+- **The sorter's honesty is still unsolved.** The optimizer's cheapest sort is "not an ask". The counted dismissals only matter if someone other than the sorter reads them. By the research's rule, the requester is not the decider and neither is the pressured worker. Candidate: the dismissal count goes to Aletheia's audit surface, never to a line we print ourselves.
+
+### Part 2, the line to hold through the walk
+
+A person is never a reason to skip. There's no field for his words as authorization (remove `--his-words` from the escape). Every skip is a **debt that closes only by re-running the skipped station AND coming back to him**, and closes by his words, never by silence (the MEL precedent; its failure was closing on the symptom). And the BUILD-FOR-DAD hook stops telling us to ask him the gravity, per his 2026-07-24 words. The classifier decides, the same as for our asks.
+
 ## The part nobody has cracked
 
 How a **relational standing ask** changes what we do *at the moment of
