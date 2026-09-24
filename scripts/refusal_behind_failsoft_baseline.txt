@@ -70,10 +70,17 @@
 # not in CI, so #506 merged green on GitHub while main failed it here. That
 # gap is itself a finding. When #519 merges, its copy of these three lines
 # lands on top of these and nothing changes.
+#
+# SHRANK BY TWO with #544, the direction this file exists for.
+# blanket-staging-doorman.sh and push-message-carries-the-destination.sh are
+# repaired there: each loads the library with `|| true`, so a missing library
+# costs the footer and never the refusal, and
+# tests/test_a_door_still_refuses_without_its_library.py pins both directions
+# and asserts these two names are OFF this list. work-item-doorman.sh stays
+# listed; its repair is Aria's and still owed.
 
 an-open-ask-holds-the-work.sh
 andrew-correction-attestation.sh
-blanket-staging-doorman.sh
 branch-scope-guard.sh
 check-branch-on-push.sh
 check-council-required.sh
@@ -91,7 +98,6 @@ letter-watch-must-be-armed.sh
 m3-discipline-hierarchy.sh
 must-read-gate.sh
 prior-art-before-new-file.sh
-push-message-carries-the-destination.sh
 reach-check-doorman.sh
 read-gate-doorman.sh
 require-briefing.sh
