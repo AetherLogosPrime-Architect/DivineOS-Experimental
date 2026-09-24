@@ -268,3 +268,34 @@ item. This build is done in worktrees, so the debt rule in part 2 would be
 inert exactly where his builds happen. Part 2 therefore includes: resolve
 paths against the tree the tool call came from, with a characterization pin
 written first.
+
+## Measured 2026-09-24: the prompt id is shared, and his mid-turn messages are queue slips
+
+Two findings, both from the live transcript, both breaking the front door's
+first key.
+
+1. **`prompt_id` is not one per message.** The payload's `prompt_id` equals
+   the transcript's `promptId`, but one id is carried by many messages: on
+   2026-09-19 one id sat on ten of his messages over eight hours, with
+   notifications mixed in. Notifications arriving mid-turn fire the prompt
+   hook with the running turn's id. A store keyed on `prompt_id` with
+   insert-or-ignore keeps his first message and drops the rest. **Fix:** a
+   candidate id minted at the door (prompt id + text hash + arrival time);
+   `prompt_id` is only a hint for finding the record.
+2. **Messages he sends while we are mid-turn are `attachment` records of type
+   `queued_command`**, his words in `attachment.prompt`, the harness stamp in
+   `attachment.origin.kind`, with no top-level `promptId` or `origin`. None of
+   them ever gets a normal record. Across every transcript on this machine,
+   **169 of his messages in 56 transcripts exist only as queue slips.** Every
+   reader that walks `type == "user"` has never seen them: the his-words
+   corpus (`keeping_him.is_his`, #507), `turn_started_by_him` (#554), and the
+   first settle in `core/front_door.py`. **Fix:** settle matches both shapes
+   and never binds two candidates to one record. The corpus and the turn
+   reader get the same second place to look.
+
+The three unstamped slips all open with `<` (system-shaped); every slip that
+is his carries the stamp. So the rule stands: nothing reads his words to decide
+whether they are his. It just looks in both places the harness writes them.
+
+The gravity search was re-run over the slips before the question to him went
+further: none of the 169 mention gravity, so the question stands as put.
