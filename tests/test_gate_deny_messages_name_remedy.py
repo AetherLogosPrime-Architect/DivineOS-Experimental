@@ -60,6 +60,11 @@ _HOOKS_DIR = _PROJECT_ROOT / ".claude" / "hooks"
 _NON_GATING_HOOKS: frozenset[str] = frozenset(
     {
         "_lib.sh",
+        # The front door keeps and settles Andrew's messages and never refuses:
+        # every path exits zero, and a failure is recorded as could-not-file.
+        # Refusing is a later, separate piece (the sort-first refusal), which
+        # will be its own hook under this rule, not this one.
+        "front-door.sh",
         # A RELAY, not a gate, and the distinction is the doorbell design
         # itself: it knocks and steps aside, and every judgment lives in the
         # OS. Its own absent path exits zero and it composes no refusal of its

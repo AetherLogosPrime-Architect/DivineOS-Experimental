@@ -620,7 +620,13 @@ hook_say_nothing_ran_for() {
 
 # Source-time worktree prepend, in the caller's own shell (see
 # _lib_prepend_worktree_src: the in-function export never survived $(...)).
-_lib_prepend_worktree_src
+# Only when nothing set PYTHONPATH: an explicit path is a deliberate choice --
+# test_doorbell_absence points hooks at a broken OS that way to prove a doorbell
+# says it is absent -- and this new step must not overrule it. Direct callers
+# of find_divineos_python keep the old unconditional prepend, unchanged.
+if [ -z "${PYTHONPATH:-}" ]; then
+  _lib_prepend_worktree_src
+fi
 
 # F90 heartbeat call (must be at end-of-file — after _lib_log_liveness
 # is defined). Aletheia 2026-07-28: "the liveness mechanism cannot
