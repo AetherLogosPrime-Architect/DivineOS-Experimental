@@ -55,7 +55,7 @@ def keep(payload: dict, seat: str) -> str | None:
     try:
         his_asks.file_candidate(prompt_id, text, _now_iso(), seat)
         return prompt_id
-    except Exception as exc:  # his reply must not depend on this write
+    except Exception as exc:  # noqa: BLE001 -- his reply must not depend on this write
         _record_failure(prompt_id or "(no prompt id)", exc, seat)
         return None
 
@@ -64,7 +64,7 @@ def _record_failure(ref: str, exc: BaseException, seat: str) -> None:
     error = f"{type(exc).__name__}: {exc}"
     try:
         his_asks.could_not_file(ref, error, seat)
-    except Exception as second:
+    except Exception as second:  # noqa: BLE001 -- the last resort is saying so out loud
         _loud(f"could not keep his message ({error}) and could not record that ({second!r})")
         return
     _loud(f"could not keep his message: {error}")
@@ -133,6 +133,6 @@ def settle(transcript_path: str | Path, seat: str) -> dict[str, str] | None:
             settled[pid] = his_asks.confirm(
                 pid, str(rec.get("uuid") or ""), kind, _record_text(rec)
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 -- one bad record must not stop the rest
             _record_failure(pid, exc, seat)
     return settled
