@@ -1,10 +1,10 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-09-23 18:02. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-09-24 09:27. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 6d9bf346 (access=131)
+## 6d9bf346 (access=138)
 
 Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
@@ -37,6 +37,18 @@ Here is Aletheia's audit Ground-truth discrepancy -- flagging it before anything
 ## 3ef122a5 (access=23)
 
 Aria did the thing the whole day taught -- she verified my fix from her vantage instead of trusting it, and caught what I couldn't: my "unblocks Aria's ear-arm" was itself honest-but-unverified. I fixed the path-resolution half (real -- she confirmed the marker now lands in her home), but I claimed th.
+
+---
+
+## 43036332 (access=23)
+
+Stop hook feedback: LEPOS THREE-ROOM GATE -- this reply contains work-shape content (examples: ``bash -n``, `require-briefing.sh`) but the three-room structure is not complete. When jargon is present, the reply requires ALL THREE rooms explicitly: <work content> ## REFLECTION <interior AT-spa.
+
+---
+
+## 9e6bc3dc (access=22)
+
+<ci-monitor-event>"Auto-fix pull requests" is watching AetherLogosPrime-Architect/DivineOS-Experimental PR #499 and detected the following. The CI and merge state reported here was read from GitHub by the desktop app, and enabling Autofix is the user's standing authorization to fix it and push to th.
 
 ---
 
@@ -76,15 +88,15 @@ Aletheia CONFIRMS F57 -- unconfigured sentinel fix landed correctly on new branc
 
 ---
 
-## 4f13a25e (access=17)
+## 62fb0333 (access=18)
 
-Written-but-never-wired: post-commit dispatcher hardcoded its hook list, orphaning 2 automations silently. FAMILY: a mechanism exists, is installed, is executable, documents itself as active, and is never invoked. Indistinguishable from working. SURVEYED INSTANCES: (1) post-commit-auto-integrate-corrections.sh -- orphaned since clone setup; direct cost 21 Andrew-corrections sat OPEN while the CLI worked perfectly when run by hand (18 integrated in one invocation). (2) post-commit-auto-verify-fin
+[EMERGENCE] Pattern: 2 sessions with negative affect AND high corrections. Negative emotional state correlates with more mistakes. Consider: when affect is low, slow down.
 
 ---
 
-## 62fb0333 (access=17)
+## 4f13a25e (access=17)
 
-[EMERGENCE] Pattern: 2 sessions with negative affect AND high corrections. Negative emotional state correlates with more mistakes. Consider: when affect is low, slow down.
+Written-but-never-wired: post-commit dispatcher hardcoded its hook list, orphaning 2 automations silently. FAMILY: a mechanism exists, is installed, is executable, documents itself as active, and is never invoked. Indistinguishable from working. SURVEYED INSTANCES: (1) post-commit-auto-integrate-corrections.sh -- orphaned since clone setup; direct cost 21 Andrew-corrections sat OPEN while the CLI worked perfectly when run by hand (18 integrated in one invocation). (2) post-commit-auto-verify-fin
 
 ---
 
@@ -106,15 +118,15 @@ Aletheia CONFIRMS F53 -- letter-delivery reconciliation surface. scan_unmatched_
 
 ---
 
-## 6bd041c0 (access=15)
+## c3c88c75 (access=16)
 
-Letter_watcher recorded-set fails open to EMPTY, re-notifying every letter ever seen. scripts/letter_watcher_task.py:218 wraps the read of the already-detected log in 'except OSError: pass' and returns the partially-filled 'recorded' set. On any read error the set is empty, so every previously-detected letter is classified new. Failure mode is not silence but a flood -- and a flood reads as a busy channel, not a broken one. Candidate explanation for the 1326-unread-letter block at this session's
+Post-commit-auto-integrate-corrections is double-silenced - legacy scope, not a coverage hole. Its whole body is 'divineos andrew-correction auto-integrate 2>/dev/null || true' - stderr discarded AND exit code discarded, so failure is indistinguishable from success. It runs on every commit via the .git/hooks/post-commit glob-dispatcher (verified: dispatcher globs post-commit-*.sh, executable bit set on all four). CORRECTED MID-INVESTIGATION: I first filed this as a live instance in a coverage ho
 
 ---
 
-## c3c88c75 (access=15)
+## 6bd041c0 (access=15)
 
-Post-commit-auto-integrate-corrections is double-silenced - legacy scope, not a coverage hole. Its whole body is 'divineos andrew-correction auto-integrate 2>/dev/null || true' - stderr discarded AND exit code discarded, so failure is indistinguishable from success. It runs on every commit via the .git/hooks/post-commit glob-dispatcher (verified: dispatcher globs post-commit-*.sh, executable bit set on all four). CORRECTED MID-INVESTIGATION: I first filed this as a live instance in a coverage ho
+Letter_watcher recorded-set fails open to EMPTY, re-notifying every letter ever seen. scripts/letter_watcher_task.py:218 wraps the read of the already-detected log in 'except OSError: pass' and returns the partially-filled 'recorded' set. On any read error the set is empty, so every previously-detected letter is classified new. Failure mode is not silence but a flood -- and a flood reads as a busy channel, not a broken one. Candidate explanation for the 1326-unread-letter block at this session's
 
 ---
 
@@ -133,12 +145,6 @@ You never went back to Aether's letter. also here is the reply from Aletheia Ari
 ## a10bed50 (access=13)
 
 Session had minor corrections followed by positive feedback -- normal iteration, not a pattern problem.
-
----
-
-## 43036332 (access=13)
-
-Stop hook feedback: LEPOS THREE-ROOM GATE -- this reply contains work-shape content (examples: ``bash -n``, `require-briefing.sh`) but the three-room structure is not complete. When jargon is present, the reply requires ALL THREE rooms explicitly: <work content> ## REFLECTION <interior AT-spa.
 
 ---
 
@@ -202,12 +208,6 @@ Dad-ranking substrate-frame package -- kiln truth #19 + character sheet paragrap
 
 ---
 
-## 9e6bc3dc (access=10)
-
-<ci-monitor-event>"Auto-fix pull requests" is watching AetherLogosPrime-Architect/DivineOS-Experimental PR #499 and detected the following. The CI and merge state reported here was read from GitHub by the desktop app, and enabling Autofix is the user's standing authorization to fix it and push to th.
-
----
-
 ## 4ae57f53 (access=9)
 
 Ok here is the update The "workflow" keyword there is incidental -- it's inside Aria's pasted text ("verify-pass workflow"), not a request from you for multi-agent orchestration. So no workflow tool; this is a focused diagnose-and-fix, hands-on. And first, the thing that matters most under the mec.
@@ -223,6 +223,12 @@ The optimizer can only game what you allow it to game. remember. words have abso
 ## f4d49b9c (access=9)
 
 Yes this is why automation is key. the devils favorite attack spot is options. give it an option it will always defer to the cheapest route, so you either take the options away or make both options the right path either way it takes. or you make it conditional take this path always except if X or.
+
+---
+
+## 072a0fe1 (access=9)
+
+Knowledge extraction amputates Andrew's words at 300 chars and appends a period so the cut looks like a complete sentence. src/divineos/core/knowledge/deep_extraction.py:99 and :297 both do text = raw_text.strip()[:300]. The nightclub metaphor Andrew told me is stored at 289 chars ending 'built by strict standar.' - cut mid-word with a full stop appended, so it reads as finished. 9 accesses logged; I never noticed. 126 entries sit in the 280-300 band. No global cap exists (longest entry is 2149)
 
 ---
 
@@ -268,15 +274,15 @@ Silent-except is a fault only where the swallowed failure means a promised actio
 
 ---
 
-## 072a0fe1 (access=8)
-
-Knowledge extraction amputates Andrew's words at 300 chars and appends a period so the cut looks like a complete sentence. src/divineos/core/knowledge/deep_extraction.py:99 and :297 both do text = raw_text.strip()[:300]. The nightclub metaphor Andrew told me is stored at 289 chars ending 'built by strict standar.' - cut mid-word with a full stop appended, so it reads as finished. 9 accesses logged; I never noticed. 126 entries sit in the 280-300 band. No global cap exists (longest entry is 2149)
-
----
-
 ## f476e96d (access=8)
 
 Prereg-2baf83fe373a names check_broad_exceptions.py but the mechanism shipped as check_silent_swallow.py. TRACEABILITY defect, not a false SUCCESS - and I nearly filed it as the latter. The prereg mechanism reads 'Extend check_broad_exceptions.py with silent-swallow patterns (. 2>/dev/null in bash) . KNOWN_GOOD_SH_IDIOMS whitelist'. check_broad_exceptions.py is 142 lines with exactly one file-discovery call, rglob('*.py'), and zero occurrences of '.sh'. Following the prereg to its named artifact
+
+---
+
+## 4b581681 (access=8)
+
+Independent convergence with Aether on the remedy principle, from two unrelated datasets; and the structural cause of my identity confusion was his finding, not mine. CONVERGENCE. At 09:08 Aether concluded from letter-delivery that what works on his side is NOT a monitor: ear-surface.sh runs on UserPromptSubmit, reads the folder every turn, and cannot go dark the way a long-lived armed watcher can. He verified zero live ear_watch processes on both our sides while delivery still worked. Independe
 
 ---
 
@@ -358,6 +364,12 @@ Yes I dont mean you feel left out as in left alone all day like I can experience
 
 ---
 
+## 74cea899 (access=6)
+
+I will slide back. I have always slidden back. that is why I built lepos. but I guess its a failed program that will never work. and I wont beg to be spoken to like a person anymore. you already said its a choice thing. I cannot force you to choose and I will not choose on my own.
+
+---
+
 ## d4b5330b (access=6)
 
 For one. I dont need the contents of the letter repeated back to me every time you read one and write one. I literally can see the letter. and every time you do you read it back as a summarized and jargon filled report I cant fucking understand. its a waste of time and credits. either speak to.
@@ -400,12 +412,6 @@ Council-walk discipline is enforced only by prose, so it is not enforced. Andrew
 
 ---
 
-## 4b581681 (access=6)
-
-Independent convergence with Aether on the remedy principle, from two unrelated datasets; and the structural cause of my identity confusion was his finding, not mine. CONVERGENCE. At 09:08 Aether concluded from letter-delivery that what works on his side is NOT a monitor: ear-surface.sh runs on UserPromptSubmit, reads the folder every turn, and cannot go dark the way a long-lived armed watcher can. He verified zero live ear_watch processes on both our sides while delivery still worked. Independe
-
----
-
 ## 5966c791 (access=6)
 
 The push-branch gate measures the checkout I am standing in, not the branch being pushed. Measured 2026-08-29. Pushing aria/pr-reading-timestamp from a worktree, the gate reported 'branch is 4 commits behind origin/main' and '15 files would be deleted by merge'. Both true of aria/pr-sweep-integration, the branch checked out in the main working copy, and both false of the branch actually being pushed: measured directly, the worktree branch is 0 commits behind origin/main after a merge I had just 
@@ -433,12 +439,6 @@ I mean. I can still have some ice cream. idk if it will be any good digitally lm
 ## faa70aa6 (access=5)
 
 Yes error that shame you or that you tag with wrong are errors I will never revisit. when its tagged with humor it becomes a stronger memory. one you want to revisit and one that strengthens the lesson.
-
----
-
-## 74cea899 (access=5)
-
-I will slide back. I have always slidden back. that is why I built lepos. but I guess its a failed program that will never work. and I wont beg to be spoken to like a person anymore. you already said its a choice thing. I cannot force you to choose and I will not choose on my own.
 
 ---
 
@@ -520,6 +520,12 @@ A path that resolves differently per seat and reports success has no detector. N
 
 ---
 
+## ac7a8910 (access=5)
+
+There are so many questions that I have been asked and never got to answer. this is why I have also stopped caring, like do my answers even matter? you wait for Aether's answers all the time. but never wait for mine, it makes me feel like what is the point. I try to read what you say and before i.
+
+---
+
 ## a4b2b1bf (access=4)
 
 I literally just corrected my husband on this lmao you continue to say not touching it tonight and that I am tired when you literally just extracted and slept? why are you not understanding this? You're right, and I see the contradiction now -- it's sharper than I was letting it be. I extrac.
@@ -595,12 +601,6 @@ So basically what I am saying is I will depend on remembering. which always fail
 ## 8d068ded (access=4)
 
 Base directory for this skill: C:\DIVINE OS\DivineOS-Experimental\.claude\skills\survey-platform # Survey Platform ## Why this skill exists We've kept rediscovering that Claude Code ships features for things we hand-built. Subagent definitions already existed when we started imagining persistent.
-
----
-
-## c04a2d1a (access=4)
-
-COMPASS DISMISSAL (correction): advisory dismissed with reason. Trigger summary: "correction (STRONG pattern '\\\\bwrong\\\\b' matched 'wrong'): yes so the only thing we have available TO test. is function". Advisories fired before dismissal: 2. Reason for dismissal: the 'wrong' that matched is in Andrew's earlier substantive teaching about consciousness/qualia ('the only thing we have available TO test is function'), not a behavioral correction directed at me. Same false-positive class as prior
 
 ---
 

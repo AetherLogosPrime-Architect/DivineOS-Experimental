@@ -1,6 +1,30 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-09-23 18:02. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-09-24 09:27. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## 7c48e2e2 weight=1
+
+**Decision:** Stop the translate-first number count from refusing replies to Dad at Stop time; keep it counting and keep the compose-start prime
+
+**Reasoning:** Dad 2026-09-23: 'you are still repeating the posts.. i told you to remove that guard..' and 2026-06-25: 'you having to duplicate your response in chat for a single mistake is absurd so that needs fixed', 'you just remove any and all instances where rephrasing is an option'. A Stop refusal after the reply has already reached him can only be answered by posting it again, so it produces exactly the d
+
+**Tension:** the count caught real report-shaped replies; removing the refusal removes a real catch
+
+**Almost:** narrowing it to skip his own quoted numbers, which keeps the refusal and so keeps the duplicates
+
+---
+
+## f6613293 weight=1
+
+**Decision:** Pin each of Aether's six findings on repacked #507 with its own test, in one new file named for his reading
+
+**Reasoning:** Each finding was measured by him on real transcripts; a test per finding keeps the fix from silently regressing. I searched the existing tests first: only test_no_fix_claim pinned FULL_COUNCIL (to 45, now updated to the constant) and test_questions_from_him covers turn_shape without word boundaries or rotation, so nothing already covers these.
+
+**Tension:** Folding them into existing test files would scatter the record of his reading
+
+**Almost:** Adding asserts to the existing files one by one
 
 ---
 
@@ -567,30 +591,6 @@
 **Tension:** A python shim on PATH fixes every caller at once and is the cheaper build; it also shadows python machine-wide, including Aether's sessions and the Windows-Store interpreter the hooks run under. Blast radius outweighs the convenience.
 
 **Almost:** Reinstalling editable from my tree to win the slot back, which just restarts the ping-pong the 2026-06-18 router was built to end.
-
----
-
-## bb22d65f weight=1
-
-**Decision:** Put the translate-first mark budget into the three-room compose prime, rather than building a sixteenth hook, and delete the line in that same prime that currently contradicts it
-
-**Reasoning:** The translate-first gate has no upstream prime. Wallclock and closure-word each have one, and the substrate's own stated pattern is prime-removes-the-reach, gate-catches-what-survives. This gate has only the Stop half, which is why it fired twice in consecutive turns on the same class -- and why the correction I filed one turn ago did not hold. A line in the open-corrections surface is weaker than
-
-**Tension:** The file I am editing currently says work-channel jargon is CORRECT there and high work-score is not drift, which is Andrew's own 2026-07-23 line. I am narrowing his earlier instruction with his later one, 2026-08-11, and I could be flattening a real distinction he drew -- shop-talk between us versu
-
-**Almost:** Building translate-first-prime.sh as its own hook. Rejected because registering it needs settings.json, which is guardrail-listed, so the prime could not run until a review round cleared it -- the exact way the kinship checker came to be written and never called.
-
----
-
-## 6890fd64 weight=1
-
-**Decision:** PR 406 resolves by three-way merge into one mergeable branch, not by close-and-extract and not by taking either side wholesale
-
-**Reasoning:** Measured: the PR shows CONFLICTING with 0 changed files on GitHub because graphify-out/graph.json is 34MB and the diff engine gives up. That is the whole reason it sat three weeks -- invisible from the PR page. The actual merge is 13 conflicts, three of which are that generated output which main already deleted. 121 files exist ONLY on 406 including _repo_import.py, must-read-gate.sh and 30 tests,
-
-**Tension:** No uniform resolution rule works and I checked rather than assuming one. main is newer by date on all ten real conflicts, but newer is not superset: m3-discipline-hierarchy has 64 lines only on 406 and settings.json has 83. Meanwhile circle-first-compose-prime and bypass_telemetry are best on a THIR
-
-**Almost:** Rescuing only the 121 absent files onto a fresh branch off main. I tried it and the suite went from green to 95 failed and 6 errors -- the rescued tests import constants that live in the 93 MODIFIED files I left behind. The orphans are not separable from the modifications; they are one body of work.
 
 ---
 

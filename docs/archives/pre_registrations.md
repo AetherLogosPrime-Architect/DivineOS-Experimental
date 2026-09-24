@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (127 rows). **Exported:** 2026-09-23 18:02. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (127 rows). **Exported:** 2026-09-24 09:27. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1192,7 +1192,7 @@
 
 ---
 
-## prereg-9 [OPEN]
+## prereg-9 [FAILED]
 
 **Mechanism:** the first-line gate: a Stop-time refusal when the opening line of a reply to Andrew is not addressed to him
 
@@ -1204,7 +1204,7 @@
 
 ---
 
-## prereg-4 [OPEN]
+## prereg-4 [FAILED]
 
 **Mechanism:** run_first_line gate: the Stop-time refusal that ends no turn whose opening line is not addressed to Andrew
 
@@ -1216,7 +1216,7 @@
 
 ---
 
-## prereg-a [OPEN]
+## prereg-a [DEFERRED]
 
 **Mechanism:** not_dismissed: the closing-line lock refusing any reply that ends by telling Andrew he is not needed
 
