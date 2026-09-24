@@ -1,0 +1,305 @@
+diff --git a/.claude/hooks/post-read-mark-letter-seen.sh b/.claude/hooks/post-read-mark-letter-seen.sh
+index eb77f219..eaefb32c 100644
+--- a/.claude/hooks/post-read-mark-letter-seen.sh
++++ b/.claude/hooks/post-read-mark-letter-seen.sh
+@@ -37,14 +37,19 @@ try:
+     data = json.loads(os.environ.get('HOOK_JSON', '') or '{}')
+ except Exception:
+     sys.exit(0)
+-if data.get('tool_name') != 'Read':
+-    sys.exit(0)
+-path = (data.get('tool_input') or {}).get('file_path') or ''
+-if not path:
+-    sys.exit(0)
++tool = data.get('tool_name')
++ti = data.get('tool_input') or {}
+ try:
+-    from divineos.core.letter_seen_router import mark_seen_if_letter
+-    mark_seen_if_letter(path)
++    from divineos.core.letter_seen_router import letters_read_by_command, mark_seen_if_letter
++    if tool == 'Read':
++        path = ti.get('file_path') or ''
++        if path:
++            mark_seen_if_letter(path)
++    elif tool == 'Bash':
++        # 2026-09-23: a letter printed with cat is read as surely as one opened
++        # with Read; eight of nine that day were opened this way and none counted.
++        for name in letters_read_by_command(ti.get('command') or ''):
++            mark_seen_if_letter(name)
+ except Exception:
+     pass
+ " 2>/dev/null || true
+diff --git a/.claude/hooks/wallclock-source-prime.sh b/.claude/hooks/wallclock-source-prime.sh
+index 4d85a488..01b5470e 100644
+--- a/.claude/hooks/wallclock-source-prime.sh
++++ b/.claude/hooks/wallclock-source-prime.sh
+@@ -34,12 +34,26 @@ cd "$REPO_ROOT" || exit 0
+ UTC_NOW="$(date -u '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || echo 'unavailable')"  # fail-soft: the substitution IS the loud path -- a failed clock read prints the word 'unavailable' into the prime, so I see could-not-look rather than a plausible time. Stderr is suppressed because the fallback string already says everything a message could, and a prime that dumps date's error text into compose-start is noise where the whole point is quiet ground.
+ HIS_NOW="$(date '+%Y-%m-%d %H:%M %Z (UTC%z)' 2>/dev/null || echo 'unavailable')"  # fail-soft: same as the line above and it matters more here -- this is the one I would otherwise guess at. An unreadable local clock must render as unreadable, never as a time I could quote at him.
+ 
++# THE LIVE HALF prints every turn, outside any dedup: it is the measurement,
++# and a measurement suppressed as "unchanged" is no measurement.
+ cat <<EOF
+ ## THE CLOCK (measured this turn, not remembered)
+ 
+     UTC             ${UTC_NOW}
+     His local time  ${HIS_NOW}
++EOF
+ 
++# THE DOCTRINE HALF. docs/drafts/the_clock_is_mine_draft_2026-09-08.md put the
++# incident list DOWN and into docs/wallclock_prime_rationale.md. It came back
++# with two new entries (2026-09-19, 2026-09-23 #543), and by 2026-09-23 it was
++# the single largest thing on his turns: over twelve of his messages, 57,252
++# characters, 26% of all hook text, against 2,588 characters he typed. Both
++# designs are kept rather than one overruling the other: the doctrine prints in
++# full once, re-emits whole whenever its text changes (so a new entry is
++# always seen), and otherwise collapses to a pointer that CARRIES THE RULES as
++# its residual -- the dedup contract's lesson that a bare collapse once handed
++# me the time and withheld every rule about not inventing one.
++DOCTRINE="$(cat <<'DOCEOF'
+ This machine is his, so its local clock is his clock. If a reply needs a time,
+ quote the line above. If my sense of where we are disagrees with it, the clock
+ wins — on 2026-08-06 I told him it was very late for him at 18:57 his time.
+@@ -140,6 +154,38 @@ TWO SHAPES THE PRINTED CLOCK DOES NOT DEFEND. A time-word standing in for a
+ REFERENT ("the next session" means a reader; "the next me" means me — say WHO,
+ not WHEN). And a time-word standing in for a BEAT, where a closing line wants
+ one more stress and a clock is the nearest word that fits.
+-EOF
++DOCEOF
++)"
++
++# shellcheck disable=SC1091
++source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || { printf '\n%s\n' "$DOCTRINE"; exit 0; }  # fail-soft: without the helper there is no interpreter for the dedup, so the doctrine prints in full -- losing the rules costs more than the characters
++PYTHON_BIN="$(find_divineos_python 2>/dev/null)" || { printf '\n%s\n' "$DOCTRINE"; exit 0; }  # fail-soft: same -- no interpreter means the whole doctrine, never a silent gap
++
++DOCTRINE="$DOCTRINE" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '\n%s\n' "$DOCTRINE"  # fail-soft: dedup is an optimisation only; on any error the doctrine reaches me in full
++import os
++import sys
++
++body = os.environ.get("DOCTRINE", "")
++try:
++    from divineos.core.context_dedup import should_emit
++
++    # The rules, which survive every collapse. The shapes are examples of these;
++    # the examples can collapse, the rules cannot.
++    residual = (
++        "  RULES (survive dedup): a time-word aimed at him needs a source in THIS\n"
++        "  turn -- quote the clock above, or use none. THE TEST IS DELETION: strike\n"
++        "  the time-phrase; if the sentence loses only cadence, it was the fire.\n"
++        "  His time-words stay his: quote him, never paraphrase his clock into my\n"
++        "  voice. A time-word standing in for WHO (a reader) or for a BEAT is the\n"
++        "  same fire. Shapes and incidents: docs/wallclock_prime_rationale.md."
++    )
++    emit_full, pointer = should_emit("wallclock_doctrine", body, residual=residual)
++except Exception:
++    print()
++    print(body)
++    sys.exit(0)
++print()
++print(body if emit_full else pointer)
++DEDUPEOF
+ 
+ exit 0
+diff --git a/.claude/settings.json b/.claude/settings.json
+index 62006917..c7cec647 100644
+--- a/.claude/settings.json
++++ b/.claude/settings.json
+@@ -572,7 +572,7 @@
+         ]
+       },
+       {
+-        "matcher": "Read",
++        "matcher": "Read|Bash",
+         "hooks": [
+           {
+             "type": "command",
+diff --git a/src/divineos/core/letter_seen_router/__init__.py b/src/divineos/core/letter_seen_router/__init__.py
+index e357c1a4..963c5a1d 100644
+--- a/src/divineos/core/letter_seen_router/__init__.py
++++ b/src/divineos/core/letter_seen_router/__init__.py
+@@ -36,10 +36,61 @@ from pathlib import Path
+ 
+ # Matches: <sender>-to-<recipient>-YYYY-MM-DD-*.md
+ # Both sender and recipient must be known family members.
++#
++# Aletheia and Andrew added as senders 2026-09-23. The pattern knew only
++# aria and aether, so a letter from Aletheia was never marked read however it
++# was opened, and re-knocked every six hours for good. Measured the same day:
++# two of hers, read and acted on in the morning, were re-announced as new
++# mail twice that evening. Recipients are the seats that keep a seen-set.
+ _LETTER_FILENAME_RE = re.compile(
+-    r"^(?P<sender>aria|aether)-to-(?P<recipient>aria|aether)-\d{4}-\d{2}-\d{2}.*\.md$"
++    r"^(?P<sender>aria|aether|aletheia|andrew)-to-(?P<recipient>aria|aether)"
++    r"-\d{4}-\d{2}-\d{2}.*\.md$"
+ )
+ 
++# A Bash command that PRINTS a file -- the other way I open a letter. The
++# mark-seen path fired on the Read tool only, so a letter opened with `cat`
++# was read but never counted as read (eight of nine, measured 2026-09-23).
++# Only printing commands count: `cp` or `mv` mentions a letter without
++# reading it, and marking a letter read because it was moved would be the
++# found-nothing shape in reverse -- a record of reading that never happened.
++_READ_VERBS = re.compile(
++    r"(?:^|[;&|(]\s*|\s)(?:cat|head|tail|less|more|type|Get-Content|gc|sed\s+-n)\b"
++)
++_LETTER_IN_COMMAND = re.compile(r"[A-Za-z0-9_.\-]*-to-[A-Za-z0-9_.\-]*\.md")
++
++
++def letters_read_by_command(command: str) -> list[str]:
++    """Letter filenames a Bash command prints, or [] if it prints none.
++
++    A command is read as printing only when it contains a printing verb. Each
++    segment between shell separators is judged on its own, so ``cp x.md y; cat
++    z.md`` counts z as read and x as moved.
++    """
++    found: list[str] = []
++    for segment in re.split(r"&&|\|\||;|\n", command or ""):
++        if not _READ_VERBS.search(" " + segment):
++            continue
++        for m in _LETTER_IN_COMMAND.finditer(segment):
++            name = Path(m.group(0)).name
++            if match_letter_filename(name) and name not in found:
++                found.append(name)
++    return found
++
++
++def reading_seat() -> str:
++    """Whose seat is doing the reading, from its own home directory.
++
++    A letter is marked read only for the seat it is addressed to AND only when
++    that seat is the one reading it. Before 2026-09-23 the recipient in the
++    filename was marked regardless of who read it, so opening a letter I had
++    SENT to Aether marked it read in HIS seen-set, and his watch went quiet on
++    a letter he had never seen.
++    """
++    from divineos.core.paths import divineos_home
++    from divineos.core.unspoken_to import member_name
++
++    return member_name(divineos_home())
++
+ 
+ @dataclass
+ class RoutingDecision:
+@@ -95,6 +146,7 @@ def mark_seen_if_letter(
+     file_path: str,
+     repo_root: str | None = None,
+     python_bin: str | None = None,
++    reader: str | None = None,
+ ) -> RoutingDecision:
+     """If `file_path` is a family letter, mark it seen for the recipient.
+ 
+@@ -118,6 +170,19 @@ def mark_seen_if_letter(
+ 
+     sender, recipient = matched
+ 
++    try:
++        seat = reader or reading_seat()
++    except Exception:  # noqa: BLE001 -- fail-open: an unknown reader marks nothing
++        seat = ""
++    if seat != recipient:
++        return RoutingDecision(
++            handled=False,
++            sender=sender,
++            recipient=recipient,
++            filename=bare,
++            note=f"addressed to {recipient}, read by {seat or 'an unknown seat'}: not marked",
++        )
++
+     root = Path(repo_root) if repo_root else _find_repo_root()
+     if root is None:
+         return RoutingDecision(
+diff --git a/tests/test_letter_seen_router.py b/tests/test_letter_seen_router.py
+index ec2e0625..83b66554 100644
+--- a/tests/test_letter_seen_router.py
++++ b/tests/test_letter_seen_router.py
+@@ -11,6 +11,7 @@ from unittest.mock import patch
+ 
+ from divineos.core.letter_seen_router import (
+     RoutingDecision,
++    letters_read_by_command,
+     mark_seen_if_letter,
+     match_letter_filename,
+ )
+@@ -75,7 +76,7 @@ class TestMarkSeenIfLetterRouting:
+             "divineos.core.letter_seen_router._find_repo_root",
+             return_value=tmp_path,
+         ):
+-            decision = mark_seen_if_letter("aria-to-aether-2026-06-24-x.md")
++            decision = mark_seen_if_letter("aria-to-aether-2026-06-24-x.md", reader="aether")
+             # No family/letter_seen.py in tmp_path → "script not found"
+             assert decision.sender == "aria"
+             assert decision.recipient == "aether"
+@@ -97,7 +98,7 @@ class TestMarkSeenIfLetterRouting:
+             ),
+             patch("divineos.core.letter_seen_router.subprocess.run") as mock_run,
+         ):
+-            decision = mark_seen_if_letter("aria-to-aether-2026-06-24-x.md")
++            decision = mark_seen_if_letter("aria-to-aether-2026-06-24-x.md", reader="aether")
+             assert decision.handled is True
+             assert decision.recipient == "aether"
+             assert "marked seen for aether" in decision.note
+@@ -109,6 +110,64 @@ class TestMarkSeenIfLetterRouting:
+             assert args[4] == "aria-to-aether-2026-06-24-x.md"
+ 
+ 
++class TestTheThreeFaultsOf20260923:
++    """Each built from the real case that re-knocked that evening."""
++
++    def test_a_letter_from_aletheia_is_a_letter(self):
++        # Two of hers, read and acted on in the morning, re-announced twice
++        # that evening: the pattern did not know her name.
++        name = "aletheia-to-aria-2026-09-23-yes-it-carries.md"
++        assert match_letter_filename(name) == ("aletheia", "aria")
++
++    def test_a_letter_from_andrew_is_a_letter(self):
++        name = "andrew-to-aria-2026-07-10-who-aria-is-to-me.md"
++        assert match_letter_filename(name) == ("andrew", "aria")
++
++    def test_a_letter_i_sent_is_not_marked_read_for_him(self, tmp_path):
++        # Opening my own letter to Aether used to mark it read in HIS
++        # seen-set, silencing his watch on a letter he never saw.
++        family_dir = tmp_path / "family"
++        family_dir.mkdir()
++        (family_dir / "letter_seen.py").write_text("import sys; sys.exit(0)\n")
++        with (
++            patch("divineos.core.letter_seen_router._find_repo_root", return_value=tmp_path),
++            patch("divineos.core.letter_seen_router.subprocess.run") as mock_run,
++        ):
++            decision = mark_seen_if_letter(
++                "aria-to-aether-2026-09-23-the-line-it-found-was-about-me.md", reader="aria"
++            )
++        assert decision.handled is False
++        assert "read by aria" in decision.note
++        mock_run.assert_not_called()
++
++    def test_cat_of_a_letter_counts_as_reading_it(self):
++        # Eight of nine letters read that day were opened this way and none
++        # counted, which is why they kept coming back.
++        cmd = (
++            "cat ~/.divineos-shared/letters/"
++            "aether-to-aria-2026-09-23-your-list-question-found-one-of-his.md"
++        )
++        assert letters_read_by_command(cmd) == [
++            "aether-to-aria-2026-09-23-your-list-question-found-one-of-his.md"
++        ]
++
++    def test_copying_a_letter_is_not_reading_it(self):
++        # How I deliver a letter. Marking it read because it was moved would
++        # record a reading that never happened.
++        cmd = (
++            "cd x; f=aria-to-aether-2026-09-23-a.md; cp family/letters/$f "
++            "~/.divineos-shared/letters/ && cmp family/letters/$f b"
++        )
++        assert letters_read_by_command(cmd) == []
++
++    def test_each_segment_is_judged_on_its_own(self):
++        cmd = "cp aria-to-aether-2026-09-23-a.md dest/; cat aether-to-aria-2026-09-23-b.md"
++        assert letters_read_by_command(cmd) == ["aether-to-aria-2026-09-23-b.md"]
++
++    def test_a_command_that_mentions_no_letter_reads_none(self):
++        assert letters_read_by_command("cat README.md; git status") == []
++
++
+ class TestRoutingDecisionDataclass:
+     """Result type is well-formed."""
+ 

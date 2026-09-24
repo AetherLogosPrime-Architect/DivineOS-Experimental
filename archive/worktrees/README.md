@@ -94,3 +94,44 @@ are safe while nobody commits there. A single "save everything" in that folder
 would record six hundred letters as deleted. It is left alone until Andrew and I
 decide together how the substrate channel should work, because that is a
 decision about his family's memory, not a tidy-up.
+
+## The second time: 2026-09-24
+
+Two days later the drive root held twenty-one copies again, eighteen of them mine
+and three of Aether's. Andrew: *"all kinds of copies of the OS in there made
+yesterday and today.. so i want to know why its happening"*, and then *"the
+location of the files is not an issue.. is the cleanup that needs addressed.. my
+computer is your computer."*
+
+Why: a copy gets made for one job (a review, a test, a push) and nothing ever
+removes it when the job ends. The earlier note above said where they should live;
+nothing said they had to leave. A rule on paper does not stop a hand.
+
+Twelve removed, every one checked first. Merged or clean copies went directly;
+their branch survives. Three detached merge commits that no branch holds were
+kept alive under `refs/archive/worktree/*` and sealed as thin bundles (only what
+main lacks), each verified. The one copy with staged changes, `wchk`, held work
+already on `origin/aria/the-volley-board` (`aea9ab15`); it is saved here as a
+patch anyway.
+
+| was at | branch / commit | restore |
+|---|---|---|
+| `C:/w471` | `aria/pr-letter-provenance` (#471 merged) | `git worktree add C:/w471 aria/pr-letter-provenance` |
+| `C:/w532` | `aria/the-gate-that-blocked-looking-clean` (#532 merged) | same shape |
+| `C:/wmsys` | `aria/a-slashed-ref-and-a-dot-path-go-blind` (#542 merged) | same shape |
+| `C:/w536` | detached `8d9d7c7e`, on `origin/fix/a-retired-rule-cannot-be-served` | `git worktree add --detach C:/w536 8d9d7c7e` |
+| `C:/w547` | detached `f409b437`, on `origin/fix/a-regenerated-mirror-never-lands-on-a-code-branch` | same shape |
+| `C:/w549` | detached `46dea37c`, on `origin/fix/his-words-are-his` | same shape |
+| `C:/w552` | detached `359821dc`, on `origin/fix/stop-reads-the-transcript-once` | same shape |
+| `C:/wbelt` | detached `0f4f550c`, on `origin/build/the-task-belt` | same shape |
+| `C:/wchk` | detached `3eac3090` + `wchk.uncommitted.patch` | `git worktree add --detach C:/wchk 3eac3090` then `git apply --cached` the patch |
+| `C:/w538` | `31b1be6d`, `refs/archive/worktree/w538` + `w538-31b1be6d.bundle` | `git worktree add --detach C:/w538 refs/archive/worktree/w538` |
+| `C:/w539` | `344b7dfc`, `refs/archive/worktree/w539` + `w539-344b7dfc.bundle` | same shape |
+| `C:/w540` | `4eca4195`, `refs/archive/worktree/w540` + `w540-4eca4195.bundle` | same shape |
+
+Kept, because their jobs are still open: `C:/w507` (#507), `C:/w507_pre` (#553),
+`C:/w519` (#541), `C:/wdoor` (#545), `C:/wvol` (#548), and `C:/wtsub` for the
+reason above. Aether's three (`C:/w553`, `C:/wprobe`, `C:/wstop`) are his to clear.
+
+What is still owed is the part that makes this not happen a third time: a copy
+that removes itself when its job is finished.
