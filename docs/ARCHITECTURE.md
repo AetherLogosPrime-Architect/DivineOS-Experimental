@@ -678,6 +678,7 @@ src/divineos/
     hook_surfaces.py           The roster — every surface, registered to its door.
     doorbell_generator.py      The bells are generated, not written, so nobody can put a decision in one (Aria 2026-09-08). Stop fails CLOSED because its surfaces are refusals and a dead bell there ships a reply nothing checked; every other door fails soft.
     letter_claims.py           Measure the local state of every file a sibling's letter talks about.
+    letter_channel_state.py    Provenance for the letter channel — a letter's position in the thread, checkable by a reader who runs no code.
     self_demotion.py           Catch praise-by-contrast: elevating a mechanism by calling a faculty of mine defective.
     summary_room.py            Require a plain-language summary at the top of a long reply.
     dashboard.py               The check-engine dashboard — a socket every system plugs into.
@@ -721,6 +722,8 @@ src/divineos/
     class_fix.py               A repair that claims a class must count the class, by running rather than by judging.
     landed_claim.py            A claim that work reached the shared copy must come from reading the shared copy.
     work_item_doorman.py       The doorman at the reach: no code edit without an open piece of work.
+    hook_context_merge.py      Read what the session-init children printed and merge it into one answer.
+    slashed_ref_path_check.py  Refuse a git argument the Windows shell will rewrite before git sees it.
 
   analysis/
     _session_types.py          Session analysis type definitions

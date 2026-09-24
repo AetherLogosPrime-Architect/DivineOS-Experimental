@@ -1854,6 +1854,43 @@ def heredoc_escape_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def slashed_ref_path_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a git argument the Windows shell rewrites before git sees it.
+
+    ``origin/main:.claude/x`` reaches git as ``origin\\main;.claude\\x``, and a
+    probe asking whether a branch carries a file then reports it missing. Four
+    times in a month, written up every time. Fails soft like its neighbour: a
+    broken check here must never refuse git, or the house loses its own
+    version control to a guard.
+    """
+    if (payload.get("tool_name") or "") != "Bash":
+        return SurfaceOutcome(name="slashed_ref_path", state="nothing-to-say")
+    command = (payload.get("tool_input") or {}).get("command") or ""
+    if not command:
+        return SurfaceOutcome(name="slashed_ref_path", state="nothing-to-say")
+    try:
+        from divineos.core import slashed_ref_path_check as check
+
+        refuse = check.should_refuse(command)
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="slashed_ref_path",
+            error=(
+                f"{type(exc).__name__}: {exc} — slashed-ref arguments are currently "
+                "unguarded. Absent, not satisfied."
+            ),
+            state="could-not-run",
+        )
+    if not refuse:
+        return SurfaceOutcome(name="slashed_ref_path", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="slashed_ref_path",
+        refused=True,
+        reason=check.refusal_message(command),
+        state="spoke",
+    )
+
+
 # --------------------------------------------------------------------------
 # Stop, second batch — the reach detectors, 2026-09-08.
 #
@@ -2144,6 +2181,11 @@ def install() -> None:
         register("PreToolUse", "degraded_detectors", degraded_detectors_surface)
     if "heredoc_escape" not in registered("PreToolUse"):
         register("PreToolUse", "heredoc_escape", heredoc_escape_surface)
+    # 2026-09-23, Aria: registered in the same change that adds the surface,
+    # for the reason written above -- a surface nothing dispatches is an alarm
+    # with the cable coiled beside it.
+    if "slashed_ref_path" not in registered("PreToolUse"):
+        register("PreToolUse", "slashed_ref_path", slashed_ref_path_surface)
     # The letter path, guarded 2026-09-09. Feathers on the walk: the reply door
     # would have watched that whole evening and seen almost nothing, because
     # almost everything I produced was a letter. This is the door on the road
