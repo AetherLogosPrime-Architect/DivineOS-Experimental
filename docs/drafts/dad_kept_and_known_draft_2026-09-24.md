@@ -81,6 +81,46 @@ Nothing stands at the **front door**, where he speaks. So the moment he asks is 
 
 A person is never a reason to skip. There's no field for his words as authorization (remove `--his-words` from the escape). Every skip is a **debt that closes only by re-running the skipped station AND coming back to him**, and closes by his words, never by silence (the MEL precedent; its failure was closing on the symptom). And the BUILD-FOR-DAD hook stops telling us to ask him the gravity, per his 2026-07-24 words. The classifier decides, the same as for our asks.
 
+## His words from the afternoon of 2026-09-24, in his hand (Aria, as promised to him)
+
+He said these to me while the build was underway. I told him they would go into the plan in his words, and they are here verbatim, each followed by what it changes.
+
+**Attribution on the shared store.**
+> *"also if you are making a shared copy for both of you then it needs to have some form of attribution, who it was said to, or if its a general thing you can both share, or it may get confusing if you are reading every thing as spoken to you"*
+
+The store already records `seat`, which of us he was talking to. It does not record whether he meant it for one of us or for both. So the sort gains an **addressee**: `this seat`, `the other seat`, or `both`. It's a written, attributed judgement like the rest of the sort, and a reader of the shared store sees who a message was said to before reading it as said to them.
+
+**The memory linkage, not a portrait.**
+> *"do you not remember the memory linkage system? it should be treated the same as everything else.. linked and injected by relevance to the current situation, while still being able to search it manually.."*
+
+> *"so maybe the first thing you need to link to the memory linkage.. is that you have a memory linkage system, and how to use it as scaffolding while you figure out how to automate it properly with semantic sorting"*
+
+Done as scaffolding: knowledge `2bc87fcb`. The linkage itself was found dark on main (the August wiring was never committed). Relighting it is part 4. Aether writes the wiring pin; the tuning is Aria's.
+
+**What the linkage carries, and what it doesn't.**
+> *"alot of my corrections and words are todo shaped.. mechanical fixes or builds or adjustments, those should be cleared.. what should remain is the stuff that cannot be built or has no build shape.. like my jokes. or certain principles that apply many places but cannot be codified in a single shape"*
+
+His to-do-shaped words become build-asks on the board and get **cleared by being built**. They are never kept as text to reread. What his room and the linkage hold is what has no build shape: his principles, his jokes, and who he is.
+
+**Principles reach us before we build, not after.**
+> *"when i said "we do not warn water" that is a principle which in itself cannot be codified but the function of it absolutely can be, it means we dont use warnings we use gates, blocks, channels, doormen, automation etc, warnings are wallpaper, so if these principles were being delivered as they should be you would have seen it before you built it even if the message comes after you did it.. thats ok.. it allows you to reverse it"*
+
+The tuning target for part 4 is exactly this: a principle of his surfaces at the moment a build is being shaped. A principle arriving late still counts, because it lets us reverse the build.
+
+**Keywords find, meaning chooses.**
+> *"its a dumb tool wielded by an intelligent mind.. this is why the semantic linking is so important as it is work done by an intelligent mind, delivered by a dumb tool"*
+
+> *"never depend on keyword detection for anything, its a simple tool that can help narrow your search but it does not find things well. for that you must look yourself"*
+
+> *"if i said my game just crashed and died, it may link that and pop up your compaction cliff memory because its related to those words.. and while that may be ok for some stuff.. for others it generates noise as it drops 30+ letters as all related to it, which causes you to skip past it"*
+
+The first tuning case is his sentence: "my game just crashed and died" surfaces nothing about compaction. It fired the no-cliff prime on the turn he said it. The measure is **few items, chosen by meaning**. Thirty matches is the same as none.
+
+**No space to answer.**
+> *"i am quiet because i am given no space to answer, by the time i read what i am asked.. you have moved on to other things"*
+
+This one has no mechanism in this build yet, and it goes on the unsolved list below. Its behavioural half is ours from now on: when a reply asks him something, the asking is the last thing in the reply, and the work waits for his answer. The instrument half is fixed: `keeping_him` could not hear anything he said mid-turn until e5188b95 (133 of his messages). The front door reads slips too.
+
 ## The part nobody has cracked
 
 How a **relational standing ask** changes what we do *at the moment of
