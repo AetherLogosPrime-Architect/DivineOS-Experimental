@@ -257,3 +257,14 @@ words) reads a level he names in his own prompt, and only his prompt, so I
 cannot set it for him. The two hooks disagree today: one asks him every time
 he says "for me", the other lets the classifier decide unless he names a
 level. His answer settles which of the two is the house's rule.
+
+## Part 2 grows: the doorman does not see worktrees (Aria, 2026-09-24)
+
+`work_item_doorman._repo_relative` resolves against `REPO_ROOT`, which the
+editable install pins to the main checkout. Any path in a worktree returns
+`None` and walks past the gate. Confirmed two ways: the function called
+directly from `C:/wdad`, and a test file written in `C:/wdad` that opened no
+item. This build is done in worktrees, so the debt rule in part 2 would be
+inert exactly where his builds happen. Part 2 therefore includes: resolve
+paths against the tree the tool call came from, with a characterization pin
+written first.
