@@ -33,8 +33,23 @@
 # different hook set: two of its entries do not have this shape here, and two
 # hooks that live on main were absent there. A baseline describes the tree it
 # ships with, so it is taken from this one rather than carried across.
+#
+# GREW BY THREE, 2026-09-22 -- the direction this file refuses, so it gets its
+# sentence. Merging PR #506 (aria/build-flow-unskippable) brought
+# blanket-staging-doorman.sh, push-message-carries-the-destination.sh and
+# work-item-doorman.sh onto main, each loading the shared library with a
+# fail-open exit above a path that can refuse. They are NOT new faults: the
+# same three are already named on code/gate-repairs-on-main (#519), and Aria
+# read them there and ruled -- leave them listed as the honest description of
+# the tree, and the repairs are owed; the doorman's is hers and started.
+#
+# Why main went red without anyone noticing: this check runs in precommit,
+# not in CI, so #506 merged green on GitHub while main failed it here. That
+# gap is itself a finding. When #519 merges, its copy of these three lines
+# lands on top of these and nothing changes.
 
 andrew-correction-attestation.sh
+blanket-staging-doorman.sh
 branch-scope-guard.sh
 check-branch-on-push.sh
 check-council-required.sh
@@ -51,9 +66,11 @@ instrument-read-doorman.sh
 m3-discipline-hierarchy.sh
 must-read-gate.sh
 prior-art-before-new-file.sh
+push-message-carries-the-destination.sh
 reach-check-doorman.sh
 read-gate-doorman.sh
 require-briefing.sh
 stale-file-edit-gate.sh
 summary-room-stop.sh
 verify-before-build-signal.sh
+work-item-doorman.sh
