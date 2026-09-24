@@ -447,6 +447,35 @@ sys.exit(0 if got == want else 3)
   return 1
 }
 
+# THE SIDE EFFECT ABOVE NEVER REACHED A SINGLE HOOK, and this is where it has
+# to live instead. Found 2026-09-23 chasing #519 tests that failed only inside
+# the pre-push suite.
+#
+# find_divineos_python exports PYTHONPATH so this checkout's src/ wins over
+# the editable install. But 110 hooks call it as PYTHON_BIN="$(find_divineos_python)",
+# and command substitution runs the function in a subshell: the export dies
+# with the subshell and the caller's PYTHONPATH is untouched. Measured: from a
+# worktree with PYTHONPATH unset, sourcing this file and calling it that way
+# leaves PYTHONPATH empty, and the resolved python imports divineos from the
+# MAIN checkout. So in every worktree, every hook has been running whatever
+# branch the main checkout happens to be on -- the silent-stale-substrate class
+# that side effect was written to prevent, still open at all 110 sites.
+#
+# Doing it when this file is SOURCED puts it in the hook's own shell, which is
+# the only place an export survives. Idempotent, so the copy inside
+# find_divineos_python stays harmless for the callers that do run it directly.
+_lib_prefer_this_checkout() {
+  local _root _sep=":"
+  _root="$(_lib_repo_root)"
+  [ -d "$_root/src" ] || return 0
+  case "${OSTYPE:-}" in msys*|cygwin*|win*) _sep=";" ;; esac
+  case "${_sep}${PYTHONPATH:-}${_sep}" in
+    *"${_sep}${_root}/src${_sep}"*) return 0 ;;
+  esac
+  export PYTHONPATH="$_root/src${PYTHONPATH:+${_sep}${PYTHONPATH}}"
+}
+_lib_prefer_this_checkout
+
 
 # is_bypass_command — return 0 if the given command matches a
 # documented bypass prefix in scripts/hook_bypass_commands.txt.

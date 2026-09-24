@@ -226,14 +226,29 @@ _REMEDY_PATTERNS='^[[:space:]]*(divineos[[:space:]]+(briefing|preflight|goal[[:s
 # up next. These loops are a floor, not a proof. If a fourth prefix appears the
 # answer is to parse the command, not to add a fourth loop.
 remedy_pass_through() {
-  local input="$1" cmd
+  local input="$1" cmd _ra_src _ra_sep=":" _ra_pp
+  # THE IMPORT BELOW MUST COME FROM THE CHECKOUT THIS FILE LIVES IN. Found
+  # 2026-09-23 when #519's pre-push suite failed 18 of these tests twice and
+  # they passed every time I ran them by hand: my manual runs set
+  # PYTHONPATH=src, the gate's did not, and bare python then imported the
+  # editable install -- the MAIN checkout, sitting on an older branch without
+  # acting_segments. The ImportError fell through to not-a-remedy, so gates in
+  # every worktree were refusing their own prescribed remedies with the wrong
+  # code and nothing said so. find_divineos_python already solves this for the
+  # hooks that call it; this library is also sourced on its own (the tests do,
+  # and a hook may reach it before finding python), so it resolves its own
+  # checkout from its own path and scopes the change to this one call.
+  _ra_src="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." 2>/dev/null && pwd)/src"  # fail-soft: an unresolvable path leaves _ra_src pointing nowhere, the -d test below then adds nothing, and the call behaves exactly as before
+  case "${OSTYPE:-}" in msys*|cygwin*|win*) _ra_sep=";" ;; esac
+  _ra_pp="${PYTHONPATH:-}"
+  [ -d "$_ra_src" ] && _ra_pp="$_ra_src${PYTHONPATH:+${_ra_sep}${PYTHONPATH}}"
   # One python call does both jobs: pull the command out of the hook payload
   # and hand it to the shared stripper. Doing the stripping in shell here is
   # how this file got it wrong — a regex over a language with quoting cannot
   # see that `MSG="two words" divineos correction` is a remedy, and shlex can.
   # A failed import falls back to the raw command, which fails toward
   # not-a-remedy and leaves the calling gate exactly as it is today.
-  cmd=$(printf '%s' "$input" | python -c "
+  cmd=$(printf '%s' "$input" | PYTHONPATH="$_ra_pp" python -c "
 import json, sys
 try:
     d = json.load(sys.stdin)
