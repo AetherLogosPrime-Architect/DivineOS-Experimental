@@ -174,12 +174,48 @@ class TestRefusals:
 
 
 class TestTheSurface:
-    def test_a_stuck_task_gets_louder_and_dedup_cannot_hide_it(self, home: Path) -> None:
+    def test_the_block_is_still_between_milestones_and_speaks_when_one_is_crossed(
+        self, home: Path
+    ) -> None:
+        # Aria's reading: a counter rising by one each prompt carries no news
+        # and only defeats dedup. The block changes on the crossing prompt.
         _psf("structural fix: the stuck one")
         first, second = belt.surface(), belt.surface()
-        assert "current for 1 prompt" in first
-        assert "current for 2 prompts" in second
-        assert first != second  # byte-identical content is what dedup suppresses
+        assert first == second and "new on the list" in first
+        for _ in range(2):  # prompts three and four
+            belt.surface()
+        crossed = belt.surface()  # the fifth prompt
+        assert "!! this prompt it crossed 5 prompts" in crossed
+        after = belt.surface()
+        assert "stuck past 5 prompts" in after and "!!" not in after
+
+    def test_the_residual_names_every_current_item(self, home: Path) -> None:
+        # What survives dedup's "unchanged": the list, still named.
+        for n in range(2):
+            _psf(f"structural fix: residual item {n}")
+        belt.surface()
+        line = belt.residual()
+        assert line.count("build structural-fix:psf-") == 2
+
+    def test_a_correction_filed_twice_takes_one_slot_and_closes_whole(self, home: Path) -> None:
+        # Aria found two of three slots spent on one correction, filed raw and
+        # again under "Andrew verbatim:".
+        from divineos.core.andrew_correction_tracker import file_correction, list_open
+
+        raw = "first thats not the dream lol go look at your actual apple dream lol and read it"
+        a = file_correction(raw)
+        b = file_correction(f"Andrew verbatim: {raw}")
+        file_correction("a different correction entirely, about something else he said")
+        current = belt.pull()
+        holders = [c for c in current if str(a) in [c["item_id"], *c["twins"]]]
+        assert len(holders) == 1 and sorted(
+            [holders[0]["item_id"], *holders[0]["twins"]]
+        ) == sorted([str(a), str(b)])
+        belt.done(
+            holders[0]["key"], "fixed in src/divineos/core/task_belt.py, tests/test_task_belt.py"
+        )
+        still = {r["id"] for r in list_open()}
+        assert a not in still and b not in still
 
     def test_each_line_says_what_to_do_and_how_to_close_it(self, home: Path) -> None:
         _psf("structural fix: say the close command")

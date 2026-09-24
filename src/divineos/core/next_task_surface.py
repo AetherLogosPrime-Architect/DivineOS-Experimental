@@ -41,6 +41,14 @@ def build_next_task_surface() -> str:
     return surface()
 
 
+def build_next_task_residual() -> str:
+    """The line that survives dedup: every current item, named."""
+    from divineos.core.task_belt import residual
+
+    return residual()
+
+
 __all__ = [
+    "build_next_task_residual",
     "build_next_task_surface",
 ]

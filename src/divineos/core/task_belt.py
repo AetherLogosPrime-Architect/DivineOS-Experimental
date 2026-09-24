@@ -27,8 +27,14 @@ What this module adds, and only this:
   and refills it to ``CURRENT_MAX``. Nothing to remember to run.
 - DONE: ``done()`` closes an item through its drawer's own close path, with
   evidence, archives it, and pulls the next.
-- LOUD WHEN STUCK: each current item carries how many prompts it has been
-  current, so the block changes every turn and dedup cannot hide it.
+- LOUD WHEN STUCK, NEVER HIDDEN: the block changes only when the list does or
+  an item crosses a stuck milestone (5, 20, 50 prompts), so dedup may collapse
+  it between those -- but the collapsed pointer carries ``residual()``, which
+  still names every current item. (First version counted up every prompt;
+  Aria's reading showed that number carried no news and only defeated dedup.)
+- TWINS: a row that is a current item filed again (his corrections are often
+  filed raw and then again under "Andrew verbatim:") shares its slot and
+  closes with it.
 
 Could-not-look is never read as closed. If a drawer cannot say whether an item
 is still open, the item stays current.
@@ -37,6 +43,7 @@ is still open, the item stays current.
 from __future__ import annotations
 
 import json
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -50,6 +57,16 @@ CURRENT_MAX = 3
 Three, not more: a larger current list is a second pile and lengthens every
 cycle (Little's law); one slot would leave no room for the starvation guard.
 Revisit once the drain rate has been measured, not before.
+"""
+
+STUCK_MILESTONES = (5, 20, 50)
+"""Prompts-on-the-list thresholds at which a stuck item is news.
+
+Aria's reading, 2026-09-23: a counter rising by one every prompt is perfectly
+predictable, so it carries no information -- it only defeats dedup. The block
+now changes when an item CROSSES one of these, and is byte-identical between
+them, so dedup collapses it to the one-line residual that still names every
+current item.
 """
 
 SEVERITY_ORDER = ("CRITICAL", "HIGH", "MEDIUM", "LOW")
@@ -148,6 +165,19 @@ def _archive(entry: dict[str, Any], how: str, evidence: str = "") -> None:
 
 
 def _still_open(entry: dict[str, Any]) -> bool | None:
+    """Open if ANY copy it holds is open; unknown if any copy cannot be read.
+
+    An entry holding a correction filed twice is closed only when both are.
+    """
+    answers = [_one_open(entry["source"], i) for i in [entry["item_id"], *entry.get("twins", [])]]
+    if any(a is True for a in answers):
+        return True
+    if any(a is None for a in answers):
+        return None
+    return False
+
+
+def _one_open(source: str, item_id: str) -> bool | None:
     """True/False from the drawer itself; None when the drawer cannot say.
 
     Asked of the source directly rather than inferred from the pile, because
@@ -155,7 +185,6 @@ def _still_open(entry: dict[str, Any]) -> bool | None:
     reading absence-from-the-pile as closure would archive a whole drawer the
     first time its store failed to open.
     """
-    source, item_id = entry["source"], entry["item_id"]
     try:
         if source == "structural-fix":
             from divineos.core.structural_fix_tracker import list_current, list_pending
@@ -193,18 +222,60 @@ def _still_open(entry: dict[str, Any]) -> bool | None:
     return None
 
 
+def _norm(text: str) -> str:
+    return " ".join(re.sub(r"[^a-z0-9 ]", " ", text.lower()).split())
+
+
+def _body(item: TodoItem) -> str:
+    return _norm(str(item.extra.get("text") or item.summary))
+
+
+def _same_thing(a: str, b: str) -> bool:
+    """One text wholly inside the other: the same row filed twice.
+
+    Aria's reading, 2026-09-23: two of the three slots went to one correction,
+    filed once raw and once under "Andrew verbatim:". Measured on my seat the
+    same day, 312 pairs of his corrections are one text contained in another.
+    WHOLE-text containment, not a shared opening: a first-80-characters probe
+    matched 788 pairs, because templated rows share their first line.
+    """
+    short, long_ = sorted((a, b), key=len)
+    return len(short) >= 40 and short in long_
+
+
 def _entry(item: TodoItem, reserved: bool) -> dict[str, Any]:
     return {
         "key": key(item.source, item.item_id),
         "source": item.source,
         "item_id": item.item_id,
         "summary": item.summary,
+        "body": _body(item),
+        "twins": [],
         "severity": severity(item),
         "reach": reach(item),
         "pulled_at": time.time(),
         "prompts": 0,
         "reserved": reserved,
     }
+
+
+def _fold_twins(current: list[dict[str, Any]], ranked: list[TodoItem]) -> list[TodoItem]:
+    """Attach every pile item that is a current entry filed again; return the rest."""
+    rest = []
+    for item in ranked:
+        home = next(
+            (
+                c
+                for c in current
+                if c["source"] == item.source and _same_thing(c.get("body", ""), _body(item))
+            ),
+            None,
+        )
+        if home is None:
+            rest.append(item)
+        elif item.item_id not in home["twins"]:
+            home["twins"].append(item.item_id)
+    return rest
 
 
 def _refill(current: list[dict[str, Any]], pile: list[TodoItem]) -> list[dict[str, Any]]:
@@ -214,9 +285,14 @@ def _refill(current: list[dict[str, Any]], pile: list[TodoItem]) -> list[dict[st
     order, hundreds of HIGH corrections would mean my own MEDIUM repairs are
     reached never. So when the list is one short of full and nothing on it sits
     below the top tier, the last slot takes the OLDEST item that does.
+
+    A row that is a current item filed again joins that item as a twin instead
+    of taking a slot of its own.
     """
     taken = {c["key"] for c in current}
+    taken |= {key(c["source"], t) for c in current for t in c.get("twins", [])}
     ranked = sorted((i for i in pile if key(i.source, i.item_id) not in taken), key=rank)
+    ranked = _fold_twins(current, ranked)
     if not ranked:
         return current
     top_tier = min(rank(i)[0] for i in ranked)
@@ -235,6 +311,7 @@ def _refill(current: list[dict[str, Any]], pile: list[TodoItem]) -> list[dict[st
             reserved = False
         ranked.remove(pick)
         current.append(_entry(pick, reserved))
+        ranked = _fold_twins([current[-1]], ranked)
         if pick.source == "structural-fix":
             # His June design for this drawer: picking is an atomic move from
             # main into its own current list, so the pick is visible there too.
@@ -286,35 +363,50 @@ def done(ref: str, evidence: str) -> tuple[dict[str, Any], list[dict[str, Any]]]
                 "Evidence must name a real commit or an existing file, the same rule as "
                 "`psf mark-done`. A close that points at nothing is the cheap close."
             )
+    if not _close_one(source, item_id, evidence):
+        raise ValueError(f"The {source} drawer refused to close {item_id}; it is still current.")
+    # The same row filed again closes with it. A twin the drawer refuses stays
+    # open at its source, so the next pull brings it back rather than losing it.
+    entry["twins_refused"] = [
+        t for t in entry.get("twins", []) if not _close_one(source, t, evidence)
+    ]
+    _save_current([c for c in current if c["key"] != entry["key"]])
+    _archive(entry, "done", evidence)
+    return entry, pull()
+
+
+def _close_one(source: str, item_id: str, evidence: str) -> bool:
     if source == "structural-fix":
         from divineos.core.structural_fix_tracker import mark_done
 
-        closed = mark_done(item_id, note=evidence)
-    elif source == "correction":
+        return mark_done(item_id, note=evidence)
+    if source == "correction":
         # The correction tracker keeps its own rules for what closes one of his
         # corrections; the belt never decides that for him.
         from divineos.core.andrew_correction_tracker import integrate
 
-        closed = integrate(int(item_id), evidence)
-    else:
-        from divineos.core.watchmen.store import resolve_finding
+        return integrate(int(item_id), evidence)
+    from divineos.core.watchmen.store import resolve_finding
 
-        closed = resolve_finding(item_id, "RESOLVED", evidence)
-    if not closed:
-        raise ValueError(f"The {source} drawer refused to close {item_id}; it is still current.")
-    _save_current([c for c in current if c["key"] != entry["key"]])
-    _archive(entry, "done", evidence)
-    return entry, pull()
+    return resolve_finding(item_id, "RESOLVED", evidence)
+
+
+def _milestone(prompts: int) -> int:
+    return max((m for m in STUCK_MILESTONES if prompts >= m), default=0)
 
 
 def _line(n: int, c: dict[str, Any]) -> list[str]:
     summary = " ".join(str(c["summary"]).split())
     if len(summary) > 110:
         summary = summary[:109].rstrip() + "…"
-    stuck = c["prompts"]
-    held = f"current for {stuck} prompt{'s' if stuck != 1 else ''}"
+    passed = _milestone(int(c.get("prompts", 0)))
+    held = f"stuck past {passed} prompts" if passed else "new on the list"
     tag = f"{c['severity']} {c['source']}" + (", reserved slot" if c.get("reserved") else "")
+    if c.get("twins"):
+        tag += f", +{len(c['twins'])} filed again: {', '.join(c['twins'])}"
     lines = [f"  {n}. {VERB.get(c['source'], 'work')} {c['item_id']} [{tag}]: {summary} -- {held}"]
+    if int(c.get("prompts", 0)) in STUCK_MILESTONES:
+        lines.append(f"     !! this prompt it crossed {c['prompts']} prompts on the current list")
     if c["source"] in CLOSES_HERE:
         lines.append(f'     close: divineos belt done {c["key"]} --evidence "<commit or file>"')
     else:
@@ -323,18 +415,40 @@ def _line(n: int, c: dict[str, Any]) -> list[str]:
 
 
 def render(current: list[dict[str, Any]], remaining: int) -> str:
+    """The full block. Byte-identical between changes, so dedup can collapse it.
+
+    It changes when the list changes, when the pile's size changes, and on the
+    prompt an item crosses a STUCK_MILESTONES line -- never merely because
+    another prompt passed.
+    """
     if not current:
         return ""
     out = [
         "## NEXT TASK -- your current list (the belt: work this, don't ask)",
         "",
         f"  Pulled from {remaining} open across the drawers, most severe and",
-        "  widest-reaching first. The count beside each rises every prompt it sits.",
+        f"  widest-reaching first. Marked again at {', '.join(map(str, STUCK_MILESTONES))} prompts stuck.",
         "",
     ]
     for n, c in enumerate(current, 1):
         out.extend(_line(n, c))
     return "\n".join(out) + "\n"
+
+
+def residual() -> str:
+    """The one line that survives dedup: every current item, still named.
+
+    Andrew asked to be "always aware of the current tasks"; dedup hiding the
+    whole block as "unchanged" is how a LOW item from July sat invisible on
+    top. So when the block is collapsed, this line stays.
+    """
+    current = _load_current()
+    if not current:
+        return ""
+    named = "; ".join(
+        f"{n}) {VERB.get(c['source'], 'work')} {c['key']}" for n, c in enumerate(current, 1)
+    )
+    return f"  still current: {named}"
 
 
 def surface() -> str:
@@ -345,6 +459,7 @@ def surface() -> str:
         c["prompts"] = int(c.get("prompts", 0)) + 1
     _save_current(current)
     taken = {c["key"] for c in current}
+    taken |= {key(c["source"], t) for c in current for t in c.get("twins", [])}
     remaining = sum(1 for i in pile if key(i.source, i.item_id) not in taken)
     return render(current, remaining)
 
@@ -357,6 +472,7 @@ __all__ = [
     "pull",
     "rank",
     "render",
+    "residual",
     "severity",
     "surface",
 ]

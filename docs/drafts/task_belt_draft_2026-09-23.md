@@ -34,6 +34,12 @@ One module, `core/task_belt.py`. It connects the parts above rather than replaci
 6. **The note says how long a task has sat there, not "unchanged".** The surface shows every current item plus how many prompts it has been current. Because that count changes every turn, dedup can't hide it. A stuck task gets louder instead of quieter, which is what Aria's furniture law asks for: supply a fact that changes, not the same five lines.
 7. **The crash gets fixed**, and the label table and the collector share one source-name list, so a sixth drawer can't reopen the same KeyError.
 
+## Changed after Aria's station-four reading (2026-09-23)
+
+- **Duplicates.** She found two of three slots going to one correction, filed once raw and again under "Andrew verbatim:". On my seat, 312 pairs of his open corrections are one text wholly contained in another. A looser first-80-characters probe matched 788, because templated rows share an opening; that probe was wrong and was not used. A row that is a current item filed again now joins it as a twin and closes with it.
+- **The stuck count.** A number rising by one every prompt carries no news. The block now changes only when an item crosses 5, 20 or 50 prompts. Between those it is identical, so dedup may collapse it. But dedup now keeps a one-line residual that names every current item, so the list is never hidden again. She asked for the milestones; the residual is what keeps his "always aware of the current tasks" true while dedup does its job.
+- **His personal rows.** Her proposal, not yet built: the first time one reaches the belt, the seat sorts it once, with a written reason. Work stays on the belt. His words leave it, to be kept whole and answered in person, not with a commit. That needs the words store and is the next piece, not this one.
+
 ## What goes on the belt first, once it exists
 
 - **A sixth drawer: dropped work.** That means every save, send or letter the house refused this session that was never redone, measured from the transcript the way I did by hand on 2026-09-23. It rides the belt as an item rather than into this build, so the belt's first real job is its own next feature.
