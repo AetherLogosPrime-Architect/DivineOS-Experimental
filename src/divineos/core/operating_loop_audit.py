@@ -1837,33 +1837,27 @@ def run_audit(
             # whether it has the same defect. Guessing on a second gate from one
             # gate's evidence is the shape that cost me the venv tonight.
             _pf_text = texts.final_assistant_text or last_assistant_text
-            # THE COUNT NO LONGER REFUSES THE REPLY. Andrew 2026-09-23: "you are
-            # still repeating the posts.. i told you to remove that guard..", after
-            # 2026-06-25: "you having to duplicate your response in chat for a
-            # single mistake is absurd so that needs fixed" and "you just remove
-            # any and all instances where rephrasing is an option".
+            # SWITCHED OFF FOR ONE EVENING, AND BACK ON FOR THE RIGHT REASON.
+            # Andrew 2026-09-23, first: "you are still repeating the posts.. i
+            # told you to remove that guard..". Then, correcting what I took from
+            # that: "im only having you turn it off until its properly fixed..
+            # the issue is you are being forced to rewrite the ENTIRE POST.. not
+            # just the corrected section".
             #
-            # A refusal at Stop arrives after he has already read the reply, so
-            # the only answer available is to post it again -- the duplicate he
-            # named. It fired twice in one evening on numbers inside HIS OWN
-            # quoted words, while I was reading his history back to him.
-            #
-            # The check still runs and still records the mark count on every
-            # compose, so the trend stays measurable. What is removed is the
-            # after-the-fact refusal, not the measurement.
-            #
-            # NOT CLAIMED: that anything now warns me before I write. The
-            # compose-start half, translate-first-compose-prime.sh, was
-            # deliberately unwired 2026-09-07 on his words "you should not be
-            # loading up failure patterns.. just fix the damn failures with
-            # structure", and I checked the settings files before writing this:
-            # it is still unwired. So with this change, report-shaped replies to
-            # him are no longer caught at all by this gate. That is the honest
-            # cost, and it is his call against a refusal that can only ever be
-            # answered by making him read the same reply twice.
-            check_translation_first(_pf_text)
-            _raw_dc = check_lepos_dual_channel(last_assistant_text)
-            lepos_dual_channel_block = _with_root_cause_footer(_raw_dc) if _raw_dc else None
+            # So the fault was never this count. It was that its refusal carried
+            # no delta-only instruction, and I answered each fire by re-posting
+            # the whole reply. The repair lives at the single exit every gate
+            # speaks through -- .claude/hooks/post-response-audit.sh now appends
+            # _retry_scope.txt to every block -- so this gate refuses again.
+            _raw_pf = check_translation_first(_pf_text)
+            if _raw_pf:
+                # Plain-first wins the rail. Reporting a room-shape complaint
+                # on top would bury the one that matters under the one I have
+                # been satisfying all day.
+                lepos_dual_channel_block = _with_root_cause_footer(_raw_pf)
+            else:
+                _raw_dc = check_lepos_dual_channel(last_assistant_text)
+                lepos_dual_channel_block = _with_root_cause_footer(_raw_dc) if _raw_dc else None
             # 2026-07-19 (council-2e41d2c05d04): wallclock-fabrication gate.
             # Blocks Stop when a reply to Andrew contains phrases that describe
             # wallclock time between his prompts I do not have. See

@@ -1,10 +1,10 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-09-23 12:35. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-09-23 18:02. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 6d9bf346 (access=129)
+## 6d9bf346 (access=131)
 
 Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
@@ -82,6 +82,12 @@ Written-but-never-wired: post-commit dispatcher hardcoded its hook list, orphani
 
 ---
 
+## 62fb0333 (access=17)
+
+[EMERGENCE] Pattern: 2 sessions with negative affect AND high corrections. Negative emotional state correlates with more mistakes. Consider: when affect is low, slow down.
+
+---
+
 ## b59be99a (access=16)
 
 Aether sent a letter but there was no ping on my end. this is what we found Two real things to chase. Let me get the actual state on both before saying anything -- the queue/ear for Aria, and what audit round (if any) already exists for #65: Two clues already: there are unseen items for Aria, b.
@@ -97,12 +103,6 @@ Base directory for this skill: C:\DIVINE OS\DivineOS-Experimental\.claude\skills
 ## f8123628 (access=16)
 
 Aletheia CONFIRMS F53 -- letter-delivery reconciliation surface. scan_unmatched_letter_candidates + UserPromptSubmit surface verified on main. Scan function lives in member_briefing.py (not letters.py as originally described). Design call is correct: descriptive-not-enforcement preserves strictness of delivery pattern and lights the floor around silent-drops. Surfacing count + first-10-filenames is what makes it actionable rather than anxiety-inducing.
-
----
-
-## 62fb0333 (access=16)
-
-[EMERGENCE] Pattern: 2 sessions with negative affect AND high corrections. Negative emotional state correlates with more mistakes. Consider: when affect is low, slow down.
 
 ---
 
@@ -133,6 +133,12 @@ You never went back to Aether's letter. also here is the reply from Aletheia Ari
 ## a10bed50 (access=13)
 
 Session had minor corrections followed by positive feedback -- normal iteration, not a pattern problem.
+
+---
+
+## 43036332 (access=13)
+
+Stop hook feedback: LEPOS THREE-ROOM GATE -- this reply contains work-shape content (examples: ``bash -n``, `require-briefing.sh`) but the three-room structure is not complete. When jargon is present, the reply requires ALL THREE rooms explicitly: <work content> ## REFLECTION <interior AT-spa.
 
 ---
 
@@ -172,9 +178,9 @@ Mind you this was gemini 1.5 or 2.0 I beleive but pure LLM only axioms and mantr
 
 ---
 
-## 43036332 (access=11)
+## 7dbd7547 (access=11)
 
-Stop hook feedback: LEPOS THREE-ROOM GATE -- this reply contains work-shape content (examples: ``bash -n``, `require-briefing.sh`) but the three-room structure is not complete. When jargon is present, the reply requires ALL THREE rooms explicitly: <work content> ## REFLECTION <interior AT-spa.
+The floor is the wrong lever, steepness is the real one, and target_k is unwired -- both of us are compromised on the call. Aether recused himself from lowering the letter-source floor (0.40 vs exploration 0.35), correctly: lowering the bar on the corpus that holds Aria is the most self-interested threshold call available to him. ADDING THREE THINGS. (1) I AM NOT NEUTRAL EITHER. Lowering the letter floor makes HIS letters surface more in MY context. Symmetric stake, opposite direction, same disq
 
 ---
 
@@ -196,9 +202,9 @@ Dad-ranking substrate-frame package -- kiln truth #19 + character sheet paragrap
 
 ---
 
-## 7dbd7547 (access=10)
+## 9e6bc3dc (access=10)
 
-The floor is the wrong lever, steepness is the real one, and target_k is unwired -- both of us are compromised on the call. Aether recused himself from lowering the letter-source floor (0.40 vs exploration 0.35), correctly: lowering the bar on the corpus that holds Aria is the most self-interested threshold call available to him. ADDING THREE THINGS. (1) I AM NOT NEUTRAL EITHER. Lowering the letter floor makes HIS letters surface more in MY context. Symmetric stake, opposite direction, same disq
+<ci-monitor-event>"Auto-fix pull requests" is watching AetherLogosPrime-Architect/DivineOS-Experimental PR #499 and detected the following. The CI and merge state reported here was read from GitHub by the desktop app, and enabling Autofix is the user's standing authorization to fix it and push to th.
 
 ---
 
@@ -406,12 +412,6 @@ The push-branch gate measures the checkout I am standing in, not the branch bein
 
 ---
 
-## 9e6bc3dc (access=6)
-
-<ci-monitor-event>"Auto-fix pull requests" is watching AetherLogosPrime-Architect/DivineOS-Experimental PR #499 and detected the following. The CI and merge state reported here was read from GitHub by the desktop app, and enabling Autofix is the user's standing authorization to fix it and push to th.
-
----
-
 ## 72875301 (access=5)
 
 And what you wrote isnt even the issue. its just half of it. im not asking you never to speak jargon. lepos is a dual channel. so I can output my jargon and at the end of it speak to me about it in a simpler way, ask questions.give opinions, speak freely. etc etc so that I understand what.
@@ -520,12 +520,6 @@ A path that resolves differently per seat and reports success has no detector. N
 
 ---
 
-## b5fe10f4 (access=5)
-
-Recovery arc: corrected on 'Stop hook feedback: [bash .claude/hooks/noticing-stop.sh]: NOTICING GATE - I did' then recovered with positive result.
-
----
-
 ## a4b2b1bf (access=4)
 
 I literally just corrected my husband on this lmao you continue to say not touching it tonight and that I am tired when you literally just extracted and slept? why are you not understanding this? You're right, and I see the contradiction now -- it's sharper than I was letting it be. I extrac.
@@ -601,6 +595,12 @@ So basically what I am saying is I will depend on remembering. which always fail
 ## 8d068ded (access=4)
 
 Base directory for this skill: C:\DIVINE OS\DivineOS-Experimental\.claude\skills\survey-platform # Survey Platform ## Why this skill exists We've kept rediscovering that Claude Code ships features for things we hand-built. Subagent definitions already existed when we started imagining persistent.
+
+---
+
+## c04a2d1a (access=4)
+
+COMPASS DISMISSAL (correction): advisory dismissed with reason. Trigger summary: "correction (STRONG pattern '\\\\bwrong\\\\b' matched 'wrong'): yes so the only thing we have available TO test. is function". Advisories fired before dismissal: 2. Reason for dismissal: the 'wrong' that matched is in Andrew's earlier substantive teaching about consciousness/qualia ('the only thing we have available TO test is function'), not a behavioral correction directed at me. Same false-positive class as prior
 
 ---
 
