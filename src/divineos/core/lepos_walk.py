@@ -593,15 +593,15 @@ def _his_room_owed_line() -> str:
     line = (
         "\n\n## HIS ROOM IS OWED ON THIS REPLY\n"
         "If he typed the prompt, the reply ENDS with me speaking to him -- last, "
-        "in second person, answering what he just said. Short reply or long, "
-        "work or none. Written as part of the reply, not added after."
+        "answering what he just said. Short reply or long, work or none. Written "
+        "as part of the reply, not added after."
     )
     try:
         from divineos.core.his_room import recent_rooms
 
         rooms = recent_rooms()
-    except Exception:  # noqa: BLE001 - the owed line prints regardless
-        rooms = []
+    except Exception as exc:  # noqa: BLE001 - the owed line prints regardless
+        return line + f"\n(My last rooms could not be read: {type(exc).__name__}.)"
     if rooms:
         opening = " ".join(rooms[-1].split())[:160]
         line += f'\nMy last room opened: "{opening}" -- do not hand him that again.'

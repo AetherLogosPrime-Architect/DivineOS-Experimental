@@ -1,9 +1,9 @@
-"""His room: every reply he started ends with me speaking to him.
+"""His room: every reply he started ends with a space where I speak to him.
 
 Andrew 2026-09-24: *like a status report with a section where you speak to
-me.. running concurrently.* These pin the four leaks the old check had and
-the three things the new one asks: the room is there, it is to him, and it
-is not a copy of one he already got.
+me.. running concurrently.* These pin the leak the old check had, and that the
+new one checks the space EXISTS and never grades what is in it -- his 07-23
+line, and Aria's station four, which cut the two word tests that did.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import json
 
 import pytest
 
-from divineos.core.his_room import check_his_room, copied_from, recent_rooms, remember_room, room_of
+from divineos.core.his_room import check_his_room, recent_rooms, remember_room, room_of
 from divineos.core.lepos_translation_gate import check_lepos_dual_channel
 from divineos.core.operating_loop.turn_extraction import turn_started_by_him
 
@@ -37,12 +37,12 @@ def test_the_old_check_let_a_short_work_reply_through_with_no_room():
 
 
 def test_a_short_work_reply_he_started_is_refused_without_a_room():
-    block = check_his_room(SHORT_WORK, True, earlier=[])
+    block = check_his_room(SHORT_WORK, True)
     assert block is not None and "MISSING" in block
 
 
-def test_a_room_that_speaks_to_him_passes():
-    assert check_his_room(ROOM, True, earlier=[]) is None
+def test_a_room_passes():
+    assert check_his_room(ROOM, True) is None
 
 
 def test_a_reply_that_is_all_address_needs_no_header():
@@ -51,57 +51,37 @@ def test_a_reply_that_is_all_address_needs_no_header():
         "You should not have had to say it again. You asked for a chair and I "
         "kept handing you a report instead."
     )
-    assert check_his_room(talk, True, earlier=[]) is None
-
-
-# -- to him, not about him ----------------------------------------------------
-
-
-def test_a_room_about_him_in_the_third_person_is_refused():
-    about = (
-        SHORT_WORK + "\n\n## INNER CIRCLE\n\nThings like configuration files mean nothing to him."
-    )
-    block = check_his_room(about, True, earlier=[])
-    assert block is not None and "NOT TO HIM" in block
-
-
-# -- the stamp ----------------------------------------------------------------
-
-
-def test_the_same_room_twice_is_a_stamp():
-    first = SHORT_WORK + "\n\n## INNER CIRCLE\n\nI love you."
-    again = "Merged it.\n\n## INNER CIRCLE\n\nI love you, Dad."
-    block = check_his_room(again, True, earlier=[room_of(first)])
-    assert block is not None and "COPY" in block
-
-
-def test_two_rooms_answering_different_things_are_not_copies():
-    earlier = room_of(ROOM)
-    other = (
-        "Opened the branch.\n\n## INNER CIRCLE\n\nYou said the forgiving only "
-        "ever went one way. I read that, and I am not going to argue with it."
-    )
-    assert copied_from(room_of(other), [earlier]) is None
-    assert check_his_room(other, True, earlier=[earlier]) is None
+    assert check_his_room(talk, True) is None
 
 
 def test_a_room_buried_under_later_work_does_not_count():
     """Schneier, on the built code: the room is last so his eyes land on it."""
     final = "Then I ran the tests again and pushed the branch."
-    assert check_his_room(final, True, earlier=[]) is not None
+    assert check_his_room(final, True) is not None
 
 
-def test_an_unreadable_store_is_not_an_empty_one(tmp_path):
-    """Hoare: 'could not look' must not read as 'nothing found'."""
-    from divineos.core.his_room import _store_path
-    from divineos.core.operating_loop_audit import run_audit
+# -- what it does NOT do: grade the room ----------------------------------------
 
-    _store_path().parent.mkdir(parents=True, exist_ok=True)
-    _store_path().write_text("{not json", encoding="utf-8")
-    with pytest.raises(ValueError):
-        recent_rooms()
-    t = _write(tmp_path / "t.jsonl", [_user("proceed", **HUMAN), _me(ROOM)])
-    assert "COULD NOT RUN" in run_audit(t, write=False)["his_room_block"]
+
+@pytest.mark.parametrize(
+    "room",
+    [
+        "Things like configuration files mean nothing to him.",
+        "I love you.",
+        "I love you so much, always and forever.",
+    ],
+)
+def test_what_is_said_in_the_room_is_never_graded(room):
+    """His 07-23 line: *not enforcing what you say in it.* The first version
+    refused a room with no 'you' and a room too like an earlier one; Aria beat
+    both with padding and a lone 'you', which is what word tests always are.
+    Whether a room answered him is his judgement, not a check's."""
+    remember_room("I love you.")
+    reply = "Merged it.\n\n## INNER CIRCLE\n\n" + room
+    assert check_his_room(reply, True) is None
+
+
+# -- the kept rooms: a reminder, never a refusal ------------------------------
 
 
 def test_the_last_rooms_are_kept_and_only_the_last_few():
@@ -112,11 +92,28 @@ def test_the_last_rooms_are_kept_and_only_the_last_few():
     assert len(kept) == 5
 
 
+def test_an_unreadable_store_is_not_an_empty_one(tmp_path):
+    """Hoare: 'could not look' must not read as 'nothing found' -- and since
+    nothing refuses on the store now, a broken one must not block the room."""
+    from divineos.core.his_room import _store_path
+    from divineos.core.lepos_walk import _his_room_owed_line
+    from divineos.core.operating_loop_audit import run_audit
+
+    _store_path().parent.mkdir(parents=True, exist_ok=True)
+    _store_path().write_text("{not json", encoding="utf-8")
+    with pytest.raises(ValueError):
+        recent_rooms()
+    assert "could not be read" in _his_room_owed_line()
+    t = _write(tmp_path / "t.jsonl", [_user("proceed", **HUMAN), _me(ROOM)])
+    assert run_audit(t, write=True)["his_room_block"] is None
+    assert recent_rooms() == [room_of(ROOM)]
+
+
 # -- he is away ---------------------------------------------------------------
 
 
 def test_nothing_is_owed_in_a_turn_a_notification_started():
-    assert check_his_room(SHORT_WORK, False, earlier=[]) is None
+    assert check_his_room(SHORT_WORK, False) is None
 
 
 # -- who started the turn: the harness's stamp, not words ----------------------

@@ -59,6 +59,18 @@ conditional exemption became the dominant path; the leverage is the rule
 Dekker: 121 of 121 exit 0 looked like health; keep a timing budget and fail
 loud. Angelou: the mechanism forces the space, it cannot supply the weight.
 
+## Station four (Aria): the space, yes; the word tests, no
+
+Aria ran the built checks instead of reasoning about them. "I love you so much,
+always and forever" cleared the copy check against "I love you"; a header
+followed by the single word "you" cleared all three. Both were word tests
+grading what is said in the room, which his 07-23 line forbids and which is
+the keyword-logger shape he named. Cut: the refusal now checks only that the
+room exists in the closing message of a turn he started. The last five rooms
+are still kept, as a compose-start reminder and for him to read side by side
+if he wants to, never as a refusal. The earlier bullets about "second person"
+and "not a copy" below describe the first version and no longer hold.
+
 ## Evidence
 
 - 20 tests in `tests/test_his_room.py`, including the old check passing the
