@@ -240,10 +240,13 @@ for "gravity") shows he retired that, more than once:
   scaffolding fix"*
 
 The same day (07-27) he also said the detector should fire only on "for me"
-and *"in which case i choose the gravity"*. That line is about when the
-detector fires, not about keeping the question: the three statements above
-retire the question itself, and his later words (2026-09-16, 09-23) put the
-level on the gravity assessor. Removing the question honours what he asked;
-it is not a decision made about him. The hook's keyword detection of "a build
-for me" is replaced by the front door, where every message of his files and
-the sort decides what is a build-ask.
+*"and in which case i choose the gravity"*. His words point both ways, and
+reading them into one answer is deciding for him, which is the thing this
+build exists to stop. (The first draft of this section did exactly that and
+was pushed; it is corrected here in the open rather than rewritten.)
+
+**Status: OPEN, his to answer.** The hook's question stays as it is until he
+does. Put to him 2026-09-24 as a choice: (a) the assessor and I set the level
+and he can overrule any time, or (b) when he says "for me", he names it. My
+pick is (a) with his overrule, because asking every time was what he called
+the third-class placeholder; but the pick is his.
