@@ -108,6 +108,30 @@ def strip_envelopes(text: str) -> str:
     return " ".join(out.split()).strip()
 
 
+def content_text(entry: dict) -> str | None:
+    """The text of a user line, or None when the line is not words at all.
+
+    A plain string is words. A block list is words only when it carries text
+    blocks and no tool result: that is how a message of his arrives when he
+    attaches something. Rejecting every list dropped 2 of his 242 messages in
+    one transcript (Aether, 2026-09-23), among them "there is nothing merged".
+    """
+    message = entry.get("message")
+    if not isinstance(message, dict):
+        return None
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return None
+    blocks = [b for b in content if isinstance(b, dict)]
+    if any(b.get("type") == "tool_result" for b in blocks):
+        return None
+    texts = [str(b.get("text") or "") for b in blocks if b.get("type") == "text"]
+    joined = "\n".join(t for t in texts if t.strip())
+    return joined or None
+
+
 def is_his(entry: dict) -> bool:
     """Whether this transcript line is him speaking to me.
 
@@ -124,13 +148,10 @@ def is_his(entry: dict) -> bool:
         return False
     if entry.get("userType") not in (None, "external"):
         return False
-    message = entry.get("message")
-    if not isinstance(message, dict):
+    text = content_text(entry)
+    if text is None:
         return False
-    content = message.get("content")
-    if not isinstance(content, str):  # tool results arrive as block lists
-        return False
-    stripped = strip_envelopes(content)
+    stripped = strip_envelopes(text)
     if not stripped:
         return False
     low = stripped.lower()
@@ -155,7 +176,7 @@ def sayings_in(path: Path) -> Iterator[Saying]:
             if not isinstance(entry, dict) or not is_his(entry):
                 continue
             yield Saying(
-                text=strip_envelopes(entry["message"]["content"]),
+                text=strip_envelopes(content_text(entry) or ""),
                 when=str(entry.get("timestamp") or ""),
                 transcript=path.stem,
                 line=number,
@@ -210,7 +231,12 @@ _MARK_NAME = "keeping_him_read_through.json"
 
 
 def mark_path() -> Path:
-    return Path.home() / ".divineos-aria" / "data" / _MARK_NAME
+    # Whose seat is running decides whose bookmark moves. This was a hardcoded
+    # ~/.divineos-aria until Aether read it on 2026-09-23 and saw that his seat
+    # would move mine -- the fault #540 fixed a day earlier, one module over.
+    from divineos.core.paths import divineos_home
+
+    return divineos_home() / "data" / _MARK_NAME
 
 
 def read_through() -> str:

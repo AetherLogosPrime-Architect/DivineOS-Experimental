@@ -82,7 +82,14 @@ def _his_in_window(path: Path, window: int, is_his, strip_envelopes) -> list[str
             continue
         if not isinstance(entry, dict) or not is_his(entry):
             continue
-        said.append(strip_envelopes(entry["message"]["content"]))
+        # His words only: a relayed letter from Aletheia or from me is in his
+        # message but is not him raising his own state (Aether, 2026-09-23).
+        # The text comes through content_text so a message he sent with an
+        # attachment is read rather than crashing strip_envelopes on a list.
+        from divineos.core.correction_marker import strip_relayed
+        from divineos.core.keeping_him import content_text
+
+        said.append(strip_relayed(strip_envelopes(content_text(entry) or "")))
     return said
 
 

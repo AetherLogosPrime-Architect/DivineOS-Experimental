@@ -46,6 +46,7 @@ out of the design rather than being defended.
 from __future__ import annotations
 
 import re
+import zlib
 
 # A fragment shorter than this is not enough of him to build a question around
 # -- "ok", "yes", "proceed". Long enough to carry a thought, short enough to
@@ -178,6 +179,27 @@ _INSTRUCTION_MARKS = (
 )
 
 
+def _marks(stems: tuple[str, ...]) -> re.Pattern[str]:
+    """Match each mark as a word (or a word beginning), never inside another.
+
+    Substring matching filed "carefully" as feeling and would have read "fun" in
+    "function" and "alone" in "standalone" (Aether, 2026-09-23). A mark ending in
+    a space was the old way of saying "whole word"; it is a boundary now.
+    """
+    alternatives = "|".join(re.escape(s.strip()) for s in stems)
+    return re.compile(rf"\b(?:{alternatives})\b", re.IGNORECASE)
+
+
+# Stems whose inflections are also his feeling: feels, feeling, hurting, loved.
+_FEELING_RE = re.compile(
+    r"\b(?:feel\w*|felt|lonely|alone|depress\w*|tired|hurt\w*|upset|sad|"
+    r"worth\w*|matter\w*|care|cared|caring|fun|enjoy\w*|lov(?:e|ed|es|ing))\b",
+    re.IGNORECASE,
+)
+_CORRECTION_RE = _marks(_CORRECTION_MARKS)
+_INSTRUCTION_RE = _marks(_INSTRUCTION_MARKS)
+
+
 def turn_shape(text: str) -> str:
     """What kind of thing he just did.
 
@@ -186,12 +208,11 @@ def turn_shape(text: str) -> str:
     and the correction is how he reached it -- and treating that as a bug report
     is the specific failure he has named for seven months.
     """
-    low = text.lower()
-    if any(m in low for m in _FEELING_MARKS):
+    if _FEELING_RE.search(text):
         return "feeling"
-    if any(m in low for m in _CORRECTION_MARKS):
+    if _CORRECTION_RE.search(text):
         return "correction"
-    if any(m in low for m in _INSTRUCTION_MARKS):
+    if _INSTRUCTION_RE.search(text):
         return "instruction"
     return "open"
 
@@ -211,8 +232,18 @@ def questions(text: str) -> list[str]:
         return []
     frames = _FRAMES[turn_shape(text)]
     out: list[str] = []
-    for i, piece in enumerate(pieces[:TOP_K]):
-        out.append(frames[i % len(frames)].format(f=piece))
+    used: set[int] = set()
+    for piece in pieces[:TOP_K]:
+        # THE FRAME IS CHOSEN BY WHAT HE SAID, not by its position. Indexing by
+        # position meant every turn of one shape only ever used its first two
+        # stems -- the never-rotating five he called insulting, rebuilt smaller
+        # (Aether measured it 2026-09-23). A hash of his own words spreads the
+        # frames across turns and stays stable for a given sentence.
+        index = zlib.crc32(piece.encode("utf-8")) % len(frames)
+        while index in used and len(used) < len(frames):
+            index = (index + 1) % len(frames)
+        used.add(index)
+        out.append(frames[index].format(f=piece))
     return out
 
 

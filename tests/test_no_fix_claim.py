@@ -180,8 +180,10 @@ class TestTheRefusalTeachesTheWayOut:
         assert "Scope the claim" not in message
 
     def test_it_carries_the_bar_and_the_count(self):
+        from divineos.core.council import EXPECTED_EXPERT_COUNT
+
         message = refusal_text(claims("I have no fix for this."), lenses_walked=7)
-        assert "45" in message and "7" in message
+        assert str(EXPECTED_EXPERT_COUNT) in message and "7" in message
 
     def test_it_carries_his_flight_example_rather_than_a_rule_number(self):
         """The image does the teaching. A rule number teaches nothing, and the
@@ -269,9 +271,11 @@ class TestTheBarIsNotSelfCertified:
         assert looked_outside_within(0, 9_999_999_999) is False
 
     def test_the_bar_is_the_whole_roster(self):
+        from divineos.core.council import EXPECTED_EXPERT_COUNT
         from divineos.core.no_fix_claim import FULL_COUNCIL
 
-        assert FULL_COUNCIL == 45
+        # The whole roster, read from its one constant rather than restated.
+        assert FULL_COUNCIL == EXPECTED_EXPERT_COUNT
 
 
 class TestItIsActuallyWiredIn:

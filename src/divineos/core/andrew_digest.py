@@ -29,7 +29,14 @@ So this fires on its own, at the last moment the context is still hot enough for
 the prose to be real rather than reconstructed.
 
 ONE INVARIANT, NO TIERS (Dijkstra, walked on this): if something landed and
-nothing was written for him, the turn does not end. The version I nearly built
+nothing was written for him, the turn does not end.
+
+THAT SENTENCE IS NOT TRUE YET, and it says so here rather than standing as if it
+were (Aether's reading, 2026-09-23). Nothing wires this module to Stop -- not in
+#507 and not in the archive it was repacked from. Today it is a COMMAND,
+`divineos for-dad`, and `--status` says what landed that he was not told. The
+gate the paragraph above describes is owed and is its own build. Until it
+exists, the paragraph above is the design, not the behaviour. The version I nearly built
 had severity tiers and a rule for what counts as substantial -- all of it me
 guessing in advance what he would care about. The judgement stays with me at the
 moment of writing, which is where it belongs.

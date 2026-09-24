@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**133 automations — 124 wired, 9 switched off.**
+**134 automations — 125 wired, 9 switched off.**
 
 ---
 
@@ -118,7 +118,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `continuity-frame-detector.sh` | 2026-09-15 | MINE, the catching half of the continuity work. Aether. The surface upstairs |
 | `correction-shape-v2-stop.sh` | 2026-09-22 | enforce Layer-2 correction-shape detection on MY assistant |
 | `doorbell-stop.sh` | 2026-09-21 | Stop doorbell. One of seven. All judgment lives in the OS. |
-| `his-state-is-his-to-say.sh` | — | HIS STATE IS HIS TO SAY — Stop hook. |
+| `his-state-is-his-to-say.sh` | 2026-09-23 | HIS STATE IS HIS TO SAY — Stop hook. |
 | `lepos-channel-reflect.sh` | 2026-07-11 | post-send lepos reflection channel driver. |
 | `log-session-end.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `post-response-audit.sh` | 2026-07-27 | thin doorman pointing to the OS. |
@@ -128,7 +128,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `stop-distancing-intercept.sh` | 2026-07-16 | thin doorman for DistancingIntercept. |
 | `stop-response-scope-intercept.sh` | 2026-07-16 | thin doorbell for ResponseScopeIntercept. |
 
-### UserPromptSubmit  (28)
+### UserPromptSubmit  (29)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -153,9 +153,10 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `operator-gravity-set.sh` | 2026-08-24 | Andrew sets the gravity level for builds. |
 | `post-correction-integration-prime.sh` | 2026-07-29 | post-correction integration prime. |
 | `promise-anchor-surface.sh` | 2026-07-18 | read all open promise markers and surface |
-| `questions-from-him.sh` | — | UserPromptSubmit — questions about him, built from what he just said. |
+| `questions-from-him.sh` | 2026-09-23 | UserPromptSubmit — questions about him, built from what he just said. |
 | `register-awareness-surface.sh` | 2026-08-24 | surface the register signal from each |
 | `session-init-once.sh` | 2026-08-24 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
+| `stop-carry-prime.sh` | — | UserPromptSubmit — what the Stop gates caught on my last reply. |
 | `verify-claim-prime.sh` | 2026-09-22 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
 | `wallclock-source-prime.sh` | 2026-09-23 | THE CLOCK. It is mine, not his. |

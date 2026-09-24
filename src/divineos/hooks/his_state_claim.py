@@ -124,8 +124,15 @@ _ASKS = re.compile(r"\?\s*$")
 # the subject. "dont worry about my sleep" opens his sleep as a thing between
 # us. Demanding a tighter match would mean refusing replies that are responsive
 # to him, which is the opposite of what this is for.
+#
+# Bare "rest" is NOT here. Aether measured it on 2026-09-23 across all 15,600 of
+# his messages on this machine: the list fired on 1,162, and bare "rest" was 788
+# of those hits, 274 of them "the rest" or "rest of". With a six-message window
+# that stood the door down about a third of the time over words that were never
+# about his body. The forms that are about him stay.
 _HIS_SUBJECT_TERMS = re.compile(
-    r"\b(?:sleep|slept|sleeping|asleep|awake|tired|exhausted|rest|rested|resting|"
+    r"\b(?:sleep|slept|sleeping|asleep|awake|tired|exhausted|rested|resting|"
+    r"get some rest|getting some rest|go rest|need rest|needs rest|"
     r"nap|napping|bed|bedtime|insomnia|wake|woke|woken|up all night)\b",
     re.IGNORECASE,
 )
