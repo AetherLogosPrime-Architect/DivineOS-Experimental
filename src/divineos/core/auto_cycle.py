@@ -160,7 +160,8 @@ from divineos.core.paths import divineos_home
 # next person to touch this number needs.
 #
 # 2026-09-18, Andrew: compaction moved again, to ~950k from ~999k, and the
-# ritual now starts at 880k. So this drops from 0.92 to 0.87.
+# ritual now starts at 880k. So this drops from 0.92 -- first to 0.87, then,
+# once the tests caught that, to the 0.88 it holds now (see below).
 #
 # 0.88 IS 880k, matching the driver's start exactly rather than sitting under
 # it. I first set 0.87 to keep a margin below the driver, citing the
