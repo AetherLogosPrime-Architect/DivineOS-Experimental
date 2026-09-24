@@ -185,25 +185,9 @@ def _tail_chunks(path: Path, min_records: int):
     records than the previous implementation — it only avoids reading
     bytes nobody needed.
     """
-    try:
-        size = path.stat().st_size
-    except OSError:
-        return
-    if size <= _TAIL_BYTES_START:
-        yield path.read_text(encoding="utf-8", errors="replace"), True
-        return
-    window = _TAIL_BYTES_START
-    while window < min(_TAIL_BYTES_MAX, size):
-        with open(path, "rb") as fh:
-            fh.seek(size - window)
-            raw = fh.read()
-        # The seek lands mid-line; that first fragment is not valid JSON.
-        # Dropping it is correct, not lossy — the full line is still
-        # present in any wider window.
-        _, _, rest = raw.partition(b"\n")
-        yield rest.decode("utf-8", errors="replace"), False
-        window *= 4
-    yield path.read_text(encoding="utf-8", errors="replace"), True
+    from divineos.core.operating_loop.transcript_tail import tail_windows
+
+    yield from tail_windows(path, start_bytes=_TAIL_BYTES_START, max_bytes=_TAIL_BYTES_MAX)
 
 
 def _read_records(
