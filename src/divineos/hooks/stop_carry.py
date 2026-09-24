@@ -152,13 +152,22 @@ def carry_or_block(gate: str, reason: str) -> dict | None:
         # finding, and refusing a reply to him over an empty string would be
         # the cruellest possible version of this bug.
         return None
+    # THE FALLBACK DOES NOT HAVE TO COST HIM A SECOND COPY. This used to say
+    # "He reads this twice as a result" and accept it. It does not follow: a
+    # refusal makes me write again, but WHAT I write again is set by the words
+    # in the refusal, and the delta-only instruction every other Stop gate now
+    # carries (Andrew 2026-09-23: "the issue is you are being forced to rewrite
+    # the ENTIRE POST.. not just the corrected section") was missing here. So
+    # the last resort now asks for the missing piece only.
+    from divineos.core.lepos_translation_gate import _retry_scope_text
+
     return {
         "decision": "block",
         "reason": (
             f"{reason}\n\n"
             "(This is arriving as a refusal because the finding could not be "
-            "written down, so this window was the only channel left. He reads "
-            "this twice as a result, and that is the cost of the fallback.)"
+            "written down, so this window was the only channel left.)\n\n"
+            f"{_retry_scope_text()}"
         ),
     }
 

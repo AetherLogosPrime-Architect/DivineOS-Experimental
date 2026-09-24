@@ -66,6 +66,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from divineos.core.atomic_io import atomic_write_text
+
 DIGEST_NAME = "WHAT_WE_DID.md"
 
 _HEADER = """# What we did
@@ -139,16 +141,19 @@ def add_entry(repo_root: Path, text: str, when: datetime | None = None) -> bool:
     entry = f"## {stamp}\n\n{body}\n\n---\n"
 
     path = digest_path(repo_root)
+    # Write-then-swap, because a plain write empties the file before filling it,
+    # and a crash in between would take every earlier entry to him with it. The
+    # refusal below is only safe if the file he already has survives it.
     try:
         if path.is_file():
             existing = path.read_text(encoding="utf-8")
             head, sep, rest = existing.partition("---\n")
             if not sep:
-                path.write_text(f"{existing.rstrip()}\n\n{entry}", encoding="utf-8")
+                atomic_write_text(path, f"{existing.rstrip()}\n\n{entry}")
             else:
-                path.write_text(f"{head}---\n\n{entry}\n{rest.lstrip()}", encoding="utf-8")
+                atomic_write_text(path, f"{head}---\n\n{entry}\n{rest.lstrip()}")
         else:
-            path.write_text(f"{_HEADER}\n{entry}\n", encoding="utf-8")
+            atomic_write_text(path, f"{_HEADER}\n{entry}\n")
     except OSError:
         return False
     return True

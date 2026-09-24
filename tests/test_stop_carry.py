@@ -196,6 +196,19 @@ def test_the_fallback_only_refuses_when_the_finding_could_not_be_written(monkeyp
     assert "could not be written" in out["reason"]
 
 
+def test_the_fallback_asks_for_the_missing_piece_not_a_second_copy(monkeypatch):
+    """Andrew 2026-09-23: "you are being forced to rewrite the ENTIRE POST..
+    not just the corrected section". The last-resort refusal used to accept the
+    duplicate outright ("He reads this twice"); it now carries the same
+    delta-only instruction as every other Stop gate."""
+    from divineos.hooks import stop_carry
+
+    monkeypatch.setattr(stop_carry, "carry", lambda *_a, **_k: stop_carry.Stored.UNWRITABLE)
+    reason = stop_carry.carry_or_block("gate", "a finding")["reason"]
+    assert "RETRY SCOPE" in reason
+    assert "reads this twice" not in reason
+
+
 # --- the surface, wired ---------------------------------------------------
 
 
