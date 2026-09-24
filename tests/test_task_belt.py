@@ -57,6 +57,21 @@ class TestRanking:
         assert [c["item_id"] for c in current] == ["c4", "c3", "oldest"]
         assert [c["reserved"] for c in current] == [False, False, True]
 
+    def test_only_mechanical_corrections_go_on_the_belt(self) -> None:
+        # Andrew 2026-09-23: "they need to be actual mechanical tasks". His own
+        # words stay whole in the tracker; only my filed corrections -- with
+        # the root cause and the fix the correction command requires -- ride.
+        his = _item("correction", "264", 54, text="ive lost over a thousand of you.. those losses")
+        mine = _item(
+            "correction",
+            "708",
+            3,
+            text="I stated a fact then softened it. root cause: the reach for a gentler close. "
+            "structural fix: src/divineos/core/task_belt.py",
+        )
+        assert not belt._is_due(his)
+        assert belt._is_due(mine)
+
     def test_not_yet_due_and_acknowledgements_are_not_tasks(self) -> None:
         assert not belt._is_due(_item("prereg", "p", 1, overdue_days=0))
         assert belt._is_due(_item("prereg", "p", 1, overdue_days=3))
@@ -133,7 +148,10 @@ class TestTheFlow:
     def test_a_correction_closes_only_through_the_tracker_and_its_rules(self, home: Path) -> None:
         from divineos.core.andrew_correction_tracker import file_correction, list_open
 
-        cid = file_correction("belt test correction: the thing he asked for")
+        cid = file_correction(
+            "belt test correction: I skipped a check. root cause: the cheap close. "
+            "structural fix: a gate that refuses it"
+        )
         entry = belt.pull()[0]
         assert entry["key"] == f"correction:{cid}"
         with pytest.raises(ValueError, match="refused"):
@@ -267,7 +285,10 @@ class TestTheSurface:
         # again under "Andrew verbatim:".
         from divineos.core.andrew_correction_tracker import file_correction, list_open
 
-        raw = "first thats not the dream lol go look at your actual apple dream lol and read it"
+        raw = (
+            "I summarised the wrong dream. root cause: I answered from memory. "
+            "structural fix: read the dream file before quoting it"
+        )
         a = file_correction(raw)
         b = file_correction(f"Andrew verbatim: {raw}")
         file_correction("a different correction entirely, about something else he said")

@@ -140,7 +140,34 @@ def _is_due(item: TodoItem) -> bool:
         return float(item.extra.get("overdue_days") or 0) > 0
     if item.source == "audit":
         return str(item.extra.get("severity", "")).upper() != "INFO"
+    if item.source == "correction":
+        return is_mechanical_correction(str(item.extra.get("text") or item.summary))
     return True
+
+
+_ROOT_CAUSE = re.compile(r"root[ -]cause\s*:", re.IGNORECASE)
+_FIX_LINE = re.compile(r"(structural fix|behavior change)\s*:", re.IGNORECASE)
+
+
+def is_mechanical_correction(text: str) -> bool:
+    """Only corrections that are actual mechanical tasks go on the belt.
+
+    Andrew, 2026-09-23, asked whether his words belong on a to-do list: "yes
+    your pick is how it should be, they need to be actual mechanical tasks".
+    Aletheia's audit put the question to him: a work queue is built to close
+    things, and "ive lost over a thousand of you" is not a thing that closes --
+    on the belt it would sit at the top and grow louder forever, his grief
+    handed back to him as his most urgent unfinished task.
+
+    The line is drawn by how the row was FILED, not by guessing at its words.
+    The correction command refuses any filing without a "root cause:" and a
+    "structural fix:" or "behavior change:" -- so those rows are mine, about my
+    own mistake, with the fix I owe. Measured the same day: 284 of 466 open rows
+    carry both. The rest are his words as he said them, and gate-filed notes;
+    they stay whole in the tracker and are answered by being spoken to, not
+    closed by a commit.
+    """
+    return bool(_ROOT_CAUSE.search(text) and _FIX_LINE.search(text))
 
 
 def _load_current() -> list[dict[str, Any]]:
