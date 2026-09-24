@@ -199,3 +199,26 @@ habits, and he is the one who judges whether the habits changed.
   measured before Phase 2.
 - **Dogfood on both seats** before anything is called done, and nothing is
   ever called "fixed" to him.
+
+## Platform, measured (2026-09-24), not taken from the docs
+
+A throwaway listener in `settings.local.json` recorded the *shape* of one real
+UserPromptSubmit payload (field names, types and lengths, never his words),
+then was removed.
+
+- **The field the docs promised does not exist.** A docs reader reported an
+  `is_human_typed` field. The live payload carries `session_id`,
+  `transcript_path`, `cwd`, `scratchpad_dir`, `prompt_id`, `permission_mode`,
+  `hook_event_name`, `prompt` and `session_title`, and nothing that says who
+  typed the prompt. One instrument asked once would have built on a field
+  that isn't there.
+- **His message is not in the transcript yet when UserPromptSubmit fires.**
+  The last user record at that moment was an earlier one, and it didn't match
+  the prompt.
+- **So the front door files in two steps.** At UserPromptSubmit it files a
+  candidate from `prompt` and `prompt_id`. The harness's own stamp
+  (`origin.kind == "human"`, verified in #554 against 281 of his records)
+  confirms or rejects it the first time the transcript holds the record, at
+  PreToolUse or at Stop. A candidate confirmed as not his (a notification) is
+  withdrawn with the reason recorded. Nothing is decided from the prompt's
+  wording.
