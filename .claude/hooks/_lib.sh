@@ -472,6 +472,13 @@ sys.exit(0 if got == want else 3)
 # broken package to prove a doorbell says NOT RUNNING. Overriding that choice
 # silently would be the same fault in reverse: the hook deciding for the
 # caller what code the caller meant.
+#
+# THE LIMIT THAT COMES WITH THAT (Aletheia 2026-09-23, reviewing this): a
+# PYTHONPATH chosen on purpose and one INHERITED from a shell aimed at the main
+# checkout look identical from here -- both already provide divineos. So in a
+# worktree whose shell carries PYTHONPATH=<main>/src, this steps aside and the
+# hook runs main's code: the very bug above. It cures the unset case, not the
+# inherited-main case. If a worktree still behaves like main, check the shell.
 _lib_prefer_this_checkout() {
   local _root _sep=":" _entry _rest
   _root="$(_lib_repo_root)"

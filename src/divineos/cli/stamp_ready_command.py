@@ -428,6 +428,20 @@ def _ancestry_rung(round_id: str, head_sha: str) -> tuple[bool, str]:
     added that is not purely generated makes her signature cover something she
     never read, with nothing anywhere to show it.
 
+    AND BESIDE IT, IN HER WORDS, THE CASE HER RULE DOES NOT REACH (Aletheia
+    2026-09-23, after her line above was the loudest text on screen and was
+    obeyed over a ruling Andrew had already made twice)::
+
+        "A CONFIRMS in the reviewer's own words is required when any file the
+        PR authored has changed. When only the floor moved -- every authored
+        file byte-identical to the reviewed commit, that commit an ancestor of
+        the tip, and the only differences from main or generated pages --
+        Andrew's standing permission covers it (2026-09-05, repeated
+        2026-09-23), filed under his actor, citing his words."
+
+    Byte-identical means byte-identical: a single authored sentence removed is
+    an authored change and goes to the reviewer as a diff, however stale it is.
+
     So the interpretive half stays with the reviewer, per round, in their own
     hand, and this verifies the half that has no interpretation in it. A round
     claiming no ancestry gets no rung at all and falls through to the refusal
@@ -1354,7 +1368,11 @@ def register(cli: click.Group) -> None:
                         f"    The ancestry rung does not save it either: {why}.\n"
                         f"    Nor the content rung: {content_why}.\n"
                         "    Get a round against the current tree, or pass --audit-round\n"
-                        "    naming the round that actually covers it.",
+                        "    naming the round that actually covers it.\n"
+                        "    If ONLY THE FLOOR moved (every authored file byte-identical to\n"
+                        "    the reviewed commit, that commit an ancestor of the tip), no\n"
+                        "    re-read is owed: Andrew's standing permission covers it, filed\n"
+                        "    as an --actor user CONFIRMS citing his words. See _ancestry_rung.",
                         fg="red",
                     )
                     click.secho(
