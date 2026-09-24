@@ -728,6 +728,8 @@ src/divineos/
     keeping_him.py             What he actually said, read out of the transcripts and kept.
     refusal_stretches.py       What has refused me this session, and whether it is the same thing again.
     breaker.py                 The Breaker — the lens that tries to kill the thing before it ships.
+    breaker.py                 The Breaker — the lens that tries to kill the thing before it ships.
+    questions_from_him.py      Questions built from what he actually said, not drawn from a list.
 
   analysis/
     _session_types.py          Session analysis type definitions
