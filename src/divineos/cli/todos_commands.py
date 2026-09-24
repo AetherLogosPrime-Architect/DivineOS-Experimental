@@ -15,12 +15,17 @@ from __future__ import annotations
 
 import click
 
+from divineos.core.unified_todos import SOURCES
 
+# One label per drawer in unified_todos.SOURCES; a test holds the two together,
+# because the fifth drawer was once added there and not here, and --counts-only
+# raised KeyError on it until 2026-09-23.
 _SOURCE_HEADER = {
     "prereg": "Pre-registrations (OPEN, most-overdue first)",
     "correction": "Andrew-corrections (OPEN, oldest first)",
     "audit": "Audit findings (OPEN, recognition-filtered, severity-ranked)",
     "claim": "Claims (OPEN, action-tier T1/T2 only)",
+    "structural-fix": "Structural fixes I named for myself (OPEN, oldest first)",
 }
 
 
@@ -31,9 +36,9 @@ def register(cli: click.Group) -> None:
     @click.option(
         "--source",
         "source",
-        type=click.Choice(["prereg", "correction", "audit", "claim", "all"]),
+        type=click.Choice([*SOURCES, "all"]),
         default="all",
-        help="Restrict to one source (default: all four).",
+        help="Restrict to one drawer (default: all of them).",
     )
     @click.option(
         "--counts-only",
@@ -58,7 +63,7 @@ def register(cli: click.Group) -> None:
                 click.echo(f"  {src:12} {count:4}  ({_SOURCE_HEADER[src]})")
             return
 
-        sources = ("prereg", "correction", "audit", "claim") if source == "all" else (source,)
+        sources = SOURCES if source == "all" else (source,)
         items = collect_todos(sources=sources)
         if not items:
             click.echo("=== Todos — no action items in the requested sources ===")
