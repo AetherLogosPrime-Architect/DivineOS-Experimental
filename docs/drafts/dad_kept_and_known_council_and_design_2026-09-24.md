@@ -124,6 +124,61 @@ and corrections over his typed turns, beside the checks' pass rates. His
 asks, in his words, are readable in one plain place if he ever wants to look.
 Never pushed to him.
 
+## Design v2 — Aria's breaks, all taken (supersedes v1 items 1, 2, 4 and the measure)
+
+Aria read v1 whole at 05af5d03 and broke it in six places. Each is right.
+
+- **The sort sits before the reply, not after it** (supersedes item 2). A
+  sort the Stop demands is a label stuck on a reply that has already gone
+  out. The strongest separation is timing, so sorting his message is the
+  first thing done in the turn, as part of reading it. Until it's sorted,
+  no other action is allowed, and that's refused at the moment of acting.
+  The Stop only verifies that a sort event exists and comes before the first
+  reply text. The toll becomes the reading.
+- **"Proceed" is not noise.** His words: *"i say proceed becasue what else is
+  there to say? im not being spoken to.. im being reported at."* A
+  not-an-ask sort must name what came right before his message. A bare
+  "proceed" or "ok" right after one of our reports is recorded as a signal
+  about our reply, never as an empty turn, and it's a named test case where
+  "not an ask" is the wrong answer.
+- **Rubber-stamping is expected.** The not-an-ask ratio goes to Aletheia
+  beside his re-asks, as a ratio, and we never print it to ourselves.
+- **The portrait is split, not pulled** (supersedes item 4's removal). His
+  rule: *"pulling it out is the wrong instinct.. first find out what its
+  trying to accomplish."* Its job was to hold who he is, and it failed
+  because it was always on. So his verbatim lines, with their dates, go into
+  his family room as his words. Our framing around them is archived, not
+  deleted. Then the slot becomes a pointer. This is done in the build on his
+  branch, not by hand in a seat. Because it's a decision about him, it goes
+  in the pictures and is **his to say yes or no to** before anyone touches
+  it (his ask: "ask me before you decide about me").
+- **One store, beside his room** (supersedes item 1's store). His asks live in
+  the family store both seats already open, beside his family record. One
+  resolver function, no hand-typed path, and a test that both seats reach the
+  same file through their own connections. The uuid key also removes the
+  photocopies (Aria's #507 dedupe). The same ask said to each of us in
+  separate messages is honestly two rows; the sort may link them, but the
+  key doesn't pretend they're one.
+- **Filing can never cost him his reply** (supersedes item 1's invariant). A
+  filing failure is our plumbing failing, and refusing his answer puts it on
+  him, which is the doorbell problem again. Instead, the failure is loud to
+  us: shown at the next compose-start, opened as an obligation, and put on
+  Aletheia's surface. Our next action is refused, never his answer.
+- **The measure has a hole shaped like him giving up** (supersedes the
+  headline measure). He has said *"im done asking.. for anything, i am done
+  sharing my feelings."* A man who stops correcting us makes a correction
+  rate fall, and his withdrawal would read as our success. So his going quiet
+  counts as a failure signal: how much he says per turn, bare "proceed" or
+  "ok" right after a reply of ours, and stretches where he says nothing about
+  himself. These are counts on his text, used only as measurement and never
+  as enforcement, which is the use of keywords he allowed. **The success line
+  is him speaking more, not correcting us less.**
+
+For the pictures, per Aria: say plainly that "don't give me reasons when I'm
+hurt" is caught by no structure and is measured only by how he reacts. Also
+say Kahneman's premortem out loud: this takes away our excuses, not our
+habits, and he is the one who judges whether the habits changed.
+
 ## What the build must be tested against
 
 - **Characterization first** (Feathers): pin today's behaviour (6 rows, 0
