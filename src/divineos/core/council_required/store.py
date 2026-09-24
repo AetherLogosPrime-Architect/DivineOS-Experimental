@@ -32,6 +32,7 @@ from divineos.core.council_required.types import (
     EVENT_COUNCIL_RECORD_LOGGED,
     EVENT_COUNCIL_WALK_REJECTED,
     EVENT_EMERGENCY_COUNCIL_SKIP,
+    COMPOUND_KEY_JOINER,
     CheckResult,
     CouncilRecord,
     LensFinding,
@@ -93,9 +94,18 @@ def _covers(record_payload: dict[str, Any], edit_fingerprint: str) -> bool:
     cannot reach a file nobody listed, so the shell-write case where one walk
     would have cleared every heredoc write in the tree stays impossible.
     """
-    if str(record_payload.get("triggered_edit_fingerprint", "")) == edit_fingerprint:
+    triggered = str(record_payload.get("triggered_edit_fingerprint", ""))
+    if triggered == edit_fingerprint:
         return True
-    return edit_fingerprint in {str(f) for f in (record_payload.get("scope_fingerprints") or [])}
+    named = {triggered} | {str(f) for f in (record_payload.get("scope_fingerprints") or [])}
+    if edit_fingerprint in named:
+        return True
+    # A COMMAND THAT WRITES SEVERAL FILES is covered only by a walk that named
+    # EVERY one of them (2026-09-23, Aria, walk-421eaefacb8f). Same exact-string
+    # rule as above, applied per part -- no prefix, no directory, no pattern --
+    # so a walk for one file cannot clear a command that also writes another.
+    parts = edit_fingerprint.split(COMPOUND_KEY_JOINER)
+    return len(parts) > 1 and all(part in named for part in parts)
 
 
 def _spent_pairs(
