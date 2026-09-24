@@ -66,6 +66,10 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+# The ONE answerer for where DivineOS data lives. See the note further down,
+# where this module's own copy of it used to sit.
+from divineos.core.paths import divineos_home
+
 # Surfaces worth naming, with the QUESTION each answers. The question is the
 # point — a filename tells me a log exists, not that it can tell me which hooks
 # never ran.
@@ -194,8 +198,31 @@ class Reading:
         return "LIVE"
 
 
-def divineos_home() -> Path:
-    return Path(os.path.expanduser("~")) / ".divineos"
+# THE HOME COMES FROM THE RESOLVER, NOT FROM HERE (2026-09-23).
+#
+# This file used to define its own `divineos_home()` returning `~/.divineos`,
+# honouring none of the four steps core.paths resolves in order: the
+# DIVINEOS_HOME override, an own-checkout marker, a worktree-parent marker,
+# then the default. So the index -- the audit channel reporting which
+# instruments are LIVE, EMPTY, SILENT or MISSING -- surveyed MY rooms whoever
+# ran it. From Aria's checkout, her dead instrument read LIVE because mine is.
+#
+# Beer, walk-3b65af27c439: an audit channel whose agreement between observers
+# is manufactured by its own blindness is worse than one that disagrees,
+# because disagreement would have been visible.
+#
+# WHY IT SURVIVED, and there are three answers, none of which is carelessness.
+# The repair for the IDENTICAL name collision on `member_home` was made in
+# this file, in one pass, on the function immediately below -- and this one,
+# directly above it, was never looked at: a fix applied at the site that
+# raised it, with no sweep of the file it was already inside. Every test in
+# tests/test_instruments.py passes a home in explicitly, so not one of them
+# ever exercised this resolution; the suite could not have caught it by
+# construction. And every other module under core/ already imports the
+# canonical resolver, so there was no wrong convention to follow -- this was
+# the single outlier in a house that otherwise agrees with itself.
+#
+# The import now sits with the others at the top of the file.
 
 
 def unrouted_member_home() -> Path:
