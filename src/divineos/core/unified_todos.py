@@ -187,7 +187,10 @@ def _correction_todos(now: float | None = None) -> list[TodoItem]:
                 summary=str(r.get("text") or r.get("description") or "")[:200],
                 age_days=age,
                 priority=int(-(age or 0) * 1000),  # oldest first
-                extra={"filed_at": ts},
+                # The whole text rides along so the task belt can tell when
+                # two rows are one correction filed twice (raw, then again
+                # under "Andrew verbatim:") -- the 200-char summary cannot.
+                extra={"filed_at": ts, "text": str(r.get("text") or "")},
             )
         )
     items.sort(key=lambda t: t.priority)

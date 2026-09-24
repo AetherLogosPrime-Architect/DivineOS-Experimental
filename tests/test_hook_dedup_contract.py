@@ -144,10 +144,6 @@ _RESIDUAL_EXEMPT = {
         "A pointer to explorations I have written. Carries no rule -- "
         "suppressing it costs this turn's list of matches and nothing else."
     ),
-    "next_task": (
-        "The top of the work queue. Information about state, not a constraint "
-        "on how I compose; the queue is still there to be read."
-    ),
     "lepos_floor": (
         "Carries a real constraint and genuinely owes a floor. Exempt only "
         "because it is ALIVE BY ACCIDENT and Aria is deciding the repair: it "
