@@ -57,6 +57,73 @@ def is_git_push_command(command: str) -> bool:
     return False
 
 
+# Options of `git push` that take a separate value, so the value is not the remote.
+_VALUE_OPTIONS = {"-o", "--push-option", "--repo", "--receive-pack", "--exec"}
+# Options that send branches whatever refspecs follow.
+_BRANCH_SENDING_OPTIONS = {"--all", "--mirror", "--branches"}
+
+
+def _destination_is_tag(refspec: str) -> bool:
+    """The DESTINATION half decides: ``refs/tags/x:refs/heads/main`` lands a branch."""
+    refspec = refspec.lstrip("+")
+    destination = refspec.split(":", 1)[1] if ":" in refspec else refspec
+    return destination.startswith("refs/tags/")
+
+
+def _segment_pushes_only_tags(segment: str) -> bool:
+    import shlex
+
+    try:
+        tokens = shlex.split(segment)
+    except ValueError:
+        return False
+    args = tokens[2:]  # after `git push`
+    tags_flag = False
+    positionals: list[str] = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg in _BRANCH_SENDING_OPTIONS:
+            return False  # both-empty: unparseable and sends-a-branch both mean the same thing to the caller -- run the branch check
+        if arg == "--tags":
+            tags_flag = True
+        elif arg in _VALUE_OPTIONS:
+            i += 1
+        elif not arg.startswith("-"):
+            positionals.append(arg)
+        i += 1
+    refspecs = positionals[1:]  # the first positional is the remote
+    if not refspecs:
+        return tags_flag
+    j = 0
+    while j < len(refspecs):
+        if refspecs[j] == "tag" and j + 1 < len(refspecs):
+            j += 2  # `git push origin tag v1` names a tag by keyword
+            continue
+        if not _destination_is_tag(refspecs[j]):
+            return False
+        j += 1
+    return True
+
+
+def pushes_only_tags(command: str) -> bool:
+    """True only when every ref the push could send lands under ``refs/tags/``.
+
+    A tag is a snapshot. It never merges, so asking a branch question of it --
+    is it fresh, would it delete anything from main -- refuses it for being
+    what it is. Aria 2026-09-24: an archive tag of a local-only fix was
+    refused as "twelve behind main", and the fix stayed on one disk.
+
+    Could-not-tell answers False, so the branch check runs: a parse failure,
+    ``--all``/``--mirror``/``--branches``, or a bare name such as
+    ``archive/foo``, which git may resolve to a branch. Spell a tag push
+    ``refs/tags/<name>`` and it is recognised.
+    """
+    segments = [s.strip() for s in re.split(r"&&|;|\|\|", command or "")]
+    pushes = [s for s in segments if _GIT_PUSH_RE.match(s)]
+    return bool(pushes) and all(_segment_pushes_only_tags(s) for s in pushes)
+
+
 _CD_PREFIX_RE = re.compile(r"""\s*cd\s+("[^"]+"|'[^']+'|\S+)""")
 _GIT_BASH_DRIVE_RE = re.compile(r"^/([A-Za-z])(?:/|$)")
 
