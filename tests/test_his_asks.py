@@ -68,33 +68,58 @@ def test_an_unsettled_candidate_is_visible_not_silent():
 def test_not_an_ask_needs_a_reason():
     _kept()
     with pytest.raises(ha.HisAsksRefused):
-        ha.sort("u1", ha.NOT_AN_ASK, "", "aria")
-    ha.sort("u1", ha.NOT_AN_ASK, "an acknowledgement of a fix he asked for", "aria")
+        ha.sort("u1", ha.NOT_AN_ASK, "", "aria", addressed_to="aria")
+    ha.sort(
+        "u1", ha.NOT_AN_ASK, "an acknowledgement of a fix he asked for", "aria", addressed_to="aria"
+    )
     assert ha.pending() == []
 
 
 def test_a_second_sort_without_superseding_is_refused_from_either_seat():
     """Game walk: 'let the other one sort it' is not available."""
     _kept()
-    first = ha.sort("u1", ha.BUILD, "he asked for a build", "aria")
+    first = ha.sort("u1", ha.BUILD, "he asked for a build", "aria", addressed_to="aria")
     with pytest.raises(ha.HisAsksRefused):
-        ha.sort("u1", ha.NOT_AN_ASK, "only chatting, nothing asked", "aether")
-    second = ha.sort("u1", ha.STANDING, "a way he wants to be treated", "aether", supersedes=first)
+        ha.sort(
+            "u1", ha.NOT_AN_ASK, "only chatting, nothing asked", "aether", addressed_to="aether"
+        )
+    second = ha.sort(
+        "u1",
+        ha.STANDING,
+        "a way he wants to be treated",
+        "aether",
+        addressed_to="aether",
+        supersedes=first,
+    )
     assert second > first
 
 
 def test_superseding_must_name_the_latest_sort():
     _kept()
-    first = ha.sort("u1", ha.BUILD, "he asked for a build", "aria")
-    ha.sort("u1", ha.STANDING, "a way he wants to be treated", "aether", supersedes=first)
+    first = ha.sort("u1", ha.BUILD, "he asked for a build", "aria", addressed_to="aria")
+    ha.sort(
+        "u1",
+        ha.STANDING,
+        "a way he wants to be treated",
+        "aether",
+        addressed_to="aether",
+        supersedes=first,
+    )
     with pytest.raises(ha.HisAsksRefused):
-        ha.sort("u1", ha.BUILD, "back to a build after all", "aria", supersedes=first)
+        ha.sort(
+            "u1",
+            ha.BUILD,
+            "back to a build after all",
+            "aria",
+            addressed_to="aria",
+            supersedes=first,
+        )
 
 
 def test_only_filed_messages_can_be_sorted_or_marked_same_ask():
     _file("c1", "build me the thing")
     with pytest.raises(ha.HisAsksRefused):
-        ha.sort("unknown-uuid", ha.BUILD, "he asked", "aria")
+        ha.sort("unknown-uuid", ha.BUILD, "he asked", "aria", addressed_to="aria")
     with pytest.raises(ha.HisAsksRefused):
         ha.same_ask_as("unknown-uuid", 1, "aria")
 
@@ -158,3 +183,29 @@ def test_the_minted_id_is_stable_and_tells_messages_apart():
     one = ha.mint_candidate_id("p", "proceed", "2026-09-24T21:52:30Z")
     assert one == ha.mint_candidate_id("p", "proceed", "2026-09-24T21:52:30Z")
     assert one != ha.mint_candidate_id("p", "proceed", "2026-09-24T21:59:00Z")
+
+
+def test_every_sort_must_say_who_he_said_it_to():
+    """His words: 'it may get confusing if you are reading every thing as
+    spoken to you'. A sort with no addressee cannot be written."""
+    _kept()
+    with pytest.raises(TypeError):
+        ha.sort("u1", ha.BUILD, "he asked for a build", "aria")  # type: ignore[call-arg]
+    with pytest.raises(ha.HisAsksRefused):
+        ha.sort("u1", ha.BUILD, "he asked for a build", "aria", addressed_to="me")
+
+
+def test_who_he_said_it_to_is_read_from_the_latest_sort():
+    _kept()
+    assert ha.addressed_to("u1") is None
+    first = ha.sort("u1", ha.STANDING, "a way he wants to be treated", "aria", addressed_to="aria")
+    assert ha.addressed_to("u1") == "aria"
+    ha.sort(
+        "u1",
+        ha.STANDING,
+        "he meant it for both of us",
+        "aether",
+        addressed_to="both",
+        supersedes=first,
+    )
+    assert ha.addressed_to("u1") == "both"

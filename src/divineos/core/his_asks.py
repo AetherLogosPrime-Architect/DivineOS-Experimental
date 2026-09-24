@@ -48,6 +48,14 @@ STANDING = "standing"
 NOT_AN_ASK = "not_an_ask"
 KINDS = (BUILD, STANDING, NOT_AN_ASK)
 
+# Who he said it to. Andrew, 2026-09-24: "if you are making a shared copy for
+# both of you then it needs to have some form of attribution, who it was said
+# to, or if its a general thing you can both share, or it may get confusing if
+# you are reading every thing as spoken to you". Named absolutely, never "this
+# seat": the store is shared, so a relative word would mean opposite things to
+# the two readers.
+ADDRESSEES = ("aria", "aether", "both")
+
 _OVERRIDE = "DIVINEOS_HIS_ASKS_DB"
 
 
@@ -100,6 +108,7 @@ def _conn() -> sqlite3.Connection:
             kind        TEXT NOT NULL,
             reason      TEXT NOT NULL,
             seat        TEXT NOT NULL,
+            addressed_to TEXT NOT NULL,
             sorted_at   REAL NOT NULL,
             supersedes  INTEGER
         );
@@ -240,16 +249,31 @@ def _filed(conn: sqlite3.Connection, uuid: str) -> bool:
     return row is not None and row[0] == FILED
 
 
-def sort(uuid: str, kind: str, reason: str, seat: str, supersedes: int | None = None) -> int:
-    """Say what a filed message of his is. Returns the sort's id.
+def sort(
+    uuid: str,
+    kind: str,
+    reason: str,
+    seat: str,
+    *,
+    addressed_to: str,
+    supersedes: int | None = None,
+) -> int:
+    """Say what a filed message of his is, and who he said it to. Returns the id.
 
     The judgement is ours and it is written down, attributed, and kept. A
     second sort of the same message must name the one it supersedes: a wrong
     sort is corrected in the open, never overwritten and never left to the
     other seat.
+
+    ``addressed_to`` is required and keyword-only, so no caller can sort a
+    message without saying who it was meant for, and no reader of the shared
+    store has to guess whether something said to the other seat was said to
+    them.
     """
     if kind not in KINDS:
         raise HisAsksRefused(f"kind must be one of {KINDS}")
+    if addressed_to not in ADDRESSEES:
+        raise HisAsksRefused(f"addressed_to must be one of {ADDRESSEES}: who he said it to")
     why = (reason or "").strip()
     if kind == NOT_AN_ASK and len(why) < 10:
         raise HisAsksRefused(
@@ -273,14 +297,31 @@ def sort(uuid: str, kind: str, reason: str, seat: str, supersedes: int | None = 
         if supersedes is not None and len(why) < 10:
             raise HisAsksRefused("superseding a sort needs a reason anyone can read")
         cur = conn.execute(
-            "INSERT INTO sorts (uuid, kind, reason, seat, sorted_at, supersedes) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (uuid, kind, why, seat, time.time(), supersedes),
+            "INSERT INTO sorts (uuid, kind, reason, seat, addressed_to, sorted_at, supersedes) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (uuid, kind, why, seat, addressed_to, time.time(), supersedes),
         )
         conn.commit()
         return int(cur.lastrowid or 0)
     finally:
         conn.close()
+
+
+def addressed_to(uuid: str) -> str | None:
+    """Who he said this message to, by its latest sort. None when unsorted.
+
+    Read this before reading his words as said to you. A message he said to
+    the other seat is his, and it is kept in the shared store, but it was not
+    spoken to the one reading it.
+    """
+    conn = _conn()
+    try:
+        row = conn.execute(
+            "SELECT addressed_to FROM sorts WHERE uuid = ? ORDER BY id DESC LIMIT 1", (uuid,)
+        ).fetchone()
+    finally:
+        conn.close()
+    return str(row[0]) if row else None
 
 
 def same_ask_as(uuid: str, request_id: int, seat: str) -> int:
