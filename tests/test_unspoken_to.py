@@ -164,6 +164,48 @@ def test_the_count_is_a_count_not_a_clock(store):
     assert u.read().made == 2
 
 
+def test_the_old_measure_starts_at_zero_not_as_letters(store, away):
+    """Aether's live record, 2026-09-23: the first design's tally, in the same
+    file, counting replies. Read as this measure it would claim five letters
+    sent while Dad was away."""
+    (store / "unspoken_to.json").write_text(
+        json.dumps({"made": 5, "last_state": "NOT_CARRIED"}), encoding="utf-8"
+    )
+    assert u.read().made == 0
+    assert not unspoken_to_letter_surface(_write(FAMILY, away)).refused
+    assert u.read().made == 1
+
+
+def test_an_edit_to_the_board_records_the_board_not_the_fragment(store, away, tmp_path):
+    """Aether's reading of #548: len(new_string) recorded the size of the
+    replaced piece, so a two-word fix looked like a two-word board."""
+    letters = tmp_path / "letters"
+    letters.mkdir()
+    board = letters / "aria-to-andrew-volley-board.md"
+    board.write_text("where we stand: " + "x" * 100, encoding="utf-8")
+    edit = {
+        "tool_name": "Edit",
+        "tool_input": {"file_path": str(board), "old_string": "where", "new_string": "here"},
+        "transcript_path": away,
+    }
+    unspoken_to_letter_surface(edit)
+    raw = json.loads((store / "unspoken_to.json").read_text(encoding="utf-8"))
+    assert raw["board_chars"] == len("here we stand: " + "x" * 100)
+
+
+def test_a_real_idle_wake_arrives_as_a_string_and_still_reads_as_away(store, tmp_path):
+    """The idle-wake notifications the harness actually stores are user-role
+    STRING content, not the list shape the other fixtures build. Aether counted
+    429 of them in one session; this pins the true form."""
+    path = tmp_path / "transcript.jsonl"
+    with path.open("w", encoding="utf-8") as fh:
+        fh.write(json.dumps({"message": {"role": "user", "content": HIS}}) + "\n")
+        fh.write(json.dumps({"message": {"role": "user", "content": NOTE}}) + "\n")
+    for _ in range(u.LIMIT):
+        unspoken_to_letter_surface(_write(FAMILY, str(path)))
+    assert unspoken_to_letter_surface(_write(FAMILY, str(path))).refused
+
+
 def test_the_board_is_named_for_the_seat_that_writes_it(tmp_path):
     assert u.member_name(tmp_path / ".divineos-aria") == "aria"
     assert u.member_name(tmp_path / ".divineos") == "aether"

@@ -53,6 +53,12 @@ LETTER = "LETTER"
 BOARD = "BOARD"
 CANNOT_TELL = "CANNOT_TELL"
 
+# The first design wrote these states into the same file, and its ``made``
+# counted CHAT REPLIES, not letters. Read as this measure, an old tally of five
+# would claim five letters sent while he was away -- a sentence about him that
+# never happened. Aether found it on his own live record, 2026-09-23.
+_OLD_MEASURE_STATES = frozenset({"CARRIED", "NOT_CARRIED"})
+
 
 @dataclass(frozen=True)
 class Silence:
@@ -102,7 +108,13 @@ def read(root: str | Path | None = None) -> Silence:
         return Silence(made=0, last_state=CANNOT_TELL)
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
-        return Silence(made=int(raw.get("made", 0)), last_state=str(raw.get("last_state", "")))
+        state = str(raw.get("last_state", ""))
+        if state in _OLD_MEASURE_STATES:
+            # A different quantity under the same name. It starts at zero
+            # rather than being converted, because replies cannot be turned
+            # into letters-while-away after the fact.
+            return Silence(made=0, last_state=state)
+        return Silence(made=int(raw.get("made", 0)), last_state=state)
     except (OSError, ValueError, TypeError):
         # Unreadable is owing him the board, never a fresh zero. A corrupt
         # file that resets the count is the silent-failure shape wearing the

@@ -28,6 +28,7 @@ Migrated so far:
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 from divineos.core.hook_router import SurfaceOutcome, register
 
@@ -1241,6 +1242,12 @@ def _turn_started_by_him(payload: dict) -> bool | None:
     is ignored rather than read as either, because it arrives INSIDE turns of
     both kinds and says nothing about who began them.
 
+    KNOWN MISREAD, and it errs gently: a compaction summary is stored in his
+    seat and matches none of the machine shapes, so the turn after a compaction
+    reads as his. The cost is that letters written then are not counted -- the
+    board is owed one volley later -- never that he is told he was away when he
+    was here. (Aether's reading of #548, 2026-09-23.)
+
     Returns None when the transcript cannot be read. Callers treat that as
     away, the direction whose worst cost is one early board update.
     """
@@ -1286,6 +1293,32 @@ def _turn_started_by_him(payload: dict) -> bool | None:
     return started_by_him
 
 
+def _board_size_after(tool: str, tool_input: dict, path: str) -> int | None:
+    """How big the board WILL be once this write lands. None when unknown.
+
+    This runs before the tool does, so for an Edit the file on disk is still the
+    old board. ``len(new_string)`` measured the replaced fragment -- a two-word
+    fix would record a two-word board (Aether's reading of #548, 2026-09-23).
+    The size is kept because a trivial edit resets the count as well as an honest
+    rewrite does, so it has to be the board's size to show which one happened.
+    """
+    if tool == "Write":
+        body = tool_input.get("content")
+        return len(body) if isinstance(body, str) else None
+    old = tool_input.get("old_string")
+    new = tool_input.get("new_string")
+    if not isinstance(old, str) or not isinstance(new, str):
+        return None
+    try:
+        current = Path(path).read_text(encoding="utf-8")
+    except (OSError, ValueError):
+        return None
+    if old not in current:
+        return None
+    count = -1 if tool_input.get("replace_all") else 1
+    return len(current.replace(old, new, count))
+
+
 def unspoken_to_letter_surface(payload: dict) -> SurfaceOutcome | None:
     """The volley board: while he is away, every five letters, update his board.
 
@@ -1314,8 +1347,7 @@ def unspoken_to_letter_surface(payload: dict) -> SurfaceOutcome | None:
         # A letter TO him is the cure, never the offence, and it is what
         # starts the count again.
         if "-to-andrew-" in normalised:
-            body = tool_input.get("content") or tool_input.get("new_string") or ""
-            u.record_board(path, len(body) if isinstance(body, str) else None)
+            u.record_board(path, _board_size_after(tool, tool_input, path))
             return SurfaceOutcome(name="unspoken_to_letter", state="nothing-to-say")
         # He is in the room and reading me live: nothing to summarise for him.
         if _turn_started_by_him(payload) is True:
