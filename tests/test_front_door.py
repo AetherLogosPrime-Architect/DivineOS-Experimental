@@ -382,6 +382,76 @@ def test_a_missing_transcript_settles_nothing_and_loses_nothing(tmp_path):
     assert _open() == [HIS]
 
 
+def _bash():
+    """Git Bash, never the WSL relay bare "bash" resolves to here (see
+    test_advisory_hooks_stay_advisory: that relay exits 1 without running the
+    hook, which is could-not-look, not a result)."""
+    import shutil
+    from pathlib import Path
+
+    for candidate in (
+        r"C:\Program Files\Git\bin\bash.exe",
+        "/usr/bin/bash",
+        shutil.which("bash") or "",
+    ):
+        if candidate and Path(candidate).exists() and "System32" not in candidate:
+            return candidate
+    return None
+
+
+needs_bash = pytest.mark.skipif(
+    _bash() is None, reason="no POSIX bash here -- could-not-look, which is not a pass"
+)
+
+
+@needs_bash
+def test_the_real_hook_keeps_then_settles_through_the_shell(tmp_path, temp_store):
+    """End to end through .claude/hooks/front-door.sh, the path the house runs."""
+    import os
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    env = {**os.environ, "DIVINEOS_HIS_ASKS_DB": str(temp_store)}
+
+    def hook(action, payload):
+        return subprocess.run(
+            [_bash(), ".claude/hooks/front-door.sh", action],
+            input=json.dumps(payload),
+            capture_output=True,
+            text=True,
+            cwd=root,
+            env=env,
+            timeout=60,
+        )
+
+    kept = hook("keep", {"prompt_id": "p-e2e", "prompt": HIS})
+    assert kept.returncode == 0, kept.stderr
+    assert _open() == [HIS], kept.stderr
+    path = _transcript(tmp_path, _turn("p-e2e", HIS, uuid="u-e2e"))
+    settled = hook("settle", {"transcript_path": str(path)})
+    assert settled.returncode == 0, settled.stderr
+    assert [k.uuid for k in ha.pending()] == ["u-e2e"], settled.stderr
+
+
+@needs_bash
+def test_a_broken_door_never_blocks_the_prompt(tmp_path):
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    done = subprocess.run(
+        [_bash(), ".claude/hooks/front-door.sh", "keep"],
+        input="this is not json",
+        capture_output=True,
+        text=True,
+        cwd=root,
+        timeout=60,
+    )
+    assert done.returncode == 0
+    assert "front-door" in done.stderr
+
+
 def test_an_unreadable_store_says_so(monkeypatch, tmp_path):
     monkeypatch.setattr(ha, "unsettled", lambda: None)
     assert fd.settle(tmp_path / "t.jsonl", "aether") is None

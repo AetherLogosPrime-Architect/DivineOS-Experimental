@@ -54,16 +54,29 @@ def test_an_ask_without_the_words_for_me_is_not_seen(detector):
     )
 
 
-def test_nothing_files_his_message_when_he_sends_it():
-    """FLIPS AT THE FRONT DOOR: a filer registers on UserPromptSubmit."""
+def _commands(event, matcher=None):
     settings = json.loads((ROOT / ".claude" / "settings.json").read_text(encoding="utf-8"))
-    commands = [
+    return [
         hook["command"]
-        for entry in settings["hooks"]["UserPromptSubmit"]
+        for entry in settings["hooks"][event]
+        if matcher is None or entry.get("matcher") == matcher
         for hook in entry["hooks"]
     ]
-    assert commands, "no prompt hooks read -- the instrument is broken, not the house"
-    assert not [c for c in commands if "his_asks" in c or "front-door" in c]
+
+
+def test_every_message_he_sends_is_kept_at_the_door():
+    """FLIPPED AT THE FRONT DOOR (was: nothing files his message when he sends it).
+
+    The wiring pin. Both earlier darknesses in this house -- the August memory
+    linkage and the door itself before this commit -- were a thing built and
+    never called, so the pin is on the calling, not the behaviour.
+    """
+    assert "bash .claude/hooks/front-door.sh keep" in _commands("UserPromptSubmit")
+
+
+def test_what_the_door_kept_is_settled_before_any_step_and_at_the_end_of_a_reply():
+    assert "bash .claude/hooks/front-door.sh settle" in _commands("PreToolUse", matcher="*")
+    assert "bash .claude/hooks/front-door.sh settle" in _commands("Stop")
 
 
 def test_a_bypass_that_leans_on_him_closes_clean(monkeypatch, tmp_path):
