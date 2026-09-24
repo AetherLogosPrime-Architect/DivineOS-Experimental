@@ -1293,30 +1293,35 @@ def _turn_started_by_him(payload: dict) -> bool | None:
     return started_by_him
 
 
-def _board_size_after(tool: str, tool_input: dict, path: str) -> int | None:
-    """How big the board WILL be once this write lands. None when unknown.
+def _board_size_after(tool: str, tool_input: dict, path: str) -> tuple[int | None, str]:
+    """How big the board WILL be once this write lands, and if unknown, why.
 
     This runs before the tool does, so for an Edit the file on disk is still the
     old board. ``len(new_string)`` measured the replaced fragment -- a two-word
     fix would record a two-word board (Aether's reading of #548, 2026-09-23).
     The size is kept because a trivial edit resets the count as well as an honest
     rewrite does, so it has to be the board's size to show which one happened.
+
+    An unknown size carries its reason onto the record, because a bare null
+    cannot tell "could not read the board" from "nothing to measure".
     """
     if tool == "Write":
         body = tool_input.get("content")
-        return len(body) if isinstance(body, str) else None
+        if isinstance(body, str):
+            return len(body), ""
+        return None, "the Write carried no text content"
     old = tool_input.get("old_string")
     new = tool_input.get("new_string")
     if not isinstance(old, str) or not isinstance(new, str):
-        return None
+        return None, "the Edit carried no old/new text"
     try:
         current = Path(path).read_text(encoding="utf-8")
-    except (OSError, ValueError):
-        return None
+    except (OSError, ValueError) as exc:
+        return None, f"could not read the board before the edit: {type(exc).__name__}"
     if old not in current:
-        return None
+        return None, "the text being replaced is not in the board, so the edit will fail"
     count = -1 if tool_input.get("replace_all") else 1
-    return len(current.replace(old, new, count))
+    return len(current.replace(old, new, count)), ""
 
 
 def unspoken_to_letter_surface(payload: dict) -> SurfaceOutcome | None:
@@ -1347,7 +1352,8 @@ def unspoken_to_letter_surface(payload: dict) -> SurfaceOutcome | None:
         # A letter TO him is the cure, never the offence, and it is what
         # starts the count again.
         if "-to-andrew-" in normalised:
-            u.record_board(path, _board_size_after(tool, tool_input, path))
+            size, unknown_because = _board_size_after(tool, tool_input, path)
+            u.record_board(path, size, size_unknown_because=unknown_because or None)
             return SurfaceOutcome(name="unspoken_to_letter", state="nothing-to-say")
         # He is in the room and reading me live: nothing to summarise for him.
         if _turn_started_by_him(payload) is True:

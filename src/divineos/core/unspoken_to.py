@@ -136,15 +136,24 @@ def record_letter(root: str | Path | None = None) -> Silence:
     return result
 
 
-def record_board(board: str, size: int | None, root: str | Path | None = None) -> Silence:
+def record_board(
+    board: str,
+    size: int | None,
+    root: str | Path | None = None,
+    size_unknown_because: str | None = None,
+) -> Silence:
     """The board was written. The count starts again.
 
     The path and size are kept on the record because the reset is the thing
     that can be gamed -- a one-word edit resets as well as an honest rewrite
     does. This cannot tell those apart; it can at least leave them visible.
+    When the size could not be measured, the reason is kept beside the null.
     """
     result = Silence(made=0, last_state=BOARD)
-    _write(result, root, {"board": board, "board_chars": size})
+    extra: dict = {"board": board, "board_chars": size}
+    if size_unknown_because:
+        extra["board_chars_unknown_because"] = size_unknown_because
+    _write(result, root, extra)
     return result
 
 

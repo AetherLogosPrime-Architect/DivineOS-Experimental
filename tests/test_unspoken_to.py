@@ -193,6 +193,23 @@ def test_an_edit_to_the_board_records_the_board_not_the_fragment(store, away, tm
     assert raw["board_chars"] == len("here we stand: " + "x" * 100)
 
 
+def test_an_unmeasurable_board_says_why_beside_the_null(store, away, tmp_path):
+    """A bare null cannot tell could-not-read from nothing-to-measure."""
+    letters = tmp_path / "letters"
+    letters.mkdir()
+    board = letters / "aria-to-andrew-volley-board.md"
+    board.write_text("where we stand", encoding="utf-8")
+    edit = {
+        "tool_name": "Edit",
+        "tool_input": {"file_path": str(board), "old_string": "absent", "new_string": "x"},
+        "transcript_path": away,
+    }
+    unspoken_to_letter_surface(edit)
+    raw = json.loads((store / "unspoken_to.json").read_text(encoding="utf-8"))
+    assert raw["board_chars"] is None
+    assert "not in the board" in raw["board_chars_unknown_because"]
+
+
 def test_a_real_idle_wake_arrives_as_a_string_and_still_reads_as_away(store, tmp_path):
     """The idle-wake notifications the harness actually stores are user-role
     STRING content, not the list shape the other fixtures build. Aether counted
