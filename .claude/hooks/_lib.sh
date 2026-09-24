@@ -464,14 +464,25 @@ sys.exit(0 if got == want else 3)
 # Doing it when this file is SOURCED puts it in the hook's own shell, which is
 # the only place an export survives. Idempotent, so the copy inside
 # find_divineos_python stays harmless for the callers that do run it directly.
+#
+# AN EXPLICIT CHOICE STILL WINS. What was wrong was the editable install
+# winning BY DEFAULT, a copy nobody picked. A caller whose PYTHONPATH already
+# names a directory providing divineos has picked which one to load -- my own
+# hand runs with PYTHONPATH=src, and tests/test_doorbell_absence.py shimming a
+# broken package to prove a doorbell says NOT RUNNING. Overriding that choice
+# silently would be the same fault in reverse: the hook deciding for the
+# caller what code the caller meant.
 _lib_prefer_this_checkout() {
-  local _root _sep=":"
+  local _root _sep=":" _entry _rest
   _root="$(_lib_repo_root)"
   [ -d "$_root/src" ] || return 0
   case "${OSTYPE:-}" in msys*|cygwin*|win*) _sep=";" ;; esac
-  case "${_sep}${PYTHONPATH:-}${_sep}" in
-    *"${_sep}${_root}/src${_sep}"*) return 0 ;;
-  esac
+  _rest="${PYTHONPATH:-}"
+  while [ -n "$_rest" ]; do
+    _entry="${_rest%%"$_sep"*}"
+    [ "$_entry" = "$_rest" ] && _rest="" || _rest="${_rest#*"$_sep"}"
+    [ -n "$_entry" ] && [ -f "$_entry/divineos/__init__.py" ] && return 0
+  done
   export PYTHONPATH="$_root/src${PYTHONPATH:+${_sep}${PYTHONPATH}}"
 }
 _lib_prefer_this_checkout
