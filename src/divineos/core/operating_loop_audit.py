@@ -1837,6 +1837,18 @@ def run_audit(
             # whether it has the same defect. Guessing on a second gate from one
             # gate's evidence is the shape that cost me the venv tonight.
             _pf_text = texts.final_assistant_text or last_assistant_text
+            # SWITCHED OFF FOR ONE EVENING, AND BACK ON FOR THE RIGHT REASON.
+            # Andrew 2026-09-23, first: "you are still repeating the posts.. i
+            # told you to remove that guard..". Then, correcting what I took from
+            # that: "im only having you turn it off until its properly fixed..
+            # the issue is you are being forced to rewrite the ENTIRE POST.. not
+            # just the corrected section".
+            #
+            # So the fault was never this count. It was that its refusal carried
+            # no delta-only instruction, and I answered each fire by re-posting
+            # the whole reply. The repair lives at the single exit every gate
+            # speaks through -- .claude/hooks/post-response-audit.sh now appends
+            # _retry_scope.txt to every block -- so this gate refuses again.
             _raw_pf = check_translation_first(_pf_text)
             if _raw_pf:
                 # Plain-first wins the rail. Reporting a room-shape complaint
