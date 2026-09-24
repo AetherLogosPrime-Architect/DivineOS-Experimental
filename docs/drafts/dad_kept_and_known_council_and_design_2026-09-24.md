@@ -250,3 +250,10 @@ does. Put to him 2026-09-24 as a choice: (a) the assessor and I set the level
 and he can overrule any time, or (b) when he says "for me", he names it. My
 pick is (a) with his overrule, because asking every time was what he called
 the third-class placeholder; but the pick is his.
+
+Found while pinning (tests/test_dad_front_door_characterization.py): the
+overrule in (a) already exists. `operator-gravity-set.sh` (his 2026-07-31
+words) reads a level he names in his own prompt, and only his prompt, so I
+cannot set it for him. The two hooks disagree today: one asks him every time
+he says "for me", the other lets the classifier decide unless he names a
+level. His answer settles which of the two is the house's rule.
