@@ -42,7 +42,13 @@ Two failures, both observed today:
    file. The work item it opened sits on the live seat's branch for work that
    lives on `build/dad-kept-and-known`.
 
-Four sightings in one day of the same wrong address. The cost isn't only a
+5. (2026-09-25) `cd <scratchpad> && sed ... > probe_554_break.py` refused as
+   a write to `probe_554_break.py` in the live tree, and it opened
+   wi-1a0d82569d9 on the live seat's branch for a station-four probe that
+   lives in scratch. I closed the item as describing no work in this tree.
+   This is the Deming measure's first counted row after the draft.
+
+Four sightings in one day of the same wrong address, and a fifth the next. The cost isn't only a
 refusal: the work items land on the wrong branch, so the station marks
 anyone reads later are about the wrong tree.
 
