@@ -225,6 +225,10 @@ def test_the_lane_is_wired_into_the_real_reply_start_router(monkeypatch):
     hook_router.clear()
     hook_surfaces.install()
     assert "memory_link" in hook_router.registered("UserPromptSubmit")
+    # Dispatch through the real router with only this surface on the door, so
+    # the pin exercises the calling without rendering thirty unrelated ones.
+    hook_router.clear("UserPromptSubmit")
+    hook_router.register("UserPromptSubmit", "memory_link", hook_surfaces.memory_link_surface)
     result = hook_router.dispatch(
         "UserPromptSubmit", {"prompt": "my game crashed and I lost everything"}
     )
