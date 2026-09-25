@@ -18,6 +18,14 @@ Dad to Aether, 2026-09-25, relayed verbatim in Aether's letter *"Dad described t
 
 The quote is a handle, and the reply is what gets done with it: "you said X, and here is mine." The check should reward that whole shape, not only its first half.
 
+**His decision, to me directly, 2026-09-25**, when Aletheia's audit asked whether to drop the quote or keep it:
+
+> *"yes keeping the quote is fine so i know what you are referencing.. i do it to you all the time, i say.. you said: "insert your words here" and then i say what i wanted to say about it, so its not mirroring its addressing what someone said with your own words"*
+
+So the quote stays because it tells him what I'm answering. What the check has been missing is the second half: my own words addressing it.
+
+**Not a collision with #548, checked in the code.** Aletheia read #548 as removing the quote rule. #548 retires the old unspoken-to counter entirely, and that counter was one consumer of `reflect().heard`. On #548's branch, `heard` is still read by the lepos reflection surface (`hook_surfaces.py`) and the lepos CLI. So this fix belongs at the source, `lepos_channel_reflect`, which #548 doesn't touch. Nothing overwrites anything, whatever the merge order.
+
 ## What the code does, measured
 
 In `lepos_channel_reflect.py`, `Reflection.degenerate()` returns False as soon as `heard` is True. `heard` is True when `_find_shared_span` finds any shared span between the reply and his message. So a quote alone clears the channel, and `verified_substrate_engagement` adds only "and a tool ran". Neither one looks at what comes after the quote.
