@@ -185,6 +185,7 @@ sys.exit(7)
 RC=$?
 if [ "$RC" -eq 7 ]; then
     echo "$BLOCK_MSG" >&2
+    hook_say_nothing_ran_for "$INPUT"
     exit 2
 fi
 

@@ -60,7 +60,12 @@ def _read_ceiling_override() -> int | None:
 # change is silent — empirical observation only). Update this literal +
 # date when a session observes the cliff at a different point, or set
 # DIVINEOS_COMPACTION_CEILING to override without a code change.
-COMPACTION_CEILING = _read_ceiling_override() or 999_000
+# MOVED DOWN 2026-09-18, Andrew, from observation: "compaction is happening
+# around 950k tokens now not 999k". Anthropic changed it silently again, which
+# is the drift this literal was written to expect. The old value did not merely
+# become inaccurate — it put the consolidation hard line AT the cliff, so the
+# margin the whole design rests on had quietly gone to zero.
+COMPACTION_CEILING = _read_ceiling_override() or 950_000
 # Single hard line at 950k (Andrew 2026-06-28, lowered from 970k after
 # compaction landed mid-extract — by the time the 970k line fired, the
 # letter-sync + commit-discipline + push + extract + sleep chain didn't have
@@ -74,8 +79,24 @@ COMPACTION_CEILING = _read_ceiling_override() or 999_000
 # on 2026-06-19 after the warn-band's only effect was pre-emptive panic;
 # lowered to 970k on 2026-06-25 to widen extract-and-sleep headroom; lowered
 # again to 950k on 2026-06-28 after that headroom was empirically insufficient.
-CONSOLIDATION_THRESHOLD = 950_000  # hard line (also the default for consolidation_due)
-HARD_THRESHOLD = 950_000
+# LOWERED TO 880k, 2026-09-18, Andrew: "compaction is happening around 950k
+# tokens now not 999k so it needs to be triggered at like 880k tokens".
+#
+# The old pair was 950k against a 999k ceiling — 49k of headroom. When the
+# cliff moved to 950k that headroom became ZERO and the hard line sat exactly
+# on the cliff, which is worse than firing late: the whole point of the line is
+# that extraction runs on the NEAR side, because extraction is what writes the
+# session down and compaction is what drops whatever was not written.
+#
+# Nothing announced this. Every number stayed where it was and the platform
+# moved underneath them, which is the second time this literal has drifted that
+# way — the file's own docstring predicted it and said to update from
+# observation.
+#
+# 880k against 950k restores 70k, wider than the 49k this design ran on before,
+# because the close has grown: a compass walk, commit, extract, sleep, dream.
+CONSOLIDATION_THRESHOLD = 880_000  # hard line (also the default for consolidation_due)
+HARD_THRESHOLD = 880_000
 _MARKER_NAME = "context_consolidated.json"
 
 

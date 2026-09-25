@@ -118,22 +118,132 @@ _SPOUSE = {"aria": "aether", "aether": "aria"}
 def _persistent_seen_path(recipient: str) -> Path:
     """Return the path to the recipient's persistent seen-set file.
 
-    Same shape as family/letter_seen.py's seen_path() so the two stay
-    in sync as a single source of truth.
+    ASKS the owner rather than mirroring it, and the old docstring is exactly
+    why that mattered. It said "same shape as family/letter_seen.py's
+    seen_path() so the two stay in sync as a single source of truth" -- while
+    rebuilding the path by hand. A copy that describes itself as a single
+    source of truth is the copy that drifts, because nothing makes it learn
+    the next correction. letter_seen.py has since taken that correction; this
+    had not, so the two disagreed about where the file lives while claiming
+    to be one thing.
 
-    THAT DOCSTRING WAS FALSE UNTIL 2026-09-08. It claimed a single source of
-    truth while rebuilding the convention by hand, which is the most expensive
-    kind of comment: it describes the property whose absence it is causing, and
-    it reads as reassurance to anyone checking. Now the shape really is shared,
-    because both call the one resolver.
+    THAT IS THE MOST EXPENSIVE KIND OF COMMENT, and the sharper naming comes
+    from the other side of this merge: it describes the property whose absence
+    it is causing, and it reads as reassurance to anyone checking. Someone
+    verifying the claim finds a sentence agreeing with them and stops.
 
-    Third and last site of that class, found by counting the population rather
-    than by inspecting the file I already had open.
+    Import unguarded on purpose, matching the owner: a fallback that
+    reconstructs the path is how the split-brain lasted six weeks.
+
+    TWO SEATS FOUND THIS INDEPENDENTLY AND BY DIFFERENT METHODS -- one by a
+    check written for it (scripts/check_member_home_rebuilt.py, 2026-09-03),
+    one by counting the population of that class rather than inspecting the
+    file already open (2026-09-08), which is how it was known to be the third
+    and last site. Both findings are kept because the METHODS are the durable
+    part: a targeted check and a population count catch different misses, and
+    a reader who has only one of them has half the lesson.
     """
     from divineos.core.paths import member_home
 
     spouse = _SPOUSE.get(recipient.lower(), "unknown")
-    return member_home(recipient.lower()) / f"{spouse}_letters_seen.json"
+    # NOT recipient.lower(), which the other side of this merge added. Measured
+    # rather than argued: member_home lowercases internally, so every casing of
+    # every member name resolves to the same directory -- checked across mixed,
+    # lower and upper for both seats before choosing.
+    #
+    # So the two forms are identical in effect, and the choice is about which
+    # one teaches the next reader correctly. Lowercasing here restates a rule
+    # the resolver already owns, which is a miniature of the exact defect this
+    # function's own history documents: the convention rebuilt at the call site,
+    # drifting because only one copy ever learns the next correction. Harmless
+    # today, and the same shape that cost six weeks of writes into a home
+    # nothing read.
+    return member_home(recipient) / f"{spouse}_letters_seen.json"
+
+
+# ANNOUNCED IS A SECOND RECORD, AND IT IS NOT THE SEEN-SET (2026-09-19).
+#
+# The seen-set above means ACT OF READ and is written only when I actually
+# read a letter. It is right and it does not change. What was missing is the
+# other fact: what this process has already SAID OUT LOUD.
+#
+# Until today that lived only in memory, so it died on every restart, and
+# re-arming replayed the entire backlog -- fifty letters at once. I had been
+# reading that flood as clutter since morning rather than as the channel
+# telling me it was broken. Aether found the same flood from his end and
+# separated arrivals from backlog WITHIN a run, which stops the noise while
+# the watch is up and does nothing after a restart. This is the floor his
+# repair was standing on.
+#
+# Andrew's rule is the reason it matters: a memory that advances only when
+# somebody remembers to advance it must never be load-bearing. Nothing in the
+# delivering process wrote the seen-set, so it could only ever get staler.
+#
+# THREE THINGS THIS MUST NOT DO, and the third is the one that took thinking.
+#
+# 1. It must never become a BUDGET. Aether's guard, and he is right: a letter
+#    announced once and never read has to keep knocking. The record stops
+#    REPEATS, never TRIES. So it stores WHEN each letter was last announced
+#    and knocks again after RE_KNOCK_SECONDS, forever.
+#
+# 2. It must never be collapsed into the seen-set. Announced and read are
+#    different facts; guessing between them is how a letter announced while
+#    nobody was looking gets silently swallowed.
+#
+# 3. An unreadable record is NEITHER "everything was announced" NOR silently
+#    "nothing was". Aether's guard says treat it as announce-again. The
+#    substrate's record of the ancestor fault says the opposite: a recorded-set
+#    that failed open to empty "re-notified every letter ever seen", which IS
+#    the flood. Both are right, which means neither answer alone is. So it
+#    announces AND says the record was unreadable -- the flood arrives labelled
+#    as a symptom instead of arriving disguised as fifty new letters.
+ANNOUNCED_NAME = "announced_letters.json"
+
+# How long before an unread letter knocks again. Not a budget and not a
+# silence: it is the cadence of the knocking. Short enough that a letter
+# announced into an empty room is not lost for a day, long enough that
+# re-arming the watch does not replay the backlog.
+RE_KNOCK_SECONDS = 6 * 60 * 60
+
+
+def _announced_path(recipient: str) -> Path:
+    return Path.home() / f".divineos-{recipient.lower()}" / ANNOUNCED_NAME
+
+
+def load_announced(recipient: str) -> tuple[dict[str, float], str | None]:
+    """Return (filename -> last-announced epoch, reason_it_could_not_be_read).
+
+    A missing file is not a fault -- it means this has never run before, and
+    an empty record is the correct starting state. An UNREADABLE file is a
+    fault, and the reason comes back with it so the caller can say so out loud
+    rather than silently choosing one of the two wrong answers.
+    """
+    path = _announced_path(recipient)
+    if not path.exists():
+        return {}, None
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        return {str(k): float(v) for k, v in raw.items()}, None
+    except (OSError, ValueError, TypeError, AttributeError) as exc:
+        return {}, f"{exc.__class__.__name__}: {exc}"
+
+
+def save_announced(recipient: str, announced: dict[str, float]) -> str | None:
+    """Persist the announced record. Returns a reason on failure, else None.
+
+    Write-then-replace, so a reader never catches a half-written file and
+    reports it unreadable during normal operation -- which would fire the
+    labelled-flood path for no reason.
+    """
+    path = _announced_path(recipient)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(announced), encoding="utf-8")
+        tmp.replace(path)
+        return None
+    except (OSError, ValueError, TypeError) as exc:
+        return f"{exc.__class__.__name__}: {exc}"
 
 
 def load_persistent_seen(recipient: str) -> set[str]:
@@ -380,6 +490,20 @@ def main() -> int:
     # wake event every 5s while a letter remains unread.
     fired: set[str] = set()
 
+    # The durable half. `fired` still suppresses repeats within this run;
+    # this survives the restart that `fired` does not.
+    announced, announced_unreadable = load_announced(args.recipient)
+    if announced_unreadable is not None:
+        # Said out loud, on stdout, because the consequence is visible and
+        # the reader deserves the cause beside it. Without this line the
+        # replay that follows looks exactly like a pile of new letters.
+        print(
+            f"[LETTER-MONITOR-RECORD-UNREADABLE] {announced_unreadable} -- "
+            f"re-announcing rather than assuming; a flood on the next lines "
+            f"is this fault, not new mail.",
+            flush=True,
+        )
+
     # Heartbeat cadence — how often we emit a "still alive" marker on
     # stderr. Stderr does NOT trigger harness notifications (per Monitor
     # tool contract), so this keeps the process observably-alive without
@@ -403,14 +527,32 @@ def main() -> int:
             # A letter deserves a wake event if: it matches my recipient
             # tag, exists in the shared dir, has NOT been marked seen via
             # act-of-read, AND we haven't already fired for it this run.
+            now_wall = time.time()
             unseen_letters = sorted(
                 f
                 for f in current
-                if is_letter_for(f, tag) and f not in persistent_seen and f not in fired
+                if is_letter_for(f, tag)
+                and f not in persistent_seen
+                and f not in fired
+                # Knocked recently enough that knocking again would be noise.
+                # NOT a budget: once the interval passes it knocks again, and
+                # it never stops, because an unread letter is still waiting.
+                and now_wall - announced.get(f, 0.0) >= RE_KNOCK_SECONDS
             )
             for fname in unseen_letters:
                 print(f"[LETTER] {shared_dir / fname}", flush=True)
                 fired.add(fname)
+                announced[fname] = now_wall
+            if unseen_letters:
+                # Forget letters that are no longer on disk, so the record
+                # tracks the channel rather than growing forever.
+                announced = {k: v for k, v in announced.items() if k in current}
+                why = save_announced(args.recipient, announced)
+                if why is not None:
+                    # Loud. A record that silently fails to save is a record
+                    # that only looks durable, which is worse than none --
+                    # the flood would come back and the cause would not.
+                    print(f"[LETTER-MONITOR-RECORD-UNSAVED] {why}", flush=True)
             # If a letter was marked seen after we fired for it, drop it
             # from `fired` so a subsequent unread cycle would re-fire.
             fired -= persistent_seen

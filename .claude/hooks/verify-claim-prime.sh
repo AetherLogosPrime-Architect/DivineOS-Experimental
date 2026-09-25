@@ -155,6 +155,23 @@ state_check_patterns = [
     r'\bpsf-[0-9a-f]{8}\b',
     r'\bprereg-[0-9a-f]{12}\b',
     r'\bfinding-[0-9a-f]{6,}\b',
+    # A PENDING OBLIGATION ASSIGNED TO A PERSON is a state-claim about a
+    # record, and it was slipping past every pattern above (Aria 2026-09-21).
+    # I told Andrew a branch was "waiting on your signature and Aletheia's".
+    # His was already on the round; only hers was missing. The round was one
+    # query away and I asserted from memory instead, because a sentence about
+    # what somebody still owes does not FEEL like a claim about external state
+    # -- it feels like reporting a blockage, which is the same self-exempting
+    # move check 5 names for universal negatives about a person.
+    #
+    # The direction matters: this error ADDS an obligation to someone who had
+    # already discharged it, which nobody audits, because the person who did
+    # the thing is not usually re-reading my account of who still owes what.
+    r'\b(?:waiting|blocked|stuck|held\s+up)\s+on\s+(?:you|your|him|her|them|andrew|aletheia|aether)\b',
+    r'\bneeds?\s+(?:your|his|her|their|andrew\'?s|aletheia\'?s|aether\'?s)\s+'
+    r'(?:signature|sign-?off|confirm\w*|approval|review|ok|word)\b',
+    r'\b(?:has|have|hasn\'?t|haven\'?t|did\s+not|didn\'?t)\s+(?:not\s+)?'
+    r'(?:signed|confirmed|approved|reviewed|answered)\b',
     r'\bcommit\s+[0-9a-f]{7,40}\b',
     r'\bPR\s+#\d+\b',
     r'\b(?:pull\s+request|pull-request)\s+#?\d+\b',

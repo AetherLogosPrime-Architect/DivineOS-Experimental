@@ -391,6 +391,17 @@ if ! python scripts/check_retired_rules_not_served.py; then
     note_fail
 fi
 
+# A refusing gate whose refusal sits behind a load that exits 0 on failure will
+# ALLOW what it exists to stop, the moment that load breaks. Aletheia found it
+# in the emergency stop itself, 2026-09-21. The stop is repaired; the rest are
+# pinned in a baseline that may shrink and never grow, so the next instance
+# blocks here rather than arriving quietly. Her rule from an earlier round is
+# the reason this is a check and not a note: a detector makes it a property.
+section "Refusal Order"
+if ! python scripts/check_refusal_before_failsoft.py; then
+    note_fail
+fi
+
 # 5b. Pre-reg gate (un-gameable): new mechanisms require a filed pre-reg.
 # The gate reads the staged diff and blocks when a new mechanism lacks a
 # matching OPEN pre-registration in the ledger. Discipline from the
