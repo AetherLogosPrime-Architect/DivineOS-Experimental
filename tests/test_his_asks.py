@@ -74,8 +74,16 @@ def test_not_an_ask_needs_a_reason():
     _kept()
     with pytest.raises(ha.HisAsksRefused):
         ha.sort("u1", ha.NOT_AN_ASK, "", "aria", addressed_to="aria")
+    # Since 2026-09-24 a dismissal also needs what we sent him right before it
+    # (tests/test_proceed_is_not_noise.py). This helper's door captured none,
+    # so the sorter quotes it.
     ha.sort(
-        "u1", ha.NOT_AN_ASK, "an acknowledgement of a fix he asked for", "aria", addressed_to="aria"
+        "u1",
+        ha.NOT_AN_ASK,
+        "an acknowledgement of a fix he asked for",
+        "aria",
+        addressed_to="aria",
+        preceded_by="Fixed: the photocopies are gone, and the pin is on his real record.",
     )
     assert ha.pending() == []
 

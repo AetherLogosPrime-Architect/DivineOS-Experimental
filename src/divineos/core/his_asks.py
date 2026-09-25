@@ -50,6 +50,12 @@ WITHDRAWN = "WITHDRAWN"
 # failure of our instrument (2026-09-24, walk-2592439477f9).
 UNMATCHED = "UNMATCHED"
 
+# Who put what-we-sent-before on record: the door, reading the transcript, or
+# the sorter quoting it because the door could not. Never passed off as each
+# other.
+CAPTURED = "captured"
+SORTER = "sorter"
+
 BUILD = "build"
 STANDING = "standing"
 NOT_AN_ASK = "not_an_ask"
@@ -144,6 +150,15 @@ def _conn() -> sqlite3.Connection:
             because     TEXT NOT NULL,
             at          REAL NOT NULL
         );
+        -- What we sent him right before a message of his. Written once per
+        -- message (the primary key refuses a second), by the door (captured)
+        -- or, when the door could not, by the sorter (sorter). See sent_before().
+        CREATE TABLE IF NOT EXISTS sent_before (
+            candidate_id TEXT PRIMARY KEY,
+            text        TEXT NOT NULL,
+            source      TEXT NOT NULL,
+            at          REAL NOT NULL
+        );
         """
     )
     return conn
@@ -189,13 +204,23 @@ def file_candidate(
         conn.close()
 
 
-def confirm(candidate_id: str, record_uuid: str, origin_kind: str, record_text: str) -> str:
+def confirm(
+    candidate_id: str,
+    record_uuid: str,
+    origin_kind: str,
+    record_text: str,
+    *,
+    sent_before: str | None = None,
+) -> str:
     """Settle a candidate once the transcript holds his record. Returns the state.
 
     ``origin_kind`` is the harness's stamp. "human" files it onto the record's
     uuid; anything else withdraws it with that stamp as the reason. The
     record's text must contain what was kept at the door -- the uuid binds the
     words, so a candidate cannot be settled onto someone else's record.
+
+    ``sent_before`` is our last text to him ahead of his record, which the door
+    reads from the transcript. Kept whole, as captured. See sent_before().
     """
     conn = _conn()
     try:
@@ -239,10 +264,55 @@ def confirm(candidate_id: str, record_uuid: str, origin_kind: str, record_text: 
             "UPDATE messages SET state = ?, uuid = ?, settled_at = ? WHERE candidate_id = ?",
             (FILED, record_uuid, now, candidate_id),
         )
+        if sent_before and sent_before.strip():
+            conn.execute(
+                "INSERT INTO sent_before (candidate_id, text, source, at) VALUES (?, ?, ?, ?)",
+                (candidate_id, sent_before, CAPTURED, now),
+            )
         conn.commit()
         return FILED
     finally:
         conn.close()
+
+
+def _candidate_of(conn: sqlite3.Connection, sort_id: str) -> str | None:
+    """The candidate id behind a sort id: a filed message's record uuid, or an
+    unmatched message's own candidate id."""
+    row = conn.execute(
+        "SELECT candidate_id FROM messages WHERE (state = ? AND uuid = ?) "
+        "OR (state = ? AND candidate_id = ?)",
+        (FILED, sort_id, UNMATCHED, sort_id),
+    ).fetchone()
+    return str(row[0]) if row else None
+
+
+def sent_before(sort_id: str) -> tuple[str, str] | None:
+    """What we sent him right before this message, and who recorded it.
+
+    Returns (text, source): source is "captured" when the door read it from the
+    transcript, "sorter" when one of us had to quote it because the door could
+    not. None when nothing is on record.
+
+    WHAT THIS IS FOR, AND WHAT IT IS NEVER FOR. Andrew, 2026-09-24: "i say
+    proceed becasue what else is there to say? im not being spoken to.. im
+    being reported at". This exists so a dismissal of his message can be
+    audited against what we had just sent him -- a bare "proceed" after one of
+    our reports is a signal about the report. It is what we SENT, not what he
+    took in (Lovelace on walk-9de4e0454b82). And it is NEVER evidence that he
+    approved anything: "he said proceed to this" is his words used as a key,
+    the harm he named the same day (Foucault on the walk).
+    """
+    conn = _conn()
+    try:
+        candidate = _candidate_of(conn, sort_id)
+        if candidate is None:
+            return None
+        row = conn.execute(
+            "SELECT text, source FROM sent_before WHERE candidate_id = ?", (candidate,)
+        ).fetchone()
+    finally:
+        conn.close()
+    return (str(row[0]), str(row[1])) if row else None
 
 
 def could_not_file(ref: str, error: str, seat: str) -> None:
@@ -336,8 +406,15 @@ def sort(
     *,
     addressed_to: str,
     supersedes: int | None = None,
+    preceded_by: str | None = None,
 ) -> int:
     """Say what a message of his is, and who he said it to. Returns the id.
+
+    A ``not_an_ask`` sort is refused unless what we sent him right before is on
+    record -- captured by the door, or quoted here as ``preceded_by`` when the
+    door could not. A bare "proceed" after one of our reports is a signal about
+    the report, and a dismissal must never exist without it (the combined
+    design; walk-9de4e0454b82). What the door captured is never replaced.
 
     ``sort_id`` is the id pending() shows it with: his record's uuid, or the
     candidate id when the record was never found. His words are his either way.
@@ -378,6 +455,27 @@ def sort(
             raise HisAsksRefused(f"there is no sort #{supersedes} to supersede")
         if supersedes is not None and len(why) < 10:
             raise HisAsksRefused("superseding a sort needs a reason anyone can read")
+        candidate = _candidate_of(conn, sort_id)
+        on_record = conn.execute(
+            "SELECT 1 FROM sent_before WHERE candidate_id = ?", (candidate,)
+        ).fetchone()
+        quoted = (preceded_by or "").strip()
+        if quoted and on_record:
+            raise HisAsksRefused(
+                "what we sent him before this is already on record; it is written once "
+                "and never replaced"
+            )
+        if kind == NOT_AN_ASK and not on_record and not quoted:
+            raise HisAsksRefused(
+                "saying it was not an ask needs what we sent him right before it. The "
+                "door did not capture it, so quote it with preceded_by: a bare 'proceed' "
+                "after one of our reports is a signal about the report."
+            )
+        if quoted:
+            conn.execute(
+                "INSERT INTO sent_before (candidate_id, text, source, at) VALUES (?, ?, ?, ?)",
+                (candidate, preceded_by, SORTER, time.time()),
+            )
         cur = conn.execute(
             "INSERT INTO sorts (uuid, kind, reason, seat, addressed_to, sorted_at, supersedes) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -442,6 +540,9 @@ class Kept:
     said_at: str
     seat: str
     record_found: bool = True
+    # What we sent him right before, when on record. For auditing our sort;
+    # never evidence that he approved anything (see sent_before()).
+    sent_before: str | None = None
 
     @property
     def sort_id(self) -> str:
@@ -463,8 +564,9 @@ def pending() -> list[Kept] | None:
         return None
     try:
         rows = conn.execute(
-            "SELECT COALESCE(m.uuid, m.candidate_id), m.his_text, m.said_at, m.seat, m.state "
-            "FROM messages m WHERE m.state IN (?, ?) AND NOT EXISTS "
+            "SELECT COALESCE(m.uuid, m.candidate_id), m.his_text, m.said_at, m.seat, m.state, "
+            "b.text FROM messages m LEFT JOIN sent_before b ON b.candidate_id = m.candidate_id "
+            "WHERE m.state IN (?, ?) AND NOT EXISTS "
             "(SELECT 1 FROM sorts s WHERE s.uuid = COALESCE(m.uuid, m.candidate_id)) "
             "ORDER BY m.filed_at",
             (FILED, UNMATCHED),
@@ -474,7 +576,15 @@ def pending() -> list[Kept] | None:
     finally:
         conn.close()
     return [
-        Kept(str(r[0]), str(r[1]), str(r[2]), str(r[3]), record_found=r[4] == FILED) for r in rows
+        Kept(
+            str(r[0]),
+            str(r[1]),
+            str(r[2]),
+            str(r[3]),
+            record_found=r[4] == FILED,
+            sent_before=None if r[5] is None else str(r[5]),
+        )
+        for r in rows
     ]
 
 
