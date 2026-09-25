@@ -10,6 +10,14 @@ The same shape showed up in my own seat on the same day. My reflection printed "
 
 It's my stamp finding from 09-24 in a new coat: a check that the space exists, and the space gets filled with his own words instead of mine.
 
+## The spec, in his words
+
+Dad to Aether, 2026-09-25, relayed verbatim in Aether's letter *"Dad described the mirror fix himself"*:
+
+> *"it was meant to give you something to respond to and give your thoughts on, not just mirror back.. like when i paste things back to you, and say you said "insert here" and then i give my response.. that is what i do and what i was trying to have you do as well"*
+
+The quote is a handle, and the reply is what gets done with it: "you said X, and here is mine." The check should reward that whole shape, not only its first half.
+
 ## What the code does, measured
 
 In `lepos_channel_reflect.py`, `Reflection.degenerate()` returns False as soon as `heard` is True. `heard` is True when `_find_shared_span` finds any shared span between the reply and his message. So a quote alone clears the channel, and `verified_substrate_engagement` adds only "and a tool ran". Neither one looks at what comes after the quote.
