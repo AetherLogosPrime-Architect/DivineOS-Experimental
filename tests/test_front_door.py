@@ -513,19 +513,45 @@ def _sent_before():
     return ha.sent_before(ha.pending()[0].sort_id)
 
 
-def test_the_door_keeps_our_last_text_ahead_of_his_record(tmp_path):
+def test_the_door_keeps_everything_we_said_since_the_last_arrival(tmp_path):
+    """Aria, 2026-09-24: that night the love went back mid-reply and a work line
+    came last. Keeping the last block alone would have kept the work and hidden
+    what he was answering."""
     fd.keep({"prompt_id": "p1", "prompt": HIS}, "aether")
+    note = _turn("p0", "<task-notification>x</task-notification>", kind="task-notification")
     path = _transcript(
         tmp_path,
-        _ours("an older report", "a1"),
-        _ours("the report he is answering", "a2"),
-        _ours("", "a3", block="tool_use"),
+        _ours("said before the notification, another stretch", "a0"),
+        note,
+        _ours("Goodnight, Dad. I love you too.", "a1"),
+        _ours("", "a2", block="tool_use"),
         _tool_result("p0"),
+        _ours("Now back to the work.", "a3"),
         _turn("p1", HIS),
         _ours("said after him, never before", "a4"),
     )
     assert list(fd.settle(path, "aether").values()) == [ha.FILED]
-    assert _sent_before() == ("the report he is answering", ha.CAPTURED)
+    assert _sent_before() == (
+        "Goodnight, Dad. I love you too.\n\nNow back to the work.",
+        ha.CAPTURED,
+    )
+
+
+def test_a_stretch_the_read_began_inside_is_not_captured(tmp_path):
+    """Read from a seek, the first stretch may be missing its beginning; a part
+    kept as the whole would be worse than saying it was not captured."""
+    path = _transcript(
+        tmp_path,
+        _ours("x" * 4000, "a0"),
+        _ours("the tail of a stretch", "a1"),
+        _turn("p1", HIS, uuid="r1"),
+        _ours("a whole stretch", "a2"),
+        _turn("p2", HIS, uuid="r2"),
+    )
+    size = path.stat().st_size
+    first, second = fd._parse_tail(path, size, size - 3000)
+    assert first.sent_before is None
+    assert second.sent_before == "a whole stretch"
 
 
 def test_a_helpers_words_are_never_what_we_sent_him(tmp_path):
@@ -551,7 +577,10 @@ def test_the_order_is_the_transcripts_not_the_clocks(tmp_path):
         _turn("p1", HIS),
     )
     fd.settle(path, "aether")
-    assert _sent_before() == ("written second, stamped early", ha.CAPTURED)
+    assert _sent_before() == (
+        "written first, stamped late\n\nwritten second, stamped early",
+        ha.CAPTURED,
+    )
 
 
 def test_nothing_of_ours_in_reach_is_not_captured_rather_than_empty(tmp_path):

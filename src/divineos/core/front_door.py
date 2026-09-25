@@ -142,9 +142,13 @@ class _Record:
     prompt_id: str | None  # None for a queue slip, which carries none
     stamp: str | None  # the harness's origin.kind; None when it gave none
     text: str
-    # Our last text to him ahead of this record, in the transcript's own order
-    # (Lamport), tool calls and results skipped (Polya). None when the part of
-    # the transcript read holds none: not captured, which is not "said nothing".
+    # Every text of ours since the previous thing that arrived in his seat, in
+    # the transcript's own order (Lamport), tool calls and results skipped
+    # (Polya). Widened from the last block 2026-09-24 (Aria): that night his
+    # love was returned mid-reply and a work line came last, so the last block
+    # alone would have kept the work and hidden what he was answering. None
+    # when nothing of ours was said, or when the read began mid-stretch and the
+    # stretch cannot be known whole: not captured, which is not "said nothing".
     sent_before: str | None = None
 
 
@@ -199,7 +203,10 @@ def _parse_tail(transcript_path: Path, size: int, window: int) -> list[_Record]:
     except OSError:
         return []
     found = []
-    ours: str | None = None
+    ours: list[str] = []
+    # Reading from the file's start, the first stretch is whole; reading from a
+    # seek, it is known whole only once something in his seat bounds it.
+    bounded = size <= window
     for line in raw.decode("utf-8", errors="replace").splitlines():
         spoke = '"assistant"' in line and '"text"' in line
         if not spoke and '"origin"' not in line and '"queued_command"' not in line:
@@ -213,10 +220,12 @@ def _parse_tail(transcript_path: Path, size: int, window: int) -> list[_Record]:
         if spoke and rec.get("type") == "assistant" and not rec.get("isSidechain"):
             said = _text_of((rec.get("message") or {}).get("content"))
             if said.strip():
-                ours = said
+                ours.append(said)
             continue
         if (record := _as_record(rec)) is not None:
-            found.append(replace(record, sent_before=ours))
+            before = "\n\n".join(ours) if bounded and ours else None
+            found.append(replace(record, sent_before=before))
+            ours, bounded = [], True
     return found
 
 
