@@ -61,6 +61,40 @@ as sorter-supplied, never passed off as captured.
 - It must not summarize our reply. Exact text only, trimmed to a readable
   length with the cut marked.
 
+## Station two: the walk (walk-9de4e0454b82, eight lenses, closed)
+
+What changed the build:
+
+- **Foucault, dissenting.** Setting his "proceed" beside our report makes a
+  record *about him*, and the easy future misuse is "he said proceed to
+  this", used as consent. That's his words used as a key, the harm he named
+  today. **So the store says in its own words that this context exists to
+  audit our sort and is never evidence of his approval**, and only the sort
+  path reads it.
+- **Lovelace.** The door records what we *sent*, not what he took in. He may
+  have skimmed a wall of text. **Named `sent_before`**, never "what he was
+  answering".
+- **Polya.** Often the record just before his is a tool call with no words
+  for him. The door must take our last *text* to him ahead of his record,
+  skipping tool records. That's door side, and I'll tell Aether.
+- **Yudkowsky.** Refusing only on not_an_ask invites filing a dismissal as
+  "standing". The door captures context for every message at no cost to
+  anyone, so it's kept for all three kinds and the audit can read all of
+  them. The refusal on missing context stays on not_an_ask.
+- **Watts.** Showing the sorter our last reply doesn't make them see it. The
+  honest claim is that dismissals become auditable afterwards, by someone
+  other than the sorter. I've struck the stronger claim above.
+- **Beer.** Storing the signal doesn't close the loop. The not-an-ask ratio
+  to Aletheia is still unbuilt, and that's said in the commit.
+- **Lamport.** "Before" means the transcript's own order. It's written once
+  per candidate, and a second write is refused, never overwritten.
+- **Carmack.** Store it whole. Our replies are small, and trimming could cut
+  the line he reacted to.
+
+The walk's own measure: finding distinctness had a mean of 0.376, against
+0.21–0.27 for real walks. It's getting closer each time, but it's still not
+there.
+
 ## Pins, written first
 
 - A not-an-ask sort with nothing before on record is refused.
