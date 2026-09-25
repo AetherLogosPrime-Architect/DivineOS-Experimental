@@ -116,6 +116,14 @@ def test_a_continuation_on_the_opener_line_keeps_the_chained_command() -> None:
     assert shell_write_targets(command) == ["a.txt", "tests/b.txt"]
 
 
+def test_a_here_string_is_not_a_heredoc_opener() -> None:
+    # Aether's station four on 722d00a3. `<<<` feeds one word to stdin and
+    # claims no following lines, but the opener pattern matched its last two
+    # `<` and swallowed everything down to a line reading EOF.
+    command = f"cat <<< {Q}EOF{Q}{NL}cp a tests/c.py{NL}EOF"
+    assert shell_write_targets(command) == ["tests/c.py"]
+
+
 # --- every writer, inside every wrapper (Wayne on the walk) ------------------
 #
 # All five holes lived in a COMBINATION, not in a single shape. So the space is

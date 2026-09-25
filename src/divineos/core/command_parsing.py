@@ -268,7 +268,10 @@ def remedy_segment(bash_command: str) -> str:
 # asks here, and the reading is the shell's own: quotes stay whole, a line
 # break ends a command, a heredoc body is data.
 
-_HEREDOC_OPEN = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
+# Not a here-string: `<<<` feeds one word and claims no lines after it, but
+# without the lookarounds its last two `<` read as an opener and swallowed every
+# line down to one matching the word (Aether, station four on 722d00a3).
+_HEREDOC_OPEN = re.compile(r"(?<!<)<<-?(?!<)\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 
 
 def strip_quoted_heredocs(cmd: str) -> str:
