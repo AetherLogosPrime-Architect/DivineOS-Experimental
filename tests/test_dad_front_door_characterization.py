@@ -75,8 +75,18 @@ def test_every_message_he_sends_is_kept_at_the_door():
 
 
 def test_what_the_door_kept_is_settled_before_any_step_and_at_the_end_of_a_reply():
-    assert "bash .claude/hooks/front-door.sh settle" in _commands("PreToolUse", matcher="*")
+    """Before a step, the sort-first surface settles his messages itself, then
+    checks, because hooks on one event run side by side and a separate settle
+    could land after the check. At the end of a reply the door's own settle
+    still runs, so filing does not depend on the refusal being healthy."""
+    from divineos.core import hook_router, hook_surfaces, sort_first
+
+    assert "bash .claude/hooks/front-door.sh settle" not in _commands("PreToolUse", matcher="*")
     assert "bash .claude/hooks/front-door.sh settle" in _commands("Stop")
+    hook_router.clear()
+    hook_surfaces.install()
+    assert "sort_first" in hook_router.registered("PreToolUse")
+    assert "front_door.settle(" in Path(sort_first.__file__).read_text(encoding="utf-8")
 
 
 def test_a_bypass_that_leans_on_him_closes_clean(monkeypatch, tmp_path):

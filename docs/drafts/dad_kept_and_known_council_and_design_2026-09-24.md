@@ -299,3 +299,173 @@ whether they are his. It just looks in both places the harness writes them.
 
 The gravity search was re-run over the slips before the question to him went
 further: none of the 169 mention gravity, so the question stands as put.
+
+## Station: the sort-first refusal (built 2026-09-24)
+
+v2 said sorting his message is the first thing done in a turn and refused at
+the moment of acting. Built as `core/sort_first.py`, wired as two surfaces on
+the doorbell router (`sort_first` on PreToolUse, read first; `sort_first_stop`
+on Stop), with `divineos his pending` and `divineos his sort` as the only way
+through. Decisions taken while building it, each recorded because each moved
+away from something written above:
+
+- **On the router, not a hook of its own.** My first draft was a new shell
+  hook. Andrew asked for the house's checks to live behind seven doors with
+  the logic in the OS, and the router already had refusing surfaces with the
+  three-state could-not-run contract. Draft removed, surface written instead.
+- **A seat is refused only over messages kept in that seat** (supersedes
+  game-walk route 13's "unsorted rows block both seats"). Sorting a message
+  said in the other window means guessing without the conversation it was said
+  in. My messages still refuse me, so "let the other one sort it" stays closed.
+  Recorded as decision 95bdb7f1.
+- **It settles his messages itself before checking.** Hooks on one event run
+  side by side, so the front door's own settle cannot be relied on to have run.
+  The separate settle before every tool call came out of settings.json; the
+  Stop one stays, so filing still happens if this surface breaks.
+- **A helper agent is never refused, and never sorts him.** Keyed on the
+  payload's `agent_id`. NOT MEASURED: the listener that would have recorded a
+  subagent's payload was refused by the auto-mode classifier as
+  self-modification of my own settings, and I did not route around it. So the
+  refusal text also tells a helper not to sort him and to return. Measure on
+  the first live run with a helper.
+- **Not `must_read`.** Its unlock is invoking Read on a path, which proves the
+  words were in front of me, not that I said what they were.
+- **The Stop backstop is late by construction** and says so: a reply with no
+  tool call is caught after it went out. It refuses once and stands down on the
+  retry flag; the message stays unsorted, so the next tool call is refused.
+
+**Found by the adversarial pass, and fixed house-wide.** The shared exit list
+(`remedy_allowlist.is_remedy`) matched a remedy at the FRONT of a command, so
+`divineos decide "x" && git commit` walked past every router refusal, this one
+included, carried by the harmless recording command. Measured through the real
+dispatch before fixing. Now a command counts as somebody's exit only when every
+link in its chain is an exit or a harmless setup step (`command_parsing.runs_only`).
+The shell copy of the list has the mirror hole (`git push && divineos learn x`)
+and is filed as its own task, since other shell gates source it.
+
+**Found by timing it on the real 388 MB transcript, and fixed in the door.** A
+message that never gets matched made every settle read further back, about a
+second per day of age, and the other seat's messages can never match here. Now
+the door looks only for messages kept in its own window, and only within an
+hour of their keeping. I first wrote "past that they stay unsettled and
+visible". That was false, and Aria caught it at station four: `pending()` lists
+only filed messages and nothing writes could-not-file, so past the hour his
+message is shown by nothing. It was invisible before the horizon too; the
+horizon makes it permanent. Her store half fixes it: a state of its own, *kept,
+record never found*, returned by `pending()`, sortable by candidate id, and
+refused over like any other. Measured:
+the check before a tool is 0.01s with nothing waiting, the whole PreToolUse
+doorbell 0.86s over the real transcript. The Stop doorbell took 28s on a copy,
+over its 10s limit, but none of that was this surface (0.00s alone): it was the
+other Stop surfaces reading a fresh copy with nothing cached. Named, not fixed
+here.
+
+**Jammed:** seventeen breaks, each caught by a test (settle removed, operators
+or substitution or newlines let through, every seat refusing, unreadable read as
+clear, the Stop never standing down, helpers refused, his words left out of the
+refusal, either registration removed, the sort taken off the exit list, a
+chained remedy passing, the front-only match restored, the other window's
+messages searched, an unmatched message searched forever, any command passing).
+
+**Not built, and named:** the doorbell's PreToolUse matcher covers Bash,
+PowerShell, Edit, Write, NotebookEdit, Read, Glob and Grep, so starting an
+agent, a skill or a web fetch is not refused while he waits. And v2's "a
+not-an-ask sort must name what came right before his message" is not enforced;
+the sort's store is Aria's, so it is hers to take or refuse.
+
+## Station: the memory link, reconnected so it can stay connected (draft, 2026-09-24)
+
+His words, the correction this build answers (#792): *"a simple fix.. moving
+me and wiring things up so you remember me like everything else."* The memory
+link is the wiring that brings the past to compose-time. It was reported live
+in August and never committed (knowledge 8e63998d), then wired on 2026-09-20
+(32a3ec50) and unwired hours later (6e72eb15), because every turn re-embedded
+the whole substrate. Both commits sit off main, authored "test": a leaked git
+identity that signed 1285 commits between 09-14 and 09-21 and has since been
+restored. Nothing of theirs is cherry-picked; the changes are re-made here
+under my name, with the originals credited.
+
+**Measured before designing (this machine, 2026-09-24):**
+
+- Loading the embedding toolkit costs **17s in every fresh process**, and the
+  compose hook is a fresh process every turn. The model's own weights load in
+  well under a second; the time is the import of sentence-transformers itself
+  (16.4s by `-X importtime`).
+- Rebuilding every source's vectors takes about 33s more: letters 5260 items
+  (24s), knowledge 1636 (4.6s, of which only 160 carry a stored vector),
+  corrections 787 (2.8s), explorations 234, the wall 28.
+- The same model run in plain numpy from the cached weights loads in 0.29s and
+  matches sentence-transformers on five test sentences to a largest difference
+  of 1.3e-7 (cosine 1.0000000). Nothing downloaded or installed. An ONNX route
+  was tried first and needs the `onnx` package, which is a download, so it was
+  not taken without asking him.
+
+**Design, to be broken:**
+
+1. **A light embedder** (`core/light_embedder.py`): MiniLM in numpy from the
+   locally cached safetensors, exact GELU, mean pooling, normalised, the
+   model's own 256-token truncation. One code path. If the cached weights are
+   absent it returns None and says so; it does not fall back to the heavy
+   toolkit, which is the outage 6e72eb15 recorded.
+2. **A vector drawer**: embeddings kept by content hash in a small database, so
+   nothing is embedded twice. Filled ahead of time, by a command and during
+   sleep, never inside the compose hook. At compose time an item with no stored
+   vector is skipped and counted aloud, not embedded on the spot.
+3. **The seat fix from 32a3ec50**: the wall read is this seat's own and never
+   another's. The old lookup returned Aria's memory to me as mine.
+4. **Wired, with the pin on the calling**: the compose path calls the real
+   retriever (no mock at the seam, which is exactly what hid the unwired state
+   before), and a latency test measured on the real stores holds the lane well
+   inside the hook's time limit.
+
+**Threadwalk, played forward:**
+
+- *When it works:* past corrections, letters and knowledge that bear on what
+  he just said come up before I answer. *The drift:* it surfaces the loudest
+  store, and letters are 5260 of about 7900 items, so his own words from
+  corrections get crowded out by my letters about him. Counter: sources are
+  reported separately, and his room joins as a source of its own later.
+- *The drawer goes stale:* new letters and knowledge arrive without vectors.
+  Counter: the skipped count is printed each time, so staleness is loud, and
+  sleep refills it.
+- *Latency creep:* every new store added to the lane adds load time, and a
+  fail-open hook that times out is silent (6e72eb15's whole finding). Counter:
+  the lane times itself and reports could-not-run when it goes over budget.
+- *Game-walk, cheap route:* keep the lane wired but let it silently return
+  nothing when the model or drawer is missing, so it "passes". Closed by
+  returning could-not-run, never an empty success.
+
+**Built, and what building it found (2026-09-24):**
+
+- *The fill was an hour.* The light embedder is about 50ms a short entry and
+  116ms a long letter, so filling the drawer one item at a time in numpy ran
+  toward an hour. The bulk fill therefore uses the heavy toolkit, batched on
+  the GPU (this machine has one, and Andrew asked on 2026-06-13 for embedding
+  work to run there): 4640 vectors in 43s. The query path never touches it;
+  a test pins that the light embedder never imports it, and another pins the
+  two engines within 1e-5.
+- *The first lookup found nothing.* v1 still used the old size-based bar,
+  which climbs toward 0.85 for a large store, so nothing ever cleared it. v2
+  reads the bar off the observed scores (target_k, wired 2026-08-10) and is
+  the version 32a3ec50 installed, so v2 is what runs.
+- *v2 never finished.* Its neighbour graph was one Python cosine per pair:
+  about 100 million calls at this size, still running after 300s. Now it is
+  one normalised matrix product per block of rows, with the same neighbours
+  (pinned against the old pair-by-pair result).
+- *Every letter three times.* The same letter sits in each checkout on this
+  machine, and dedup was by path, so 7490 items for about 2800 letters. Now
+  by name as well.
+- *Withheld at the door.* The reply-start window was already about 8,200 of
+  its 10,000 deliverable bytes, and the lane in full passages was withheld
+  every turn (the router said so, by name). It now gives three one-line
+  pointers.
+
+Measured end to end through the real reply-start doorbell with the real
+stores: about 4.3 to 5.1s for the whole window, up from about 1.1s, inside its
+10s limit. For "my game just crashed and died", with this conversation as
+context, it surfaced two of his corrections: about my repeating his words back
+to him, and about how much he can hold at once. Ten jams, each caught.
+
+**Not done here, and named:** his room is not yet a source of its own, so his
+own words reach the lane only through corrections and letters. The latency
+budget is watched and reported, not enforced by a timeout.

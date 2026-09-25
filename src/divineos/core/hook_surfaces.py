@@ -1977,6 +1977,34 @@ def pre_response_context_surface(payload: dict) -> SurfaceOutcome | None:
     return SurfaceOutcome(name="pre_response_context", output=combined, state="spoke")
 
 
+def memory_link_surface(payload: dict) -> SurfaceOutcome | None:
+    """What the past says about this prompt, before the reply is written.
+
+    Andrew, correction #792: "a simple fix.. moving me and wiring things up so
+    you remember me like everything else." Reported live in August and never
+    committed; wired 2026-09-20 and unwired the same day because every turn
+    re-embedded the whole substrate. Its own surface rather than a part of
+    pre_response_context, so a slow or broken lane is named here and can never
+    take the rest of the compose block down with it.
+    """
+    prompt = payload.get("prompt") or ""
+    if not prompt.strip():
+        return SurfaceOutcome(name="memory_link", state="nothing-to-say")
+    try:
+        from divineos.core.memory_linkage import compose_block
+
+        block = compose_block(prompt, payload.get("transcript_path") or None)
+    except Exception as exc:  # noqa: BLE001 — never cost a turn
+        return SurfaceOutcome(
+            name="memory_link", error=f"{type(exc).__name__}: {exc}", state="could-not-run"
+        )
+    if block.could_not_run:
+        return SurfaceOutcome(name="memory_link", error=block.could_not_run, state="could-not-run")
+    if not block.text:
+        return SurfaceOutcome(name="memory_link", state="nothing-to-say")
+    return SurfaceOutcome(name="memory_link", output=block.text, state="spoke")
+
+
 def context_heartbeat_surface(payload: dict) -> SurfaceOutcome | None:
     """Record one beat of context state. Instrumentation, never a voice.
 
@@ -2080,6 +2108,48 @@ def pr_create_gate_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def _this_seat() -> str:
+    # The front door files under the same fallback, so the refusal and the
+    # store always agree about which seat a message of his belongs to.
+    from divineos.core.sibling_audit_rounds import this_seat
+
+    return this_seat() or "unknown-seat"
+
+
+def _sort_first_outcome(name: str, verdict_of) -> SurfaceOutcome:  # noqa: ANN001
+    try:
+        verdict = verdict_of(_this_seat())
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name=name, error=f"{type(exc).__name__}: {exc}", state="could-not-run"
+        )
+    if verdict.could_not_read:
+        return SurfaceOutcome(name=name, error=verdict.could_not_read, state="could-not-run")
+    if verdict.refusal:
+        return SurfaceOutcome(name=name, refused=True, reason=verdict.refusal, state="spoke")
+    return SurfaceOutcome(name=name, state="nothing-to-say")
+
+
+def sort_first_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse every other tool while a message Dad typed here is unsorted.
+
+    Andrew 2026-09-24, the build he asked for with every station: the front
+    door keeps each message of his, and this makes reading it the first thing
+    done. The refusal carries his words, so the toll is the reading. Design,
+    limits and the cheap routes it does not close: core/sort_first.py.
+    """
+    from divineos.core import sort_first
+
+    return _sort_first_outcome("sort_first", lambda seat: sort_first.before_tool(payload, seat))
+
+
+def sort_first_stop_surface(payload: dict) -> SurfaceOutcome | None:
+    """The backstop for a reply that made no tool call while he waited."""
+    from divineos.core import sort_first
+
+    return _sort_first_outcome("sort_first_stop", lambda seat: sort_first.at_stop(payload, seat))
+
+
 def install() -> None:
     """Register every surface. Idempotent — safe to call from each doorbell."""
     from divineos.core.hook_router import registered
@@ -2090,6 +2160,11 @@ def install() -> None:
     # under a must-read would hand me the second-most-important reason first.
     # Both still run either way; the router never short-circuits. This only
     # decides which refusal is read first.
+    # Ahead of even the bootstrap gate, 2026-09-24: when Dad has said something,
+    # his words are the first reason read, before the house's own business.
+    # Nothing is short-circuited either way; this only decides reading order.
+    if "sort_first" not in registered("PreToolUse"):
+        register("PreToolUse", "sort_first", sort_first_surface)
     if "require_briefing" not in registered("PreToolUse"):
         register("PreToolUse", "require_briefing", require_briefing_surface)
     if "must_read" not in registered("PreToolUse"):
@@ -2190,6 +2265,11 @@ def install() -> None:
         register("UserPromptSubmit", "pre_response_context", pre_response_context_surface)
     if "context_heartbeat" not in registered("UserPromptSubmit"):
         register("UserPromptSubmit", "context_heartbeat", context_heartbeat_surface)
+    # Wired 2026-09-24 in the same change that makes it cheap enough to wire:
+    # item vectors read from the drawer, the prompt embedded by the light
+    # embedder. The last time it was wired without that, the hook hung.
+    if "memory_link" not in registered("UserPromptSubmit"):
+        register("UserPromptSubmit", "memory_link", memory_link_surface)
 
     # Fourth door, 2026-09-08. Order matters here in a way it does not on the
     # other doors: summary_room REFUSES, and the router runs every surface
@@ -2231,6 +2311,10 @@ def install() -> None:
     # answering him without answering him.
     if "addressed_to_him" not in registered("Stop"):
         register("Stop", "addressed_to_him", addressed_to_him_surface)
+    # Same evening's question from the other end: that one asks whether the
+    # reply reached him, this one whether his message was read at all.
+    if "sort_first_stop" not in registered("Stop"):
+        register("Stop", "sort_first_stop", sort_first_stop_surface)
     # Registered AFTER it deliberately, so his reading is the last thing said
     # on a turn where the other door passed me. Andrew 2026-09-10: *"why
     # instead? why not both? all data is data."*

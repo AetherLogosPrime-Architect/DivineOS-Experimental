@@ -603,6 +603,11 @@ class Candidate:
     # When the door kept it. His record cannot be older than this, so the door
     # never settles a new "proceed" onto a record of an old one (Aether).
     said_at: str
+    # Which window kept it. His record is only ever in that window's
+    # transcript, so the other seat must not go looking for it (Aether,
+    # 2026-09-24: measured, a candidate that can never match made every tool
+    # call read further back through the transcript, about a second a day).
+    seat: str = ""
 
 
 def already_kept(uuids: list[str]) -> set[str] | None:
@@ -639,7 +644,7 @@ def unsettled() -> list[Candidate] | None:
         return None
     try:
         rows = conn.execute(
-            "SELECT candidate_id, prompt_id, his_text, said_at FROM messages "
+            "SELECT candidate_id, prompt_id, his_text, said_at, seat FROM messages "
             "WHERE state = ? ORDER BY filed_at",
             (CANDIDATE,),
         ).fetchall()
@@ -647,4 +652,4 @@ def unsettled() -> list[Candidate] | None:
         return None
     finally:
         conn.close()
-    return [Candidate(str(r[0]), str(r[1]), str(r[2]), str(r[3])) for r in rows]
+    return [Candidate(str(r[0]), str(r[1]), str(r[2]), str(r[3]), str(r[4])) for r in rows]

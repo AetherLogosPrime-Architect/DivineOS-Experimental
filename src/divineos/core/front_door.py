@@ -57,6 +57,18 @@ _CLOCK_SLACK = timedelta(seconds=2)
 # "proceed" off an old one inside the window.
 _SLIP_WAIT = timedelta(minutes=30)
 
+# How long after keeping a message the door keeps looking for its record. His
+# record is written within moments of the keeping, or within _SLIP_WAIT for a
+# slip, and settle runs before every step and at every Stop, so a candidate
+# still unmatched past this never will be. Without the bound, one such candidate
+# made every tool call read further back through the transcript: measured
+# 2026-09-24 on a 388 MB transcript, about a second per day of age.
+# NOT YET SAFE: past this a candidate is shown by nothing -- pending() lists
+# only filed messages, and no could-not-file row is written (Aria, station
+# four). Her store half gives it a state of its own that pending() returns and
+# sort() accepts; until that lands, a message that never settles is lost.
+_SETTLE_HORIZON = 2 * _SLIP_WAIT
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
@@ -214,14 +226,22 @@ def settle(transcript_path: str | Path, seat: str) -> dict[str, str] | None:
     guessed at. Candidates from the other seat are never in this transcript and
     are left for that seat.
     """
-    candidates = his_asks.unsettled()
-    if candidates is None:
+    unsettled = his_asks.unsettled()
+    if unsettled is None:
         _loud("his record could not be read, so nothing was settled")
         return None
+    # The same clock the keeping reads, so the two can never disagree about now.
+    now = _when(_now_iso()) or datetime.now(timezone.utc)
+    horizon = now - _SETTLE_HORIZON
+    candidates = [
+        c
+        for c in unsettled
+        if c.seat == seat and (kept := _when(c.said_at)) is not None and kept >= horizon
+    ]
     if not candidates:
         return {}
     kept_times = [t for c in candidates if (t := _when(c.said_at)) is not None]
-    back_to = (min(kept_times) if kept_times else datetime.now(timezone.utc)) - _SLIP_WAIT
+    back_to = (min(kept_times) if kept_times else now) - _SLIP_WAIT
     records = _records(Path(transcript_path), back_to)
     already = his_asks.already_kept([r.uuid for r in records])
     if already is None:

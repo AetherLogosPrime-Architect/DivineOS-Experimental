@@ -213,16 +213,6 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/front-door.sh settle",
-            "timeout": 10
-          }
-        ]
-      },
-      {
         "matcher": "Edit|Write|Bash|NotebookEdit|Read|Grep|Glob",
         "hooks": [
           {

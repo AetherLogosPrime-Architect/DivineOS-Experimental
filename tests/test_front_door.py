@@ -303,6 +303,28 @@ def test_a_slip_pushed_past_the_first_read_by_a_long_step_is_still_found(monkeyp
     assert list(fd.settle(path, "aether").values()) == [ha.FILED]
 
 
+def test_a_message_kept_in_the_other_window_is_left_for_that_window(tmp_path):
+    """His record is only ever in the transcript of the window he typed in.
+    Looking for it here made every tool call read further back (measured
+    2026-09-24: about a second per day of age on a 388 MB transcript)."""
+    fd.keep({"prompt_id": "p1", "prompt": HIS}, "aria")
+    assert fd.settle(_transcript(tmp_path, _turn("p1", HIS)), "aether") == {}
+    assert _open() == [HIS]
+
+
+def test_a_message_never_matched_is_not_searched_for_forever(monkeypatch, tmp_path):
+    """Past the horizon it stays unsettled, visible as could-not-file, and the
+    door stops paying to look for it on every step."""
+    _kept_at(monkeypatch, "2026-09-24T20:00:00.000+00:00")
+    fd.keep({"prompt_id": "p1", "prompt": HIS}, "aether")
+    _kept_at(monkeypatch, "2026-09-24T22:00:00.000+00:00")
+    looked = []
+    monkeypatch.setattr(fd, "_records", lambda *a: looked.append(a) or [])
+    assert fd.settle(_transcript(tmp_path, _turn("p1", HIS)), "aether") == {}
+    assert looked == []
+    assert _open() == [HIS]
+
+
 def test_not_knowing_which_records_are_his_settles_nothing(monkeypatch, tmp_path):
     fd.keep({"prompt_id": "p1", "prompt": HIS}, "aether")
     monkeypatch.setattr(ha, "already_kept", lambda _uuids: None)

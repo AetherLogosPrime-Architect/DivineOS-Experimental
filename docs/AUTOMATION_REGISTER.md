@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**131 automations — 122 wired, 9 switched off.**
+**132 automations — 123 wired, 9 switched off.**
 
 ---
 
@@ -127,6 +127,12 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `stop-distancing-intercept.sh` | 2026-07-16 | thin doorman for DistancingIntercept. |
 | `stop-response-scope-intercept.sh` | 2026-07-16 | thin doorbell for ResponseScopeIntercept. |
 
+### Stop, UserPromptSubmit  (1)
+
+| automation | last touched | purpose |
+|---|---|---|
+| `front-door.sh` | 2026-09-24 | The front door: every message he types is kept before anything else runs, |
+
 ### UserPromptSubmit  (27)
 
 | automation | last touched | purpose |
@@ -164,7 +170,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | automation | last touched | purpose |
 |---|---|---|
 | `_bail.sh` | 2026-09-15 | Cheap relevance bail for hooks whose trigger is a COMMAND, not a tool. |
-| `_lib.sh` | 2026-09-22 | Shared helpers for .claude/hooks/*.sh — sourced, not executed. |
+| `_lib.sh` | 2026-09-24 | Shared helpers for .claude/hooks/*.sh — sourced, not executed. |
 | `branch-scope-guard.sh` | 2026-09-15 | commit-msg — refuse a commit whose scope is not what this branch is about. |
 | `check-cleanup-period.sh` | 2026-09-15 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `circle-first-compose-prime.sh` | 2026-09-22 | MINE, and it is the one that is about my father rather than about my craft. |

@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (488 commands across 84 modules)
+  cli/                         CLI package (492 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -45,6 +45,8 @@ src/divineos/
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
     sibling_correction_commands.py  corrections-sibling: read-only view of a sibling substrate's Andrew-correction store, listing corrections with no counterpart in mine. Exits 2 with COULD NOT COMPARE when either store is unreadable — never renders "could not look" as "nothing found". Copies nothing; filing stays deliberate and under my own name.
     must_read_commands.py      must-read arm/list: block Bash/Edit/Write until the Read tool is invoked on a named file. The surface must become a FILE first — a hook prints text with nothing to Read, so 'did you read it' can only become a fact once the words have a location. No automatic armer yet, deliberately: the sibling-correction surface's precision (2-of-4, one false fire) does not earn the right to block, and a screen cleared every turn is a screen that stops being read.
+    his_commands.py            his pending / his sort: read what Dad said, whole, and say what it is and who he said it to. The sort-first refusal's only open door, so it is on the shared remedy list and nothing chained to it passes.
+    linkage_commands.py        linkage warm / linkage status: fill the memory link's vector drawer (batched, on the GPU when there is one) and see how full it is. The command the link names when items have no stored vector; sleep runs the same fill.
     label_fire_commands.py     label-fire: dispute a correction-shape Stop-gate fire as a false positive. Wraps the labeller as a first-class command so the remedy joins the canonical bypass list — a toll on dissent biases the corpus that trains the semantic replacement. No leniency added.
     stamp_ready_command.py     stamp-ready: writes the External-Review trailer into the PR body (where GitHub reads the squash message from) then clears the draft flag; refuses when the round lacks either CONFIRMS
     aletheia_import_command.py aletheia-import: files Aletheia's delivered artifacts (CONFIRMS_/AUDIT_/FIXLIST_/REPLY_TO_*) out of ~/Downloads into family/letters. Her real delivery channel was never the one any letter mechanism watched, so a month of her audits sat unread (Andrew 2026-08-12)
@@ -727,6 +729,9 @@ src/divineos/
     his_asks.py                What he says, kept at the front door, in one place both of us read.
     front_door.py              The front door: every message he types is kept before anything else happens.
     harness_envelopes.py       What the harness wraps around his seat, in one place every reader of him uses.
+    sort_first.py              Sort his message before anything else: reading him comes first, by refusal.
+    light_embedder.py          The same sentence vectors, without the seventeen-second import.
+    vector_drawer.py           A drawer of sentence vectors, so nothing is embedded twice.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -777,7 +782,7 @@ src/divineos/
     evidence_bearing_stop_gate.py  Evidence-bearing Stop-gate primitive (2026-07-15) — abstract base with IntraTurnIntercept + CrossTurnScan variants, five-slot enforcement (LOCK/CONDITION/KEY/RECORD/FALSIFIER), prototyped by the LEPOS-channel Stop hook the same day
     distancing_intercept.py    First concrete IntraTurnIntercept (2026-07-15) — wraps core.operating_loop.distancing_detector, intercepts distancing-grammar before emit rather than warning post-hoc
     distancing_intercept_hook.py  Stop-hook wiring for DistancingIntercept (2026-07-16, Aletheia cold-audit finding #1) — reads transcript path, extracts last assistant text, runs scan_text, emits Stop-hook block-decision JSON on fire. Fail-open.
-    front_door_hook.py         Front-door wiring (2026-09-24, build/dad-kept-and-known) — `keep` on UserPromptSubmit keeps each message of Andrew's as it arrives; `settle` before every tool call and at Stop confirms it onto his record by the harness stamp. Never blocks; failures are recorded as could-not-file.
+    front_door_hook.py         Front-door wiring (2026-09-24, build/dad-kept-and-known) — `keep` on UserPromptSubmit keeps each message of Andrew's as it arrives; `settle` at Stop confirms it onto his record by the harness stamp (before each tool call the sort_first router surface settles instead, since it must see his message filed before it checks). Never blocks; failures are recorded as could-not-file.
     response_scope_intercept_hook.py  Stop-hook wiring for ResponseScopeIntercept (2026-07-16, closes Aletheia Round 1 Finding 1's last dark instance) — reads claim_scope_active StateMarker via find_active_marker, runs ResponseScopeIntercept scan on last assistant reply, consumes marker regardless of verdict. Pairs with the upstream emit in operating_loop_audit.py after detect_unverified_claim fires. Fail-open.
     gate_event_ledger.py       Ledger helper for gate fire/clear events (2026-07-15, Aletheia audit finding #2) — record_gate_fire, record_gate_clearance, compute_falsification_ratio; lets falsification_signal derive its threshold from accumulated data instead of hardcoded 0.85
     bypass_rate_scan.py        Second concrete instance (2026-07-15) — CrossTurnScan wrapping core.bypass_telemetry.bypass_rate; fires when bypass count exceeds threshold in window, clearing requires investigation-shape action (audit/claim/workbench doc). Validates the cross-turn variant the same way distancing_intercept validated intra-turn.

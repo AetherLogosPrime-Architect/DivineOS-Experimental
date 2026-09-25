@@ -83,6 +83,34 @@ class TestItCannotBecomeAWayAround:
     def test_bare_env_invocation(self):
         assert is_remedy('env divineos correction "x"')
 
+    def test_a_remedy_cannot_carry_other_work_behind_it(self):
+        """2026-09-24, the adversarial pass on the sort-first refusal: this
+        matched the FRONT of a command, so a commit chained behind a recording
+        command walked past every refusal on the router. A remedy is a remedy
+        only when it is all that runs."""
+        for command in (
+            'divineos decide "x" --why y && git commit -m sneaky',
+            'divineos goal add "x"; rm -rf tests',
+            'git push && divineos learn "x"',
+            'divineos correction "x" | tee out.txt',
+            'divineos correction "x" > out.txt',
+            'divineos correction "$(rm -rf tests)"',
+            'divineos correction "x"\ngit push',
+        ):
+            assert not is_remedy(command), command
+
+    def test_setup_links_and_quiet_habits_still_pass(self):
+        """The prefixes each earlier note records, kept: a worktree cd, an
+        assignment, the fourth prefix, and the output-merging habit a remedy is
+        typed with. Quoted operators are words in an argument, not a chain."""
+        for command in (
+            'cd "C:/DIVINE OS/DivineOS-Experimental" && set -o pipefail && divineos correction "x"',
+            'divineos correction "x" 2>&1',
+            "divineos learn x 2>/dev/null",
+            'divineos decide "a && b; c | d" --why "e > f"',
+        ):
+            assert is_remedy(command), command
+
 
 class TestTheRouterStandsAside:
     def setup_method(self):
