@@ -165,80 +165,6 @@ def needs_an_item(paths: list[str]) -> tuple[str, ...]:
 # a refusal to go with it.
 _QUOTED_SPAN = re.compile(r"'[^']*'|\"[^\"]*\"")
 
-# The only thing a filler or a capture in _SHELL_WRITE_PATTERNS may be made
-# of: one character of a word that is not whitespace and not shell structure.
-# Declared here so the invariant "no match spans a separator" lives in one
-# place instead of being re-honoured, and eventually forgotten, at each site.
-_WORD = r"[^\s;|&<>()]"
-
-# A HEREDOC BODY IS NOT SHELL SYNTAX EITHER, which is the sentence above with
-# a different noun. The shell reads a heredoc body as data and hands it to the
-# command's stdin; no redirection written inside one can open a file. The body
-# was being scanned for redirections anyway.
-#
-# WHAT IT COST, 2026-09-21: writing a draft under docs/drafts through a
-# heredoc. The draft was prose about a rule change, and it quoted Andrew in
-# markdown, where a quotation is marked with the same character the shell uses
-# to redirect. Every quoted line minted a filename out of its own first word.
-# A phantom name matches no exempt prefix, so it counts as code, so the
-# doorman held -- and what it held was the draft it had just asked for. It
-# happened twice, on two different drafts, before I read the refusal closely
-# enough to notice that the file it named had never existed.
-#
-# THE FAILURE DIRECTION IS THE INVERSE of the one this module accepts
-# elsewhere. Over-collecting is supposed to cost a refusal that opening a real
-# work item clears. This over-collection could not be cleared by any work
-# item, because the remedy the refusal prescribes is itself a write, and the
-# write was the thing refused.
-#
-# The header line stays intact, so `cat > real_file <<EOF` still reports
-# real_file. Only the body is blanked, and only between a header and its
-# matching terminator; an unterminated heredoc is left alone rather than
-# swallowing the remainder of the command on a guess.
-_HEREDOC_HEADER = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
-
-
-def _blank_heredoc_bodies(cmd: str) -> str:
-    """Replace heredoc body lines with spaces, leaving every other line as-is.
-
-    Blanked rather than dropped, for the reason quoted spans are: the line
-    count and every offset stay where they were, so anything that reads
-    positions afterwards still sees the command it was handed.
-    """
-    lines = cmd.split("\n")
-    out: list[str] = []
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        out.append(line)
-        match = _HEREDOC_HEADER.search(line)
-        if not match:
-            i += 1
-            continue
-
-        terminator = match.group(2)
-        allow_indent = "<<-" in line
-        body: list[str] = []
-        j = i + 1
-        closed = False
-        while j < len(lines):
-            candidate = lines[j].strip() if allow_indent else lines[j].rstrip()
-            if candidate == terminator:
-                closed = True
-                break
-            body.append(lines[j])
-            j += 1
-
-        if not closed:
-            i += 1
-            continue
-
-        out.extend(" " * len(b) for b in body)
-        out.append(lines[j])
-        i = j + 1
-    return "\n".join(out)
-
-
 _SHELL_WRITE_PATTERNS: tuple[re.Pattern[str], ...] = (
     # BLANKING QUOTED TEXT IS THE WHOLE REPAIR. Found by this doorman firing
     # wrongly on Aria twice while she was reading my work, and then on me, in
@@ -283,30 +209,8 @@ _SHELL_WRITE_PATTERNS: tuple[re.Pattern[str], ...] = (
     # which quoting does not always cover and which names no file either way.
     re.compile(r"(?<!(?<=[\s])[-=])>>?\s*(?![=\s])([^\s;|&<>()]+)"),
     re.compile(r"\btee\s+(?:-a\s+)?([^\s;|&<>()]+)"),
-    # NO MATCH SPANS A SEPARATOR, and that invariant is now declared once
-    # rather than honoured by habit at each site. _WORD below is the only
-    # thing a filler or a capture may be made of.
-    #
-    # It was already correct in every CAPTURE group here. The FILLERS -- the
-    # parts that skip over arguments on the way to the destination -- were
-    # plain `\S+`, which matches a semicolon or an ampersand as happily as a
-    # filename. So a match could begin in one command and finish in the next.
-    #
-    # MEASURED 2026-09-21, an hour after the heredoc repair above, by being
-    # refused again. A copy to a path OUTSIDE this repo, followed by two more
-    # commands on the same line. Blanking the quoted arguments left the real
-    # paths as whitespace, the filler walked past the separator, and the
-    # doorman reported I was about to write a file named after the next
-    # command. It held a command that touches nothing in the tree.
-    #
-    # THE LIMIT THIS DOES NOT CROSS, stated because it was an unwritten
-    # assumption until the walk asked for a falsifier: a path containing one
-    # of these characters must be quoted in the shell, and a quoted span is
-    # blanked before any of this runs. Such a write is invisible to EVERY
-    # pattern here. That was already true and is not made worse by narrowing
-    # the fillers -- but it is the honest edge of what this function sees.
-    re.compile(rf"\bsed\s+(?:-[a-zA-Z]*i[a-zA-Z]*{_WORD}*\s+)(?:{_WORD}+\s+)*?({_WORD}+)\s*$"),
-    re.compile(rf"\b(?:cp|mv|install)\s+(?:-{_WORD}+\s+)*{_WORD}+\s+({_WORD}+)"),
+    re.compile(r"\bsed\s+(?:-[a-zA-Z]*i[a-zA-Z]*\S*\s+)(?:[^\s]+\s+)*?([^\s;|&<>()]+)\s*$"),
+    re.compile(r"\b(?:cp|mv|install)\s+(?:-\S+\s+)*\S+\s+([^\s;|&<>()]+)"),
     re.compile(r"\bpatch\s+(?:-\S+\s+)*([^\s;|&<>()]+)"),
 )
 
@@ -333,10 +237,6 @@ def paths_from_tool_call(tool_name: str, tool_input: dict) -> list[str]:
         return [p] if p else []
     if tool_name == "Bash":
         cmd = tool_input.get("command") or ""
-        # Heredoc bodies go first: a body can carry unbalanced quotes, and
-        # blanking quoted spans across one would pair a quote inside the data
-        # with a quote outside it and blank everything between them.
-        cmd = _blank_heredoc_bodies(cmd)
         # Quoted spans blanked rather than removed, so offsets and word
         # boundaries either side of them are unchanged.
         cmd = _QUOTED_SPAN.sub(lambda m: " " * len(m.group(0)), cmd)
