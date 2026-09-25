@@ -30,6 +30,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from divineos.core.atomic_io import atomic_write_text
+from divineos.core.harness_envelopes import remove_envelopes
 from divineos.core.paths import marker_path as _marker_path_under_home
 
 
@@ -133,11 +134,11 @@ _RELAY_INTRODUCER_RE = re.compile(
 # a command and is impossible to miss -- so an enumerated list is survivable
 # here, unlike the read-only probe repaired the same day, where a stale list
 # failed silently and let writes through.
-_HARNESS_ENVELOPE_RE = re.compile(
-    r"<(task-notification|system-reminder|persisted-output|ci-monitor-event)"
-    r"\b[\s\S]*?(?:</\1>|\Z)",
-    re.IGNORECASE,
-)
+#
+# THE INVENTORY MOVED, 2026-09-24. The list that lived here was one of three,
+# each missing tags the others had. They are one list in harness_envelopes now,
+# and this reader gained the command blocks (command-name, local-command-stdout)
+# it had never had. A tag added there is added here.
 
 # A signature line from a known external agent confirms a block is relayed even
 # when no introducer phrase precedes it. Andrew does not sign as them, and a
@@ -161,7 +162,7 @@ def strip_relayed(text: str) -> str:
     if not text:
         return ""
     # 1. Harness-injected structural envelopes (never operator voice).
-    text = _HARNESS_ENVELOPE_RE.sub("", text)
+    text = remove_envelopes(text)
     # 2. Markdown blockquotes and fenced code.
     text = _BLOCKQUOTE_LINE.sub("", text)
     text = _FENCED_BLOCK.sub("", text)

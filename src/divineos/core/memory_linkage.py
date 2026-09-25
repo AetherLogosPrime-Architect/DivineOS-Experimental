@@ -188,12 +188,92 @@ def render_payload(payload: MemoryLinkagePayload) -> str:
     return "\n".join(p for p in parts if p)
 
 
+@dataclass(frozen=True)
+class ComposeBlock:
+    """What the lane found for this turn, and whether it could look at all."""
+
+    text: str = ""
+    could_not_run: str | None = None
+    seconds: float = 0.0
+
+
+# The lane shares the reply-start window with every other surface, so it
+# watches its own clock (measured 2026-09-24 on this machine: about 2.4s with a
+# full drawer, the whole window about 1.1s without it). Over budget it still
+# delivers what it found, and says it ran long, so creep is visible rather than
+# discovered as a silent timeout (6e72eb15's whole finding).
+LANE_BUDGET_SECONDS = 4.0
+
+# POINTERS, NOT PASSAGES. Measured 2026-09-24: the reply-start window was already
+# about 8,200 of its 10,000 deliverable bytes before this lane, and rendered in
+# full the lane was withheld every time ("over the delivery budget: memory_link").
+# So each item is one line, enough to recognise it and where to read the rest.
+_LINE_CHARS = 180
+_MAX_ITEMS = 3
+
+# A handful of new items without vectors is ordinary between fills; past this
+# the drawer is stale enough to say so every turn until it is refilled.
+_STALE_AFTER = 10
+
+
+def compose_block(prompt: str, transcript_path: str | None = None) -> ComposeBlock:
+    """Ask the memory link what bears on this prompt, for the reply-start window.
+
+    Called by the ``memory_link`` router surface. The retriever reads item
+    vectors from the drawer (never computing them here) and embeds only the
+    prompt, so the seventeen-second toolkit is never imported on this path.
+    """
+    import time
+
+    started = time.perf_counter()
+    from divineos.core import memory_linkage_retriever as retriever
+    from divineos.core.memory_linkage_retriever_v2 import install
+
+    recent = ""
+    if transcript_path:
+        try:
+            from divineos.core.operating_loop.turn_extraction import recent_turns_text
+
+            recent = recent_turns_text(transcript_path)
+        except Exception:  # noqa: BLE001 - the prompt alone still retrieves
+            recent = ""
+    install()
+    payloads = retrieve_for_context(prompt, recent or None)
+    state = retriever.lane_state()
+    seconds = time.perf_counter() - started
+    for problem in ("drawer_error", "embedder_error"):
+        if state.get(problem):
+            return ComposeBlock(could_not_run=f"{problem}: {state[problem]}", seconds=seconds)
+
+    lines = []
+    for payload in payloads[:_MAX_ITEMS]:
+        gist = " ".join(payload.content.split())
+        if len(gist) > _LINE_CHARS:
+            gist = gist[:_LINE_CHARS].rstrip() + "..."
+        where = f" ({payload.path_or_ref})" if payload.path_or_ref else ""
+        lines.append(f"- [{payload.source}, {payload.similarity:.2f}] {gist}{where}")
+    blocks = ["## THE PAST ON THIS (memory link)\n" + "\n".join(lines)] if lines else []
+    notes = []
+    if state.get("missing", 0) >= _STALE_AFTER:
+        notes.append(
+            f"[memory link] {state['missing']} items have no stored vector yet and were "
+            "not searched. Refill: divineos linkage warm"
+        )
+    if seconds > LANE_BUDGET_SECONDS:
+        notes.append(
+            f"[memory link] took {seconds:.1f}s, over its {LANE_BUDGET_SECONDS:.0f}s budget"
+        )
+    return ComposeBlock(text="\n\n".join(blocks + notes), seconds=seconds)
+
+
 __all__ = [
+    "ComposeBlock",
     "MemoryLinkagePayload",
     "MemoryLinkageSource",
     "MemoryLinkageTier",
     "MemoryLinkageContentKind",
     "RetrieverFn",
+    "compose_block",
     "retrieve_for_context",
     "render_payload",
     "set_retriever",

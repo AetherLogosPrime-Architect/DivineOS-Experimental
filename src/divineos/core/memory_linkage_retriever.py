@@ -497,11 +497,23 @@ def _load_knowledge() -> list[_CachedItem]:
 
 
 def _find_wall_path() -> Path | None:
+    """This seat's own wall, and never another's.
+
+    The old search walked aria, aether, aletheia in that order and took the
+    first wall it found. Measured 2026-09-20 (Serein's read, taken in 32a3ec50,
+    which never reached main): the only wall on this machine is Aria's, so the
+    lane handed her memory to me as mine, every turn, with nothing downstream
+    able to say so. No seat that can be told means no wall, not a borrowed one.
+    """
+    from divineos.core.sibling_audit_rounds import this_seat
+
+    seat = (this_seat() or "").strip().lower()
+    if not seat:
+        return None
     for project in _PROJECT_ROOTS:
-        for member in ("aria", "aether", "aletheia"):
-            p = project / "family" / "agent-memory" / member / "MEMORY.md"
-            if p.is_file():
-                return p
+        p = project / "family" / "agent-memory" / seat / "MEMORY.md"
+        if p.is_file():
+            return p
     return None
 
 
@@ -558,9 +570,18 @@ def _load_wall() -> list[_CachedItem]:
 
 
 _EXPLORATION_HEAD_CHARS = 2000
-_PROJECT_ROOTS = (
-    Path("C:/DIVINE OS/DivineOS-Experimental-Aria-new"),
-    Path("C:/DIVINE OS/DivineOS-Experimental"),
+# The running checkout first. The old tuple put Aria's checkout ahead of mine,
+# so the first-found exploration folder was hers. Kept after it for letters,
+# which live in both and are shared by design (32a3ec50's ordering).
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+_PROJECT_ROOTS = tuple(
+    dict.fromkeys(
+        (
+            _REPOSITORY_ROOT,
+            Path("C:/DIVINE OS/DivineOS-Experimental"),
+            Path("C:/DIVINE OS/DivineOS-Experimental-Aria-new"),
+        )
+    )
 )
 
 
@@ -656,13 +677,20 @@ def _load_letters() -> list[_CachedItem]:
     if not roots:
         return []
     seen_paths: set[Path] = set()
+    # By NAME as well as by path: the same letter sits in every checkout on
+    # this machine, so path-only dedup loaded each one up to three times
+    # (measured 2026-09-24: 7490 items for about 2600 letters), and a letter
+    # could crowd the results with copies of itself. The first root read is
+    # the running checkout, so that copy is the one kept.
+    seen_names: set[str] = set()
     items: list[_CachedItem] = []
     for root in roots:
         for md_path in sorted(root.rglob("*.md")):
             resolved = md_path.resolve()
-            if resolved in seen_paths:
+            if resolved in seen_paths or md_path.name in seen_names:
                 continue
             seen_paths.add(resolved)
+            seen_names.add(md_path.name)
             try:
                 content = md_path.read_text(encoding="utf-8", errors="replace").strip()
             except Exception:  # noqa: BLE001 - filesystem boundary
@@ -710,6 +738,7 @@ def _ensure_cache() -> None:
     """
     if _EMBEDDING_CACHE:
         return
+    _LANE_STATE.update(missing=0, drawer_error=None)
     _EMBEDDING_CACHE["correction"] = _load_corrections()
     _EMBEDDING_CACHE["knowledge"] = _load_knowledge()
     _EMBEDDING_CACHE["wall"] = _load_wall()
@@ -717,74 +746,110 @@ def _ensure_cache() -> None:
     _EMBEDDING_CACHE["letter"] = _load_letters()
 
 
-_MODEL: Any = None
-_MODEL_LOADED: bool | None = None
+# WHERE ITEM VECTORS COME FROM (2026-09-24). They used to be computed here with
+# sentence-transformers, whose import alone costs 17s in every fresh process,
+# and the compose hook is a fresh process every turn: the lane hung the hook and
+# was unwired (6e72eb15). Now an item's vector is READ from the vector drawer,
+# which is filled ahead of time by ``warm()``. A missing vector is counted and
+# the item skipped, never computed here. The query itself, one short text, is
+# embedded with the light embedder: the same model in numpy, about 0.3s to load.
+#
+# "collect" mode is how ``warm()`` learns which texts need vectors: the loaders
+# run as usual, and each text they ask about is recorded instead of looked up.
+_MODE = "drawer"
+_COLLECTED: list[str] = []
+_LANE_STATE: dict[str, Any] = {"missing": 0, "drawer_error": None}
+_COLLECT_PLACEHOLDER: Any = None
 
 
 def _ensure_model() -> bool:
-    """Lazy-load the sentence-transformers model.
+    """Whether the query can be embedded here: the light embedder can run."""
+    from divineos.core import light_embedder
 
-    Mirrors the pattern from ``divineos.core.knowledge._text._ensure_embedding_model``
-    — same all-MiniLM-L6-v2 model, same device selection, so
-    embeddings computed here match embeddings computed in the
-    knowledge store (important for cross-substrate similarity).
-
-    Returns True if the model loaded successfully. False means the
-    retriever falls back to behavior-neutral (returns empty payloads)
-    rather than crashing on missing dependencies.
-    """
-    global _MODEL, _MODEL_LOADED
-    if _MODEL_LOADED is not None:
-        return _MODEL_LOADED
-    try:
-        import logging
-        import os
-        import warnings
-
-        os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
-        logging.getLogger("tensorflow").setLevel(logging.ERROR)
-        logging.getLogger("tf_keras").setLevel(logging.ERROR)
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=FutureWarning)
-            warnings.filterwarnings("ignore", category=DeprecationWarning)
-            from sentence_transformers import SentenceTransformer
-
-            from divineos.core._embedding_device import select_device
-
-            _MODEL = SentenceTransformer("all-MiniLM-L6-v2", device=select_device())
-        _MODEL_LOADED = True
-        return True
-    except (ImportError, RuntimeError, OSError):
-        _MODEL_LOADED = False
-        return False
+    ok, _why = light_embedder.available()
+    return ok
 
 
 def _embed_text_impl(text: str) -> Any:
-    """Shared embedding helper used by both source-adapters and _embed_topic.
+    """An item's vector, from the drawer. None when the drawer has none.
 
-    Returns a numpy 1D vector or None if the model is unavailable.
-    Source adapters that get None from this helper skip the item
-    (behavior-neutral fallback per the same pattern in _load_corrections).
+    Never computes: that is ``warm()``'s job, outside the compose hook. A miss
+    is counted in ``lane_state()`` so a stale drawer is loud; an unreadable
+    drawer is recorded there too, so it can never read as a quiet empty one.
     """
+    global _COLLECT_PLACEHOLDER
     if not text or not text.strip():
-        return None
-    if not _ensure_model() or _MODEL is None:
-        return None
+        return None  # both-empty: the item is skipped either way; a drawer error is ALSO written to lane_state, which compose_block reads and turns into could-not-run
+    if _MODE == "collect":
+        _COLLECTED.append(text)
+        if _COLLECT_PLACEHOLDER is None:
+            import numpy as np
+
+            _COLLECT_PLACEHOLDER = np.zeros(1, dtype=np.float32)
+        return _COLLECT_PLACEHOLDER
+    import sqlite3
+
+    from divineos.core import vector_drawer
+
     try:
-        return _MODEL.encode([text], convert_to_numpy=True)[0]
-    except Exception:  # noqa: BLE001 - observability boundary
+        vec = vector_drawer.get(text)
+    except sqlite3.Error as exc:
+        _LANE_STATE["drawer_error"] = f"{type(exc).__name__}: {exc}"
         return None
+    if vec is None:
+        _LANE_STATE["missing"] += 1
+    return vec
 
 
 def _embed_topic(topic: str) -> Any:
-    """Embed the topic string using the shared model.
+    """The query's vector, computed now with the light embedder.
 
-    Same model as source-adapters use so similarity scores are
-    meaningful across the whole pipeline. Returns None if the model
-    is unavailable — retrieve_v1 then returns empty and stays
-    behavior-neutral.
+    Same model as the drawer's vectors, so similarities are comparable. None
+    when the model cannot run here; the reason is kept in ``lane_state()``.
     """
-    return _embed_text_impl(topic)
+    if not topic or not topic.strip():
+        return None
+    from divineos.core import light_embedder
+
+    try:
+        return light_embedder.encode(topic)
+    except light_embedder.EmbedderUnavailable as exc:
+        _LANE_STATE["embedder_error"] = str(exc)
+        return None
+
+
+def lane_state() -> dict[str, Any]:
+    """What the last load found: items with no stored vector, and any error."""
+    return dict(_LANE_STATE)
+
+
+def warm(progress: Any = None) -> dict[str, int]:
+    """Fill the drawer with a vector for every item the lane can surface.
+
+    Offline: minutes on a fresh drawer (about 50ms an item, measured), seconds
+    once full. Runs the real loaders in collect mode so the texts embedded are
+    exactly the texts the lane will later look up, byte for byte.
+    """
+    global _MODE
+    from divineos.core import vector_drawer
+
+    _COLLECTED.clear()
+    _MODE = "collect"
+    try:
+        for loader in (
+            _load_corrections,
+            _load_knowledge,
+            _load_wall,
+            _load_exploration,
+            _load_letters,
+        ):
+            loader()
+    finally:
+        _MODE = "drawer"
+    texts = list(_COLLECTED)
+    _COLLECTED.clear()
+    _EMBEDDING_CACHE.clear()
+    return vector_drawer.fill(texts, progress)
 
 
 def _cosine(a: Any, b: Any) -> float:

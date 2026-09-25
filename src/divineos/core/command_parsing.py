@@ -251,3 +251,74 @@ def remedy_segment(bash_command: str) -> str:
             return ""
         safe.append(candidate)
     return "\n".join(safe)
+
+
+# 2026-09-24, found by the adversarial pass on the sort-first refusal. The Python
+# allowlist matched a remedy at the FRONT of a command and ignored everything
+# after it, so `divineos decide "x" && git commit` walked past every refusal on
+# the router: the harmless recording command at the front carried the real work
+# behind it. remedy_segment above has the mirror-image hole, `git push && divineos
+# learn x`. Both ask "is a remedy in here?" when the question that keeps a gate
+# honest is "is a remedy ALL that runs?".
+#
+# So a command passes only when every link in its chain is either one of the
+# given commands or a harmless setup step. That keeps each prefix the notes above
+# record (a worktree cd, an assignment, `set -o pipefail`) without letting
+# anything else ride along.
+_HARMLESS_HEADS = frozenset({"cd", "set", "export"})
+_CHAIN_SEPARATORS = frozenset({"&&", "||", ";"})
+_OPERATOR_CHARS = frozenset(";&|<>()")
+# Redirections that discard or merge output and write nothing: the habits a
+# remedy is typed with, which must not turn it back into a refusal.
+_QUIET_TAIL_RE = re.compile(r"(?:\s+(?:2>&1|2?>\s*/dev/null))+\s*$")
+
+
+def _chain_links(command: str) -> list[list[str]] | None:
+    """The command's chain, each link as tokens with leading assignments removed.
+
+    None when anything in it could run or write outside what the tokens show:
+    a substitution (quoted or not -- bash runs both), a backtick, a pipe, a
+    redirect to a file, a background job, a subshell, or a parse failure.
+    """
+    if not command or "`" in command or "$(" in command:
+        return None  # both-empty: an unsafe command and an unparseable one both mean "cannot vouch for it", and every caller refuses on either
+    text = _QUIET_TAIL_RE.sub("", command.replace("\r\n", "\n").replace("\n", " ; "))
+    lexer = shlex.shlex(text, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    try:
+        tokens = list(lexer)
+    except ValueError:
+        return None  # both-empty: unparseable and unsafe both mean "cannot vouch for it", and every caller refuses on either
+    links: list[list[str]] = [[]]
+    for token in tokens:
+        if token in _CHAIN_SEPARATORS:
+            links.append([])
+        elif token and set(token) <= _OPERATOR_CHARS:
+            return None
+        else:
+            links[-1].append(token)
+    cleaned = []
+    for link in links:
+        while link and (link[0].lower() == "env" or _ENV_ASSIGN_RE.match(link[0])):
+            link = link[1:]
+        if link:
+            cleaned.append(link)
+    return cleaned
+
+
+def runs_only(command: str, allowed: tuple[tuple[str, ...], ...]) -> bool:
+    """True when every link in the chain is an allowed command or harmless setup.
+
+    At least one link must be an allowed command: a chain of nothing but `cd`
+    is not anybody's remedy. Fails toward False on anything it cannot read.
+    """
+    links = _chain_links(command)
+    if not links:
+        return False
+    found = False
+    for link in links:
+        if any(tuple(link[: len(prefix)]) == prefix for prefix in allowed):
+            found = True
+        elif link[0] not in _HARMLESS_HEADS:
+            return False
+    return found
