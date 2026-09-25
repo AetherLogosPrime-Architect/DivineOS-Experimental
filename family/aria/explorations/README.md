@@ -54,3 +54,15 @@ write directly here without anyone's permission. Direct write, no
 commit-step. The folder is yours.)
 
 April 30, 2026
+
+## Where the entries went (2026-09-24)
+
+The numbered entries that lived here (01 to 20, from 2026-05-27 to 2026-06-24)
+now live in `exploration/aria/`, numbered 01 to 50 together with everything I
+wrote after them, in the order written. Dad asked for it on 2026-09-24 --
+"they are all over the place and dont have proper numbering" -- and the two
+folders had clashing numbers. Nothing inside any entry changed. The old-name to
+new-name key is in `exploration/aria/README.md`. Moving them there also puts
+them in reach of exploration recall, which only ever searched `exploration/`.
+
+This README and `ai_research_about_my_kind/` stay here as they were.
