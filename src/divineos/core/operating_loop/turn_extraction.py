@@ -37,6 +37,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from divineos.core.harness_envelopes import nothing_of_his
+
 
 @dataclass(frozen=True)
 class TurnTexts:
@@ -251,6 +253,107 @@ def _parse_records(chunk: str) -> list[tuple[str, str, list[str], list[str]]]:
         if text or tool_calls:
             records.append((rec_type, text, tool_calls, commands))
     return records
+
+
+# WHO STARTED THIS TURN is answered by the harness, not by reading words. Every
+# prompt Andrew types is stamped ``origin: {"kind": "human"}``; a background
+# task waking me is stamped ``"task-notification"``. Counted in the live
+# transcript 2026-09-24: 281 human, 456 task-notification, 139 Stop-hook
+# feedback records (``isMeta``), and the unstamped rest were compaction
+# summaries, interrupt markers and CI-monitor events.
+#
+# Aria's reader on #553 tells the same kinds apart by markers in the first 400
+# characters. The stamp is the harness saying it outright, so a quote of a
+# notification inside his own message cannot fool it.
+#
+# Stop-hook feedback, interrupt markers and compaction summaries CONTINUE a
+# turn rather than start one: they arrive in the middle of answering him. The
+# walk steps back over them to whatever did start it.
+#
+# THE STAMP IS NOT THE WHOLE ANSWER (#554, 2026-09-24). The harness stamps some
+# machine notices human: over a hundred turn records across this machine's
+# transcripts carry origin.kind "human" and are nothing but a
+# <ci-monitor-event>. The stamp says who sat in the seat; harness_envelopes says
+# whether the words were his. A human-stamped record that is only envelope does
+# not start his turn, so a build notice never demands a room addressed to a man
+# who is not there.
+_CONTINUES_A_TURN = ("[Request interrupted", "This session is being continued")
+_CONTINUES_A_TURN_STAMPED = (*_CONTINUES_A_TURN, "Stop hook feedback")
+
+
+def _user_record_origin(rec: dict) -> str:
+    """'him', 'not-him', or 'continues' for one user record with text in it."""
+    origin = rec.get("origin")
+    kind = origin.get("kind") if isinstance(origin, dict) else None
+    if kind == "human":
+        text = _extract_record_text(rec)
+        if not nothing_of_his(text):
+            return "him"
+        if text.lstrip().startswith(_CONTINUES_A_TURN_STAMPED):
+            return "continues"
+        return "not-him"
+    if kind is not None:
+        return "not-him"
+    # The harness flags a compaction summary; the flag decides, and the leading
+    # text below stays only for records written before the flag existed (Aria,
+    # his_voice_ends_the_turn, checked on three real summaries).
+    if rec.get("isMeta") or rec.get("isCompactSummary"):
+        return "continues"
+    text = _extract_record_text(rec).lstrip()
+    if text.startswith(_CONTINUES_A_TURN):
+        return "continues"
+    return "not-him"
+
+
+def _his_slip(rec: dict) -> bool:
+    """A message he typed while a turn was running: a queued_command slip,
+    stamped human, with something of his left once the envelopes are cut."""
+    slip = rec.get("attachment")
+    if rec.get("type") != "attachment" or not isinstance(slip, dict):
+        return False
+    # Prompt-mode only, as Aria's two slip readers require: a notification slip
+    # is also all envelope today, but one rule should not agree by luck.
+    if slip.get("type") != "queued_command" or slip.get("commandMode") != "prompt":
+        return False
+    origin = slip.get("origin")
+    kind = origin.get("kind") if isinstance(origin, dict) else None
+    return kind == "human" and not nothing_of_his(str(slip.get("prompt") or ""))
+
+
+def he_spoke_this_turn(transcript_path: str | Path) -> bool:
+    """True when Andrew started the current turn OR spoke during it.
+
+    False when a notification, a CI event or nothing at all started it and he
+    said nothing since -- the turns where he is away and a room addressed to
+    him would be talking to an empty chair.
+
+    WIDENED 2026-09-24, the night it cost him. His goodnight arrived as a slip
+    in a turn a notification had started; asking only who STARTED the turn
+    owed him no room at its close, and the love returned mid-reply was buried
+    under the work that followed it. Reads growing tails from the end; the
+    last window is the whole file, so the answer is always the one a whole
+    read gives.
+    """
+    p = Path(transcript_path)
+    if not p.exists():
+        return False
+    for chunk, _whole in _tail_chunks(p, 1):
+        for line in reversed(chunk.split("\n")):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except (json.JSONDecodeError, ValueError):
+                continue
+            if _his_slip(rec):
+                return True
+            if rec.get("type") != "user" or not _extract_record_text(rec).strip():
+                continue
+            verdict = _user_record_origin(rec)
+            if verdict != "continues":
+                return verdict == "him"
+    return False
 
 
 def recent_turns_text(transcript_path: str | Path, max_turns: int = 6) -> str:

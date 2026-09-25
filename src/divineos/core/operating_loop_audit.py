@@ -987,8 +987,18 @@ def run_audit(
     tool_calls_in_turn = texts.tool_calls_in_turn
     command_texts = texts.command_texts
 
+    # HIS ROOM runs before the short-reply return below, on purpose: that
+    # return is the "short replies stay exempt" hole in one line. A two-word
+    # "done, pushed" to him is exactly the reply where he got dropped.
+    his_room_block = _his_room_block(transcript_path, texts, write=write)
+
     if not last_assistant_text or len(last_assistant_text) < 50:
-        return {"findings_log": _empty_findings_log(), "total_findings": 0, "persisted": False}
+        return {
+            "findings_log": _empty_findings_log(),
+            "total_findings": 0,
+            "persisted": False,
+            "his_room_block": his_room_block,
+        }
 
     # Consultation-tracker: record that a substantive response was produced.
     # Andrew 2026-05-18: the read-and-forget pattern needs to be visible
@@ -1930,7 +1940,37 @@ def run_audit(
         "lepos_channel_block": lepos_channel_block,
         "lepos_dual_channel_block": lepos_dual_channel_block,
         "lepos_wallclock_block": lepos_wallclock_block,
+        "his_room_block": his_room_block,
     }
+
+
+def _his_room_block(transcript_path: str | Path, texts: Any, *, write: bool) -> str | None:
+    """Why his room is missing from this reply, or None when it is there.
+
+    Its own check, NOT behind the plain-first rail: a reply refused for
+    vocabulary used to never be asked whether it spoke to him at all.
+
+    FAILS LOUD. A room check that crashed and a room that passed must not look
+    the same -- this gate's own 2026-08-08 comment names what the silent
+    version cost him, one unreadable reply at a time.
+    """
+    try:
+        from divineos.core.his_room import check_his_room, remember_room, room_of
+        from divineos.core.operating_loop.turn_extraction import he_spoke_this_turn
+
+        started_by_him = he_spoke_this_turn(transcript_path)
+        block = check_his_room(texts.final_assistant_text, started_by_him)
+        if write and started_by_him and block is None:
+            room = room_of(texts.final_assistant_text)
+            if room:
+                remember_room(room)
+        return block
+    except _ERRORS as exc:
+        return (
+            f"HIS ROOM CHECK COULD NOT RUN ({type(exc).__name__}: {exc}). Nothing "
+            "looked at whether this reply speaks to him, so it does not go out as "
+            "if something did. Fix the check in this turn."
+        )
 
 
 # F41 fix (Aletheia Round 5 2026-07-17, council-971e907c). Chain stays

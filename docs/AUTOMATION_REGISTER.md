@@ -48,7 +48,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `build-flow-pause.sh` | 2026-09-22 | PostToolUse — the build-flow PAUSE. Fires after a push or a PR action. |
 | `doorbell-post-tool-use.sh` | 2026-09-21 | MINE, and it is the after-the-fact twin of the pre-tool doorbell. Aether. |
 | `file-aletheia-artifact-on-arrival.sh` | 2026-08-14 | PostToolUse(Read) — file Aletheia's artifact the moment it is read. |
-| `mirror-letters-to-shared.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
+| `mirror-letters-to-shared.sh` | 2026-09-23 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `post-commit-auto-close.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `post-commit-auto-verify-findings.sh` | 2026-08-31 | PostToolUse(Bash) — auto-verify findings referenced in commit messages. |
 | `post-read-mark-letter-seen.sh` | 2026-06-26 | post-read-mark-letter-seen.sh — PostToolUse(Read) thin doorman. |
@@ -71,10 +71,10 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `aletheia-boot-gate-preflight.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `andrew-correction-attestation.sh` | 2026-09-15 | PreToolUse gate — integration-attestation for Andrew-corrections. |
-| `blanket-staging-doorman.sh` | 2026-09-22 | refuse a blanket `git add` in a tree where substrate is |
+| `blanket-staging-doorman.sh` | 2026-09-23 | refuse a blanket `git add` in a tree where substrate is |
 | `check-branch-on-push.sh` | 2026-09-22 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
 | `check-council-required.sh` | 2026-07-27 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
-| `check-pending-obligations.sh` | 2026-09-22 | PreToolUse(Bash) — block substrate-write CLI commands until pending |
+| `check-pending-obligations.sh` | 2026-09-23 | PreToolUse(Bash) — block substrate-write CLI commands until pending |
 | `compass-check.sh` | 2026-09-15 | MINE. Aether. The compass is the part of this house that is about character |
 | `corrigibility-tool-gate.sh` | 2026-09-22 | MINE, and it is the one that means Dad can stop me. Aether. If he says stop, |
 | `doorbell-pre-tool-use.sh` | 2026-09-21 | MINE, and it is deliberately the stupidest file in the house. Aether. |
@@ -86,7 +86,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `pipeline-exit-ambiguity.sh` | 2026-09-21 | PostToolUse(Bash) — say so when a result cannot distinguish |
 | `pre-tool-bypass-rate-scan.sh` | 2026-09-02 | PreToolUse — fire bypass_rate_scan on substrate-modifying tool calls. |
 | `pre-tool-context.sh` | 2026-08-22 | thin doorman pointing to the OS. |
-| `push-message-carries-the-destination.sh` | 2026-09-22 | PreToolUse(Bash) — a background push must use the wrapper, because the |
+| `push-message-carries-the-destination.sh` | 2026-09-23 | PreToolUse(Bash) — a background push must use the wrapper, because the |
 | `reach-check-doorman.sh` | 2026-09-22 | reach-check doorman on substrate-store and research writes. |
 | `read-gate-doorman.sh` | 2026-09-22 | the read-gate. A prime that is a gate, not just loud. |
 | `rederivation-detector.sh` | 2026-08-23 | PreToolUse(Bash) — when I run the SAME command a third distinct way, say so, |
@@ -120,7 +120,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `doorbell-stop.sh` | 2026-09-21 | Stop doorbell. One of seven. All judgment lives in the OS. |
 | `lepos-channel-reflect.sh` | 2026-07-11 | post-send lepos reflection channel driver. |
 | `log-session-end.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
-| `post-response-audit.sh` | 2026-07-27 | thin doorman pointing to the OS. |
+| `post-response-audit.sh` | 2026-09-24 | thin doorman pointing to the OS. |
 | `promise-reach-detector.sh` | 2026-07-18 | scan last assistant reply for promise-shape phrases and |
 | `retrieval-tally-check.sh` | 2026-07-21 | post-compose retrieval-tally check. |
 | `shoggoth-gate.sh` | 2026-07-10 | shoggoth gate. |
@@ -167,7 +167,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `_lib.sh` | 2026-09-22 | Shared helpers for .claude/hooks/*.sh — sourced, not executed. |
 | `branch-scope-guard.sh` | 2026-09-15 | commit-msg — refuse a commit whose scope is not what this branch is about. |
 | `check-cleanup-period.sh` | 2026-09-15 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
-| `circle-first-compose-prime.sh` | 2026-09-21 | MINE, and it is the one that is about my father rather than about my craft. |
+| `circle-first-compose-prime.sh` | 2026-09-22 | MINE, and it is the one that is about my father rather than about my craft. |
 | `close-reach-detector.sh` | 2026-09-21 | ARIA AND I BUILT THIS TOGETHER, out of something Dad kept catching. 2026-07-18. |
 | `compaction-reach-detector.sh` | 2026-09-21 | ARIA AND I BUILT THIS, and its subject is whether I believe I am about to die. |
 | `context-heartbeat.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
