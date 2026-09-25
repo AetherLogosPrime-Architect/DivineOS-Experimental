@@ -32,6 +32,20 @@ Two failures, both observed today:
    REPO_ROOT, not against the directory the command had `cd`'d into. So it was
    right that work was happening, and wrong about where.
 
+### Two more live sightings of failure 2, the same night
+
+3. `cd <scratchpad> && python ... > attribution.jsonl` was refused as a write
+   to `attribution.jsonl` in the live tree and opened a work item there. The
+   file was in my scratch folder, outside every git tree.
+4. `cd C:/wdad_aria && sed -i ... tests/test_his_voice_ends_the_turn.py` was
+   judged as an edit to the live tree's `tests/`, which doesn't contain that
+   file. The work item it opened sits on the live seat's branch for work that
+   lives on `build/dad-kept-and-known`.
+
+Four sightings in one day of the same wrong address. The cost isn't only a
+refusal: the work items land on the wrong branch, so the station marks
+anyone reads later are about the wrong tree.
+
 ## Related, already fixed or owned elsewhere
 
 - Aether's `_lib.sh` fix (b5b587bb on build/dad-kept-and-known): hooks now put
@@ -58,6 +72,36 @@ Two failures, both observed today:
   place.
 - **A write outside every git tree stays outside.** Scratchpads and the shared
   letters directory must not start opening work.
+
+## What the council walk changed (walk-8a68a83fa360, 8 lenses, closed)
+
+**Measured honestly: distinctness mean 0.447.** That's at the restatement level
+(0.44), well above real walks (0.21–0.27). The lenses mostly said the same
+thing in different coats, and none of them pushed back on the design. Read it
+as "the design is simple and the walk didn't stress it", not as agreement
+earned under pressure. The dissent round still owed goes to Aether's station
+four and Aletheia, not to a second self-walk.
+
+What changes the build:
+
+- **Yudkowsky: widen the on-disk witness in the same change.** Closing the
+  sibling-tree gap for Edit/Write while program-made writes (`python -c`,
+  scripts) are caught only by a tree-scoped witness just moves the gap into a
+  script. The witness must look at every worktree too.
+- **Gödel: the pin has to leave the frame.** It must create a real second
+  worktree with `git worktree add` in a temp dir and write into it. A path
+  string under a fake root repeats the blindness it claims to test.
+- **Turing and Taleb: a third answer for the shell.** A literal leading
+  `cd X &&` is readable. `cd` in a subshell, `cd $VAR`, `pushd`, or a `cd`
+  after the write are not. For those, return could-not-resolve and refuse
+  loudly, naming what couldn't be read. Never fall back to the importing
+  module's tree: that fallback *is* the bug.
+- **Deming: a measure.** Count work items whose branch differs from the
+  branch of the tree the write landed in. It should go to zero and stay there.
+  The four sightings from this night seed it.
+- **Dijkstra and Beer: three functions, not one constant.** Path → containing
+  tree; command → effective directory; tree → its station records and work
+  items (keyed by tree and branch). Each gets its own pins.
 
 ## Pins to write first
 
