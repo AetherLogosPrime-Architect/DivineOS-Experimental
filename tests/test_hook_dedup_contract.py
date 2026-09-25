@@ -265,6 +265,13 @@ def test_the_emitter_scan_sees_the_source_tree_too():
 # list, one rung down: not "this call needs no residual" but "this is not a
 # call at all", said out loud and disputable.
 _UNRESOLVED_KEY_SITES = {
+    "hook_router.py": (
+        "The router collapses repeats for every UserPromptSubmit surface, so its "
+        "key is built from the surface name and cannot be a literal. The residual "
+        "rule this scan enforces per call is enforced per surface instead: each is "
+        "classified in COLLAPSE_POLICY, and test_hook_router fails if any surface "
+        "is unclassified or a rule-carrying one has an empty residual."
+    ),
     "memory_linkage.py": (
         "A docstring naming the parameter rather than a call: the sentence "
         "describes what the raw dict is for by writing the signature out. "
