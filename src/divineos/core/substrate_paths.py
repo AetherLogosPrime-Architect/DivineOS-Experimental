@@ -71,6 +71,26 @@ LOCAL_SUBSTRATE_PREFIXES: tuple[str, ...] = (
     "docs/archives/",
 )
 
+# REGENERATED MIRRORS: substrate that is a pure function of the canonical DB.
+#
+# Narrower than LOCAL_SUBSTRATE_PREFIXES on purpose. docs/archives/*.md is
+# rewritten wholesale by core/archive_export.py and nothing reads it back from
+# the working tree, so its working copy is disposable: once the new bytes are on
+# the substrate branch, restoring the file to the checked-out branch's version
+# loses nothing. A letter or an exploration is NOT like that -- its working copy
+# may be the only one -- so it must never be in this list.
+#
+# Why the list exists at all (measured 2026-09-23): main tracks all twelve
+# archive files, so every code branch inherits them as already-tracked, and the
+# checkpoint's already-tracked exception committed them onto whatever code
+# branch was checked out -- eleven files per checkpoint, on two branches.
+REGENERATED_MIRROR_PREFIXES: tuple[str, ...] = ("docs/archives/",)
+
+
+def is_regenerated_mirror(rel_path: str) -> bool:
+    """Is this path a DB-regenerated mirror whose working copy is disposable?"""
+    return Path(rel_path).as_posix().startswith(REGENERATED_MIRROR_PREFIXES)
+
 
 class NoSubstrateBranchDeclared(RuntimeError):
     """No substrate branch is configured, so substrate has nowhere to go.
