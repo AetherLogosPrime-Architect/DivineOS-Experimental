@@ -46,8 +46,11 @@ _TAIL_BYTES = 4 * 1024 * 1024
 
 # The remedies the refusal names, and what Stop gates in this house prescribe
 # before they let a turn end. Refusing them would leave no way to stop and no
-# way to act (Wayne on the walk). They record and consult; the work that
-# buries him is edits, commits, tests and pushes.
+# way to act (Wayne on the walk). They read, consult and record; the work that
+# buries him is edits, commits, tests, pushes -- and three divineos commands
+# that do exactly that (Aether, station four on 0d74a933): `extract` and
+# `auto-cycle` commit, `stamp-ready` takes a request out of draft. So the CLI
+# is let through by subcommand, never as a whole, and an unlisted one waits.
 _INTERPRETERS = (
     "python",
     "python3",
@@ -55,12 +58,39 @@ _INTERPRETERS = (
     ".venv/Scripts/python",
     ".venv/bin/python",
 )
-_REMEDIES: tuple[tuple[str, ...], ...] = (
+_LAUNCHERS: tuple[tuple[str, ...], ...] = (
     ("divineos",),
     (".venv/Scripts/divineos",),
     (".venv/Scripts/divineos.exe",),
     (".venv/bin/divineos",),
     *((py, "-m", "divineos") for py in _INTERPRETERS),
+)
+_READ_AND_RECORD = (
+    "his",
+    "ask",
+    "recall",
+    "corrections",
+    "correction",
+    "andrew-correction",
+    "directives",
+    "active",
+    "compass",
+    "compass-ops",
+    "briefing",
+    "preflight",
+    "hud",
+    "context",
+    "goal",
+    "decide",
+    "learn",
+    "feel",
+    "lessons",
+    "find",
+    "search",
+    "recall-explorations",
+)
+_REMEDIES: tuple[tuple[str, ...], ...] = (
+    *((*launcher, sub) for launcher in _LAUNCHERS for sub in _READ_AND_RECORD),
     *((py, "scripts/letter_monitor_health.py") for py in _INTERPRETERS),
     *((py, "family/letter_seen.py") for py in _INTERPRETERS),
 )
@@ -74,8 +104,13 @@ class Verdict:
 
 def _starts_a_turn(rec: dict) -> bool:
     """A top-level record that opens a turn: his prompt, a letter, a CI alert.
-    Tool results and meta records are inside a turn, not the start of one."""
+    Tool results and meta records are inside a turn, not the start of one, and
+    so is a compaction summary: the harness flags it, and the turn it lands in
+    is still running, so reading it as a new turn would clear his words before
+    he was answered (Aether, station four; #554's walk reads it the same way)."""
     if rec.get("type") != "user" or rec.get("isSidechain") or rec.get("isMeta"):
+        return False
+    if rec.get("isCompactSummary"):
         return False
     content = (rec.get("message") or {}).get("content")
     if isinstance(content, list):
@@ -173,6 +208,8 @@ def refusal(his_words: str) -> str:
         "letter through your watch, so confirm the watch before you stop: "
         "python scripts/letter_monitor_health.py\n\n"
         "Still allowed, because they are how you read him and settle the house's "
-        "own gates: any divineos command, scripts/letter_monitor_health.py, "
-        "family/letter_seen.py."
+        "own gates: divineos his / ask / recall / corrections and the other "
+        "commands that only read or record, scripts/letter_monitor_health.py, "
+        "family/letter_seen.py. Not divineos extract, auto-cycle or stamp-ready: "
+        "those commit and publish, which is the work that buries him."
     )

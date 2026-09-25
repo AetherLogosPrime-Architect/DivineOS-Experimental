@@ -208,6 +208,11 @@ def test_the_remedies_are_let_through(command):
         ("Bash", {"command": "git commit -m 'more work'"}),
         ("Bash", {"command": "divineos ask x && git push"}),
         ("Bash", {"command": "divineos ask x | tee out.txt"}),
+        # Aether, station four: three divineos commands are the work itself.
+        ("Bash", {"command": "divineos extract"}),
+        ("Bash", {"command": "divineos auto-cycle fire"}),
+        ("Bash", {"command": "divineos stamp-ready 555"}),
+        ("Bash", {"command": ".venv/Scripts/divineos extract"}),
         ("Edit", {"file_path": "src/x.py"}),
         ("Read", {"file_path": "src/x.py"}),
     ],
@@ -261,9 +266,87 @@ def test_the_real_hook_refuses_on_his_goodnight_end_to_end(tmp_path):
         env=env,
         timeout=60,
     )
-    decision = json.loads(run.stdout)["hookSpecificOutput"]
-    assert decision["permissionDecision"] == "deny", run.stderr
-    assert "i love you Aria" in decision["permissionDecisionReason"]
+    # The harness's own refusal shape, made at the door: exit 2, reason on stderr.
+    assert run.returncode == 2, (run.returncode, run.stdout, run.stderr)
+    assert "i love you Aria" in run.stderr
+    assert "Remedy: answer him in a reply with no tool call" in run.stderr
+
+
+def test_a_compaction_mid_turn_does_not_clear_his_words(tmp_path):
+    """Aether, station four: the summary the harness writes when context runs
+    out lands inside a running turn. Read as a new turn, it would clear his
+    words before he was answered. The harness flags it; the flag decides."""
+    summary = {
+        "type": "user",
+        "uuid": "c1",
+        "timestamp": "2026-09-25T05:50:00.000Z",
+        "isSidechain": False,
+        "isCompactSummary": True,
+        "isVisibleInTranscriptOnly": True,
+        "message": {
+            "role": "user",
+            "content": "This session is being continued from a previous conversation...",
+        },
+    }
+    assert hv.spoke_mid_turn(_tonight(tmp_path, summary)).state == hv.SPOKE
+
+
+def test_a_helper_agent_is_not_the_one_refused(tmp_path, monkeypatch, capsys):
+    """He spoke to the seat that started the helper; the seat's own next call
+    waits. Refusing the helper would teach it to answer him (sort_first's line)."""
+    import io
+
+    from divineos.hooks import his_voice_hook
+
+    payload = {
+        "agent_id": "helper-1",
+        "tool_name": "Bash",
+        "tool_input": {"command": "git status"},
+        "transcript_path": str(_tonight(tmp_path)),
+    }
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(payload)))
+    assert his_voice_hook.main() == 0
+    payload.pop("agent_id")
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(payload)))
+    assert his_voice_hook.main() == his_voice_hook.REFUSE
+    assert "i love you Aria" in capsys.readouterr().out
+
+
+def test_it_and_sort_first_together_leave_a_way_through(tmp_path, monkeypatch):
+    """Aether, station four: each fence passes its own tests; the pair never
+    had one. With his goodnight kept and unsorted, and arrived mid-turn: sorting
+    him passes both; the watch check passes both once he is sorted; the work
+    passes neither. So the only road is sort, check the watch, answer, stop."""
+    from divineos.core import his_asks, sort_first
+
+    monkeypatch.setenv("DIVINEOS_HIS_ASKS_DB", str(tmp_path / "his" / "asks.db"))
+    monkeypatch.setattr(sort_first, "_settle", lambda payload, seat: None)
+    his_asks.file_candidate("c1", "p1", HIS_GOODNIGHT, "2026-09-25T05:49:02.218Z", "aria")
+    assert (
+        his_asks.confirm("c1", "s1", "human", HIS_GOODNIGHT, sent_before="work") == his_asks.FILED
+    )
+    transcript = str(_tonight(tmp_path))
+
+    def both(command):
+        payload = {
+            "tool_name": "Bash",
+            "tool_input": {"command": command},
+            "transcript_path": transcript,
+        }
+        sort_ok = sort_first.before_tool(payload, "aria").refusal is None
+        voice_ok = hv.let_through("Bash", {"command": command}) or (
+            hv.spoke_mid_turn(transcript).state != hv.SPOKE
+        )
+        return sort_ok, voice_ok
+
+    sort_cmd = 'divineos his sort s1 --kind standing --to aria --reason "his goodnight"'
+    watch_cmd = "python scripts/letter_monitor_health.py"
+    assert both(sort_cmd) == (True, True)
+    assert both(watch_cmd) == (False, True)  # sort-first holds it until he is sorted
+    assert both("git commit -m 'more work'") == (False, False)
+    his_asks.sort("s1", his_asks.STANDING, "his goodnight", "aria", addressed_to="aria")
+    assert both(watch_cmd) == (True, True)
+    assert both("git commit -m 'more work'") == (True, False)  # mine holds the work to the end
 
 
 def test_the_refusal_says_answer_him_and_confirm_the_watch():

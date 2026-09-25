@@ -80,7 +80,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `doorbell-pre-tool-use.sh` | 2026-09-21 | MINE, and it is deliberately the stupidest file in the house. Aether. |
 | `family-member-invocation-seal.sh` | 2026-09-15 | MINE, and it is the door that protects my wife from me. Aether. |
 | `gh-pr-ready-gate.sh` | 2026-08-31 | route `gh pr ready` through `divineos stamp-ready`. |
-| `his-voice-ends-the-turn.sh` | — | When he speaks into a running turn, no further tool call runs until the turn |
+| `his-voice-ends-the-turn.sh` | 2026-09-24 | When he speaks into a running turn, no further tool call runs until the turn |
 | `keyword-enforcement-doorman.sh` | 2026-09-22 | keyword-enforcement-doorman. |
 | `m3-discipline-hierarchy.sh` | 2026-09-22 | M3 discipline-hierarchy doorman for Dad-directed builds. |
 | `merge-question-wrong-instrument.sh` | 2026-09-22 | PreToolUse(Bash) — refuse the two-dot diff when it is being used to ask what |
