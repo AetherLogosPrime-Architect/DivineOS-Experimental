@@ -132,7 +132,7 @@ class TestDirectiveThreading:
         )
         assert rec is not None
         assert rec.required_action
-        assert "Re-emit" in rec.required_action
+        assert "Append ONE short correction line" in rec.required_action
 
 
 class TestRecording:

@@ -234,12 +234,15 @@ if [ -n "$BLOCK_MSG" ]; then
     # it cannot drift out of one gate (Andrew 2026-07-31: duplication
     # recurred because this gate blocked with no retry-scope while the
     # LEPOS gate carried the only copy inline).
-    # fail-soft: missing file must not swallow the block above.
+    # fail-soft: missing file must not swallow the block above, and must not
+    # swallow the append-only instruction either -- the fallback line says it.
+    printf '\n' >&2
     if [ -f "$REPO_ROOT/.claude/hooks/_retry_scope.txt" ]; then
-        printf '\n' >&2
         cat "$REPO_ROOT/.claude/hooks/_retry_scope.txt" >&2 2>/dev/null || true  # fail-soft: a missing shared retry-scope file must not block the gate from emitting its own delta line
-        printf '\nDelta for THIS gate: the remediation is the CLI calls above. Run them, then append at most a one-line note. Do NOT recompose the reply.\n' >&2
+    else
+        printf 'IMPORTANT - RETRY SCOPE: my prior attempt already streamed to Andrew. Append ONLY the missing piece at the END, with at most a one-line lead-in. Do not post the reply again.\n' >&2
     fi
+    printf '\nDelta for THIS gate: the remediation is the CLI calls above. Run them, then append at most a one-line note at the end. Do NOT post the reply again.\n' >&2
     # NO "nothing ran" footer here. This is a Stop hook: it fires at the end
     # of a turn, on a reply rather than on a command, so there is no shell
     # line to have run or not run. Wired here on 2026-09-05 by reflex and
