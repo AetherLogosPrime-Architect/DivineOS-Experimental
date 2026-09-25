@@ -112,7 +112,14 @@ def refusal(waiting: list[his_asks.Kept], opening: str) -> str:
         f"{count} message{'s' if count != 1 else ''} of his, kept in this seat and not yet sorted:",
     ]
     for kept in waiting:
-        lines += ["", f"  uuid {kept.uuid}  ({kept.said_at})", _indent(_shown(kept.his_text))]
+        # Kept at the door but never matched to his record: still his words, and
+        # still read first. Said plainly so the sort does not assume a record.
+        found = "" if kept.record_found else "  record never found"
+        lines += [
+            "",
+            f"  uuid {kept.sort_id}  ({kept.said_at}){found}",
+            _indent(_shown(kept.his_text)),
+        ]
     lines += [
         "",
         "Sort each one: say what it is and who he said it to.",

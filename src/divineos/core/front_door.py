@@ -63,11 +63,15 @@ _SLIP_WAIT = timedelta(minutes=30)
 # still unmatched past this never will be. Without the bound, one such candidate
 # made every tool call read further back through the transcript: measured
 # 2026-09-24 on a 388 MB transcript, about a second per day of age.
-# NOT YET SAFE: past this a candidate is shown by nothing -- pending() lists
-# only filed messages, and no could-not-file row is written (Aria, station
-# four). Her store half gives it a state of its own that pending() returns and
-# sort() accepts; until that lands, a message that never settles is lost.
+# Past it the door gives the candidate up (his_asks.give_up): it becomes
+# UNMATCHED, is counted as a could-not-file, and pending() still shows it in his
+# words, so the refusal reads it before any work. Stopping the search must never
+# stop the reading (Aria, station four).
 _SETTLE_HORIZON = 2 * _SLIP_WAIT
+
+_GIVE_UP_REASON = (
+    "the door looked for his record for {horizon} after keeping these words and never found it"
+)
 
 
 def _now_iso() -> str:
@@ -233,13 +237,23 @@ def settle(transcript_path: str | Path, seat: str) -> dict[str, str] | None:
     # The same clock the keeping reads, so the two can never disagree about now.
     now = _when(_now_iso()) or datetime.now(timezone.utc)
     horizon = now - _SETTLE_HORIZON
-    candidates = [
-        c
-        for c in unsettled
-        if c.seat == seat and (kept := _when(c.said_at)) is not None and kept >= horizon
-    ]
+    settled: dict[str, str] = {}
+    candidates = []
+    for c in unsettled:
+        if c.seat != seat:
+            continue
+        kept = _when(c.said_at)
+        if kept is not None and kept < horizon:
+            try:
+                settled[c.candidate_id] = his_asks.give_up(
+                    c.candidate_id, _GIVE_UP_REASON.format(horizon=_SETTLE_HORIZON)
+                )
+            except Exception as exc:  # noqa: BLE001 -- one bad candidate must not stop the rest
+                _record_failure(c.candidate_id, exc, seat)
+        else:
+            candidates.append(c)
     if not candidates:
-        return {}
+        return settled
     kept_times = [t for c in candidates if (t := _when(c.said_at)) is not None]
     back_to = (min(kept_times) if kept_times else now) - _SLIP_WAIT
     records = _records(Path(transcript_path), back_to)
@@ -248,7 +262,6 @@ def settle(transcript_path: str | Path, seat: str) -> dict[str, str] | None:
         _loud("could not tell which records are already his, so nothing was settled")
         return None
     taken: set[str] = set(already)
-    settled: dict[str, str] = {}
     for candidate in candidates:
         match = next(
             (r for r in records if r.uuid not in taken and r.stamp and _fits(candidate, r)),

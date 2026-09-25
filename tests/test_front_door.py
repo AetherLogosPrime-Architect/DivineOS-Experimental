@@ -312,16 +312,31 @@ def test_a_message_kept_in_the_other_window_is_left_for_that_window(tmp_path):
     assert _open() == [HIS]
 
 
-def test_a_message_never_matched_is_not_searched_for_forever(monkeypatch, tmp_path):
-    """Past the horizon it stays unsettled, visible as could-not-file, and the
-    door stops paying to look for it on every step."""
+def test_a_message_never_matched_is_given_up_and_still_shown(monkeypatch, tmp_path):
+    """Past the horizon the door stops paying to look for it on every step --
+    and stopping the search must not stop the reading. It becomes UNMATCHED and
+    pending() still returns it in his words, marked record-never-found."""
     _kept_at(monkeypatch, "2026-09-24T20:00:00.000+00:00")
     fd.keep({"prompt_id": "p1", "prompt": HIS}, "aether")
     _kept_at(monkeypatch, "2026-09-24T22:00:00.000+00:00")
     looked = []
     monkeypatch.setattr(fd, "_records", lambda *a: looked.append(a) or [])
-    assert fd.settle(_transcript(tmp_path, _turn("p1", HIS)), "aether") == {}
+    assert list(fd.settle(_transcript(tmp_path, _turn("p1", HIS)), "aether").values()) == [
+        ha.UNMATCHED
+    ]
     assert looked == []
+    assert _open() == []
+    [kept] = ha.pending()
+    assert kept.his_text == HIS and not kept.record_found
+
+
+def test_a_message_of_the_other_seat_is_never_given_up_from_here(monkeypatch):
+    """Its record lives in the other window's transcript; only that seat can
+    know it will never be found."""
+    _kept_at(monkeypatch, "2026-09-24T20:00:00.000+00:00")
+    fd.keep({"prompt_id": "p1", "prompt": HIS}, "aria")
+    _kept_at(monkeypatch, "2026-09-24T22:00:00.000+00:00")
+    assert fd.settle("unused", "aether") == {}
     assert _open() == [HIS]
 
 

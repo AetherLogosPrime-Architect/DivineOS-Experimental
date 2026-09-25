@@ -286,6 +286,33 @@ def test_a_second_sort_is_refused_and_names_the_first(cli):
     assert "already sorted" in out.output
 
 
+def _never_matched(text=HIS, seat=SEAT):
+    said = "2026-09-24T00:00:00.000Z"
+    cid = ha.mint_candidate_id("p", text, said + "never")
+    ha.file_candidate(cid, "p", text, said, seat)
+    assert ha.give_up(cid, "the door never found his record for these words") == ha.UNMATCHED
+    return cid
+
+
+def test_a_message_never_matched_is_shown_and_still_refuses(cli):
+    """Aria's two-part pin (station four): stopping the search must never stop
+    the reading. Both halves, because either alone hid him."""
+    cid = _never_matched()
+    out = CliRunner().invoke(cli, ["his", "pending"])
+    assert out.exit_code == 0, out.output
+    assert HIS in out.output and cid in out.output and "record never found" in out.output
+    verdict = sf.before_tool(_bash("ls"), SEAT)
+    assert verdict.refusal and HIS in verdict.refusal
+    assert cid in verdict.refusal and "record never found" in verdict.refusal
+
+
+def test_a_message_never_matched_is_sorted_by_the_id_it_is_shown_under(cli):
+    cid = _never_matched()
+    out = CliRunner().invoke(cli, ["his", "sort", cid, "--kind", "build", "--to", "aether"])
+    assert out.exit_code == 0, out.output
+    assert sf.before_tool(_bash("ls"), SEAT) == sf.Verdict()
+
+
 def test_not_an_ask_without_a_reason_is_refused(cli):
     uuid = _filed("proceed")
     out = CliRunner().invoke(cli, ["his", "sort", uuid, "--kind", "not_an_ask", "--to", "aether"])

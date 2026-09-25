@@ -49,7 +49,8 @@ def register(cli: click.Group) -> None:
             return
         for message in kept:
             where = "" if message.seat == seat else f"  [kept in {message.seat}'s window]"
-            click.echo(f"uuid {message.uuid}  ({message.said_at}){where}")
+            found = "" if message.record_found else "  record never found"
+            click.echo(f"uuid {message.sort_id}  ({message.said_at}){where}{found}")
             for line in message.his_text.strip().splitlines():
                 click.echo(f"  > {line}" if line else "  >")
             click.echo("")
