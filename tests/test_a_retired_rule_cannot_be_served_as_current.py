@@ -123,6 +123,33 @@ def test_an_entry_with_no_pattern_is_refused_rather_than_ignored(checker, tmp_pa
         checker.REGISTER_DIR = original
 
 
+def test_a_pattern_that_will_not_compile_is_could_not_run(checker, tmp_path):
+    """Aria, station four: uncaught, re.error exited 1, the code for a real hit."""
+    (tmp_path / "2020-01-01_broken.md").write_text(
+        "<!-- retired-rule\nid: broken\nretired: 2020-01-01\npattern: unclosed(group\n-->\n",
+        encoding="utf-8",
+    )
+    original = checker.REGISTER_DIR
+    checker.REGISTER_DIR = tmp_path
+    try:
+        with pytest.raises(checker.CheckerError, match="does not compile"):
+            checker.load_register()
+    finally:
+        checker.REGISTER_DIR = original
+
+
+def test_an_unreadable_file_makes_the_run_could_not_run(checker, one_rule, tmp_path, monkeypatch):
+    """Printed as UNREADABLE, the run still exited 0, and precommit read that as
+    a pass over a file nobody checked."""
+    unreadable_file = tmp_path / "binary.py"
+    unreadable_file.write_bytes(b"\xff\xfe\x00\x01 the old way \x00\xff")
+    monkeypatch.setattr(checker, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(checker, "load_register", lambda: one_rule)
+    monkeypatch.setattr(checker, "scanned_files", lambda: [unreadable_file])
+    monkeypatch.setattr(checker, "load_baseline", set)
+    assert checker.main() == 2
+
+
 def test_an_empty_register_reports_could_not_run_not_clean(checker, tmp_path):
     original = checker.REGISTER_DIR
     checker.REGISTER_DIR = tmp_path

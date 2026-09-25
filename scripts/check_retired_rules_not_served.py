@@ -101,7 +101,16 @@ class RetiredRule:
                 f"anything. An entry with no pattern is an archive note, not "
                 f"a guard -- either give it a pattern or say so in the file."
             )
-        self.patterns = [re.compile(p) for p in raw_patterns]
+        # A pattern that will not compile is could-not-run, not "a retired rule
+        # is being served": uncaught, re.error left Python to exit 1, which is
+        # this checker's code for a real hit (Aria, station four on 8d9d7c7e).
+        try:
+            self.patterns = [re.compile(p) for p in raw_patterns]
+        except re.error as exc:
+            raise CheckerError(
+                f"{source.name} registers a pattern that does not compile ({exc}), "
+                f"so this rule cannot be checked at all."
+            ) from exc
 
 
 def load_register() -> list[RetiredRule]:
@@ -295,6 +304,12 @@ def main() -> int:
     print("  Not looked at:")
     for line in NOT_SCANNED:
         print(f"    - {line}")
+    if unreadable:
+        # A file nobody could read was not checked, and a pass over it is the
+        # silence this checker exists to refuse. Could-not-run, exit 2.
+        print("")
+        print("  Exiting as COULD NOT RUN: unreadable files were not checked.")
+        return 2
     return 0
 
 
