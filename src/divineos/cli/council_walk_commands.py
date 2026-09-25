@@ -48,7 +48,15 @@ def register(cli: click.Group) -> None:
         show_default=True,
         help="Lens floor: normal 5, high 9, severe 12, critical 15 (Andrew's ladder).",
     )
-    def open_cmd(problem: str, gravity: str) -> None:
+    @click.option(
+        "--scope",
+        "scope",
+        multiple=True,
+        help="Repo-relative file(s) this walk is FOR. Without it the build-flow "
+        "board cannot find this walk and falls back to counting lens events, "
+        "which the single-lens recorder satisfies just as happily.",
+    )
+    def open_cmd(problem: str, gravity: str, scope: tuple[str, ...]) -> None:
         """Open a walk. The SEATING picks the lenses, not me.
 
         Most seats are drawn by lot from the whole roster; the rest go to the
@@ -57,7 +65,7 @@ def register(cli: click.Group) -> None:
         recognisable as such rather than read as the council being thin.
         """
         try:
-            result = open_walk(problem, gravity=gravity)
+            result = open_walk(problem, gravity=gravity, scope=scope)
         except WalkRefused as exc:
             raise click.ClickException(str(exc)) from exc
         lenses = result["lenses"]
