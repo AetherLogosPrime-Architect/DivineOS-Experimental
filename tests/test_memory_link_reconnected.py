@@ -50,6 +50,10 @@ def _fake_encode_many(batch):
 
 
 @needs_model
+# The reference is the heavy toolkit, and importing it cold drags in tensorflow:
+# measured past the suite's 30s on a cold cache. The budget is for that import,
+# not for the light path, whose own budget is pinned below.
+@pytest.mark.timeout(180)
 def test_the_light_embedder_gives_the_heavy_ones_vectors():
     """Measured at 1.6e-7 over 64 real entries. The pin allows 1e-5."""
     from sentence_transformers import SentenceTransformer
@@ -62,14 +66,27 @@ def test_the_light_embedder_gives_the_heavy_ones_vectors():
 
 @needs_model
 def test_the_light_embedder_never_imports_the_heavy_toolkit():
+    import os
     import subprocess
     import sys
+    from pathlib import Path
 
     code = (
         "import sys, divineos.core.light_embedder as le; le.encode('x'); "
         "print('sentence_transformers' in sys.modules)"
     )
-    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    # A child interpreter does not inherit pytest's pythonpath, so without this
+    # it loads whichever checkout last claimed the machine's one editable
+    # install -- and failed in a push gate for that reason, not for this code.
+    src = str(Path(light_embedder.__file__).resolve().parents[2])
+    env = {
+        **os.environ,
+        "PYTHONPATH": os.pathsep.join(filter(None, [src, os.environ.get("PYTHONPATH")])),
+    }
+    out = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, env=env, check=False
+    )
+    assert out.returncode == 0, out.stderr
     assert out.stdout.strip() == "False"
 
 
