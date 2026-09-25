@@ -28,7 +28,9 @@ bottom arrives after the cost has already been paid.
 Except on a retry. When this gate refuses, the reply has already reached him,
 and a second copy with a summary on top costs him more than a summary at the
 end. So the refusal asks for the summary appended at the END, and ``assess``
-accepts one placed there (Andrew 2026-09-25).
+accepts one placed there when the turn is a retry, and only then. Andrew
+2026-09-25: *"it only adds the correction at the end, not the full re-post."*
+A first reply still owes its summary at the top.
 
 ## Plain language, measured
 
@@ -137,16 +139,22 @@ def _work_section(reply: str) -> str:
     return reply[: min(starts)] if starts else reply
 
 
-def assess(reply: str) -> SummaryVerdict:
-    """Does this reply need a summary, and does it have a usable one?"""
+def assess(reply: str, *, retry: bool = False) -> SummaryVerdict:
+    """Does this reply need a summary, and does it have a usable one?
+
+    ``retry`` is the Stop payload's ``stop_hook_active``: true only when this
+    turn is continuing because a Stop hook refused it. Without it, a first reply
+    with its summary at the bottom would pass, which is the exact thing this
+    room exists to stop (Aria 2026-09-25, station four on #558).
+    """
     work = _work_section(reply)
     header = _SUMMARY_HEADER_RE.search(work)
     scope = work
-    if header is None:
-        # A summary APPENDED at the end, after the interior rooms, still counts.
-        # That is the only place a retry can put it: a Stop refusal lands after
-        # the reply has already reached him, and the refusal now asks for the
-        # missing room at the end rather than a second copy with it on top.
+    if header is None and retry:
+        # A summary APPENDED at the end, after the interior rooms, counts on a
+        # retry only. That is the only place a retry can put it: a Stop refusal
+        # lands after the reply has already reached him, and the refusal asks
+        # for the missing room at the end rather than a second copy on top.
         header = _SUMMARY_HEADER_RE.search(reply, len(work))
         scope = reply
 

@@ -1542,7 +1542,7 @@ def summary_room_surface(payload: dict) -> SurfaceOutcome | None:
     try:
         from divineos.core.summary_room import assess, render_block
 
-        block = render_block(assess(text))
+        block = render_block(assess(text, retry=bool(payload.get("stop_hook_active"))))
     except Exception as exc:  # noqa: BLE001
         return SurfaceOutcome(
             name="summary_room",
