@@ -485,7 +485,18 @@ def _has_doc_consult_within(
         candidate_paths = []
         tool_input = payload.get("tool_input") or {}
         if isinstance(tool_input, dict):
-            for key in ("file_path", "path", "pattern"):
+            # "glob" added 2026-09-18 (council-6d8022ff8464), and its absence
+            # made this gate's OWN printed remedy unsatisfiable. The block
+            # message says "Grep or Glob of a docs/*.md file". The natural way
+            # to run that is a Grep with the path set to the docs directory and
+            # the glob set to the markdown pattern — and neither field matched,
+            # because a directory does not end in .md and the glob key was
+            # never read at all. A real consult of exactly the prescribed shape
+            # was invisible to the gate prescribing it, and the block that
+            # followed was identical to the block for not having looked. Same
+            # class as the bypass-list deadlock: a remedy named but unreachable
+            # from where the refusal lands.
+            for key in ("file_path", "path", "pattern", "glob"):
                 v = tool_input.get(key)
                 if isinstance(v, str):
                     candidate_paths.append(v)
@@ -493,6 +504,18 @@ def _has_doc_consult_within(
         # Bash is handled entirely in the shape-4/shape-5 branch above and
         # never reaches here, so this path stays file-tools-only.
         is_write_shape = tool_name in {"Edit", "Write"}
+        # A search is ONE act spread across several fields — the directory in
+        # one, the file-type in another. Judging each field alone splits the act
+        # in half and then answers about neither half, so the docs/*.md question
+        # is asked of the fields JOINED before it is asked of them singly.
+        normed = [c.replace("\\", "/").rstrip("/") for c in candidate_paths]
+        # The docs directory appears with no trailing slash when it is the
+        # search ROOT ("docs", or an absolute path ending in it), which is the
+        # ordinary case and the one the first draft of this check missed.
+        names_docs_dir = any(n == "docs" or n.endswith("/docs") or "docs/" in n for n in normed)
+        asks_for_markdown = any(".md" in n for n in normed)
+        if not is_write_shape and names_docs_dir and asks_for_markdown:
+            return True
         for p in candidate_paths:
             p_norm = p.replace("\\", "/")
             # docs/*.md check — Read/Grep/Glob only; a prior Edit/Write
@@ -506,6 +529,38 @@ def _has_doc_consult_within(
             # form of consult (Andrew 2026-07-27).
             if class_dir_norm and class_dir_norm in p_norm:
                 return True
+            # THE SAME CHECK, RELATIVE FORM (2026-09-18, council-de31dcd3fa6f).
+            #
+            # The substring test above only matches when the consult happened
+            # to be written in the SAME path shape as the class dir. The class
+            # dir arrives absolute; a search may name the same directory
+            # relatively; and the absolute string is not contained in the
+            # relative one. So the comparison answers NO to a question whose
+            # true answer is YES — it decides string shape where the question
+            # is about PLACE.
+            #
+            # Hit live: two real prior-art searches of that exact directory were
+            # invisible, and the identical search with an absolute path passed.
+            # Same family as the docs/*.md repair a dozen lines above, made
+            # earlier the same day — I fixed the instance obstructing me and
+            # left its twin standing, and what found the twin was being blocked
+            # again rather than reviewing my own work.
+            #
+            # WEAKER ON PURPOSE: comparing the final segment can be fooled by a
+            # same-named directory elsewhere in the tree. The stronger version
+            # resolves both sides to real paths, which means filesystem calls
+            # inside a hook that must never be slow or throw. Cost named rather
+            # than the stronger property claimed.
+            #
+            # STILL OWED, and not substituted for by this: the refusal should
+            # list the searches it DID see and judged insufficient, so a false
+            # negative is legible in one glance instead of requiring the reader
+            # to already suspect the mechanism.
+            if class_dir_norm:
+                tail = class_dir_norm.rstrip("/").rsplit("/", 1)[-1]
+                stripped = p_norm.rstrip("/")
+                if tail and (stripped.endswith("/" + tail) or stripped == tail):
+                    return True
 
     return False
 

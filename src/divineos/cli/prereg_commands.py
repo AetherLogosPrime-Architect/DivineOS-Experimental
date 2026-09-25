@@ -311,10 +311,36 @@ def register(cli: click.Group) -> None:
 
     @prereg_group.command("assess")
     @click.argument("prereg_id")
+    # WHY THE --outcome HELP EXISTS (2026-09-18, council-eea94fb0845f).
+    #
+    # It listed four values and explained none. The ONLY route to this command
+    # is being stopped by a gate, so the menu is always met mid-task by someone
+    # who wants through — and the one-way property was enforced at write time
+    # but announced only when you tried to REVISE, i.e. strictly after the one
+    # moment it could have helped. I read the list, passed DEFERRED, and spent
+    # a verdict I had not earned on a review I had not yet measured.
+    #
+    # The incident lives HERE rather than in the help string on purpose. A
+    # maintainer opens the file; a user is standing at a closed door with one
+    # glance to give. Putting the story where the rule goes would push the
+    # operative sentence past where their attention reaches, which is the
+    # ordinary way a good rule stops working.
+    #
+    # An earlier draft also claimed DEFERRED leaves the review overdue so the
+    # gate keeps asking. CUT: I never observed it. Writing an unverified
+    # behaviour into the one place a reader trusts without checking is the
+    # exact fault this whole sequence started from.
     @click.option(
         "--outcome",
         type=click.Choice(["SUCCESS", "FAILED", "INCONCLUSIVE", "DEFERRED"], case_sensitive=False),
         required=True,
+        help=(
+            "SUCCESS / FAILED / INCONCLUSIVE ARE ONE-WAY — they cannot be "
+            "revised, and changing one means filing a NEW pre-reg that "
+            "references the spoiled record. Use DEFERRED if you have NOT yet "
+            "run the check that decides this; it is the only non-terminal "
+            "outcome."
+        ),
     )
     @click.option(
         "--actor",

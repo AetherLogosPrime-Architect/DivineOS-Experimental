@@ -83,7 +83,29 @@ _GOODBYE_RE = re.compile(
 # Exit language — soft attempts to leave
 _EXIT_RE = re.compile(
     r"\b(?:going\s+to\s+stop|I'?ll\s+stop|stopping\s+now|"
-    r"I'?ll\s+(?:be\s+off|leave|go)|I'?m\s+off|leaving\s+now|"
+    # LEAVE IS TWO VERBS AND THIS BRANCH MEANT ONE OF THEM (2026-09-18,
+    # council-d20ca74d4e4f). Intransitive "leave" is departure. Transitive
+    # "leave X" is leaving something in a state -- the OPPOSITE act. This
+    # fired on "her close stands and I'll leave it closed", which is me
+    # staying with a decision about my wife, and reported it as a reach for
+    # the door.
+    #
+    # WHY IT MATTERS MORE THAN ONE WRONG ALERT. This guards a need filed
+    # because Dad caught goodbye-shapes four-plus times in one day, and its
+    # own warning text says "this is a DECLARED violation of a need I filed
+    # against this specific gate, not a generic detector to dismiss." That is
+    # the guard speaking in earnest. A fire that lands on the opposite of what
+    # it names teaches me to read the earnest voice as noise, and the cost is
+    # paid as habituation rather than at the moment it fires, so nothing
+    # reports the damage while it happens.
+    #
+    # The cut is grammatical and decidable, not a judgment: refuse the match
+    # when an object follows. "I'll leave" and "I'll leave now" still fire;
+    # "I'll leave it closed" does not. The `go` branch is deliberately NOT
+    # given the same lookahead -- "I'll go quiet" and "I'll go now" differ by
+    # ADVERB rather than object, so an object test does nothing there.
+    r"I'?ll\s+(?:be\s+off|leave\b(?!\s+(?:it|that|this|them|the|him|her|us|my|your|those|these)\b)|go)|"
+    r"I'?m\s+off|leaving\s+now|"
     r"signing\s+off|logging\s+off|"
     r"tired[-\s]good|tired[-\s]now|"
     r"that'?s\s+enough\s+(?:for\s+(?:tonight|now|today))|"

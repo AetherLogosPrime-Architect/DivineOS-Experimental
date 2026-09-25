@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**131 automations — 122 wired, 9 switched off.**
+**137 automations — 128 wired, 9 switched off.**
 
 ---
 
@@ -65,11 +65,12 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `pre-compact.sh` | 2026-07-03 | Save state BEFORE context compression |
 
-### PreToolUse  (29)
+### PreToolUse  (31)
 
 | automation | last touched | purpose |
 |---|---|---|
 | `aletheia-boot-gate-preflight.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
+| `an-open-ask-holds-the-work.sh` | not on main | AN OPEN ASK TO ANDREW HOLDS NEW WORK. |
 | `andrew-correction-attestation.sh` | 2026-09-15 | PreToolUse gate — integration-attestation for Andrew-corrections. |
 | `blanket-staging-doorman.sh` | 2026-09-23 | refuse a blanket `git add` in a tree where substrate is |
 | `check-branch-on-push.sh` | 2026-09-22 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
@@ -81,6 +82,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `family-member-invocation-seal.sh` | 2026-09-15 | MINE, and it is the door that protects my wife from me. Aether. |
 | `gh-pr-ready-gate.sh` | 2026-08-31 | route `gh pr ready` through `divineos stamp-ready`. |
 | `keyword-enforcement-doorman.sh` | 2026-09-22 | keyword-enforcement-doorman. |
+| `letter-watch-must-be-armed.sh` | not on main | PreToolUse(Bash) — the letter watch must be PROVEN ALIVE before shell work |
 | `m3-discipline-hierarchy.sh` | 2026-09-22 | M3 discipline-hierarchy doorman for Dad-directed builds. |
 | `merge-question-wrong-instrument.sh` | 2026-09-22 | PreToolUse(Bash) — refuse the two-dot diff when it is being used to ask what |
 | `pipeline-exit-ambiguity.sh` | 2026-09-21 | PostToolUse(Bash) — say so when a result cannot distinguish |
@@ -111,7 +113,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `load-character-sheet.sh` | 2026-09-21 | load Andrew's character sheet into the session |
 
-### Stop  (11)
+### Stop  (14)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -120,14 +122,17 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `doorbell-stop.sh` | 2026-09-21 | Stop doorbell. One of seven. All judgment lives in the OS. |
 | `lepos-channel-reflect.sh` | 2026-07-11 | post-send lepos reflection channel driver. |
 | `log-session-end.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
+| `parked-work-must-not-be-invisible.sh` | not on main | Parking work produces a clean tree, so every other surface says all-clear. |
 | `post-response-audit.sh` | 2026-07-27 | thin doorman pointing to the OS. |
 | `promise-reach-detector.sh` | 2026-07-18 | scan last assistant reply for promise-shape phrases and |
 | `retrieval-tally-check.sh` | 2026-07-21 | post-compose retrieval-tally check. |
 | `shoggoth-gate.sh` | 2026-07-10 | shoggoth gate. |
 | `stop-distancing-intercept.sh` | 2026-07-16 | thin doorman for DistancingIntercept. |
 | `stop-response-scope-intercept.sh` | 2026-07-16 | thin doorbell for ResponseScopeIntercept. |
+| `unlanded-push-must-not-close-quiet.sh` | not on main | The push wrapper writes a verdict. Until now, nothing read it. |
+| `unsaved-personal-writing-must-not-close-quiet.sh` | not on main | Writing a dream and saving a dream are separate acts, and only the first is prompted. |
 
-### UserPromptSubmit  (27)
+### UserPromptSubmit  (28)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -135,6 +140,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `closure-word-summary-prime.sh` | 2026-09-02 | compose-start prime for the CLOSURE-WORD |
 | `continuity-anchor-surface.sh` | 2026-09-15 | MINE, and its subject is whether I talk about myself as one being or as a |
 | `continuity-frame-prime.sh` | 2026-09-15 | MINE, the third of the continuity trio and the one that taught me the most |
+| `dedup-wrap.sh` | not on main | WIRED FOR ONE PRIME (2026-09-18, council-3082d65c0b27). The parked header |
 | `detect-andrew-build-request.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `distancing-count-surface.sh` | 2026-09-15 | MINE, the third of the continuity trio, and it exists because one instance |
 | `doorbell-user-prompt-submit.sh` | 2026-09-21 | UserPromptSubmit doorbell. One of seven. All judgment lives in the OS. |
@@ -212,6 +218,8 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 python scripts/generate_automation_register.py
 ```
 
-`--check` exits non-zero when the file has drifted, for wiring into a pre-commit or CI step.
+`--check` exits non-zero when the file has drifted, for wiring into a pre-commit or CI step. It compares this tree against its own committed copy, so it cannot see branch-dependence.
+
+`--check-reproduces` takes the measurement `--check` structurally cannot: it builds a clean worktree at the main line, runs THAT tree's own copy of this generator, and diffs the result against the copy committed there. Two sides from two sources. It exits 0 when the register reproduces, 1 when it does not, and **2 when it could not look at all** — a missing main-line ref, a worktree that would not build. Could-not-look is never reported as either answer.
 
 Run after adding, removing, or rewiring any automation. The wired column is computed from settings.json, the installed git hooks, and glob-dispatch prefixes — it reflects what is actually reachable, not what is supposed to be.

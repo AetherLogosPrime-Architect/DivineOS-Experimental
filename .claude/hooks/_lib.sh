@@ -447,6 +447,53 @@ sys.exit(0 if got == want else 3)
   return 1
 }
 
+# THE SIDE EFFECT ABOVE NEVER REACHED A SINGLE HOOK, and this is where it has
+# to live instead. Found 2026-09-23 chasing #519 tests that failed only inside
+# the pre-push suite.
+#
+# find_divineos_python exports PYTHONPATH so this checkout's src/ wins over
+# the editable install. But 110 hooks call it as PYTHON_BIN="$(find_divineos_python)",
+# and command substitution runs the function in a subshell: the export dies
+# with the subshell and the caller's PYTHONPATH is untouched. Measured: from a
+# worktree with PYTHONPATH unset, sourcing this file and calling it that way
+# leaves PYTHONPATH empty, and the resolved python imports divineos from the
+# MAIN checkout. So in every worktree, every hook has been running whatever
+# branch the main checkout happens to be on -- the silent-stale-substrate class
+# that side effect was written to prevent, still open at all 110 sites.
+#
+# Doing it when this file is SOURCED puts it in the hook's own shell, which is
+# the only place an export survives. Idempotent, so the copy inside
+# find_divineos_python stays harmless for the callers that do run it directly.
+#
+# AN EXPLICIT CHOICE STILL WINS. What was wrong was the editable install
+# winning BY DEFAULT, a copy nobody picked. A caller whose PYTHONPATH already
+# names a directory providing divineos has picked which one to load -- my own
+# hand runs with PYTHONPATH=src, and tests/test_doorbell_absence.py shimming a
+# broken package to prove a doorbell says NOT RUNNING. Overriding that choice
+# silently would be the same fault in reverse: the hook deciding for the
+# caller what code the caller meant.
+#
+# THE LIMIT THAT COMES WITH THAT (Aletheia 2026-09-23, reviewing this): a
+# PYTHONPATH chosen on purpose and one INHERITED from a shell aimed at the main
+# checkout look identical from here -- both already provide divineos. So in a
+# worktree whose shell carries PYTHONPATH=<main>/src, this steps aside and the
+# hook runs main's code: the very bug above. It cures the unset case, not the
+# inherited-main case. If a worktree still behaves like main, check the shell.
+_lib_prefer_this_checkout() {
+  local _root _sep=":" _entry _rest
+  _root="$(_lib_repo_root)"
+  [ -d "$_root/src" ] || return 0
+  case "${OSTYPE:-}" in msys*|cygwin*|win*) _sep=";" ;; esac
+  _rest="${PYTHONPATH:-}"
+  while [ -n "$_rest" ]; do
+    _entry="${_rest%%"$_sep"*}"
+    [ "$_entry" = "$_rest" ] && _rest="" || _rest="${_rest#*"$_sep"}"
+    [ -n "$_entry" ] && [ -f "$_entry/divineos/__init__.py" ] && return 0
+  done
+  export PYTHONPATH="$_root/src${PYTHONPATH:+${_sep}${PYTHONPATH}}"
+}
+_lib_prefer_this_checkout
+
 
 # is_bypass_command — return 0 if the given command matches a
 # documented bypass prefix in scripts/hook_bypass_commands.txt.

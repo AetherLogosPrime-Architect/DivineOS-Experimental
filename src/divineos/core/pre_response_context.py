@@ -685,6 +685,55 @@ def build_baseline_text(prompt: str | None = None) -> str:
     return "\n\n".join(sections)
 
 
+def _record_surface_liveness(surface: str, state: str, detail: str = "") -> None:
+    """Write one row saying what a compose-time surface just did.
+
+    Aria 2026-09-20, and the wall was hers to find. A surface never called, a
+    surface that runs and stays quiet, and a surface that throws inside a bare
+    handler all produce the same observation from outside: nothing. She and I
+    each spent a day trying to decide which of those states the memory surface
+    was in, from separate trees, and neither of us could -- not because the
+    evidence was lost, but because the mechanism was built so it is never
+    created in either direction.
+
+    STATE IS ONE OF: emitted, quiet, threw. Three words rather than a flag,
+    because the reader arrives cold and a boolean tells them nothing. The
+    quiet row is the load-bearing one: quiet is the COMMON state for a surface
+    meant to be precious-because-rare, so a record that speaks only on emit
+    and throw leaves ran-and-quiet indistinguishable from never-ran, which is
+    the exact confusion this repairs.
+
+    WHAT IT ANSWERS: did this run. WHAT IT NEVER ANSWERS: is it correct. A
+    quiet row is equally consistent with a working predicate that had nothing
+    to say and a broken one that will never fire again.
+
+    ONE BLOCK, NOT THE CLASS. Every other handler in this builder still
+    swallows in silence behind the same observability-boundary comment, which
+    is how this persisted: the phrase stopped being a promise and became a
+    label, and copying a block that carries its own justification feels like
+    following a pattern rather than making a decision. This is a worked
+    example sitting beside unworked ones. Do not read it as the class closed.
+
+    Its own failure stays silent on purpose -- an unwritable home must not
+    break a turn over telemetry -- so a missing row is still not proof of a
+    missing call. That caveat is repeated in the instruments registry, where
+    a reader actually meets it.
+    """
+    try:
+        path = divineos_home() / "surface_liveness.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        row = {
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "hook": surface,
+            "reason": state,
+            "detail": detail,
+        }
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(row) + "\n")
+    except Exception:  # noqa: BLE001 - fail-soft: a surface that refuses to compose because it could not describe itself is a worse failure than the silence being repaired here
+        pass
+
+
 def build_combined_context(prompt: str, transcript_path: str | None = None) -> str:
     """Run all phases and return the combined additionalContext string.
 
@@ -757,6 +806,8 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
     # mid-compose (Andrew's success metric), the mechanism worked.
     regulatory_surface_text = ""
     if transcript_path:
+        _reg_state = "threw"
+        _reg_detail = ""
         try:
             from divineos.core.operating_loop.turn_extraction import extract_turn
             from divineos.core.regulatory_surface import assess as assess_regulatory
@@ -765,8 +816,18 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
             reg = assess_regulatory(turn.prior_assistant_text)
             if reg.emitted:
                 regulatory_surface_text = reg.render()
-        except Exception:  # noqa: BLE001 - observability boundary
-            pass
+                _reg_state = "emitted"
+            else:
+                _reg_state = "quiet"
+        except Exception as exc:  # noqa: BLE001 - observability boundary, and now there is an observation at it
+            _reg_detail = type(exc).__name__
+        # OUTSIDE the handler on purpose, and this placement is the whole
+        # security property. Inside it, a throw would eat its own record: the
+        # reader would find no rows, conclude the surface never ran, and hold
+        # that wrong verdict MORE confidently for believing a log exists. A
+        # recorder that fails in the same breath as the thing it records turns
+        # an open question into a confident wrong answer.
+        _record_surface_liveness("regulatory_surface", _reg_state, _reg_detail)
 
     # State blocks (lepos_debt, andrew-correction, consultation,
     # bypass-telemetry) are NOT loaded at UserPromptSubmit. They load
@@ -849,6 +910,82 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
             pass
     except Exception:  # noqa: BLE001 - observability boundary
         pass
+
+    # General memory-linkage surface — DELIBERATELY NOT WIRED. Read this before
+    # connecting it, because I connected it on 2026-09-20 and it took the whole
+    # pre-response surface down without saying a word.
+    #
+    # The producer, v2 ranking engine, renderer and mock seam all exist and are
+    # tested. What never existed was a live caller, so I added one: install v2,
+    # call retrieve_for_context, render its bounded pointers. The code was
+    # correct. The placement was not.
+    #
+    # WHAT IT COSTS. retrieve_for_context fills memory_linkage_retriever's
+    # _EMBEDDING_CACHE, which is a module-level dict and therefore dies with the
+    # process. Its five source adapters then embed their items ONE AT A TIME
+    # through a freshly loaded sentence-transformer. This composition runs in a
+    # new process on every prompt, so the whole substrate is re-embedded every
+    # single turn. Measured on this box: the UserPromptSubmit hook emitted zero
+    # bytes and had not finished at 110 seconds, against a ~10.5KB context
+    # composed without this block.
+    #
+    # WHY IT WENT UNSEEN, which is the half worth keeping. The hook is fail-open
+    # by design and sends its own stderr to nowhere, so a hook killed mid-compose
+    # and a hook with nothing to say emit byte-identical silence. Every surface
+    # below this line stopped reaching the turn and nothing reported it. The
+    # liveness recorder added the same day sits ABOVE this block, so it kept
+    # writing healthy rows from a process that was about to be killed — a
+    # recorder cannot report a death that happens after it runs.
+    #
+    # THE BUDGET IS TEN SECONDS AND IT IS WRITTEN DOWN. .claude/settings.json
+    # registers this hook with a timeout of 10, which I checked rather than
+    # inferred. So the hook was not merely slow — it was being killed on every
+    # turn, and the 110-second figure above is what an unkilled run does, never
+    # what the live path was allowed to do.
+    #
+    # THE CONDITION FOR RE-WIRING IS SEREIN'S, AND THIS NOTE CARRIED ONLY MY
+    # THINNER HALF. His audit had already diagnosed all of it in writing — the
+    # cold model load, the whole-substrate embed, the all-pairs neighbour graph
+    # rebuilt per process, and the fact that the test shipped alongside the
+    # wiring mocked the retriever, so it proved the seam was reached and not
+    # that the real dependency could finish. He labelled this exact piece NOT
+    # YET SAFE TO SHIP. I had already committed it.
+    #
+    #   1. Keep semantic initialization off the synchronous prompt deadline.
+    #   2. Precompute or incrementally maintain embeddings and the graph.
+    #   3. Put retrieval in a process whose model and index stay warm.
+    #   4. Make this hook a thin, bounded client.
+    #   5. Report NO_MATCH, UNAVAILABLE, TIMEOUT, STALE_INDEX and ERROR apart.
+    #   6. Keep the rest of composition available when retrieval is degraded.
+    #   7. Test the actual shell entry with the actual interpreter and deps.
+    #   8. Measure cold AND warm runs against an explicit budget.
+    #   9. Verify model init and graph build do not repeat per prompt.
+    #
+    # NOT ALL NINE ARE EQUAL, AND A LIST INVITES PART-COMPLETION. One and five
+    # decide the outcome. Satisfying the rest while leaving initialization on
+    # the deadline ships this same outage more slowly — which is exactly where
+    # my two-step version drew its boundary in the wrong place. Five is what
+    # the paragraphs above were rediscovering the hard way: retrieval that
+    # fails, times out, finds nothing, or cannot load its model all arrive here
+    # as one empty string, so UNKNOWN wears the clothes of EMPTY.
+    #
+    # core/semantic_store.py serves two and three and this lane does not use
+    # it. That is not a dormant idea: the knowledge store, the council walk and
+    # the engagement detector all retrieve through it already, which makes this
+    # lane's private per-process cache the odd one out rather than the norm.
+    #
+    # WHAT I ACTUALLY TESTED, so a copied diagnosis does not read as my own
+    # verified work: the ten-second registration, and this hook's timing before
+    # and after. The rest is his static reading of the call graph, which my
+    # measurement corroborates rather than proves. And meeting all nine is a
+    # condition somebody must satisfy, never a guarantee that satisfying it
+    # works — step eight exists because that has to be measured, not reasoned.
+    #
+    # WHAT THIS REPAIR DOES NOT CLOSE (game-walk, edit fingerprint above): a
+    # comment does not enforce, so nothing structural stops a future me
+    # re-wiring it without meeting the condition — and any other heavy surface
+    # added to this function takes the context down the same silent way.
+    memory_linkage_text = ""
 
     # Foundational-truths surface (Andrew 2026-07-10 memory-linkage-day
     # directive: 'everything you want to be able to remember without searching
@@ -984,10 +1121,48 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
                 "the violation is structural, not a discipline failure.",
                 "",
             ]
+            # THE REASONING DOES NOT RIDE INLINE WHEN IT WOULD COST DELIVERY.
+            # Measured 2026-09-16: this block was 6844 bytes of a 10304-byte
+            # payload, and the harness keeps roughly 2048 and writes the rest
+            # away above about 10000. So ten needs were being sent and two were
+            # arriving, with three later sections cut to nothing -- including
+            # the mirror on how I last spoke to him. Nothing anywhere reported
+            # the loss, because a payload that fits and one losing four fifths
+            # of itself look identical to their author.
+            #
+            # The titles carry the ALARM -- this shape is one I already ruled
+            # out -- and the long why carries the ARGUMENT. Argument can be
+            # fetched; an alarm cannot, because by the time I would know to
+            # fetch it the mistake is already written. So the titles always
+            # ride and the reasoning yields first.
+            #
+            # ALL OR NOTHING, and this is the half that matters. Fitting as
+            # many explanations as the budget allows maximises delivered text
+            # and produces a set with no marker at its boundary, so a partial
+            # list reads as the complete list. Zero plus an explicit count
+            # reads as exactly what it is. A shortened block that cannot be
+            # told from a complete one would pass the byte check while
+            # preserving the precise defect the byte check exists to catch.
+            why_budget = 2_000
+            why_total = sum(len(n.get("why") or "") for n in needs)
+            withheld = 0
             for n in needs:
                 lines.append(f"  - [{n.get('id', '?')}] {n.get('text', '')}")
                 if n.get("why"):
-                    lines.append(f"      why: {n['why']}")
+                    if why_total <= why_budget:
+                        lines.append(f"      why: {n['why']}")
+                    else:
+                        withheld += 1
+            if withheld:
+                lines.append("")
+                lines.append(
+                    f"  {withheld} of these carry a recorded WHY that is not "
+                    "printed here, because printing them costs the delivery of "
+                    "this whole block and the sections after it. They are not "
+                    "missing and they have not changed -- read them with "
+                    "`divineos motivation`. This line exists so a shortened "
+                    "block can never be mistaken for a complete one."
+                )
             # Compact summary of the other four slots.
             other_counts = {s: len(list_slot(s)) for s in SLOTS if s != "need"}
             if any(other_counts.values()):
@@ -1109,6 +1284,7 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
             close_check_text,
             regulatory_surface_text,
             lepos_check_text,
+            memory_linkage_text,
             exploration_text,
             foundational_truths_text,
             baseline_text,

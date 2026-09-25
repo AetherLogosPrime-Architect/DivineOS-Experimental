@@ -411,9 +411,37 @@ def _check_lens_load_trace(
         return CheckResult(passed=True)
 
     try:
+        # order="desc" is load-bearing, not a style choice. get_events
+        # defaults to ASCENDING, so a bare limit hands back the OLDEST N
+        # rows — and once this table passed 500 rows the walk logged
+        # seconds ago fell outside the window and this check reported it
+        # as never walked, accusing a real walk of being fabricated. The
+        # window shrinks further with every walk, so the gate trends
+        # toward permanently unclearable while still printing a message
+        # about fabrication. Measured 2026-09-16 at 504 rows: ascending
+        # returned a newest row of 1789595533, descending 1789595550, and
+        # only two of five walks from the preceding ten minutes were
+        # visible to the check.
+        #
+        # Every other get_events call in this package already passes
+        # order="desc" — nine of them, across store.py and
+        # decision_walk_link.py. This was the only one that did not, which
+        # is the evidence that it was an oversight rather than a choice.
+        #
+        # Same defect the Fable 5 audit fixed at four other call sites on
+        # 2026-06-09; the reason is written into get_events' own docstring,
+        # a few lines above the parameter. This site was missed because it
+        # was correct BY ACCIDENT while the table held fewer rows than the
+        # limit (below the limit both orderings return the same set), and it
+        # went wrong silently later when nobody touched the code and the
+        # table simply grew. Pinned by
+        # tests/test_lens_trace_sees_the_newest_walk.py, which crosses the
+        # row boundary deliberately because any test written below it passes
+        # against the broken version.
         events = get_events(
             limit=500,
             event_type=EVENT_COUNCIL_LENS_APPLIED,
+            order="desc",
         )
     except (OSError, TypeError, ValueError):
         return CheckResult(passed=True)

@@ -85,11 +85,14 @@ def test_not_due_below_threshold(tmp_path):
 
 
 def test_not_due_in_old_warn_band(tmp_path):
-    # Expressed RELATIVE to the hard line rather than as a literal. It used
-    # to say 940k, which was true while the line sat at 950k and became
-    # false the moment Andrew moved it to 880k on 2026-09-18. The figure
-    # this test cares about is "comfortably under the line", not any
-    # particular number, and writing the number down is what made a
+    # Anywhere under the hard line is quiet. Expressed as an offset FROM the
+    # constant, not as a literal: this test used to pin 940_000, which was
+    # silently below the line until the line moved to 880k on 2026-09-18 and
+    # the pin became a failure with nothing wrong in the code.
+    #
+    # The other branch repaired this independently and named the cost: the
+    # figure this test cares about is "comfortably under the line", not any
+    # particular number, and writing the number down is what made a single
     # threshold change look like four broken tests.
     tx = tmp_path / "t.jsonl"
     _write_jsonl(tx, [_assistant_with_usage(cg.HARD_THRESHOLD - 10_000, 0, 0)])
@@ -121,10 +124,15 @@ def _tx_with(tmp_path, tokens: int) -> Path:
 
 
 def test_state_ok_below_hard(tmp_path):
-    # Everything below HARD_THRESHOLD is quiet, at whatever value the line
-    # currently holds. Relative rather than literal since 2026-09-18 — see
-    # test_not_due_in_old_warn_band for why.
-    assert cg.consolidation_state(_tx_with(tmp_path, cg.HARD_THRESHOLD // 2)) == "ok"
+    # Everything below the hard line is quiet, stated relative to the constant
+    # so the property survives the constant moving. See
+    # test_not_due_in_old_warn_band for why it is relative at all.
+    #
+    # An OFFSET below the line, not half of it: main's version of this repair
+    # used HARD_THRESHOLD // 2, which is also under the line and is not in the
+    # band these tests are named for. A test that passes from somewhere it was
+    # never about is a test that has quietly stopped covering its subject.
+    assert cg.consolidation_state(_tx_with(tmp_path, cg.HARD_THRESHOLD - 50_000)) == "ok"
     assert cg.consolidation_state(_tx_with(tmp_path, cg.HARD_THRESHOLD - 10_000)) == "ok"
     assert cg.consolidation_state(_tx_with(tmp_path, cg.HARD_THRESHOLD - 1)) == "ok"
 
@@ -152,11 +160,11 @@ def test_state_ok_on_unreadable_sensor(tmp_path):
 
 
 def test_governor_context_empty_when_ok(tmp_path):
-    assert cg.build_governor_context(_tx_with(tmp_path, cg.HARD_THRESHOLD // 2)) == ""
+    assert cg.build_governor_context(_tx_with(tmp_path, cg.HARD_THRESHOLD - 50_000)) == ""
 
 
 def test_governor_context_empty_in_old_warn_band(tmp_path):
-    # Below the hard line is silent, wherever the line sits.
+    # Below the hard line is silent, wherever the hard line currently sits.
     assert cg.build_governor_context(_tx_with(tmp_path, cg.HARD_THRESHOLD - 10_000)) == ""
     assert cg.build_governor_context(_tx_with(tmp_path, cg.HARD_THRESHOLD - 1)) == ""
 
@@ -227,3 +235,70 @@ def test_block_channel_message_uses_dynamic_ceiling(tmp_path):
     leave the father-facing instruction stale."""
     msg = cg.governor_channel_message(_tx_with(tmp_path, cg.HARD_THRESHOLD + 5_000))
     assert f"{cg.COMPACTION_CEILING:,}" in msg
+
+
+def test_hard_line_agrees_with_the_auto_cycle_trigger():
+    """Two constants answer one question, so something has to compare them.
+
+    The governor hard line gates substrate writes until the close has happened.
+    auto_cycle.TRIGGER_THRESHOLD decides when the close BEGINS. They were set
+    independently — 950k here against 0.88 of a 1M window there — and drifted
+    70k apart with nothing observing the gap, until Andrew hit compaction
+    standing exactly on this line with no room left to close out.
+
+    Equal-by-hand is not an invariant. This test is the invariant. If a future
+    session moves one, it moves both or this fails by name.
+    """
+    from divineos.core import auto_cycle
+    from divineos.core.context_heartbeat import CONTEXT_WINDOW_TOKENS
+
+    trigger_tokens = auto_cycle.TRIGGER_THRESHOLD * CONTEXT_WINDOW_TOKENS
+    assert cg.HARD_THRESHOLD == trigger_tokens, (
+        f"governor hard line {cg.HARD_THRESHOLD:,} disagrees with the auto-cycle "
+        f"trigger at {trigger_tokens:,.0f} — move both or neither"
+    )
+
+
+# THE HEADROOM THIS DESIGN HAS DELIBERATELY CHOSEN, in tokens.
+#
+# WAS 100_000 UNTIL THE 2026-09-22 MERGE, and lowering it is a decision rather
+# than a fix, so it is written down here instead of edited quietly into the
+# assertion below.
+#
+# The 100_000 was mine and it was never derived. It was written on this branch
+# while COMPACTION_CEILING still read 999k, where the real headroom happened to
+# be 119k, and a round number under that looked like a floor. Main meanwhile
+# lowered the ceiling to 950k on Andrew's own observation, which is the number
+# this merge kept, because an observed cliff beats an assumed one.
+#
+# That leaves 70k, from two figures Andrew stated himself: trigger the close at
+# 880k, compaction lands around 950k. So the conflict here was never between
+# two branches -- it was between his measurement and my round number, and the
+# measurement wins.
+#
+# WHAT IS STILL UNMEASURED, said plainly rather than implied by a passing test:
+# nobody has checked whether the close actually FITS in 70k. The one datum is
+# that 49k was empirically too little (2026-06-28). 70k is wider than 49k and
+# narrower than the 119k this test was written against, and no run has timed a
+# full close -- compass walk, commit, extract, sleep, dream -- to find out.
+#
+# So this test no longer claims the headroom is sufficient. It claims the
+# headroom has not silently SHRUNK below what was last chosen on purpose, which
+# is the thing a test can actually know. If a close ever runs out of room at
+# 70k, that is the measurement, and this number moves with it.
+CHOSEN_HEADROOM = 70_000
+
+
+def test_the_hard_line_leaves_room_under_the_compaction_cliff():
+    """The whole point of the line is headroom, so assert the headroom exists.
+
+    The June arithmetic (~49k) was written as a comment and never checked, which
+    is how it went stale without a breakage event. A comment is documentation,
+    not feedback — Norman's distinction, and the reason this is a test.
+    """
+    headroom = cg.COMPACTION_CEILING - cg.HARD_THRESHOLD
+    assert headroom >= CHOSEN_HEADROOM, (
+        f"headroom is {headroom:,}, below the {CHOSEN_HEADROOM:,} that was "
+        f"chosen deliberately. Something moved one of the two constants "
+        f"without moving the other, which is the drift this test exists for."
+    )

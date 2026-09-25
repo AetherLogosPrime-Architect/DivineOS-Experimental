@@ -72,6 +72,62 @@ LOCAL_SUBSTRATE_PREFIXES: tuple[str, ...] = (
 )
 
 
+# SUBSTRATE THAT REBUILDS ITSELF, which is a different kind from the rest.
+#
+# Every other prefix above names writing that happens once: a letter is sent, a
+# dream is offered, an exploration entry is thought through. Losing the file
+# loses the content. ``docs/archives/`` is not that. It is a text export of the
+# databases, rebuilt from them at every checkpoint, and deliberately TRACKED on
+# main because Andrew decided 2026-08-16 that the readable mirror is what
+# survives when the database itself is too large for the remote.
+#
+# Those two facts together produce a loop nothing else in this module can see.
+# The checkpoint classifies the exports as substrate, correctly. The retarget
+# then finds them already tracked on the checked-out branch and folds them into
+# the work-in-progress commit -- also correctly, for a letter some earlier sweep
+# stranded there, where committing it is exactly what takes it off. But an
+# export is not stranded. It is tracked on purpose and regenerates within the
+# hour, so the fold runs again at the next checkpoint, and the next.
+#
+# MEASURED, not inferred: three work-in-progress commits on one code branch
+# between 2026-09-16 and 2026-09-18, each carrying the same eleven exports and
+# roughly fifteen hundred changed lines, against four separate hand-repairs
+# restoring them to main's content. That branch reached an auditor with ninety
+# files in its diff of which two were the work.
+#
+# The rule that follows: a regenerated mirror belongs to the branch that owns it
+# and rides no other. Elsewhere the honest state is a modified file left alone,
+# because there is nothing to save -- the content is in the database and the
+# command rebuilds it.
+#
+# NAMED NARROWLY ON PURPOSE. A general "it might be derived" test invites a yes,
+# because yes is what lets the checkpoint proceed. Admitting a HANDWRITTEN path
+# here would stop it being saved and nothing would announce that, so an entry
+# belongs here only when a command rebuilds the file from something upstream.
+REGENERATED_MIRROR_PREFIXES: tuple[str, ...] = ("docs/archives/",)
+
+
+def is_regenerated_mirror(rel_path: str) -> bool:
+    """True when the path is a text export rebuilt from a database.
+
+    Distinct from :func:`is_declared_substrate_path`: every regenerated mirror
+    IS substrate, but the reverse does not hold, and the two want opposite
+    handling on a branch that does not own them. Substrate wants saving; a
+    mirror wants leaving alone, because saving it is what puts several thousand
+    lines of unrelated churn in front of a reviewer.
+    """
+    return PurePosixPath(rel_path).as_posix().startswith(REGENERATED_MIRROR_PREFIXES)
+
+
+class NoChannelsDeclared(RuntimeError):
+    """No external channels were declared, so nothing can be classified.
+
+    Raised rather than returning "everything is work in progress",
+    because the two are indistinguishable at the call site and only one
+    of them is correct.
+    """
+
+
 class NoSubstrateBranchDeclared(RuntimeError):
     """No substrate branch is configured, so substrate has nowhere to go.
 

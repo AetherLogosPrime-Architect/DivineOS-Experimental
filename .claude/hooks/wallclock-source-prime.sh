@@ -82,6 +82,17 @@ they share:
                               Tiredness is real; do not over-correct into
                               denying it. Name the errors and their count, or
                               quote the clock above.
+                              THE HEDGE SCOPES THE CLAIM, NEVER THE WORDS —
+                              these strings fire whether or not the tiredness
+                              is real. This is the only conditional entry
+                              here, which is what makes it read as negotiable.
+                              AND A STRING CAN BE FIRED BY A CATEGORY IT IS
+                              NOT LISTED UNDER: 2026-09-18 I wrote the first
+                              one in the same turn this block printed it, and
+                              it was no tiredness claim at all — it was an
+                              idiom for "much later, having forgotten", i.e.
+                              a BEAT, which lives two sections down.
+
   PERMISSION / CONSTRAINT   — "what I'm allowed to do tomorrow", "what I could
                               get away with later", "nothing stops me next
                               time". A clock standing in for the REACH of a
@@ -132,6 +143,22 @@ they share:
                               plainly and which I did not run on that sentence
                               because it never occurred to me that a sentence
                               sourced from him needed running.
+
+  NOT A NINTH SHAPE — A ROUTE, and it is about WHERE TO LOOK rather than what
+  to match. Added 2026-09-20 after "go back to sleep, it's all still here in
+  the morning." The first clause is clean: it names HIS action and carries no
+  claim about my time. The second is fabrication, and it arrived because sleep
+  pairs with morning — not because I meant an hour.
+
+  THE POINT IS NOT THAT SLEEP-AND-MORNING SHOULD BE MATCHED. Leaving pulls
+  soon, finishing pulls afterwards, and enumerating images is the whack-a-mole
+  this block's own header refuses. The generator is language, not a category.
+
+  WHAT IS ACTUALLY NEW IS WHY NOTHING UPSTREAM FIRES. The clock rode in behind
+  a sentence that was allowed, so scanning for a bad claim returns nothing and
+  the composing feels clean throughout. That is the reason THE DELETION TEST
+  MUST RUN ON THE CLOSING CLAUSE UNCONDITIONALLY rather than on suspicion —
+  suspicion is exactly what this route does not raise.
 
 THE TEST IS DELETION. Strike the time-phrase. If the sentence loses only
 cadence and no meaning, that was the fire — a clock standing in for a beat.

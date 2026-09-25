@@ -4,14 +4,49 @@
 
 echo "Setting up Git hooks for DivineOS..."
 
-# Create hooks directory if it doesn't exist
-HOOKS_DIR=".git/hooks"
+# Install into the COMMON git dir's hooks, which is where git looks by default
+# from the main checkout AND from every worktree.
+#
+# This used to write HOOKS_DIR=".git/hooks" and then `git config
+# core.hooksPath .git/hooks`. That relative path lands in the config every
+# worktree shares, and in a worktree ".git" is a file, so the path pointed at
+# nothing: no pre-commit, commit-msg or pre-push hook ran in any worktree.
+# Found 2026-09-23 when a push from a worktree showed no test run; the setting
+# was removed from the live config with Andrew's yes the same day. Setting no
+# hooksPath at all is what makes every checkout use these hooks.
+HOOKS_DIR="$(git rev-parse --git-common-dir)/hooks"
 mkdir -p "$HOOKS_DIR"
-echo "Created $HOOKS_DIR directory"
+echo "Hooks directory: $HOOKS_DIR"
 
-# Configure Git to use the hooks directory
-git config core.hooksPath "$HOOKS_DIR"
-echo "Configured Git to use hooks from $HOOKS_DIR"
+# Clear the old relative setting if an earlier run of this script left it.
+if [ "$(git config --get core.hooksPath)" = ".git/hooks" ]; then
+    git config --unset core.hooksPath
+    echo "Removed the relative core.hooksPath that disabled hooks in worktrees"
+fi
+
+# Register the merge driver for the generated catalogues.
+#
+# MUST live here rather than in .gitattributes alone. The attributes file names
+# WHICH driver a path uses and travels with the repository; the driver itself is
+# a per-clone config entry and travels with nothing. Anyone reading only the
+# attributes file sees a complete arrangement and there is not one -- a fresh
+# clone finds no driver by that name, falls back to ordinary merging, and the
+# conflict returns with nothing announcing the gap. Same belt-and-suspenders
+# reason the hook path is set two lines up.
+#
+# MEASURED 2026-09-18: of ten open branches that could not merge, SEVEN collided
+# on docs/AUTOMATION_REGISTER.md and one collided on nothing else at all. Run
+# against those seven real pairs, five resolve and two refuse on partial overlap
+# and stay work for a person. The refusal is the feature.
+#
+# SCOPED TO ONE GENERATED FILE ON PURPOSE. The resolver was originally built for
+# the doc-count collisions in CLAUDE.md and the architecture map too, and one
+# more attributes line would silence those as well. Those files are part
+# hand-authored, and union-merging a hand-written rule keeps both halves of two
+# people editing it, producing text nobody wrote and nobody reviewed.
+git config merge.catalogue.name "generated catalogue union-merge (keep both rows, defer counts)"
+git config merge.catalogue.driver "python scripts/merge_driver_generated_catalogue.py %O %A %B %L %P"
+echo "Registered the 'catalogue' merge driver for generated indexes"
 
 # Create pre-commit hook
 cat > "$HOOKS_DIR/pre-commit" << 'EOF'
@@ -260,6 +295,28 @@ if [[ -f "$REPO_ROOT/.claude/hooks/branch-scope-guard.sh" ]]; then
     bash "$REPO_ROOT/.claude/hooks/branch-scope-guard.sh" "$1" || exit 1
 fi
 
+# 3c. Merge-resolution test check — BLOCK, and only during a merge.
+#
+# A merge presents ONE comparison and it is not the one that matters. It puts
+# the two sides in front of me and invites a decision between them; that can be
+# done thoroughly while being the wrong question. What decides correctness is
+# each side against the BEHAVIOUR of the module it lands in, and nothing in a
+# merge ever presents that.
+#
+# 2026-09-20: I spliced two versions of a message together having checked they
+# said the same thing as text. My branch removes the limitation the longer one
+# explains, so the result would have told a reader that a real miss was an
+# inapplicable question. An inherited test caught it; my reading did not.
+#
+# BLOCKS RATHER THAN WARNS, deliberately. The moment this fires is the moment I
+# believe the hard part is finished, which is exactly when a printed line lands
+# in a stream I am skimming. A warning about this class already exists elsewhere
+# in this house and I have read past it. The cost is real and accepted: a stale
+# test on a merged file will sometimes stand between me and a correct commit.
+if [[ -f "$REPO_ROOT/scripts/check_merge_resolution_tested.sh" ]]; then
+    bash "$REPO_ROOT/scripts/check_merge_resolution_tested.sh" || exit 1
+fi
+
 # 4. Wiring-claim gate — SOFT WARNING. Surfaces "wire X to Y" /
 # "bridge", "integrate", "connect", "end-to-end", "close the gap"
 # language and reminds the operator to verify both sides exercised.
@@ -424,6 +481,31 @@ fi
 # The bugs aren't the showstopper; the public-visibility of red runs is.
 if [[ -x "$PUSH_READINESS" ]]; then
     echo "$HOOK_STDIN" | "$PUSH_READINESS"
+    RC=$?
+    if [[ $RC -ne 0 ]]; then
+        exit $RC
+    fi
+fi
+
+
+# LAST GATE, AND IT HAS TO BE LAST. Everything above decides about the state it
+# was handed. This asks whether that is still the state being sent.
+#
+# The gap is the running time of the checks, and the slowest of them is the full
+# test suite directly above — so the window is at its widest exactly where the
+# checking is most thorough. Recorded twice with opposite directions: once the
+# transfer carried a state older than the fixes made during the run, once a
+# commit made during the run reached the remote while the gates had examined its
+# parent. Those two disagree about when git resolves a ref and this check does
+# not depend on the answer, because it compares what the hook was handed against
+# what the ref says now and fires whichever side moved.
+#
+# It refuses rather than re-running the gates on the new state: re-running makes
+# termination depend on the working tree holding still, and the working tree has
+# just proved it does not. Refusing names both revisions and hands the decision
+# back.
+if [[ -x "$REPO_ROOT/scripts/check_ref_did_not_move.sh" ]]; then
+    echo "$HOOK_STDIN" | "$REPO_ROOT/scripts/check_ref_did_not_move.sh"
     RC=$?
     if [[ $RC -ne 0 ]]; then
         exit $RC

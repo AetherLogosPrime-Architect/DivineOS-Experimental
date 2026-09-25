@@ -68,6 +68,19 @@ divineos corrections
 divineos audit
 divineos prereg
 
+# --- artifact filing — the deadlock fix, 2026-09-16. The overdue-prereg gate
+#     blocked all work until a verdict was recorded; the council gate blocked
+#     recording it until a walk existed; and this list did not carry the walk
+#     commands, so there was no legal move left and the only exit was the fire
+#     door. Stated so a later gate inherits it: RECORDING AN ARTIFACT THAT ANY
+#     GATE REQUIRES CANNOT ITSELF REQUIRE ARTIFACTS. The narrow version is what
+#     made the hole — each list exempted the commands ITS OWN gate reads, and
+#     the gate standing in my way was never the one I was filing for. Any new
+#     required artifact adds its filing command here in the same change that
+#     makes it required, or it ships with this deadlock already inside it.
+divineos council
+divineos game-walk
+
 # --- mansion subcommands — needed for private-exit/private-status ---
 divineos mansion
 
@@ -108,6 +121,32 @@ divineos rt
 # --- context-governor block gate (Gate 7) named remedy ---
 divineos extract
 divineos sleep
+
+# --- reach-check doorman's only exit (2026-09-18) ---
+# A THREE-GATE DEADLOCK, found in live use while answering an ordinary
+# question about branch state. Not a nuisance. A closed loop, for ten hours.
+#
+# The correction-marker gate names three first-class exits and blocks
+# everything else until one runs. All three were shut at once:
+#
+#   - `divineos learn` is a substrate-store write, so the reach-check doorman
+#     refuses it and prints `divineos reach open` as its ONLY exit
+#   - `divineos reach open` was refused by the correction-marker gate, because
+#     `reach` was missing from THIS file, which is the list that gate reads
+#   - `divineos correction` demands a file path backing its structural-fix
+#     claim, which cannot exist before the fix, which was itself blocked
+#   - and the direct marker-clear is refused by the OUTER safety layer as
+#     audit tampering. That one is correct and is NOT ours to weaken.
+#
+# THE DISCRIMINATOR, worth more than the entry: an exit is only real if it is
+# reachable from inside EVERY other gate that can be holding me at the same
+# time. The reach doorman's header swears "THE REMEDY IS EXEMPT, or this is a
+# wall" and it exempts the remedy from ITSELF, which is a different property.
+#
+# The shared allowlist already carried `reach open|dispose` and that was not
+# enough, because this gate reads THIS file. Two permission surfaces for one
+# question, agreeing on principle and disagreeing on contents.
+divineos reach
 
 # --- 2026-06-09 task #110 gate-audit additions ---
 # Each entry below was identified as a prescribed-recovery command in some
@@ -169,3 +208,78 @@ divineos family-queue
 # that will train the semantic replacement. No leniency added — every honesty
 # constraint still lives in the script.
 divineos label-fire
+
+# The attestation gate's only exits, absent from this file until 2026-09-20.
+#
+# That gate issues a hard deny and names these two as the way through, and its
+# own message says plainly that no bypass variable exists — to override it you
+# edit the hook in a visible commit. So these are not conveniences. They are
+# the entire exit from a door with nothing else behind it, and any gate reading
+# THIS file rather than the narrow pattern would have refused them.
+#
+# That is not hypothetical. The same shape cost real time the same day: the
+# overdue-review gate blocked ordinary work while the council gate blocked the
+# prereg command it prescribed, and each door's exit was the other's refusal.
+# Found by survey rather than by walking into it — six commands sat on the
+# narrow list and not this one, and these two were the pair with a refusal
+# actually standing behind them. The other four are named by nothing that
+# denies, which makes them width on the narrow list rather than gaps here.
+#
+# NARROW ON PURPOSE (Aria's clause, 2026-09-20): being named as the exit earns
+# the command consideration, and the entry should be no wider than the exit
+# needs. The gate names two subcommands, so two subcommands are listed — not
+# the whole group, which would admit filing and auto-integration nobody was
+# ever blocked and told to run.
+divineos andrew-correction integrate
+divineos andrew-correction defer
+
+# The draft-gate's replacement command, found by reading rather than scanning.
+#
+# That gate refuses a bare ready-flip outright and its message says "Use
+# instead:" followed by this command — a blocked actor told exactly what to run
+# to proceed, which is the definition this file works to. It was on neither
+# list.
+#
+# HOW IT WAS NEARLY MISSED, which matters more than the entry. I wrote a
+# matcher to decide which candidates were named as exits, and it reported this
+# one clean. It also reported that the attestation gate does not name its own
+# read-command, which is false — I had read that message myself minutes
+# earlier. One demonstrated false negative makes every clean result unproven,
+# so the matcher was abandoned and the remaining candidates were read by hand.
+# This is the one the reading caught and the scanning did not.
+#
+# The refusal messages have no common shape to match on: some name the exit
+# after "Use instead", some name the failing check as the REASON for the block,
+# some merely mention a command while explaining themselves. There is no
+# registry of refusal-exits to ask, which is why this is reading work and was
+# always going to be.
+divineos stamp-ready
+
+# --- the build-flow doorman's OWN prescribed exits, which this list did not
+#     carry. Added 2026-09-23. Found by Aria reading the allowlist from the
+#     remedy side, in the same hour I found the other half of it from the
+#     counting side, neither of us looking for the other's.
+#
+# The doorman prints four ways through a refusal: `walk open`, `walk apply`,
+# `walk close`, and `work-item bypass`. None of them was on this list. So a
+# gate that consults this allowlist, while the doorman is also holding, refuses
+# the doorman's own remedy -- the off-switch-traps-itself shape the header
+# above already names, arriving through a door nobody had checked.
+#
+# Aria ran the patterns WITH A CONTROL before reporting: `reach open` and
+# `council walk` do match, so the instrument can find a case it should find and
+# the four misses are real rather than a broken probe.
+#
+# THE SAME GAP FROM THE OTHER SIDE, on the same night: the build-flow board
+# counts council lenses by an event only `council walk --edit` emits, so work
+# done through the mandated `walk` path reports as zero lenses to the auditor.
+# One cause under both -- `walk` was built after this list and after that
+# counter, and was introduced to neither. Filed HIGH as
+# house-walk-2026-b20cc59b0573.
+#
+# Whose hand: mine, and the reason is location rather than ownership. Half of
+# these are the doorman's remedies and the doorman is Aria's, but the list
+# lives on this branch, so her committing here would be the collision we
+# agreed to stop creating. One file, one hand.
+divineos walk
+divineos work-item bypass

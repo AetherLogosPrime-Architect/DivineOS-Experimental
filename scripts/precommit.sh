@@ -385,6 +385,18 @@ if ! python scripts/check_refusal_before_failsoft.py; then
     note_fail
 fi
 
+# Seven private copies of shell-command-head parsing over months, each repair
+# deleting the instance and leaving the gradient that produces them. The
+# gradient is that five lines cost nothing at the moment of writing while
+# finding the shared module costs a search that only works if you already
+# suspect it exists. This moves that information to the moment of the reach.
+# Lives HERE rather than in a note, because a rule I have to recall at the
+# moment of temptation is the thing that already failed seven times.
+section "Private command-head parsing"
+if ! python scripts/check_no_private_command_parsing.py; then
+    note_fail
+fi
+
 # 5b. Pre-reg gate (un-gameable): new mechanisms require a filed pre-reg.
 # The gate reads the staged diff and blocks when a new mechanism lacks a
 # matching OPEN pre-registration in the ledger. Discipline from the
@@ -445,7 +457,26 @@ if [ -f scripts/guardrail_files.txt ] && [ -f scripts/check_multi_party_review.p
         # setup-hooks.sh silently no-op'd the install. Verify here that
         # the hook actually exists and is non-empty BEFORE the operator
         # types the commit message — the operator should see this loudly.
-        HOOK_PATH=$(git rev-parse --git-path hooks/commit-msg 2>/dev/null || echo ".git/hooks/commit-msg")
+        # THE COMMON DIR, NOT --git-path, corrected 2026-09-23. In a worktree
+        # `.git` is a POINTER FILE, and --git-path still answers
+        # `.git/hooks/commit-msg` -- a path that cannot exist there, so this
+        # announced the gate as absent in every worktree while the hook sat
+        # installed in the shared directory the whole time. --git-common-dir
+        # gives the shared one from a worktree and the same answer as before
+        # from an ordinary checkout; checked in both before changing it.
+        #
+        # CORRECTED THE SAME DAY, AND IT REVERSES THE PARAGRAPH ABOVE. That
+        # paragraph called this a false alarm. It was a TRUE alarm read for
+        # the wrong reason: core.hooksPath was set to the relative
+        # ".git/hooks", so git itself did not run the hook in any worktree.
+        # The hook was installed in the shared directory and never called.
+        # Pointing this check at the common dir silenced the one warning that
+        # was right. The setting was removed from the live config with
+        # Andrew's yes on 2026-09-23 and setup-hooks.sh no longer writes it
+        # (tests/test_hooks_run_in_worktrees.py), so the common dir is now
+        # where git really looks, and this check is true in both kinds of
+        # checkout.
+        HOOK_PATH="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")/hooks/commit-msg"  # fail-soft: outside a repository this cannot answer, and the literal fallback then makes the check report the hook as absent, which is the correct and safe reading there
         if [ ! -s "$HOOK_PATH" ]; then
             echo "  [!!] COMMIT-MSG HOOK NOT INSTALLED — gate enforcement absent."
             echo "       Path checked: $HOOK_PATH"
@@ -453,10 +484,9 @@ if [ -f scripts/guardrail_files.txt ] && [ -f scripts/check_multi_party_review.p
             echo "       NOT validated at commit time. The hash binding"
             echo "       between the filed round and the landed commit is"
             echo "       operator-discipline only, not structurally enforced."
-            echo "       Install: bash setup/setup-hooks.sh (note: has a"
-            echo "       worktree-compatibility bug — verify the hook"
-            echo "       actually appears at the path above after running,"
-            echo "       or write it manually)."
+            echo "       Install: bash setup/setup-hooks.sh, then check that"
+            echo "       'git config --get core.hooksPath' prints nothing -- a"
+            echo "       relative hooks path turns every hook off in worktrees."
             echo ""
             note_fail
         fi

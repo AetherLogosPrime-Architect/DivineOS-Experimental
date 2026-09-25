@@ -59,8 +59,21 @@ set -uo pipefail
 FIRE_TOKENS="${AUTO_CYCLE_FIRE_TOKENS:-880000}"
 HARD_TOKENS="${AUTO_CYCLE_HARD_TOKENS:-920000}"
 
-HOOK_JSON="$(cat 2>/dev/null || true)"  # fail-soft: no stdin means no hook payload to measure; the empty-guard on the next line exits
-[ -z "$HOOK_JSON" ] && exit 0
+# --mech-terminator is the ONLY argument this hook takes, and it exists so the
+# line that closes a detached run can be exercised by a test instead of only in
+# production. It calls the SAME function the launcher calls, deliberately: a
+# test that drives a re-implementation goes green about code nobody runs, which
+# is how a skill file in this repo drifted three times in eleven days.
+# In this mode there is no hook payload, and the stdin gulp below would block.
+MECH_TERMINATOR_MODE=0
+[ "${1:-}" = "--mech-terminator" ] && MECH_TERMINATOR_MODE=1
+
+if [ "$MECH_TERMINATOR_MODE" = "1" ]; then
+  HOOK_JSON=""
+else
+  HOOK_JSON="$(cat 2>/dev/null || true)"  # fail-soft: no stdin means no hook payload to measure; the empty-guard on the next line exits
+  [ -z "$HOOK_JSON" ] && exit 0
+fi
 
 # Interpreter resolution. I hand-rolled a probe here across two dogfood
 # failures — hardcoded python3 (sensor fault on every branch), then selection
@@ -98,6 +111,92 @@ if ! PY_BIN="$(find_divineos_python)"; then
   echo ""
   echo "## [!] COMPACTION-RITUAL HOOK FOUND NO USABLE PYTHON — the ritual driver"
   echo "    is blind this session. Check by hand: divineos auto-cycle status"
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# THE LINE THAT CLOSES A DETACHED RUN.
+#
+# It used to be `=== defer-check exited $? ===` and that code is the WRAPPER's,
+# not the cycle's. Measured 2026-09-21 across every launch in the shared log:
+# forty-six launches, forty-six `exited 0`, including launches that fired no
+# cycle at all. A terminator that cannot come out any other way makes no claim,
+# and it misled me the same day -- I read a run's tail before its terminator had
+# been written and pronounced the pipeline dead while it was still working.
+#
+# Four states share that one line and they are NOT the same state:
+#   UNKNOWN    the marker could not be read -- I cannot tell
+#   NO CYCLE   nothing fired this launch
+#   COMPLETED  a cycle fired and every step succeeded
+#   FAILED     a cycle fired and a step did not
+#
+# WHY THIS DOES NOT REUSE mech_confirmed() BELOW, which reads the same file.
+# That one answers a different question and collapses every failure mode into
+# not-done ON PURPOSE -- Aria's Phase 2 invariant, where a cycle wrongly read as
+# done is silently skipped work. The collapse is correct there and wrong here,
+# because a human reading the log needs to know WHICH failure it was.
+mech_terminator_line() {
+  local launched_at="$1" wrapper_rc="$2"
+  MECH_LAUNCHED_AT="$launched_at" MECH_WRAPPER_RC="$wrapper_rc" \
+    "$PY_BIN" - <<'MECHTERM'
+import datetime, json, os, sys
+
+launched = float(os.environ.get("MECH_LAUNCHED_AT") or 0)
+rc = os.environ.get("MECH_WRAPPER_RC", "?")
+
+# Same path resolution as mech_confirmed(), including the deliberate hardcoded
+# fallback: the handshake marker is cross-agent by design and whose home it
+# lives in is Andrew's question to answer, not one to guess at here.
+try:
+    from divineos.core.paths import divineos_home
+    mp = str(divineos_home() / "auto_cycle_phase1_done.json")
+except Exception:
+    mp = os.path.expanduser("~/.divineos/auto_cycle_phase1_done.json")
+mp = os.environ.get("AUTO_CYCLE_STATE_DIR_MARKER") or mp
+
+stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+def out(verdict):
+    print(f"=== {verdict} | wrapper rc={rc} at {stamp} ===")
+
+try:
+    with open(mp, encoding="utf-8") as fh:
+        marker = json.load(fh)
+    done_at = marker["phase1_completed_at"]
+    ts = datetime.datetime.strptime(done_at, "%Y-%m-%dT%H:%M:%SZ")
+    ts = ts.replace(tzinfo=datetime.timezone.utc).timestamp()
+except Exception as exc:
+    # Could-not-look must never wear nothing-to-do's words. This is the state
+    # where least is known and the reassuring default is the wrong one.
+    out(f"UNKNOWN -- marker unreadable ({type(exc).__name__})")
+    sys.exit(0)
+
+if ts < launched:
+    cid = marker.get("cycle_id", "?")
+    out(f"NO CYCLE FIRED this launch -- newest marker {cid} predates it")
+    sys.exit(0)
+
+cid = marker.get("cycle_id", "?")
+steps = marker.get("steps") or {}
+bad = [
+    f"{name}={(info or {}).get('error_class') or 'not-succeeded'}"
+    for name, info in steps.items()
+    if not (info or {}).get("succeeded")
+]
+if bad:
+    out(f"CYCLE {cid} FAILED -- " + ", ".join(sorted(bad)))
+else:
+    out(f"CYCLE {cid} COMPLETED -- {len(steps)} step(s), all succeeded")
+MECHTERM
+}
+
+if [ "$MECH_TERMINATOR_MODE" = "1" ]; then
+  # The test drives this path; the launcher calls the same function.
+  AUTO_CYCLE_STATE_DIR_MARKER="${AUTO_CYCLE_STATE_DIR:-}"
+  [ -n "$AUTO_CYCLE_STATE_DIR_MARKER" ] &&
+    AUTO_CYCLE_STATE_DIR_MARKER="${AUTO_CYCLE_STATE_DIR_MARKER}/auto_cycle_phase1_done.json"
+  export AUTO_CYCLE_STATE_DIR_MARKER
+  mech_terminator_line "${2:-0}" "${3:-?}"
   exit 0
 fi
 
@@ -302,13 +401,30 @@ def walk_done():
         return False
 
 def dream_done():
-    for f in glob.glob(os.path.join(repo, "dreams", "**", "*.md"), recursive=True):
-        try:
-            if os.path.getmtime(f) > start:
-                return True
-        except OSError:
-            continue
-    return False
+    # Evidence, not self-report -- and the evidence is the FILING, not a path.
+    #
+    # This used to glob only this worktree. On 2026-09-21 that read a correctly
+    # filed dream as no dream at all: the push gate refuses personal writing on
+    # a code branch, so filing it meant moving it to the substrate branch, which
+    # removed it from disk here. The ritual would have asked for another one.
+    # The POPULATION was wrong, not the glob -- the register is the dream
+    # wherever it now lives, not this checkout's copy of a directory.
+    try:
+        from divineos.core.ritual_evidence import dream_filed_since
+    except ImportError:
+        # Degraded, and narrower than the real check ON PURPOSE: with no import
+        # this can only see what is on disk, i.e. exactly the behaviour that was
+        # just found wrong. It can still say no; it never says yes on the
+        # strength of not having looked. Only ImportError is caught, so a real
+        # fault inside the module raises instead of passing as a measured no.
+        for f in glob.glob(os.path.join(repo, "dreams", "**", "*.md"), recursive=True):
+            try:
+                if os.path.getmtime(f) > start:
+                    return True
+            except OSError:
+                continue
+        return False
+    return dream_filed_since(repo, start)
 
 def mech_confirmed():
     # Evidence, not self-report -- same rule as walk_done()/dream_done() above.
@@ -417,9 +533,16 @@ run_mech() {
   # descriptors are closed or redirected before detaching.
   MECH_LOG="${STATE_DIR:-${HOME}/.divineos}/auto_cycle_mech.log"
   {
+    _launch_epoch="$(date -u +%s)"
     echo "=== launched $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
     divineos auto-cycle defer-check
-    echo "=== defer-check exited $? at $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+    _rc=$?
+    # NOT `exited $?`. That is the wrapper's code and it has read zero on every
+    # launch this log has ever held, including ones that fired nothing. The
+    # terminator now reads the handshake marker and says which of four things
+    # happened -- see mech_terminator_line, which the test drives by the same
+    # path so the two cannot drift.
+    mech_terminator_line "$_launch_epoch" "$_rc"
   } >>"$MECH_LOG" 2>&1 </dev/null &
   disown 2>/dev/null || true  # fail-soft: some shells lack disown; the redirections above already detach the child, so disown is belt-not-suspenders
 

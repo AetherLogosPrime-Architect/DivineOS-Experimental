@@ -49,6 +49,32 @@ from __future__ import annotations
 
 import re
 
+# WHAT A COUNTED OBLIGATION ACTUALLY RESTS ON.
+#
+# The gate downstream asserts "you owe this." Until 2026-09-17 that assertion
+# was produced by two inferences of completely different strength, and the row
+# preserved no trace of which one fired: an entry re-read and still judged
+# rule-shaped, and an entry whose text could not be fetched at all and was
+# therefore KEPT by the fail-soft default. Both arrived identical -- same keys,
+# same empty text, same rendering -- so a default was indistinguishable from a
+# measurement in every count this gate has ever reported.
+#
+# Keeping the unreadable row is the right conservative choice and is unchanged.
+# What changes is that the row now says which happened, so the number stops
+# claiming more than the inquiry earned.
+#
+# LOAD-BEARING INVARIANT (game-walk route 1, council-7cb0522d0816): this basis
+# changes WHAT THE GATE SAYS and never WHAT THE GATE COUNTS. An unreadable row
+# stays in the total and stays blocking. The moment UNREADABLE discounts
+# anything, breaking the fetch becomes strictly cheaper than paying the debt
+# and the gate has been taught to reward damage to its own instrument. That
+# change would arrive looking like a kindness. tests/test_obligations.py pins
+# it, because an invariant held only by intention is the one a later kindness
+# deletes.
+BASIS_REJUDGED = "re-judged"  # text was read, and it still reads as a rule
+BASIS_UNREADABLE = "unreadable"  # text could not be fetched; kept by default
+BASIS_UNRECORDED = "unrecorded"  # this producer does not record how it judged
+
 # Conservative rule-shape patterns. Bounded quantifiers; case-insensitive.
 # Each captures the marker word and the next 1-30 chars to give
 # context in the emitted event (not for matching).
@@ -497,7 +523,26 @@ def verify_recent(window_seconds: int = 7 * 24 * 3600) -> dict:
         content = _knowledge_text(wid) if wid else ""
         if content and not looks_like_rule(content)[0]:
             continue  # retired false positive, not an obligation
-        still_rule.append(q)
+        # THE TEXT WAS ALREADY FETCHED AND WAS BEING THROWN AWAY HERE.
+        #
+        # The consumer three modules down (obligations.get_pending_obligations)
+        # renders each row's summary from entry["content"] -- a key the event
+        # payload has never carried and this function discarded one line before
+        # returning. So every obligation the gate has ever printed showed a kid,
+        # a trigger list, and an indented empty line where its meaning goes, and
+        # the gate named a debt it could not describe to the only person it
+        # stops. Carrying it forward is one assignment; the text was in hand.
+        #
+        # `basis` records which inference kept this row. See the constants at
+        # the top of this module, including the invariant that it must never
+        # change the count.
+        still_rule.append(
+            {
+                **q,
+                "content": content,
+                "basis": BASIS_REJUDGED if content else BASIS_UNREADABLE,
+            }
+        )
     fired = still_rule
     # Pull candidate backing events from ALL backing-event types, not
     # just KNOWLEDGE_STORED.
@@ -531,6 +576,9 @@ def verify_recent(window_seconds: int = 7 * 24 * 3600) -> dict:
 
 
 __all__ = [
+    "BASIS_REJUDGED",
+    "BASIS_UNREADABLE",
+    "BASIS_UNRECORDED",
     "emit_structural_promotion_question",
     "looks_like_rule",
     "recent_questions",

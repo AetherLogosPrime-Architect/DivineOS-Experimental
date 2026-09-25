@@ -17,8 +17,8 @@ against the running script rather than against the source text.
 from __future__ import annotations
 
 import json
-import re
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -108,7 +108,22 @@ def test_some_hook_claims_the_contract():
 @pytest.mark.parametrize("script", _dedup_hooks(), ids=lambda p: p.stem)
 def test_repeat_emission_shrinks(script: Path, tmp_path: Path):
     """THE CATCH. My broken edit left this exact signature: identical size on
-    the second run, no error, no complaint, dedup never reached."""
+    the second run, no error, no complaint, dedup never reached.
+
+    EACH CASE GETS ITS OWN STATE DIRECTORY, and that is load-bearing rather
+    than tidy. This previously called ``clear()`` on the ONE shared state file
+    and then ran the hook twice. Under nine parallel workers there is no
+    ordering between one worker's wipe and another worker's pair of runs, so a
+    wipe landing between a first and second emission is an ordinary schedule --
+    and the worker that loses gets blamed for a dedup fault it does not have.
+
+    Measured 2026-09-19 across four runs: the failing case MOVED identity
+    between them and once produced two failures. A deterministic fault cannot
+    do that. Handing each case its own directory removes the shared object the
+    workers were ordering operations on, so the schedule can no longer express
+    the failure. Production still shares one file across hook invocations,
+    which is the design and must not change.
+    """
     # Its own memory, not the shared one. Clearing the shared file is what
     # made this test a hazard to its neighbours as well as a victim of them.
     first = _run(script, dedup_dir=tmp_path)
@@ -269,6 +284,27 @@ _UNRESOLVED_KEY_SITES = {
         "A docstring naming the parameter rather than a call: the sentence "
         "describes what the raw dict is for by writing the signature out. "
         "Nothing is emitted here, so there is no suppressed half to carry."
+    ),
+    "dedup-wrap.sh": (
+        "Genuinely unresolvable, and here is what that costs (2026-09-17, "
+        "council-57db2091ab9f). This wrapper is generic over every prime, so "
+        "its source id arrives as a runtime argument and can never be a "
+        "literal. Being generic IS the design: dedup moved out of the "
+        "emitters precisely because eight of the nine that should have called "
+        "it had each forgotten, which is one bad affordance rather than eight "
+        "lapses. WHAT CARRIES THE FLOOR INSTEAD: a per-prime file at "
+        ".claude/hooks/residuals/<source_id>.txt, read at run time and "
+        "appended to every suppression, so a repeated explanation is dropped "
+        "while the binding constraint survives. That claim is checkable by "
+        "going and looking at whether those files exist for the wrapped "
+        "primes. WHAT IS UNCHECKED, said out loud because an exemption "
+        "otherwise reads exactly like a clean pass: nothing asserts that a "
+        "wrapped prime HAS a floor file. Wire one without a residual and this "
+        "sentence silently becomes false while the suite stays green. The "
+        "test that would close it -- every wrapped source id has a residual "
+        "-- does not exist yet. AND THIS IS NOT PRECEDENT: it is here because "
+        "the key CANNOT be a literal, not because writing one was "
+        "inconvenient."
     ),
 }
 

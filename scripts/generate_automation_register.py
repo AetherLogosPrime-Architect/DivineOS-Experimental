@@ -37,10 +37,12 @@ layer up: this register is for tools that stopped reaching for THEMSELVES.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 ROOT = Path(__file__).resolve().parent.parent
 HOOKS_DIR = ROOT / ".claude" / "hooks"
@@ -85,9 +87,26 @@ def _registered_commands() -> dict[str, list[str]]:
     for event, groups in (data.get("hooks") or {}).items():
         for group in groups:
             for hook in group.get("hooks", []):
-                m = re.search(r"([\w.-]+\.sh)", hook.get("command", ""))
-                if m:
-                    out.setdefault(m.group(1), []).append(event)
+                # EVERY hook named in the command, not just the first.
+                #
+                # This used to take the first match only, which made any hook
+                # invoked through a wrapper invisible. The registration reads
+                #     bash .../dedup-wrap.sh <tag> bash .../the-real-hook.sh
+                # so the first filename is the wrapper and the hook that
+                # actually runs sits second — and the register reported it as
+                # NOTHING CALLS THIS while it fired on every single prompt.
+                #
+                # Found 2026-09-19: the register listed four automations as
+                # switched off, one of them the prime that shapes how I write
+                # to Andrew. It had been firing the whole time.
+                #
+                # THE OTHER THREE WERE GENUINELY DARK. Checking that before
+                # changing anything is what stopped this "fix" from declaring
+                # three dead guards alive — an inventory that over-reports
+                # wiring is worse than one that under-reports it, because a
+                # guard believed live is a guard nobody re-checks.
+                for name in re.findall(r"([\w.-]+\.sh)", hook.get("command", "")):
+                    out.setdefault(name, []).append(event)
     return out
 
 
@@ -112,19 +131,160 @@ def _caller_text() -> str:
     return "\n".join(parts)
 
 
-def _git_last_touched(rel: str) -> str:
-    """Last commit date for a path — the staleness drilldown."""
+def _mainline_ref() -> str | None:
+    """The ref every branch must agree to measure against, or None.
+
+    Read from the remote's published head rather than hardcoded, for the same
+    reason the merge driver reads it there: the default branch is a fact the
+    remote already states, and a second configuration key is a second thing to
+    set correctly in two checkouts.
+
+    None when the remote head is unset -- ordinary in a fresh clone. The caller
+    then falls back to the old branch-local behaviour and the register becomes
+    branch-dependent again, which is the bug rather than a new one, and the
+    header says so out loud rather than letting a silently-different file look
+    identical.
+    """
     try:
         out = subprocess.run(
-            ["git", "log", "-1", "--format=%as", "--", rel],
+            ["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
             capture_output=True,
             text=True,
             cwd=ROOT,
             check=False,
         )
-        return (out.stdout or "").strip() or "—"
+    except OSError:
+        return None
+    ref = (out.stdout or "").strip()
+    return ref or None
+
+
+def _git_last_touched(rel: str, mainline: str | None) -> str:
+    """Last commit date for a path, resolved against the MAIN LINE.
+
+    WHY NOT THE CURRENT BRANCH, which is what this did until 2026-09-19 and
+    which made the whole register collide with itself forever.
+
+    Asking `git log` without a ref resolves against HEAD. So two branches
+    carrying byte-identical hooks but forked on different days generated
+    different registers and then refused to merge -- seven of the ten stuck
+    branches collided here, and one collided on nothing else at all. The file
+    was history-dependent by construction and no merge driver could fix that,
+    because there was nothing to reconcile: both sides were correct about
+    different histories.
+
+    Aria found the mechanism and measured the damage: main's own checked-in
+    register does not reproduce from a clean worktree at main -- seventy lines
+    differ. I had claimed the opposite and cited a regenerate-and-diff as proof,
+    having run it in the tree that produced the file, on the same branch. A
+    photograph checked against itself.
+
+    Pinning to the main line makes every branch produce the same bytes, and it
+    keeps the meaning rather than discarding it: WHEN DID THIS LAST CHANGE ON
+    THE MAIN LINE is the question the staleness drilldown was always asking.
+
+    A PATH THAT EXISTS ONLY ON A BRANCH has no main-line commit, and gets the
+    same marker from every branch -- which is the property that matters. It
+    reads as not-yet-on-main rather than as undated, and it stops being that
+    the moment it merges.
+    """
+    args = ["git", "log", "-1", "--format=%as"]
+    if mainline:
+        args.append(mainline)
+    args += ["--", rel]
+    try:
+        out = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+            check=False,
+        )
     except OSError:
         return "—"
+    date = (out.stdout or "").strip()
+    if date:
+        return date
+    # Empty with a mainline ref means the path is not on the main line yet.
+    # Empty without one means git could not answer at all; both are "—" today,
+    # and they are different facts, so they get different markers.
+    return "not on main" if mainline else "—"
+
+
+# Phrases a hook uses to say why it is deliberately not switched on. Read as
+# prose rather than matched as a flag: the reason itself goes to the reader.
+_OFF_REASON_MARKERS = (
+    "INTENTIONALLY UNWIRED",
+    "SUPERSEDED",
+    "DELIBERATELY UNWIRED",
+    "NOT WIRED ON PURPOSE",
+    "STAGED",
+)
+
+
+class OffReason(NamedTuple):
+    """What the header said, and whether the header could be read at all.
+
+    TWO ANSWERS THAT WERE ONE. (2026-09-19, caught by the precommit check for
+    exactly this.) ``declared_off_reason`` used to return None both when a
+    hook declared no reason and when the file could not be opened, and the
+    caller printed NO REASON DECLARED for both. So an unreadable file was
+    reported as a guard switched off with nobody willing to say why -- the
+    loudest thing this register can print -- on no evidence whatsoever.
+
+    That is the same fault the function was written to repair, one level up:
+    it exists because a bare name under the word dark could only be read one
+    way, and it then produced a second line that could only be read one way.
+
+    ``text`` is the declared reason, or None when the header declares none.
+    ``readable`` is False only when the file could not be opened, and a reader
+    must resolve that toward UNKNOWN rather than toward either verdict.
+    """
+
+    text: str | None
+    readable: bool
+
+
+def declared_off_reason(path: Path, max_lines: int = 12) -> OffReason:
+    """The reason a hook gives, in its own header, for being switched off.
+
+    WHY THIS EXISTS. The register printed `dark: <name>` and nothing else, and
+    a bare name under the word dark can only be read one way. I read it that
+    way myself on 2026-09-19 — reported three guards to Andrew as switched off
+    like it was a finding, then opened them and found all three deliberate,
+    each with a dated reason in its first few lines. The information that would
+    have stopped me was written months ago by whoever switched them off, into
+    the very files I was describing, and was discarded at this boundary.
+
+    So this is transport, not recording. Nothing new is produced; the reason
+    already exists and simply never reached the page anyone reads.
+
+    DECLARES, NEVER APPROVED. A reason is a claim by the person who switched it
+    off. Nothing here re-checks whether the decision still holds, and the
+    wording must not let a reader take prose for verification.
+
+    NOT the existing `_has_intent_marker` in dead_architecture_alarm, which was
+    the obvious reuse and is wrong here: its vocabulary is two specific tokens
+    and none of the three real cases use either, so it would have called all
+    three unexplained and manufactured the alarm this removes. Checked before
+    reusing, which is the only reason this is not worse than what it replaces.
+
+    Returns a declaring-nothing answer when the header declares nothing — the
+    case that matters, and the one the caller makes louder rather than
+    quieter. Returns an unreadable answer when the file could not be opened,
+    which is a different thing and must never be rendered as the first.
+    """
+    try:
+        with open(path, encoding="utf-8") as fh:
+            head = [next(fh, "") for _ in range(max_lines)]
+    except OSError:
+        return OffReason(None, readable=False)
+
+    for raw in head:
+        line = raw.lstrip("#").strip()
+        if any(m in line.upper() for m in _OFF_REASON_MARKERS):
+            return OffReason(line[:120], readable=True)
+    return OffReason(None, readable=True)
 
 
 def collect() -> list[dict]:
@@ -133,6 +293,10 @@ def collect() -> list[dict]:
     registered = _registered_commands()
     callers = _caller_text()
     glob_prefixes = set(re.findall(r"([a-z0-9-]+)-\*\.sh", callers))
+    # Resolved ONCE per run rather than per path. Asking per row would let the
+    # answer change mid-file if anything moved underneath, which is the same
+    # class of inconsistency this whole change exists to remove.
+    mainline = _mainline_ref()
 
     rows = []
     for h in hooks:
@@ -152,7 +316,7 @@ def collect() -> list[dict]:
                 "wired": wired,
                 "via": via,
                 "purpose": _first_purpose_line(h),
-                "touched": _git_last_touched(f".claude/hooks/{name}"),
+                "touched": _git_last_touched(f".claude/hooks/{name}", mainline),
             }
         )
 
@@ -171,8 +335,7 @@ def build(rows: list[dict]) -> str:
     L.append("# Automation register")
     L.append("")
     L.append(
-        "**Generated** by `scripts/generate_automation_register.py`. "
-        "Do not hand-edit — regenerate."
+        "**Generated** by `scripts/generate_automation_register.py`. Do not hand-edit — regenerate."
     )
     L.append("")
     L.append(
@@ -244,7 +407,18 @@ def build(rows: list[dict]) -> str:
     L.append("")
     L.append(
         "`--check` exits non-zero when the file has drifted, for wiring into "
-        "a pre-commit or CI step."
+        "a pre-commit or CI step. It compares this tree against its own "
+        "committed copy, so it cannot see branch-dependence."
+    )
+    L.append("")
+    L.append(
+        "`--check-reproduces` takes the measurement `--check` structurally "
+        "cannot: it builds a clean worktree at the main line, runs THAT "
+        "tree's own copy of this generator, and diffs the result against the "
+        "copy committed there. Two sides from two sources. It exits 0 when "
+        "the register reproduces, 1 when it does not, and **2 when it could "
+        "not look at all** — a missing main-line ref, a worktree that would "
+        "not build. Could-not-look is never reported as either answer."
     )
     L.append("")
     L.append(
@@ -257,7 +431,207 @@ def build(rows: list[dict]) -> str:
     return "\n".join(L)
 
 
+# Three outcomes, not two, and the third is the reason this exists.
+#
+# A check with a pass and a fail has nowhere to put "I could not look," so
+# could-not-look gets filed as one of the two -- and in every instance we have
+# found, it gets filed as the reassuring one. Aether's --check was quoted as
+# proof of reproducibility it could not establish; my own probe for this
+# feature happily reported on the contents of a directory that had failed to
+# be created. Same shape twice in one day.
+REPRODUCES = 0
+DRIFTED = 1
+COULD_NOT_CHECK = 2
+
+
+def _why_nothing_was_produced(produced: Path) -> str | None:
+    """Say why the generator's output cannot be compared, or None if it can.
+
+    Separated from the check so the decision can be exercised without standing
+    up a worktree. The whole point is that "the generator wrote nothing" must
+    never reach the diff, where absence compares unequal and reads as drift.
+    """
+    if not produced.is_file():
+        return "the generator exited cleanly and wrote no register"
+    if produced.stat().st_size == 0:
+        return "the generator exited cleanly and wrote an empty register"
+    return None
+
+
+def _second_tree_path() -> Path:
+    """Where the clean worktree goes, and why it is deliberately SHORT.
+
+    The first run of this check put the second tree under the session
+    scratchpad, roughly 120 characters deep. On Windows, `git worktree add`
+    got 70% of the way through the checkout, failed on the first letter
+    filename that crossed the limit, and left a half-built tree behind --
+    while the probe standing next to it cheerfully answered questions about
+    the directory that did not exist. The length is not incidental; every
+    other working copy in this house already sits at a short path and nobody
+    had written down why.
+
+    Overridable, because a short writable root is a property of the machine
+    rather than of this repository.
+    """
+    override = os.environ.get("DIVINEOS_REPRO_WORKTREE")
+    if override:
+        return Path(override)
+    anchor = Path(ROOT.anchor) if ROOT.anchor else Path("/tmp")
+    return anchor / "divineos-repro-wt"
+
+
+def _check_reproduces() -> int:
+    """Regenerate in a clean tree at the main line and diff against it.
+
+    THE POINT IS THAT THE TWO SIDES COME FROM DIFFERENT SOURCES. `--check`
+    regenerates in the tree that produced the committed file, on the branch
+    that produced it, so any field resolved from branch history agrees with
+    itself by construction -- a photograph checked against itself. This runs
+    the OTHER tree's own copy of the generator, against the copy committed in
+    that tree, and nothing either side knows comes from here.
+
+    That independence is why it found something: main's committed register
+    did not rebuild from main, and all seventy differing lines were the one
+    branch-dependent column. A same-tree check reported clean throughout.
+    """
+    # --against <ref> checks a branch BEFORE it merges, which is when the
+    # answer is still cheap to act on. It also makes the reproduces-clean
+    # verdict demonstrable: with the ref pinned to the main line and the main
+    # line currently drifted, this check could never have returned that answer
+    # at all, and an instrument that has never produced one of its outcomes is
+    # untested in that direction.
+    if "--against" in sys.argv:
+        at = sys.argv.index("--against") + 1
+        if at >= len(sys.argv):
+            print("could not check: --against needs a ref")
+            return COULD_NOT_CHECK
+        mainline = sys.argv[at]
+    else:
+        mainline = _mainline_ref()
+    if mainline is None:
+        # The fixed point is read from the remote's published head, which a
+        # fresh CI checkout frequently does not set. Without it the generator
+        # falls back to branch-local dates, so a comparison here would be
+        # measuring the fallback rather than the file. Refuse, loudly.
+        print("could not check: no main-line ref (refs/remotes/origin/HEAD is unset)")
+        print("  set it with: git remote set-head origin --auto")
+        return COULD_NOT_CHECK
+
+    dest = _second_tree_path()
+    if dest.exists():
+        print(f"could not check: {dest} already exists — remove it or set")
+        print("  DIVINEOS_REPRO_WORKTREE to an unused short path")
+        return COULD_NOT_CHECK
+
+    add = subprocess.run(
+        ["git", "worktree", "add", "--detach", str(dest), mainline],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if add.returncode != 0:
+        # Measured 2026-09-19: on a path-length failure git removes the
+        # half-built tree itself, so this prune found nothing to do. It stays
+        # because the cost is one command and the failure it guards against --
+        # a stale registry entry that makes every later run refuse with a
+        # message about a path nobody chose -- is silent and permanent.
+        subprocess.run(["git", "worktree", "prune"], cwd=ROOT, capture_output=True, check=False)
+        print(f"could not check: worktree at {dest} would not build")
+        for line in (add.stderr or "").strip().splitlines()[-3:]:
+            print(f"  {line}")
+        return COULD_NOT_CHECK
+
+    try:
+        script = dest / "scripts" / "generate_automation_register.py"
+        if not script.is_file():
+            print(f"could not check: {mainline} carries no generator to run")
+            return COULD_NOT_CHECK
+
+        gen = subprocess.run(
+            [sys.executable, str(script)],
+            cwd=dest,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if gen.returncode != 0:
+            print("could not check: the generator failed inside the clean tree")
+            for line in (gen.stderr or "").strip().splitlines()[-3:]:
+                print(f"  {line}")
+            return COULD_NOT_CHECK
+
+        # A ZERO EXIT IS NOT PROOF THAT ANYTHING WAS WRITTEN.
+        #
+        # Aletheia attacked this design on 2026-09-19 and half of the attack
+        # lands. Her case: the tree builds, the generator runs, and the
+        # generator itself fails or produces nothing -- is that a third-outcome
+        # case or a mismatch? A crash is already covered directly above: a
+        # non-zero exit returns COULD_NOT_CHECK and never reaches the diff.
+        #
+        # What was NOT covered is the quieter half. A generator that exits zero
+        # and writes nothing -- or writes an empty file -- leaves a register
+        # that compares unequal to the committed one, and the diff below would
+        # have called that DRIFTED. Her point about the failure direction is
+        # the sharp part: drift sends someone to regenerate the file, which is
+        # the remedy for drift and does nothing for a generator that produced
+        # no bytes. A correct-sounding instruction pointing at the wrong
+        # repair.
+        #
+        # Trusting the exit code alone was one instrument asked once. The
+        # output is now looked at directly.
+        unwritten = _why_nothing_was_produced(dest / OUTPUT.relative_to(ROOT))
+        if unwritten is not None:
+            print(f"could not check: {unwritten}")
+            return COULD_NOT_CHECK
+
+        rel = str(OUTPUT.relative_to(ROOT)).replace("\\", "/")
+        diff = subprocess.run(
+            ["git", "diff", "--quiet", "--", rel],
+            cwd=dest,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if diff.returncode == 0:
+            print(f"Register reproduces from a clean tree at {mainline}.")
+            return REPRODUCES
+        if diff.returncode == 1:
+            stat = subprocess.run(
+                ["git", "diff", "--stat", "--", rel],
+                cwd=dest,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            print(f"Register does NOT reproduce from a clean tree at {mainline}:")
+            for line in (stat.stdout or "").strip().splitlines():
+                print(f"  {line}")
+            print("  the committed copy is a snapshot of some other tree")
+            return DRIFTED
+        # Any other code is git failing to answer, which is its own fact.
+        print("could not check: git could not compare the regenerated file")
+        return COULD_NOT_CHECK
+    finally:
+        removed = subprocess.run(
+            ["git", "worktree", "remove", "--force", str(dest)],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if removed.returncode != 0:
+            # Say it rather than leaving a tree that makes the NEXT run refuse
+            # with a message about a path the operator never chose.
+            print(f"  note: the clean tree at {dest} could not be removed; delete it by hand")
+
+
 def main() -> int:
+    if "--check-reproduces" in sys.argv:
+        # Before collect(), because this check is about another tree entirely
+        # and has no use for anything measured in this one.
+        return _check_reproduces()
+
     rows = collect()
     text = build(rows)
     # Count from the DATA, not by grepping the rendered text. The first
@@ -274,7 +648,31 @@ def main() -> int:
             print("AUTOMATION_REGISTER.md is stale — regenerate:")
             print("  python scripts/generate_automation_register.py")
             return 1
+        # SAYS WHAT IT CANNOT SEE, because a clean pass here was read as proof
+        # of something this check is structurally unable to establish.
+        #
+        # 2026-09-19: I claimed the register is a pure function of the tree and
+        # cited this comparison as the evidence. It cannot be. It regenerates in
+        # the SAME tree on the SAME branch that produced the committed copy, and
+        # the staleness column is resolved per-path against the current branch --
+        # so a branch-dependent field agrees with itself by construction. A
+        # photograph checked against itself.
+        #
+        # Aria took the measurement this one cannot: clean worktree at main,
+        # regenerate, diff. Seventy lines differed. Same command, different
+        # frame, opposite verdict.
+        #
+        # The line below is not a hedge on the result. The result is exact and
+        # true of what it compares. It exists so a clean pass can never again be
+        # quoted as reproducibility.
         print(f"Automation register is current — {dark} switched off.")
+        print(
+            "  Scope: compares this tree against its own committed copy. Fields "
+            "resolved from branch history agree with themselves here by "
+            "construction, so this cannot detect branch-dependence. For that, "
+            "run --check-reproduces, which builds a clean tree at the main "
+            "line and runs that tree's own generator."
+        )
         return 0
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
@@ -285,9 +683,26 @@ def main() -> int:
     OUTPUT.write_text(text, encoding="utf-8", newline="\n")
     print(f"Wrote {OUTPUT.relative_to(ROOT)} — {len(rows)} automations, {dark} switched off")
     if dark:
+        unexplained = 0
+        unreadable = 0
         for r in rows:
             if not r["wired"]:
-                print(f"    dark: {r['name']}")
+                answer = declared_off_reason(HOOKS_DIR / r["name"])
+                if not answer.readable:
+                    # Not counted as unexplained. An unanswerable question is
+                    # not a silent guard, and filing it as one would put a
+                    # fabricated accusation in the loudest line on the page.
+                    unreadable += 1
+                    print(f"    dark: {r['name']} — COULD NOT READ THE FILE, so UNKNOWN")
+                elif answer.text:
+                    print(f"    dark: {r['name']} — declares: {answer.text}")
+                else:
+                    unexplained += 1
+                    print(f"    dark: {r['name']} — NO REASON DECLARED")
+        if unexplained:
+            print(f"    {unexplained} of {dark} declare nothing. Those are the ones to look at.")
+        if unreadable:
+            print(f"    {unreadable} could not be read at all, which is its own problem.")
     return 0
 
 

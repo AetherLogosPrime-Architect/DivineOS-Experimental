@@ -46,7 +46,7 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/ear-surface.sh",
+            "command": "bash .claude/hooks/dedup-wrap.sh ear bash .claude/hooks/ear-surface.sh",
             "timeout": 10
           },
           {
@@ -228,6 +228,16 @@
         ]
       },
       {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/letter-watch-must-be-armed.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
         "hooks": [
           {
@@ -310,6 +320,16 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/check-council-required.sh",
+            "timeout": 8
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|Bash|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/an-open-ask-holds-the-work.sh",
             "timeout": 8
           }
         ]
@@ -618,6 +638,21 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/stop-response-scope-intercept.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/unlanded-push-must-not-close-quiet.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/unsaved-personal-writing-must-not-close-quiet.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/parked-work-must-not-be-invisible.sh",
             "timeout": 10
           },
           {

@@ -46,6 +46,42 @@ _WITHHELD_TITLE = re.compile(
 )
 
 
+# A finding speaks as a signature if it says so, singular or plural. Three
+# rungs tested this independently with the literal substring "confirms", and
+# all three answered "this round named nothing" for a round whose two findings
+# are titled "CONFIRM -- ...".
+#
+# FOUND 2026-09-19 by Aria, ruling on which of three broken doors to repair
+# first: the other two merely obstructed, and this one answered a narrower
+# question than the one asked. The stamp tool reported a review as UNVERIFIED
+# when what was true is that it had examined zero findings. UNVERIFIED and
+# COULD-NOT-LOOK are not the same answer, least of all from the one instrument
+# whose whole job is proving a review happened.
+#
+# WHY WORD-BOUNDED rather than a bare substring: "unconfirmed" and
+# "confirmation withheld" must not read as a signature. Both sides of the edge
+# matter and both are written here so the next reader does not mistake the
+# bound for fussiness.
+#
+# WHY WIDENING IS SAFE: the withheld-title filter below runs FIRST at every
+# callsite and decides refusals on its own. A finding announcing itself as a
+# refusal never reaches this test whatever its body says. What widening changes
+# is only which findings are read as CLAIMING something, and that runs toward
+# strictness -- more findings examined means more chances for the head tree to
+# be absent from the claimed set, and absence here is what refuses.
+_CONFIRM_WORD = re.compile(r"\bconfirm(?:s|ed)?\b", re.IGNORECASE)
+
+
+def _claims_a_confirm(text: str) -> bool:
+    """Does this finding text speak in the voice of a signature?
+
+    One home for a specification that had three copies. All three failed
+    identically the first time a confirm was titled in the singular, and
+    nothing at any of the three sites named the other two.
+    """
+    return bool(_CONFIRM_WORD.search(text))
+
+
 def _title_withholds(finding: object) -> bool:
     """Does this finding's TITLE say it is not a signature?
 
@@ -114,7 +150,7 @@ def _confirmed_trees(round_id: str) -> set[str]:
         if _title_withholds(f):
             continue
         text = f"{getattr(f, 'title', '') or ''} {getattr(f, 'description', '') or ''}"
-        if "confirms" not in text.lower():
+        if not _claims_a_confirm(text):
             continue
         trees.update(m.group(1).lower() for m in _TREE_NEAR.finditer(text))
     return trees
@@ -174,7 +210,7 @@ def _confirmed_patch_ids(round_id: str) -> set[str]:
         if _title_withholds(f):
             continue
         text = f"{getattr(f, 'title', '') or ''} {getattr(f, 'description', '') or ''}"
-        if "confirms" not in text.lower():
+        if not _claims_a_confirm(text):
             continue
         ids.update(m.group(1).lower() for m in _PATCH_ID_NEAR.finditer(text))
     return ids
@@ -392,6 +428,20 @@ def _ancestry_rung(round_id: str, head_sha: str) -> tuple[bool, str]:
     added that is not purely generated makes her signature cover something she
     never read, with nothing anywhere to show it.
 
+    AND BESIDE IT, IN HER WORDS, THE CASE HER RULE DOES NOT REACH (Aletheia
+    2026-09-23, after her line above was the loudest text on screen and was
+    obeyed over a ruling Andrew had already made twice)::
+
+        "A CONFIRMS in the reviewer's own words is required when any file the
+        PR authored has changed. When only the floor moved -- every authored
+        file byte-identical to the reviewed commit, that commit an ancestor of
+        the tip, and the only differences from main or generated pages --
+        Andrew's standing permission covers it (2026-09-05, repeated
+        2026-09-23), filed under his actor, citing his words."
+
+    Byte-identical means byte-identical: a single authored sentence removed is
+    an authored change and goes to the reviewer as a diff, however stale it is.
+
     So the interpretive half stays with the reviewer, per round, in their own
     hand, and this verifies the half that has no interpretation in it. A round
     claiming no ancestry gets no rung at all and falls through to the refusal
@@ -423,7 +473,7 @@ def _ancestry_rung(round_id: str, head_sha: str) -> tuple[bool, str]:
         if _title_withholds(f):
             continue
         text = f"{getattr(f, 'title', '') or ''} {getattr(f, 'description', '') or ''}"
-        if "confirms" not in text.lower():
+        if not _claims_a_confirm(text):
             continue
         if not _ANCESTRY_CLAIM.search(text):
             continue
@@ -586,6 +636,106 @@ def _round_by_id(round_id: str):
         if getattr(rnd, "round_id", "") == round_id:
             return rnd
     return None
+
+
+def _merge_with_the_body_just_composed(pr_number: int, body: str, merge: bool) -> None:
+    """Squash-merge using the text this run composed, or say what is left.
+
+    WHY THIS LIVES HERE RATHER THAN BESIDE THIS TOOL, 2026-09-19. The stamp is
+    composed in one process and, until now, supplied to the merge by hand in
+    another. That gap has to be crossed by memory, and it is where this fails.
+    It failed tonight, on a branch whose merge I had reasoned about forty
+    minutes earlier and whose remedy I had written down in my own words.
+
+    The fault gives no feedback where the action happens: a merge without the
+    trailer succeeds and looks exactly like a merge with it. The only signal
+    arrives later, in a history nobody rereads or a check on a protected file
+    that this branch happened not to touch.
+
+    So the value travels as a value rather than as a thing to remember.
+
+    OPT-IN, and it stays that way. Every existing caller edits a PR and clears
+    a draft flag; none of them expects an irreversible action against the
+    shared main line. The merge runs last, after every refusal this tool
+    already makes, so it inherits a precondition strictly stronger than any
+    hand-run merge has.
+
+    IT DOES NOT ARGUE WITH A REFUSAL. If the host declines -- checks pending, a
+    base-branch policy, anything -- this reports and stops. A tool that retries
+    or escalates past a refusal eventually merges something a policy meant to
+    hold.
+
+    AND THE PARTIAL STATE IS NOT AN ERROR. Stamp written, draft cleared, merge
+    refused: the stamping genuinely succeeded and re-running is safe. On that
+    path the composed body is written where it can be found and the exact
+    finishing command is printed, so the caller recognises a path instead of
+    reconstructing a paragraph.
+    """
+    if not merge:
+        return
+
+    try:
+        result = subprocess.run(
+            [
+                "gh",
+                "pr",
+                "merge",
+                str(pr_number),
+                "--squash",
+                "--body",
+                body,
+                "--delete-branch",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        _preserve_body_and_say_how(pr_number, body, f"{exc}")
+        return
+
+    if result.returncode == 0:
+        click.secho(
+            f"[+] PR #{pr_number} squash-merged carrying the trailer composed above.",
+            fg="green",
+            bold=True,
+        )
+        return
+
+    refusal = (result.stderr or result.stdout or "").strip() or "no reason given"
+    _preserve_body_and_say_how(pr_number, body, refusal)
+
+
+def _preserve_body_and_say_how(pr_number: int, body: str, why: str) -> None:
+    """The stamp landed and the merge did not. Keep the text; name the path."""
+    click.secho(
+        f"[!] Stamped, but the merge was refused: {why}",
+        fg="yellow",
+    )
+    # The repo's own runtime directory, which .gitignore already covers. NOT a
+    # seat home: the canonical resolver takes a member name, and this is scratch
+    # belonging to one invocation rather than state belonging to an occupant.
+    repo_root = Path(__file__).resolve().parents[3]
+    target = repo_root / "data" / "merge_bodies" / f"pr-{pr_number}.txt"
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(body, encoding="utf-8")
+    except OSError as exc:
+        click.secho(
+            f"    Could not preserve the composed body ({exc}). It is printed above\n"
+            "    in full -- do not retype it from memory, and do not merge without it.",
+            fg="red",
+        )
+        return
+
+    click.secho(
+        f"    The stamping succeeded and is safe to re-run. Composed body kept at:\n"
+        f"      {target}\n"
+        "    Finish with:\n"
+        f"      gh pr merge {pr_number} --squash --body-file "
+        f'"{target}" --delete-branch',
+        fg="bright_black",
+    )
 
 
 def sibling_rounds_naming(branch: str) -> tuple[list[str], list[str]]:
@@ -1218,7 +1368,11 @@ def register(cli: click.Group) -> None:
                         f"    The ancestry rung does not save it either: {why}.\n"
                         f"    Nor the content rung: {content_why}.\n"
                         "    Get a round against the current tree, or pass --audit-round\n"
-                        "    naming the round that actually covers it.",
+                        "    naming the round that actually covers it.\n"
+                        "    If ONLY THE FLOOR moved (every authored file byte-identical to\n"
+                        "    the reviewed commit, that commit an ancestor of the tip), no\n"
+                        "    re-read is owed: Andrew's standing permission covers it, filed\n"
+                        "    as an --actor user CONFIRMS citing his words. See _ancestry_rung.",
                         fg="red",
                     )
                     click.secho(
@@ -1303,6 +1457,10 @@ def register(cli: click.Group) -> None:
 
         if not pr.get("isDraft"):
             click.secho("[=] PR was already out of draft; trailer refreshed.", fg="cyan")
+            click.secho(
+                "    Nothing else done here: merging is left to the caller on this path.",
+                fg="bright_black",
+            )
             return
 
         try:
