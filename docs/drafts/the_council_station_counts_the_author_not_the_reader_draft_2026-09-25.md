@@ -32,6 +32,20 @@ The check function, its caller, and the sibling walk readers. Nothing selects th
 - Run from the author's seat: unchanged from today.
 - No `Author:` line: `????`, not MISS.
 
+## Second flaw, same station: two walk tools, one counter (added later 2026-09-25)
+
+`_lenses_applied` counts only `COUNCIL_LENS_APPLIED` events whose `edit_fingerprint` names one of the PR's files. Only `divineos council walk --edit ...` writes those. The work-item doorman in front of every build asks for the *other* tool, `divineos walk open / apply / close`, and those walks carry no file fingerprint.
+
+Measured on my own drafts:
+
+- #541: walked with 8 lenses (`walk-421eaefacb8f`), board reads **0 of 2**.
+- #545: walked (`walk-126cf863fe02`), board reads **0 of 2**.
+- #553: unwalked. I walked it with `council walk --edit` and the board went to 2 of 2.
+
+So the station reports "not walked" for walked work, which is could-not-look passing as not-done. The pull runs backwards too: the cheap way to turn the row green is to walk again with whichever tool the counter reads, which is walking for the mechanism (truth #15). I didn't re-walk #541 or #545.
+
+Shape: a `divineos walk` is opened while a work item is open, and the item knows its branch. Count the distinct lenses applied in walks tied to that branch alongside the fingerprinted ones. Pin it with #541's real walk: it must read at least 2 of 2.
+
 ## Named, not solved here
 
 It's worse than a wrong prompt. Had I walked, **my** board would have turned station two green on his branch, a false pass in my seat, while his board stayed honest. Two seats reading the same PR would disagree about whether its author thought it through, and the one that was wrong would be the one that had been filled in by the wrong hand.
