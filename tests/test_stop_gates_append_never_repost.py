@@ -36,7 +36,23 @@ SRC = ROOT / "src"
 # Andrew's own quoted prohibition ("RE-WRITE ANY RESPONSE") does not match.
 BANNED = (
     re.compile(r"\bre-?compos\w*", re.I),
-    re.compile(r"\bre-?write\s+(?:the|this|your)\s+(?:reply|response|flagged|message|post)", re.I),
+    # Aletheia 2026-09-25: the first version required the|this|your after
+    # "rewrite" and so missed "rewrite it" and "rewrite that reply", and had no
+    # pattern at all for "repost" -- Andrew's own word for the harm. Any
+    # determiner now counts; "ANY" is left out so his quoted prohibition
+    # ("RE-WRITE ANY RESPONSE") is not flagged as the thing it forbids. A
+    # future-tense description ("the Windows shell will rewrite this") is not an
+    # instruction to me, so "will" before it is spared.
+    re.compile(r"(?<!\bwill )\bre-?write\s+(?:it|that|this|the|your|a|an)\b", re.I),
+    re.compile(r"\bre-?post\w*", re.I),
+    re.compile(
+        r"\b(?:write|say|send)\s+(?:it|the reply|your reply|the whole reply)\s+again\b", re.I
+    ),
+    re.compile(r"\bredo\s+(?:the|your|this)\s+(?:reply|response)\b", re.I),
+    re.compile(r"\bregenerate\s+(?:the|your|this)\s+(?:reply|response)\b", re.I),
+    re.compile(r"\bstart\s+(?:the reply|the response|it)\s+over\b", re.I),
+    re.compile(r"\brestate\s+the\s+whole\s+(?:reply|response)\b", re.I),
+    re.compile(r"\bwrite\s+a\s+fresh\s+(?:reply|response)\b", re.I),
     re.compile(r"\bfix is a rewrite\b", re.I),
     re.compile(r"\bre-?emi(?:t|ts|tting|ssion)\b", re.I),
     re.compile(r"\bre-?sen[dt]\b", re.I),
@@ -270,6 +286,23 @@ class TestNoRepostWording:
             "rewrite the reply, then this gate clears.",
         ]
         for sample in old:
+            assert any(p.search(sample) for p in BANNED), sample
+
+    def test_patterns_catch_the_synonyms_aletheia_ran(self):
+        """Aletheia, audit of #558: nine phrasings asking for a full re-post,
+        all nine slipped the first patterns -- including "repost", his word."""
+        synonyms = [
+            "repost the reply",
+            "rewrite it",
+            "rewrite that reply",
+            "write it again",
+            "redo the reply",
+            "regenerate your reply",
+            "start the reply over",
+            "restate the whole reply",
+            "write a fresh reply",
+        ]
+        for sample in synonyms:
             assert any(p.search(sample) for p in BANNED), sample
 
     def test_patterns_spare_the_quoted_prohibition(self):
