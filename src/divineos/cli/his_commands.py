@@ -53,6 +53,11 @@ def register(cli: click.Group) -> None:
             click.echo(f"uuid {message.sort_id}  ({message.said_at}){where}{found}")
             for line in message.his_text.strip().splitlines():
                 click.echo(f"  > {line}" if line else "  >")
+            if message.sent_before:
+                # For auditing our sort; never evidence he approved anything.
+                before = " ".join(message.sent_before.split())
+                shown = before if len(before) <= 300 else before[:300] + " ..."
+                click.echo(f"  right before, we had sent: {shown}")
             click.echo("")
         click.echo(f"Sort each one: {sort_first.SORT_USAGE}")
 
@@ -68,14 +73,31 @@ def register(cli: click.Group) -> None:
     )
     @click.option("--reason", default="", help="Required for not_an_ask and for a supersede.")
     @click.option("--supersedes", type=int, default=None, help="The sort number this one corrects.")
+    @click.option(
+        "--preceded-by",
+        default=None,
+        help="What we sent him right before, quoted, when the door did not capture it. "
+        "Required for not_an_ask then. A record of our sort, never his consent to it.",
+    )
     def sort_cmd(
-        uuid: str, kind: str, addressed_to: str, reason: str, supersedes: int | None
+        uuid: str,
+        kind: str,
+        addressed_to: str,
+        reason: str,
+        supersedes: int | None,
+        preceded_by: str | None,
     ) -> None:
         """Say what a message of his is and who he said it to. Kept, attributed, open."""
         seat = _seat()
         try:
             sort_id = his_asks.sort(
-                uuid, kind, reason, seat, addressed_to=addressed_to, supersedes=supersedes
+                uuid,
+                kind,
+                reason,
+                seat,
+                addressed_to=addressed_to,
+                supersedes=supersedes,
+                preceded_by=preceded_by,
             )
         except his_asks.HisAsksRefused as exc:
             raise click.ClickException(str(exc)) from exc

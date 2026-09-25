@@ -318,3 +318,39 @@ def test_not_an_ask_without_a_reason_is_refused(cli):
     out = CliRunner().invoke(cli, ["his", "sort", uuid, "--kind", "not_an_ask", "--to", "aether"])
     assert out.exit_code != 0
     assert "needs a reason" in out.output
+
+
+def test_a_not_an_ask_can_quote_what_came_before_when_the_door_could_not(cli):
+    uuid = _filed("proceed")
+    out = CliRunner().invoke(
+        cli,
+        [
+            "his", "sort", uuid, "--kind", "not_an_ask", "--to", "aether",
+            "--reason", "a go-ahead on the report right before it",
+            "--preceded-by", "the report we had just sent him",
+        ],
+    )  # fmt: skip
+    assert out.exit_code == 0, out.output
+    assert ha.sent_before(uuid) == ("the report we had just sent him", ha.SORTER)
+
+
+def test_a_not_an_ask_with_nothing_before_it_on_record_is_refused(cli):
+    uuid = _filed("proceed")
+    out = CliRunner().invoke(
+        cli,
+        [
+            "his", "sort", uuid, "--kind", "not_an_ask", "--to", "aether",
+            "--reason", "a go-ahead on the report right before it",
+        ],
+    )  # fmt: skip
+    assert out.exit_code != 0
+    assert "preceded_by" in out.output
+
+
+def test_pending_shows_what_we_had_sent_right_before(cli):
+    said = "2026-09-24T00:00:00.000Z"
+    cid = ha.mint_candidate_id("p", "proceed", said)
+    ha.file_candidate(cid, "p", "proceed", said, SEAT)
+    ha.confirm(cid, "u-go", "human", "proceed", sent_before="the report he read")
+    out = CliRunner().invoke(cli, ["his", "pending"])
+    assert "right before, we had sent: the report he read" in out.output

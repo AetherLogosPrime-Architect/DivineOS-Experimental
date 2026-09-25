@@ -492,3 +492,70 @@ def test_a_broken_door_never_blocks_the_prompt(tmp_path):
 def test_an_unreadable_store_says_so(monkeypatch, tmp_path):
     monkeypatch.setattr(ha, "unsettled", lambda: None)
     assert fd.settle(tmp_path / "t.jsonl", "aether") is None
+
+
+# ------------------------------------------------------------ what we sent right before
+
+
+def _ours(text, uuid, at=LATER, sidechain=False, block="text"):
+    """One content block of ours, the shape the harness writes: one record per block."""
+    content = {"type": block, "text": text} if block == "text" else {"type": block, "id": uuid}
+    return {
+        "type": "assistant",
+        "uuid": uuid,
+        "timestamp": at,
+        "isSidechain": sidechain,
+        "message": {"role": "assistant", "content": [content]},
+    }
+
+
+def _sent_before():
+    return ha.sent_before(ha.pending()[0].sort_id)
+
+
+def test_the_door_keeps_our_last_text_ahead_of_his_record(tmp_path):
+    fd.keep({"prompt_id": "p1", "prompt": HIS}, "aether")
+    path = _transcript(
+        tmp_path,
+        _ours("an older report", "a1"),
+        _ours("the report he is answering", "a2"),
+        _ours("", "a3", block="tool_use"),
+        _tool_result("p0"),
+        _turn("p1", HIS),
+        _ours("said after him, never before", "a4"),
+    )
+    assert list(fd.settle(path, "aether").values()) == [ha.FILED]
+    assert _sent_before() == ("the report he is answering", ha.CAPTURED)
+
+
+def test_a_helpers_words_are_never_what_we_sent_him(tmp_path):
+    fd.keep({"prompt_id": "p1", "prompt": HIS}, "aether")
+    path = _transcript(
+        tmp_path,
+        _ours("what the seat said to him", "a1"),
+        _ours("a helper talking to the seat", "a2", sidechain=True),
+        _turn("p1", HIS),
+    )
+    fd.settle(path, "aether")
+    assert _sent_before() == ("what the seat said to him", ha.CAPTURED)
+
+
+def test_the_order_is_the_transcripts_not_the_clocks(tmp_path):
+    """Lamport: a stamp can be out of step with the file; the file's order is
+    the order he saw things in."""
+    fd.keep({"prompt_id": "p1", "prompt": HIS}, "aether")
+    path = _transcript(
+        tmp_path,
+        _ours("written first, stamped late", "a1", at="2099-01-01T00:05:00.000Z"),
+        _ours("written second, stamped early", "a2", at="2098-01-01T00:00:00.000Z"),
+        _turn("p1", HIS),
+    )
+    fd.settle(path, "aether")
+    assert _sent_before() == ("written second, stamped early", ha.CAPTURED)
+
+
+def test_nothing_of_ours_in_reach_is_not_captured_rather_than_empty(tmp_path):
+    fd.keep({"prompt_id": "p1", "prompt": HIS}, "aether")
+    fd.settle(_transcript(tmp_path, _turn("p1", HIS)), "aether")
+    assert _sent_before() is None
+    assert ha.pending()[0].sent_before is None

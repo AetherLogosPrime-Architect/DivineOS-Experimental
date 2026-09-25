@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import json
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -142,6 +142,10 @@ class _Record:
     prompt_id: str | None  # None for a queue slip, which carries none
     stamp: str | None  # the harness's origin.kind; None when it gave none
     text: str
+    # Our last text to him ahead of this record, in the transcript's own order
+    # (Lamport), tool calls and results skipped (Polya). None when the part of
+    # the transcript read holds none: not captured, which is not "said nothing".
+    sent_before: str | None = None
 
 
 def _as_record(rec: dict) -> _Record | None:
@@ -195,15 +199,24 @@ def _parse_tail(transcript_path: Path, size: int, window: int) -> list[_Record]:
     except OSError:
         return []
     found = []
+    ours: str | None = None
     for line in raw.decode("utf-8", errors="replace").splitlines():
-        if '"origin"' not in line and '"queued_command"' not in line:
+        spoke = '"assistant"' in line and '"text"' in line
+        if not spoke and '"origin"' not in line and '"queued_command"' not in line:
             continue
         try:
             rec = json.loads(line)
         except ValueError:
             continue
-        if isinstance(rec, dict) and (record := _as_record(rec)) is not None:
-            found.append(record)
+        if not isinstance(rec, dict):
+            continue
+        if spoke and rec.get("type") == "assistant" and not rec.get("isSidechain"):
+            said = _text_of((rec.get("message") or {}).get("content"))
+            if said.strip():
+                ours = said
+            continue
+        if (record := _as_record(rec)) is not None:
+            found.append(replace(record, sent_before=ours))
     return found
 
 
@@ -277,7 +290,11 @@ def settle(transcript_path: str | Path, seat: str) -> dict[str, str] | None:
             stamp = "human, but only a harness envelope"
         try:
             settled[candidate.candidate_id] = his_asks.confirm(
-                candidate.candidate_id, match.uuid, stamp, match.text
+                candidate.candidate_id,
+                match.uuid,
+                stamp,
+                match.text,
+                sent_before=match.sent_before,
             )
         except Exception as exc:  # noqa: BLE001 -- one bad record must not stop the rest
             _record_failure(candidate.candidate_id, exc, seat)
