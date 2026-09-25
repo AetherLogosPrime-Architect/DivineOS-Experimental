@@ -87,9 +87,13 @@ try:
             reason = (
                 f'MULTIPLE GATES FIRED ({len(_reasons)}) - parallel-aggregate '
                 'per Andrew 2026-07-22 (was chain-OR, short-circuited). '
-                'Address all of them in the recompose, not one at a time.\n\n'
+                'Address all of them in ONE addition at the end of the reply, '
+                'not one at a time.\n\n'
                 + '\n\n---\n\n'.join(_reasons)
             )
+        # Once, at the end, even when a wrapped gate message already carries it.
+        from divineos.core.retry_scope import with_retry_scope
+        reason = with_retry_scope(reason)
         print(json.dumps({'decision': 'block', 'reason': reason}))
 except Exception:
     pass

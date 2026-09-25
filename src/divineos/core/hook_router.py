@@ -198,6 +198,13 @@ class RouterResult:
         parts: list[str] = []
         for o in self.refusals:
             parts.append(f"BLOCKED by {o.name}: {o.reason}")
+        if self.refusals and self.event == "Stop":
+            # A Stop refusal arrives after the reply already reached him, so
+            # every one carries the append-only instruction -- appended here,
+            # once, so no surface author has to remember it.
+            from divineos.core.retry_scope import with_retry_scope
+
+            parts = [with_retry_scope("\n".join(parts))]
         for o in self.errored:
             parts.append(
                 f"[router] surface {o.name} COULD NOT RUN: {o.error} "

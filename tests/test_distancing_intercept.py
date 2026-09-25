@@ -95,7 +95,10 @@ class TestScanText:
         rec = gate.scan_text("future-me will handle it")
         assert rec is not None
         assert rec.required_action
-        assert "rewrite" in rec.required_action.lower()
+        # The reply has already reached him: the action is an addition, never
+        # a second copy (Andrew 2026-09-25).
+        assert "append" in rec.required_action.lower()
+        assert "rewrite" not in rec.required_action.lower()
 
     def test_fail_open_on_detector_error(self, monkeypatch) -> None:
         """If the underlying detector raises, the intercept must not

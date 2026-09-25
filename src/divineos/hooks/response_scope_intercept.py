@@ -100,11 +100,13 @@ class ResponseScopeIntercept(CrossTurnScan):
                 f"length {length} chars exceeds short-correction max ({self._max_chars})"
             )
         if _HEADER_RE.search(text):
-            violations.append("contains markdown headers (structure = re-composition)")
+            violations.append("contains markdown headers (structure = a second full post)")
         if _HR_RE.search(text):
-            violations.append("contains horizontal-rule separators (structure = re-composition)")
+            violations.append(
+                "contains horizontal-rule separators (structure = a second full post)"
+            )
         if _NUMBERED_LIST_RE.search(text):
-            violations.append("contains numbered lists (structure = re-composition)")
+            violations.append("contains numbered lists (structure = a second full post)")
         return violations
 
     def _to_evidence(self, violations: list[str], directive: str) -> EvidenceRecord:
@@ -112,11 +114,12 @@ class ResponseScopeIntercept(CrossTurnScan):
         matched_shape = f"reply exceeded short-correction shape ({len(violations)} violation(s))"
         directive_line = f"\n\nDirective from prior turn:\n  {directive}\n" if directive else ""
         required_action = (
-            "Re-emit within short-correction scope: under "
-            f"{self._max_chars} chars, no headers, no separators, no "
-            "numbered lists. State the correction directly and stop. "
-            "The prior turn asked for a re-composition; this gate refuses "
-            "one — Aletheia audit round-a1e7f4c92b6d."
+            "That reply already reached him and cannot be recalled. Append "
+            f"ONE short correction line at the END: under {self._max_chars} "
+            "chars, no headers, no separators, no numbered lists. State the "
+            "correction directly and stop. The prior turn asked for a short "
+            "correction, not a second full post; this gate refuses one — "
+            "Aletheia audit round-a1e7f4c92b6d."
             f"{directive_line}"
         )
         return EvidenceRecord(
