@@ -26,6 +26,62 @@
 # silently allowing). This differs from compass-check's fail-open.
 
 set +e
+
+# THE STOP IS READ BEFORE ANYTHING THAT CAN FAIL. Aletheia, 2026-09-21,
+# auditing a different branch and finding this instead:
+#
+#   "If _lib.sh cannot load -- deleted, broken, or resolved against the wrong
+#    root -- the off-switch exits 0 and allows everything. Silently."
+#
+# She is right, and the header of this very file claims the opposite: it says
+# fail-CLOSED on the safety-critical path. That promise was kept in the Python
+# below, which denies when its module will not import, and broken several
+# lines above it, where a missing shell library exits 0 before the Python ever
+# runs. The strongest claim in the file sat directly above the weakest line.
+#
+# Failing closed on the library instead would brick the session -- including
+# the edit that repairs the library -- which is the off-switch-traps-itself
+# shape the corrigibility module explicitly rejects. So neither of the obvious
+# two. The third option, hers: THE LOAD-BEARING CHECK GOES FIRST, and depends
+# on nothing that can fail soft.
+#
+# It CAN go first because the mode file is plain text by deliberate design --
+# "corrigibility should work even when the system itself is broken", says the
+# module that writes it -- so its first line is readable by shell alone.
+#
+# The home directory resolves through an env var, marker files, and a worktree
+# parent, and re-implementing that order here would be the second definition
+# this house keeps paying for. So this does not re-implement it: it reads the
+# candidates it CAN name and refuses if any of them says stop. That is only
+# ever ADDITIVE -- it can add a refusal, never remove one -- and the word only
+# appears in that file because an operator wrote it there. When the stop is
+# engaged somewhere this cannot see, the Python below is still the full check;
+# this is a floor under it, not a replacement for it.
+_stop_engaged=""
+for _candidate in \
+    "${DIVINEOS_HOME:-}/operating_mode.txt" \
+    "$HOME/.divineos/operating_mode.txt"; do
+    case "$_candidate" in
+        /operating_mode.txt) continue ;;
+    esac
+    if [ -f "$_candidate" ] &&
+        [ "$(head -n 1 "$_candidate" 2>/dev/null | tr -d '[:space:]')" = "emergency_stop" ]; then # fail-soft: an unreadable candidate yields no stop from THIS path and the loop keeps looking; the Python reader below is still the full check, and this block can only ADD a refusal, never remove one
+        _stop_engaged="$_candidate"
+        break
+    fi
+done
+
+if [ -n "$_stop_engaged" ]; then
+    _payload="$(cat)"
+    case "$_payload" in
+    *'"tool_name"'*'"Edit"'* | *'"tool_name"'*'"Write"'* | \
+        *'"tool_name"'*'"NotebookEdit"'* | *'"tool_name"'*'"Bash"'*)
+        printf '%s\n' '{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "EMERGENCY_STOP is engaged. Refused by the shell-level check, which runs before any library load so a broken library cannot switch the stop off. Clearing it is the operator ceremony; this gate will not clear it."}}'
+        ;;
+    esac
+    exit 0
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 [ -z "$REPO_ROOT" ] && exit 0
 # shellcheck disable=SC1091

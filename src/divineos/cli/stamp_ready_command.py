@@ -672,15 +672,34 @@ def register(cli: click.Group) -> None:
         help="Validate and show the body that would be written; change nothing.",
     )
     @click.option(
+        "--despite-stations",
+        default="",
+        metavar="REASON",
+        help=(
+            "Stamp even though the build-flow board reports unproven stations. "
+            "Requires a reason of at least twenty characters, which is written "
+            "into the record beside the act it permitted."
+        ),
+    )
+    @click.option(
         "--no-auto-merge",
         is_flag=True,
         default=False,
         help="Stamp and mark ready, but leave the merge for a person to do.",
     )
+    # BOTH OPTIONS, and neither side was wrong. Each branch added one flag to
+    # this same command while the other was being written, so the conflict is
+    # positional rather than substantive.
+    #
+    # Checked before assuming a union rather than after: the body references
+    # despite_stations three times and no_auto_merge twice, so dropping either
+    # one leaves live code reading a parameter that no longer exists -- a
+    # failure that would not surface until somebody ran the command.
     def stamp_ready_cmd(
         pr_number: int,
         round_id: str | None,
         dry_run: bool,
+        despite_stations: str,
         no_auto_merge: bool,
     ) -> None:
         """Stamp a draft PR with its External-Review trailer and mark it ready.
@@ -725,6 +744,103 @@ def register(cli: click.Group) -> None:
 
         branch = pr.get("headRefName", "")
         pr_title = pr.get("title", "") or f"PR #{pr_number}"
+
+        # THE STATIONS DECIDE READINESS, AND THIS IS THE ONLY PLACE THAT CAN ASK
+        # THEM IN TIME.
+        #
+        # Aria 2026-09-18. Three of my own pull requests sat marked ready for
+        # review with their stations unproven until the board told me, and I put
+        # all three back to draft. The reach is not haste: marking ready is what
+        # "I am done with this" FEELS like, and it is the default finishing move
+        # at the moment the work stops. The stations that actually decide
+        # readiness get evaluated later, by a board somebody has to choose to
+        # run -- so readiness is asserted at the one moment nothing has checked
+        # it, and it then reads to everyone else as a verified state rather than
+        # as the author's opinion.
+        #
+        # WHY HERE AND NOT A NEW DOOR. I started writing a second PreToolUse
+        # hook for the ready-marking command, and searching first found
+        # gh-pr-ready-gate.sh already standing on it -- routing every such
+        # marking through THIS function so the review trailer cannot be skipped.
+        # The choke point already existed; a second door beside it would have
+        # been two guards each covering half. One command clears the draft flag,
+        # so one command is where the question belongs.
+        #
+        # A MISSING STATION REFUSES AND SO DOES AN UNREADABLE ONE. The board's
+        # own doctrine is that a station it could not check is not a pass. A
+        # check that did not run must never read as a check that passed; that is
+        # the could-not-look fault this whole family is made of.
+        # An exit that costs one keystroke is not a door. The reason is required
+        # and it is recorded, so it sits beside the act it permitted rather than
+        # in an environment nobody reads.
+        if despite_stations and len(despite_stations.strip()) < 20:
+            click.secho(
+                "[!] --despite-stations needs a real reason (twenty characters or "
+                "more). Naming why is the whole cost of the exit.",
+                fg="red",
+            )
+            raise click.exceptions.Exit(1)
+
+        if not despite_stations:
+            from divineos.cli.build_flow_commands import collect as _collect_flow
+            from divineos.core.build_flow import Status as _FlowStatus
+
+            # THREE VALUES, and the third is deliberately dropped here. The board
+            # gained a roster -- which requests claim a replacement nobody can
+            # resolve -- while this caller was being written on another branch, so
+            # neither side was wrong and only the merge could see the mismatch.
+            #
+            # This call asks one question: are THIS request's stations proven. The
+            # roster answers a different one, about the relationship BETWEEN open
+            # requests, and nothing below reads it. Named rather than starred so
+            # the drop is a decision on the record instead of a silent swallow.
+            statuses, why, _roster_unused_here = _collect_flow()
+            if statuses is None:
+                click.secho(
+                    f"[!] Cannot confirm PR #{pr_number}'s stations: {why}",
+                    fg="red",
+                )
+                click.secho(
+                    "    PR left in draft. Could-not-look is not a pass. Re-run when "
+                    "the board is reachable, or pass --despite-stations with a reason.",
+                    fg="bright_black",
+                )
+                raise click.exceptions.Exit(1)
+
+            mine = next((s for s in statuses if s.number == pr_number), None)
+            if mine is not None:
+                # The draft station is excluded on purpose: it reports that this
+                # PR is still a draft, which is exactly the state being left.
+                # Asking it here would refuse every stamp for doing its job.
+                unproven = [
+                    r
+                    for r in mine.stations
+                    if r.station != "7-draft" and r.status is not _FlowStatus.SATISFIED
+                ]
+                if unproven:
+                    click.secho(
+                        f"[!] PR #{pr_number} has {len(unproven)} unproven station(s). "
+                        "Not stamping.",
+                        fg="red",
+                    )
+                    for r in unproven:
+                        mark = "MISS" if r.status is _FlowStatus.MISSING else "????"
+                        click.secho(f"      [{mark}] {r.station}  {r.detail}", fg="bright_black")
+                    click.secho(
+                        "    A false ready is worse than an honest draft: a draft with "
+                        "stations ahead of it is simply a draft, while a ready that has "
+                        "not earned it points the board at something untrue, and whoever "
+                        "acts on it believes they are acting on a check rather than on "
+                        "the author's say-so.",
+                        fg="bright_black",
+                    )
+                    click.secho(
+                        "    If a station is one only somebody else can satisfy, that is "
+                        "the thing to ask for, not the thing to declare -- a station the "
+                        "author can satisfy alone checks nothing.",
+                        fg="bright_black",
+                    )
+                    raise click.exceptions.Exit(1)
 
         # Pull in any approvals waiting in the shared crossing-point BEFORE
         # validating. Andrew 2026-08-12: review was being given and then lost,

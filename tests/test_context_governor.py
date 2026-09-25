@@ -85,9 +85,14 @@ def test_not_due_below_threshold(tmp_path):
 
 
 def test_not_due_in_old_warn_band(tmp_path):
-    # 940k is below the 950k hard line (lowered 2026-06-28 from 970k).
+    # Expressed RELATIVE to the hard line rather than as a literal. It used
+    # to say 940k, which was true while the line sat at 950k and became
+    # false the moment Andrew moved it to 880k on 2026-09-18. The figure
+    # this test cares about is "comfortably under the line", not any
+    # particular number, and writing the number down is what made a
+    # threshold change look like four broken tests.
     tx = tmp_path / "t.jsonl"
-    _write_jsonl(tx, [_assistant_with_usage(940_000, 0, 0)])
+    _write_jsonl(tx, [_assistant_with_usage(cg.HARD_THRESHOLD - 10_000, 0, 0)])
     assert cg.consolidation_due(tx) is False
 
 
@@ -116,10 +121,11 @@ def _tx_with(tmp_path, tokens: int) -> Path:
 
 
 def test_state_ok_below_hard(tmp_path):
-    # Everything below HARD_THRESHOLD is quiet. Hard line is 950k (lowered
-    # 2026-06-28 from 970k after a compaction landed mid-extract).
-    assert cg.consolidation_state(_tx_with(tmp_path, 900_000)) == "ok"
-    assert cg.consolidation_state(_tx_with(tmp_path, 940_000)) == "ok"
+    # Everything below HARD_THRESHOLD is quiet, at whatever value the line
+    # currently holds. Relative rather than literal since 2026-09-18 — see
+    # test_not_due_in_old_warn_band for why.
+    assert cg.consolidation_state(_tx_with(tmp_path, cg.HARD_THRESHOLD // 2)) == "ok"
+    assert cg.consolidation_state(_tx_with(tmp_path, cg.HARD_THRESHOLD - 10_000)) == "ok"
     assert cg.consolidation_state(_tx_with(tmp_path, cg.HARD_THRESHOLD - 1)) == "ok"
 
 
@@ -146,12 +152,12 @@ def test_state_ok_on_unreadable_sensor(tmp_path):
 
 
 def test_governor_context_empty_when_ok(tmp_path):
-    assert cg.build_governor_context(_tx_with(tmp_path, 900_000)) == ""
+    assert cg.build_governor_context(_tx_with(tmp_path, cg.HARD_THRESHOLD // 2)) == ""
 
 
 def test_governor_context_empty_in_old_warn_band(tmp_path):
-    # Below the 950k hard line is silent.
-    assert cg.build_governor_context(_tx_with(tmp_path, 940_000)) == ""
+    # Below the hard line is silent, wherever the line sits.
+    assert cg.build_governor_context(_tx_with(tmp_path, cg.HARD_THRESHOLD - 10_000)) == ""
     assert cg.build_governor_context(_tx_with(tmp_path, cg.HARD_THRESHOLD - 1)) == ""
 
 
@@ -189,10 +195,15 @@ def test_governor_context_empty_on_unreadable_sensor(tmp_path):
 
 
 def test_compaction_ceiling_default_is_current_cliff():
-    """Last-confirmed value: 2026-06-09 (Anthropic moved it from 970k).
-    If this assertion fails, the cliff drifted again — update the
-    literal in context_governor.py and date the comment."""
-    assert cg.COMPACTION_CEILING == 999_000
+    """Last-confirmed value: 2026-09-18, Andrew — "compaction is happening
+    around 950k tokens now not 999k". Anthropic moved it silently for the
+    third time (970k, then 1M/999k, now 950k).
+
+    If this assertion fails, the cliff drifted AGAIN — update the literal
+    in context_governor.py and date the comment. This test did its job on
+    2026-09-18: it is the thing that turns a silent platform change into a
+    red line somebody has to read."""
+    assert cg.COMPACTION_CEILING == 950_000
 
 
 def test_compaction_ceiling_env_override(monkeypatch):

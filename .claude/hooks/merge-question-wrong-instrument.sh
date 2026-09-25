@@ -157,4 +157,9 @@ IF YOU GENUINELY WANT THE TREE COMPARISON — two snapshots, not a merge — tha
 a real question and this is the wrong door for it. Add three dots for the
 merge-base form, or compare against something other than main.
 REFUSAL
+# Sourced HERE rather than at the top: this hook deliberately avoids the
+# shared library to stay cheap on the path it takes thousands of times.
+# The refusal path runs once and is already stopping a tool call.
+# shellcheck source=.claude/hooks/_lib.sh
+source "$(dirname "$0")/_lib.sh" 2>/dev/null && hook_say_nothing_ran_for "$INPUT"  # fail-soft: a missing library costs this refusal its footer and nothing else; the block above has already been printed and stands on its own
 exit 2

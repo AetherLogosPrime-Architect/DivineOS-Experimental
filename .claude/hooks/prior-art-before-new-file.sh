@@ -220,10 +220,12 @@ PY
       THIN)
         echo "PRIOR-ART DOORMAN — the acknowledgement is too short to be a claim." >&2
         echo "Say what you opened and why this is a different thing (40+ chars)." >&2
+        hook_say_nothing_ran_for "$INPUT"
         exit 2
         ;;
       STALE)
         echo "PRIOR-ART DOORMAN — that acknowledgement has expired. Look again." >&2
+        hook_say_nothing_ran_for "$INPUT"
         exit 2
         ;;
     esac
@@ -251,6 +253,7 @@ Read what is listed. If none of it is the same thing, say so and carry on:
 It is recorded as compliance, not as a bypass — looking is what this asks
 for. A one-word answer is refused, because the sentence is the point.
 EOF
+  hook_say_nothing_ran_for "$INPUT"
   exit 2
 fi
 

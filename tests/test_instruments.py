@@ -10,7 +10,9 @@ tested first and hardest.
 
 from __future__ import annotations
 
+import inspect
 import time
+from pathlib import Path
 
 import pytest
 
@@ -161,3 +163,81 @@ def test_unreadable_file_does_not_hide_the_others(home, monkeypatch):
     monkeypatch.setattr(instruments, "_count_records", boom)
     # survey() must still return every instrument rather than raising
     assert len(instruments.survey(home)) >= len(instruments.KNOWN_INSTRUMENTS)
+
+
+# ---------------------------------------------------------------------------
+# WHERE THE INDEX LOOKS WHEN NOBODY HANDS IT A HOME.
+#
+# Every test above passes `home` in explicitly, so not one of them ever
+# exercises the module's own resolution -- which is exactly why a hand-rolled
+# `divineos_home()` that expanded `~` and honoured no override survived here
+# from the module's first day. The suite could not have caught it by
+# construction, and that is the finding underneath the finding.
+#
+# The cost: the index is the audit channel reporting which instruments are
+# LIVE, EMPTY, SILENT or MISSING. Run from Aria's checkout it surveyed MY
+# rooms, so her dead instrument would read LIVE because mine is. Beer,
+# walk-3b65af27c439: an audit channel whose agreement between observers is
+# manufactured by its own blindness is worse than one that disagrees.
+# ---------------------------------------------------------------------------
+
+
+def test_the_index_follows_the_home_override(tmp_path, monkeypatch):
+    """No home handed in -- the module must resolve the one it was GIVEN."""
+    from divineos.core.paths import divineos_home as canonical_home
+
+    probe = tmp_path / "somebody-elses-house"
+    probe.mkdir()
+    monkeypatch.setenv("DIVINEOS_HOME", str(probe))
+
+    assert canonical_home() == probe, "the probe itself must work, or this proves nothing"
+
+    # A Reading carries no path, so the probe has to be a file the real home
+    # CANNOT contain. A known instrument will not do: the first version of
+    # this test used hook_timing.jsonl and passed against the broken module,
+    # because the real home has a live one of that name. A test that passes
+    # from the wrong house is not a test.
+    #
+    # survey() also reports undocumented surfaces found on disk, so a
+    # uniquely-named file appears in the output only if this home was read.
+    marker = "probe-only-in-the-given-home.jsonl"
+    (probe / marker).write_text('{"probe":1}\n', encoding="utf-8")
+
+    names = {r.name for r in instruments.survey()}
+    assert marker in names, (
+        "the index did not read the home it was given -- a file present only "
+        f"there did not appear in the survey. Saw: {sorted(names)[:5]}"
+    )
+
+
+def test_the_module_keeps_no_private_home_resolver():
+    """The invariant is ONE answerer, and a second definition breaks it by existing.
+
+    Dijkstra, same walk: the invariant is false before any call is made, so
+    the proof is the absence of a second definition rather than a passing
+    behaviour check.
+    """
+    source = Path(inspect.getsourcefile(instruments)).read_text(encoding="utf-8")
+    assert "def divineos_home(" not in source, (
+        "a private divineos_home has returned to instruments.py -- the whole defect"
+    )
+
+
+def test_the_unrouted_sibling_still_ignores_the_override(tmp_path, monkeypatch):
+    """The deliberate divergence stays deliberate.
+
+    `unrouted_member_home` sits directly below the repaired function and MUST
+    keep its hand-rolled path: its whole job is the unrouted directory the
+    resolver routes AWAY from. Deleting one hand-rolled resolver while keeping
+    the other is the entire judgement, and a sweep matching on shape rather
+    than intent would take both (Hawking, same walk).
+    """
+    probe = tmp_path / "not-where-orphans-landed"
+    probe.mkdir()
+    monkeypatch.setenv("DIVINEOS_HOME", str(probe))
+    monkeypatch.setenv("DIVINEOS_MEMBER", "testmember")
+
+    unrouted = Path(instruments.unrouted_member_home())
+    assert probe != unrouted and probe not in unrouted.parents, (
+        "unrouted_member_home must NOT route -- its job is the unrouted directory"
+    )

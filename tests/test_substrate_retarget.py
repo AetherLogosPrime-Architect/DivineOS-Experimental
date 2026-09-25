@@ -134,6 +134,39 @@ def test_deleted_substrate_file_records_as_deleted(repo: Path) -> None:
     assert "letter.md" not in files
 
 
+def test_more_paths_than_fit_on_a_command_line(repo: Path) -> None:
+    """The ceiling that stopped a learning checkpoint on 2026-09-17.
+
+    Windows caps a command line at 32767 characters. Passing each substrate
+    path as an argument put 342 of our letter filenames -- which run long on
+    purpose -- at roughly 37k, and CreateProcess refused with a
+    FileNotFoundError that reads like git is missing rather than like the
+    invocation is too big.
+
+    The names here are deliberately letter-shaped and long enough that the
+    argument form would still fail, so this test fails against the old code
+    rather than merely passing against the new.
+    """
+    letters = repo / "letters"
+    letters.mkdir()
+    names = [
+        f"letters/aria-to-aether-2026-09-17-a-long-subject-line-of-the-kind-we-actually-write-{i:04d}.md"
+        for i in range(400)
+    ]
+    for name in names:
+        (repo / name).write_text("body\n", encoding="utf-8")
+
+    assert sum(len(n) + 1 for n in names) > 32767, "names too short to exercise the ceiling"
+
+    result = commit_paths_to_branch(repo, "substrate", names, "substrate: many letters")
+
+    assert result is not None
+    committed = _git(repo, "ls-tree", "-r", "--name-only", result.commit).split()
+    assert len(committed) == len(names) + 1  # every letter, plus seed.txt
+    assert names[0] in committed
+    assert names[-1] in committed
+
+
 def test_concurrent_branch_move_is_refused_not_clobbered(repo: Path) -> None:
     """The in-flight window, made explicit.
 
@@ -146,8 +179,13 @@ def test_concurrent_branch_move_is_refused_not_clobbered(repo: Path) -> None:
     real_commit_tree = sr._git
     state = {"moved": False}
 
-    def racing_git(root: Path, *args: str, env: dict[str, str] | None = None) -> str:
-        out = real_commit_tree(root, *args, env=env)
+    def racing_git(
+        root: Path,
+        *args: str,
+        env: dict[str, str] | None = None,
+        stdin: str | None = None,
+    ) -> str:
+        out = real_commit_tree(root, *args, env=env, stdin=stdin)
         if args and args[0] == "commit-tree" and not state["moved"]:
             state["moved"] = True
             # Someone else advances substrate while we were building the tree.

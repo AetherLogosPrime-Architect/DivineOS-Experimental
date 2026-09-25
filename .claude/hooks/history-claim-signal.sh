@@ -90,6 +90,18 @@ if msg:
 
 if [ -n "$RESULT" ]; then
     echo "$RESULT" >&2
+    # Says what it STOPPED, not only what it objected to. Added by the merge
+    # that brought this branch's rule together with this hook: the rule was
+    # written here while the hook was written on main, so neither side was
+    # wrong and only the meeting could see the gap.
+    #
+    # IT GETS THE FOOTER EVEN THOUGH IT IS UNWIRED, and the header above is the
+    # reason rather than an argument against. It is disarmed pending a repair
+    # that is described and intended, so the day it is armed is the day it
+    # starts refusing -- and a rule added on that day would be added by whoever
+    # is mid-repair and thinking about the ledger, not about this. Cheaper and
+    # safer to be already correct when the switch is thrown.
+    hook_say_nothing_ran_for "$INPUT"
     exit 2
 fi
 

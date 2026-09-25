@@ -59,7 +59,12 @@ class RetargetResult:
     paths: tuple[str, ...]
 
 
-def _git(repo_root: Path, *args: str, env: dict[str, str] | None = None) -> str:
+def _git(
+    repo_root: Path,
+    *args: str,
+    env: dict[str, str] | None = None,
+    stdin: str | None = None,
+) -> str:
     full_env = {**os.environ, **(env or {})}
     proc = subprocess.run(
         ["git", *args],
@@ -67,6 +72,7 @@ def _git(repo_root: Path, *args: str, env: dict[str, str] | None = None) -> str:
         capture_output=True,
         text=True,
         env=full_env,
+        input=stdin,
         check=False,
     )
     if proc.returncode != 0:
@@ -125,7 +131,24 @@ def commit_paths_to_branch(
 
         # --add --remove together so a deleted substrate file records as
         # deleted rather than silently persisting on the branch forever.
-        _git(repo_root, "update-index", "--add", "--remove", "--", *paths, env=env)
+        #
+        # The paths go in over stdin rather than as arguments. As arguments
+        # this died on Windows at 342 substrate paths -- about 37k of command
+        # line against a hard 32767 ceiling -- and it surfaced as a
+        # FileNotFoundError out of CreateProcess, which reads like a missing
+        # git rather than an oversized invocation. Chunking would only push the
+        # ceiling further out and leave a threshold to re-cross once the
+        # letters pile up again; stdin removes the ceiling.
+        _git(
+            repo_root,
+            "update-index",
+            "--add",
+            "--remove",
+            "-z",
+            "--stdin",
+            env=env,
+            stdin="\0".join(paths) + "\0",
+        )
 
         tree = _git(repo_root, "write-tree", env=env)
 
