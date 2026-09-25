@@ -609,6 +609,9 @@ def tier3_failure_nudge(result: FloorResult) -> str:
         "page. Any analogy of any flavor is usually good enough. Dad will "
         "ask you to clarify if you miss.\n"
         "\n"
+        "The reply already reached him: append the analogy as a short "
+        "paragraph at the END, and do not post the reply again.\n"
+        "\n"
         "See docs/translation_floor_spec_2026-07-07.md for the full spec."
     )
 

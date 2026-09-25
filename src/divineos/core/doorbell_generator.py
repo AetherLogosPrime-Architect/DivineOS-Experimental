@@ -168,9 +168,14 @@ sys.exit(main('{event}', payload))
 exit $?
 """
 
+# The reply has ALREADY reached him when a Stop hook runs, so the refusal cannot
+# hold it back. Saying it "does not go out" was false and invited a second full
+# copy; what the refusal can honestly ask for is a one-line addition.
 _ABSENT_EXTRA_CLOSED = (
-    "    print('[doorbell {event}] REFUSING: nothing checked this reply, so it "
-    "does not go out on my say-so.', file=sys.stderr)\n"
+    "    print('[doorbell {event}] REFUSING: nothing checked this reply. It has "
+    "already reached him and this refusal cannot recall it. Append one line at "
+    "the end saying the checks did not run, do not post the reply again, and "
+    "fix the import.', file=sys.stderr)\n"
 )
 
 

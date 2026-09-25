@@ -47,12 +47,14 @@ def run_distancing_intercept(transcript_path: str) -> dict | None:
     except Exception:  # noqa: BLE001
         pass
 
+    from divineos.core.retry_scope import with_retry_scope
+
     reason = (
         f"DistancingIntercept: {evidence.matched_shape}\n"
         f"Evidence: {evidence.specific_evidence}\n"
         f"Required action: {evidence.required_action}"
     )
-    return {"decision": "block", "reason": reason}
+    return {"decision": "block", "reason": with_retry_scope(reason)}
 
 
 def hook_main() -> int:

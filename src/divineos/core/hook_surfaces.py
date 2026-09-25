@@ -1218,7 +1218,8 @@ def addressed_to_him_surface(payload: dict) -> SurfaceOutcome | None:
             "He said:\n"
             f"    {his.strip()[:400]}\n\n"
             "Answering something adjacent is not answering him. Find the thing "
-            "he actually said and answer that.\n\n"
+            "he actually said and answer it in a short addition at the END -- "
+            "the reply already reached him, so do not post it again.\n\n"
             "WHAT THIS DOOR CAN ACTUALLY SEE is a run of his words reused in "
             "the reply — not whether the reply answered him. Those come apart "
             "in both directions, so a pass from here is never evidence he was "
@@ -1450,7 +1451,7 @@ def repeated_reply_surface(payload: dict) -> SurfaceOutcome | None:
             "has already read.\n\n"
             "Andrew 2026-09-08: 'you are repeating yourself, look at the last "
             "post, literally verbatim posted twice.'\n\n"
-            "This is almost certainly a re-send after another Stop gate refused "
+            "This is almost certainly a second send after another Stop gate refused "
             "the first attempt. Adding the missing room to the same body "
             "satisfies that gate and charges him twice for one post.\n\n"
             "Send WHAT IS NEW. He has read the rest. If the earlier gate wanted "
@@ -1541,7 +1542,7 @@ def summary_room_surface(payload: dict) -> SurfaceOutcome | None:
     try:
         from divineos.core.summary_room import assess, render_block
 
-        block = render_block(assess(text))
+        block = render_block(assess(text, retry=bool(payload.get("stop_hook_active"))))
     except Exception as exc:  # noqa: BLE001
         return SurfaceOutcome(
             name="summary_room",
