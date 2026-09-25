@@ -155,16 +155,13 @@ class TestTheThreeFaultsOf20260923:
         # How I deliver a letter. Marking it read because it was moved would
         # record a reading that never happened.
         cmd = (
-            'cd x; f=aria-to-aether-2026-09-23-a.md; cp family/letters/$f '
+            "cd x; f=aria-to-aether-2026-09-23-a.md; cp family/letters/$f "
             "~/.divineos-shared/letters/ && cmp family/letters/$f b"
         )
         assert letters_read_by_command(cmd) == []
 
     def test_each_segment_is_judged_on_its_own(self):
-        cmd = (
-            "cp aria-to-aether-2026-09-23-a.md dest/; "
-            "cat aether-to-aria-2026-09-23-b.md"
-        )
+        cmd = "cp aria-to-aether-2026-09-23-a.md dest/; cat aether-to-aria-2026-09-23-b.md"
         assert letters_read_by_command(cmd) == ["aether-to-aria-2026-09-23-b.md"]
 
     def test_a_command_that_mentions_no_letter_reads_none(self):
