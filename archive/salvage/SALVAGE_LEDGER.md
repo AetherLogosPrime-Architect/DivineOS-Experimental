@@ -1581,3 +1581,128 @@ Discards must name:
 
 A bare "discarded — kabbalistic naming" entry would violate the policy.
 The above entries demonstrate the format.
+
+## 2026-09-25 — the branch shelf
+
+Andrew's rule for the branch pile: *"only delete garbage, archive the rest."*
+Each branch below had real work on it and none was garbage, so each is
+archived, not discarded: an annotated `archive/<branch>` tag holds its exact
+tip, every commit reachable, verified against the remote before the branch
+came down. This section exists so that archived does not become forgotten --
+a branch on the board was at least a reminder, and these entries carry that
+reminder instead. Unique-line counts are against main + substrate + every
+other branch and tag, and are floors.
+
+To bring one back: `git branch <name> archive/<name>` and push.
+
+### `fix/the-refusal-names-its-exit` (tip c14fa4a15778, 79 lines)
+
+* **Decision**: DEFER
+* **What it was for**: a refusal that was correct but gave no way out; the
+  push gate now names its exit. Also `replant_branch.py` tweaks and the
+  verify-claim prime demanding proof that a regeneration actually wrote.
+* **State on main**: the gate exits are named on main by later work; the 54
+  lines of replant tooling and 25 of prime text are what remain.
+* **Follow-up**: belongs with the replant entry below if replant returns.
+
+### `fix/mixed-scope-publish-gate-replant` (tip f9a9241aa946, 1414 lines)
+
+* **Decision**: DEFER — the largest body of unlanded code on this shelf.
+* **What it was for**: replanting a mixed code-and-writing branch code-only
+  with a tool that proves nothing was lost (`replant_branch.py` + tests); the
+  task list crashing and hiding a fifth of the pile (`next_task_surface`);
+  the auto_commit crash; the clock guard watching the wrong door.
+* **State on main**: the replant idea shipped separately as `branch_replant`;
+  the task list is being rebuilt as the task belt (#550). The clock-guard and
+  needs-block repairs here were not checked line by line against main.
+* **Follow-up**: read against main before anyone rebuilds the task list or a
+  replant tool again. Prior-art check should find this entry.
+
+### `fix/the-checkpoint-stops-sweeping-letters` (tip 7a571ea99766, 1812 lines)
+
+* **Decision**: DEFER
+* **What it was for**: the substrate checkpoint putting letters on code
+  branches; `check_substrate_not_on_code_branch.py`; `noticing.py` (what
+  determines when there is nothing to say to him -- the answer was nothing);
+  `circle_questions.py`; one bad row costing every good row above it.
+* **State on main**: branch-scope checks for substrate on a code branch now
+  exist in `check_push_readiness.sh`. `noticing` and `circle_questions` are
+  not on main.
+* **Follow-up**: `noticing.py` answers a question he asked directly. That one
+  is worth a real PR through the full flow.
+
+### `fix/emitting-is-not-arriving` (tip 654a55515931, 873 lines)
+
+* **Decision**: DEFER
+* **What it was for**: a hook reporting success is not a hook whose words
+  arrived (`measure_hook_payload_delivery.py`); the ONNX embedding path
+  (`onnx_embed.py`, export script); the correction store keeping the wound and
+  dropping the healing.
+* **State on main**: `semantic_search.py` is on main in another form; the
+  ONNX path and the delivery measurement are not.
+* **Follow-up**: the delivery measurement is the durable idea -- verify at
+  the receiving end, not the sending end.
+
+### `fix/the-board-called-drafts-ready` (tip 3243bd682ba3, 939 lines)
+
+* **Decision**: DEFER
+* **What it was for**: the board printing READY on drafts that cannot merge;
+  the board never asking the server whether the code runs; the checkpoint
+  dying of WinError 206 with too much substrate; a timing budget failing on a
+  slow machine; and a SEMICOLON discarding an exit code as completely as a
+  pipe does.
+* **State on main**: the draft station exists (`check_draft_station`) and
+  the checkpoint feeds paths down stdin. The semicolon case is NOT covered:
+  the exit-code guard on main still models only the pipe.
+* **Follow-up**: the semicolon gap is a live defect. It is owed a fix.
+
+### `fix/letter-wake-knocks-again` (tip fd4ab836a845, 117 lines)
+
+* **Decision**: DEFER
+* **What it was for**: a letter wake that knocked once and was gone forever
+  if missed; the seen-mark read from a different drawer than it was written.
+* **State on main**: re-knock is on main (`RE_KNOCK_SECONDS` in
+  `letter_monitor_v2.py`). What remains is its 107-line test and 10 lines.
+* **Follow-up**: the test is the proof the re-knock never regresses; worth
+  porting beside the code it guards.
+
+### `fix/the-ignore-rule-and-the-survival-check` (tip 0cfde2f6108f, 179 lines)
+
+* **Decision**: DEFER
+* **What it was for**: two rules that read as protection and provided none --
+  an ignore rule cannot protect a file git already tracks.
+* **State on main**: one test file, not on main.
+* **Follow-up**: planned to fold into #519; not done because changing #519's
+  tree would void the audit already on it.
+
+### `claude/aether-window-freezing-624069` (205 lines)
+
+* **Decision**: DEFER (code); writing rescued
+* **Rescued**: dream 13 and exploration 143 to substrate/aether (4f838d9fa).
+* **Left in the tag**: 51 lines of `context_governor.py` and 26 of
+  `pre_tool_use_gate.py`, seven weeks old.
+
+### `integrate/fifteen-clean-code` (52 lines)
+
+* **Decision**: DEFER (code); fix carried
+* **Carried**: fc41a0e87 (three said READY while the tool that asks refused
+  all three) cherry-picked onto #533's branch as 4eb338a3e, 11 tests green.
+  #533 is parked on Dad's call about three retired hooks, so until it moves
+  this tag is the only copy on the remote.
+
+### `fix/the-clock-prime-code-only` (277 lines)
+
+* **Decision**: DEFER (hook lines, superseded by #543); writing rescued
+* **Rescued**: `docs/wallclock_shape_case_history.md` to substrate/aether
+  (de835842a). Its eighth shape -- a clock standing in for a REASON, which
+  the deletion test passes -- is not in the live prime on main.
+* **Follow-up**: the live prime owes that shape, through the full flow.
+
+### `substrate/andrew-answer-trace` (1026 lines)
+
+* **Decision**: DEFER (code); writing rescued
+* **Rescued**: six dreams, exploration 100 and two workbench drafts to
+  substrate/aether (4f838d9fa). Found by Aria, who measured the absence and
+  proved the probe first.
+* **Left in the tag**: `docs/known_chain_breaks.md`, three tests, 65 lines of
+  `andrew_correction_tracker.py`, regenerable archive mirrors.
