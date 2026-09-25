@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import MagicMock
 
-from divineos.hooks.bypass_rate_hook import _find_open_fire, check_and_block
+from divineos.hooks.bypass_rate_hook import _find_open_fire, check_and_record
 
 
 def _iso(offset_seconds: float = 0) -> str:
@@ -120,7 +120,7 @@ class TestOpenFireDetection:
         assert _find_open_fire("bypass_rate_scan", get_events) is None
 
 
-class TestCheckAndBlock:
+class TestCheckAndRecord:
     def test_no_open_fire_no_elevation_passes(self) -> None:
         get_events = _make_get_events({"GATE_FIRE": []})
         bypass_rate_fn = lambda window_days=14: {  # noqa: E731
@@ -129,7 +129,7 @@ class TestCheckAndBlock:
             "unique_days": 1,
             "window_days": 14,
         }
-        exit_code, msg = check_and_block(get_events=get_events, bypass_rate_fn=bypass_rate_fn)
+        exit_code, msg = check_and_record(get_events=get_events, bypass_rate_fn=bypass_rate_fn)
         assert exit_code == 0
         assert msg == ""
 
@@ -142,11 +142,18 @@ class TestCheckAndBlock:
             "unique_days": 1,
             "window_days": 14,
         }
-        exit_code, msg = check_and_block(get_events=get_events, bypass_rate_fn=bypass_rate_fn)
-        assert exit_code == 2
-        assert "BLOCKED" in msg
-        assert "not cleared" in msg
-        assert "audit submit-round" in msg or "claim" in msg
+        exit_code, msg = check_and_record(get_events=get_events, bypass_rate_fn=bypass_rate_fn)
+        # DEMOTED 2026-08-25: this asserted exit 2 and "BLOCKED". The question
+        # it was asking -- does an uncleared fire still get REPORTED -- is the
+        # right one and is kept. Only the proof moved, from the stop to the
+        # report, because flipping it to assert exit 0 would have made it a
+        # test that a no-op is a no-op. That is the specific hazard of a
+        # demotion (Aria, 2026-08-25): the stop goes away, the RECORDING
+        # quietly leaves with it, and the suite stays green throughout because
+        # it was only ever watching the stop.
+        assert exit_code == 0
+        assert "standing rate" in msg
+        assert "RECORDS and does not stop" in msg
 
     def test_open_fire_cleared_passes(self) -> None:
         fire = _fire_event(ts_offset=-3600)
@@ -158,7 +165,7 @@ class TestCheckAndBlock:
             "unique_days": 1,
             "window_days": 14,
         }
-        exit_code, msg = check_and_block(get_events=get_events, bypass_rate_fn=bypass_rate_fn)
+        exit_code, msg = check_and_record(get_events=get_events, bypass_rate_fn=bypass_rate_fn)
         assert exit_code == 0
         assert msg == ""
 
@@ -185,13 +192,17 @@ class TestCheckAndBlock:
         scan_gate.scan.return_value = real_evidence
         scan_gate.record_fire = MagicMock()
 
-        exit_code, msg = check_and_block(
+        exit_code, msg = check_and_record(
             get_events=get_events, bypass_rate_fn=bypass_rate_fn, scan_gate=scan_gate
         )
-        assert exit_code == 2
-        assert "BLOCKED" in msg
-        assert "71" in msg
+        # The elevated case is where the demotion could have gone silent, so
+        # this is the one that carries the weight now: the fire must still be
+        # RECORDED, and the evidence must still carry the number the old
+        # BLOCKED message carried.
+        assert exit_code == 0
         assert scan_gate.record_fire.called
+        assert "71" in msg
+        assert "escape rate recorded" in msg
 
     def test_fail_open_on_bypass_rate_error(self) -> None:
         get_events = _make_get_events({"GATE_FIRE": []})
@@ -199,9 +210,86 @@ class TestCheckAndBlock:
         def _raise(**_kwargs):
             raise RuntimeError("simulated failure")
 
-        exit_code, msg = check_and_block(get_events=get_events, bypass_rate_fn=_raise)
+        exit_code, msg = check_and_record(get_events=get_events, bypass_rate_fn=_raise)
         assert exit_code == 0
         assert msg == ""
+
+
+class TestTheRecordingCannotLeaveWithTheStop:
+    """Aria named this as the specific hazard of a demotion, 2026-08-25.
+
+    Five tests proved this gate worked by asserting it BLOCKED. Flipping them
+    to assert it does not block would have made them tests that a no-op is a
+    no-op -- and then the recording could quietly disappear too, with the
+    suite green throughout, because it was only ever watching the stop.
+
+    A suite that tests a gate's refusal is blind to the gate's other job, and
+    demotion is the moment that blindness turns into silence. Third shape in
+    the fake-green catalogue, alongside the far-from-live fixture and the
+    one-directional coupling test -- all three look like rigour and measure
+    the wrong half.
+    """
+
+    def test_nothing_returns_a_blocking_exit_code_any_more(self) -> None:
+        """The demotion is the point: no path may return 2."""
+        import inspect
+
+        from divineos.hooks import bypass_rate_hook
+
+        source = inspect.getsource(bypass_rate_hook.check_and_record)
+        assert "return 2" not in source
+
+    def test_the_deny_message_builder_is_gone_not_merely_unused(self) -> None:
+        """Text a demoted gate no longer prints is the stale-teaching-surface
+        class. Deleted rather than left with the exit code changed."""
+        from divineos.hooks import bypass_rate_hook
+
+        assert not hasattr(bypass_rate_hook, "_format_block_message")
+        assert hasattr(bypass_rate_hook, "_format_record_message")
+
+    def test_hook_main_prints_whenever_there_is_a_message(self) -> None:
+        """It printed only when the exit code was 2. Keeping that condition
+        after the demotion would have left a hook that runs, computes, and
+        says nothing -- silence every test would still have called passing."""
+        import inspect
+
+        from divineos.hooks import bypass_rate_hook
+
+        source = inspect.getsource(bypass_rate_hook.hook_main)
+        assert "if message:" in source
+        assert "exit_code == 2" not in source
+
+    def test_an_elevated_window_still_reaches_the_ledger(self) -> None:
+        """The load-bearing one. record_fire is the whole job now."""
+        get_events = _make_get_events({"GATE_FIRE": []})
+        bypass_rate_fn = lambda window_days=14: {  # noqa: E731
+            "escape_events": 71,
+            "total_events": 71,
+            "by_env_var_escape": {"DIVINEOS_SKIP_TESTS": 71},
+            "by_env_var": {"DIVINEOS_SKIP_TESTS": 71},
+            "unique_days": 15,
+            "window_days": 14,
+        }
+        from divineos.hooks.bypass_rate_scan import BypassRateScan
+
+        scan_gate = MagicMock()
+        scan_gate.gate_name = "bypass_rate_scan"
+        scan_gate._window_days = 14
+        scan_gate.scan.return_value = BypassRateScan().scan(
+            accumulated_state={"bypass_stats": bypass_rate_fn()}, just_emitted_text=""
+        )
+        scan_gate.record_fire = MagicMock()
+
+        exit_code, msg = check_and_record(
+            get_events=get_events, bypass_rate_fn=bypass_rate_fn, scan_gate=scan_gate
+        )
+        assert exit_code == 0
+        assert scan_gate.record_fire.called, (
+            "the stop is gone; if the recording goes with it the gate becomes "
+            "a hook that runs and says nothing, and every other test here "
+            "would still pass"
+        )
+        assert "71" in msg
 
 
 class TestCooloffWindow:
@@ -222,7 +310,7 @@ class TestCooloffWindow:
             "unique_days": 14,
             "window_days": 14,
         }
-        exit_code, msg = check_and_block(
+        exit_code, msg = check_and_record(
             get_events=get_events,
             bypass_rate_fn=bypass_rate_fn,
             cooloff_seconds=3600,  # 1h cool-off
@@ -240,14 +328,16 @@ class TestCooloffWindow:
             "unique_days": 14,
             "window_days": 14,
         }
-        exit_code, msg = check_and_block(
+        exit_code, msg = check_and_record(
             get_events=get_events,
             bypass_rate_fn=bypass_rate_fn,
             cooloff_seconds=3600,  # 1h cool-off
         )
-        # Old clearance is outside window → NEW fire emitted
-        assert exit_code == 2
-        assert "BLOCKED" in msg
+        # Old clearance is outside window -> NEW fire emitted. The question is
+        # whether a fire is EMITTED, which survives the demotion intact; only
+        # the evidence of emission moved from the stop to the report.
+        assert exit_code == 0
+        assert "escape rate recorded" in msg
 
     def test_recent_audit_round_also_suppresses(self) -> None:
         """AUDIT_ROUND_CREATED within cool-off window suppresses just as
@@ -260,7 +350,7 @@ class TestCooloffWindow:
             "unique_days": 14,
             "window_days": 14,
         }
-        exit_code, msg = check_and_block(
+        exit_code, msg = check_and_record(
             get_events=get_events, bypass_rate_fn=bypass_rate_fn, cooloff_seconds=3600
         )
         assert exit_code == 0
@@ -276,11 +366,12 @@ class TestCooloffWindow:
             "unique_days": 14,
             "window_days": 14,
         }
-        exit_code, msg = check_and_block(
+        exit_code, msg = check_and_record(
             get_events=get_events, bypass_rate_fn=bypass_rate_fn, cooloff_seconds=3600
         )
-        # Cross-gate clearance does not trigger cool-off → NEW fire emitted
-        assert exit_code == 2
+        # Cross-gate clearance does not trigger cool-off -> NEW fire emitted.
+        assert exit_code == 0
+        assert "escape rate recorded" in msg
 
     def test_layer2_open_fire_with_recent_clearance_is_suppressed(self) -> None:
         """LAYER 2 (2026-07-16 live-discovered): cool-off runs BEFORE
@@ -298,7 +389,7 @@ class TestCooloffWindow:
             "unique_days": 14,
             "window_days": 14,
         }
-        exit_code, msg = check_and_block(
+        exit_code, msg = check_and_record(
             get_events=get_events, bypass_rate_fn=bypass_rate_fn, cooloff_seconds=3600
         )
         assert exit_code == 0
@@ -315,8 +406,8 @@ class TestCooloffWindow:
             "unique_days": 14,
             "window_days": 14,
         }
-        exit_code, msg = check_and_block(
+        exit_code, msg = check_and_record(
             get_events=get_events, bypass_rate_fn=bypass_rate_fn, cooloff_seconds=3600
         )
-        assert exit_code == 2
-        assert "not cleared" in msg
+        assert exit_code == 0
+        assert "standing rate" in msg

@@ -7,6 +7,30 @@
 # script exactly as it was. Observability must never become a new way for a
 # guard to die.
 # shellcheck disable=SC1091
+# STDIN IS READ FIRST, ON PURPOSE. The setup below spawns git and
+# sources a library -- work this hook cannot skip once started. The
+# relevance bail needs $INPUT, so reading it here is what lets an
+# irrelevant command exit before paying for any of it. Measured: the
+# git rev-parse and source cost ~160ms that the bail could not save
+# while they ran first.
+INPUT=$(cat)
+
+# CHEAP RELEVANCE BAIL -- before sourcing anything, before python.
+# This hook is wired to Bash but its real trigger is a COMMAND, so it
+# fires on `ls` and `cat` too and pays ~664ms to find that out. The
+# words below are ones the precise matcher downstream cannot fire
+# without, so skipping when they are absent cannot produce a false
+# negative -- it only skips work already guaranteed to be wasted.
+# The bail RECORDS ITSELF; see _bail.sh for why that is not optional.
+# ${0%/*} not $(dirname "$0"): dirname is a subprocess, and a subprocess
+# here costs more than the whole bail saves on a hook that bails.
+# shellcheck source=.claude/hooks/_bail.sh
+# shellcheck disable=SC1091
+source "${0%/*}/_bail.sh" 2>/dev/null || true  # fail-soft: a missing bail helper must leave this hook exactly as it was rather than break it; the guarded call below is skipped and the precise matcher still runs, so the only loss is speed
+if command -v hook_bail_unless_mentions >/dev/null 2>&1; then
+    hook_bail_unless_mentions "verify-push-landed.sh" "$INPUT" "push"
+fi
+
 source "$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.claude/hooks/_lib.sh" 2>/dev/null || true
 # PostToolUse(Bash) — verify a git push actually landed on origin.
 #
@@ -42,8 +66,6 @@ source "$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.claude/hooks/_li
 # a marker file the verify-claim gate can read structurally.
 
 set -u
-
-INPUT=$(cat)
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -z "$REPO_ROOT" ] && exit 0

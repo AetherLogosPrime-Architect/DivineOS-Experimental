@@ -122,10 +122,25 @@ class TestShouldExtractKnowledge:
         assert allowed is True
         assert maturity == ""
 
-    def test_block_returns_false(self):
+    def test_block_still_extracts_at_hypothesis(self):
+        """A BLOCK verdict downgrades; it never discards the session.
+
+        Andrew 2026-09-02: "at no point should extraction be blocked..
+        failures or not, as long as those failures are recorded as such and
+        not as knowledge entries then it shouldnt be blocking anything."
+
+        The failing checks are stored in the quality report either way. The
+        old behaviour threw away the session's learning ALONGSIDE the failure
+        record, which is why a session spent repairing broken tests -- the
+        one most worth learning from -- read as a session to forget.
+        """
         verdict = QualityVerdict(action="BLOCK", score=0.2, reason="too bad")
         allowed, maturity = should_extract_knowledge(verdict)
-        assert allowed is False
+        assert allowed is True
+        assert maturity == "HYPOTHESIS", (
+            "a blocked session must land at the lowest maturity so nothing "
+            "from it can be promoted to fact"
+        )
 
     def test_downgrade_returns_hypothesis(self):
         verdict = QualityVerdict(action="DOWNGRADE", score=0.5, failed_checks=["a", "b"])

@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import time
 
-from family import queue
+from family import family_queue as queue
 
 
 def _format_relative_age(timestamp: float) -> str:

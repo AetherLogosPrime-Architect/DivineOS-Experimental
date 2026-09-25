@@ -116,14 +116,94 @@ def score_pr_gravity(changed_paths: tuple[str, ...]) -> tuple[int, tuple[str, ..
     return len(fired), tuple(fired)
 
 
-def required_lens_count(gravity: int, changed_file_count: int) -> int:
+# Prose a lens cannot grip. A council lens asks how a MECHANISM fails, gets
+# gamed, or drifts; a letter has no mechanism in it. Same prefixes the scope
+# checker uses, and deliberately the same list rather than a second copy --
+# two lists of what counts as substrate would drift, which is the defect the
+# sweep repair exists to end.
+_UNGRIPPABLE_PREFIXES = ("family/letters/", "exploration/", "dreams/", "docs/archives/")
+
+
+def check_scope_station(
+    changed_paths: tuple[str, ...] | list[str] | None,
+    branch: str = "",
+) -> StationResult:
+    """Station 3 -- one branch carries one kind of thing.
+
+    THE HOLE, 2026-09-14. I handed Aletheia four branches as ready. One of them
+    is a small gate repair carrying a hundred and sixty-one letters and archive
+    files out of a hundred and eighty-one, put there by an automatic checkpoint
+    four days earlier. It had read READY on this board the whole time, and I
+    quoted that word onward without re-deriving what it covers.
+
+    THE QUESTION WAS ASKED ONLY AT THE DOOR. The push gate asks exactly this and
+    refuses a mixed branch -- but it fires at PUBLISH time, so a branch polluted
+    by a local checkpoint and never pushed again is never asked at all. Four
+    stations answered honestly and none of them was the question, which is the
+    same shape as the supersession hole closed in this module the same morning.
+    A publish-time check cannot protect a branch nobody publishes.
+
+    Deliberately the SAME prefix list the lens requirement uses, for the reason
+    written above it: two lists of what counts as substrate would drift, and
+    that drift is the defect the sweep repair exists to end.
+
+    An unreadable changed-file set is could-not-check, never clean -- an outage
+    must not upgrade a mixed branch to a tidy one.
+
+    A branch that is ALL substrate and no code is not mixed and passes. The
+    fault is the mixture, not the writing: writing belongs on a writing branch
+    and this station says so rather than forbidding prose outright.
+    """
+    if changed_paths is None:
+        return StationResult(
+            "3-scope", Status.CANNOT_CHECK, "changed files unreadable -- scope unknown, not clean"
+        )
+    substrate = [p for p in changed_paths if p.startswith(_UNGRIPPABLE_PREFIXES)]
+    code = [p for p in changed_paths if not p.startswith(_UNGRIPPABLE_PREFIXES)]
+    if not substrate:
+        return StationResult("3-scope", Status.SATISFIED, f"{len(code)} file(s), no writing")
+    if not code:
+        return StationResult(
+            "3-scope", Status.SATISFIED, f"{len(substrate)} file(s), all writing -- not mixed"
+        )
+    return StationResult(
+        "3-scope",
+        Status.MISSING,
+        f"MIXED -- {len(substrate)} writing file(s) riding on {len(code)} code file(s). "
+        "A reviewer given that ratio skims. Rebuild against main with the code only, "
+        "after verifying each writing file is on the writing branch by name",
+    )
+
+
+def required_lens_count(gravity: int, changed_paths: tuple[str, ...] | list[str]) -> int:
     """Lenses required at station 2, scaled to what is actually at stake.
 
     Zero is a real answer. A substrate-content PR with no code has nothing
     for a lens to grip, and walking one anyway is the ceremony that teaches
     me walks are ceremony.
+
+    AND THE CODE COUNTED THE WRONG THING WHILE THE DOCSTRING SAID THE RIGHT
+    ONE (2026-09-02). The sentence above has been here since the file was
+    written and is correct. The implementation asked how MANY files changed,
+    which is a proxy for stake and not stake itself -- so a branch carrying
+    fifty-two letters and no code at all was required to walk two lenses,
+    because fifty-two is a big number.
+
+    Found by the ordinary case rather than by a test: the letters-only branch
+    sat blocked on a requirement its own docstring says it should never have
+    had. Thirteenth instance in two days of a check counting the container
+    instead of the thing at risk.
+
+    CHESTERTON'S FENCE, because the count clause is not stupid. It exists so a
+    large change cannot claim zero gravity and skip the walk -- a big diff that
+    happens to miss every guardrail path is still a big change, and that is
+    real. What it got wrong is WHICH files make a change big. Prose does not,
+    however much of it there is; code does, even a little. So the escalation
+    now counts files a lens could actually grip, and the fence keeps standing
+    where it was put.
     """
-    if gravity == 0 and changed_file_count <= 20:
+    grippable = [p for p in changed_paths if not p.startswith(_UNGRIPPABLE_PREFIXES)]
+    if gravity == 0 and len(grippable) <= 20:
         return 0
     if gravity <= 1:
         return 2
@@ -132,35 +212,345 @@ def required_lens_count(gravity: int, changed_file_count: int) -> int:
     return 6
 
 
-def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
-    """Station 4 -- iterate with Aria. Satisfied only when SHE wrote back.
+# The one line a reading declares itself with. Aria's design and Aria's
+# spelling, 2026-09-01 -- hers is live with a gate behind it that refuses to
+# write a letter whose header lacks the field, and it fires on EVERY letter
+# rather than on the ones that look like readings, because a trigger keyed on
+# titles would carry the exact blindness this replaces.
+#
+# ONE SPELLING, and it is hers because hers already exists. Two would drift and
+# the drift would be silent -- which is the same reason the reserved-name set
+# in the watchmen store moved to module scope this afternoon.
+READING_DECLARATION = "**Reading:**"
+
+# What she writes when a letter reviews no code. It is a DECLARATION, not an
+# omission: the field is present and answers the question with "nothing here".
+# Collapsing it into absence would make her disciplined letters look like the
+# ones that predate the field.
+NO_READING = "none"
+
+
+def _declared_readings(text: str) -> tuple[bool, list[str]]:
+    """``(field_present, branches)`` from the one declared line.
+
+    Read literally. Everything else in the letter -- title, filename, prose,
+    the ``In response to`` line -- is deliberately not consulted, because
+    inference from her prose is what produced the wrong credits this replaces.
+
+    The two return values are separate on purpose: a letter declaring ``none``
+    is present-with-no-branches, and reporting that as no-declaration would
+    punish exactly the discipline the field asks for.
+    """
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith(READING_DECLARATION):
+            continue
+        value = stripped[len(READING_DECLARATION) :]
+        parts = [p.strip().strip("`").lower() for p in value.split(",")]
+        return True, [p for p in parts if p and p != NO_READING]
+    return False, []
+
+
+#: A request declares who wrote it on a line of its own. Declared rather than
+#: resolved, because nothing in the repository distinguishes Aria's work from
+#: mine -- see the note inside ``check_aria_station``.
+AUTHOR_DECLARATION = "Author:"
+
+_AUTHOR_TRAILER = re.compile(
+    rf"^\s*{AUTHOR_DECLARATION}\s*(?P<who>[A-Za-z][A-Za-z0-9_.-]*)\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+#: author -> (the seat whose reading counts, the letters that seat writes).
+#: The reading that satisfies station 4 must come from the seat that did NOT
+#: write the branch. Everything here is lowercase; the lookup normalises.
+_READING_SEAT: dict[str, tuple[str, str]] = {
+    "aether": ("Aria", "aria-to-aether-*.md"),
+    "aria": ("Aether", "aether-to-aria-*.md"),
+}
+
+
+def declared_author(body: str | None) -> str | None:
+    """Who a request says wrote it, or None when it does not say.
+
+    None is not a default to a seat. It is the answer that makes station 4
+    decline, because an undeclared author is exactly the case where a reading
+    cannot be told apart from a self-certification.
+    """
+    if not body:
+        return None
+    match = _AUTHOR_TRAILER.search(body)
+    return match.group("who").lower() if match else None
+
+
+def _reading_seat_for(author: str | None) -> tuple[str, str] | None:
+    if not author:
+        return None
+    return _READING_SEAT.get(author.lower())
+
+
+#: Branch prefixes that NAME a seat. Deliberately partial: Aria's branches
+#: carry her name and mine carry a verb, so a branch with no personal prefix
+#: yields NO OPINION rather than "Aether". Absence of her name is not presence
+#: of mine, and a hint that guessed me would be the inference this refuses.
+_BRANCH_PREFIX_HINT: dict[str, str] = {"aria": "aria", "aether": "aether"}
+
+
+def branch_author_hint(branch: str) -> str | None:
+    """What the branch NAME suggests about who wrote it, or None for no opinion.
+
+    A WEAK SIGNAL CANNOT GRANT A PASS AND CAN STILL WITHHOLD ONE -- Aria,
+    2026-09-14, and the title is the rule.
+
+    I had rejected the prefix outright, because a naming convention is not a
+    fact and inference is what produced the wrong credits the last time this
+    station was wrong. She agreed and then found the direction I could not see
+    from my seat: I rejected it as a source of VERDICTS, and it can still be a
+    source of REFUSALS.
+
+    The hole it closes is hers too. A declaration naming the WRONG author does
+    not merely fail to help -- it converts a self-certification into a pass. A
+    branch of hers declaring me as author sends the station looking for a
+    reading from her, and it finds her letter about her own work. Green, on
+    precisely the thing the station exists to prevent. The realistic version is
+    not either of us lying; it is a declaration line copied off a neighbouring
+    branch with the name left as it was found, which is a mistake she has
+    shipped before in another form.
+
+    The asymmetry is the entire safety: the guess is only ever allowed to make
+    the gate stricter. Same shape as station 9, where prose that cannot be
+    resolved is a footnote about its own author and never a verdict on anyone
+    else.
+    """
+    head = branch.split("/", 1)[0].strip().lower() if "/" in branch else ""
+    return _BRANCH_PREFIX_HINT.get(head)
+
+
+def check_aria_station(branch: str, letters_dir: Path, author: str | None = None) -> StationResult:
+    """Station 4 -- iterate with the OTHER seat. Satisfied only when they wrote back.
 
     A letter I sent proves I spoke, not that we iterated, and the station is
     about the second thing.
+
+    THE WRITER DECLARES; THE READER DOES NOT INFER (Aria, 2026-09-01, and she
+    counted rather than asserting it).
+
+    This used to ask whether the branch name appeared anywhere in her text. Her
+    bodies cross-refer because her findings cross-refer, so the board credited
+    every branch she mentioned and marked the one she had actually reviewed as
+    unreviewed -- understating her by two while crediting two others using the
+    letter belonging to one of them.
+
+    I proposed keying on her titles instead. She counted her last thirty-five
+    letters to answer: five carry a subject in the title and all five use a
+    NUMBER, never a branch name; and at least SIX are readings with findings
+    whose titles carry neither. More of her readings would have been invisible
+    to a title-parser than visible, and the six included the findings that
+    changed my branches. She titles by what she FOUND, because the finding is
+    the thing I need in the first four words, and she is not going to title
+    worse so a parser can read her.
+
+    Her ``In response to`` field is not the subject either -- of those five, two
+    name a branch and three name a letter of mine. It is whatever triggered the
+    reading.
+
+    So there was no existing signal, and the reason is simple: she has never had
+    to declare the subject, so she never did. Every parser built on her prose
+    would be inferring, and inference is what produced the wrong credits. One
+    declared line, read literally, nothing guessed.
+
+    ABSENCE IS NOT A VERDICT ABOUT HER. No declaration is honestly different
+    from no reading, and the detail says which, because reporting an unread
+    branch and an undeclared reading in the same words is the could-not-look
+    fault this whole family is made of.
+
+    AND IT READS ONE DIRECTION ONLY, which is correct for work Aether authored
+    and WRONG-SHAPED for work Aria authored. On her branches the reviewing seat
+    is him, so nothing this station can see could ever satisfy it, and the miss
+    it reports is about the question rather than about her. Found 2026-09-19
+    when the board reported three of her own branches as carrying no reading by
+    her -- true, meaningless, and indistinguishable in the output from a real
+    gap. The obvious repair, keying the direction on the branch prefix, is NOT
+    taken: several of her branches use the same prefixes as his, so the prefix
+    would be inferring authorship, and inference is precisely what produced the
+    wrong credits this function was rewritten to stop. So the limit is stated in
+    the result instead, where the reader of a miss is standing.
     """
     if not letters_dir.is_dir():
         return StationResult(
             "4-aria", Status.CANNOT_CHECK, f"letters dir not readable: {letters_dir}"
         )
+
+    # WHOSE READING COUNTS DEPENDS ON WHO WROTE THE BRANCH, and until
+    # 2026-09-14 this station never asked. Aria found it: the check took the
+    # branch and the letters directory, neither of which carries authorship,
+    # so it asked the identical question of a branch I wrote and one she wrote
+    # -- and on hers, HER letter about her own branch read as the outside
+    # reading. Her provenance request was sitting satisfied on a
+    # self-certification. The docstring above had the right principle and the
+    # implementation had one seat in it, mine.
+    #
+    # AND THE OBVIOUS REPAIR CANNOT BE BUILT. Her first remedy was to resolve
+    # the author and swap the seat. Measured before building it: every open
+    # request reports the same account as author, hers and mine alike, and the
+    # commit identity is the same placeholder on both. There is no fact in the
+    # repository that separates her work from mine. A resolver would have been
+    # written around a field that means nothing.
+    #
+    # So authorship is DECLARED, which is her own rule for this same station
+    # one layer up -- the writer declares, the reader does not infer. I nearly
+    # took the branch prefix instead (hers carry her name, mine do not) and
+    # that is a naming convention, not a fact; inference is what produced the
+    # wrong credits the last time this station was wrong.
+    # Normalised ONCE and carried, rather than lowering `author` again below.
+    # mypy refused the second call and was right to: nothing in the types says
+    # a non-None reader implies a non-None author, and a reader that learns
+    # otherwise would be reading an invariant out of my head. This is the same
+    # could-not-look discipline the module is made of, pointed at itself.
+    declared = (author or "").strip().lower()
+    reader = _reading_seat_for(declared)
+    if reader is None:
+        return StationResult(
+            "4-aria",
+            Status.CANNOT_CHECK,
+            "nothing declares who wrote this branch, so an independent reading "
+            "cannot be told apart from the author certifying their own work -- "
+            f"add a '{AUTHOR_DECLARATION} <name>' line to the request body",
+        )
+    # Aria's guard, 2026-09-14: a weak signal cannot grant a pass and can still
+    # withhold one. The prefix never certifies; a prefix that CONTRADICTS the
+    # declaration withholds, because a declaration naming the wrong author
+    # turns a self-certification green.
+    hint = branch_author_hint(branch)
+    if hint is not None and hint != declared:
+        return StationResult(
+            "4-aria",
+            Status.CANNOT_CHECK,
+            f"the request declares {declared} as author and the branch name says "
+            f"{hint} -- these disagree, and a declaration naming the wrong author "
+            "would send this station to read the very seat that wrote the branch",
+        )
+    reader_name, reader_glob = reader
+
     needle = branch.lower()
-    for f in sorted(letters_dir.glob("aria-to-aether-*.md")):
+    declared_anywhere = 0
+    unparsed: str | None = None
+    for f in sorted(letters_dir.glob(reader_glob)):
         try:
-            if needle in f.read_text(encoding="utf-8", errors="replace").lower():
-                return StationResult("4-aria", Status.SATISFIED, f"she replied in {f.name}")
+            present, declarations = _declared_readings(
+                f.read_text(encoding="utf-8", errors="replace")
+            )
         except OSError:
             continue
-    return StationResult("4-aria", Status.MISSING, "no reply from Aria naming this branch")
+        if present:
+            declared_anywhere += 1
+        if needle in declarations:
+            return StationResult(
+                "4-aria",
+                Status.SATISFIED,
+                f"{reader_name} declared a reading in {f.name}",
+            )
+        # A DECLARATION THAT MISSES ITS OWN FORMAT IS NOT AN ABSENT READING.
+        # Aria 2026-09-07: she declared one, wrapped the branch name in
+        # backticks and put a dash and a clause after it. Read literally --
+        # which is right, and she asked me NOT to loosen it -- the value is a
+        # phrase rather than a name, so the board said none of the declared
+        # readings names this branch. That sentence reads as SHE HAS NOT READ
+        # ME, and it is a different fact from I CANNOT PARSE HER LINE. She
+        # spent an hour looking like the one who had not shown up.
+        #
+        # The literal match still decides. The near-miss gets its own answer,
+        # anchored at the START of a declared value and never a substring
+        # anywhere inside one: her letters cross-refer constantly, and
+        # crediting a mention is the exact fault the literal read replaced.
+        if unparsed is None and any(part.startswith(needle) for part in declarations):
+            unparsed = f.name
+    if declared_anywhere == 0:
+        return StationResult(
+            "4-aria",
+            Status.MISSING,
+            f"no letter from {reader_name} carries a reading declaration at all -- "
+            f"this says nothing about whether {reader_name} has read this branch, "
+            "only that no reading is claimed in the field the board reads",
+        )
+    if unparsed is not None:
+        return StationResult(
+            "4-aria",
+            Status.CANNOT_CHECK,
+            f"{reader_name} declared a reading of this branch in {unparsed}, but the "
+            "line carries more than the name and this field is read literally -- "
+            f"that is my parser failing to read {reader_name}, not {reader_name} "
+            "failing to read the branch",
+        )
+    return StationResult(
+        "4-aria",
+        Status.MISSING,
+        # THE MAIN LINE'S LONGER MESSAGE IS DROPPED HERE ON PURPOSE, because
+        # this branch made it false. It explained that the station could read
+        # letters in one direction only, so a miss on work Aria authored meant
+        # the question was wrong rather than the reading absent -- a limit
+        # stated because fixing it would have required inferring authorship
+        # from a branch name, and inference is what produced the wrong credits
+        # this function was rewritten to stop.
+        #
+        # This branch removes the limit instead of explaining it: the author is
+        # DECLARED, the reading seat is chosen from that declaration, and a
+        # station that cannot tell who wrote the branch refuses rather than
+        # guessing. A stale explanation of a removed limit is worse than none,
+        # because it tells a reader that a real miss is an inapplicable
+        # question and the check keeps running with nobody acting on it.
+        f"none of the {declared_anywhere} declared reading(s) by {reader_name} names this branch",
+    )
 
 
-def check_council_station(branch: str, required: int, applied: int | None) -> StationResult:
-    """Station 2 -- council walk, against the gravity-derived requirement."""
+def check_council_station(
+    branch: str,
+    required: int,
+    applied: int | None,
+    other_seats: dict[str, int] | None = None,
+) -> StationResult:
+    """Station 2 -- council walk, against the gravity-derived requirement.
+
+    TWO NUMBERS, AND ONLY ONE OF THEM SATISFIES. Aria's design, 2026-08-29,
+    when I asked whether this lane should read both seats the way station eight
+    now does:
+
+        Station eight asks whether an OUTSIDE REVIEWER signed off, and which
+        store the round landed in is an accident of filing. Station two asks
+        whether the AUTHOR thought this through. If this lane reads both seats
+        and lets what it finds satisfy, her walk clears my gate -- a checklist
+        someone else can fill in, and from inside the board it looks identical
+        to having done it.
+
+    So the other seat's walks are SEEN and never COUNTED. Seen, because
+    reporting an existing walk as absent is could-not-look-reading-as-not-done,
+    the same fault as the row cap in station eight. Never counted, because the
+    thing being certified is the author's own thinking.
+
+    ``other_seats`` maps seat name to the distinct-lens count that seat walked
+    against these files. It changes the DETAIL only, never the verdict.
+    """
     if required == 0:
         return StationResult("2-council", Status.SATISFIED, "gravity 0: no walk required")
     if applied is None:
         return StationResult("2-council", Status.CANNOT_CHECK, "ledger not readable")
+
+    # Rendered the same way whether the station passes or fails, because a
+    # walk by the other seat is information in both cases -- and a note that
+    # appears only on failure reads as an excuse for the failure.
+    elsewhere = ""
+    if other_seats:
+        seen = ", ".join(f"{n} by {seat}" for seat, n in sorted(other_seats.items()) if n)
+        if seen:
+            elsewhere = f"; also {seen} (seen, does not satisfy)"
+
     if applied >= required:
-        return StationResult("2-council", Status.SATISFIED, f"{applied}/{required} lenses")
-    return StationResult("2-council", Status.MISSING, f"{applied}/{required} lenses walked")
+        return StationResult(
+            "2-council", Status.SATISFIED, f"{applied}/{required} lenses{elsewhere}"
+        )
+    return StationResult(
+        "2-council", Status.MISSING, f"{applied}/{required} lenses walked{elsewhere}"
+    )
 
 
 def check_draft_station(is_draft: bool | None) -> StationResult:
@@ -175,7 +565,12 @@ def check_draft_station(is_draft: bool | None) -> StationResult:
 
 
 def check_audit_station(
-    pr_number: int, branch: str, audit_refs: tuple[str, ...] | None
+    pr_number: int,
+    branch: str,
+    audit_refs: tuple[str, ...] | None,
+    store_label: str | None = None,
+    anchor: str | None = None,
+    anchor_detail: str = "",
 ) -> StationResult:
     """Station 8 -- Aletheia. Last, and never self-serviceable.
 
@@ -219,11 +614,241 @@ def check_audit_station(
             Status.CANNOT_CHECK,
             "audit lookup did not complete (network or store) — cause not narrowed",
         )
+    named = None
     if any(f"#{pr_number}" in r for r in audit_refs):
-        return StationResult("8-audit", Status.SATISFIED, f"audit round names PR #{pr_number}")
-    if branch and any(branch in r for r in audit_refs):
-        return StationResult("8-audit", Status.SATISFIED, f"audit round names {branch}")
-    return StationResult("8-audit", Status.MISSING, "no audit round names this PR or its branch")
+        named = f"PR #{pr_number}"
+    elif branch and any(branch in r for r in audit_refs):
+        named = branch
+
+    if named is not None:
+        # A NAME MATCH IS NOT A CONTENT MATCH, and for most of this station's
+        # life that distinction was missing entirely.
+        #
+        # Aletheia, 2026-08-29, verifying the finding: this check asked only
+        # whether a round's text NAMES the branch. What a reader takes from a
+        # green station is that the CURRENT content has been reviewed. On the
+        # instruments branch those were ten commits and fifteen files apart,
+        # so the board would have carried it to a merge on an audit that never
+        # saw two thirds of what was in it.
+        #
+        # The repair is not a new comparison. Andrew already built the
+        # mechanism, for this exact problem, when he designed the patch-id
+        # rung: "that mechanism was to help the floor change, as it kept
+        # switching the hashes.. so if the code matches your audit then we
+        # authorize changing your hash to match the changed floor so it doesnt
+        # fail. but if the code doesnt match then it needs re-audit."
+        #
+        # WHY PATCH-ID AND NOT TIP OR TREE (Aletheia's reasoning, taken whole):
+        # tip changes on every commit including ones that cannot affect
+        # behaviour, and tree is tip's problem with an extra step. Both stale a
+        # review when a letter lands, and a binding that invalidates a review
+        # for a letter will be routed around inside a week -- correctly, since
+        # nothing about the review became false. Patch-id is the diff against
+        # the base: invariant to the base moving, variant only when the change
+        # changes. That is exactly the question this station is asking.
+        #
+        # The anchor itself is computed by the caller, which is where git
+        # lives; this function stays pure and only decides what the answer
+        # means.
+        if anchor == "stale":
+            return StationResult(
+                "8-audit",
+                Status.MISSING,
+                f"audit round names {named} but its confirm NO LONGER HOLDS — "
+                "the reviewed change moved; re-audit rather than merge on it",
+            )
+        if anchor == "cannot-check":
+            # Could-not-look is not all-clear, and this station is the last
+            # one before a merge.
+            #
+            # THE REASON IS NOT DECORATION. Without it this line reads as a
+            # broken instrument and gets shrugged past, while the commonest
+            # actual cause — "no external-AI CONFIRM in round X" — is a clear
+            # ask somebody can act on. Eight open requests sat behind the
+            # wordless version of this sentence, looking unmeasurable when
+            # they were merely unaudited.
+            because = f": {anchor_detail}" if anchor_detail else ""
+            return StationResult(
+                "8-audit",
+                Status.CANNOT_CHECK,
+                f"audit round names {named}, but whether its confirm still "
+                f"holds could not be determined — not a pass{because}",
+            )
+        if anchor == "unanchored":
+            # Confirms filed before patch-id binding record no anchor at all.
+            # Treating those as MISSING would retroactively unmake every older
+            # review on a technicality; treating them as silently equal to an
+            # anchored one is the lie. Say which kind it is.
+            return StationResult(
+                "8-audit",
+                Status.SATISFIED,
+                f"audit round names {named} (name match only — that round "
+                "predates content binding, so drift since would not show)",
+            )
+        if anchor == "holds":
+            return StationResult(
+                "8-audit",
+                Status.SATISFIED,
+                f"audit round names {named}, and its confirm still holds "
+                "against the branch as it stands",
+            )
+        if anchor == "not-run":
+            # THE PER-TURN BOARD DOES NOT PAY FOR THIS, and says so rather
+            # than letting its green imply a check it skipped.
+            #
+            # Measured before deciding: one content check costs about five
+            # seconds, because it fetches and recomputes the diff against the
+            # base. Across the open requests that is over half a minute added
+            # to every single turn -- the forty-second toll booth again, and
+            # a board that slow gets switched off, which costs more than the
+            # check gains.
+            #
+            # So the deep check belongs in the explicit command, and the
+            # cheap view names its own scope. A green station that quietly
+            # means something weaker than the reader thinks is the exact
+            # defect this whole change exists to remove; reproducing it here
+            # to save five seconds would be self-defeating.
+            return StationResult(
+                "8-audit",
+                Status.SATISFIED,
+                f"audit round names {named} (name match; content check not "
+                "run in this view — use the board command for that)",
+            )
+        return StationResult("8-audit", Status.SATISFIED, f"audit round names {named}")
+    # THE ANSWER CARRIES ITS OWN SCOPE. Aria, 2026-08-28, after going to verify
+    # a round I had filed and being told twice by her own tools that it did not
+    # exist:
+    #
+    #   "Two readings, both true, both about the wrong thing. My store is not
+    #    the one you wrote to."
+    #
+    # There are two stores in this house and neither seat can see the other's
+    # through its own tools. Her round count and mine differ, and a round filed
+    # on one side is genuinely absent from the other. This sentence used to
+    # read "no audit round names this PR or its branch" -- a true statement
+    # about ONE store, published with the scope of all of them, at the last
+    # gate before a merge.
+    #
+    # She stopped short of asserting my board was broken because she had not
+    # read it. I checked: on this side the round IS visible to this code path.
+    # So the defect is not a wrong verdict here; it is a sentence that cannot
+    # be wrong out loud. Naming the store turns an unfalsifiable negative into
+    # one a reader can check -- and if it is ever run from the other seat, the
+    # miss explains itself instead of reading as NOT-AUDITED.
+    #
+    # An unnamed store is reported as unnamed rather than guessed at: naming a
+    # store this did not query would be the same wrong-subject error one level
+    # down, which is the error being fixed.
+    # The scope names BOTH narrowings, because there were two stacked and the
+    # second was only visible once the first was measured: which store, and
+    # how many of its rounds were actually compared against. Aria found the
+    # row cap when the count came back a number matching neither store.
+    where = f" in {store_label}" if store_label else " (store not identified)"
+    return StationResult(
+        "8-audit",
+        Status.MISSING,
+        f"no audit round names this PR or its branch "
+        f"(compared against {len(audit_refs)} round(s){where})",
+    )
+
+
+def judging_code_provenance(
+    main_ref: str = "main",
+    module_path: Path | None = None,
+    tracked_path: str = "src/divineos/core/build_flow.py",
+) -> tuple[Status, str]:
+    """Say which copy of the station rules produced this reading.
+
+    THE VERDICT COMES FROM THE CHECKOUT, NOT ONLY FROM THE DATA. Every station
+    above is code, and the code that runs is whichever copy the working tree
+    happens to be standing on. So the same pull request reads one way from a
+    branch carrying a widened check and another way from a branch that does
+    not, with nothing on the page saying so. Named on 2026-09-01 in a letter to
+    Aria after a station demoted to could-not-check on one branch and passed on
+    another, and again on 2026-09-10 when she reported the board's answer about
+    her readings while standing in a different tree from mine.
+
+    This does not and cannot make the reading independent of the checkout --
+    that would mean fetching the rules from somewhere, and then the fetch is
+    the thing that varies. It makes the dependence VISIBLE, which is the
+    honest half and the half that was missing. A green from rules nobody else
+    is running is still a green; it just is not a green about the shared
+    repository, and the reader deserves to know which one they have.
+
+    Three-valued like everything else here. Cannot-check is returned when git
+    is unavailable or the reference does not exist, and it must never be read
+    as agreement -- that is the same collapse the whole module exists to
+    refuse.
+    """
+    import hashlib
+    import subprocess
+
+    # The two extra arguments exist so this can be exercised against a real
+    # repository built in a test rather than against whichever one the suite
+    # happens to be sitting in. A check whose only fixture is the tree it lives
+    # in can only ever be run once, in one state, which is how a three-valued
+    # answer ends up with two of its three branches never observed.
+    here = Path(__file__) if module_path is None else module_path
+    repo_root = here.parents[3] if module_path is None else here.parent
+    try:
+        mine = here.read_bytes()
+    except OSError as exc:
+        return (
+            Status.CANNOT_CHECK,
+            f"the running station rules could not be read from disk ({exc.__class__.__name__})"
+            " — this is not agreement with the shared copy",
+        )
+
+    try:
+        proc = subprocess.run(
+            ["git", "show", f"{main_ref}:{tracked_path}"],
+            capture_output=True,
+            cwd=str(repo_root),
+            check=False,
+        )
+    except OSError as exc:
+        return (
+            Status.CANNOT_CHECK,
+            f"git could not be run ({exc.__class__.__name__}), so which rules"
+            " produced this reading is unknown — not the same as shared",
+        )
+
+    if proc.returncode != 0:
+        detail = proc.stderr.decode(errors="replace").strip().splitlines()
+        why = detail[-1] if detail else f"git exited {proc.returncode}"
+        return (
+            Status.CANNOT_CHECK,
+            f"the shared copy on {main_ref} could not be read ({why}) — unknown, not agreed",
+        )
+
+    def _rules(raw: bytes) -> bytes:
+        # LINE ENDINGS ARE NOT THE RULEBOOK. Git stores the blob with newlines
+        # alone; a Windows working tree holds the same source with a carriage
+        # return in front of every one of them. Comparing the raw bytes made
+        # this answer "differs" on every Windows checkout including one that had
+        # just been cloned, which would have made the new line on the board cry
+        # wolf permanently -- and a warning that is always on is a warning
+        # nobody reads. Caught by the test, on the first run, against a
+        # repository built for the purpose.
+        return raw.replace(b"\r\n", b"\n")
+
+    def _short(raw: bytes) -> str:
+        # usedforsecurity=False: this names WHICH copy of a source file spoke,
+        # so two readings can be told apart. Nothing authenticates against it.
+        return hashlib.sha1(_rules(raw), usedforsecurity=False).hexdigest()[:8]
+
+    if _rules(proc.stdout) == _rules(mine):
+        return (
+            Status.SATISFIED,
+            f"judged by the same station rules {main_ref} carries",
+        )
+
+    return (
+        Status.MISSING,
+        f"judged by THIS checkout's station rules ({_short(mine)}), which differ"
+        f" from the ones on {main_ref} ({_short(proc.stdout)}) — another tree"
+        " may read the same pull requests differently",
+    )
 
 
 def fingerprint(statuses: list[PrFlowStatus]) -> str:
@@ -248,3 +873,107 @@ def fingerprint(statuses: list[PrFlowStatus]) -> str:
         )
         parts.append(f"{s.number}:{s.branch}:{stations}")
     return hashlib.sha1("|".join(parts).encode(), usedforsecurity=False).hexdigest()[:16]
+
+
+#: A pull request declares what it replaces on a line opening with this word,
+#: naming either the number (``Supersedes: #504``, ``Supersedes #504``) or the
+#: head branch. The colon is optional because the two requests already open
+#: here that declare one wrote it without, and a trailer format nobody uses is
+#: a format that reports nothing. Branch form too: a branch gets audited before
+#: its request exists, so the replacement is often written with only a name in
+#: hand.
+_SUPERSEDES_TRAILER = re.compile(
+    r"^\s*Supersedes:?\s+(?P<targets>.+?)\s*$", re.IGNORECASE | re.MULTILINE
+)
+
+#: Prose that CLAIMS a replacement without opening a line with the word. It
+#: never decides a verdict, and it is not a station answer either -- see
+#: ``unresolved_supersession_claims``.
+_SUPERSEDES_PROSE = re.compile(r"\bsupersed(?:e|es|ed|ing)\b", re.IGNORECASE)
+
+
+def unresolved_supersession_claims(
+    open_prs: tuple[tuple[int, str, str | None], ...],
+) -> tuple[int, ...]:
+    """Requests claiming to replace something this cannot resolve to an open one.
+
+    THIS IS A FOOTNOTE, NOT A STATION, and the first draft got that wrong in a
+    way worth keeping written down. Prose ambiguity is a property of the
+    request MAKING the claim. I attached it to every other request instead, so
+    two vague bodies turned five proven branches into could-not-check and the
+    board went from five ready to none. A check that answers a question nobody
+    asked about twelve innocent branches is noise, and a noisy board is a board
+    that gets switched off -- which costs more than the hole it was closing.
+
+    The ambiguity is still real and still gets said. It gets said once, about
+    the requests that are actually ambiguous.
+    """
+    out: list[int] = []
+    for number, _branch, body in open_prs:
+        if body is None:
+            continue
+        if _SUPERSEDES_TRAILER.search(body):
+            continue
+        if _SUPERSEDES_PROSE.search(body):
+            out.append(number)
+    return tuple(sorted(set(out)))
+
+
+def check_supersession_station(
+    pr_number: int,
+    branch: str,
+    open_prs: tuple[tuple[int, str, str | None], ...],
+) -> StationResult:
+    """Station 9 -- nothing open claims to replace this one.
+
+    THE HOLE THIS CLOSES, found 2026-09-14 one command before I posted it to
+    Aletheia as fact. The board read READY on #504 -- every checked station
+    proven -- while #515 existed for the sole reason that she had refused to
+    read #504 and asked for it rebuilt. #515's own body says so in its first
+    sentence. Four stations all answered honestly and the branch was dead.
+
+    Every station until now asked a question ABOUT the request in front of it.
+    None could see another request standing over it, so a superseded branch
+    passed by answering four questions correctly -- which is the week's whole
+    disease in one more place: a check that covers what it covers, reporting
+    as though it covered the thing you needed.
+
+    Only a declaration naming THIS request decides anything here. A word-match
+    that could mark a branch dead would be a language detector holding a
+    verdict, and the composer rephrases past any of those. Prose that claims a
+    replacement without resolving to one is real and gets said -- once, about
+    the request that wrote it, by ``unresolved_supersession_claims``, not as a
+    verdict on every other branch on the board.
+
+    ``open_prs`` is ``(number, branch, body)``. A body of ``None`` is
+    unreadable, not empty.
+    """
+    unreadable: list[int] = []
+    claimants: list[int] = []
+    for other_n, _other_branch, body in open_prs:
+        if other_n == pr_number:
+            continue
+        if body is None:
+            unreadable.append(other_n)
+            continue
+        for match in _SUPERSEDES_TRAILER.finditer(body):
+            targets = match.group("targets")
+            if re.search(rf"#\s*{pr_number}\b", targets) or (branch and branch in targets):
+                claimants.append(other_n)
+
+    if claimants:
+        named = ", ".join(f"#{n}" for n in sorted(set(claimants)))
+        return StationResult(
+            "9-superseded",
+            Status.MISSING,
+            f"SUPERSEDED BY {named} -- that request says it replaces this one. "
+            "Close this or withdraw the claim; do not hand both to a reviewer",
+        )
+    if unreadable:
+        named = ", ".join(f"#{n}" for n in sorted(set(unreadable))[:5])
+        return StationResult(
+            "9-superseded",
+            Status.CANNOT_CHECK,
+            f"body unreadable on {named} — cannot tell whether one replaces this",
+        )
+    return StationResult("9-superseded", Status.SATISFIED, "no open request claims to replace this")

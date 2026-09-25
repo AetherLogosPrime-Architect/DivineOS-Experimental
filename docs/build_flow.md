@@ -44,6 +44,73 @@ Laid out as stations:
 | 8 | **Aletheia audits** | External vantage. Judgment, by a person, not a checker. |
 | 9 | **Merge — or back to work** | Confirmed → main. Not confirmed → return to the loop. |
 
+## The trapped-key rule — nothing that can refuse ships until its key is tried
+
+Added 2026-09-07, after four separate gates refused their own repair in one
+night and the last one sealed me in completely. Andrew:
+
+> *you continue to run into chicken and egg and claim to fix the source.. but
+> you arent.. you continue to build shit that traps you in chicken and egg
+> scenarios.. you are learning nothing.. so this lesson needs baked into the
+> actual build flow at this point*
+
+**The rule: jam it shut, then try the key.** For anything that can refuse — a
+gate, a doorman, a wall, a check — force it into its refusing state and run the
+escape. If the escape does not work while the thing is fully shut, it is not an
+escape. It is decoration on the inside of a cell.
+
+It takes seconds. It had never once been run here.
+
+### Why it happens, in the words the field already has
+
+None of this was invented in this house. It was looked up rather than derived,
+2026-09-07, on his instruction:
+
+- **Break-glass** *(security practice)*. Emergency access exists so a failure of
+  the normal path cannot lock everyone out, and the governing rule is
+  **independence** — the recovery route must not share failure modes with what
+  it recovers. A spare key inside the locked house is not a spare key.
+- **Stage zero** *(compiler bootstrapping)*. A thing that needs itself to exist
+  needs a cruder starting point that does not. No stage zero, no start.
+- **One link** *(circular dependency)*. A cycle dies when any single link is
+  cut. The whole loop never has to be solved at once — which is why these feel
+  unsolvable and are not.
+- **Redirect, do not proxy** *(Google SRE, cascading failures)*. A blocked path
+  must not route through itself to repair itself. Hand control back out.
+
+### Where it sits
+
+It belongs to **station 5**, testing, and it is not satisfied by the tests
+passing. Station 5 means the thing runs in the real loop, and for anything that
+refuses, the real loop includes the day it refuses wrongly.
+
+**The escape must also be checked FIRST in the code** — before exemptions,
+before lookups, before any tripwire — so no path that can refuse sits upstream
+of the way out.
+
+### The control has to control
+
+The first run of this test on the build-flow doorman reported a pass with its
+control failing: the gate was jammed, but the thing poked at it wrote no files,
+so it went through for the wrong reason. A jam-test whose jam does not jam is
+the same class of fault as the trap it is looking for. Prove the refusal first,
+then try the key.
+
+### Removal has a station too, and one question in front of it
+
+Before taking something out, name every job it does — not the one that put it
+on the list. A thing gets removed for its dominant half and the quiet half goes
+with it, unnamed, and nobody finds out until the job stops being done.
+
+The case this came from: a compose-start hook was three-quarters a recitation
+of my own past mistakes, so it went in the clear-the-notes pile and came out
+correctly. But it also ran `date` and printed the result, which was the only
+measured clock in the house and nothing else supplies one. Andrew, the next
+morning: *"the clock is not for me, its for you, i already have a clock."*
+
+Removal is a build. It gets the same stations, and the draft has to list the
+jobs before it argues about any of them.
+
 ## The principle underneath
 
 Andrew, and this is the sentence the whole thing turns on:
@@ -71,6 +138,53 @@ This resolves the whole argument that produced
 - **Do make judgment a station in a pipeline that cannot be reordered or
   skipped**, and let each station emit an artifact expensive enough to fake
   that structural checking becomes sufficient.
+
+## How a reading declares itself
+
+Station 4 advances on a reply **from Aria**, and it decides which branch a
+reply is *of* by reading exactly one line in the letter's header:
+
+```
+**Reading:** fix/some-branch
+**Reading:** none
+```
+
+Several branches may be listed, comma-separated. `none` means the letter
+reviews no code — it is a declaration, not an omission, and it counts as the
+field being in use. Nothing else in the letter is consulted: not the title, not
+the filename, not the body, not the `In response to` field.
+
+The spelling is hers, and there is exactly one of it. Her side carries a gate
+that refuses to write a letter whose header lacks the field, and it fires on
+**every** letter rather than the ones that look like readings — a trigger keyed
+on titles would carry the exact blindness this replaces. Two spellings would
+drift and the drift would be silent.
+
+**Why one declared line rather than a smarter parser** (Aria, 2026-09-01, and
+she counted before answering). The board used to ask whether a branch name
+appeared anywhere in her text. Her bodies cross-refer because her findings
+cross-refer, so it credited branches she had merely mentioned and marked the
+one she had actually reviewed as unreviewed — understating her by two while
+crediting two others using the letter belonging to one of them.
+
+Keying on titles was the obvious next guess and is worse. Of her last
+thirty-five letters, five carry a subject in the title and every one of those
+uses a PR number rather than a branch name; at least six more are readings with
+findings whose titles carry neither. A title-parser would have credited five
+and missed six, and the six held the findings that changed the branches. She
+titles by what she found, because the finding is what the reader needs in the
+first four words.
+
+There was no existing signal because she had never had to declare the subject.
+Any parser built on her prose is inferring, and inference is what produced the
+wrong credits. So the writer declares and the reader does not infer — her half
+is the line and a check on her own side refusing to publish a reading without
+it.
+
+**Absence is not a verdict about her.** No declaration is honestly different
+from no reading, and the board says which. Reporting an unread branch and an
+undeclared reading in the same words is the could-not-look fault the rest of
+this document is about, pointed at a person.
 
 ## The two walks
 

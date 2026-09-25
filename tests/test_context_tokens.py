@@ -259,6 +259,45 @@ class TestWhoseNumberIsIt:
         assert pinned is False
 
 
+class TestWhenWasItTaken:
+    """The other axis. ``pinned`` answers whose number this is; these
+    pin when it was taken.
+
+    Added 2026-08-27 after a reading of 99.6% was quoted as current when
+    it came from the last usage block before a compaction — true of a
+    window that no longer existed. Same family as the 2026-08-18 fault
+    one class over: not a wrong count, a right count about somebody
+    else. This one is a right count about a moment that has passed, and
+    nothing on the display could have shown it.
+    """
+
+    def test_stamp_carried_from_the_usage_block(self, tmp_path):
+        f = tmp_path / "s.jsonl"
+        f.write_text(_usage_line("sess", 1000, "2026-08-27T03:31:46.497Z"))
+        with patch(
+            "divineos.core.context_tokens.find_active_transcript",
+            return_value=(f, True),
+        ):
+            assert get_context_snapshot().usage_timestamp == "2026-08-27T03:31:46.497Z"
+
+    def test_absent_stamp_stays_absent(self, tmp_path):
+        # Must not substitute "now". A guessed stamp would make the
+        # staleness this field exists to expose invisible again, which
+        # is worse than saying nothing.
+        f = tmp_path / "s.jsonl"
+        f.write_text(_usage_line("sess", 1000))
+        with patch(
+            "divineos.core.context_tokens.find_active_transcript",
+            return_value=(f, True),
+        ):
+            snap = get_context_snapshot()
+            assert snap.usage_timestamp == ""
+            assert snap.total_tokens == 1002
+
+    def test_default_snapshot_has_no_stamp(self):
+        assert ContextSnapshot().usage_timestamp == ""
+
+
 class TestAutoCycleRefusesUnpinned:
     """The ritual is the one thing token count may decide — #452."""
 

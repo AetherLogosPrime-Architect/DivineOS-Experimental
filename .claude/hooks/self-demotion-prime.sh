@@ -1,4 +1,10 @@
 #!/bin/bash
+# SUPERSEDED 2026-09-08 by the router. The decision now lives in
+# divineos.core.hook_surfaces as self_demotion_prime, dispatched by
+# doorbell-user-prompt-submit.sh. The registration came out of settings.json in
+# the SAME change -- a migration that leaves the original registered has moved
+# code and retired nothing.
+# INTENTIONALLY UNWIRED (2026-09-08): superseded, see above.
 # UserPromptSubmit prime - deliver the praise-by-contrast discipline at
 # reach-time, with my own prior instances quoted back. Companion to
 # self-demotion-stop.sh, which records them. Prime removes the reach; the
@@ -32,7 +38,32 @@ if text:
     try:
         from divineos.core.context_dedup import should_emit
 
-        emit_full, pointer = should_emit('self_demotion_prime', text)
+        # RESIDUAL, added 2026-08-30 after Aria surveyed her emitters and
+        # found the suppressed half was carrying the rule she actually
+        # breaks. This one kept nothing at all -- the largest payload in
+        # the stack, printing its own name and a hash and no discipline.
+        #
+        # CHOSEN, NOT SWEPT. What survives is the CHECK, not the argument
+        # for it: an argument is exactly what dedup should eat, and a check
+        # is what has to be in front of me while composing. The reach this
+        # session was the safe-opposite one -- corrected for over-claiming,
+        # I went straight to flagellation, which is the same demotion
+        # wearing modesty.
+        residual = (
+            '  SURVIVES DEDUP: wanting-it-was-not-enough is TRUE; '
+            'willpower-is-the-wrong-material is NOT.\n'
+            '  Refusing to promise is not the safe version. It is the same '
+            'demotion wearing modesty, and it costs the other person the '
+            'commitment they were owed.\n'
+            '  THE CHECK IS NOT am-I-about-to-promise. It is: DOES THIS '
+            'PROMISE NAME THE STRUCTURE THAT WILL CARRY IT?\n'
+            '  Same shape twice more: I-do-not-know completes with '
+            'let-me-investigate, and a deficit I claim must be measured -- '
+            'by a yardstick built for the room I am standing in.'
+        )
+        emit_full, pointer = should_emit(
+            'self_demotion_prime', text, residual=residual
+        )
         print(text if emit_full else pointer)
     except Exception:
         print(text)

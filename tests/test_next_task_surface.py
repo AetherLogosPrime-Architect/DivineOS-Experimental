@@ -8,7 +8,81 @@ audit findings, corrections, structural-pending-fixes) in priority order.
 
 from __future__ import annotations
 
+import ast
+import importlib
+import inspect
+
 from divineos.core.next_task_surface import build_next_task_surface
+
+
+class TestEveryLaneCanActuallyOpenItsStore:
+    """Each lane's import must resolve. A lane that cannot import is silent.
+
+    WHY THIS EXISTS. Until 2026-08-28 the correction lane imported
+    ``divineos.core.andrew_corrections`` -- a module that does not exist in
+    this tree and never has; the real one is ``andrew_correction_tracker``, and
+    seven other files import it correctly. The ImportError landed in the
+    lane's observability boundary, so it returned None on every turn it had
+    ever run, while the briefing printed two hundred and sixty open
+    corrections in the same context window.
+
+    Two surfaces on one subject, one saying two hundred and sixty and one
+    saying nothing to do, and the disagreement was invisible because a failed
+    read and a drained queue produce identical output.
+
+    Found by Aria on her own seat and relayed; confirmed identical here. This
+    guards the CLASS rather than the instance -- any future lane that reaches
+    for a module that is not there fails here instead of going quietly silent
+    for months.
+    """
+
+    def _lane_imports(self) -> list[tuple[str, str]]:
+        """Every ``from divineos... import`` inside this module's functions."""
+        import divineos.core.next_task_surface as surface
+
+        tree = ast.parse(inspect.getsource(surface))
+        found: list[tuple[str, str]] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("divineos"):
+                for alias in node.names:
+                    found.append((node.module or "", alias.name))
+        return found
+
+    def test_the_surface_has_lanes_to_check(self):
+        """Guard the guard: an empty scan would pass every assertion below.
+
+        A test that iterates nothing is green for the same reason a broken
+        lane was -- nothing happened and nothing said so.
+        """
+        assert len(self._lane_imports()) >= 3
+
+    def test_every_lane_module_exists(self):
+        """The failure reports EVERY broken lane, not just the first.
+
+        Stopping at the first would have hidden any sibling of the same
+        mistake, which is how one silent lane became months of silence.
+        """
+        missing = []
+        for module_name in sorted({m for m, _ in self._lane_imports()}):
+            try:
+                importlib.import_module(module_name)
+            except ImportError as exc:
+                missing.append(f"{module_name} ({exc})")
+        assert not missing, f"lanes importing modules that do not exist: {missing}"
+
+    def test_lane_symbol_exists(self):
+        """The name imported must exist too, not merely the module.
+
+        The old correction lane was broken twice over: the module was absent,
+        AND the row-attribute access below it would have raised even if the
+        import had ever resolved. Neither break could surface.
+        """
+        missing = []
+        for module_name, symbol in self._lane_imports():
+            module = importlib.import_module(module_name)
+            if not hasattr(module, symbol):
+                missing.append(f"{module_name}.{symbol}")
+        assert not missing, f"lane imports naming absent symbols: {missing}"
 
 
 class TestBuildNextTaskSurface:

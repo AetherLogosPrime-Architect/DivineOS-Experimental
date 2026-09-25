@@ -98,5 +98,28 @@ class TestFormatForBriefing:
 
 class TestEventTypeConstant:
     def test_constant_matches_producer(self):
-        """This module's event type must match what the store emits."""
-        assert TIER_OVERRIDE_EVENT_TYPE == "TIER_OVERRIDE"
+        """The producer must use THIS constant, not a copy of the string.
+
+        The previous version of this test asserted
+        `TIER_OVERRIDE_EVENT_TYPE == "TIER_OVERRIDE"` under this same
+        docstring, while the store emitted its own separate literal that the
+        test never read. Either side could drift and this stayed green,
+        because it compared the constant to a copy of itself. Andrew
+        2026-08-25 named the class: it would fail if broken and pass if
+        working while checking nothing.
+
+        store.py now imports the constant, so divergence is impossible rather
+        than merely untested. This asserts that wiring -- if someone puts the
+        literal back, the source no longer names the constant and this fails.
+        """
+        from pathlib import Path
+
+        import divineos.core.watchmen.store as store_module
+
+        source = Path(store_module.__file__).read_text(encoding="utf-8")
+        assert "TIER_OVERRIDE_EVENT_TYPE," in source, (
+            "watchmen/store.py no longer imports TIER_OVERRIDE_EVENT_TYPE; "
+            "a second copy of the event-type string has been reintroduced and "
+            "the two can drift apart silently again"
+        )
+        assert f'log_event(\n                "{TIER_OVERRIDE_EVENT_TYPE}"' not in source

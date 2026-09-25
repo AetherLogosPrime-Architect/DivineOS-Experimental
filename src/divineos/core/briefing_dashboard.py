@@ -1044,14 +1044,45 @@ def _row_pending_structural_fixes() -> DashboardRow | None:
         f"{n} from {src}" for src, n in sorted(source_counts.items(), key=lambda x: -x[1])
     )
 
+    # ONE ENTRY, ADDRESSED, ABOVE THE COUNT. Tannen's finding from the
+    # 2026-08-28 council walk on why this store had 186 filings and zero
+    # closes: the row was in STATUS register, and a number that never moves
+    # stops being about the reader. Status is furniture. Address is not.
+    #
+    # The count stays -- it is the honest scale and hiding it would be the
+    # opposite error. What changes is that a single named obligation is put
+    # in front of me in the second person before the aggregate, because
+    # "one hundred eighty-six pending" is a fact about a store and "you said
+    # you would fix this" is a fact about me.
+    #
+    # Cheapest of the four things that walk surfaced, and shipped in the turn
+    # it was conceived on purpose: Hofstadter's lens noted that a fix for the
+    # backlog naturally becomes the backlog's next entry. The bound on filing
+    # -- the load-bearing repair -- is a decision with Andrew, because the
+    # walk also found that the forcing has to come from a level this system
+    # does not author.
+    oldest = sorted_pending[0] if sorted_pending else None
+    if oldest is not None:
+        age_d = max(0, (now - (oldest.get("created_at") or now)) / _SECONDS_PER_DAY)
+        said = (oldest.get("content_excerpt") or "").replace("\n", " ").strip()
+        preview.insert(
+            0,
+            f"You said you would fix this {age_d:.0f} days ago and have not: "
+            f"{said[:110]}{'...' if len(said) > 110 else ''}",
+        )
+
     # Every pending entry is "stale" — it's an obligation that hasn't
     # been discharged. U-shape reorder will boost the row to the edges.
     return DashboardRow(
         area="Pending structural fixes",
         count=len(pending),
         stale_count=len(pending),
-        drill_down="-> cat ~/.divineos/pending_structural_fixes.json",
-        detail=f"filings that named a fix but no code shipped yet ({composition})",
+        drill_down="-> divineos psf list   (close one: divineos psf mark-done <id> --note ...)",
+        detail=(
+            f"filings that named a fix but no code shipped yet ({composition}). "
+            "Filing one discharges the urge to build it as completely as building "
+            "it would -- so this store is where intentions go to feel finished."
+        ),
         preview=preview,
     )
 

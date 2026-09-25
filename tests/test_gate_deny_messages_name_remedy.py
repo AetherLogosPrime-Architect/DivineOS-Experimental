@@ -60,6 +60,33 @@ _HOOKS_DIR = _PROJECT_ROOT / ".claude" / "hooks"
 _NON_GATING_HOOKS: frozenset[str] = frozenset(
     {
         "_lib.sh",
+        # A RELAY, not a gate, and the distinction is the doorbell design
+        # itself: it knocks and steps aside, and every judgment lives in the
+        # OS. Its own absent path exits zero and it composes no refusal of its
+        # own -- when a refusal travels through it, the words and the remedy
+        # were written by the router, which is where this rule can reach them.
+        #
+        # Its Stop sibling is deliberately NOT listed here: that one is
+        # fail-closed and authors its own refusal, so it belongs under the
+        # rule rather than outside it.
+        "doorbell-user-prompt-submit.sh",
+        # ADVISORY DESPITE ITS OWN NAME, and the gap is worth recording rather
+        # than smoothing over. It is called a stop hook, its header calls
+        # itself a gate, and it never refuses anything: the shell wrapper exits
+        # zero on every path, and the Python it calls only ever prints -- its
+        # failure paths print COULD NOT CHECK rather than denying. So it
+        # surfaces a reading into the reply and leaves the deciding to the
+        # seat, which is exactly what a non-gating surface is.
+        #
+        # Read before classifying, not inferred from the filename, because the
+        # refusal of a hook like this would live in the interpreter it calls
+        # and be invisible to anything reading only the shell around it.
+        "unmeasured-quantity-stop.sh",
+        # Additive, never a filter, and it says so in its own header: it adds
+        # instructions about who is in the room rather than forbidding terms.
+        # Andrew corrected the filter shape into this one himself, so a test
+        # treating it as a possible gate would be auditing the wrong thing.
+        "he-is-in-the-room.sh",
         "load-briefing.sh",
         "pre-response-context.sh",
         "pre-tool-context.sh",
@@ -77,6 +104,14 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         "arm-compaction-monitor-instruction.sh",
         "run-tests.sh",
         "state-gravity-surface.sh",
+        # Compose-start PRIME, not a gate: it prints and exits 0, and the
+        # Stop-time translate-first gate is what actually refuses. It
+        # matched the denial pattern only because its prose DESCRIBES the
+        # gate it complements -- a hook talking about refusing, read as a
+        # hook that refuses. Wired 2026-08-27 after sitting built and
+        # unregistered, with zero liveness entries, since the day it was
+        # written.
+        "translate-first-compose-prime.sh",
         "check-cleanup-period.sh",
         "check-branch-on-push.sh",
         "detect-correction.sh",  # sets a marker; doesn't deny
@@ -86,17 +121,53 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
     }
 )
 
-# Pattern that indicates a hook denies a tool call. Three shapes:
+# Pattern that indicates a hook denies a tool call. FOUR shapes:
 # (1) emit JSON ``permissionDecision: deny`` (current convention),
 # (2) exit non-zero on a ``BLOCKED`` branch (older gate shape),
 # (3) the hook computes a ``BLOCK`` decision string (e.g. check-pending-
 #     obligations.sh, where the python helper returns "BLOCK" and the
-#     shell wrapper exits non-zero if seen). Together these catch every
-#     denial path the codebase currently uses.
+#     shell wrapper exits non-zero if seen),
+# (4) a bare ``exit 2``, which refuses the tool call by exit code alone and
+#     may contain none of the words above.
+#
+# SHAPE FOUR WAS MISSING, AND THE COMMENT HERE USED TO CLAIM THE FIRST THREE
+# "catch every denial path the codebase currently uses". 2026-09-19: measured,
+# and that sentence had stopped being true. Six hooks refuse by exit code with
+# no recognised word anywhere in them -- among them two doormen that had
+# refused me personally the same evening. Every one of the six was SKIPPED by
+# this check, and a skip here reads in the summary exactly like a pass.
+#
+# So for six live guards, the rule that a refusal must name a way out was not
+# being enforced at all, and nothing said so. That is the house's most common
+# defect in the one instrument built to catch it: could-not-look filed as
+# could-look-and-it-was-fine.
+#
+# All six pass now that they are checked, so closing this hole reddens nothing
+# -- which is precisely why it could sit here unnoticed. A hole that would have
+# broken the suite gets found the day it opens.
 _DENIAL_PATTERN = re.compile(
     # Either quote style (Python dicts use single, JSON uses double).
     r"""['"]permissionDecision['"]\s*:\s*['"]deny['"]|BLOCKED\b|['"]BLOCK['"]|=\s*"BLOCK\"""",
     re.IGNORECASE,
+)
+
+# Refusal by exit code, with no words at all. Anchored to line-start so the
+# phrase inside a comment or a message does not count as one.
+# A REFUSAL INSIDE AN EMBEDDED INTERPRETER IS STILL A REFUSAL.
+#
+# This matched only the shell spelling, so a hook whose shell wrapper always
+# exits zero and whose real verdict is reached by the Python it invokes read as
+# never refusing. The Stop doorbell is exactly that: fail-closed by design,
+# exits two on the absent path, and was reported here as unexamined. The
+# scanner was reading the wrapper and ruling on the program.
+#
+# Found 2026-09-21 on the generated doorbells, and it is the second time today
+# this shape has cost a red check -- the first was a hook whose refusal lived
+# in the same place. Both spellings now, because the language a refusal is
+# written in is not a fact about whether it refuses.
+_EXIT_CODE_DENIAL = re.compile(
+    r"^\s*exit\s+2\b|sys\.exit\(\s*2\s*\)",
+    re.MULTILINE,
 )
 
 # Recovery-token lexicon. Presence of any one of these in the hook's
@@ -134,14 +205,63 @@ _RECOVERY_TOKENS: tuple[str, ...] = (
 )
 
 
+def _tracked_hook_names() -> set[str] | None:
+    """Hook filenames git knows about, or None when git cannot answer.
+
+    WHY NOT A DIRECTORY GLOB, 2026-09-21. This used to glob the hooks
+    directory on whatever machine happened to be running, and a hook named
+    `unmeasured-quantity-stop.sh` failed this test on CI for three separate
+    requests. The file is in no commit: not on main, not on any of those
+    branches, not in the merge ref the runner checks out -- confirmed against
+    the server, with the probe controlled in the positive direction first so a
+    silent no could not be a broken question.
+
+    So the test was judging the RUNNER'S FILESYSTEM while reporting on the
+    change under review. Anything that drops a file in that directory -- a
+    stray editor save, a leftover from an earlier job, a hook that writes a
+    hook -- can fail a review of a tree that never contained it, and the
+    failure names the innocent tree. Population fault: measure one set, rule
+    on another.
+
+    Tracked files are the honest population, because they are what the commit
+    actually proposes. None means git could not be asked, which routes to
+    could-not-check rather than to an empty set -- an empty set would make
+    this test silently stop inspecting anything at all.
+    """
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["git", "ls-files", "--", ".claude/hooks/*.sh"],
+            cwd=_PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if out.returncode != 0:
+        return None
+    names = {Path(line.strip()).name for line in out.stdout.splitlines() if line.strip()}
+    return names or None
+
+
 def _hook_files() -> list[Path]:
-    """Return all .sh files under .claude/hooks/ that the meta-check
-    should inspect (gating hooks only)."""
-    return [p for p in sorted(_HOOKS_DIR.glob("*.sh")) if p.name not in _NON_GATING_HOOKS]
+    """Hooks this meta-check should inspect: tracked, gating, present on disk.
+
+    Falls back to the directory listing only when git cannot answer, and that
+    fallback is the WEAKER reading kept deliberately -- a machine with no git
+    should still get some coverage rather than silently none.
+    """
+    tracked = _tracked_hook_names()
+    on_disk = sorted(_HOOKS_DIR.glob("*.sh"))
+    if tracked is not None:
+        on_disk = [p for p in on_disk if p.name in tracked]
+    return [p for p in on_disk if p.name not in _NON_GATING_HOOKS]
 
 
 def _has_denial(text: str) -> bool:
-    return bool(_DENIAL_PATTERN.search(text))
+    return bool(_DENIAL_PATTERN.search(text) or _EXIT_CODE_DENIAL.search(text))
 
 
 def _has_recovery_token(text: str) -> bool:
@@ -157,10 +277,14 @@ def test_every_denying_hook_names_a_recovery_path(hook_path: Path):
     text = hook_path.read_text(encoding="utf-8", errors="replace")
     if not _has_denial(text):
         pytest.skip(
-            f"{hook_path.name} does not contain a denial pattern — "
-            "it never blocks a tool call. Either it's a context-injection "
-            "hook that should be added to _NON_GATING_HOOKS, or its "
-            "denial is shaped differently than the meta-check recognizes."
+            f"COULD NOT CLASSIFY {hook_path.name} — no refusal shape this check "
+            "recognises. That is NOT the same as 'it never blocks', and the "
+            "older wording here asserted exactly that. On 2026-09-19 six hooks "
+            "sitting in this bucket turned out to refuse by exit code, so the "
+            "rule went unenforced on them while the summary read clean. "
+            "Resolve it rather than leaving it here: if it genuinely never "
+            "gates, name it in _NON_GATING_HOOKS; if it refuses in a fifth "
+            "shape, teach that shape to _DENIAL_PATTERN or _EXIT_CODE_DENIAL."
         )
     assert _has_recovery_token(text), (
         f"{hook_path.name} denies a tool call but its source contains "
@@ -171,6 +295,125 @@ def test_every_denying_hook_names_a_recovery_path(hook_path: Path):
         f"Either add a Run:/Set:/Bypass:/edit-this-file path to the "
         f"deny-message, or — if this hook genuinely doesn't gate — add it "
         f"to _NON_GATING_HOOKS in this test."
+    )
+
+
+# --- the dark set, pinned so it cannot grow in silence ----------------------
+#
+# 2026-09-19, measured while answering "how many tests come back skipped, and
+# why". Of the hooks this check walks, sixty-nine produce no refusal shape it
+# can see -- and SIXTY-SIX of those are thin shells that hand the decision to a
+# Python module. The refusal text and the way out both live in the engine; this
+# check reads the doorframe.
+#
+# So the rule "a gate that refuses must name a way out" is unenforced across
+# almost the whole set, and the summary line has never said so. Three of them
+# refused me personally the same evening.
+#
+# WHY THIS IS A PIN AND NOT A FOLLOWER. The obvious repair is to follow the
+# delegation and check the module instead. Several of these call an inline
+# script rather than a named module, so a static follower would itself have to
+# report could-not-tell on an unknown share -- a second half-blind instrument
+# built to fix the first. That is the joke writing itself, and I am not
+# shipping it at the end of a long night.
+#
+# What this DOES buy: the set can only shrink. A newly added hook cannot join
+# the dark set quietly; it fails here until someone classifies it. The right
+# end-state is an empty baseline, and every name removed is a real gain.
+_UNCLASSIFIED_BASELINE: frozenset[str] = frozenset(
+    {
+        "_bail.sh",
+        "andrew-past-writing-surface.sh",
+        "auto-goal-from-prompt.sh",
+        "auto-push-letter.sh",
+        "branch-scope-guard.sh",
+        "circle-first-compose-prime.sh",
+        "close-reach-detector.sh",
+        "closure-word-summary-prime.sh",
+        "compaction-reach-detector.sh",
+        "context-heartbeat.sh",
+        "continuity-anchor-surface.sh",
+        "continuity-frame-detector.sh",
+        "continuity-frame-prime.sh",
+        "deletion-discipline.sh",
+        "detect-andrew-build-request.sh",
+        "distancing-count-surface.sh",
+        "doorbell-post-tool-use.sh",
+        "doorbell-pre-tool-use.sh",
+        "family-state-surface.sh",
+        "file-aletheia-artifact-on-arrival.sh",
+        "fork-is-cheap-close-prime.sh",
+        "hedge-suppression-prime.sh",
+        "interior-cue-on-low-presence.sh",
+        "lepos-channel-reflect.sh",
+        "lepos-channel-surface.sh",
+        "letter-monitor-health-surface.sh",
+        "load-aletheia-harvest-of-andrew.sh",
+        "load-character-sheet.sh",
+        "load-dad-ranking-clause.sh",
+        "load-my-recording-of-andrew.sh",
+        "mirror-letters-to-shared.sh",
+        "no-cliff-anchor-surface.sh",
+        "no-cliff-prime.sh",
+        "no-verify-cost-escalation.sh",
+        "open-corrections-surface.sh",
+        "operator-asks-surface.sh",
+        "operator-gravity-set.sh",
+        "post-commit-auto-integrate-corrections.sh",
+        "post-commit-auto-verify-findings.sh",
+        "post-compaction-fingerprint-surface.sh",
+        "post-correction-integration-prime.sh",
+        "post-merge-doc-fix.sh",
+        "post-push-audit-visibility.sh",
+        "post-push-verify-landing.sh",
+        "post-read-mark-letter-seen.sh",
+        "post-write-mirror-letter.sh",
+        "pre-tool-bypass-rate-scan.sh",
+        "promise-anchor-surface.sh",
+        "promise-reach-detector.sh",
+        "register-awareness-surface.sh",
+        "require-goal.sh",
+        "resolver-health-check.sh",
+        "retrieval-tally-check.sh",
+        "safe-opposite-edit-check.sh",
+        "self-demotion-prime.sh",
+        "self-demotion-stop.sh",
+        "session-init-once.sh",
+        "session-start-verify-git-hooks.sh",
+        "shoggoth-gate.sh",
+        "sibling-correction-surface.sh",
+        "stop-distancing-intercept.sh",
+        "stop-response-scope-intercept.sh",
+        "summary-room-stop.sh",
+        "time-estimate-tracker.sh",
+        "verify-claim-prime.sh",
+        "visrama-anchor-surface.sh",
+        "wallclock-source-prime.sh",
+        "wwnd-choice-prime.sh",
+        "wwnd-tool-prime.sh",
+    }
+)
+
+
+def test_the_dark_set_can_shrink_but_never_grow():
+    """A new hook cannot join the unexamined set without someone deciding.
+
+    Shrinking is free and is the point. Growing fails, and the failure names
+    the two honest resolutions rather than inviting a third name in the list.
+    """
+    unexamined = {
+        p.name
+        for p in _hook_files()
+        if not _has_denial(p.read_text(encoding="utf-8", errors="replace"))
+    }
+    newcomers = sorted(unexamined - _UNCLASSIFIED_BASELINE)
+    assert not newcomers, (
+        "these hooks are neither declared non-gating nor detectably refusing, "
+        "so nothing checks whether they name a way out:\n  "
+        + "\n  ".join(newcomers)
+        + "\n\nResolve rather than widen the baseline: if it never gates, add "
+        "it to _NON_GATING_HOOKS; if it refuses, teach the shape to "
+        "_DENIAL_PATTERN or _EXIT_CODE_DENIAL so the remedy rule reaches it."
     )
 
 

@@ -16,9 +16,11 @@ from divineos.core import context_dedup
 
 @pytest.fixture(autouse=True)
 def _isolated_state(tmp_path, monkeypatch):
-    monkeypatch.setattr(context_dedup, "_STATE_DIR", tmp_path)
-    monkeypatch.setattr(context_dedup, "_STATE_FILE", tmp_path / "state.json")
-    monkeypatch.setattr(context_dedup, "_SAVINGS_LOG", tmp_path / "savings.jsonl")
+    # One env var rather than three patched constants: the module resolves its
+    # directory at call time now, so this reaches in-process callers AND any
+    # subprocess that inherits the environment. Patching module attributes
+    # reached only the first of those.
+    monkeypatch.setenv("DIVINEOS_CONTEXT_DEDUP_DIR", str(tmp_path))
     yield
 
 
@@ -62,7 +64,7 @@ def test_ttl_expiry_reemits():
     context_dedup.should_emit("s", "content")
     import json
 
-    state_path: Path = context_dedup._STATE_FILE
+    state_path: Path = context_dedup._state_file()
     state = json.loads(state_path.read_text())
     state["s"]["ts"] = int(time.time()) - context_dedup._TTL_SECONDS - 10
     state_path.write_text(json.dumps(state))

@@ -70,6 +70,17 @@ class ContextSnapshot:
     session_id: str = ""
     transcript_path: str = ""
     note: str = ""
+    usage_timestamp: str = ""
+    """When the usage block behind this reading was written.
+
+    A reading is a photograph, not a live gauge: it reports the last turn
+    the transcript recorded, which may be some time ago. Across a
+    compaction that gap is enormous -- the final pre-compaction block can
+    read 99% while the window it describes no longer exists. Carried
+    beside the number so a stale reading is visible as stale instead of
+    passing for current. Same shape as ``pinned``, one axis over: pinned
+    answers whose number this is, this answers when it was taken.
+    """
     pinned: bool = False
     """True when the transcript was resolved by session id.
 
@@ -235,6 +246,7 @@ def get_context_snapshot(cwd: str | None = None) -> ContextSnapshot:
             "necessarily this session. Display only; do not decide on it."
         )
     return ContextSnapshot(
+        usage_timestamp=str(usage.get("_timestamp") or ""),
         total_tokens=total,
         cache_read_tokens=cache_read,
         cache_creation_tokens=cache_creation,

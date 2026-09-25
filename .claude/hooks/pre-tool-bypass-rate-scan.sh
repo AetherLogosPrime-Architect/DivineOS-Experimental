@@ -12,14 +12,33 @@
 #     recent GATE_FIRE for this gate.
 #
 # Clearing:
-#   - divineos audit submit-round '<focus>' --actor external-auditor
+#   - divineos audit submit-round '<focus>' --actor aether
+#     (or the real name of whoever is filing: aletheia, aria, user, ...)
 #   - divineos claim '<statement>'
 #   - Any GATE_CLEARANCE event for bypass_rate_scan
 #
+# THE ACTOR ON THAT LINE USED TO BE A NAME THE STORE NOW REFUSES.
+# Aria found it on 2026-09-01 while reading the branch that added the refusal:
+# a hook prescribing a remedy and a guard rejecting it, inside the same change.
+# Whoever followed the old line got a hard rejection with a paragraph about
+# self-attested external vantage, for doing exactly what the instructions said,
+# and would reasonably have read the guard as broken rather than the
+# instruction as stale.
+#
+# Reserved external-vantage names cannot be self-onboarded. File under the name
+# of whoever is actually filing. If a genuine outside auditor needs one of the
+# reserved names, the operator adds it to EXTERNAL_ACTORS by a guardrail-audited
+# edit -- that is the door, and it is deliberately not this one.
+#
 # Fail-open: any hook failure exits 0 so the gate cannot break work.
 #
-# Kill-switch (requires >=20 char reason in marker file):
-#   echo "why this bypass is needed and root-cause plan" > "$HOME/.divineos-aether/bypass-rate-scan.disabled"
+# Kill-switch (requires >=20 char reason in marker file). The path comes from
+# member_home(), which for aether is the DEFAULT ~/.divineos/ -- this comment
+# used to hand-write ~/.divineos-aether/ and that is where a marker sat unseen
+# for forty days holding this gate off. The code was fixed 2026-08-25 and this
+# line with it, because a doc that teaches the wrong path reinstalls the bug
+# every time someone reads it:
+#   echo "why this bypass is needed and root-cause plan" > "$(member_home aether)/bypass-rate-scan.disabled"
 
 INPUT=$(cat)
 
@@ -43,17 +62,34 @@ cd "$REPO_ROOT" || exit 0
 # shellcheck disable=SC1091
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 
-MARKER="$HOME/.divineos-aether/bypass-rate-scan.disabled"
+PYTHON_BIN="$(find_divineos_python)"
+if [ -z "$PYTHON_BIN" ]; then
+    exit 0
+fi
+
+# THE SIXTH SITE THAT REBUILT THE HOME RULE. (2026-08-25.)
+#
+# This was `$HOME/.divineos-aether/bypass-rate-scan.disabled`, hand-built.
+# core/paths.py:member_home() is the one place that knows the convention and
+# special-cases aether to the default `~/.divineos/`; its docstring ends
+# "Callers ask here; nobody rebuilds the rule." The 2026-08-18 consolidation
+# swept three shell hooks. It missed this one, family/letter_seen.py, and
+# ear-surface.sh -- the sweep was scoped by directory, the defect by
+# behaviour.
+#
+# The consequence was not cosmetic. A marker written here 2026-07-16 held
+# this gate off for forty days in a home nothing else reads, and retiring it
+# today is what re-armed the gate. A kill-switch nobody can see is worse than
+# one nobody honours.
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib/member_home.sh"
+MEMBER="${DIVINEOS_MEMBER:-aether}"
+MARKER="$(member_home "$MEMBER" "$PYTHON_BIN")/bypass-rate-scan.disabled"
 if [ -f "$MARKER" ]; then
     REASON=$(tr -d '\r' < "$MARKER")
     if [ ${#REASON} -ge 20 ]; then
         exit 0
     fi
-fi
-
-PYTHON_BIN="$(find_divineos_python)"
-if [ -z "$PYTHON_BIN" ]; then
-    exit 0
 fi
 
 TOOL_NAME=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -c "import json,sys; d=json.loads(sys.stdin.read() or '{}'); print(d.get('tool_name',''))" 2>/dev/null)
@@ -76,12 +112,23 @@ case "$TOOL_NAME" in
         ;;
 esac
 
+# DEMOTED TO RECORDING 2026-08-25 (round-bdec6cce2122).
+#
+# This branched on exit 2 and refused the tool call. It no longer refuses:
+# every non-compliance bypass already files its own root-cause obligation
+# the moment it happens (bypass_telemetry.record_bypass), so the threshold
+# was three strikes stacked on a mechanism that acts on the first. Andrew:
+# "a 3 strike rule is pretty pointless.. however many strikes you give.. you
+# will max them out before anything is done."
+#
+# The OUTPUT is still printed whenever there is any, because the recording is
+# the whole job now. Gating the print on an exit code that can no longer be 2
+# would have left a hook that runs, computes, and says nothing — silence that
+# every test would still have called passing.
 OUTPUT=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -m divineos.hooks.bypass_rate_hook 2>&1)
-EXIT_CODE=$?
 
-if [ "$EXIT_CODE" -eq 2 ]; then
+if [ -n "$OUTPUT" ]; then
     printf '%s\n' "$OUTPUT" >&2
-    exit 2
 fi
 
 exit 0

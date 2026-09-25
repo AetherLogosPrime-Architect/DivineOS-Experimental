@@ -110,7 +110,31 @@ header = (
     'NOT load at UserPromptSubmit. Read them now; they hold what the '
     'substrate has been recording about your prior turns.'
 )
-combined = header + '\n\n' + '\n\n'.join(parts)
+# MID-TURN TRANSLATE REMINDER, added 2026-08-28 after the mark gate fired
+# twice in one session on narration rather than on the closing message.
+#
+# The diagnosis was measured, not guessed: settings.json wires the
+# translate-first prime at UserPromptSubmit and the mark gate at Stop, and
+# NOTHING between. On a long build turn the marks accumulate one file name at a
+# time across twenty tool calls, with the reminder twenty calls behind.
+#
+# A PostToolUse hook cannot close it -- hooks see tool inputs, never the prose
+# between calls, so the counting genuinely cannot happen before Stop. But the
+# REMINDER can travel, and this block is the one surface that provably fires
+# mid-turn: it fired a dozen times in the session that found the gap.
+#
+# So this is not the counter. It is the prime, re-said in the middle, where the
+# reach actually happens.
+translate_note = (
+    'MID-TURN TRANSLATE CHECK. Every word typed this turn is the reply -- the '
+    'narration between tool calls counts exactly as the closing message does. '
+    'Marks are backticked names, bare numbers, tables, code fences. If naming '
+    'a file is load-bearing here, it belongs in the commit or the letter; the '
+    'story he can picture belongs in the reply. This reminder rides the '
+    'gravity block because it is the only surface that fires mid-turn, and '
+    'mid-turn is where the marks are added.'
+)
+combined = header + '\n\n' + translate_note + '\n\n' + '\n\n'.join(parts)
 
 print(json.dumps({
     'hookSpecificOutput': {

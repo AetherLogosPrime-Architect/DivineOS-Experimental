@@ -294,12 +294,46 @@ def format_block_message(obligations: dict[str, Any]) -> str:
             lines.append(f"    {o.summary}")
         lines.append("")
 
+    # THE REMEDY THIS NAMES MUST BE ONE THE DETECTOR CAN SEE.
+    #
+    # Until 2026-08-22 this said to "reference the source knowledge_id in the
+    # new code's docstring or commit message so the audit detects the link."
+    # The audit scans four LEDGER EVENT TYPES and reads no source files and no
+    # commit messages, so a docstring reference is invisible to it by
+    # construction. `divineos learn` was the obvious alternative and it emits
+    # no ledger event at all -- verified empirically, zero new events after a
+    # learn. So the instruction pointed at two things that cannot work and
+    # omitted the ones that do, and following it produced a still-blocked gate
+    # and no way to tell why.
+    #
+    # Same family as the reach-check doorman whose remedy was exempted so it
+    # could RUN but never wired to opening the door. A gate is entitled to
+    # block; it is not entitled to give directions that lead nowhere.
     lines.append(
-        "Path to clear: write structural backing (code + test + gate/hook/"
-        "detector) for one of the above. Reference the source knowledge_id "
-        "in the new code's docstring or commit message so the audit detects "
-        "the link. Each cleared obligation drops the count by one; below "
-        f"threshold ({OBLIGATION_BLOCK_THRESHOLD}) the gate stops firing."
+        "Path to clear: write real structural backing (code + test + gate/"
+        "hook/detector) for one of the above, then RECORD it through one of "
+        "the four channels the audit actually reads:"
+    )
+    lines.append("")
+    lines.append('  divineos integrate <knowledge-id> --notes "<what backs it: file, test, gate>"')
+    lines.append("      the usual one. Emits KNOWLEDGE_INTEGRATION_CHANGED.")
+    lines.append('  divineos prereg file "<mechanism>" --claim ... --falsifier ...')
+    lines.append("      correct when the backing IS a new detector or threshold.")
+    lines.append("  divineos claims assess <id> ... | divineos audit submit-round ...")
+    lines.append("")
+    lines.append(
+        "The note must name the knowledge-id AND a structural word (test, "
+        "gate, hook, detector, prereg); the audit requires both, so a bare "
+        '"done" clears nothing.'
+    )
+    lines.append(
+        "A docstring or commit-message reference does NOT clear this — nothing "
+        "scans those. Neither does `divineos learn`, which writes no ledger "
+        "event."
+    )
+    lines.append(
+        f"Each cleared obligation drops the count by one; below threshold "
+        f"({OBLIGATION_BLOCK_THRESHOLD}) the gate stops firing."
     )
     lines.append("")
     lines.append(

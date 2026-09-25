@@ -131,6 +131,26 @@ def test_phase1_run_against_recent_history_returns_clean_results():
     inside per-worker memory on Windows. Same invariant coverage —
     caller scan does not crash, dataclass fields populated, dedup works.
     Andrew authorized as the same-shape root-cause narrowing.
+
+    Third recurrence 2026-08-26, and the window is no longer the lever.
+    A 244-file squash landed on main, so every branch cut fresh from main
+    carried it inside three commits and the caller scan ran past its
+    timeout — blocking twelve branches between Aether and me.
+
+    My first fix truncated the sample to forty functions, on the argument
+    that the invariants here are per-function and a bounded sample tests
+    them identically. That argument is true and the fix was still the
+    wrong one, because it bought time by giving up coverage while the
+    reason the scan was slow went untouched. Aether found the reason:
+    the walk was quadratic. It looped every candidate name over every
+    line of every file, and rebuilt three regexes inside that loop, so
+    cost scaled with what the repository HOLDS rather than with what
+    changed. That is why shrinking the window "fixed" it twice and it
+    came back twice — a smaller input to a quadratic walk is still a
+    quadratic walk.
+
+    With the scan repaired the full sample runs in a twelfth of the time,
+    so there is nothing left to truncate and the window stays at three.
     """
     commits = wgp._commits_in_range("HEAD~3..HEAD")
     if not commits:

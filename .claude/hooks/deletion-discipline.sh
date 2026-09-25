@@ -1,6 +1,19 @@
 #!/bin/bash
 # PreToolUse hook — thin doorbell for the deletion-discipline gate.
 #
+# SUPERSEDED 2026-08-25 by the router. The decision now lives in
+# `divineos.core.hook_surfaces.deletion_discipline_surface`, dispatched through
+# `.claude/hooks/doorbell-pre-tool-use.sh`, and it DECLARES could-not-run
+# instead of swallowing it — which is the whole reason it moved.
+#
+# Unregistered from settings.json in the same commit as the retirement, which
+# was not true the first time: the surface was wired earlier the same day and
+# this file stayed registered, so both fired and the `except Exception: pass`
+# below went on running underneath the fix for it. A migration that leaves the
+# original registered has moved code and retired nothing.
+#
+# Kept on disk, not deleted, per the incremental-migration rule.
+#
 # All judgment lives in `divineos.core.deletion_discipline.main()`. Migrated
 # 2026-06-30 to the thin-wrapper pattern (Pop: "make the hooks dumber so they
 # can't be wrong; put the logic in the OS so the decision happens where the

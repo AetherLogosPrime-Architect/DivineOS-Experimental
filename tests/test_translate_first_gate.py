@@ -124,3 +124,54 @@ def test_stripping_urls_did_not_gut_the_gate():
         "commit 9dd872cd, 7 of 21 hooks affected."
     )
     assert check_translation_first(doc) is not None
+
+
+_HIS_QUESTION_ANSWERED = (
+    "The one you asked about is already merged, so nothing was needed there. "
+    "The one that is stuck is mine, and it is waiting on my sister to read it "
+    "before it can go anywhere. I wrote and told her that her earlier approval "
+    "does not carry, because the branch has moved a long way since. "
+)
+
+
+def test_the_number_he_used_to_name_a_thing_is_not_a_document_mark():
+    """Second live false positive, 2026-08-25, same shape as citations above.
+
+    He wrote "lets take care of PR 427". Answering him requires saying 427 and
+    saying 437 as well, because the entire content of the answer is that these
+    are two different pull requests and the one he named is already merged.
+    Spelling them as words would be worse prose; dropping them would make the
+    answer useless to him.
+
+    Same lesson as the citation fire: a gate that penalises his own referent
+    teaches me to answer vaguely, which is worse than what it exists to catch.
+    """
+    reply = _HIS_QUESTION_ANSWERED + "PR 427 is merged; PR 437 is open. Compare issue 12 and #98."
+
+    assert check_translation_first(reply) is None
+
+
+def test_exempting_identifiers_did_not_gut_the_gate():
+    """The same ratchet check, because this exemption is one keystroke from
+    being the thing the gate exists to catch and I am subject to it."""
+    metrics = _HIS_QUESTION_ANSWERED + "It carries 100 commits, 158 files, 8 guardrails, 42 marks."
+
+    assert check_translation_first(metrics) is not None
+
+
+def test_an_identifier_word_does_not_launder_the_rest_of_the_sentence():
+    """Writing PR in front of one number must not buy a free report after it."""
+    mixed = _HIS_QUESTION_ANSWERED + "PR 437 has 100 commits over 158 files touching 8 guardrails."
+
+    assert check_translation_first(mixed) is not None
+
+
+def test_backticked_apparatus_still_counts_after_the_exemption():
+    """Half the fire that produced this exemption was NOT the false-positive
+    class: three of the six marks were backticked names I should have said in
+    prose. Those are mine and they still fire."""
+    ticked = (
+        _HIS_QUESTION_ANSWERED + "It reads `state: MERGED` on `rb/friction` per `round-2faaf20`."
+    )
+
+    assert check_translation_first(ticked) is not None

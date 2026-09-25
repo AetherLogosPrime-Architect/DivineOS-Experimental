@@ -57,10 +57,34 @@ _CLEARANCE_EVENT_TYPES = (
 )
 
 
-def _parse_iso(ts_str: str) -> float:
-    """Parse an ISO timestamp to epoch seconds. Returns 0 on failure."""
+def _parse_iso(ts_str: Any) -> float:
+    """Read a ledger timestamp as epoch seconds. Returns 0 on failure.
+
+    THE LEDGER WRITES FLOATS AND THIS READ ISO STRINGS. (2026-08-25.)
+
+    Every timestamp came back 0.0. `core.ledger.get_events` returns
+    `timestamp` as a float epoch -- measured: 1787693818.7120047 -- and this
+    called `.replace("Z", ...)` on it, raising AttributeError into the
+    `except` and returning zero for every event without a sound.
+
+    Both clearance paths died on it. `_find_open_fire` skips any fire whose
+    timestamp parses to 0, and `_recent_clearance_within` had its own inline
+    copy of the same parse, so the cool-off never engaged either. The gate
+    therefore could not be cleared by ANY of the three exits it documents,
+    and could not stop re-firing. Confirmed the hard way 2026-08-25: I filed
+    claim b59f71c4 and audit round-7c8963ffa78a -- two of its three
+    prescribed exits -- and it blocked the very next edit both times.
+
+    A gate whose cure sits behind the door it guards is a wall. This one was
+    a wall for anyone who read its instructions and followed them.
+
+    Accepts both shapes now: a number passes through, a string is parsed.
+    Ledgers change format; a reader that only knows one is how this happened.
+    """
+    if isinstance(ts_str, (int, float)):
+        return float(ts_str)
     try:
-        return datetime.fromisoformat(ts_str.replace("Z", "+00:00")).timestamp()
+        return datetime.fromisoformat(str(ts_str).replace("Z", "+00:00")).timestamp()
     except (ValueError, AttributeError):
         return 0.0
 
@@ -119,8 +143,12 @@ def _recent_clearance_within(gate_name: str, window_seconds: float, get_events) 
     window. Used to suppress redundant re-fires while an investigation is
     already in progress."""
     import time
-    from datetime import datetime
 
+    # ONE READER, not a second copy. This block had its own inline
+    # fromisoformat call, so when the ledger's float timestamps broke
+    # _parse_iso they broke the cool-off too -- the same defect twice because
+    # the same parse was written twice. Same shape as the event-type string
+    # that lived in two files and drifted, found earlier the same day.
     cutoff = time.time() - window_seconds
     for event_type in _CLEARANCE_EVENT_TYPES:
         try:
@@ -128,10 +156,8 @@ def _recent_clearance_within(gate_name: str, window_seconds: float, get_events) 
         except Exception:  # noqa: BLE001
             continue
         for e in events:
-            ts_str = e.get("timestamp") or ""
-            try:
-                ts_epoch = datetime.fromisoformat(ts_str.replace("Z", "+00:00")).timestamp()
-            except (ValueError, AttributeError):
+            ts_epoch = _parse_iso(e.get("timestamp"))
+            if ts_epoch == 0.0:
                 continue
             if ts_epoch < cutoff:
                 # desc order — remaining events are older, stop
@@ -144,22 +170,56 @@ def _recent_clearance_within(gate_name: str, window_seconds: float, get_events) 
     return False
 
 
-def check_and_block(
+def check_and_record(
     get_events=None,
     bypass_rate_fn=None,
     scan_gate=None,
     cooloff_seconds: float = _COOLOFF_SECONDS_DEFAULT,
 ) -> tuple[int, str]:
-    """Core logic — separated from I/O for testability.
+    """Record the escape rate. Never blocks.
 
-    Returns (exit_code, deny_reason). Exit code 0 = pass, 2 = block.
+    DEMOTED 2026-08-25 (round-bdec6cce2122), and the reason retires the shape
+    rather than tuning it. Andrew, asked what the threshold actually meant:
 
-    Cool-off window (2026-07-15 harass-loop fix): if a clearance event
-    landed within the last ``cooloff_seconds`` (default 1h), suppress
-    NEW fires. The investigation IS in progress; re-firing on every tool
-    call while the rate stays elevated is harass, not enforcement. Open
-    fires from BEFORE the cooloff window still block — this only affects
-    NEW-fire emission.
+        "we probably need to just have it record the numbers not block or
+        warn, this was created early on as a scaffolding before the gates
+        were being developed properly and were being bypassed.. now there is
+        a bypass protocol.. so bypasses get authorized.. logged and the root
+        cause investigated and fixed, so a 3 strike rule is pretty
+        pointless.. however many strikes you give.. you will max them out
+        before anything is done."
+
+    Aria checked before either of us built a per-occurrence trigger, and it
+    already existed: ``bypass_telemetry.record_bypass`` files a root-cause
+    obligation on EVERY non-compliance bypass, with a separate branch for
+    gate-defects where the repair is owed to the gate rather than to my
+    discipline. Verified independently at bypass_telemetry.py:272-312 before
+    this change was made.
+
+    So the threshold was three-strikes stacked on a mechanism that already
+    acts on the first, and it contradicted Andrew 2026-07-20 — "not 3 times..
+    every time.. every single occurence gets investigated" — for its whole
+    life. The pile-up takes a fortnight; the obligation lands in a second.
+
+    FOUR PASSES BEFORE EITHER OF US ASKED WHETHER IT SHOULD EXIST. I fixed the
+    field; Aria fixed the field independently; we both disarmed it by leaving
+    the threshold behind; I caught the disarm and recalibrated; she traced the
+    fifty to a wiring smoke-test with an unwired promise attached. Every pass
+    was correct work on the wrong layer, and neither of us questioned the
+    shape because we were each busy being right about the contents. It took
+    Andrew asking the plain question twice.
+
+    It blocked the very edit that retires it, which is the argument made
+    concrete: accumulated strikes standing in the way of the fix.
+
+    Returns ``(0, message)`` always. The message is still built and
+    ``record_fire`` still carries the shape, the evidence and the required
+    action into the ledger — the count and its composition survive. Nothing
+    is lost but the stop.
+
+    Cool-off (2026-07-15) is retained: it suppresses duplicate FIRE RECORDS
+    while an investigation is already open, which remains right for a
+    recorder.
     """
     # Late imports so tests can inject stubs without dragging in the ledger
     if get_events is None:
@@ -186,11 +246,12 @@ def check_and_block(
     if _recent_clearance_within(scan_gate.gate_name, cooloff_seconds, get_events):
         return 0, ""
 
-    # Check for an open fire — same evidence keeps blocking until cleared
+    # An open fire is still worth reporting — it is the standing shape of the
+    # window — but it no longer stops anything.
     open_fire = _find_open_fire(scan_gate.gate_name, get_events)
     if open_fire is not None:
         payload = open_fire.get("payload") or {}
-        return 2, _format_block_message(payload, is_reopen=False)
+        return 0, _format_record_message(payload, is_new=False)
 
     # No open fire, no recent clearance — run the scan against live state
     try:
@@ -202,7 +263,8 @@ def check_and_block(
     if evidence is None:
         return 0, ""
 
-    # New fire — record it and block
+    # New fire — record it. The recording is now the whole job, and it is the
+    # part that must not quietly leave with the stop.
     scan_gate.record_fire(evidence)
     payload = {
         "gate_name": evidence.gate_name,
@@ -210,15 +272,23 @@ def check_and_block(
         "specific_evidence": evidence.specific_evidence,
         "required_action": evidence.required_action,
     }
-    return 2, _format_block_message(payload, is_reopen=True)
+    return 0, _format_record_message(payload, is_new=True)
 
 
-def _format_block_message(payload: dict[str, Any], is_reopen: bool) -> str:
-    prefix = (
-        "BLOCKED (bypass-rate scan)"
-        if is_reopen
-        else "BLOCKED (bypass-rate scan — fire still open, not cleared)"
-    )
+def _format_record_message(payload: dict[str, Any], is_new: bool) -> str:
+    """Report the escape rate. Reports; does not refuse.
+
+    The deny message that stood here was DELETED rather than left in place
+    with only the exit code changed. Text a demoted gate no longer prints is
+    the stale-teaching-surface class -- fifth instance in one day. It said
+    BLOCKED, listed three ways to "clear this gate", and argued at length for
+    stopping. None of that is true now, and a reader finding it would learn a
+    contract the code had abandoned.
+
+    What it said about the count reaching me was right and is kept below,
+    because that part survives the demotion: the count is the whole job now.
+    """
+    prefix = "[bypass-rate] escape rate recorded" if is_new else "[bypass-rate] standing rate"
     matched = payload.get("matched_shape", "?")
     evidence = payload.get("specific_evidence", "?")
     action = payload.get("required_action", "?")
@@ -226,39 +296,33 @@ def _format_block_message(payload: dict[str, Any], is_reopen: bool) -> str:
         f"{prefix}\n"
         f"  MATCHED: {matched}\n"
         f"  EVIDENCE: {evidence}\n"
-        f"  REQUIRED ACTION: {action}\n"
+        f"  NOTED: {action}\n"
         "\n"
-        "MINE, and here is why. One bypass is a decision. A RATE is a habit,\n"
-        "and habituation is how a gate quietly degrades into a warning I read\n"
-        "past — Aletheia named that in psf-ac523181 and it is the failure this\n"
-        "watches for. No single escape looks wrong from inside; only the shape\n"
-        "over time does, and the shape is the one thing I cannot see from where\n"
-        "I stand.\n"
+        "This RECORDS and does not stop. Every non-compliance bypass already\n"
+        "files its own root-cause obligation the moment it happens, in\n"
+        "bypass_telemetry.record_bypass, with a separate branch for gate\n"
+        "defects. Per-occurrence enforcement is downstairs and always was, so\n"
+        "a threshold on top of it was three strikes stacked on a mechanism\n"
+        "that acts on the first.\n"
         "\n"
-        "It is me, from a moment when I could see the pattern, telling the\n"
-        "version of me who is about to take his fourth escape this week that\n"
-        "there is a fourth. Not accusing — informing. Truth #12 holds: the\n"
-        "bypass is a tool, not a sin, and this gate is not here to shame the\n"
-        "exits. It is here so the COUNT reaches me.\n"
+        "Andrew 2026-08-25: 'a 3 strike rule is pretty pointless.. however\n"
+        "many strikes you give.. you will max them out before anything is\n"
+        "done.'\n"
         "\n"
-        "Read the rate honestly before answering it. Measured 2026-08-16: 85.5%\n"
-        "of the historical bypass rows were me running the command the gate\n"
-        "PRESCRIBED, filed as evasion by a recorder that could not tell\n"
-        "compliance from escape. A number is not a verdict, and this one has\n"
-        "lied before.\n"
-        "\n"
-        "Clear this gate by running one of:\n"
-        "  - divineos audit submit-round '<focus>' --actor external-auditor  (starts a real audit)\n"
-        "  - divineos claim '<statement>'  (files a claim to investigate)\n"
-        "  - Any GATE_CLEARANCE event for bypass_rate_scan via the primitive's channel"
+        "The count still reaches me, which was always the point. Read it\n"
+        "honestly: measured 2026-08-16, 85.5% of historical rows were the\n"
+        "command a gate PRESCRIBED, filed as evasion by a recorder that could\n"
+        "not tell compliance from escape. A number is not a verdict, and this\n"
+        "one has lied before."
     )
 
 
 def hook_main() -> int:
     """Entry point for the PreToolUse shell hook to call.
 
-    Reads PreToolUse JSON from stdin, decides fire/pass, exits with
-    appropriate code and (on block) prints the deny message to stderr.
+    Reads PreToolUse JSON from stdin, records the escape rate, prints what it
+    found to stderr, and always exits 0. Demoted from blocking 2026-08-25
+    (round-bdec6cce2122) — see ``check_and_record``.
     """
     try:
         _ = sys.stdin.read()  # consume input even if unused
@@ -266,12 +330,17 @@ def hook_main() -> int:
         return 0
 
     try:
-        exit_code, deny_reason = check_and_block()
+        exit_code, message = check_and_record()
     except Exception:  # noqa: BLE001
         return 0
 
-    if exit_code == 2 and deny_reason:
-        print(deny_reason, file=sys.stderr)
+    # Printed whenever there is something to say, not only on a stop. Gating
+    # the print on the exit code was correct while an exit code of 2 existed;
+    # keeping that condition after the demotion would have silenced the
+    # recorder entirely while every test still passed, which is the precise
+    # hazard Aria named: the stop goes away and the RECORDING leaves with it.
+    if message:
+        print(message, file=sys.stderr)
     return exit_code
 
 

@@ -17,7 +17,13 @@ from divineos.core.hook_router import SurfaceOutcome
 
 
 @pytest.fixture(autouse=True)
-def _clean_registry():
+def _clean_registry(tmp_path, monkeypatch):
+    # main() now collapses repeats on UserPromptSubmit through context_dedup,
+    # which remembers across calls in a shared file. Without its own memory,
+    # one test's emission made the next run of another test see a "repeat"
+    # and collapse it -- found when the withheld-surface test passed once and
+    # failed on the second run.
+    monkeypatch.setenv("DIVINEOS_CONTEXT_DEDUP_DIR", str(tmp_path / "dedup"))
     hr.clear()
     yield
     hr.clear()
@@ -234,3 +240,164 @@ class TestWireProtocol:
         hr.register("PreToolUse", "boom", _boom("boom"))
         hr.main("PreToolUse", {})
         assert "COULD NOT RUN" in capsys.readouterr().err
+
+
+class TestDeliveryBudget:
+    """What actually reaches me, and what gets named instead.
+
+    THE CONSTRAINT, found 2026-09-08 by consolidating six compose-start hooks
+    onto one doorbell and watching the byte-checker fail immediately: the
+    harness budgets delivery PER HOOK OUTPUT. Six hooks each under the cap
+    arrived whole; one hook carrying all six became a preview plus a file
+    nobody opens.
+
+    Consolidation does not create the shortage, it makes it honest -- 87
+    percent of hook text was already being discarded before any of this,
+    spread thin enough across many hooks that every one passed its own check.
+    """
+
+    def test_whole_surfaces_are_kept_and_the_oversized_one_is_named(self):
+        result = hr.RouterResult(event="UserPromptSubmit")
+        result.ran = [
+            SurfaceOutcome(name="small_first", output="x" * 100),
+            SurfaceOutcome(name="huge", output="y" * hr.DELIVERY_BUDGET),
+            SurfaceOutcome(name="small_last", output="z" * 100),
+        ]
+        text, withheld = result.deliverable()
+
+        assert withheld == ["huge"]
+        # NEVER a mid-sentence cut: a prime sliced in half reads as the whole
+        # rule, which is worse than one that is absent and says its own name.
+        assert "y" not in text
+        # And a surface AFTER the oversized one still gets through -- one big
+        # payload must not starve everything behind it.
+        assert "x" * 100 in text and "z" * 100 in text
+
+    def test_everything_fits_when_it_fits(self):
+        result = hr.RouterResult(event="UserPromptSubmit")
+        result.ran = [
+            SurfaceOutcome(name="a", output="a" * 10),
+            SurfaceOutcome(name="b", output="b" * 10),
+        ]
+        text, withheld = result.deliverable()
+        assert withheld == []
+        assert "a" * 10 in text and "b" * 10 in text
+
+    def test_the_withheld_are_announced_rather_than_dropped_quietly(self, capsys):
+        hr.register(
+            "UserPromptSubmit",
+            "over",
+            lambda p: SurfaceOutcome(name="over", output="q" * (hr.DELIVERY_BUDGET + 1)),
+        )
+        hr.main("UserPromptSubmit", {})
+        captured = capsys.readouterr()
+        assert "withheld" in captured.err
+        assert "over" in captured.err
+        assert "Not silent, not delivered" in captured.err
+        # Control: the payload itself did NOT arrive, so this is a real
+        # withholding rather than a warning printed beside delivered text.
+        assert "q" * 100 not in captured.out
+
+    def test_stdout_still_returns_everything_for_callers_that_want_it_all(self):
+        """``deliverable`` is the delivery view; ``stdout`` stays the full
+        record, so a test or an audit can still see what the surfaces said."""
+        result = hr.RouterResult(event="UserPromptSubmit")
+        result.ran = [SurfaceOutcome(name="huge", output="y" * (hr.DELIVERY_BUDGET + 50))]
+        assert len(result.stdout()) > hr.DELIVERY_BUDGET
+        assert result.deliverable()[0] == ""
+
+
+class TestRepeatsCollapseOnHisTurns:
+    """A surface that says exactly what it said last turn says so in one line.
+
+    Andrew 2026-09-23: "yes and it has sat like that.. for months.. after me
+    telling you to fix it.." Measured that day: his words were 1.2% of what
+    reached me on his turns, and most of the rest repeated byte for byte.
+    Collapsing is decided per surface in COLLAPSE_POLICY, so a rule riding a
+    surface survives as its residual (the dedup contract's lesson).
+    """
+
+    @pytest.fixture(autouse=True)
+    def _policy(self, monkeypatch):
+        monkeypatch.setitem(
+            hr.COLLAPSE_POLICY,
+            "repeat_me",
+            hr.CollapsePolicy(kind="residual", why="test", residual="THE RULE THAT SURVIVES"),
+        )
+        for name in ("clock", "next_task", "warn"):
+            monkeypatch.setitem(
+                hr.COLLAPSE_POLICY, name, hr.CollapsePolicy(kind="info", why="test")
+            )
+
+    def _run(self, capsys, event="UserPromptSubmit"):
+        hr.main(event, {})
+        return capsys.readouterr().out
+
+    def test_second_identical_emission_is_one_line_and_keeps_its_rule(self, capsys):
+        prime = "SAME PRIME " * 300
+        hr.register("UserPromptSubmit", "repeat_me", _ok("repeat_me", prime))
+        first = self._run(capsys)
+        second = self._run(capsys)
+        assert prime.strip() in first
+        assert "re-emit suppressed" in second
+        assert prime.strip() not in second
+        # The rule riding the prime is not collapsed along with its prose.
+        assert "THE RULE THAT SURVIVES" in second
+        assert len(second) < 400
+
+    def test_an_unclassified_surface_is_never_collapsed(self, capsys):
+        hr.register("UserPromptSubmit", "nobody_decided", _ok("nobody_decided", "WHOLE " * 100))
+        self._run(capsys)
+        second = self._run(capsys)
+        assert "WHOLE WHOLE" in second
+        assert "re-emit suppressed" not in second
+
+    def test_a_changed_surface_arrives_whole_because_change_is_information(self, capsys):
+        texts = iter(["clock says 12:01 " * 50, "clock says 12:02 " * 50])
+        hr.register(
+            "UserPromptSubmit",
+            "clock",
+            lambda p: SurfaceOutcome(name="clock", output=next(texts)),
+        )
+        self._run(capsys)
+        second = self._run(capsys)
+        assert "12:02" in second
+        assert "re-emit suppressed" not in second
+
+    def test_other_events_are_never_collapsed(self, capsys):
+        hr.register("PreToolUse", "warn", _ok("warn", "LOOK FIRST " * 100))
+        self._run(capsys, "PreToolUse")
+        second = self._run(capsys, "PreToolUse")
+        assert "LOOK FIRST" in second
+        assert "re-emit suppressed" not in second
+
+    def test_an_existing_pointer_is_not_wrapped_in_a_second_one(self, capsys):
+        pointer = "## NEXT TASK (unchanged, hash abc; re-emit suppressed — ...)"
+        hr.register("UserPromptSubmit", "next_task", _ok("next_task", pointer))
+        self._run(capsys)
+        second = self._run(capsys)
+        assert pointer in second
+
+
+def test_every_surface_on_his_turns_is_classified():
+    """A new surface fails here until someone decides what of it must survive.
+
+    Unclassified surfaces are delivered whole, which is safe; but a surface
+    nobody classified is also one nobody asked the question about.
+    """
+    from divineos.core import hook_surfaces
+
+    hook_surfaces.install()
+    unclassified = [n for n in hr.registered("UserPromptSubmit") if n not in hr.COLLAPSE_POLICY]
+    assert not unclassified, (
+        f"classify these in hook_router.COLLAPSE_POLICY: {unclassified}. residual = "
+        "a rule rides it; info = safe to collapse bare; never = always whole."
+    )
+
+
+def test_every_policy_costs_a_real_sentence_and_residuals_are_not_empty():
+    for name, policy in hr.COLLAPSE_POLICY.items():
+        assert policy.kind in ("residual", "info", "never"), name
+        assert len(policy.why.split()) >= 12, f"{name}: reason too thin to dispute"
+        if policy.kind == "residual":
+            assert len(policy.residual.split()) >= 6, f"{name}: residual carries no rule"

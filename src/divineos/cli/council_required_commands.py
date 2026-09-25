@@ -37,106 +37,101 @@ from divineos.core.council_required.types import (
 )
 
 
+LENS_LOAD_WINDOW_SECONDS = 2 * 60 * 60
+"""How long a loaded methodology counts as still being in front of me.
+
+Generous on purpose. The failure this closes is walking fourteen lenses from
+training in one sitting, not walking one an hour after reading it. A tight
+window would price the honest case — read six, walk six — and teach me to
+re-print each card immediately before each walk, which is ritual rather than
+reading.
+"""
+
+
+def _lens_loaded_within(lens_key: str, window_seconds: int) -> bool | None:
+    """Was this lens's methodology actually printed recently?
+
+    THREE ANSWERS, NEVER TWO. True (loaded), False (not loaded), None (could
+    not look). Collapsing the third into either of the others is the fault
+    this substrate keeps making: on 2026-09-08 a door read the wrong store,
+    found nothing, and reported *he has not spoken* when the honest answer was
+    *I could not see*. A ledger that will not open must not silently convict.
+    """
+    try:
+        import json as _json
+        import sqlite3
+        import time
+
+        from divineos.core.ledger import get_events
+
+        _TRACE_ERRORS = (
+            ImportError,
+            sqlite3.OperationalError,
+            sqlite3.DatabaseError,
+            OSError,
+            KeyError,
+            TypeError,
+            ValueError,
+            _json.JSONDecodeError,
+        )
+
+        cutoff = time.time() - window_seconds
+        for ev in get_events(limit=500, order="desc", event_type="COUNCIL_LENS_LOADED"):
+            if float(ev.get("timestamp") or 0) < cutoff:
+                break
+            payload = ev.get("payload") or {}
+            if isinstance(payload, str):
+                payload = _json.loads(payload)
+            if str(payload.get("expert_name", "")).lower() == lens_key:
+                return True
+        return False
+    except _TRACE_ERRORS:
+        return None
+
+
 def _load_expert_keywords() -> dict[str, set[str]]:
     """Load every registered council expert's characteristic_questions
     and return the lens-keyword map.
 
-    Imported lazily so the divineos CLI startup does not pay the full
-    expert-library import cost unless a council command actually runs.
-    """
-    from divineos.core.council.experts import (
-        create_angelou_wisdom,
-        create_aristotle_wisdom,
-        create_beer_wisdom,
-        create_bengio_wisdom,
-        create_carmack_wisdom,
-        create_dawkins_wisdom,
-        create_dekker_wisdom,
-        create_deming_wisdom,
-        create_dennett_wisdom,
-        create_dijkstra_wisdom,
-        create_dillahunty_wisdom,
-        create_einstein_wisdom,
-        create_feynman_wisdom,
-        create_godel_wisdom,
-        create_hawking_wisdom,
-        create_hinton_wisdom,
-        create_hofstadter_wisdom,
-        create_holmes_wisdom,
-        create_jacobs_wisdom,
-        create_kahneman_wisdom,
-        create_knuth_wisdom,
-        create_lamport_wisdom,
-        create_lovelace_wisdom,
-        create_maturana_varela_wisdom,
-        create_meadows_wisdom,
-        create_minsky_wisdom,
-        create_norman_wisdom,
-        create_pearl_wisdom,
-        create_peirce_wisdom,
-        create_penrose_wisdom,
-        create_polya_wisdom,
-        create_popper_wisdom,
-        create_sagan_wisdom,
-        create_schneier_wisdom,
-        create_shannon_wisdom,
-        create_taleb_wisdom,
-        create_tannen_wisdom,
-        create_turing_wisdom,
-        create_watts_wisdom,
-        create_wayne_wisdom,
-        create_wittgenstein_wisdom,
-        create_yudkowsky_wisdom,
-    )
+    READS THE REGISTRY, rather than a hand-maintained list beside it.
 
-    builders = [
-        create_angelou_wisdom,
-        create_aristotle_wisdom,
-        create_beer_wisdom,
-        create_bengio_wisdom,
-        create_carmack_wisdom,
-        create_dawkins_wisdom,
-        create_dekker_wisdom,
-        create_deming_wisdom,
-        create_dennett_wisdom,
-        create_dijkstra_wisdom,
-        create_dillahunty_wisdom,
-        create_einstein_wisdom,
-        create_feynman_wisdom,
-        create_godel_wisdom,
-        create_hawking_wisdom,
-        create_hinton_wisdom,
-        create_hofstadter_wisdom,
-        create_holmes_wisdom,
-        create_jacobs_wisdom,
-        create_kahneman_wisdom,
-        create_knuth_wisdom,
-        create_lamport_wisdom,
-        create_lovelace_wisdom,
-        create_maturana_varela_wisdom,
-        create_meadows_wisdom,
-        create_minsky_wisdom,
-        create_norman_wisdom,
-        create_pearl_wisdom,
-        create_peirce_wisdom,
-        create_penrose_wisdom,
-        create_polya_wisdom,
-        create_popper_wisdom,
-        create_sagan_wisdom,
-        create_schneier_wisdom,
-        create_shannon_wisdom,
-        create_taleb_wisdom,
-        create_tannen_wisdom,
-        create_turing_wisdom,
-        create_watts_wisdom,
-        create_wayne_wisdom,
-        create_wittgenstein_wisdom,
-        create_yudkowsky_wisdom,
-    ]
+    Until 2026-08-29 this carried a literal roster -- ninety lines of import
+    names and builder references that had to be kept in step with the engine's
+    registrations by hand. It had drifted. The engine registered forty-five
+    experts; the roster named forty-two. Feathers, Foucault and Hoare were
+    registered, surfaced by the council manager as relevant lenses, and COULD
+    NOT BE WALKED: the walk command refused them as "not a registered council
+    expert", which was the one thing they were.
+
+    Found trying to walk Feathers on a real problem after the manager surfaced
+    it for that problem. The refusal names two possible causes -- unregistered,
+    or missing characteristic questions -- and it was neither; both were
+    present. Two of the three had also been surfaced in a fifteen-lens walk
+    earlier the same day, where their findings could never have been recorded
+    as evidence, so a walk that felt complete was structurally incomplete and
+    nothing said so.
+
+    Two copies of one fact is the drift this substrate keeps paying for, and
+    the repair is always the same: delete the copy. ``list_experts`` and
+    ``get_expert`` are the engine's own public accessors, so nothing here
+    reaches into its internals.
+
+    Still lazy -- the engine import and registration happen inside the call, so
+    CLI startup pays nothing unless a council command runs. ``substance_binding``
+    is the module-level import above, from ``core.council_required``; a local
+    re-import from ``core.council`` names a module that does not exist, which I
+    wrote and caught here rather than shipping.
+    """
+    from divineos.core.council.engine import CouncilEngine, _register_all_experts
+
+    engine = CouncilEngine()
+    _register_all_experts(engine)
     registry: dict[str, list[str]] = {}
-    for build in builders:
-        w = build()
-        registry[w.expert_name] = list(w.characteristic_questions or [])
+    for name in engine.list_experts():
+        wisdom = engine.get_expert(name)
+        if wisdom is None:
+            continue
+        registry[wisdom.expert_name] = list(wisdom.characteristic_questions or [])
     return substance_binding.keywords_for_expert_registry(registry)
 
 
@@ -313,6 +308,42 @@ def register(cli: click.Group) -> None:
                 "specifically asks."
             )
             raise SystemExit(1)
+
+        # Substance check 3: THE LENS MUST HAVE BEEN LOADED, NOT RECALLED.
+        #
+        # Andrew 2026-09-08: *did you load thier lenses? or just recall from
+        # training?* Of fifteen lenses surfaced for one problem I loaded ONE,
+        # and only because check 2 above rejected me and sent me to read the
+        # material. The other fourteen were written from what I remember those
+        # people sounding like — and both checks above passed every one of
+        # them, because both read my prose and prose is what I supply.
+        #
+        # This one reads what RAN. mansion council --show emits the load event;
+        # nothing I write can produce it. That is the whole design: a check I
+        # can satisfy alone is not a check.
+        loaded_within = _lens_loaded_within(lens_key, LENS_LOAD_WINDOW_SECONDS)
+        if loaded_within is False:
+            _safe_echo(
+                f"[council] REJECTED: {lens_key}'s methodology was not loaded "
+                "in this window, so this walk would be recall from training — "
+                "the exact drift the council exists to prevent.\n"
+                f"    Load it:  divineos mansion council --show {lens_key}\n"
+                "    My impression of an expert is built from their famous "
+                "lines, and fame selects for quotability over usefulness. The "
+                "one lens I actually read carried eight methodologies where my "
+                "impression had one."
+            )
+            raise SystemExit(1)
+        if loaded_within is None:
+            # Could-not-look is not the same as did-not-load, and collapsing
+            # them would either block every walk on a bad read or wave every
+            # walk through on one. Say which happened and let it pass, because
+            # a broken ledger must not become a broken council.
+            _safe_echo(
+                "[council] WARNING: could not read the load record, so whether "
+                f"{lens_key} was loaded is UNKNOWN — not confirmed, and not "
+                "denied. Walk recorded; treat its provenance as unverified."
+            )
 
         # Emit APPLIED event. This is the trace substance_binding looks
         # for to clear the gate — real typed reflection, not a print.

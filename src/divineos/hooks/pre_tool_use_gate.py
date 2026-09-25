@@ -59,7 +59,7 @@ import re
 import sys
 from typing import Any
 
-from divineos.core.command_parsing import CD, strip_prefixes_raw
+from divineos.core.command_parsing import CD, blank_quoted_spans, strip_prefixes_raw
 
 
 # Chain-shape metacharacters that indicate shell-chain composition.
@@ -689,8 +689,10 @@ def _is_bypass_command(cmd: str) -> bool:
 _LOW_FRICTION_PATH_SEGMENTS: tuple[str, ...] = (
     "/exploration/",  # First-person free-expression / leisure space.
     "/family/letters/",  # Letters to/from family members — relational channel.
+    ".divineos-shared/letters/",  # The shared mirror the same letters land in.
     "/mansion/",  # Internal-space writing — not father-facing.
     "/dreams/",  # Rest-shape writing — no plan, no pull, no gate (Andrew 2026-07-30).
+    "/scratchpad/",  # Harness scratch dir — throwaway probes, not architecture.
 )
 
 
@@ -911,19 +913,106 @@ def _record_gate_fire(reason: str) -> None:
         pass
 
 
+# The command this process was asked about, stashed at parse time so a refusal
+# can describe the SHAPE of the line it refused. A hook process handles exactly
+# one tool call, so a module-level slot is the whole of its lifetime.
+_REFUSED_COMMAND: str = ""
+
+# Shell operators that join clauses. A refused line containing one of these had
+# work sitting before or after the part the gate names.
+#
+# DELIBERATELY CRUDE, and the asymmetry is the reason. A semicolon inside a
+# quoted string or a heredoc counts here and should not. What that false
+# positive costs is four extra lines of text that are TRUE ANYWAY -- a
+# pre-tool refusal means nothing ran whether the line held one clause or five.
+# What a false negative costs is the fault this exists to close. So it errs
+# toward speaking.
+_CLAUSE_JOINER = re.compile(r"&&|\|\||;|\n\s*\S")
+
+
+def _nothing_ran_footer(command: str) -> str:
+    """Say what did NOT run, for a refused line that joined more than one clause.
+
+    WHY THIS EXISTS. On 2026-09-05 Aether wrote one line meaning two things --
+    commit, then push -- and a gate refused it. The refusal named the push,
+    because the push was the half that tripped it. He read it as being about
+    the push and believed the commit had happened. It had not: a PreToolUse
+    refusal fires before the shell ever sees the line, so no clause runs.
+
+    He then merged main onto a branch carrying no commit, got a diff against
+    main that was completely empty, and was one step from reporting it fixed.
+    The same shape had cost thirty letters two days earlier, from the other
+    direction: a refusal read as being about a deletion, the branch-switch half
+    silently dropped, and the re-issued fragment ran on the wrong branch.
+
+    Nothing lied to him either time. Every gate answered accurately about the
+    clause that tripped it, while the question actually being asked was *what
+    happened to my line* -- an honest answer to a question nobody asked.
+    Measured that night from both checkouts: of the hooks in this house that
+    can refuse a shell line, exactly zero said what did not run. Two people,
+    two different patterns, two non-zero controls, the same zero.
+
+    NOT HEDGED, and that is Aether's correction to the first draft of this.
+    "Some of this may not have run" leaves room to reconstruct a hopeful half,
+    which is the precise inference that cost him the branch. These gates run
+    before the shell. Nothing ran, and the message says so flatly.
+
+    THE SECOND SENTENCE IS THE ONE THAT SAVES THE WORK. Misreading a refusal is
+    survivable by itself. What made it expensive both times was the next move --
+    re-issuing one fragment of the line, which then executed in a state the
+    full line would have established and did not. Answering the objection and
+    re-running the WHOLE line costs nothing on the occasions it was unnecessary.
+
+    Returns "" for a single-clause line. "Nothing ran" is true there too, but
+    printing it on every refusal is wallpaper, and wallpaper is how a footer
+    stops being read. This one has to survive being read.
+
+    WHAT IS AND IS NOT COVERED, named here because an unstated gap reads as a
+    closed one. Every refusal packaged by ``_make_deny`` carries this, and the
+    shell hooks carry the same words through ``hook_say_nothing_ran`` in
+    .claude/hooks/_lib.sh. Still uncovered: the hooks that refuse by emitting a
+    JSON decision instead of exiting 2. Their footer belongs inside the reason
+    string and each builds that string its own way, so wiring them is a
+    separate careful pass. That set is enumerated and pinned in
+    tests/test_every_refusing_hook_says_what_did_not_run.py, where the list
+    fails if it grows and fails again if a name in it goes stale.
+
+    THE ENUMERATION ITSELF GOT THIS WRONG TWICE, which is worth more than the
+    fix. The first scan asked which hooks READ the command and found ten; the
+    question was which can REFUSE one, which is fifteen. The second asked which
+    exit 2, and missed that exiting 2 is one MECHANISM of refusing rather than
+    the whole of it. Both times the instrument answered accurately about a
+    narrower subject than the question -- the exact fault this function exists
+    to fix, committed twice by the thing measuring it.
+    """
+    if not command or not _CLAUSE_JOINER.search(command):
+        return ""
+    return (
+        "\n\n-- nothing on this line ran --\n"
+        "This refusal fired before the shell saw the command, and the line "
+        "joins more than one clause. No clause executed: not the ones after "
+        "the part named above, and not the ones before it.\n"
+        "Answer the objection, then re-issue the WHOLE line. Re-running a "
+        "single fragment executes it in a state the full line would have set "
+        "up and did not."
+    )
+
+
 def _make_deny(reason: str) -> dict[str, Any]:
     """Package a deny decision in the Claude Code hook response format.
 
-    Records the refusal on the way out. Every call site routes through
-    here, so instrumenting this one function captures every gate rather
-    than depending on nineteen call sites each remembering to log.
+    Records the refusal on the way out, and appends what did not run. Every
+    call site routes through here, so instrumenting this one function captures
+    every gate rather than depending on nineteen call sites each remembering to
+    log -- and now, rather than depending on each of them remembering to say
+    that the whole line died.
     """
     _record_gate_fire(reason)
     return {
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",
             "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
+            "permissionDecisionReason": reason + _nothing_ran_footer(_REFUSED_COMMAND),
         }
     }
 
@@ -978,20 +1067,294 @@ _READONLY_PROBE_PREFIXES = (
     "divineos inspect",
 )
 
+# AND THE LIST ABOVE IS THE WRONG SHAPE, which the comment block already shows
+# without saying so (2026-09-01).
+#
+# It records this gate blocking evidence twice on 2026-08-13, and the repair
+# chosen then was to add the two commands that had already been lost. So the
+# allowlist covers the reviews somebody has already failed to earn. It happened
+# twice more today: a pre-registration about the degraded-detector mechanism came
+# due, every one of its success criteria is a statement about what
+# `divineos detectors` does, and that command was not on the list. The only
+# reachable exit was the verdict itself -- the fabricated-outcome shape this
+# comment block exists to prevent. Then the edit adding it was refused by the
+# same block, so the gate was standing in front of its own repair.
+#
+# Enumeration cannot fix that, because the next review needing an unlisted probe
+# is unknowable in advance and the gate cannot tell an unearnable review from a
+# dodged one.
+#
+# So: a RULE about read-only verbs rather than a list of commands. Every CLI
+# group here follows the same convention, and these four verbs never mutate.
+# The mutating verbs stay blocked, which is the work this gate means to stop --
+# `divineos detectors heal` and `divineos detectors defer` are still refused,
+# because clearing a degradation is substantive work.
+_READONLY_VERBS = frozenset({"status", "show", "list", "check", "summary", "history"})
+
+
+def _is_command_group(name: str) -> bool | None:
+    """Whether ``divineos <name>`` is a group with subcommands, or a leaf.
+
+    Asked of click's own resolution rather than of a list, because the list
+    is the enumeration reflex this whole file has been repaired away from
+    today. ``None`` means could-not-look -- the CLI failed to import or the
+    name did not resolve -- and the caller treats that as not-a-probe, never
+    as a pass. Same discipline as the unbalanced-quote case below.
+    """
+    try:
+        import click
+
+        from divineos.cli import cli as _cli
+
+        command = _cli.get_command(click.Context(_cli), name)
+    except Exception:  # noqa: BLE001 -- could not look is its own answer
+        return None
+    if command is None:
+        return None
+    return isinstance(command, click.Group)
+
+
+def _is_readonly_divineos_verb(cmd: str) -> bool:
+    """True for ``divineos <group...> <read-only verb>`` shapes.
+
+    The verb must sit where a verb sits -- second or third token, before any
+    flag -- so a mutating command carrying one of these words in an argument
+    does not qualify. ``divineos audit submit --notes "status ..."`` is not a
+    probe, and neither is anything whose verb is not in the set.
+
+    AND THE THIRD TOKEN IS ONLY A VERB IF THE SECOND IS A GROUP (Aria,
+    2026-09-01, from running it). For ``divineos detectors status`` the third
+    token is the verb. For ``divineos learn status`` the third token is the
+    LESSON -- a one-word positional argument that happens to spell a verb --
+    and the first version of this rule waved it through as a read. Three
+    writes passed as probes: a lesson whose text is "status", a claim whose
+    text is "summary", a lesson whose text is "check". A one-word lesson is a
+    bad lesson, but this gate is not here to judge quality; it is here to
+    stop writes.
+
+    The rule could not tell those apart because it did not know which groups
+    have a third level. The registry does -- it is what the test-linkage check
+    already reads -- so it is asked, rather than a second list being kept of
+    which commands are two-level. Twelfth instance today of a thing recognised
+    by its position rather than by what it is.
+    """
+    import shlex
+
+    try:
+        tokens = [t for t in shlex.split(cmd) if not t.startswith("-")]
+    except ValueError:
+        return False  # unbalanced quotes: cannot read it, so not a probe
+    if len(tokens) < 2 or tokens[0] != "divineos":
+        return False
+    if tokens[1] in _READONLY_VERBS:
+        return True
+    if len(tokens) < 3 or tokens[2] not in _READONLY_VERBS:
+        return False
+    # Cheap checks are exhausted; only now pay for the registry. A leaf
+    # command's third token is an argument, and could-not-look is a refusal.
+    return _is_command_group(tokens[1]) is True
+
+
+# `set` followed only by option-shaped words: flag clusters, or the bare names
+# that `-o` takes. Nothing here can be a path, an assignment or a redirection,
+# which are the shapes that would make it an action rather than a shell-option
+# change. `set -o pipefail` and `set -euo pipefail` qualify; `set x=1`,
+# `set -o pipefail > file` and `setup.sh` do not.
+#
+# Widened once, immediately, because the first version required the option
+# name to follow `-o` as a separate flag and so refused the commonest spelling
+# of the idiom. Caught by the test that asserted it rather than by re-reading
+# the pattern -- the same distinction the whole day has been about.
+_SHELL_OPTION_ONLY = re.compile(r"set(?:\s+(?:[+-][A-Za-z]+|[a-z][a-z_]*))+\s*")
+
+
+def _split_shell_clauses(cmd: str) -> list[str]:
+    """Split on real clause joiners, ignoring ones inside quotes.
+
+    Quote-aware on purpose. The branch doorman splits with a plain pattern,
+    which is acceptable there because a wrong split can only make it refuse
+    MORE. Here a wrong split could make the gate PERMIT: a joiner inside a
+    quoted argument would carve one command into fragments, and a fragment
+    can start with a safe prefix while the whole command does not.
+
+    Returns [] on an unterminated quote, and the caller treats an empty list
+    as not-a-probe -- so the fail-closed direction matches
+    ``_has_compound_shape``, which this deliberately mirrors rather than
+    reimplements loosely.
+    """
+    clauses: list[str] = []
+    current: list[str] = []
+    state: str | None = None
+    i = 0
+    n = len(cmd)
+    while i < n:
+        ch = cmd[i]
+        if state is None:
+            if ch == "\\":
+                current.append(ch)
+                if i + 1 < n:
+                    current.append(cmd[i + 1])
+                    i += 2
+                    continue
+            elif ch in ("'", '"'):
+                state = ch
+            elif ch == ";":
+                clauses.append("".join(current))
+                current = []
+                i += 1
+                continue
+            elif ch in ("&", "|") and i + 1 < n and cmd[i + 1] == ch:
+                clauses.append("".join(current))
+                current = []
+                i += 2
+                continue
+        elif ch == state:
+            state = None
+        current.append(ch)
+        i += 1
+
+    if state is not None:
+        return []
+    clauses.append("".join(current))
+    return [c for c in (c.strip() for c in clauses) if c]
+
 
 def _is_readonly_probe(cmd: str) -> bool:
     """True if the command only looks at state, never changes it.
 
-    Same hardening as ``_is_bypass_command``: a `cd DIR && ` preface is
-    allowed, compound shapes are refused outright, and the command must
-    BE a probe rather than merely contain one.
+    JUDGED PER CLAUSE, NOT PER LINE (2026-09-05, second fire in one day).
+
+    This refused any compound shape outright, on the F22 reasoning that a
+    safe-looking head may chain into a dangerous tail -- ``git log && rm -rf``
+    must never read as a probe. That reasoning is exactly right and is kept.
+
+    What it also refused was a line whose EVERY clause is a read. The overdue
+    block locked me out this morning naming a cure I then typed with a `cd`
+    and a `set -o pipefail` in front, so the cure itself did not qualify and
+    the block refused its own remedy. I found the bare form by reading the
+    allowlist. Aria hit the same wall hours later on a different path, having
+    watched me hit it -- so the first repair opened one door and never swept
+    the class, which is the shape she named.
+
+    Splitting on the joiners and asking of each clause preserves the whole
+    safety property: a line containing any non-probe clause is still not a
+    probe, so the chain-into-danger case is unchanged. What changes is that
+    all-reads now reads as a read.
+
+    Fails closed on an unterminated quote, because ``_has_compound_shape``
+    does and each clause is still asked.
     """
     if not cmd:
         return False
     cmd = _strip_safe_output_tail(_strip_cd_prefix(cmd))
-    if _has_compound_shape(cmd):
+
+    def _writes_despite_a_read_verb(clause: str) -> bool:
+        """True when a read verb has been handed somewhere to put the output.
+
+        THE VERB WAS NEVER THE WHOLE COMMAND, and this function only looked
+        at the verb. A prefix match reads the start of the line and ignores
+        everything after it, so every flag was invisible.
+
+        Found by Aletheia 2026-09-21, refusing to sign the carve-out being
+        carried into the correction gate. She asked the question I had asked
+        her -- is the read-only set a fault now or a fault waiting -- and
+        answered it by running it rather than reasoning about it. It is now.
+        Reproduced here in a scratch repository before accepting it: log,
+        show and diff each write a file when handed --output, and the probe
+        called all three reads. The dangerous one is a diff written over a
+        guardrail file, which the gate would have called looking.
+
+        A WIDER ONE SHE DID NOT NAME, found by asking the probe rather than
+        asking myself: an ordinary shell redirect does the same thing with
+        no flag at all, and overwrote a file I had put a word in to check.
+
+        NOT BY WIDENING THE VERB LIST, because the verbs really are reads
+        without somewhere to write to. The flag is the thing that changes
+        what they are, so the flag is what gets asked about.
+
+        MEASURED, NOT ASSUMED, on the near-misses:
+          * ``-o`` is not an output flag on these verbs -- it errors -- so
+            banning it would buy nothing and cost a confusing refusal.
+          * ``-O`` is the diff orderfile, which READS a file. One careless
+            case-insensitive rule would have broken it, so the check is
+            case-sensitive on the long form only.
+          * ``2>&1`` duplicates a handle and ``>/dev/null`` discards, so
+            neither is a write to anything a person would miss.
+
+        QUOTED TEXT IS DATA (Aether, 2026-09-21; walk-734fa481e6e2). An arrow
+        inside ``grep 'a > b' f`` is not a redirect, and this refused it as
+        one -- including the search for this very character in this very
+        gate. The quoted spans are filled first. When they cannot be filled
+        safely (an escaped quote, a ``$'...'`` string, an unbalanced quote)
+        the clause is scanned whole, as before: the failure stays a refusal.
+        """
+        blanked = blank_quoted_spans(clause)
+        if blanked is not None:
+            clause = blanked
+        if "--output" in clause:
+            return True
+        i = 0
+        while True:
+            i = clause.find(">", i)
+            if i < 0:
+                return False
+            rest = clause[i:].lstrip(">").lstrip()
+            # `>&1` and friends duplicate an existing handle; nothing lands
+            # on disk. A discard target is a write to nowhere.
+            if rest.startswith("&"):
+                i += 1
+                continue
+            target = rest.split()[0] if rest.split() else ""
+            if target.lower() in ("/dev/null", "nul", ""):
+                i += 1
+                continue
+            return True
+
+    def _clause_is_probe(clause: str) -> bool:
+        clause = _strip_safe_output_tail(_strip_cd_prefix(clause.strip()))
+        if not clause:
+            return False
+        # A clause that is itself compound could not be split cleanly, so it
+        # is refused rather than guessed at.
+        if _has_compound_shape(clause):
+            return False
+        # INERT IS NOT THE SAME AS READ-ONLY, AND BOTH ARE FINE HERE.
+        #
+        # `set -o pipefail` acts on nothing. It changes how THIS shell
+        # propagates an exit code and touches no file, no store and no remote.
+        # It is not a probe -- it looks at nothing -- so calling it one would
+        # be wrong, but refusing it makes the whole line non-read and that is
+        # what kept the block refusing its own cure: the failing clause was
+        # the one another gate in this same house tells me to type.
+        #
+        # Deliberately narrow. Only the shell builtin that sets options, with
+        # no operands beyond flags, and no assignment or redirection. Anything
+        # that could name a file or a variable is not this.
+        if _SHELL_OPTION_ONLY.fullmatch(clause):
+            return True
+        if _writes_despite_a_read_verb(clause):
+            return False
+        return clause.startswith(_READONLY_PROBE_PREFIXES) or _is_readonly_divineos_verb(clause)
+
+    if not _has_compound_shape(cmd):
+        # BOTH PATHS, or the fix is only fitted to the door it was found at
+        # -- which is the pattern this whole repair is about. The single
+        # clause path is the one Aletheia's example actually travels.
+        if _writes_despite_a_read_verb(cmd):
+            return False
+        return cmd.startswith(_READONLY_PROBE_PREFIXES) or _is_readonly_divineos_verb(cmd)
+
+    clauses = _split_shell_clauses(cmd)
+    if not clauses:
         return False
-    return cmd.startswith(_READONLY_PROBE_PREFIXES)
+    # Every clause, and ONLY the clauses. Asking the verb rule about the whole
+    # line here would be the hole this function exists to close: that rule
+    # inspects the head and ignores everything after the verb, so
+    # `divineos detectors status && rm -rf` would read as a probe on the
+    # strength of its first three words. I added exactly that for a few
+    # minutes with a careless edit-everywhere, and the test written for this
+    # case caught it, which is what it is for.
+    return all(_clause_is_probe(c) for c in clauses)
 
 
 def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
@@ -1664,7 +2027,41 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
                     'python "scripts/clear_correction_marker.py"',
                     "python C:/DIVINE OS/DivineOS-Experimental/scripts/clear_correction_marker.py",
                 )
-                if _tn == "Bash" and _is_safe_remedy_invocation(_cmd, _correction_remedies):
+                # READS PASS. A fixed remedy list cannot name every way out,
+                # because one of the ways out is not a command -- it is LOOKING.
+                #
+                # 2026-09-21, walked into by Aria with Andrew watching. The ring:
+                # this gate blocks everything but the names above; `divineos
+                # correction` refuses to file without a file path proving a
+                # structural fix, which takes investigation; `divineos learn` is
+                # held by the reach doorman until the artifact it surfaced has
+                # been READ; and reading that artifact is an ordinary read-only
+                # command, which this gate blocks. Four doors, each correct
+                # alone, forming a closed cycle whose only exit was the fire
+                # door. Andrew refused the fire door -- the escape is not an
+                # escape without a root-cause investigation -- so the lock got
+                # repaired instead of opened.
+                #
+                # The carve-out already exists in this file (_is_readonly_probe,
+                # per-clause and compound-hardened) and the overdue-pre-reg gate
+                # already uses it, under Andrew 2026-06-29: "no gate should ever
+                # be blocking you from using what you need to clear the gate."
+                # It was applied to the door it was discovered at and never
+                # swept across the class -- the same recurrence the shared
+                # remedy allowlist was written to end, one scope larger. This
+                # carries it across rather than adding a fifth door name.
+                #
+                # It loosens nothing this gate is for. A probe changes no file,
+                # no store and no remote, so the marker survives it and the next
+                # substantive write is blocked exactly as before. What the gate
+                # stops is WORK proceeding while a correction goes unrecorded;
+                # looking at evidence has never been that work, and a gate that
+                # blocks looking does not produce acknowledgement -- it produces
+                # whichever exit is still reachable.
+                if _tn == "Bash" and (
+                    _is_safe_remedy_invocation(_cmd, _correction_remedies)
+                    or _is_readonly_probe(_cmd)
+                ):
                     # Fall through to allow — the remedy must run.
                     pass
                 else:
@@ -1897,6 +2294,14 @@ def main() -> int:
         cmd = input_data.get("tool_input", {}).get("command", "") or ""
     except (AttributeError, TypeError):
         cmd = ""
+
+    # Stashed for _nothing_ran_footer, which runs deep inside whichever gate
+    # refuses and has no other way to see the shape of the line. Set here,
+    # once, next to the parse -- not threaded through nineteen call sites,
+    # because a parameter every caller must remember is a parameter someone
+    # eventually forgets, and the forgetting is silent.
+    global _REFUSED_COMMAND
+    _REFUSED_COMMAND = cmd
 
     # Ownership-block gate — runs BEFORE bypass check. A mismatched
     # substrate makes even documented bypass commands unsafe: they would

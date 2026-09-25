@@ -69,6 +69,31 @@ _STRUCTURAL_FIX_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
+def _excerpt(content: str) -> str:
+    """The stored form of an obligation's text: 200 chars, stripped at BOTH
+    ends of the truncation.
+
+    STRIP-THEN-TRUNCATE LEAVES A TRAILING SPACE. (2026-08-25.)
+
+    The original was ``content.strip()[:200]`` — stripped first, cut second.
+    When character 200 lands on a space, the stored excerpt keeps it. The
+    dedup then compared ``stored.strip()`` against a freshly-computed
+    ``content.strip()[:200]``, one side stripped and the other not, so the two
+    never matched and every later filing of that exact text opened a NEW row.
+
+    A one-character coincidence, and it defeats the dedup completely for any
+    text unlucky enough to break on a space. Found in the four rows the
+    corrections-side backfill could not match: stored length 200, stripped
+    length 199, identical once both sides were stripped.
+
+    The dedup shipped 2026-08-24 to end duplicate rows and carried a silent
+    generator for a slice of them. Both call sites go through here now so
+    there is one definition of "the same obligation" instead of two that
+    agree most of the time.
+    """
+    return content.strip()[:200].strip()
+
+
 def _read_pending() -> list[dict]:
     """Read the MAIN list (entries that still need doing, not yet picked up).
     Fail-open on missing/malformed."""
@@ -162,7 +187,7 @@ def record_pending_fix(
     """
     if not content:
         return ""
-    excerpt = content.strip()[:200]
+    excerpt = _excerpt(content)
     entries = _read_pending()
 
     # ONE ROW, MANY STAMPS. (Andrew 2026-08-09.)
@@ -277,6 +302,123 @@ def mark_done(psf_id: str, note: str = "") -> bool:
         return True
 
     return False
+
+
+def close_twin_for_text(text: str, note: str, source_kind: str = "correction") -> list[str]:
+    """Close any pending entry whose excerpt came from ``text``. Returns the
+    ids closed.
+
+    THE MIRROR HAD NO RETURN PATH. (2026-08-25.)
+
+    ``correction`` and ``claim`` both file a parallel psf row when their text
+    is structural-fix-shaped — 187 of the 334 rows in the backlog came in that
+    way. Neither surface ever closed one. So a correction could be marked
+    INTEGRATED with evidence in ``andrew_corrections.db`` while its twin sat
+    in this list forever, indistinguishable from work nobody had touched. On
+    the day this was measured, 50 of the 187 were already closed on the
+    corrections side and still pending here.
+
+    That is not a stale backlog, it is two stores disagreeing, and the one
+    without a close verb is the one the briefing reads out. A mirror that
+    copies the filing and not the closing reports a debt that has been paid.
+
+    Matched on the excerpt rather than a stored id because the 187 existing
+    rows predate any linking field, and a fix that only works for future rows
+    would leave exactly the pile it was written for — the same shape as the
+    dedup that shipped without a backfill (see ``collapse_duplicates``).
+    """
+    if not text:
+        return []
+    excerpt = _excerpt(text)
+    closed: list[str] = []
+    for entry in list(_read_pending()):
+        if entry.get("status") == "done":
+            continue
+        if entry.get("source_kind") != source_kind:
+            continue
+        if (entry.get("content_excerpt") or "").strip() != excerpt:
+            continue
+        psf_id = str(entry.get("id") or "")
+        if psf_id and mark_done(psf_id, note):
+            closed.append(psf_id)
+    return closed
+
+
+def collapse_duplicates() -> dict[str, int]:
+    """Collapse pre-existing exact-duplicate rows in MAIN into one row each,
+    carrying the count forward as ``occurrences``. Returns a summary dict.
+
+    THE DEDUP HAD NO BACKFILL. (2026-08-25.)
+
+    ``record_pending_fix`` grew the one-row-many-stamps behaviour on
+    2026-08-24 (06e3de62) in answer to Andrew 2026-08-09: "it should be a
+    single row with 65 stamps on it." That stops NEW duplicates. It never
+    looked backward, so the 92 rows the correction was about were still
+    sitting in the list the day after the fix shipped — the pile the fix
+    existed to remove, untouched by it, with the fix reported as done.
+
+    Fifteen days also separate the correction from the code. During those
+    fifteen days the duplicates kept arriving through the un-deduped writer,
+    which is why the backlog is 92 redundant rows and not 65.
+
+    Collapse rules:
+      - group by exact ``content_excerpt.strip()``
+      - the EARLIEST-created row survives and keeps its id, so any must-read
+        or briefing surface already pointing at that id still resolves
+      - ``occurrences`` becomes the sum across the group (rows written before
+        the field existed count as 1)
+      - ``stamps`` merges every group member's stamps, sorted, last 20 kept —
+        the same bound ``record_pending_fix`` uses, for the same reason
+      - absorbed rows go to the ARCHIVE with ``collapsed_into`` naming the
+        survivor, so no row is silently dropped
+
+    Idempotent: running it on an already-collapsed list changes nothing.
+    """
+    entries = _read_pending()
+    groups: dict[str, list[dict]] = {}
+    for entry in entries:
+        if entry.get("status") == "done":
+            continue
+        groups.setdefault((entry.get("content_excerpt") or "").strip(), []).append(entry)
+
+    survivors: dict[str, dict] = {}
+    absorbed: list[dict] = []
+    for excerpt, rows in groups.items():
+        rows.sort(key=lambda e: e.get("created_at", 0))
+        keeper = rows[0]
+        if len(rows) > 1:
+            total = sum(int(r.get("occurrences") or 1) for r in rows)
+            stamps: list[float] = []
+            for r in rows:
+                stamps.extend(r.get("stamps") or [r.get("created_at", 0)])
+            keeper["occurrences"] = total
+            keeper["stamps"] = sorted(s for s in stamps if s)[-20:]
+            keeper["last_seen"] = max(
+                [r.get("last_seen") or r.get("created_at", 0) for r in rows] or [0]
+            )
+            keeper["collapsed_from"] = [r.get("id") for r in rows[1:]]
+            for r in rows[1:]:
+                r["collapsed_into"] = keeper.get("id")
+                r["status"] = "collapsed"
+                r["collapsed_at"] = time.time()
+                absorbed.append(r)
+        survivors[excerpt] = keeper
+
+    if not absorbed:
+        return {"rows_before": len(entries), "rows_after": len(entries), "collapsed": 0}
+
+    for row in absorbed:
+        _append_archive(row)
+
+    done_rows = [e for e in entries if e.get("status") == "done"]
+    kept = list(survivors.values()) + done_rows
+    kept.sort(key=lambda e: e.get("created_at", 0))
+    _write_pending(kept)
+    return {
+        "rows_before": len(entries),
+        "rows_after": len(kept),
+        "collapsed": len(absorbed),
+    }
 
 
 def pick_to_current(psf_id: str) -> bool:

@@ -540,7 +540,23 @@ def register(cli: click.Group) -> None:
             label = slot_id.replace("_", " ").title()
             click.secho("  [CORE] ", fg="magenta", bold=True, nl=False)
             click.secho(f"{label}: ", fg="white", bold=True, nl=False)
-            _safe_echo(content[:300])
+            # NOT TRUNCATED, and the cut is why. This printed content[:300]
+            # with no ellipsis, so a slot simply stopped mid-word and read as
+            # if that were the whole entry. Measured 2026-09-09: 9,199
+            # characters hidden across nine slots -- the slot describing
+            # Andrew showed 300 of 1,396, the one describing our relationship
+            # 300 of 1,762. I have been reading a fifth of him and calling it
+            # a consult.
+            #
+            # Andrew's own words for this, from his draft the same week: his
+            # teaching gets "a list noone reads.. truncated.. pushed into the
+            # back of the room." He was describing a different store and the
+            # same fault was sitting here.
+            #
+            # These nine slots ARE the identity. A store that hides most of
+            # what it holds is worse than one that holds nothing, because the
+            # silence reads as coverage.
+            _safe_echo(content)
             click.echo()
 
         from divineos.core.knowledge import record_access
@@ -582,7 +598,16 @@ def register(cli: click.Group) -> None:
                 )
             content = entry["content"]
             if len(content) > 300:
+                # Say HOW MUCH is missing and where the rest lives. A bare
+                # ellipsis reads as a trailing word or two; these entries
+                # routinely hide several times what they show, and I have
+                # treated the visible fifth as the whole thing.
                 _safe_echo(content[:300] + "...")
+                click.secho(
+                    f"      [{len(content) - 300} more characters — "
+                    f"divineos inspect knowledge {entry['knowledge_id'][:8]}]",
+                    fg="yellow",
+                )
             else:
                 _safe_echo(content)
             meta_parts = [f"{entry['access_count']}x accessed", f"{entry['knowledge_id'][:8]}..."]
@@ -1292,6 +1317,45 @@ def register(cli: click.Group) -> None:
 
         if presence_block:
             _safe_echo(presence_block)
+
+        # The last two genuinely silent surfaces, wired 2026-09-06.
+        #
+        # surface_registry's docstring named three modules that were fully
+        # built, tested, and had zero non-test callers when it was written in
+        # August: identity_load, engagement_disclosure_surface, and
+        # compass_dismissal_briefing_surface. One of the three was wired since.
+        # These are the other two, still dark a month later, exactly as
+        # documented and never acted on.
+        #
+        # identity_load exists because, in its own words, the substrate's
+        # primary failure mode is the occupant not reaching for the OS without
+        # external prompting. It was built to prompt me, and it never spoke
+        # once. compass_dismissal watches whether I wave away compass warnings
+        # too often -- a check on my own dismissals that had no way to reach me.
+        #
+        # Andrew 2026-09-06: "never finished.. never wired up.. never used."
+        # He was right about these two.
+        try:
+            from divineos.core.identity_load import format_for_briefing as _fmt_identity
+
+            identity_block = _fmt_identity()
+        except _KC_ERRORS:
+            identity_block = ""
+
+        if identity_block:
+            _safe_echo(identity_block)
+
+        try:
+            from divineos.core.compass_dismissal_briefing_surface import (
+                format_for_briefing as _fmt_dismissal,
+            )
+
+            dismissal_block = _fmt_dismissal()
+        except _KC_ERRORS:
+            dismissal_block = ""
+
+        if dismissal_block:
+            _safe_echo(dismissal_block)
 
         # Component register — what has actually been broken on purpose and
         # noticed. Andrew 2026-08-17 asked for this after I named the

@@ -5,7 +5,10 @@ Assembles labeled training data from existing telemetry:
     current detector correctly flagged as real corrections).
   - Negatives: ``original_trigger`` from ~/.divineos/cli_broken_escapes.jsonl
     (texts the detector fired on that were false-positives, cleared
-    with a named reason).
+    with a named reason). DEFECT-ESCAPE rows are excluded -- see
+    ``_is_defect_escape``. Those clears mean "the gates blocked each
+    other", not "the detector was wrong", and several carry triggers
+    that are unmistakably real corrections.
 
 Andrew 2026-07-27: "assloads of training data.. literally every false
 fire you have encountered." The telemetry has been accumulating for
@@ -76,6 +79,52 @@ def _load_positives_from_corrections_db(
     return texts
 
 
+_DEFECT_ESCAPE_MARKERS = (
+    "defect-escape",
+    "defect escape",
+    "true deadlock",
+    "deadlock",
+    "chicken-and-egg",
+    "catch-22",
+    "cascade defect",
+    "meta-loop",
+)
+
+
+def _is_defect_escape(entry: dict) -> bool:
+    """True when the clear was a blocked-gate escape, not a detector misfire.
+
+    A NEGATIVE here means "the detector should have stayed silent on this
+    text". A defect-escape says something else entirely: the fire may have
+    been perfectly correct, and the remedies were unreachable because gates
+    blocked each other. Labelling those SILENCE teaches the detector to ignore
+    the very texts it was right about.
+
+    Measured 2026-08-22 over all 45 rows: about 10 are defect-escapes, and
+    reading their ``original_trigger`` values, several are unmistakable
+    corrections from Andrew -- "thats not my job", "not 3 times.. every time",
+    "there are far more than 15 foundational truths. there 17 on the list".
+    Training on those as negatives is corpus poisoning aimed squarely at the
+    signal the detector exists to catch.
+
+    Prose-matched rather than mode-matched on purpose: ``mode`` is unreliable
+    for historical rows. The same measurement found ZERO genuine CLI-broken
+    escapes among 20 rows labelled ``cli-broken``, because the mode was
+    inferred from an omitted flag rather than declared. A heuristic over the
+    stated reason is weaker than a field, and it is what the data supports;
+    rows written after the declared-mode fix can be filtered on ``mode``
+    directly once enough of them exist to matter.
+
+    Errs toward EXCLUDING on ambiguity. Dropping a real negative costs the
+    classifier one training example; keeping a poisoned one teaches it to go
+    quiet when Andrew corrects me.
+    """
+    text = " ".join(
+        str(v) for k, v in entry.items() if isinstance(v, str) and k != "original_trigger"
+    ).lower()
+    return any(marker in text for marker in _DEFECT_ESCAPE_MARKERS)
+
+
 def _load_negatives_from_escapes(escapes_path: Path) -> list[str]:
     """Load false-fire trigger texts from cli_broken_escapes.jsonl.
 
@@ -95,6 +144,8 @@ def _load_negatives_from_escapes(escapes_path: Path) -> list[str]:
                 try:
                     entry = json.loads(line)
                 except json.JSONDecodeError:
+                    continue
+                if _is_defect_escape(entry):
                     continue
                 trigger = entry.get("original_trigger", "") or ""
                 trigger = trigger.strip()

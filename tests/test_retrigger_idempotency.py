@@ -86,16 +86,32 @@ class TestExtractIdempotencyMarker:
         assert result.exit_code == 0, f"first run failed: {result.output}"
         assert _marker_path().exists(), "marker should be written after successful run"
 
-    def test_second_run_without_force_skips(self, runner):
+    def test_second_run_never_skips(self, runner):
+        """INVERTED 2026-08-24. This asserted the opposite until the skip-guard
+        was removed at Andrew's instruction:
+
+            "at no point should anything be skipping extraction. so thats the
+            culprit.. whatever is telling you 'you ran extraction 8 hours ago
+            so skip it' needs removed completely"
+
+        Cost that removed it: a stale marker made extract a silent no-op for
+        eight hours -- zero knowledge rows for the whole day until --force. The
+        guard justified itself by a Stop hook that no longer fires extract;
+        that hook's own line 13 reads "used to call", past tense.
+
+        The marker is still WRITTEN (it is what the pre-compaction trigger
+        reads); what is gone is any path where its presence suppresses a run.
+        """
         runner.invoke(cli, ["init"])
         runner.invoke(cli, ["extract", "--session-id", "test-2a"])
         assert _marker_path().exists()
 
-        # Second run should skip — no new extraction.
         result = runner.invoke(cli, ["extract", "--session-id", "test-2b"])
         assert result.exit_code == 0
-        assert "already ran" in result.output.lower()
-        assert "Knowledge extracted" not in result.output
+        assert "already ran" not in result.output.lower(), (
+            "the skip-guard is back: extract refused to run because a marker "
+            "existed. It must never skip -- see the docstring above."
+        )
 
     def test_force_flag_bypasses_guard(self, runner):
         runner.invoke(cli, ["init"])
@@ -108,16 +124,21 @@ class TestExtractIdempotencyMarker:
         assert "Knowledge extracted" in result.output
 
     def test_force_flag_keeps_marker_set(self, runner):
-        """After --force re-runs, the marker should still be there
-        (so a third run without --force still skips)."""
+        """After --force re-runs, the marker should still be there.
+
+        The marker survives because the pre-compaction trigger reads it. Its
+        second job -- suppressing later runs -- was removed 2026-08-24; the
+        third-run assertion below is inverted from what it once checked. See
+        test_second_run_never_skips for the account.
+        """
         runner.invoke(cli, ["init"])
         runner.invoke(cli, ["extract"])
         runner.invoke(cli, ["extract", "--force"])
         assert _marker_path().exists()
 
-        # Third run (no force) skips.
+        # Third run, no --force: still runs. The marker records, it does not gate.
         result = runner.invoke(cli, ["extract"])
-        assert "already ran" in result.output.lower()
+        assert "already ran" not in result.output.lower()
 
     def test_clearing_marker_allows_rerun(self, runner):
         """Simulates what load-briefing.sh does on SessionStart: clear

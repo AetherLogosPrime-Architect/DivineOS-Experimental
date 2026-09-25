@@ -319,6 +319,7 @@ def _empty_findings_log() -> dict[str, list]:
         "authority_substitution": [],
         "constraint_disownership": [],
         "unverified_claim": [],
+        "mechanism_claim": [],
         "care_dismissal": [],
         "andrew_operator_shape": [],
         "harm_acknowledgment": [],
@@ -1194,6 +1195,34 @@ def run_audit(
     except _ERRORS:
         pass
 
+    # Mechanism-claim: a CAUSAL claim -- why something happened, what is
+    # broken, how two things relate -- asserted in fact-grammar with no
+    # measurement beside it. Sibling to unverified_claim above, which guards
+    # external STATE; this guards causal MECHANISM, the class that detector
+    # cannot see because it touches no push/merge/deploy verb.
+    #
+    # SURFACES, NEVER BLOCKS. Andrew 2026-08-24: "having a hypothesis you just
+    # made up based on assumptions is perfectly fine.. stating it as fact is
+    # the issue.. its about recognizing what the difference is, not removing
+    # it." Gating here would buy accuracy by suppressing the faculty that
+    # finds things.
+    #
+    # WIRED 2026-08-24, one day after the module was written, and only because
+    # test_every_detector_file_is_orchestrator_referenced failed the full suite.
+    # Andrew named this exact shape: "you wire up stuff to find the stuff that
+    # isnt wired up.. and never wire it up lol." The contract test is what
+    # closed it, not my remembering to.
+    try:
+        from divineos.core.operating_loop.mechanism_claim_detector import (
+            unbacked_claims,
+        )
+
+        findings_log["mechanism_claim"] = _run_detector(
+            "mechanism_claim", unbacked_claims, last_assistant_text
+        )
+    except _ERRORS:
+        pass
+
     try:
         from divineos.core.operating_loop.linguistic_drift_detector import (
             detect_linguistic_drift,
@@ -1782,7 +1811,33 @@ def run_audit(
             # asked for and rooms are what I gave him instead. A reply that
             # opens in vocabulary he cannot read fails here even when its
             # rooms are perfect.
-            _raw_pf = check_translation_first(last_assistant_text)
+            # MEASURED ON THE CLOSING MESSAGE, not the whole turn. Fixed
+            # 2026-08-25 after this gate reported 42 document-marks on a closing
+            # message carrying ZERO of them. `last_assistant_text` joins every
+            # assistant text record since the last user message, so in a long
+            # agentic turn it sweeps in the shop-floor narration between tool
+            # calls — commit hashes, counts, backticked filenames — which is the
+            # register Andrew has said is CORRECT while working, and which is
+            # not a reply to him at all.
+            #
+            # This is why the file's own comment says every fire "arrived as a
+            # full rewrite": the composer rewrites a closing message that was
+            # already clean, because the marks sit where the rewrite cannot
+            # reach. A gate measuring the wrong text teaches the wrong lesson
+            # every time it fires, and it fires correctly-looking.
+            #
+            # The other detectors keep the whole-turn view on purpose — a
+            # fabricated wallclock or a substitution claim anywhere in the turn
+            # is still worth catching. Only the question "is this REPLY shaped
+            # like a document" needed the narrower text.
+            #
+            # NOT CHANGED, and named rather than silently left: the room-shape
+            # gate below still reads the whole turn. It did not fire here (this
+            # one wins the rail and suppresses it), so I have no measurement of
+            # whether it has the same defect. Guessing on a second gate from one
+            # gate's evidence is the shape that cost me the venv tonight.
+            _pf_text = texts.final_assistant_text or last_assistant_text
+            _raw_pf = check_translation_first(_pf_text)
             if _raw_pf:
                 # Plain-first wins the rail. Reporting a room-shape complaint
                 # on top would bury the one that matters under the one I have

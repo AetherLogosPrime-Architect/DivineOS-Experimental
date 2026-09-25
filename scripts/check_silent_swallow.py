@@ -41,9 +41,11 @@ so growth stops while cleanup happens incrementally.
 
 from __future__ import annotations
 
+import ast
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 # Patterns — each is (compiled_regex, human_name)
 PY_PATTERNS = [
@@ -206,6 +208,39 @@ def _line_is_comment(line: str, path: str) -> bool:
     return False
 
 
+def _docstring_lines(path: str) -> set[int]:
+    """Line numbers a Python file spends inside a string literal.
+
+    THE SAME LESSON, ONE FORM SHORT. ``_line_is_comment`` above exists
+    because this check once fired on a ``#`` comment that DESCRIBED the bug
+    it hunts. It covered ``#`` and stopped there, so prose in a docstring
+    walked straight past it — and on 2026-08-25 it flagged
+    ``hook_surfaces.py`` for a docstring paragraph explaining why a shell
+    hook's bare swallow was the defect being migrated away from. Writing
+    down what a defect looks like is not committing it. That is the
+    mention-versus-use boundary this substrate has now confused at least
+    four times, in four different instruments.
+
+    Fails toward FLAGGING, deliberately. If the file cannot be read or
+    parsed, this returns an empty set and the line gets scanned as before:
+    a false positive is a conversation, a false negative is a silent
+    swallow shipped by the swallow-checker.
+    """
+    if not path.endswith(".py"):
+        return set()
+    try:
+        tree = ast.parse(Path(path).read_text(encoding="utf-8", errors="replace"))
+    except (OSError, SyntaxError, ValueError):
+        return set()
+
+    covered: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            end = node.end_lineno or node.lineno
+            covered.update(range(node.lineno, end + 1))
+    return covered
+
+
 def find_violations() -> list[str]:
     """Return human-readable violation lines. Empty list if clean."""
     violations: list[str] = []
@@ -218,8 +253,9 @@ def find_violations() -> list[str]:
         if path.endswith("check_silent_swallow.py"):
             continue
         patterns = _patterns_for_file(path)
+        in_string = _docstring_lines(path)
         for line_no, line, prev_line in lines:
-            if _line_is_comment(line, path):
+            if _line_is_comment(line, path) or line_no in in_string:
                 continue
             # Fail-soft excuse can be on the SAME line (trailing comment)
             # or on the IMMEDIATELY PRIOR added line (more natural for

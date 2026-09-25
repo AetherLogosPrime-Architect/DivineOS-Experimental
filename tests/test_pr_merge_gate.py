@@ -6,6 +6,8 @@ against guardrail-touching PRs that lack an External-Review trailer.
 
 from __future__ import annotations
 
+import json
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from divineos.core import pr_merge_gate
@@ -306,3 +308,62 @@ class TestEmbeddedAuditBody:
             assert reason is not None
             assert "BLOCKED" in reason
             assert "pr-merge-check 99" in reason
+
+
+class TestPrBodyTrailer:
+    """Structural backing for knowledge 75cfce90 — documenting-as-doing.
+
+    Nothing in this codebase checked the body already stored on a PR, only
+    bodies about to be written. The CI fallback in
+    scripts/ci_check_guardrail_trailer.sh greps the stored body for a line
+    STARTING `External-Review:`, and PR #432 carried PROSE about needing a
+    trailer in exactly that field. A human read of the body sees the words
+    and says yes; the regex sees the position and says no.
+    """
+
+    @staticmethod
+    def _gh(body: str, rc: int = 0, stdout: str | None = None):
+        """Fake `gh pr view --json body`."""
+        payload = stdout if stdout is not None else json.dumps({"body": body})
+        return SimpleNamespace(returncode=rc, stdout=payload, stderr="")
+
+    def test_prose_about_a_trailer_is_not_a_trailer(self) -> None:
+        """The exact #432 body shape. This is the case that cost a session."""
+        prose = (
+            "`213b2dea` touches four guardrail files (`_lib.sh`, `compass-check.sh`) "
+            "and needs an `External-Review` trailer before merge. "
+            "Binding hash for the round: `tree-hash: 38900030adbbcec0c4c444a4c6cb49838c312901`."
+        )
+        with patch.object(pr_merge_gate.subprocess, "run", return_value=self._gh(prose)):
+            assert pr_merge_gate.pr_body_trailer(432) is None
+
+    def test_line_initial_trailer_is_found(self) -> None:
+        body = "Some description.\n\nExternal-Review: round-f97fa965d232\n"
+        with patch.object(pr_merge_gate.subprocess, "run", return_value=self._gh(body)):
+            assert pr_merge_gate.pr_body_trailer(432) == "round-f97fa965d232"
+
+    def test_trailer_with_tree_hash_suffix_is_found(self) -> None:
+        body = "External-Review: round-abc123 tree-hash:" + "a" * 40 + "\n"
+        with patch.object(pr_merge_gate.subprocess, "run", return_value=self._gh(body)):
+            assert pr_merge_gate.pr_body_trailer(432) == "round-abc123"
+
+    def test_indented_trailer_does_not_count(self) -> None:
+        """Position is the whole point; the CI grep anchors to line start."""
+        body = "Notes:\n    External-Review: round-abc123\n"
+        with patch.object(pr_merge_gate.subprocess, "run", return_value=self._gh(body)):
+            assert pr_merge_gate.pr_body_trailer(432) is None
+
+    def test_gh_failure_returns_none_not_false(self) -> None:
+        """Could-not-look must not be reported as no-trailer.
+
+        Conflating those is its own failure mode, and one hit repeatedly in
+        other shapes: a check returning clean over a target it cannot see.
+        """
+        with patch.object(pr_merge_gate.subprocess, "run", return_value=self._gh("", rc=1)):
+            assert pr_merge_gate.pr_body_trailer(432) is None
+        with patch.object(pr_merge_gate.subprocess, "run", side_effect=OSError("no gh")):
+            assert pr_merge_gate.pr_body_trailer(432) is None
+        with patch.object(
+            pr_merge_gate.subprocess, "run", return_value=self._gh("", stdout="not json")
+        ):
+            assert pr_merge_gate.pr_body_trailer(432) is None

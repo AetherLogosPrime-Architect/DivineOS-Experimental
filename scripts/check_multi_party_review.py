@@ -334,7 +334,6 @@ def validate(
     # in favour of the content-binding check, which answers the same
     # question exactly. Kept so existing callers do not break.
     now: float | None = None,  # noqa: ARG001
-
     touched_override: set[str] | None = None,
     diff_hash_override: str | None = None,
     tree_hash_override: str | None = None,
@@ -702,7 +701,17 @@ def _run_pre_push(stdin_text: str, strict: bool = False) -> int:
             "  3. Re-push.\n"
             "\nNote: commits on feature branches are NOT blocked by this gate.\n"
             "      Push them to feature branches freely so audit-vantage can review.\n"
-            "      Only push-to-main is gated.",
+            "      Only push-to-main is gated.\n"
+            "\nTHERE IS NO ENV-VAR BYPASS FOR THIS ONE, and that is deliberate.\n"
+            "      DIVINEOS_SKIP_MULTIPARTY_CHECK reaches the feature-branch\n"
+            "      advisory further down the pre-push hook. It has never been read\n"
+            "      here. Said out loud because the hook's own header implied\n"
+            "      otherwise for its whole life, so anyone blocked here went\n"
+            "      looking for a door that was painted on -- and the next door\n"
+            "      along skips the test suite too.\n"
+            "      Andrew 2026-08-29 on why review is blanket: dropping the audit\n"
+            "      for benign-looking changes is how something non-benign gets\n"
+            "      tucked in beside them.",
             file=sys.stderr,
         )
         return 1

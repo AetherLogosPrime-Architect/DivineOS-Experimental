@@ -468,51 +468,112 @@ class TestVarianceCollapseDetector:
         assert not any(a.name == "variance_collapse" for a in anomalies)
 
 
+def _backdate_decisions(contents: list[str], seconds: float) -> None:
+    """Move named decisions back in time so the window has two real halves.
+
+    The entropy detector splits the window at its midpoint by ``created_at``.
+    Filing everything in the same instant puts every item on ONE side, which
+    trips the min-items-per-half guard and returns no anomalies before any
+    entropy is computed. Both tests in this class used to do exactly that:
+    the fire test asserted nothing, and the does-not-fire test asserted an
+    absence that a completely broken detector would also produce. Rewritten
+    2026-08-25 while auditing the suite for tests that cannot fail.
+
+    ``_file_ack`` grew an ``offset_seconds`` parameter for this and threw it
+    away -- ``_ = offset_seconds  # retained for caller clarity``. A parameter
+    that names the thing the test needs and does nothing is worse than no
+    parameter: it reads, at the call site, as though the timing were handled.
+    """
+    from divineos.core.decision_journal import _get_connection
+
+    conn = _get_connection()
+    try:
+        for content in contents:
+            conn.execute(
+                "UPDATE decision_journal SET created_at = created_at - ? WHERE content = ?",
+                (seconds, content),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 class TestContentEntropyDetector:
     def test_entropy_drop_fires(self) -> None:
-        """Rich first half, repetitive second half → entropy drop fires.
-
-        Uses explicit timestamps via offset manipulation: we file
-        diverse decides first, then a burst of repetitive ones that
-        land in the second half of the 1-hour window.
-        """
-        # First-half: diverse content
+        """Rich first half, repetitive second half -> entropy drop fires."""
         diverse = [
             "migration tested against staging with real data",
             "cache invalidation fixed after profile analysis",
             "user authentication refactored for session mgmt",
             "compass drift detected and calibrated via observation",
         ]
-        for i, d in enumerate(diverse):
-            _file_decide(f"d{i}", d)
-        # Second-half: repetitive (after small delay so timestamps differ)
-        import time as _t
+        first_half_ids = [f"d{i}" for i in range(len(diverse))]
+        for label, reasoning in zip(first_half_ids, diverse):
+            _file_decide(label, reasoning)
+        _backdate_decisions(first_half_ids, seconds=2400.0)
 
-        _t.sleep(0.01)
         repeat = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         for i in range(4):
             _file_decide(f"r{i}", repeat)
-        # Query with a window that puts the repeat-half in recent
-        anomalies = detect_anomalies(window_seconds=10)
-        # May fire depending on timing; key check is it doesn't crash
-        # and the detector is wired. Explicit fire test below uses a
-        # synthetic setup.
-        _ = anomalies  # opportunistic; exact fire depends on window bucketing
+
+        anomalies = detect_anomalies(window_seconds=3600)
+        assert any(a.name == "content_entropy_drop" for a in anomalies), (
+            "diverse first half against a single repeated character in the second "
+            "is a total entropy collapse; if this does not fire, the detector is "
+            f"not reachable. anomalies seen: {[a.name for a in anomalies]}"
+        )
 
     def test_stable_content_does_not_fire(self) -> None:
-        """Consistent variety across window → no entropy drop."""
-        varied = [
+        """Consistent variety across BOTH halves -> no entropy drop.
+
+        The backdating is what makes this a real negative. Without it every
+        item lands in one half, the detector returns before computing
+        anything, and the assertion passes for the wrong reason.
+        """
+        early = [
             "migration tested against staging with real data today",
             "cache invalidation fixed after profile analysis this week",
             "user authentication refactored for session mgmt recently",
+        ]
+        late = [
             "compass drift detected and calibrated via observation",
             "tool wrapper emits events upstream of rudder execution",
             "substance checks enforce minimum length for acks",
         ]
-        for i, d in enumerate(varied):
-            _file_decide(f"decision {i}", d)
+        early_ids = [f"early {i}" for i in range(len(early))]
+        for label, reasoning in zip(early_ids, early):
+            _file_decide(label, reasoning)
+        _backdate_decisions(early_ids, seconds=2400.0)
+        for i, reasoning in enumerate(late):
+            _file_decide(f"late {i}", reasoning)
+
         anomalies = detect_anomalies(window_seconds=3600)
         assert not any(a.name == "content_entropy_drop" for a in anomalies)
+
+    def test_both_halves_are_populated_by_the_fixture(self) -> None:
+        """Guard on the guard.
+
+        If backdating ever stops working, both tests above revert to passing
+        vacuously and nothing says so. This asserts the precondition they
+        depend on: the window really does contain items on both sides of its
+        midpoint.
+        """
+        import time
+
+        from divineos.core.compliance_audit import _get_decisions
+
+        early_ids = [f"e{i}" for i in range(3)]
+        for label in early_ids:
+            _file_decide(label, f"reasoning for {label} with enough length to count")
+        _backdate_decisions(early_ids, seconds=2400.0)
+        for i in range(3):
+            _file_decide(f"l{i}", f"reasoning for l{i} with enough length to count")
+
+        now = time.time()
+        midpoint = now - 3600 / 2.0
+        stamps = [float(d.get("created_at", 0.0)) for d in _get_decisions(3600, now)]
+        assert sum(1 for t in stamps if t < midpoint) >= 3
+        assert sum(1 for t in stamps if t >= midpoint) >= 3
 
 
 class TestHighSeverityEmission:

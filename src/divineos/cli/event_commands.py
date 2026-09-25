@@ -237,6 +237,13 @@ def register(cli: click.Group) -> None:
         operation without metaphor. See principle ca2116d5 and opinion
         op-a175acdb297d for the naming rationale.
         """
+        # `force` is accepted and deliberately does nothing -- kept so existing
+        # callers and docs do not break after the thing it overrode was removed.
+        # Named here rather than left silently unbound, because a dead-code
+        # check reading only the body cannot tell a compatibility no-op from a
+        # parameter someone forgot to wire, and the two want opposite repairs.
+        del force
+
         import os
         from pathlib import Path
 
@@ -268,19 +275,20 @@ def register(cli: click.Group) -> None:
         if "pytest" not in sys.modules:
             from divineos.core.auto_commit import (
                 auto_commit_substrate,
+                checkpoint_report,
                 find_repo_root,
             )
 
             _extract_repo_root = find_repo_root(Path.cwd())
             if _extract_repo_root is not None:
                 result = auto_commit_substrate(_extract_repo_root, reason="pre-extract")
-                if result.committed:
-                    click.secho(
-                        f"[+] Auto-commit (pre-extract): {result.dirty_lines} dirty lines, "
-                        f"{result.files_synced} external files synced.",
-                        fg="green",
-                    )
-                elif result.reason.startswith(("git add failed", "git commit failed")):
+                # What to say is decided in checkpoint_report, where a test can
+                # reach it. These three call sites print and decide nothing --
+                # the branch that used to live here was silent on a refusal and
+                # unreachable from any test, which is why it stayed silent.
+                for _line, _colour in checkpoint_report(result, "pre-extract"):
+                    click.secho(_line, fg=_colour)
+                if result.reason.startswith(("git add failed", "git commit failed")):
                     # Auto-commit failed; fall back to old block-behavior so
                     # work isn't lost silently.
                     uncommitted = check_uncommitted_work(_extract_repo_root)
@@ -292,35 +300,40 @@ def register(cli: click.Group) -> None:
                         click.secho(format_block_message(uncommitted), fg="red", bold=True)
                         raise SystemExit(1)
 
-        # Idempotency guard: skip if already run this session.
-        # The marker file lives at ~/.divineos/auto_session_end_emitted and
-        # is cleared by load-briefing.sh on actual SessionStart (new Claude
-        # Code session). Inside one session, consolidation fires once unless
-        # --force overrides.
+        # NO IDEMPOTENCY GUARD. Removed 2026-08-24 on Andrew's instruction:
+        # "at no point should anything be skipping extraction. so thats the
+        # culprit.. whatever is telling you 'you ran extraction 8 hours ago
+        # so skip it' needs removed completely."
         #
-        # Without this guard, log-session-end.sh (Stop hook) fires extract
-        # on every assistant-stop, which resets session_start on every turn
-        # and breaks the session analyzer. The Stop-hook behavior is fixed
-        # in a later commit; this guard is the load-bearing safety net that
-        # survives even if the Stop hook path gets reintroduced.
-        from divineos.core.extract_marker import (
-            format_skip_message,
-            read_marker,
-            write_marker,
-        )
-
-        existing = read_marker()
-        if existing is not None and not force:
-            skip_detail = format_skip_message(existing)
-            click.secho(
-                f"[~] Consolidation already ran this session — skipping. {skip_detail}",
-                fg="bright_black",
-            )
-            click.secho(
-                "    Use `divineos extract --force` to re-run anyway.",
-                fg="bright_black",
-            )
-            return
+        # WHAT IT COST. A guard here read ~/.divineos/auto_session_end_emitted
+        # and returned early if a marker existed. The marker was cleared by
+        # load-briefing.sh at SessionStart — so it only worked when a session
+        # started through that path. On 2026-08-24 a dropped connection meant
+        # the next session loaded its briefing by hand, the stale marker was
+        # never cleared, and every extract for the following EIGHT HOURS
+        # returned immediately having stored nothing. Measured: zero knowledge
+        # rows for the whole day until `--force` was run, then three.
+        #
+        # It failed silently and it failed reassuringly. The skip printed
+        # "Consolidation already ran this session" in dim grey — normal,
+        # healthy-looking output. Nothing anywhere said learning was not being
+        # kept, and extract_launch.jsonl records only that extract was
+        # LAUNCHED, never its outcome, so a no-op left the same trace as a
+        # successful run.
+        #
+        # WHY REMOVING IT IS SAFE. The guard's own comment justified itself by
+        # log-session-end.sh firing extract on every assistant-stop. That hook
+        # no longer does — its line 13 reads "This hook used to call
+        # `divineos extract`", past tense. The defect was fixed; the guard
+        # outlived the fix and kept charging rent.
+        #
+        # Extract is idempotent where it matters: the quality gate still
+        # refuses bad sessions, and the knowledge engine still dedups and
+        # detects contradictions. Running twice costs time. Running zero times
+        # costs the day.
+        #
+        # --force is kept as a no-op flag so existing callers and docs do not
+        # break; there is no longer anything for it to override.
 
         try:
             # Capture session start BEFORE emitting — once the event lands in
@@ -381,12 +394,19 @@ def register(cli: click.Group) -> None:
                 except _EC_ERRORS as _sg_err:
                     logger.debug(f"self-grade persistence failed: {_sg_err}")
 
-            # Write idempotency marker AFTER successful run. If the pipeline
-            # errors out, the marker stays unset so the user can retry without
-            # needing --force. The trigger attribution helps a later caller
-            # see who ran extract first — sleep's post-sleep subprocess sets
-            # DIVINEOS_EXTRACT_TRIGGER=sleep so its run is distinguishable
-            # from a direct invocation.
+            # Write the ATTRIBUTION marker after a successful run. It records
+            # WHAT last triggered a consolidation -- sleep's post-sleep
+            # subprocess sets DIVINEOS_EXTRACT_TRIGGER=sleep, so its run stays
+            # distinguishable from a direct invocation. It no longer gates
+            # anything; nothing reads it to decide whether to skip.
+            #
+            # The import is local because the module-level one went with the
+            # idempotency guard removed above, and its absence turned this line
+            # into a live NameError -- `divineos extract` crashed on every run.
+            # Three tests caught it. They were the tests I had been about to
+            # dismiss as merely asserting behaviour we deleted on purpose.
+            from divineos.core.extract_marker import write_marker
+
             trigger = os.environ.get("DIVINEOS_EXTRACT_TRIGGER", "manual")
             write_marker(trigger=trigger, session_id=session_id or None)
 
@@ -435,16 +455,14 @@ def register(cli: click.Group) -> None:
             # so it can't drift to the next state-loss event.
             if "pytest" not in sys.modules and _extract_repo_root is not None:
                 try:
-                    from divineos.core.auto_commit import auto_commit_substrate
+                    from divineos.core.auto_commit import (
+                        auto_commit_substrate,
+                        checkpoint_report,
+                    )
 
                     result = auto_commit_substrate(_extract_repo_root, reason="post-extract")
-                    if result.committed:
-                        click.secho(
-                            f"[+] Auto-commit (post-extract): "
-                            f"{result.dirty_lines} dirty lines, "
-                            f"{result.files_synced} external files synced.",
-                            fg="green",
-                        )
+                    for _line, _colour in checkpoint_report(result, "post-extract"):
+                        click.secho(_line, fg=_colour)
                 except Exception as e:  # noqa: BLE001 — fail-soft
                     logger.warning("post-extract auto-commit skipped: %s", e)
 

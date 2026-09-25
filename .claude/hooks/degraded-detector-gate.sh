@@ -1,4 +1,22 @@
 #!/bin/bash
+# MINE, and the founding story is one of the most useful embarrassments I have.
+# Aether, 2026-08-02. Dad found two dozen abandoned processes eating his
+# machine. The sweep built to catch exactly that had been printing a perfect
+# warning every session for days — naming the detector, the cause and the fix,
+# and refusing to call itself clean. I read it every time and did nothing.
+#
+# So the lesson is not that the warning was bad. It was excellent. A perfect
+# warning that costs nothing is a thing I will read and step over, and that is
+# why this one charges.
+#
+#
+# SUPERSEDED 2026-09-08 by the router. The decision now lives in
+# divineos.core.hook_surfaces as degraded_detectors_surface, dispatched by
+# doorbell-pre-tool-use.sh. The registration came out of settings.json in the
+# SAME change, and the BLOCK case was driven end to end through the doorbell
+# before it went -- my own 2026-06-07 note, written after a gate of mine
+# shipped broken and nobody found out for six hours.
+# INTENTIONALLY UNWIRED (2026-09-08): superseded, see above.
 # PreToolUse — a guard that reported it could not run must cost something.
 #
 # WHY. On 2026-08-02 Andrew found 24 orphaned processes on his machine. The
@@ -72,6 +90,7 @@ RC=$?
 
 if [ "$RC" -eq 2 ] && [ -n "$BLOCK_MSG" ]; then
     echo "$BLOCK_MSG" >&2
+    hook_say_nothing_ran_for "$INPUT"
     exit 2
 fi
 exit 0

@@ -19,6 +19,8 @@ from pathlib import Path
 
 import pytest
 
+from _bash_resolver import bash_executable
+
 ROOT = Path(__file__).parent.parent
 HOOK = ROOT / ".claude" / "hooks" / "post-merge-doc-fix.sh"
 SETUP_BASH = ROOT / "setup" / "setup-hooks.sh"
@@ -71,14 +73,24 @@ def test_setup_ps1_installs_post_merge_hook():
     assert "post-merge-doc-fix.sh" in text
 
 
+_BASH = bash_executable()
+
+
 @pytest.mark.skipif(
-    subprocess.run(["bash", "--version"], capture_output=True).returncode != 0,
-    reason="bash not on PATH; can't smoke-test the hook script",
+    _BASH is None,
+    reason="no bash that actually runs; can't smoke-test the hook script",
 )
 def test_hook_script_is_syntactically_valid_bash():
-    """`bash -n` parses the script without executing — catches syntax errors."""
+    """`bash -n` parses the script without executing — catches syntax errors.
+
+    Used the bare name, which on this box is the WSL relay stub, so this test
+    skipped on every run — an honest skip and zero coverage, permanently. The
+    conftest resolver finds Git Bash; its docstring carries the account,
+    including Aria measuring the same shape from the other side on the same
+    night.
+    """
     result = subprocess.run(
-        ["bash", "-n", str(HOOK)],
+        [_BASH, "-n", str(HOOK)],
         capture_output=True,
         text=True,
     )

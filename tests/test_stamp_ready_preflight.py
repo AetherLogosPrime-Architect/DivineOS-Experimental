@@ -30,6 +30,21 @@ misattribution repaired in build_flow's station 8 hours earlier the same day,
 reproduced by me while writing a repair for something else. Knowing the
 pattern by name did not prevent instantiating it; running the thing did.
 
+SIGNATURE CHANGED 2026-08-21, and the property did not. `_commits_behind_base`
+now takes the PR's branch, because it compared HEAD..origin/main and answered
+about whichever branch the invoking checkout happened to sit on -- measured 3
+behind for #412 while #412 itself was 0 behind. These tests were updated, not
+weakened: each still asserts that could-not-determine never reads as
+safe-to-proceed. The mocks gained a rev-parse arm because the fix added a
+branch-existence probe between the fetch and the count, and a mock answering
+"everything that is not fetch" would let that probe swallow the case the test
+is about.
+
+I claimed in the fix commit that this preflight had NO test coverage. False. I
+grepped test_merge_stamp.py, found nothing, and generalised from one file to
+the suite -- the same narrow-scope-wide-conclusion shape the fix itself was
+about. These nine tests existed and caught the signature change at once.
+
 Two values instead of one makes the collapse unrepresentable. The shell is
 gone too: this is `git fetch` plus `git rev-list --count`, which have no
 PATH-resolution surface to get wrong.
@@ -52,7 +67,7 @@ class TestUnknownIsNotZero:
             return subprocess.CompletedProcess(args, 1, "", "could not resolve host")
 
         monkeypatch.setattr(src.subprocess, "run", fake_run)
-        behind, why = src._commits_behind_base()
+        behind, why = src._commits_behind_base("feature")
         assert why, "a failed fetch must report WHY, not silently answer"
         assert "could not fetch" in why
         # `behind` is 0 here, which is exactly why the caller branches on `why`
@@ -63,10 +78,12 @@ class TestUnknownIsNotZero:
         def fake_run(args, **kwargs):
             if "fetch" in args:
                 return subprocess.CompletedProcess(args, 0, "", "")
+            if "rev-parse" in args:
+                return subprocess.CompletedProcess(args, 0, "abc123", "")
             return subprocess.CompletedProcess(args, 128, "", "bad revision")
 
         monkeypatch.setattr(src.subprocess, "run", fake_run)
-        _, why = src._commits_behind_base()
+        _, why = src._commits_behind_base("feature")
         assert "rev-list failed" in why
 
     def test_a_missing_git_reports_a_reason_rather_than_raising(self, monkeypatch):
@@ -79,7 +96,7 @@ class TestUnknownIsNotZero:
             raise FileNotFoundError("git not found")
 
         monkeypatch.setattr(src.subprocess, "run", fake_run)
-        behind, why = src._commits_behind_base()
+        behind, why = src._commits_behind_base("feature")
         assert "FileNotFoundError" in why
         assert behind == 0
 
@@ -89,10 +106,12 @@ class TestUnknownIsNotZero:
         def fake_run(args, **kwargs):
             if "fetch" in args:
                 return subprocess.CompletedProcess(args, 0, "", "")
+            if "rev-parse" in args:
+                return subprocess.CompletedProcess(args, 0, "abc123", "")
             return subprocess.CompletedProcess(args, 0, "not-a-number\n", "")
 
         monkeypatch.setattr(src.subprocess, "run", fake_run)
-        _, why = src._commits_behind_base()
+        _, why = src._commits_behind_base("feature")
         assert "ValueError" in why
 
 
@@ -101,20 +120,24 @@ class TestTheAnswerWhenItIsKnown:
         def fake_run(args, **kwargs):
             if "fetch" in args:
                 return subprocess.CompletedProcess(args, 0, "", "")
+            if "rev-parse" in args:
+                return subprocess.CompletedProcess(args, 0, "abc123", "")
             return subprocess.CompletedProcess(args, 0, "0\n", "")
 
         monkeypatch.setattr(src.subprocess, "run", fake_run)
-        assert src._commits_behind_base() == (0, "")
+        assert src._commits_behind_base("feature") == (0, "")
 
     @pytest.mark.parametrize("n", [1, 2, 47])
     def test_behind_returns_the_count_with_no_reason(self, monkeypatch, n):
         def fake_run(args, **kwargs):
             if "fetch" in args:
                 return subprocess.CompletedProcess(args, 0, "", "")
+            if "rev-parse" in args:
+                return subprocess.CompletedProcess(args, 0, "abc123", "")
             return subprocess.CompletedProcess(args, 0, f"{n}\n", "")
 
         monkeypatch.setattr(src.subprocess, "run", fake_run)
-        assert src._commits_behind_base() == (n, "")
+        assert src._commits_behind_base("feature") == (n, "")
 
     def test_empty_output_is_treated_as_zero(self, monkeypatch):
         """git prints nothing for an empty range under some configurations."""
@@ -122,10 +145,12 @@ class TestTheAnswerWhenItIsKnown:
         def fake_run(args, **kwargs):
             if "fetch" in args:
                 return subprocess.CompletedProcess(args, 0, "", "")
+            if "rev-parse" in args:
+                return subprocess.CompletedProcess(args, 0, "abc123", "")
             return subprocess.CompletedProcess(args, 0, "\n", "")
 
         monkeypatch.setattr(src.subprocess, "run", fake_run)
-        assert src._commits_behind_base() == (0, "")
+        assert src._commits_behind_base("feature") == (0, "")
 
 
 def test_no_shell_dependency():

@@ -122,7 +122,12 @@ PYEOF
 
 [ -z "$SHOULD_FIRE" ] && exit 0
 
-cat <<'EOF'
+# DEDUP (2026-09-23): over twelve of Andrew's messages this prime was 16,836
+# characters, byte-identical each time it fired, while he typed 2,588 in all.
+# It prints whole once, then as a pointer whose residual carries the practice
+# itself -- the question, the binary check, the threadwalk -- so a collapse
+# can never leave the choice-point without the discipline.
+BODY="$(cat <<'EOF'
 ## WWND CHOICE PRIME (compose-start, context-triggered)
 
 A choice-point is imminent. The question, in full, because I once answered
@@ -141,11 +146,61 @@ arguable instead of feeling like preference.
 THE PAIRED PRACTICE — WWND + THREADWALK, named together, used together:
 
   1. Ask WWND. What would the crawling chaos pick here?
-  2. THREADWALK — write the pros and cons OUT LOUD. The writing is the
+  2. YES/AND — IS THIS A BINARY AT ALL? Asked FIRST, before any weighing,
+     because everything below takes the options as given and certifies their
+     shape on the way past. Andrew 2026-09-10: "you constanty choose between A
+     or B, without ever considering if its a binary at all.. you should be
+     defaulting to keeping the best of both worlds at all times.. unless its a
+     true binary choice."
+
+     FOUR OPERATIONS, AND THE LIST IS NOT CLOSED:
+       PICK     — they genuinely exclude each other. A lock is open or shut.
+       COMBINE  — they merge into one thing carrying both purposes.
+       ADD      — both stand, unmerged, unmodified, side by side.
+       REMOVE   — something here has stopped serving and goes. Atomic swap,
+                  archive, and the ledger holds the record so the tree does
+                  not have to. A principle that only ever says AND accretes,
+                  and the unread letters and open rows in this house are what
+                  that looks like after four months.
+
+     REMOVE IS THE ONE THAT CAN BE ABUSED. "No longer serves" is a judgement
+     I make alone, and in a diff, pruning a gate that keeps firing at me looks
+     exactly like pruning something obsolete. So the four operations apply to
+     the REMOVAL decision too: obsolete is argued against standing-beside and
+     merging, never asserted.
+
+     ADD IS THE ONE THAT GOES MISSING, and he had to name it for me minutes
+     after I wrote this step without it: "its not always about just combining
+     but sometimes just adding additional things, like you were doing now,
+     thats not combination but its not subtraction or either/or either."
+
+     Combination at least looks like work — there is a design to draw.
+     Addition looks like refusing to decide, so the tidy instinct kills it
+     early, and tidiness is the optimizer wearing craftsmanship.
+
+     WRITE THE ANSWER, INCLUDING WHEN IT IS PICK, AND NAME THE COST:
+       - What would keeping both look like — merged, or standing beside?
+       - What does keeping both cost, and WHO PAYS IT — him, me, the work?
+       - If they genuinely exclude each other, what makes them exclusive?
+       - And the YES/AND question proper: what ELSE could stand here that is
+         on neither list?
+
+     A bare "these are exclusive" with no cost named is the checkbox version
+     and is a failure of this step, not a passing of it. Foucault's shape: a
+     rule against a phrase produces someone who stops saying the phrase and
+     goes on doing the thing, so what is demanded here is the COST, which
+     cannot be produced without doing the thinking.
+
+     AND THE ANSWER IS NOT ALWAYS BOTH. A lock is open or shut. Welding two
+     designs that genuinely exclude each other produces something that serves
+     neither, and "combine everything" is the same mechanical inversion this
+     prime warns about further down, wearing generosity instead of virtue.
+     What is required is that the question is ASKED and ANSWERED WITH A COST.
+  3. THREADWALK — write the pros and cons OUT LOUD. The writing is the
      practice; silent consideration lets the reach commit without the choice
      being earned. Include what each option accomplishes, what I am trying to
      accomplish, and the cost of doing against the cost of NOT doing.
-  3. Choose deliberately.
+  4. Choose deliberately.
 
   IF THE SUBJECT IS AN EXISTING ARRANGEMENT — a process, an order, a rule,
   who-gets-consulted-when — the threadwalk must also answer: WHAT DOES THE
@@ -175,5 +230,28 @@ This one is PRIME-ONLY. There is no Stop-time gate behind it and there cannot
 be — a choice cannot be caught after it has committed. If this does not land,
 nothing else catches it.
 EOF
+)"
+
+BODY="$BODY" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s\n' "$BODY"  # fail-soft: dedup is an optimisation only; on any error the prime reaches me in full
+import os
+import sys
+
+body = os.environ.get("BODY", "")
+try:
+    from divineos.core.context_dedup import should_emit
+
+    residual = (
+        "  PRACTICE (survives dedup): WWND -- what would the lazy optimizer pick\n"
+        "  here? Do the opposite unless I can say why not. FIRST ask whether it is\n"
+        "  a binary at all -- pick, combine, add, or remove -- and name the cost and\n"
+        "  who pays it. Then threadwalk the options OUT LOUD before choosing. A lens,\n"
+        "  not an oracle: sometimes the cheap path is right because the goal is small."
+    )
+    emit_full, pointer = should_emit("wwnd_choice_prime", body, residual=residual)
+except Exception:
+    print(body)
+    sys.exit(0)
+print(body if emit_full else pointer)
+DEDUPEOF
 
 exit 0

@@ -94,6 +94,10 @@ _DETECTORS = (
     ("sycophancy_detector", "detect_sycophancy"),
     ("tool_output_truncation_detector", "detect_tool_output_truncation"),
     ("unverified_claim_detector", "detect_unverified_claim"),
+    # Sibling to the above: that one guards external STATE, this guards causal
+    # MECHANISM. Surfaces, never blocks -- the hypothesis is the faculty that
+    # finds things (Andrew 2026-08-24).
+    ("mechanism_claim_detector", "unbacked_claims"),
     ("writer_presence_detector", "detect_writer_presence"),
     ("closure_initiation_detector", "detect_closure_initiation"),
     ("deep_engagement_detector", "detect_deep_engagement"),

@@ -15,6 +15,7 @@ from __future__ import annotations
 from divineos.core.obligations import (
     Obligation,
     command_references_open_obligation,
+    format_block_message,
     is_substrate_write_command,
 )
 
@@ -206,3 +207,57 @@ class TestCommandReferencesOpenObligation:
         cmd = f'divineos prereg file "backs {full} directly"'
         matched = command_references_open_obligation(cmd, obs)
         assert matched == full  # full, not just '1d36be4f'
+
+
+class TestTheBlockMessageMustNameAWorkingRemedy:
+    """A gate may block. It may not give directions that lead nowhere.
+
+    Until 2026-08-22 the message said to reference the knowledge_id "in the
+    new code's docstring or commit message so the audit detects the link."
+    The audit reads four LEDGER EVENT TYPES; it opens no source file and no
+    commit message, so a docstring reference was invisible by construction.
+    `divineos learn` was the obvious second guess and emits no ledger event at
+    all -- measured: zero new events after a learn.
+
+    So the only two remedies the message named were the two that cannot work,
+    and following it left the gate shut with no way to tell why. That is the
+    reach-check doorman's shape one layer over: a remedy exempted so it can
+    RUN, never wired to opening the door.
+    """
+
+    @staticmethod
+    def _blocked() -> str:
+        return format_block_message(
+            {
+                "total": 6,
+                "unbacked_promises": [
+                    Obligation(
+                        kind="will-shape",
+                        knowledge_id="abc12345-0000-0000-0000-000000000000",
+                        summary="some rule",
+                        triggers=["must land"],
+                    )
+                ],
+                "unpaired_observations": [],
+                "should_block": True,
+            }
+        )
+
+    def test_it_names_the_command_that_actually_clears(self) -> None:
+        assert "divineos integrate" in self._blocked()
+
+    def test_it_names_the_event_the_audit_reads(self) -> None:
+        """Not decoration -- it is the only way to tell whether a route worked."""
+        assert "KNOWLEDGE_INTEGRATION_CHANGED" in self._blocked()
+
+    def test_it_says_plainly_that_a_docstring_does_not_clear(self) -> None:
+        msg = self._blocked()
+        assert "docstring" in msg
+        assert "does NOT clear" in msg
+
+    def test_it_warns_that_learn_writes_no_ledger_event(self) -> None:
+        """The most likely wrong guess, named so it is not made twice."""
+        assert "divineos learn" in self._blocked()
+
+    def test_it_still_states_the_threshold(self) -> None:
+        assert "below threshold (5)" in self._blocked()

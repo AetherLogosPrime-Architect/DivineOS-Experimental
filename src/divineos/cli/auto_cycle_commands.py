@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import time
+from pathlib import Path
 
 import click
 
@@ -70,14 +71,73 @@ def _guess_context_pct() -> float:
         snap = get_context_snapshot()
     except Exception:  # noqa: BLE001 - observability boundary
         return 0.0
-    if not getattr(snap, "pinned", False):
-        return 0.0
+    pinned = bool(getattr(snap, "pinned", False))
     total = getattr(snap, "total_tokens", 0) or 0
-    if not total:
-        return 0.0
-    # 1M-token window is the standard for Claude Opus 4.x; matches the
-    # cap divineos context-tokens uses by default.
-    return float(total) / 1_000_000.0
+
+    if pinned and total:
+        # Live read succeeded. Stamp it so the heartbeat log carries the same
+        # number the decision was made on, then spend it.
+        _stamp_heartbeat()
+        # 1M-token window is the standard for Claude Opus 4.x; matches the
+        # cap divineos context-tokens uses by default.
+        return float(total) / 1_000_000.0
+
+    # LIVE READ FAILED. Fall back to the heartbeat before giving up.
+    #
+    # Added 2026-08-24. This branch used to `return 0.0`, and 0.0 means "3% of
+    # the window used, plenty of room, do not fire." So a sensor that could not
+    # see reported the single most reassuring number available, and the ritual
+    # stayed dark at whatever the real level was. Andrew asked for a heartbeat
+    # "to keep it updated every round" precisely so the decision stops depending
+    # on the sensor being able to see at the one instant it is asked.
+    #
+    # The fallback is deliberately narrow. It accepts only a reading that was
+    # PINNED TO THIS SESSION when it was taken and is recent -- never a stale
+    # number from a different session, which is the failure that returned 96.1%
+    # from a transcript abandoned sixty-nine days earlier (correction #452).
+    try:
+        from divineos.core.context_heartbeat import read_latest
+
+        last = read_latest()
+    except Exception:  # noqa: BLE001 - observability boundary
+        last = None
+
+    if last is not None and last.is_fresh and last.pct is not None:
+        current_sid = getattr(snap, "session_id", None)
+        if current_sid is None or last.session_id == current_sid:
+            return float(last.pct)
+
+    # Genuinely blind: no live read, no usable heartbeat. Still returns 0.0
+    # because should_fire's contract is a float and firing on a fiction is the
+    # worse error -- but the heartbeat log now carries a row saying UNKNOWN,
+    # so the blindness is countable instead of invisible.
+    _stamp_heartbeat()
+    return 0.0
+
+
+def _stamp_heartbeat() -> None:
+    """Record one heartbeat row. Never raises; a missed beat is a log hole."""
+    try:
+        from divineos.core.context_heartbeat import beat
+
+        beat()
+    except Exception:  # noqa: BLE001 - observability boundary
+        pass
+
+
+def _usage_stamp() -> str:
+    """When the usage block behind the current reading was written.
+
+    Display-only companion to ``_guess_context_pct``, which returns a
+    bare float and so cannot carry it. Empty string when unavailable —
+    a missing stamp prints nothing rather than a guess.
+    """
+    try:
+        from divineos.core.context_tokens import get_context_snapshot
+
+        return str(get_context_snapshot().usage_timestamp or "")
+    except Exception:  # noqa: BLE001 - observability boundary
+        return ""
 
 
 def _has_active_goal_progress(window_sec: int = 300) -> bool:
@@ -131,6 +191,14 @@ def status_cmd() -> None:
         click.echo(
             f"  context: {ctx_pct * 100:.1f}%  threshold: {auto_cycle.TRIGGER_THRESHOLD * 100:.0f}%"
         )
+        # When the reading was taken, on the same line of sight as the
+        # number. This surface's percentage was quoted as current on
+        # 2026-08-27 when it came from the last block before a
+        # compaction — true of a window that no longer existed. Nothing
+        # on screen could have shown that.
+        stamp = _usage_stamp()
+        if stamp:
+            click.echo(f"    read from turn stamped {stamp}")
     click.echo(f"  active goal progress: {has_active}")
     click.echo(f"  defers used: {defers_used}/{auto_cycle.MAX_DEFERS}")
     click.echo(f"  would fire: {fire}  ({reason})")
@@ -214,10 +282,24 @@ def defer_check_cmd(json_out: bool) -> None:
         result = auto_cycle.run_phase1(context_pct=ctx_pct)
         auto_cycle.write_handshake_marker(result)
         auto_cycle.reset_defer_state()
+        # The tree is named on the SAME line as the cycle, not on a nearby
+        # one. Two checkouts share this log; a marker that records only that a
+        # cycle fired leaves proximity as the reader's only relation, and both
+        # of us then read one cause out of two unrelated true lines that
+        # happened to land next to each other.
+        tree = Path(result.repo_root).name if result.repo_root else "unknown-tree"
         if json_out:
-            click.echo(json.dumps({"action": "fired", "cycle_id": result.cycle_id}))
+            click.echo(
+                json.dumps(
+                    {
+                        "action": "fired",
+                        "cycle_id": result.cycle_id,
+                        "repo_root": result.repo_root,
+                    }
+                )
+            )
         else:
-            click.echo(f"[auto-cycle] fired: {result.cycle_id}", err=True)
+            click.echo(f"[auto-cycle] fired in {tree}: {result.cycle_id}", err=True)
         return
 
     if ctx_pct < auto_cycle.TRIGGER_THRESHOLD:

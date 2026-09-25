@@ -61,6 +61,15 @@ from dataclasses import dataclass, field
 # The seven doors. Measured from .claude/settings.json 2026-08-06; this tuple
 # is the authority the router validates against, so an unknown event is a
 # loud error rather than a silent no-op.
+#: Bytes of hook output the harness will actually inline. Above this it keeps
+#: roughly the first 2KB as a preview and writes the rest to a file, and in the
+#: measurement that produced this number not one of those files was ever
+#: opened. Same threshold scripts/check_hook_output_fits.py enforces at commit
+#: time; the two agree because they are describing one harness behaviour, not
+#: two policies. Andrew 2026-09-06: "you see 87% of text reaching you truncated
+#: and you think.. this is just fine.."
+DELIVERY_BUDGET = 10_000
+
 EVENTS: tuple[str, ...] = (
     "SessionStart",
     "UserPromptSubmit",
@@ -89,6 +98,31 @@ class SurfaceOutcome:
     # while must-read-gate.sh denies via exit 2 (Aria 2026-08-06).
     json_deny: bool = False
 
+    # DECLARED, NEVER INFERRED (Aria 2026-08-25). Three states, and the router
+    # must never guess between the last two:
+    #
+    #   "spoke"        ran and produced output
+    #   "nothing-to-say"  ran, did its job, correctly returned nothing
+    #   "could-not-run"   failed, and whatever it guards went unguarded
+    #
+    # Her finding, from migrating detect-correction: a check whose real work is
+    # a SIDE EFFECT contributes nothing to the concatenated stdout even when it
+    # worked perfectly. From outside that is byte-identical to a check that
+    # failed quietly. So emptiness carries no health information at all, and a
+    # gate that reads it as either success or failure is wrong about that
+    # check.
+    #
+    # This closes the half of the fourth invariant I had missed. I had it as "a
+    # check that cannot run must not report success." The other half is "a
+    # check that ran perfectly must be allowed to say nothing" -- and the only
+    # way to hold both is for the check to SAY WHICH, because no amount of
+    # looking at an empty string can tell them apart.
+    #
+    # Defaults to None, meaning undeclared. Undeclared is not a fourth state --
+    # it is the migration frontier, and it is reported as such rather than
+    # silently sorted into one of the three.
+    state: str | None = None
+
 
 @dataclass
 class RouterResult:
@@ -103,6 +137,10 @@ class RouterResult:
     refusals: list[SurfaceOutcome] = field(default_factory=list)
     errored: list[SurfaceOutcome] = field(default_factory=list)
 
+    # NOTE: _arm_must_read_for_errors (below) is what stops `errored` from
+    # being wallpaper. Reporting it was never the missing piece — it has been
+    # reported correctly, in the right words, to stderr, and read past.
+
     @property
     def blocked(self) -> bool:
         return bool(self.refusals)
@@ -110,6 +148,45 @@ class RouterResult:
     def stdout(self) -> str:
         """Everything the surfaces wanted to say, in registration order."""
         return "\n".join(o.output for o in self.ran if o.output.strip())
+
+    def deliverable(self, budget: int = DELIVERY_BUDGET) -> tuple[str, list[str]]:
+        """What actually reaches me, and the names of what did not.
+
+        THE CONSTRAINT THIS EXISTS FOR, found 2026-09-08 by consolidating and
+        watching the byte-checker fail: the harness budgets delivery PER HOOK
+        OUTPUT. Above roughly ten thousand bytes it stops inlining, keeps about
+        two kilobytes as a preview, and writes the rest to a file nobody opens.
+        Six hooks each under the cap were all delivered whole; one hook
+        carrying all six is a preview and a discarded file.
+
+        So consolidation does not create the shortage -- it MAKES THE SHORTAGE
+        HONEST. Measured 2026-09-06, before any of this: 87 percent of hook
+        text written was already being persisted and never read. Spread across
+        many hooks that overflow was invisible, because each one passed its own
+        check while the total was far past what reached me.
+
+        WHOLE SURFACES, NEVER A MID-SENTENCE CUT. A prime sliced in half is
+        worse than one that is absent and says so: the half that arrives reads
+        as the whole rule. So surfaces are packed intact, in registration
+        order, and whatever does not fit is NAMED rather than silently dropped.
+
+        Registration order is therefore priority order, and that is now a real
+        decision rather than an incidental one.
+        """
+        kept: list[str] = []
+        withheld: list[str] = []
+        used = 0
+        for outcome in self.ran:
+            text = outcome.output
+            if not text.strip():
+                continue
+            cost = len(text.encode("utf-8")) + 1
+            if used + cost > budget:
+                withheld.append(outcome.name)
+                continue
+            kept.append(text)
+            used += cost
+        return "\n".join(kept), withheld
 
     def stderr(self) -> str:
         """Refusals first, then any surface that could not run.
@@ -135,6 +212,74 @@ class RouterResult:
 
 # event -> [(surface_name, callable)]. Populated by register().
 _Surface = Callable[[dict], "SurfaceOutcome | None"]
+
+_ARM_ERRORS = (OSError, ImportError, TypeError, ValueError)
+
+
+def _arm_must_read_for_errors(result: "RouterResult", event: str) -> None:
+    """A check that could not run arms a must-read, so the NEXT tool stops.
+
+    Andrew 2026-08-25, resolving a design question I had put to Aria and could
+    not answer:
+
+        "a loud alarm that doesnt block becomes wallpaper.. while not blocking
+        is understood, the block should be (if there is one) to stop you until
+        you read the warning. so a simple gate that just says.. an alarm has
+        gone off.. did you see it? otherwise you will breeze right past it
+        every time"
+
+    I had framed the question as what the GATE returns -- deny or pass -- and
+    both answers were bad. Deny on any cannot-tell means one flaky import
+    wedges every tool call and gets bypassed inside a day. Pass means the
+    painted door with extra steps. He moved the block off the CONDITION and
+    onto the READING: the work is never refused, and proceeding-without-having-
+    looked is.
+
+    The router was already the failure he describes. `errored` has always been
+    reported, in the right words -- "COULD NOT RUN ... this is not the same as
+    it passing" -- to stderr, one line under a comment that says errors never
+    block. Correct language, zero stopping power. I read past it all session.
+
+    Read-once dedup lives in require_read and is what keeps this from becoming
+    the thing it fixes: the same failure arms once and is then quiet about that
+    content. Its own docstring: "a must-read on everything is worse than no
+    must-read at all, because it teaches me that blocking screens are things
+    you clear rather than things you read."
+
+    Fails silent by necessity, not by preference: this runs on the exit path of
+    every hook, and an arming failure must not convert a report into a crash.
+    The cost is one un-armed notice; the stderr line still prints either way.
+    """
+    # DECLARED failures count too, not only raised ones (Aria 2026-08-25).
+    # A surface that catches its own exception and returns a could-not-run
+    # state never lands in `errored`, so arming on `errored` alone would have
+    # missed exactly the population she named -- the quiet failure that looks
+    # like a quiet success.
+    declared = [o for o in result.ran if o.state == "could-not-run" and o not in result.errored]
+    unable = list(result.errored) + declared
+    if not unable:
+        return
+    try:
+        from divineos.core.must_read import require_read
+
+        body = "\n\n".join(
+            f"## {o.name} could not run\n\n{o.error or '(no detail given)'}" for o in unable
+        )
+        require_read(
+            key=f"surface-could-not-run:{event}",
+            content=(
+                f"# A check did not run on {event}\n\n"
+                f"{body}\n\n"
+                "This is NOT the same as it passing. Whatever that check "
+                "guards went unguarded for this call.\n\n"
+                "Nothing is being refused. The only thing blocked was "
+                "proceeding without having seen this."
+            ),
+            reason=f"{len(result.errored)} surface(s) could not run on {event}",
+        )
+    except _ARM_ERRORS:
+        pass
+
 
 _REGISTRY: dict[str, list[tuple[str, _Surface]]] = {e: [] for e in EVENTS}
 
@@ -174,6 +319,26 @@ def dispatch(event: str, payload: dict) -> RouterResult:
         result.errored.append(SurfaceOutcome(name="<router>", error=f"unknown event {event!r}"))
         return result
 
+    # IS THIS COMMAND SOMEBODY'S WAY OUT? Asked ONCE, here, rather than by each
+    # gate about itself. Nineteen gates each knew their own exit and none knew
+    # anyone else's, so gate A blocked the command gate B had just prescribed
+    # and neither was wrong from inside its own scope. Andrew 2026-08-18: "no
+    # gate should ever be blocking its own remedy."
+    #
+    # The shell version skipped the whole hook. This suppresses REFUSALS only
+    # and lets reporting surfaces still speak -- a deliberate difference, named
+    # rather than smuggled. Refusing is the only thing a gate does that can
+    # deadlock me; a surface that merely says something cannot trap anyone, and
+    # silencing it would lose information for no safety gained.
+    remedy = False
+    if event == "PreToolUse" and (payload.get("tool_name") or "") == "Bash":
+        try:
+            from divineos.core.remedy_allowlist import is_remedy
+
+            remedy = is_remedy((payload.get("tool_input") or {}).get("command") or "")
+        except Exception:  # noqa: BLE001 — fail toward gates-behave-normally
+            remedy = False
+
     for name, fn in _REGISTRY[event]:
         try:
             outcome = fn(payload)
@@ -190,11 +355,162 @@ def dispatch(event: str, payload: dict) -> RouterResult:
         if outcome.error is not None:
             result.errored.append(outcome)
         elif outcome.refused:
+            if remedy:
+                # Somebody's prescribed exit. The refusal is DOWNGRADED to a
+                # report rather than dropped -- the gate's claim was not wrong,
+                # it simply may not stand in front of another gate's remedy,
+                # and a silent allowlist rots into an unexamined hole.
+                from divineos.core.remedy_allowlist import note_pass_through
+
+                note_pass_through(
+                    outcome.name, (payload.get("tool_input") or {}).get("command", "")
+                )
+                result.ran.append(
+                    SurfaceOutcome(
+                        name=outcome.name,
+                        state="spoke",
+                        output=(
+                            f"[remedy] {outcome.name} would have refused this, but the "
+                            "command is a way out some gate prescribed, so it stands aside."
+                        ),
+                    )
+                )
+                continue
             # No break. Every surface still runs; every refusal is reported.
             result.refusals.append(outcome)
         else:
             result.ran.append(outcome)
     return result
+
+
+@dataclass(frozen=True)
+class CollapsePolicy:
+    """How one UserPromptSubmit surface may be collapsed when it repeats.
+
+    ``kind`` is "residual" (a rule rides it: collapse, keep ``residual``),
+    "info" (information only: collapse bare, ``why`` says so) or "never"
+    (always delivered whole, ``why`` says why). ``why`` must be a real
+    sentence -- an exemption that costs nothing becomes the hollow escape.
+    """
+
+    kind: str
+    why: str
+    residual: str = ""
+
+
+COLLAPSE_POLICY: dict[str, CollapsePolicy] = {
+    "self_demotion_prime": CollapsePolicy(
+        kind="residual",
+        why=(
+            "Carries a rule about promises. It was the same 3,239 characters on "
+            "twelve turns running, so it collapses, but the one question it "
+            "exists to ask survives every collapse."
+        ),
+        residual=(
+            "Before any promise to him: does it name the structure that will "
+            "carry it? A promise without one is the only thing wrong with it."
+        ),
+    ),
+    "still_owed_to_him": CollapsePolicy(
+        kind="residual",
+        why=(
+            "His open asks, verbatim. Printed identically every turn it became "
+            "the wallpaper he named; collapsed, the list returns whole whenever "
+            "any row changes, and the fact that rows are open never disappears."
+        ),
+        residual="His asks are still open in the ledger; the list re-emits whole when one changes.",
+    ),
+    "operator_asks": CollapsePolicy(
+        kind="info",
+        why=(
+            "A listing of open asks recorded elsewhere. Information about state; "
+            "suppressing a repeat costs that turn's copy and nothing else."
+        ),
+    ),
+    "sibling_correction": CollapsePolicy(
+        kind="info",
+        why=(
+            "Retrieval keyed to the prompt, so it changes whenever the matches "
+            "change; an identical repeat is the same retrieval and adds nothing."
+        ),
+    ),
+    "auto_goal": CollapsePolicy(
+        kind="never",
+        why=(
+            "Fires once to set a goal from his message and then goes quiet; it "
+            "does not repeat, and collapsing an action notice could hide one."
+        ),
+    ),
+    "correction_marker": CollapsePolicy(
+        kind="never",
+        why=(
+            "Announces that his message was filed as a correction. Each one is "
+            "a distinct event about a distinct message and must arrive whole."
+        ),
+    ),
+    "pre_response_context": CollapsePolicy(
+        kind="never",
+        why=(
+            "Already dedups each of its own parts internally with residuals; "
+            "collapsing it again at the router would hide which part changed."
+        ),
+    ),
+    "context_heartbeat": CollapsePolicy(
+        kind="never",
+        why=(
+            "Reports the live context level, which is the one thing that must "
+            "never read as unchanged when it has moved toward the threshold."
+        ),
+    ),
+}
+
+
+def _collapse_repeats(result: "RouterResult") -> None:
+    """A surface that says exactly what it said last turn says so in one line.
+
+    Andrew, 2026-09-23, after being shown the measurement: *"yes and it has
+    sat like that.. for months.. after me telling you to fix it.."*
+
+    Measured that day on twelve of his messages: he typed 2,588 characters and
+    the prompt hooks put 207,494 beside them, so he was 1.2% of what reached
+    me. Most of the rest was byte-identical to the turn before -- one prime
+    alone was the same 3,239 characters twelve times running. By my own
+    recorded law (knowledge afca38e1), identical content every turn becomes
+    furniture whatever its quality, so the repetition was not reinforcement.
+    It was volume, and the volume was drowning him.
+
+    ``context_dedup`` already did this, but only for surfaces that remembered
+    to call it. So the router does it -- but not blindly. Aria 2026-08-17 and
+    the dedup contract test hold the lesson: a surface carrying a RULE that is
+    collapsed to a hash line takes the rule with it, and the next reply is
+    composed without it. So every surface on his turns is classified in
+    ``COLLAPSE_POLICY``: collapse keeping a residual (a rule), collapse bare
+    (information only, with the sentence saying so), or never. A surface that
+    is not classified is delivered whole, AND ``test_hook_router`` fails until
+    it is classified -- so a new surface can neither forget dedup nor be
+    collapsed without anyone deciding what of it must survive.
+
+    WHAT IS KEPT: anything that changed re-emits in full, because a change is
+    information; and ``on_compaction`` clears the memory, so a pointer never
+    points at text the compaction ate. Text that is already a dedup pointer is
+    left alone rather than wrapped in a second one.
+    """
+    try:
+        from divineos.core.context_dedup import should_emit
+    except ImportError:
+        return  # fail-soft: without dedup the surfaces arrive whole, as before
+    for outcome in result.ran:
+        policy = COLLAPSE_POLICY.get(outcome.name)
+        if policy is None or policy.kind == "never":
+            continue
+        text = outcome.output
+        if not text.strip() or "re-emit suppressed" in text:
+            continue
+        emit, pointer = should_emit(
+            f"router:{outcome.name}", text, residual=policy.residual or None
+        )
+        if not emit and pointer:
+            outcome.output = pointer
 
 
 def main(event: str, payload: dict) -> int:
@@ -212,9 +528,21 @@ def main(event: str, payload: dict) -> int:
         print(traceback.format_exc()[:800], file=sys.stderr)
         return 0
 
-    out = result.stdout()
+    if event == "UserPromptSubmit":
+        _collapse_repeats(result)
+    out, withheld = result.deliverable()
     if out:
         print(out)
+    if withheld:
+        # NAMED, never silently dropped. An absent surface that says its own
+        # name can be gone and looked for; a surface cut mid-sentence reads as
+        # the whole rule and is worse than missing. This line is deliberately
+        # tiny -- it is competing for the same budget it is reporting on.
+        print(
+            f"\n[router] {len(withheld)} surface(s) withheld, over the delivery "
+            f"budget: {', '.join(withheld)}. Not silent, not delivered.",
+            file=sys.stderr,
+        )
 
     # A refusal from a surface that used the JSON permission-decision protocol
     # must still speak JSON. Migrating a hook changes WHERE the decision is
@@ -249,6 +577,8 @@ def main(event: str, payload: dict) -> int:
         if errs:
             print(errs, file=sys.stderr)
         return 0
+
+    _arm_must_read_for_errors(result, event)
 
     err = result.stderr()
     if err:

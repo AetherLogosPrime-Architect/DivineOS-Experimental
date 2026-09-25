@@ -22,6 +22,7 @@ no database).
 from __future__ import annotations
 
 from divineos.core.watchmen.export import (
+    DEFAULT_OUT_DIR,
     exported_round_exists,
     export_rounds,
     find_unexported_rounds,
@@ -243,3 +244,58 @@ def test_unresolvable_value_degrades_one_field_not_the_whole_finding():
     assert _coerce_enum(Severity, "banana", Severity.INFO) is Severity.INFO
     assert _coerce_enum(Severity, None, Severity.INFO) is Severity.INFO
     assert _coerce_enum(Severity, "", Severity.INFO) is Severity.INFO
+
+
+# ─── The CLI must write what CI reads ─────────────────────────────────
+
+
+class TestTheCliWritesTheArtifactCiReads:
+    """The remedy ran, and running it never opened the door.
+
+    Two export modules landed together in PR #412. ``watchmen/export.py``
+    writes ``<id>.md``; ``watchmen/round_export.py`` writes ``<id>.json``.
+    ``ci_merge_review_check.py`` resolves a round through
+    ``exported_round_exists()``, which looks for the markdown — but the CLI,
+    the only entry point and the one the merge docs prescribe, was wired to
+    the JSON writer.
+
+    So the operator ran ``divineos audit export <round-id>``, saw a green
+    ``[+]``, and the gate went on reporting the round unverifiable. On disk
+    when this was found 2026-08-22: 276 ``.md`` against 2 ``.json``.
+
+    Same joint Aria hit in her reach-check doorman the same day — the remedy
+    was exempted so it could RUN, and running it was never wired to opening
+    the door. Two properties, one silently assumed from the other. These tests
+    pin the two together so they cannot come apart again.
+    """
+
+    def test_export_produces_the_file_cis_own_reader_resolves(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        out = tmp_path / DEFAULT_OUT_DIR
+        rnd = _round("round-wired01")
+        export_rounds([rnd], {rnd.round_id: [_finding()]}, out_dir=str(out))
+
+        # Not "a file appeared" -- the exact predicate the gate evaluates.
+        assert exported_round_exists(rnd.round_id, out_dir=str(out))
+
+    def test_a_json_export_does_not_satisfy_the_gate(self, tmp_path):
+        """The defect, pinned as a test rather than as a paragraph.
+
+        If someone rewires the CLI back to the JSON writer, this fails.
+        """
+        out = tmp_path / DEFAULT_OUT_DIR
+        out.mkdir(parents=True)
+        (out / "round-jsonly.json").write_text("{}", encoding="utf-8")
+
+        assert not exported_round_exists("round-jsonly", out_dir=str(out))
+
+    def test_unexported_rounds_are_named_not_counted(self, tmp_path):
+        out = tmp_path / DEFAULT_OUT_DIR
+        out.mkdir(parents=True)
+        (out / "round-here.md").write_text("x", encoding="utf-8")
+
+        missing = find_unexported_rounds(
+            ["round-here", "round-gone", "round-also-gone"], out_dir=str(out)
+        )
+
+        assert missing == ["round-gone", "round-also-gone"]

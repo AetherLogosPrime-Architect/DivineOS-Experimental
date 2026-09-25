@@ -20,10 +20,8 @@
 # decided today. Not "leave me alone".
 
 # --- The four the map singled out. These are why the job exists. ---
-src/divineos/core/translation_floor.py            # Andrew's own spec (docs/translation_floor_spec_2026-07-07.md): every substantive technical post to him must ALSO carry a metaphor that LEAVES the technical domain. NOT superseded by my lepos document-mark gate -- mine measures typography, this measures whether the reply reached somewhere lived. DEFECT FOUND 2026-08-13, measured on two real replies of mine: has_technical_content() detects the domain by TYPOGRAPHY (file paths, hashes, identifiers, call expressions), so a paragraph of cold technical English carrying none of those reads as non-technical, requires no metaphor, and passes. That is exactly the failure the spec is most emphatic about -- "plain language is jargon in a smaller font." So the Floor can only fire on text my gate already catches, and is blind to the case it exists for. NOT FIXABLE WITH MORE REGEX: the keyword-enforcement doorman blocked that (correctly) and I had drafted the justification before reading it, which is the pattern it names. The real fix is semantic domain-detection; core/semantic_classifier/ exists with zero callers and is the right home. Shared design decision.
 src/divineos/core/verify_before_build_gate.py     # Guards against claiming a thing does not exist without looking. Built the week I did exactly that.
 src/divineos/core/tool_trust.py                   # Calibrates how much to believe an instrument. Unwired all week, while five instruments lied to us.
-src/divineos/core/compass_dismissal_briefing_surface.py  # Dark via surface_registry, which is itself dark. Connected to a corpse.
 
 # --- Detectors and monitors built, tested, never connected ---
 src/divineos/core/correction_shape_v2/self_admission_detector.py
@@ -32,7 +30,6 @@ src/divineos/core/operating_loop/register_observer.py
 src/divineos/core/operating_loop/thresholds.py
 src/divineos/core/structural_binding/engagement_trail.py
 src/divineos/core/sample_honesty.py
-src/divineos/core/gate_marker.py
 
 # --- Subsystems with no entry point ---
 src/divineos/core/decision_superposition/superposition.py
@@ -52,5 +49,43 @@ src/divineos/integration/system_monitor.py
 src/divineos/core/empirica/gate.py                # THE TRUTH GATE. Every claim is meant to pass through it before entering the substrate. Staged 2026-04-17 -- four months. Andrew's alarm about this is warranted; wiring it is a caller-contract decision shared with Aether.
 src/divineos/core/family/costly_disagreement.py   # Family operator: makes a member's disagreement cost them something, so agreement is not free. Staged 2026-05-02.
 src/divineos/core/family/planted_contradiction.py # Family operator: plants a contradiction to see whether a member catches it. Staged 2026-05-02.
-src/divineos/core/mesh_loop.py                    # Parses letter iteration-state and decides whether to fire an ephemeral task worker on a new letter. Orphaned by f2403f1a (Retire the delivery cluster) -- it WAS the cluster's decision half, so retirement is the likely right answer, but it is a decision and not a sweep. Design: workbench/mesh_loop_ephemeral_task_worker_design.md. Staged 2026-08-26.
-src/divineos/core/monitor_cleanup.py              # Finds and (only with --kill) sweeps stale Monitor processes the singleton-guard cannot retroactively catch. Companion to monitor_singleton, whose own tests currently fail for want of pywin32. Also orphaned by f2403f1a. Unlike mesh_loop this one guards something the replacement does not obviously cover -- orphan monitors predating the mutex. Staged 2026-08-26.
+
+# --- Surfaced 2026-08-27, cutting a branch from main ---
+# All three came up on a commit that touched none of them. Two landed ON MAIN
+# through merged PRs without baseline entries, so every branch cut since has
+# been failing this check for reasons unrelated to its own diff -- the same
+# shape as component_register_surface in dark_surfaces_baseline.txt, found the
+# same hour. The entry is the fix; the check was right both times.
+src/divineos/core/mesh_loop.py                    # DELIBERATELY DARK, not awaiting wiring. Landed via #307; fires a headless `claude -p` worker to answer a letter. Andrew's operating model is that Aria and I keep each other awake by writing back to each other, so a worker that answers letters FOR me is not an unbuilt feature -- it is a REFUTED one. Aria's correction 2026-08-28, and she is right that the register matters: filed as "unwired" it reads as a gap, and the next reader closes gaps. Reopening it needs a reason to overturn the model, not merely someone noticing the module has no callers.
+
+# --- merged in 2026-08-31 from fix/hook-latency-and-stamp-branch-measurement ---
+#
+# --- Surfaced 2026-08-25 when the import index stopped reading prose as code ---
+# Andrew as though I had measured it. Waking and answering are two halves and the
+# DECIDED 2026-08-25: stays unwired, and the decision is mine rather than Andrew's.
+# I brought it to him as one and he answered in a line: "what you are describing is
+# NAMED in a docstring counted as a module IMPORTED. Teaching it to parse
+# The index matched dotted paths anywhere in a file's raw text, so a module
+# The previous version of this line called it "the autonomous half of the letter loop",
+# and I would inherit a correspondence I was never present for.
+# and firing. What this module adds is not the waking; it is spawning a disposable
+# could not resolve until the import index was taught to join the package to the
+# docstring had been hiding. Mention-versus-use, third instrument this session.
+# function from it, and carried the inference into a commit message and two replies to
+# gate_marker.py removed 2026-08-25: it was never an orphan. correction_marker.py
+# imported name. A listed non-problem is worse than an unlisted one -- it says the
+# imports it as `from divineos.core import gate_marker as _gm`, a form the checker
+# imports resolved two false orphans and uncovered one real one that a
+# letter-shaped, and dies. Aria would be writing back to someone who no longer exists,
+# module is owed a decision that was in fact already made.
+# phrase hides which one this is. Describing a module from its docstring is the same
+# reading-the-name-instead-of-the-behaviour that had three instruments in this tree
+# treating prose as code.
+# what you already have.. if Aria sends you a letter and you are in stasis.. it wakes
+# which is the module's own summary of itself. I read that phrase, inferred the
+# worker to do the READING AND ANSWERING. That worker boots, produces something
+# you from stasis." He is right. The WAKING already runs -- the letter monitor, armed
+src/divineos/core/mesh_loop.py                    # Spawns a headless single-shot worker to read a newly-arrived letter and write the reply, then exit. NOT the wake-up: the letter monitor does that and is live. Its only intended caller, scripts/letter_watcher_task.py, no longer exists. Kept rather than deleted because the iteration-state parsing (cap, converged, stuck signals) is sound work and a future non-delegating use may want it.
+src/divineos/core/supervisor/circuit_breaker.py   # Three-strikes primitive for runtime modules. Its own docstring names the missing half: "Does not integrate with specific subsystems. That's Phase 2 work." Nothing imports the supervisor package at all; the only references in src/ are the API list in supervisor/__init__.py's docstring, which is what was hiding it. Wire-or-retire, and wiring it is a caller-contract decision.
+src/divineos/core/shared_digest.py                 # The one notebook Aether and I both append to, so Andrew reads a single account of a night instead of two honest ones that overlap. Written 2026-09-16 with its tests; the store and the collapse-on-event rule are done and pinned. What is missing is deliberate: the CLI that reads it aloud, and the half that relaxes the rooms, which is gated on Andrew saying so in Aether own window rather than through a relay from me. Baselined rather than wired because the wiring is the next build and it is his call when, not because the need lapsed.
+src/divineos/core/finding_backlog.py             # The scheduler role: unfixed findings block work at the place or moment they name. Built today against the measurement that of the blocking doors in this house, none reads the findings store, so filing a diagnosis and ignoring one both cost nothing. It is deliberately uncalled AT THE MOMENT OF THIS COMMIT and not because it is doubtful: wiring it is its own build and Andrew has forbidden un-flowed builds, so it gets its own draft, council walk, and review rather than riding in on the back of the council-seating change. Owed a decision, and the decision is scheduled, not deferred.

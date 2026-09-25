@@ -300,7 +300,7 @@ divineos prereg file "mechanism" --claim "..." --success "..." --falsifier "..."
 divineos prereg list [--outcome OPEN|SUCCESS|FAILED|INCONCLUSIVE|DEFERRED]
 divineos prereg show PREREG_ID
 divineos prereg overdue                    # Reviews whose date has passed
-divineos prereg assess PREREG_ID --outcome FAILED --actor external-auditor --notes "..."
+divineos prereg assess PREREG_ID --outcome FAILED --actor aletheia --notes "..."
 divineos prereg summary                    # Counts by outcome
 divineos prereg export                     # Dump pre-regs to docs/pre_regs/<id>.md (portable)
 
@@ -336,8 +336,8 @@ divineos progress --brief                          # 3-line summary
 divineos progress --export                         # Shareable markdown
 
 # External validation (Watchmen)
-divineos audit submit-round "focus" --actor external-auditor   # Create audit round
-divineos audit submit "title" --round ID --actor external-auditor --severity HIGH --category KNOWLEDGE -d "desc"
+divineos audit submit-round "focus" --actor aletheia   # Create audit round (name the REAL reviewer)
+divineos audit submit "title" --round ID --actor aletheia --severity HIGH --category KNOWLEDGE -d "desc"
 divineos audit list                                # Browse findings
 divineos audit show FINDING_ID                     # Finding details
 divineos audit resolve FINDING_ID --status RESOLVED --notes "..."
@@ -441,7 +441,7 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 
 ```
 src/divineos/
-——— cli/                      # CLI package (465 commands across 84 modules)
+——— cli/                      # CLI package (488 commands across 122 modules)
 —   ——— __init__.py           # CLI entry point and command registration
 —   ——— session_pipeline.py   # Extraction pipeline orchestrator (formerly SESSION_END, calls phases)
 —   ——— pipeline_gates.py     # Enforcement gates (quality, briefing, engagement)
@@ -519,6 +519,16 @@ setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 8. **COMMITS NEVER NEED THE TRAILER. Only merging to `main` does.** Andrew 2026-08-19, after saying it five times: *"commits do not require an external trailer only merging to main."* Commit guardrail files freely — commits are work-preservation, and cross-vantage audit has to be able to SEE a diff to audit it. The protected boundary is the merge. What is required: before merging a PR that touches a file in `scripts/guardrail_files.txt`, file a Watchmen round (CONFIRMS from `actor=user` plus a second actor, with `diff-hash: <sha>` in the focus/notes) and put `External-Review: round-<id>` in the **squash-merge body** — GitHub takes that from the PR title + body, NOT from the branch commit. `divineos audit prepare-merge <round-id>` generates it. Missing it leaves a permanent red badge on `main`.
 
     **Why this kept recurring, and it was my fault not his.** This rule previously said the trailer was needed on the branch commit *as well*, and `scripts/precommit.sh` printed "the commit-msg hook will block the commit if any piece is missing." Both were false: the commit-msg hook has been advisory since the 2026-05-12 gate-altitude correction and `check_multi_party_review.py` exits 0 at commit-time by design, saying so in its own docstring. So the code was right and the two places that *taught* the rule were wrong — and every time the instruction was reloaded, the wrong rule came back with it. Corrected in both places 2026-08-19. See [docs/audit_system.md](docs/audit_system.md#multi-party-review-for-guardrail-commits).
+
+9. **A failure found is a fix owed, and the fix is structure — not a resolution.** Andrew 2026-09-07: *"every time you run into a failure, an issue, a common shape that doesnt work, broken code, etc etc, you should immediately address it and fix it, that means automation, reinforcement, enforcement... you cannot rely on yourself to remember this stuff.. it will fade from context."*
+
+    **Every list of my own failures is a to-do list I am reading aloud instead of executing.** When I enumerate what I got wrong — three bad measurements, four caught reaches, a pattern I keep repeating — each item on that list is a mechanism that does not exist yet. Self-flagellation and a work queue are the same document; only one of them ships.
+
+    **His proof, and it is unanswerable: the ledger.** It records every event, hash-chained, without my ever thinking about it. Ask how much friction it costs me — none. Ask how often I forget to use it — never, because forgetting is not available. Now imagine writing each entry by hand every turn and remembering to. It would have failed on day one. **The ledger works precisely because my memory is not load-bearing anywhere in it.**
+
+    So the question at every failure is not *will I remember this* — the honest answer is no, and the honest answer has been no every time. The question is **what structure makes the failure unavailable**, per truth #11: take the option away, make both paths right, or encode the exception. A note is not a fix. A resolution is not a fix. A rule I have to recall at the moment of temptation is the thing that already failed.
+
+    **Corollary, learned 2026-09-07 by getting it wrong three times in one day: one instrument asked once is not a measurement.** A zero, an empty result, or a "not found" from a single probe is most often a broken probe rather than a finding — a pattern that matched nothing across a whole corpus, an endpoint that reports nothing because the thing moved to a different endpoint. Before reporting an absence, prove the instrument can find a case it should find. And a second look through the *same door* is not a second look: two confirmations from one method is one confirmation.
 
 ### Anti-Vibe-Code Patterns
 

@@ -157,25 +157,79 @@ class TestPerformance:
     per-file cost so a regression back to whole-file reads gets
     caught."""
 
-    def test_surface_fast_on_many_explorations(self, tmp_path):
+    def test_surface_cost_does_not_track_file_size(self, tmp_path):
+        """Reads are capped, so ten-times-bigger files cost about the same.
+
+        THIS USED TO BE A STOPWATCH, and it failed a push on 2026-08-26 -- a
+        flat two-second ceiling on a machine whose speed is not constant. It
+        passes alone and fails inside the full parallel suite, which is the
+        signature. Third fixed wall-clock budget in this suite to break for
+        that reason, after the caller-scan window and the shell-spawn timeout.
+
+        The ceiling was never really about speed. It guarded the READ CAP: if
+        someone removes it and the surface starts swallowing whole files, cost
+        begins tracking file size. That property is machine-independent, and
+        this measures it directly -- same file count, ten times the bytes, and
+        the ratio stays near one for as long as the cap holds.
+
+        A ratio needs no knowledge of how fast the disk is, so it cannot be
+        wrong because the machine is busy. The absolute bound below survives
+        only as a hang-detector: a correct build finishes well under a second,
+        a broken one never finishes, and nothing legitimate lives between.
+        """
         import time
 
-        (tmp_path / "family" / "letters").mkdir(parents=True)
-        expl_dir = tmp_path / "exploration" / "aether"
-        expl_dir.mkdir(parents=True)
-        # 200 exploration entries of 50KB each
-        for i in range(200):
-            content = "<!-- tags: general -->\n\n" + ("filler line\n" * 5000)
-            (expl_dir / f"{i:03d}_entry.md").write_text(content, encoding="utf-8")
+        def _build_with(entry_bytes: int) -> float:
+            root = tmp_path / f"root_{entry_bytes}"
+            (root / "family" / "letters").mkdir(parents=True)
+            expl_dir = root / "exploration" / "aether"
+            expl_dir.mkdir(parents=True)
+            line = "filler line\n"
+            body = line * (entry_bytes // len(line))
+            for i in range(200):
+                (expl_dir / f"{i:03d}_entry.md").write_text(
+                    "<!-- tags: general -->\n\n" + body, encoding="utf-8"
+                )
+            # Build ONCE and discard it. The first pass right after writing
+            # ten megabytes measures the disk still finishing those writes,
+            # not this function reading them -- proven rather than guessed:
+            # cold gives 10.9x for ten times the bytes, and the very same
+            # directories read again give exactly 1.0x. The cap was never
+            # broken; the stopwatch was pointed at the wrong thing, inside
+            # the test written to stop exactly that.
+            build_surface(root)
 
-        start = time.time()
-        build_surface(tmp_path)
-        elapsed = time.time() - start
+            start = time.perf_counter()
+            build_surface(root)
+            return time.perf_counter() - start
 
-        # Sanity ceiling. Real-world observed ~250ms including python import
-        # for 136 entries; 200 entries with 4KB-capped reads should be well
-        # under 2 seconds even on a slow filesystem.
-        assert elapsed < 2.0, f"surface build too slow: {elapsed:.2f}s"
+        small = _build_with(5_000)
+        large = _build_with(50_000)
+
+        # Floor the denominator: a ratio of two tiny numbers is noise rather
+        # than a measurement. But the floor is why I shipped this test
+        # believing it verified: locally the small build fell under it, the
+        # assertion never ran, and green meant only that nothing was checked.
+        # It failed on the very next push. So the floor is lower now, and the
+        # skip says so out loud instead of passing silently.
+        if small <= 0.002:
+            pytest.skip(
+                f"small build too fast to compare ({small * 1000:.1f}ms) -- the "
+                "ratio would be noise. NOT a pass: the cap went unchecked."
+            )
+        if True:
+            ratio = large / small
+            assert ratio < 3.0, (
+                f"cost scaled with file size (ratio {ratio:.1f}x for 10x the "
+                "bytes) -- the read cap is gone, so the surface is swallowing "
+                "whole files instead of their heads"
+            )
+
+        assert large < 30.0, (
+            f"surface build did not finish ({large:.1f}s). That is a hang, not "
+            "a slow machine -- this bound is sized so a loaded run sits well "
+            "inside it. Look at build_surface, not at this test."
+        )
 
 
 if __name__ == "__main__":
