@@ -43,6 +43,61 @@ for arg in "$@"; do
     esac
 done
 
+# A REFSPEC IS TWO NAMES AND ONLY THE SECOND EXISTS ON THE REMOTE.
+# `git push origin HEAD:some-branch` sends the local HEAD to the remote
+# branch after the colon. The verification below asks origin for
+# refs/heads/$TARGET_BRANCH -- so with the whole refspec still attached it
+# asked for refs/heads/HEAD:some-branch, which is not a ref anywhere, found
+# nothing, and called a push that had plainly succeeded a silent failure.
+#
+# TWICE ON 2026-09-22, an hour apart, on two branch rebuilds. Both landed;
+# git had already printed the forced update; local sha, remote sha and the
+# request's head all agreed when checked by hand.
+#
+# THE DIRECTION IS THE KINDER ONE, and that is exactly why it had to be
+# fixed rather than tolerated. This wrapper exists so its LAST LINE can be
+# trusted when a truncated tail is all anyone has. An instrument that cries
+# failure teaches the reader to look past the one line built to be looked
+# at, and a verdict nobody trusts is worse than none, because it still
+# costs the reading.
+#
+# AND THE LOCAL SIDE IS NOT DISPOSABLE, which I got wrong here an hour ago.
+# This comment used to say "the local side is dropped rather than parsed:
+# nothing below needs it". Something below did: the verification resolves a
+# LOCAL sha to compare against the remote, and with only the destination name
+# kept it resolved whatever local branch happened to SHARE that name.
+#
+# Measured on the very next push. The destination had a stale local branch of
+# the same name sitting at the pre-rebuild tip, so the wrapper compared that
+# old sha against the freshly-pushed remote one, found them different, and
+# reported a silent failure on a push that had landed. Third fault in this
+# one verifier, and the second was hiding behind the first -- fixing the name
+# lookup is what let execution reach this line at all.
+#
+# So both halves are kept. The source names what was PUSHED; the destination
+# names where it landed.
+#
+# CHECKED WHILE HERE: audit_visibility runs the same ls-remote shape one
+# module over. It takes a plain branch name rather than a refspec, so it
+# does not carry this defect today -- looked at rather than assumed.
+LOCAL_REF="$TARGET_BRANCH"
+case "$TARGET_BRANCH" in
+    *:*)
+        LOCAL_REF="${TARGET_BRANCH%%:*}"
+        TARGET_BRANCH="${TARGET_BRANCH##*:}"
+        ;;
+esac
+
+# AND THE DESTINATION MAY ALREADY BE FULLY QUALIFIED. `git push origin
+# refs/heads/a:refs/heads/b` is valid, and the line above hands back
+# refs/heads/b -- which the lookup below would prefix a SECOND time and ask
+# origin for refs/heads/refs/heads/b. Same bug, one layer in.
+#
+# Found by testing the repair on three shapes instead of the one that bit
+# me. The plain name and the HEAD refspec both came out right; this one did
+# not, and it would have sat here waiting for whoever used the long form.
+TARGET_BRANCH="${TARGET_BRANCH#refs/heads/}"
+
 # Run the actual push. NO pipe — let the output go through unmodified.
 # This is the only way to preserve exit code without arithmetic on
 # PIPESTATUS or pipefail (both of which have their own subtle gotchas
@@ -69,10 +124,13 @@ if [[ -z "$TARGET_BRANCH" ]]; then
     exit 0
 fi
 
-LOCAL_SHA="$(git rev-parse "$TARGET_BRANCH" 2>/dev/null)"
+# Resolved from what was PUSHED, not from the destination name. With a
+# refspec those are different refs, and a stale local branch sharing the
+# destination's name is exactly what produced a false failure here.
+LOCAL_SHA="$(git rev-parse "$LOCAL_REF" 2>/dev/null)"
 if [[ -z "$LOCAL_SHA" ]]; then
     echo ""
-    echo "[divineos-push] result: exit=0 (PUSHED+UNVERIFIED, local ref '$TARGET_BRANCH' missing)"
+    echo "[divineos-push] result: exit=0 (PUSHED+UNVERIFIED, local ref '$LOCAL_REF' missing)"
     exit 0
 fi
 

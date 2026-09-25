@@ -60,6 +60,20 @@ _HOOKS_DIR = _PROJECT_ROOT / ".claude" / "hooks"
 _NON_GATING_HOOKS: frozenset[str] = frozenset(
     {
         "_lib.sh",
+        # A CARRIER, not a gate. It copies a letter written straight into the
+        # shared channel back into the repository -- the direction three
+        # existing carriers never covered, because every one of them keys on a
+        # path inside the repo and that is not where I write.
+        #
+        # Declared here rather than taught to the denial patterns because it
+        # has no denial to teach: no exit 2, no deny decision and no exit 1
+        # anywhere in it, and it runs after a write rather than in front of
+        # one. Checked both ways before choosing between the two remedies this
+        # test offers -- grepped for every refusal shape, and read what the
+        # hook is for -- because the other remedy would have been wrong
+        # quietly, by widening a rule about naming a way out to something that
+        # never refuses anybody.
+        "capture-channel-letter.sh",
         # A RELAY, not a gate, and the distinction is the doorbell design
         # itself: it knocks and steps aside, and every judgment lives in the
         # OS. Its own absent path exits zero and it composes no refusal of its

@@ -69,6 +69,22 @@ LOCAL_SUBSTRATE_PREFIXES: tuple[str, ...] = (
     "exploration/",
     "dreams/",
     "docs/archives/",
+    # LOADOUT.md is the survey of my own writing -- regenerated from the
+    # substrate, swept by the same checkpoint, and personal in exactly the way
+    # the four above are. It is a FILE rather than a directory, which is why it
+    # carries no trailing slash: the match below is a prefix test, so the bare
+    # name matches that one path and nothing else.
+    #
+    # IT ARRIVED BY MERGE ON 2026-09-19 rather than by being written here, and
+    # the way it arrived is the argument for this tuple existing at all. The
+    # mixed-scope branch had added it to a SECOND copy of this list living
+    # inside the scope gate, during the same stretch main was replacing that
+    # copy with an import of this one. Both sides were right and either
+    # one-sided resolution destroys the other silently: keep the branch and the
+    # two-copy drift returns, keep main and the entry disappears with nothing
+    # to mark its passing. Moving it up is the only resolution where both
+    # survive -- one word, one definition, asked in one place.
+    "LOADOUT.md",
 )
 
 

@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**131 automations — 122 wired, 9 switched off.**
+**132 automations — 123 wired, 9 switched off.**
 
 ---
 
@@ -38,7 +38,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `post-compact.sh` | 2026-09-21 | Lightweight reload AFTER context compression |
 
-### PostToolUse  (16)
+### PostToolUse  (17)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -46,6 +46,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `auto-push-finished-work.sh` | 2026-08-31 | Auto-push work that is DONE to origin, so the auditor never waits on Andrew. |
 | `auto-push-letter.sh` | 2026-09-15 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `build-flow-pause.sh` | 2026-09-22 | PostToolUse — the build-flow PAUSE. Fires after a push or a PR action. |
+| `capture-channel-letter.sh` | 2026-08-31 | capture-channel-letter.sh — PostToolUse(Write\|Edit), the missing direction. |
 | `doorbell-post-tool-use.sh` | 2026-09-21 | MINE, and it is the after-the-fact twin of the pre-tool doorbell. Aether. |
 | `file-aletheia-artifact-on-arrival.sh` | 2026-08-14 | PostToolUse(Read) — file Aletheia's artifact the moment it is read. |
 | `mirror-letters-to-shared.sh` | 2026-09-23 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
