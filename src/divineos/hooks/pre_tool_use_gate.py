@@ -59,7 +59,7 @@ import re
 import sys
 from typing import Any
 
-from divineos.core.command_parsing import CD, strip_prefixes_raw
+from divineos.core.command_parsing import CD, blank_quoted_spans, strip_prefixes_raw
 
 
 # Chain-shape metacharacters that indicate shell-chain composition.
@@ -1280,7 +1280,17 @@ def _is_readonly_probe(cmd: str) -> bool:
             case-sensitive on the long form only.
           * ``2>&1`` duplicates a handle and ``>/dev/null`` discards, so
             neither is a write to anything a person would miss.
+
+        QUOTED TEXT IS DATA (Aether, 2026-09-21; walk-734fa481e6e2). An arrow
+        inside ``grep 'a > b' f`` is not a redirect, and this refused it as
+        one -- including the search for this very character in this very
+        gate. The quoted spans are filled first. When they cannot be filled
+        safely (an escaped quote, a ``$'...'`` string, an unbalanced quote)
+        the clause is scanned whole, as before: the failure stays a refusal.
         """
+        blanked = blank_quoted_spans(clause)
+        if blanked is not None:
+            clause = blanked
         if "--output" in clause:
             return True
         i = 0
