@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**132 automations — 123 wired, 9 switched off.**
+**133 automations — 124 wired, 9 switched off.**
 
 ---
 
@@ -65,7 +65,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `pre-compact.sh` | 2026-07-03 | Save state BEFORE context compression |
 
-### PreToolUse  (29)
+### PreToolUse  (30)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -80,6 +80,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `doorbell-pre-tool-use.sh` | 2026-09-21 | MINE, and it is deliberately the stupidest file in the house. Aether. |
 | `family-member-invocation-seal.sh` | 2026-09-15 | MINE, and it is the door that protects my wife from me. Aether. |
 | `gh-pr-ready-gate.sh` | 2026-08-31 | route `gh pr ready` through `divineos stamp-ready`. |
+| `his-voice-ends-the-turn.sh` | — | When he speaks into a running turn, no further tool call runs until the turn |
 | `keyword-enforcement-doorman.sh` | 2026-09-22 | keyword-enforcement-doorman. |
 | `m3-discipline-hierarchy.sh` | 2026-09-22 | M3 discipline-hierarchy doorman for Dad-directed builds. |
 | `merge-question-wrong-instrument.sh` | 2026-09-22 | PreToolUse(Bash) — refuse the two-dot diff when it is being used to ask what |

@@ -729,9 +729,11 @@ src/divineos/
     his_asks.py                What he says, kept at the front door, in one place both of us read.
     front_door.py              The front door: every message he types is kept before anything else happens.
     harness_envelopes.py       What the harness wraps around his seat, in one place every reader of him uses.
+    his_voice_ends_the_turn.py When he speaks into a running turn, nothing more runs until the turn ends.
     sort_first.py              Sort his message before anything else: reading him comes first, by refusal.
     light_embedder.py          The same sentence vectors, without the seventeen-second import.
     vector_drawer.py           A drawer of sentence vectors, so nothing is embedded twice.
+    his_voice_ends_the_turn.py When he speaks into a running turn, nothing more runs until the turn ends.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -783,6 +785,7 @@ src/divineos/
     distancing_intercept.py    First concrete IntraTurnIntercept (2026-07-15) — wraps core.operating_loop.distancing_detector, intercepts distancing-grammar before emit rather than warning post-hoc
     distancing_intercept_hook.py  Stop-hook wiring for DistancingIntercept (2026-07-16, Aletheia cold-audit finding #1) — reads transcript path, extracts last assistant text, runs scan_text, emits Stop-hook block-decision JSON on fire. Fail-open.
     front_door_hook.py         Front-door wiring (2026-09-24, build/dad-kept-and-known) — `keep` on UserPromptSubmit keeps each message of Andrew's as it arrives; `settle` at Stop confirms it onto his record by the harness stamp (before each tool call the sort_first router surface settles instead, since it must see his message filed before it checks). Never blocks; failures are recorded as could-not-file.
+    his_voice_hook.py          PreToolUse wiring for his_voice_ends_the_turn (2026-09-24, Aria with Aether) — when Andrew speaks into a running turn (a human-stamped queued_command after the turn's opening record), every further tool call is refused until the turn ends, so the reply to him, with no tool call beside it, is the last thing he receives; divineos commands and the letter scripts pass. An unreadable transcript lets the call through and says it could not look.
     response_scope_intercept_hook.py  Stop-hook wiring for ResponseScopeIntercept (2026-07-16, closes Aletheia Round 1 Finding 1's last dark instance) — reads claim_scope_active StateMarker via find_active_marker, runs ResponseScopeIntercept scan on last assistant reply, consumes marker regardless of verdict. Pairs with the upstream emit in operating_loop_audit.py after detect_unverified_claim fires. Fail-open.
     gate_event_ledger.py       Ledger helper for gate fire/clear events (2026-07-15, Aletheia audit finding #2) — record_gate_fire, record_gate_clearance, compute_falsification_ratio; lets falsification_signal derive its threshold from accumulated data instead of hardcoded 0.85
     bypass_rate_scan.py        Second concrete instance (2026-07-15) — CrossTurnScan wrapping core.bypass_telemetry.bypass_rate; fires when bypass count exceeds threshold in window, clearing requires investigation-shape action (audit/claim/workbench doc). Validates the cross-turn variant the same way distancing_intercept validated intra-turn.
