@@ -183,12 +183,33 @@ def is_commit_or_push(command: str) -> bool:
     a judgment this cannot make honestly, and a wrong guess would block the
     reads the letter needs. Commit and push are the two that put work into the
     house, so they are the two it holds.
+
+    The house's own pushers are held by name. Aria 2026-09-25, station four:
+    the background-push hook refuses a raw `git push` and names the wrapper,
+    so matching only a leading `git` held the push I am steered off and let
+    through the one I am required to use. `stamp-ready` amends and pushes
+    internally. Both move onto the shared shell reader when it lands.
     """
     from divineos.core.command_parsing import strip_command_prefixes
 
     for segment in _segments(command or ""):
         tokens = strip_command_prefixes(segment)
-        if not tokens or Path(tokens[0]).name.lower() not in ("git", "git.exe"):
+        if not tokens:
+            continue
+        runs = (
+            tokens[1:2]
+            if Path(tokens[0]).name.lower() in ("bash", "sh", "bash.exe")
+            else tokens[:1]
+        )
+        if any(Path(t).name.lower() == "divineos_push.sh" for t in runs):
+            return True
+        if (
+            Path(tokens[0]).name.lower() in ("divineos", "divineos.exe", "divineos.cmd")
+            and len(tokens) > 1
+            and tokens[1] == "stamp-ready"
+        ):
+            return True
+        if Path(tokens[0]).name.lower() not in ("git", "git.exe"):
             continue
         i = 1
         while i < len(tokens) and tokens[i].startswith("-"):

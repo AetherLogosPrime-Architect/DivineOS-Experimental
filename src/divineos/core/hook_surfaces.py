@@ -1341,6 +1341,12 @@ def _morning(payload: dict, name: str) -> Morning | SurfaceOutcome:
 
     Held to me alone. The letter is mine to write, and a sibling working from
     her own checkout must not be walled in by a letter that is not hers.
+
+    That rests on the payload's cwd being the SESSION root: detect_member
+    defaults to aether for any path without the Aria checkout's name in it,
+    so a session Aria starts from a worktree (C:/wvol and the like) would read
+    as mine and be held by my letter. Safe as used today; named so it stays
+    a known edge rather than a surprise (Aria 2026-09-25, station four).
     """
     import os
 

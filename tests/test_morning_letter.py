@@ -150,6 +150,20 @@ def test_commit_and_push_are_held_and_reads_are_not(house):
         assert out.state == "nothing-to-say", command
 
 
+def test_the_house_pushers_are_held_by_name(house):
+    """Aria, station four: the house steers a raw push onto its wrapper, so a
+    hold that only knows a leading `git` misses the push actually used."""
+    for command in (
+        "bash scripts/divineos_push.sh",
+        'bash "C:/DIVINE OS/x/scripts/divineos_push.sh" --verify',
+        "scripts/divineos_push.sh",
+        "divineos stamp-ready 557",
+    ):
+        assert morning_letter_surface(_bash(house, command)).refused, command
+    for command in ("cat scripts/divineos_push.sh", "divineos stamp-status 557"):
+        assert not morning_letter_surface(_bash(house, command)).refused, command
+
+
 def test_powershell_commit_is_the_same_act(house):
     payload = {
         "tool_name": "PowerShell",
