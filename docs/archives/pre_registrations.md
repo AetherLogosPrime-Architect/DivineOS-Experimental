@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (127 rows). **Exported:** 2026-09-24 16:37. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (127 rows). **Exported:** 2026-09-24 21:53. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1060,7 +1060,7 @@
 
 ---
 
-## prereg-d [OPEN]
+## prereg-d [INCONCLUSIVE]
 
 **Mechanism:** Diagnostic-claim gate: block a reply that asserts a substrate mechanism is ABSENT when nothing in the turn's action stream looked at that mechanism
 

@@ -1,10 +1,10 @@
 # Directives — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-09-24 16:37. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-09-24 21:53. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 7a88cef8 (access=210)
+## 7a88cef8 (access=213)
 
 [council-obligation] Next thinking session should run a council walk on this session's pattern: building with 1 corrections and 74 tool calls. Discharge via `divineos council log` with substance_binding -- not a bare mechanical convene.
 
@@ -16,13 +16,13 @@
 
 ---
 
-## f003befa (access=24)
+## f003befa (access=25)
 
 [knowledge-supersession] 1. Knowledge is never deleted. 2. Old knowledge is superseded, not removed. 3. Superseded entries remain in the store, linked to their replacement. 4. Supersession is not correction. It is evolution. 5. The chain of supersession is the history of understanding.
 
 ---
 
-## 54a532a0 (access=14)
+## 54a532a0 (access=15)
 
 [ledger-integrity] 1. Events enter. 2. Events persist. 3. No event is modified after storage. 4. No event is removed. 5. The hash binds content to identity.
 

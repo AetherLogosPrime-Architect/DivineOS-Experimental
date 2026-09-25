@@ -1,10 +1,10 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (12 rows). **Exported:** 2026-09-24 16:37. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (12 rows). **Exported:** 2026-09-24 21:53. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 051c09b4 [active] x19
+## 051c09b4 [improving] x19
 
 **Category:** blind_coding
 
@@ -12,7 +12,7 @@ I edited files without reading them first. I must read before I edit.
 
 ---
 
-## c3016302 [active] x16
+## c3016302 [improving] x16
 
 **Category:** upset_recovered
 
@@ -28,7 +28,7 @@ I introduced errors after editing. I need to verify changes work.
 
 ---
 
-## 41a491b2 [active] x13
+## 41a491b2 [improving] x13
 
 **Category:** blind_retry
 
@@ -36,7 +36,7 @@ I retried a failed action 8x without investigating the cause. I need to investig
 
 ---
 
-## 69560637 [active] x8
+## 69560637 [improving] x8
 
 **Category:** false_claim
 
@@ -84,7 +84,7 @@ Yes remember if the gates are giving you too much friction or they are calling y
 
 ---
 
-## d9755aeb [active] x1
+## d9755aeb [active] x2
 
 **Category:** perspective_error
 

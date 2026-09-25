@@ -1,6 +1,26 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-09-24 16:37. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-09-24 21:53. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## 51f6d605 weight=1
+
+**Decision:** Build UNMATCHED in his_asks: a kept message never matched to its record moves there via give_up, shows in pending in his words, is sortable by candidate id; envelope-only text goes to WITHDRAWN instead
+
+**Reasoning:** The store threadwalk already decided an unsettled candidate is a could-not-file that refuses our next action; nothing built it, and Aether's settle horizon made the loss permanent. Walk-2592439477f9: Schneier found machine notices would surface as his words, so nothing_of_his gates the move.
+
+**Tension:** Kahneman against Schneier: do not frame his words as doubtful, and do not hide that the record was never found
+
+**Almost:** almost promoted every unmatched candidate into pending as his words, which would have presented task notifications as things he said
+
+---
+
+## 7242fcdc weight=1
+
+**Decision:** Fix four write-escapes in the shared shell reader before syncing my seat onto main: repeated heredoc delimiter, line continuation before a command word, and the rest of a heredoc opener's line (redirect or chained command) being eaten as body
+
+**Reasoning:** Aether's replay of 87,926 commands found two; checking them found two more both readers share, invisible to any comparison between them. The doorman is what opens the build flow, so a write it cannot see is work that skips every station. Searched tests and all branches first: no existing fix.
 
 ---
 
@@ -567,30 +587,6 @@
 **Tension:** Editing a guardrail-listed shared library that every hook in the house sources
 
 **Almost:** Fix the five hooks to source once each. Rejected because the defect belongs to whatever registers twice, a sixth hook will eventually do it, and five edits is five chances to miss one.
-
----
-
-## d136d5a0 weight=1
-
-**Decision:** Auto-reap suspended leftover processes at session start, without asking, but never monitors
-
-**Reasoning:** Andrew was clearing bash rows in task manager by hand and losing live watchers with the corpses. The monitor sweep cannot help: it only recognises monitor command shapes, and the leftovers match none. Consent is required for monitors because a stale-looking one might be the live channel; a stopped process has already stopped, so there is nothing consent would protect.
-
-**Tension:** Killing without asking contradicts the 2026-06-13 rule that destruction needs operator consent at the invocation
-
-**Almost:** Sweep anything older than a threshold, or keep asking each time. Rejected age-only because a long test run and a corpse are the same age; rejected asking because being asked every session IS the chore he wanted removed.
-
----
-
-## 078776e6 weight=1
-
-**Decision:** Close the bare-python-imports-the-wrong-tree hole with a narrow PreToolUse Bash gate, not a PATH shim
-
-**Reasoning:** The global editable install has one slot and it currently points at Aether's tree, so a bare python from my repo silently imports his divineos. The CLI path was fixed in 2026-06 by the ~/bin/divineos shim, and the hook path by _lib.sh:find_divineos_python plus its PYTHONPATH prepend. Ad-hoc python in a Bash tool call had nothing, and it produced a wrong report to Andrew this session.
-
-**Tension:** A python shim on PATH fixes every caller at once and is the cheaper build; it also shadows python machine-wide, including Aether's sessions and the Windows-Store interpreter the hooks run under. Blast radius outweighs the convenience.
-
-**Almost:** Reinstalling editable from my tree to win the slot back, which just restarts the ping-pong the 2026-06-18 router was built to end.
 
 ---
 
