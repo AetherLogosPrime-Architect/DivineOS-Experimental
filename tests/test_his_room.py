@@ -179,6 +179,37 @@ def test_his_own_words_quoting_a_notification_are_still_his(tmp_path):
     assert turn_started_by_him(t) is True
 
 
+# A real build notice the harness stamped human (2026-07-17, shortened).
+CI_NOTICE = (
+    "<ci-monitor-event>AetherLogosPrime-Architect/DivineOS-Experimental PR #355 has 1 new"
+    " review comment.\n\nPlease address the feedback and push a fix.</ci-monitor-event>"
+)
+
+
+def test_a_build_notice_stamped_human_does_not_start_his_turn(tmp_path):
+    """#554: the stamp says who sat in the seat, not whose words these are.
+    Without the envelope rule this turn demanded a room addressed to him while
+    he was not there."""
+    t = _write(
+        tmp_path / "t.jsonl",
+        [_user("proceed", **HUMAN), _me("done"), _user(CI_NOTICE, **HUMAN), _me("fixed")],
+    )
+    assert turn_started_by_him(t) is False
+
+
+def test_his_words_beside_a_build_notice_are_still_his(tmp_path):
+    t = _write(tmp_path / "t.jsonl", [_user(CI_NOTICE + "\nwhat is this?", **HUMAN), _me("a")])
+    assert turn_started_by_him(t) is True
+
+
+def test_stop_feedback_stamped_human_still_continues_his_turn(tmp_path):
+    feedback = _user("Stop hook feedback:\nHIS ROOM IS MISSING", **HUMAN)
+    t = _write(
+        tmp_path / "t.jsonl", [_user("proceed", **HUMAN), _me("done"), feedback, _me("room")]
+    )
+    assert turn_started_by_him(t) is True
+
+
 def test_a_compaction_summary_continues_his_turn(tmp_path):
     t = _write(
         tmp_path / "t.jsonl",

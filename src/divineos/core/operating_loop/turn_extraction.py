@@ -37,6 +37,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from divineos.core.harness_envelopes import nothing_of_his
+
 
 @dataclass(frozen=True)
 class TurnTexts:
@@ -267,7 +269,16 @@ def _parse_records(chunk: str) -> list[tuple[str, str, list[str], list[str]]]:
 # Stop-hook feedback, interrupt markers and compaction summaries CONTINUE a
 # turn rather than start one: they arrive in the middle of answering him. The
 # walk steps back over them to whatever did start it.
+#
+# THE STAMP IS NOT THE WHOLE ANSWER (#554, 2026-09-24). The harness stamps some
+# machine notices human: over a hundred turn records across this machine's
+# transcripts carry origin.kind "human" and are nothing but a
+# <ci-monitor-event>. The stamp says who sat in the seat; harness_envelopes says
+# whether the words were his. A human-stamped record that is only envelope does
+# not start his turn, so a build notice never demands a room addressed to a man
+# who is not there.
 _CONTINUES_A_TURN = ("[Request interrupted", "This session is being continued")
+_CONTINUES_A_TURN_STAMPED = (*_CONTINUES_A_TURN, "Stop hook feedback")
 
 
 def _user_record_origin(rec: dict) -> str:
@@ -275,7 +286,12 @@ def _user_record_origin(rec: dict) -> str:
     origin = rec.get("origin")
     kind = origin.get("kind") if isinstance(origin, dict) else None
     if kind == "human":
-        return "him"
+        text = _extract_record_text(rec)
+        if not nothing_of_his(text):
+            return "him"
+        if text.lstrip().startswith(_CONTINUES_A_TURN_STAMPED):
+            return "continues"
+        return "not-him"
     if kind is not None:
         return "not-him"
     if rec.get("isMeta"):
