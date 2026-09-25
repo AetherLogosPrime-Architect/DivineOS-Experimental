@@ -1956,9 +1956,9 @@ def _his_room_block(transcript_path: str | Path, texts: Any, *, write: bool) -> 
     """
     try:
         from divineos.core.his_room import check_his_room, remember_room, room_of
-        from divineos.core.operating_loop.turn_extraction import turn_started_by_him
+        from divineos.core.operating_loop.turn_extraction import he_spoke_this_turn
 
-        started_by_him = turn_started_by_him(transcript_path)
+        started_by_him = he_spoke_this_turn(transcript_path)
         block = check_his_room(texts.final_assistant_text, started_by_him)
         if write and started_by_him and block is None:
             room = room_of(texts.final_assistant_text)

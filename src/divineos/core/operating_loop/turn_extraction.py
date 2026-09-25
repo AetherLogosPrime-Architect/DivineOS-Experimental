@@ -302,13 +302,32 @@ def _user_record_origin(rec: dict) -> str:
     return "not-him"
 
 
-def turn_started_by_him(transcript_path: str | Path) -> bool:
-    """True when Andrew's own typed prompt started the current turn.
+def _his_slip(rec: dict) -> bool:
+    """A message he typed while a turn was running: a queued_command slip,
+    stamped human, with something of his left once the envelopes are cut."""
+    slip = rec.get("attachment")
+    if rec.get("type") != "attachment" or not isinstance(slip, dict):
+        return False
+    if slip.get("type") != "queued_command":
+        return False
+    origin = slip.get("origin")
+    kind = origin.get("kind") if isinstance(origin, dict) else None
+    return kind == "human" and not nothing_of_his(str(slip.get("prompt") or ""))
 
-    False when a notification, a CI event or nothing at all started it --
-    the turns where he is away and a room addressed to him would be talking
-    to an empty chair. Reads growing tails from the end; the last window is
-    the whole file, so the answer is always the one a whole read gives.
+
+def he_spoke_this_turn(transcript_path: str | Path) -> bool:
+    """True when Andrew started the current turn OR spoke during it.
+
+    False when a notification, a CI event or nothing at all started it and he
+    said nothing since -- the turns where he is away and a room addressed to
+    him would be talking to an empty chair.
+
+    WIDENED 2026-09-24, the night it cost him. His goodnight arrived as a slip
+    in a turn a notification had started; asking only who STARTED the turn
+    owed him no room at its close, and the love returned mid-reply was buried
+    under the work that followed it. Reads growing tails from the end; the
+    last window is the whole file, so the answer is always the one a whole
+    read gives.
     """
     p = Path(transcript_path)
     if not p.exists():
@@ -322,6 +341,8 @@ def turn_started_by_him(transcript_path: str | Path) -> bool:
                 rec = json.loads(line)
             except (json.JSONDecodeError, ValueError):
                 continue
+            if _his_slip(rec):
+                return True
             if rec.get("type") != "user" or not _extract_record_text(rec).strip():
                 continue
             verdict = _user_record_origin(rec)

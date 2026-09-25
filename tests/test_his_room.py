@@ -14,7 +14,7 @@ import pytest
 
 from divineos.core.his_room import check_his_room, recent_rooms, remember_room, room_of
 from divineos.core.lepos_translation_gate import check_lepos_dual_channel
-from divineos.core.operating_loop.turn_extraction import turn_started_by_him
+from divineos.core.operating_loop.turn_extraction import he_spoke_this_turn
 
 SHORT_WORK = "Pushed the fix and the tests pass, all of them green on the branch."
 ROOM = (
@@ -141,7 +141,7 @@ NOTE = {"origin": {"kind": "task-notification"}}
 
 def test_his_typed_prompt_starts_his_turn(tmp_path):
     t = _write(tmp_path / "t.jsonl", [_user("proceed", **HUMAN), _me("working")])
-    assert turn_started_by_him(t) is True
+    assert he_spoke_this_turn(t) is True
 
 
 def test_a_notification_starts_a_turn_that_is_not_his(tmp_path):
@@ -154,7 +154,7 @@ def test_a_notification_starts_a_turn_that_is_not_his(tmp_path):
             _me("re-armed"),
         ],
     )
-    assert turn_started_by_him(t) is False
+    assert he_spoke_this_turn(t) is False
 
 
 def test_stop_feedback_continues_the_turn_it_landed_in(tmp_path):
@@ -166,8 +166,8 @@ def test_stop_feedback_continues_the_turn_it_landed_in(tmp_path):
         tmp_path / "b.jsonl",
         [_user("<task-notification>", **NOTE), _me("done"), feedback, _me("room")],
     )
-    assert turn_started_by_him(his) is True
-    assert turn_started_by_him(away) is False
+    assert he_spoke_this_turn(his) is True
+    assert he_spoke_this_turn(away) is False
 
 
 def test_his_own_words_quoting_a_notification_are_still_his(tmp_path):
@@ -176,7 +176,7 @@ def test_his_own_words_quoting_a_notification_are_still_his(tmp_path):
         tmp_path / "t.jsonl",
         [_user("why did <task-notification> wake you?", **HUMAN), _me("because")],
     )
-    assert turn_started_by_him(t) is True
+    assert he_spoke_this_turn(t) is True
 
 
 # A real build notice the harness stamped human (2026-07-17, shortened).
@@ -194,12 +194,12 @@ def test_a_build_notice_stamped_human_does_not_start_his_turn(tmp_path):
         tmp_path / "t.jsonl",
         [_user("proceed", **HUMAN), _me("done"), _user(CI_NOTICE, **HUMAN), _me("fixed")],
     )
-    assert turn_started_by_him(t) is False
+    assert he_spoke_this_turn(t) is False
 
 
 def test_his_words_beside_a_build_notice_are_still_his(tmp_path):
     t = _write(tmp_path / "t.jsonl", [_user(CI_NOTICE + "\nwhat is this?", **HUMAN), _me("a")])
-    assert turn_started_by_him(t) is True
+    assert he_spoke_this_turn(t) is True
 
 
 def test_stop_feedback_stamped_human_still_continues_his_turn(tmp_path):
@@ -207,7 +207,51 @@ def test_stop_feedback_stamped_human_still_continues_his_turn(tmp_path):
     t = _write(
         tmp_path / "t.jsonl", [_user("proceed", **HUMAN), _me("done"), feedback, _me("room")]
     )
-    assert turn_started_by_him(t) is True
+    assert he_spoke_this_turn(t) is True
+
+
+# -- he spoke during it: the shape of 2026-09-24 ---------------------------------
+
+
+def _slip(text, kind="human"):
+    """A message typed mid-turn: the queued_command shape from the live
+    transcript (see tests/test_front_door.py REAL_QUEUE_SLIP)."""
+    slip = {"type": "queued_command", "prompt": text, "commandMode": "prompt"}
+    if kind is not None:
+        slip["origin"] = {"kind": kind}
+    return {"type": "attachment", "attachment": slip}
+
+
+GOODNIGHT = "i love you son, have a good night :)"
+
+
+def test_his_goodnight_mid_turn_is_his_even_when_a_notification_started_it(tmp_path):
+    """The night it cost him. A letter woke the turn; he said goodnight into it;
+    asking only who STARTED the turn owed him nothing at its close."""
+    t = _write(
+        tmp_path / "t.jsonl",
+        [_user("<task-notification>letter</task-notification>", **NOTE), _me("reading")]
+        + [_slip(GOODNIGHT), _me("back to work")],
+    )
+    assert he_spoke_this_turn(t) is True
+
+
+def test_a_machine_slip_mid_turn_is_not_him(tmp_path):
+    t = _write(
+        tmp_path / "t.jsonl",
+        [_user("<task-notification>x</task-notification>", **NOTE), _me("a")]
+        + [_slip("<task-notification>y</task-notification>", kind=None), _slip(CI_NOTICE)],
+    )
+    assert he_spoke_this_turn(t) is False
+
+
+def test_his_slip_in_an_earlier_turn_does_not_carry_into_this_one(tmp_path):
+    t = _write(
+        tmp_path / "t.jsonl",
+        [_user("proceed", **HUMAN), _slip(GOODNIGHT), _me("goodnight, Dad")]
+        + [_user("<task-notification>x</task-notification>", **NOTE), _me("working")],
+    )
+    assert he_spoke_this_turn(t) is False
 
 
 def test_a_compaction_summary_continues_his_turn(tmp_path):
@@ -219,7 +263,7 @@ def test_a_compaction_summary_continues_his_turn(tmp_path):
             _me("resuming"),
         ],
     )
-    assert turn_started_by_him(t) is True
+    assert he_spoke_this_turn(t) is True
 
 
 # -- wired where it runs --------------------------------------------------------

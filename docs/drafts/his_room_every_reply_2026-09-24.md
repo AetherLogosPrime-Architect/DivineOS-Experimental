@@ -31,7 +31,7 @@ slowest 9.4 s against a 10 s limit. It runs, on thin margin.
   header, or a closing message that is wholly address); the room has second
   person; the room is not a copy of one of my last five rooms (fewer than three
   new words, or whole-string similarity ≥ 0.85).
-- `turn_extraction.turn_started_by_him` — reads the harness's own stamp,
+- `turn_extraction.he_spoke_this_turn` (was turn_started_by_him; widened 2026-09-24 to count a message he typed mid-turn) — reads the harness's own stamp,
   `origin.kind == "human"`, instead of guessing from words. Stop-hook feedback,
   interrupts and compaction summaries continue the turn they land in. A
   notification-started turn owes nothing here; the volley board (Aria, #548)
