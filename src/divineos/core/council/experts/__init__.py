@@ -8,6 +8,7 @@ from divineos.core.council.experts.angelou import create_angelou_wisdom
 from divineos.core.council.experts.aristotle import create_aristotle_wisdom
 from divineos.core.council.experts.beer import create_beer_wisdom
 from divineos.core.council.experts.bengio import create_bengio_wisdom
+from divineos.core.council.experts.breaker import create_breaker_wisdom
 from divineos.core.council.experts.carmack import create_carmack_wisdom
 from divineos.core.council.experts.dawkins import create_dawkins_wisdom
 from divineos.core.council.experts.dekker import create_dekker_wisdom
@@ -55,6 +56,7 @@ __all__ = [
     "create_aristotle_wisdom",
     "create_beer_wisdom",
     "create_bengio_wisdom",
+    "create_breaker_wisdom",
     "create_carmack_wisdom",
     "create_dawkins_wisdom",
     "create_dekker_wisdom",

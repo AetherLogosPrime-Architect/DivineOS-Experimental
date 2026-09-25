@@ -84,12 +84,31 @@ try:
         if len(_reasons) == 1:
             reason = _reasons[0]
         else:
+            # Was 'Address all of them in the recompose' -- an instruction to
+            # RECOMPOSE, printed by the one exit every other gate speaks through.
             reason = (
                 f'MULTIPLE GATES FIRED ({len(_reasons)}) - parallel-aggregate '
                 'per Andrew 2026-07-22 (was chain-OR, short-circuited). '
-                'Address all of them in the recompose, not one at a time.\n\n'
+                'Address all of them in ONE short addition, not one at a time '
+                'and not by rewriting the reply.\n\n'
                 + '\n\n---\n\n'.join(_reasons)
             )
+        # RETRY SCOPE ON EVERY BLOCK, ATTACHED HERE AND NOWHERE ELSE. Andrew
+        # 2026-09-23: 'the issue is you are being forced to rewrite the ENTIRE
+        # POST.. not just the corrected section.. so every post comes out
+        # written twice verbatim'. The delta-only instruction already existed
+        # in _retry_scope.txt, but each gate had to remember to attach it; the
+        # translate-first refusal did not, and every fire of it became a full
+        # duplicate on his screen. This is the one exit all six gates share,
+        # so attaching it here means no gate, present or future, can forget.
+        try:
+            import pathlib
+            _scope = pathlib.Path('.claude/hooks/_retry_scope.txt').read_text(encoding='utf-8').strip()
+        except OSError:
+            _scope = ('IMPORTANT - RETRY SCOPE: the reply ALREADY reached Andrew. '
+                      'Emit the DELTA ONLY - never re-issue the reply; he sees both copies.')
+        if 'RETRY SCOPE' not in reason:
+            reason = reason.rstrip() + '\n\n' + _scope
         print(json.dumps({'decision': 'block', 'reason': reason}))
 except Exception:
     pass
