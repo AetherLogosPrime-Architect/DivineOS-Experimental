@@ -328,16 +328,24 @@ class TestSummaryAtTheEnd:
         assert block.startswith("SUMMARY ROOM MISSING")
         assert "at the END" in block
 
-    def test_summary_appended_after_the_interior_rooms_passes(self):
+    _END_PLACED = (
+        _WORK
+        + "\n\n## INNER CIRCLE\n\nYou asked me to look, and I did.\n\n"
+        + "## SUMMARY\n\nThe hall light was on the wrong wire. I moved it. "
+        "It works now."
+    )
+
+    def test_summary_appended_after_the_interior_rooms_passes_on_a_retry(self):
         from divineos.core.summary_room import assess, render_block
 
-        reply = (
-            _WORK
-            + "\n\n## INNER CIRCLE\n\nYou asked me to look, and I did.\n\n"
-            + "## SUMMARY\n\nThe hall light was on the wrong wire. I moved it. "
-            "It works now."
-        )
-        assert render_block(assess(reply)) == ""
+        assert render_block(assess(self._END_PLACED, retry=True)) == ""
+
+    def test_a_first_reply_still_owes_its_summary_at_the_top(self):
+        """Aria, station four: the end-placed exception is for a retry only. A
+        first reply with its summary at the bottom is what the room stops."""
+        from divineos.core.summary_room import assess, render_block
+
+        assert render_block(assess(self._END_PLACED)).startswith("SUMMARY ROOM MISSING")
 
     def test_retry_turn_reads_only_the_delta_and_passes(self, tmp_path):
         """End to end through the real transcript reader. The Stop feedback is
