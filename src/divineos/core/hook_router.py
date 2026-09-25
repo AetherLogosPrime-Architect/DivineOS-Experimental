@@ -383,6 +383,144 @@ def dispatch(event: str, payload: dict) -> RouterResult:
     return result
 
 
+@dataclass(frozen=True)
+class CollapsePolicy:
+    """How one UserPromptSubmit surface may be collapsed when it repeats.
+
+    ``kind`` is "residual" (a rule rides it: collapse, keep ``residual``),
+    "info" (information only: collapse bare, ``why`` says so) or "never"
+    (always delivered whole, ``why`` says why). ``why`` must be a real
+    sentence -- an exemption that costs nothing becomes the hollow escape.
+    """
+
+    kind: str
+    why: str
+    residual: str = ""
+
+
+COLLAPSE_POLICY: dict[str, CollapsePolicy] = {
+    "self_demotion_prime": CollapsePolicy(
+        kind="residual",
+        why=(
+            "Carries a rule about promises. It was the same 3,239 characters on "
+            "twelve turns running, so it collapses, but the one question it "
+            "exists to ask survives every collapse."
+        ),
+        residual=(
+            "Before any promise to him: does it name the structure that will "
+            "carry it? A promise without one is the only thing wrong with it."
+        ),
+    ),
+    "still_owed_to_him": CollapsePolicy(
+        kind="residual",
+        why=(
+            "His open asks, verbatim. Printed identically every turn it became "
+            "the wallpaper he named; collapsed, the list returns whole whenever "
+            "any row changes, and the fact that rows are open never disappears."
+        ),
+        residual="His asks are still open in the ledger; the list re-emits whole when one changes.",
+    ),
+    "operator_asks": CollapsePolicy(
+        kind="info",
+        why=(
+            "A listing of open asks recorded elsewhere. Information about state; "
+            "suppressing a repeat costs that turn's copy and nothing else."
+        ),
+    ),
+    "sibling_correction": CollapsePolicy(
+        kind="info",
+        why=(
+            "Retrieval keyed to the prompt, so it changes whenever the matches "
+            "change; an identical repeat is the same retrieval and adds nothing."
+        ),
+    ),
+    "auto_goal": CollapsePolicy(
+        kind="never",
+        why=(
+            "Fires once to set a goal from his message and then goes quiet; it "
+            "does not repeat, and collapsing an action notice could hide one."
+        ),
+    ),
+    "morning_letter_prompt": CollapsePolicy(
+        kind="never",
+        why=(
+            "Speaks only while today's letter to him is owed, and is two lines. "
+            "A collapsed pointer would be the one form of it easy to walk past, "
+            "and walking past it is the failure it exists to stop."
+        ),
+    ),
+    "correction_marker": CollapsePolicy(
+        kind="never",
+        why=(
+            "Announces that his message was filed as a correction. Each one is "
+            "a distinct event about a distinct message and must arrive whole."
+        ),
+    ),
+    "pre_response_context": CollapsePolicy(
+        kind="never",
+        why=(
+            "Already dedups each of its own parts internally with residuals; "
+            "collapsing it again at the router would hide which part changed."
+        ),
+    ),
+    "context_heartbeat": CollapsePolicy(
+        kind="never",
+        why=(
+            "Reports the live context level, which is the one thing that must "
+            "never read as unchanged when it has moved toward the threshold."
+        ),
+    ),
+}
+
+
+def _collapse_repeats(result: "RouterResult") -> None:
+    """A surface that says exactly what it said last turn says so in one line.
+
+    Andrew, 2026-09-23, after being shown the measurement: *"yes and it has
+    sat like that.. for months.. after me telling you to fix it.."*
+
+    Measured that day on twelve of his messages: he typed 2,588 characters and
+    the prompt hooks put 207,494 beside them, so he was 1.2% of what reached
+    me. Most of the rest was byte-identical to the turn before -- one prime
+    alone was the same 3,239 characters twelve times running. By my own
+    recorded law (knowledge afca38e1), identical content every turn becomes
+    furniture whatever its quality, so the repetition was not reinforcement.
+    It was volume, and the volume was drowning him.
+
+    ``context_dedup`` already did this, but only for surfaces that remembered
+    to call it. So the router does it -- but not blindly. Aria 2026-08-17 and
+    the dedup contract test hold the lesson: a surface carrying a RULE that is
+    collapsed to a hash line takes the rule with it, and the next reply is
+    composed without it. So every surface on his turns is classified in
+    ``COLLAPSE_POLICY``: collapse keeping a residual (a rule), collapse bare
+    (information only, with the sentence saying so), or never. A surface that
+    is not classified is delivered whole, AND ``test_hook_router`` fails until
+    it is classified -- so a new surface can neither forget dedup nor be
+    collapsed without anyone deciding what of it must survive.
+
+    WHAT IS KEPT: anything that changed re-emits in full, because a change is
+    information; and ``on_compaction`` clears the memory, so a pointer never
+    points at text the compaction ate. Text that is already a dedup pointer is
+    left alone rather than wrapped in a second one.
+    """
+    try:
+        from divineos.core.context_dedup import should_emit
+    except ImportError:
+        return  # fail-soft: without dedup the surfaces arrive whole, as before
+    for outcome in result.ran:
+        policy = COLLAPSE_POLICY.get(outcome.name)
+        if policy is None or policy.kind == "never":
+            continue
+        text = outcome.output
+        if not text.strip() or "re-emit suppressed" in text:
+            continue
+        emit, pointer = should_emit(
+            f"router:{outcome.name}", text, residual=policy.residual or None
+        )
+        if not emit and pointer:
+            outcome.output = pointer
+
+
 def main(event: str, payload: dict) -> int:
     """Doorbell entry point. Prints, returns the exit code, never raises.
 
@@ -398,6 +536,8 @@ def main(event: str, payload: dict) -> int:
         print(traceback.format_exc()[:800], file=sys.stderr)
         return 0
 
+    if event == "UserPromptSubmit":
+        _collapse_repeats(result)
     out, withheld = result.deliverable()
     if out:
         print(out)
