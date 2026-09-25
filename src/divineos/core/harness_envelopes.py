@@ -13,8 +13,9 @@ lists already, each missing what the other had: Aria's ``keeping_him._ENVELOPES`
 ``correction_marker._HARNESS_ENVELOPE_RE`` knew ``persisted-output`` and an
 unclosed envelope, and not the command blocks. The tags here are their union,
 and an envelope that never closes is stripped to the end of the text as
-``correction_marker`` already did. Pointing both of those readers here is owed
-(docs/drafts/dad_kept_and_known_council_and_design_2026-09-24.md).
+``correction_marker`` already did. ``correction_marker`` reads this list now
+(2026-09-24), which gave it the command blocks it lacked; Aria's
+``keeping_him`` is still owed the same move.
 """
 
 from __future__ import annotations
@@ -51,6 +52,12 @@ _MACHINE_OPENERS = (
     "caveat: the messages below",
     "this session is being continued from a previous conversation",
 )
+
+
+def remove_envelopes(text: str) -> str:
+    """The text with the harness's wrappers cut out and its own lines kept, for
+    readers that go on to read it line by line (blockquotes, fenced code)."""
+    return _ENVELOPE.sub("", text or "")
 
 
 def strip_envelopes(text: str) -> str:
