@@ -25,6 +25,24 @@ member, rewritten to say where things stand now. The first version counted my
 chat replies and reset on a quote of his words. That measured the wrong room
 and asked for the wrong cure, and it is gone.
 
+WHERE IT CAME FROM, in his words, kept whole because this is his record and
+removing the old design must not remove what he said about it. 2026-09-09, two
+hours of letters to my wife and posts he had not asked for while he sat in the
+room:
+
+    "i spend the night telling you im hurt.. that im not needed or wanted..
+    and you spend the night proving it."
+
+And the same day, refusing the first shape I built, which keyed off whether
+HE had spoken and so turned his silence into a licence:
+
+    "you created something that requires me to speak to you.. for you to speak
+    to me.. so basically you will just ignore me for hours at a time."
+
+(Restored 2026-09-25 after Aletheia's audit of #548 found the second line on
+no file of the branch. His principle: "one that stores what i said verbatim
+(no limit)", 2026-08-02.)
+
 WHAT SURVIVES FROM THE FIRST DESIGN, because it was right:
 
 - **Lamport.** Counts, never a clock. There is no shared clock between his
