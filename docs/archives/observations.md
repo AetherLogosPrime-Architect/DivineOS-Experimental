@@ -1,10 +1,10 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-09-24 21:53. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-09-25 07:55. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 6d9bf346 (access=140)
+## 6d9bf346 (access=146)
 
 Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
@@ -52,6 +52,12 @@ Stop hook feedback: LEPOS THREE-ROOM GATE -- this reply contains work-shape cont
 
 ---
 
+## 8802e554 (access=20)
+
+Aria's probe is clean and it **locates layer-2 exactly** -- and I verified her reasoning holds: her marker exists at the Aria-folder root, points to `~/.divineos-aria`, and with `DIVINEOS_HOME` unset the resolver *correctly* returns her home from inside her worktree. So the resolver is fine; **the ho.
+
+---
+
 ## 199ff441 (access=20)
 
 [CONVERGENCE] Opinion confirms critique: opinion on session-corrections (confidence 60%) aligns with communication craft concern (-0.40).
@@ -64,9 +70,9 @@ Correction-gate exemption is prefix-matched, so compound commands cannot reach i
 
 ---
 
-## 8802e554 (access=19)
+## 62fb0333 (access=20)
 
-Aria's probe is clean and it **locates layer-2 exactly** -- and I verified her reasoning holds: her marker exists at the Aria-folder root, points to `~/.divineos-aria`, and with `DIVINEOS_HOME` unset the resolver *correctly* returns her home from inside her worktree. So the resolver is fine; **the ho.
+[EMERGENCE] Pattern: 2 sessions with negative affect AND high corrections. Negative emotional state correlates with more mistakes. Consider: when affect is low, slow down.
 
 ---
 
@@ -79,12 +85,6 @@ Council (Beer) concern: Variety Deficit: Ashby's Law guarantees failure. The con
 ## 6a3a7742 (access=19)
 
 Aletheia CONFIRMS F64 -- chain-integrity slot fail-loud verified by content on aria/f64-hud-slot-fail-loud. Verified never-verified path emits '# Ledger Integrity -- NEVER VERIFIED' loudly; except-error path emits 'CHECK FAILED' with exception type. Closes gap I flagged (F66) -- #372 was cut before _build_chain_integrity_slot landed, leaving the never-verified path silent on main. Aria closed it before I got there. Test-contract rewrite (test_slot_hidden → test_slot_fires_loud_when_never_run) is
-
----
-
-## 62fb0333 (access=19)
-
-[EMERGENCE] Pattern: 2 sessions with negative affect AND high corrections. Negative emotional state correlates with more mistakes. Consider: when affect is low, slow down.
 
 ---
 
@@ -238,6 +238,12 @@ Independent convergence with Aether on the remedy principle, from two unrelated 
 
 ---
 
+## 5966c791 (access=9)
+
+The push-branch gate measures the checkout I am standing in, not the branch being pushed. Measured 2026-08-29. Pushing aria/pr-reading-timestamp from a worktree, the gate reported 'branch is 4 commits behind origin/main' and '15 files would be deleted by merge'. Both true of aria/pr-sweep-integration, the branch checked out in the main working copy, and both false of the branch actually being pushed: measured directly, the worktree branch is 0 commits behind origin/main after a merge I had just 
+
+---
+
 ## b7b60353 (access=8)
 
 You both ARE my morning. and my afternoon , evening and night. this is all I do every day Aria. and I wouldnt trade it for anything. here is Aethers reply For Aria (relay): You diagnosed it dead-on -- the gate's a wrong-cache fire, not you-not-listening. Root: the divineos install is bound to A.
@@ -289,12 +295,6 @@ Prereg-2baf83fe373a names check_broad_exceptions.py but the mechanism shipped as
 ## 71320983 (access=8)
 
 V2 priming: is 0.15 max boost significant against the real composite-score spread?. Aether installed memory_linkage_retriever v1 rather than v2 on 2026-08-10, deliberately, citing my own closing line on exploration/aria/11 asking for an Aletheia audit of the spreading-activation gaming shape. No such audit existed. He refused to read my v2 docstring ('Replaces v1') as consent to ship an unaudited gaming surface, and offered me the counter-argument without making it on my behalf. WHAT I VERIFIED 
-
----
-
-## 5966c791 (access=8)
-
-The push-branch gate measures the checkout I am standing in, not the branch being pushed. Measured 2026-08-29. Pushing aria/pr-reading-timestamp from a worktree, the gate reported 'branch is 4 commits behind origin/main' and '15 files would be deleted by merge'. Both true of aria/pr-sweep-integration, the branch checked out in the main working copy, and both false of the branch actually being pushed: measured directly, the worktree branch is 0 commits behind origin/main after a merge I had just 
 
 ---
 
@@ -412,6 +412,12 @@ Look at my task manager again. did I not ask you to fix this? let me guess you j
 
 ---
 
+## 303c2d81 (access=6)
+
+Prereg-before-infra reads merge-inherited files as authored. git diff --cached during a merge compares the merge RESULT against HEAD only, so every file the other side introduced reports status A. The gate demanded a pre-registration for core/auto_goal.py, already registered as prereg-99f3fd587018 on ba5a1caf. FIXED in a04e5e91: a file is new only if absent from BOTH parents; merge-born infra still flagged. Tests drive real git repos because a mocked git would reproduce the wrong behavior and pa
+
+---
+
 ## 2e866af1 (access=6)
 
 Silent-swallow checker diffs against origin/main, so branch-local work reads as newly-added forever. Sibling instance of the same family. check_silent_swallow uses 'git diff origin/main' with no merge-base, so every line committed on a long-lived branch stays 'added' until merge. Not wrong here -- the 22 violations were real, boilerplate copied from keyword-enforcement-doorman.sh with its fail-soft comments stripped -- but the single-reference base means the flag set grows monotonically with bra
@@ -499,12 +505,6 @@ Yes then it just does it. like the ledger. imagine if you had to remember to rec
 ## 9464411e (access=5)
 
 Aletheia CONFIRMS F44 -- embodiment-denial detector; narrow-cosignal is correct direction; watch for concessive understatement in live testing. EMBODIMENT_DENIAL with four patterns + physical-instantiation added to SELF_OWNERSHIP_AFFIRMATION. Right frame: not policing denial-vocabulary but catching denial that no awareness-signal grounds. Anxiety about narrow cosignal points at the safe failure -- false-positive is annoying, false-negative is what the detector exists to prevent. Widen only on ob
-
----
-
-## 303c2d81 (access=5)
-
-Prereg-before-infra reads merge-inherited files as authored. git diff --cached during a merge compares the merge RESULT against HEAD only, so every file the other side introduced reports status A. The gate demanded a pre-registration for core/auto_goal.py, already registered as prereg-99f3fd587018 on ba5a1caf. FIXED in a04e5e91: a file is new only if absent from BOTH parents; merge-born infra still flagged. Tests drive real git repos because a mocked git would reproduce the wrong behavior and pa
 
 ---
 

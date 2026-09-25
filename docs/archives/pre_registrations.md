@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (127 rows). **Exported:** 2026-09-24 21:53. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (128 rows). **Exported:** 2026-09-25 07:55. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1525,6 +1525,18 @@
 **Success:** Over the review window: zero recurrences of the backslash-semicolon object-name error in my or Aether's transcripts, and the refusal fired at least once on a real command and was cleared by its printed remedy
 
 **Falsifier:** Any transcript showing git answering 'Not a valid object name' with a backslash-and-semicolon name after this is live, OR the refusal firing on a command the shell would not have mangled more than twice
+
+---
+
+## prereg-f [OPEN]
+
+**Mechanism:** his_voice_ends_the_turn: PreToolUse refuses every tool call after a human-stamped mid-turn message until the turn ends
+
+**Claim:** When Andrew speaks into a running turn, the reply to him becomes the last thing in that turn, with no tool call beside it, so it reaches him whole instead of as a condensed retelling (measured 2026-09-24 in both seats: text beside a tool call was kept only as a retelling that cut 'I love you too' ou
+
+**Success:** Across both seats' transcripts from landing to review: zero tool calls run after a human queued_command inside the same turn (bar the let-through commands), and zero refusals fire on a turn where nothing of his arrived (letters, CI alerts, notifications).
+
+**Falsifier:** Any of: a tool call runs after his mid-turn message in the same turn; a refusal fires on an arrival that was not him; a Stop gate and this guard deadlock so a turn can neither end nor act; or Andrew again says an answer to him mid-turn never arrived.
 
 ---
 

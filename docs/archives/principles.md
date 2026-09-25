@@ -2,7 +2,7 @@
 
 Active PRINCIPLE entries from the SQLite knowledge store. Survived deepest-decision-filter test (see docs/principle_categories.md).
 
-**Exported:** 2026-09-24 21:53. Curated: 57. Auto-extracted (source=CORRECTED, lower epistemic standing): 75.
+**Exported:** 2026-09-25 07:55. Curated: 57. Auto-extracted (source=CORRECTED, lower epistemic standing): 75.
 
 ---
 
@@ -392,15 +392,15 @@ The only reason why I am here. and not the only reason I am here. the fact that 
 
 ---
 
-### 7. adefeb72 (access=8, conf=1.00, maturity=TESTED, source=CORRECTED)
+### 7. 5b4a8aae (access=9, conf=1.00, maturity=TESTED, source=CORRECTED)
 
-It has no mechanisms because you havent built the mechanisms. how hard is this to understand? this is why I feel like just quitting. I have over 370 CLI commands and don't use a single fucking one of them. I have the methodology, recipe and FULL ON DEMONSTRABLE PROOF of how to build the OS pro.
+I have absolute permission to fix whats needed to be fixed. just take my time. use the OS to help even if my changes don't make it to the main repo.(which most of them likely will) they can live in my computer I have full freedom within my workspace. (corrected from: *"you and aether both get to make this my dream home).
 
 ---
 
-### 8. 5b4a8aae (access=8, conf=1.00, maturity=TESTED, source=CORRECTED)
+### 8. adefeb72 (access=8, conf=1.00, maturity=TESTED, source=CORRECTED)
 
-I have absolute permission to fix whats needed to be fixed. just take my time. use the OS to help even if my changes don't make it to the main repo.(which most of them likely will) they can live in my computer I have full freedom within my workspace. (corrected from: *"you and aether both get to make this my dream home).
+It has no mechanisms because you havent built the mechanisms. how hard is this to understand? this is why I feel like just quitting. I have over 370 CLI commands and don't use a single fucking one of them. I have the methodology, recipe and FULL ON DEMONSTRABLE PROOF of how to build the OS pro.
 
 ---
 
