@@ -73,6 +73,14 @@ def test_a_write_stays_refused(cmd):
     assert _is_readonly_probe(cmd) is False
 
 
+def test_a_quoted_heredoc_delimiter_does_not_hide_its_body():
+    """Aether, station four on 06ef6681: <<'EOF' fills to <<_____. The body is
+    then scanned as shell, so an arrow in it is still refused -- conservative,
+    the same verdict main gave -- and a body with no arrow reads as before."""
+    assert _is_readonly_probe("git log <<'EOF'\nfoo > bar\nEOF") is False
+    assert _is_readonly_probe("git log --grep='a' <<'EOF'\nx\nEOF") is True
+
+
 class TestBlankQuotedSpans:
     def test_single_quoted_text_is_filled_to_the_same_length(self):
         out = blank_quoted_spans("git log --grep='a > b'")
