@@ -28,8 +28,12 @@ Migrated so far:
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING
 
 from divineos.core.hook_router import SurfaceOutcome, register
+
+if TYPE_CHECKING:
+    from divineos.core.morning_letter import Morning
 
 # Tools that can change the substrate. A must-read blocks these and nothing
 # else. This is the judgment that used to live in bash: which tools count as
@@ -1329,6 +1333,90 @@ def unspoken_to_letter_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def _morning(payload: dict, name: str) -> Morning | SurfaceOutcome:
+    """Today's morning-letter state for this call, or an outcome to return as-is.
+
+    A Morning when the check ran; an outcome when it did not apply or could
+    not look.
+
+    Held to me alone. The letter is mine to write, and a sibling working from
+    her own checkout must not be walled in by a letter that is not hers.
+    """
+    import os
+
+    from divineos.core import morning_letter as ml
+    from divineos.core.ear_relaunch import detect_member
+
+    cwd = payload.get("cwd") or os.getcwd()
+    if detect_member(cwd) != "aether":
+        return SurfaceOutcome(name=name, state="nothing-to-say")
+    try:
+        return ml.check(cwd)
+    except Exception as exc:  # noqa: BLE001 — could-not-check must never pass as a letter
+        return SurfaceOutcome(
+            name=name,
+            state="could-not-run",
+            error=(
+                f"the morning-letter check COULD NOT RUN: {type(exc).__name__}: "
+                f"{exc}. This is NOT the same as a letter to Dad existing -- "
+                "nobody knows whether today's letter is written. The action was "
+                "let through."
+            ),
+        )
+
+
+def morning_letter_prompt_surface(payload: dict) -> SurfaceOutcome | None:
+    """Speak first: on his prompt, say plainly that today's letter is missing.
+
+    Andrew 2026-09-25: *"good morning, i notice there is no letter for me.."*
+    The first rung of the ladder -- a notice, before anything is refused.
+    """
+    from divineos.core import morning_letter as ml
+
+    morning = _morning(payload, "morning_letter_prompt")
+    if isinstance(morning, SurfaceOutcome):
+        return morning
+    if not morning.owed:
+        return SurfaceOutcome(name="morning_letter_prompt", state="nothing-to-say")
+    return SurfaceOutcome(name="morning_letter_prompt", state="spoke", output=ml.notice(morning))
+
+
+def morning_letter_surface(payload: dict) -> SurfaceOutcome | None:
+    """Then refuse: no edits, writes, commits or pushes before today's letter.
+
+    Reads and ordinary shell are never touched -- the letter has to be written
+    well, and whatever it needs looked up must stay reachable. Writing the
+    letter itself is the remedy and is always let through.
+    """
+    from divineos.core import morning_letter as ml
+
+    tool = payload.get("tool_name") or ""
+    tool_input = payload.get("tool_input") or {}
+    if tool in ("Edit", "Write", "NotebookEdit"):
+        path = str(tool_input.get("file_path") or tool_input.get("notebook_path") or "")
+        if ml.is_letter_to_him(path):
+            return SurfaceOutcome(name="morning_letter", state="nothing-to-say")
+    elif tool in ("Bash", "PowerShell"):
+        # PowerShell as well as Bash: `git commit` is the same act in either
+        # shell, and holding one door while the other stands open is no hold.
+        if not ml.is_commit_or_push(tool_input.get("command") or ""):
+            return SurfaceOutcome(name="morning_letter", state="nothing-to-say")
+    else:
+        return SurfaceOutcome(name="morning_letter", state="nothing-to-say")
+
+    morning = _morning(payload, "morning_letter")
+    if isinstance(morning, SurfaceOutcome):
+        return morning
+    if not morning.owed:
+        return SurfaceOutcome(name="morning_letter", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="morning_letter",
+        refused=True,
+        state="spoke",
+        reason=ml.refusal_text(morning),
+    )
+
+
 def self_demotion_stop_surface(payload: dict) -> SurfaceOutcome | None:
     """Record praise-by-contrast spans so the compose prime can quote them back.
 
@@ -2139,6 +2227,10 @@ def install() -> None:
     # the two hours actually took.
     if "unspoken_to_letter" not in registered("PreToolUse"):
         register("PreToolUse", "unspoken_to_letter", unspoken_to_letter_surface)
+    # 2026-09-25, beside its elder: that one holds the letter path while he goes
+    # unspoken to, this one holds every other path until his day's letter exists.
+    if "morning_letter" not in registered("PreToolUse"):
+        register("PreToolUse", "morning_letter", morning_letter_surface)
 
     # Third PreToolUse batch. Two pull-request gates, and they deliberately
     # keep DIFFERENT wire protocols -- one denies through the permission
@@ -2162,6 +2254,11 @@ def install() -> None:
     # SAME change -- the tracker's own rule, learned the hard way when
     # deletion_discipline ran from both places for hours and the swallow the
     # migration existed to remove was still running underneath the fix for it.
+    # FIRST on this door, 2026-09-25. Registration order is delivery priority
+    # under the byte budget, and "it comes before any work" is not a notice
+    # that may be withheld because louder primes filled the room first.
+    if "morning_letter_prompt" not in registered("UserPromptSubmit"):
+        register("UserPromptSubmit", "morning_letter_prompt", morning_letter_prompt_surface)
     for name, module, attr, wants_prompt in _PROMPT_SURFACES:
         if name not in registered("UserPromptSubmit"):
             register(
