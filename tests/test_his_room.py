@@ -245,6 +245,17 @@ def test_a_machine_slip_mid_turn_is_not_him(tmp_path):
     assert he_spoke_this_turn(t) is False
 
 
+def test_a_flagged_compaction_summary_does_not_end_the_turn_he_spoke_into(tmp_path):
+    """The harness flags the summary; its text need not match anything."""
+    summary = _user("A summary of the conversation so far.", isCompactSummary=True)
+    t = _write(
+        tmp_path / "t.jsonl",
+        [_user("<task-notification>x</task-notification>", **NOTE), _slip(GOODNIGHT)]
+        + [summary, _me("resuming")],
+    )
+    assert he_spoke_this_turn(t) is True
+
+
 def test_his_slip_in_an_earlier_turn_does_not_carry_into_this_one(tmp_path):
     t = _write(
         tmp_path / "t.jsonl",

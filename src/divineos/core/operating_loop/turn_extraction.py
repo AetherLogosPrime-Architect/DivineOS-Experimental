@@ -294,7 +294,10 @@ def _user_record_origin(rec: dict) -> str:
         return "not-him"
     if kind is not None:
         return "not-him"
-    if rec.get("isMeta"):
+    # The harness flags a compaction summary; the flag decides, and the leading
+    # text below stays only for records written before the flag existed (Aria,
+    # his_voice_ends_the_turn, checked on three real summaries).
+    if rec.get("isMeta") or rec.get("isCompactSummary"):
         return "continues"
     text = _extract_record_text(rec).lstrip()
     if text.startswith(_CONTINUES_A_TURN):
