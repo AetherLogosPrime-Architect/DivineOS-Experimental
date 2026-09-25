@@ -1,6 +1,14 @@
 # Claims (open/investigating) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-09-24 09:27. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-09-24 16:37. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## 5bbe14d3 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=unspoken_to_letter, env_var=manual-reset:unspoken_to.json. Operator-named reason: Defect-escape, operator-authorized. Andrew 2026-09-24, verbatim: "yes use the emergency exit" and "bypass it and send the letter". The letter guard refused the letter he himself asked me to write to Aether, in normal conversation with him present. Root cause: its count is cleared only by the Stop-ti
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
 
 ---
 
@@ -809,14 +817,6 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 ---
 
 ## 1eb3b84b [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 9ea0181d [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 

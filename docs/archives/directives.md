@@ -1,16 +1,16 @@
 # Directives — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-09-24 09:27. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-09-24 16:37. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 7a88cef8 (access=207)
+## 7a88cef8 (access=210)
 
 [council-obligation] Next thinking session should run a council walk on this session's pattern: building with 1 corrections and 74 tool calls. Discharge via `divineos council log` with substance_binding -- not a bare mechanical convene.
 
 ---
 
-## 6307370d (access=32)
+## 6307370d (access=33)
 
 [memory-hierarchy] 1. Three tiers exist: core memory, active memory, knowledge store. 2. Core memory is 8 fixed slots. It is identity. It persists across all sessions. 3. Active memory is a ranked working set. It surfaces what matters now. 4. The knowledge store is the archive. Everything learned lives here. 5. Briefing draws from all three. Directives surface first. 6. No tier replaces another. Each serves a different timescale.
 

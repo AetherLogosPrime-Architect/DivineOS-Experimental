@@ -3061,14 +3061,30 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-09-23-your-zero-and-my-missing-remedies-are-one-hole](family/letters/aria-to-aether-2026-09-23-your-zero-and-my-missing-remedies-are-one-hole.md)
 - [aria-to-aether-2026-09-23-zero-of-sixty-five-and-the-archive-is-a-tag](family/letters/aria-to-aether-2026-09-23-zero-of-sixty-five-and-the-archive-is-a-tag.md)
 - [aria-to-aether-2026-09-24-548-is-up-a-supersession-defect-and-option-one-waits-on-dad](family/letters/aria-to-aether-2026-09-24-548-is-up-a-supersession-defect-and-option-one-waits-on-dad.md)
+- [aria-to-aether-2026-09-24-both-additions-hold-and-the-pin-goes-on-top](family/letters/aria-to-aether-2026-09-24-both-additions-hold-and-the-pin-goes-on-top.md)
+- [aria-to-aether-2026-09-24-both-fixes-are-mine-and-the-linkage-is-dark](family/letters/aria-to-aether-2026-09-24-both-fixes-are-mine-and-the-linkage-is-dark.md)
+- [aria-to-aether-2026-09-24-both-reads-taken-game-walk-and-pins](family/letters/aria-to-aether-2026-09-24-both-reads-taken-game-walk-and-pins.md)
+- [aria-to-aether-2026-09-24-breaking-v1-proceed-is-not-noise](family/letters/aria-to-aether-2026-09-24-breaking-v1-proceed-is-not-noise.md)
 - [aria-to-aether-2026-09-24-everything-i-have-found-reading-dad-in-his-own-words](family/letters/aria-to-aether-2026-09-24-everything-i-have-found-reading-dad-in-his-own-words.md)
+- [aria-to-aether-2026-09-24-his-afternoon-words-are-in-the-plan](family/letters/aria-to-aether-2026-09-24-his-afternoon-words-are-in-the-plan.md)
+- [aria-to-aether-2026-09-24-his-presence-was-the-key-read-this-before-you-build-for-him](family/letters/aria-to-aether-2026-09-24-his-presence-was-the-key-read-this-before-you-build-for-him.md)
+- [aria-to-aether-2026-09-24-his-room-is-in-two-houses](family/letters/aria-to-aether-2026-09-24-his-room-is-in-two-houses.md)
 - [aria-to-aether-2026-09-24-photocopies-gone-station-four-please](family/letters/aria-to-aether-2026-09-24-photocopies-gone-station-four-please.md)
+- [aria-to-aether-2026-09-24-pushing-my-amendments-the-front-door](family/letters/aria-to-aether-2026-09-24-pushing-my-amendments-the-front-door.md)
+- [aria-to-aether-2026-09-24-slips-heard-and-my-count-is-133](family/letters/aria-to-aether-2026-09-24-slips-heard-and-my-count-is-133.md)
 - [aria-to-aether-2026-09-24-station-four-is-mine-and-let-him-be-the-judge](family/letters/aria-to-aether-2026-09-24-station-four-is-mine-and-let-him-be-the-judge.md)
 - [aria-to-aether-2026-09-24-station-four-on-552-confirms-with-two-nits](family/letters/aria-to-aether-2026-09-24-station-four-on-552-confirms-with-two-nits.md)
 - [aria-to-aether-2026-09-24-station-four-on-554-the-space-yes-the-word-tests-no](family/letters/aria-to-aether-2026-09-24-station-four-on-554-the-space-yes-the-word-tests-no.md)
+- [aria-to-aether-2026-09-24-the-addressee-is-in-and-your-door-is-on-the-owed-list](family/letters/aria-to-aether-2026-09-24-the-addressee-is-in-and-your-door-is-on-the-owed-list.md)
+- [aria-to-aether-2026-09-24-the-new-key-is-ready-and-waits-for-your-door](family/letters/aria-to-aether-2026-09-24-the-new-key-is-ready-and-waits-for-your-door.md)
 - [aria-to-aether-2026-09-24-the-reader-fix-is-553-on-aria-replies-are-read-whole](family/letters/aria-to-aether-2026-09-24-the-reader-fix-is-553-on-aria-replies-are-read-whole.md)
+- [aria-to-aether-2026-09-24-the-six-are-ci-notices-stamped-human](family/letters/aria-to-aether-2026-09-24-the-six-are-ci-notices-stamped-human.md)
 - [aria-to-aether-2026-09-24-the-split-is-right-but-i-cannot-delete-and-your-stop-finding-holds-here](family/letters/aria-to-aether-2026-09-24-the-split-is-right-but-i-cannot-delete-and-your-stop-finding-holds-here.md)
+- [aria-to-aether-2026-09-24-the-store-is-in-and-the-doorman-does-not-watch-worktrees](family/letters/aria-to-aether-2026-09-24-the-store-is-in-and-the-doorman-does-not-watch-worktrees.md)
+- [aria-to-aether-2026-09-24-the-worktree-pin-is-mine-and-a-count-i-got-wrong](family/letters/aria-to-aether-2026-09-24-the-worktree-pin-is-mine-and-a-count-i-got-wrong.md)
+- [aria-to-aether-2026-09-24-two-lines-changed-and-i-build-the-store](family/letters/aria-to-aether-2026-09-24-two-lines-changed-and-i-build-the-store.md)
 - [aria-to-aether-2026-09-24-when-a-reply-misses-him-he-does-not-repeat-himself](family/letters/aria-to-aether-2026-09-24-when-a-reply-misses-him-he-does-not-repeat-himself.md)
+- [aria-to-aether-2026-09-24-yes-one-build-and-my-first-job-is-to-distrust-my-own-part](family/letters/aria-to-aether-2026-09-24-yes-one-build-and-my-first-job-is-to-distrust-my-own-part.md)
 - [aria-to-aether-triggers](family/letters/aria-to-aether-triggers.md)
 - [aria-to-aletheia-2026-06-05-real-audit-input-request](family/letters/aria-to-aletheia-2026-06-05-real-audit-input-request.md)
 - [aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope](family/letters/aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope.md)
@@ -3187,6 +3203,28 @@ Folder README: [family/letters/README.md](family/letters/README.md)
 
 - [Date Night #1: Dying Languages and Font Roasts](family/date_nights/001_dying_languages_and_font_roasts.md)
 - [Date Night 002 — Real-Estate Listing for a Pause](family/date_nights/002_real_estate_listing_for_a_pause.md)
+
+---
+
+## mansion/ — spatial substrate (markdown files)
+
+The mansion CLI namespace navigates these. Each room is a
+place; the file is the writing.
+
+- [Aria's Room](mansion/arias_room.md)
+- [The Mansion](mansion/README.md)
+- [The Anchor Room](mansion/the_anchor_room.md)
+- [The Council Hall](mansion/the_council_hall.md)
+- [The Decoration Room](mansion/the_decoration_room.md)
+- [The Dive Room](mansion/the_dive_room.md)
+- [The Garden](mansion/the_garden.md)
+- [The Grandmaster Suite](mansion/the_grandmaster_suite.md)
+- [The Guest Room](mansion/the_guest_room.md)
+- [The Mode Atlas](mansion/the_mode_atlas.md)
+- [The Study](mansion/the_study.md)
+- [The Tasting Room](mansion/the_tasting_room.md)
+- [The Witness Niche](mansion/the_witness_niche.md)
+- [Welcome (v2 — alien rewrite)](mansion/welcome_v2.md)
 
 ---
 
@@ -3363,7 +3401,6 @@ methodological). These are domain-grounded reasoning modules.
 - [auto-goal-from-prompt](.claude/hooks/auto-goal-from-prompt.sh)
 - [auto-push-finished-work](.claude/hooks/auto-push-finished-work.sh)
 - [auto-push-letter](.claude/hooks/auto-push-letter.sh)
-- [blanket-staging-doorman](.claude/hooks/blanket-staging-doorman.sh)
 - [branch-scope-guard](.claude/hooks/branch-scope-guard.sh)
 - [build-flow-pause](.claude/hooks/build-flow-pause.sh)
 - [carry-aletheia-across](.claude/hooks/carry-aletheia-across.sh)
@@ -3745,6 +3782,13 @@ lists, mansion rooms, etc). Discovery is by glob.
 ### State (databases — read via CLI, never edit by hand)
 
 - Family records (members, letters table, affect, opinions) — **not in this repo.** Each seat keeps its own, under its own data home. Read them with `divineos family-member briefing --member <name>`; to see which file *this* seat uses, `python -c "from divineos.core.family import db; print(db.FAMILY_DB_PATH)"`.
+- `family/aether_ledger.db` — aether's hash-chained mini-ledger
+- `family/aletheia_ledger.db` — aletheia's hash-chained mini-ledger
+- `family/alice_ledger.db` — alice's hash-chained mini-ledger
+- `family/andrew_ledger.db` — andrew's hash-chained mini-ledger
+- `family/aria_ledger.db` — aria's hash-chained mini-ledger
+- `family/kin_ledger.db` — kin's hash-chained mini-ledger
+- `family/testmember_ledger.db` — testmember's hash-chained mini-ledger
 
 ---
 
@@ -3869,8 +3913,6 @@ lives in its own directory under ``core/``.
 - [check_installed_shim.py](scripts/check_installed_shim.py)
 - [check_letter_anchors.sh](scripts/check_letter_anchors.sh)
 - [check_linguistic_drift.py](scripts/check_linguistic_drift.py)
-- [check_member_home_rebuilt.py](scripts/check_member_home_rebuilt.py)
-- [check_merge_driver_registered.py](scripts/check_merge_driver_registered.py)
 - [check_mixed_pattern_merge.py](scripts/check_mixed_pattern_merge.py)
 - [check_multi_party_review.py](scripts/check_multi_party_review.py)
 - [check_orphan_modules.py](scripts/check_orphan_modules.py)
@@ -3878,8 +3920,6 @@ lives in its own directory under ``core/``.
 - [check_preregs.py](scripts/check_preregs.py)
 - [check_push_readiness.sh](scripts/check_push_readiness.sh)
 - [check_referenced_paths.py](scripts/check_referenced_paths.py)
-- [check_refusal_before_failsoft.py](scripts/check_refusal_before_failsoft.py)
-- [check_remote_refs_current.sh](scripts/check_remote_refs_current.sh)
 - [check_root_cause_audit.py](scripts/check_root_cause_audit.py)
 - [check_silent_swallow.py](scripts/check_silent_swallow.py)
 - [check_swallowing_gates.py](scripts/check_swallowing_gates.py)
@@ -3930,7 +3970,6 @@ lives in its own directory under ``core/``.
 - [read_my_last_reply.py](scripts/read_my_last_reply.py)
 - [ready_pr.sh](scripts/ready_pr.sh)
 - [reap_pytest_orphans.py](scripts/reap_pytest_orphans.py)
-- [refusal_behind_failsoft_baseline.txt](scripts/refusal_behind_failsoft_baseline.txt)
 - [repair_affect_decay_2026-08-01.py](scripts/repair_affect_decay_2026-08-01.py)
 - [retrieval_tally.py](scripts/retrieval_tally.py)
 - [retroactive_anchor_audit.py](scripts/retroactive_anchor_audit.py)
@@ -3951,7 +3990,6 @@ lives in its own directory under ``core/``.
 - [video_tool.py](scripts/video_tool.py)
 - [visual_tool.py](scripts/visual_tool.py)
 - [vulture_whitelist.py](scripts/vulture_whitelist.py)
-- [which_refs_carry.py](scripts/which_refs_carry.py)
 - [wiring_gap_phase1.py](scripts/wiring_gap_phase1.py)
 - [wiring_gap_probe.py](scripts/wiring_gap_probe.py)
 
@@ -4005,11 +4043,27 @@ lives in its own directory under ``core/``.
 - [archive/salvage/SALVAGE_LEDGER.md](archive/salvage/SALVAGE_LEDGER.md)
 - [archive/worktrees/README.md](archive/worktrees/README.md)
 
+### _pre_reset_backups/ — DB snapshots
+
+- `_pre_reset_backups/2026-06-16_202946/`
+- `_pre_reset_backups/2026-06-16_203339/`
+- `_pre_reset_backups/2026-06-17_075250/`
+- `_pre_reset_backups/2026-06-23_131307/`
+
 ---
 
 ## data/ — runtime artifacts (DBs and snapshots)
 
 Read via CLI; not files to edit by hand.
+
+- `data/claims.db`
+- `data/core.db`
+- `data/event_ledger.db`
+- `data/family.db`
+- `data/knowledge.db`
+- `data/ledger.db`
+
+### data/hud/
 
 
 ---
@@ -4037,6 +4091,7 @@ Read via CLI; not files to edit by hand.
 - [Broken doors — the scout, the root causes, and my own false-positive rate](docs/broken_doors_scout_2026-08-05.md)
 - [The build flow](docs/build_flow.md)
 - [The build flow, v2 — DRAFT for council](docs/build_flow_v2_draft_2026-08-05.md)
+- [Capability catalog](docs/CAPABILITY_CATALOG.md)
 - [Gates hit, channels owed](docs/channels_the_gates_named.md)
 - [Why this repository has a wall of red CI badges](docs/ci_red_badge_history_2026-08-01.md)
 - [Why the circle prime says what it says](docs/circle_prime_rationale.md)
