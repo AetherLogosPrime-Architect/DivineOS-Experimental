@@ -236,6 +236,18 @@ def test_his_goodnight_mid_turn_is_his_even_when_a_notification_started_it(tmp_p
     assert he_spoke_this_turn(t) is True
 
 
+def test_only_a_prompt_mode_slip_is_him(tmp_path):
+    """Aria's slip readers require prompt mode; this one does too, so the three
+    agree by rule rather than because notification slips happen to be envelope."""
+    notice = _slip("a plain line with no envelope at all")
+    notice["attachment"]["commandMode"] = "task-notification"
+    t = _write(
+        tmp_path / "t.jsonl",
+        [_user("<task-notification>x</task-notification>", **NOTE), notice, _me("a")],
+    )
+    assert he_spoke_this_turn(t) is False
+
+
 def test_a_machine_slip_mid_turn_is_not_him(tmp_path):
     t = _write(
         tmp_path / "t.jsonl",

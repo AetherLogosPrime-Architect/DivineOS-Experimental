@@ -311,7 +311,9 @@ def _his_slip(rec: dict) -> bool:
     slip = rec.get("attachment")
     if rec.get("type") != "attachment" or not isinstance(slip, dict):
         return False
-    if slip.get("type") != "queued_command":
+    # Prompt-mode only, as Aria's two slip readers require: a notification slip
+    # is also all envelope today, but one rule should not agree by luck.
+    if slip.get("type") != "queued_command" or slip.get("commandMode") != "prompt":
         return False
     origin = slip.get("origin")
     kind = origin.get("kind") if isinstance(origin, dict) else None
