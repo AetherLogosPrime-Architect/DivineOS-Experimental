@@ -39,9 +39,16 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from divineos.core.harness_envelopes import nothing_of_his
+
 CANDIDATE = "CANDIDATE"
 FILED = "FILED"
 WITHDRAWN = "WITHDRAWN"
+# Kept at the door in his words, and the transcript record that confirms who
+# typed them was never found. Not WITHDRAWN (that means "not his") and not
+# FILED. Read by pending() like a filed message, so it is never lost for the
+# failure of our instrument (2026-09-24, walk-2592439477f9).
+UNMATCHED = "UNMATCHED"
 
 BUILD = "build"
 STANDING = "standing"
@@ -102,6 +109,10 @@ def _conn() -> sqlite3.Connection:
             settled_at  REAL,
             withdrawn_because TEXT
         );
+        -- sorts.uuid and links.uuid hold the SORT ID: his record's uuid, or,
+        -- for an UNMATCHED message, its candidate id. Declared here rather than
+        -- migrated (Dijkstra on walk-2592439477f9); every signature calls it
+        -- sort_id so no reader takes a candidate id for a transcript uuid.
         CREATE TABLE IF NOT EXISTS sorts (
             id          INTEGER PRIMARY KEY,
             uuid        TEXT NOT NULL,
@@ -124,6 +135,13 @@ def _conn() -> sqlite3.Connection:
             ref         TEXT NOT NULL,
             error       TEXT NOT NULL,
             seat        TEXT NOT NULL,
+            at          REAL NOT NULL
+        );
+        -- Why a message was given up on. Its own table, so a store both seats
+        -- already opened needs no ALTER that the two could race on.
+        CREATE TABLE IF NOT EXISTS unmatched (
+            candidate_id TEXT PRIMARY KEY,
+            because     TEXT NOT NULL,
             at          REAL NOT NULL
         );
         """
@@ -244,13 +262,74 @@ def could_not_file(ref: str, error: str, seat: str) -> None:
         conn.close()
 
 
-def _filed(conn: sqlite3.Connection, uuid: str) -> bool:
-    row = conn.execute("SELECT state FROM messages WHERE uuid = ?", (uuid,)).fetchone()
-    return row is not None and row[0] == FILED
+def give_up(candidate_id: str, reason: str) -> str:
+    """Stop looking for the record of a message still waiting. Returns the state.
+
+    The store threadwalk decided that a candidate never confirmed or withdrawn
+    "is itself a could-not-file, and it counts as one", and nothing built it:
+    such a message sat in the store and nothing read it. Now it moves to
+    UNMATCHED, is counted in could_not_file, and pending() shows it in his
+    words until one of us sorts it.
+
+    Text that is nothing of his -- only a harness envelope -- is WITHDRAWN
+    instead, never UNMATCHED. The door keeps every prompt, machine notices
+    included, and one never matched must not surface as something he said
+    (Schneier on walk-2592439477f9).
+    """
+    why = (reason or "").strip()
+    if len(why) < 10:
+        raise HisAsksRefused("giving up on a message of his needs a reason anyone can read")
+    conn = _conn()
+    try:
+        row = conn.execute(
+            "SELECT his_text, state, seat FROM messages WHERE candidate_id = ?", (candidate_id,)
+        ).fetchone()
+        if row is None:
+            raise HisAsksRefused(f"no message was kept as {candidate_id}")
+        his_text, state, seat = row
+        if state != CANDIDATE:
+            raise HisAsksRefused(
+                f"{candidate_id} is {state}: only a message still waiting for its record "
+                "can be given up"
+            )
+        now = time.time()
+        if nothing_of_his(str(his_text)):
+            conn.execute(
+                "UPDATE messages SET state = ?, settled_at = ?, withdrawn_because = ? "
+                "WHERE candidate_id = ?",
+                (WITHDRAWN, now, f"only a harness envelope, never matched: {why}", candidate_id),
+            )
+            conn.commit()
+            return WITHDRAWN
+        conn.execute(
+            "UPDATE messages SET state = ?, settled_at = ? WHERE candidate_id = ?",
+            (UNMATCHED, now, candidate_id),
+        )
+        conn.execute(
+            "INSERT INTO unmatched (candidate_id, because, at) VALUES (?, ?, ?)",
+            (candidate_id, why, now),
+        )
+        conn.execute(
+            "INSERT INTO could_not_file (ref, error, seat, at) VALUES (?, ?, ?, ?)",
+            (candidate_id, f"his record was never found: {why}", seat, now),
+        )
+        conn.commit()
+        return UNMATCHED
+    finally:
+        conn.close()
+
+
+def _sortable(conn: sqlite3.Connection, sort_id: str) -> bool:
+    """A filed message by its record's uuid, or an unmatched one by its candidate id."""
+    row = conn.execute(
+        "SELECT 1 FROM messages WHERE (state = ? AND uuid = ?) OR (state = ? AND candidate_id = ?)",
+        (FILED, sort_id, UNMATCHED, sort_id),
+    ).fetchone()
+    return row is not None
 
 
 def sort(
-    uuid: str,
+    sort_id: str,
     kind: str,
     reason: str,
     seat: str,
@@ -258,7 +337,10 @@ def sort(
     addressed_to: str,
     supersedes: int | None = None,
 ) -> int:
-    """Say what a filed message of his is, and who he said it to. Returns the id.
+    """Say what a message of his is, and who he said it to. Returns the id.
+
+    ``sort_id`` is the id pending() shows it with: his record's uuid, or the
+    candidate id when the record was never found. His words are his either way.
 
     The judgement is ours and it is written down, attributed, and kept. A
     second sort of the same message must name the one it supersedes: a wrong
@@ -282,10 +364,10 @@ def sort(
         )
     conn = _conn()
     try:
-        if not _filed(conn, uuid):
-            raise HisAsksRefused(f"{uuid} is not a filed message of his")
+        if not _sortable(conn, sort_id):
+            raise HisAsksRefused(f"{sort_id} is not a kept message of his waiting to be sorted")
         latest = conn.execute(
-            "SELECT id, seat FROM sorts WHERE uuid = ? ORDER BY id DESC LIMIT 1", (uuid,)
+            "SELECT id, seat FROM sorts WHERE uuid = ? ORDER BY id DESC LIMIT 1", (sort_id,)
         ).fetchone()
         if latest is not None and supersedes != latest[0]:
             raise HisAsksRefused(
@@ -299,7 +381,7 @@ def sort(
         cur = conn.execute(
             "INSERT INTO sorts (uuid, kind, reason, seat, addressed_to, sorted_at, supersedes) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (uuid, kind, why, seat, addressed_to, time.time(), supersedes),
+            (sort_id, kind, why, seat, addressed_to, time.time(), supersedes),
         )
         conn.commit()
         return int(cur.lastrowid or 0)
@@ -307,7 +389,7 @@ def sort(
         conn.close()
 
 
-def addressed_to(uuid: str) -> str | None:
+def addressed_to(sort_id: str) -> str | None:
     """Who he said this message to, by its latest sort. None when unsorted.
 
     Read this before reading his words as said to you. A message he said to
@@ -317,14 +399,14 @@ def addressed_to(uuid: str) -> str | None:
     conn = _conn()
     try:
         row = conn.execute(
-            "SELECT addressed_to FROM sorts WHERE uuid = ? ORDER BY id DESC LIMIT 1", (uuid,)
+            "SELECT addressed_to FROM sorts WHERE uuid = ? ORDER BY id DESC LIMIT 1", (sort_id,)
         ).fetchone()
     finally:
         conn.close()
     return str(row[0]) if row else None
 
 
-def same_ask_as(uuid: str, request_id: int, seat: str) -> int:
+def same_ask_as(sort_id: str, request_id: int, seat: str) -> int:
     """Say that this message of his is the same ask as an open request.
 
     A written, attributed judgement, never a similarity score: the moment a
@@ -333,11 +415,11 @@ def same_ask_as(uuid: str, request_id: int, seat: str) -> int:
     """
     conn = _conn()
     try:
-        if not _filed(conn, uuid):
-            raise HisAsksRefused(f"{uuid} is not a filed message of his")
+        if not _sortable(conn, sort_id):
+            raise HisAsksRefused(f"{sort_id} is not a kept message of his")
         cur = conn.execute(
             "INSERT INTO links (uuid, request_id, seat, linked_at) VALUES (?, ?, ?, ?)",
-            (uuid, int(request_id), seat, time.time()),
+            (sort_id, int(request_id), seat, time.time()),
         )
         conn.commit()
         return int(cur.lastrowid or 0)
@@ -347,16 +429,30 @@ def same_ask_as(uuid: str, request_id: int, seat: str) -> int:
 
 @dataclass(frozen=True)
 class Kept:
-    """One message of his that is filed and not yet sorted."""
+    """One message of his that is kept and not yet sorted.
+
+    ``uuid`` is the id to sort it by: his record's uuid, or -- when
+    ``record_found`` is False -- the candidate id, because the door kept these
+    words when he pressed enter and the record that confirms who typed them
+    was never found. Read ``sort_id`` to say which you mean.
+    """
 
     uuid: str
     his_text: str
     said_at: str
     seat: str
+    record_found: bool = True
+
+    @property
+    def sort_id(self) -> str:
+        return self.uuid
 
 
 def pending() -> list[Kept] | None:
-    """Filed messages of his that nobody has sorted. None when unreadable.
+    """Messages of his that nobody has sorted. None when unreadable.
+
+    Filed ones, and UNMATCHED ones -- kept in his words, record never found --
+    so a failure of our instrument never costs him being read.
 
     An unreadable store is not an empty one, and the difference is the whole
     point of returning None rather than a list.
@@ -367,16 +463,19 @@ def pending() -> list[Kept] | None:
         return None
     try:
         rows = conn.execute(
-            "SELECT m.uuid, m.his_text, m.said_at, m.seat FROM messages m "
-            "WHERE m.state = ? AND NOT EXISTS (SELECT 1 FROM sorts s WHERE s.uuid = m.uuid) "
+            "SELECT COALESCE(m.uuid, m.candidate_id), m.his_text, m.said_at, m.seat, m.state "
+            "FROM messages m WHERE m.state IN (?, ?) AND NOT EXISTS "
+            "(SELECT 1 FROM sorts s WHERE s.uuid = COALESCE(m.uuid, m.candidate_id)) "
             "ORDER BY m.filed_at",
-            (FILED,),
+            (FILED, UNMATCHED),
         ).fetchall()
     except sqlite3.Error:
         return None
     finally:
         conn.close()
-    return [Kept(str(r[0]), str(r[1]), str(r[2]), str(r[3])) for r in rows]
+    return [
+        Kept(str(r[0]), str(r[1]), str(r[2]), str(r[3]), record_found=r[4] == FILED) for r in rows
+    ]
 
 
 @dataclass(frozen=True)

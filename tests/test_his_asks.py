@@ -59,7 +59,12 @@ def test_a_resumed_sessions_copy_of_his_record_is_kept_once():
     assert [k.uuid for k in ha.pending()] == ["u1"]
 
 
-def test_an_unsettled_candidate_is_visible_not_silent():
+def test_an_unsettled_candidate_is_listed_by_unsettled_and_not_yet_pending():
+    # RENAMED 2026-09-24. This was "is_visible_not_silent", and it only ever
+    # proved that unsettled() lists the candidate -- a function nothing surfaced
+    # to anyone. The name claimed visibility the test never measured. What makes
+    # a never-matched message visible is give_up() and pending():
+    # tests/test_his_message_never_vanishes.py.
     _file("c1", "build me the thing")
     assert [c.candidate_id for c in ha.unsettled()] == ["c1"]
     assert ha.pending() == []

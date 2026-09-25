@@ -19,7 +19,7 @@ INPUT="$(cat 2>/dev/null || true)"
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 # shellcheck disable=SC1091
-source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || { echo "[front-door] could not load _lib.sh; nothing kept" >&2; exit 0; }
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || { echo "[front-door] could not load _lib.sh; nothing kept" >&2; exit 0; }  # fail-soft: not silent, the fallback says nothing was kept; only the shell's own source error text is dropped, and his reply must never wait on this hook
 PYTHON_BIN="$(find_divineos_python)" || { echo "[front-door] no interpreter that can load the OS was found; nothing kept" >&2; exit 0; }
 
 printf '%s' "$INPUT" | "$PYTHON_BIN" -m divineos.hooks.front_door_hook "${1:-}" || \
