@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (12 rows). **Exported:** 2026-09-25 07:55. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (12 rows). **Exported:** 2026-09-25 13:31. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -20,7 +20,7 @@ I did AI response (text only) and my user pushed back: "no see it still running 
 
 ---
 
-## f5eb2592 [active] x14
+## f5eb2592 [improving] x14
 
 **Category:** incomplete_fix
 
@@ -28,7 +28,7 @@ I introduced errors after editing. I need to verify changes work.
 
 ---
 
-## 41a491b2 [active] x13
+## 41a491b2 [improving] x13
 
 **Category:** blind_retry
 
@@ -52,7 +52,7 @@ No i meant make the soft cap 950-960k instead of 920k you already extracted at 9
 
 ---
 
-## 04793232 [active] x7
+## 04793232 [improving] x7
 
 **Category:** upset_user
 

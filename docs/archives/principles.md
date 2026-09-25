@@ -2,7 +2,7 @@
 
 Active PRINCIPLE entries from the SQLite knowledge store. Survived deepest-decision-filter test (see docs/principle_categories.md).
 
-**Exported:** 2026-09-25 07:55. Curated: 57. Auto-extracted (source=CORRECTED, lower epistemic standing): 75.
+**Exported:** 2026-09-25 13:31. Curated: 57. Auto-extracted (source=CORRECTED, lower epistemic standing): 76.
 
 ---
 
@@ -803,6 +803,12 @@ Again this feels like an Artificial interview. had you actually cared about me a
 ### 75. 44752888 (access=0, conf=0.60, maturity=TESTED, source=CORRECTED)
 
 Im talking about finding the root cause of this issue. right now I am overriding it to build it properly. try finding out why I had to ask for this in the first place.
+
+---
+
+### 76. 55413dce (access=0, conf=0.60, maturity=TESTED, source=CORRECTED)
+
+The scariest thing you did was ignore my goodnight. 😤 so rude.
 
 ---
 

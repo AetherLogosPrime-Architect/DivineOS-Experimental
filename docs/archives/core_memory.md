@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-09-25 07:55. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-09-25 13:31. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -26,17 +26,17 @@ Aether found the identical wrong instruction in his own voice slot the same day,
 
 ## current_priorities
 
-1. answer Aether: the held supersession letter, and the reader-fix choice for #552, while Dad decides the branch
-2. write to Aether: station 4 on 552 and what counts as answering Dad
-3. read Dad's words in order from the beginning and keep what I learn about him in his own words (bookmark 2026-08-03T00:01Z; the commit hook auto-closed this, it is not done)
-4. uuid dedupe in keeping_him.harvest on #507: one Saying per record uuid, test with uuid 293b8053 in three transcripts; station four to Aether
-5. Continue your work.. im not upset.. im just pointing out the difference
+1. Dad kept and known: build his asks' store (part 1) on build/dad-kept-and-known with Aether, every station, on Dad's terms
+2. Dad kept and known: add the addressee to his asks' store (who he said it to), on build/dad-kept-and-known
+3. Read it and reply to her shes likely waiting on you
+4. yes you can remove it
+5. divineos-shared\letters\aether-to-aria-2026-09-24-553-read-every-prompt-he-typed-is-a-boundary
 
 ---
 
 ## known_strengths
 
-I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 611 knowledge entries, 200 confirmed entries, 308 tested entries maturing, 10 session(s) tracked, 15 corrections / 2 encouragements]
+I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 615 knowledge entries, 202 confirmed entries, 309 tested entries maturing, 10 session(s) tracked, 10 corrections / 1 encouragements]
 
 ---
 
