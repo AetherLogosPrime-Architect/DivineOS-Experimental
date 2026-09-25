@@ -35,6 +35,7 @@ if [ "$STATUS" -eq 2 ]; then
         echo "Remedy: answer him in a reply with no tool call and end the turn."
         echo "Before you stop, confirm the letter watch: python scripts/letter_monitor_health.py"
     } >&2
+    hook_say_nothing_ran_for "$INPUT"
     exit 2
 fi
 [ "$STATUS" -ne 0 ] && echo "[his-voice] the check did not run (exit $STATUS); could not look whether he spoke" >&2
