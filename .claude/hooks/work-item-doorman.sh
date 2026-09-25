@@ -56,9 +56,10 @@ RC=$?
 
 if [ "$RC" -eq 2 ]; then
     printf '%s\n' "$OUT" >&2
-    # Only if the library loaded. Undefined under `set -u` it would end the
-    # script before the exit below, and the refusal must not depend on its
-    # own postscript.
+    # Only if the library loaded. Undefined, it would print "command not found"
+    # into the refusal and return 127 -- the script carries on, since `set -u`
+    # covers variables and not functions -- so the guard keeps the refusal
+    # clean rather than keeping it alive. It must not depend on its postscript.
     command -v hook_say_nothing_ran_for >/dev/null 2>&1 && hook_say_nothing_ran_for "$INPUT"
     exit 2
 fi
@@ -66,4 +67,10 @@ fi
 # Anything else -- clean pass, or the command itself failing to run -- lets the
 # tool call through. A non-zero that is not 2 means the doorman could not form
 # an opinion, and an opinion it could not form must not become a refusal.
+#
+# Known overlap, named rather than hidden: 2 is not only "hold". The ~/bin
+# wrapper with no sealed venv, python's can't-open-file, and click usage errors
+# also exit 2, and would be read as a hold. Through the harness these are
+# mostly unreachable; it fails toward holding, and the printed output says
+# which one it was. (Aether, station four on #545, 2026-09-25.)
 exit 0

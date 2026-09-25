@@ -74,12 +74,27 @@ def standin(tmp_path: Path):
     return bin_dir
 
 
-def _run(standin_dir: Path, tmp_path: Path, *, answer: int, library: bool):
+def _env(standin_dir: Path, tmp_path: Path, *, answer: int, library: bool) -> dict[str, str]:
     env = dict(os.environ)
     env["PATH"] = str(standin_dir) + os.pathsep + env.get("PATH", "")
     env["STANDIN_RC"] = str(answer)
     env["HOME"] = str(tmp_path / "home")
-    cwd = REPO_ROOT if library else tmp_path  # outside a repo the library cannot be found
+    if not library:
+        # tmp_path is NOT outside the repo: conftest puts pytest's basetemp
+        # under <repo>/tmp/pytest, so git climbed from tmp_path to the real
+        # root and the library loaded anyway. The no-library cases then ran
+        # WITH the library and passed against main's unfixed hook. Aether,
+        # station four on #545, 2026-09-25. The ceiling stops the climb. It is
+        # the PARENT: git starts in tmp_path and is only refused a chdir *into*
+        # a ceiling, so tmp_path itself as the ceiling still let it climb --
+        # caught by the precondition test below on its first run.
+        env["GIT_CEILING_DIRECTORIES"] = tmp_path.parent.as_posix()
+    return env
+
+
+def _run(standin_dir: Path, tmp_path: Path, *, answer: int, library: bool):
+    env = _env(standin_dir, tmp_path, answer=answer, library=library)
+    cwd = REPO_ROOT if library else tmp_path
     return subprocess.run(
         [_git_bash(), str(HOOK)],
         input=PAYLOAD,
@@ -91,6 +106,38 @@ def _run(standin_dir: Path, tmp_path: Path, *, answer: int, library: bool):
         env=env,
         check=False,
     )
+
+
+def test_the_no_library_case_really_has_no_library(standin: Path, tmp_path: Path) -> None:
+    """THE PRECONDITION, proven rather than assumed. The hook finds its library
+    through `git rev-parse --show-toplevel`; if that still answers in the
+    no-library setup, the library loads and every no-library test below is
+    testing the other case. This is the check that was missing."""
+    env = _env(standin, tmp_path, answer=PASS, library=False)
+    found = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        cwd=str(tmp_path),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert found.returncode != 0, (
+        f"git still finds a repository from the no-library directory ({found.stdout.strip()}), "
+        "so the library would load and the no-library tests would be blind"
+    )
+
+
+def test_the_doorman_is_off_the_fail_soft_baseline() -> None:
+    """Locks the fix: while the doorman stayed listed, the refusal-order checker
+    tolerated it, and a slide back to `|| exit 0` would have passed silently."""
+    baseline = REPO_ROOT / "scripts" / "refusal_behind_failsoft_baseline.txt"
+    names = [
+        ln.strip()
+        for ln in baseline.read_text(encoding="utf-8").splitlines()
+        if ln.strip() and not ln.lstrip().startswith("#")
+    ]
+    assert "work-item-doorman.sh" not in names
 
 
 def test_a_hold_is_a_hold_with_the_library(standin: Path, tmp_path: Path) -> None:
