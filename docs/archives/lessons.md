@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (12 rows). **Exported:** 2026-09-24 09:27. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (12 rows). **Exported:** 2026-09-24 16:37. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -28,7 +28,7 @@ I introduced errors after editing. I need to verify changes work.
 
 ---
 
-## 41a491b2 [improving] x13
+## 41a491b2 [active] x13
 
 **Category:** blind_retry
 
@@ -36,7 +36,7 @@ I retried a failed action 8x without investigating the cause. I need to investig
 
 ---
 
-## 69560637 [improving] x8
+## 69560637 [active] x8
 
 **Category:** false_claim
 

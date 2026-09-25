@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (127 rows). **Exported:** 2026-09-24 09:27. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (127 rows). **Exported:** 2026-09-24 16:37. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1048,7 +1048,7 @@
 
 ---
 
-## prereg-5 [OPEN]
+## prereg-5 [DEFERRED]
 
 **Mechanism:** divineos win plus a non-blocking compose-start prompt will produce live win-filing without producing manufactured wins. Also carries the structural backing for open obligation kid=356ffea9 (honest state plus linked action-verb) on its positive valence.
 
@@ -1240,7 +1240,7 @@
 
 ---
 
-## prereg-7 [OPEN]
+## prereg-7 [DEFERRED]
 
 **Mechanism:** subject_is_him: a floor requiring at least one sentence in a reply to Andrew to have him as its subject
 
