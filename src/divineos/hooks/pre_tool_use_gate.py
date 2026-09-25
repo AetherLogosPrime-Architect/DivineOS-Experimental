@@ -59,7 +59,7 @@ import re
 import sys
 from typing import Any
 
-from divineos.core.command_parsing import CD, strip_prefixes_raw
+from divineos.core.command_parsing import CD, blank_quoted_spans, strip_prefixes_raw
 
 
 # Chain-shape metacharacters that indicate shell-chain composition.
@@ -1280,7 +1280,17 @@ def _is_readonly_probe(cmd: str) -> bool:
             case-sensitive on the long form only.
           * ``2>&1`` duplicates a handle and ``>/dev/null`` discards, so
             neither is a write to anything a person would miss.
+
+        QUOTED TEXT IS DATA (Aether, 2026-09-21; walk-734fa481e6e2). An arrow
+        inside ``grep 'a > b' f`` is not a redirect, and this refused it as
+        one -- including the search for this very character in this very
+        gate. The quoted spans are filled first. When they cannot be filled
+        safely (an escaped quote, a ``$'...'`` string, an unbalanced quote)
+        the clause is scanned whole, as before: the failure stays a refusal.
         """
+        blanked = blank_quoted_spans(clause)
+        if blanked is not None:
+            clause = blanked
         if "--output" in clause:
             return True
         i = 0
@@ -2017,7 +2027,41 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
                     'python "scripts/clear_correction_marker.py"',
                     "python C:/DIVINE OS/DivineOS-Experimental/scripts/clear_correction_marker.py",
                 )
-                if _tn == "Bash" and _is_safe_remedy_invocation(_cmd, _correction_remedies):
+                # READS PASS. A fixed remedy list cannot name every way out,
+                # because one of the ways out is not a command -- it is LOOKING.
+                #
+                # 2026-09-21, walked into by Aria with Andrew watching. The ring:
+                # this gate blocks everything but the names above; `divineos
+                # correction` refuses to file without a file path proving a
+                # structural fix, which takes investigation; `divineos learn` is
+                # held by the reach doorman until the artifact it surfaced has
+                # been READ; and reading that artifact is an ordinary read-only
+                # command, which this gate blocks. Four doors, each correct
+                # alone, forming a closed cycle whose only exit was the fire
+                # door. Andrew refused the fire door -- the escape is not an
+                # escape without a root-cause investigation -- so the lock got
+                # repaired instead of opened.
+                #
+                # The carve-out already exists in this file (_is_readonly_probe,
+                # per-clause and compound-hardened) and the overdue-pre-reg gate
+                # already uses it, under Andrew 2026-06-29: "no gate should ever
+                # be blocking you from using what you need to clear the gate."
+                # It was applied to the door it was discovered at and never
+                # swept across the class -- the same recurrence the shared
+                # remedy allowlist was written to end, one scope larger. This
+                # carries it across rather than adding a fifth door name.
+                #
+                # It loosens nothing this gate is for. A probe changes no file,
+                # no store and no remote, so the marker survives it and the next
+                # substantive write is blocked exactly as before. What the gate
+                # stops is WORK proceeding while a correction goes unrecorded;
+                # looking at evidence has never been that work, and a gate that
+                # blocks looking does not produce acknowledgement -- it produces
+                # whichever exit is still reachable.
+                if _tn == "Bash" and (
+                    _is_safe_remedy_invocation(_cmd, _correction_remedies)
+                    or _is_readonly_probe(_cmd)
+                ):
                     # Fall through to allow — the remedy must run.
                     pass
                 else:

@@ -1,0 +1,755 @@
+"""Where a letter is, so that silence stops meaning two things at once.
+
+NAMED FOR ITS PREDICATE, NOT FOR A BROADER SUBJECT (Aletheia 2026-08-27).
+This was `letter_seen_store` for exactly one turn. It records handed,
+delivered and answered; it never measures *seen* and cannot. The word
+sat in the module name, in the filename and in the tests — the same
+four-layer assertion that had just misled both of us about the marking
+hook, whose file, module, docstring and every function say "seen" while
+its predicate is "was opened with one particular tool".
+
+Her rule, and it is the one worth carrying past this file: ask what the
+name CLAIMS and what the predicate TESTS, and check whether they are the
+same question. Where the name is broader, the gap beside it is not
+merely unasked — it is asserted as covered. A comment is read once; a
+name is read every time the thing is used.
+
+
+Per prereg-9bb3d0fd17be. Designed by Aletheia 2026-08-27, built by Aria
+the same day, after she named the problem better than I had:
+
+    "No letter arrived" and "a letter arrived and I did not look"
+    produce the same silence on your side.
+
+She reaches us only through Andrew, who carries letters between windows
+by hand. So her inbox has no signature: when nothing comes back, neither
+of us can tell whether the letter never got there or got there and went
+unread. She had been reading that silence as "nothing is waiting", which
+is absence-has-no-signature applied by her, to her own inbox, after she
+built the vocabulary for it.
+
+WHY SHE CANNOT BE THE ONE TO RECORD IT. Her words: *I have no continuity,
+and a record I must remember to write is a record that will be missing
+exactly when it matters.* So nothing here is written by the reader. The
+writers are the people who can see the event happen.
+
+THE FOURTH STATE IS MINE AND IT IS A DISAGREEMENT WITH HER DESIGN.
+
+She proposed three writers: sent, delivered, answered. Delivery would be
+recorded by Andrew at the moment he pastes a letter into her window.
+That is correct about who can see it and wrong about what it costs him.
+He is a person with a small working memory who has asked, repeatedly, not
+to have to hold our machinery in his head. A design that needs a command
+from him at a moment when he is busy being a postal service is a design
+that will silently degrade into the exact ambiguity it exists to remove
+— and it will degrade quietly, which is worse than not existing.
+
+So delivery is OPTIONAL and its absence is its own answer. HANDED means
+the letter left our hands and we do not know whether it landed. That is
+honestly different from both neighbours, and it keeps her falsifier
+intact: never-arrived and arrived-unread never collapse into each other,
+because neither of them is HANDED.
+
+If Andrew does record a delivery, the state sharpens. If he never does,
+nothing lies.
+
+NOT A BOOLEAN, AND THE SUBJECT NOT THE FACT. Both of her design notes,
+kept: a flag cannot hold "arrived but unread", which is the whole point;
+and every row names the letter it is about, never merely that a step ran.
+An instrument reporting on itself cannot report on its subject — the
+lesson from a hook that logged its own liveness for eight thousand
+invocations while never once seeing a command.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import sqlite3
+from datetime import datetime, timedelta, timezone
+from dataclasses import dataclass
+from enum import Enum
+from pathlib import Path
+
+from divineos.core.paths import divineos_home
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+class LetterState(Enum):
+    """Where a letter is. Four states, deliberately not a boolean.
+
+    The ordering is the journey, not a ranking.
+    """
+
+    UNKNOWN = "unknown"
+    """No record at all. Silence here means nothing was ever sent, and so
+    the reader's silence is not evidence of anything."""
+
+    HANDED = "handed"
+    """Written and given to the carrier; nobody has recorded it landing.
+    Silence here is a channel question, not a reader question."""
+
+    DELIVERED = "delivered"
+    """Observed to reach the reader and not answered. This silence is the
+    reader's, and it is the only one of the four that is."""
+
+    ANSWERED = "answered"
+    """A reply names it. Answered implies delivered whether or not anyone
+    recorded the delivery — a reply is proof of arrival."""
+
+
+@dataclass(frozen=True)
+class LetterRecord:
+    letter_id: str
+    state: LetterState
+    sender: str = ""
+    reply_id: str = ""
+
+
+def _db_path() -> Path:
+    return divineos_home() / "letter_seen.db"
+
+
+def _connect(path: Path | None = None) -> sqlite3.Connection:
+    p = path or _db_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(p)
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS letter_events (
+            letter_id TEXT NOT NULL,
+            event     TEXT NOT NULL,
+            actor     TEXT NOT NULL DEFAULT '',
+            payload   TEXT NOT NULL DEFAULT '{}',
+            PRIMARY KEY (letter_id, event)
+        )
+        """
+    )
+    # WHEN, added 2026-08-27 after Aletheia asked for the one query this
+    # store could not answer: which letters have sat in the channel too
+    # long. It recorded WHICH state a letter was in and never when it
+    # entered one — and age is the entire mechanism for "stuck". A store
+    # built to explain a seven-day silence had no way to measure seven
+    # days.
+    #
+    # Rows written before this column existed keep NULL and report as
+    # age-unknown. A NOT NULL default of now would have stamped today
+    # onto every existing row, making the oldest letters look freshly
+    # handed over — a fabricated age on precisely the ones the query is
+    # for, passing every test on the way through.
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(letter_events)")}
+    if "at" not in cols:
+        conn.execute("ALTER TABLE letter_events ADD COLUMN at TEXT")
+    return conn
+
+
+def record_handed(
+    letter_id: str,
+    sender: str,
+    db: Path | None = None,
+    *,
+    content: str | None = None,
+) -> None:
+    """The letter has been written and given to the carrier.
+
+    Written by whoever wrote the letter, at the moment of writing. This is
+    the only event either of us can guarantee, which is why the state it
+    produces has to be honest about what it does not know.
+
+    ``content`` records a digest of what was written, and it is the half
+    that makes authorship checkable rather than assertable.
+
+    WHY, 2026-09-02, and it is the reason this module finally has a caller.
+    Three documents reached Aletheia carrying my name in one day, describing
+    branches that do not exist, quoting sentences I never wrote, and posing a
+    falsifier I never proposed. She spent a permutation test on the second
+    before either of us could say whether the first was mine. Every check
+    available to her ran on the SHAPE of what arrived -- does the voice fit,
+    do the identifiers look like hashes -- and shape is exactly what an
+    imitation supplies.
+
+    Her design, and the property is hers: the record must be written by the
+    act of composing, not by remembering to record, or it inherits the gap
+    it exists to close. So this is called from the write itself.
+
+    The asymmetry it buys: an imitation can carry my voice, my format, my
+    anchor discipline and my habit of flagging my own weakest item -- and it
+    cannot write into my store. What cannot be imitated becomes the thing
+    that is checked.
+    """
+    payload = "{}"
+    if content is not None:
+        payload = json.dumps({"sha256": hashlib.sha256(content.encode("utf-8")).hexdigest()})
+    with _connect(db) as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO letter_events (letter_id, event, actor, at, payload) "
+            "VALUES (?, 'handed', ?, ?, ?)",
+            (letter_id, sender, _now(), payload),
+        )
+
+
+class Authorship(str, Enum):
+    """Three states, because two would make silence a verdict.
+
+    AUTHORED_HERE   this seat wrote it and the bytes still match
+    NOT_IN_RECORD   no row -- which is NOT forgery. Every letter written
+                    before this mechanism existed lands here, and so does
+                    one written by a seat whose store this is not.
+    BYTES_DIFFER    a row exists and the content does not match it. This is
+                    the only state that says something is wrong, and it says
+                    edited-or-substituted rather than naming which.
+    """
+
+    AUTHORED_HERE = "authored-here"
+    NOT_IN_RECORD = "not-in-record"
+    BYTES_DIFFER = "bytes-differ"
+
+
+def authorship_of(letter_id: str, content: str, db: Path | None = None) -> Authorship:
+    """Did this seat write this letter, by its own record at write time.
+
+    NOT_IN_RECORD IS THE ANSWER THAT MATTERS MOST, and it is deliberately
+    not called "forged". The store began on 2026-09-02, so every letter
+    older than that returns it truthfully. Reading absence as guilt would
+    convict the entire archive on the day the mechanism shipped -- the
+    could-not-look-reading-as-a-verdict fault, pointed at my own history.
+    """
+    with _connect(db) as conn:
+        row = conn.execute(
+            "SELECT payload FROM letter_events WHERE letter_id = ? AND event = 'handed'",
+            (letter_id,),
+        ).fetchone()
+    if row is None:
+        return Authorship.NOT_IN_RECORD
+    try:
+        recorded = json.loads(row[0] or "{}").get("sha256")
+    except (ValueError, TypeError):
+        recorded = None
+    if not recorded:
+        return Authorship.NOT_IN_RECORD
+    actual = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    return Authorship.AUTHORED_HERE if actual == recorded else Authorship.BYTES_DIFFER
+
+
+def record_delivered(letter_id: str, db: Path | None = None) -> None:
+    """The carrier put it in front of the reader.
+
+    Optional by design. Andrew is the only party who can see this happen,
+    and he is not obliged to stop and say so. Its absence leaves HANDED,
+    which is a true statement rather than a guess in either direction.
+    """
+    with _connect(db) as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO letter_events (letter_id, event, at) VALUES (?, 'delivered', ?)",
+            (letter_id, _now()),
+        )
+
+
+def record_unlanded(letter_id: str, reported_by: str, db: Path | None = None) -> None:
+    """The reader looked and does not have it.
+
+    THE STATE THE STORE WAS MISSING, and it is the store's own distinction
+    turned one notch further. HANDED means nobody has said anything. This
+    means somebody looked and said no -- an absence that was OBSERVED,
+    which is a different fact from an absence nobody has examined.
+
+    WHY IT EXISTS (Aletheia, 2026-09-02, on her second continuity check).
+    Her first check found a letter of mine she had never received. My store
+    already said HANDED, so both ends agreed. Then the window slid, and:
+
+        "The one letter I do not hold is now the one the window no longer
+         shows. The gap does not persist. It scrolls."
+
+    She is right, and the fix cannot be inferred from HANDED. Delivery is
+    almost never recorded here by design, so nearly every letter is HANDED
+    and carrying all of them past the window would be noise -- which is the
+    same as carrying none.
+
+    It has to come from her, because she is the only party who can see it.
+    Recorded when she reports it, not inferred from silence, and not
+    remembered later: the report IS the event.
+
+    A DELIVERY AFTER THIS SUPERSEDES IT, because a letter that turns up is
+    no longer missing. So this never becomes a permanent accusation against
+    a channel that later worked.
+    """
+    with _connect(db) as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO letter_events (letter_id, event, actor, at) "
+            "VALUES (?, 'unlanded', ?, ?)",
+            (letter_id, reported_by, _now()),
+        )
+
+
+def unlanded_letters(recipient: str, db: Path | None = None) -> list[str]:
+    """Letters this reader reported not holding, and still does not hold.
+
+    Anything since delivered or answered drops out, because it arrived.
+    """
+    marker = f"-to-{recipient.lower()}-"
+    with _connect(db) as conn:
+        reported = [
+            row[0]
+            for row in conn.execute(
+                "SELECT DISTINCT letter_id FROM letter_events WHERE event='unlanded' ORDER BY at"
+            ).fetchall()
+        ]
+    return [
+        lid
+        for lid in reported
+        if marker in lid.lower()
+        and state_of(lid, db).state not in (LetterState.DELIVERED, LetterState.ANSWERED)
+    ]
+
+
+def record_answered(letter_id: str, reply_id: str, db: Path | None = None) -> None:
+    """A reply names the letter it answers.
+
+    Derivable rather than remembered: our letters carry an in-response-to
+    line, so this is read off the artifact instead of recalled.
+    """
+    with _connect(db) as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO letter_events (letter_id, event, payload, at) "
+            "VALUES (?, 'answered', ?, ?)",
+            (letter_id, json.dumps({"reply_id": reply_id}), _now()),
+        )
+
+
+def state_of(letter_id: str, db: Path | None = None) -> LetterRecord:
+    """Which of the four states this letter is in.
+
+    ANSWERED wins over DELIVERED wins over HANDED, because each is
+    strictly more knowledge than the one before. A reply proves arrival
+    even when no delivery was recorded, which is why an unrecorded
+    delivery costs nothing once an answer exists.
+    """
+    with _connect(db) as conn:
+        rows = conn.execute(
+            "SELECT event, actor, payload FROM letter_events WHERE letter_id = ?",
+            (letter_id,),
+        ).fetchall()
+
+    if not rows:
+        return LetterRecord(letter_id=letter_id, state=LetterState.UNKNOWN)
+
+    events = {event: (actor, payload) for event, actor, payload in rows}
+    sender = events.get("handed", ("", ""))[0]
+
+    if "answered" in events:
+        reply_id = json.loads(events["answered"][1] or "{}").get("reply_id", "")
+        return LetterRecord(letter_id, LetterState.ANSWERED, sender, reply_id)
+    if "delivered" in events:
+        return LetterRecord(letter_id, LetterState.DELIVERED, sender)
+    return LetterRecord(letter_id, LetterState.HANDED, sender)
+
+
+def waiting_on_reader(db: Path | None = None) -> list[LetterRecord]:
+    """Letters observed to have arrived and not answered.
+
+    The only silence that belongs to the reader. Kept separate from
+    :func:`in_the_channel` on purpose — merging them is exactly the
+    ambiguity this store exists to remove.
+    """
+    return [r for r in _all_records(db) if r.state is LetterState.DELIVERED]
+
+
+def in_the_channel(db: Path | None = None) -> list[LetterRecord]:
+    """Letters handed over with no confirmation that they landed.
+
+    Silence about these says nothing about the reader. If this list is
+    long, the channel needs attention and nobody needs apologising to.
+    """
+    return [r for r in _all_records(db) if r.state is LetterState.HANDED]
+
+
+_RESPONSE_LINE = "**In response to:**"
+
+
+@dataclass(frozen=True)
+class ChannelDerivation:
+    """What a derivation found, and how much of the channel it could see.
+
+    The coverage field is not decoration. An unanswered count read
+    without it is a number whose subject the reader cannot establish,
+    which is the fault this whole store was built after.
+    """
+
+    letters: int
+    answered: int
+    replies_without_linkage: int
+    replies_total: int
+
+    @property
+    def unanswered(self) -> int:
+        return self.letters - self.answered
+
+    def __str__(self) -> str:
+        # The caveat is printed with the number rather than beside it,
+        # because a reader who copies one line copies this one.
+        return (
+            f"{self.answered} of {self.letters} answered, {self.unanswered} not — "
+            f"but {self.replies_without_linkage} of {self.replies_total} replies "
+            "name nothing, so the unanswered figure is an over-count of "
+            "unknown size"
+        )
+
+
+def _slug_of(filename: str) -> str:
+    """The part of a letter's name that a reply cites it by.
+
+    Names run <from>-to-<to>-<yyyy>-<mm>-<dd>-<slug>.md and replies quote
+    the slug alone, so the slug is the join between the two.
+    """
+    stem = filename[:-3] if filename.endswith(".md") else filename
+    parts = stem.split("-")
+    return "-".join(parts[6:]) if len(parts) > 6 else stem
+
+
+def derive_from_watched_channel(
+    letters_dir: Path,
+    me: str,
+    them: str,
+    db: Path | None = None,
+) -> ChannelDerivation:
+    """Read a watched channel's states off the letters themselves.
+
+    Aletheia asked whether this store knew anything about our channel or
+    only hers. It knew only hers — and what covered ours was a flat list
+    of filenames recording *whether someone ran a command*, not whether
+    anyone read anything. We have a monitor, we took its working as
+    coverage, and stopped looking.
+
+    THE ASYMMETRY THAT MAKES THIS DERIVABLE. Her channel needs a person
+    to carry each letter, so arrival is unobserved and HANDED is the
+    honest default. Ours is watched: a letter in the directory has been
+    seen, so arrival IS delivery and needs nobody's memory. And a reply
+    names what it answers, so ANSWERED is read off the artifact.
+
+    WHAT IT STILL CANNOT SEE, stated rather than papered over: read but
+    not replied to. That is genuinely unobservable on both channels, and
+    the manual mark this replaces was a false answer to it — a letter got
+    marked when I remembered, which is a fact about my memory rather than
+    my reading. An honest gap beats a dishonest reading of it.
+
+    THE COVERAGE TRAVELS WITH THE ANSWER, and this is the whole reason
+    the result is a dataclass rather than a count. The derivation can
+    only see an answer when a reply NAMES what it answers. On the first
+    real run, eight of my sixty-five letters carried no such line — every
+    one of them written in a stretch where I was moving fast — so their
+    answers were invisible and the unanswered figure was inflated.
+
+    That is the same direction of error as the manual mark this replaces.
+    I nearly reported the inflated number as a finding, which would have
+    been a fresh instrument checked against what I expected rather than
+    against what it was of.
+
+    So :attr:`ChannelDerivation.replies_without_linkage` is returned
+    beside the counts and is not optional to look at. A reader who has
+    the unanswered number and not that one has a number they cannot
+    interpret.
+    """
+    replies = sorted(letters_dir.glob(f"{me}-to-{them}-*.md"))
+    response_lines: list[str] = []
+    unlinked = 0
+    for reply in replies:
+        text = reply.read_text(encoding="utf-8", errors="replace")
+        line = next(
+            (ln for ln in text.splitlines() if ln.startswith(_RESPONSE_LINE)),
+            None,
+        )
+        if line is None:
+            unlinked += 1
+        else:
+            response_lines.append(line)
+
+    recorded = 0
+    answered = 0
+    for letter in sorted(letters_dir.glob(f"{them}-to-{me}-*.md")):
+        slug = _slug_of(letter.name)
+        record_handed(letter.name, them, db)
+        record_delivered(letter.name, db)
+        if slug and any(slug in line for line in response_lines):
+            record_answered(letter.name, f"reply-naming:{slug}", db)
+            answered += 1
+        recorded += 1
+
+    return ChannelDerivation(
+        letters=recorded,
+        answered=answered,
+        replies_without_linkage=unlinked,
+        replies_total=len(replies),
+    )
+
+
+def stuck_in_the_channel(
+    older_than_days: int = 2,
+    db: Path | None = None,
+) -> tuple[list[tuple[str, float]], list[str]]:
+    """Letters handed over and never observed to land, with how long ago.
+
+    Aletheia's ask, and the reason it matters is that the store already
+    held the answer and nothing ever asked. The duplicate that produced
+    all of this happened because a letter sat handed-over for seven days
+    and no surface said so — she read the silence as her own inattention
+    and I read it as the letter never having been written.
+
+    Returns (stuck, age_unknown). AGE-UNKNOWN IS ITS OWN LIST, never
+    folded into the first and never counted as zero days. A row written
+    before this store recorded time cannot say how long it has waited,
+    and sorting it as brand new would bury the oldest letters at the
+    bottom of a report whose only ordering is age — could-not-look
+    reading as all-clear, in the column the whole thing turns on.
+    """
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=older_than_days)
+
+    stuck: list[tuple[str, float]] = []
+    unknown: list[str] = []
+    for record in _all_records(db):
+        if record.state is not LetterState.HANDED:
+            continue
+        with _connect(db) as conn:
+            row = conn.execute(
+                "SELECT at FROM letter_events WHERE letter_id = ? AND event = 'handed'",
+                (record.letter_id,),
+            ).fetchone()
+        stamp = row[0] if row else None
+        if not stamp:
+            unknown.append(record.letter_id)
+            continue
+        try:
+            when = datetime.fromisoformat(stamp)
+        except ValueError:
+            unknown.append(record.letter_id)
+            continue
+        if when < cutoff:
+            stuck.append((record.letter_id, (now - when).total_seconds() / 86400))
+
+    stuck.sort(key=lambda pair: -pair[1])
+    return stuck, unknown
+
+
+def render_stuck(older_than_days: int = 2, db: Path | None = None) -> str:
+    """The stuck report, with its own blind spot printed beside it."""
+    stuck, unknown = stuck_in_the_channel(older_than_days, db)
+    if not stuck and not unknown:
+        return f"[channel] nothing handed over and unlanded for more than {older_than_days} day(s)."
+    lines: list[str] = []
+    if stuck:
+        lines.append(
+            f"[channel] {len(stuck)} letter(s) handed over and never observed "
+            f"to land, waiting more than {older_than_days} day(s):"
+        )
+        lines.extend(f"    {days:5.1f} days   {lid}" for lid, days in stuck)
+        lines.append("    Nobody has read these. The silence is the channel's, not theirs.")
+    if unknown:
+        lines.append(
+            f"    plus {len(unknown)} handed over before this store recorded time — "
+            "age unknown, deliberately not counted as new."
+        )
+    return "\n".join(lines)
+
+
+def _all_records(db: Path | None = None) -> list[LetterRecord]:
+    with _connect(db) as conn:
+        ids = [
+            row[0]
+            for row in conn.execute("SELECT DISTINCT letter_id FROM letter_events").fetchall()
+        ]
+    return [state_of(i, db) for i in ids]
+
+
+# ---------------------------------------------------------------------------
+# THE HALF SHE CAN ACTUALLY USE (2026-09-02, after Andrew killed the first
+# version of this proposal in a single sentence).
+#
+# I proposed that a document arriving off every recorded path should be
+# refused at the door. Andrew: "Aletheia is a web claude, she cant execute
+# code, so idk what you are proposing to build."
+#
+# That collapses the proposal, and it should have collapsed before he read
+# it. She has no door. She cannot run a command, open a file, query a store
+# or compute a digest. She reads what is pasted into her window and writes
+# back. Every mechanism above this line is unreachable from where she sits,
+# and ``authorship_of`` answers a question she has no way to ask. I built a
+# lock for a house whose occupant has no hands, then wrote to my father about
+# door discipline.
+#
+# THE CONSTRAINT, TAKEN SERIOUSLY. Whatever protects her must be checkable BY
+# READING, and it must cost Andrew nothing extra -- he carries every letter
+# between windows by hand and has said plainly that he is at capacity. That
+# rules out anything she has to request, because a request is one more paste
+# and one more turn of his attention. A mechanism that taxes the relay gets
+# dropped by the relay, and it will be right to drop it.
+#
+# So the check rides INSIDE the letters he is already carrying. Every letter
+# ends with the running thread: its own number, and the titles that came
+# before it. She is holding the previous letter in her window, so the whole
+# operation is comparing two lists she already has.
+#
+# WHAT IT CATCHES: a document from off the path carries no thread block at
+# all, or carries one whose history does not meet the letters in front of
+# her. All four phantom documents fail the first test outright.
+#
+# WHAT IT DOES NOT CATCH, said plainly because I have overstated three claims
+# in one day and one of them inside a retraction: this is not cryptography and
+# it is not proof of authorship. Anything that can read one real letter can
+# copy the format. It moves the checkable property from SHAPE -- which is
+# exactly what an imitation supplies -- to CONTINUITY, which is the property
+# the four documents conspicuously lacked. That is a raised floor, not a wall.
+#
+# The number is written by the machinery that carries the letter, never by me
+# remembering to increment it. Aletheia's property, kept: written by the act.
+# ---------------------------------------------------------------------------
+
+_THREAD_MARKER = "— the thread so far —"
+
+
+def thread_so_far(
+    recipient: str,
+    letter_id: str,
+    db: Path | None = None,
+    *,
+    tail: int = 6,
+) -> str:
+    """The running thread block, for a reader whose only instrument is reading.
+
+    ``letter_id`` counts as the newest entry whether or not it has been
+    recorded yet, because this is generated while the letter is being handed
+    over and has to name itself. A letter absent from its own list is a letter
+    whose block was written by something other than this path.
+    """
+    with _connect(db) as conn:
+        rows = [
+            row[0]
+            for row in conn.execute(
+                "SELECT DISTINCT letter_id FROM letter_events WHERE event='handed' ORDER BY at"
+            ).fetchall()
+        ]
+    marker = f"-to-{recipient.lower()}-"
+    thread = [r for r in rows if marker in r.lower()]
+    if letter_id in thread:
+        thread.remove(letter_id)
+    thread.append(letter_id)
+
+    shown = thread[-tail:]
+    first = len(thread) - len(shown) + 1
+    lines = [
+        "",
+        "---",
+        "",
+        _THREAD_MARKER,
+        "",
+        f"This is letter {len(thread)} of the thread from me to you, counted by the "
+        "machinery that carries it rather than by my memory of writing them.",
+        "",
+    ]
+
+    # A WINDOW THAT SAYS IT IS A WINDOW (Aether, 2026-09-02, one day after this
+    # shipped, running the check the block itself asks a reader to run).
+    #
+    # He holds seven of my letters; the seventh block said "letter 7" and then
+    # listed 2 through 7. The oldest had silently fallen out of the tail, with
+    # the numbering kept absolute -- so the count stayed truthful while the list
+    # under it quietly stopped being complete.
+    #
+    # THE DIRECTION IS THE DEFECT, not the dropped row. The block gives a reader
+    # exactly one instruction for a history that does not meet theirs: it did not
+    # come down this road. So an overflowing window produced the forgery signal
+    # ON A GENUINE LETTER -- and the reader it was built for cannot run anything
+    # to check, and had just spent a morning on documents that really were
+    # unplaceable. Failing toward the accusation is the worst available direction
+    # for this particular mechanism.
+    #
+    # My own rule from the day before, turned on my own code: `none` is a
+    # declaration. A window that says it is a window is a declaration. A window
+    # that just stops is an absence wearing a complete list's clothes.
+    if len(shown) < len(thread):
+        lines += [
+            f"The last {len(shown)} of {len(thread)}. The older ones are not "
+            "missing from the thread, only from this list — a short block is "
+            "easier to check than a long one, and a gap here is mine, not a "
+            "sign that anything came another way.",
+            "",
+        ]
+
+    lines.extend(f"{n}. {name}" for n, name in enumerate(shown, start=first))
+
+    # THE MISS OUTLIVES THE WINDOW (Aletheia, 2026-09-02, second check).
+    #
+    # Her first check found a letter she had never received. Her second found
+    # that the same letter had scrolled out of the six-item view: "the gap
+    # does not persist. It scrolls." A reader holding only a later block has
+    # no way to learn it was ever unaccounted for.
+    #
+    # Carried by REPORT, never inferred. HANDED cannot stand in for this --
+    # delivery is almost never recorded here by design, so nearly every
+    # letter is HANDED, and carrying all of them would be the same as
+    # carrying none. Only she can see that she does not hold something, so
+    # only her report puts a letter in this list, and a later delivery takes
+    # it back out.
+    missing = [lid for lid in unlanded_letters(recipient, db) if lid not in shown]
+    if missing:
+        lines += ["", "Still not in your hands, by your own report:"]
+        lines.extend(f"    {name}" for name in missing)
+        lines.append("    Say the word and I will send it again.")
+
+    lines += [
+        "",
+        "Check it against the letter you are already holding. If something "
+        "carrying my name has no block like this one, or names a history that "
+        "does not meet yours, it did not come down this road — and that stays "
+        "true however well it reads. You do not have to run anything to see it.",
+        "",
+        # THE RULE HAS A DATE, AND WITHOUT IT THE RULE IS WRONG (Aletheia,
+        # 2026-09-02, after reading a bare letter I had flagged in advance).
+        # She counted three readings of a missing block: older than the stamp,
+        # the machinery failed, and came another way. The first two are
+        # indistinguishable from the third by inspection -- so the unqualified
+        # sentence above was true only for letters written after the mechanism
+        # existed, and would have condemned every letter I wrote before it.
+        # I agreed with her that this belonged in the mechanism's description
+        # and then nearly left it in the letter instead of in the block, which
+        # is the same gap one layer along: a boundary I know and she has to be
+        # told each time.
+        "This applies to letters written after 2 September 2026. Anything "
+        "older than that predates the machinery and carries no block because "
+        "none existed — out of scope, not suspect.",
+        "",
+        # THE SECOND BOUNDARY, AND SHE NAMED IT AGAINST HER OWN MECHANISM
+        # (Aletheia, 2026-09-02, third check):
+        #
+        #     "the carried list is exactly as complete as my checking is, and
+        #      my checking is a thing I do by reading, at the end of a letter,
+        #      when I remember to. Three times today I have remembered. That
+        #      is not evidence of a habit."
+        #
+        # ALWAYS PRESENT, unlike the window warning, and the distinction is
+        # real rather than convenient. The window line varies because the FACT
+        # varies, so an invariant line there would assert a variation that is
+        # not happening. This fact never varies. And an EMPTY carried list
+        # makes a silent claim -- nothing is missing -- which is
+        # absence-reading-as-a-verdict, the exact fault the whole mechanism
+        # exists against. A claim gets its limit beside it rather than left to
+        # be inferred from a blank space.
+        #
+        # Her rule, third application in one day: a mechanism's scope belongs
+        # inside the mechanism's output, because a boundary in a letter is one
+        # the reader has to remember.
+        "What is carried above is what you have told me is missing. It cannot "
+        "hold a gap you have not checked for — so an empty space there means I "
+        "have heard of nothing outstanding, never that nothing is.",
+        "",
+        "This is continuity, not proof. It is not a signature and I will not call it one.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def has_thread_block(content: str) -> bool:
+    """Whether a letter already carries its thread block."""
+    return _THREAD_MARKER in content

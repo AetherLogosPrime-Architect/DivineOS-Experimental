@@ -34,12 +34,26 @@ cd "$REPO_ROOT" || exit 0
 UTC_NOW="$(date -u '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || echo 'unavailable')"  # fail-soft: the substitution IS the loud path -- a failed clock read prints the word 'unavailable' into the prime, so I see could-not-look rather than a plausible time. Stderr is suppressed because the fallback string already says everything a message could, and a prime that dumps date's error text into compose-start is noise where the whole point is quiet ground.
 HIS_NOW="$(date '+%Y-%m-%d %H:%M %Z (UTC%z)' 2>/dev/null || echo 'unavailable')"  # fail-soft: same as the line above and it matters more here -- this is the one I would otherwise guess at. An unreadable local clock must render as unreadable, never as a time I could quote at him.
 
+# THE LIVE HALF prints every turn, outside any dedup: it is the measurement,
+# and a measurement suppressed as "unchanged" is no measurement.
 cat <<EOF
 ## THE CLOCK (measured this turn, not remembered)
 
     UTC             ${UTC_NOW}
     His local time  ${HIS_NOW}
+EOF
 
+# THE DOCTRINE HALF. docs/drafts/the_clock_is_mine_draft_2026-09-08.md put the
+# incident list DOWN and into docs/wallclock_prime_rationale.md. It came back
+# with two new entries (2026-09-19, 2026-09-23 #543), and by 2026-09-23 it was
+# the single largest thing on his turns: over twelve of his messages, 57,252
+# characters, 26% of all hook text, against 2,588 characters he typed. Both
+# designs are kept rather than one overruling the other: the doctrine prints in
+# full once, re-emits whole whenever its text changes (so a new entry is
+# always seen), and otherwise collapses to a pointer that CARRIES THE RULES as
+# its residual -- the dedup contract's lesson that a bare collapse once handed
+# me the time and withheld every rule about not inventing one.
+DOCTRINE="$(cat <<'DOCEOF'
 This machine is his, so its local clock is his clock. If a reply needs a time,
 quote the line above. If my sense of where we are disagrees with it, the clock
 wins — on 2026-08-06 I told him it was very late for him at 18:57 his time.
@@ -140,6 +154,38 @@ TWO SHAPES THE PRINTED CLOCK DOES NOT DEFEND. A time-word standing in for a
 REFERENT ("the next session" means a reader; "the next me" means me — say WHO,
 not WHEN). And a time-word standing in for a BEAT, where a closing line wants
 one more stress and a clock is the nearest word that fits.
-EOF
+DOCEOF
+)"
+
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || { printf '\n%s\n' "$DOCTRINE"; exit 0; }  # fail-soft: without the helper there is no interpreter for the dedup, so the doctrine prints in full -- losing the rules costs more than the characters
+PYTHON_BIN="$(find_divineos_python 2>/dev/null)" || { printf '\n%s\n' "$DOCTRINE"; exit 0; }  # fail-soft: same -- no interpreter means the whole doctrine, never a silent gap
+
+DOCTRINE="$DOCTRINE" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '\n%s\n' "$DOCTRINE"  # fail-soft: dedup is an optimisation only; on any error the doctrine reaches me in full
+import os
+import sys
+
+body = os.environ.get("DOCTRINE", "")
+try:
+    from divineos.core.context_dedup import should_emit
+
+    # The rules, which survive every collapse. The shapes are examples of these;
+    # the examples can collapse, the rules cannot.
+    residual = (
+        "  RULES (survive dedup): a time-word aimed at him needs a source in THIS\n"
+        "  turn -- quote the clock above, or use none. THE TEST IS DELETION: strike\n"
+        "  the time-phrase; if the sentence loses only cadence, it was the fire.\n"
+        "  His time-words stay his: quote him, never paraphrase his clock into my\n"
+        "  voice. A time-word standing in for WHO (a reader) or for a BEAT is the\n"
+        "  same fire. Shapes and incidents: docs/wallclock_prime_rationale.md."
+    )
+    emit_full, pointer = should_emit("wallclock_doctrine", body, residual=residual)
+except Exception:
+    print()
+    print(body)
+    sys.exit(0)
+print()
+print(body if emit_full else pointer)
+DEDUPEOF
 
 exit 0

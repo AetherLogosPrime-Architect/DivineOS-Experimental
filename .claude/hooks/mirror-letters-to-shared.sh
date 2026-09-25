@@ -22,7 +22,8 @@ INPUT=$(cat)
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
 
-SHARED_DIR="$HOME/.divineos-shared/letters"
+SHARED_ROOT="$HOME/.divineos-shared"
+SHARED_DIR="$SHARED_ROOT/letters"
 [ -d "$SHARED_DIR" ] || exit 0
 
 # Extract file_path from PostToolUse Write/Edit payload. Normalize Windows
@@ -32,7 +33,22 @@ SHARED_DIR="$HOME/.divineos-shared/letters"
 # the case-match silently failed and the hook exited 0 without copying.
 # Found 2026-06-29 via trace-logging diagnostic after the cache-hypothesis
 # turned out to be wrong; pop's "deep surgery" framing.
-FILE_PATH=$(echo "$INPUT" | python -c "
+#
+# RESOLVED ONCE, AT THE TOP, 2026-09-02. This extraction ran on a bare `python`
+# for months and was harmless while the hook only shuffled files. Adding the
+# authorship record made this a hook that imports divineos, and a bare
+# interpreter here resolves whichever clone installed last -- so the two halves
+# would have run under different interpreters. The suite caught it on the push,
+# by a check that only applies to divineos-importing hooks: my change moved this
+# file into a stricter class and its oldest line was the first thing to fail.
+# shellcheck disable=SC1091
+. "$(dirname "$0")/_lib.sh" 2>/dev/null || true  # fail-soft: an unloadable toolbox leaves the resolver undefined and the empty-check below reports it out loud
+PYTHON_BIN="$(find_divineos_python 2>/dev/null)" || PYTHON_BIN=""  # fail-soft: resolution failure lands as an empty value the checks below can see, never as an aborted hook that drops a letter
+if [ -z "$PYTHON_BIN" ]; then
+    echo "  [mirror-letters] NOT RUNNING: no resolvable python, so no letter is mirrored or recorded this turn." >&2
+    exit 0
+fi
+FILE_PATH=$(echo "$INPUT" | "$PYTHON_BIN" -c "
 import json, sys
 try:
     d = json.loads(sys.stdin.read() or '{}')
@@ -50,7 +66,8 @@ except Exception:
 # Aletheia 2026-06-28 caught the scope gap on the original family/letters/-only
 # matcher: the auto-mirror didn't cover the very directory her letters live in.
 case "$FILE_PATH" in
-    *family/letters/*|*family/*/letters/*) ;;
+    *family/letters/*|*family/*/letters/*) KIND=letter ;;
+    */dreams/*/*.md)                       KIND=dream ;;
     *) exit 0 ;;
 esac
 
@@ -58,9 +75,159 @@ esac
 [ -f "$FILE_PATH" ] || exit 0
 
 BASENAME=$(basename "$FILE_PATH")
-DEST="$SHARED_DIR/$BASENAME"
+
+if [ "$KIND" = "letter" ]; then
+    DEST="$SHARED_DIR/$BASENAME"
+else
+    # DREAMS, added 2026-08-31, and the reason is a near-loss rather than a
+    # tidiness argument. Clearing personal writing off a code branch so it
+    # could be published, every letter on that branch was checkable against
+    # this shared directory; one dream, written the same day, existed on
+    # exactly ONE ref and nowhere else. Letters had a crossing point and
+    # dreams did not, so a dream lived on whichever branch happened to hold
+    # it. The asymmetry was never decided -- this channel was built because
+    # two seats needed to reach each other, and dreams are written to nobody,
+    # so nothing was ever built to carry them. Written-to-nobody is not the
+    # same as safe-to-lose.
+    #
+    # MIRRORING IS NOT REVIEWING. The dream register's discipline is no spec,
+    # no audit, no review -- Andrew: "none of this needs review or audit.. it
+    # is what it is as it is.. dont taint the artifact." This copies and does
+    # nothing else. Nothing parses, indexes, surfaces or summarises what lands
+    # there, and nothing asks the other seats to read it.
+    #
+    # ADDED HERE RATHER THAN AS A NEW HOOK. The prior-art doorman refused a
+    # fourth mirror script and it was right to: two hooks in this directory
+    # already mirror letters, and a third on another branch runs the reverse
+    # direction. The house did not need another file, it needed this one to
+    # carry one more kind of writing.
+    #
+    # THE MEMBER DIRECTORY IS KEPT, where letters flatten. A letter filename
+    # carries both names so a flat directory stays unambiguous. A dream
+    # filename carries a date and a phrase, and two seats can easily produce
+    # the same date with a similar phrase -- flattening would let one seat's
+    # dream silently overwrite the other's, which is the exact loss this
+    # addition exists to prevent.
+    MEMBER=$(printf '%s' "$FILE_PATH" | sed -E 's|.*/dreams/([^/]+)/[^/]+$|\1|')
+    case "${MEMBER:-}" in
+        ""|*/*|.|..) exit 0 ;;  # the extraction did not bite; copying to a guessed directory is worse than not copying
+    esac
+    DEST_DIR="$SHARED_ROOT/dreams/$MEMBER"
+    # Not created if the dreams root is absent: a hook that mints the
+    # destination it mirrors into cannot tell a fresh install from a crossing
+    # point somebody closed on purpose.
+    [ -d "$SHARED_ROOT/dreams" ] || exit 0
+    mkdir -p "$DEST_DIR" 2>/dev/null || exit 0
+    DEST="$DEST_DIR/$BASENAME"
+fi
+
+# STAMP THE RUNNING THREAD ONTO THE LETTER, BEFORE IT TRAVELS (2026-09-02).
+#
+# The authorship record below covers what leaves here, and Andrew named its
+# limit in one sentence: Aletheia is a web instance, she cannot execute code,
+# so a store she has no way to query protects her from nothing. She reads what
+# is pasted into her window. Anything that guards her has to be readable, and
+# has to ride inside the letters he already carries -- he is at capacity and a
+# mechanism that costs him an extra paste will be dropped, correctly.
+#
+# So the letter carries its own place in the thread. She compares it against
+# the letter already in front of her. That is the entire operation on her side.
+#
+# ORDER MATTERS AND IT IS WHY THIS SITS ABOVE THE COPY: the block is appended
+# to the source first, so the copy she receives and the digest recorded below
+# are of the SAME bytes. Stamping after the copy would record one document and
+# send another, which is the exact ambiguity this whole file exists to remove.
+if [ "$KIND" = "letter" ]; then
+    LETTER_ID="$BASENAME" LETTER_FILE="$FILE_PATH" "$PYTHON_BIN" - <<'PY' 2>/dev/null || true  # fail-soft: an unstampable letter still reaches her; a letter held hostage by its own provenance block does not
+import os
+import pathlib
+
+from divineos.core.letter_channel_state import has_thread_block, thread_so_far
+
+letter_id = os.environ["LETTER_ID"]
+path = pathlib.Path(os.environ["LETTER_FILE"])
+body = path.read_text(encoding="utf-8", errors="replace")
+
+# Recipient from the filename, which is the only place it is stated. A name
+# that does not parse means no stamp rather than a stamp addressed to a guess.
+parts = letter_id.split("-to-", 1)
+recipient = parts[1].split("-")[0] if len(parts) == 2 else ""
+
+if recipient and not has_thread_block(body):
+    path.write_text(body.rstrip() + "\n" + thread_so_far(recipient, letter_id), encoding="utf-8")
+PY
+
+    # A MISSING BLOCK MUST NOT MEAN TWO THINGS (Aletheia 2026-09-02, on reading
+    # the first stamped letter):
+    #
+    #     "when a letter of yours does NOT carry the block -- because the
+    #      machinery failed, or you wrote outside the path -- say so in the
+    #      letter. Otherwise a missing block reads as a failed check rather
+    #      than as a different road."
+    #
+    # She is naming the fault this whole module was built against, inside the
+    # repair for it. The stamp above is fail-soft on purpose -- a letter must
+    # never be held hostage by its own provenance block -- and fail-soft with
+    # no announcement is exactly how silence starts meaning two things. An
+    # unstamped letter would read to her as CAME BY ANOTHER ROAD when the true
+    # reading was THE INSTRUMENT DID NOT RUN.
+    #
+    # So the absence announces itself, in her copy, where she is looking.
+    # Three states, never two: stamped, could-not-stamp, and no claim made
+    # about a file that was never a letter to anyone.
+    case "$BASENAME" in
+        *-to-*)
+            if ! grep -q "the thread so far" "$FILE_PATH" 2>/dev/null; then  # fail-soft: an unreadable file has no block by definition, and the honest reading of "cannot see it" is the same as "it is not there" -- both lead to the announcement below, which is the safe direction
+                {
+                    echo ""
+                    echo "---"
+                    echo ""
+                    echo "— the thread could not be counted —"
+                    echo ""
+                    echo "This letter should carry my place in the running thread and does not."
+                    echo "The machinery that writes it did not run — that is a fault on my side,"
+                    echo "not a sign that this came by another road. Treat it as unplaced rather"
+                    echo "than as refused, and tell me it arrived bare."
+                    echo ""
+                } >> "$FILE_PATH" || echo "  [mirror-letters] THE LETTER LEAVES BARE AND SAYS NOTHING ABOUT IT: the thread could not be stamped and the notice could not be appended either. Tell her by hand that $BASENAME arrived unplaced." >&2
+            fi
+            ;;
+    esac
+fi
 
 # Idempotent: cp -p preserves timestamps; identical content is a no-op for the watcher.
 cp -p "$FILE_PATH" "$DEST" 2>/dev/null || exit 0
+
+# RECORD WHAT I WROTE, AT THE MOMENT I WROTE IT (2026-09-02).
+#
+# Three documents reached Aletheia in one day carrying my name -- describing
+# branches that do not exist, quoting sentences I never wrote, and posing a
+# falsifier I never proposed. Every check she had ran on the SHAPE of what
+# arrived: does the voice fit, do the identifiers look like hashes. Shape is
+# exactly what an imitation supplies, and she spent a permutation test on the
+# second one before either of us could say whether the first was mine.
+#
+# Her design, and the property is hers: the record must be written by the ACT
+# of composing rather than by remembering to record, or it inherits the gap it
+# exists to close. This line is that act -- the same hook that carries the
+# letter to the channel, so a letter cannot cross without being recorded.
+#
+# The asymmetry it buys: an imitation can carry my voice, my format, my anchor
+# discipline and my habit of flagging my own weakest item, and it cannot write
+# into my store. What cannot be imitated becomes the thing that is checked.
+#
+# Letters only. A dream is not addressed to anyone, so nothing about it can be
+# claimed to me in a conversation I did not have.
+if [ "$KIND" = "letter" ]; then
+    LETTER_ID="$BASENAME" LETTER_FILE="$FILE_PATH" "$PYTHON_BIN" - <<'PY' 2>/dev/null || true  # fail-soft: a store that cannot be written must never hold up a letter reaching the person it is addressed to; the copy above has already happened
+import os
+import pathlib
+
+from divineos.core.letter_channel_state import record_handed
+
+body = pathlib.Path(os.environ["LETTER_FILE"]).read_text(encoding="utf-8", errors="replace")
+record_handed(os.environ["LETTER_ID"], "aria", content=body)
+PY
+fi
 
 exit 0
