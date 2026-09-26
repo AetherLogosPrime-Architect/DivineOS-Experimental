@@ -61,25 +61,7 @@
 # left on the list, nothing would catch a slide back to `|| exit 0`, and
 # tests/test_the_doorman_holds_without_its_library.py asserts it stays off.
 
-# GREW BY THREE, 2026-09-23 -- the direction this file refuses, so it gets a
-# sentence. Merging PR #506 brought blanket-staging-doorman.sh,
-# push-message-carries-the-destination.sh and work-item-doorman.sh onto main,
-# each loading the shared library with a fail-open exit above a path that can
-# refuse. They are NOT new faults: the same three are already named on
-# code/gate-repairs-on-main (#519), and Aria read them there and ruled --
-# leave them listed as the honest description of the tree, with repairs owed.
-#
-# THIS IS THE THIRD BRANCH TONIGHT CARRYING THESE IDENTICAL LINES (#538, #539
-# and this one). Every branch cut from main fails this check until one of them
-# lands, so the same three-line repair is being made once per branch. The
-# recurrence is worth a reader's attention in its own right: a baseline
-# describes the tree it ships with, and main's copy has been stale since #506.
-#
-# Why main went red without anyone noticing: this check runs in precommit, not
-# in CI, so #506 merged green on GitHub while main failed it locally.
-
 andrew-correction-attestation.sh
-blanket-staging-doorman.sh
 branch-scope-guard.sh
 check-branch-on-push.sh
 check-council-required.sh
@@ -96,11 +78,9 @@ instrument-read-doorman.sh
 m3-discipline-hierarchy.sh
 must-read-gate.sh
 prior-art-before-new-file.sh
-push-message-carries-the-destination.sh
 reach-check-doorman.sh
 read-gate-doorman.sh
 require-briefing.sh
 stale-file-edit-gate.sh
 summary-room-stop.sh
 verify-before-build-signal.sh
-work-item-doorman.sh
