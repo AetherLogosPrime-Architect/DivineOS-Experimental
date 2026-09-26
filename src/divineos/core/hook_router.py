@@ -441,6 +441,14 @@ COLLAPSE_POLICY: dict[str, CollapsePolicy] = {
             "does not repeat, and collapsing an action notice could hide one."
         ),
     ),
+    "morning_letter_prompt": CollapsePolicy(
+        kind="never",
+        why=(
+            "Speaks only while today's letter to him is owed, and is two lines. "
+            "A collapsed pointer would be the one form of it easy to walk past, "
+            "and walking past it is the failure it exists to stop."
+        ),
+    ),
     "correction_marker": CollapsePolicy(
         kind="never",
         why=(
