@@ -13,6 +13,7 @@ import click
 from divineos.core.andrew_correction_tracker import (
     auto_integrate_from_commit,
     confirm_hold,
+    confirm_phrase,
     defer,
     integrate,
     integration_rate,
@@ -214,20 +215,14 @@ def register(cli: click.Group) -> None:
 
     @andrew_group.command("confirm-hold")
     @click.argument("correction_id", type=int)
-    @click.option(
-        "--his-words",
-        "his_words",
-        required=True,
-        help="His words, exactly as he typed them, from a message that names this number.",
-    )
-    def confirm_hold_cmd(correction_id: int, his_words: str) -> None:
-        """Move a proposed row to HELD on his word, checked against what he typed."""
-        if confirm_hold(correction_id, his_words):
-            click.secho(f"[*] #{correction_id} is held on his word: {his_words.strip()!r}")
+    def confirm_hold_cmd(correction_id: int) -> None:
+        """Move a proposed row to HELD only if he typed the line "hold <number>"."""
+        if confirm_hold(correction_id):
+            click.secho(f"[*] #{correction_id} is held on his word.")
             return
         click.secho(
             f"Refused: #{correction_id} is not a proposed row, or no message he typed "
-            "contains both those words and the number.",
+            f"has the line '{confirm_phrase(correction_id)}' on its own.",
             fg="red",
             err=True,
         )

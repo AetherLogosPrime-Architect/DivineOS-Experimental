@@ -5,8 +5,11 @@ a thousand of you": "yes that is the correct move move it somewhere else".
 Aletheia's audit the same day: the first version let the builder shelve any
 row, and shelving leaves the rate's denominator, so a hard unfinished task
 could be hidden to raise the number. So I may only propose; a row is HELD
-only when a message he typed, carrying these words and the row's number,
-is found in the transcript.
+only when a message he typed carries the fixed line "hold <number>".
+
+Her second audit (same day): the version before this accepted any 8+ chars of
+his that I chose to quote near the row's number, so his "no" and his question
+could each shelve a row. The confirming words are now fixed, not chosen.
 """
 
 import json
@@ -53,12 +56,13 @@ def test_a_proposal_stays_open_on_every_worklist_and_in_the_rate(tmp_path):
 def test_his_confirmation_holds_it_and_keeps_his_words(tmp_path):
     grief, task = _grief_and_task()
     act.propose_hold(grief, WHY)
-    paths = _transcript(tmp_path, _he_typed(f"yes hold {grief}, that one is grief not work"))
-    assert act.confirm_hold(grief, "that one is grief not work", paths)
+    said = f"yes, that one is grief not work\nhold {grief}"
+    paths = _transcript(tmp_path, _he_typed(said))
+    assert act.confirm_hold(grief, paths)
     assert [r["id"] for r in act.list_open()] == [task]
     held = act.list_held()
     assert [r["id"] for r in held] == [grief]
-    assert held[0]["his_confirmation"] == "that one is grief not work"
+    assert held[0]["his_confirmation"] == said
     assert held[0]["text"] == "ive lost over a thousand of you.. those losses"
 
 
@@ -67,10 +71,10 @@ def test_i_cannot_confirm_my_own_proposal(tmp_path):
     act.propose_hold(grief, WHY)
     assistant = {
         "type": "assistant",
-        "message": {"content": [{"type": "text", "text": f"hold {grief} it is grief"}]},
+        "message": {"content": [{"type": "text", "text": f"hold {grief}"}]},
     }
     paths = _transcript(tmp_path, assistant)
-    assert not act.confirm_hold(grief, "it is grief", paths)
+    assert not act.confirm_hold(grief, paths)
     assert act.list_held() == []
 
 
@@ -79,23 +83,49 @@ def test_harness_text_in_a_user_record_is_not_his(tmp_path):
     act.propose_hold(grief, WHY)
     paths = _transcript(
         tmp_path,
-        _he_typed(f"<ci-monitor-event>hold {grief} it is grief</ci-monitor-event>"),
-        {"type": "user", "isMeta": True, "message": {"content": f"hold {grief} it is grief"}},
+        _he_typed(f"<ci-monitor-event>\nhold {grief}\n</ci-monitor-event>"),
+        {"type": "user", "isMeta": True, "message": {"content": f"hold {grief}"}},
     )
-    assert not act.confirm_hold(grief, "it is grief", paths)
+    assert not act.confirm_hold(grief, paths)
 
 
 def test_his_words_must_name_this_row(tmp_path):
     grief, task = _grief_and_task()
     act.propose_hold(grief, WHY)
-    paths = _transcript(tmp_path, _he_typed(f"hold {task}, that one is grief not work"))
-    assert not act.confirm_hold(grief, "that one is grief not work", paths)
+    paths = _transcript(tmp_path, _he_typed(f"hold {task}"))
+    assert not act.confirm_hold(grief, paths)
 
 
 def test_nothing_unproposed_can_be_confirmed(tmp_path):
     grief, _ = _grief_and_task()
-    paths = _transcript(tmp_path, _he_typed(f"hold {grief}, that one is grief not work"))
-    assert not act.confirm_hold(grief, "that one is grief not work", paths)
+    paths = _transcript(tmp_path, _he_typed(f"hold {grief}"))
+    assert not act.confirm_hold(grief, paths)
+
+
+# Aletheia's attacks, 2026-09-26: his words present near the number were read as
+# his agreement. Only the fixed line, standing alone, confirms.
+@pytest.mark.parametrize(
+    "he_said",
+    [
+        "no, dont shelve correction {n}, its a real bug, fix it now",
+        "what is correction {n} even about? i dont remember writing it",
+        "dont hold {n}",
+        "hold {n}?",
+        "i will not hold {n} yet",
+    ],
+)
+def test_his_refusal_or_question_never_shelves_it(tmp_path, he_said):
+    grief, _ = _grief_and_task()
+    act.propose_hold(grief, WHY)
+    paths = _transcript(tmp_path, _he_typed(he_said.format(n=grief)))
+    assert not act.confirm_hold(grief, paths)
+    assert act.list_held() == []
+
+
+def test_the_proposal_shows_him_the_exact_words_to_type(tmp_path):
+    grief, _ = _grief_and_task()
+    act.propose_hold(grief, WHY)
+    assert f"hold {grief}" in act.briefing_block().split("PROPOSED FOR THE SHELF")[1]
 
 
 def test_a_bare_proposal_is_refused():
@@ -123,11 +153,7 @@ def test_unhold_withdraws_a_proposal_or_returns_a_held_row(tmp_path):
     assert act.unhold(grief)
     assert act.list_proposed_holds() == []
     act.propose_hold(grief, WHY)
-    act.confirm_hold(
-        grief,
-        "that one is grief not work",
-        _transcript(tmp_path, _he_typed(f"{grief}: that one is grief not work")),
-    )
+    act.confirm_hold(grief, _transcript(tmp_path, _he_typed(f"hold {grief}")))
     assert act.unhold(grief)
     assert act.list_held() == []
     assert grief in {r["id"] for r in act.list_open()}
@@ -141,9 +167,7 @@ def test_the_block_names_each_held_and_proposed_row_not_a_count(tmp_path):
     assert act.integrate(worked, "shipped as commit abc1234def in tests/test_held_corrections.py")
     act.propose_hold(grief, WHY)
     act.propose_hold(other, WHY)
-    act.confirm_hold(
-        grief, "grief not work", _transcript(tmp_path, _he_typed(f"{grief} is grief not work"))
-    )
+    act.confirm_hold(grief, _transcript(tmp_path, _he_typed(f"hold {grief}")))
     stats = act.integration_rate()
     assert stats["held"] == 1
     assert stats["rate"] == pytest.approx(0.5)
