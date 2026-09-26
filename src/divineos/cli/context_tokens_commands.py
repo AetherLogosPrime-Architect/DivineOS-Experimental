@@ -28,6 +28,7 @@ def register(cli: click.Group) -> None:
         DivineOS home was searched that day and contained zero sensor-fault
         events, because the fault surfaced once, in the moment, and vanished.
         """
+        from divineos.core.auto_cycle import TRIGGER_THRESHOLD
         from divineos.core.context_heartbeat import (
             CONTEXT_WINDOW_TOKENS,
             beat as take_beat,
@@ -52,7 +53,14 @@ def register(cli: click.Group) -> None:
         if last is None:
             click.secho("no heartbeat recorded yet", fg="yellow")
             return
-        fire_at = int(CONTEXT_WINDOW_TOKENS * 0.92)
+        # READS the ritual's own trigger rather than carrying a copy of it.
+        # This line held a literal 0.92 until 2026-09-22. Andrew moved the
+        # trigger to 880k on 2026-09-18 and the move reached the ritual, the
+        # governor and the context meter but not here, so this readout
+        # counted down to 920k and overstated the runway by 40,000 tokens --
+        # during exactly the stretch he was reporting that the ritual fires
+        # too late. One number, read in both places, cannot disagree.
+        fire_at = int(CONTEXT_WINDOW_TOKENS * TRIGGER_THRESHOLD)
         if not last.seen:
             # The whole point: blind is its own state, never a low number.
             click.secho(f"UNKNOWN — the sensor could not see ({last.note})", fg="yellow")
