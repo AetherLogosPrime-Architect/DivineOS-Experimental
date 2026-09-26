@@ -61,6 +61,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 # Two consecutive hook runs closer than this belong to the same tool call.
 #
@@ -121,6 +122,40 @@ class BudgetReport:
         return self.unclosed_runs > 0
 
 
+def _tail_rows(log_path: Path | str, tail_bytes: int) -> list[Any]:
+    """Parsed rows from the last ``tail_bytes`` of the timing log, in order.
+
+    One reader for the three functions below, which each carried their own
+    copy of this loop until the third was about to be written (2026-09-24).
+    Fails soft to an empty list, for the reason each caller gives. Typed
+    ``Any`` because that is what they are: parsed JSON whose fields each
+    caller still checks, as it did when it parsed them itself.
+    """
+    path = Path(log_path)
+    if not path.is_file():
+        return []
+    try:
+        with path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - tail_bytes))
+            chunk = handle.read().decode("utf-8", errors="replace")
+    except OSError:
+        return []
+    rows: list[dict] = []
+    for line in chunk.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(row, dict):
+            rows.append(row)
+    return rows
+
+
 def read_completed_runs(
     log_path: Path | str, tail_bytes: int = _DEFAULT_TAIL_BYTES
 ) -> list[HookRun]:
@@ -134,28 +169,9 @@ def read_completed_runs(
     Fails soft to an empty list on every I/O and parse error. An instrument
     that raises inside a reporting path takes down the thing it reports on.
     """
-    path = Path(log_path)
-    if not path.is_file():
-        return []
-    try:
-        with path.open("rb") as handle:
-            handle.seek(0, os.SEEK_END)
-            size = handle.tell()
-            handle.seek(max(0, size - tail_bytes))
-            chunk = handle.read().decode("utf-8", errors="replace")
-    except OSError:
-        return []
-
     runs: list[HookRun] = []
     names: dict[str, str] = {}
-    for line in chunk.splitlines():
-        line = line.strip()
-        if not line.startswith("{"):
-            continue
-        try:
-            row = json.loads(line)
-        except ValueError:
-            continue
+    for row in _tail_rows(log_path, tail_bytes):
         row_id = str(row.get("id", ""))
         if row.get("phase") == "start":
             # The hook NAME lives on the start row only; the end row carries
@@ -246,28 +262,9 @@ def count_unclosed_runs(
     Fails soft to ``(0, [])`` like its companion: an instrument that raises
     inside a reporting path takes down the thing it reports on.
     """
-    path = Path(log_path)
-    if not path.is_file():
-        return 0, []
-    try:
-        with path.open("rb") as handle:
-            handle.seek(0, os.SEEK_END)
-            size = handle.tell()
-            handle.seek(max(0, size - tail_bytes))
-            chunk = handle.read().decode("utf-8", errors="replace")
-    except OSError:
-        return 0, []
-
     started: dict[str, str] = {}
     finished: set[str] = set()
-    for line in chunk.splitlines():
-        line = line.strip()
-        if not line.startswith("{"):
-            continue
-        try:
-            row = json.loads(line)
-        except ValueError:
-            continue
+    for row in _tail_rows(log_path, tail_bytes):
         row_id = str(row.get("id", ""))
         if not row_id:
             continue
@@ -284,6 +281,47 @@ def count_unclosed_runs(
             unclosed[hook] = unclosed.get(hook, 0) + 1
     worst = sorted(unclosed.items(), key=lambda kv: -kv[1])
     return sum(unclosed.values()), worst
+
+
+def recent_unclosed(
+    log_path: Path | str,
+    hook: str,
+    *,
+    session: str | None = None,
+    last: int = 10,
+    tail_bytes: int = _DEFAULT_TAIL_BYTES,
+) -> tuple[int, int]:
+    """Of ``hook``'s last ``last`` starts, how many never finished. ``(unclosed, seen)``.
+
+    Built 2026-09-24 for the Stop doorbell, which the harness was killing at
+    its 10 s limit on nearly every reply -- 26 runs in my session, 78 of 80 in
+    Aria's -- while every check behind the time limit simply did not run, and
+    nothing said so. ``count_unclosed_runs`` could already see it, when asked.
+    Nobody was asking. This is the recent-window question a prompt surface can
+    ask every turn: is this door being killed NOW, not has it ever been.
+
+    FILTERED BY SESSION, against the warning on ``count_unclosed_runs``, and
+    the difference is the failure. That warning is about hooks spawned
+    suspended, which hang before they can name their session. A doorbell
+    killed at its time limit has already written its start row with the
+    session in it. Both seats write this one log (``$HOME/.divineos``), so
+    without the filter my prompt would report Aria's doors as mine.
+    """
+    starts: list[str] = []
+    finished: set[str] = set()
+    for row in _tail_rows(log_path, tail_bytes):
+        row_id = str(row.get("id", ""))
+        if not row_id:
+            continue
+        phase = row.get("phase")
+        if phase in ("end", "bailed"):
+            finished.add(row_id)
+        elif phase == "start":
+            name = str(row.get("hook", "")) or _hook_from_id(row_id)
+            if name == hook and (session is None or row.get("session") == session):
+                starts.append(row_id)
+    window = starts[-last:]
+    return sum(1 for row_id in window if row_id not in finished), len(window)
 
 
 def _hook_from_id(row_id: str) -> str:
