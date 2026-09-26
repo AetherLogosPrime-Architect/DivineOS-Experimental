@@ -140,6 +140,7 @@ def _conn() -> sqlite3.Connection:
         ("carrier", "TEXT"),
         ("read_count", "INTEGER DEFAULT 0"),
         ("held_reason", "TEXT"),
+        ("held_confirmed_by", "TEXT"),
     ):
         try:
             conn.execute(f"ALTER TABLE andrew_corrections ADD COLUMN {column} {decl}")
@@ -711,10 +712,20 @@ def defer(correction_id: int, reason: str, unblock_condition: str | None = None)
 # Held rows leave every worklist because list_open() selects only OPEN, stop
 # counting as unworked tasks in the rate, and are kept whole by list_held().
 # Guards from walk-0d9128149065: a written why; OPEN only; never a detector's
-# verdict, which is a pattern match and never grief; reversible via unhold();
-# and the held count prints beside the rate so a moved denominator is visible.
+# verdict, which is a pattern match and never grief; reversible via unhold().
+#
+# WHO HOLDS (Aletheia 2026-09-26). The first version let the builder move a row
+# to HELD, and HELD leaves the rate's denominator -- so shelving a hard, unfinished
+# correction raised the number measuring what was done, and a held COUNT said
+# that something moved but never what. Deciding which of his words are grief is
+# deciding what his words mean, which is his (the principle #549 is built on).
+# So I may only PROPOSE: the row stays OPEN, on every worklist and in the rate.
+# It becomes HELD only by confirm_hold(), which needs his own words, found
+# verbatim in a message he typed that names the row's number. And the block
+# lists each proposed and held row by its opening words, not a count.
 
 _DETECTOR_PREFIX = re.compile(r"^\s*\[[\w .:-]*(?:gate|detector|shape|marker)[\w .:-]*\]", re.I)
+_MIN_CONFIRM_CHARS = 8
 
 
 def _is_detector_row(source: str | None, text: str | None) -> bool:
@@ -723,8 +734,45 @@ def _is_detector_row(source: str | None, text: str | None) -> bool:
     return bool(_DETECTOR_PREFIX.match(text or ""))
 
 
-def hold(correction_id: int, why: str) -> bool:
-    """Move an OPEN correction to HELD: carried, never ranked or nagged."""
+def _squash(text: str) -> str:
+    return " ".join(text.lower().split())
+
+
+def _default_transcripts(limit: int = 5) -> list[Path]:
+    root = Path.home() / ".claude" / "projects"
+    if not root.is_dir():
+        return []
+    found = sorted(root.glob("*/*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    return found[:limit]
+
+
+def _his_messages(transcripts: list[Path]) -> list[str]:
+    """Messages he typed: user records that are not harness, tool, or hook text."""
+    import json
+
+    from divineos.core.operating_loop.turn_extraction import _extract_record_text
+
+    out: list[str] = []
+    for path in transcripts:
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            if rec.get("type") != "user" or rec.get("isMeta"):
+                continue
+            text = _extract_record_text(rec)
+            if text.strip() and not text.lstrip().startswith("<"):
+                out.append(text)
+    return out
+
+
+def propose_hold(correction_id: int, why: str) -> bool:
+    """Propose an OPEN row for the held shelf. It stays OPEN until he confirms."""
     if not why or len(why.strip()) < 20:
         return False
     conn = _conn()
@@ -737,8 +785,7 @@ def hold(correction_id: int, why: str) -> bool:
         if row is None or _is_detector_row(row[0], row[1]):
             return False
         cur = conn.execute(
-            "UPDATE andrew_corrections SET status = 'HELD', held_reason = ? "
-            "WHERE id = ? AND status = 'OPEN'",
+            "UPDATE andrew_corrections SET held_reason = ? WHERE id = ? AND status = 'OPEN'",
             (why.strip(), correction_id),
         )
         conn.commit()
@@ -747,13 +794,36 @@ def hold(correction_id: int, why: str) -> bool:
         conn.close()
 
 
-def unhold(correction_id: int) -> bool:
-    """Return a HELD row to OPEN, for when it turns out to be a task after all."""
+def confirm_hold(correction_id: int, his_words: str, transcripts: list[Path] | None = None) -> bool:
+    """HELD only on his word: a message he typed, containing these words and the row's number."""
+    quote = _squash(his_words or "")
+    if len(quote) < _MIN_CONFIRM_CHARS:
+        return False
+    number = re.compile(rf"(?<!\d){int(correction_id)}(?!\d)")
+    paths = _default_transcripts() if transcripts is None else transcripts
+    if not any(quote in _squash(m) and number.search(m) for m in _his_messages(paths)):
+        return False
     conn = _conn()
     try:
         cur = conn.execute(
-            "UPDATE andrew_corrections SET status = 'OPEN', held_reason = NULL "
-            "WHERE id = ? AND status = 'HELD'",
+            "UPDATE andrew_corrections SET status = 'HELD', held_confirmed_by = ? "
+            "WHERE id = ? AND status = 'OPEN' AND held_reason IS NOT NULL",
+            (his_words.strip(), correction_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def unhold(correction_id: int) -> bool:
+    """Return a HELD row to OPEN, or withdraw a proposal. Either way it is a task again."""
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            "UPDATE andrew_corrections SET status = 'OPEN', held_reason = NULL, "
+            "held_confirmed_by = NULL WHERE id = ? AND "
+            "(status = 'HELD' OR (status = 'OPEN' AND held_reason IS NOT NULL))",
             (correction_id,),
         )
         conn.commit()
@@ -762,17 +832,29 @@ def unhold(correction_id: int) -> bool:
         conn.close()
 
 
-def list_held() -> list[dict]:
-    """Every HELD row, whole, oldest first."""
+def _rows(where: str) -> list[dict]:
     conn = _conn()
     try:
         rows = conn.execute(
-            "SELECT id, timestamp, correction_text, held_reason FROM andrew_corrections "
-            "WHERE status = 'HELD' ORDER BY timestamp ASC"
+            "SELECT id, timestamp, correction_text, held_reason, held_confirmed_by "
+            f"FROM andrew_corrections WHERE {where} ORDER BY timestamp ASC"
         ).fetchall()
     finally:
         conn.close()
-    return [{"id": r[0], "timestamp": r[1], "text": r[2], "why": r[3]} for r in rows]
+    return [
+        {"id": r[0], "timestamp": r[1], "text": r[2], "why": r[3], "his_confirmation": r[4]}
+        for r in rows
+    ]
+
+
+def list_held() -> list[dict]:
+    """Every HELD row, whole, with his confirming words, oldest first."""
+    return _rows("status = 'HELD'")
+
+
+def list_proposed_holds() -> list[dict]:
+    """OPEN rows I have proposed for the shelf, waiting on his word."""
+    return _rows("status = 'OPEN' AND held_reason IS NOT NULL")
 
 
 # Task #115 unblock-condition parsing + evaluation.
@@ -1020,11 +1102,18 @@ def briefing_block() -> str:
         f"{stats['deferred']} deferred, {stats['total']} filed "
         f"({stats['rate']:.0%} worked)."
     )
-    if stats["held"]:
-        lines.append(
-            f"Held: {stats['held']} of his words carried, not tasks -- kept whole, "
-            "never ranked, and outside the worked rate: divineos andrew-correction held"
-        )
+    for title, rows in (
+        ("HELD ON HIS WORD -- carried, not tasks, outside the worked rate:", list_held()),
+        (
+            "PROPOSED FOR THE SHELF -- still OPEN and counted until he confirms:",
+            list_proposed_holds(),
+        ),
+    ):
+        if rows:
+            lines.append("")
+            lines.append(title)
+            for row in rows:
+                lines.append(f"  - #{row['id']} {row['text'][:70].replace(chr(10), ' ')}")
     return "\n".join(lines)
 
 
@@ -1033,10 +1122,13 @@ __all__ = [
     "briefing_block",
     "defer",
     "file_correction",
-    "hold",
+    "confirm_hold",
     "integrate",
     "integration_rate",
     "list_held",
     "list_open",
+    "list_proposed_holds",
+    "propose_hold",
+    "unhold",
     "parse_correction_ids",
 ]
