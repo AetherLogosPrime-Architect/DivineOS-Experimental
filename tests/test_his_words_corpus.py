@@ -34,6 +34,15 @@ def test_the_0813_paste_keeps_only_his_paragraph():
     assert [p["text"] for p in kept] == [HIS_0813.strip()]
 
 
+def test_the_0821_pasted_answer_from_another_ai_is_dropped():
+    # Real 2026-08-21T19:15:15 passage Aria's live door surfaced as "his".
+    pasted = (
+        "**One thing that connects it to your side, though, and it's worth checking.**\n\n"
+        "The bug is about **background commands that finish but never get marked finished.**"
+    )
+    assert his_passages([_row(pasted, "2026-08-21T19:15:15.177Z")]) == []
+
+
 def test_his_messages_that_open_with_a_name_stay_his():
     for his in (
         "Aether is cooking on his end i need all of this explained to me in simpler terms please",
@@ -55,6 +64,19 @@ def test_our_headings_and_marks_are_ours():
     assert is_our_text("The **belt** takes three at a time.")
 
 
+def test_an_attached_file_path_is_not_his_words_but_his_note_is():
+    # Real shapes from his corpus: a bare attachment, and one with his note.
+    bare = '@"C:\\Users\\aethe\\Downloads\\CONFIRMS_2026-08-17_412-at-ebad5700.md"'
+    noted = (
+        '@"C:\\Users\\aethe\\Downloads\\AUDIT-FABLE-2026-07-02-round2-knowledge.md" while '
+        "Aether is cooking im going to send you the next round of audits"
+    )
+    kept = his_passages([_row(bare), _row(noted)])
+    assert [p["text"] for p in kept] == [
+        "while Aether is cooking im going to send you the next round of audits"
+    ]
+
+
 def test_bare_replies_carry_nothing_alone():
     assert his_passages([_row("ok"), _row("proceed")]) == []
 
@@ -63,3 +85,31 @@ def test_the_same_words_twice_keep_the_earliest_date():
     text = "remember failures are the edges of where success ends.. if you know the edges then you can shape the success"
     kept = his_passages([_row(text, "2026-08-20T00:00:00Z"), _row(text, "2026-08-15T00:00:00Z")])
     assert len(kept) == 1 and kept[0]["ts"].startswith("2026-08-15")
+
+
+def test_a_cut_off_preview_of_his_message_is_the_same_message():
+    # Real shape: the full message, and a preview of it from another source
+    # ending in a broken character. One message, earliest date kept.
+    full = (
+        "and for me today is already a new day.. its 8:31am and i got my coffee in my bloodstream lol.. "
+        "but i do need to take it somewhat easy because im almost out of usage.. 92% with 19 hours "
+        "until my weekly reset"
+    )
+    preview = full[:150] + "�"
+    kept = his_passages([_row(full, "2026-05-26T00:00:00Z"), _row(preview, "2026-05-22T00:00:00Z")])
+    assert [p["text"] for p in kept] == [full]
+    assert kept[0]["ts"].startswith("2026-05-22")
+
+
+def test_a_harness_notice_is_not_his_words():
+    notice = 'Background task completed\nBackground command "Re-arm ear after this exchange" completed (exit code 0)'
+    assert his_passages([_row(notice)]) == []
+
+
+def test_terminal_output_he_pasted_is_not_his_words():
+    pasted = (
+        "PS C:\\Windows\\system32> git push -u origin code/gate-repairs-on-main\n"
+        "fatal: not a git repository (or any of the parent directories): .git"
+    )
+    refusal = "[refusal] 3 site(s) decided, 61 enumerated but NOT yet adjudicated."
+    assert his_passages([_row(pasted), _row(refusal)]) == []

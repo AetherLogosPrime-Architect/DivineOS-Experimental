@@ -108,7 +108,7 @@ def passages_of(text: str) -> list[str]:
 
 #: Bumped when the cleaning changes, so the index re-embeds rather than keeping
 #: passages the new cleaner would have dropped.
-CLEANER = "his_words_corpus.his_passages+passages_of/v1"
+CLEANER = "his_words_corpus.his_passages+passages_of/v2"  # v2: previews + harness text out
 
 
 def load_passages(corpus: Path = CORPUS) -> list[Passage]:

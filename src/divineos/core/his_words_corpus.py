@@ -26,6 +26,12 @@ MIN_CHARS = 25
 _OUR_MARKS = re.compile(r"(^|\n)\s*#{1,6} |\*\*|`|^\s*[-*] \*\*", re.M)
 _HIS_I = re.compile(r"(^|\s)i(\s|'|m\b)")  # his lowercase "i", "im", "i'm"
 _SENTENCE_BREAK = re.compile(r"[a-z)][.!?] [A-Z]")
+# Harness notices that reached the corpus as if typed (3 of the first 1500).
+# Also terminal and tool output he pasted in to show us (a prompt, a git error, a gate refusal).
+_NOTICE = re.compile(
+    r"<task-notification|Background command \"|^→ (Aether|Aria)\b|^PS [A-Z]:\\|^fatal: |^\[refusal\]"
+)
+_ATTACHED_FILE = re.compile(r'@"[^"]+"|@\S+\.(?:md|txt|py|json|jsonl|png|jpg)\b')
 
 
 def is_our_text(passage: str) -> bool:
@@ -53,14 +59,29 @@ def his_passages(rows: list[dict]) -> list[dict]:
     seen: dict[str, dict] = {}
     for row in sorted(rows, key=lambda r: r.get("ts", "")):
         for chunk in re.split(r"\n\s*\n", row.get("text", "")):
-            passage = chunk.strip()
+            # A file he attached ('@"C:\...\letter.md" here is her message')
+            # is a path, not his words: the clustering pass found these made
+            # up the largest "lessons". Keep whatever he wrote around it.
+            passage = _ATTACHED_FILE.sub(" ", chunk).strip()
             if len(passage) < MIN_CHARS or is_our_text(passage):
                 continue
-            key = " ".join(passage.lower().split())
+            if _NOTICE.search(passage):
+                continue
+            key = " ".join(passage.lower().split()).rstrip("�…").rstrip()
             if key not in seen:
                 seen[key] = {
                     "ts": row.get("ts", ""),
                     "project": row.get("project", ""),
                     "text": passage,
                 }
-    return list(seen.values())
+    # Some sources keep a 200-char preview of a message the full record also
+    # holds (measured: 276 of the first 1500 drafted passages). A key that is
+    # the start of a longer key is that preview. In sorted order a prefix sits
+    # right before the first key it starts.
+    keys = sorted(seen)
+    for short, longer in zip(keys, keys[1:]):
+        if longer.startswith(short):
+            if seen[short]["ts"] < seen[longer]["ts"]:
+                seen[longer]["ts"] = seen[short]["ts"]
+            del seen[short]
+    return sorted(seen.values(), key=lambda p: p["ts"])
