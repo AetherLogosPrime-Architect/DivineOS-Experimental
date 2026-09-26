@@ -113,6 +113,13 @@ def _his_message(rec: dict) -> str | None:
 
 
 def _key(text: str) -> str:
+    # Precedence (walk-e5e2543b6c8a): the doorman's own name, then the hook
+    # path, then the first line. A doorman routed through doorbell-pre-tool-use
+    # names itself ('BLOCKED by heredoc_escape'); keying on the path named the
+    # doorway every routed doorman shares (Aether, 2026-09-26).
+    named = re.search(r"BLOCKED by ([A-Za-z][\w-]+)", text)
+    if named:
+        return f"refused by {named.group(1)}"
     m = HOOK_RE.search(text)
     if m:
         return f"refused by {m.group(1) or m.group(2)}"
