@@ -106,9 +106,29 @@ def passages_of(text: str) -> list[str]:
     return [_squash(p) for p in out if len(p.strip()) >= MIN_PASSAGE_CHARS]
 
 
-#: Bumped when the cleaning changes, so the index re-embeds rather than keeping
-#: passages the new cleaner would have dropped.
-CLEANER = "his_words_corpus.his_passages+passages_of/v2"  # v2: previews + harness text out
+def _cleaner_stamp() -> str:
+    """The index's cleaner stamp, computed from the cleaning code itself.
+
+    It was a hand-typed 'v1'/'v2' until 2026-09-26, when my tree said v2 and
+    Aether's said v1: each prompt in one window wiped the index the other had
+    just built, and the door timed out in both (walk-b516947656f4). Only the
+    cleaning parts are hashed -- not this whole file -- so rewording a surface
+    line never forces a two-minute re-embed.
+    """
+    import inspect
+
+    from divineos.core import his_words_corpus
+
+    parts = [
+        inspect.getsource(his_words_corpus),
+        inspect.getsource(passages_of),
+        f"{PASSAGE_CHARS}|{MIN_PASSAGE_CHARS}|{MODEL_NAME}",
+    ]
+    digest = hashlib.sha256("\n".join(parts).replace("\r\n", "\n").encode("utf-8")).hexdigest()
+    return f"sha256:{digest[:16]}"
+
+
+CLEANER = _cleaner_stamp()
 
 
 def load_passages(corpus: Path = CORPUS) -> list[Passage]:

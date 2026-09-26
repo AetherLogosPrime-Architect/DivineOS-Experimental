@@ -107,6 +107,26 @@ def test_one_message_is_one_quote_even_when_cut_in_two(tmp_path):
     assert len({h.passage.ts for h in got.hits}) == len(got.hits) == 1
 
 
+def test_the_cleaner_stamp_is_the_same_for_the_same_code_in_another_process():
+    # 2026-09-26: two trees with hand-typed stamps fought over the shared index.
+    import subprocess
+    import sys
+
+    other = subprocess.run(
+        [sys.executable, "-c", "from divineos.core import his_words_door as d; print(d.CLEANER)"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert other == door.CLEANER and door.CLEANER.startswith("sha256:")
+
+
+def test_the_cleaner_stamp_moves_when_the_cleaning_changes(monkeypatch):
+    before = door._cleaner_stamp()
+    monkeypatch.setattr(door, "PASSAGE_CHARS", door.PASSAGE_CHARS + 1)
+    assert door._cleaner_stamp() != before
+
+
 def test_an_unreadable_index_says_so_and_does_not_go_quiet(tmp_path):
     out = door.surface("then where is the circle, i keep asking", index_dir=tmp_path / "missing")
     assert "could not be searched" in out
