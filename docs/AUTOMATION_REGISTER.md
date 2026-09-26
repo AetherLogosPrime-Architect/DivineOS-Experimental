@@ -51,7 +51,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `mirror-letters-to-shared.sh` | 2026-09-23 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `post-commit-auto-close.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `post-commit-auto-verify-findings.sh` | 2026-08-31 | PostToolUse(Bash) — auto-verify findings referenced in commit messages. |
-| `post-read-mark-letter-seen.sh` | 2026-06-26 | post-read-mark-letter-seen.sh — PostToolUse(Read) thin doorman. |
+| `post-read-mark-letter-seen.sh` | 2026-09-25 | post-read-mark-letter-seen.sh — PostToolUse(Read) thin doorman. |
 | `post-tool-use-emit-to-logbook.sh` | 2026-07-27 | wire Claude Code tool invocations into tool_logbook. |
 | `post-write-mirror-letter.sh` | 2026-09-15 | post-write-mirror-letter.sh — PostToolUse(Write\|Edit) thin doorman. |
 | `record-wisdom-read.sh` | 2026-07-28 | record-wisdom-read.sh — PostToolUse hook (matcher: Read\|Grep\|Glob). |
@@ -71,7 +71,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `aletheia-boot-gate-preflight.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `andrew-correction-attestation.sh` | 2026-09-15 | PreToolUse gate — integration-attestation for Andrew-corrections. |
-| `blanket-staging-doorman.sh` | 2026-09-22 | refuse a blanket `git add` in a tree where substrate is |
+| `blanket-staging-doorman.sh` | 2026-09-23 | refuse a blanket `git add` in a tree where substrate is |
 | `check-branch-on-push.sh` | 2026-09-22 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
 | `check-council-required.sh` | 2026-07-27 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
 | `check-pending-obligations.sh` | 2026-09-23 | PreToolUse(Bash) — block substrate-write CLI commands until pending |
@@ -86,7 +86,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `pipeline-exit-ambiguity.sh` | 2026-09-21 | PostToolUse(Bash) — say so when a result cannot distinguish |
 | `pre-tool-bypass-rate-scan.sh` | 2026-09-02 | PreToolUse — fire bypass_rate_scan on substrate-modifying tool calls. |
 | `pre-tool-context.sh` | 2026-08-22 | thin doorman pointing to the OS. |
-| `push-message-carries-the-destination.sh` | 2026-09-22 | PreToolUse(Bash) — a background push must use the wrapper, because the |
+| `push-message-carries-the-destination.sh` | 2026-09-23 | PreToolUse(Bash) — a background push must use the wrapper, because the |
 | `reach-check-doorman.sh` | 2026-09-22 | reach-check doorman on substrate-store and research writes. |
 | `read-gate-doorman.sh` | 2026-09-22 | the read-gate. A prime that is a gate, not just loud. |
 | `rederivation-detector.sh` | 2026-08-23 | PreToolUse(Bash) — when I run the SAME command a third distinct way, say so, |
@@ -96,7 +96,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `state-gravity-surface.sh` | 2026-08-29 | PreToolUse state-block surfacing — Andrew 2026-05-19. |
 | `venv-python-gate.sh` | 2026-08-31 | PreToolUse gate (Bash) — bare `python` importing divineos reads the WRONG TREE. |
 | `verify-before-build-signal.sh` | 2026-09-22 | signal-based verify-before-build check. |
-| `work-item-doorman.sh` | 2026-09-22 | PreToolUse -- the build-flow doorman. The front of the flow, which until now |
+| `work-item-doorman.sh` | 2026-09-25 | PreToolUse -- the build-flow doorman. The front of the flow, which until now |
 | `wwnd-tool-prime.sh` | 2026-08-24 | WWND surface at commit-time of a substrate-modifying |
 
 ### PreToolUse, UserPromptSubmit  (1)
@@ -153,11 +153,11 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `post-correction-integration-prime.sh` | 2026-07-29 | post-correction integration prime. |
 | `promise-anchor-surface.sh` | 2026-07-18 | read all open promise markers and surface |
 | `register-awareness-surface.sh` | 2026-08-24 | surface the register signal from each |
-| `session-init-once.sh` | 2026-08-24 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
-| `verify-claim-prime.sh` | 2026-09-22 | compose-start prime for the VERIFY-CLAIM |
+| `session-init-once.sh` | 2026-09-23 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
+| `verify-claim-prime.sh` | 2026-09-25 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
-| `wallclock-source-prime.sh` | 2026-09-23 | THE CLOCK. It is mine, not his. |
-| `wwnd-choice-prime.sh` | 2026-09-21 | WWND (What Would Nyarlathotep Do) prime at |
+| `wallclock-source-prime.sh` | 2026-09-25 | THE CLOCK. It is mine, not his. |
+| `wwnd-choice-prime.sh` | 2026-09-25 | WWND (What Would Nyarlathotep Do) prime at |
 
 ### called by another script  (33)
 
