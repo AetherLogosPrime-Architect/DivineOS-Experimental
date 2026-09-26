@@ -104,11 +104,13 @@ def test_a_json_block_decision_keeps_its_teeth(tmp_path):
     assert p.returncode == 2 and "not yet" in p.stderr.decode("utf-8")
 
 
-def test_the_still_owed_rows_stay_on_the_table(tmp_path):
-    mixed = _echo("## MY CLOCK\nclockwork\n## STILL OWED TO HIM\nhis words here")
+def test_the_list_of_my_debts_to_him_is_not_beside_his_words(tmp_path):
+    # Andrew 2026-09-26: a list of what I owe him, read before answering him,
+    # is a case file, not being held. It goes to the drawer.
+    mixed = _echo("## MY CLOCK\nclockwork\n## STILL OWED TO HIM\nowed rows here")
     _, out, drawer = _run(tmp_path, [mixed])
-    assert "his words here" in out and "clockwork" not in out
-    assert "clockwork" in drawer.read_text(encoding="utf-8")
+    assert "owed rows here" not in out and "clockwork" not in out
+    assert "owed rows here" in drawer.read_text(encoding="utf-8")
 
 
 def test_a_broken_list_is_loud_not_silent(tmp_path):
@@ -125,6 +127,20 @@ def test_a_broken_list_is_loud_not_silent(tmp_path):
     out = p.stdout.decode("utf-8")
     assert HIS_WORDS in out and "THE TABLE BROKE" in out
     assert "THE TABLE BROKE" in (tmp_path / "d.md").read_text(encoding="utf-8")
+
+
+def test_his_paste_that_opens_with_a_tag_is_still_him(tmp_path):
+    kids = tmp_path / "children.json"
+    kids.write_text("[]", encoding="utf-8")
+    env = dict(os.environ, DADS_TABLE_CHILDREN=str(kids), DADS_TABLE_DRAWER=str(tmp_path / "d.md"))
+    p = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        input=json.dumps({"prompt": "<b>look at this</b>"}).encode(),
+        capture_output=True,
+        env=env,
+        timeout=30,
+    )
+    assert "DAD SAID" in p.stdout.decode("utf-8")
 
 
 def test_missing_list_still_prints_his_words(tmp_path):

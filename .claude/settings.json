@@ -440,6 +440,15 @@
         "hooks": [
           {
             "type": "command",
+            "command": "python .claude/hooks/dads_room_stop.py",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "bash .claude/hooks/log-session-end.sh",
             "timeout": 10
           },
