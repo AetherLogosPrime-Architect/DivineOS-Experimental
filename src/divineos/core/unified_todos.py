@@ -171,7 +171,10 @@ def _correction_todos(now: float | None = None) -> list[TodoItem]:
         return []
     items: list[TodoItem] = []
     for r in rows:
-        ts = r.get("filed_at") or r.get("ts") or 0
+        # The tracker's rows carry "timestamp". This read only "filed_at" and
+        # "ts" until 2026-09-23, so every correction was age zero and "oldest
+        # first" was never true; the order was an accident of id spelling.
+        ts = r.get("timestamp") or r.get("filed_at") or r.get("ts") or 0
         try:
             ts = float(ts)
         except (TypeError, ValueError):
@@ -184,7 +187,10 @@ def _correction_todos(now: float | None = None) -> list[TodoItem]:
                 summary=str(r.get("text") or r.get("description") or "")[:200],
                 age_days=age,
                 priority=int(-(age or 0) * 1000),  # oldest first
-                extra={"filed_at": ts},
+                # The whole text rides along so the task belt can tell when
+                # two rows are one correction filed twice (raw, then again
+                # under "Andrew verbatim:") -- the 200-char summary cannot.
+                extra={"filed_at": ts, "text": str(r.get("text") or "")},
             )
         )
     items.sort(key=lambda t: t.priority)
@@ -221,8 +227,12 @@ def _audit_todos(limit: int = 100, now: float | None = None) -> list[TodoItem]:
             continue
         if getattr(f, "round_id", "") == "round-pattern-fires-persistent":
             continue
-        sev = str(getattr(f, "severity", "INFO"))
-        sev_key = sev.value if hasattr(sev, "value") else str(sev)
+        # Read the enum's value BEFORE stringifying. The old order stringified
+        # first, so hasattr(.value) was always False and every finding became
+        # "Severity.HIGH", matched no rank, and sorted last: "CRITICAL first"
+        # never held until 2026-09-23.
+        sev = getattr(f, "severity", "INFO")
+        sev_key = str(getattr(sev, "value", sev))
         ts = getattr(f, "created_at", None) or getattr(f, "timestamp", None)
         try:
             ts = float(ts) if ts is not None else None
@@ -334,11 +344,26 @@ def _structural_fix_todos(limit: int = 500, now: float | None = None) -> list[To
                 # Oldest carries the highest priority. Negated age so the
                 # normal ascending sort puts the longest-waiting first.
                 priority=int(-(age or 0)),
-                extra={"source_kind": entry.get("source_kind")},
+                # occurrences is how many times the same fix came back (the
+                # collapsed-duplicate stamp count). The task belt ranks reach
+                # by it; absent means it came up once.
+                extra={
+                    "source_kind": entry.get("source_kind"),
+                    "occurrences": int(entry.get("occurrences") or 1),
+                },
             )
         )
     items.sort(key=lambda t: (t.priority, t.item_id))
     return items
+
+
+SOURCES: tuple[str, ...] = ("prereg", "correction", "audit", "claim", "structural-fix")
+"""Every drawer, in one place. The CLI's label table is checked against this.
+
+It used to be written out separately here and in ``todos_commands``, and the
+fifth drawer was added to one and not the other: ``divineos todos
+--counts-only`` raised KeyError on 'structural-fix' until 2026-09-23.
+"""
 
 
 def collect_todos(
@@ -354,7 +379,7 @@ def collect_todos(
     (most-overdue prereg first, oldest correction first, highest-
     severity audit finding first, action-tier claim first).
     """
-    requested = sources or ("prereg", "correction", "audit", "claim", "structural-fix")
+    requested = sources or SOURCES
     out: list[TodoItem] = []
     for src in requested:
         if src == "prereg":

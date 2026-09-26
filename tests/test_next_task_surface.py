@@ -37,8 +37,12 @@ class TestEveryLaneCanActuallyOpenItsStore:
     """
 
     def _lane_imports(self) -> list[tuple[str, str]]:
-        """Every ``from divineos... import`` inside this module's functions."""
-        import divineos.core.next_task_surface as surface
+        """Every ``from divineos... import`` inside the module that reads the drawers.
+
+        Since 2026-09-23 that is ``core/task_belt``: the next-task surface is a
+        thin door onto it, so the lanes -- and the guard on them -- moved there.
+        """
+        import divineos.core.task_belt as surface
 
         tree = ast.parse(inspect.getsource(surface))
         found: list[tuple[str, str]] = []
