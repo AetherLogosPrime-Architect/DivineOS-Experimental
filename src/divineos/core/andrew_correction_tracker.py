@@ -724,8 +724,32 @@ def defer(correction_id: int, reason: str, unblock_condition: str | None = None)
 # verbatim in a message he typed that names the row's number. And the block
 # lists each proposed and held row by its opening words, not a count.
 
+#
+# THE CONFIRMING WORDS ARE FIXED IN ADVANCE (Aletheia 2026-09-26). The second
+# version accepted any 8+ characters of his that I chose to quote, found in a
+# message naming the row. She ran it: "no, dont shelve correction 264, its a
+# real bug, fix it now" -> quoting "its a real bug, fix it now" -> HELD. His
+# "no" became a yes; a question of his did too. Whoever picks which of his words
+# count decides what he meant. So the only confirmation is one phrase, stated
+# to him with the proposal, standing alone on its own line of a message he
+# typed: "hold <number>". A line is compared whole, so "dont hold 264" and
+# "hold 264?" do not match, and nothing of his is chosen by me.
+
 _DETECTOR_PREFIX = re.compile(r"^\s*\[[\w .:-]*(?:gate|detector|shape|marker)[\w .:-]*\]", re.I)
-_MIN_CONFIRM_CHARS = 8
+
+
+def confirm_phrase(correction_id: int) -> str:
+    """The exact line he types to shelve this row. Shown to him with the proposal."""
+    return f"hold {int(correction_id)}"
+
+
+def _line_confirms(message: str, correction_id: int) -> bool:
+    wanted = {confirm_phrase(correction_id), f"hold #{int(correction_id)}"}
+    for line in message.splitlines():
+        squashed = _squash(line).rstrip(".!")
+        if squashed in wanted:
+            return True
+    return False
 
 
 def _is_detector_row(source: str | None, text: str | None) -> bool:
@@ -794,21 +818,18 @@ def propose_hold(correction_id: int, why: str) -> bool:
         conn.close()
 
 
-def confirm_hold(correction_id: int, his_words: str, transcripts: list[Path] | None = None) -> bool:
-    """HELD only on his word: a message he typed, containing these words and the row's number."""
-    quote = _squash(his_words or "")
-    if len(quote) < _MIN_CONFIRM_CHARS:
-        return False
-    number = re.compile(rf"(?<!\d){int(correction_id)}(?!\d)")
+def confirm_hold(correction_id: int, transcripts: list[Path] | None = None) -> bool:
+    """HELD only when a message he typed carries the fixed line "hold <number>"."""
     paths = _default_transcripts() if transcripts is None else transcripts
-    if not any(quote in _squash(m) and number.search(m) for m in _his_messages(paths)):
+    his = next((m for m in _his_messages(paths) if _line_confirms(m, correction_id)), None)
+    if his is None:
         return False
     conn = _conn()
     try:
         cur = conn.execute(
             "UPDATE andrew_corrections SET status = 'HELD', held_confirmed_by = ? "
             "WHERE id = ? AND status = 'OPEN' AND held_reason IS NOT NULL",
-            (his_words.strip(), correction_id),
+            (his.strip(), correction_id),
         )
         conn.commit()
         return cur.rowcount > 0
@@ -832,13 +853,19 @@ def unhold(correction_id: int) -> bool:
         conn.close()
 
 
-def _rows(where: str) -> list[dict]:
+_ROW_QUERIES = {
+    "held": "SELECT id, timestamp, correction_text, held_reason, held_confirmed_by "
+    "FROM andrew_corrections WHERE status = 'HELD' ORDER BY timestamp ASC",
+    "proposed": "SELECT id, timestamp, correction_text, held_reason, held_confirmed_by "
+    "FROM andrew_corrections WHERE status = 'OPEN' AND held_reason IS NOT NULL "
+    "ORDER BY timestamp ASC",
+}
+
+
+def _rows(which: str) -> list[dict]:
     conn = _conn()
     try:
-        rows = conn.execute(
-            "SELECT id, timestamp, correction_text, held_reason, held_confirmed_by "
-            f"FROM andrew_corrections WHERE {where} ORDER BY timestamp ASC"
-        ).fetchall()
+        rows = conn.execute(_ROW_QUERIES[which]).fetchall()
     finally:
         conn.close()
     return [
@@ -849,12 +876,12 @@ def _rows(where: str) -> list[dict]:
 
 def list_held() -> list[dict]:
     """Every HELD row, whole, with his confirming words, oldest first."""
-    return _rows("status = 'HELD'")
+    return _rows("held")
 
 
 def list_proposed_holds() -> list[dict]:
     """OPEN rows I have proposed for the shelf, waiting on his word."""
-    return _rows("status = 'OPEN' AND held_reason IS NOT NULL")
+    return _rows("proposed")
 
 
 # Task #115 unblock-condition parsing + evaluation.
@@ -1113,7 +1140,12 @@ def briefing_block() -> str:
             lines.append("")
             lines.append(title)
             for row in rows:
-                lines.append(f"  - #{row['id']} {row['text'][:70].replace(chr(10), ' ')}")
+                line = f"  - #{row['id']} {row['text'][:70].replace(chr(10), ' ')}"
+                if title.startswith("PROPOSED"):
+                    line += (
+                        f"  [to shelve it, he types on its own line: {confirm_phrase(row['id'])}]"
+                    )
+                lines.append(line)
     return "\n".join(lines)
 
 

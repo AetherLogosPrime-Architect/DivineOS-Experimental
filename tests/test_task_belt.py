@@ -176,10 +176,10 @@ class TestTheFlow:
         assert propose_hold(cid, "a grief about the ones he lost, not a task with a fix")
         said = home / "session.jsonl"
         said.write_text(
-            json.dumps({"type": "user", "message": {"content": f"{cid} is grief, not work"}}),
+            json.dumps({"type": "user", "message": {"content": f"hold {cid}"}}),
             encoding="utf-8",
         )
-        assert confirm_hold(cid, "grief, not work", [said])
+        assert confirm_hold(cid, [said])
         belt.pull(pile=[])
         rows = [
             json.loads(ln)
