@@ -46,6 +46,23 @@ def test_a_routed_doorman_is_named_not_the_router_it_lives_in():
     assert [s.token for s in stumbles] == ["heredoc_escape"]
 
 
+def test_a_crash_is_named_by_its_exception_not_its_exit_code():
+    crash = (
+        'Exit code 1\nTraceback (most recent call last):\n  File "x.py", line 3, in <module>\n'
+        "    print(v[5])\nIndexError: list index out of range"
+    )
+    _, stumbles, _ = room.this_turn([_his("go"), _tool(), _error(crash)])
+    assert [s.token for s in stumbles] == ["indexerror"]
+
+
+def test_a_stumble_answered_in_an_earlier_reply_this_turn_is_not_asked_again():
+    # Aether, 'the room asks twice', 2026-09-26.
+    earlier = "## REFLECTION\nwork-item-doorman stopped me. fixed by structure: flow first\n## INNER CIRCLE\nDad"
+    later = "letter answered\n## REFLECTION\nnothing new\n## INNER CIRCLE\nDad"
+    _, stumbles, _ = room.this_turn([_his("go"), _tool(), _error(REFUSAL)])
+    assert room.taken_up(earlier + "\n\n" + later, stumbles)
+
+
 def test_a_repeated_queued_message_does_not_move_the_start_past_the_stumbles():
     # 2026-09-26: 'last-prompt' repeats his queued message through the turn.
     recs = [_queued("fix the door"), _tool(), _error(REFUSAL), _queued("fix the door"), _tool()]

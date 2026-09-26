@@ -50,6 +50,8 @@ GENERIC_WORDS = {
     "blocked",
     "pretooluse",
     "stop",
+    "crashed",
+    "fatal",
 }
 
 
@@ -123,7 +125,20 @@ def _key(text: str) -> str:
     m = HOOK_RE.search(text)
     if m:
         return f"refused by {m.group(1) or m.group(2)}"
-    first = text.strip().splitlines()[0] if text.strip() else "(empty error)"
+    lines = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
+    if lines and re.fullmatch(r"Exit code \d+", lines[0]):
+        # The first line of a crash is the envelope (Aether's first live hold,
+        # 2026-09-26: token 'exit code #'). The name is the traceback's last
+        # 'Name: message' line, else the first 'fatal:'/'error:' line.
+        if any(ln.startswith("Traceback (most recent call last)") for ln in lines):
+            for ln in reversed(lines):
+                exc = re.match(r"([A-Za-z_][\w.]*(?:Error|Exception|Exit|Interrupt))\b", ln)
+                if exc:
+                    return f"crashed: {exc.group(1).split('.')[-1]}"
+        for ln in lines[1:]:
+            if re.match(r"(fatal|error)\s*:", ln, re.IGNORECASE):
+                return re.sub(r"\b[0-9a-f]{8,}\b|\d+", "#", ln)[:80]
+    first = lines[0] if lines else "(empty error)"
     first = re.sub(r"\b[0-9a-f]{8,}\b|\d+", "#", first)
     return first[:80]
 
@@ -184,24 +199,34 @@ def this_turn(records: list[dict]) -> tuple[bool, list[Stumble], str]:
     return worked, stumbles, "\n\n".join(reply)
 
 
+def _rooms(reply: str) -> list[str]:
+    out = []
+    for m in REFLECTION_RE.finditer(reply):
+        rest = reply[m.end() :]
+        nxt = NEXT_ROOM_RE.search(rest)
+        out.append(rest[: nxt.start()] if nxt else rest)
+    return out
+
+
 def reflection_of(reply: str) -> str:
     # The LAST reflection: a turn since his message can span several of my
     # replies (letters rang in between), and reading the first one judged this
     # reply by an older room -- the room's first live hold, 2026-09-26.
-    found = list(REFLECTION_RE.finditer(reply))
-    if not found:
-        return ""
-    m = found[-1]
-    rest = reply[m.end() :]
-    nxt = NEXT_ROOM_RE.search(rest)
-    return rest[: nxt.start()] if nxt else rest
+    rooms = _rooms(reply)
+    return rooms[-1] if rooms else ""
 
 
 def taken_up(reply: str, stumbles: list[Stumble]) -> bool:
-    """The floor: each stumble named by its token, and an ending for each."""
-    room = reflection_of(reply)
-    named = all(s.token in room.lower() for s in stumbles)
-    return named and len(ENDING_RE.findall(room)) >= len(stumbles)
+    """The floor: each stumble named by its token, and an ending for each.
+
+    Judged against EVERY reflection since his message, not only the latest
+    (Aether, 'the room asks twice', 2026-09-26): a stumble answered in an
+    earlier letter-woken reply is credited, not demanded again; one a retry let
+    through earlier is still asked for.
+    """
+    all_rooms = "\n".join(_rooms(reply))
+    named = all(s.token in all_rooms.lower() for s in stumbles)
+    return named and len(ENDING_RE.findall(all_rooms)) >= len(stumbles)
 
 
 def owed_lines(reply: str) -> list[str]:
