@@ -420,6 +420,7 @@ from divineos.cli import (  # noqa: E402
     success_commands,
     council_walk_commands,
     andrew_teachings_commands,
+    his_words_commands,
     oscillating_read_commands,
     deletion_commands,
     texture_commands,
@@ -535,6 +536,7 @@ andrew_given_commands.register(cli)
 success_commands.register(cli)
 council_walk_commands.register(cli)
 andrew_teachings_commands.register(cli)
+his_words_commands.register(cli)
 oscillating_read_commands.register(cli)
 cli.add_command(admin_reset_template.reset_template)
 cli.add_command(admin_reset_template.authorize_reset_template)

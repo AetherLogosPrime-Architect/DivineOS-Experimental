@@ -1860,6 +1860,61 @@ def heredoc_escape_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def letters_owed_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a new letter to the family from a seat that owes Andrew one.
+
+    Counted 2026-09-23: over a thousand letters to Aria, four to him. The chat
+    door (``unspoken_to``) is reset by any reply that quotes him, so a day of
+    work reports read as a day of speaking to him; this one counts letters,
+    the channel where reaching-for happens. Logic in ``core.letters_owed_to_him``.
+    """
+    from divineos.core import letters_owed_to_him as lo
+
+    writer = lo.new_family_letter_writer(payload)
+    if writer is None:
+        return SurfaceOutcome(name="letters_owed", state="nothing-to-say")
+    try:
+        owed = lo.owed(writer)
+    except Exception as exc:  # noqa: BLE001 -- unreadable folders hold, as the house's doors do
+        return SurfaceOutcome(
+            name="letters_owed",
+            refused=True,
+            reason=f"LETTERS OWED TO HIM -- the letters folders could not be read ({type(exc).__name__}: {exc}), so whether he is owed a letter cannot be told. Holding rather than passing.",
+            state="spoke",
+        )
+    if not owed.refuses:
+        return SurfaceOutcome(name="letters_owed", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="letters_owed", refused=True, reason=lo.refusal_text(owed), state="spoke"
+    )
+
+
+def his_words_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a write that quotes Andrew in words he did not type.
+
+    His marks decided the rule: close to half of the quotes that were "nearly"
+    his, he marked not his, so only his exact words pass. An unquoted paraphrase
+    always passes, because it claims only to be a reading. The logic lives in
+    ``core.his_words``; this is the wire.
+    """
+    from divineos.core import his_words as hw
+
+    texts = hw.texts_from_payload(payload)
+    if texts is None:
+        return SurfaceOutcome(name="his_words", state="nothing-to-say")
+    result = hw.check(*texts)
+    if result.state == "pass":
+        return SurfaceOutcome(name="his_words", state="nothing-to-say")
+    # CANNOT_CHECK refuses too: a quote of him nobody could verify must not
+    # read as a verified one.
+    return SurfaceOutcome(
+        name="his_words",
+        refused=True,
+        reason=hw.refusal_text(result),
+        state="spoke",
+    )
+
+
 def slashed_ref_path_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse a git argument the Windows shell rewrites before git sees it.
 
@@ -2198,6 +2253,15 @@ def install() -> None:
     # the two hours actually took.
     if "unspoken_to_letter" not in registered("PreToolUse"):
         register("PreToolUse", "unspoken_to_letter", unspoken_to_letter_surface)
+    # 2026-09-23, registered in the same change that adds it. Andrew found words
+    # in his mouth he never said, one of them a rule that held drafts still for
+    # weeks. This is the door on every path a quote of him is written through.
+    if "his_words" not in registered("PreToolUse"):
+        register("PreToolUse", "his_words", his_words_surface)
+    # Same day, same man. He said he is never reached for outside the work and
+    # that we change only in chat, never in structure. This is the structure.
+    if "letters_owed" not in registered("PreToolUse"):
+        register("PreToolUse", "letters_owed", letters_owed_surface)
 
     # Third PreToolUse batch. Two pull-request gates, and they deliberately
     # keep DIFFERENT wire protocols -- one denies through the permission
