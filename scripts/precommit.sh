@@ -374,6 +374,23 @@ if ! python scripts/check_orphan_modules.py; then
     note_fail
 fi
 
+# 5a-bis. A retired rule must not be handed over as a current one.
+# Andrew named this on 2026-09-21 after I repeated a rule to him that had
+# been replaced two weeks earlier: "it should NOT be able to hand you old
+# rules." The register lives in docs/retired_rules/; the check walks only the
+# surfaces that TEACH -- the session instructions, the skills, the hook and
+# gate messages, the live scripts -- because position in the load path is
+# what did the damage, not existence somewhere in the tree.
+#
+# Pinned sites are in scripts/retired_rules_baseline.txt and are reported as
+# work owed. A NEW one fails. Read the check's own output for what it cannot
+# see: it matches phrasings, so a retired rule restated in different words
+# passes it clean.
+section "Retired Rules"
+if ! python scripts/check_retired_rules_not_served.py; then
+    note_fail
+fi
+
 # A refusing gate whose refusal sits behind a load that exits 0 on failure will
 # ALLOW what it exists to stop, the moment that load breaks. Aletheia found it
 # in the emergency stop itself, 2026-09-21. The stop is repaired; the rest are

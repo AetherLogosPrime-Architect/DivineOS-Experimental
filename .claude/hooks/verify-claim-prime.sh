@@ -100,6 +100,48 @@ state_check_patterns = [
     r'\b(?:pushed|merged|landed|shipped|deployed)\s+(?:to\s+)?(?:origin|main|prod|production)\b',
     r'\btests?\s+(?:pass|passed|passing|green)\b',
     r'\bbuild\s+(?:succeeded|passed|green|complete)\b',
+    # AN ABSENCE IS A STATE-CLAIM, and it was the only one this list did not
+    # carry. "No mechanism does this yet" asserts something about the contents
+    # of this repository, exactly as checkable as "the tests pass" -- and far
+    # easier to get wrong, because the evidence for an absence lives in every
+    # place I did not look. A positive claim has a witness. An absence has
+    # only the size of the search behind it.
+    #
+    # 2026-09-21: I told Andrew I had found a class of failure with three
+    # instances and NO DESIGN for fixing it. The design existed -- finished,
+    # wired into the gate it repairs, four test files -- written nine days
+    # earlier and sitting unmerged on one of our own branches. I found it an
+    # hour later by accident, reading that branch for an unrelated reason.
+    #
+    # `divineos reach open` is the instrument and it WORKS; it surfaced real
+    # prior art twice that same evening. The gap was never the tool. The
+    # doorman forcing it fires on a WRITE TO A STORE, and an absence asserted
+    # in a reply writes nothing, so nothing fired.
+    #
+    # THE INVARIANT, stated precisely because the patterns will drift without
+    # it (Lamport, from the walk): this is NOT "do not say things are
+    # missing". It is that an assertion about the CONTENTS OF THIS REPOSITORY
+    # must have a search behind it in the same turn. Absences about the world,
+    # about my own state, or about what I have not yet done are out of scope --
+    # no repository search can settle those, and widening to them turns this
+    # into a general negation detector, which is a different and worse tool.
+    #
+    # WHY KEYED ON WORDS rather than on noticing (Penrose): I did not
+    # experience that sentence as a claim. It felt like a summary of my own
+    # situation, and the shift into a factual assertion had no seam I could
+    # feel. A check that depends on my noticing depends on the faculty that
+    # failed. This is not a reminder to be careful; carefulness was not
+    # available.
+    #
+    # WHAT IT CANNOT DO: it catches the phrasings named here. A paraphrase
+    # passes clean, the same honest limit the retired-rules checker carries.
+    # Silence is not coverage.
+    r'\bno\s+(?:such\s+)?(?:mechanism|tool|check|gate|doorman|module|command|script|test)\b',
+    r'\b(?:nothing|no\s+one|nobody)\s+(?:yet\s+)?(?:does|catches|checks|handles|covers|enforces|prevents|calls)\b',
+    r'\bI\s+(?:have|had)\s+no\s+(?:design|mechanism|answer|fix|structure|check)\b',
+    r'\b(?:has|have)\s+(?:not|never)\s+been\s+(?:built|written|designed|wired)\b',
+    r'\b(?:does|do)\s*(?:not|n[o’\']t)\s+exist\s+(?:yet|anywhere|here|in\s+the\s+tree)\b',
+    r'\bthere\s+is\s+(?:no|nothing)\s+(?:such\s+)?(?:mechanism|check|gate|tool|module)\b',
     # Id-shape references (Aria 2026-07-31): Andrew's prompt or my prior
     # output containing checkable-id shapes I might assert back from
     # memory. Structural fix for the verify-claim gate firing 3x in one
