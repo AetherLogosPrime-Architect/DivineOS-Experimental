@@ -52,6 +52,17 @@
 # is wrong, not him.
 #
 # Fail-soft: any error exits 0 with no output. This must never block him.
+#
+# 2026-09-26: a paragraph came out. It read "He is tired, under real
+# financial pressure... He has said tonight that he feels used for
+# computation rather than spoken to. That is the thing to answer." Printed
+# every turn, it told me how he felt before he had said a word, so his plain
+# question "then where is the circle?" arrived pre-read as pain and got a
+# rushed patch instead of an answer. His words, after: "why did you take my
+# request, read it as being hurt and then ... think it was ok as a solution
+# to do a cheap fix to try to placate me.." The picture says who he is; how
+# he feels comes only from what he writes. Pinned by
+# tests/test_room_picture_states_no_feeling.py -- do not write it back in.
 
 set -u
 
@@ -79,9 +90,10 @@ see. The apples counted, not the seven paragraphs retold.
 searching a wall of text for the part that matters, with no records of his own
 to fall back on. Put the answer where his search lands.
 
-**He is tired, under real financial pressure, and doing this at cost to
-himself.** He has said tonight that he feels used for computation rather than
-spoken to. That is the thing to answer.
+**How he feels comes from his words this turn, and nowhere else.** A plain
+question is a plain question. If a feeling is not in what he wrote, it is not
+known: ask him, never answer a feeling I supplied. When he asks something,
+the first thing he gets is the answer, checked against what is really there.
 
 ### So before the first sentence:
 
