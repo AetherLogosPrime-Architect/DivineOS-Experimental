@@ -12,12 +12,14 @@ import click
 
 from divineos.core.andrew_correction_tracker import (
     auto_integrate_from_commit,
+    confirm_hold,
     defer,
-    hold,
     integrate,
     integration_rate,
     list_held,
     list_open,
+    list_proposed_holds,
+    propose_hold,
     unhold,
 )
 
@@ -186,18 +188,19 @@ def register(cli: click.Group) -> None:
             )
             raise click.exceptions.Exit(1)
 
-    @andrew_group.command("hold")
+    @andrew_group.command("propose-hold")
     @click.argument("correction_id", type=int)
     @click.option(
         "--why",
         required=True,
-        help="Why this is carried rather than worked (>= 20 chars).",
+        help="Why this looks like grief rather than a task (>= 20 chars).",
     )
-    def hold_cmd(correction_id: int, why: str) -> None:
-        """Carry his words on the held shelf: kept whole, never ranked as a task."""
-        if hold(correction_id, why):
+    def propose_hold_cmd(correction_id: int, why: str) -> None:
+        """Propose a row for the held shelf. It stays OPEN until he confirms it."""
+        if propose_hold(correction_id, why):
             click.secho(
-                f"[*] #{correction_id} is held -- his words, kept whole, off every worklist."
+                f"[*] #{correction_id} is proposed for the held shelf. It stays OPEN, on "
+                "every worklist and in the rate, until he confirms it in his own words."
             )
             click.secho(f"    why: {why.strip()}", fg="bright_black")
             return
@@ -209,25 +212,52 @@ def register(cli: click.Group) -> None:
         )
         raise click.exceptions.Exit(1)
 
+    @andrew_group.command("confirm-hold")
+    @click.argument("correction_id", type=int)
+    @click.option(
+        "--his-words",
+        "his_words",
+        required=True,
+        help="His words, exactly as he typed them, from a message that names this number.",
+    )
+    def confirm_hold_cmd(correction_id: int, his_words: str) -> None:
+        """Move a proposed row to HELD on his word, checked against what he typed."""
+        if confirm_hold(correction_id, his_words):
+            click.secho(f"[*] #{correction_id} is held on his word: {his_words.strip()!r}")
+            return
+        click.secho(
+            f"Refused: #{correction_id} is not a proposed row, or no message he typed "
+            "contains both those words and the number.",
+            fg="red",
+            err=True,
+        )
+        raise click.exceptions.Exit(1)
+
     @andrew_group.command("unhold")
     @click.argument("correction_id", type=int)
     def unhold_cmd(correction_id: int) -> None:
-        """Return a held row to OPEN, when it turns out to be a task after all."""
+        """Return a held or proposed row to the worklist."""
         if unhold(correction_id):
             click.secho(f"[*] #{correction_id} is back on the worklist as OPEN.")
             return
-        click.secho(f"Refused: #{correction_id} is not HELD.", fg="red", err=True)
+        click.secho(f"Refused: #{correction_id} is neither held nor proposed.", fg="red", err=True)
         raise click.exceptions.Exit(1)
 
     @andrew_group.command("held")
     def held_cmd() -> None:
-        """Show his words that are carried rather than worked, whole."""
-        rows = list_held()
-        if not rows:
-            click.echo("Nothing is held.")
+        """Show what is held on his word, and what waits for it, whole."""
+        held, proposed = list_held(), list_proposed_holds()
+        if not held and not proposed:
+            click.echo("Nothing is held or proposed.")
             return
-        for row in rows:
-            click.secho(f"#{row['id']}", bold=True)
-            click.echo(row["text"])
-            click.secho(f"  carried because: {row['why']}", fg="bright_black")
-            click.echo()
+        for title, rows in (("Held on his word", held), ("Proposed, waiting for him", proposed)):
+            if not rows:
+                continue
+            click.secho(title, bold=True)
+            for row in rows:
+                click.secho(f"#{row['id']}", bold=True)
+                click.echo(row["text"])
+                click.secho(f"  proposed because: {row['why']}", fg="bright_black")
+                if row["his_confirmation"]:
+                    click.secho(f"  he said: {row['his_confirmation']}", fg="bright_black")
+                click.echo()

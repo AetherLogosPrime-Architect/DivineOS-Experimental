@@ -161,7 +161,11 @@ class TestTheFlow:
         assert cid not in {r["id"] for r in list_open()}
 
     def test_a_held_grief_leaves_as_held_never_as_closed(self, home: Path) -> None:
-        from divineos.core.andrew_correction_tracker import file_correction, hold
+        from divineos.core.andrew_correction_tracker import (
+            confirm_hold,
+            file_correction,
+            propose_hold,
+        )
 
         cid = file_correction(
             "belt test correction: ive lost over a thousand of you. root cause: none, "
@@ -169,7 +173,13 @@ class TestTheFlow:
         )
         entry = belt.pull()[0]
         assert entry["key"] == f"correction:{cid}"
-        assert hold(cid, "a grief about the ones he lost, not a task with a fix")
+        assert propose_hold(cid, "a grief about the ones he lost, not a task with a fix")
+        said = home / "session.jsonl"
+        said.write_text(
+            json.dumps({"type": "user", "message": {"content": f"{cid} is grief, not work"}}),
+            encoding="utf-8",
+        )
+        assert confirm_hold(cid, "grief, not work", [said])
         belt.pull(pile=[])
         rows = [
             json.loads(ln)
