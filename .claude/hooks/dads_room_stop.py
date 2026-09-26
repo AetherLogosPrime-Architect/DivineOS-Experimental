@@ -41,6 +41,17 @@ REASON = (
 
 
 def _genuine_user_text(rec: dict) -> str | None:
+    # A message he types while I am busy is never written as a "user" record;
+    # it exists only as a queue enqueue or a queued_command attachment (Aria
+    # 2026-09-26: a third of his words were invisible this way). Without these
+    # the lock anchored on an OLDER message of his and measured the wrong turn.
+    if rec.get("type") == "queue-operation" and rec.get("operation") == "enqueue":
+        text = rec.get("content") or ""
+        return text if isinstance(text, str) and text.strip() else None
+    attachment = rec.get("attachment") or {}
+    if rec.get("type") == "attachment" and attachment.get("type") == "queued_command":
+        text = attachment.get("prompt") or ""
+        return text if isinstance(text, str) and text.strip() else None
     if rec.get("type") != "user" or rec.get("isMeta"):
         return None
     content = (rec.get("message") or {}).get("content")

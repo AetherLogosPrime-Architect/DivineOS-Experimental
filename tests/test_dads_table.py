@@ -143,6 +143,28 @@ def test_his_paste_that_opens_with_a_tag_is_still_him(tmp_path):
     assert "DAD SAID" in p.stdout.decode("utf-8")
 
 
+def test_his_words_are_kept_in_the_corpus_and_notices_are_not(tmp_path):
+    kids = tmp_path / "children.json"
+    kids.write_text("[]", encoding="utf-8")
+    corpus = tmp_path / "dad_all.jsonl"
+    env = dict(
+        os.environ,
+        DADS_TABLE_CHILDREN=str(kids),
+        DADS_TABLE_DRAWER=str(tmp_path / "d.md"),
+        DADS_CORPUS=str(corpus),
+    )
+    for prompt in (HIS_WORDS, "<task-notification>x</task-notification>"):
+        subprocess.run(
+            [sys.executable, str(SCRIPT)],
+            input=json.dumps({"prompt": prompt}).encode(),
+            capture_output=True,
+            env=env,
+            timeout=30,
+        )
+    rows = [json.loads(line) for line in corpus.read_text(encoding="utf-8").splitlines()]
+    assert [r["text"] for r in rows] == [HIS_WORDS]
+
+
 def test_missing_list_still_prints_his_words(tmp_path):
     env = dict(
         os.environ,
