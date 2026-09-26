@@ -39,11 +39,43 @@ HOOK_RE = re.compile(r"\[(?:bash |python )?\.claude/hooks/([\w.-]+)\]|hooks/([\w
 NOTICE_PREFIXES = ("<task-notification", "<system-reminder", "<ci-monitor-event", "<local-command")
 
 
+GENERIC_WORDS = {
+    "error",
+    "errors",
+    "exit",
+    "code",
+    "hook",
+    "hooks",
+    "failed",
+    "blocked",
+    "pretooluse",
+    "stop",
+}
+
+
 @dataclass(frozen=True)
 class Stumble:
     key: str
     count: int
     example: str
+
+    @property
+    def token(self) -> str:
+        """The word a reflection must name to have taken this stumble up.
+
+        Aether, station four 2026-09-26: counting endings let five 'owed: fix it'
+        lines clear five stumbles without naming one. Linkage, not grading: the
+        hook's name for a refusal, else the first distinctive word of the error.
+        """
+        hook = HOOK_RE.search(self.key) or re.search(r"refused by ([\w.-]+)", self.key)
+        if hook:
+            name = next(g for g in hook.groups() if g)
+            return re.sub(r"\.(sh|py)$", "", name).lower()
+        words: list[str] = re.findall(r"[A-Za-z][A-Za-z_-]{4,}", self.key)
+        for word in words:
+            if word.lower() not in GENERIC_WORDS:
+                return word.lower()
+        return self.key.lower()[:20]
 
 
 def _text(content) -> str:
@@ -129,6 +161,8 @@ def this_turn(records: list[dict]) -> tuple[bool, list[Stumble], str]:
                 for c in content:
                     if isinstance(c, dict) and c.get("type") == "tool_result" and c.get("is_error"):
                         t = _text(c.get("content"))
+                        if re.fullmatch(r"\s*Exit code 1\s*", t):
+                            continue  # a probe answering no (grep, cmp): 6 of ~900 on 2026-09-26
                         k = _key(t)
                         counts[k] = counts.get(k, 0) + 1
                         examples.setdefault(k, t.strip().splitlines()[0][:160] if t.strip() else "")
@@ -157,8 +191,10 @@ def reflection_of(reply: str) -> str:
 
 
 def taken_up(reply: str, stumbles: list[Stumble]) -> bool:
-    """The floor: one ending (fixed by structure / owed) per distinct stumble."""
-    return len(ENDING_RE.findall(reflection_of(reply))) >= len(stumbles)
+    """The floor: each stumble named by its token, and an ending for each."""
+    room = reflection_of(reply)
+    named = all(s.token in room.lower() for s in stumbles)
+    return named and len(ENDING_RE.findall(room)) >= len(stumbles)
 
 
 def owed_lines(reply: str) -> list[str]:
@@ -167,18 +203,24 @@ def owed_lines(reply: str) -> list[str]:
     ]
 
 
-def file_owed(lines: list[str]) -> list[str]:
+def file_owed(lines: list[str], stumbles: list[Stumble] | None = None) -> list[str]:
+    """File each owed line; beside it, the error it answers when it names one."""
     from divineos.core.structural_fix_tracker import record_pending_fix
 
+    def trigger(line: str) -> str:
+        for s in stumbles or []:
+            if s.token in line.lower():
+                return f"reflection room: {s.example or s.key}"[:300]
+        return "reflection room"
+
     return [
-        record_pending_fix(line, trigger="reflection room", source_kind="reflection")
-        for line in lines
+        record_pending_fix(line, trigger=trigger(line), source_kind="reflection") for line in lines
     ]
 
 
 def hold_reason(stumbles: list[Stumble]) -> str:
     listing = "\n".join(
-        f"  - {s.key}"
+        f"  - [{s.token}] {s.key}"
         + (f" (x{s.count})" if s.count > 1 else "")
         + (f": {s.example}" if s.example else "")
         for s in stumbles
@@ -187,7 +229,7 @@ def hold_reason(stumbles: list[Stumble]) -> str:
         f"{ROOM_MARK}. This work turn stumbled, and the transcript recorded it -- "
         "not your memory:\n"
         f"{listing}\n\n"
-        "In ## REFLECTION take up each one: why it happened, then end it with "
+        "In ## REFLECTION take up each one by its [name]: why it happened, then end it with "
         "'fixed by structure: <what now holds it>' or 'owed: <the build that "
         "would>'. Owed lines are filed as structural fixes automatically. A place "
         "to build, never an apology. Append only; do not re-post the reply."

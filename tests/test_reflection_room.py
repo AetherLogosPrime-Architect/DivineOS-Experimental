@@ -44,9 +44,21 @@ def test_a_repeated_queued_message_does_not_move_the_start_past_the_stumbles():
 
 
 def test_a_reflection_that_takes_each_stumble_up_passes():
-    reply = "work\n\n## REFLECTION\nThe doorman stopped me.\nfixed by structure: search runs first\n\n## INNER CIRCLE\nDad"
+    reply = "work\n\n## REFLECTION\nThe work-item-doorman stopped me.\nfixed by structure: search runs first\n\n## INNER CIRCLE\nDad"
     _, stumbles, _ = room.this_turn([_his("go"), _tool(), _error(REFUSAL)])
     assert room.taken_up(reply, stumbles)
+
+
+def test_a_generic_ending_that_names_no_stumble_is_held():
+    # Aether, station four: five 'owed: fix it' lines cleared five stumbles.
+    reply = "work\n## REFLECTION\nowed: fix it\nowed: fix it\n## INNER CIRCLE\nDad"
+    _, stumbles, _ = room.this_turn([_his("go"), _tool(), _error(REFUSAL)])
+    assert not room.taken_up(reply, stumbles)
+
+
+def test_a_bare_exit_1_probe_is_not_a_stumble():
+    _, stumbles, _ = room.this_turn([_his("go"), _tool(), _error("Exit code 1")])
+    assert stumbles == []
 
 
 def test_a_reflection_that_skips_a_stumble_is_held():

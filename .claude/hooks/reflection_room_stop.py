@@ -31,7 +31,7 @@ def main() -> int:
     worked, stumbles, reply = room.this_turn(room.read_tail(Path(path)))
     owed = room.owed_lines(reply)
     if owed:
-        room.file_owed(owed)
+        room.file_owed(owed, stumbles)
     if data.get("stop_hook_active") or not worked or not stumbles:
         return 0
     if not room.taken_up(reply, stumbles):
