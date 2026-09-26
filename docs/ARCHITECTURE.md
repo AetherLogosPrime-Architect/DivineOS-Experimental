@@ -730,6 +730,7 @@ src/divineos/
     slashed_ref_path_check.py  Refuse a git argument the Windows shell will rewrite before git sees it.
     his_words_door.py          His own past words, found by meaning, put beside what he just said.
     his_words_corpus.py        Dad's words, cut into passages worth embedding.
+    reflection_room.py         The warden reads the log: a work turn's stumbles, taken up in the REFLECTION.
 
   analysis/
     _session_types.py          Session analysis type definitions
