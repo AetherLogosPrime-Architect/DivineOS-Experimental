@@ -79,6 +79,19 @@ def _squash(text: str) -> str:
     return " ".join(text.split())
 
 
+def _words(text: str) -> str:
+    """One canonical shape for comparing his text: lowercase words only. The
+    index holds cut passages (his '..' pauses removed) and the table hands us
+    whole messages; comparing the two raw shapes could never find equality,
+    which is how his current message kept coming back as 'said before'."""
+    return " ".join(re.findall(r"[a-z0-9']+", text.lower()))
+
+
+def _is_this_message(passage: str, message: str) -> bool:
+    p, m = _words(passage), _words(message)
+    return bool(p) and bool(m) and (p in m or m in p)
+
+
 def passages_of(text: str) -> list[str]:
     """Cut one message to quote-size pieces on his own pauses (Bengio)."""
     parts = re.split(r"(?<=[.!?])\s+|\.\.\s+|\n+", text)
@@ -202,16 +215,24 @@ def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
         q = _embed([_squash(message + " " + context)])[0]
     except Exception as exc:  # the model is an import away from failing; say so, never go quiet
         return Door([], [], looked=False, reason=f"his words could not be searched: {exc}")
-    now = _squash(message)
     scores = vecs @ q
     hits: list[Hit] = []
+    seen_msgs: set[str] = set()
+    seen_words: list[str] = []
     for i in scores.argsort()[::-1]:
         s = float(scores[i])
         if s < FLOOR:
             break
         p = items[i]
-        if now and (p.text == now or p.text in now or now in p.text):
+        if _is_this_message(p.text, message):
             continue  # never the message itself
+        # One quote per thing he said (walk-c60841ff35db): two cuts of one
+        # message are one saying, and a near-identical passage adds nothing.
+        w = _words(p.text)
+        if p.ts in seen_msgs or any(w[:120] in o or o[:120] in w for o in seen_words):
+            continue
+        seen_msgs.add(p.ts)
+        seen_words.append(w)
         hits.append(Hit(p, s))
         if len(hits) >= 25:
             break
@@ -247,7 +268,6 @@ def owed_in_reply(reply: str, his_message: str = "", index_dir: Path = INDEX_DIR
         q = _embed([_squash(reply)[:2000]])[0]
     except Exception:
         return None  # the prompt-side door already says loudly when search is down
-    now = _squash(his_message)
     scores = vecs @ q
     top = [int(i) for i in scores.argsort()[::-1][:25]]
     # What the reply already quotes and answers. A reply that has taken up his
@@ -260,7 +280,7 @@ def owed_in_reply(reply: str, his_message: str = "", index_dir: Path = INDEX_DIR
         if s < HOLD_FLOOR:
             return None
         p = items[i]
-        if now and (p.text == now or p.text in now or now in p.text):
+        if _is_this_message(p.text, his_message):
             continue
         if i in answered or any(float(vecs[i] @ vecs[a]) >= SAME_THING for a in answered):
             continue

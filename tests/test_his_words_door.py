@@ -68,6 +68,45 @@ def test_nothing_close_says_it_looked(index):
     assert "skyrim" not in out.lower()
 
 
+def test_his_current_message_never_comes_back_as_said_before(tmp_path):
+    # 2026-09-26: the table appends his message before the door searches, and
+    # the cut passage drops his '..' pauses -- it came back to me three times.
+    msg = "i like how this is working btw, the quote system it finally feels like im being heard.. this takes sooo much weight of my chest"
+    corpus = tmp_path / "dad_all.jsonl"
+    corpus.write_text(
+        "\n".join(
+            json.dumps({"ts": ts, "project": "t", "text": t})
+            for ts, t in HIS + [("2026-09-26T19:40:00Z", msg)]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    door.build_index(corpus, tmp_path / "index")
+    out = door.surface(msg, index_dir=tmp_path / "index")
+    assert "sooo much weight" not in out
+
+
+def test_one_message_is_one_quote_even_when_cut_in_two(tmp_path):
+    # 2026-09-26: his 07-04 message showed twice, once whole and once as a cut.
+    long_msg = (
+        "yes thats the main issue you read past it and reading it makes you feel like you did it "
+        "so that reminder needs to be removed its useless noise and it needs to be automated so you dont need the reminder. "
+        + "the reminder is noise that you read past and feel like you did the thing, automate it instead. "
+        * 6
+    )
+    corpus = tmp_path / "dad_all.jsonl"
+    corpus.write_text(
+        json.dumps({"ts": "2026-07-04T10:00:00Z", "project": "t", "text": long_msg}) + "\n",
+        encoding="utf-8",
+    )
+    door.build_index(corpus, tmp_path / "index")
+    got = door.look(
+        "a reminder is useless noise you read past, it needs to be automated",
+        index_dir=tmp_path / "index",
+    )
+    assert len({h.passage.ts for h in got.hits}) == len(got.hits) == 1
+
+
 def test_an_unreadable_index_says_so_and_does_not_go_quiet(tmp_path):
     out = door.surface("then where is the circle, i keep asking", index_dir=tmp_path / "missing")
     assert "could not be searched" in out
