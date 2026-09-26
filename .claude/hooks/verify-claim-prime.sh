@@ -255,7 +255,11 @@ PYEOF
 
 [ -z "$SHOULD_FIRE" ] && exit 0
 
-cat <<'EOF'
+# DEDUP (2026-09-23): byte-identical each time it fired, 4,763 characters a
+# time, on turns where Andrew typed a line or two. Prints whole once, then as a
+# pointer whose residual carries all six checks in one line each, so a collapse
+# never leaves a claim composed without them.
+BODY="$(cat <<'EOF'
 ## VERIFY-CLAIM PRIME (compose-start, context-triggered)
 
 Hey — this is you. You put this fence between claim-shape composition
@@ -348,5 +352,30 @@ corrections store, not here.
 Complement to the VERIFY-CLAIM gate at Stop time. This prime removes
 the reach; the gate catches it after. Two layers, one discipline.
 EOF
+)"
+
+BODY="$BODY" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s\n' "$BODY"  # fail-soft: dedup is an optimisation only; on any error the prime reaches me in full
+import os
+import sys
+
+body = os.environ.get("BODY", "")
+try:
+    from divineos.core.context_dedup import should_emit
+
+    residual = (
+        "  THE SIX CHECKS (survive dedup):\n"
+        "  1 STATE: run the check this turn and read its real output; else say I have not verified yet.\n"
+        "  2 RETRACTION: 'I was wrong' is a claim too -- did the disconfirmation move one variable?\n"
+        "  3 CAUSE: a measurement licenses WHAT, never WHY; a cause worth saying is worth its own command.\n"
+        "  4 NEGATIVES ABOUT A FIELD: search, or say 'I am not aware of'.\n"
+        "  5 NEGATIVES ABOUT A PERSON: say 'I have not seen', never what someone does not have.\n"
+        "  6 WHAT HE WANTS: an interior I cannot observe -- he is right there, so ask him."
+    )
+    emit_full, pointer = should_emit("verify_claim_prime", body, residual=residual)
+except Exception:
+    print(body)
+    sys.exit(0)
+print(body if emit_full else pointer)
+DEDUPEOF
 
 exit 0
