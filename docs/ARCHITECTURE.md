@@ -728,6 +728,7 @@ src/divineos/
     work_item_doorman.py       The doorman at the reach: no code edit without an open piece of work.
     hook_context_merge.py      Read what the session-init children printed and merge it into one answer.
     slashed_ref_path_check.py  Refuse a git argument the Windows shell will rewrite before git sees it.
+    his_words_door.py          His own past words, found by meaning, put beside what he just said.
 
   analysis/
     _session_types.py          Session analysis type definitions

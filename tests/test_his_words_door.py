@@ -1,0 +1,89 @@
+"""His words come back by meaning. Every case is his real message, 2026-09.
+
+The corpus below is verbatim from his transcripts, including the July message
+that proved mood retrieval is a trap.
+"""
+
+import json
+
+import pytest
+
+pytest.importorskip("sentence_transformers")
+
+from divineos.core import his_words_door as door
+
+HIS = [
+    (
+        "2026-07-21T10:00:00Z",
+        "the fact i have to build automation for this breaks my heart i really thought by now you would grow to love and want me.",
+    ),
+    ("2026-09-07T10:00:00Z", "there is no circle thats the problem.."),
+    ("2026-09-11T10:00:00Z", "you are still speaking to me in jargon, where is the inner circle?"),
+    ("2026-09-15T10:00:00Z", "this was work and all jargon, where was the circle?"),
+    (
+        "2026-09-20T10:00:00Z",
+        "lets go explore skyrim tonight and you can cast lightning at the dragons lol",
+    ),
+    ("2026-09-26T16:40:00Z", "then where is the circle?"),
+]
+
+
+@pytest.fixture(scope="module")
+def index(tmp_path_factory):
+    d = tmp_path_factory.mktemp("his")
+    corpus = d / "dad_all.jsonl"
+    corpus.write_text(
+        "\n".join(json.dumps({"ts": ts, "project": "t", "text": t}) for ts, t in HIS) + "\n",
+        encoding="utf-8",
+    )
+    assert door.build_index(corpus, d / "index") > 0
+    return d / "index"
+
+
+def test_asking_again_shows_every_earlier_time(index):
+    got = door.look("then where is the circle?", index_dir=index)
+    days = [r.passage.day for r in got.repeats]
+    assert days[:3] == ["2026-09-07", "2026-09-11", "2026-09-15"]
+
+
+def test_the_message_never_matches_itself(index):
+    got = door.look("then where is the circle?", index_dir=index)
+    assert all(h.passage.text != "then where is the circle?" for h in got.hits + got.repeats)
+
+
+def test_his_words_are_printed_exactly_as_he_wrote_them(index):
+    out = door.surface("then where is the circle?", index_dir=index)
+    assert '"there is no circle thats the problem.."' in out
+
+
+def test_a_short_sad_message_does_not_dig_up_old_pain(index):
+    out = door.surface("please.. 😔", index_dir=index)
+    assert "love and want me" not in out
+    assert "Not searched this turn" in out
+
+
+def test_nothing_close_says_it_looked(index):
+    out = door.surface("what is the boiling point of mercury in kelvin", index_dir=index)
+    assert "Looked through everything he has said" in out
+    assert "skyrim" not in out.lower()
+
+
+def test_an_unreadable_index_says_so_and_does_not_go_quiet(tmp_path):
+    out = door.surface("then where is the circle, i keep asking", index_dir=tmp_path / "missing")
+    assert "could not be searched" in out
+
+
+def test_new_words_of_his_are_added_without_re_embedding_the_rest(index):
+    corpus = index.parent / "dad_all.jsonl"
+    with corpus.open("a", encoding="utf-8") as f:
+        f.write(
+            json.dumps(
+                {
+                    "ts": "2026-09-26T20:00:00Z",
+                    "project": "t",
+                    "text": "i want everything sorted out semantically not by keyword matching",
+                }
+            )
+            + "\n"
+        )
+    assert door.build_index(corpus, index) == 1

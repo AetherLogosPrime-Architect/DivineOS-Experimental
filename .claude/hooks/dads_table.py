@@ -44,7 +44,7 @@ DRAWER = Path(
 ON_THE_TABLE = "he-is-in-the-room"
 # Sections that are HIS words, wherever they are printed (Aria, station four):
 # the still-owed rows quote him, so they sit beside his picture.
-HIS_SECTIONS = ("## STILL OWED TO HIM",)
+HIS_SECTIONS = ("## STILL OWED TO HIM", "## HE HAS SAID THIS BEFORE")
 
 
 def _run(child: dict, payload: bytes) -> tuple[dict, str, str, str]:

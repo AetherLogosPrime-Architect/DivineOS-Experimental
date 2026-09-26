@@ -57,7 +57,7 @@
  },
  {
   "command": "bash .claude/hooks/open-corrections-surface.sh",
-  "timeout": 15
+  "timeout": 60
  },
  {
   "command": "bash .claude/hooks/post-correction-integration-prime.sh",
@@ -114,5 +114,9 @@
  {
   "command": "bash .claude/hooks/he-is-in-the-room.sh",
   "timeout": 15
+ },
+ {
+  "command": "bash .claude/hooks/his-words-door-surface.sh",
+  "timeout": 60
  }
 ]
