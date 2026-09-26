@@ -296,7 +296,7 @@ TWIN_LABEL_MAX = 40
 # None is kept.
 
 
-def _correction_open(item_id: str) -> bool | None:
+def _correction_status(item_id: str) -> str | None:
     import sqlite3
 
     path = divineos_home() / "andrew_corrections.db"
@@ -309,9 +309,27 @@ def _correction_open(item_id: str) -> bool | None:
         ).fetchone()
     finally:
         conn.close()
-    if row is None:
-        return None
-    return str(row[0]).upper() == "OPEN"
+    return None if row is None else str(row[0]).upper()
+
+
+def _correction_open(item_id: str) -> bool | None:
+    status = _correction_status(item_id)
+    return None if status is None else status == "OPEN"
+
+
+def _held_at_source(entry: dict[str, Any]) -> bool:
+    """A correction moved to HELD leaves the belt as carried, never as closed.
+
+    Without this, a grief moved to the held shelf read as not-OPEN and was
+    archived "closed at source" -- his loss filed as a finished job.
+    """
+    if entry.get("source") != "correction":
+        return False
+    ids = [entry["item_id"], *entry.get("twins", [])]
+    try:
+        return any(_correction_status(i) == "HELD" for i in ids)
+    except Exception:  # noqa: BLE001 -- unreadable means not shown to be held
+        return False
 
 
 def _structural_fix_open(item_id: str) -> bool | None:
@@ -423,7 +441,12 @@ def pull(pile: list[TodoItem] | None = None) -> list[dict[str, Any]]:
     kept: list[dict[str, Any]] = []
     for entry in _load_current():
         if _still_open(entry) is False:
-            _archive(entry, "closed at source")
+            _archive(
+                entry,
+                "held at source -- carried, not a task"
+                if _held_at_source(entry)
+                else "closed at source",
+            )
         else:
             kept.append(entry)
     current = _refill(kept, pile)

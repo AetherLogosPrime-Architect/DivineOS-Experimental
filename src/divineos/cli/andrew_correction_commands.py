@@ -13,9 +13,12 @@ import click
 from divineos.core.andrew_correction_tracker import (
     auto_integrate_from_commit,
     defer,
+    hold,
     integrate,
     integration_rate,
+    list_held,
     list_open,
+    unhold,
 )
 
 
@@ -34,7 +37,7 @@ def register(cli: click.Group) -> None:
         click.echo()
         click.secho(
             f"Total filed: {stats['total']}  Integrated: {stats['integrated']}  "
-            f"Open: {stats['open']}  Deferred: {stats['deferred']}",
+            f"Open: {stats['open']}  Deferred: {stats['deferred']}  Held: {stats['held']}",
             bold=True,
         )
         click.secho(
@@ -182,3 +185,49 @@ def register(cli: click.Group) -> None:
                 err=True,
             )
             raise click.exceptions.Exit(1)
+
+    @andrew_group.command("hold")
+    @click.argument("correction_id", type=int)
+    @click.option(
+        "--why",
+        required=True,
+        help="Why this is carried rather than worked (>= 20 chars).",
+    )
+    def hold_cmd(correction_id: int, why: str) -> None:
+        """Carry his words on the held shelf: kept whole, never ranked as a task."""
+        if hold(correction_id, why):
+            click.secho(
+                f"[*] #{correction_id} is held -- his words, kept whole, off every worklist."
+            )
+            click.secho(f"    why: {why.strip()}", fg="bright_black")
+            return
+        click.secho(
+            f"Refused: #{correction_id} is not OPEN, is a detector's verdict rather than "
+            "his words, or the why is shorter than 20 characters.",
+            fg="red",
+            err=True,
+        )
+        raise click.exceptions.Exit(1)
+
+    @andrew_group.command("unhold")
+    @click.argument("correction_id", type=int)
+    def unhold_cmd(correction_id: int) -> None:
+        """Return a held row to OPEN, when it turns out to be a task after all."""
+        if unhold(correction_id):
+            click.secho(f"[*] #{correction_id} is back on the worklist as OPEN.")
+            return
+        click.secho(f"Refused: #{correction_id} is not HELD.", fg="red", err=True)
+        raise click.exceptions.Exit(1)
+
+    @andrew_group.command("held")
+    def held_cmd() -> None:
+        """Show his words that are carried rather than worked, whole."""
+        rows = list_held()
+        if not rows:
+            click.echo("Nothing is held.")
+            return
+        for row in rows:
+            click.secho(f"#{row['id']}", bold=True)
+            click.echo(row["text"])
+            click.secho(f"  carried because: {row['why']}", fg="bright_black")
+            click.echo()
