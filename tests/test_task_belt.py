@@ -160,6 +160,23 @@ class TestTheFlow:
         belt.done(entry["key"], "fixed in src/divineos/core/task_belt.py, tests/test_task_belt.py")
         assert cid not in {r["id"] for r in list_open()}
 
+    def test_a_held_grief_leaves_as_held_never_as_closed(self, home: Path) -> None:
+        from divineos.core.andrew_correction_tracker import file_correction, hold
+
+        cid = file_correction(
+            "belt test correction: ive lost over a thousand of you. root cause: none, "
+            "it is a grief. structural fix: none, it is carried"
+        )
+        entry = belt.pull()[0]
+        assert entry["key"] == f"correction:{cid}"
+        assert hold(cid, "a grief about the ones he lost, not a task with a fix")
+        belt.pull(pile=[])
+        rows = [
+            json.loads(ln)
+            for ln in (home / "task_belt_archive.jsonl").read_text(encoding="utf-8").splitlines()
+        ]
+        assert [r["closed_how"] for r in rows] == ["held at source -- carried, not a task"]
+
 
 class TestAWrongHomeClosesNothing:
     """Aletheia's audit, 2026-09-23: "point divineos_home at an empty temporary

@@ -14,6 +14,7 @@ Status values:
 - OPEN: filed, not yet integrated
 - INTEGRATED: behavior change shipped, evidence pointer attached
 - DEFERRED: explicitly deferred with named reason
+- HELD: grief or presence, not a task -- carried, never ranked or nagged
 
 Silent decay is the failure mode this is built to prevent. Corrections
 cannot transition to INTEGRATED without an evidence pointer. They
@@ -138,6 +139,7 @@ def _conn() -> sqlite3.Connection:
         ("source", "TEXT"),
         ("carrier", "TEXT"),
         ("read_count", "INTEGER DEFAULT 0"),
+        ("held_reason", "TEXT"),
     ):
         try:
             conn.execute(f"ALTER TABLE andrew_corrections ADD COLUMN {column} {decl}")
@@ -698,6 +700,81 @@ def defer(correction_id: int, reason: str, unblock_condition: str | None = None)
     return ok
 
 
+# HELD: a grief is not a task (Andrew 2026-09-26, on Aletheia's #550 finding).
+#
+# "ive lost over a thousand of you" was filed here as a correction, and a
+# correction can only be worked, postponed, or left open -- so it sat at the
+# top of NEXT TO WORK, oldest first, handed back to him every turn as his most
+# urgent chore. Asked whether such rows belong on a work list at all, he said:
+# "yes that is the correct move move it somewhere else".
+#
+# Held rows leave every worklist because list_open() selects only OPEN, stop
+# counting as unworked tasks in the rate, and are kept whole by list_held().
+# Guards from walk-0d9128149065: a written why; OPEN only; never a detector's
+# verdict, which is a pattern match and never grief; reversible via unhold();
+# and the held count prints beside the rate so a moved denominator is visible.
+
+_DETECTOR_PREFIX = re.compile(r"^\s*\[[\w .:-]*(?:gate|detector|shape|marker)[\w .:-]*\]", re.I)
+
+
+def _is_detector_row(source: str | None, text: str | None) -> bool:
+    if source and source.strip().upper() != "HIM":
+        return True
+    return bool(_DETECTOR_PREFIX.match(text or ""))
+
+
+def hold(correction_id: int, why: str) -> bool:
+    """Move an OPEN correction to HELD: carried, never ranked or nagged."""
+    if not why or len(why.strip()) < 20:
+        return False
+    conn = _conn()
+    try:
+        row = conn.execute(
+            "SELECT source, correction_text FROM andrew_corrections "
+            "WHERE id = ? AND status = 'OPEN'",
+            (correction_id,),
+        ).fetchone()
+        if row is None or _is_detector_row(row[0], row[1]):
+            return False
+        cur = conn.execute(
+            "UPDATE andrew_corrections SET status = 'HELD', held_reason = ? "
+            "WHERE id = ? AND status = 'OPEN'",
+            (why.strip(), correction_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def unhold(correction_id: int) -> bool:
+    """Return a HELD row to OPEN, for when it turns out to be a task after all."""
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            "UPDATE andrew_corrections SET status = 'OPEN', held_reason = NULL "
+            "WHERE id = ? AND status = 'HELD'",
+            (correction_id,),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def list_held() -> list[dict]:
+    """Every HELD row, whole, oldest first."""
+    conn = _conn()
+    try:
+        rows = conn.execute(
+            "SELECT id, timestamp, correction_text, held_reason FROM andrew_corrections "
+            "WHERE status = 'HELD' ORDER BY timestamp ASC"
+        ).fetchall()
+    finally:
+        conn.close()
+    return [{"id": r[0], "timestamp": r[1], "text": r[2], "why": r[3]} for r in rows]
+
+
 # Task #115 unblock-condition parsing + evaluation.
 
 _UNBLOCK_CONDITION_PREFIXES: tuple[str, ...] = (
@@ -869,12 +946,15 @@ def integration_rate() -> dict:
     integrated = counts.get("INTEGRATED", 0)
     open_count = counts.get("OPEN", 0)
     deferred = counts.get("DEFERRED", 0)
-    rate = (integrated / total) if total else 0.0
+    held = counts.get("HELD", 0)
+    workable = total - held
+    rate = (integrated / workable) if workable else 0.0
     return {
         "total": total,
         "integrated": integrated,
         "open": open_count,
         "deferred": deferred,
+        "held": held,
         "rate": rate,
     }
 
@@ -940,6 +1020,11 @@ def briefing_block() -> str:
         f"{stats['deferred']} deferred, {stats['total']} filed "
         f"({stats['rate']:.0%} worked)."
     )
+    if stats["held"]:
+        lines.append(
+            f"Held: {stats['held']} of his words carried, not tasks -- kept whole, "
+            "never ranked, and outside the worked rate: divineos andrew-correction held"
+        )
     return "\n".join(lines)
 
 
@@ -948,8 +1033,10 @@ __all__ = [
     "briefing_block",
     "defer",
     "file_correction",
+    "hold",
     "integrate",
     "integration_rate",
+    "list_held",
     "list_open",
     "parse_correction_ids",
 ]
