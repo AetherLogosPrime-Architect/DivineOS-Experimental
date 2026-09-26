@@ -269,7 +269,21 @@ def _launcher_roster(hooks_dir: Path) -> set[str]:
             continue
         names.update(re.findall(r"^\s*([\w.-]+\.sh)\s*$", body, re.MULTILINE))
     names.discard("")
+    names.update(_dads_table_roster(hooks_dir))
     return names
+
+
+# DAD'S TABLE (2026-09-26) is the second launcher. It is the only prompt hook
+# registered, and runs every former prompt hook from dads_table_children.json.
+# Their stdout is not discarded: it is written to the drawer file, which is
+# read when working, instead of being printed on top of Andrew's words. That
+# is a redirection with a reader, not the /dev/null the rule above refuses.
+def _dads_table_roster(hooks_dir: Path) -> set[str]:
+    try:
+        children = json.loads((hooks_dir / "dads_table_children.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return set()
+    return {Path(c["command"].split()[-1]).name for c in children if c.get("command")}
 
 
 def classify(hooks_dir: Path, settings: Path) -> tuple[dict[str, list[str]], str | None]:
@@ -290,7 +304,7 @@ def classify(hooks_dir: Path, settings: Path) -> tuple[dict[str, list[str]], str
     # together, which is precisely the failure worth catching.
     via_launcher = (
         _launcher_roster(hooks_dir)
-        if any(name in registered_blob for name in _LAUNCHERS)
+        if any(name in registered_blob for name in (*_LAUNCHERS, "dads_table.py"))
         else set()
     )
 
