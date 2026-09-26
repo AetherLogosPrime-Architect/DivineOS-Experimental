@@ -51,6 +51,7 @@ SHOW = 3
 MIN_SIGNAL_WORDS = 4  # below this his message alone carries no query (Peirce)
 PASSAGE_CHARS = 400
 MIN_PASSAGE_CHARS = 25
+NOTICE_PREFIXES = ("<task-notification", "<system-reminder", "<ci-monitor-event", "<local-command")
 
 
 @dataclass(frozen=True)
@@ -92,21 +93,33 @@ def passages_of(text: str) -> list[str]:
     return [_squash(p) for p in out if len(p.strip()) >= MIN_PASSAGE_CHARS]
 
 
+#: Bumped when the cleaning changes, so the index re-embeds rather than keeping
+#: passages the new cleaner would have dropped.
+CLEANER = "his_words_corpus.his_passages+passages_of/v1"
+
+
 def load_passages(corpus: Path = CORPUS) -> list[Passage]:
-    seen: set[str] = set()
-    out: list[Passage] = []
+    """Aether's cleaner first (our pasted-back text and bare replies out), then
+    cut to quote size. The 08-13 paste and the 08-21 assistant-styled passage
+    both surfaced on the live door before this; the cleaner drops them."""
+    from divineos.core.his_words_corpus import his_passages
+
+    rows = []
     with corpus.open(encoding="utf-8") as f:
         for line in f:
             try:
-                row = json.loads(line)
+                rows.append(json.loads(line))
             except ValueError:
                 continue
-            ts = str(row.get("ts", ""))
-            for p in passages_of(str(row.get("text", ""))):
-                if p in seen:
-                    continue
-                seen.add(p)
-                out.append(Passage(text=p, day=ts[:10], ts=ts))
+    seen: set[str] = set()
+    out: list[Passage] = []
+    for row in his_passages(rows):
+        ts = str(row.get("ts", ""))
+        for p in passages_of(str(row.get("text", ""))):
+            if p in seen:
+                continue
+            seen.add(p)
+            out.append(Passage(text=p, day=ts[:10], ts=ts))
     return out
 
 
@@ -148,8 +161,8 @@ def build_index(corpus: Path = CORPUS, index_dir: Path = INDEX_DIR) -> int:
     meta_path, vec_path = index_dir / "passages.json", index_dir / "vectors.npy"
     meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
     vecs = None
-    if meta.get("model") != MODEL_NAME:
-        meta = {"model": MODEL_NAME, "items": []}
+    if meta.get("model") != MODEL_NAME or meta.get("cleaner") != CLEANER:
+        meta = {"model": MODEL_NAME, "cleaner": CLEANER, "items": []}
     elif vec_path.exists():
         vecs = np.load(vec_path)
     known = {i["key"] for i in meta["items"]}
@@ -176,6 +189,8 @@ def _load_index(index_dir: Path):
 
 def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
     """What has he said before that means what he is saying now."""
+    if message.lstrip().startswith(NOTICE_PREFIXES):
+        return Door([], [], looked=False, reason="an automated notice, not his message")
     words = re.findall(r"[a-zA-Z']+", message)
     if len(words) < MIN_SIGNAL_WORDS and not context.strip():
         return Door([], [], looked=False, reason="his message is too short to search on by itself")
@@ -207,6 +222,62 @@ def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
             days.add(h.passage.day)
             repeats.append(h)
     return Door(hits=hits[:SHOW], repeats=repeats, looked=True)
+
+
+HOLD_FLOOR = 0.60  # measured on the 2026-09-26 replay of real replies; see tests
+SAME_THING = 0.60  # two passages of his this close say the same thing
+
+
+def _quoted_in(passage: str, reply: str) -> bool:
+    """Already answered in the reply (Hofstadter): a reply that quotes him is
+    the right move and must never be held for matching him."""
+    head = _squash(passage)[:40].lower()
+    return len(head) >= 20 and head in _squash(reply).lower()
+
+
+def owed_in_reply(reply: str, his_message: str = "", index_dir: Path = INDEX_DIR) -> Hit | None:
+    """Something he has said that speaks to what I am about to send him, and
+    that the reply does not yet quote and answer. His rule, 2026-09-26: "my
+    words AND your words should trigger it". The query is my own reply -- the
+    natural-language act, never command syntax (Hinton)."""
+    if his_message.lstrip().startswith(NOTICE_PREFIXES) or not reply.strip():
+        return None
+    try:
+        items, vecs = _load_index(index_dir)
+        q = _embed([_squash(reply)[:2000]])[0]
+    except Exception:
+        return None  # the prompt-side door already says loudly when search is down
+    now = _squash(his_message)
+    scores = vecs @ q
+    top = [int(i) for i in scores.argsort()[::-1][:25]]
+    # What the reply already quotes and answers. A reply that has taken up his
+    # words on a thing has answered the thing: another passage of his saying the
+    # same must not hold it, or the check nags (found by the pin test 2026-09-26:
+    # three circle asks quoted, held over a fourth).
+    answered = [i for i in top if _quoted_in(items[i].text, reply)]
+    for i in top:
+        s = float(scores[i])
+        if s < HOLD_FLOOR:
+            return None
+        p = items[i]
+        if now and (p.text == now or p.text in now or now in p.text):
+            continue
+        if i in answered or any(float(vecs[i] @ vecs[a]) >= SAME_THING for a in answered):
+            continue
+        return Hit(p, s)
+    return None
+
+
+def hold_reason(hit: Hit) -> str:
+    p = hit.passage
+    return (
+        "HE HAS SAID THIS BEFORE, and it speaks to what you are about to send him.\n"
+        f'On {p.day} he said: "{p.text}"\n\n'
+        "Answer it before this goes to him -- his rule: \"i say you said: 'insert your "
+        "words here' and then i say what i wanted to say about it, so its not mirroring "
+        'its addressing what someone said with your own words". Quote him, then say '
+        "what you have to say about it. Append only that; do not re-post the reply."
+    )
 
 
 def surface(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> str:
