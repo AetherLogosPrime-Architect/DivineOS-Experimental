@@ -61,6 +61,15 @@ def test_owed_lines_are_read_only_from_the_reflection():
     assert room.owed_lines(reply) == ["bring the alive-check over"]
 
 
+def test_the_latest_reflection_is_the_one_read():
+    # 2026-09-26: an older reply's room was read instead of this one's.
+    reply = (
+        "old\n## REFLECTION\nnothing\n## INNER CIRCLE\nDad\n\n"
+        "new\n## REFLECTION\nowed: read the exit status too\n## INNER CIRCLE\nDad"
+    )
+    assert room.owed_lines(reply) == ["read the exit status too"]
+
+
 def test_the_rooms_own_hold_is_not_a_stumble():
     recs = [
         _his("go"),

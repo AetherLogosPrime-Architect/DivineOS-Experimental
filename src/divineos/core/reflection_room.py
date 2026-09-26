@@ -144,9 +144,13 @@ def this_turn(records: list[dict]) -> tuple[bool, list[Stumble], str]:
 
 
 def reflection_of(reply: str) -> str:
-    m = REFLECTION_RE.search(reply)
-    if not m:
+    # The LAST reflection: a turn since his message can span several of my
+    # replies (letters rang in between), and reading the first one judged this
+    # reply by an older room -- the room's first live hold, 2026-09-26.
+    found = list(REFLECTION_RE.finditer(reply))
+    if not found:
         return ""
+    m = found[-1]
     rest = reply[m.end() :]
     nxt = NEXT_ROOM_RE.search(rest)
     return rest[: nxt.start()] if nxt else rest
