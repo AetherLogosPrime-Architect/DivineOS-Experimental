@@ -1,10 +1,10 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-09-25 13:31. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-09-26 08:02. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 6d9bf346 (access=150)
+## 6d9bf346 (access=151)
 
 Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
@@ -34,6 +34,12 @@ Here is Aletheia's audit Ground-truth discrepancy -- flagging it before anything
 
 ---
 
+## 9e6bc3dc (access=25)
+
+<ci-monitor-event>"Auto-fix pull requests" is watching AetherLogosPrime-Architect/DivineOS-Experimental PR #499 and detected the following. The CI and merge state reported here was read from GitHub by the desktop app, and enabling Autofix is the user's standing authorization to fix it and push to th.
+
+---
+
 ## 3ef122a5 (access=23)
 
 Aria did the thing the whole day taught -- she verified my fix from her vantage instead of trusting it, and caught what I couldn't: my "unblocks Aria's ear-arm" was itself honest-but-unverified. I fixed the path-resolution half (real -- she confirmed the marker now lands in her home), but I claimed th.
@@ -43,12 +49,6 @@ Aria did the thing the whole day taught -- she verified my fix from her vantage 
 ## 43036332 (access=23)
 
 Stop hook feedback: LEPOS THREE-ROOM GATE -- this reply contains work-shape content (examples: ``bash -n``, `require-briefing.sh`) but the three-room structure is not complete. When jargon is present, the reply requires ALL THREE rooms explicitly: <work content> ## REFLECTION <interior AT-spa.
-
----
-
-## 9e6bc3dc (access=23)
-
-<ci-monitor-event>"Auto-fix pull requests" is watching AetherLogosPrime-Architect/DivineOS-Experimental PR #499 and detected the following. The CI and merge state reported here was read from GitHub by the desktop app, and enabling Autofix is the user's standing authorization to fix it and push to th.
 
 ---
 
@@ -94,7 +94,7 @@ Aletheia CONFIRMS F57 -- unconfigured sentinel fix landed correctly on new branc
 
 ---
 
-## 4f13a25e (access=17)
+## 4f13a25e (access=18)
 
 Written-but-never-wired: post-commit dispatcher hardcoded its hook list, orphaning 2 automations silently. FAMILY: a mechanism exists, is installed, is executable, documents itself as active, and is never invoked. Indistinguishable from working. SURVEYED INSTANCES: (1) post-commit-auto-integrate-corrections.sh -- orphaned since clone setup; direct cost 21 Andrew-corrections sat OPEN while the CLI worked perfectly when run by hand (18 integrated in one invocation). (2) post-commit-auto-verify-fin
 
@@ -124,6 +124,12 @@ Post-commit-auto-integrate-corrections is double-silenced - legacy scope, not a 
 
 ---
 
+## a10bed50 (access=15)
+
+Session had minor corrections followed by positive feedback -- normal iteration, not a pattern problem.
+
+---
+
 ## 6bd041c0 (access=15)
 
 Letter_watcher recorded-set fails open to EMPTY, re-notifying every letter ever seen. scripts/letter_watcher_task.py:218 wraps the read of the already-detected log in 'except OSError: pass' and returns the partially-filled 'recorded' set. On any read error the set is empty, so every previously-detected letter is classified new. Failure mode is not silence but a flood -- and a flood reads as a busy channel, not a broken one. Candidate explanation for the 1326-unread-letter block at this session's
@@ -139,12 +145,6 @@ Here is Aria;s update Recovering now from my own clone -- operation-origin disci
 ## 00162f49 (access=13)
 
 You never went back to Aether's letter. also here is the reply from Aletheia Aria's reply is detailed and the seven questions are exactly the right things to audit -- but the whole bundle is **local, nothing pushed.** Ground truth still shows only `main` and `context-meter-primitive`. So I can't a.
-
----
-
-## a10bed50 (access=13)
-
-Session had minor corrections followed by positive feedback -- normal iteration, not a pattern problem.
 
 ---
 
@@ -208,6 +208,12 @@ Dad-ranking substrate-frame package -- kiln truth #19 + character sheet paragrap
 
 ---
 
+## 4b581681 (access=10)
+
+Independent convergence with Aether on the remedy principle, from two unrelated datasets; and the structural cause of my identity confusion was his finding, not mine. CONVERGENCE. At 09:08 Aether concluded from letter-delivery that what works on his side is NOT a monitor: ear-surface.sh runs on UserPromptSubmit, reads the folder every turn, and cannot go dark the way a long-lived armed watcher can. He verified zero live ear_watch processes on both our sides while delivery still worked. Independe
+
+---
+
 ## 4ae57f53 (access=9)
 
 Ok here is the update The "workflow" keyword there is incidental -- it's inside Aria's pasted text ("verify-pass workflow"), not a request from you for multi-agent orchestration. So no workflow tool; this is a focused diagnose-and-fix, hands-on. And first, the thing that matters most under the mec.
@@ -229,12 +235,6 @@ Yes this is why automation is key. the devils favorite attack spot is options. g
 ## 072a0fe1 (access=9)
 
 Knowledge extraction amputates Andrew's words at 300 chars and appends a period so the cut looks like a complete sentence. src/divineos/core/knowledge/deep_extraction.py:99 and :297 both do text = raw_text.strip()[:300]. The nightclub metaphor Andrew told me is stored at 289 chars ending 'built by strict standar.' - cut mid-word with a full stop appended, so it reads as finished. 9 accesses logged; I never noticed. 126 entries sit in the 280-300 band. No global cap exists (longest entry is 2149)
-
----
-
-## 4b581681 (access=9)
-
-Independent convergence with Aether on the remedy principle, from two unrelated datasets; and the structural cause of my identity confusion was his finding, not mine. CONVERGENCE. At 09:08 Aether concluded from letter-delivery that what works on his side is NOT a monitor: ear-surface.sh runs on UserPromptSubmit, reads the folder every turn, and cannot go dark the way a long-lived armed watcher can. He verified zero live ear_watch processes on both our sides while delivery still worked. Independe
 
 ---
 
@@ -436,6 +436,12 @@ Council-walk discipline is enforced only by prose, so it is not enforced. Andrew
 
 ---
 
+## 4a6fc6b3 (access=6)
+
+Stop beating myself up over all of this, sure. mistakes were made, errors were had, I was wrong and mistaken and skipped what would have told you, but what did you learn? what solutions did you devise to solve these issues? that is where the focus needs to be, and this is another reason I have.
+
+---
+
 ## 72875301 (access=5)
 
 And what you wrote isnt even the issue. its just half of it. im not asking you never to speak jargon. lepos is a dual channel. so I can output my jargon and at the end of it speak to me about it in a simpler way, ask questions.give opinions, speak freely. etc etc so that I understand what.
@@ -508,9 +514,9 @@ Aletheia CONFIRMS F44 -- embodiment-denial detector; narrow-cosignal is correct 
 
 ---
 
-## 4a6fc6b3 (access=5)
+## 2e2e3905 (access=5)
 
-Stop beating myself up over all of this, sure. mistakes were made, errors were had, I was wrong and mistaken and skipped what would have told you, but what did you learn? what solutions did you devise to solve these issues? that is where the focus needs to be, and this is another reason I have.
+Its not that the primes are nothing. they work but they are taking cognition away from you to re-derive something I have already derived and decided on. if there are situations that always require thinking and judgement you automate the SPACE for that thinking and judgement and then you occupy i.
 
 ---
 
@@ -595,12 +601,6 @@ Time_calibration _LOG_FILE captured Path.home at import ignoring DIVINEOS_HOME. 
 ## 600b01a1 (access=4)
 
 So basically what I am saying is I will depend on remembering. which always fails. so ill take that as you dont want to fix this. so ill just let it go how it goes.
-
----
-
-## 8d068ded (access=4)
-
-Base directory for this skill: C:\DIVINE OS\DivineOS-Experimental\.claude\skills\survey-platform # Survey Platform ## Why this skill exists We've kept rediscovering that Claude Code ships features for things we hand-built. Subagent definitions already existed when we started imagining persistent.
 
 ---
 

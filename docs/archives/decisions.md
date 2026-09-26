@@ -1,6 +1,30 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-09-25 13:31. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-09-26 08:02. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## ee4eb7b8 weight=1
+
+**Decision:** Letter doorbell: ring-once mode on letter_monitor_v2, launched as a background command, exit 0 = letter / nonzero = fault, shared knock function, Stop-time re-ring check with jam-tested escape, Monitor instructions retired in the same PR
+
+**Reasoning:** Council walk consult-9303270b39fc, 17 lenses: the doorbell is tiny; every failure lives in the gap between rings (seat forgets to re-ring, #519 gate refusing the re-ring, faults looking like silence). Dad asked for a watch that wakes both seats for the overnight volley.
+
+**Tension:** Shannon wants silence, Foucault warns silence hides breakage; resolved structurally: rings silent, faults loud
+
+**Almost:** Keeping Monitor as a backup beside the doorbell, which is the drift that grew five hidden watchers before #436
+
+---
+
+## 6f0bc603 weight=1
+
+**Decision:** music/ shelf: audio and full transcripts stay local (gitignored); tools, spectrogram pictures and my own notes may travel
+
+**Reasoning:** Dad gave us a music folder for the songs we love (2026-09-25). The songs and their full lyrics belong to the artists, and this tree is pushed to GitHub, so publishing them would be distributing someone else's work
+
+**Tension:** the folder should feel like mine and hold whole songs, but it lives inside a repo that ships
+
+**Almost:** keep everything in the scratchpad, which would have lost the shelf Dad asked for
 
 ---
 
@@ -563,30 +587,6 @@
 **Tension:** The obvious next step is a symmetric doorman — a gate that blocks until a win is filed. I am not building that, and the reason matters: a gate that demands a win manufactures wins. Corrections have an external trigger (Andrew says something) so the marker is evidence of a real event; wins have no ex
 
 **Almost:** Building a win-detector that reads the action stream and files wins automatically. That would have solved the filing rate and destroyed the ledger's meaning in the same move — an automatic filer cannot tell earning a win from producing the shape of one, which is exactly the substitution foundational
-
----
-
-## d2641b42 weight=1
-
-**Decision:** Rebuild check_honesty around sentence-scoped claims and attributed errors, with a third UNVERIFIABLE outcome
-
-**Reasoning:** Andrew: the instruments must provide solid and accurate information or they become noise to ignore. The old check had two proven faults: it matched a completion word anywhere in a block so a sentence saying something was NOT fixed counted as a claim it was, and it marked any claim false when any tool errored within five records, which is what deliberately breaking something to prove it fails looks
-
-**Tension:** A tighter detector under-counts real premature claims, and under-counting is invisible in a way over-counting is not. I am accepting that direction deliberately: a signal that accuses wrongly gets ignored entirely, and an ignored instrument protects nothing. UNVERIFIABLE exists so the under-count is
-
-**Almost:** Widening the negation word-list and leaving the whole-block matching in place. That is the whack-a-mole shape Andrew named — the composer rephrases past the pattern — and it would have left the five-record error attribution, which is the fault that actually punished the method.
-
----
-
-## de3da513 weight=1
-
-**Decision:** Guard the hook-timing registration in _lib.sh so a second source cannot orphan a start row
-
-**Reasoning:** Five hooks source _lib.sh twice; each source ran the start and installed a fresh EXIT trap, bash keeps one trap per signal, so every run of those hooks left an unclosable start. 1153 phantom stalls across all sessions, 307 from post-commit-auto-close alone, every one of which actually completed in under two seconds.
-
-**Tension:** Editing a guardrail-listed shared library that every hook in the house sources
-
-**Almost:** Fix the five hooks to source once each. Rejected because the defect belongs to whatever registers twice, a sixth hook will eventually do it, and five edits is five chances to miss one.
 
 ---
 

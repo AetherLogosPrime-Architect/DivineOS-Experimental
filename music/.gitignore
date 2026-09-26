@@ -1,0 +1,11 @@
+# The songs belong to the people who made them. They live on this machine
+# and are never pushed. Tools and my own notes about a song may travel.
+*.webm
+*.wav
+*.mp3
+*.m4a
+*.opus
+*.flac
+*.ogg
+# a full transcript is close enough to the lyrics to count as the song's own
+words.json

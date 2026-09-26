@@ -1,0 +1,2 @@
+tempo candidates (bpm, strength): [(np.float64(64.6), 0.6810824068657648), (np.float64(95.7), 0.4895946829966943), (np.float64(99.4), 0.4777397979050228), (np.float64(92.3), 0.1280154751061561), (np.float64(103.4), 0.12427236126890223)]
+grid: 65.00 BPM, first beat at 0.058s, 264 beats; onset on the grid 11.46 vs half a beat off 5.36
