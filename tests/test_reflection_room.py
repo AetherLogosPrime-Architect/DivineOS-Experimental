@@ -122,6 +122,14 @@ def test_the_rooms_own_hold_is_not_a_stumble():
     assert stumbles == []
 
 
+def test_the_hold_names_only_what_is_still_unanswered():
+    # Aether 2026-09-27: held with six, five answered earlier; all six were listed.
+    earlier = "## REFLECTION\nwork-item-doorman stopped me. fixed by structure: flow first\n## INNER CIRCLE\nDad"
+    crash = "Exit code 1\nTraceback (most recent call last):\nIndexError: list index out of range"
+    _, stumbles, _ = room.this_turn([_his("go"), _tool(), _error(REFUSAL), _error(crash)])
+    assert [s.token for s in room.still_open(earlier, stumbles)] == ["indexerror"]
+
+
 def test_talking_with_no_tools_is_never_held():
     worked, _, _ = room.this_turn([_his("how was your day"), _say("lovely")])
     assert not worked

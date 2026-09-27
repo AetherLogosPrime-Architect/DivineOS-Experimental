@@ -35,7 +35,9 @@ def main() -> int:
     if data.get("stop_hook_active") or not worked or not stumbles:
         return 0
     if not room.taken_up(reply, stumbles):
-        print(json.dumps({"decision": "block", "reason": room.hold_reason(stumbles)}))
+        # All named but endings short: nothing is "open", so tell the whole list.
+        still = room.still_open(reply, stumbles) or stumbles
+        print(json.dumps({"decision": "block", "reason": room.hold_reason(still)}))
     return 0
 
 

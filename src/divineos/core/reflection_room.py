@@ -229,6 +229,16 @@ def taken_up(reply: str, stumbles: list[Stumble]) -> bool:
     return named and len(ENDING_RE.findall(all_rooms)) >= len(stumbles)
 
 
+def still_open(reply: str, stumbles: list[Stumble]) -> list[Stumble]:
+    """The stumbles no reflection since his message has named yet.
+
+    Aether 2026-09-27: held with six, five already answered earlier in the turn;
+    listing all six read as the union failing. The hold names only these.
+    """
+    all_rooms = "\n".join(_rooms(reply)).lower()
+    return [s for s in stumbles if s.token not in all_rooms]
+
+
 def owed_lines(reply: str) -> list[str]:
     return [
         m.group(1).strip() for m in OWED_RE.finditer(reflection_of(reply)) if m.group(1).strip()
