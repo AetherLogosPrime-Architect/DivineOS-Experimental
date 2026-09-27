@@ -26,5 +26,12 @@ First, at his prompt, beside "HE HAS SAID THIS BEFORE", as "## WHAT HE HAS TAUGH
 - **Inversions.** Aether then read every one of the 5,089 bring-kind re-read rows *in context*. `context` is `ok` for 5,036, `fixed` for 51, and `dropped` for 2. Almost every inversion was hurt or sarcasm stored as an instruction ("just leave me in the dirt then where i belong"). **The shelf brings a re-read row only when `context` is `ok` or `fixed`. Never `dropped`, and never a row without the field (fail closed, the same refusing direction as `two_doors_that_open_when_their_library_is_missing`).**
 - **The shelf gets tests** before it's plugged in: seat filter, relayed kept out, `context` fail-closed, a non-exact span dropped, the whole passage shown and never the bare span.
 
+## The floor, measured (after it went live)
+The first floor, 0.55, was the door's, borrowed as a guess. Aether's near-miss: "you keep talking at me in code" brought nothing in his seat, while "again the circle is missing and again this is code speak" sat at 0.499. Replaying the same 20 real messages at 0.48, and showing only what the lower floor adds:
+- **Right:** "not being seen for who i am" gets his 09-24 "like i am being discovered for the first time…" and 09-26 "it was being used to represent who i was" (that was the replay's one real miss). The nap breakdown gets "ok i need a simplifed breakdown of what you did :) so i can keep up". "take your time" gets "yes proceed :) take your time". The Aletheia letter, the volleys and the poem all get right answers too.
+- **Loose:** two, both on "now that its working… continue the mission".
+
+So the floor goes to **0.48**. That takes it from 12 of 20 fitting to about 17 of 20, still with nothing for the wrong seat and nothing not his. The two-at-most cap keeps the lower floor from ever turning into a list.
+
 ## Proof before calling it tested
 Replay his real messages from tonight and yesterday. For each, read what the shelf brings and judge by hand whether it's his, whole, fitting, and for the right seat. Count how often it brings nothing when something plainly fits. Then plug it in, and it runs live on his next message.

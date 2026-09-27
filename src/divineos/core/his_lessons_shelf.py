@@ -50,7 +50,12 @@ BRING = frozenset(
         "value",
     }
 )
-FLOOR = 0.55  # first guess, the door's own floor; tuned on the replay
+# Measured 2026-09-27 on 20 of his real messages (walk-f18568812744): 0.55
+# missed "not being seen for who i am"; 0.48 added mostly right answers and two
+# loose ones, capped at SHOW. Revisited at prereg-96ba4e526c20's review on a
+# fresh window of ordinary days, not the nights the shelf was built on.
+FLOOR = 0.48
+LOG = LESSONS_DIR / "lesson_shelf_log.jsonl"  # every fire, for the review (Beer)
 SHOW = 2
 
 
@@ -203,8 +208,34 @@ def bring(
     return out, ""
 
 
-def surface(message: str, me: str, context: str = "", index_dir: Path = INDEX_DIR) -> str:
+def _log(message: str, me: str, brought: list[Brought], why: str, log: Path) -> None:
+    import datetime
+
+    row = {
+        "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+        "seat": me,
+        "message": door._squash(message)[:200],
+        "why_not": why,
+        "brought": [
+            {"score": round(b.score, 3), "day": b.lesson.day, "line": b.lesson.line}
+            for b in brought
+        ],
+    }
+    try:
+        with log.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    except OSError:
+        pass  # the record is for the review; it must never cost him his words
+
+
+def surface(
+    message: str, me: str, context: str = "", index_dir: Path = INDEX_DIR, log: Path | None = LOG
+) -> str:
     brought, why = bring(message, me, context, index_dir)
+    if message.lstrip().startswith(door.NOTICE_PREFIXES):
+        return ""  # not him: nothing to bring and nothing to log
+    if log is not None:
+        _log(message, me, brought, why, log)
     lines = ["## WHAT HE HAS TAUGHT THAT FITS THIS (his words, found by meaning)", ""]
     if why:
         lines.append(f"Not searched this turn: {why}.")

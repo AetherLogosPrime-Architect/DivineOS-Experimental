@@ -69,6 +69,12 @@ def test_his_whole_passage_is_shown_never_the_clipped_span(tmp_path):
     assert les.words != "just leave me in the dirt"
 
 
+def test_a_notice_brings_nothing_and_logs_nothing(tmp_path):
+    log = tmp_path / "log.jsonl"
+    out = shelf.surface("<task-notification>x</task-notification>", "aria", log=log)
+    assert out == "" and not log.exists()
+
+
 def test_verified_groups_are_brought_passage_by_passage(tmp_path):
     group = {
         "lesson": "Explain things to him simply, without jargon.",
