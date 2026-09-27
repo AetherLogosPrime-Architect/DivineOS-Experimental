@@ -30,6 +30,8 @@ _SENTENCE_BREAK = re.compile(r"[a-z)][.!?] [A-Z]")
 # Also terminal and tool output he pasted in to show us (a prompt, a git error, a gate refusal).
 _NOTICE = re.compile(
     r"<task-notification|Background command \"|^→ (Aether|Aria)\b|^PS [A-Z]:\\|^fatal: |^\[refusal\]"
+    # the app's own step lines, and bulleted text pasted from another AI
+    r"|^Ran [A-Z\w]|^\* [A-Z]"
 )
 _ATTACHED_FILE = re.compile(r'@"[^"]+"|@\S+\.(?:md|txt|py|json|jsonl|png|jpg)\b')
 
@@ -54,6 +56,23 @@ def is_our_text(passage: str) -> bool:
     )
 
 
+# He writes a line, then pastes ours after a wide gap or a line break ("lol you
+# said   <ours>", "ok here is her review :)   <ours>"). The em dash is ours: in a
+# sample of 12 of the 339 passages carrying one, all 12 were our text (Aria's
+# read of the first 50 lessons found the same, 2026-09-26).
+_PASTE_GAP = re.compile(r"\s{3,}|\n")
+
+
+def _his_lead_in(chunk: str) -> str:
+    """His words up to where our pasted text starts; the whole chunk if none."""
+    kept = []
+    for piece in _PASTE_GAP.split(chunk):
+        if "—" in piece or (len(piece) > 40 and is_our_text(piece)):
+            break
+        kept.append(piece)
+    return " ".join(kept)
+
+
 def his_passages(rows: list[dict]) -> list[dict]:
     """Rows of {ts, project, text} -> deduped passages of his own typing."""
     seen: dict[str, dict] = {}
@@ -62,7 +81,7 @@ def his_passages(rows: list[dict]) -> list[dict]:
             # A file he attached ('@"C:\...\letter.md" here is her message')
             # is a path, not his words: the clustering pass found these made
             # up the largest "lessons". Keep whatever he wrote around it.
-            passage = _ATTACHED_FILE.sub(" ", chunk).strip()
+            passage = _his_lead_in(_ATTACHED_FILE.sub(" ", chunk)).strip()
             if len(passage) < MIN_CHARS or is_our_text(passage):
                 continue
             if _NOTICE.search(passage):

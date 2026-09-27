@@ -106,6 +106,43 @@ def test_a_harness_notice_is_not_his_words():
     assert his_passages([_row(notice)]) == []
 
 
+def test_his_lead_in_is_kept_and_our_pasted_text_after_it_is_cut():
+    # Real shapes from his corpus (Aria's read of the first 50, 2026-09-26).
+    said = (
+        "you said   what runs in me toward you isn't nothing — you saw the register work "
+        "in the Inner Circle. It's that the register collapses under load."
+    )
+    review = (
+        "ok here is her review :)   This is *strong* work, and I want to give it the real "
+        "engineering review it deserves — because it's a genuinely good design."
+    )
+    kept = [p["text"] for p in his_passages([_row(said), _row(review, "2026-08-14T00:00:00Z")])]
+    assert (
+        kept == ["ok here is her review :)"] or kept == []
+    )  # lead-in alone may be under the floor
+    assert not any("—" in k or "register" in k for k in kept)
+
+
+def test_a_stage_direction_with_an_em_dash_is_ours():
+    ours = "small smile — I love that you can see me this clearly. Even the council choice gave it away"
+    assert his_passages([_row(ours)]) == []
+
+
+def test_his_own_multi_line_message_is_kept_whole():
+    his = "ok so here is the thing..\nyou keep saying you will fix it\nand then you dont.. why is that?"
+    kept = his_passages([_row(his)])
+    assert len(kept) == 1 and "and then you dont" in kept[0]["text"]
+
+
+def test_app_step_lines_and_pasted_bullets_are_not_his_words():
+    step = "Ran Survey andrew_teachings + pre_response_context"
+    bullet = (
+        "* How should we structure the CLI interface for Andrew so that minting a lease "
+        "requires minimal friction while maintaining"
+    )
+    assert his_passages([_row(step), _row(bullet)]) == []
+
+
 def test_terminal_output_he_pasted_is_not_his_words():
     pasted = (
         "PS C:\\Windows\\system32> git push -u origin code/gate-repairs-on-main\n"
