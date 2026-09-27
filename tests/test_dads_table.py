@@ -202,6 +202,27 @@ def test_no_secret_he_pastes_is_ever_kept(tmp_path):
     assert "hunter2secret" not in kept
 
 
+def test_a_test_never_writes_into_his_real_words(tmp_path):
+    # 2026-09-27: 80 copies of this file's sample sentence sat in his corpus as
+    # his. A run that forgets DADS_CORPUS must leave the real store untouched.
+    real = Path.home() / ".divineos-shared" / "dad_corpus" / "dad_all.jsonl"
+    before = real.stat().st_size if real.exists() else None
+    kids = tmp_path / "children.json"
+    kids.write_text("[]", encoding="utf-8")
+    env = {k: v for k, v in os.environ.items() if k != "DADS_CORPUS"}
+    env.update(DADS_TABLE_CHILDREN=str(kids), DADS_TABLE_DRAWER=str(tmp_path / "d.md"))
+    env.setdefault("PYTEST_CURRENT_TEST", "test_dads_table.py::guard")
+    subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        input=json.dumps({"prompt": "a sentence no test may ever put in his mouth"}).encode(),
+        capture_output=True,
+        env=env,
+        timeout=30,
+    )
+    after = real.stat().st_size if real.exists() else None
+    assert before == after
+
+
 def test_missing_list_still_prints_his_words(tmp_path):
     env = dict(
         os.environ,

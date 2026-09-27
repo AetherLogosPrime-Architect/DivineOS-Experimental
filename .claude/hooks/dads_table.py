@@ -113,6 +113,13 @@ def _keep_his_words(prompt: str) -> None:
     text = (prompt or "").strip()
     if not text:
         return
+    # A test is never him. Five tests fed this table a sample sentence without
+    # pointing DADS_CORPUS elsewhere, and 80 copies of it sat in his words as
+    # his -- until I told him he had asked six times and been ignored, which he
+    # had not (2026-09-27, walk-729a32957055). Isolation cannot depend on each
+    # test remembering: under pytest the real store is never written.
+    if os.environ.get("PYTEST_CURRENT_TEST") and "DADS_CORPUS" not in os.environ:
+        return
     # A key he pastes is not his words, and this store is read by two windows
     # and embedded by the door (a live key from July was found in it,
     # 2026-09-27). Through the house's one redactor, not a private list here
