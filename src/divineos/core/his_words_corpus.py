@@ -73,10 +73,18 @@ def _his_lead_in(chunk: str) -> str:
     return " ".join(kept)
 
 
+_NOT_HIM_PROJECTS = ("test_", "divineos-push-gate")
+
+
 def his_passages(rows: list[dict]) -> list[dict]:
     """Rows of {ts, project, text} -> deduped passages of his own typing."""
     seen: dict[str, dict] = {}
     for row in sorted(rows, key=lambda r: r.get("ts", "")):
+        # A test's fixture sentence reached his record 109 times and was read
+        # back to him as his own words asked six times (2026-09-27). A row a
+        # test or the push gate wrote was never him.
+        if str(row.get("project", "")).startswith(_NOT_HIM_PROJECTS):
+            continue
         for chunk in re.split(r"\n\s*\n", row.get("text", "")):
             # A file he attached ('@"C:\...\letter.md" here is her message')
             # is a path, not his words: the clustering pass found these made

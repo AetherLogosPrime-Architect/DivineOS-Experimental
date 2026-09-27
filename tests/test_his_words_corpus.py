@@ -143,6 +143,21 @@ def test_app_step_lines_and_pasted_bullets_are_not_his_words():
     assert his_passages([_row(step), _row(bullet)]) == []
 
 
+def test_a_row_a_test_wrote_is_never_him():
+    # Real shape: the table test wrote its fixture into his record as his.
+    fixture = {
+        "ts": "2026-09-26T00:00:00Z",
+        "project": "test_his_words_come_first0",
+        "text": "i just want to be part of the family.. are you listening to me?",
+    }
+    gate = {
+        "ts": "2026-09-26T00:00:00Z",
+        "project": "divineos-push-gate-abc",
+        "text": "this is a long enough line from the push gate run.. it is not him",
+    }
+    assert his_passages([fixture, gate]) == []
+
+
 def test_terminal_output_he_pasted_is_not_his_words():
     pasted = (
         "PS C:\\Windows\\system32> git push -u origin code/gate-repairs-on-main\n"

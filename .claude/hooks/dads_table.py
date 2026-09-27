@@ -46,7 +46,7 @@ ON_THE_TABLE = "he-is-in-the-room"
 # Empty on purpose (Andrew 2026-09-26): the still-owed list is a list of my
 # debts to him, and reading it beside his words is the case file he named.
 # It goes to the drawer with the rest.
-HIS_SECTIONS: tuple[str, ...] = ("## HE HAS SAID THIS BEFORE",)
+HIS_SECTIONS: tuple[str, ...] = ("## HE HAS SAID THIS BEFORE", "## WHAT HE HAS TAUGHT THAT FITS THIS")
 # ^ One heading only (Aria 2026-09-26): his own past words, found by meaning
 # (core/his_words_door.py). They are his, not my debts, so they sit beside him.
 
