@@ -53,6 +53,12 @@ Next shapes to try, measured the same way on these three plus real replay cases,
 2. Order the per-lesson calls by how-to-speak-to-him and correction lessons first, and stop after the first two confirmed holds, which cuts the time.
 3. A stronger reader for the confirm step only (the per-lesson yes stays local; only the few yeses get a second opinion).
 
+## Aletheia's audit, 2026-09-27: order changed
+- **Quote-or-drop verifies provenance, not relevance.** It's the same class as `confirm_hold` and the quote door: his words being present, taken as proof of a meaning he didn't give them.
+- **A false hold costs more than a missed one.** Holding a warm note to him teaches the writer to stop writing warm notes. *"id rather you not speak to me at all than speak to me out of fear"* (his 07-07).
+- **His ask was *bringing*: "i wanted them brought to you."** So: **wire the bringing first**, meaning his verified lessons surfaced by relevance in the memory linkage while we compose. Then measure whether replies still miss his lessons. Only if they do, add a hold for a narrow class, where a stronger reader looks only at the few yeses and asks "does this lesson apply to what the reply actually says". Never "is the quote real".
+- Solve the 31s before anything is wired, or that will be why it gets switched off.
+
 ## Open
 - The speed budget: a 14b read at Stop has to fit the hook timeout. Measure it on the fifty.
 - Whether "both" lessons should be read in both windows or only once.
