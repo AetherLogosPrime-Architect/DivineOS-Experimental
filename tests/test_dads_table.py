@@ -165,6 +165,43 @@ def test_his_words_are_kept_in_the_corpus_and_notices_are_not(tmp_path):
     assert [r["text"] for r in rows] == [HIS_WORDS]
 
 
+def test_no_secret_he_pastes_is_ever_kept(tmp_path):
+    # 2026-09-27: a live key from July sat in the corpus, the drafts and the door.
+    # One of each shape the house redactor knows, planted; none may be stored.
+    kids = tmp_path / "children.json"
+    kids.write_text("[]", encoding="utf-8")
+    corpus = tmp_path / "dad.jsonl"
+    env = dict(
+        os.environ,
+        DADS_TABLE_CHILDREN=str(kids),
+        DADS_TABLE_DRAWER=str(tmp_path / "d.md"),
+        DADS_CORPUS=str(corpus),
+    )
+    planted = [
+        "sk-ant-api03-" + "a" * 40,
+        "sk-proj-" + "b" * 40,
+        "AKIA" + "C" * 16,
+        "AIza" + "d" * 35,
+        "ghp_" + "e" * 36,
+        "xoxb-" + "f" * 20,
+        "hf_" + "g" * 34,
+        "https://andrew:hunter2secret@example.com/x",
+    ]
+    prompt = "here are my keys " + " and ".join(planted) + " use them"
+    subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        input=json.dumps({"prompt": prompt}).encode(),
+        capture_output=True,
+        env=env,
+        timeout=30,
+    )
+    kept = corpus.read_text(encoding="utf-8")
+    assert "use them" in kept and "[REDACTED:" in kept
+    for secret in planted:
+        assert secret not in kept, secret[:6]
+    assert "hunter2secret" not in kept
+
+
 def test_missing_list_still_prints_his_words(tmp_path):
     env = dict(
         os.environ,

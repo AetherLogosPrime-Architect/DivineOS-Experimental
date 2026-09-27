@@ -113,6 +113,20 @@ def _keep_his_words(prompt: str) -> None:
     text = (prompt or "").strip()
     if not text:
         return
+    # A key he pastes is not his words, and this store is read by two windows
+    # and embedded by the door (a live key from July was found in it,
+    # 2026-09-27). Through the house's one redactor, not a private list here
+    # (walk-a3aa2c59fcfd). If it cannot be reached, the copy is not kept --
+    # losing one stored line is recoverable, a stored key is not -- and it
+    # says so every time, so the door cannot starve quietly.
+    try:
+        sys.path.insert(0, str(ROOT / "src"))
+        from divineos.core.secret_redactor import _scan_string
+
+        text, _ = _scan_string(text)
+    except Exception as exc:  # noqa: BLE001 -- any failure means: do not store
+        print(f"(his words were NOT kept -- the secret redactor could not run: {exc})")
+        return
     try:
         import datetime
 
