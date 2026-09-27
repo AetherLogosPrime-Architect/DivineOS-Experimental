@@ -146,7 +146,13 @@ def _is_due(item: TodoItem) -> bool:
 
 
 _ROOT_CAUSE = re.compile(r"root[ -]cause\s*:", re.IGNORECASE)
-_FIX_LINE = re.compile(r"(structural fix|behavior change)\s*:", re.IGNORECASE)
+# "behavior change:" no longer qualifies. Run on his 476 open rows 2026-09-27:
+# 35 qualified on it alone, and of twelve read about half were his teachings --
+# #353 "you built nothing, until i begged you", #341 "actually asking her" --
+# which a work queue would tick off. A teaching and a job are both written
+# "behavior change:", so the pattern cannot tell them apart; those rows are
+# read one by one instead (Aletheia, 2026-09-27).
+_FIX_LINE = re.compile(r"structural fix\s*:", re.IGNORECASE)
 
 
 def is_mechanical_correction(text: str) -> bool:
@@ -160,12 +166,10 @@ def is_mechanical_correction(text: str) -> bool:
     handed back to him as his most urgent unfinished task.
 
     The line is drawn by how the row was FILED, not by guessing at its words.
-    The correction command refuses any filing without a "root cause:" and a
-    "structural fix:" or "behavior change:" -- so those rows are mine, about my
-    own mistake, with the fix I owe. Measured the same day: 284 of 466 open rows
-    carry both. The rest are his words as he said them, and gate-filed notes;
-    they stay whole in the tracker and are answered by being spoken to, not
-    closed by a commit.
+    Only a row with a "root cause:" AND a "structural fix:" is a job: it is
+    mine, about my own mistake, with the build I owe. 254 of 476 open rows on
+    2026-09-27. The rest are his words as he said them, and are answered by
+    being spoken to, never closed by a commit.
     """
     return bool(_ROOT_CAUSE.search(text) and _FIX_LINE.search(text))
 

@@ -72,6 +72,19 @@ class TestRanking:
         assert not belt._is_due(his)
         assert belt._is_due(mine)
 
+    def test_a_behavior_change_line_alone_does_not_make_his_teaching_a_job(self) -> None:
+        # The 35 rows found 2026-09-27 on his real pile. #353 is his teaching;
+        # written with "behavior change:" it would have been ticked off.
+        teaching = _item(
+            "correction",
+            "353",
+            47,
+            text="Andrew 2026-08-11: 'you built nothing, until i begged you.. and then you built "
+            "it shoddily'. root cause: his asks got less effort. behavior change: build his "
+            "asks with full effort.",
+        )
+        assert not belt._is_due(teaching)
+
     def test_not_yet_due_and_acknowledgements_are_not_tasks(self) -> None:
         assert not belt._is_due(_item("prereg", "p", 1, overdue_days=0))
         assert belt._is_due(_item("prereg", "p", 1, overdue_days=3))
