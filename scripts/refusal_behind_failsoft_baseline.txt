@@ -55,6 +55,11 @@
 # tests/test_a_door_still_refuses_without_its_library.py pins both directions
 # and asserts these two names are OFF this list. work-item-doorman.sh stays
 # listed; its repair is Aria's and still owed.
+#
+# SHRANK BY ONE with #545: work-item-doorman.sh loads its library with
+# `|| true` and holds without it. Dropped here so the checker locks the fix --
+# left on the list, nothing would catch a slide back to `|| exit 0`, and
+# tests/test_the_doorman_holds_without_its_library.py asserts it stays off.
 
 andrew-correction-attestation.sh
 branch-scope-guard.sh
@@ -79,4 +84,3 @@ require-briefing.sh
 stale-file-edit-gate.sh
 summary-room-stop.sh
 verify-before-build-signal.sh
-work-item-doorman.sh
