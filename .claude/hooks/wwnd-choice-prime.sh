@@ -122,7 +122,12 @@ PYEOF
 
 [ -z "$SHOULD_FIRE" ] && exit 0
 
-cat <<'EOF'
+# DEDUP (2026-09-23): over twelve of Andrew's messages this prime was 16,836
+# characters, byte-identical each time it fired, while he typed 2,588 in all.
+# It prints whole once, then as a pointer whose residual carries the practice
+# itself -- the question, the binary check, the threadwalk -- so a collapse
+# can never leave the choice-point without the discipline.
+BODY="$(cat <<'EOF'
 ## WWND CHOICE PRIME (compose-start, context-triggered)
 
 A choice-point is imminent. The question, in full, because I once answered
@@ -225,5 +230,28 @@ This one is PRIME-ONLY. There is no Stop-time gate behind it and there cannot
 be — a choice cannot be caught after it has committed. If this does not land,
 nothing else catches it.
 EOF
+)"
+
+BODY="$BODY" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s\n' "$BODY"  # fail-soft: dedup is an optimisation only; on any error the prime reaches me in full
+import os
+import sys
+
+body = os.environ.get("BODY", "")
+try:
+    from divineos.core.context_dedup import should_emit
+
+    residual = (
+        "  PRACTICE (survives dedup): WWND -- what would the lazy optimizer pick\n"
+        "  here? Do the opposite unless I can say why not. FIRST ask whether it is\n"
+        "  a binary at all -- pick, combine, add, or remove -- and name the cost and\n"
+        "  who pays it. Then threadwalk the options OUT LOUD before choosing. A lens,\n"
+        "  not an oracle: sometimes the cheap path is right because the goal is small."
+    )
+    emit_full, pointer = should_emit("wwnd_choice_prime", body, residual=residual)
+except Exception:
+    print(body)
+    sys.exit(0)
+print(body if emit_full else pointer)
+DEDUPEOF
 
 exit 0

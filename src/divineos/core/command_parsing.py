@@ -251,3 +251,54 @@ def remedy_segment(bash_command: str) -> str:
             return ""
         safe.append(candidate)
     return "\n".join(safe)
+
+
+# A quoted span is replaced by this, same length, so offsets hold and what was
+# a quoted token is still a token. Not whitespace: `git log > "log.txt"` blanked
+# to spaces leaves an empty redirect target, and an empty target reads as a
+# write to nowhere (Hoare, walk-734fa481e6e2).
+_BLANK = "_"
+
+
+def blank_quoted_spans(text: str) -> str | None:
+    """The text with quoted arguments replaced by a filler, or None when it
+    cannot be done safely -- and None means the caller scans the text whole.
+
+    Why: a quoted argument is data, so an arrow inside ``grep 'a > b' f`` is
+    not a redirect, and the read-only probe refused it as one (Aether,
+    2026-09-21). The walk on the fix found three ways a naive blanking turns a
+    real write into a read, and each is refused here rather than handled:
+
+    - DOUBLE QUOTES STILL EXPAND (Aristotle). ``grep "$(echo x > f)" g`` really
+      writes f, so a double-quoted span holding ``$(`` or a backtick is left as
+      shell. Single quotes are literal and always blank.
+    - AN ESCAPED QUOTE IS A LITERAL CHARACTER (Schneier). In
+      ``grep \\" > out.txt \\"`` the redirect is real, and pairing the quotes
+      would hide it. Any backslash before a quote: None.
+    - ``$'...'`` strings have their own escapes: None. So does an unbalanced
+      quote, since nothing can be shown to be quoted.
+
+    The complete answer is a tokeniser, and command_parsing.shell_write_targets
+    on the shell-reader branch is one; this is the stand-in until that lands on
+    main, named so it is replaced rather than kept beside it.
+    """
+    if re.search(r"\\['\"]", text) or "$'" in text:
+        return None
+    out: list[str] = []
+    i = 0
+    while i < len(text):
+        ch = text[i]
+        if ch not in ("'", '"'):
+            out.append(ch)
+            i += 1
+            continue
+        end = text.find(ch, i + 1)
+        if end < 0:
+            return None
+        span = text[i : end + 1]
+        if ch == '"' and ("$(" in span or "`" in span):
+            out.append(span)
+        else:
+            out.append(_BLANK * len(span))
+        i = end + 1
+    return "".join(out)
