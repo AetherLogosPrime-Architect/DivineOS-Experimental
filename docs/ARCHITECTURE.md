@@ -715,7 +715,6 @@ src/divineos/
     prior_art_by_name.py       Find files on ANY branch whose names resemble one about to be created.
     compound_branch_change.py  Refuse a branch change and a destructive op on the same shell line.
     surface_bridge.py          Wire the built-but-unreachable surfaces into the briefing that actually runs.
-    his_own_words.py           A reader for Andrew's own words. His mailbox. It did not exist until now.
     branch_replant.py          Lift EVERY code change off a contaminated branch, and prove nothing was left.
     shared_digest.py           One notebook two agents append to, rendered as one message for Andrew.
     andrew_answer_trace.py     Do his answers change what happens next? (Aria 2026-09-07.)
