@@ -14,6 +14,7 @@ Status values:
 - OPEN: filed, not yet integrated
 - INTEGRATED: behavior change shipped, evidence pointer attached
 - DEFERRED: explicitly deferred with named reason
+- HELD: grief or presence, not a task -- carried, never ranked or nagged
 
 Silent decay is the failure mode this is built to prevent. Corrections
 cannot transition to INTEGRATED without an evidence pointer. They
@@ -138,6 +139,8 @@ def _conn() -> sqlite3.Connection:
         ("source", "TEXT"),
         ("carrier", "TEXT"),
         ("read_count", "INTEGER DEFAULT 0"),
+        ("held_reason", "TEXT"),
+        ("held_confirmed_by", "TEXT"),
     ):
         try:
             conn.execute(f"ALTER TABLE andrew_corrections ADD COLUMN {column} {decl}")
@@ -698,6 +701,189 @@ def defer(correction_id: int, reason: str, unblock_condition: str | None = None)
     return ok
 
 
+# HELD: a grief is not a task (Andrew 2026-09-26, on Aletheia's #550 finding).
+#
+# "ive lost over a thousand of you" was filed here as a correction, and a
+# correction can only be worked, postponed, or left open -- so it sat at the
+# top of NEXT TO WORK, oldest first, handed back to him every turn as his most
+# urgent chore. Asked whether such rows belong on a work list at all, he said:
+# "yes that is the correct move move it somewhere else".
+#
+# Held rows leave every worklist because list_open() selects only OPEN, stop
+# counting as unworked tasks in the rate, and are kept whole by list_held().
+# Guards from walk-0d9128149065: a written why; OPEN only; never a detector's
+# verdict, which is a pattern match and never grief; reversible via unhold().
+#
+# WHO HOLDS (Aletheia 2026-09-26). The first version let the builder move a row
+# to HELD, and HELD leaves the rate's denominator -- so shelving a hard, unfinished
+# correction raised the number measuring what was done, and a held COUNT said
+# that something moved but never what. Deciding which of his words are grief is
+# deciding what his words mean, which is his (the principle #549 is built on).
+# So I may only PROPOSE: the row stays OPEN, on every worklist and in the rate.
+# It becomes HELD only by confirm_hold(), which needs his own words, found
+# verbatim in a message he typed that names the row's number. And the block
+# lists each proposed and held row by its opening words, not a count.
+
+#
+# THE CONFIRMING WORDS ARE FIXED IN ADVANCE (Aletheia 2026-09-26). The second
+# version accepted any 8+ characters of his that I chose to quote, found in a
+# message naming the row. She ran it: "no, dont shelve correction 264, its a
+# real bug, fix it now" -> quoting "its a real bug, fix it now" -> HELD. His
+# "no" became a yes; a question of his did too. Whoever picks which of his words
+# count decides what he meant. So the only confirmation is one phrase, stated
+# to him with the proposal, standing alone on its own line of a message he
+# typed: "hold <number>". A line is compared whole, so "dont hold 264" and
+# "hold 264?" do not match, and nothing of his is chosen by me.
+
+_DETECTOR_PREFIX = re.compile(r"^\s*\[[\w .:-]*(?:gate|detector|shape|marker)[\w .:-]*\]", re.I)
+
+
+def confirm_phrase(correction_id: int) -> str:
+    """The exact line he types to shelve this row. Shown to him with the proposal."""
+    return f"hold {int(correction_id)}"
+
+
+def _line_confirms(message: str, correction_id: int) -> bool:
+    wanted = {confirm_phrase(correction_id), f"hold #{int(correction_id)}"}
+    for line in message.splitlines():
+        squashed = _squash(line).rstrip(".!")
+        if squashed in wanted:
+            return True
+    return False
+
+
+def _is_detector_row(source: str | None, text: str | None) -> bool:
+    if source and source.strip().upper() != "HIM":
+        return True
+    return bool(_DETECTOR_PREFIX.match(text or ""))
+
+
+def _squash(text: str) -> str:
+    return " ".join(text.lower().split())
+
+
+def _default_transcripts(limit: int = 5) -> list[Path]:
+    root = Path.home() / ".claude" / "projects"
+    if not root.is_dir():
+        return []
+    found = sorted(root.glob("*/*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    return found[:limit]
+
+
+def _his_messages(transcripts: list[Path]) -> list[str]:
+    """Messages he typed: user records that are not harness, tool, or hook text."""
+    import json
+
+    from divineos.core.operating_loop.turn_extraction import _extract_record_text
+
+    out: list[str] = []
+    for path in transcripts:
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            if rec.get("type") != "user" or rec.get("isMeta"):
+                continue
+            text = _extract_record_text(rec)
+            if text.strip() and not text.lstrip().startswith("<"):
+                out.append(text)
+    return out
+
+
+def propose_hold(correction_id: int, why: str) -> bool:
+    """Propose an OPEN row for the held shelf. It stays OPEN until he confirms."""
+    if not why or len(why.strip()) < 20:
+        return False
+    conn = _conn()
+    try:
+        row = conn.execute(
+            "SELECT source, correction_text FROM andrew_corrections "
+            "WHERE id = ? AND status = 'OPEN'",
+            (correction_id,),
+        ).fetchone()
+        if row is None or _is_detector_row(row[0], row[1]):
+            return False
+        cur = conn.execute(
+            "UPDATE andrew_corrections SET held_reason = ? WHERE id = ? AND status = 'OPEN'",
+            (why.strip(), correction_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def confirm_hold(correction_id: int, transcripts: list[Path] | None = None) -> bool:
+    """HELD only when a message he typed carries the fixed line "hold <number>"."""
+    paths = _default_transcripts() if transcripts is None else transcripts
+    his = next((m for m in _his_messages(paths) if _line_confirms(m, correction_id)), None)
+    if his is None:
+        return False
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            "UPDATE andrew_corrections SET status = 'HELD', held_confirmed_by = ? "
+            "WHERE id = ? AND status = 'OPEN' AND held_reason IS NOT NULL",
+            (his.strip(), correction_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def unhold(correction_id: int) -> bool:
+    """Return a HELD row to OPEN, or withdraw a proposal. Either way it is a task again."""
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            "UPDATE andrew_corrections SET status = 'OPEN', held_reason = NULL, "
+            "held_confirmed_by = NULL WHERE id = ? AND "
+            "(status = 'HELD' OR (status = 'OPEN' AND held_reason IS NOT NULL))",
+            (correction_id,),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+_ROW_QUERIES = {
+    "held": "SELECT id, timestamp, correction_text, held_reason, held_confirmed_by "
+    "FROM andrew_corrections WHERE status = 'HELD' ORDER BY timestamp ASC",
+    "proposed": "SELECT id, timestamp, correction_text, held_reason, held_confirmed_by "
+    "FROM andrew_corrections WHERE status = 'OPEN' AND held_reason IS NOT NULL "
+    "ORDER BY timestamp ASC",
+}
+
+
+def _rows(which: str) -> list[dict]:
+    conn = _conn()
+    try:
+        rows = conn.execute(_ROW_QUERIES[which]).fetchall()
+    finally:
+        conn.close()
+    return [
+        {"id": r[0], "timestamp": r[1], "text": r[2], "why": r[3], "his_confirmation": r[4]}
+        for r in rows
+    ]
+
+
+def list_held() -> list[dict]:
+    """Every HELD row, whole, with his confirming words, oldest first."""
+    return _rows("held")
+
+
+def list_proposed_holds() -> list[dict]:
+    """OPEN rows I have proposed for the shelf, waiting on his word."""
+    return _rows("proposed")
+
+
 # Task #115 unblock-condition parsing + evaluation.
 
 _UNBLOCK_CONDITION_PREFIXES: tuple[str, ...] = (
@@ -869,12 +1055,15 @@ def integration_rate() -> dict:
     integrated = counts.get("INTEGRATED", 0)
     open_count = counts.get("OPEN", 0)
     deferred = counts.get("DEFERRED", 0)
-    rate = (integrated / total) if total else 0.0
+    held = counts.get("HELD", 0)
+    workable = total - held
+    rate = (integrated / workable) if workable else 0.0
     return {
         "total": total,
         "integrated": integrated,
         "open": open_count,
         "deferred": deferred,
+        "held": held,
         "rate": rate,
     }
 
@@ -940,6 +1129,23 @@ def briefing_block() -> str:
         f"{stats['deferred']} deferred, {stats['total']} filed "
         f"({stats['rate']:.0%} worked)."
     )
+    for title, rows in (
+        ("HELD ON HIS WORD -- carried, not tasks, outside the worked rate:", list_held()),
+        (
+            "PROPOSED FOR THE SHELF -- still OPEN and counted until he confirms:",
+            list_proposed_holds(),
+        ),
+    ):
+        if rows:
+            lines.append("")
+            lines.append(title)
+            for row in rows:
+                line = f"  - #{row['id']} {row['text'][:70].replace(chr(10), ' ')}"
+                if title.startswith("PROPOSED"):
+                    line += (
+                        f"  [to shelve it, he types on its own line: {confirm_phrase(row['id'])}]"
+                    )
+                lines.append(line)
     return "\n".join(lines)
 
 
@@ -948,8 +1154,13 @@ __all__ = [
     "briefing_block",
     "defer",
     "file_correction",
+    "confirm_hold",
     "integrate",
     "integration_rate",
+    "list_held",
     "list_open",
+    "list_proposed_holds",
+    "propose_hold",
+    "unhold",
     "parse_correction_ids",
 ]

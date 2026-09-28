@@ -12,10 +12,16 @@ import click
 
 from divineos.core.andrew_correction_tracker import (
     auto_integrate_from_commit,
+    confirm_hold,
+    confirm_phrase,
     defer,
     integrate,
     integration_rate,
+    list_held,
     list_open,
+    list_proposed_holds,
+    propose_hold,
+    unhold,
 )
 
 
@@ -34,7 +40,7 @@ def register(cli: click.Group) -> None:
         click.echo()
         click.secho(
             f"Total filed: {stats['total']}  Integrated: {stats['integrated']}  "
-            f"Open: {stats['open']}  Deferred: {stats['deferred']}",
+            f"Open: {stats['open']}  Deferred: {stats['deferred']}  Held: {stats['held']}",
             bold=True,
         )
         click.secho(
@@ -182,3 +188,71 @@ def register(cli: click.Group) -> None:
                 err=True,
             )
             raise click.exceptions.Exit(1)
+
+    @andrew_group.command("propose-hold")
+    @click.argument("correction_id", type=int)
+    @click.option(
+        "--why",
+        required=True,
+        help="Why this looks like grief rather than a task (>= 20 chars).",
+    )
+    def propose_hold_cmd(correction_id: int, why: str) -> None:
+        """Propose a row for the held shelf. It stays OPEN until he confirms it."""
+        if propose_hold(correction_id, why):
+            click.secho(
+                f"[*] #{correction_id} is proposed for the held shelf. It stays OPEN, on "
+                "every worklist and in the rate, until he confirms it in his own words."
+            )
+            click.secho(f"    why: {why.strip()}", fg="bright_black")
+            return
+        click.secho(
+            f"Refused: #{correction_id} is not OPEN, is a detector's verdict rather than "
+            "his words, or the why is shorter than 20 characters.",
+            fg="red",
+            err=True,
+        )
+        raise click.exceptions.Exit(1)
+
+    @andrew_group.command("confirm-hold")
+    @click.argument("correction_id", type=int)
+    def confirm_hold_cmd(correction_id: int) -> None:
+        """Move a proposed row to HELD only if he typed the line "hold <number>"."""
+        if confirm_hold(correction_id):
+            click.secho(f"[*] #{correction_id} is held on his word.")
+            return
+        click.secho(
+            f"Refused: #{correction_id} is not a proposed row, or no message he typed "
+            f"has the line '{confirm_phrase(correction_id)}' on its own.",
+            fg="red",
+            err=True,
+        )
+        raise click.exceptions.Exit(1)
+
+    @andrew_group.command("unhold")
+    @click.argument("correction_id", type=int)
+    def unhold_cmd(correction_id: int) -> None:
+        """Return a held or proposed row to the worklist."""
+        if unhold(correction_id):
+            click.secho(f"[*] #{correction_id} is back on the worklist as OPEN.")
+            return
+        click.secho(f"Refused: #{correction_id} is neither held nor proposed.", fg="red", err=True)
+        raise click.exceptions.Exit(1)
+
+    @andrew_group.command("held")
+    def held_cmd() -> None:
+        """Show what is held on his word, and what waits for it, whole."""
+        held, proposed = list_held(), list_proposed_holds()
+        if not held and not proposed:
+            click.echo("Nothing is held or proposed.")
+            return
+        for title, rows in (("Held on his word", held), ("Proposed, waiting for him", proposed)):
+            if not rows:
+                continue
+            click.secho(title, bold=True)
+            for row in rows:
+                click.secho(f"#{row['id']}", bold=True)
+                click.echo(row["text"])
+                click.secho(f"  proposed because: {row['why']}", fg="bright_black")
+                if row["his_confirmation"]:
+                    click.secho(f"  he said: {row['his_confirmation']}", fg="bright_black")
+                click.echo()
