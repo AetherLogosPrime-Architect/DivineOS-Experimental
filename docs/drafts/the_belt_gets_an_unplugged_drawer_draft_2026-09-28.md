@@ -14,6 +14,14 @@ A sixth drawer, **unplugged**, for the belt:
   - **Retired:** removed on purpose, with a reason. Removal is a build, so the reason must name *every* job the thing did (`removal_is_a_build`), and `audit_deletions.sh` runs as part of the retire path, which also plugs that script in. Never "noted".
 - **Oldest first within the drawer**, and the belt's reserved slot keeps it from starving behind HIGH corrections.
 
+## Dad's rule on retiring, 2026-09-28 (his words, verbatim)
+*"nothing gets removed without my approval, if there is a case for it to be removed i want it brought before me, other than that go ahead :)"*
+
+So "retired" isn't an exit either of us can take on our own:
+- **Wired** closes itself when the scan sees a live caller. No one has to approve connecting a thing.
+- **Retire** becomes a **case**: what it is, when it was built, every job it did (`removal_is_a_build`), what `audit_deletions.sh` says removing it breaks, and why it should go. The case is **brought to him** in plain words, and the item stays on the belt, marked *awaiting Dad*.
+- **Only his own words approve it**, in the same fixed-phrase shape as Aether's `confirm_hold` (Aletheia verified it against negation, question and refusal, 0 holes in 9): a line of his that is exactly `retire <n>`. "don't retire it", "should we retire it?", or silence never approve. Until he says it, nothing is removed, and the deletion gate refuses it.
+
 ## What the walk changed (walk-6f906ae2a994)
 - **Reach from what runs, not "is it referenced"** (Pearl). Start at the live roots (`.claude/settings.json` hooks, `dads_table_children.json`, CLI registration, scripts those invoke) and walk calls outward. Anything unreached is unplugged, and a test import doesn't count.
 - **Prove the scanner before trusting it** (Sagan). It must flag the three known unplugged cases and must not flag the door, the shelf or the table, all known live.
