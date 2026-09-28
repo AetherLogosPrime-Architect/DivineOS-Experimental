@@ -726,6 +726,7 @@ src/divineos/
     hook_context_merge.py      Read what the session-init children printed and merge it into one answer.
     slashed_ref_path_check.py  Refuse a git argument the Windows shell will rewrite before git sees it.
     task_belt.py               The task belt: the pile ranked, a small current list pulled from it, done archived.
+    his_message.py             The one answer in this house to: is this transcript record Dad typing?
 
   analysis/
     _session_types.py          Session analysis type definitions
