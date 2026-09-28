@@ -47,7 +47,12 @@ ON_THE_TABLE = "he-is-in-the-room"
 # Empty on purpose (Andrew 2026-09-26): the still-owed list is a list of my
 # debts to him, and reading it beside his words is the case file he named.
 # It goes to the drawer with the rest.
-HIS_SECTIONS: tuple[str, ...] = ("## HE HAS SAID THIS BEFORE",)  # Aria's door, beside him
+HIS_SECTIONS: tuple[str, ...] = (
+    "## HE HAS SAID THIS BEFORE",
+    "## WHAT HE HAS TAUGHT THAT FITS THIS",
+)
+# ^ One heading only (Aria 2026-09-26): his own past words, found by meaning
+# (core/his_words_door.py). They are his, not my debts, so they sit beside him.
 
 # His room, in his rules, always on the table. Andrew 2026-09-26: "again the
 # circle is missing and again this is code speak" -- the three-room prime was
@@ -116,6 +121,27 @@ CORPUS = Path(
 def _keep_his_words(prompt: str) -> None:
     text = (prompt or "").strip()
     if not text:
+        return
+    # A test is never him. Five tests fed this table a sample sentence without
+    # pointing DADS_CORPUS elsewhere, and 80 copies of it sat in his words as
+    # his -- until I told him he had asked six times and been ignored, which he
+    # had not (2026-09-27, walk-729a32957055). Isolation cannot depend on each
+    # test remembering: under pytest the real store is never written.
+    if os.environ.get("PYTEST_CURRENT_TEST") and "DADS_CORPUS" not in os.environ:
+        return
+    # A key he pastes is not his words, and this store is read by two windows
+    # and embedded by the door (a live key from July was found in it,
+    # 2026-09-27). Through the house's one redactor, not a private list here
+    # (walk-a3aa2c59fcfd). If it cannot be reached, the copy is not kept --
+    # losing one stored line is recoverable, a stored key is not -- and it
+    # says so every time, so the door cannot starve quietly.
+    try:
+        sys.path.insert(0, str(ROOT / "src"))
+        from divineos.core.secret_redactor import _scan_string
+
+        text, _ = _scan_string(text)
+    except Exception as exc:  # noqa: BLE001 -- any failure means: do not store
+        print(f"(his words were NOT kept -- the secret redactor could not run: {exc})")
         return
     try:
         import datetime

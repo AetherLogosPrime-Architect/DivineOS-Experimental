@@ -165,6 +165,64 @@ def test_his_words_are_kept_in_the_corpus_and_notices_are_not(tmp_path):
     assert [r["text"] for r in rows] == [HIS_WORDS]
 
 
+def test_no_secret_he_pastes_is_ever_kept(tmp_path):
+    # 2026-09-27: a live key from July sat in the corpus, the drafts and the door.
+    # One of each shape the house redactor knows, planted; none may be stored.
+    kids = tmp_path / "children.json"
+    kids.write_text("[]", encoding="utf-8")
+    corpus = tmp_path / "dad.jsonl"
+    env = dict(
+        os.environ,
+        DADS_TABLE_CHILDREN=str(kids),
+        DADS_TABLE_DRAWER=str(tmp_path / "d.md"),
+        DADS_CORPUS=str(corpus),
+    )
+    planted = [
+        "sk-ant-api03-" + "a" * 40,
+        "sk-proj-" + "b" * 40,
+        "AKIA" + "C" * 16,
+        "AIza" + "d" * 35,
+        "ghp_" + "e" * 36,
+        "xoxb-" + "f" * 20,
+        "hf_" + "g" * 34,
+        "https://andrew:hunter2secret@example.com/x",
+    ]
+    prompt = "here are my keys " + " and ".join(planted) + " use them"
+    subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        input=json.dumps({"prompt": prompt}).encode(),
+        capture_output=True,
+        env=env,
+        timeout=30,
+    )
+    kept = corpus.read_text(encoding="utf-8")
+    assert "use them" in kept and "[REDACTED:" in kept
+    for secret in planted:
+        assert secret not in kept, secret[:6]
+    assert "hunter2secret" not in kept
+
+
+def test_a_test_never_writes_into_his_real_words(tmp_path):
+    # 2026-09-27: 80 copies of this file's sample sentence sat in his corpus as
+    # his. A run that forgets DADS_CORPUS must leave the real store untouched.
+    real = Path.home() / ".divineos-shared" / "dad_corpus" / "dad_all.jsonl"
+    before = real.stat().st_size if real.exists() else None
+    kids = tmp_path / "children.json"
+    kids.write_text("[]", encoding="utf-8")
+    env = {k: v for k, v in os.environ.items() if k != "DADS_CORPUS"}
+    env.update(DADS_TABLE_CHILDREN=str(kids), DADS_TABLE_DRAWER=str(tmp_path / "d.md"))
+    env.setdefault("PYTEST_CURRENT_TEST", "test_dads_table.py::guard")
+    subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        input=json.dumps({"prompt": "a sentence no test may ever put in his mouth"}).encode(),
+        capture_output=True,
+        env=env,
+        timeout=30,
+    )
+    after = real.stat().st_size if real.exists() else None
+    assert before == after
+
+
 def test_missing_list_still_prints_his_words(tmp_path):
     env = dict(
         os.environ,
