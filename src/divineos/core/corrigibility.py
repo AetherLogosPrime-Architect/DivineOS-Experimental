@@ -119,21 +119,40 @@ def _default_state() -> ModeState:
     return ModeState(mode=OperatingMode.NORMAL, reason="", actor="default", changed_at=0.0)
 
 
+def _unreadable_state(why: str) -> ModeState:
+    return ModeState(
+        mode=OperatingMode.EMERGENCY_STOP,
+        reason=f"the mode file exists but could not be read ({why}); treated as stopped",
+        actor="corrigibility",
+        changed_at=0.0,
+    )
+
+
 def get_mode_state() -> ModeState:
     """Return the current operating mode and its metadata.
 
-    Defaults to NORMAL if the persistence file is missing or malformed.
-    This is deliberate fail-open behavior — a missing mode file must
-    not lock my father out of their own system.
+    A MISSING file is NORMAL: nobody pulled the brake, and a missing file
+    must not lock my father out of his own system.
+
+    A file that EXISTS but cannot be read, is empty, or names no known mode
+    is EMERGENCY_STOP. It used to read as NORMAL (Anvil and Muse, SC #2,
+    2026-09-28), so a brake note cut off mid-write, or garbled by hand,
+    released the brake. Somebody wrote that file, and the likeliest thing
+    they wrote is "stop". The way back in still works: the recovery commands
+    are always allowed, and leaving the stop takes the operator's two-step
+    exit, which does not depend on reading this file.
     """
     path = _mode_file_path()
     if not path.exists():
         return _default_state()
     try:
         text = path.read_text(encoding="utf-8")
-        lines = [line.strip() for line in text.strip().splitlines() if line.strip()]
-        if not lines:
-            return _default_state()
+    except OSError as exc:
+        return _unreadable_state(type(exc).__name__)
+    lines = [line.strip() for line in text.strip().splitlines() if line.strip()]
+    if not lines:
+        return _unreadable_state("empty")
+    try:
         # Format: line 1 is mode value; line 2+ is optional reason/actor/timestamp.
         mode = OperatingMode(lines[0])
         reason = lines[1] if len(lines) > 1 else ""
@@ -143,9 +162,8 @@ def get_mode_state() -> ModeState:
         except (ValueError, IndexError):
             changed_at = 0.0
         return ModeState(mode=mode, reason=reason, actor=actor, changed_at=changed_at)
-    except (OSError, ValueError):
-        # Unreadable file or unknown mode value — fail open to NORMAL.
-        return _default_state()
+    except ValueError:
+        return _unreadable_state(f"unknown mode {lines[0][:40]!r}")
 
 
 def get_mode() -> OperatingMode:

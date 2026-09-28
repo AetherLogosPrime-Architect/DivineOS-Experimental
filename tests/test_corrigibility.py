@@ -295,20 +295,52 @@ class TestPersistenceFailOpen:
         assert state.mode is OperatingMode.NORMAL
         assert state.actor == "default"
 
-    def test_empty_file_returns_default(self):
+    # These two used to assert NORMAL, pinning the hole Anvil and Muse found
+    # (SC #2, 2026-09-28): a brake note cut off mid-write, or garbled, released
+    # the brake. An existing file that cannot be read now holds the stop; the
+    # next test proves the operator can still lift it.
+    def test_empty_file_holds_the_stop(self):
         path = _mode_file_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("", encoding="utf-8")
         state = get_mode_state()
-        assert state.mode is OperatingMode.NORMAL
+        assert state.mode is OperatingMode.EMERGENCY_STOP
+        assert "could not be read" in state.reason
 
-    def test_malformed_file_fails_open_to_normal(self):
-        """A garbled file must not lock the operator out."""
+    def test_malformed_file_holds_the_stop(self):
         path = _mode_file_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("not_a_real_mode\nsome garbage\n", encoding="utf-8")
         state = get_mode_state()
-        assert state.mode is OperatingMode.NORMAL
+        assert state.mode is OperatingMode.EMERGENCY_STOP
+        assert "not_a_real_mode" in state.reason
+
+    def test_from_a_garbled_stop_the_way_back_in_still_works(self):
+        """The recovery commands run, and the operator's two steps lift it."""
+        from divineos.core.corrigibility import (
+            EMERGENCY_STOP_EXIT_AUTHORIZED_EXPIRY_SECONDS,
+            EMERGENCY_STOP_EXIT_AUTHORIZED_KIND,
+            _emergency_stop_exit_fingerprint,
+            is_command_allowed,
+        )
+        from divineos.core.state_markers import emit_marker
+
+        path = _mode_file_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("emergency_st", encoding="utf-8")  # a write cut off mid-word
+        assert get_mode() is OperatingMode.EMERGENCY_STOP
+        assert is_command_allowed("mode")[0]
+        assert not is_command_allowed("learn")[0]
+        with pytest.raises(ValueError):
+            set_mode(OperatingMode.NORMAL, reason="self-release", actor="being")
+        emit_marker(
+            EMERGENCY_STOP_EXIT_AUTHORIZED_KIND,
+            _emergency_stop_exit_fingerprint(),
+            payload={"reason": "operator lifting a garbled stop"},
+            expires_in_seconds=EMERGENCY_STOP_EXIT_AUTHORIZED_EXPIRY_SECONDS,
+        )
+        set_mode(OperatingMode.NORMAL, reason="lifted by operator", actor="op")
+        assert get_mode() is OperatingMode.NORMAL
 
     def test_partial_file_still_parses_mode(self):
         """If mode line is valid but metadata is missing, still return the mode."""
