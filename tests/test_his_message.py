@@ -108,6 +108,9 @@ def test_a_bookmark_is_kept_when_it_is_the_only_copy():
     assert [h.text for h in heard_in([lone])] == ["are you there?"]
 
 
+SEAT_MIN_TRANSCRIPTS = 20
+
+
 def _shapes_heard_in(folder: Path, files: int = 40) -> dict[str, int]:
     kinds = {"typed": 0, "queued": 0, "bookmark": 0}
     newest = sorted(folder.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)[-files:]
@@ -135,8 +138,15 @@ def test_on_the_real_transcripts_each_window_hears_him():
     other (Aria, 2026-09-28). Each seat's folder is read on its own, and a
     failure names whose window went deaf."""
     root = Path.home() / ".claude" / "projects"
+    # A seat is a lived-in window. Short worktree side-sessions (1 to 11
+    # transcripts) can hold no message of his at all, and counting them as
+    # deaf failed this test at push time on 2026-09-28.
     seats = (
-        sorted(p for p in root.glob("*DivineOS-Experimental*") if p.is_dir())
+        sorted(
+            p
+            for p in root.glob("*DivineOS-Experimental*")
+            if p.is_dir() and len(list(p.glob("*.jsonl"))) >= SEAT_MIN_TRANSCRIPTS
+        )
         if root.is_dir()
         else []
     )
