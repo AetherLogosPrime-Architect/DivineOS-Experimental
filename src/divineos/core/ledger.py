@@ -920,6 +920,74 @@ def _chain_result(
     }
 
 
+def append_on(conn, event_type: str, actor: str, payload: dict[str, Any]) -> str:
+    """Append one chained event on a connection whose transaction the caller holds.
+
+    For a writer that must record what it did in the same transaction as the
+    act -- the ledger cleaner, whose note on each removal went through
+    log_event's second connection, waited on the cleaner's own lock, failed,
+    and was swallowed (Anvil and Muse, SC #10, 2026-09-28). The caller
+    BEGINs and COMMITs; if the act fails, its note rolls back with it.
+    """
+    payload = dict(payload)
+    content_hash = compute_hash(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+    payload["content_hash"] = content_hash
+    payload_json = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    event_id = str(uuid.uuid4())
+    timestamp = time.time()
+    prior_hash = _latest_chain_hash(conn)
+    chain_hash = _compute_chain_hash(
+        prior_hash=prior_hash,
+        event_id=event_id,
+        timestamp=timestamp,
+        event_type=event_type,
+        actor=actor,
+        payload_json=payload_json,
+        content_hash=content_hash,
+    )
+    conn.execute(
+        "INSERT INTO system_events "
+        "(event_id, timestamp, event_type, actor, payload, content_hash, prior_hash, chain_hash) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            event_id,
+            timestamp,
+            event_type,
+            actor,
+            payload_json,
+            content_hash,
+            prior_hash,
+            chain_hash,
+        ),
+    )
+    conn.execute(
+        "INSERT OR REPLACE INTO ledger_head_anchor "
+        "(row_id, chain_hash, event_count, latest_event_id, updated_at) "
+        "VALUES (1, ?, (SELECT COUNT(*) FROM system_events), ?, ?)",
+        (chain_hash, event_id, timestamp),
+    )
+    return event_id
+
+
+# Investigated chain breaks, each written with its evidence beside the id.
+KNOWN_CHAIN_BREAKS_FILE = Path(__file__).resolve().parents[3] / "docs" / "known_chain_breaks.md"
+
+
+def _known_chain_breaks() -> set[str]:
+    """Event ids whose prior link broke for a recorded, non-tampering cause.
+
+    An entry excuses THE LINK only, never the row's own hash, which is still
+    rechecked (Aria 2026-09-28, who wrote the one entry). A bare id with no
+    evidence beside it is not an exemption: the file exists so a claim can be
+    argued with, and an id alone is a claim with nothing to argue.
+    """
+    try:
+        text = KNOWN_CHAIN_BREAKS_FILE.read_text(encoding="utf-8")
+    except OSError:
+        return set()
+    return set(re.findall(r"^-\s+`([0-9a-f-]{8,})`\s*\S.{7,}", text, re.MULTILINE))
+
+
 def verify_chain() -> dict[str, Any]:
     """Walk the chain and verify each chain_hash. Returns dict with
     ok (bool), total (int), broken_at (event_id or None),
@@ -934,21 +1002,6 @@ def verify_chain() -> dict[str, Any]:
       - anchor absent (pre-anchor legacy database) → chain-only check
         is honest about that with a diagnostic on ok=True.
     """
-    known_breaks_file = Path(__file__).resolve().parents[3] / "docs" / "known_chain_breaks.md"
-
-    def _known_chain_breaks() -> set[str]:
-        """Event ids of chain breaks already investigated and written down.
-
-        An entry is a claim that someone looked and found a cause that is not
-        tampering. The file holds the evidence beside the id, so the exemption
-        can be argued with rather than merely trusted.
-        """
-        try:
-            text = known_breaks_file.read_text(encoding="utf-8")
-        except OSError:
-            return set()
-        return set(re.findall(r"^-\s+`([0-9a-f-]{8,})`", text, re.MULTILINE))
-
     conn = _get_connection()
     try:
         rows = list(
@@ -1053,21 +1106,19 @@ def verify_chain() -> dict[str, Any]:
                 # cries tampered cannot report tampering. Silencing it by
                 # repairing the link would have traded a true history for a
                 # quiet instrument.
-                known = _known_chain_breaks()
-                if event_id in known:
+                if event_id in _known_chain_breaks():
+                    # The link is excused; the row's own hash is still checked
+                    # below. Skipping that recheck (the old `continue` here)
+                    # meant a listed row was checked less than every other.
                     known_breaks_seen.append(event_id)
-                    expected_prior = stored_chain
-                    last_chain_hash = stored_chain
-                    last_event_id = event_id
-                    chain_event_count += 1
-                    continue
-                return _chain_result(
-                    verified=chain_event_count,  # rows walked before the break, not zero
-                    ok=False,
-                    total=len(rows),
-                    broken_at=event_id,
-                    broken_reason=f"prior_hash mismatch: stored={(stored_prior or '')[:12]}..., expected={expected_prior[:12]}...",
-                )
+                else:
+                    return _chain_result(
+                        verified=chain_event_count,
+                        ok=False,
+                        total=len(rows),
+                        broken_at=event_id,
+                        broken_reason=f"prior_hash mismatch: stored={(stored_prior or '')[:12]}..., expected={expected_prior[:12]}...",
+                    )
             recomputed = _compute_chain_hash(
                 prior_hash=stored_prior,
                 event_id=event_id,
