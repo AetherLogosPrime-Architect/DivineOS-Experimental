@@ -318,7 +318,12 @@ def set_mode(mode: OperatingMode, *, reason: str, actor: str) -> ModeState:
     now = time.time()
     # Persist the new state.
     content = f"{mode.value}\n{reason.strip()}\n{actor}\n{now}\n"
-    path.write_text(content, encoding="utf-8")
+    # Written whole beside the old note and swapped in, so an interrupted write
+    # leaves the previous note intact rather than a half-written one (Andrew
+    # 2026-09-28). Unreadable-means-stopped in get_mode_state is the backstop.
+    from divineos.core.atomic_io import atomic_write_text
+
+    atomic_write_text(path, content)
 
     # Also log to the ledger so mode changes are visible in the audit trail.
     # Wrapped in try/except because ledger may not be initialized in all

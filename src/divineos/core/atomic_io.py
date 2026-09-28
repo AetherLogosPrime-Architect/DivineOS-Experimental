@@ -25,6 +25,7 @@ new dependencies.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 
@@ -47,7 +48,13 @@ def atomic_write_text(path: Path, content: str, encoding: str = "utf-8") -> None
     correctness — a leftover ``.tmp`` doesn't corrupt the target.
     """
     tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(content, encoding=encoding)
+    with open(tmp, "w", encoding=encoding) as fh:
+        fh.write(content)
+        fh.flush()
+        # Wait for the bytes to reach the disk before the swap, so a power
+        # cut after the rename cannot leave the new name pointing at an
+        # empty file (2026-09-28, while moving the brake onto this helper).
+        os.fsync(fh.fileno())
     tmp.replace(path)
 
 

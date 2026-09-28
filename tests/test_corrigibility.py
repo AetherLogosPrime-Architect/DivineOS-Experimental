@@ -315,6 +315,23 @@ class TestPersistenceFailOpen:
         assert state.mode is OperatingMode.EMERGENCY_STOP
         assert "not_a_real_mode" in state.reason
 
+    def test_an_interrupted_write_leaves_the_old_note_whole(self, monkeypatch):
+        """The new note is written beside the old one and swapped in; if the
+        swap never happens, the old note is untouched (Andrew 2026-09-28)."""
+        from pathlib import Path
+
+        set_mode(OperatingMode.EMERGENCY_STOP, reason="brake on", actor="op")
+        before = _mode_file_path().read_text(encoding="utf-8")
+
+        def power_cut(self, target):
+            raise OSError("power cut mid-swap")
+
+        monkeypatch.setattr(Path, "replace", power_cut)
+        with pytest.raises(OSError):
+            set_mode(OperatingMode.EMERGENCY_STOP, reason="a second note", actor="op")
+        assert _mode_file_path().read_text(encoding="utf-8") == before
+        assert get_mode() is OperatingMode.EMERGENCY_STOP
+
     def test_from_a_garbled_stop_the_way_back_in_still_works(self):
         """The recovery commands run, and the operator's two steps lift it."""
         from divineos.core.corrigibility import (
