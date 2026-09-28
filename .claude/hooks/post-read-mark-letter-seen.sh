@@ -37,14 +37,19 @@ try:
     data = json.loads(os.environ.get('HOOK_JSON', '') or '{}')
 except Exception:
     sys.exit(0)
-if data.get('tool_name') != 'Read':
-    sys.exit(0)
-path = (data.get('tool_input') or {}).get('file_path') or ''
-if not path:
-    sys.exit(0)
+tool = data.get('tool_name')
+ti = data.get('tool_input') or {}
 try:
-    from divineos.core.letter_seen_router import mark_seen_if_letter
-    mark_seen_if_letter(path)
+    from divineos.core.letter_seen_router import letters_read_by_command, mark_seen_if_letter
+    if tool == 'Read':
+        path = ti.get('file_path') or ''
+        if path:
+            mark_seen_if_letter(path)
+    elif tool == 'Bash':
+        # 2026-09-23: a letter printed with cat is read as surely as one opened
+        # with Read; eight of nine that day were opened this way and none counted.
+        for name in letters_read_by_command(ti.get('command') or ''):
+            mark_seen_if_letter(name)
 except Exception:
     pass
 " 2>/dev/null || true
