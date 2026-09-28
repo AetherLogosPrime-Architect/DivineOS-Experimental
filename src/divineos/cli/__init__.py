@@ -430,6 +430,7 @@ from divineos.cli import (  # noqa: E402
     prs_commands,
     automerge_commands,
     todos_commands,
+    belt_commands,
     voice_commands,
     monitor_commands,
     search_commands,
@@ -460,6 +461,9 @@ label_fire_commands.register(cli)
 must_read_commands.register(cli)
 automerge_commands.register(cli)
 todos_commands.register(cli)
+# Beside todos on purpose: todos shows the whole pile, the belt is the small
+# current list pulled from it (Andrew 2026-09-23).
+belt_commands.register(cli)
 voice_commands.register(cli)
 monitor_commands.register(cli)
 search_commands.register(cli)

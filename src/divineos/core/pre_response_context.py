@@ -912,7 +912,10 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
     # — is now structurally absent. Fail-soft.
     next_task_text = ""
     try:
-        from divineos.core.next_task_surface import build_next_task_surface
+        from divineos.core.next_task_surface import (
+            build_next_task_residual,
+            build_next_task_surface,
+        )
 
         next_task_text = build_next_task_surface()
         # Warden-pattern dedup (Andrew 2026-07-01). NEXT TASK block
@@ -923,7 +926,13 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
         try:
             from divineos.core.context_dedup import should_emit
 
-            emit_full, pointer = should_emit("next_task", next_task_text)
+            # The residual keeps every current item NAMED while the block is
+            # collapsed. Without it, "unchanged" hid the next task entirely,
+            # which is how a LOW item from July sat invisible on top for
+            # weeks (Andrew 2026-09-23: "always aware of the current tasks").
+            emit_full, pointer = should_emit(
+                "next_task", next_task_text, residual=build_next_task_residual()
+            )
             if not emit_full and pointer:
                 next_task_text = pointer
         except Exception:  # noqa: BLE001 - observability boundary
