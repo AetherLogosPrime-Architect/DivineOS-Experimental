@@ -4,12 +4,13 @@ For each of his typed prompts in this session: his characters, versus the
 characters of hook output attached to that same prompt (records sharing the
 prompt's parent chain until the next assistant message).
 """
+
 import json
 import sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
-recs = [json.loads(l) for l in path.open(encoding="utf-8", errors="replace") if l.strip()]
+recs = [json.loads(line) for line in path.open(encoding="utf-8", errors="replace") if line.strip()]
 
 rows = []
 i = 0
@@ -38,7 +39,9 @@ while i < len(recs):
             if "hook" in s.lower():
                 house += len(s)
             k -= 1
-        rows.append((r.get("timestamp", "")[11:16], his, house, m["content"][:50].replace("\n", " ")))
+        rows.append(
+            (r.get("timestamp", "")[11:16], his, house, m["content"][:50].replace("\n", " "))
+        )
     i += 1
 
 print("probe check - rows found:", len(rows))
