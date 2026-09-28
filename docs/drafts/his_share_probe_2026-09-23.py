@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
-recs = [json.loads(l) for l in path.open(encoding="utf-8", errors="replace") if l.strip()]
+recs = [json.loads(line) for line in path.open(encoding="utf-8", errors="replace") if line.strip()]
 
 rows = []
 i = 0
