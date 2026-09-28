@@ -109,6 +109,25 @@ def is_him(text: object) -> bool:
     return not any(marker in text for marker in _NOT_HIM)
 
 
+# A message he types while I am busy is not a role:user record; it arrives as
+# a last-prompt record or a queued_command attachment. Reading only role:user
+# missed 4,735 of his messages by 2026-09-26 (Aria, #513 reading), and the
+# empty result looked like "he never said it". Shapes as in reflection_room.
+_HIS_SHAPES = ('"role":"user"', '"role": "user"', "last-prompt", "queued_command")
+
+
+def _typed_by_him(event: dict) -> object:
+    if event.get("type") == "last-prompt":
+        return event.get("lastPrompt")
+    attachment = event.get("attachment") or {}
+    if attachment.get("type") == "queued_command":
+        return attachment.get("prompt")
+    message = event.get("message") or {}
+    if message.get("role") != "user":
+        return None
+    return message.get("content")
+
+
 def read_him(
     transcripts: Path,
     *,
@@ -134,6 +153,7 @@ def read_him(
         return Reading("could-not-read", reason=f"no transcripts in {transcripts}")
 
     said: list[Utterance] = []
+    seen: set[tuple[str, str]] = set()  # one message can arrive in two shapes
     opened = 0
     for path in paths:
         try:
@@ -143,17 +163,14 @@ def read_him(
         opened += 1
         with handle:
             for line in handle:
-                if '"role":"user"' not in line and '"role": "user"' not in line:
+                if not any(k in line for k in _HIS_SHAPES):
                     continue
                 try:
                     event = json.loads(line)
                 except (ValueError, TypeError):
                     continue
-                message = event.get("message") or {}
-                if message.get("role") != "user":
-                    continue
-                text = message.get("content")
-                if not is_him(text):
+                text = _typed_by_him(event)
+                if text is None or not is_him(text):
                     continue
                 said_text = str(text).strip()
                 if len(said_text) < at_least:
@@ -161,11 +178,18 @@ def read_him(
                 when = str(event.get("timestamp") or "")
                 if since and not when.startswith(since):
                     continue
+                if (when[:10], said_text) in seen:
+                    continue
+                seen.add((when[:10], said_text))
                 said.append(Utterance(when=when[:10], text=said_text))
 
     if not opened:
         return Reading("could-not-read", reason="every transcript refused to open")
 
+    # A last-prompt record carries no timestamp and repeats a message that is
+    # usually also present dated; keep the undated copy only when it is alone.
+    dated = {u.text for u in said if u.when}
+    said = [u for u in said if u.when or u.text not in dated]
     said.sort(key=lambda u: u.when)
     if limit and len(said) > limit:
         step = max(1, len(said) // limit)
