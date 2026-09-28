@@ -108,13 +108,10 @@ def test_a_bookmark_is_kept_when_it_is_the_only_copy():
     assert [h.text for h in heard_in([lone])] == ["are you there?"]
 
 
-def test_on_the_real_transcripts_every_shape_is_found():
-    root = Path.home() / ".claude" / "projects"
-    paths = sorted(root.glob("*/*.jsonl"))[:200] if root.is_dir() else []
-    if not paths:
-        pytest.skip("no real transcripts on this machine")
+def _shapes_heard_in(folder: Path, files: int = 40) -> dict[str, int]:
     kinds = {"typed": 0, "queued": 0, "bookmark": 0}
-    for path in paths:
+    newest = sorted(folder.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)[-files:]
+    for path in newest:
         for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
             try:
                 record = json.loads(line)
@@ -129,4 +126,22 @@ def test_on_the_real_transcripts_every_shape_is_found():
                 kinds["queued"] += 1
             else:
                 kinds["typed"] += 1
-    assert all(kinds.values()), f"a shape of his went unheard: {kinds}"
+    return kinds
+
+
+def test_on_the_real_transcripts_each_window_hears_him():
+    """Per window, not pooled: a pooled sample proved the shapes exist somewhere
+    while sampling mostly one window, so a deaf window could hide behind the
+    other (Aria, 2026-09-28). Each seat's folder is read on its own, and a
+    failure names whose window went deaf."""
+    root = Path.home() / ".claude" / "projects"
+    seats = (
+        sorted(p for p in root.glob("*DivineOS-Experimental*") if p.is_dir())
+        if root.is_dir()
+        else []
+    )
+    if not seats:
+        pytest.skip("no seat's transcripts on this machine")
+    heard = {seat.name: _shapes_heard_in(seat) for seat in seats}
+    deaf = {name: kinds for name, kinds in heard.items() if not kinds["typed"]}
+    assert not deaf, f"a window that never hears him type: {deaf}"
