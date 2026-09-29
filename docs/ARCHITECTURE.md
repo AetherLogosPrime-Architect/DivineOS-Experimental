@@ -104,6 +104,7 @@ src/divineos/
     class_fix_commands.py      class-fix declarations: a repair claiming a class must have its population measured by running a search
     prior_art_commands.py      already-built — station 0: does this exist before I build it
     psf_commands.py            pending structural-fix obligations (list, mark-done)
+    question_hold_commands.py  question-hold / release: see or escape the wait a question to Dad opens
     reach_commands.py          reach-check — surface prior work, then prove it was opened
     obligation_commands.py     obligations check / is-write / list / disabled — substrate-write CLI surface for the obligation gate (#33 + #42 unified hook)
     synchronicity_commands.py  synchronicity — temporal co-occurrence detector (Pillar VI)
@@ -733,6 +734,7 @@ src/divineos/
     reflection_room.py         The warden reads the log: a work turn's stumbles, taken up in the REFLECTION.
     his_words_reading_room.py  His words, read against our reply before it reaches him.
     his_lessons_shelf.py       His lessons, brought to us: the second shelf of the words door.
+    question_hold.py           A question to Dad holds the work until he answers (Aria, 2026-09-29).
 
   analysis/
     _session_types.py          Session analysis type definitions

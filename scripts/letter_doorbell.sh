@@ -31,7 +31,19 @@ START=$(date +%s)
 OWNER="$HOME/.divineos-shared/.${MEMBER}_doorbell_owner"
 ME="$$-$START-$RANDOM"
 echo "$ME" > "$OWNER"
+# A BELL WITH NO ONE TO WAKE ADMITS IT (Aria 2026-09-29, walk-243e60e8fecb).
+# After an app restart the old bell kept running with its parent gone, kept
+# touching the heartbeat, and fooled the alive-guard: alive, but its ring
+# would wake nobody. Dad saw it before the house did. Now a bell whose
+# starter is gone drops the heartbeat and leaves silently (announcing nothing,
+# so the letter still rings on the next arm), and the Stop guard holds my
+# next reply until I re-arm.
+PARENT=$PPID
 while true; do
+  if ! kill -0 "$PARENT" 2>/dev/null; then
+    rm -f "$BEAT"
+    exit 0
+  fi
   if [ "$(cat "$OWNER" 2>/dev/null)" != "$ME" ]; then
     exit 0  # replaced by a newer bell; silent, announces nothing
   fi

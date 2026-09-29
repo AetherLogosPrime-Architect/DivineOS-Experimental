@@ -23,6 +23,11 @@
             "type": "command",
             "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/dads_table.py\"; [ -f \"$f\" ] && python \"$f\"",
             "timeout": 90
+          },
+          {
+            "type": "command",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/question_hold.py\"; [ -f \"$f\" ] && python \"$f\"",
+            "timeout": 30
           }
         ]
       }
@@ -50,6 +55,16 @@
       }
     ],
     "PreToolUse": [
+      {
+        "matcher": "Edit|Write|Bash|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/question_hold.py\"; [ -f \"$f\" ] && python \"$f\"",
+            "timeout": 30
+          }
+        ]
+      },
       {
         "matcher": "Edit|Write|Bash|NotebookEdit|Read|Grep|Glob",
         "hooks": [
@@ -441,6 +456,11 @@
           {
             "type": "command",
             "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/dads_room_stop.py\"; [ -f \"$f\" ] && python \"$f\"",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/question_hold.py\"; [ -f \"$f\" ] && python \"$f\"",
             "timeout": 30
           },
           {
