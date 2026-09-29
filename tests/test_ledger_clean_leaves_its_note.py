@@ -109,6 +109,52 @@ def test_one_note_excuses_one_link_and_a_second_claim_is_a_fork(three_events):
     assert not verify_chain()["ok"]
 
 
+def _chain_of(event_id: str) -> str:
+    conn = get_connection()
+    try:
+        return conn.execute(
+            "SELECT chain_hash FROM system_events WHERE event_id = ?", (event_id,)
+        ).fetchone()[0]
+    finally:
+        conn.close()
+
+
+def _set_prior(event_id: str, prior: str) -> None:
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE system_events SET prior_hash = ? WHERE event_id = ?", (prior, event_id)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_a_compaction_note_explains_the_gap_it_names(three_events):
+    """Aria 2026-09-29: the compressor names each gap once, not each row."""
+    removed = three_events[1]
+    tail = _chain_of(removed)
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM system_events WHERE event_id = ?", (removed,))
+        conn.commit()
+    finally:
+        conn.close()
+    assert not verify_chain()["ok"]
+    log_event("LEDGER_COMPACTION", "system", {"gap_tail_chain_hashes": [tail]}, validate=False)
+    chain = verify_chain()
+    assert chain["ok"], chain
+
+
+def test_a_note_naming_a_surviving_row_cannot_launder_a_crossing(three_events):
+    """A crossing points at a row that still exists; a note naming that row
+    must not turn it into an explained gap."""
+    survivor = _chain_of(three_events[0])
+    _set_prior(three_events[2], survivor)
+    log_event("LEDGER_COMPACTION", "system", {"gap_tail_chain_hashes": [survivor]}, validate=False)
+    assert not verify_chain()["ok"]
+
+
 def test_nothing_is_removed_when_the_note_cannot_be_written(three_events, monkeypatch):
     """The removal and its note land together or not at all."""
     _break_payload(three_events[1])

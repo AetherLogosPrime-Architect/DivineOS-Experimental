@@ -1064,16 +1064,28 @@ def verify_chain() -> dict[str, Any]:
         # Removed rows' chain hashes, as named by the cleaner's notes. Read from
         # the notes' own payloads, so a note excuses a gap only if it is itself
         # a row of this chain, whose hash the walk below rechecks.
+        # The compressor names its gaps the same way, one LEDGER_COMPACTION note
+        # per run of removed rows rather than one per row (Aria 2026-09-29).
+        #
+        # A named hash that still belongs to a surviving row is not a gap; it is
+        # a real crossing, and excusing it would let a note launder one. So a
+        # name counts only when no row in the chain carries it.
+        surviving = {r[7] for r in rows if r[7]}
         removal_notes: dict[str, int] = {}
         for _eid, _ts, etype, _a, payload_json, *_rest in rows:
-            if etype != "LEDGER_CORRUPTION_REPAIRED":
+            if etype not in ("LEDGER_CORRUPTION_REPAIRED", "LEDGER_COMPACTION"):
                 continue
             try:
-                named = json.loads(payload_json).get("deleted_chain_hash")
-            except (ValueError, AttributeError):
+                payload = json.loads(payload_json)
+                if etype == "LEDGER_CORRUPTION_REPAIRED":
+                    names = [payload.get("deleted_chain_hash")]
+                else:
+                    names = list(payload.get("gap_tail_chain_hashes") or [])
+            except (ValueError, AttributeError, TypeError):
                 continue
-            if named:
-                removal_notes[named] = removal_notes.get(named, 0) + 1
+            for named in names:
+                if isinstance(named, str) and named and named not in surviving:
+                    removal_notes[named] = removal_notes.get(named, 0) + 1
 
         expected_prior = _CHAIN_GENESIS
         last_chain_hash = None
