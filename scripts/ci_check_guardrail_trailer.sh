@@ -69,14 +69,14 @@ if [ -z "$PR_BASE" ] || [ -z "$PR_HEAD" ]; then
     exit 2
 fi
 
-# Point-in-time guardrail-list resolution (2026-05-12 fix).
-load_guardrail_list_at() {
-    local commit="$1"
-    git show "$commit:scripts/guardrail_files.txt" 2>/dev/null \
-        | grep -vE '^[[:space:]]*(#|$)' || true
-}
-
-# The exempt list, resolved at the same commit and for the same reason: what
+# A LOADER FOR THE PROTECTED LIST STOOD HERE AND NOTHING CALLED IT. Removed
+# 2026-09-21. It survived the 2026-09-07 model change with no call sites, and
+# its only remaining effect was to make the retired list look load-bearing to
+# anyone searching this file for it -- which is how the retired rule was
+# served to me as current the night this was deleted. The point-in-time idea
+# it carried is alive in the loader directly below.
+#
+# The exempt list, resolved at that same commit and for the same reason: what
 # counts as prose is a property of the branch being merged, not of whatever
 # happens to be checked out in CI.
 load_exempt_list_at() {
@@ -402,7 +402,7 @@ fi
 
 # --first-parent skips commits absorbed via merge from an upstream remote.
 # Those commits' review happened upstream (or rides on the merge commit's
-# own trailer if the merge itself touches a guardrail file). Without
+# own trailer, if the merge itself carries anything reviewable). Without
 # --first-parent the gate retroactively re-validates upstream history
 # every time a downstream branch merges. Closed 2026-05-01.
 for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
@@ -575,15 +575,23 @@ emit_scope_disclosure
 
 if [ -n "$BLOCKED_COMMITS" ]; then
     echo "=== Multi-Party-Review Gate (server-side, point-in-time) ==="
-    echo "BLOCKED. Commits modifying guardrail files failed the trailer check:"
+    echo "BLOCKED. These commits change something that is not exempt prose,"
+    echo "and failed the trailer check:"
     for c in $BLOCKED_COMMITS; do
         echo "  $c"
     done
     echo ""
-    echo "Every commit that modifies a file in scripts/guardrail_files.txt"
-    echo "AS IT WAS at that commit must carry an 'External-Review: <id>'"
-    echo "trailer. For substance-binding, add tree-hash:<40-hex> after the"
-    echo "round-id; the gate verifies it matches the commit's actual tree."
+    echo "Everything entering the trunk is reviewed EXCEPT the prose paths"
+    echo "listed in scripts/review_exempt_paths.txt, resolved AS IT WAS at"
+    echo "that commit. So each commit above must carry an"
+    echo "'External-Review: <id>' trailer. For substance-binding, add"
+    echo "tree-hash:<40-hex> after the round-id; the gate verifies it matches"
+    echo "the commit's actual tree."
+    echo ""
+    echo "If you are looking for a list of protected files, there is not one"
+    echo "any more, and that is deliberate: asking which files are special"
+    echo "meant a new file was unguarded until somebody remembered to add it."
+    echo "See docs/retired_rules/2026-09-07_the_protected_list_model.md."
     exit 1
 fi
 

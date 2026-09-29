@@ -292,7 +292,9 @@ def _latest_chain_hash(conn) -> str:
     row = conn.execute(
         "SELECT chain_hash FROM system_events "
         "WHERE chain_hash IS NOT NULL "
-        "ORDER BY timestamp DESC, rowid DESC LIMIT 1"
+        # rowid, not timestamp: verify_chain walks rowid order, and across
+        # processes the clock can disagree with append order.
+        "ORDER BY rowid DESC LIMIT 1"
     ).fetchone()
     if not row or not row[0]:
         return _CHAIN_GENESIS
@@ -390,8 +392,8 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
     # below, not here. If two threads call log_event concurrently and
     # both compute time.time() before acquiring the lock, the timestamps
     # could be in a different order than the eventual insert-order. Then
-    # verify_chain (ORDER BY timestamp ASC, rowid ASC) walks events in
-    # timestamp order but their chain_hashes are linked in insert order
+    # a reader walking timestamp order would see chain_hashes linked in
+    # insert order (verify_chain itself walks rowid)
     # — reporting a chain mismatch even though the chain is logically
     # intact. Generating timestamp inside the lock ensures timestamp-
     # order matches insert-order matches chain-order.
@@ -436,11 +438,11 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
         # auto-wraps DML in DEFERRED transactions which would mask an
         # explicit BEGIN IMMEDIATE).
         _LOG_EVENT_LOCK.acquire()
-        # Generate timestamp INSIDE the lock so insert-order matches
-        # timestamp-order. See the NOTE above the lock comment.
-        timestamp = time.time()
         conn.isolation_level = None  # autocommit so BEGIN IMMEDIATE works
         conn.execute("BEGIN IMMEDIATE")
+        # Stamp only once the cross-process lock is held, so timestamp order
+        # matches append order for every reader that sorts by clock.
+        timestamp = time.time()
         prior_hash = _latest_chain_hash(conn)
         chain_hash = _compute_chain_hash(
             prior_hash=prior_hash,

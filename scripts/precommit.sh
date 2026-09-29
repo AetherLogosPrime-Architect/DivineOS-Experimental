@@ -350,6 +350,14 @@ if ! python scripts/check_function_naming.py 2>/dev/null; then
     note_fail
 fi
 
+# One reader of Dad's messages (2026-09-28). Six private readers each missed
+# him differently; a seventh is refused here, with the home's import in the
+# refusal so the fix costs less than the route around it.
+section "One Reader of Him"
+if ! python scripts/check_no_private_his_reader.py; then
+    note_fail
+fi
+
 # 5a. Orphan-modules warning (non-blocking). Round-2 audit (2026-05-07)
 # wired this at warning-level: the existing detector found 22 orphans
 # (down to ~4 after fixing false-positive shapes) but each remaining
@@ -371,6 +379,23 @@ fi
 # push. Teeth on a lying instrument would have gotten working code deleted.
 section "Orphan Modules"
 if ! python scripts/check_orphan_modules.py; then
+    note_fail
+fi
+
+# 5a-bis. A retired rule must not be handed over as a current one.
+# Andrew named this on 2026-09-21 after I repeated a rule to him that had
+# been replaced two weeks earlier: "it should NOT be able to hand you old
+# rules." The register lives in docs/retired_rules/; the check walks only the
+# surfaces that TEACH -- the session instructions, the skills, the hook and
+# gate messages, the live scripts -- because position in the load path is
+# what did the damage, not existence somewhere in the tree.
+#
+# Pinned sites are in scripts/retired_rules_baseline.txt and are reported as
+# work owed. A NEW one fails. Read the check's own output for what it cannot
+# see: it matches phrasings, so a retired rule restated in different words
+# passes it clean.
+section "Retired Rules"
+if ! python scripts/check_retired_rules_not_served.py; then
     note_fail
 fi
 
@@ -445,7 +470,19 @@ if [ -f scripts/guardrail_files.txt ] && [ -f scripts/check_multi_party_review.p
         # setup-hooks.sh silently no-op'd the install. Verify here that
         # the hook actually exists and is non-empty BEFORE the operator
         # types the commit message — the operator should see this loudly.
-        HOOK_PATH=$(git rev-parse --git-path hooks/commit-msg 2>/dev/null || echo ".git/hooks/commit-msg")
+        # --git-common-dir, NOT --git-path. In a linked worktree `.git` is a
+        # FILE pointing at the real gitdir, so --git-path hands back a literal
+        # ".git/hooks/commit-msg" that cannot resolve -- and the check below
+        # then announces "gate enforcement absent" about a hook that is
+        # installed and runs correctly. Verified 2026-09-14 by executing the
+        # hook from inside a worktree: it fired and returned zero while this
+        # line was calling it missing. Git looks hooks up in the COMMON dir,
+        # which every worktree shares.
+        #
+        # The failure this produced is the day's own shape: a check that
+        # asked the wrong question and reported a confident false absence,
+        # then told the reader to go install something already there.
+        HOOK_PATH="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")/hooks/commit-msg"  # fail-soft: rev-parse only fails outside a repository, where this whole script has already refused, and its stderr would be noise on top of that
         if [ ! -s "$HOOK_PATH" ]; then
             echo "  [!!] COMMIT-MSG HOOK NOT INSTALLED — gate enforcement absent."
             echo "       Path checked: $HOOK_PATH"
