@@ -146,7 +146,10 @@ def get_mode_state() -> ModeState:
     if not path.exists():
         return _default_state()
     try:
-        text = path.read_text(encoding="utf-8")
+        # utf-8-sig: Windows Notepad can save a byte-order mark, and a hand
+        # edit that says "normal" must not read as unknown and lock the brake
+        # (council walk 2026-09-28, the Knuth lens on this fix).
+        text = path.read_text(encoding="utf-8-sig")
     except OSError as exc:
         return _unreadable_state(type(exc).__name__)
     lines = [line.strip() for line in text.strip().splitlines() if line.strip()]
@@ -154,7 +157,7 @@ def get_mode_state() -> ModeState:
         return _unreadable_state("empty")
     try:
         # Format: line 1 is mode value; line 2+ is optional reason/actor/timestamp.
-        mode = OperatingMode(lines[0])
+        mode = OperatingMode(lines[0].lower())
         reason = lines[1] if len(lines) > 1 else ""
         actor = lines[2] if len(lines) > 2 else "unknown"
         try:

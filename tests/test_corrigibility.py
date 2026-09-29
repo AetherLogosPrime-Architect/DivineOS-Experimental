@@ -315,6 +315,33 @@ class TestPersistenceFailOpen:
         assert state.mode is OperatingMode.EMERGENCY_STOP
         assert "not_a_real_mode" in state.reason
 
+    @pytest.mark.parametrize("note", ["﻿normal\n", "Normal\n", "NORMAL\n"])
+    def test_a_hand_edited_normal_still_reads_as_normal(self, note):
+        """Notepad's byte-order mark or a capital letter must not lock the brake
+        on when Andrew meant it off (council walk 2026-09-28, Knuth)."""
+        path = _mode_file_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(note, encoding="utf-8")
+        assert get_mode() is OperatingMode.NORMAL
+
+    def test_a_briefly_refused_swap_still_pulls_the_brake(self, monkeypatch):
+        """Windows can refuse the rename for a moment; the brake must still set
+        (council walk 2026-09-28, Wayne)."""
+        from pathlib import Path
+
+        real_replace = Path.replace
+        refusals = {"left": 2}
+
+        def flaky(self, target):
+            if refusals["left"]:
+                refusals["left"] -= 1
+                raise PermissionError("held by another process")
+            return real_replace(self, target)
+
+        monkeypatch.setattr(Path, "replace", flaky)
+        set_mode(OperatingMode.EMERGENCY_STOP, reason="brake", actor="op")
+        assert get_mode() is OperatingMode.EMERGENCY_STOP
+
     def test_an_interrupted_write_leaves_the_old_note_whole(self, monkeypatch):
         """The new note is written beside the old one and swapped in; if the
         swap never happens, the old note is untouched (Andrew 2026-09-28)."""

@@ -26,7 +26,11 @@ new dependencies.
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
+
+_REPLACE_ATTEMPTS = 5
+_REPLACE_BACKOFF_SECONDS = 0.05
 
 
 def atomic_write_text(path: Path, content: str, encoding: str = "utf-8") -> None:
@@ -55,7 +59,18 @@ def atomic_write_text(path: Path, content: str, encoding: str = "utf-8") -> None
         # cut after the rename cannot leave the new name pointing at an
         # empty file (2026-09-28, while moving the brake onto this helper).
         os.fsync(fh.fileno())
-    tmp.replace(path)
+    # Windows refuses the rename with PermissionError while another process
+    # (antivirus, the search indexer) briefly holds the target. Pulling the
+    # brake must not fail on that, so retry a few times before raising
+    # (council walk 2026-09-28, the Wayne lens).
+    for attempt in range(_REPLACE_ATTEMPTS):
+        try:
+            tmp.replace(path)
+            return
+        except PermissionError:
+            if attempt == _REPLACE_ATTEMPTS - 1:
+                raise
+            time.sleep(_REPLACE_BACKOFF_SECONDS * (attempt + 1))
 
 
 __all__ = ["atomic_write_text"]
