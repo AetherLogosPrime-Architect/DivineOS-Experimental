@@ -174,3 +174,61 @@ def test_no_meaningful_kind_of_event_counts_as_noise():
     meaningful = {"USER_INPUT", "SESSION_END", "LEDGER_COMPACTION", "LEDGER_CORRUPTION_REPAIRED"}
     assert not (meaningful & set(_COMPRESSIBLE_TYPES))
     assert not any(t.endswith("_FIRED") for t in _COMPRESSIBLE_TYPES)
+
+
+def _fork_onto(db_path, rowid, target_chain):
+    """Re-link one row onto target_chain the way the append race does:
+    a well-formed row whose own chain hash is honest for the wrong prior."""
+    from divineos.core.ledger import _compute_chain_hash
+
+    conn = sqlite3.connect(str(db_path))
+    eid, ts, etype, actor, payload, content_hash = conn.execute(
+        "SELECT event_id, timestamp, event_type, actor, payload, content_hash "
+        "FROM system_events WHERE rowid = ?",
+        (rowid,),
+    ).fetchone()
+    chain = _compute_chain_hash(
+        prior_hash=target_chain,
+        event_id=eid,
+        timestamp=ts,
+        event_type=etype,
+        actor=actor,
+        payload_json=payload,
+        content_hash=content_hash,
+    )
+    conn.execute(
+        "UPDATE system_events SET prior_hash = ?, chain_hash = ? WHERE rowid = ?",
+        (target_chain, chain, rowid),
+    )
+    conn.commit()
+    conn.close()
+    return eid
+
+
+def test_a_crossing_onto_a_compacted_tail_is_not_laundered(ledger_at):
+    # Aletheia 2026-09-29 (walk-5592a6e5773d): the row a race crossed onto is
+    # routine and is compacted as a run tail, so a note now names its hash.
+    # The honest next row spends that name; the crossed row must still be
+    # reported, not excused as a second gap.
+    _log(3, "USER_INPUT")
+    _log(2, "TOOL_CALL")
+    _log(2, "USER_INPUT")
+    _age(ledger_at, "TOOL_CALL")
+    conn = sqlite3.connect(str(ledger_at))
+    tail_chain = conn.execute(
+        "SELECT chain_hash FROM system_events WHERE event_type = 'TOOL_CALL' "
+        "ORDER BY rowid DESC LIMIT 1"
+    ).fetchone()[0]
+    last = conn.execute("SELECT MAX(rowid) FROM system_events").fetchone()[0]
+    conn.close()
+    crossed = _fork_onto(ledger_at, last, tail_chain)
+    from divineos.core.ledger import verify_chain
+    from divineos.core.ledger_compressor import compress_ledger
+
+    before = verify_chain()
+    assert before["ok"] is False and before["broken_at"] == crossed
+    result = compress_ledger(retention_days=30)
+    assert result["gap_count"] == 1
+    after = verify_chain()
+    assert after["ok"] is False, "the crossing was laundered into a compaction gap"
+    assert after["broken_at"] == crossed, after
