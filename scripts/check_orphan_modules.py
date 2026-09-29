@@ -622,10 +622,11 @@ def main() -> int:
         print("  (a) Wire it into a production code path")
         print("  (b) Add `# AGENT_RUNTIME` if something outside the CLI graph runs it")
         print(f"  (c) Add it to {BASELINE.name} WITH a reason, if it is owed a decision")
-        print("  (d) Only if genuinely superseded: delete it THROUGH")
-        print("      `divineos delete-justify`, which will not let it go until you")
-        print("      have said what it was for, what you looked at, and what you")
-        print("      took out of it first.")
+        # Andrew 2026-09-28: the older of two programs doing one job leaves the
+        # house for the archive; it is not kept beside the newer one.
+        print("  (d) If something newer does its job: `git mv` it and its tests")
+        print("      under archive/superseded/ and add a row to its LEDGER.md")
+        print("      naming what replaced it and why. Archived, not deleted.")
         print()
 
     if stale:

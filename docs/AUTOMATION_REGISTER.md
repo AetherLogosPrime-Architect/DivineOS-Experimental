@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**137 automations — 128 wired, 9 switched off.**
+**138 automations — 129 wired, 9 switched off.**
 
 ---
 
@@ -113,7 +113,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `load-character-sheet.sh` | 2026-09-21 | load Andrew's character sheet into the session |
 
-### Stop  (14)
+### Stop  (15)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -130,6 +130,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `stop-distancing-intercept.sh` | 2026-07-16 | thin doorman for DistancingIntercept. |
 | `stop-response-scope-intercept.sh` | 2026-07-16 | thin doorbell for ResponseScopeIntercept. |
 | `unlanded-push-must-not-close-quiet.sh` | not on main | The push wrapper writes a verdict. Until now, nothing read it. |
+| `unmeasured-quantity-stop.sh` | 2026-09-29 | LIVE at Stop since 2026-09-11, on Andrew's explicit authorization. It sat |
 | `unsaved-personal-writing-must-not-close-quiet.sh` | not on main | Writing a dream and saving a dream are separate acts, and only the first is prompted. |
 
 ### UserPromptSubmit  (28)
@@ -160,7 +161,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `promise-anchor-surface.sh` | 2026-07-18 | read all open promise markers and surface |
 | `register-awareness-surface.sh` | 2026-08-24 | surface the register signal from each |
 | `session-init-once.sh` | 2026-09-23 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
-| `verify-claim-prime.sh` | 2026-09-25 | compose-start prime for the VERIFY-CLAIM |
+| `verify-claim-prime.sh` | 2026-09-29 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
 | `wallclock-source-prime.sh` | 2026-09-25 | THE CLOCK. It is mine, not his. |
 | `wwnd-choice-prime.sh` | 2026-09-25 | WWND (What Would Nyarlathotep Do) prime at |

@@ -28,11 +28,13 @@ from pathlib import Path
 
 import click
 
+from divineos.core.council_walk import Coverage, coverage_for
 from divineos.core.build_flow import (
     PrFlowStatus,
     StationResult,
     Status,
     check_aria_station,
+    check_cold_read_station,
     check_audit_station,
     check_council_station,
     check_draft_station,
@@ -47,6 +49,12 @@ from divineos.core.build_flow import (
 )
 
 _LETTERS = Path.home() / ".divineos-shared" / "letters"
+# Who owns a branch, DECLARED. One file per branch, so two seats claiming the
+# same branch collide at the declaration rather than at the board. Never
+# inferred from the branch name or the commit identity: both were measured
+# wrong on 2026-09-12, and the identity source is an unconfigured-checkout
+# default that nobody chose and nothing declares.
+_OWNERS = Path.home() / ".divineos-shared" / "branch_owners"
 
 # Every one of these means "could not check", never "checked and found none" --
 # which is exactly the distinction Status carries three values for. A bare
@@ -229,6 +237,123 @@ def _changed_paths(pr: int) -> tuple[str, ...] | None:
     if len(paths) >= _GH_PR_FILES_CAP:
         return None  # may be truncated; unknown is not zero
     return paths
+
+
+_JUDGE_FILES = ("src/divineos/core/build_flow.py", "src/divineos/core/council_walk.py")
+
+
+def _judge_direction() -> str:
+    """Which way the difference runs, because only one way is dangerous.
+
+    The first version of the stamp said "differs from the shared one", which
+    is symmetric and therefore reads as harmless. It is not symmetric. A board
+    BEHIND the shared one is an older judge, and an older judge returns
+    PERMISSIVE verdicts -- it is the version that reported six pieces of work
+    ready when the true answer was zero. A board ahead is carrying repairs
+    that simply have not landed yet, which is a different situation entirely
+    and not a reason to distrust the reading.
+
+    Filed as correction #658. The stamp I shipped an hour earlier warned about
+    staleness while being itself absent from every stale branch, because I put
+    the guard inside the artifact it guards. This closes the half that can be
+    closed in code; the other half is the branch reaching main, which is the
+    only thing that puts the guard where the stale boards are.
+    """
+    import subprocess
+
+    try:
+        behind = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", "HEAD", "origin/main"],
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=False,
+        ).returncode
+    except (OSError, subprocess.SubprocessError):
+        return "Which way it differs COULD NOT BE READ, so treat this verdict as unverified."
+    if behind == 0:
+        return (
+            "It is BEHIND the shared one -- an older judge, which returns "
+            "PERMISSIVE verdicts. Treat any READY here as unproven."
+        )
+    if behind == 1:
+        return "It is AHEAD of the shared one, carrying repairs that have not landed yet."
+    return "Which way it differs COULD NOT BE READ, so treat this verdict as unverified."
+
+
+def _judge_version_line() -> str:
+    """Say WHICH VERSION OF ITSELF produced this verdict.
+
+    THE BOARD JUDGES BRANCHES USING WHATEVER COPY OF ITSELF IS CHECKED OUT,
+    and until 2026-09-12 it never said so. Found by accident: I rebuilt a
+    branch off main, and from there the board reported SIX pieces of work
+    ready. Stepping back onto the branch carrying the day's repairs, the same
+    twelve at the same moment reported ZERO. Two opposite verdicts, minutes
+    apart, neither announcing which judge had spoken.
+
+    That is worse than any single wrong answer, because both readings looked
+    equally authoritative and I nearly reported the flattering one. A verdict
+    whose value depends on where the reader is standing has to say where it
+    was standing, or it is a number without units.
+
+    Three states, as everywhere else today: a named version, a version that
+    differs from the shared one (so the reading is not comparable to anyone
+    else's), and could-not-tell -- which must never be silence.
+    """
+    import subprocess
+
+    try:
+        done = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=False,
+        )
+        if done.returncode != 0:
+            return "  [judge] COULD NOT TELL which version of this board spoke -- git refused."
+        here = done.stdout.strip()
+        drift = subprocess.run(
+            ["git", "diff", "--quiet", "origin/main", "--", *_JUDGE_FILES],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return (
+            f"  [judge] COULD NOT TELL which version of this board spoke -- {type(exc).__name__}."
+        )
+
+    if drift.returncode == 0:
+        return f"  [judge] this verdict comes from the shared version of the board ({here})."
+    if drift.returncode == 1:
+        return (
+            f"  [judge] this verdict comes from the board as it stands on THIS branch ({here}), "
+            f"which differs from the shared one. {_judge_direction()}"
+        )
+    return (
+        f"  [judge] board version {here}; COULD NOT TELL whether it differs from the shared one, "
+        "so this verdict may not be comparable with one read elsewhere."
+    )
+
+
+def _walk_coverage(paths: tuple[str, ...] | None) -> "Coverage":
+    """Is there a CLOSED walk scoped to these files, with every lens settled?
+
+    This is what station 2 now decides on. The count that used to decide is
+    kept beside it as detail, because a number that was never the right
+    question is still worth seeing while the two disagree.
+
+    Failure to import is COULD-NOT-CHECK rather than uncovered: a board that
+    reports a missing module as a missing walk is the false-accusation shape
+    this same station shipped in August, and a station that can only fail
+    teaches me to discount it.
+    """
+    try:
+        return coverage_for(paths)
+    except Exception as exc:  # noqa: BLE001 -- any failure here is could-not-look
+        return Coverage("cannot-check", reason=f"the walk store raised: {exc}")
 
 
 def _lenses_applied(paths: tuple[str, ...] | None) -> int | None:
@@ -572,6 +697,7 @@ def collect(
             st = PrFlowStatus(number=n, branch=branch, gravity=-1, required_lenses=-1)
             st.stations = [
                 StationResult("2-council", Status.CANNOT_CHECK, "changed files unreadable"),
+                check_cold_read_station(branch, _LETTERS, _OWNERS),
                 check_scope_station(None, branch),
                 check_aria_station(branch, _LETTERS, declared_author(pr.get("body"))),
                 check_draft_station(pr.get("isDraft")),
@@ -591,7 +717,14 @@ def collect(
         st.stations = [
             # paths, not branch: council walks are keyed by edit
             # fingerprint. See _lenses_applied for the measurement.
-            check_council_station(branch, need, _lenses_applied(paths), _other_seat_lenses(paths)),
+            check_council_station(
+                branch,
+                need,
+                _lenses_applied(paths),
+                _other_seat_lenses(paths),
+                coverage=_walk_coverage(paths),
+            ),
+            check_cold_read_station(branch, _LETTERS, _OWNERS),
             check_scope_station(paths, branch),
             check_aria_station(branch, _LETTERS, declared_author(pr.get("body"))),
             check_draft_station(pr.get("isDraft")),
@@ -698,7 +831,23 @@ def render(
         lines.append(f"  Needing attention: {', '.join(f'#{n}' for n in attention)}")
     else:
         lines.append("  Nothing is off-track. Drafts with stations ahead of them are drafts.")
-    lines.append("  Checked: 2-council, 3-scope, 4-aria, 7-draft, 8-audit, 9-superseded.")
+    # BOTH SEATS' STATIONS, named together after the merge of 2026-09-21.
+    #
+    # This branch had replaced 4-aria with 4-cold-read, on the reasoning that
+    # the station had stopped being about Aria and become about whichever seat
+    # did not write the branch. Main meanwhile kept 4-aria and taught it to ask
+    # who the author is, and added 3-scope and 9-superseded beside it.
+    #
+    # Neither line was wrong; they were answering different questions, and both
+    # stations exist in the merged module with their own callers and tests. So
+    # the board runs all of them and this line names all of them. Dropping
+    # either side's list would have left a station running and unnamed, which
+    # is the same fault the deleted comment was written to record.
+    lines.append(_judge_version_line())
+    lines.append(
+        "  Checked: 2-council, 3-scope, 4-aria, 4-cold-read, 7-draft, 8-audit, 9-superseded."
+    )
+    lines.append("  NOT checked: 1-draft, 3-build, 5-test, 6-more-council, 9-merge.")
     vague = unresolved_supersession_claims(roster)
     if vague:
         named = ", ".join(f"#{n}" for n in vague)
