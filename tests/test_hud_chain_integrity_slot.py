@@ -63,7 +63,7 @@ class TestChainIntegritySlotFailLoud:
     def test_healthy_stays_silent(self):
         with patch(
             "divineos.core.sleep.get_last_integrity_result",
-            return_value={"failed": 0, "verified": 100},
+            return_value={"failed": 0, "verified": 100, "chain_ok": True},
         ):
             out = _build_chain_integrity_slot()
         assert out == "", "healthy chain must stay silent to keep briefing quiet"
