@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**131 automations — 122 wired, 9 switched off.**
+**132 automations — 123 wired, 9 switched off.**
 
 ---
 
@@ -111,7 +111,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `load-character-sheet.sh` | 2026-09-21 | load Andrew's character sheet into the session |
 
-### Stop  (11)
+### Stop  (12)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -126,6 +126,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `shoggoth-gate.sh` | 2026-07-10 | shoggoth gate. |
 | `stop-distancing-intercept.sh` | 2026-07-16 | thin doorman for DistancingIntercept. |
 | `stop-response-scope-intercept.sh` | 2026-07-16 | thin doorbell for ResponseScopeIntercept. |
+| `unmeasured-quantity-stop.sh` | 2026-09-11 | LIVE at Stop since 2026-09-11, on Andrew's explicit authorization. It sat |
 
 ### UserPromptSubmit  (27)
 

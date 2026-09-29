@@ -17,11 +17,33 @@ actually closes, not that the call did not crash.
 from __future__ import annotations
 
 import json
+import subprocess
 
 import pytest
 
 from divineos.core import andrew_correction_tracker as act
 from divineos.core import structural_fix_tracker as sft
+
+# The evidence strings here named an invented commit and an invented test
+# file until 2026-09-12, because the guard only checked that a pointer was
+# shaped like a pointer. It now checks that the pointer resolves, so these
+# name a commit and a file that genuinely exist.
+_REAL_FILE = "src/divineos/core/andrew_correction_tracker.py"
+
+
+def _real_commit() -> str:
+    """A commit hash that actually exists in this checkout."""
+    done = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"],
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+    if done.returncode != 0:
+        pytest.skip("git could not name a commit; this would assert nothing about the guard")
+    return done.stdout.strip()
+
 
 TEXT = (
     "Andrew 2026-08-25: the mirror files but never closes, so build the "
@@ -54,7 +76,7 @@ def test_integrating_a_correction_closes_its_psf_twin(stores):
     psf_id = sft.record_pending_fix(TEXT, trigger="structural fix", source_kind="correction")
     assert psf_id in _pending_ids(stores)
 
-    assert act.integrate(correction_id, "shipped in commit abc1234, tests/test_x.py")
+    assert act.integrate(correction_id, f"shipped in commit {_real_commit()}, {_REAL_FILE}")
 
     assert psf_id not in _pending_ids(stores)
     archived = _archive(stores)
@@ -68,9 +90,9 @@ def test_evidence_travels_into_the_close_note(stores):
     correction_id = act.file_correction(TEXT)
     sft.record_pending_fix(TEXT, trigger="structural fix", source_kind="correction")
 
-    act.integrate(correction_id, "shipped in commit deadbee, tests/test_y.py")
+    act.integrate(correction_id, f"shipped in commit {_real_commit()}, {_REAL_FILE}")
 
-    assert "deadbee" in _archive(stores)[0]["done_note"]
+    assert _real_commit() in _archive(stores)[0]["done_note"]
 
 
 def test_refused_integration_leaves_the_twin_open(stores):
@@ -93,7 +115,7 @@ def test_only_the_matching_row_closes(stores):
     correction_id = act.file_correction(TEXT)
     mine = sft.record_pending_fix(TEXT, trigger="structural fix", source_kind="correction")
 
-    act.integrate(correction_id, "shipped in commit abc1234, tests/test_x.py")
+    act.integrate(correction_id, f"shipped in commit {_real_commit()}, {_REAL_FILE}")
 
     remaining = _pending_ids(stores)
     assert other in remaining
@@ -106,7 +128,7 @@ def test_claim_sourced_rows_are_not_closed_by_a_correction(stores):
     correction_id = act.file_correction(TEXT)
     claim_row = sft.record_pending_fix(TEXT, trigger="structural fix", source_kind="claim")
 
-    act.integrate(correction_id, "shipped in commit abc1234, tests/test_x.py")
+    act.integrate(correction_id, f"shipped in commit {_real_commit()}, {_REAL_FILE}")
 
     assert claim_row in _pending_ids(stores)
 
@@ -114,7 +136,7 @@ def test_claim_sourced_rows_are_not_closed_by_a_correction(stores):
 def test_integration_succeeds_when_there_is_no_twin(stores):
     correction_id = act.file_correction("A plain correction with no fix shape in it")
 
-    assert act.integrate(correction_id, "shipped in commit abc1234, tests/test_x.py")
+    assert act.integrate(correction_id, f"shipped in commit {_real_commit()}, {_REAL_FILE}")
 
 
 def test_mirror_failure_never_blocks_the_integration(stores, monkeypatch):
@@ -128,4 +150,4 @@ def test_mirror_failure_never_blocks_the_integration(stores, monkeypatch):
 
     monkeypatch.setattr(sft, "close_twin_for_text", boom)
 
-    assert act.integrate(correction_id, "shipped in commit abc1234, tests/test_x.py")
+    assert act.integrate(correction_id, f"shipped in commit {_real_commit()}, {_REAL_FILE}")
