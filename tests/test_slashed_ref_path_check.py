@@ -8,6 +8,7 @@ row must pass.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -101,6 +102,9 @@ class TestTheBoundaryIsNamed:
 class TestTheDoorbellDispatchesIt:
     def test_the_surface_refuses_through_the_payload(self, monkeypatch) -> None:
         monkeypatch.setenv("MSYSTEM", "MINGW64")
+        # The shell running the suite may already have the remedy set (Aria's
+        # pre-push did), which the guard rightly reads as safe. Set the room.
+        monkeypatch.delenv("MSYS_NO_PATHCONV", raising=False)
         monkeypatch.setattr(sys, "platform", "win32")
         out = slashed_ref_path_surface(
             {"tool_name": "Bash", "tool_input": {"command": "git show origin/main:.gitignore"}}
@@ -148,6 +152,8 @@ class TestTheRealShell:
     def test_the_shape_really_is_rewritten_and_the_remedy_really_fixes_it(self) -> None:
         repo = Path(__file__).resolve().parent.parent
         bash = self._git_bash()
+        # Without the remedy, whatever the parent shell had set.
+        bare_env = {k: v for k, v in os.environ.items() if k != "MSYS_NO_PATHCONV"}
         # The object name git reports for a slashed ref + dot path.
         mangled = subprocess.run(
             [bash, "-c", "git cat-file -e no/such:.gitignore"],
@@ -155,6 +161,7 @@ class TestTheRealShell:
             capture_output=True,
             text=True,
             check=False,
+            env=bare_env,
         ).stderr
         clean = subprocess.run(
             [bash, "-c", "MSYS_NO_PATHCONV=1 git cat-file -e no/such:.gitignore"],
