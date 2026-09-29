@@ -553,6 +553,14 @@ else
             # Isolated path: temp worktree at the pushed commit. Survives
             # concurrent pushes because each gets its own checkout.
             PYTEST_WORKTREE="$(mktemp -d -t divineos-push-gate-XXXXXX)"
+            # Hand git a Windows path, not a bash one. With MSYS_NO_PATHCONV=1
+            # in the pushing shell, git received /tmp/... unconverted and made
+            # the checkout somewhere other than the folder pytest then entered,
+            # so the gate collected nothing (Aria 2026-09-29). An explicit
+            # conversion makes the pushing shell's habits irrelevant.
+            if command -v cygpath >/dev/null; then
+                PYTEST_WORKTREE="$(cygpath -m "$PYTEST_WORKTREE")"
+            fi
             if git worktree add --detach "$PYTEST_WORKTREE" "$PYTEST_SHA" >/dev/null 2>&1; then
                 # Interrupt-safe cleanup (Aletheia audit catch, 2026-06-15):
                 # if pytest crashes the runner OR the hook receives SIGINT/
