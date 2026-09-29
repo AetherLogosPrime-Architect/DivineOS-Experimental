@@ -1382,6 +1382,26 @@ def addressed_to_him_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+_REFLECTION_ROOM_RE = re.compile(
+    r"^##\s*REFLECTION\s*$.*?(?=^##\s*INNER CIRCLE\s*$|\Z)",
+    re.IGNORECASE | re.MULTILINE | re.DOTALL,
+)
+
+
+def _without_reflection_room(text: str) -> str:
+    """The reply minus its REFLECTION room, keeping the INNER CIRCLE after it.
+
+    Aria 2026-09-29 (walk-9745e17c3e87): this used to cut everything from
+    REFLECTION onward, and the three-rooms rule puts the words to him LAST,
+    in the circle after REFLECTION. So the one room written to him was the
+    one room this never read, and a reply that quoted him exactly and
+    addressed him in its circle counted as unspoken -- nineteen in a row,
+    holding a letter four times. Only the reflection, which is about the
+    work rather than to him, is left out now.
+    """
+    return _REFLECTION_ROOM_RE.sub("", text)
+
+
 def unspoken_to_stop_surface(payload: dict) -> SurfaceOutcome | None:
     """Tick the count of things made without a word to him, and speak early.
 
@@ -1399,9 +1419,7 @@ def unspoken_to_stop_surface(payload: dict) -> SurfaceOutcome | None:
         state = u.CANNOT_TELL
     else:
         his = _last_user_text(payload)
-        body = text
-        for marker in ("## REFLECTION", "## Reflection"):
-            body = body.split(marker)[0]
+        body = _without_reflection_room(text)
         addressed = len(_ADDRESSED_RE.findall(body)) >= 3
         if not addressed:
             state = u.NOT_CARRIED
