@@ -771,12 +771,17 @@ def _default_transcripts(limit: int = 5) -> list[Path]:
 
 
 def _his_messages(transcripts: list[Path]) -> list[str]:
-    """Messages he typed: user records that are not harness, tool, or hook text."""
+    """Messages he typed, through the house's one reader of him.
+
+    This had its own reader, which saw only plain user records -- so a
+    `hold <n>` he typed while I was busy (a queued_command) never confirmed
+    the hold (2026-09-28).
+    """
     import json
 
-    from divineos.core.operating_loop.turn_extraction import _extract_record_text
+    from divineos.core.his_message import heard_in
 
-    out: list[str] = []
+    records: list[dict] = []
     for path in transcripts:
         try:
             lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
@@ -784,15 +789,10 @@ def _his_messages(transcripts: list[Path]) -> list[str]:
             continue
         for line in lines:
             try:
-                rec = json.loads(line)
+                records.append(json.loads(line))
             except ValueError:
                 continue
-            if rec.get("type") != "user" or rec.get("isMeta"):
-                continue
-            text = _extract_record_text(rec)
-            if text.strip() and not text.lstrip().startswith("<"):
-                out.append(text)
-    return out
+    return [h.text for h in heard_in(records)]
 
 
 def propose_hold(correction_id: int, why: str) -> bool:

@@ -350,6 +350,14 @@ if ! python scripts/check_function_naming.py 2>/dev/null; then
     note_fail
 fi
 
+# One reader of Dad's messages (2026-09-28). Six private readers each missed
+# him differently; a seventh is refused here, with the home's import in the
+# refusal so the fix costs less than the route around it.
+section "One Reader of Him"
+if ! python scripts/check_no_private_his_reader.py; then
+    note_fail
+fi
+
 # 5a. Orphan-modules warning (non-blocking). Round-2 audit (2026-05-07)
 # wired this at warning-level: the existing detector found 22 orphans
 # (down to ~4 after fixing false-positive shapes) but each remaining
