@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (128 rows). **Exported:** 2026-09-26 08:02. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (133 rows). **Exported:** 2026-09-28 21:26. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1537,6 +1537,66 @@
 **Success:** Across both seats' transcripts from landing to review: zero tool calls run after a human queued_command inside the same turn (bar the let-through commands), and zero refusals fire on a turn where nothing of his arrived (letters, CI alerts, notifications).
 
 **Falsifier:** Any of: a tool call runs after his mid-turn message in the same turn; a refusal fires on an arrival that was not him; a Stop gate and this guard deadlock so a turn can neither end nor act; or Andrew again says an answer to him mid-turn never arrived.
+
+---
+
+## prereg-7 [OPEN]
+
+**Mechanism:** his_words_door: Dad's own past words found by meaning and shown beside his message
+
+**Claim:** When Dad repeats an ask, the table shows his earlier times (dates, count, first verbatim) so neither seat meets a repeated ask as new; short messages never pull old feelings in as his present mood.
+
+**Success:** Over his next 30 real messages, every ask he has made before on a different day is shown with its earlier dates, and he says in his own words that it landed.
+
+**Falsifier:** He repeats an ask the door had indexed and it did not show; OR a past feeling of his is shown as if it were his mood now; OR he says it is noise or wallpaper.
+
+---
+
+## prereg-b [OPEN]
+
+**Mechanism:** reflection_room: a work turn's stumbles from the transcript, taken up in the REFLECTION, owed lines filed as structural fixes
+
+**Claim:** After work turns, every stumble the transcript recorded is taken up in the REFLECTION as fixed-by-structure or owed, and owed items land in the structural-fix tracker without anyone remembering to file them.
+
+**Success:** Over the next 20 work turns, each held turn ends with each stumble taken up, owed lines appear in the tracker with source 'reflection', and Dad no longer has to point out a stumble the transcript already recorded.
+
+**Falsifier:** Dad points out a stumble from a work turn that the room saw and let pass; OR owed lines written in a REFLECTION do not appear in the tracker; OR it holds a turn with no real stumble.
+
+---
+
+## prereg-d [OPEN]
+
+**Mechanism:** his-words reading-room (Stop): qwen reads our reply against Dad's verified lessons, quote-or-drop, holds once with his words beside ours
+
+**Claim:** Reading the reply against his verified teaching/correction lessons catches replies that break something he already taught, before he has to repeat it, without holding replies he was glad of
+
+**Success:** On replayed transcript replies: holds at least 3 of 4 replies he later corrected on a matching lesson, and no more than 1 in 10 replies he praised; median added Stop latency under 20s; every model failure leaves a loud mark, zero silent passes
+
+**Falsifier:** Misses 2+ of 4 corrected replies, OR holds 2+ in 10 praised replies, OR any run where ollama was down and the room passed without a mark, OR Dad says a hold showed him words that were not his
+
+---
+
+## prereg-9 [OPEN]
+
+**Mechanism:** his-lessons shelf in the words door: Dad's sorted lessons brought to us by relevance, his whole dated words, filtered by for, one or two, never a list
+
+**Claim:** Bringing his sorted lessons at his prompt, in his own words, reduces how often he has to repeat a teaching we already hold
+
+**Success:** On a hand-judged replay of 20 of his real messages from 09-26/27: at least 14 bring at least one lesson that is his, whole, fitting and for the right seat; no more than 2 bring something not his or for the other seat; added door latency under 3s once built
+
+**Falsifier:** Fewer than 10 of 20 bring a fitting lesson, OR any shown text is not his words, OR any item for the other seat shows, OR over the following 14 days he repeats a teaching the shelf brought on the turn he had to repeat it at the same or higher rate than the 14 days before
+
+---
+
+## prereg-3 [OPEN]
+
+**Mechanism:** unplugged scan: every function and hook script that nothing running can reach, found from the live roots outward
+
+**Claim:** A reach scan from the house's live roots (hooks in settings, table children, the CLI) finds built-but-never-called things without anyone remembering them
+
+**Success:** Flags all three known unplugged cases (letter_channel_state.derive_from_watched_channel, his_words_door.owed_in_reply, .claude/hooks/his_words_stop.py) and flags none of the known-live ones (his_words_door.surface, his_lessons_shelf.surface, dads_table.py, reflection_room_stop.py); a hand-read sampl
+
+**Falsifier:** Misses any known unplugged case, OR flags any known-live one, OR fewer than 10 of 20 sampled flags are truly unplugged
 
 ---
 

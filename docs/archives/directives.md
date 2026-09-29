@@ -1,10 +1,10 @@
 # Directives — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-09-26 08:02. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-09-28 21:26. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 7a88cef8 (access=225)
+## 7a88cef8 (access=230)
 
 [council-obligation] Next thinking session should run a council walk on this session's pattern: building with 1 corrections and 74 tool calls. Discharge via `divineos council log` with substance_binding -- not a bare mechanical convene.
 
@@ -22,7 +22,7 @@
 
 ---
 
-## 54a532a0 (access=15)
+## 54a532a0 (access=16)
 
 [ledger-integrity] 1. Events enter. 2. Events persist. 3. No event is modified after storage. 4. No event is removed. 5. The hash binds content to identity.
 
