@@ -106,6 +106,7 @@ src/divineos/
     class_fix_commands.py      class-fix declarations: a repair claiming a class must have its population measured by running a search
     prior_art_commands.py      already-built — station 0: does this exist before I build it
     psf_commands.py            pending structural-fix obligations (list, mark-done)
+    question_hold_commands.py  question-hold / release: see or escape the wait a question to Dad opens
     reach_commands.py          reach-check — surface prior work, then prove it was opened
     obligation_commands.py     obligations check / is-write / list / disabled — substrate-write CLI surface for the obligation gate (#33 + #42 unified hook)
     synchronicity_commands.py  synchronicity — temporal co-occurrence detector (Pillar VI)
@@ -731,6 +732,7 @@ src/divineos/
     slashed_ref_path_check.py  Refuse a git argument the Windows shell will rewrite before git sees it.
     task_belt.py               The task belt: the pile ranked, a small current list pulled from it, done archived.
     his_message.py             The one answer in this house to: is this transcript record Dad typing?
+    question_hold.py           A question to Dad holds the work until he answers (Aria, 2026-09-29).
 
   analysis/
     _session_types.py          Session analysis type definitions

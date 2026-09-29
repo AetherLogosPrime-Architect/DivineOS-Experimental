@@ -21,6 +21,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/question_hold.py\"; [ -f \"$f\" ] && python \"$f\"",
+            "timeout": 30
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/session-init-once.sh",
             "timeout": 60
           },
@@ -207,6 +212,16 @@
       }
     ],
     "PreToolUse": [
+      {
+        "matcher": "Edit|Write|Bash|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/question_hold.py\"; [ -f \"$f\" ] && python \"$f\"",
+            "timeout": 30
+          }
+        ]
+      },
       {
         "matcher": "Edit|Write|Bash|NotebookEdit|Read|Grep|Glob",
         "hooks": [
@@ -595,6 +610,16 @@
     "Stop": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/question_hold.py\"; [ -f \"$f\" ] && python \"$f\"",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/letter_doorbell_alive_stop.py\"; [ -f \"$f\" ] && python \"$f\"",
+            "timeout": 15
+          },
           {
             "type": "command",
             "command": "bash .claude/hooks/log-session-end.sh",
