@@ -928,8 +928,14 @@ def append_on(conn, event_type: str, actor: str, payload: dict[str, Any]) -> str
     log_event's second connection, waited on the cleaner's own lock, failed,
     and was swallowed (Anvil and Muse, SC #10, 2026-09-28). The caller
     BEGINs and COMMITs; if the act fails, its note rolls back with it.
+
+    Secrets are redacted here exactly as in log_event: a repair note quotes a
+    payload excerpt, and a second door that skipped the redactor would be a
+    way around it (council walk 2026-09-28, the Lovelace lens).
     """
-    payload = dict(payload)
+    from divineos.core.secret_redactor import redact_and_warn
+
+    payload = redact_and_warn(dict(payload), context=event_type)
     content_hash = compute_hash(json.dumps(payload, ensure_ascii=False, sort_keys=True))
     payload["content_hash"] = content_hash
     payload_json = json.dumps(payload, ensure_ascii=False, sort_keys=True)
@@ -1055,6 +1061,20 @@ def verify_chain() -> dict[str, Any]:
                 broken_reason=None,
             )
 
+        # Removed rows' chain hashes, as named by the cleaner's notes. Read from
+        # the notes' own payloads, so a note excuses a gap only if it is itself
+        # a row of this chain, whose hash the walk below rechecks.
+        removal_notes: dict[str, int] = {}
+        for _eid, _ts, etype, _a, payload_json, *_rest in rows:
+            if etype != "LEDGER_CORRUPTION_REPAIRED":
+                continue
+            try:
+                named = json.loads(payload_json).get("deleted_chain_hash")
+            except (ValueError, AttributeError):
+                continue
+            if named:
+                removal_notes[named] = removal_notes.get(named, 0) + 1
+
         expected_prior = _CHAIN_GENESIS
         last_chain_hash = None
         chain_event_count = 0
@@ -1110,6 +1130,14 @@ def verify_chain() -> dict[str, Any]:
                     # The link is excused; the row's own hash is still checked
                     # below. Skipping that recheck (the old `continue` here)
                     # meant a listed row was checked less than every other.
+                    known_breaks_seen.append(event_id)
+                elif removal_notes.get(stored_prior, 0) > 0:
+                    # A gap left by the cleaner: this row points at a removed
+                    # row whose chain hash a LEDGER_CORRUPTION_REPAIRED note in
+                    # the chain names. One note excuses one link; a second row
+                    # claiming the same removed hash is a fork, not a repair
+                    # (Aria 2026-09-28), so each name is spent once.
+                    removal_notes[stored_prior] -= 1
                     known_breaks_seen.append(event_id)
                 else:
                     return _chain_result(

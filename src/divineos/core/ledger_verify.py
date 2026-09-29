@@ -260,24 +260,21 @@ def clean_corrupted_events() -> dict[str, Any]:
                 "status": "success",
             }
 
-        # ONE TRANSACTION: every removal, the chain mended around each gap,
-        # and one LEDGER_CORRUPTION_REPAIRED note per removal, committed
-        # together or not at all (Anvil and Muse, SC #10 and #11, 2026-09-28).
+        # ONE TRANSACTION: every removal and one LEDGER_CORRUPTION_REPAIRED
+        # note per removal, committed together or not at all (Anvil and Muse,
+        # SC #10, 2026-09-28). The notes used to go through log_event's second
+        # connection, wait on this one's lock, fail and be swallowed, so a
+        # removal left no record of itself. A note that cannot be written now
+        # rolls its removal back.
         #
-        # The notes used to go through log_event, which opens a second
-        # connection and asks for the write lock this one was holding. Each
-        # note waited five seconds, failed, and was swallowed as
-        # "best-effort" -- so the one act the ledger forbids, removing a
-        # record, left no record of itself, while the message said every
-        # removal was logged. A removal whose note cannot be written now does
-        # not happen: the error rolls the whole thing back and is raised.
-        #
-        # The gap is mended with the compressor's relink rather than a second
-        # copy of it, so verify reads true afterwards instead of calling the
-        # repair tampering. Investigated breaks in known_chain_breaks.md are
-        # never mended here; that file records links left broken on purpose.
-        from divineos.core.ledger_compressor import _repair_chain_after_deletion
-
+        # THE GAP STANDS. No surviving row is rewritten. A first version
+        # relinked the chain around each gap; the council walk on it
+        # (2026-09-28, twelve lenses) and Aria reversed that. The chain exists
+        # to make a removal visible, a relink is what a tamperer does, and it
+        # rebuilt every row after the first gap -- on the real ledger it would
+        # have mended 946 true crossed links. Each note instead names the
+        # removed row's chain hash, and verify_chain excuses the one link that
+        # hash leaves broken, while still rechecking every row's own hash.
         prior_isolation = conn.isolation_level
         conn.isolation_level = None
         conn.execute("BEGIN IMMEDIATE")
@@ -285,14 +282,12 @@ def clean_corrupted_events() -> dict[str, Any]:
             removed = []
             for event_id in corrupted_ids:
                 row = conn.execute(
-                    "SELECT event_type, payload, content_hash FROM system_events "
+                    "SELECT event_type, payload, content_hash, chain_hash FROM system_events "
                     "WHERE event_id = ?",
                     (event_id,),
                 ).fetchone()
                 conn.execute("DELETE FROM system_events WHERE event_id = ?", (event_id,))
                 removed.append((event_id, row))
-
-            relink = _repair_chain_after_deletion(conn)
 
             logged = 0
             for event_id, row in removed:
@@ -305,8 +300,9 @@ def clean_corrupted_events() -> dict[str, Any]:
                         "deleted_event_type": row[0] if row else None,
                         "deleted_payload_preview": str(row[1])[:500] if row else None,
                         "stored_hash": row[2] if row else None,
-                        "chain_relinked_from_rowid": relink["first_orphan_rowid"],
-                        "chain_rows_rebuilt": relink["rebuilt"],
+                        # The one prior link this removal leaves broken, named
+                        # so verify_chain can excuse that link and no other.
+                        "deleted_chain_hash": row[3] if row else None,
                         "repaired_at": time.time(),
                     },
                 )
@@ -320,14 +316,12 @@ def clean_corrupted_events() -> dict[str, Any]:
 
         logger.info(
             f"Cleaned {len(removed)} corrupted events from ledger; "
-            f"{logged} LEDGER_CORRUPTION_REPAIRED notes written; "
-            f"chain rebuilt over {relink['rebuilt']} rows"
+            f"{logged} LEDGER_CORRUPTION_REPAIRED notes written; gaps left standing"
         )
 
         return {
             "deleted_count": len(removed),
             "logged_count": logged,
-            "chain_rows_rebuilt": relink["rebuilt"],
             "corrupted_event_ids": corrupted_ids,
             "status": "success",
         }

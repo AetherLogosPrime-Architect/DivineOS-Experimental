@@ -60,11 +60,53 @@ def test_every_removed_event_leaves_its_note(three_events):
     assert result["logged_count"] == 1
 
 
-def test_the_diary_reads_true_after_a_clean(three_events):
+def _prior_of(event_id: str) -> str:
+    conn = get_connection()
+    try:
+        return conn.execute(
+            "SELECT prior_hash FROM system_events WHERE event_id = ?", (event_id,)
+        ).fetchone()[0]
+    finally:
+        conn.close()
+
+
+def test_the_gap_stands_and_is_explained_by_its_note(three_events):
+    """No surviving row is rewritten; verify accepts the gap only because a note
+    names the removed row (council walk and Aria, 2026-09-28)."""
+    before = _prior_of(three_events[2])
     _break_payload(three_events[1])
     clean_corrupted_events()
+    assert _prior_of(three_events[2]) == before, "a surviving row was rewritten"
     chain = verify_chain()
     assert chain["ok"], chain
+
+
+def test_without_its_note_the_gap_is_a_break(three_events):
+    _break_payload(three_events[1])
+    clean_corrupted_events()
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM system_events WHERE event_type = 'LEDGER_CORRUPTION_REPAIRED'")
+        conn.commit()
+    finally:
+        conn.close()
+    assert not verify_chain()["ok"]
+
+
+def test_one_note_excuses_one_link_and_a_second_claim_is_a_fork(three_events):
+    _break_payload(three_events[1])
+    clean_corrupted_events()
+    removed_chain = _prior_of(three_events[2])
+    forged = log_event("NOTE", "system", {"n": "forged"}, validate=False)
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE system_events SET prior_hash = ? WHERE event_id = ?", (removed_chain, forged)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    assert not verify_chain()["ok"]
 
 
 def test_nothing_is_removed_when_the_note_cannot_be_written(three_events, monkeypatch):

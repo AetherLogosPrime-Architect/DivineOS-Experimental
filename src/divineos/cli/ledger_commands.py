@@ -324,7 +324,7 @@ def register(cli: click.Group) -> None:
         click.secho(
             f"[+] Removed {result['deleted_count']} corrupted events; "
             f"{result.get('logged_count', 0)} LEDGER_CORRUPTION_REPAIRED notes written; "
-            f"chain rebuilt over {result.get('chain_rows_rebuilt', 0)} rows.",
+            "each gap left standing and named by its note.",
             fg="green",
         )
         click.echo("    Run 'divineos verify' to confirm ledger integrity.")
