@@ -141,7 +141,7 @@ def _colliding_row_keys(path: str) -> set[str]:
     family, opposite direction, and the existing test missed it because it
     compares lines rather than identities.
     """
-    lines = Path(path).read_text(encoding="utf-8", newline="").split("\n")
+    lines = _read_exact(path).split("\n")
     collisions: set[str] = set()
     i = 0
     while i < len(lines):
@@ -165,6 +165,13 @@ def _colliding_row_keys(path: str) -> set[str]:
     return collisions
 
 
+def _read_exact(path: str) -> str:
+    # open(..., newline="") keeps line endings untranslated on every Python;
+    # Path.read_text only gained a newline argument in 3.13, and CI runs 3.12.
+    with open(path, encoding="utf-8", newline="") as f:
+        return f.read()
+
+
 def main(argv: list[str]) -> int:
     if len(argv) < 3:
         print(
@@ -180,7 +187,7 @@ def main(argv: list[str]) -> int:
 
     # Saved because git's merge-file overwrites %A in place, and the fallback
     # below needs the side that was there before it ran.
-    ours_before = Path(ours).read_text(encoding="utf-8", newline="")
+    ours_before = _read_exact(ours)
 
     conflicts = _merge_file(ancestor, ours, theirs, marker_size)
 
