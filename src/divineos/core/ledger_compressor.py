@@ -16,25 +16,20 @@ evidence layer. Damage measured on Aria's ledger 2026-07-16: 7730/7730
 surviving events orphaned in the tamper-evidence sense (per-row
 content_hash still verifies; chain-completeness does not).
 
-Compression strategy (post-fix):
+Compression strategy (2026-09-29, the gap stands):
 1. Count events by type and age
-2. Summarize high-volume events into a single LEDGER_COMPACTION event
-3. Delete the originals
-4. Repair the chain for surviving rows whose predecessors were deleted
-   (see _repair_chain_after_deletion) — same transaction as the delete
-5. Emit LEDGER_CHAIN_REPAIRED audit event capturing pre/post orphan
-   counts (auditable-repair pattern, same shape as
-   LEDGER_CORRUPTION_REPAIRED in ledger_verify.py)
-6. VACUUM the database
+2. Inside one BEGIN IMMEDIATE: find each removed run's tail (the chain hash a
+   surviving row will point at), delete the originals, and write chained
+   LEDGER_COMPACTION notes naming those tails
+3. VACUUM the database
+
+No surviving row is ever rewritten. verify_chain excuses a gap only when a
+chained note names a hash no surviving row carries. The July relink
+("Interpretation A") is in archive/superseded/2026-09-29_compressor_relink/
+with the reason it was retired, and Dad's approval to move it there.
 
 Meaningful events (USER_INPUT, SESSION_END, CLARITY_*, SUPERSESSION, etc.)
 are NEVER deleted.
-
-Interpretation A (Aria + Aether coordination 2026-07-16 letters): the
-repair uses the last-good chain_hash as the implicit anchor for the
-rebuilt segment, preserving the pre-deletion chain-continuity claim.
-Symmetric to the doorman UNLOCK-CONTINGENT slot — the recording that
-stays must be the ACTUAL recording, not a fresh made-up one.
 """
 
 # Module-level guardrail marker — Aletheia Finding 48 class-fix
@@ -49,7 +44,6 @@ from typing import Any
 from loguru import logger
 
 from divineos.core._ledger_base import _get_db_path, get_connection
-from divineos.core.ledger import _CHAIN_GENESIS, _compute_chain_hash
 from divineos.core.constants import (
     LEDGER_MAX_SIZE_GB,
     LEDGER_WARNING_PERCENT,
@@ -136,123 +130,6 @@ def analyze_ledger() -> dict[str, Any]:
         }
     finally:
         conn.close()
-
-
-def _repair_chain_after_deletion(conn) -> dict[str, Any]:
-    """Repair the hash chain after compression deletes rows in the middle.
-
-    Interpretation A (Aria 2026-07-16 letter to Aether): find the earliest
-    surviving row whose prior_hash no longer resolves to a surviving
-    chain_hash (or _CHAIN_GENESIS), NULL out chain metadata from that row
-    forward, and let ``backfill_chain_hashes()`` rebuild the segment. The
-    implicit anchor is the last surviving row with a still-valid chain_hash
-    — preserving the pre-deletion chain-continuity claim rather than
-    minting a fresh genesis. Symmetric to the doorman UNLOCK-CONTINGENT
-    slot (substrate cite 721ec1ec): the recording that stays must be the
-    ACTUAL recording, not a fresh made-up one.
-
-    Self-healing: on first run after this fix lands, any existing orphans
-    from prior compression cycles get rebuilt too (per-row content_hash
-    integrity, still intact, is the witness for the anchor row —
-    Andrew 2026-07-16: "we can prove they were not tampered with").
-
-    Called INSIDE the same transaction as ``DELETE`` in ``compress_ledger``
-    (Aria 2026-07-16 letter to Aether — same-transaction locked). If the
-    delete succeeds and repair fails, both roll back together, so the
-    caller either sees fully-healed post-state or fully-restored pre-state.
-    No silent looks-fine-isn't-wired middle ground.
-
-    Args:
-        conn: Open sqlite3 connection with an in-flight transaction.
-            The caller is responsible for BEGIN and COMMIT.
-
-    Returns:
-        dict with keys:
-          - ``first_orphan_rowid``: rowid of the earliest orphaned row,
-            or None if no orphans found
-          - ``rebuilt``: count of rows whose chain metadata was
-            recomputed (0 if no orphans)
-          - ``status``: ``"no_orphans"`` | ``"repaired"``
-    """
-    valid_hashes = {
-        row[0]
-        for row in conn.execute("SELECT chain_hash FROM system_events WHERE chain_hash IS NOT NULL")
-    }
-    valid_hashes.add(_CHAIN_GENESIS)
-
-    first_orphan_rowid = None
-    for rowid, prior_hash in conn.execute(
-        "SELECT rowid, prior_hash FROM system_events "
-        "WHERE prior_hash IS NOT NULL "
-        "ORDER BY timestamp ASC, rowid ASC"
-    ):
-        if prior_hash not in valid_hashes:
-            first_orphan_rowid = rowid
-            break
-
-    if first_orphan_rowid is None:
-        return {
-            "first_orphan_rowid": None,
-            "rebuilt": 0,
-            "status": "no_orphans",
-        }
-
-    conn.execute(
-        "UPDATE system_events SET prior_hash = NULL, chain_hash = NULL WHERE rowid >= ?",
-        (first_orphan_rowid,),
-    )
-
-    # Inline the backfill loop on the caller's connection to preserve
-    # single-transaction discipline. Delegating to backfill_chain_hashes()
-    # would open a second connection with its own BEGIN IMMEDIATE and
-    # deadlock against the caller's outstanding write lock — the exact
-    # failure mode this same-transaction design is meant to prevent.
-    prior_hash = _latest_valid_chain_hash_before(conn, first_orphan_rowid)
-    rebuilt = 0
-    for row in conn.execute(
-        "SELECT rowid, event_id, timestamp, event_type, actor, payload, content_hash "
-        "FROM system_events WHERE chain_hash IS NULL "
-        "ORDER BY timestamp ASC, rowid ASC"
-    ).fetchall():
-        rowid, event_id, ts, etype, actor, payload_json, content_hash = row
-        chain_hash = _compute_chain_hash(
-            prior_hash=prior_hash,
-            event_id=event_id,
-            timestamp=ts,
-            event_type=etype,
-            actor=actor,
-            payload_json=payload_json,
-            content_hash=content_hash,
-        )
-        conn.execute(
-            "UPDATE system_events SET prior_hash = ?, chain_hash = ? WHERE rowid = ?",
-            (prior_hash, chain_hash, rowid),
-        )
-        prior_hash = chain_hash
-        rebuilt += 1
-
-    return {
-        "first_orphan_rowid": first_orphan_rowid,
-        "rebuilt": rebuilt,
-        "status": "repaired",
-    }
-
-
-def _latest_valid_chain_hash_before(conn, rowid: int) -> str:
-    """Return the chain_hash of the newest surviving row whose rowid is
-    strictly less than ``rowid`` and whose chain_hash is still populated.
-    Falls back to _CHAIN_GENESIS if no such row exists (early-truncation
-    case). This IS the implicit anchor for Interpretation A rebuild —
-    Aria + Aether 2026-07-16 coordination locked."""
-    row = conn.execute(
-        "SELECT chain_hash FROM system_events "
-        "WHERE rowid < ? AND chain_hash IS NOT NULL "
-        "ORDER BY timestamp DESC, rowid DESC LIMIT 1",
-        (rowid,),
-    ).fetchone()
-    if not row or not row[0]:
-        return _CHAIN_GENESIS
-    return str(row[0])
 
 
 MAX_TAILS_PER_NOTE = 500
