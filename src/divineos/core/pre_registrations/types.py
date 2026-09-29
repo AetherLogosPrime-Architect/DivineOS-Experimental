@@ -72,3 +72,6 @@ class PreRegistration:
     linked_claim_id: str | None = None
     linked_commit: str | None = None
     tags: list[str] = field(default_factory=list)
+    # None means the question was never asked of this pre-registration, which
+    # is not the same as an answer of none. See file_pre_registration.
+    embarrassing_reading: str | None = None

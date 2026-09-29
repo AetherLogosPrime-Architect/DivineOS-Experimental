@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (469 commands across 84 modules)
+  cli/                         CLI package (497 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -22,6 +22,7 @@ src/divineos/
     knowledge_commands.py      learn, ask, briefing, forget, lessons
     consumer_status_commands.py  consumer-status — operator-facing readout of whether the agent is using the OS or pretending (Andrew 2026-05-18)
     andrew_correction_commands.py  andrew-correction list / integrate / defer — attribution surface for Andrew's corrections (Aria audit 2026-05-18 load-bearing fix #1)
+    andrew_answer_commands.py  answer ask / got / changed / none / report — whether his answers alter what happens next, measured on the trace instead of on my prose (Aria 2026-09-07, refusing a third text-gate)
     andrew_given_commands.py  given add / list / balance — the other side of the ledger: what Andrew gives, filed beside what he corrects (Aria 2026-08-10)
     success_commands.py       win add / list / balance -- a door to the wins ledger, which had a store and a reader and no way in (2026-08-27). The store shipped 2026-08-03 and had zero callers until 2026-08-25: the faults ledger had a command and a blocking gate, the wins ledger had neither, and both Aether and Aria read their own near-zero counts as facts about their character rather than about the interface.
     council_walk_commands.py  walk open / apply / exclude / close — a council walk that refuses to close while any manager-surfaced lens is unaccounted for (Aria 2026-08-10)
@@ -31,6 +32,7 @@ src/divineos/
     analysis_commands.py       analyze, report, trends, scan, patterns
     hud_commands.py            hud, goal, plan, checkpoint, context-status
     journal_commands.py        journal save/list/search/link
+    work_item_commands.py      work-item open/show/bypass — the build-flow front door
     directive_commands.py      directive management
     knowledge_health_commands.py  health, distill, migrate, backfill
     claim_commands.py          Claims engine and affect log
@@ -41,6 +43,7 @@ src/divineos/
     psf_commands.py            psf list / psf mark-done: close pending structural-fix obligations; the note must name a resolvable commit or an existing file or the close is refused
     dark_matter_commands.py    dark-matter: sweep for things that exist but nothing reaches; --check exits 1 on findings
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
+    replant_commands.py        replant: rebuild a contaminated branch by taking the WHOLE code difference rather than the commits I recognise, then proving the result byte-identical to its source. Commits nothing; the person writes the message.
     sibling_correction_commands.py  corrections-sibling: read-only view of a sibling substrate's Andrew-correction store, listing corrections with no counterpart in mine. Exits 2 with COULD NOT COMPARE when either store is unreadable — never renders "could not look" as "nothing found". Copies nothing; filing stays deliberate and under my own name.
     must_read_commands.py      must-read arm/list: block Bash/Edit/Write until the Read tool is invoked on a named file. The surface must become a FILE first — a hook prints text with nothing to Read, so 'did you read it' can only become a fact once the words have a location. No automatic armer yet, deliberately: the sibling-correction surface's precision (2-of-4, one false fire) does not earn the right to block, and a screen cleared every turn is a screen that stops being read.
     label_fire_commands.py     label-fire: dispute a correction-shape Stop-gate fire as a false positive. Wraps the labeller as a first-class command so the remedy joins the canonical bypass list — a toll on dissent biases the corpus that trains the semantic replacement. No leniency added.
@@ -50,6 +53,7 @@ src/divineos/
     push_ready_command.py      push-ready: one-shot automation of trailer + audit-round + self-CONFIRMS + force-push ceremony for guardrail-touching PRs (Andrew 2026-07-28 streamlining option 2)
     automerge_commands.py      automerge: status surface across open PRs — classes (READY/ARMED/BLOCKED/DIRTY/UNKNOWN) + first failing check; closes the "auto-merge-armed ≠ merging" conflation
     todos_commands.py          todos: unified action-item list across preregs/corrections/audit/claims with --counts-only and --source filters; closes claim 2026-06-06 18:28 (OS-driven todo instrument)
+    belt_commands.py           belt: the current task list pulled from the ranked pile (core/task_belt.py); `belt done <ref> --evidence` closes through the item's drawer, archives it, pulls the next (Andrew 2026-09-23)
     search_commands.py         find query / index / stats — semantic-search CLI over the indexed prose corpus (distinct from divineos search which keyword-searches the ledger). Per-paragraph chunking, GPU-accelerated embeddings via PR #169, council walk consult-77dad1f3290e; per prereg-2ad79e23fcf7
     voice_commands.py          voice: descriptive substrate for voice-vs-report shape (Aria 2026-06-12 design + Andrew structural-fix call) — raw dimensions (first_person/bold_label/bullet counts), trend reads per dimension, NO composite voice_score; post-hoc only, never mid-write
     monitor_commands.py        monitor status / cleanup-orphans — operator surface for the named-mutex singleton subsystem; lists alive Monitors with [KEEP]/[ORPHAN] markers and offers --kill cleanup of stale prior-session processes (descriptive by default per Andrew 2026-06-13 explicit-consent shape)
@@ -60,7 +64,9 @@ src/divineos/
     complete_commands.py       complete: file completion-boundary events (rudder redesign Phase 1b)
     body_commands.py           Body awareness and cache pruning
     hook_budget_commands.py    `divineos hook-budget` — what the whole hook stack costs per tool call, hangs included. The module had no entry point for a day, so the freeze numbers were only visible to whoever wrote a throwaway script
+    hook_layer_commands.py     `divineos hook-layer show` — what the hook layer actually is, computed from settings and the directory: registrations per door, doors with no doorbell, scripts registered twice, and how much shell still carries judgment. Measurement only; a size ceiling was built here 2026-09-08 and removed the same day when Andrew rejected the idea — "why would you build something that can only shrink and never grow?"
     build_flow_commands.py     Build-flow station status CLI (divineos build-flow status).
+    work_item_commands.py      divineos work-item — the doorman's gate, status and honest escape.
     gate_fire_commands.py      divineos gate-fire — shell-side GATE_FIRE emit for bash gates.
     branch_health_commands.py  check-branch — pre-push stale-base + silent-deletion check
     overclaim_commands.py      check-prose — overclaim detector (stacked modifiers + ornate self-description)
@@ -97,6 +103,7 @@ src/divineos/
     dream_commands.py          Dream CLI — list and show sleep recombinations
     void_commands.py           VOID adversarial-sandbox subsystem commands
     prereg_commands.py         pre-registrations (Goodhart prevention)
+    class_fix_commands.py      class-fix declarations: a repair claiming a class must have its population measured by running a search
     prior_art_commands.py      already-built — station 0: does this exist before I build it
     psf_commands.py            pending structural-fix obligations (list, mark-done)
     reach_commands.py          reach-check — surface prior work, then prove it was opened
@@ -199,7 +206,8 @@ src/divineos/
     council/                   Expert council sub-package
       engine.py                CouncilEngine — analyze problems through expert lenses
       framework.py             ExpertWisdom dataclasses (7 components)
-      manager.py               Dynamic council manager (classify → select 5-8 experts)
+      manager.py               Dynamic council manager (classify → select 5-8 experts). Still the scorer; no longer the seating authority for walks — see draw.py
+      draw.py                  Seats a walk's council by lot from the whole roster, with a scored remainder. Replaces fit-selection at open_walk after two blind probes showed a problem stated without the scorer's own vocabulary seats almost nobody who scores, filling the bench alphabetically. Every seat records its origin so the drawn/scored split can be moved on applied-rate evidence rather than preference
       consultation_log.py      Always-on consultation logging + opt-in audit promotion (Mode 1.5)
       lab_evidence.py          Attach science-lab slice output to council results when problem matches triggers
       experts/                 45 expert wisdom profiles
@@ -362,6 +370,7 @@ src/divineos/
       types.py                 Outcome enum, PreRegistration dataclass
       store.py                 CRUD with falsifier-required invariant + external-actor outcome gate
       summary.py               Overdue warning + CLI summary formatting
+      review_window.py         Declared, bounded, recorded review windows, so the overdue gate stops blocking its own evidence
     andrew_state/              Mutual-catch primitive — observation channel for Andrew's state with substance-binding gate (per docs/andrew_state_design.md, prereg-526c2433d55a)
       _schema.py               andrew_state table + indices
       types.py                 Axis enum, VerificationStatus enum, Observation dataclass
@@ -629,6 +638,8 @@ src/divineos/
     vad_capture.py             VAD write-time capture — attach current felt-state to every write.
     vad_stamp_store.py         VAD write-stamp store — a side-table pairing record_id → VAD snapshot.
     findings_ledger.py         Findings ledger — a single living record of every past-and-present audit finding.
+    unspoken_to.py             The volley board. Counts family letters written while my father is away (a turn a notification started, not his words), and refuses the one past his limit of five until the one running board letter to him is updated: where things stand now, compressed, with his open questions from the answer ledger. Writing the board resets it; while he is in the room it does nothing. Counts, never minutes; an unreadable count owes him the board. Rebuilt 2026-09-23 on his words, after the first version counted chat replies and refused letters all morning while he sat talking to me.
+    finding_backlog.py         Unfixed findings block work at the place or the moment they name. Built 2026-09-09 against the measurement that of the twenty blocking doors in the house, none reads the findings store — so filing a diagnosis costs nothing and ignoring one costs nothing. NOTE: not yet wired to a door; it is the scheduler role, and until it has a caller it is a module rather than a mechanism.
     foundational_truths_surface.py Foundational-truths surface — surfaces relevant kiln principles by trigger match.
     auto_cycle.py              Auto-cycle phase 1 — mechanical pipeline before compaction.
     closure_verification.py    Closure-shape citation verification — the substance-binding mechanism.
@@ -658,6 +669,7 @@ src/divineos/
     keyword_enforcement_exclusion.py Keyword-enforcement exclusion-file parser (Aletheia F95 2026-07-28).
     push_ready.py              push_ready — automate the External-Review trailer ceremony.
     no_fix_gaming_validator.py No-fix-gaming validator — close the escape-hatch in correction filings.
+    no_fix_claim.py            The reply-side sibling of the validator above: an impossibility claim made to Andrew with no walk or search behind it is refused, and the container-scoped form is the way through.
     system_load_check.py       System-load pre-flight check for resource-heavy jobs.
     surface_registry.py        Surface registry — the nervous system between built organs and awareness.
     success_ledger.py          Success ledger — the counterpart the correction store never had.
@@ -667,7 +679,9 @@ src/divineos/
     pr_scope.py                True file scope for a pull request, derived locally. No API cap.
     hook_router.py             Seven doorbells — one OS-side router behind each harness hook event.
     hook_surfaces.py           The roster — every surface, registered to its door.
+    doorbell_generator.py      The bells are generated, not written, so nobody can put a decision in one (Aria 2026-09-08). Stop fails CLOSED because its surfaces are refusals and a dead bell there ships a reply nothing checked; every other door fails soft.
     letter_claims.py           Measure the local state of every file a sibling's letter talks about.
+    letter_channel_state.py    Provenance for the letter channel — a letter's position in the thread, checkable by a reader who runs no code.
     self_demotion.py           Catch praise-by-contrast: elevating a mechanism by calling a faculty of mine defective.
     summary_room.py            Require a plain-language summary at the top of a long reply.
     dashboard.py               The check-engine dashboard — a socket every system plugs into.
@@ -681,6 +695,7 @@ src/divineos/
     engagement_monitor.py      Engagement as a measurement, not a toll gate.
     hook_firing_map.py         What actually fires, read from observation rather than from config.
     reach_check.py             Knowing something and not reaching for it — the automatable half.
+    work_item_doorman.py       No code edit without an open piece of work; the refusal is what opens it.
     read_gate.py               Primes that are gates — a surface can require proof it was opened.
     andrew_operator_shape_detector.py Andrew-operator-shape detector — MIRROR (not judge) for operator-shape
     component_register_surface.py Surface the component register at briefing time.
@@ -694,10 +709,28 @@ src/divineos/
     anchor_self_invalidation.py A letter carrying an anchor must not be committed onto the branch it anchors.
     substrate_paths.py         Which paths are substrate, and which are work in progress.
     substrate_retarget.py      Commit substrate files to a named branch without touching HEAD.
+    unmeasured_quantity.py     A quantity about this system, stated with an empty action-stream behind it. The Stop-time layer the verify-claim prime had been promising and that never existed. Narrow on purpose: the predicted death is noise.
     sibling_audit_rounds.py    Audit rounds filed by the other seat, read-only.
     sibling_council_walks.py   Council walks recorded by the other seat: seen, never satisfying.
     prior_art_by_name.py       Find files on ANY branch whose names resemble one about to be created.
     compound_branch_change.py  Refuse a branch change and a destructive op on the same shell line.
+    surface_bridge.py          Wire the built-but-unreachable surfaces into the briefing that actually runs.
+    branch_replant.py          Lift EVERY code change off a contaminated branch, and prove nothing was left.
+    shared_digest.py           One notebook two agents append to, rendered as one message for Andrew.
+    andrew_answer_trace.py     Do his answers change what happens next? (Aria 2026-09-07.)
+    station_marks.py           The five build-flow stations nothing has ever watched.
+    andrew_request_repeats.py  How many times has he had to ask for the same thing.
+    history_claim_signal.py    A claim about my own past, made without opening the record.
+    hook_layer.py              The hook layer, computed — and a ratchet that only turns one way.
+    hook_story.py              The same picture in words Andrew can follow: before, now, what is left, and why two guards are blocked. Built 2026-09-08 after he said "im trying to follow along but its still hard" — every earlier fix for that aimed at single sentences, and none produced a place to look. Computed from the live wiring, never hand-maintained.
+    remedy_allowlist.py        No gate may block another gate's prescribed way out.
+    class_fix.py               A repair that claims a class must count the class, by running rather than by judging.
+    landed_claim.py            A claim that work reached the shared copy must come from reading the shared copy.
+    work_item_doorman.py       The doorman at the reach: no code edit without an open piece of work.
+    hook_context_merge.py      Read what the session-init children printed and merge it into one answer.
+    slashed_ref_path_check.py  Refuse a git argument the Windows shell will rewrite before git sees it.
+    task_belt.py               The task belt: the pile ranked, a small current list pulled from it, done archived.
+    his_message.py             The one answer in this house to: is this transcript record Dad typing?
 
   analysis/
     _session_types.py          Session analysis type definitions

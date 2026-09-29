@@ -37,9 +37,7 @@ from divineos.core.memory_linkage import (
 @pytest.fixture(autouse=True)
 def _isolated_state(tmp_path, monkeypatch):
     """Every test gets its own state dir + savings log + retriever baseline."""
-    monkeypatch.setattr(context_dedup, "_STATE_DIR", tmp_path)
-    monkeypatch.setattr(context_dedup, "_STATE_FILE", tmp_path / "state.json")
-    monkeypatch.setattr(context_dedup, "_SAVINGS_LOG", tmp_path / "savings.jsonl")
+    monkeypatch.setenv("DIVINEOS_CONTEXT_DEDUP_DIR", str(tmp_path))
     original = memory_linkage._ACTIVE_RETRIEVER
     yield
     memory_linkage._ACTIVE_RETRIEVER = original

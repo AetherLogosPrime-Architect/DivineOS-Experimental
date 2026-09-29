@@ -97,16 +97,24 @@ def test_unknown_context_falls_back():
 
 
 def test_render_has_separators():
-    # 9 always + 2 sometimes-essential in 'designing' context = 11 panels = 10 separators
-    # (9 since the 2026-08-24 merge brought both trees' eighth panel together)
-    out = render_multiplex(build_panels("designing"))
-    assert out.count("-" * 60) == 10
+    """One separator between each pair of panels, whatever the panel count.
+
+    This used to assert a literal 10, which meant it failed whenever the
+    briefing legitimately gained or lost a panel -- and a test pinned to a
+    count cannot tell "the rule broke" from "the number moved". It broke on
+    2026-09-06 when the 22 surfaces that had been stranded in the crash-only
+    fallback were finally routed here. The rule is one separator per join.
+    """
+    panels = build_panels("designing")
+    out = render_multiplex(panels)
+    assert out.count("-" * 60) == len(panels) - 1
 
 
 def test_render_has_drill_downs():
-    # 9 always + 2 sometimes-essential in 'designing' context = 11 'More: ' lines
-    out = render_multiplex(build_panels("designing"))
-    assert out.count("More: ") == 11
+    """Every panel ends with a drill-down, whatever the panel count."""
+    panels = build_panels("designing")
+    out = render_multiplex(panels)
+    assert out.count("More: ") == len(panels)
 
 
 def test_render_empty_returns_empty():
@@ -114,7 +122,16 @@ def test_render_empty_returns_empty():
 
 
 def test_oversize_panel_violation():
-    big = Panel(name="x", tier=Tier.ALWAYS, content="x" * 600, drill_down="d")
+    """A panel over the cap is refused, wherever the cap sits.
+
+    The literal 600 that used to be here silently stopped testing anything
+    when the ceiling was raised from 480 to 600 on 2026-09-06 -- the panel was
+    then exactly at the limit rather than over it, and the test passed by
+    accident. Derived from the constant so it tests the rule.
+    """
+    from divineos.core.multiplex_renderer import PANEL_MAX_CHARS
+
+    big = Panel(name="x", tier=Tier.ALWAYS, content="x" * (PANEL_MAX_CHARS + 1), drill_down="d")
     _, ok = render_panel(big)
     assert not ok
 

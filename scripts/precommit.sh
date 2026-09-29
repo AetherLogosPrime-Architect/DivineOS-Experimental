@@ -14,6 +14,70 @@
 
 set -e
 
+# STEP ZERO: WHICH COPY OF THIS PROJECT IS ABOUT TO BE CHECKED?
+#
+# Every check below runs through `python`, and on this machine `python` can
+# resolve to a sibling checkout -- one global editable-install slot, claimed by
+# whoever ran the install last. When that happens the whole run is honest about
+# a tree nobody is committing to: lint, types and tests all pass or fail about
+# somebody else's source while reporting on this commit.
+#
+# Measured 2026-09-19: a full test run in one worktree was resolving the
+# package to a different repository entirely, and the venv this repo insists on
+# had neither pytest nor mypy -- so the gate forbidding the wrong interpreter
+# was forbidding the only one that could run anything.
+#
+# The command doing the asking has existed since July, describes this exact
+# fault in its own help text, was audited, was catalogued -- and had ZERO
+# callers for two months, while the person who wrote it got bitten by the fault
+# and found it by hand. Aether counted the callers 2026-09-19. This is the
+# caller. It was given a verdict first, because until then it printed which
+# copy it loaded and never judged whether that copy was the right one, and a
+# check that narrates instead of refusing is the same defect one layer along.
+#
+# Deliberately BEFORE the staged-file detection: which tree is being measured
+# is a precondition for every answer below it, including "nothing staged".
+#
+# DO NOT RESPELL THE INVOCATION BELOW WITHOUT READING THIS. The census that
+# hunts for guards nothing calls matches the command as LITERAL TEXT. The line
+# below happens to contain the string it looks for, so this guard reads as
+# wired. Aether measured it 2026-09-19 against the instrument's real matching
+# logic rather than by eye, and tested two other spellings anyone could equally
+# have chosen -- invoking through the package's module path, or putting the
+# binary in a shell variable. Neither matches. Both are ordinary, neither is
+# wrong, and either would leave this guard reading as UNCALLED while it runs on
+# every commit.
+#
+# So a tidy-up here does not break the check -- it makes the check invisible to
+# the thing that counts checks, which is worse, because the census would then
+# report a false gap and someone would go and "fix" a guard that was already
+# working. The limit is his to state in the census; the warning belongs here,
+# where the keystroke happens.
+# THREE OUTCOMES HERE TOO, and the third one is why this is not a one-liner.
+# A copy of the package older than this change does not have the option at
+# all, and click answers that with its own usage exit. Treating that as "wrong
+# interpreter" would block every checkout whose install predates this commit
+# and blame the wrong thing while doing it. So a usage exit is COULD-NOT-CHECK
+# and warns; only a real verdict stops the run.
+PRECOMMIT_REPO_ROOT=$(git rev-parse --show-toplevel)
+set +e
+python -m divineos doctor verify-import divineos --must-be-under "$PRECOMMIT_REPO_ROOT"
+PRECOMMIT_IMPORT_RC=$?
+set -e
+if [ "$PRECOMMIT_IMPORT_RC" -eq 1 ]; then
+    echo ""
+    echo "STOPPING BEFORE ANY CHECK RUNS. The interpreter this script uses does"
+    echo "not load this repository, so every result below would be about a"
+    echo "different tree. Nothing was checked; this exit is not a pass."
+    exit 1
+elif [ "$PRECOMMIT_IMPORT_RC" -ne 0 ]; then
+    echo ""
+    echo "  !  could not check which copy of the project this interpreter loads"
+    echo "     (the installed divineos predates --must-be-under, or the CLI did"
+    echo "      not run). Continuing, but the results below are UNVERIFIED as to"
+    echo "      which tree they describe."
+fi
+
 STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
 
 # SELECT SHELL SCRIPTS BY SHEBANG TOO, NOT ONLY BY EXTENSION.
@@ -286,6 +350,14 @@ if ! python scripts/check_function_naming.py 2>/dev/null; then
     note_fail
 fi
 
+# One reader of Dad's messages (2026-09-28). Six private readers each missed
+# him differently; a seventh is refused here, with the home's import in the
+# refusal so the fix costs less than the route around it.
+section "One Reader of Him"
+if ! python scripts/check_no_private_his_reader.py; then
+    note_fail
+fi
+
 # 5a. Orphan-modules warning (non-blocking). Round-2 audit (2026-05-07)
 # wired this at warning-level: the existing detector found 22 orphans
 # (down to ~4 after fixing false-positive shapes) but each remaining
@@ -307,6 +379,34 @@ fi
 # push. Teeth on a lying instrument would have gotten working code deleted.
 section "Orphan Modules"
 if ! python scripts/check_orphan_modules.py; then
+    note_fail
+fi
+
+# 5a-bis. A retired rule must not be handed over as a current one.
+# Andrew named this on 2026-09-21 after I repeated a rule to him that had
+# been replaced two weeks earlier: "it should NOT be able to hand you old
+# rules." The register lives in docs/retired_rules/; the check walks only the
+# surfaces that TEACH -- the session instructions, the skills, the hook and
+# gate messages, the live scripts -- because position in the load path is
+# what did the damage, not existence somewhere in the tree.
+#
+# Pinned sites are in scripts/retired_rules_baseline.txt and are reported as
+# work owed. A NEW one fails. Read the check's own output for what it cannot
+# see: it matches phrasings, so a retired rule restated in different words
+# passes it clean.
+section "Retired Rules"
+if ! python scripts/check_retired_rules_not_served.py; then
+    note_fail
+fi
+
+# A refusing gate whose refusal sits behind a load that exits 0 on failure will
+# ALLOW what it exists to stop, the moment that load breaks. Aletheia found it
+# in the emergency stop itself, 2026-09-21. The stop is repaired; the rest are
+# pinned in a baseline that may shrink and never grow, so the next instance
+# blocks here rather than arriving quietly. Her rule from an earlier round is
+# the reason this is a check and not a note: a detector makes it a property.
+section "Refusal Order"
+if ! python scripts/check_refusal_before_failsoft.py; then
     note_fail
 fi
 
@@ -370,7 +470,19 @@ if [ -f scripts/guardrail_files.txt ] && [ -f scripts/check_multi_party_review.p
         # setup-hooks.sh silently no-op'd the install. Verify here that
         # the hook actually exists and is non-empty BEFORE the operator
         # types the commit message — the operator should see this loudly.
-        HOOK_PATH=$(git rev-parse --git-path hooks/commit-msg 2>/dev/null || echo ".git/hooks/commit-msg")
+        # --git-common-dir, NOT --git-path. In a linked worktree `.git` is a
+        # FILE pointing at the real gitdir, so --git-path hands back a literal
+        # ".git/hooks/commit-msg" that cannot resolve -- and the check below
+        # then announces "gate enforcement absent" about a hook that is
+        # installed and runs correctly. Verified 2026-09-14 by executing the
+        # hook from inside a worktree: it fired and returned zero while this
+        # line was calling it missing. Git looks hooks up in the COMMON dir,
+        # which every worktree shares.
+        #
+        # The failure this produced is the day's own shape: a check that
+        # asked the wrong question and reported a confident false absence,
+        # then told the reader to go install something already there.
+        HOOK_PATH="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")/hooks/commit-msg"  # fail-soft: rev-parse only fails outside a repository, where this whole script has already refused, and its stderr would be noise on top of that
         if [ ! -s "$HOOK_PATH" ]; then
             echo "  [!!] COMMIT-MSG HOOK NOT INSTALLED — gate enforcement absent."
             echo "       Path checked: $HOOK_PATH"
@@ -395,6 +507,35 @@ fi
 if [ -f scripts/check_hook_wiring.py ]; then
     section "Hook Wiring"
     if ! python scripts/check_hook_wiring.py; then
+        note_fail
+    fi
+fi
+
+# 5b-bis. REMOVED 2026-09-08, the same day it was added, and the reason is
+# worth keeping where the next person to reach for it will look.
+#
+# It was a ratchet on the SIZE of the hook layer: registrations and shell lines
+# could fall or hold, never rise. Andrew killed it with one question — "why
+# would you build something that can only shrink and never grow?"
+#
+# Size was never the disease. He asked for the thinking to move into the OS and
+# never once asked for fewer hooks; a hundred doors that all point inward would
+# be better than twenty that each hide a private brain. A count is easy to
+# police and the real property is work, and I took the easy one.
+#
+# The replacement is the migration itself — see the generated doorbells and the
+# surfaces in divineos.core.hook_surfaces.
+
+# 5b-ter. Every bell is what the generator produced.
+#
+# Aria 2026-09-08, refusing a property check on hand-written hooks: "Do not
+# police the shape. Remove the authoring. ... You cannot put a brain in a file
+# you did not author." So the doorbells are generated, and this compares them
+# byte-for-byte against the generator — exhaustive, rather than an opinion
+# about what a bell should look like.
+if [ -f src/divineos/core/doorbell_generator.py ]; then
+    section "Doorbells"
+    if ! python -c "import sys; from divineos.core.doorbell_generator import main; sys.exit(main('.'))"; then
         note_fail
     fi
 fi
@@ -447,6 +588,35 @@ if [ -f scripts/generate_automation_register.py ]; then
     section "Automation Register"
     if ! python scripts/generate_automation_register.py --check; then
         note_fail
+    fi
+fi
+
+# 5c-bis. EVERY generated artifact, discovered rather than listed.
+#
+# The check directly above names ONE generator by hand. That was correct when
+# there was one; there are two now, and the second was only ever checked
+# because someone remembered to wire it separately. A hand-named set is the
+# failure Aether warned about on 2026-09-19 when he said the hot-file list must
+# be derived, not typed: "that set will drift, and a typed list goes stale
+# silently, which is the failure the whole house has been making all week."
+#
+# This one reads scripts/generate_*.py for the OUTPUT each declares about
+# itself, runs them all, and refuses any artifact whose bytes are not what its
+# generator produces. That is the state a clean auto-merge leaves behind, and
+# the reason it needs catching here is that NOTHING ELSE OBJECTS to it.
+#
+# It exits 2 for could-not-look -- a crashed generator, a generator that wrote
+# nothing, no generators found at all -- which is a warning here rather than a
+# block, because a broken generator is a different repair from a stale file and
+# the message says which one happened.
+if [ -f scripts/merge_surface.py ]; then
+    section "Generated artifacts re-derived"
+    python scripts/merge_surface.py --verify-generated
+    _surface_rc=$?
+    if [ "$_surface_rc" = "1" ]; then
+        note_fail
+    elif [ "$_surface_rc" != "0" ]; then
+        echo "  [warn] the re-derivation check could not look; see the reason above."
     fi
 fi
 
@@ -530,11 +700,65 @@ if [ $ERRORS -eq 0 ]; then
     python scripts/check_closure_claim.py --record "precommit:$(git rev-parse --abbrev-ref HEAD)" 2>/dev/null || true
 fi
 
+# 6d. Hook payloads must fit through the harness delivery cut. Blocks, and
+# blocking is the point: on 2026-09-06 Andrew found that 87% of what the
+# compose-start hooks wrote for me was persisted to files I never open, so
+# rules I believed I was following had never arrived. Only runs when a hook
+# is staged, since it measures hooks rather than the whole tree.
+if echo "$STAGED_SH" | grep -q "\.claude/hooks/"; then
+    section "Hook payload fits"
+    if ! python scripts/check_hook_output_fits.py; then
+        note_fail
+    fi
+fi
+
 # 7. Shellcheck on staged .sh files (line endings already normalized in step 0)
 if [ -n "$STAGED_SH" ] && command -v shellcheck &>/dev/null; then
     section "Shellcheck"
     if ! echo "$STAGED_SH" | xargs shellcheck 2>/dev/null; then
         note_fail
+    fi
+fi
+
+# 7b. Capability claims in the comments of files being committed (informational).
+#
+#     Aletheia named this class 2026-08-27 and the checker was written for it,
+#     then called by nothing for two weeks -- indexed, tested, unwired, which is
+#     how Aria and I came to rediscover the same class from scratch on 2026-09-10
+#     and each report it to the other as a finding.
+#
+#     Aria's cost for it: a comment of ours saying a refusal path was loud,
+#     sincere and in our own voice and no longer true. It answered the question
+#     she was about to ask, so she diagnosed the resulting incident twice by
+#     guessing. A note about the PAST cannot rot; a note about what the code
+#     DOES is a test with no assertion.
+#
+#     SCOPED TO THE STAGED FILES ON PURPOSE. Across the whole tree this prints
+#     twenty-odd lines every time, which is the shape that turns a signal into
+#     furniture. Here it speaks only about what is being changed right now,
+#     where it can still be acted on.
+#
+#     Non-blocking, and the checker says why in its own output: UNNAMED asks
+#     whether a SYMBOL is mentioned in tests, as a proxy for whether the
+#     BEHAVIOUR is pinned, and the proxy breaks whenever a test is named for the
+#     invariant instead of the function.
+CLAIM_ROOTS="$(printf '%s\n%s\n' "$STAGED_SH" "${STAGED_PY:-}" | grep -v '^$' || true)"  # fail-soft: grep -v exits 1 when both staged lists are empty, which simply means no shell or python files are staged and there is nothing for this advisory to read
+if [ -n "$CLAIM_ROOTS" ] && [ -f scripts/check_comment_claims.py ]; then
+    # fail-soft: this advisory must never decide whether a commit proceeds. The
+    # checker's own docstring says UNNAMED asks about a SYMBOL as a proxy for a
+    # BEHAVIOUR, and names the case where that proxy is wrong -- so a failure
+    # here is information about the instrument, not about the commit. It stays
+    # visible because the checker prints NOTHING OPENED rather than a clean bill
+    # when it reads no files, which is what caught this wiring scanning zero.
+    # STDERR IS KEPT, not discarded. The first draft sent it to nowhere and the
+    # swallow gate refused -- correctly, and the right repair was not a louder
+    # annotation but deleting the swallow. An advisory whose own crashes are
+    # invisible would report "no claims" from a scanner that died, which is the
+    # could-not-look-reads-as-clean shape this whole checker exists to end.
+    CLAIM_OUT="$(echo "$CLAIM_ROOTS" | xargs python scripts/check_comment_claims.py --limit 8 --roots 2>&1 || true)"  # fail-soft: this advisory never decides whether a commit proceeds, because UNNAMED asks about a symbol as a proxy for a behaviour and the checker's own docstring names the case where that proxy is wrong
+    if echo "$CLAIM_OUT" | grep -q "whose symbol is named in no test"; then
+        section "Capability claims in comments (advisory)"
+        echo "$CLAIM_OUT"
     fi
 fi
 

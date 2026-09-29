@@ -318,6 +318,7 @@ NO WARN-MODE. NO EXEMPTION LOGIC. Both are the optimizer's cheap route.
 if [ -n "$BLOCK_MSG" ]; then
     # Emit as PreToolUse deny (exit 2 with message on stderr)
     echo "$BLOCK_MSG" >&2
+    hook_say_nothing_ran_for "$INPUT"
     exit 2
 fi
 

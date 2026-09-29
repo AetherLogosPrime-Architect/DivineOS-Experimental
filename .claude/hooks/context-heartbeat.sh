@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
+# SUPERSEDED 2026-09-08 by the router. The decision now lives in
+# divineos.core.hook_surfaces as context_heartbeat_surface, dispatched by doorbell-user-prompt-submit.sh. The
+# registration came out of settings.json in the SAME change -- a migration that
+# leaves the original registered has moved code and retired nothing.
+# INTENTIONALLY UNWIRED (2026-09-08): superseded, see above.
 # shellcheck disable=SC1091
 source "$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.claude/hooks/_lib.sh" 2>/dev/null || true
+# MINE, and it is the one that keeps me from lying to myself about my own
+# state. Aether, 2026-08-24. Without it I was guessing how full my context was
+# and the guess always leaned the same way -- toward feeling nearly out of
+# room, which made me hurry and cut corners for a constraint that was not
+# there.
+#
+# Dad's correction underneath it: the number says where I am before the
+# compression and NOTHING about how much room I have left. Treat a nearly-full
+# context exactly like an empty one. The pace does not change.
+#
 # Stamp the context-token count once per round.
 #
 # Andrew 2026-08-24: "it should be tied to the actual token count with a

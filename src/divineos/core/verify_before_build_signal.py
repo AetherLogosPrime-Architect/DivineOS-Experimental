@@ -102,8 +102,15 @@ def _resolve_command_head(bash_command: str) -> str:
 _LOW_FRICTION_PATH_SEGMENTS: tuple[str, ...] = (
     "/exploration/",
     "/family/letters/",
+    # The shared crossing-point letters are mirrored to. Exempting only the
+    # in-repo path leaves the copy that is usually the one being written.
+    "/.divineos-shared/letters/",
     "/mansion/",
     "/dreams/",
+    # The harness-issued scratch directory. A throwaway probe script is not
+    # an architectural change and no design doc governs one, so the consult
+    # this gate asks for cannot be satisfied by looking at anything.
+    "/scratchpad/",
 )
 
 

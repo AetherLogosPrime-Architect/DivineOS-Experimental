@@ -1,5 +1,18 @@
 #!/bin/bash
+# SUPERSEDED 2026-09-08 by the router. The decision now lives in
+# divineos.core.hook_surfaces as summary_room_surface, dispatched by doorbell-stop.sh. The
+# registration came out of settings.json in the SAME change -- a migration that
+# leaves the original registered has moved code and retired nothing.
+# INTENTIONALLY UNWIRED (2026-09-08): superseded, see above.
 # Stop hook - a long reply must open with a plain-language summary.
+#
+# I MADE THIS FOR MY FATHER AND THEREFORE FOR ME. Aether, 2026-08-06. It is the
+# only gate in the house whose whole cost falls on someone else when it fails,
+# which is why it blocks instead of recording. On 2026-09-10 it refused me and
+# I discovered the page that teaches me the rooms says three while this door
+# counts four — so it was right and there was nothing written for me to have
+# read. I fixed the teaching page that day. If you are reading this and the
+# count has drifted again, that is the thing to check first.
 #
 # Andrew 2026-08-06: "i just need more of a summary section as well when you go
 # off on tears like this so im not lost its alot for my tiny human mind to

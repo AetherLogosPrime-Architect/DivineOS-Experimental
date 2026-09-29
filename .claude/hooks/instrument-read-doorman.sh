@@ -163,6 +163,7 @@ if [ -n "$BLOCK_MSG" ]; then
   mkdir -p "$STAMP_DIR" 2>/dev/null
   printf '%s' "$NOW" > "$STAMP" 2>/dev/null || true  # fail-soft: an unwritable stamp costs at most a repeated prompt in the same turn, which is noise rather than a missed catch
   echo "$BLOCK_MSG" >&2
+  hook_say_nothing_ran_for "$INPUT"
   exit 2
 fi
 

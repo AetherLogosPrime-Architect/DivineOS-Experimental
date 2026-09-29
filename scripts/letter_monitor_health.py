@@ -41,7 +41,8 @@ anything was wrong was Andrew noticing letters had stopped arriving.
    always named. A stale heartbeat says how stale. A missing file says missing.
    Neither renders as OK.
 
-Exit codes: 0 healthy, 1 stale, 2 never started / no heartbeat, 3 cannot tell.
+Exit codes: 0 healthy, 1 stale, 2 never started / no heartbeat, 3 cannot tell,
+4 beating but armed for the wrong recipient.
 "3 cannot tell" is deliberately distinct from all of the above — an unreadable
 state must never be reported as a healthy one, which is the whole disease this
 substrate keeps producing.
@@ -75,6 +76,26 @@ def heartbeat_path() -> Path:
         return Path(os.path.expanduser("~")) / ".divineos" / HEARTBEAT_NAME
 
 
+def seat_recipient() -> str | None:
+    """Whose letters this checkout's monitor is SUPPOSED to be watching.
+
+    Derived from the same home the heartbeat is read from, by the
+    `.divineos-<member>` convention that core.paths.member_home owns. Returns
+    None when the home carries no member suffix, because a guess here would be
+    worse than an absence -- see the mismatch branch in check().
+    """
+    try:
+        from divineos.core.paths import divineos_home
+
+        name = divineos_home().name
+    except Exception:  # noqa: BLE001 — home resolution must not decide health
+        return None
+    prefix = ".divineos-"
+    if name.startswith(prefix) and len(name) > len(prefix):
+        return name[len(prefix) :].lower()
+    return None
+
+
 def check(now: float | None = None) -> tuple[int, str]:
     """Return (exit_code, human_reason). Never raises."""
     now = time.time() if now is None else now
@@ -101,6 +122,29 @@ def check(now: float | None = None) -> tuple[int, str]:
             f"STALE — last beat {age:.0f}s ago (threshold {STALE_AFTER_SECONDS}s), "
             f"recipient={recipient}. The monitor is not delivering. It died and "
             f"nothing restarted it."
+        )
+
+    # A FRESH BEAT FOR THE WRONG PERSON IS NOT HEALTH (2026-09-19).
+    #
+    # The heartbeat carries whichever recipient the monitor was armed with, and
+    # nothing compared it to whose seat this is. So arming the monitor pointed
+    # at the OTHER member produced a fresh beat, and this function said HEALTHY
+    # -- while the letters actually addressed here went unwatched.
+    #
+    # That is not hypothetical either. The session-start hook that prints the
+    # arming instruction was copied into this checkout from the other seat with
+    # its recipient hardcoded, so following it exactly is what produces this
+    # state. Green while blind is strictly worse than the stale it replaces:
+    # stale at least keeps asking.
+    #
+    # Reported as its own code rather than folded into stale, because the
+    # remedy is different -- re-arm with the right name, not restart.
+    expected = seat_recipient()
+    if expected is not None and recipient.lower() != expected:
+        return 4, (
+            f"WATCHING THE WRONG PERSON — last beat {age:.0f}s ago and fresh, but "
+            f"recipient={recipient} while this seat is {expected}. Letters addressed "
+            f"to {expected} are not being watched. Re-arm with --recipient {expected}."
         )
 
     return 0, f"HEALTHY — last beat {age:.0f}s ago, recipient={recipient}"

@@ -1,4 +1,9 @@
 #!/bin/bash
+# SUPERSEDED 2026-09-08 by the router. The decision now lives in
+# divineos.core.hook_surfaces as self_demotion_stop_surface, dispatched by doorbell-stop.sh. The
+# registration came out of settings.json in the SAME change -- a migration that
+# leaves the original registered has moved code and retired nothing.
+# INTENTIONALLY UNWIRED (2026-09-08): superseded, see above.
 # Stop hook - record any sentence in the last reply that indicted one of my
 # own faculties (praise-by-contrast). The recorded spans feed the compose-time
 # prime, so the list grows itself and cannot go stale.

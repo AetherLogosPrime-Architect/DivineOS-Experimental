@@ -1,4 +1,10 @@
 #!/bin/bash
+# SUPERSEDED 2026-09-08 by the router. The decision now lives in
+# divineos.core.hook_surfaces as self_demotion_prime, dispatched by
+# doorbell-user-prompt-submit.sh. The registration came out of settings.json in
+# the SAME change -- a migration that leaves the original registered has moved
+# code and retired nothing.
+# INTENTIONALLY UNWIRED (2026-09-08): superseded, see above.
 # UserPromptSubmit prime - deliver the praise-by-contrast discipline at
 # reach-time, with my own prior instances quoted back. Companion to
 # self-demotion-stop.sh, which records them. Prime removes the reach; the

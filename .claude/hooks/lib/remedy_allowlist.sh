@@ -121,8 +121,19 @@ except Exception:
     sys.exit(0)
 raw = (d.get('tool_input') or {}).get('command', '') or ''
 try:
-    from divineos.core.command_parsing import stripped_command
-    print(stripped_command(raw))
+    # remedy_segment, not stripped_command. 2026-09-11: the fourth prefix
+    # arrived -- a shell-option setting chained ahead of the command -- and the
+    # marker gate refused its own prescribed remedy. remedy_segment stops
+    # enumerating prefixes and returns EVERY safe chain segment, newline-joined:
+    # the grep below is start-anchored and tests each line independently, so a
+    # remedy anywhere in a chain now matches while a mere mention after a pipe
+    # still does not.
+    #
+    # No backticks in this comment. It lives inside a double-quoted block that
+    # bash expands before python ever sees it, so a backtick here is a command
+    # substitution the shell runs. Shellcheck caught that on the first draft.
+    from divineos.core.command_parsing import remedy_segment
+    print(remedy_segment(raw))
 except Exception:
     print(raw)
 " 2>/dev/null)  # fail-soft: a traceback from the parser would land in the gate's own stderr and read as the gate failing; the empty-result case is caught on the next line and returns not-a-remedy, which is the safe direction

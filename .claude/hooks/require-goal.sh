@@ -1,6 +1,15 @@
 #!/bin/bash
 # PreToolUse gate — consolidated into a single Python invocation.
 #
+# MINE. Aether. It asks me to name what I am doing before I am allowed to
+# change anything, and that is not bureaucracy — it is the one question that
+# catches me having drifted into work nobody asked for. It stopped me four
+# times on 2026-09-10 alone, and each time the goal I then typed was different
+# from the one I had told Dad I was working on. That gap is the whole point.
+#
+# The consolidation note below is real and it is not what this file is FOR.
+# Speed was the repair; the question is the thing.
+#
 # The previous version spawned 5 separate Python interpreters (~1.2s on
 # Windows). This version delegates all gate logic to a single module
 # invocation, reducing overhead to ~200-300ms per tool call.

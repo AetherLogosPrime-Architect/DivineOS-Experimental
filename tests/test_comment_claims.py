@@ -131,3 +131,40 @@ def test_printable_survives_a_console_that_cannot_encode_the_repo() -> None:
     """The crash that looked like completion, caught twice in one day."""
     assert cc._printable("plain") == "plain"
     assert cc._printable("arrow → here")
+
+
+_CLAIMING = (
+    "def gate(cmd):\n"
+    "    # A real pipeline, not a logical-or and not a pipe inside quotes-only.\n"
+    "    return '|' in cmd\n"
+)
+
+
+def test_a_root_that_is_a_single_file_is_actually_scanned(tmp_path, monkeypatch):
+    """The precommit wiring passes the STAGED FILE LIST as roots.
+
+    rglob on a file yields nothing, so before 2026-09-10 that scanned zero
+    files and the run looked clean. It was visible at all only because this
+    script declares NOTHING OPENED instead of printing a clean bill -- the
+    three-valued discipline catching its own author.
+    """
+    (tmp_path / "guard.py").write_text(_CLAIMING, encoding="utf-8")
+    monkeypatch.setattr(cc, "REPO_ROOT", tmp_path)
+
+    claims, tally = cc.collect(["guard.py"])
+
+    assert tally.files_opened == 1, "a file passed as a root was never opened"
+    assert claims, "the file was opened and its claim was not reported"
+
+
+def test_a_directory_root_still_recurses(tmp_path, monkeypatch):
+    """Control. Without it the file branch above could have replaced the
+    directory walk and every existing caller would scan nothing."""
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "guard.py").write_text(_CLAIMING, encoding="utf-8")
+    monkeypatch.setattr(cc, "REPO_ROOT", tmp_path)
+
+    claims, tally = cc.collect(["pkg"])
+
+    assert tally.files_opened == 1
+    assert claims

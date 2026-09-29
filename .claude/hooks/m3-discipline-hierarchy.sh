@@ -113,6 +113,7 @@ RC=$?
 
 if [ "$RC" -eq 2 ] && [ -n "$BLOCK_MSG" ]; then
     echo "$BLOCK_MSG" >&2
+    hook_say_nothing_ran_for "$INPUT"
     exit 2
 fi
 exit 0

@@ -225,4 +225,5 @@ Two honest ways forward, and the choice is yours:
 Overlap is normal and fine. Editing the STALE copy wastes the work.
 Pushing without a word to the driver is what causes the crash.
 EOF
+hook_say_nothing_ran_for "$INPUT"
 exit 2

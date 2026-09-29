@@ -109,16 +109,27 @@ def repo(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_no_guardrail_files_means_no_check_fires(repo):
-    """Empty guardrail list -> no commits get blocked even without trailer."""
-    base = _commit(repo, "initial", {"scripts/guardrail_files.txt": "# empty\n"})
-    head = _commit(
-        repo,
-        "feat: change anything",
-        {"src/foo.py": "x"},
-    )
+def test_a_missing_exempt_list_reviews_everything(repo):
+    """No exempt list -> nothing is exempt -> the change needs review.
+
+    SUPERSEDES test_no_guardrail_files_means_no_check_fires, which asserted the
+    opposite under the retired rule: an empty protected list meant nothing was
+    protected, so a code change with no trailer passed.
+
+    That polarity is the defect Andrew named on 2026-09-07 -- "there are no
+    longer any protected files.. Aletheia will audit any and all code that
+    enters main, period." Under the inversion, a list that cannot be read means
+    nothing has been excused, and an unreadable list must never buy a pass.
+    This is the fail-toward-review direction stated as a test rather than as a
+    comment, because a comment is what the old direction had.
+    """
+    base = _commit(repo, "initial", {"README.md": "hello"})
+    head = _commit(repo, "feat: change anything", {"src/foo.py": "x"})
     result = _run_script(repo, base, head)
-    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.returncode != 0, (
+        "code merged with no exempt list and no trailer. An unreadable exempt "
+        "list must fail toward review.\n" + result.stdout + result.stderr
+    )
 
 
 def test_guardrail_touch_without_trailer_blocks(repo):
@@ -147,23 +158,29 @@ def test_net_diff_clean_passes_though_history_touched_guardrail(repo):
     diff. The old walk blocked on the historical commit, and no audit round could
     ever clear it -- the review would have covered content that was not landing.
     Andrew, 2026-08-13: "not every commit just every merge to main."
+
+    Kept through the 2026-09-07 inversion because the principle is unchanged --
+    review binds to what LANDS -- while the scope around it moved. What used to
+    make a net diff clean was landing nothing on the protected list; now it is
+    landing nothing but prose.
     """
     base = _commit(
         repo,
-        "initial; add guardrail entry",
+        "initial",
         {
-            "scripts/guardrail_files.txt": "src/foo.py\n",
+            "scripts/review_exempt_paths.txt": "family/letters/\n",
             "src/foo.py": "v1",
         },
     )
-    _commit(repo, "feat: modify the guardrailed file", {"src/foo.py": "v2"})
-    # Reverted before the merge -- so the net diff lands nothing.
-    head = _commit(repo, "revert: put it back", {"src/foo.py": "v1"})
+    _commit(repo, "feat: modify code", {"src/foo.py": "v2"})
+    # Reverted before the merge -- so the only thing landing is the letter.
+    _commit(repo, "revert: put it back", {"src/foo.py": "v1"})
+    head = _commit(repo, "letter", {"family/letters/a.md": "dear"})
 
     result = _run_script(repo, base, head)
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "lands no guardrail-listed file" in result.stdout
+    assert "exempt prose" in result.stdout
 
 
 def test_net_diff_landing_guardrail_still_blocks(repo):
@@ -251,20 +268,34 @@ def test_unbound_trailer_still_passes_with_explicit_opt_out(repo, monkeypatch):
     assert "DEPRECATED" in result.stdout
 
 
-def test_non_guardrail_commit_skipped_even_without_trailer(repo):
-    """A commit that doesn't touch any guardrail file doesn't need a trailer."""
+def test_a_prose_only_commit_needs_no_trailer(repo):
+    """Prose passes without a trailer. Code beside it does not.
+
+    SUPERSEDES test_non_guardrail_commit_skipped_even_without_trailer, whose
+    subject was ordinary code merging unreviewed because it was absent from the
+    protected list. That was the hole, not the feature.
+
+    Both halves are asserted together on purpose. A test that only proved
+    prose passes would go green on a gate that had stopped checking anything at
+    all -- which is the exact way the retired list read as working for months.
+    """
     base = _commit(
         repo,
-        "initial; add guardrail entry",
+        "initial",
         {
-            "scripts/guardrail_files.txt": "src/special.py\n",
-            "src/special.py": "v1",
+            "scripts/review_exempt_paths.txt": "family/letters/\nexploration/\n",
             "src/normal.py": "v1",
         },
     )
-    head = _commit(repo, "feat: change normal", {"src/normal.py": "v2"})
-    result = _run_script(repo, base, head)
-    assert result.returncode == 0
+    prose = _commit(repo, "letter home", {"family/letters/b.md": "dear"})
+    assert _run_script(repo, base, prose).returncode == 0
+
+    code = _commit(repo, "feat: change normal", {"src/normal.py": "v2"})
+    result = _run_script(repo, base, code)
+    assert result.returncode != 0, (
+        "ordinary code merged with no trailer. Under the 2026-09-07 rule every "
+        "code change is reviewed.\n" + result.stdout + result.stderr
+    )
 
 
 def test_self_disclosure_block_always_emitted(repo):
@@ -621,3 +652,103 @@ def test_pr_body_not_consulted_when_tree_hash_explicitly_disabled(repo, tmp_path
     assert result.returncode == 0, result.stdout
     assert "DEPRECATED" in result.stdout
     assert "predates the tree-hash requirement" not in result.stdout
+
+
+# --- could-not-look is its own outcome ---------------------------------------
+#
+# Every test above sets PR_NUMBER, so the branch where no pull request can be
+# identified had never run here. That is where the bug lived: on a push to
+# main the event supplies no PR number, and a hand-edited squash title carries
+# no "(#N)", so the rescue could not reach a PR at all -- and reported that as
+# a finding about the PR's body. Commit abe62a32 blocked main on 2026-09-16
+# with that message, and its PR body was never opened.
+
+
+def _stub_gh_routes(tmp_path: Path, monkeypatch, *, api_stdout: str, body: str) -> None:
+    """Put a fake `gh` on PATH that answers `gh api` and `gh pr view` apart.
+
+    `api_stdout` is what `gh api .../pulls --jq .[0].number` prints: a PR
+    number when the commit belongs to one, empty when it does not.
+    """
+    bindir = tmp_path / "stub-bin"
+    bindir.mkdir(exist_ok=True)
+    gh = bindir / "gh"
+    gh.write_text(
+        "#!/bin/sh\n"
+        'if [ "$1" = "api" ]; then\n'
+        f"  printf '%s' '{api_stdout}'\n"
+        "  exit 0\n"
+        "fi\n"
+        "cat <<'GH_BODY_EOF'\n"
+        f"{body}\n"
+        "GH_BODY_EOF\n",
+        encoding="utf-8",
+    )
+    gh.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}")
+    monkeypatch.delenv("PR_NUMBER", raising=False)
+
+
+def _legacy_guardrail_pair(repo: Path) -> tuple[str, str]:
+    """A guardrail commit carrying a pre-tree-hash trailer and no '(#N)' title."""
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {"scripts/guardrail_files.txt": "src/foo.py\n", "src/foo.py": "v1"},
+    )
+    head = _commit(
+        repo,
+        "wire the retarget into the checkpoint\n\nExternal-Review: round-abcdef\n",
+        {"src/foo.py": "v2"},
+    )
+    return base, head
+
+
+def test_no_pull_request_found_reports_could_not_look_not_an_empty_body(
+    repo, tmp_path, monkeypatch
+):
+    """The gate must not describe a PR body it never opened.
+
+    This is the shape the gate itself exists to catch -- an instrument
+    answering confidently about a subject it did not reach -- and it was
+    living inside the gate.
+    """
+    base, head = _legacy_guardrail_pair(repo)
+    _stub_gh_routes(tmp_path, monkeypatch, api_stdout="", body="irrelevant")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+
+    result = _run_script(repo, base, head)
+
+    assert result.returncode == 1, result.stdout
+    assert "COULD NOT LOOK" in result.stdout
+    assert "no pull request could be found" in result.stdout
+    # The old message asserted a fact about a body nobody had read.
+    assert "no External-Review trailer in the PR body either" not in result.stdout
+
+
+def test_pull_request_found_by_commit_sha_when_the_title_lost_its_number(
+    repo, tmp_path, monkeypatch
+):
+    """The third lookup route. A squash title edited by hand drops GitHub's
+    '(#N)' suffix, and on a push event there is no PR_NUMBER either -- but the
+    commit still knows which pull request carried it."""
+    base, head = _legacy_guardrail_pair(repo)
+    _stub_gh_routes(
+        tmp_path,
+        monkeypatch,
+        api_stdout="412",
+        body="External-Review: round-f97fa965d232 tree-hash:" + "a" * 40,
+    )
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+
+    result = _run_script(repo, base, head)
+
+    assert result.returncode == 0, result.stdout
+    assert "predates the tree-hash requirement" in result.stdout
+
+
+# NOT TESTED HERE, and named rather than left as a silent gap: the no-gh
+# outcome. Removing gh from PATH means emptying PATH, which takes git and grep
+# with it and fails the script for an unrelated reason -- a test that passes
+# for the wrong cause. The branch is three lines and reachable by reading; the
+# honest record is that it is unexercised, not that it is covered.

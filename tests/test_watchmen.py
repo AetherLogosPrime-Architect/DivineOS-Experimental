@@ -284,6 +284,35 @@ class TestReservedExternalVantageShapes:
                     continue
                 if "audit_rounds" in path.parts:
                     continue  # a record of what was filed, not an instruction
+                if "worktrees" in path.parts:
+                    # A WORKTREE IS ANOTHER BRANCH'S TREE, NOT THIS ONE'S
+                    # INSTRUCTIONS. 2026-09-19: this test was red, and every
+                    # offender it named lived inside
+                    # .claude/worktrees/<name>/ -- six full checkouts of other
+                    # branches nested in this one, five registered and one
+                    # orphaned. It was reading their project file, their hooks
+                    # and their letters and calling them live prescriptions
+                    # here.
+                    #
+                    # A stale line on another branch is that branch's to fix,
+                    # and it surfaces there when that tree is the one being
+                    # checked. Reporting it here points the reader at a file
+                    # they cannot correct from where they are standing, which
+                    # is the same disservice as the stale prescription itself.
+                    #
+                    # AND THE FAILURE FOLLOWS THE WRONG PERSON. This half came
+                    # from the branch rather than from main, and the merge kept
+                    # it because neither side says it alone: whoever happens to
+                    # have worktrees open wears a red suite for a neighbour's
+                    # text. So the offender set depends on who is standing here
+                    # rather than on what this branch actually says, and the
+                    # same commit passes or fails by accident of local layout.
+                    #
+                    # THE SAME SCOPE ERROR THIS DOCSTRING ALREADY CONFESSES,
+                    # arriving from the opposite direction. The comment below
+                    # worries about looking at too FEW places. This was looking
+                    # at too many, and the extra places were copies.
+                    continue
                 text = path.read_text(encoding="utf-8", errors="replace")
                 opened.append(path.name)
                 for n, line in enumerate(text.splitlines(), 1):

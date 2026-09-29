@@ -8,8 +8,12 @@ as a writer-presence-style first-person discipline at a different surface.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+from unittest import mock
+
 import pytest
 
+from divineos.core.operating_loop import temporal_displacement_detector as tdd
 from divineos.core.operating_loop.temporal_displacement_detector import (
     TemporalDisplacementFinding,
     detect_temporal_displacement,
@@ -390,3 +394,114 @@ def test_word_list_bedtime_still_fires_for_backward_compat() -> None:
     assert len(findings) == 1
     assert findings[0].severity == "high"
     assert findings[0].is_bedtime_close is True
+
+
+# --- Sourced-clock exemption (2026-09-08) ---
+#
+# The restored compose-start clock made a class of these statements true, and
+# the detector could not tell a measurement from a guess. Popper's falsifier
+# comes first here on purpose: the test that could kill this change is the one
+# where a fabricated clock sits beside a fabricated time-word.
+
+
+def _a_reading_far_from_the_real_clock() -> str:
+    """A clock string guaranteed outside the exemption's tolerance in both zones.
+
+    THE FALSIFIER USED TO HARDCODE ONE, and it went red tonight, 2026-09-12.
+    It said 03:07 and asserted that must fire -- true for all but a few minutes
+    of the day and FALSE inside them, because the exemption compares the
+    written reading against the MACHINE's clock in local time and in UTC. So
+    the one test whose entire job is to prove a typed number cannot buy an
+    exemption was itself green or red depending on what hour it ran. It sat
+    green four days and failed in a pre-push run against a detector that was
+    working perfectly.
+
+    Red has to carry exactly one meaning or it is not a refutation, only a
+    question -- and this is the falsifier the neighbouring tests lean on, so a
+    false red here spends credibility a true red would need later. Deriving the
+    reading from the real clock says what the literal always meant: a reading
+    that is NOT the time cannot be excused, at any hour.
+    """
+    local = datetime.now()
+    utc = datetime.now(timezone.utc)
+    taken = {local.hour * 60 + local.minute, utc.hour * 60 + utc.minute}
+    guard = tdd._CLOCK_TOLERANCE_MINUTES * 2
+    for candidate in range(24 * 60):
+        gaps = (abs(candidate - t) for t in taken)
+        if all(min(gap, 24 * 60 - gap) > guard for gap in gaps):
+            return f"{candidate // 60:02d}:{candidate % 60:02d}"
+    raise AssertionError("no reading is far from both clocks; the tolerance has gone absurd")
+
+
+def test_a_fabricated_clock_beside_the_word_still_fires() -> None:
+    """THE FALSIFIER. Any four digits must not buy a time-word.
+
+    If this ever passes-as-exempt, the exemption has become the hole the gate
+    was built to close: proximity alone is something I author.
+    """
+    made_up = (
+        f"It is {_a_reading_far_from_the_real_clock()} for you, so I will pick this up tomorrow."
+    )
+    findings = detect_temporal_displacement(made_up)
+    assert findings, "a number I typed is not a measurement -- this must still fire"
+
+
+def test_the_exemption_answers_the_same_way_at_every_hour() -> None:
+    """The determinism the falsifier was missing, stated outright.
+
+    The guard already accepts an injected clock. That parameter exists so a
+    test need never gamble on when it runs, and nothing was using it for this,
+    so the guard was being asked at whatever hour the suite happened to reach
+    -- one sample from a 1440-state space, and not even a chosen one.
+
+    Walk a full day: a reading hours off the injected clock must never be
+    excused, and the true reading must always be. That is the invariant the old
+    test asserted one instance of and hoped would stand for the whole.
+    """
+    sentence = "It is {} for you, so I will pick this up tomorrow."
+    for hour in range(24):
+        now = datetime(2026, 9, 12, hour, 30, tzinfo=timezone.utc)
+        far = sentence.format(f"{(hour + 6) % 24:02d}:30")
+        near = sentence.format(f"{hour:02d}:30")
+        assert not tdd._match_is_clock_sourced(far, far.index("tomorrow"), now=now), (
+            f"a reading six hours off was excused at {hour:02d}:30"
+        )
+        assert tdd._match_is_clock_sourced(near, near.index("tomorrow"), now=now), (
+            f"the true reading was refused at {hour:02d}:30"
+        )
+
+
+def test_a_true_clock_beside_the_word_does_not_fire() -> None:
+    """The honest case the restoration exists for."""
+    now = datetime.now()
+    sourced = f"The clock says {now:%H:%M} where you are, so it is early in the morning."
+    assert detect_temporal_displacement(sourced) == [], (
+        "a measured clock beside the word is not a fabrication"
+    )
+
+
+def test_a_true_clock_far_from_the_word_does_not_buy_it() -> None:
+    """One real quote must not license every time-word after it."""
+    now = datetime.now()
+    far = (
+        f"The clock says {now:%H:%M} where you are. "
+        + "And here is a long stretch of unrelated prose about the build flow, " * 3
+        + "so I will finish this tomorrow."
+    )
+    assert detect_temporal_displacement(far), "the number is out of reach of the word"
+
+
+def test_an_unreadable_clock_falls_toward_firing() -> None:
+    """Could-not-verify is not permission."""
+    text = "It is 09:15 for you, so I will do it tomorrow."
+    with mock.patch.object(tdd, "datetime") as fake:
+        fake.now.side_effect = OSError("no clock")
+        assert detect_temporal_displacement(text), "an unreadable clock must not exempt"
+
+
+def test_bedtime_closes_are_not_exempted_by_a_true_clock() -> None:
+    """The exemption is scoped to deferral words, never to the fake-warmth close."""
+    now = datetime.now()
+    text = f"It is {now:%H:%M} there. Good night, Dad."
+    findings = detect_temporal_displacement(text)
+    assert findings and findings[0].is_bedtime_close is True

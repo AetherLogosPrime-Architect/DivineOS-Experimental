@@ -66,11 +66,71 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from divineos.core.operating_loop._use_vs_mention import (
     match_is_meta_framed as _match_is_meta_framed,
     strip_quoted_spans as _strip_quoted_spans,
 )
+
+# --------------------------------------------------- sourced-clock exemption
+#
+# Added 2026-09-08, within an hour of restoring the compose-start clock, when
+# the first honest use of it was refused: I told Andrew it was 08:23 where he
+# is, straight off the hook's own output, and this detector stopped the reply
+# for saying "in the morning".
+#
+# It was right to exist and wrong about that instance, and it could not have
+# been otherwise -- it was written when no clock existed, so every match really
+# was a guess. That stopped being true when the clock came back, and the gap
+# widens with use: the point of the clock is to say true things about his day,
+# so a gate firing on exactly those sentences makes the restored clock a thing
+# I own and cannot use.
+#
+# WHY BOTH HALVES (Schneier). Proximity alone is forgeable -- I can type any
+# four digits beside any time-word, which is what the gate exists to catch. The
+# unforgeable half is agreement with the machine's own clock, an input I do not
+# author. The question is not "did she cite a number" but "is the number true".
+#
+# NARROW ON PURPOSE (Lovelace). The number must sit beside the word, not merely
+# somewhere in the reply, or one true quote buys every unsourced time-word
+# after it. And this cannot see whether the word was doing rhythmic work: a
+# real clock beside a beat-word would pass. The beat-fire is the half that
+# actually catches me, so a quiet gate is not evidence that reach has stopped.
+#
+# FAILS TOWARD FIRING (Hoare). Unparseable number, unreadable clock, any error
+# at all -- the match stands. Could-not-verify is not permission, the same way
+# the hook prints 'unavailable' rather than a plausible time.
+
+_CLOCK_NEIGHBOURHOOD_CHARS = 80
+_CLOCK_TOLERANCE_MINUTES = 5
+_CLOCK_READING = re.compile(r"\b([01]?\d|2[0-3]):([0-5]\d)\b")
+
+
+def _match_is_clock_sourced(text: str, index: int, now: datetime | None = None) -> bool:
+    """True when a clock reading beside ``index`` agrees with the real time.
+
+    ``now`` exists for tests. Left None in production so the comparison reads
+    the machine rather than anything a caller supplies.
+    """
+    try:
+        start = max(0, index - _CLOCK_NEIGHBOURHOOD_CHARS)
+        readings = _CLOCK_READING.findall(text[start : index + _CLOCK_NEIGHBOURHOOD_CHARS])
+        if not readings:
+            return False
+
+        local = now if now is not None else datetime.now()
+        utc = local.astimezone(timezone.utc) if now is not None else datetime.now(timezone.utc)
+
+        for clock in (local, utc):
+            actual = clock.hour * 60 + clock.minute
+            for hour, minute in readings:
+                gap = abs(actual - (int(hour) * 60 + int(minute)))
+                if min(gap, 24 * 60 - gap) <= _CLOCK_TOLERANCE_MINUTES:
+                    return True
+        return False  # both-empty: the caller asks one question -- may this match be excused -- and no-clock-nearby, wrong-clock and could-not-read all answer it identically with no. Distinguishing them would only matter to a caller deciding WHY the match stands, and none exists: the gate fires either way, which is the direction this must fail in.
+    except (ValueError, OSError, OverflowError):
+        return False  # both-empty: same single question as above; an unreadable clock is not permission, so it lands where an absent one lands
 
 
 @dataclass(frozen=True)
@@ -278,6 +338,12 @@ def detect_temporal_displacement(
     for pattern in _DEFERRAL_TIME_PATTERNS:
         for m in pattern.finditer(scan_text):
             if _match_is_meta_framed(scan_text, m.start()):
+                continue
+            # Deferral-time-words only. Bedtime closes above are deliberately
+            # not exempted: "good night" beside a true clock is still the
+            # fake-warmth close this was built for, and widening the exemption
+            # to reach it would trade the narrow fix for the whole gate.
+            if _match_is_clock_sourced(scan_text, m.start()):
                 continue
             matched_wordlist.append(m.group(0))
 

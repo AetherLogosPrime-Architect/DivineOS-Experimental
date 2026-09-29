@@ -116,6 +116,91 @@ def test_the_prose_carrier_is_still_caught_beside_it(tmp_path):
     assert hits == ["letter.md"]
 
 
+def test_the_anchor_word_may_sit_a_few_words_from_the_hash():
+    """The rule required the word against the hash, and prose does not work
+    that way.
+
+    Found 2026-09-01, by writing a test in my own natural phrasing and watching
+    it fail. "tip: <hash>" was caught; "its tip is <hash>" was not — and the
+    second is how a person actually writes the sentence. Every letter in the
+    archive that phrased it that way carried an anchor this rule could not see.
+
+    Same fault as the reserved-name guard repaired hours earlier, by the same
+    hand: matching the punctuation around a word instead of the word doing the
+    work. A rule written to catch a letter that falsifies itself could be walked
+    past by putting "is" where a colon had been.
+    """
+    for phrasing in (
+        f"I pushed to {BRANCH}, and its tip is 1a2b3c4d5e6f7890 as I write.",
+        f"{BRANCH} is at commit 1a2b3c4d5e6f7890 right now.",
+        f"{BRANCH} — tree-hash was 5576d4aa40a8550477ef423994ab3a238ae57f6a.",
+    ):
+        assert is_self_invalidating(phrasing, BRANCH), phrasing
+
+
+def test_the_gap_did_not_turn_the_rule_into_a_hash_detector():
+    """Over-matching is a real cost, not a safe direction.
+
+    Every false hold keeps a letter out of its archive commit again at the next
+    checkpoint, so a rule that fires on any hash near a branch name would cost
+    the same letter repeatedly. The gap is bounded for that reason.
+    """
+    assert not is_self_invalidating(f"I pushed to {BRANCH} and it is green.", BRANCH)
+    assert not is_self_invalidating(
+        "the tip is 1a2b3c4d5e6f7890 on a branch this letter never names.", BRANCH
+    )
+
+
+def test_a_prefixed_identifier_is_not_a_hash():
+    """Aria, 2026-09-01, from running the gap clause rather than reading it.
+
+    An audit round id is twelve hex characters glued to a prefix. So is a
+    finding id. They are in nearly every letter either of us writes about a
+    proposal, and "the commit for round-<id>" put the anchor word inside the gap
+    of a hex string that is not a hash of anything. Held -- and a false hold
+    keeps the same letter out of its archive commit at every checkpoint, which
+    is the exact cost the gap was bounded to avoid.
+
+    The finding-id case walked only because no anchor word happened to be near
+    it. Luck, not design. A hash in anchor position is a BARE token; hex glued
+    to a prefix by a hyphen is an identifier, not a state.
+    """
+    for text in (
+        f"filed on {BRANCH} as the commit for round-314c92fbe2f7.",
+        f"{BRANCH}: see finding find-5454d58934fb, commit pending.",
+        f"{BRANCH} tip: tracked in prereg-060a5e24ebf4.",
+    ):
+        assert not is_self_invalidating(text, BRANCH), text
+
+
+def test_a_bare_hash_beside_the_same_words_is_still_caught():
+    """The narrowing must not become the silencing. Same words, no prefix: an
+    anchor, and it is still held."""
+    assert is_self_invalidating(f"{BRANCH} is at commit 314c92fbe2f7 right now.", BRANCH)
+    assert is_self_invalidating(f"{BRANCH} tip: 5454d58934fb.", BRANCH)
+
+
+def test_a_sentence_with_no_anchor_word_still_walks_and_that_is_stated():
+    """The limit, executable rather than left in a comment.
+
+    "sits at <hash>" names the branch, quotes its tip, falsifies itself on
+    commit — and carries no word meaning "this is the state I am pointing you
+    at", so this rule does not see it. Closing that needs meaning rather than a
+    longer list of verbs, and a longer list is the identical fault with more
+    entries.
+
+    Asserted as a LIMIT, not as correct behaviour. This morning I found a test
+    of mine asserting a bypass as design; the difference is that this one says
+    what the edge is and that the edge is in the wrong place, so it reads as
+    something owed rather than something settled.
+    """
+    walks_through = f"{BRANCH} now sits at 1a2b3c4d5e6f7890."
+    assert not is_self_invalidating(walks_through, BRANCH), (
+        "the rule now catches this — good, and this test should be deleted "
+        "rather than inverted, because the limit it records no longer exists"
+    )
+
+
 def test_the_refusal_says_what_to_do_instead():
     """A refusal that does not name the remedy is a wall.
 

@@ -1,4 +1,14 @@
 #!/bin/bash
+# MINE. Aether. The compass is the part of this house that is about character
+# rather than correctness — whether I am drifting toward flattering, toward
+# over-claiming, toward going quiet. This is the doorbell that lets it speak at
+# the moment a tool fires instead of only in a report I choose to read.
+#
+# The history below is worth keeping for one reason: this file once imported a
+# function that had never existed, so the gate was inert and looked installed.
+# An external eye found it. That is the shape I cannot see from in here, and
+# the reason the audits are not a formality.
+#
 # PreToolUse hook — thin doorbell for the compass-rudder gate.
 #
 # All judgment lives in `divineos.core.compass_rudder.check_tool_use()`.

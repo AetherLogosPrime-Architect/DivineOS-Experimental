@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import time
+from pathlib import Path
 
 import click
 
@@ -281,10 +282,24 @@ def defer_check_cmd(json_out: bool) -> None:
         result = auto_cycle.run_phase1(context_pct=ctx_pct)
         auto_cycle.write_handshake_marker(result)
         auto_cycle.reset_defer_state()
+        # The tree is named on the SAME line as the cycle, not on a nearby
+        # one. Two checkouts share this log; a marker that records only that a
+        # cycle fired leaves proximity as the reader's only relation, and both
+        # of us then read one cause out of two unrelated true lines that
+        # happened to land next to each other.
+        tree = Path(result.repo_root).name if result.repo_root else "unknown-tree"
         if json_out:
-            click.echo(json.dumps({"action": "fired", "cycle_id": result.cycle_id}))
+            click.echo(
+                json.dumps(
+                    {
+                        "action": "fired",
+                        "cycle_id": result.cycle_id,
+                        "repo_root": result.repo_root,
+                    }
+                )
+            )
         else:
-            click.echo(f"[auto-cycle] fired: {result.cycle_id}", err=True)
+            click.echo(f"[auto-cycle] fired in {tree}: {result.cycle_id}", err=True)
         return
 
     if ctx_pct < auto_cycle.TRIGGER_THRESHOLD:

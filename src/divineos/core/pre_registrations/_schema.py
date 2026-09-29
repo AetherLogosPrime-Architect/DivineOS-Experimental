@@ -30,6 +30,13 @@ def init_pre_registrations_tables() -> None:
                 tags               TEXT NOT NULL DEFAULT '[]'
             )
         """)
+        # The reading that would embarrass the builder — added 2026-09-09.
+        # Nullable on purpose: NULL on an older row means the question was
+        # never asked, which must stay distinguishable from an answer of none.
+        try:
+            conn.execute("ALTER TABLE pre_registrations ADD COLUMN embarrassing_reading TEXT")
+        except sqlite3.OperationalError:
+            pass
         conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_prereg_review
             ON pre_registrations(review_ts, outcome)

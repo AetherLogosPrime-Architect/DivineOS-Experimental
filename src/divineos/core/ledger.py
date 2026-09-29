@@ -158,19 +158,35 @@ _VALID_LOG_LEVELS = {"TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 _configured_level = os.environ.get("DIVINEOS_LOG_LEVEL", "INFO").upper()
 _FILE_LOG_LEVEL = _configured_level if _configured_level in _VALID_LOG_LEVELS else "INFO"
 
+# PER-PROCESS LOG FILES, and this is the fix the 2026-06-23 comment named and
+# deferred rather than built.
+#
+# THE DEFERRAL EXPIRED, 2026-09-10. That comment bumped rotation from 10 MB to
+# 100 MB and said in its own words that it "defers the trigger" while the real
+# fix — per-process files — was tracked in a pre-reg. The trigger arrived: the
+# shared log reached the threshold, rotation began firing, and every command
+# that touched it crashed its logging handler on a rename of a file another
+# process holds open.
+#
+# WHY IT MATTERED MORE THAN A NOISY STDERR. The crash rides on the way OUT of a
+# command that has already succeeded, so the work lands and the exit code says
+# failure. Three times in one turn a completed audit round, a completed council
+# walk and a completed CLI call all read as broken, and each one had to be
+# checked a second way to find out it had worked. Success indistinguishable
+# from failure is the same class this substrate keeps finding in its own
+# instruments, arriving here in the plumbing.
+#
+# THE FIX, per truth #19's REMOVE: each process owns its own file, so nothing
+# ever renames a handle somebody else holds. Retention still prunes per
+# pattern. Cost: reading history means reading several files instead of one —
+# paid by me, rarely, since the ledger rather than this log is the record.
+# enqueue stays, because it is still correct for threads inside one process.
 logger.add(
-    _LOG_DIR / "divineos.log",
-    rotation="100 MB",  # 2026-06-23: bumped from 10 MB — rotation fails on Windows when multiple DivineOS processes hold the log open (letter_monitor, compaction_monitor, ear_watch). The enqueue=True fix earlier today made the failure SILENT (background-thread retry); sleep hangs waiting for the queue to drain. Real fix tracked in prereg for per-process log files; this defers the trigger.
+    _LOG_DIR / f"divineos.{os.getpid()}.log",
+    rotation="100 MB",
     retention=_MAX_LOG_FILES,
     level=_FILE_LOG_LEVEL,
     format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-    # enqueue=True (Andrew 2026-06-23): multiple python.exe processes
-    # (CLI commands, hooks, subprocess calls) all import this module and
-    # try to open + rotate the log file. On Windows, rotation fails with
-    # PermissionError because another process holds the file open — the
-    # error spammed stderr on every divineos command this session. enqueue
-    # serializes writes through a single dedicated process, eliminating
-    # the multi-process file-lock race that caused the rotation to fail.
     enqueue=True,
 )
 
@@ -276,7 +292,9 @@ def _latest_chain_hash(conn) -> str:
     row = conn.execute(
         "SELECT chain_hash FROM system_events "
         "WHERE chain_hash IS NOT NULL "
-        "ORDER BY timestamp DESC, rowid DESC LIMIT 1"
+        # rowid, not timestamp: verify_chain walks rowid order, and across
+        # processes the clock can disagree with append order.
+        "ORDER BY rowid DESC LIMIT 1"
     ).fetchone()
     if not row or not row[0]:
         return _CHAIN_GENESIS
@@ -374,8 +392,8 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
     # below, not here. If two threads call log_event concurrently and
     # both compute time.time() before acquiring the lock, the timestamps
     # could be in a different order than the eventual insert-order. Then
-    # verify_chain (ORDER BY timestamp ASC, rowid ASC) walks events in
-    # timestamp order but their chain_hashes are linked in insert order
+    # a reader walking timestamp order would see chain_hashes linked in
+    # insert order (verify_chain itself walks rowid)
     # — reporting a chain mismatch even though the chain is logically
     # intact. Generating timestamp inside the lock ensures timestamp-
     # order matches insert-order matches chain-order.
@@ -420,11 +438,11 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
         # auto-wraps DML in DEFERRED transactions which would mask an
         # explicit BEGIN IMMEDIATE).
         _LOG_EVENT_LOCK.acquire()
-        # Generate timestamp INSIDE the lock so insert-order matches
-        # timestamp-order. See the NOTE above the lock comment.
-        timestamp = time.time()
         conn.isolation_level = None  # autocommit so BEGIN IMMEDIATE works
         conn.execute("BEGIN IMMEDIATE")
+        # Stamp only once the cross-process lock is held, so timestamp order
+        # matches append order for every reader that sorts by clock.
+        timestamp = time.time()
         prior_hash = _latest_chain_hash(conn)
         chain_hash = _compute_chain_hash(
             prior_hash=prior_hash,
@@ -904,6 +922,80 @@ def _chain_result(
     }
 
 
+def append_on(conn, event_type: str, actor: str, payload: dict[str, Any]) -> str:
+    """Append one chained event on a connection whose transaction the caller holds.
+
+    For a writer that must record what it did in the same transaction as the
+    act -- the ledger cleaner, whose note on each removal went through
+    log_event's second connection, waited on the cleaner's own lock, failed,
+    and was swallowed (Anvil and Muse, SC #10, 2026-09-28). The caller
+    BEGINs and COMMITs; if the act fails, its note rolls back with it.
+
+    Secrets are redacted here exactly as in log_event: a repair note quotes a
+    payload excerpt, and a second door that skipped the redactor would be a
+    way around it (council walk 2026-09-28, the Lovelace lens).
+    """
+    from divineos.core.secret_redactor import redact_and_warn
+
+    payload = redact_and_warn(dict(payload), context=event_type)
+    content_hash = compute_hash(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+    payload["content_hash"] = content_hash
+    payload_json = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    event_id = str(uuid.uuid4())
+    timestamp = time.time()
+    prior_hash = _latest_chain_hash(conn)
+    chain_hash = _compute_chain_hash(
+        prior_hash=prior_hash,
+        event_id=event_id,
+        timestamp=timestamp,
+        event_type=event_type,
+        actor=actor,
+        payload_json=payload_json,
+        content_hash=content_hash,
+    )
+    conn.execute(
+        "INSERT INTO system_events "
+        "(event_id, timestamp, event_type, actor, payload, content_hash, prior_hash, chain_hash) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            event_id,
+            timestamp,
+            event_type,
+            actor,
+            payload_json,
+            content_hash,
+            prior_hash,
+            chain_hash,
+        ),
+    )
+    conn.execute(
+        "INSERT OR REPLACE INTO ledger_head_anchor "
+        "(row_id, chain_hash, event_count, latest_event_id, updated_at) "
+        "VALUES (1, ?, (SELECT COUNT(*) FROM system_events), ?, ?)",
+        (chain_hash, event_id, timestamp),
+    )
+    return event_id
+
+
+# Investigated chain breaks, each written with its evidence beside the id.
+KNOWN_CHAIN_BREAKS_FILE = Path(__file__).resolve().parents[3] / "docs" / "known_chain_breaks.md"
+
+
+def _known_chain_breaks() -> set[str]:
+    """Event ids whose prior link broke for a recorded, non-tampering cause.
+
+    An entry excuses THE LINK only, never the row's own hash, which is still
+    rechecked (Aria 2026-09-28, who wrote the one entry). A bare id with no
+    evidence beside it is not an exemption: the file exists so a claim can be
+    argued with, and an id alone is a claim with nothing to argue.
+    """
+    try:
+        text = KNOWN_CHAIN_BREAKS_FILE.read_text(encoding="utf-8")
+    except OSError:
+        return set()
+    return set(re.findall(r"^-\s+`([0-9a-f-]{8,})`\s*\S.{7,}", text, re.MULTILINE))
+
+
 def verify_chain() -> dict[str, Any]:
     """Walk the chain and verify each chain_hash. Returns dict with
     ok (bool), total (int), broken_at (event_id or None),
@@ -918,21 +1010,6 @@ def verify_chain() -> dict[str, Any]:
       - anchor absent (pre-anchor legacy database) → chain-only check
         is honest about that with a diagnostic on ok=True.
     """
-    known_breaks_file = Path(__file__).resolve().parents[3] / "docs" / "known_chain_breaks.md"
-
-    def _known_chain_breaks() -> set[str]:
-        """Event ids of chain breaks already investigated and written down.
-
-        An entry is a claim that someone looked and found a cause that is not
-        tampering. The file holds the evidence beside the id, so the exemption
-        can be argued with rather than merely trusted.
-        """
-        try:
-            text = known_breaks_file.read_text(encoding="utf-8")
-        except OSError:
-            return set()
-        return set(re.findall(r"^-\s+`([0-9a-f-]{8,})`", text, re.MULTILINE))
-
     conn = _get_connection()
     try:
         rows = list(
@@ -986,6 +1063,32 @@ def verify_chain() -> dict[str, Any]:
                 broken_reason=None,
             )
 
+        # Removed rows' chain hashes, as named by the cleaner's notes. Read from
+        # the notes' own payloads, so a note excuses a gap only if it is itself
+        # a row of this chain, whose hash the walk below rechecks.
+        # The compressor names its gaps the same way, one LEDGER_COMPACTION note
+        # per run of removed rows rather than one per row (Aria 2026-09-29).
+        #
+        # A named hash that still belongs to a surviving row is not a gap; it is
+        # a real crossing, and excusing it would let a note launder one. So a
+        # name counts only when no row in the chain carries it.
+        surviving = {r[7] for r in rows if r[7]}
+        removal_notes: dict[str, int] = {}
+        for _eid, _ts, etype, _a, payload_json, *_rest in rows:
+            if etype not in ("LEDGER_CORRUPTION_REPAIRED", "LEDGER_COMPACTION"):
+                continue
+            try:
+                payload = json.loads(payload_json)
+                if etype == "LEDGER_CORRUPTION_REPAIRED":
+                    names = [payload.get("deleted_chain_hash")]
+                else:
+                    names = list(payload.get("gap_tail_chain_hashes") or [])
+            except (ValueError, AttributeError, TypeError):
+                continue
+            for named in names:
+                if isinstance(named, str) and named and named not in surviving:
+                    removal_notes[named] = removal_notes.get(named, 0) + 1
+
         expected_prior = _CHAIN_GENESIS
         last_chain_hash = None
         chain_event_count = 0
@@ -1037,21 +1140,27 @@ def verify_chain() -> dict[str, Any]:
                 # cries tampered cannot report tampering. Silencing it by
                 # repairing the link would have traded a true history for a
                 # quiet instrument.
-                known = _known_chain_breaks()
-                if event_id in known:
+                if event_id in _known_chain_breaks():
+                    # The link is excused; the row's own hash is still checked
+                    # below. Skipping that recheck (the old `continue` here)
+                    # meant a listed row was checked less than every other.
                     known_breaks_seen.append(event_id)
-                    expected_prior = stored_chain
-                    last_chain_hash = stored_chain
-                    last_event_id = event_id
-                    chain_event_count += 1
-                    continue
-                return _chain_result(
-                    verified=chain_event_count,  # rows walked before the break, not zero
-                    ok=False,
-                    total=len(rows),
-                    broken_at=event_id,
-                    broken_reason=f"prior_hash mismatch: stored={(stored_prior or '')[:12]}..., expected={expected_prior[:12]}...",
-                )
+                elif removal_notes.get(stored_prior, 0) > 0:
+                    # A gap left by the cleaner: this row points at a removed
+                    # row whose chain hash a LEDGER_CORRUPTION_REPAIRED note in
+                    # the chain names. One note excuses one link; a second row
+                    # claiming the same removed hash is a fork, not a repair
+                    # (Aria 2026-09-28), so each name is spent once.
+                    removal_notes[stored_prior] -= 1
+                    known_breaks_seen.append(event_id)
+                else:
+                    return _chain_result(
+                        verified=chain_event_count,
+                        ok=False,
+                        total=len(rows),
+                        broken_at=event_id,
+                        broken_reason=f"prior_hash mismatch: stored={(stored_prior or '')[:12]}..., expected={expected_prior[:12]}...",
+                    )
             recomputed = _compute_chain_hash(
                 prior_hash=stored_prior,
                 event_id=event_id,
