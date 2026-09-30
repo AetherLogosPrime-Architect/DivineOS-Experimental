@@ -57,3 +57,10 @@ So the build has two halves now:
 2. **His hand on his own words**: he can mark any surfaced line as *contradicted by a later line*, *misread*, or *withdrawn*. A withdrawn line stops surfacing but stays archived (his 09-13: "deletion doesnt mean annihilation just removal from the system"). Only he marks. I never mark his words for him.
 
 Flow still owed: replay on the real record (which surfaced lines have hurt or misled), council walk, Aether's objection, build, Aletheia, merge with him.
+
+### How he marks, and a fourth mark: re-quote (2026-09-30)
+
+His words, verbatim: *"i would just tell you in chat.. and some of my words i would rather re-quote than remove.. like alot of the times i was angry.. i could have said what was needed to say without the anger or hurt"*
+
+- **The channel is chat.** No list, no form. He says it in plain words; I carry it out and show him what changed.
+- **Re-quote**: he restates an old line in the words he wishes he'd used. From then on the new wording is what surfaces. The original is archived and linked to it, never surfaced in its place. The new words are his, not mine: I never draft a gentler version for him.
