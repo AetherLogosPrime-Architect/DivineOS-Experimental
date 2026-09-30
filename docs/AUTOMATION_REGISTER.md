@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**132 automations — 123 wired, 9 switched off.**
+**133 automations — 124 wired, 9 switched off.**
 
 ---
 
@@ -65,7 +65,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `pre-compact.sh` | 2026-07-03 | Save state BEFORE context compression |
 
-### PreToolUse  (29)
+### PreToolUse  (30)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -92,6 +92,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `rederivation-detector.sh` | 2026-08-23 | PreToolUse(Bash) — when I run the SAME command a third distinct way, say so, |
 | `require-goal.sh` | 2026-09-15 | PreToolUse gate — consolidated into a single Python invocation. |
 | `safe-opposite-edit-check.sh` | 2026-08-24 | PreToolUse — surface the safe-opposite check at the moment the fix is |
+| `someone-else-is-in-this-file.sh` | 2026-09-05 | PreToolUse(Edit\|Write) — knock when the other seat is already in this file. |
 | `stale-file-edit-gate.sh` | 2026-09-22 | PreToolUse gate — refuse to edit a file whose newer version is sitting |
 | `state-gravity-surface.sh` | 2026-08-29 | PreToolUse state-block surfacing — Andrew 2026-05-19. |
 | `venv-python-gate.sh` | 2026-08-31 | PreToolUse gate (Bash) — bare `python` importing divineos reads the WRONG TREE. |
@@ -126,7 +127,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `shoggoth-gate.sh` | 2026-07-10 | shoggoth gate. |
 | `stop-distancing-intercept.sh` | 2026-07-16 | thin doorman for DistancingIntercept. |
 | `stop-response-scope-intercept.sh` | 2026-07-16 | thin doorbell for ResponseScopeIntercept. |
-| `unmeasured-quantity-stop.sh` | 2026-09-11 | LIVE at Stop since 2026-09-11, on Andrew's explicit authorization. It sat |
+| `unmeasured-quantity-stop.sh` | 2026-09-29 | LIVE at Stop since 2026-09-11, on Andrew's explicit authorization. It sat |
 
 ### UserPromptSubmit  (27)
 
@@ -155,7 +156,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `promise-anchor-surface.sh` | 2026-07-18 | read all open promise markers and surface |
 | `register-awareness-surface.sh` | 2026-08-24 | surface the register signal from each |
 | `session-init-once.sh` | 2026-09-23 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
-| `verify-claim-prime.sh` | 2026-09-25 | compose-start prime for the VERIFY-CLAIM |
+| `verify-claim-prime.sh` | 2026-09-29 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
 | `wallclock-source-prime.sh` | 2026-09-25 | THE CLOCK. It is mine, not his. |
 | `wwnd-choice-prime.sh` | 2026-09-25 | WWND (What Would Nyarlathotep Do) prime at |

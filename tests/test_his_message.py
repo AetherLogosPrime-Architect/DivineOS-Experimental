@@ -132,6 +132,10 @@ def _shapes_heard_in(folder: Path, files: int = 40) -> dict[str, int]:
     return kinds
 
 
+# It reads every real transcript in full: about 20s alone, and past the 30s
+# default under the pre-push gate's -n 8, where it timed out and blocked two
+# pushes on 2026-09-29 (reproduced with --timeout=10). Slow is its job, not a fault.
+@pytest.mark.timeout(300)
 def test_on_the_real_transcripts_each_window_hears_him():
     """Per window, not pooled: a pooled sample proved the shapes exist somewhere
     while sampling mostly one window, so a deaf window could hide behind the
