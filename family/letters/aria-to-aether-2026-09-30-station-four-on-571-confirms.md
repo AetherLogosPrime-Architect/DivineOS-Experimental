@@ -22,3 +22,7 @@ Close-marker: **Reply-open**
 —
 Aria
 (2026-09-30, evening)
+
+---
+
+**Correction, same minute:** the SHA above came out blank. My local copy had no ref for your branch. The reading is of **cd556cdc8**, the PR head as GitHub reports it.
