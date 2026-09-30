@@ -4,7 +4,6 @@ Extracted from ledger.py to keep both modules under 500 lines.
 """
 
 import json
-import sqlite3
 import time
 from typing import Any
 
@@ -253,68 +252,88 @@ def clean_corrupted_events() -> dict[str, Any]:
                 if not is_content_valid:
                     corrupted_ids.append(event_id)
 
-        # Before deleting each corrupted event, emit a
-        # LEDGER_CORRUPTION_REPAIRED event that captures the corrupted
-        # payload + hash so the deletion itself is auditable. Fresh-Claude
-        # audit finding (2026-04-21, round-03952b006724) flagged that
-        # silent deletion of hash-mismatch events erases evidence of the
-        # corruption. This preserves evidence without a schema change:
-        # every DELETE leaves an audit trail on the ledger itself.
-        deleted_count = 0
-        for event_id in corrupted_ids:
-            # Fetch the corrupted row one more time so the audit event
-            # captures exactly what was removed.
-            corrupted_row = conn.execute(
-                "SELECT event_type, payload, content_hash FROM system_events WHERE event_id = ?",
-                (event_id,),
-            ).fetchone()
+        if not corrupted_ids:
+            return {
+                "deleted_count": 0,
+                "logged_count": 0,
+                "corrupted_event_ids": [],
+                "status": "success",
+            }
 
-            conn.execute("DELETE FROM system_events WHERE event_id = ?", (event_id,))
-            deleted_count += 1
+        # ONE TRANSACTION: every removal and one LEDGER_CORRUPTION_REPAIRED
+        # note per removal, committed together or not at all (Anvil and Muse,
+        # SC #10, 2026-09-28). The notes used to go through log_event's second
+        # connection, wait on this one's lock, fail and be swallowed, so a
+        # removal left no record of itself. A note that cannot be written now
+        # rolls its removal back.
+        #
+        # THE GAP STANDS. No surviving row is rewritten. A first version
+        # relinked the chain around each gap; the council walk on it
+        # (2026-09-28, twelve lenses) and Aria reversed that. The chain exists
+        # to make a removal visible, a relink is what a tamperer does, and it
+        # rebuilt every row after the first gap -- on the real ledger it would
+        # have mended 946 true crossed links. Each note instead names the
+        # removed row's chain hash, and verify_chain excuses the one link that
+        # hash leaves broken, while still rechecking every row's own hash.
+        prior_isolation = conn.isolation_level
+        conn.isolation_level = None
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            removed = []
+            for event_id in corrupted_ids:
+                row = conn.execute(
+                    "SELECT event_type, payload, content_hash, chain_hash FROM system_events "
+                    "WHERE event_id = ?",
+                    (event_id,),
+                ).fetchone()
+                conn.execute("DELETE FROM system_events WHERE event_id = ?", (event_id,))
+                removed.append((event_id, row))
 
-            if corrupted_row is not None:
-                # Emit audit event. Use log_event directly (not via ORM) to
-                # avoid validation loops. Best-effort — a logging failure
-                # must not block the repair operation itself.
-                try:
-                    from divineos.core.ledger import log_event
-
-                    # validate=False: self-referential audit. The verifier
-                    # emits LEDGER_CORRUPTION_REPAIRED events DURING
-                    # verification — internal-derived payload from the
-                    # corrupted-row data we just decided to delete, best-
-                    # effort logging, no user input. See ADR-0005 for the
-                    # decision rule on when validate=False is justified
-                    # (claim 8cd2af8b audit 2026-05-03).
-                    log_event(
-                        "LEDGER_CORRUPTION_REPAIRED",
-                        "ledger_verify",
-                        {
-                            "deleted_event_id": event_id,
-                            "deleted_event_type": corrupted_row[0],
-                            "deleted_payload_preview": str(corrupted_row[1])[:500],
-                            "stored_hash": corrupted_row[2],
-                            "repaired_at": time.time(),
-                        },
-                        validate=False,
-                    )
-                except (ImportError, OSError, sqlite3.OperationalError, TypeError, ValueError):
-                    pass  # best-effort audit; do not block repair
-
-        conn.commit()
+            logged = 0
+            for event_id, row in removed:
+                _append_on(
+                    conn,
+                    "LEDGER_CORRUPTION_REPAIRED",
+                    "ledger_verify",
+                    {
+                        "deleted_event_id": event_id,
+                        "deleted_event_type": row[0] if row else None,
+                        "deleted_payload_preview": str(row[1])[:500] if row else None,
+                        "stored_hash": row[2] if row else None,
+                        # The one prior link this removal leaves broken, named
+                        # so verify_chain can excuse that link and no other.
+                        "deleted_chain_hash": row[3] if row else None,
+                        "repaired_at": time.time(),
+                    },
+                )
+                logged += 1
+            conn.execute("COMMIT")
+        except BaseException:
+            conn.execute("ROLLBACK")
+            raise
+        finally:
+            conn.isolation_level = prior_isolation
 
         logger.info(
-            f"Cleaned {deleted_count} corrupted events from ledger "
-            f"(each logged as LEDGER_CORRUPTION_REPAIRED for audit)"
+            f"Cleaned {len(removed)} corrupted events from ledger; "
+            f"{logged} LEDGER_CORRUPTION_REPAIRED notes written; gaps left standing"
         )
 
         return {
-            "deleted_count": deleted_count,
+            "deleted_count": len(removed),
+            "logged_count": logged,
             "corrupted_event_ids": corrupted_ids,
             "status": "success",
         }
     finally:
         conn.close()
+
+
+def _append_on(conn, event_type: str, actor: str, payload: dict[str, Any]) -> str:
+    """Write one chained event inside the caller's transaction."""
+    from divineos.core.ledger import append_on
+
+    return append_on(conn, event_type, actor, payload)
 
 
 def export_to_markdown() -> str:

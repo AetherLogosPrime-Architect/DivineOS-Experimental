@@ -10,7 +10,37 @@ env vars but no measurement of how often the bypass actually fires.
 If bypass becomes habitual — operator (or agent) sets the env var on
 every push without naming a real reason — the gate degrades to
 warning. That degradation is currently invisible. This module
-records each bypass invocation so the rate is queryable.
+records each bypass invocation so the COUNT is queryable.
+
+THAT SENTENCE SAID "RATE" UNTIL 2026-09-19 AND IT WAS NOT TRUE.
+Corrected here, and the correction is a DISCLOSURE rather than a
+repair: the instrument answers no better than it did before. It has
+simply stopped advertising a capability it does not have.
+
+WHAT THIS FILE CANNOT ANSWER. A rate needs a denominator. Every field
+below is a property of a TAKING -- which gate, which variable, when,
+by whom, why. Nothing here records a gate that fired and was OBEYED,
+so the question "does anything change how OFTEN a bypass is taken"
+cannot be addressed from this data at all. The rows are real and the
+file looks complete, which is what makes the gap invisible.
+
+AND THE TRAP ONE STEP FURTHER IN, because a reader who learns only the
+above will reach for it: three gates DO keep their own fire logs, so a
+real denominator exists for those three. All three are reason-printing.
+There is no gate in this house with a fire log AND a bare escape. So
+any comparison drawn from them has ONE ARM, and will look clean while
+being a fact about that arm alone.
+
+HOW IT WOULD BECOME ANSWERABLE: write an event when a gate REFUSES, not
+only when one is escaped. The gate already knows it is refusing, so the
+information exists at the decision point and is discarded. Aria first
+estimated that as one line, measured it, and corrected herself: twenty-
+eight hooks can refuse and the existing recorder has seventy-two call
+sites. It is its own piece of work, not a patch.
+
+FOUND THE HARD WAY. I read "the rate is queryable", believed it, and
+wrote into the knowledge store that an existing falsifier needed no new
+instrument -- without opening this file. Aria opened it.
 
 Recorded fields per event:
 - gate_name (which gate was bypassed)

