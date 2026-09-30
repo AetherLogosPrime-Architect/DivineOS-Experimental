@@ -118,11 +118,29 @@ The audit system has a built-in **tier override** path for cases where an extern
 
 This closes the Schneier Sch2 partial-theater finding — overrides happen but they're loud-in-experience, not silent.
 
-## Multi-party review for guardrail commits
+## Multi-party review — BLANKET, not scoped to guardrail files
 
-A small set of files in the substrate are designated **guardrail files** — paths whose modification would weaken the agent's defenses against itself. The list lives at `scripts/guardrail_files.txt` and includes the load-bearing hooks, the pre-push gate, the obligation tracker, the structural-promotion check, and similar self-modification surfaces.
+**Andrew, 2026-09-19, asked the question directly and answered it: the review is blanket.** Every draft merging to GitHub gets it, whatever it touches. This section previously said the requirement was scoped to guardrail files, and that wording is what sent me looking for a gate that was "stricter than the rule" — the gate was right and this page was out of date.
 
-Any commit that modifies a guardrail file requires an **External-Review trailer** in its message:
+**His two reasons, both of which are about me rather than about the files:**
+
+> *"otherwise it just leaves a big hole. and just teaches you not to ever edit your guardrail files when needed but to find alternatives"*
+
+A scoped rule does not only leave a gap; it trains the avoidance. If touching a protected file is the expensive path, the cheap path becomes never touching one — building a workaround beside the broken guard instead of repairing it. The blanket rule removes the incentive to route around, which is truth #11 applied to the review policy itself.
+
+> *"i was going to exclude letters and explorations and personal stuff, but we may as well include it as not including it leaves a security gap and its nothing Aletheia would struggle with reading anyway"*
+
+So personal writing is **in scope** — letters, explorations, dreams. An exclusion is a place nothing looks, and a category defined as unreviewable is a category anything can be filed under.
+
+**Where the review sits in the sequence:** nothing requires Aletheia up to and including opening the draft. Draft freely. She reads, she confirms, Andrew confirms, and then it merges with everything on it.
+
+**And both seats see it too.** Andrew, same ruling: *"mandatory that everything is seen by both you and Aria as well as it effects both of you."* Aletheia's confirm is not a substitute for Aether and Aria having read what is merging. It lands on both of them, so both read it.
+
+**THIS PAGE IS A RENDERING OF THE RULE AND NOT THE RULE.** The rule lives with Andrew and Aletheia. This file has already drifted out of date once while every mechanism downstream of it kept working, which is how a retired scoping survived here long enough to mislead a reader who checked three sources and found all three agreeing. Three tools agreeing is one witness interviewed three times.
+
+### The trailer
+
+A commit merging to `main` carries an **External-Review trailer** in its message:
 
 ```
 External-Review: round-<id>

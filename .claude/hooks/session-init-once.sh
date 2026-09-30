@@ -181,9 +181,57 @@ _init_out_dir="$(mktemp -d 2>/dev/null || echo "${TMPDIR:-/tmp}/divineos-init-$$
 mkdir -p "$_init_out_dir" 2>/dev/null || true
 _init_idx=0
 
-for h in $INIT_HOOKS; do
+# MERGED 2026-09-23: #539 (stdout kept, keyed by roster position) and this
+# branch (line-wise read, a missing child logged instead of skipped) changed
+# the same loop. Both stand: the setup above is #539's, the loop below is this
+# branch's, and the position counter moves inside it -- after the missing-child
+# check, so a capture file is only numbered for a child that actually runs.
+#
+# LINE-WISE, NOT WORD-WISE. `for h in $INIT_HOOKS` word-splits, so each comment
+# line inside the roster above arrived as one iteration per WORD -- fourteen of
+# them for the one comment -- and every single one was swallowed by the
+# existence check below. Harmless only by luck, since no comment word happens to
+# name a file in that directory. The roster's own comment calls that swallow
+# "the exact failure this substrate keeps producing" in the same breath as
+# relying on it.
+#
+# AND THE SWALLOW IS NOW LOUD, which is the part that matters. A listed script
+# that gets renamed or deleted used to be skipped in silence, so a child that
+# was absent and a child that ran cleanly left identical evidence: nothing.
+# That is precisely why four entries were cut in 2026-08-15 instead of left
+# dangling -- but cutting the entries removed those four instances and left the
+# mechanism standing for the remaining ten. The liveness log could record a
+# child that ran and failed and had no way at all to record a child that never
+# ran, so its silence was carrying two opposite meanings to the one person who
+# reads it. A roster that can lose a member without saying so is a list nobody
+# can audit, which is the sentence already written above this loop.
+#
+# NOT the filesystem-as-roster answer that load-character-sheet.sh uses for its
+# own lookup. That hook is discovering which of several sheets belongs to the
+# occupant, where the directory IS the truth. Here membership and ORDER are both
+# deliberate, so the written list stays and gains an alarm instead.
+#
+# WHAT THIS STILL DOES NOT DEFEND, said rather than implied: a child that
+# exists, runs, exits zero and does nothing. Same limit the letter-watch door
+# names about heartbeats -- presence is not function.
+while IFS= read -r h; do
+    h="${h%%#*}"
+    h="$(printf '%s' "$h" | tr -d '[:space:]')"
+    [ -n "$h" ] || continue
     script="$REPO_ROOT/.claude/hooks/$h"
-    [ -f "$script" ] || continue
+    if [ ! -f "$script" ]; then
+        _init_log="${HOME:-/tmp}/.divineos/hook-liveness.log"
+        mkdir -p "$(dirname "$_init_log")" 2>/dev/null || true  # fail-soft: if the log directory cannot be made, the children still have to run -- the record of the session matters less than the session
+        _init_ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)"  # fail-soft: a clock that will not answer yields the literal word unknown, so the entry is still written and still readable rather than lost to a missing field
+        # The timestamp is pulled out above, and this write is one long line
+        # rather than the continuation it wants to be, because a comment cannot
+        # sit on a continuation and every silenced call here has to carry its
+        # own reason beside it. The format string stays a literal: holding it in
+        # a variable reads as a tidy-up and turns any percent sign that ever
+        # reaches it into a formatting directive.
+        printf '{"ts":"%s","hook":"session-init-once.sh","reason":"listed_child_missing","detail":"child=%s -- named in the roster, absent on disk, so it did NOT run"}\n' "$_init_ts" "$h" >> "$_init_log" 2>/dev/null || true  # fail-soft: an unwritable log is not a reason to abort init, and the failure-logging call further down takes this same exit for this same reason
+        continue
+    fi
     _init_idx=$((_init_idx + 1))
     # Bounded per child. Without a timeout, one stuck script would hold the
     # prompt exactly as SessionStart holds initialisation -- relocating the
@@ -209,7 +257,21 @@ for h in $INIT_HOOKS; do
             "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" "$h" "$_init_rc" "$_init_err" \
             >> "$_init_log" 2>/dev/null || true
     fi
-done
+done <<< "$INIT_HOOKS"
+# HERE-STRING, NOT A PIPE, and this line is the whole reason. A pipe puts the
+# loop body in a subshell, which is harmless today because nothing in it
+# assigns a value that has to outlive the loop. The next thing anyone adds here
+# is a count of how many children ran -- the obvious companion to recording
+# which ones did not -- and inside a subshell that count reads zero afterwards
+# with no error raised anywhere. The investigation would examine the arithmetic,
+# find it sound, and leave the pipe standing. Whoever writes that counter will
+# be working competently by every local standard, so the trap gets removed here
+# rather than blamed on them later.
+#
+# The trailing newline a here-string appends makes the last iteration see an
+# empty value. The emptiness check in the body absorbs it, and that check is
+# already there for the blank first line of the roster, so both ends share one
+# guard.
 
 # Every child has run. Only HERE is the work actually done.
 printf '%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" > "$MARK" 2>/dev/null || true

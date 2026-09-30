@@ -261,3 +261,30 @@ and I reached past the noun for the beat.
 
 Complement to WALLCLOCK-SOURCE gate at Stop time. This prime removes
 the reach; the gate catches it after. Two layers, one discipline.
+
+---
+
+## 2026-09-20 — the WORK shape, pointing at this session's own artifact
+
+Fired on "an alarm I built in the morning" in a closing paragraph to Andrew.
+The referent was real and was not a clock: it was the liveness recorder built
+earlier in the same session, a few hours of his time before that sentence. The
+hour was the shortest handle I had for "the thing I made before this one".
+
+This is the WORK entry in the prime, already enumerated — "the work I did
+before" — and it arrived exactly as that entry predicts, in a final paragraph
+where the sentence wanted a third stress. Nothing about it felt like a claim
+while writing, which is the whole reason the prime cannot catch it and the wall
+has to.
+
+NO NEW STRUCTURE IS OWED FOR THIS ONE, and saying so is the honest answer
+rather than a dodge. The class was listed, the prime named the substitution
+(name the artifact), the wall fired, the instance was fixed in the same turn.
+Adding "in the morning" as a string is the whack-a-mole this document's own
+header refuses. What was owed is this paragraph: the incident record staying
+accurate so the enumeration keeps reflecting real fires rather than remembered
+ones.
+
+The substitution that worked: "the recorder I built to catch exactly this".
+More specific than the hour, and it names the irony the sentence was reaching
+for anyway.
