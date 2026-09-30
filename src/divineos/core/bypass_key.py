@@ -39,6 +39,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+__guardrail_required__ = True
+
 KEY_FILE = Path.home() / ".divineos" / "bypass_key.json"
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
