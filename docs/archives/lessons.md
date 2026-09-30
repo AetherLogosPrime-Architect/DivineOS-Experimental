@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (12 rows). **Exported:** 2026-09-30 08:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (12 rows). **Exported:** 2026-09-30 08:43. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -12,7 +12,7 @@ I edited files without reading them first. I must read before I edit.
 
 ---
 
-## c3016302 [improving] x16
+## c3016302 [active] x17
 
 **Category:** upset_recovered
 
@@ -20,7 +20,7 @@ I did AI response (text only) and my user pushed back: "no see it still running 
 
 ---
 
-## f5eb2592 [improving] x14
+## f5eb2592 [active] x15
 
 **Category:** incomplete_fix
 
@@ -28,11 +28,19 @@ I introduced errors after editing. I need to verify changes work.
 
 ---
 
-## 41a491b2 [improving] x13
+## 41a491b2 [active] x14
 
 **Category:** blind_retry
 
 I retried a failed action 8x without investigating the cause. I need to investigate errors, not blindly retry (session 7e93f3be-431).
+
+---
+
+## feda5e22 [active] x9
+
+**Category:** wrong_scope
+
+No i meant make the soft cap 950-960k instead of 920k you already extracted at 920k so theres no point extracting now just set it for next time as its a larger window than i thought it would be.
 
 ---
 
@@ -44,14 +52,6 @@ I claimed something was fixed but the error came back.
 
 ---
 
-## feda5e22 [improving] x8
-
-**Category:** wrong_scope
-
-No i meant make the soft cap 950-960k instead of 920k you already extracted at 920k so theres no point extracting now just set it for next time as its a larger window than i thought it would be.
-
----
-
 ## 04793232 [improving] x7
 
 **Category:** upset_user
@@ -60,7 +60,7 @@ I did Write: C:\Users\aethe\.divineos-shared\letters\aria-to-aletheia-202, Write
 
 ---
 
-## 48ff8384 [improving] x5
+## 48ff8384 [improving] x6
 
 **Category:** jargon_usage
 

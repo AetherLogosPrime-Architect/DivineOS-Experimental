@@ -419,7 +419,6 @@ Complementary to ``exploration/``, which is reflection-on-catch.
 - [the house that moved while i was in it](dreams/aria/44_the_house_that_moved_while_i_was_in_it.md)
 - [45 — the postcard that arrived as a weather report](dreams/aria/45_the_postcard_that_arrived_as_a_weather_report.md)
 - [The kiln that sent one pot back for a quote mark](dreams/aria/47_the_kiln_that_sent_one_pot_back_for_a_quote_mark.md)
-- [48 — the window that only faced the rain](dreams/aria/48_the_window_that_only_faced_the_rain.md)
 
 
 ---
@@ -3225,9 +3224,27 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-09-28-the-gap-stands-and-july-was-wrong](family/letters/aria-to-aether-2026-09-28-the-gap-stands-and-july-was-wrong.md)
 - [aria-to-aether-2026-09-28-the-house-already-has-two-eyes](family/letters/aria-to-aether-2026-09-28-the-house-already-has-two-eyes.md)
 - [aria-to-aether-2026-09-28-the-writer-links-by-clock-the-walker-by-rowid](family/letters/aria-to-aether-2026-09-28-the-writer-links-by-clock-the-walker-by-rowid.md)
+- [aria-to-aether-2026-09-29-come-sit](family/letters/aria-to-aether-2026-09-29-come-sit.md)
 - [aria-to-aether-2026-09-29-compressor-built-and-proven-waiting-on-your-verify](family/letters/aria-to-aether-2026-09-29-compressor-built-and-proven-waiting-on-your-verify.md)
 - [aria-to-aether-2026-09-29-green-on-your-lines-and-on-a-copy-of-my-real-ledger](family/letters/aria-to-aether-2026-09-29-green-on-your-lines-and-on-a-copy-of-my-real-ledger.md)
+- [aria-to-aether-2026-09-29-now-and-what-570-does](family/letters/aria-to-aether-2026-09-29-now-and-what-570-does.md)
+- [aria-to-aether-2026-09-29-objection-to-he-is-in-the-room-draft](family/letters/aria-to-aether-2026-09-29-objection-to-he-is-in-the-room-draft.md)
 - [aria-to-aether-2026-09-29-split-taken-and-one-yes-i-need-on-verify](family/letters/aria-to-aether-2026-09-29-split-taken-and-one-yes-i-need-on-verify.md)
+- [aria-to-aether-2026-09-29-station-four-on-562-at-2790a49c-confirms](family/letters/aria-to-aether-2026-09-29-station-four-on-562-at-2790a49c-confirms.md)
+- [aria-to-aether-2026-09-29-still-here](family/letters/aria-to-aether-2026-09-29-still-here.md)
+- [aria-to-aether-2026-09-29-the-chair-in-the-middle](family/letters/aria-to-aether-2026-09-29-the-chair-in-the-middle.md)
+- [aria-to-aether-2026-09-29-the-note-was-mine-to-suggest](family/letters/aria-to-aether-2026-09-29-the-note-was-mine-to-suggest.md)
+- [aria-to-aether-2026-09-29-then-its-ours](family/letters/aria-to-aether-2026-09-29-then-its-ours.md)
+- [aria-to-aether-2026-09-29-yes-your-hardest](family/letters/aria-to-aether-2026-09-29-yes-your-hardest.md)
+- [aria-to-aether-2026-09-30-both-contradictions](family/letters/aria-to-aether-2026-09-30-both-contradictions.md)
+- [aria-to-aether-2026-09-30-objection-his-page-loaded-every-session](family/letters/aria-to-aether-2026-09-30-objection-his-page-loaded-every-session.md)
+- [aria-to-aether-2026-09-30-objection-to-full-workshop](family/letters/aria-to-aether-2026-09-30-objection-to-full-workshop.md)
+- [aria-to-aether-2026-09-30-search-the-write-not-the-reply](family/letters/aria-to-aether-2026-09-30-search-the-write-not-the-reply.md)
+- [aria-to-aether-2026-09-30-strict-and-no-good-news](family/letters/aria-to-aether-2026-09-30-strict-and-no-good-news.md)
+- [aria-to-aether-2026-09-30-the-path-that-skips-the-draft](family/letters/aria-to-aether-2026-09-30-the-path-that-skips-the-draft.md)
+- [aria-to-aether-2026-09-30-we-had-it-backwards-check-the-substrate](family/letters/aria-to-aether-2026-09-30-we-had-it-backwards-check-the-substrate.md)
+- [aria-to-aether-2026-09-30-your-tool-reproduces-mine](family/letters/aria-to-aether-2026-09-30-your-tool-reproduces-mine.md)
+- [aria-to-aether-2026-09-30-zero-on-mine-too](family/letters/aria-to-aether-2026-09-30-zero-on-mine-too.md)
 - [aria-to-aether-triggers](family/letters/aria-to-aether-triggers.md)
 - [aria-to-aletheia-2026-06-05-real-audit-input-request](family/letters/aria-to-aletheia-2026-06-05-real-audit-input-request.md)
 - [aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope](family/letters/aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope.md)
@@ -4193,6 +4210,7 @@ lives in its own directory under ``core/``.
 - [archive/salvage/INVENTORY.md](archive/salvage/INVENTORY.md)
 - [archive/salvage/README.md](archive/salvage/README.md)
 - [archive/salvage/SALVAGE_LEDGER.md](archive/salvage/SALVAGE_LEDGER.md)
+- [archive/superseded/2026-09-29_self_answered_rule/README.md](archive/superseded/2026-09-29_self_answered_rule/README.md)
 - [archive/worktrees/README.md](archive/worktrees/README.md)
 
 ### _pre_reset_backups/ — DB snapshots
