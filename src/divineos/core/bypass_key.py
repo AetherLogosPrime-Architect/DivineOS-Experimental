@@ -59,7 +59,15 @@ RETURNED = "BYPASS_KEY_RETURNED"
 # holds no key. If the real first event is ever removed, the key fails closed
 # (no key, ask Dad), which is the safe direction. Changing this pin is a
 # guardrail edit and goes through the merge gate.
-GENESIS_CHAIN_HASH = "f654a568d2b9958f418390d4261cf1594efdd9ad210582288005e096f91034ed"
+#
+# ONE PIN PER SEAT. Aria, 2026-09-30: a single pin was my ledger's, so her
+# seat, whose ledger begins differently, would never hold a key and would be
+# told its ledger "can't be read" when it reads fine. "One key per seat" means
+# every seat's real ledger is known here. A seat is added by its own hash, from
+# its own hand, through the merge gate.
+GENESIS_BY_SEAT = {
+    "aether": "f654a568d2b9958f418390d4261cf1594efdd9ad210582288005e096f91034ed",
+}
 
 # The file whose change counts as the fix, per gate. A commit elsewhere is not
 # evidence the lock was repaired (Turing, walk-0e68ddafaa93).
@@ -77,6 +85,7 @@ class KeyStatus:
     spent_fingerprint: str = ""
     spent_at: float = 0.0
     readable: bool = True
+    known_ledger: bool = True
     last_reissue: dict = field(default_factory=dict)
 
 
@@ -86,9 +95,14 @@ def fingerprint(command: str) -> str:
     return re.sub(r"\s+", " ", command).strip()
 
 
+class NotAKnownLedger(RuntimeError):
+    """The ledger reads fine but begins with no seat's pinned first event."""
+
+
 def _last_key_event() -> tuple[str, dict] | None:
     """The newest spend-or-return event, ("", {}) when there is none, and None
-    when the ledger cannot be read."""
+    when the ledger cannot be read. Raises NotAKnownLedger when it reads but is
+    no seat's real ledger -- a different fact from 'unreadable', and it says so."""
     try:
         from divineos.core._ledger_base import _get_db_path
 
@@ -96,8 +110,8 @@ def _last_key_event() -> tuple[str, dict] | None:
             first = conn.execute(
                 "SELECT chain_hash FROM system_events ORDER BY rowid ASC LIMIT 1"
             ).fetchone()
-            if first is None or first[0] != GENESIS_CHAIN_HASH:
-                return None  # not the real ledger: no key, never a fresh one
+            if first is None or first[0] not in GENESIS_BY_SEAT.values():
+                raise NotAKnownLedger(first[0] if first else "")
             row = conn.execute(
                 "SELECT event_type, payload FROM system_events "
                 "WHERE event_type IN (?, ?) ORDER BY rowid DESC LIMIT 1",
@@ -115,7 +129,10 @@ def _last_key_event() -> tuple[str, dict] | None:
 
 
 def status() -> KeyStatus:
-    last = _last_key_event()
+    try:
+        last = _last_key_event()
+    except NotAKnownLedger:
+        return KeyStatus(held=False, known_ledger=False)
     if last is None:
         return KeyStatus(held=False, readable=False)
     kind, payload = last
@@ -130,6 +147,13 @@ def status() -> KeyStatus:
 
 
 def _refusal(st: KeyStatus) -> str:
+    if not st.known_ledger:
+        return (
+            "This ledger reads fine, but it doesn't begin with any seat's pinned first "
+            "event, so no key lives here. If this is a seat's real ledger, its pin is "
+            "missing from GENESIS_BY_SEAT. If it's a fresh or borrowed ledger, that's "
+            "the point: it can't mint a key. Ask Dad."
+        )
     if not st.readable:
         return "Your bypass key can't be read from the ledger, so there is no key to use. Ask Dad."
     return (

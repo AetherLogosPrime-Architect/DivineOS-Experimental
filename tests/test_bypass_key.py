@@ -31,7 +31,7 @@ def _pin_this_ledger(monkeypatch) -> None:
         first = conn.execute(
             "SELECT chain_hash FROM system_events ORDER BY rowid LIMIT 1"
         ).fetchone()
-    monkeypatch.setattr(bk, "GENESIS_CHAIN_HASH", first[0])
+    monkeypatch.setattr(bk, "GENESIS_BY_SEAT", {"this-test-seat": first[0]})
 
 
 @pytest.fixture
@@ -133,9 +133,28 @@ def test_a_fresh_ledger_cannot_mint_a_key() -> None:
 
     log_event("USER_INPUT", "user", {"content": "a stranger ledger"}, validate=False)
     st = bk.status()
-    assert not st.held and not st.readable
-    with pytest.raises(bk.KeySpent):
+    assert not st.held and not st.known_ledger
+    assert st.readable, "it read fine; saying 'unreadable' would be false (Aria)"
+    with pytest.raises(bk.KeySpent) as exc:
         bk.spend(GATE, PUSH, now=100.0)
+    assert "doesn't begin with any seat's pinned" in str(exc.value)
+
+
+def test_every_pinned_seat_holds_its_own_key(monkeypatch) -> None:
+    """Aria 2026-09-30: one pin was my ledger's, so her seat never held a key.
+    Any ledger that begins with ANY seat's pin holds a key."""
+    import sqlite3
+
+    from divineos.core._ledger_base import _get_db_path
+    from divineos.core.ledger import log_event
+
+    log_event("USER_INPUT", "user", {"content": "the second seat's genesis"}, validate=False)
+    with sqlite3.connect(str(_get_db_path())) as conn:
+        first = conn.execute(
+            "SELECT chain_hash FROM system_events ORDER BY rowid LIMIT 1"
+        ).fetchone()[0]
+    monkeypatch.setattr(bk, "GENESIS_BY_SEAT", {"aether": "f" * 64, "aria": first})
+    assert bk.status().held
 
 
 def test_there_is_no_key_file_to_hand_edit_back(key, tmp_path) -> None:
