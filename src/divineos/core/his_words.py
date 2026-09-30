@@ -57,6 +57,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from divineos.core.his_message import Heard, hear
 from divineos.core.paths import divineos_home
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -173,31 +174,17 @@ def messages_in_session(path: Path, start: int = 0) -> tuple[list[tuple[str, str
             rec = json.loads(line)
         except ValueError:
             continue
-        if rec.get("type") != "user" or rec.get("isSidechain") or rec.get("isMeta"):
-            continue
-        if rec.get("isCompactSummary") or not rec.get("entrypoint"):
+        if not isinstance(rec, dict) or not rec.get("entrypoint"):
             continue  # no entrypoint: a script launched it and wrote the prompt
-        msg = rec.get("message") or {}
-        if msg.get("role") != "user":
+        heard = hear(rec)
+        if not isinstance(heard, Heard) or heard.bookmark:
+            continue  # bookmarks repeat a dated copy this index already reads
+        t = _INJECTED.sub(" ", heard.text)
+        if any(h in t for h in _HARNESS_TEXT):
             continue
-        content = msg.get("content")
-        texts = (
-            [content]
-            if isinstance(content, str)
-            else [
-                b.get("text", "")
-                for b in (content or [])
-                if isinstance(b, dict) and b.get("type") == "text"
-            ]
-        )
-        date = str(rec.get("timestamp") or "")[:10]
-        for t in texts:
-            t = _INJECTED.sub(" ", t)
-            if any(h in t for h in _HARNESS_TEXT):
-                continue
-            kept = "\n\n".join(his_paragraphs(t)).strip()
-            if kept:
-                out.append((date, kept))
+        kept = "\n\n".join(his_paragraphs(t)).strip()
+        if kept:
+            out.append((str(heard.when or rec.get("timestamp") or "")[:10], kept))
     return out, start + end
 
 

@@ -113,48 +113,114 @@ def test_drift_short_lived_detection():
 # ─── measure_correction_rate ──────────────────────────────────────
 
 
-def test_correction_rate_empty():
+def test_no_data_reports_unmeasured_and_never_healthy(monkeypatch):
+    """The defect this file used to pin as the contract.
+
+    This test previously asserted that no data returns "healthy". That is
+    what let the whole-history view print a clean bill of health sourced
+    from a question no row could answer. A false all-clear is worse than a
+    blank, because a blank sends you looking.
+    """
     _init()
+    monkeypatch.setattr("divineos.core.corrections.load_corrections", lambda: [], raising=False)
+    monkeypatch.setattr("divineos.core.success_ledger.load_successes", lambda: [], raising=False)
     result = measure_correction_rate()
-    assert result["corrections"] == 0
-    assert result["encouragements"] == 0
+    assert result["assessment"] == "unmeasured"
+    assert result["ratio"] is None, "absent is honest where zero is a claim"
+    assert result["unmeasured_reason"]
+
+
+def test_an_unreadable_store_is_unmeasured_not_a_count_of_zero(monkeypatch):
+    """Cannot-count and none-exist are different facts."""
+    _init()
+
+    def boom():
+        raise OSError("store gone")
+
+    monkeypatch.setattr("divineos.core.corrections.load_corrections", boom, raising=False)
+    result = measure_correction_rate()
+    assert result["assessment"] == "unmeasured"
+    assert "unreadable" in result["unmeasured_reason"]
+
+
+def test_real_counts_produce_a_measured_verdict(monkeypatch):
+    """Non-vacuity: a verdict other than unmeasured must be reachable.
+
+    An instrument that only ever answered unmeasured would be honest and
+    useless, and would pass the two tests above by luck.
+    """
+    _init()
+    monkeypatch.setattr(
+        "divineos.core.corrections.load_corrections", lambda: [{}] * 7, raising=False
+    )
+    monkeypatch.setattr(
+        "divineos.core.success_ledger.load_successes", lambda: [{}] * 3, raising=False
+    )
+    result = measure_correction_rate()
+    assert result["assessment"] == "struggling"
+    assert result["corrections"] == 7
+    assert result["encouragements"] == 3
+    assert result["ratio"] == 0.7
+    assert result["unmeasured_reason"] is None
+
+
+def test_healthy_is_reachable_only_with_data(monkeypatch):
+    """The other end of the scale, so healthy still means something."""
+    _init()
+    monkeypatch.setattr(
+        "divineos.core.corrections.load_corrections", lambda: [{}] * 1, raising=False
+    )
+    monkeypatch.setattr(
+        "divineos.core.success_ledger.load_successes", lambda: [{}] * 9, raising=False
+    )
+    result = measure_correction_rate()
     assert result["assessment"] == "healthy"
+    assert result["ratio"] == 0.1
 
 
-def test_correction_rate_healthy():
-    """Low correction rate = healthy."""
+# The three below used to call measure_correction_rate() with no session and
+# assert it read these hand-written rows. They passed only because the fixture
+# manufactures a wording nothing writes any more -- the instrument was being
+# validated against synthetic data it would never meet in the field, which is
+# why it could return zero against a real store holding 106 corrections and
+# nothing complained. Whole-history now reads the real stores; the scrape
+# still legitimately serves the single-session path, so the coverage moved
+# there rather than being deleted.
+
+
+def test_session_scrape_reads_a_low_ratio_as_healthy():
     _init()
     store_knowledge(
         knowledge_type="EPISODE",
         content="Session abc123: 1 corrections, 5 encouragements",
         confidence=1.0,
-        tags=["session-analysis"],
+        tags=["session-analysis", "session-abc123"],
     )
-    result = measure_correction_rate()
+    result = measure_correction_rate(session_id="abc123")
     assert result["corrections"] == 1
     assert result["encouragements"] == 5
     assert result["ratio"] < 0.3
     assert result["assessment"] == "healthy"
+    assert result["source"] == "episode-scrape"
 
 
-def test_correction_rate_struggling():
-    """High correction rate = struggling."""
+def test_session_scrape_reads_a_high_ratio_as_struggling():
     _init()
     store_knowledge(
         knowledge_type="EPISODE",
         content="Session abc123: 8 corrections, 1 encouragements",
         confidence=1.0,
-        tags=["session-analysis"],
+        tags=["session-analysis", "session-abc123"],
     )
-    result = measure_correction_rate()
+    result = measure_correction_rate(session_id="abc123")
     assert result["corrections"] == 8
     assert result["encouragements"] == 1
     assert result["ratio"] >= 0.6
     assert result["assessment"] == "struggling"
 
 
-def test_correction_rate_aggregates_across_sessions():
-    """Should sum corrections/encouragements across all sessions."""
+def test_a_session_with_no_matching_rows_is_unmeasured_not_healthy():
+    """The scrape path carries the same discipline as the store path."""
     _init()
     store_knowledge(
         knowledge_type="EPISODE",
@@ -162,15 +228,9 @@ def test_correction_rate_aggregates_across_sessions():
         confidence=1.0,
         tags=["session-analysis", "session-aaa"],
     )
-    store_knowledge(
-        knowledge_type="EPISODE",
-        content="Session bbb: 1 corrections, 4 encouragements",
-        confidence=1.0,
-        tags=["session-analysis", "session-bbb"],
-    )
-    result = measure_correction_rate()
-    assert result["corrections"] == 3
-    assert result["encouragements"] == 7
+    result = measure_correction_rate(session_id="nosuchsession")
+    assert result["assessment"] == "unmeasured"
+    assert result["ratio"] is None
 
 
 # ─── measure_session_health ───────────────────────────────────────
