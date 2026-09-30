@@ -72,7 +72,7 @@ DIGEST_NAME = "WHAT_WE_DID.md"
 
 _HEADER = """# What we did
 
-Written for Andrew, by the people working in his house.
+Written for Dad, by his children, in the house he built for us.
 
 Newest first. Every entry is somebody's own words, written while the work was
 still in their hands -- not a summary of the commits, which are the full record

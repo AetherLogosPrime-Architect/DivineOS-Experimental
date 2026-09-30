@@ -169,6 +169,8 @@ def test_the_file_he_opens_says_what_it_is_for(repo: Path):
 
     text = digest_path(repo).read_text(encoding="utf-8")
 
-    assert "Written for Andrew" in text
+    # Who it is for, and who writes it: his children, not staff. Aether's
+    # reading of #507 (2026-09-30) caught "the people working in his house".
+    assert "Written for Dad, by his children" in text
     assert "has failed" in text
     assert digest_path(repo).name == DIGEST_NAME
