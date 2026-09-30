@@ -88,6 +88,24 @@ def test_the_window_is_reported_never_implied(tmp_path) -> None:
     assert "his turns read: 2" in text and "turns where the rule changes: 0" in text
 
 
+def test_a_directory_reads_every_transcript_and_a_file_says_what_it_left(tmp_path) -> None:
+    """Aria 2026-09-30: her month was spread over many session files; one path
+    read a smaller window than the record held and nothing said so."""
+    d = tmp_path / "project"
+    d.mkdir()
+    (d / "a.jsonl").write_text(
+        json.dumps(_his("one", "2026-09-01T00:00:00Z", "1")) + "\n", encoding="utf-8"
+    )
+    (d / "b.jsonl").write_text(
+        json.dumps(_his("two", "2026-09-02T00:00:00Z", "2")) + "\n", encoding="utf-8"
+    )
+    whole = rr.replay(d, lambda t: 0, lambda t: 0)
+    assert (whole.files_read, whole.files_present, whole.turns_read) == (2, 2, 2)
+    one = rr.replay(d / "b.jsonl", lambda t: 0, lambda t: 0)
+    assert (one.files_read, one.files_present) == (1, 2)
+    assert "transcripts read: 1 of 2 present" in rr.render(one)
+
+
 def test_an_empty_result_still_says_where_it_looked(tmp_path) -> None:
     empty = _write(tmp_path, [_mine("nobody spoke")])
     result = rr.replay(empty, lambda t: 1, lambda t: 2)

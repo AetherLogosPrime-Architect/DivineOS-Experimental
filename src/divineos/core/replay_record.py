@@ -55,6 +55,8 @@ class Replay:
     turns_read: int
     earliest: str
     differs: list[Differs] = field(default_factory=list)
+    files_read: int = 0
+    files_present: int = 0
 
 
 def read_records(path: Path) -> list[dict]:
@@ -113,18 +115,39 @@ def turns_in(records: list[dict], since: str = "") -> list[Turn]:
     return turns
 
 
+def _transcripts(where: Path) -> tuple[list[Path], int]:
+    """The files to read, and how many transcripts sit where they came from.
+
+    Aria, 2026-09-30: her month was spread over many session files, so one
+    path read a smaller window than the record held and nothing said so. A
+    directory reads every transcript in it; a single file still reports how
+    many siblings it left out.
+    """
+    if where.is_dir():
+        files = sorted(where.glob("*.jsonl"))
+        return files, len(files)
+    return [where], len(list(where.parent.glob("*.jsonl")))
+
+
 def replay(
     path: Path,
     before: Callable[[Turn], object],
     after: Callable[[Turn], object],
     since: str = "",
 ) -> Replay:
-    """Run both rules over every turn of his in ``path``; keep where they differ."""
-    turns = turns_in(read_records(path), since=since)
+    """Run both rules over every turn of his in ``path`` (a transcript, or a
+    directory of them); keep the turns where they differ."""
+    files, present = _transcripts(path)
+    turns: list[Turn] = []
+    for f in files:
+        turns.extend(turns_in(read_records(f), since=since))
+    turns.sort(key=lambda t: t.when)
     result = Replay(
         searched=f"{path} since {since or 'the start'}",
         turns_read=len(turns),
         earliest=turns[0].when if turns else "",
+        files_read=len(files),
+        files_present=present,
     )
     for t in turns:
         b, a = before(t), after(t)
@@ -137,6 +160,7 @@ def render(result: Replay, width: int = 110) -> str:
     """Plain text: the window first, then each differing turn with his next words."""
     lines = [
         f"searched: {result.searched}",
+        f"transcripts read: {result.files_read} of {result.files_present} present",
         f"his turns read: {result.turns_read}, earliest: {result.earliest or 'none'}",
         f"turns where the rule changes: {len(result.differs)}",
     ]
