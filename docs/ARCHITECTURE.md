@@ -732,6 +732,7 @@ src/divineos/
     task_belt.py               The task belt: the pile ranked, a small current list pulled from it, done archived.
     his_message.py             The one answer in this house to: is this transcript record Dad typing?
     replay_record.py           Replay a change against the real record of his turns, before building it.
+    bypass_key.py              One bypass key per seat, spent on use, replaced only by a dogfooded fix.
 
   analysis/
     _session_types.py          Session analysis type definitions
