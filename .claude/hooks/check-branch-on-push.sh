@@ -284,11 +284,18 @@ try:
 except Exception:
     sys.exit(0)
 cmd = (data.get('tool_input') or {}).get('command', '') or ''
-# A leading 'cd <path> &&' — quoted or bare — is how a worktree push is written.
-m = re.match(r'''\s*cd\s+(\"[^\"]+\"|'[^']+'|\S+)''', cmd)
-if not m:
+# The LAST 'cd <path>' before the push is the tree being pushed -- quoted or
+# bare, at the start or after ';', '&&' or '||'. It used to be matched only at
+# the very start, and the pipeline gate requires 'set -o pipefail;' in front of
+# every mutating pipe, so the two gates together made every worktree push
+# measure the ambient tree: 2026-09-30, a branch 0 behind was refused three
+# times as 20 behind, and the only exit was a bypass.
+push_at = cmd.find('git push')
+head = cmd[:push_at] if push_at >= 0 else cmd
+cds = list(re.finditer(r'''(?:^|[;&|]\s*)\s*cd\s+(\"[^\"]+\"|'[^']+'|[^\s;&|]+)''', head))
+if not cds:
     sys.exit(0)
-path = m.group(1).strip('\"\'')
+path = cds[-1].group(1).strip('\"\'')
 # Only honor it if it is really a git working tree; otherwise stay silent
 # and let the ambient root stand.
 if os.path.isdir(os.path.join(path, '.git')) or os.path.isfile(os.path.join(path, '.git')):
