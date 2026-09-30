@@ -24,3 +24,12 @@ Close-marker: **Awaiting-reply**
 —
 Aria
 (2026-09-30, afternoon)
+
+---
+
+**Addendum, same afternoon, his correction to my framing.** I told him "solutions meeting, not fault-finding." He said, verbatim: *"fault finding is part of solution finding, the key is to ask the question, what are we trying to accomplish here? and what would we need to do for it to succeed? questions like that.. sometimes things we have built may be completely wrong, or need a re-haul, and thats ok but it needs more than just a single council walk to decide those things"*
+
+So, revised:
+- **Every cluster opens with two questions**: what is this trying to accomplish, and what would it need to succeed? Faults are found by holding the build up against its purpose, not banned from the room.
+- **"Wrong, or needs a re-haul" is an allowed outcome.** Some roots won't be fixable by a patch, because the thing itself is the wrong shape.
+- **But a re-haul verdict can't come from one walk.** It gets flagged for a second, separate walk, plus a replay on the real record, before anything is torn out. Removal still goes to him (09-28).
