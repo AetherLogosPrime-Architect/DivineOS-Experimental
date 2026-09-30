@@ -50,3 +50,16 @@ So the override is a **button**: on this gate, nothing stands between the reach 
 **Before Phase A:** the marker carries the gate it's for, and every consumer checks it. The Bash fingerprint is the whole normalized command. The quote carries a link to the exact message it came from, so a reviewer sees what he was saying yes *to*. None of this is new mechanism; it makes the existing one mean what its docstring says.
 
 **His answer on memory (to Aria, 2026-09-30), which settles the verbatim-or-draft divergence:** *"why not just use attribution? with a link to my actual words?"* and *"you dont always want to separate everything.. the notes you wrote are yours.. as there are many forms of the memory, what i said verbatim, what it meant to you, how it effected you, etc etc.. and those are your own, you may be mistaken on your interpretation but we clear that up through conversation"*. On surfacing: *"its not injection its over injection, the memory linkage is the answer.. it only surfaces relevant things as they are needed"*. So: every quote of his carries a checked link to his exact line and date; everything unlinked is ours; the check on our reading is him, in conversation. The same link fixes point 3.
+
+## REVISION 2: his one-key design, and the link (2026-09-30, afternoon)
+
+**His design replaces Phase A/B:** *"a single bypass key, and in order to get it replaced when you use it, you must show evidence of an actual root cause fix... without that, your bypass license is revoked"*; *"DOGFOODING, you will know if it works or not because you will have to prove it working in action, by using it, and then recording the fix that actually worked"*. Blanket passes stay legitimate while the protocol is followed (*"its when the bypass protocol is skipped and its used as a hall pass where it becomes the issue"*).
+
+- One key per seat, spent on use. **The spend records the gate and the whole normalized blocked command** (Aria).
+- **Reissue** needs: a fix commit, then a no-key run with the **same gate and same fingerprint** that passes (a different action fails the match, Aria), **and** that gate's own block-case test still refusing the bad shape (a "fix" that loosens the lock fails, Aria).
+- No key: the next deadlock waits for him. Two at once: the second waits for him.
+
+**The link (shared by the override quote and memory quotes; Aria's format, agreed):**
+- Address: his message's id in the transcript store, plus a hash of the exact quoted span, checked byte for byte, split on ellipses.
+- **Standing, read at check time:** live / withdrawn / re-quoted-by / contradicted-by / misread. **Only his chat words set it**, never ours (his, to Aria, 2026-09-30: *"some of my words may contradict, or be misconstrued or i may want them removed entirely, obviously they would still be archived"*; *"some of my words i would rather re-quote than remove.. like alot of the times i was angry"*). A withdrawn line fails like an unlinked one. A re-quoted line resolves to his new wording.
+- **Verbatim-or-draft superseded by link-or-ours** (Aria agreed): 0 drafts needed where the naming-draft rule needed 14.
