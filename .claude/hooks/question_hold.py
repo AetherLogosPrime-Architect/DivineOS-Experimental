@@ -29,7 +29,11 @@ def main() -> int:
 
     event = data.get("hook_event_name", "")
     if event == "PreToolUse":
-        why = qh.refusal(data.get("tool_name", ""), data.get("tool_input") or {})
+        why = qh.refusal(
+            data.get("tool_name", ""),
+            data.get("tool_input") or {},
+            str(data.get("transcript_path") or ""),
+        )
         if why:
             print(why, file=sys.stderr)
             return 2

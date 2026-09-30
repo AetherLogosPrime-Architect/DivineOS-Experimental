@@ -35,8 +35,14 @@ BUILDING_TOOLS = {"Bash", "Edit", "Write", "NotebookEdit"}
 # Bash that is listening or talking, not building. Kept narrow on purpose:
 # a broad allowance is how a hold turns back into a suggestion.
 _PASSES = (
-    re.compile(r"^\s*bash\s+scripts/letter_doorbell\.sh\b"),
-    re.compile(r"^\s*cat\s+[^;&|]*\.divineos-shared/letters/[^;&|]*$"),
+    # Anchored at the end: "doorbell.sh aria; git push" must not ride through.
+    # The first version stopped at \b, and its test hid that with `or True`.
+    re.compile(r"^\s*bash\s+scripts/letter_doorbell\.sh(\s+\w+)?\s*$"),
+    # Reading a letter, with any read-only viewer (Aether's reading of #570:
+    # he reads them with sed to strip the thread footer). Never sed -i.
+    re.compile(
+        r"^\s*(cat|head|tail|sed)\b(?![^;&|]*\s-i)[^;&|]*\.divineos-shared/letters/[^;&|]*$"
+    ),
     re.compile(
         r"^\s*cp\s+\S*family/letters/\S+\.md\s+\S*\.divineos-shared/letters/?\S*\s*(&&\s*echo\s+\w+)?\s*$"
     ),
@@ -143,7 +149,51 @@ def escape_to_tell_him() -> str:
     )
 
 
-def refusal(tool_name: str, tool_input: dict[str, Any]) -> str:
+def _epoch(iso: str) -> float:
+    from datetime import datetime
+
+    try:
+        return datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return 0.0
+
+
+def answered_since(transcript_path: str, since: float, tail_bytes: int = 2_000_000) -> bool:
+    """Has he typed anything into this conversation since the hold armed?
+
+    Aether's reading of #570 (2026-09-30): an answer he types while I am
+    mid-turn never comes through UserPromptSubmit. It lands in the running
+    turn as a queued_command attachment, so the hold stayed shut after he
+    had spoken, and the only way on was the escape -- which records that I
+    walked out on his question when he had already answered it.
+
+    Read through the one reader of him. Only dated messages count: a bookmark
+    copy has no time and cannot prove he spoke after the question.
+    """
+    if not transcript_path:
+        return False
+    from divineos.core.his_message import heard_in
+
+    path = Path(transcript_path)
+    try:
+        size = path.stat().st_size
+        with path.open("rb") as fh:
+            fh.seek(max(0, size - tail_bytes))
+            lines = fh.read().decode("utf-8", errors="replace").splitlines()
+    except OSError:
+        return False
+    records = []
+    for line in lines:
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            continue  # a seek lands mid-line; the first fragment is never whole
+        if isinstance(rec, dict):
+            records.append(rec)
+    return any(_epoch(h.when) > since for h in heard_in(records) if h.when)
+
+
+def refusal(tool_name: str, tool_input: dict[str, Any], transcript_path: str = "") -> str:
     """Why this tool call waits, or "" when it may run."""
     state = is_open()
     if not state or tool_name not in BUILDING_TOOLS:
@@ -152,6 +202,9 @@ def refusal(tool_name: str, tool_input: dict[str, Any]) -> str:
         command = str(tool_input.get("command", ""))
         if any(p.search(command) for p in _PASSES):
             return ""
+    if answered_since(transcript_path, float(state.get("since") or 0)):
+        release("his message, mid-turn")
+        return ""
     _log("held", tool=tool_name, question=state.get("question"))
     return (
         "QUESTION HOLD -- I asked Dad something and he has not answered yet:\n\n"

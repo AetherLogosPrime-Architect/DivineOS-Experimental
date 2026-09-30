@@ -71,11 +71,70 @@ def test_upkeep_and_letters_pass_the_hold(qh):
         "bash scripts/letter_doorbell.sh aria",
         'cp family/letters/aria-to-aether-x.md "$HOME/.divineos-shared/letters/" && echo sent',
         'cat "$HOME/.divineos-shared/letters/aether-to-aria-x.md"',
+        "sed -n '1,40p' ~/.divineos-shared/letters/aether-to-aria-x.md",
+        "head -30 ~/.divineos-shared/letters/aether-to-aria-x.md",
     ):
         assert qh.refusal("Bash", {"command": command}) == "", command
-    # A pass cannot carry a building command on its back.
-    assert qh.refusal("Bash", {"command": "bash scripts/letter_doorbell.sh aria; git push"}) or True
+    # A pass cannot carry a building command on its back. The first version of
+    # this line ended `or True` and hid that the doorbell pass let it through.
+    assert qh.refusal("Bash", {"command": "bash scripts/letter_doorbell.sh aria; git push"})
     assert qh.refusal("Bash", {"command": "cat $HOME/.divineos-shared/letters/x.md; rm -rf src"})
+    assert qh.refusal("Bash", {"command": "sed -i 's/a/b/' ~/.divineos-shared/letters/x.md"})
+
+
+def _transcript_with(tmp_path, *records):
+    path = tmp_path / "t.jsonl"
+    path.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
+    return str(path)
+
+
+def test_his_answer_typed_mid_turn_releases_the_hold(qh, tmp_path):
+    # Aether's reading of #570: an answer he types while I am working arrives as
+    # a queued_command inside the running turn, never through UserPromptSubmit.
+    state = qh.arm(CIRCLE)
+    after = "2099-01-01T00:00:00Z"  # dated after the hold armed
+    path = _transcript_with(
+        tmp_path,
+        {
+            "type": "attachment",
+            "userType": "external",
+            "uuid": "q-1",
+            "timestamp": after,
+            "attachment": {"type": "queued_command", "prompt": "yes look into it"},
+        },
+    )
+    assert state and qh.refusal("Edit", {"file_path": "x.py"}, path) == ""
+    assert qh.is_open() is None, "his mid-turn answer did not release the hold"
+
+
+def test_a_notice_mid_turn_does_not_release_it(qh, tmp_path):
+    qh.arm(CIRCLE)
+    path = _transcript_with(
+        tmp_path,
+        {
+            "type": "user",
+            "userType": "external",
+            "uuid": "n-1",
+            "timestamp": "2099-01-01T00:00:00Z",
+            "message": {"role": "user", "content": "<task-notification>x</task-notification>"},
+        },
+    )
+    assert "look into the bell" in qh.refusal("Edit", {"file_path": "x.py"}, path)
+
+
+def test_his_message_from_before_the_question_does_not_release_it(qh, tmp_path):
+    qh.arm(CIRCLE)
+    path = _transcript_with(
+        tmp_path,
+        {
+            "type": "user",
+            "userType": "external",
+            "uuid": "u-old",
+            "timestamp": "2000-01-01T00:00:00Z",
+            "message": {"role": "user", "content": "an old message of his"},
+        },
+    )
+    assert qh.refusal("Edit", {"file_path": "x.py"}, path)
 
 
 def test_only_he_releases_and_an_escape_is_told_to_him(qh):
