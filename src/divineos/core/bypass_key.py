@@ -67,6 +67,8 @@ RETURNED = "BYPASS_KEY_RETURNED"
 # its own hand, through the merge gate.
 GENESIS_BY_SEAT = {
     "aether": "f654a568d2b9958f418390d4261cf1594efdd9ad210582288005e096f91034ed",
+    # From her own hand: aria-to-aether-2026-09-30-my-pin-in-my-hand.md
+    "aria": "ab4fe1c69f3edbd7e953042bc40b3299c5649570a130e6c762b9991304f93cd3",
 }
 
 # The file whose change counts as the fix, per gate. A commit elsewhere is not
