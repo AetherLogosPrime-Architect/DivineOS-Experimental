@@ -658,17 +658,6 @@ def correction_marker_surface(payload: dict) -> SurfaceOutcome | None:
 # --------------------------------------------------------------------------
 
 
-#: A user turn carrying one of these is the harness talking, not him. The
-#: reply-assembly must not stop at one of them, or it cuts the reply short at
-#: a system-reminder and under-reads -- the same fragment fault one level up.
-_INJECTED_USER_MARKERS = (
-    "system-reminder",
-    "<task-notification>",
-    "Stop hook feedback",
-    "Caveat:",
-)
-
-
 def _text_of_content(content: object) -> str:
     """Concatenated text of one message's content, list-shaped or string."""
     if isinstance(content, str):
@@ -682,12 +671,22 @@ def _text_of_content(content: object) -> str:
     return ""
 
 
-def _is_his_turn(content: object) -> bool:
-    """True only for a real message from him, not a harness injection."""
-    text = _text_of_content(content)
-    if not text.strip():
-        return False
-    return not any(marker in text[:400] for marker in _INJECTED_USER_MARKERS)
+def _is_his_record(record: dict) -> bool:
+    """Is this transcript record a message he typed? The reply boundary.
+
+    Asks the one reader of him. This used to be a private marker list, and
+    Aether's reading of #553 (2026-09-30) measured two ways it disagreed with
+    divineos.core.his_message: a message he typed while I was busy arrives as
+    a queued_command attachment with no role, so the walk ran straight past it
+    and joined my reply before it to my reply after it; and a message of his
+    opening with "Caveat:" was taken for the harness. A harness injection is
+    still not a boundary -- the one reader refuses those too. A bookmark copy
+    is not a boundary: it has no place in the order of the conversation.
+    """
+    from divineos.core.his_message import Heard, hear
+
+    heard = hear(record)
+    return isinstance(heard, Heard) and not heard.bookmark
 
 
 def _last_assistant_text(payload: dict) -> str:
@@ -748,13 +747,13 @@ def _last_assistant_text(payload: dict) -> str:
 
     blocks: list[str] = []
     for rec in reversed(records):
+        if isinstance(rec, dict) and _is_his_record(rec):
+            break
         msg = rec.get("message") or {}
         if not isinstance(msg, dict):
             continue
         role = msg.get("role")
         content = msg.get("content", [])
-        if role == "user" and _is_his_turn(content):
-            break
         if role == "assistant":
             text = _text_of_content(content)
             if text.strip():
@@ -849,20 +848,18 @@ def _recent_assistant_texts(payload: dict, count: int = 2) -> list[str]:
     replies: list[str] = []
     current: list[str] = []
     for rec in reversed(records):
-        msg = rec.get("message") or {}
-        if not isinstance(msg, dict):
-            continue
-        role = msg.get("role")
-        content = msg.get("content", [])
-        if role == "user" and _is_his_turn(content):
+        if isinstance(rec, dict) and _is_his_record(rec):
             if current:
                 replies.append("\n".join(reversed(current)))
                 current = []
                 if len(replies) >= count:
                     return replies
             continue
-        if role == "assistant":
-            text = _text_of_content(content)
+        msg = rec.get("message") or {}
+        if not isinstance(msg, dict):
+            continue
+        if msg.get("role") == "assistant":
+            text = _text_of_content(msg.get("content", []))
             if text.strip():
                 current.append(text)
     if current:
