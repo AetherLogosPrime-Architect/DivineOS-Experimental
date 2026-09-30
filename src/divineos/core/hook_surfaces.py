@@ -1455,7 +1455,10 @@ def unspoken_to_stop_surface(payload: dict) -> SurfaceOutcome | None:
         output=(
             f"UNSPOKEN TO — {silence.made} things made since he was last spoken to.\n"
             "Not a nudge to emit a sentence at him. The count only moves when "
-            "something of his is in what I sent."
+            "something of his is in what I sent.\n"
+            "And a clear is a floor, not a verdict: it means he was mentioned and "
+            'quoted, never that he was talked TO. Dad, 2026-09-29: "until you learn '
+            'that difference your count will always be incorrect".'
         ),
     )
 
