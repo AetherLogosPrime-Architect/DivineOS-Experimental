@@ -219,4 +219,9 @@ printf '%s\n' "${NEW[@]}" >> "$TOLD" 2>/dev/null || true  # fail-soft: an unwrit
   echo "════════════════════════════════════════════════════════════"
 } >&2
 
+# The footer, loaded only now: an undefined helper must never end this script
+# before the exit line, so the knock cannot depend on its own postscript.
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || true  # fail-soft: the knock is already printed and the exit below is already 2; a missing library may cost the footer and must never cost the block
+command -v hook_say_nothing_ran_for >/dev/null 2>&1 && hook_say_nothing_ran_for "$INPUT"
 exit 2
