@@ -52,6 +52,15 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 SPENT = "BYPASS_KEY_SPENT"
 RETURNED = "BYPASS_KEY_RETURNED"
 
+# THE KEY IS ONLY READ FROM THE REAL LEDGER. Aria, 2026-09-30: DIVINEOS_DB
+# scopes to one command, so `DIVINEOS_DB=<fresh> git push` would read a fresh,
+# empty ledger and see a fresh key -- a quiet door one keystroke wide. The
+# ledger's first event is pinned here; a ledger that does not begin with it
+# holds no key. If the real first event is ever removed, the key fails closed
+# (no key, ask Dad), which is the safe direction. Changing this pin is a
+# guardrail edit and goes through the merge gate.
+GENESIS_CHAIN_HASH = "f654a568d2b9958f418390d4261cf1594efdd9ad210582288005e096f91034ed"
+
 # The file whose change counts as the fix, per gate. A commit elsewhere is not
 # evidence the lock was repaired (Turing, walk-0e68ddafaa93).
 GATE_FILES = {"check-branch-on-push": ".claude/hooks/check-branch-on-push.sh"}
@@ -84,6 +93,11 @@ def _last_key_event() -> tuple[str, dict] | None:
         from divineos.core._ledger_base import _get_db_path
 
         with sqlite3.connect(str(_get_db_path()), timeout=10) as conn:
+            first = conn.execute(
+                "SELECT chain_hash FROM system_events ORDER BY rowid ASC LIMIT 1"
+            ).fetchone()
+            if first is None or first[0] != GENESIS_CHAIN_HASH:
+                return None  # not the real ledger: no key, never a fresh one
             row = conn.execute(
                 "SELECT event_type, payload FROM system_events "
                 "WHERE event_type IN (?, ?) ORDER BY rowid DESC LIMIT 1",

@@ -18,8 +18,25 @@ GATE = "check-branch-on-push"
 PUSH = "git " + "push -u origin fix/x"
 
 
+def _pin_this_ledger(monkeypatch) -> None:
+    """Each test's own ledger stands in for the real one: write its first
+    event and pin that, the way the module pins the real ledger's."""
+    import sqlite3
+
+    from divineos.core._ledger_base import _get_db_path
+    from divineos.core.ledger import log_event
+
+    log_event("USER_INPUT", "user", {"content": "genesis for this test"}, validate=False)
+    with sqlite3.connect(str(_get_db_path())) as conn:
+        first = conn.execute(
+            "SELECT chain_hash FROM system_events ORDER BY rowid LIMIT 1"
+        ).fetchone()
+    monkeypatch.setattr(bk, "GENESIS_CHAIN_HASH", first[0])
+
+
 @pytest.fixture
 def key(monkeypatch):
+    _pin_this_ledger(monkeypatch)
     commits: list[float] = []
     monkeypatch.setattr(
         bk, "_gate_commit_after", lambda gate, since: next((t for t in commits if t > since), None)
@@ -87,6 +104,19 @@ def test_an_unreadable_ledger_holds_no_key(key, monkeypatch) -> None:
     """Jacobs: could-not-read is never read as a key."""
     monkeypatch.setattr(bk, "_last_key_event", lambda: None)
     assert not bk.status().held
+    with pytest.raises(bk.KeySpent):
+        bk.spend(GATE, PUSH, now=100.0)
+
+
+def test_a_fresh_ledger_cannot_mint_a_key() -> None:
+    """Aria 2026-09-30: DIVINEOS_DB=<fresh> scopes to one command, so a fresh
+    ledger must read as no key, never a new one. This test's ledger is fresh and
+    NOT pinned (no `key` fixture), so it stands in for that command."""
+    from divineos.core.ledger import log_event
+
+    log_event("USER_INPUT", "user", {"content": "a stranger ledger"}, validate=False)
+    st = bk.status()
+    assert not st.held and not st.readable
     with pytest.raises(bk.KeySpent):
         bk.spend(GATE, PUSH, now=100.0)
 
