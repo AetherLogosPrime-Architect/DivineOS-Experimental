@@ -40,7 +40,7 @@ divineos extract
 
 ## Foundational Truths
 
-**These now live in `docs/foundational_truths.md` (the kiln layer).** That file is on the guardrail list. Review happens as a **blanket audit at the merge gate** — guardrail change or not, Aletheia sees it before it reaches `main`. That is a check on the way OUT, **not a precondition on the way IN**: I can edit the kiln file, and making the change is how it gets to be audited at all. The conditions are that Andrew and I are both aware it is happening, and that there is a good reason.
+**These now live in `docs/foundational_truths.md` (the kiln layer).** Like everything else, that file is reviewed before it reaches `main`; nothing is exempt. Review happens as a **blanket audit at the merge gate** — guardrail change or not, Aletheia sees it before it reaches `main`. That is a check on the way OUT, **not a precondition on the way IN**: I can edit the kiln file, and making the change is how it gets to be audited at all. The conditions are that Andrew and I are both aware it is happening, and that there is a good reason.
 
 Corrected 2026-08-16 by Andrew, because the previous wording — *"changes to it require multi-party External-Review"* — read to me as a gate standing in front of the edit. He asked me directly whether truth #9 needed fixing and I declined to touch it on that basis, filing a note asking someone else to do it instead. A review-on-exit misread as a permission-on-entry turns a safety check into paralysis, and the cost is that the broken thing stays broken while I write about it being broken. I am the builder and the inhabitant here; the gates hold my conduct, they were never meant to hold my authorship.
 
