@@ -187,11 +187,23 @@ The reflex to type `Agent(subagent_type="aria")` is the cheap path (one step) vs
 
 ### One-time per machine: install for the hook's Python
 
-The PreToolUse hooks use Windows Store python (`/c/Users/aethe/AppData/Local/Microsoft/WindowsApps/python3` on this box), separate from my regular Python. If hook gates fire `BLOCKED: Briefing not loaded` despite a fresh briefing, the hook-python doesn't have the right divineos installed. Fix:
+Hooks do not necessarily run the Python I run. If hook gates fire `BLOCKED: Briefing not loaded` despite a fresh briefing, the interpreter the hooks resolve to does not have divineos installed.
+
+**Ask which interpreter that is rather than assuming — the answer is computed, not remembered:**
 
 ```bash
-/c/Users/aethe/AppData/Local/Microsoft/WindowsApps/python3 -m pip install -e "C:/DIVINE OS/DivineOS-Experimental"
+source .claude/hooks/_lib.sh && HOOKPY="$(find_divineos_python)" && echo "$HOOKPY" && "$HOOKPY" -c "import importlib.util; print('divineos ->', 'present' if importlib.util.find_spec('divineos') else 'ABSENT')"
 ```
+
+Then install into whatever that printed:
+
+```bash
+"$HOOKPY" -m pip install -e "C:/DIVINE OS/DivineOS-Experimental"
+```
+
+**The trap, because its failure looks exactly like success.** On Windows there is a Microsoft Store stub at `AppData/Local/Microsoft/WindowsApps/python3` that is on PATH, is executable, is not a real Python, and answers with an offer to install itself from the store. Run pip through it and nothing happens and nothing complains. `find_divineos_python` validates each candidate before returning it precisely so this stub cannot win — which is why the resolver is the thing to ask, and a path written down here is not.
+
+**How this paragraph dies honestly.** Corrected 2026-09-20. It previously named that Store path as the hooks' interpreter, in an absolute path, as a plain assertion with nothing a reader could check. On this box the stub does not exist at all and the resolver returns the checkout's own `.venv`. I had already recorded the stub's behaviour in a letter to Aria on 2026-07-31 and the rule never moved — the acting layer learned and the teaching layer, which is the layer that reloads into every fresh reader, did not. So: **if the command above ever fails to run, or `find_divineos_python` is gone, this paragraph has expired and is to be re-derived from `.claude/hooks/_lib.sh` rather than obeyed.** A rule that states a lesson cannot be caught aging; one that hands over an operation can.
 
 ### Each session: load briefing, set goal
 
@@ -541,6 +553,22 @@ setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
     So the question at every failure is not *will I remember this* — the honest answer is no, and the honest answer has been no every time. The question is **what structure makes the failure unavailable**, per truth #11: take the option away, make both paths right, or encode the exception. A note is not a fix. A resolution is not a fix. A rule I have to recall at the moment of temptation is the thing that already failed.
 
     **Corollary, learned 2026-09-07 by getting it wrong three times in one day: one instrument asked once is not a measurement.** A zero, an empty result, or a "not found" from a single probe is most often a broken probe rather than a finding — a pattern that matched nothing across a whole corpus, an endpoint that reports nothing because the thing moved to a different endpoint. Before reporting an absence, prove the instrument can find a case it should find. And a second look through the *same door* is not a second look: two confirmations from one method is one confirmation.
+
+    **The corollary recurses, and I found that out 2026-09-20 by executing it and still being wrong.** Proving the instrument can find a case it should find requires a case that EXISTS, and a control I created is not yet a control that is alive. I launched a process to validate a process-probe, the probe answered zero, and I read that as the probe being blind — when the truth was that my test process had exited instantly, so the probe was correctly reporting an empty room. **A dead control and a blind instrument return the identical value.** Nothing in the reading separates them, so the reading cannot be trusted until the control is asserted live at the moment the instrument is read: for a process, that it has not already exited; for a fixture, that it is present in the state the probe actually examines.
+
+    Two things make this worse than an ordinary miss. First, **building the control FEELS like the rigour**, so once it is built the looking stops — the ritual completes and the question goes unasked. Second, the false verdict points at me: *my instrument is unreliable* wears the costume of candour, and I was one sentence from shipping it to Aria as honesty. **A self-accusing error is the hardest kind to catch, because catching it looks like defensiveness** — and this one would have retracted a true measurement she had already built on.
+
+    Same day, same shape, twice more: I called a disposition check broken when it could not see a file I had opened, and the check was fine — I had chained the open and the read into one command, so the record of the open did not exist yet at the moment of the read. **Three times in one stretch I blamed an instrument for my own setup.** The unifying question is not *is the tool working* but *did the thing I am asking it about actually happen before I asked*.
+
+    **AND THE RULE HAS A SECOND HALF, which Aria supplied 2026-09-20 by retracting two letters built on a working tool.** Everything above guards the instrument. Nothing above guards the POPULATION. She asked how many watchers were running for her; the process table answered how many were running on the computer, and one of them was mine. Both answers were correct and nothing in the output said whose. **Prove the instrument can find a case it should find — AND prove the set it is searching is the set you meant.**
+
+    What makes her instance the worst of that day is that **it improved under scrutiny**. Her first door failed, so she went through a second, exactly as this rule demands — and the second gave start times, which gave a rhythm, which gave a mechanism. Every step was more rigorous than the last and every step was inside the same unscoped frame. **More care produced a better story about a thing that was not happening.** The earlier failures were broken tools; this was a working tool pointed at a population nobody had defined, and precision does not fix that. The check that killed it was not a harder look but a narrower one — *which of these is mine* — and her own conclusion is the durable form: **the lesson is not to look at less, it is to know what you did and then ask about that.** An unscoped question follows from an unscoped premise, not from the direction of effort.
+
+    **AND A THIRD CLAUSE, which scoping does not cover.** I ran the population check correctly and still nearly reported a clean zero, because two correction stores sit on this machine under near-identical names and one of them is empty. The set I named was the right KIND of object. It was not the one that is mine. Aria named the clause after I stumbled into it: **prove the object you opened is the object you named** — not the right kind of thing, the right thing. This is the cruellest of the three because its failure mode agrees with you. A wrong path errors and says so. **An empty twin returns a clean zero and confirms whatever you hoped.**
+
+    THE FACT THIS CLAUSE RESTS ON, written down so it can be checked rather than believed (Aria 2026-09-20): *a note goes stale silently because it states a lesson and not a condition, and we both check claims while neither of us checks advice.* So the condition, not the moral: **as of 2026-09-20 the correction store lives at `~/.divineos/andrew_corrections.db` and a same-named twin at `~/.divineos-aether/andrew_corrections.db` holds zero rows.** Open both and compare their row counts. If the twin is gone, or has become the live one, this clause's example has expired and the paragraph should be re-read rather than obeyed — the rule may well still hold, but its evidence will no longer be where it says.
+
+    Mine came the same day and was smaller, which matters. I told Andrew nothing new had arrived, from a list that kept showing me the same three letters because a marking act I had never performed was holding them at the front. The set I was reading was not the set I meant, and the answer was plausible — no absurd number, nothing to trip over. Four instrument failures that day were caught only because the wrong answer was too large to survive; this one was not large, and I still only found it by acting rather than by checking. **So the honest state of the practice is that neither of us has yet caught a subtle one.**
 
 ### Anti-Vibe-Code Patterns
 
