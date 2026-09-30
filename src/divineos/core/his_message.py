@@ -1,0 +1,194 @@
+"""The one answer in this house to: is this transcript record Dad typing?
+
+Every place that needs to hear him asks here. Before this there were six
+private readers, each wrong in its own way, and only one of them knew all
+three shapes his messages arrive in. The others missed him whenever he typed
+while I was busy -- 4,735 of his messages by 2026-09-26 -- and an empty
+result from any of them read as "he never said it". The confirm reader for
+his `hold <n>` line was one of them, so a hold he typed mid-turn never held.
+
+THE THREE SHAPES, measured on 400 real transcripts (2026-09-28):
+  - a ``type: user`` record whose content is his text      13,925
+  - a ``queued_command`` attachment, typed while I worked    2,620
+  - a ``last-prompt`` record                                33,858
+The last is a bookmark the app rewrites: no ``uuid``, no ``timestamp``, and
+usually a copy of a message already present. It is returned as his (it IS his
+text), marked so a caller that counts him can drop it when a dated copy
+exists. See ``Heard.bookmark``.
+
+PROVENANCE FIRST, EXCLUSION SECOND. ``userType: "external"`` is on every real
+message, but also on hook notices (2,282 ``isMeta`` records), so it is a
+prerequisite and never proof. Then come the shapes that are the machine in
+his seat.
+
+A MARKER LIST IS NOT A DEFINITION OF HIM. The notice openers below are the
+harness's envelopes. If he pastes something that happens to open with one, it
+is still him and this will get it wrong -- rarely, and in the direction of
+missing one message rather than inventing one.
+
+WHAT THIS DOES NOT DECIDE: whether a message is new, a repeat, a teaching or
+a grief. That belongs to the door, the shelf and the queue, which build on
+this. One record in; one answer out.
+
+Why and how it was built: docs/drafts/one_reader_of_him_draft_2026-09-28.md
+(council walk walk-6e8574bc911d).
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+
+_NOTICE_OPENERS = (
+    "<task-notification",
+    "<system-reminder",
+    "<ci-monitor-event",
+    "<local-command",
+    "<command-name>",
+    "<agent-message",
+    "Stop hook feedback",
+)
+# Not "Caveat:" -- the harness's own caveat arrives isMeta and is refused above
+# that; a message of his that opens with the word is his (Aria, 2026-09-28).
+
+
+@dataclass(frozen=True)
+class Heard:
+    """What he typed, and enough to place it."""
+
+    text: str
+    uuid: str = ""
+    when: str = ""
+    bookmark: bool = False  # a last-prompt copy: drop it when a dated copy exists
+
+
+class Unclassified:
+    """An external record in no shape this reader knows.
+
+    Returned instead of None so a new harness shape is seen rather than
+    silently dropped -- the way the second and third shapes went missing.
+    """
+
+    __slots__ = ("record_type",)
+
+    def __init__(self, record_type: str) -> None:
+        self.record_type = record_type
+
+
+def _text_of(content: object) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        if any(isinstance(c, dict) and c.get("type") == "tool_result" for c in content):
+            return ""
+        return "\n".join(
+            str(c.get("text") or "")
+            for c in content
+            if isinstance(c, dict) and c.get("type") == "text" and c.get("text")
+        )
+    return ""
+
+
+def _is_notice(text: str) -> bool:
+    return text.lstrip().startswith(_NOTICE_OPENERS)
+
+
+# A whole envelope, opening tag to closing tag. The harness sometimes puts one
+# IN FRONT of his words in the same record, and the opener test above then
+# refused the record whole -- measured 2026-09-30 over 24,372 of his text
+# records: 4 carried his sentence after the envelope, among them "we can spec
+# and build tonight why does it need to be either or?". Peeling the envelope
+# first keeps his words; a record that is only envelope still reads as nothing.
+_ENVELOPE = re.compile(
+    r"<(task-notification|system-reminder|local-command-stdout|local-command-stderr"
+    r"|command-name|command-message|command-args|ci-monitor-event|agent-message)\b"
+    r".*?</\1>",
+    re.DOTALL,
+)
+
+
+def _his_part(text: str) -> str:
+    """What is left of ``text`` once any leading harness envelopes are peeled.
+
+    Empty when nothing of his is left, or when what is left is itself a notice
+    (a Stop-hook message has no closing tag and is never his)."""
+    if not _is_notice(text):
+        return text if text.strip() else ""
+    rest = _ENVELOPE.sub(" ", text).strip()
+    if not rest or _is_notice(rest):
+        return ""
+    return rest
+
+
+def hear(record: dict) -> Heard | Unclassified | None:
+    """His text from one transcript record, or None if it is not him."""
+    if not isinstance(record, dict):
+        return None
+
+    if record.get("type") == "last-prompt":
+        text = (
+            _his_part(record.get("lastPrompt") or "")
+            if isinstance(record.get("lastPrompt"), str)
+            else ""
+        )
+        return Heard(text=text, bookmark=True) if text else None
+
+    if record.get("isMeta") or record.get("isSidechain") or record.get("isCompactSummary"):
+        return None
+    if record.get("userType") not in (None, "external"):
+        return None
+
+    attachment = record.get("attachment") or {}
+    if isinstance(attachment, dict) and attachment.get("type") == "queued_command":
+        text = (
+            _his_part(attachment.get("prompt")) if isinstance(attachment.get("prompt"), str) else ""
+        )
+        if text:
+            return Heard(
+                text=text,
+                uuid=str(record.get("uuid") or ""),
+                when=str(record.get("timestamp") or ""),
+            )
+        return None
+
+    if record.get("type") != "user":
+        return None
+    message = record.get("message") or {}
+    if not isinstance(message, dict) or message.get("role") != "user":
+        return Unclassified("user-without-message") if record.get("userType") else None
+    text = _his_part(_text_of(message.get("content")))
+    if not text:
+        return None
+    return Heard(
+        text=text,
+        uuid=str(record.get("uuid") or ""),
+        when=str(record.get("timestamp") or ""),
+    )
+
+
+def heard_in(records: list[dict]) -> list[Heard]:
+    """Every message he typed across these records, each once.
+
+    Deduplicated by record uuid (a resumed session copies records into its new
+    file; 1,902 uuids appear twice in 400 transcripts). Never by text: he
+    repeats himself on purpose, and a repeat is signal. A bookmark is kept only
+    when no dated record carries the same words.
+    """
+    out: list[Heard] = []
+    seen_uuids: set[str] = set()
+    bookmarks: list[Heard] = []
+    for record in records:
+        got = hear(record)
+        if not isinstance(got, Heard):
+            continue
+        if got.bookmark:
+            bookmarks.append(got)
+            continue
+        if got.uuid:
+            if got.uuid in seen_uuids:
+                continue
+            seen_uuids.add(got.uuid)
+        out.append(got)
+    dated = {h.text for h in out}
+    out.extend(b for b in dict.fromkeys(bookmarks) if b.text not in dated)
+    return out

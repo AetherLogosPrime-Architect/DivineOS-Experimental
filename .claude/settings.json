@@ -224,6 +224,10 @@
             "type": "command",
             "command": "bash .claude/hooks/m3-discipline-hierarchy.sh",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/someone-else-is-in-this-file.sh"
           }
         ]
       },
@@ -633,6 +637,11 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/post-response-audit.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/unmeasured-quantity-stop.sh",
             "timeout": 10
           },
           {

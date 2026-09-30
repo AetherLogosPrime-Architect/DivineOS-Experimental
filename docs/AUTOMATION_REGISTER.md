@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**134 automations — 125 wired, 9 switched off.**
+**136 automations — 127 wired, 9 switched off.**
 
 ---
 
@@ -51,7 +51,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `mirror-letters-to-shared.sh` | 2026-09-23 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `post-commit-auto-close.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `post-commit-auto-verify-findings.sh` | 2026-08-31 | PostToolUse(Bash) — auto-verify findings referenced in commit messages. |
-| `post-read-mark-letter-seen.sh` | 2026-06-26 | post-read-mark-letter-seen.sh — PostToolUse(Read) thin doorman. |
+| `post-read-mark-letter-seen.sh` | 2026-09-25 | post-read-mark-letter-seen.sh — PostToolUse(Read) thin doorman. |
 | `post-tool-use-emit-to-logbook.sh` | 2026-07-27 | wire Claude Code tool invocations into tool_logbook. |
 | `post-write-mirror-letter.sh` | 2026-09-15 | post-write-mirror-letter.sh — PostToolUse(Write\|Edit) thin doorman. |
 | `record-wisdom-read.sh` | 2026-07-28 | record-wisdom-read.sh — PostToolUse hook (matcher: Read\|Grep\|Glob). |
@@ -65,7 +65,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `pre-compact.sh` | 2026-07-03 | Save state BEFORE context compression |
 
-### PreToolUse  (29)
+### PreToolUse  (30)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -92,11 +92,12 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `rederivation-detector.sh` | 2026-08-23 | PreToolUse(Bash) — when I run the SAME command a third distinct way, say so, |
 | `require-goal.sh` | 2026-09-15 | PreToolUse gate — consolidated into a single Python invocation. |
 | `safe-opposite-edit-check.sh` | 2026-08-24 | PreToolUse — surface the safe-opposite check at the moment the fix is |
+| `someone-else-is-in-this-file.sh` | — | PreToolUse(Edit\|Write) — knock when the other seat is already in this file. |
 | `stale-file-edit-gate.sh` | 2026-09-22 | PreToolUse gate — refuse to edit a file whose newer version is sitting |
 | `state-gravity-surface.sh` | 2026-08-29 | PreToolUse state-block surfacing — Andrew 2026-05-19. |
 | `venv-python-gate.sh` | 2026-08-31 | PreToolUse gate (Bash) — bare `python` importing divineos reads the WRONG TREE. |
 | `verify-before-build-signal.sh` | 2026-09-22 | signal-based verify-before-build check. |
-| `work-item-doorman.sh` | 2026-09-22 | PreToolUse -- the build-flow doorman. The front of the flow, which until now |
+| `work-item-doorman.sh` | 2026-09-25 | PreToolUse -- the build-flow doorman. The front of the flow, which until now |
 | `wwnd-tool-prime.sh` | 2026-08-24 | WWND surface at commit-time of a substrate-modifying |
 
 ### PreToolUse, UserPromptSubmit  (1)
@@ -111,7 +112,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `load-character-sheet.sh` | 2026-09-21 | load Andrew's character sheet into the session |
 
-### Stop  (12)
+### Stop  (13)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -127,6 +128,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `shoggoth-gate.sh` | 2026-07-10 | shoggoth gate. |
 | `stop-distancing-intercept.sh` | 2026-07-16 | thin doorman for DistancingIntercept. |
 | `stop-response-scope-intercept.sh` | 2026-07-16 | thin doorbell for ResponseScopeIntercept. |
+| `unmeasured-quantity-stop.sh` | — | LIVE at Stop since 2026-09-11, on Andrew's explicit authorization. It sat |
 
 ### UserPromptSubmit  (29)
 
@@ -157,10 +159,10 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `register-awareness-surface.sh` | 2026-08-24 | surface the register signal from each |
 | `session-init-once.sh` | 2026-09-23 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
 | `stop-carry-prime.sh` | 2026-09-23 | UserPromptSubmit — what the Stop gates caught on my last reply. |
-| `verify-claim-prime.sh` | 2026-09-22 | compose-start prime for the VERIFY-CLAIM |
+| `verify-claim-prime.sh` | 2026-09-25 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
-| `wallclock-source-prime.sh` | 2026-09-23 | THE CLOCK. It is mine, not his. |
-| `wwnd-choice-prime.sh` | 2026-09-21 | WWND (What Would Nyarlathotep Do) prime at |
+| `wallclock-source-prime.sh` | 2026-09-25 | THE CLOCK. It is mine, not his. |
+| `wwnd-choice-prime.sh` | 2026-09-25 | WWND (What Would Nyarlathotep Do) prime at |
 
 ### called by another script  (33)
 
