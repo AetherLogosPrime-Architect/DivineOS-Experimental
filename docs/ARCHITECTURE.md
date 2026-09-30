@@ -731,6 +731,7 @@ src/divineos/
     slashed_ref_path_check.py  Refuse a git argument the Windows shell will rewrite before git sees it.
     task_belt.py               The task belt: the pile ranked, a small current list pulled from it, done archived.
     his_message.py             The one answer in this house to: is this transcript record Dad typing?
+    replay_record.py           Replay a change against the real record of his turns, before building it.
 
   analysis/
     _session_types.py          Session analysis type definitions
