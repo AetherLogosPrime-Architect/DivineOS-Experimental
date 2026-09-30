@@ -1849,7 +1849,14 @@ def run_audit(
             # the whole reply. The repair lives at the single exit every gate
             # speaks through -- .claude/hooks/post-response-audit.sh now appends
             # _retry_scope.txt to every block -- so this gate refuses again.
-            _raw_pf = check_translation_first(_pf_text)
+            # HIS MESSAGE GOES IN WITH MINE (2026-09-01). The gate counts
+            # number-shaped tokens as distance, and it fired on the version in a
+            # model's NAME -- which he had written in his own message asking me
+            # to look it up. A gate that penalises me for using his referent
+            # teaches me to answer him vaguely, which is the opposite of its
+            # whole purpose. It needs his text to tell his vocabulary from mine,
+            # and the text was already sitting on `texts` unused.
+            _raw_pf = check_translation_first(_pf_text, texts.last_user_text)
             if _raw_pf:
                 # Plain-first wins the rail. Reporting a room-shape complaint
                 # on top would bury the one that matters under the one I have

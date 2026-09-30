@@ -19,8 +19,8 @@ staleness_signal() in briefing_freshness.py.
 (That sentence used to say this file was not on the guardrail list,  RETIRED-RULE-OK
 which stopped being a meaningful thing to say on 2026-09-07 when the
 protected-list model was retired. Nothing here is special-cased any
-more; everything that is not exempt prose is reviewed on its way into
-the trunk.)
+more; since 2026-09-29 nothing is exempt either, and everything is
+reviewed on its way into the trunk.)
 """
 
 from __future__ import annotations

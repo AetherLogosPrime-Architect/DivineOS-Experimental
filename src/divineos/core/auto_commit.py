@@ -46,6 +46,7 @@ from pathlib import Path
 
 from divineos.core.substrate_paths import (
     NoSubstrateBranchDeclared,
+    is_regenerated_mirror,
     partition,
     substrate_branch,
 )
@@ -61,6 +62,58 @@ from divineos.core.uncommitted_work_check import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _git_paths_on_stdin(
+    repo_root: str | Path,
+    args: list[str],
+    paths: list[str],
+    *,
+    timeout: float | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Run a git command whose pathspecs travel on stdin, not on argv.
+
+    Windows caps the whole command line at a fixed length, and the cap is not
+    reported as a git error: the process is never spawned, so Python raises
+    OSError before git sees anything. That is why the ``except
+    CalledProcessError`` around these call sites never caught it -- it covers
+    the case where git runs and refuses, not the case where git never starts.
+
+    There is no breakage event for this. The substrate grows a file at a time,
+    every path is legal, and one day their sum crosses a number that has never
+    moved. It worked on every prior run and then did not.
+
+    A chunk size would be a second fixed number, wrong the day either the limit
+    or the average path length changes, and wrong silently. Stdin has no cap,
+    so there is nothing left to tune. NUL rather than newline because a newline
+    is a legal character in a filename, and a separator that can occur inside a
+    value is not a separator.
+
+    Same repair as the substrate weave's update-index call, one layer up.
+
+    An OSError here is re-raised, deliberately. The callers' fail-soft paths are
+    written for git-refused; reusing them for git-never-ran would turn a loud
+    failure into a quiet skip. The game-walk on this edit named that swallow as
+    the one route cheaper than complying.
+    """
+    try:
+        return subprocess.run(
+            ["git", *args, "--pathspec-from-file=-", "--pathspec-file-nul"],
+            cwd=str(repo_root),
+            input="\0".join(paths) + "\0",
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=True,
+        )
+    except OSError:
+        logger.error(
+            "auto_commit: git could not be STARTED for 'git %s' over %d path(s). "
+            "This is not git refusing the work -- the process never ran.",
+            " ".join(args),
+            len(paths),
+        )
+        raise
 
 
 def _unstage_self_invalidating(repo_root: str | Path) -> list[str]:
@@ -107,14 +160,7 @@ def _unstage_self_invalidating(repo_root: str | Path) -> list[str]:
         return []
 
     try:
-        subprocess.run(
-            ["git", "restore", "--staged", *hits],
-            cwd=str(root),
-            capture_output=True,
-            text=True,
-            timeout=15,
-            check=True,
-        )
+        _git_paths_on_stdin(root, ["restore", "--staged"], hits, timeout=15)
     except (OSError, subprocess.SubprocessError) as exc:
         logger.warning("auto_commit: could not unstage self-invalidating files: %s", exc)
         return []
@@ -323,6 +369,73 @@ def _dirty_paths(repo_root: Path) -> list[str]:
     return paths
 
 
+def _tracked_here(repo_root: Path, rel_path: str) -> bool:
+    """True when the checked-out branch already tracks ``rel_path``.
+
+    Fails toward NOT tracked: on any error this says False, which routes the
+    path to the retarget rather than to a commit on the code branch. Getting
+    that wrong in the safe direction leaves a dirty tree; getting it wrong the
+    other way puts substrate on a branch that never carried it.
+    """
+    proc = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", "--", rel_path],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return proc.returncode == 0
+
+
+def _current_branch(repo_root: str | Path) -> str:
+    """The checked-out branch, or an empty string on a detached HEAD.
+
+    Empty rather than None because the only caller compares it against a branch
+    name, and a detached HEAD genuinely is "not the branch that owns the
+    mirrors" -- which is the answer that makes the skip fire, correctly.
+    """
+    proc = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return ""
+    name = proc.stdout.strip()
+    return "" if name == "HEAD" else name
+
+
+def _mirror_home_branch(repo_root: str | Path) -> str | None:
+    """The branch that owns regenerated mirrors, from the remote's head.
+
+    Read from ``origin/HEAD`` rather than hardcoded or held in a new config key,
+    because the default branch is a fact the remote already publishes and a
+    second key is a second thing to set correctly in two checkouts.
+
+    None when the remote head is unset -- an ordinary state in a fresh clone
+    until ``git remote set-head origin -a`` runs. The caller treats None as
+    "handle them as ordinary substrate" and says so, because the alternative
+    (skipping everywhere, including on the owning branch) would let the tracked
+    copies go stale silently, and silence is the failure this module keeps
+    being bitten by.
+    """
+    proc = subprocess.run(
+        ["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return None
+    ref = proc.stdout.strip()
+    if not ref.startswith("origin/"):
+        return None
+    return ref[len("origin/") :] or None
+
+
 def _commit_work_in_progress(repo_root: Path, paths: list[str], reason: str) -> bool:
     """Commit the occupant's unfinished work to HEAD, where it already lives.
 
@@ -337,19 +450,15 @@ def _commit_work_in_progress(repo_root: Path, paths: list[str], reason: str) -> 
     if not paths:
         return False
     try:
-        # Paths over stdin, not as arguments. Same ceiling that killed the
-        # substrate half on 2026-09-17: Windows caps a command line at 32767
-        # characters and our path lists are already past it. This one is worse
-        # than that one was, because it is fail-soft -- as arguments it would
-        # swallow the error and quietly not save the work it exists to save.
-        subprocess.run(
-            ["git", "add", "--pathspec-from-file=-", "--pathspec-file-nul"],
-            cwd=repo_root,
-            check=True,
-            capture_output=True,
-            text=True,
-            input="\0".join(paths) + "\0",
-        )
+        # BOTH SIDES WROTE THIS REPAIR AND THE HELPER IS THE SURVIVING ONE.
+        # Main inlined the stdin-pathspec call here with its reasoning in a
+        # comment; this branch had already extracted it. Nothing is lost by
+        # taking the helper -- its docstring carries every point that comment
+        # made and three it did not: why a chunk size is the wrong fix, why NUL
+        # rather than newline, and why an OSError is re-raised instead of
+        # joining the fail-soft path. Inlining it again would be the second
+        # copy of a repair that already has one home.
+        _git_paths_on_stdin(repo_root, ["add"], paths)
         subprocess.run(
             [
                 "git",
@@ -372,22 +481,11 @@ def _commit_work_in_progress(repo_root: Path, paths: list[str], reason: str) -> 
         return False
 
 
-def _tracked_here(repo_root: Path, rel_path: str) -> bool:
-    """True when the checked-out branch already tracks ``rel_path``.
-
-    Fails toward NOT tracked: on any error this says False, which routes the
-    path to the retarget rather than to a commit on the code branch. Getting
-    that wrong in the safe direction leaves a dirty tree; getting it wrong the
-    other way puts substrate on a branch that never carried it.
-    """
-    proc = subprocess.run(
-        ["git", "ls-files", "--error-unmatch", "--", rel_path],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return proc.returncode == 0
+# A SECOND, BYTE-IDENTICAL _tracked_here LIVED HERE AND IS GONE, 2026-09-22.
+# Both branches added the same helper to the same file, so the merge kept
+# two copies and the later one silently shadowed the earlier. Compared as
+# source rather than assumed equivalent; removing the shadow changes no
+# behaviour, and the surviving definition is further up.
 
 
 def _sync_external_channels(
@@ -592,6 +690,59 @@ def auto_commit_substrate(
     # plumbing; work in progress is left untouched on HEAD where its author
     # can see it. Neither piece works alone.
     declared_substrate, work_in_progress = partition(_dirty_paths(repo_root), channels)
+
+    # A MIRROR THAT REBUILDS ITSELF RIDES ONLY THE BRANCH THAT OWNS IT.
+    #
+    # This runs BEFORE the already-tracked fold below, and the order is the
+    # whole fix. That fold is right for a letter some earlier sweep stranded on
+    # a code branch: committing it here is what takes it off, and the loop ends
+    # after one pass. It is wrong for ``docs/archives/``, which is tracked on
+    # main on purpose and regenerated from the databases at every checkpoint --
+    # so the fold has nothing to terminate against and re-runs forever. Three
+    # such commits landed on one code branch between 2026-09-16 and 2026-09-18,
+    # each about fifteen hundred changed lines, against four hand-repairs
+    # putting them back. That branch reached an auditor with ninety files in its
+    # diff of which two were the work.
+    #
+    # Placed after the fold this check would inspect a list these paths have
+    # already left, report nothing to skip, and pass -- the guard-whose-premise-
+    # no-longer-holds shape this module has recorded twice already.
+    #
+    # Skipping loses nothing HERE and would lose everything for any other
+    # prefix: the export is a pure function of a database that still holds the
+    # content, with a command that rebuilds it. That is the entire safety
+    # argument, which is why the predicate names only paths with a generator.
+    #
+    # FAILS OPEN when the owning branch cannot be resolved, which is an ordinary
+    # state in a fresh clone. Failing closed would skip on the owning branch too
+    # and let the tracked copies go stale with no symptom; failing open leaves
+    # today's visible contamination, which is the bug I already have rather than
+    # a new silent one.
+    #
+    # THE SKIP SAYS SO, in both directions. A checkpoint that quietly stopped
+    # committing and a checkpoint with nothing to commit print the same nothing.
+    mirror_home = _mirror_home_branch(repo_root)
+    if mirror_home is None:
+        logger.warning(
+            "auto_commit: cannot resolve the branch that owns regenerated mirrors "
+            "(origin/HEAD is unset), so they are handled as ordinary substrate and "
+            "may land on this branch. `git remote set-head origin -a` restores the skip."
+        )
+    else:
+        here = _current_branch(repo_root)
+        mirrors = [p for p in declared_substrate if is_regenerated_mirror(p)]
+        if mirrors and here != mirror_home:
+            logger.warning(
+                "auto_commit: leaving %d regenerated mirror file(s) alone on %s -- "
+                "they belong to %s and rebuild from the databases, so committing "
+                "them here would put unrelated churn on this branch: %s",
+                len(mirrors),
+                here,
+                mirror_home,
+                ", ".join(mirrors),
+            )
+            skipped = set(mirrors)
+            declared_substrate = [p for p in declared_substrate if p not in skipped]
 
     # SUBSTRATE THAT IS ALREADY TRACKED HERE IS THIS BRANCH'S PROBLEM NOW.
     #
