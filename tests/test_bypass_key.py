@@ -64,6 +64,23 @@ def test_a_second_spend_is_refused_and_names_the_way_back(key) -> None:
     assert GATE in str(exc.value), "Minsky: name the gate whose fix brings the key back"
 
 
+def test_a_second_deadlock_opens_an_inquiry_into_the_first(key) -> None:
+    """Andrew 2026-09-30: needing his permission with no key means a spend was
+    never repaired, 'and we will investigate it'. The inquiry is written by the
+    refusal itself and names the unrepaired lock."""
+    from divineos.core.ledger import get_events
+
+    bk.spend(GATE, PUSH, now=100.0)
+    with pytest.raises(bk.KeySpent) as exc:
+        bk.spend("another-gate", "git " + "commit -m x", now=300.0)
+    rows = get_events(limit=10, event_type=bk.INQUIRY)
+    assert len(rows) == 1
+    payload = rows[0]["payload"]
+    assert payload["unrepaired_gate"] == GATE
+    assert payload["second_deadlock_gate"] == "another-gate"
+    assert "inquiry" in str(exc.value).lower()
+
+
 def test_a_clean_pass_without_a_fix_commit_does_not_reissue(key) -> None:
     bk.spend(GATE, PUSH, now=100.0)
     bk.note_clean_pass(GATE, PUSH, now=200.0)

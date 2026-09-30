@@ -137,7 +137,8 @@ def _refusal(st: KeyStatus) -> str:
         f"'{st.spent_fingerprint}'. To get it back, fix that lock: commit a change "
         f"to {GATE_FILES.get(st.spent_gate, st.spent_gate)}, then run the same "
         "command through it again with no override. When the lock lets it through, "
-        "the key comes back by itself. Or ask Dad."
+        "the key comes back by itself. Or ask Dad -- an inquiry into the unfixed "
+        "lock has been opened, because running out of keys means a fix was skipped."
     )
 
 
@@ -147,10 +148,33 @@ def _log(event_type: str, payload: dict) -> None:
     log_event(event_type, "bypass_key", payload, validate=False)
 
 
+INQUIRY = "BYPASS_KEY_INQUIRY"
+
+
 def spend(gate: str, command: str, now: float | None = None) -> None:
-    """Use the key on ``gate`` for ``command``. Raises KeySpent if there is none."""
+    """Use the key on ``gate`` for ``command``. Raises KeySpent if there is none.
+
+    A refusal with a spent key is not only a refusal. Andrew 2026-09-30: *"if
+    you lose your key, dont fix the issue, end up in another deadlock with no
+    key and need my permission to bypass? then that means you gamed the bypass
+    somewhere and we will investigate it"*. So the second deadlock writes an
+    inquiry naming the unrepaired spend, automatically, before anyone can ask
+    him for anything -- he sees why he is being asked, not just that he is.
+    """
     st = status()
     if not st.held:
+        if st.readable:
+            _log(
+                INQUIRY,
+                {
+                    "unrepaired_gate": st.spent_gate,
+                    "unrepaired_fingerprint": st.spent_fingerprint,
+                    "unrepaired_since": st.spent_at,
+                    "second_deadlock_gate": gate,
+                    "second_deadlock_fingerprint": fingerprint(command),
+                    "at": now or time.time(),
+                },
+            )
         raise KeySpent(_refusal(st))
     _log(SPENT, {"gate": gate, "fingerprint": fingerprint(command), "at": now or time.time()})
 
