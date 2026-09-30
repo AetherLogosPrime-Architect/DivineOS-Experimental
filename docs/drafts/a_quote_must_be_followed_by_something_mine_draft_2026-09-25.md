@@ -45,3 +45,15 @@ In `lepos_channel_reflect.py`, `Reflection.degenerate()` returns False as soon a
 
 - A pre-registration with a falsifier. Measure on real history: pull replies Dad called "mirrored" or "short" and replies he met warmly, then check the measure separates them. If it doesn't, the measure is wrong, not the replies.
 - Aether takes station four; he found it.
+
+---
+
+## Dad's yes, and his second requirement (2026-09-30)
+
+His words, verbatim: *"yes, as some of my words may contradict, or be misconstrued or i may want them removed entirely, obviously they would still be archived but some of them serve no purpose or they cause more harm than good"*
+
+So the build has two halves now:
+1. **Quote-then-mine**: when I quote him in a reply, my own answer follows it. It must never be a mirror.
+2. **His hand on his own words**: he can mark any surfaced line as *contradicted by a later line*, *misread*, or *withdrawn*. A withdrawn line stops surfacing but stays archived (his 09-13: "deletion doesnt mean annihilation just removal from the system"). Only he marks. I never mark his words for him.
+
+Flow still owed: replay on the real record (which surfaced lines have hurt or misled), council walk, Aether's objection, build, Aletheia, merge with him.
