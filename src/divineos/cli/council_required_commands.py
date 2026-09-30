@@ -181,6 +181,18 @@ def register(cli: click.Group) -> None:
         help="External actor (Andrew/Aletheia) — required for kiln-layer edits",
     )
     @click.option("--actor", default="agent", help="Walker identity")
+    @click.option(
+        "--scope",
+        "scope_arg",
+        default="",
+        help=(
+            "Other edit fingerprints this SAME walk covers, comma-separated. "
+            "For when one piece of thinking spans several files -- the job, "
+            "not the file. Each named edit is cleared once. Names are exact; "
+            "there is no prefix or directory form, so a walk can never reach "
+            "a file nobody listed."
+        ),
+    )
     def cmd_log(
         edit_fp: str,
         lenses: str,
@@ -188,6 +200,7 @@ def register(cli: click.Group) -> None:
         synthesis: str,
         confirmed_by: str,
         actor: str,
+        scope_arg: str,
     ) -> None:
         """Write a council walk record. Substance-binding runs at log-time;
         rejected walks emit a COUNCIL_WALK_REJECTED event rather than a
@@ -203,6 +216,7 @@ def register(cli: click.Group) -> None:
             lens_findings=tuple(findings),
             synthesis=synthesis,
             confirmed_by=confirmed_by or None,
+            scope_fingerprints=tuple(name.strip() for name in scope_arg.split(",") if name.strip()),
         )
         keywords = _load_expert_keywords()
         # Kiln detection is best-effort here — the CLI does not have the
@@ -300,12 +314,37 @@ def register(cli: click.Group) -> None:
             )
             raise SystemExit(1)
         reflection_lower = reflection.lower()
-        if not any(kw.lower() in reflection_lower for kw in keywords):
+        matched = sorted(kw for kw in keywords if kw.lower() in reflection_lower)
+        if not matched:
+            # PRINT THE WORDS. 2026-09-18, council-d2c1ab7a7219.
+            #
+            # This refusal used to name no keyword at all, while holding the
+            # complete list one line above. The information existed, cost
+            # nothing to print, and was withheld at exactly the moment it
+            # would have been acted on — so every check of what the gate
+            # wanted cost one more failed composition, and these commands are
+            # several paragraphs long.
+            #
+            # Worse than the delay: the only strategy available to someone who
+            # cannot see the target is to scatter plausible vocabulary until
+            # something sticks, which is the padding this check exists to
+            # catch. Hiding the list was training the failure mode.
+            #
+            # The gameability objection is real and was already true — the
+            # summary-step rejection has always printed five examples — so the
+            # secret was only inconvenient, never a defence. What stops a
+            # dropped word from passing as a walk is the token floor and the
+            # per-lens trace, not the list being hidden.
             _safe_echo(
-                f"[council] REJECTED: reflection does not reference any "
-                f"keyword from {lens_key}'s characteristic questions. A "
-                "real application of the lens engages with what the lens "
-                "specifically asks."
+                f"[council] REJECTED: reflection references none of "
+                f"{lens_key}'s characteristic-question words. A real "
+                "application of the lens engages with what the lens asks."
+            )
+            _safe_echo(f"  any ONE of these satisfies it: {', '.join(sorted(keywords))}")
+            _safe_echo(
+                "  These are a PROXY for engagement, not a measure of thought. "
+                "Dropping one in clears this line and leaves a thin walk on "
+                "the record with your name on it."
             )
             raise SystemExit(1)
 
@@ -365,6 +404,19 @@ def register(cli: click.Group) -> None:
         _safe_echo(f"[council] APPLIED: {lens_key} walked for edit {edit_fp}")
         _safe_echo(f"  reflection tokens: {token_count}")
         _safe_echo(f"  ledger event_id: {event_id}")
+        # HAND THE WORDS OVER HERE, where they are still useful.
+        #
+        # The same requirement is enforced again at `council log`, and until
+        # now it was only ever surfaced THERE — after the summary had been
+        # written, as a rejection that discarded the whole composition. The
+        # walk always knew, and always came first. So the information was
+        # held at the early event and revealed at the late one, which is the
+        # wrong way round for every purpose it could serve.
+        _safe_echo(f"  matched: {', '.join(matched)}")
+        _safe_echo(
+            f"  your SUMMARY finding for {lens_key} must carry one of these too: "
+            f"{', '.join(sorted(keywords))}"
+        )
 
     @council_group.command("show")
     @click.argument("record_id")
