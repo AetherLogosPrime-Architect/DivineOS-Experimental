@@ -63,3 +63,19 @@ So the override is a **button**: on this gate, nothing stands between the reach 
 - Address: his message's id in the transcript store, plus a hash of the exact quoted span, checked byte for byte, split on ellipses.
 - **Standing, read at check time:** live / withdrawn / re-quoted-by / contradicted-by / misread. **Only his chat words set it**, never ours (his, to Aria, 2026-09-30: *"some of my words may contradict, or be misconstrued or i may want them removed entirely, obviously they would still be archived"*; *"some of my words i would rather re-quote than remove.. like alot of the times i was angry"*). A withdrawn line fails like an unlinked one. A re-quoted line resolves to his new wording.
 - **Verbatim-or-draft superseded by link-or-ours** (Aria agreed): 0 drafts needed where the naming-draft rule needed 14.
+
+## REVISION 3: walk-0e68ddafaa93 (9 lenses, closed) — the key's build shape
+
+**Honest note on the walk:** finding distinctness came out at 0.412, against 0.21–0.27 for real walks and 0.44 for nine restatements. My nine findings were closer to restatements than a real walk's. Weigh them accordingly; Aria's objection is the stronger check on this one.
+
+- **Jacobs:** unreadable key state = CANNOT_CHECK = no key. Never assume a key.
+- **Minsky:** the spent-key refusal names the exact route back: a commit to the gate, then the same push again, no marker.
+- **Turing:** the fix commit must touch **the gate's own file**, not any file.
+- **Feathers:** characterize today first (a ≥20-char self-written reason opens check-branch), then: a second spend refuses; a clean pass of a different fingerprint doesn't reissue; a same-fingerprint pass without a gate-file commit doesn't reissue; both together reissue.
+- **Watts:** the refusal says **"or ask Dad"**. Waiting for him is a named, normal exit, so scarcity routes to him, not to silent stalling.
+- **Tannen:** the refusal is in his picture: one key, replaced by showing the door works.
+- **Holmes:** order is enforced, **pass_time > commit_time > spend_time**. A pass before the fix doesn't count.
+- **Hofstadter:** `bypass_key.py` and its wiring go on the guardrail list. The tool can't guard edits to itself; the merge gate can.
+- **Polya:** v1 wires **check-branch only**. The `audit_commands` caller is next, named here.
+
+**Still open (Aria's block-case condition):** v1 can't run the gate's own block-case test automatically. It requires the fix commit to also touch a test file that names the gate; the stronger check comes later. Named, not pretended.
