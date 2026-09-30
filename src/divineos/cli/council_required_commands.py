@@ -33,7 +33,7 @@ from divineos.core.council_required.types import (
     EVENT_COUNCIL_LENS_APPLIED,
     CouncilRecord,
     LensFinding,
-    _normalize_edit_fingerprint,
+    fingerprint_for,
 )
 
 
@@ -491,9 +491,7 @@ def register(cli: click.Group) -> None:
         of an accepted type or actor. Self-attestation is closed at
         design-time per Aether Catch 4.
         """
-        fingerprint = _normalize_edit_fingerprint(
-            path or command.split()[0] if command else path, tool
-        )
+        fingerprint = fingerprint_for(tool, (path,) if path else (), command)
         corroborator_event = store.find_corroborator_event(
             corroborator,
             accepted_event_types=EMERGENCY_CORROBORATOR_EVENT_TYPES,
@@ -574,9 +572,12 @@ def register(cli: click.Group) -> None:
             )
             raise SystemExit(1)
 
-        fingerprint = _normalize_edit_fingerprint(
-            path or command.split()[0] if command else path, tool
-        )
+        # THE GATE'S KEY, NOT A PRIVATE ONE (2026-09-23, Aria). This took the
+        # command's first word, so a shell authorization was stored as
+        # `bash:cp` while the gate looked it up as the file written -- the two
+        # never met, and Andrew's authorization could not clear the edit it
+        # named. Pinned by test_the_gate_key_names_every_file_written.py.
+        fingerprint = fingerprint_for(tool, (path,) if path else (), command)
         quote_hash = hashlib.sha256(quote.encode("utf-8")).hexdigest()
 
         marker_id = emit_marker(
@@ -630,9 +631,19 @@ def register(cli: click.Group) -> None:
             if decision.matched_record_id:
                 _safe_echo(f"  consumed record: {decision.matched_record_id}")
             return
+        # THE GATE HAS FOUR ANSWERS AND THIS COMMAND KNEW TWO (2026-09-23,
+        # Aria). An operator authorisation or a corroborated emergency skip was
+        # honoured by decide() -- the marker consumed -- and then reported here
+        # as a refusal with an empty message and exit 2. The hook has always
+        # let both through; the command a person runs to ask "would this pass"
+        # answered no to the one question it exists for.
+        if decision.outcome in (GateOutcome.OPERATOR_AUTHORIZED_BYPASS, GateOutcome.EMERGENCY_SKIP):
+            _safe_echo(f"[council] {decision.outcome.name}")
+            if decision.corroborator_event_id:
+                _safe_echo(f"  consumed: {decision.corroborator_event_id}")
+            return
         # BLOCK
-        primary = path or (command.split()[0] if command else "")
-        fp = _normalize_edit_fingerprint(primary, tool)
+        fp = fingerprint_for(tool, paths_tuple, command)
         msg = gate_mod.format_block_message(decision, fingerprint=fp)
         _safe_echo(msg)
         raise SystemExit(2)
