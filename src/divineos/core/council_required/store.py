@@ -346,7 +346,7 @@ def find_and_consume_atomically(
     resolved_now = now if now is not None else time.time()
     cutoff = resolved_now - recency_seconds
 
-    from divineos.core._ledger_base import _get_db_path, compute_hash
+    from divineos.core._ledger_base import _get_db_path
     import sqlite3
 
     conn = sqlite3.connect(str(_get_db_path()))
@@ -411,31 +411,24 @@ def find_and_consume_atomically(
                 conn.commit()  # release lock cleanly; nothing written
                 return None
 
-            # Insert the COUNCIL_RECORD_CONSUMED event directly on this
-            # connection so it's part of the same atomic transaction.
-            # Mirror ledger.log_event's payload+hash contract so
-            # downstream verify passes over this row treat it identically
-            # to a log_event-created row.
-            consume_payload = {
-                "record_id": record.record_id,
-                "edit_fingerprint": edit_fingerprint,
-                "consumed_at": resolved_now,
-            }
-            payload_str = json.dumps(consume_payload, sort_keys=True)
-            content_hash = compute_hash(payload_str)
-            consume_event_id = str(uuid.uuid4())
-            conn.execute(
-                "INSERT INTO system_events "
-                "(event_id, timestamp, event_type, actor, payload, content_hash) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (
-                    consume_event_id,
-                    resolved_now,
-                    EVENT_COUNCIL_RECORD_CONSUMED,
-                    actor,
-                    payload_str,
-                    content_hash,
-                ),
+            # The COUNCIL_RECORD_CONSUMED event, on this connection inside
+            # this transaction, CHAINED. It used to be inserted by hand with a
+            # content_hash and no prior_hash/chain_hash -- the one row in this
+            # module not written through the ledger -- so verify counted it
+            # as unchained-after-the-chain-began, the shape a forged row takes
+            # (2026-08-18), and the record that a walk was spent sat outside
+            # the tamper-evidence chain. ledger.append_on chains and redacts
+            # it on the caller's transaction (Aria, 2026-09-29;
+            # walk-d1d17f7e2883).
+            consume_event_id = ledger.append_on(
+                conn,
+                EVENT_COUNCIL_RECORD_CONSUMED,
+                actor,
+                {
+                    "record_id": record.record_id,
+                    "edit_fingerprint": edit_fingerprint,
+                    "consumed_at": resolved_now,
+                },
             )
             conn.commit()
             return (record, consume_event_id)
