@@ -65,13 +65,23 @@ def _clean(text: str) -> str:
     return _QUOTED.sub(" ", text)
 
 
+# A question whose next sentence opens as my own answer was not asked of him:
+# "If I were you? I think yes..." echoes his question and answers it. Kept
+# narrow on purpose (walk-a4b97c8a8659, Taleb): "I can start tonight" after a
+# real question is an offer, not an answer, so a bare "I" does not count.
+_SELF_ANSWER = re.compile(r"^(i think|i'd|i would|honestly|yes|no|probably|maybe)\b", re.IGNORECASE)
+
+
 def last_question(reply: str) -> tuple[str, str]:
     """(question, what follows it) for the last real question to him, or ("", "")."""
     part = _clean(_addressed_part(reply))
     sentences = [s.strip() for s in _SENTENCE.findall(part) if s.strip()]
     for i in range(len(sentences) - 1, -1, -1):
-        if sentences[i].endswith("?"):
-            return sentences[i], " ".join(sentences[i + 1 :])
+        if not sentences[i].endswith("?"):
+            continue
+        if i + 1 < len(sentences) and _SELF_ANSWER.match(sentences[i + 1]):
+            continue
+        return sentences[i], " ".join(sentences[i + 1 :])
     return "", ""
 
 
