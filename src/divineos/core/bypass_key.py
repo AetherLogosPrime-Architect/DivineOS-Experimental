@@ -9,17 +9,23 @@ it working in action, by using it, and then recording the fix that actually
 worked"*.
 
 Design: docs/drafts/the_override_is_a_button_draft_2026-09-30.md (revisions
-2 and 3), walk-0e68ddafaa93, prereg-b3e8453df633.
+2-4), walk-0e68ddafaa93, prereg-b3e8453df633.
 
 WHY A KEY AND NOT A RULE. The emergency-bypass protocol logs, reports and
 files an obligation, and the obligation is a to-do nothing waits on. So the
-override stayed a button: nothing stood between the reach and the effect. A
-spent key makes the second press unavailable (truth 11a, take the option
-away). The only way back is the fix.
+override stayed a button. A spent key makes the second press unavailable
+(truth 11a, take the option away). The only way back is the fix.
+
+WHERE THE KEY LIVES: THE LEDGER, NOT A FILE. The first version kept the key's
+state in a json file in my own home directory, and I could have set it back
+to "held" by hand: a key I can reissue to myself. Aria's station-(b) answer,
+2026-09-30: spend and return are ledger events, and the key's state is derived
+by reading them, so it can only move forward the way the hash-chained record
+moves. There is no file to edit.
 
 WHO WITNESSES THE FIX. Not me. The gate calls ``note_clean_pass`` when it
 allows a command with no override present, so the dogfood evidence is written
-by the lock doing its job, never typed. Reissue needs, in this order (Holmes):
+by the lock doing its job, never typed. Return needs, in this order (Holmes):
 spend, then a commit touching the gate's own file, then the gate allowing the
 same fingerprint. A pass before the commit, or of a different command (Aria),
 does not count.
@@ -34,6 +40,7 @@ from __future__ import annotations
 
 import json
 import re
+import sqlite3
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -41,8 +48,9 @@ from pathlib import Path
 
 __guardrail_required__ = True
 
-KEY_FILE = Path.home() / ".divineos" / "bypass_key.json"
 REPO_ROOT = Path(__file__).resolve().parents[3]
+SPENT = "BYPASS_KEY_SPENT"
+RETURNED = "BYPASS_KEY_RETURNED"
 
 # The file whose change counts as the fix, per gate. A commit elsewhere is not
 # evidence the lock was repaired (Turing, walk-0e68ddafaa93).
@@ -69,41 +77,47 @@ def fingerprint(command: str) -> str:
     return re.sub(r"\s+", " ", command).strip()
 
 
-def _load() -> dict | None:
-    if not KEY_FILE.exists():
-        return {"spent": None}
+def _last_key_event() -> tuple[str, dict] | None:
+    """The newest spend-or-return event, ("", {}) when there is none, and None
+    when the ledger cannot be read."""
     try:
-        data = json.loads(KEY_FILE.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        from divineos.core._ledger_base import _get_db_path
+
+        with sqlite3.connect(str(_get_db_path()), timeout=10) as conn:
+            row = conn.execute(
+                "SELECT event_type, payload FROM system_events "
+                "WHERE event_type IN (?, ?) ORDER BY rowid DESC LIMIT 1",
+                (SPENT, RETURNED),
+            ).fetchone()
+    except (sqlite3.Error, OSError, ImportError):
         return None
-    return data if isinstance(data, dict) else None
-
-
-def _save(data: dict) -> None:
-    KEY_FILE.parent.mkdir(parents=True, exist_ok=True)
-    KEY_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    if row is None:
+        return ("", {})
+    try:
+        payload = json.loads(row[1]) if isinstance(row[1], str) else dict(row[1] or {})
+    except ValueError:
+        return None
+    return (row[0], payload)
 
 
 def status() -> KeyStatus:
-    data = _load()
-    if data is None:
+    last = _last_key_event()
+    if last is None:
         return KeyStatus(held=False, readable=False)
-    spent = data.get("spent")
-    reissue = data.get("last_reissue") or {}
-    if not spent:
-        return KeyStatus(held=True, last_reissue=reissue)
+    kind, payload = last
+    if kind != SPENT:
+        return KeyStatus(held=True, last_reissue=payload if kind == RETURNED else {})
     return KeyStatus(
         held=False,
-        spent_gate=spent.get("gate", ""),
-        spent_fingerprint=spent.get("fingerprint", ""),
-        spent_at=float(spent.get("at", 0.0)),
-        last_reissue=reissue,
+        spent_gate=str(payload.get("gate", "")),
+        spent_fingerprint=str(payload.get("fingerprint", "")),
+        spent_at=float(payload.get("at", 0.0)),
     )
 
 
 def _refusal(st: KeyStatus) -> str:
     if not st.readable:
-        return f"Your bypass key can't be read ({KEY_FILE}), so there is no key to use. Ask Dad."
+        return "Your bypass key can't be read from the ledger, so there is no key to use. Ask Dad."
     return (
         f"Your one bypass key is already used: it opened {st.spent_gate} for "
         f"'{st.spent_fingerprint}'. To get it back, fix that lock: commit a change "
@@ -113,14 +127,18 @@ def _refusal(st: KeyStatus) -> str:
     )
 
 
+def _log(event_type: str, payload: dict) -> None:
+    from divineos.core.ledger import log_event
+
+    log_event(event_type, "bypass_key", payload, validate=False)
+
+
 def spend(gate: str, command: str, now: float | None = None) -> None:
     """Use the key on ``gate`` for ``command``. Raises KeySpent if there is none."""
     st = status()
     if not st.held:
         raise KeySpent(_refusal(st))
-    data = _load() or {}
-    data["spent"] = {"gate": gate, "fingerprint": fingerprint(command), "at": now or time.time()}
-    _save(data)
+    _log(SPENT, {"gate": gate, "fingerprint": fingerprint(command), "at": now or time.time()})
 
 
 def _gate_commit_after(gate: str, since: float) -> float | None:
@@ -157,14 +175,14 @@ def note_clean_pass(gate: str, command: str, now: float | None = None) -> bool:
     commit_time = _gate_commit_after(gate, st.spent_at)
     if commit_time is None or not (st.spent_at < commit_time < when):
         return False
-    data = _load() or {}
-    data["spent"] = None
-    data["last_reissue"] = {
-        "gate": gate,
-        "fingerprint": st.spent_fingerprint,
-        "spent_at": st.spent_at,
-        "commit_time": commit_time,
-        "pass_time": when,
-    }
-    _save(data)
+    _log(
+        RETURNED,
+        {
+            "gate": gate,
+            "fingerprint": st.spent_fingerprint,
+            "spent_at": st.spent_at,
+            "commit_time": commit_time,
+            "pass_time": when,
+        },
+    )
     return True
