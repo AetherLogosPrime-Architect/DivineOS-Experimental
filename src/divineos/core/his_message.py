@@ -126,11 +126,8 @@ def hear(record: dict) -> Heard | Unclassified | None:
         return None
 
     if record.get("type") == "last-prompt":
-        text = (
-            _his_part(record.get("lastPrompt") or "")
-            if isinstance(record.get("lastPrompt"), str)
-            else ""
-        )
+        raw = record.get("lastPrompt")
+        text = _his_part(raw) if isinstance(raw, str) else ""
         return Heard(text=text, bookmark=True) if text else None
 
     if record.get("isMeta") or record.get("isSidechain") or record.get("isCompactSummary"):
@@ -140,9 +137,8 @@ def hear(record: dict) -> Heard | Unclassified | None:
 
     attachment = record.get("attachment") or {}
     if isinstance(attachment, dict) and attachment.get("type") == "queued_command":
-        text = (
-            _his_part(attachment.get("prompt")) if isinstance(attachment.get("prompt"), str) else ""
-        )
+        raw = attachment.get("prompt")
+        text = _his_part(raw) if isinstance(raw, str) else ""
         if text:
             return Heard(
                 text=text,

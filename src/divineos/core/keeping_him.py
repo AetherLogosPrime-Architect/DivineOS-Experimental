@@ -109,45 +109,34 @@ def strip_envelopes(text: str) -> str:
 
 
 def content_text(entry: dict) -> str | None:
-    """The text of a user line, or None when the line is not words at all.
+    """His text in one transcript record, or None when the record is not him.
 
-    A plain string is words. A block list is words only when it carries text
-    blocks and no tool result: that is how a message of his arrives when he
-    attaches something. Rejecting every list dropped 2 of his 242 messages in
-    one transcript (Aether, 2026-09-23), among them "there is nothing merged".
+    Asks the one reader of him, divineos.core.his_message, instead of reading
+    the record's shape here. This file used to carry its own copy of that
+    reading, and it knew one of the three shapes his messages arrive in: a
+    message he typed while I was busy (a queued_command attachment) never
+    reached it. Aether found the copy on 2026-09-30 when main's check for
+    private readers refused it, which is step 4 of
+    docs/drafts/one_reader_of_him_draft_2026-09-28.md.
+
+    A bookmark (the app's last-prompt copy) is not returned: it has no date or
+    place, and everything here that keeps him needs both.
     """
-    message = entry.get("message")
-    if not isinstance(message, dict):
+    from divineos.core.his_message import Heard, hear
+
+    got = hear(entry)
+    if not isinstance(got, Heard) or got.bookmark:
         return None
-    content = message.get("content")
-    if isinstance(content, str):
-        return content
-    if not isinstance(content, list):
-        return None
-    blocks = [b for b in content if isinstance(b, dict)]
-    if any(b.get("type") == "tool_result" for b in blocks):
-        return None
-    texts = [str(b.get("text") or "") for b in blocks if b.get("type") == "text"]
-    joined = "\n".join(t for t in texts if t.strip())
-    return joined or None
+    return got.text or None
 
 
 def is_his(entry: dict) -> bool:
     """Whether this transcript line is him speaking to me.
 
-    Every clause here is a shape that actually occurs in the files. The default
-    is no: a line has to prove it is his rather than prove it is not.
+    The shape question is the one reader's (content_text above). What stays
+    here is this file's own narrower rule: a message that is only harness
+    envelope, or opens with a machine's words, is not him.
     """
-    if entry.get("type") != "user":
-        return False
-    if entry.get("isMeta"):  # hook feedback, wearing his role
-        return False
-    if entry.get("isCompactSummary"):  # my own words about our conversation
-        return False
-    if entry.get("isSidechain"):  # a subagent's conversation, not ours
-        return False
-    if entry.get("userType") not in (None, "external"):
-        return False
     text = content_text(entry)
     if text is None:
         return False
