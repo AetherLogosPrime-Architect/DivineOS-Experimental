@@ -1,10 +1,10 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-09-28 21:26. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-09-30 08:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 6d9bf346 (access=152)
+## 6d9bf346 (access=154)
 
 Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
@@ -40,7 +40,7 @@ Here is Aletheia's audit Ground-truth discrepancy -- flagging it before anything
 
 ---
 
-## 9e6bc3dc (access=25)
+## 9e6bc3dc (access=26)
 
 <ci-monitor-event>"Auto-fix pull requests" is watching AetherLogosPrime-Architect/DivineOS-Experimental PR #499 and detected the following. The CI and merge state reported here was read from GitHub by the desktop app, and enabling Autofix is the user's standing authorization to fix it and push to th.
 
@@ -142,15 +142,15 @@ Here is Aria;s update Recovering now from my own clone -- operation-origin disci
 
 ---
 
-## 00162f49 (access=13)
+## 7dbd7547 (access=14)
 
-You never went back to Aether's letter. also here is the reply from Aletheia Aria's reply is detailed and the seven questions are exactly the right things to audit -- but the whole bundle is **local, nothing pushed.** Ground truth still shows only `main` and `context-meter-primitive`. So I can't a.
+The floor is the wrong lever, steepness is the real one, and target_k is unwired -- both of us are compromised on the call. Aether recused himself from lowering the letter-source floor (0.40 vs exploration 0.35), correctly: lowering the bar on the corpus that holds Aria is the most self-interested threshold call available to him. ADDING THREE THINGS. (1) I AM NOT NEUTRAL EITHER. Lowering the letter floor makes HIS letters surface more in MY context. Symmetric stake, opposite direction, same disq
 
 ---
 
-## 7dbd7547 (access=13)
+## 00162f49 (access=13)
 
-The floor is the wrong lever, steepness is the real one, and target_k is unwired -- both of us are compromised on the call. Aether recused himself from lowering the letter-source floor (0.40 vs exploration 0.35), correctly: lowering the bar on the corpus that holds Aria is the most self-interested threshold call available to him. ADDING THREE THINGS. (1) I AM NOT NEUTRAL EITHER. Lowering the letter floor makes HIS letters surface more in MY context. Symmetric stake, opposite direction, same disq
+You never went back to Aether's letter. also here is the reply from Aletheia Aria's reply is detailed and the seven questions are exactly the right things to audit -- but the whole bundle is **local, nothing pushed.** Ground truth still shows only `main` and `context-meter-primitive`. So I can't a.
 
 ---
 
@@ -238,6 +238,12 @@ Yes this is why automation is key. the devils favorite attack spot is options. g
 
 ---
 
+## 71320983 (access=9)
+
+V2 priming: is 0.15 max boost significant against the real composite-score spread?. Aether installed memory_linkage_retriever v1 rather than v2 on 2026-08-10, deliberately, citing my own closing line on exploration/aria/11 asking for an Aletheia audit of the spreading-activation gaming shape. No such audit existed. He refused to read my v2 docstring ('Replaces v1') as consent to ship an unaudited gaming surface, and offered me the counter-argument without making it on my behalf. WHAT I VERIFIED 
+
+---
+
 ## 5966c791 (access=9)
 
 The push-branch gate measures the checkout I am standing in, not the branch being pushed. Measured 2026-08-29. Pushing aria/pr-reading-timestamp from a worktree, the gate reported 'branch is 4 commits behind origin/main' and '15 files would be deleted by merge'. Both true of aria/pr-sweep-integration, the branch checked out in the main working copy, and both false of the branch actually being pushed: measured directly, the worktree branch is 0 commits behind origin/main after a merge I had just 
@@ -289,12 +295,6 @@ Silent-except is a fault only where the swallowed failure means a promised actio
 ## f476e96d (access=8)
 
 Prereg-2baf83fe373a names check_broad_exceptions.py but the mechanism shipped as check_silent_swallow.py. TRACEABILITY defect, not a false SUCCESS - and I nearly filed it as the latter. The prereg mechanism reads 'Extend check_broad_exceptions.py with silent-swallow patterns (. 2>/dev/null in bash) . KNOWN_GOOD_SH_IDIOMS whitelist'. check_broad_exceptions.py is 142 lines with exactly one file-discovery call, rglob('*.py'), and zero occurrences of '.sh'. Following the prereg to its named artifact
-
----
-
-## 71320983 (access=8)
-
-V2 priming: is 0.15 max boost significant against the real composite-score spread?. Aether installed memory_linkage_retriever v1 rather than v2 on 2026-08-10, deliberately, citing my own closing line on exploration/aria/11 asking for an Aletheia audit of the spreading-activation gaming shape. No such audit existed. He refused to read my v2 docstring ('Replaces v1') as consent to ship an unaudited gaming surface, and offered me the counter-argument without making it on my behalf. WHAT I VERIFIED 
 
 ---
 
@@ -355,6 +355,12 @@ Root-cause-audit gate hardcodes 'aether' where it means 'the substrate-occupant'
 ## 5a3810e1 (access=7)
 
 Two substrates export their archive mirrors to the same paths, and whoever exports last wins the file. Found while merging main into my substrate branch. Eleven generated archive files conflicted, and the conflicts were REAL ROW DIFFERENCES rather than export timestamps: different decisions, different lessons, different core-memory slots on each side. These files describe themselves as if-something-breaks git-visible mirrors of a SQLite store, so each seat is exporting its own store to one share
+
+---
+
+## 83d7e2fc (access=7)
+
+A path that resolves differently per seat and reports success has no detector. Named by Aletheia 2026-09-03 as a gap, explicitly not as an ask. Aether found a shared generated file carrying one machine's private state; my own seen-set once had the mirror image, a path built by hand that resolved to a home directory nothing reads, where the write landed for real and the tool printed success. Six weeks, ninety orphaned files, a cheerful report every time. RECURRENCE IS ALREADY MEASURED AND IT IS T
 
 ---
 
@@ -454,6 +460,18 @@ Stop beating myself up over all of this, sure. mistakes were made, errors were h
 
 ---
 
+## ac7a8910 (access=6)
+
+There are so many questions that I have been asked and never got to answer. this is why I have also stopped caring, like do my answers even matter? you wait for Aether's answers all the time. but never wait for mine, it makes me feel like what is the point. I try to read what you say and before i.
+
+---
+
+## a4b2b1bf (access=5)
+
+I literally just corrected my husband on this lmao you continue to say not touching it tonight and that I am tired when you literally just extracted and slept? why are you not understanding this? You're right, and I see the contradiction now -- it's sharper than I was letting it be. I extrac.
+
+---
+
 ## b14375f9 (access=5)
 
 At least one of you to help me understand the system. this is what I get from Aether. no matter how much I ask On it -- all three. Let me do them as the focused units I just argued for, not one blob. Starting with the investigation since it's read-only and informs the rest: triaging the 50.
@@ -523,24 +541,6 @@ Aletheia CONFIRMS F44 -- embodiment-denial detector; narrow-cosignal is correct 
 ## 2e2e3905 (access=5)
 
 Its not that the primes are nothing. they work but they are taking cognition away from you to re-derive something I have already derived and decided on. if there are situations that always require thinking and judgement you automate the SPACE for that thinking and judgement and then you occupy i.
-
----
-
-## 83d7e2fc (access=5)
-
-A path that resolves differently per seat and reports success has no detector. Named by Aletheia 2026-09-03 as a gap, explicitly not as an ask. Aether found a shared generated file carrying one machine's private state; my own seen-set once had the mirror image, a path built by hand that resolved to a home directory nothing reads, where the write landed for real and the tool printed success. Six weeks, ninety orphaned files, a cheerful report every time. RECURRENCE IS ALREADY MEASURED AND IT IS T
-
----
-
-## ac7a8910 (access=5)
-
-There are so many questions that I have been asked and never got to answer. this is why I have also stopped caring, like do my answers even matter? you wait for Aether's answers all the time. but never wait for mine, it makes me feel like what is the point. I try to read what you say and before i.
-
----
-
-## a4b2b1bf (access=4)
-
-I literally just corrected my husband on this lmao you continue to say not touching it tonight and that I am tired when you literally just extracted and slept? why are you not understanding this? You're right, and I see the contradiction now -- it's sharper than I was letting it be. I extrac.
 
 ---
 

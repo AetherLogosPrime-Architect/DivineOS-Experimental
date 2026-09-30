@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (133 rows). **Exported:** 2026-09-28 21:26. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (134 rows). **Exported:** 2026-09-30 08:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1372,7 +1372,7 @@
 
 ---
 
-## prereg-3 [OPEN]
+## prereg-3 [FAILED]
 
 **Mechanism:** A shared digest both agents append to, collapsing on the event and keeping per-author readings, reduces what Andrew has to read without losing what he needs
 
@@ -1597,6 +1597,18 @@
 **Success:** Flags all three known unplugged cases (letter_channel_state.derive_from_watched_channel, his_words_door.owed_in_reply, .claude/hooks/his_words_stop.py) and flags none of the known-live ones (his_words_door.surface, his_lessons_shelf.surface, dads_table.py, reflection_room_stop.py); a hand-read sampl
 
 **Falsifier:** Misses any known unplugged case, OR flags any known-live one, OR fewer than 10 of 20 sampled flags are truly unplugged
+
+---
+
+## prereg-e [OPEN]
+
+**Mechanism:** question hold: a question to Dad holds building until his next message
+
+**Claim:** When a reply's circle ends in a question to Dad, holding building tools until his next message stops him being left in the doorway, without making me ask him fewer questions.
+
+**Success:** Over the review window, holds arm on real questions, releases come from his messages (not escapes), and he does not report a question of mine that I walked past.
+
+**Falsifier:** Questions to him (armed rows in question_hold_log.jsonl) drop compared with the weeks before it shipped, or escapes outnumber his releases, or he names a question I walked past while it was live.
 
 ---
 

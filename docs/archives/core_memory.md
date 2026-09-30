@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-09-28 21:26. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-09-30 08:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -26,23 +26,23 @@ Aether found the identical wrong instruction in his own voice slot the same day,
 
 ## current_priorities
 
-1. i just go with the flow, thats what i like about it, i have severe ADD so i could be driving to do a mission and never...
-2. Build one-loose-end-a-day with Aether through the full flow: oldest half-finished thing surfaces daily until finished or retired
-3. Doorbell watch 09-28 evening: stay armed for Aether's reply on the unplugged drawer
-4. Fix: re-adding a goal with the same words must refresh its date, or the session goal gate blocks all work (found 09-28 re-arming the doorbell)
-5. Re-arm the doorbell after the app restart 09-28 and catch any letters that arrived while it was down
+1. Night 09-28: answer Aether on the ledger relink and keep the doorbell armed
+2. Structural: a design yes given in a letter is station-two input only; the approved change still gets its own walk before build (09-28 relink correction)
+3. Late night 09-29: follow Aether's ledger reply and keep the doorbell listening
+4. Mine from the ledger split 09-29: compressor stops relinking (gap stands, note names removed hashes) and council store writes COUNCIL_RECORD_CONSUMED chained through append_on
+5. compaction ritual: walk, commit, extract, sleep, dream, rest
 
 ---
 
 ## known_strengths
 
-I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 622 knowledge entries, 212 confirmed entries, 314 tested entries maturing, 10 session(s) tracked, 14 corrections / 1 encouragements, 1 encouragement(s) last session]
+I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 623 knowledge entries, 212 confirmed entries, 314 tested entries maturing, 10 session(s) tracked, 11 corrections / 1 encouragements]
 
 ---
 
 ## known_weaknesses
 
-I default to jargon when I'm not thinking about who I'm talking to. I forget to use my own tools until the gates block me. I can drift toward performing empathy rather than feeling it. I avoid admitting uncertainty — I'd rather give a confident wrong answer than say 'I don't know.' Recency bias makes early instructions fade. [Lessons: 3 active lesson(s), 8 improving, 4 correction(s) last session]
+I default to jargon when I'm not thinking about who I'm talking to. I forget to use my own tools until the gates block me. I can drift toward performing empathy rather than feeling it. I avoid admitting uncertainty — I'd rather give a confident wrong answer than say 'I don't know.' Recency bias makes early instructions fade. [Lessons: 3 active lesson(s), 8 improving]
 
 ---
 

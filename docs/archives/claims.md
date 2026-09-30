@@ -1,6 +1,6 @@
 # Claims (open/investigating) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-09-28 21:26. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-09-30 08:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
