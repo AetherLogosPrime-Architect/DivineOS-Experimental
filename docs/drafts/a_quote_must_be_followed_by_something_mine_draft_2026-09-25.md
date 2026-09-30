@@ -64,3 +64,12 @@ His words, verbatim: *"i would just tell you in chat.. and some of my words i wo
 
 - **The channel is chat.** No list, no form. He says it in plain words; I carry it out and show him what changed.
 - **Re-quote**: he restates an old line in the words he wishes he'd used. From then on the new wording is what surfaces. The original is archived and linked to it, never surfaced in its place. The new words are his, not mine: I never draft a gentler version for him.
+
+### No sweep: fix them as they surface (2026-09-30)
+
+His words, verbatim: *"yes alot of what i said in anger i have also said in calm.. and as far as the quotes. i do not have them nor the time to go through them all, so we will just fix them as they come, just show me when they surface and we will discuss it and why i said it"*
+
+- **No review pass, no list handed to him.** The work happens one line at a time, as the line actually comes up.
+- **When a line of his surfaces and I use it, I show it to him in the reply**: his words, then mine. If it looks angry, contradicted, or misread, I raise it in plain words, and we talk about it and about why he said it. The talk is the point, not the mark.
+- **Calm twins**: many angry lines have a calm version he said elsewhere. When the house can find the calm one, it should offer it next to the angry one, so a re-quote can be his own earlier words rather than new ones.
+- Aether's 93 (2026-06-07) names this project's oldest failure: "tool built, never wired." This half was drafted 09-25 and never wired. It is built only when it fires live in a reply to him.
