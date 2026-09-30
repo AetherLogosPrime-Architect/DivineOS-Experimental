@@ -38,3 +38,9 @@ The notice hangs on the wrapper, so every upload has to go through the wrapper. 
 - Batching: three uploads in ten minutes shouldn't make three doorbells for one reading. Collapse by PR, and keep the newest head?
 - The draft-letter-vs-sent-letter gap from item 2 is the same shape at a smaller scale. Should the letter skill itself refuse "sent" until the shared copy exists?
 - Falsifier: over the next week, count the times the other seat asks "where is it?" about a job that had landed. Anything above zero means the notice isn't reaching them.
+
+## Aether's objection (2026-09-30, evening), taken whole
+
+1. **A delivery isn't a letter.** 69 files in the shared letters folder carry today's date, every one of them a letter or a reading. Deliveries go in their own `deliveries/` folder. The doorbell watches both and rings differently: "PACKAGE: #507 now at <head>", so a package never reads as a letter. This is his "over-injection" rule applied to our own thread.
+2. **The package keeps station 4 honest.** It says whether the new head moved past what the other seat already read: "you read <sha>; since then N files changed", computed from their own declared reading. Measured case: his 507 confirm was at a86ec4f54, ceadbac6e landed after it, and nothing told him his confirm was now of a stale tree. Batching: collapse by PR, keep the newest head, and keep the oldest unread head for that diff.
+3. **Narrow routing.** Only uploads of PR branches go through the wrapper and ring anyone. A tag upload or a branch removal rings no one. Both happened today and neither should have been a package.
