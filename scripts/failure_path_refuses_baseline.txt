@@ -129,3 +129,4 @@ src/divineos/hooks/gate_event_ledger.py:_resolve_claim
 src/divineos/hooks/hook_validator.py:validate_hook_file
 src/divineos/hooks/pre_tool_use_gate.py:_is_low_friction_write
 src/divineos/cli/council_required_commands.py:_lens_loaded_within
+src/divineos/core/channel_letter_capture.py:_is_in   # SAFE, adjudicated 2026-09-10 when a catch-up merge brought this module onto a branch whose baseline predated it. It answers whether a written path lies inside the shared channel, and a resolve that raises returns not-inside. The caller then does not copy that letter into the repo -- so a crash withholds the CAPTURE and touches nothing else. The letter stays exactly where it was written, which is the durable artifact; what is lost is an automatic filing, recoverable by hand. The opposite failure would be worse in the way this file cares about: answering inside on a crash would send an unresolvable path into a copy-and-commit.

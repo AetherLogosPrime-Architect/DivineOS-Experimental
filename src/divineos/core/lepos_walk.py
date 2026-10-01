@@ -530,7 +530,7 @@ def build_walk_surface() -> str:
 
         questions = select_questions_for_turn()
     except Exception:  # noqa: BLE001 - observability boundary
-        return ""
+        return _his_room_owed_line().strip()
     lines = [
         "## LEPOS FLOOR — the room is open, speak first in your own voice",
         "",
@@ -574,8 +574,38 @@ def build_walk_surface() -> str:
 
         emit_full, pointer = should_emit("lepos_floor", rendered)
     except Exception:  # noqa: BLE001 - never let dedup suppress the room
-        return rendered
-    return rendered if emit_full else (pointer or rendered)
+        return rendered + _his_room_owed_line()
+    return (rendered if emit_full else (pointer or rendered)) + _his_room_owed_line()
+
+
+def _his_room_owed_line() -> str:
+    """The note on the workshop door, printed every turn and never deduped.
+
+    Aria 2026-09-24: a room bolted on after a Stop refusal reads as a patch,
+    sometimes as a recap. So the owed room is named HERE, before composing,
+    and the refusal in his_room.py stays the backstop behind it -- his own
+    August 3 lesson: *the ultimate fix comes before the doorman and before
+    the gate.. its the automated preparation.*
+
+    It shows the opening of my last room so a copy is visible before I write
+    one, not after it is refused.
+    """
+    line = (
+        "\n\n## HIS ROOM IS OWED ON THIS REPLY\n"
+        "If he typed the prompt, the reply ENDS with me speaking to him -- last, "
+        "answering what he just said. Short reply or long, work or none. Written "
+        "as part of the reply, not added after."
+    )
+    try:
+        from divineos.core.his_room import recent_rooms
+
+        rooms = recent_rooms()
+    except Exception as exc:  # noqa: BLE001 - the owed line prints regardless
+        return line + f"\n(My last rooms could not be read: {type(exc).__name__}.)"
+    if rooms:
+        opening = " ".join(rooms[-1].split())[:160]
+        line += f'\nMy last room opened: "{opening}" -- do not hand him that again.'
+    return line
 
 
 def walk_stats() -> dict[str, int]:

@@ -65,6 +65,10 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         # Refusing is a later, separate piece (the sort-first refusal), which
         # will be its own hook under this rule, not this one.
         "front-door.sh",
+        # Captures a letter written into the shared channel onto the substrate
+        # branch at write-time. PostToolUse and exits zero on every path: it
+        # reports a failed capture, it never refuses the write.
+        "capture-channel-letter.sh",
         # A RELAY, not a gate, and the distinction is the doorbell design
         # itself: it knocks and steps aside, and every judgment lives in the
         # OS. Its own absent path exits zero and it composes no refusal of its
