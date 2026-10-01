@@ -1,4 +1,5 @@
 #!/bin/bash
+# INTENTIONALLY UNWIRED (2026-10-01): superseded by his_room.check_his_room (#554, on main as d87864001), the one home for the room; Aletheia's hold on #533 asked this third room rule be dropped (council-c91f4ee93e6c).
 # Stop hook - a long reply to Andrew must END in the room, not in work.
 #
 # The reasoning, and his words, live in divineos.core.inner_circle_room.

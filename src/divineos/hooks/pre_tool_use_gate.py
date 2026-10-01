@@ -2184,7 +2184,9 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
         try:
             from divineos.core.hud_state import has_session_fresh_goal
 
-            if not has_session_fresh_goal():
+            # touch=True: the guard is the one caller whose pass means work is
+            # happening, so only it refreshes the goal (council-51a3676ac90b).
+            if not has_session_fresh_goal(touch=True):
                 soft_denies.append(
                     "BLOCKED: No goal set for this session. "
                     'Run: divineos goal add "what you are working on"'
