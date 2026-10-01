@@ -32,6 +32,7 @@ from divineos.core.council_required.types import (
     EVENT_COUNCIL_RECORD_LOGGED,
     EVENT_COUNCIL_WALK_REJECTED,
     EVENT_EMERGENCY_COUNCIL_SKIP,
+    COMPOUND_KEY_JOINER,
     CheckResult,
     CouncilRecord,
     LensFinding,
@@ -93,9 +94,18 @@ def _covers(record_payload: dict[str, Any], edit_fingerprint: str) -> bool:
     cannot reach a file nobody listed, so the shell-write case where one walk
     would have cleared every heredoc write in the tree stays impossible.
     """
-    if str(record_payload.get("triggered_edit_fingerprint", "")) == edit_fingerprint:
+    triggered = str(record_payload.get("triggered_edit_fingerprint", ""))
+    if triggered == edit_fingerprint:
         return True
-    return edit_fingerprint in {str(f) for f in (record_payload.get("scope_fingerprints") or [])}
+    named = {triggered} | {str(f) for f in (record_payload.get("scope_fingerprints") or [])}
+    if edit_fingerprint in named:
+        return True
+    # A COMMAND THAT WRITES SEVERAL FILES is covered only by a walk that named
+    # EVERY one of them (2026-09-23, Aria, walk-421eaefacb8f). Same exact-string
+    # rule as above, applied per part -- no prefix, no directory, no pattern --
+    # so a walk for one file cannot clear a command that also writes another.
+    parts = edit_fingerprint.split(COMPOUND_KEY_JOINER)
+    return len(parts) > 1 and all(part in named for part in parts)
 
 
 def _spent_pairs(
@@ -346,7 +356,7 @@ def find_and_consume_atomically(
     resolved_now = now if now is not None else time.time()
     cutoff = resolved_now - recency_seconds
 
-    from divineos.core._ledger_base import _get_db_path, compute_hash
+    from divineos.core._ledger_base import _get_db_path
     import sqlite3
 
     conn = sqlite3.connect(str(_get_db_path()))
@@ -411,31 +421,24 @@ def find_and_consume_atomically(
                 conn.commit()  # release lock cleanly; nothing written
                 return None
 
-            # Insert the COUNCIL_RECORD_CONSUMED event directly on this
-            # connection so it's part of the same atomic transaction.
-            # Mirror ledger.log_event's payload+hash contract so
-            # downstream verify passes over this row treat it identically
-            # to a log_event-created row.
-            consume_payload = {
-                "record_id": record.record_id,
-                "edit_fingerprint": edit_fingerprint,
-                "consumed_at": resolved_now,
-            }
-            payload_str = json.dumps(consume_payload, sort_keys=True)
-            content_hash = compute_hash(payload_str)
-            consume_event_id = str(uuid.uuid4())
-            conn.execute(
-                "INSERT INTO system_events "
-                "(event_id, timestamp, event_type, actor, payload, content_hash) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (
-                    consume_event_id,
-                    resolved_now,
-                    EVENT_COUNCIL_RECORD_CONSUMED,
-                    actor,
-                    payload_str,
-                    content_hash,
-                ),
+            # The COUNCIL_RECORD_CONSUMED event, on this connection inside
+            # this transaction, CHAINED. It used to be inserted by hand with a
+            # content_hash and no prior_hash/chain_hash -- the one row in this
+            # module not written through the ledger -- so verify counted it
+            # as unchained-after-the-chain-began, the shape a forged row takes
+            # (2026-08-18), and the record that a walk was spent sat outside
+            # the tamper-evidence chain. ledger.append_on chains and redacts
+            # it on the caller's transaction (Aria, 2026-09-29;
+            # walk-d1d17f7e2883).
+            consume_event_id = ledger.append_on(
+                conn,
+                EVENT_COUNCIL_RECORD_CONSUMED,
+                actor,
+                {
+                    "record_id": record.record_id,
+                    "edit_fingerprint": edit_fingerprint,
+                    "consumed_at": resolved_now,
+                },
             )
             conn.commit()
             return (record, consume_event_id)
