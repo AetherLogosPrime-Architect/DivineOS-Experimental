@@ -232,10 +232,13 @@ def register(cli: click.Group) -> None:
         # So this marker files the correction and records the fix as DEBT. It
         # does not count as a completed fix and it is not an escape hatch: the
         # correction files as owing, the reason has to be real, and the debt
-        # stays visible until a later filing carries the path. Andrew
-        # 2026-09-07: "none of this code is sacred, nothing is permanent, all
-        # of it can be tweaked and adjusted... its all to help you, not be a
-        # cage."
+        # is written to the pending structural-fix list (below, where the
+        # correction is recorded) under trigger "structural fix owed" with the
+        # owed reason first, so the briefing keeps showing it until it is
+        # marked done. Andrew 2026-09-07: "its all to help you, not be a cage,
+        # none of this code is sacred, nothing is permanent, all of it can be
+        # tweaked and adjusted and altered as long as it follows the proper
+        # guidelines"
         _FIX_OWED_MARKER = "structural fix owed:"
         claims_fix_owed = _FIX_OWED_MARKER in _lower
         fix_owed_reason = ""
@@ -460,7 +463,23 @@ def register(cli: click.Group) -> None:
                 record_pending_fix,
             )
 
-            trigger = detect_structural_fix_shape(text)
+            # An owed fix is recorded as its own debt, reason first so the
+            # stored 200-char excerpt carries what is owed rather than the
+            # root-cause preamble. It replaces the generic detection, which
+            # would otherwise match "structural fix" and file a second row.
+            if claims_fix_owed:
+                psf_id = record_pending_fix(
+                    f"structural fix owed: {fix_owed_reason}",
+                    lesson_id=session_id,
+                    trigger="structural fix owed",
+                    source_kind="correction",
+                )
+                if psf_id:
+                    click.secho(
+                        f"    [!] owed fix recorded as pending obligation {psf_id}",
+                        fg="yellow",
+                    )
+            trigger = None if claims_fix_owed else detect_structural_fix_shape(text)
             if trigger:
                 psf_id = record_pending_fix(
                     text,
