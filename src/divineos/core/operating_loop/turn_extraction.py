@@ -37,7 +37,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from divineos.core.harness_envelopes import nothing_of_his
+from divineos.core.his_message import Heard, hear
 
 
 @dataclass(frozen=True)
@@ -282,42 +282,33 @@ _CONTINUES_A_TURN_STAMPED = (*_CONTINUES_A_TURN, "Stop hook feedback")
 
 
 def _user_record_origin(rec: dict) -> str:
-    """'him', 'not-him', or 'continues' for one user record with text in it."""
-    origin = rec.get("origin")
-    kind = origin.get("kind") if isinstance(origin, dict) else None
-    if kind == "human":
-        text = _extract_record_text(rec)
-        if not nothing_of_his(text):
-            return "him"
-        if text.lstrip().startswith(_CONTINUES_A_TURN_STAMPED):
-            return "continues"
-        return "not-him"
-    if kind is not None:
-        return "not-him"
-    # The harness flags a compaction summary; the flag decides, and the leading
-    # text below stays only for records written before the flag existed (Aria,
-    # his_voice_ends_the_turn, checked on three real summaries).
+    """'him', 'not-him', or 'continues' for one user record with text in it.
+
+    Whether the words are his is the one reader's question, not this file's
+    (his_message.hear). Measured 2026-09-30 against every record on this
+    machine, with hear() carrying #507's envelope peeling and interrupt stamp:
+    the private stamp-and-envelope reader that stood here heard 0 records hear()
+    did not, and missed 2,732 that are his -- older records carry no origin
+    stamp, so "proceed" and "yes :)" read as not-him. What stays here is only
+    the turn's own shape: what continues a turn rather than starting one.
+    """
+    # Continuation is checked first: a compaction summary or a "[Request
+    # interrupted" resume continues his turn whatever the reader says of it.
     if rec.get("isMeta") or rec.get("isCompactSummary"):
         return "continues"
     text = _extract_record_text(rec).lstrip()
-    if text.startswith(_CONTINUES_A_TURN):
+    if text.startswith(_CONTINUES_A_TURN_STAMPED):
         return "continues"
-    return "not-him"
+    heard = hear(rec)
+    return "him" if isinstance(heard, Heard) and not heard.bookmark else "not-him"
 
 
 def _his_slip(rec: dict) -> bool:
-    """A message he typed while a turn was running: a queued_command slip,
-    stamped human, with something of his left once the envelopes are cut."""
-    slip = rec.get("attachment")
-    if rec.get("type") != "attachment" or not isinstance(slip, dict):
+    """A message he typed while a turn was running, as the one reader hears it."""
+    if rec.get("type") != "attachment":
         return False
-    # Prompt-mode only, as Aria's two slip readers require: a notification slip
-    # is also all envelope today, but one rule should not agree by luck.
-    if slip.get("type") != "queued_command" or slip.get("commandMode") != "prompt":
-        return False
-    origin = slip.get("origin")
-    kind = origin.get("kind") if isinstance(origin, dict) else None
-    return kind == "human" and not nothing_of_his(str(slip.get("prompt") or ""))
+    heard = hear(rec)
+    return isinstance(heard, Heard) and not heard.bookmark
 
 
 def he_spoke_this_turn(transcript_path: str | Path) -> bool:
