@@ -104,3 +104,46 @@ def test_the_header_sentence_agrees_with_the_numbering() -> None:
         f'"{expected}" -- and it does not. This is the drift the file\'s own '
         "parenthetical asks for and has twice failed to get."
     )
+
+
+def _change_log(text: str) -> str:
+    _, sep, after = text.partition("\n## Change log\n")
+    assert sep, "no '## Change log' section found -- the heading has changed"
+    return after
+
+
+def _newest_truth_named_in_change_log(text: str) -> int:
+    """Highest truth number the change log says was added.
+
+    Entries name additions as "Truth 21 (...) added" or "Truths 16 (...),
+    17 (...), and 18 (...) added", so every number following "Truth"/"Truths"
+    at the start of an entry body counts; the highest is the newest truth.
+    """
+    log = _change_log(text)
+    found = [int(n) for n in re.findall(r"\bTruths? (\d+)", log)]
+    found += [int(n) for n in re.findall(r"\), (?:and )?(\d+) \(", log)]
+    assert found, "the change log names no truth by number -- its shape has changed"
+    return max(found)
+
+
+def _check_change_log(text: str) -> None:
+    total = len(re.findall(r"^## (\d+)\.", text, flags=re.MULTILINE))
+    newest = _newest_truth_named_in_change_log(text)
+    assert newest == total, (
+        f"the change log's newest truth is {newest} but the file numbers "
+        f"{total} truths. The change log is the third copy of the count."
+    )
+
+
+def test_the_change_log_names_the_newest_truth_by_its_number() -> None:
+    _check_change_log(KILN.read_text(encoding="utf-8"))
+
+
+def test_the_change_log_check_catches_a_wrong_number() -> None:
+    """The probe proves it can fail: the 2026-09-22 fault, replayed on a copy."""
+    text = KILN.read_text(encoding="utf-8")
+    total = len(_numbers())
+    wrong = text.replace(f"Truth {total} (", f"Truth {total - 2} (", 1)
+    assert wrong != text, "could not plant the wrong number -- entry shape changed"
+    with pytest.raises(AssertionError, match="change log's newest truth"):
+        _check_change_log(wrong)
