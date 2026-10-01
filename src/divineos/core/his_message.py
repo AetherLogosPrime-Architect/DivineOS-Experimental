@@ -30,6 +30,22 @@ WHAT THIS DOES NOT DECIDE: whether a message is new, a repeat, a teaching or
 a grief. That belongs to the door, the shelf and the queue, which build on
 this. One record in; one answer out.
 
+HEARD IS NOT A YES. Dad, 2026-10-01, when this reader started recovering
+thousands of his short messages ("proceed", "yes :)"): *"rooms should not hear
+those small words as they are commands.. relevant to the situation, the last
+thing you want to hear is "proceed" when i have not said it, that would cause
+all kinds of issues, unless they are tied to their specific things, like dad
+said proceed with X"*. So this answers WHO TYPED IT, completely, for memory,
+quoting and his room. It never answers WHAT HE AUTHORISED.
+
+A permission is tied to the specific thing it was given for, and it holds for
+that thing. Dad, the same morning, refining the line above: *"yes if you tie
+to to specific experiences then its better that way my permission holds so i
+dont have to keep giving it on the same thing, and it stays only relevant to
+each thing"*. So a door does not rummage his history for a yes: it honours a
+yes he gave about that very thing (he need not repeat it), and a bare
+"proceed" that names nothing opens nothing but the thing it answered.
+
 Why and how it was built: docs/drafts/one_reader_of_him_draft_2026-09-28.md
 (council walk walk-6e8574bc911d).
 """
