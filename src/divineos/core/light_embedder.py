@@ -102,6 +102,7 @@ def _load() -> _Model:
                 "nothing is downloaded from here"
             )
         try:
+            import scipy.special  # noqa: F401 -- encode's GELU needs erf
             from safetensors.numpy import load_file
             from tokenizers import Tokenizer
         except ImportError as exc:
@@ -151,9 +152,14 @@ def encode(text: str) -> Any:
     if not text or not text.strip():
         raise ValueError("there is no text to embed")
     import numpy as np
+
+    # _load first: it turns every missing runtime piece, scipy included, into
+    # EmbedderUnavailable as this docstring promises. Importing erf before it
+    # crashed the plain CI job (no scipy) with ModuleNotFoundError, which the
+    # memory retriever does not catch (council-6611e237b4d2).
+    m = _load()
     from scipy.special import erf
 
-    m = _load()
     w, p = m.weights, m.prefix
     enc = m.tokenizer.encode(text)
     ids = np.asarray(enc.ids)
