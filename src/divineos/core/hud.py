@@ -1199,6 +1199,25 @@ def _build_chain_integrity_slot() -> str:
             )
             return "\n".join(lines)
         failed = int(result.get("failed", 0))
+        if result.get("chain_ok") is False:
+            # Every row can pass its own hash while a link between rows is
+            # crossed; that kind stayed hidden here for five weeks.
+            return (
+                "# Ledger Integrity — CHAIN LINK BROKEN\n\n"
+                f"The last sleep walked the chain and it breaks at "
+                f"{result.get('chain_broken_at')}: "
+                f"{result.get('chain_broken_reason')}. "
+                f"{failed} row(s) failed their own hash, so this is a link "
+                "between rows, not necessarily an altered row.\n\n"
+                "Investigate: `divineos verify` names the break."
+            )
+        if failed == 0 and "chain_ok" not in result:
+            return (
+                "# Ledger Integrity — LINKS NOT WALKED\n\n"
+                "The last integrity marker predates the chain walk, so only "
+                "each row's own hash was checked. Run "
+                "`divineos sleep --phase integrity_check` to walk the links."
+            )
         if failed == 0:
             return ""  # healthy — stay quiet
         verified = int(result.get("verified", 0))
