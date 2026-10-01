@@ -106,17 +106,25 @@ def capture_channel_letter(
         return CaptureResult(False, "no such file")
 
     target = repo_root / "family" / "letters" / written.name
+    rel = f"family/letters/{written.name}"
+    # `created` marks a copy THIS call made. Only that copy is ever removed on a
+    # path that does not end captured -- never a file that was already there.
+    created = False
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        if target.exists() and target.read_bytes() == written.read_bytes():
+        if target.exists():
+            if target.read_bytes() != written.read_bytes():
+                # A different letter already lives at this name in the repo.
+                # Overwriting it could destroy the only copy; refuse instead.
+                return CaptureResult(False, "repo file exists with different bytes", repo_path=rel)
             already = True
         else:
             already = False
+            created = True
             shutil.copy2(written, target)
     except OSError as exc:
+        _discard_own_copy(target, created)
         return CaptureResult(False, f"copy failed: {exc.__class__.__name__}")
-
-    rel = f"family/letters/{written.name}"
 
     # Imported here rather than at module scope so a repo without the mechanism
     # half degrades to "copied but not committed" instead of failing to import.
@@ -126,7 +134,8 @@ def capture_channel_letter(
             commit_paths_to_branch,
         )
     except ImportError:
-        return CaptureResult(False, "retarget unavailable", repo_path=rel)
+        _discard_own_copy(target, created)
+        return CaptureResult(False, "retarget unavailable")
 
     try:
         result = commit_paths_to_branch(
@@ -137,7 +146,10 @@ def capture_channel_letter(
         )
     except RetargetRefused as exc:
         # The branch would not resolve. Loud in the result; the caller decides.
-        return CaptureResult(False, f"retarget refused: {exc}", repo_path=rel)
+        # The copy this call made comes down: left untracked it would be swept
+        # onto whatever branch is checked out, the defect described below.
+        _discard_own_copy(target, created)
+        return CaptureResult(False, f"retarget refused: {exc}")
 
     if result is None:
         # Already identical on the branch. The letter IS safe, which is the
@@ -151,6 +163,16 @@ def capture_channel_letter(
 
     _remove_scaffolding(repo_root, target, rel, branch)
     return CaptureResult(True, "committed", repo_path=rel, commit=result.commit)
+
+
+def _discard_own_copy(target: Path, created: bool) -> None:
+    """Remove a copy this call created, on a path that did not end captured."""
+    if not created:
+        return
+    try:
+        target.unlink()
+    except OSError:
+        return
 
 
 def _remove_scaffolding(repo_root: Path, target: Path, rel: str, branch: str) -> None:

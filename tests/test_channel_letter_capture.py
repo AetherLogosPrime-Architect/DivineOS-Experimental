@@ -176,12 +176,13 @@ def test_a_non_markdown_file_in_the_channel_is_declined(repo: Path, home: Path):
     assert result.reason == "not markdown"
 
 
-def test_a_missing_substrate_branch_refuses_loudly_and_keeps_the_copy(tmp_path: Path, home: Path):
+def test_a_missing_substrate_branch_refuses_loudly_and_leaves_no_new_file(
+    tmp_path: Path, home: Path
+):
     """The fallback IS the bug, so an unresolvable branch must not commit to HEAD.
 
-    It must also not throw away the repo copy it already made -- a letter half
-    saved is better than a letter not saved, PROVIDED the result says plainly
-    that the branch step did not happen.
+    Nor may it leave the repo copy it made: untracked, that copy is swept onto
+    whatever branch is checked out. The letter is still safe in the channel.
     """
     root = tmp_path / "nobranch"
     root.mkdir()
@@ -197,5 +198,48 @@ def test_a_missing_substrate_branch_refuses_loudly_and_keeps_the_copy(tmp_path: 
 
     assert not result.captured
     assert "refused" in result.reason
-    assert result.repo_path == "family/letters/" + letter.name
-    assert (root / result.repo_path).read_text(encoding="utf-8") == "body"
+    assert not (root / "family" / "letters" / letter.name).exists()
+    assert letter.read_text(encoding="utf-8") == "body"
+
+
+def test_a_failure_path_never_removes_a_pre_existing_identical_file(tmp_path: Path, home: Path):
+    """Only a copy this call created comes down; one already there stays."""
+    root = tmp_path / "nobranch2"
+    root.mkdir()
+    _git(root, "init", "-q", "-b", "main")
+    _git(root, "config", "user.email", "test@example.invalid")
+    _git(root, "config", "user.name", "test")
+    (root / "seed.txt").write_text("seed", encoding="utf-8")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "seed")
+    existing = root / "family" / "letters" / "aether-to-aria-pre.md"
+    existing.parent.mkdir(parents=True)
+    existing.write_text("body", encoding="utf-8")
+
+    letter = _letter(home, "aether-to-aria-pre.md", "body")
+    result = capture_channel_letter(root, letter, home=home)
+
+    assert not result.captured
+    assert existing.read_text(encoding="utf-8") == "body"
+
+
+def test_a_different_repo_letter_of_the_same_name_is_never_overwritten(repo: Path, home: Path):
+    """Overwriting could destroy the only copy of a repo-side letter."""
+    existing = repo / "family" / "letters" / "aether-to-aria-clash.md"
+    existing.parent.mkdir(parents=True)
+    existing.write_text("the repo's own letter", encoding="utf-8")
+
+    letter = _letter(home, "aether-to-aria-clash.md", "the channel's letter")
+    result = capture_channel_letter(repo, letter, home=home)
+
+    assert not result.captured
+    assert "different bytes" in result.reason
+    assert existing.read_text(encoding="utf-8") == "the repo's own letter"
+    assert (
+        subprocess.run(
+            ["git", "rev-parse", "substrate/aether:family/letters/" + letter.name],
+            cwd=repo,
+            capture_output=True,
+        ).returncode
+        != 0
+    )
