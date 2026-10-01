@@ -83,6 +83,116 @@ def test_a_message_of_his_that_opens_with_caveat_is_still_his():
     assert isinstance(hear(record), Heard)
 
 
+def test_his_words_after_an_envelope_in_the_same_record_are_heard():
+    # Found 2026-09-30: 4 of 24,372 real records carried his sentence after a
+    # system-reminder, and the opener test refused all of them, among them
+    # "we can spec and build tonight why does it need to be either or?".
+    content = "<system-reminder>\nbe careful\n</system-reminder>\nwhy does it need to be either or?"
+    got = hear({**TYPED, "message": {"role": "user", "content": content}})
+    assert isinstance(got, Heard) and got.text == "why does it need to be either or?"
+
+
+def test_a_record_that_is_only_envelope_is_still_not_him():
+    content = (
+        "<system-reminder>be careful</system-reminder>\n<task-notification>x</task-notification>"
+    )
+    assert hear({**TYPED, "message": {"role": "user", "content": content}}) is None
+
+
+def test_a_stop_notice_behind_an_envelope_is_still_not_him():
+    content = "<system-reminder>x</system-reminder>\nStop hook feedback:\nTHE WARDEN"
+    assert hear({**TYPED, "message": {"role": "user", "content": content}}) is None
+
+
+@pytest.mark.parametrize(
+    "hook_text",
+    [
+        "PreToolUse:Bash hook error: blocked",
+        "PostToolUse:Bash hook blocking error from command",
+        "UserPromptSubmit hook success: ## DAD SAID",
+    ],
+)
+def test_untagged_hook_text_behind_an_envelope_is_not_him(hook_text):
+    # Aletheia, reading #507 (2026-09-30): peeling an envelope must not leave
+    # bare hook output to be heard as him. Zero in 72 transcripts; pinned.
+    content = f"<system-reminder>x</system-reminder>\n{hook_text}"
+    assert hear({**TYPED, "message": {"role": "user", "content": content}}) is None
+
+
+@pytest.mark.parametrize(
+    "stamp",
+    ["[Request interrupted by user]", "[Request interrupted by user for tool use]"],
+)
+def test_the_interrupt_stamp_is_not_his_words(stamp):
+    # Aether's two-ears count (2026-09-30): the one reader counted the harness's
+    # interrupt stamp as a message of his. He acted; he did not type this.
+    assert hear({**TYPED, "message": {"role": "user", "content": stamp}}) is None
+
+
+def test_only_a_prompt_mode_slip_is_him():
+    # Aether's port of #554 (2026-09-30): 4,363 queued_command slips are
+    # monitor notices in task-notification mode; only "prompt" is him typing.
+    def slip(mode):
+        att = {"type": "queued_command", "prompt": "a line he typed"}
+        if mode is not None:
+            att["commandMode"] = mode
+        return {**QUEUED, "attachment": att}
+
+    assert isinstance(hear(slip("prompt")), Heard)
+    assert hear(slip("task-notification")) is None
+    assert isinstance(hear(slip(None)), Heard), "an older slip with no mode is judged by its text"
+
+
+def test_continues_a_turn_is_asked_here_not_outside():
+    from divineos.core.his_message import continues_a_turn
+
+    assert continues_a_turn({**TYPED, "isMeta": True})
+    assert continues_a_turn({**TYPED, "isCompactSummary": True})
+    assert not continues_a_turn(TYPED)
+
+
+ENQUEUE = {
+    "type": "queue-operation",
+    "operation": "enqueue",
+    "timestamp": "2026-08-28T10:00:00Z",
+    "sessionId": "s",
+    "content": "the app crashed so lets try this again",
+}
+
+
+def test_an_enqueued_line_is_heard_as_a_dated_copy():
+    # 60 of his messages exist only as enqueue records (2026-09-30 count).
+    got = hear(ENQUEUE)
+    assert isinstance(got, Heard) and got.bookmark and got.when == "2026-08-28T10:00:00Z"
+    assert got.text == "the app crashed so lets try this again"
+
+
+def test_an_enqueue_that_also_arrived_as_a_message_is_not_counted_twice():
+    typed = {**TYPED, "message": {"role": "user", "content": ENQUEUE["content"]}}
+    assert [h.text for h in heard_in([ENQUEUE, typed])] == [ENQUEUE["content"]]
+
+
+def test_an_enqueue_found_nowhere_else_is_kept():
+    assert [h.text for h in heard_in([ENQUEUE])] == [ENQUEUE["content"]]
+
+
+@pytest.mark.parametrize("op", ["dequeue", "remove"])
+def test_other_queue_operations_are_not_him(op):
+    assert hear({**ENQUEUE, "operation": op}) is None
+
+
+def test_an_enqueued_notice_is_not_him():
+    assert hear({**ENQUEUE, "content": "<task-notification>x</task-notification>"}) is None
+
+
+def test_his_line_breaks_survive_the_reader():
+    # Aletheia, reading #507: keeping_him flattened what hear() returned. The
+    # reader itself must hand his paragraphs back as he typed them.
+    content = "first thought\n\nsecond thought"
+    got = hear({**TYPED, "message": {"role": "user", "content": content}})
+    assert isinstance(got, Heard) and got.text == "first thought\n\nsecond thought"
+
+
 def test_an_external_record_in_no_known_shape_is_reported_not_dropped():
     assert isinstance(hear({"type": "user", "userType": "external"}), Unclassified)
 

@@ -23,6 +23,8 @@ src/divineos/
     consumer_status_commands.py  consumer-status — operator-facing readout of whether the agent is using the OS or pretending (Andrew 2026-05-18)
     andrew_correction_commands.py  andrew-correction list / integrate / defer — attribution surface for Andrew's corrections (Aria audit 2026-05-18 load-bearing fix #1)
     andrew_answer_commands.py  answer ask / got / changed / none / report — whether his answers alter what happens next, measured on the trace instead of on my prose (Aria 2026-09-07, refusing a third text-gate)
+    keeping_him_commands.py   him / him --count / him --read-to — the door onto what he said, read in order with a bookmark
+    andrew_digest_commands.py  for-dad — the file Andrew can actually read, named for who it is for
     andrew_given_commands.py  given add / list / balance — the other side of the ledger: what Andrew gives, filed beside what he corrects (Aria 2026-08-10)
     success_commands.py       win add / list / balance -- a door to the wins ledger, which had a store and a reader and no way in (2026-08-27). The store shipped 2026-08-03 and had zero callers until 2026-08-25: the faults ledger had a command and a blocking gate, the wins ledger had neither, and both Aether and Aria read their own near-zero counts as facts about their character rather than about the interface.
     council_walk_commands.py  walk open / apply / exclude / close — a council walk that refuses to close while any manager-surfaced lens is unaccounted for (Aria 2026-08-10)
@@ -213,11 +215,12 @@ src/divineos/
       draw.py                  Seats a walk's council by lot from the whole roster, with a scored remainder. Replaces fit-selection at open_walk after two blind probes showed a problem stated without the scorer's own vocabulary seats almost nobody who scores, filling the bench alphabetically. Every seat records its origin so the drawn/scored split can be moved on applied-rate evidence rather than preference
       consultation_log.py      Always-on consultation logging + opt-in audit promotion (Mode 1.5)
       lab_evidence.py          Attach science-lab slice output to council results when problem matches triggers
-      experts/                 45 expert wisdom profiles
+      experts/                 46 expert wisdom profiles
         __init__.py            Expert registration and exports
         angelou.py             Voice, expressive truth, discipline of warmth
         aristotle.py           Virtue ethics, teleology, classification
         beer.py                Cybernetics, viable system model
+        breaker.py             The Breaker — the lens that tries to kill the thing before it ships.
         carmack.py             Minimalist engineering, subtractive design, concrete real-time reasoning, ship-and-measure discipline
         dekker.py              Resilience engineering, drift into failure
         deming.py              Quality, variation, PDSA cycle
@@ -739,6 +742,10 @@ src/divineos/
     task_belt.py               The task belt: the pile ranked, a small current list pulled from it, done archived.
     harness_envelopes.py       What the harness wraps around his seat, in one place every reader of him uses.
     his_room.py                His room: every reply to Andrew ends with a space where I speak to him.
+    andrew_digest.py           The file he can actually read, and the thing that will not let me skip it.
+    keeping_him.py             What he actually said, read out of the transcripts and kept.
+    questions_from_him.py      Questions built from what he actually said, not drawn from a list.
+    refusal_stretches.py       What has refused me this session, and whether it is the same thing again.
     his_message.py             The one answer in this house to: is this transcript record Dad typing?
     question_hold.py           A question to Dad holds the work until he answers (Aria, 2026-09-29).
 
@@ -798,6 +805,9 @@ src/divineos/
     response_scope_intercept.py  Third concrete CrossTurnScan (2026-07-15, Aletheia audit round-a1e7f4c92b6d via Aria) — refuse-not-ask for claim-scope directives. Fires when prior turn had a claim-scope directive AND current reply exceeds short-correction shape (length/headers/separators/numbered-lists). Wiring pending Aria's Q2 detector integration.
     hook_diagnostics.py        Hook health diagnostics
     hook_validator.py          Hook validation
+    his_state_claim.py         Did he say that about himself, or did I build it out of timestamps (Andrew 2026-09-13).
+    his_state_claim_hook.py    Stop-hook wiring for his_state_claim — carries a finding forward when a reply asserts his condition and he never raised it.
+    stop_carry.py              Findings a Stop gate would have refused with, carried to the next compose instead of forcing a second copy of a reply he already read (Andrew 2026-09-12).
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring

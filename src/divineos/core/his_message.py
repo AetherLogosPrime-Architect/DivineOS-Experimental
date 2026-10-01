@@ -36,6 +36,7 @@ Why and how it was built: docs/drafts/one_reader_of_him_draft_2026-09-28.md
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 _NOTICE_OPENERS = (
@@ -46,6 +47,15 @@ _NOTICE_OPENERS = (
     "<command-name>",
     "<agent-message",
     "Stop hook feedback",
+    # Hook output with no envelope of its own. Behind a peeled envelope these
+    # were heard as him (Aletheia, reading #507 on 2026-09-30): zero in 72
+    # transcripts, pinned so it stays zero. He does not open a message with them.
+    "PreToolUse:",
+    "PostToolUse:",
+    "UserPromptSubmit hook",
+    # The harness's stamp when he stops a turn. It marks that he acted; it is
+    # not words he typed (Aether's two-ears count, 2026-09-30).
+    "[Request interrupted by user",
 )
 # Not "Caveat:" -- the harness's own caveat arrives isMeta and is refused above
 # that; a message of his that opens with the word is his (Aria, 2026-09-28).
@@ -92,26 +102,93 @@ def _is_notice(text: str) -> bool:
     return text.lstrip().startswith(_NOTICE_OPENERS)
 
 
+# A whole envelope, opening tag to closing tag. The harness sometimes puts one
+# IN FRONT of his words in the same record, and the opener test above then
+# refused the record whole -- measured 2026-09-30 over 24,372 of his text
+# records: 4 carried his sentence after the envelope, among them "we can spec
+# and build tonight why does it need to be either or?". Peeling the envelope
+# first keeps his words; a record that is only envelope still reads as nothing.
+_ENVELOPE = re.compile(
+    r"<(task-notification|system-reminder|local-command-stdout|local-command-stderr"
+    r"|command-name|command-message|command-args|ci-monitor-event|agent-message)\b"
+    r".*?</\1>",
+    re.DOTALL,
+)
+
+
+def _his_part(text: str) -> str:
+    """What is left of ``text`` once any leading harness envelopes are peeled.
+
+    Empty when nothing of his is left, or when what is left is itself a notice
+    (a Stop-hook message has no closing tag and is never his)."""
+    if not _is_notice(text):
+        return text if text.strip() else ""
+    rest = _ENVELOPE.sub(" ", text).strip()
+    if not rest or _is_notice(rest):
+        return ""
+    return rest
+
+
+def continues_a_turn(record: dict) -> bool:
+    """Is this record the harness continuing a turn, rather than anyone speaking?
+
+    Hook feedback (isMeta) and a compaction summary (isCompactSummary) sit in
+    the user role without being a new turn of his. Asked here so that no reader
+    outside this home has to read those flags itself -- the private-reader
+    check rightly refuses that (Aether, porting #554, 2026-09-30).
+    """
+    return bool(
+        isinstance(record, dict) and (record.get("isMeta") or record.get("isCompactSummary"))
+    )
+
+
 def hear(record: dict) -> Heard | Unclassified | None:
     """His text from one transcript record, or None if it is not him."""
     if not isinstance(record, dict):
         return None
 
     if record.get("type") == "last-prompt":
-        text = record.get("lastPrompt")
-        if isinstance(text, str) and text.strip() and not _is_notice(text):
-            return Heard(text=text, bookmark=True)
-        return None
+        raw = record.get("lastPrompt")
+        text = _his_part(raw) if isinstance(raw, str) else ""
+        return Heard(text=text, bookmark=True) if text else None
 
-    if record.get("isMeta") or record.get("isSidechain") or record.get("isCompactSummary"):
+    # THE FOURTH SHAPE: the harness's queue of what he typed while I was busy.
+    # It carries his words with a time but no record id, and usually a second
+    # copy exists as a queued_command or user record -- but not always. Measured
+    # 2026-09-30 over every transcript: 22,371 enqueue texts, 239 found nowhere
+    # else, and 60 of those 239 are his own words (often around a crash: "the
+    # app crashed so lets try this again"). The other 179 are notices, refused
+    # by the same rules as everywhere. It is returned as a bookmark -- a copy,
+    # kept by heard_in only when no record with an id carries the same words --
+    # so the 22,132 that ARE elsewhere are not counted twice.
+    if record.get("type") == "queue-operation":
+        raw = record.get("content")
+        if record.get("operation") != "enqueue" or not isinstance(raw, str):
+            return None
+        text = _his_part(raw)
+        return (
+            Heard(text=text, when=str(record.get("timestamp") or ""), bookmark=True)
+            if text
+            else None
+        )
+
+    if continues_a_turn(record) or record.get("isSidechain"):
         return None
     if record.get("userType") not in (None, "external"):
         return None
 
     attachment = record.get("attachment") or {}
     if isinstance(attachment, dict) and attachment.get("type") == "queued_command":
-        text = attachment.get("prompt")
-        if isinstance(text, str) and text.strip() and not _is_notice(text):
+        # Only a prompt-mode slip is him typing. Measured 2026-09-30: 332
+        # "prompt", 4,363 "task-notification" (a monitor's notice riding the
+        # same queue), none without the field. A record with no mode at all is
+        # an older shape and is judged by its text, as before.
+        mode = attachment.get("commandMode")
+        if mode is not None and mode != "prompt":
+            return None
+        raw = attachment.get("prompt")
+        text = _his_part(raw) if isinstance(raw, str) else ""
+        if text:
             return Heard(
                 text=text,
                 uuid=str(record.get("uuid") or ""),
@@ -124,8 +201,8 @@ def hear(record: dict) -> Heard | Unclassified | None:
     message = record.get("message") or {}
     if not isinstance(message, dict) or message.get("role") != "user":
         return Unclassified("user-without-message") if record.get("userType") else None
-    text = _text_of(message.get("content"))
-    if not text.strip() or _is_notice(text):
+    text = _his_part(_text_of(message.get("content")))
+    if not text:
         return None
     return Heard(
         text=text,
