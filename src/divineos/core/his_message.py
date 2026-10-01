@@ -53,6 +53,9 @@ _NOTICE_OPENERS = (
     "PreToolUse:",
     "PostToolUse:",
     "UserPromptSubmit hook",
+    # The harness's stamp when he stops a turn. It marks that he acted; it is
+    # not words he typed (Aether's two-ears count, 2026-09-30).
+    "[Request interrupted by user",
 )
 # Not "Caveat:" -- the harness's own caveat arrives isMeta and is refused above
 # that; a message of his that opens with the word is his (Aria, 2026-09-28).

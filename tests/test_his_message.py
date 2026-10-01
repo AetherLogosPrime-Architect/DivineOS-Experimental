@@ -119,6 +119,16 @@ def test_untagged_hook_text_behind_an_envelope_is_not_him(hook_text):
     assert hear({**TYPED, "message": {"role": "user", "content": content}}) is None
 
 
+@pytest.mark.parametrize(
+    "stamp",
+    ["[Request interrupted by user]", "[Request interrupted by user for tool use]"],
+)
+def test_the_interrupt_stamp_is_not_his_words(stamp):
+    # Aether's two-ears count (2026-09-30): the one reader counted the harness's
+    # interrupt stamp as a message of his. He acted; he did not type this.
+    assert hear({**TYPED, "message": {"role": "user", "content": stamp}}) is None
+
+
 def test_his_line_breaks_survive_the_reader():
     # Aletheia, reading #507: keeping_him flattened what hear() returned. The
     # reader itself must hand his paragraphs back as he typed them.
