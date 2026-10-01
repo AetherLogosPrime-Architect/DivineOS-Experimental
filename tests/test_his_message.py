@@ -129,6 +129,62 @@ def test_the_interrupt_stamp_is_not_his_words(stamp):
     assert hear({**TYPED, "message": {"role": "user", "content": stamp}}) is None
 
 
+def test_only_a_prompt_mode_slip_is_him():
+    # Aether's port of #554 (2026-09-30): 4,363 queued_command slips are
+    # monitor notices in task-notification mode; only "prompt" is him typing.
+    def slip(mode):
+        att = {"type": "queued_command", "prompt": "a line he typed"}
+        if mode is not None:
+            att["commandMode"] = mode
+        return {**QUEUED, "attachment": att}
+
+    assert isinstance(hear(slip("prompt")), Heard)
+    assert hear(slip("task-notification")) is None
+    assert isinstance(hear(slip(None)), Heard), "an older slip with no mode is judged by its text"
+
+
+def test_continues_a_turn_is_asked_here_not_outside():
+    from divineos.core.his_message import continues_a_turn
+
+    assert continues_a_turn({**TYPED, "isMeta": True})
+    assert continues_a_turn({**TYPED, "isCompactSummary": True})
+    assert not continues_a_turn(TYPED)
+
+
+ENQUEUE = {
+    "type": "queue-operation",
+    "operation": "enqueue",
+    "timestamp": "2026-08-28T10:00:00Z",
+    "sessionId": "s",
+    "content": "the app crashed so lets try this again",
+}
+
+
+def test_an_enqueued_line_is_heard_as_a_dated_copy():
+    # 60 of his messages exist only as enqueue records (2026-09-30 count).
+    got = hear(ENQUEUE)
+    assert isinstance(got, Heard) and got.bookmark and got.when == "2026-08-28T10:00:00Z"
+    assert got.text == "the app crashed so lets try this again"
+
+
+def test_an_enqueue_that_also_arrived_as_a_message_is_not_counted_twice():
+    typed = {**TYPED, "message": {"role": "user", "content": ENQUEUE["content"]}}
+    assert [h.text for h in heard_in([ENQUEUE, typed])] == [ENQUEUE["content"]]
+
+
+def test_an_enqueue_found_nowhere_else_is_kept():
+    assert [h.text for h in heard_in([ENQUEUE])] == [ENQUEUE["content"]]
+
+
+@pytest.mark.parametrize("op", ["dequeue", "remove"])
+def test_other_queue_operations_are_not_him(op):
+    assert hear({**ENQUEUE, "operation": op}) is None
+
+
+def test_an_enqueued_notice_is_not_him():
+    assert hear({**ENQUEUE, "content": "<task-notification>x</task-notification>"}) is None
+
+
 def test_his_line_breaks_survive_the_reader():
     # Aletheia, reading #507: keeping_him flattened what hear() returned. The
     # reader itself must hand his paragraphs back as he typed them.

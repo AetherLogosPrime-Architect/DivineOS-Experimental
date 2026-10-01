@@ -129,6 +129,19 @@ def _his_part(text: str) -> str:
     return rest
 
 
+def continues_a_turn(record: dict) -> bool:
+    """Is this record the harness continuing a turn, rather than anyone speaking?
+
+    Hook feedback (isMeta) and a compaction summary (isCompactSummary) sit in
+    the user role without being a new turn of his. Asked here so that no reader
+    outside this home has to read those flags itself -- the private-reader
+    check rightly refuses that (Aether, porting #554, 2026-09-30).
+    """
+    return bool(
+        isinstance(record, dict) and (record.get("isMeta") or record.get("isCompactSummary"))
+    )
+
+
 def hear(record: dict) -> Heard | Unclassified | None:
     """His text from one transcript record, or None if it is not him."""
     if not isinstance(record, dict):
@@ -139,13 +152,40 @@ def hear(record: dict) -> Heard | Unclassified | None:
         text = _his_part(raw) if isinstance(raw, str) else ""
         return Heard(text=text, bookmark=True) if text else None
 
-    if record.get("isMeta") or record.get("isSidechain") or record.get("isCompactSummary"):
+    # THE FOURTH SHAPE: the harness's queue of what he typed while I was busy.
+    # It carries his words with a time but no record id, and usually a second
+    # copy exists as a queued_command or user record -- but not always. Measured
+    # 2026-09-30 over every transcript: 22,371 enqueue texts, 239 found nowhere
+    # else, and 60 of those 239 are his own words (often around a crash: "the
+    # app crashed so lets try this again"). The other 179 are notices, refused
+    # by the same rules as everywhere. It is returned as a bookmark -- a copy,
+    # kept by heard_in only when no record with an id carries the same words --
+    # so the 22,132 that ARE elsewhere are not counted twice.
+    if record.get("type") == "queue-operation":
+        raw = record.get("content")
+        if record.get("operation") != "enqueue" or not isinstance(raw, str):
+            return None
+        text = _his_part(raw)
+        return (
+            Heard(text=text, when=str(record.get("timestamp") or ""), bookmark=True)
+            if text
+            else None
+        )
+
+    if continues_a_turn(record) or record.get("isSidechain"):
         return None
     if record.get("userType") not in (None, "external"):
         return None
 
     attachment = record.get("attachment") or {}
     if isinstance(attachment, dict) and attachment.get("type") == "queued_command":
+        # Only a prompt-mode slip is him typing. Measured 2026-09-30: 332
+        # "prompt", 4,363 "task-notification" (a monitor's notice riding the
+        # same queue), none without the field. A record with no mode at all is
+        # an older shape and is judged by its text, as before.
+        mode = attachment.get("commandMode")
+        if mode is not None and mode != "prompt":
+            return None
         raw = attachment.get("prompt")
         text = _his_part(raw) if isinstance(raw, str) else ""
         if text:
