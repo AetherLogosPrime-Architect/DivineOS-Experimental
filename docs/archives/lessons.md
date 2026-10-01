@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (12 rows). **Exported:** 2026-09-30 08:43. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (12 rows). **Exported:** 2026-09-30 23:52. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -12,7 +12,7 @@ I edited files without reading them first. I must read before I edit.
 
 ---
 
-## c3016302 [active] x17
+## c3016302 [improving] x17
 
 **Category:** upset_recovered
 
@@ -20,7 +20,7 @@ I did AI response (text only) and my user pushed back: "no see it still running 
 
 ---
 
-## f5eb2592 [active] x15
+## f5eb2592 [improving] x15
 
 **Category:** incomplete_fix
 
@@ -28,7 +28,7 @@ I introduced errors after editing. I need to verify changes work.
 
 ---
 
-## 41a491b2 [active] x14
+## 41a491b2 [improving] x14
 
 **Category:** blind_retry
 
