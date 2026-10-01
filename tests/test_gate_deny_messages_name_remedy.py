@@ -87,6 +87,11 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         # Andrew corrected the filter shape into this one himself, so a test
         # treating it as a possible gate would be auditing the wrong thing.
         "he-is-in-the-room.sh",
+        # Writes a goal boundary at SessionStart and steps aside: every path
+        # exits zero, because a hook that refuses SessionStart refuses the
+        # briefing with it. The refusing it causes happens later, in the goal
+        # guard, which carries its own remedy (divineos goal add).
+        "goal-boundary-at-session-start.sh",
         "load-briefing.sh",
         "pre-response-context.sh",
         "pre-tool-context.sh",
