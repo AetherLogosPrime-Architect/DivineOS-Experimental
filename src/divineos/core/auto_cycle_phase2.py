@@ -47,6 +47,7 @@ eaten (Dijkstra on walk-e281a97c4097).
 
 from __future__ import annotations
 
+import calendar
 import json
 import time
 from dataclasses import dataclass
@@ -431,8 +432,11 @@ def close_cycle(
 
     cycle_id = str(pending.get("cycle_id", ""))
     try:
-        offered_ts = time.mktime(
-            time.strptime(str(pending.get("offered_at", "")), "%Y-%m-%dT%H:%M:%SZ")
+        # offered_at is UTC (written from time.gmtime with a Z). calendar.timegm
+        # reads it as UTC; time.mktime read it as LOCAL time, so off-UTC every
+        # duration was shifted by the zone and clamped to 0 west of Greenwich.
+        offered_ts = float(
+            calendar.timegm(time.strptime(str(pending.get("offered_at", "")), "%Y-%m-%dT%H:%M:%SZ"))
         )
     except (ValueError, TypeError):
         offered_ts = time.time()

@@ -298,6 +298,27 @@ class TestCloseCycle:
     def test_no_pending_returns_none(self, home: Path):
         assert close_cycle("no-pull-honest") is None
 
+    def test_the_duration_is_real_time_whatever_the_local_zone(self, home: Path):
+        # Review finding 2026-10-01: offered_at is written in UTC and was read
+        # back with time.mktime, which assumes LOCAL time. West of UTC the
+        # start lands in the future and the duration clamps to 0; east of it,
+        # the duration is inflated. This machine runs UTC-7, so the bug shows
+        # here without touching the zone.
+        import time as _time
+
+        _write_handshake()
+        offer_cycle()
+        pending = json.loads(_pending().read_text(encoding="utf-8"))
+        pending["offered_at"] = _time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", _time.gmtime(_time.time() - 600)
+        )
+        _pending().write_text(json.dumps(pending), encoding="utf-8")
+
+        result = close_cycle("timeout")
+
+        assert result is not None
+        assert 590 <= result.duration_sec <= 660, result.duration_sec
+
     def test_close_records_clears_pending_and_consumes_the_handshake(self, home: Path):
         _write_handshake()
         offer_cycle()
