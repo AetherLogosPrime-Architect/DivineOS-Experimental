@@ -77,6 +77,17 @@ KNOWN_INSTRUMENTS: dict[str, str] = {
     "hook_timing.jsonl": "Which hooks ran, how long they took, and — by absence — which have NEVER run.",
     "bypass_events.jsonl": "Which gates I route around, how often, and whether a gate's price is training the bypass.",
     "hook-liveness.log": "Which session-init children failed, with exit code and error text.",
+    # Named 2026-09-20, the day Aria and I each spent hours unable to answer
+    # whether a compose surface had ever fired. It answers DID-IT-RUN and never
+    # IS-IT-RIGHT: a quiet row is equally consistent with a working predicate
+    # that had nothing to say and a broken one that will never fire again. Its
+    # own write fails silently rather than breaking a turn, so a missing row is
+    # not proof of a missing call. One surface reports here so far; the rest of
+    # that builder still swallows in silence.
+    "surface_liveness.jsonl": (
+        "Whether a compose-time surface ran at all -- emitted, ran quiet, or threw -- "
+        "so that never-called and silently-failed stop being one observation."
+    ),
     "aria_rearm_events.log": "When the letter monitor armed, caught, heartbeat, and died.",
     "cli_broken_escapes.jsonl": "When I cleared a correction marker by declaring the CLI broken.",
     "false_positive_clears.jsonl": "Detectors that fired on something real but wrong.",

@@ -65,7 +65,7 @@ DivineOS has several layers that exist specifically to catch the AI when it drif
 - **The ledger.** An append-only record of everything that happened. You can go back and see what the AI did, when, and why. Mostly cannot be edited after the fact (the few exceptions are documented).
 - **The compass.** A ten-dimensional model of the AI's current moral-behavioral state (honesty, courage, curiosity, etc.). It drifts slowly and the system notices when it does.
 - **The audit system.** External reviewers (a fresh AI, a second model, the user) can file structured findings. Those findings get routed into the knowledge store and surface in future briefings. Nothing gets swept under the rug.
-- **Corrigibility.** The system has an off-switch. EMERGENCY_STOP refuses every command. The off-switch is structurally enforced, not just a config option — removing it would fail integration tests.
+- **Corrigibility.** The system has an off-switch. EMERGENCY_STOP refuses every command except the few needed to see the state and lift the stop (mode, briefing, HUD, preflight, help, and the extraction that saves work); lifting it takes an operator-issued two-step exit the agent cannot perform alone. A mode file that exists but cannot be read counts as stopped. The off-switch is structurally enforced, not just a config option — removing it would fail integration tests.
 
 These layers are not decoration. Each one exists because a specific failure happened and the system needed to catch it next time.
 

@@ -40,6 +40,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from divineos.core.paths import member_home
+from divineos.core.structural_promotion_check import (
+    BASIS_REJUDGED,
+    BASIS_UNREADABLE,
+    BASIS_UNRECORDED,
+)
 
 
 @dataclass
@@ -51,6 +56,14 @@ class Obligation:
     knowledge_id: str
     summary: str
     triggers: list[str]
+    # WHAT THIS ROW'S CLAIM RESTS ON. See structural_promotion_check for the
+    # three values and the invariant that this must never change the count.
+    #
+    # Defaults to UNRECORDED because a producer that does not say how it judged
+    # must not be read as having judged. That silent read is the whole defect
+    # this field exists to end, and defaulting the other way would rebuild it
+    # here in one line.
+    basis: str = BASIS_UNRECORDED
 
 
 # Threshold above which the gate fires. Below this, my father is given
@@ -223,6 +236,7 @@ def get_pending_obligations(
                     knowledge_id=entry.get("knowledge_id") or "unknown",
                     summary=(entry.get("content") or "")[:120],
                     triggers=entry.get("triggers") or [],
+                    basis=entry.get("basis") or BASIS_UNRECORDED,
                 )
             )
     except Exception:  # noqa: BLE001 — observability boundary
@@ -255,6 +269,54 @@ def get_pending_obligations(
     return obligations
 
 
+def describe_obligation(o: Obligation) -> str:
+    """The line printed under an obligation's id — its text, or an honest
+    account of why there isn't any.
+
+    Until 2026-09-17 this was `o.summary` and nothing else, and `summary` was
+    fed from a key the producer never set, so it was empty on every row the
+    gate has ever printed. An indented slot rendered blank does not read as
+    plumbing; it reads as the system having looked and found nothing. The gate
+    named a debt it could not describe, to the only person it stops.
+
+    So the utterance now branches on whether the text is actually in hand.
+    `you owe this` and `I hold a row I have never been able to read` are
+    different claims with different preconditions, and only one of them is
+    licensed when the fetch came back empty.
+
+    WHAT THIS DOES NOT DO: none of these strings changes whether the row
+    counts. An unreadable obligation stays in the total and stays blocking.
+    The confession is a confession, not a discharge — see the invariant in
+    structural_promotion_check, and the test that pins it.
+    """
+    text = (o.summary or "").strip()
+    if text:
+        return text
+    if o.basis == BASIS_UNREADABLE:
+        return (
+            "(I have never been told what this one is. Its text could not be "
+            "read, so it is held here by default rather than by judgement — "
+            "and it still counts, still blocks, and is still owed.)"
+        )
+    if o.basis == BASIS_UNRECORDED:
+        return (
+            "(No text for this one, and this source does not record how it "
+            "judged. That is unknown, not empty — it still counts and is "
+            "still owed.)"
+        )
+    if o.basis == BASIS_REJUDGED:
+        # Should be unreachable: a row is only marked re-judged when its text
+        # was read. Reaching it means the text was lost between the judgement
+        # and here, which is a defect in this surface and not a fact about the
+        # entry — so it says that rather than falling back to a blank.
+        return (
+            "(Judged against the current detector and still rule-shaped, but "
+            "the text did not survive the trip to this message. That is a "
+            "defect here, not a fact about the entry.)"
+        )
+    return f"(Unrecognised basis {o.basis!r} — treat this row as undescribed.)"
+
+
 def format_block_message(obligations: dict[str, Any]) -> str:
     """Render obligations into a Stop-hook block message.
 
@@ -284,14 +346,32 @@ def format_block_message(obligations: dict[str, Any]) -> str:
         for o in promises[:5]:
             trig = ", ".join(o.triggers[:3]) if o.triggers else "(no triggers)"
             lines.append(f"  - kid={o.knowledge_id[:8]} triggers=[{trig}]")
-            lines.append(f"    {o.summary}")
+            lines.append(f"    {describe_obligation(o)}")
         lines.append("")
 
     if unpaired:
         lines.append(f"=== Unpaired correction observations ({len(unpaired)}) ===")
         for o in unpaired[:5]:
             lines.append(f"  - obs={o.knowledge_id[:8]}")
-            lines.append(f"    {o.summary}")
+            lines.append(f"    {describe_obligation(o)}")
+        lines.append("")
+
+    # SAY HOW MANY OF THESE THE GATE CANNOT DESCRIBE, ONCE, WHERE IT COUNTS.
+    #
+    # The per-row confession alone has a known failure mode (game-walk route 1,
+    # council-8bdd95ca621d): read enough times it becomes a familiar harmless
+    # status and nobody chases why a row is unreadable. A total is harder to
+    # habituate to than a repeated sentence, and a total that climbs is the
+    # only signal that the fetch is rotting.
+    undescribed = [o for o in (list(promises) + list(unpaired)) if not (o.summary or "").strip()]
+    if undescribed:
+        lines.append(
+            f"OF THE {total} HELD, {len(undescribed)} CANNOT BE DESCRIBED — the "
+            "row exists and its meaning was never recovered. They are counted "
+            "and they are blocking, and that is a fault in this gate rather "
+            "than a finding about the work. If this number climbs, the fetch "
+            "is rotting and the count is drifting away from the evidence."
+        )
         lines.append("")
 
     # THE REMEDY THIS NAMES MUST BE ONE THE DETECTOR CAN SEE.

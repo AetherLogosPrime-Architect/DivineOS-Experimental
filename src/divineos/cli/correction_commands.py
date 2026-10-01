@@ -198,11 +198,21 @@ def register(cli: click.Group) -> None:
         # free and unnamed, indistinguishable from the main road. Requiring a
         # named reason keeps the exit open and makes it say who used it and
         # why.
-        _NO_STRUCTURE_MARKER = "no structure possible:"
-        claims_no_structure = _NO_STRUCTURE_MARKER in _lower
+        #
+        # The door stays; its SIGN changed 2026-09-23. It used to read "no
+        # structure possible", which is a verdict of impossibility, and Andrew
+        # that day: "you dont get to decide what can or cannot be built.. you can
+        # mark it as yet unresolved.. but never are you to mark anything
+        # impossible..". So the exit now says what is true -- the structure is
+        # not found YET -- and the obligation it files is that open item. The
+        # old spelling is still read, so a filing in the old words is not
+        # refused, but it is recorded under the new name.
+        _NO_STRUCTURE_MARKERS = ("structure not yet found:", "no structure possible:")
+        _marker = next((m for m in _NO_STRUCTURE_MARKERS if m in _lower), None)
+        claims_no_structure = _marker is not None
         no_structure_reason = ""
-        if claims_no_structure:
-            no_structure_reason = _lower.split(_NO_STRUCTURE_MARKER, 1)[1].strip()
+        if _marker:
+            no_structure_reason = _lower.split(_marker, 1)[1].strip()
         habit_only = has_fix and not claims_structural_fix
 
         missing: list[str] = []
@@ -229,14 +239,14 @@ def register(cli: click.Group) -> None:
                 "FEASIBILITY TEST — it proves the shape can be held at all, which is "
                 "real and worth keeping. It is not the cure: a held intention fades in "
                 "roughly 8-9 prompts, so structure is what carries it past that. Name "
-                "what you built. If this one genuinely has no structural form, say "
-                '"no structure possible: <why>" (>=40 chars) — that exit stays open on '
-                "purpose (truth #12, bypass is a tool not a sin), it just has to say "
-                "who used it and why"
+                "what you built. If you have not found its structure yet, say "
+                '"structure not yet found: <why>" (>=40 chars) — that exit stays open '
+                "on purpose (truth #12, bypass is a tool not a sin); it files the item "
+                "as UNRESOLVED on the todo list, never as impossible"
             )
         if claims_no_structure and len(no_structure_reason) < 40:
             missing.append(
-                'a real reason after "no structure possible:" (>=40 chars) — an '
+                'a real reason after "structure not yet found:" (>=40 chars) — an '
                 "unexplained exception is the escape hatch, not the exception"
             )
         if missing:
@@ -317,7 +327,7 @@ def register(cli: click.Group) -> None:
 
                 record_bypass(
                     "correction-structural-fix-requirement",
-                    "no-structure-possible",
+                    "structure-not-yet-found",
                     reason=no_structure_reason[:300],
                     is_compliance=False,
                 )

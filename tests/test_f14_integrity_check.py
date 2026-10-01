@@ -122,6 +122,44 @@ class TestIntegrityPhase:
         assert "simulated DB failure" in data["error"]
 
 
+class TestNightWalksTheLinks:
+    """Structured Chaos #28: every row passed its own hash while links were
+    crossed, and sleep reported clean for five weeks. Real ledger, no fakes."""
+
+    def test_crossed_link_with_intact_rows_reaches_the_hud(
+        self, isolated_marker, tmp_path, monkeypatch
+    ):
+        from divineos.core._ledger_base import get_connection
+        from divineos.core.hud import _build_chain_integrity_slot
+        from divineos.core.ledger import _CHAIN_GENESIS, init_db, log_event
+        from divineos.core.sleep import DreamReport, _phase_integrity_check
+
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "night.db"))
+        init_db()
+        for i in range(3):
+            log_event("NIGHT_PROBE", "system", {"i": i}, validate=False)
+        conn = get_connection()
+        try:
+            # Cross the last link the way the race did: the row is untouched
+            # except for which page it claims came before it.
+            conn.execute(
+                "UPDATE system_events SET prior_hash = ? "
+                "WHERE rowid = (SELECT MAX(rowid) FROM system_events)",
+                (_CHAIN_GENESIS,),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        report = DreamReport()
+        _phase_integrity_check(report)
+        data = json.loads(
+            (isolated_marker / "ledger_integrity_last_run.json").read_text(encoding="utf-8")
+        )
+        assert data["chain_ok"] is False
+        assert "CHAIN LINK BROKEN" in _build_chain_integrity_slot()
+
+
 class TestGetLastIntegrityResult:
     """Public accessor for the HUD slot."""
 
@@ -170,10 +208,31 @@ class TestChainIntegrityHudSlot:
 
         marker = isolated_marker / "ledger_integrity_last_run.json"
         marker.write_text(
-            json.dumps({"ts": 123.0, "verified": 100, "failed": 0, "failures": [], "skipped": 5}),
+            json.dumps(
+                {
+                    "ts": 123.0,
+                    "verified": 100,
+                    "failed": 0,
+                    "failures": [],
+                    "skipped": 5,
+                    "chain_ok": True,
+                }
+            ),
             encoding="utf-8",
         )
         assert _build_chain_integrity_slot() == ""
+
+    def test_slot_not_quiet_when_links_were_never_walked(self, isolated_marker):
+        """A marker from before the chain walk checked rows only; silence
+        would claim the links were checked when they were not."""
+        from divineos.core.hud import _build_chain_integrity_slot
+
+        marker = isolated_marker / "ledger_integrity_last_run.json"
+        marker.write_text(
+            json.dumps({"ts": 123.0, "verified": 100, "failed": 0, "failures": [], "skipped": 5}),
+            encoding="utf-8",
+        )
+        assert "LINKS NOT WALKED" in _build_chain_integrity_slot()
 
     def test_slot_fires_when_failures_present(self, isolated_marker):
         from divineos.core.hud import _build_chain_integrity_slot

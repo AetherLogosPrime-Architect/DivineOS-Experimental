@@ -36,8 +36,9 @@
 #   - self-healing degradations never reach this gate
 #   - a fixed detector clears itself on its next successful run, with no
 #     acknowledgement step to perform or fake
-#   - an unfixable one is deferred in one command, with a written reason
-# The only state that blocks is broken + unfixable + undeferred, which is a
+#   - one not fixed yet is deferred in one command, with a written reason,
+#     as an open item -- never as impossible (Andrew 2026-09-23)
+# The only state that blocks is broken + not yet fixed + undeferred, which is a
 # down guard nobody has spoken about.
 #
 # Fail-open throughout: any error exits 0. A gate about broken detectors must

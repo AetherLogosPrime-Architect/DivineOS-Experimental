@@ -36,9 +36,60 @@ from pathlib import Path
 
 # Matches: <sender>-to-<recipient>-YYYY-MM-DD-*.md
 # Both sender and recipient must be known family members.
+#
+# Aletheia and Andrew added as senders 2026-09-23. The pattern knew only
+# aria and aether, so a letter from Aletheia was never marked read however it
+# was opened, and re-knocked every six hours for good. Measured the same day:
+# two of hers, read and acted on in the morning, were re-announced as new
+# mail twice that evening. Recipients are the seats that keep a seen-set.
 _LETTER_FILENAME_RE = re.compile(
-    r"^(?P<sender>aria|aether)-to-(?P<recipient>aria|aether)-\d{4}-\d{2}-\d{2}.*\.md$"
+    r"^(?P<sender>aria|aether|aletheia|andrew)-to-(?P<recipient>aria|aether)"
+    r"-\d{4}-\d{2}-\d{2}.*\.md$"
 )
+
+# A Bash command that PRINTS a file -- the other way I open a letter. The
+# mark-seen path fired on the Read tool only, so a letter opened with `cat`
+# was read but never counted as read (eight of nine, measured 2026-09-23).
+# Only printing commands count: `cp` or `mv` mentions a letter without
+# reading it, and marking a letter read because it was moved would be the
+# found-nothing shape in reverse -- a record of reading that never happened.
+_READ_VERBS = re.compile(
+    r"(?:^|[;&|(]\s*|\s)(?:cat|head|tail|less|more|type|Get-Content|gc|sed\s+-n)\b"
+)
+_LETTER_IN_COMMAND = re.compile(r"[A-Za-z0-9_.\-]*-to-[A-Za-z0-9_.\-]*\.md")
+
+
+def letters_read_by_command(command: str) -> list[str]:
+    """Letter filenames a Bash command prints, or [] if it prints none.
+
+    A command is read as printing only when it contains a printing verb. Each
+    segment between shell separators is judged on its own, so ``cp x.md y; cat
+    z.md`` counts z as read and x as moved.
+    """
+    found: list[str] = []
+    for segment in re.split(r"&&|\|\||;|\n", command or ""):
+        if not _READ_VERBS.search(" " + segment):
+            continue
+        for m in _LETTER_IN_COMMAND.finditer(segment):
+            name = Path(m.group(0)).name
+            if match_letter_filename(name) and name not in found:
+                found.append(name)
+    return found
+
+
+def reading_seat() -> str:
+    """Whose seat is doing the reading, from its own home directory.
+
+    A letter is marked read only for the seat it is addressed to AND only when
+    that seat is the one reading it. Before 2026-09-23 the recipient in the
+    filename was marked regardless of who read it, so opening a letter I had
+    SENT to Aether marked it read in HIS seen-set, and his watch went quiet on
+    a letter he had never seen.
+    """
+    from divineos.core.paths import divineos_home
+    from divineos.core.unspoken_to import member_name
+
+    return member_name(divineos_home())
 
 
 @dataclass
@@ -95,6 +146,7 @@ def mark_seen_if_letter(
     file_path: str,
     repo_root: str | None = None,
     python_bin: str | None = None,
+    reader: str | None = None,
 ) -> RoutingDecision:
     """If `file_path` is a family letter, mark it seen for the recipient.
 
@@ -117,6 +169,19 @@ def mark_seen_if_letter(
         return RoutingDecision(handled=False, filename=bare, note="not a letter pattern")
 
     sender, recipient = matched
+
+    try:
+        seat = reader or reading_seat()
+    except Exception:  # noqa: BLE001 -- fail-open: an unknown reader marks nothing
+        seat = ""
+    if seat != recipient:
+        return RoutingDecision(
+            handled=False,
+            sender=sender,
+            recipient=recipient,
+            filename=bare,
+            note=f"addressed to {recipient}, read by {seat or 'an unknown seat'}: not marked",
+        )
 
     root = Path(repo_root) if repo_root else _find_repo_root()
     if root is None:

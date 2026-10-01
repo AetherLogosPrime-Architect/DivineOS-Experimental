@@ -7,6 +7,30 @@
 # PreToolUse hook — block `gh pr merge` on guardrail-touching PRs without
 # an External-Review trailer in the merge body.
 #
+# SCOPE NOTE — THIS DESCRIBES WHAT THE CHECK MATCHES, NOT WHAT THE RULE
+# REQUIRES, AND THE CHECK IS NARROWER. Andrew, asked directly 2026-09-19:
+# "yes we made it blanket review, because otherwise it just leaves a big
+# hole. and just teaches you not to ever edit your guardrail files when
+# needed but to find alternatives." Every draft merging gets reviewed,
+# whatever it touches, personal writing included.
+#
+# SO SILENCE FROM THIS GATE IS NOT COMPLIANCE. A merge it permits has not
+# thereby been reviewed; it only means no guardrail path matched. That is
+# the one inference this note exists to forbid, because it is the one with
+# a real failure case — unreviewed work landing on the strength of no
+# objection.
+#
+# The rule lives with Andrew and Aletheia and travels in speech. This file
+# is a rendering of it and has already been out of date once. On 2026-09-19
+# the older wording here was one of three sources that convinced me the
+# requirement was scoped, and I reported a correct gate as over-strict on
+# the strength of them agreeing — three renderings of one utterance, not
+# three witnesses. Ask, or see CLAUDE.md rule 8 and docs/audit_system.md.
+#
+# The check is deliberately NOT widened to match. Making it refuse every
+# untrailered merge is a policy mechanism, not a comment edit, and is not
+# mine to build alone. The gap stays and is stated rather than hidden.
+#
 # Root cause (Andrew 2026-05-28): PR #50 modified moral_compass.py (a
 # guardrail file) and merged without a trailer, producing a permanent
 # red Integrity Audit badge on main. The pre-merge CI check fired red

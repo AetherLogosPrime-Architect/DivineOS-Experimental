@@ -148,13 +148,32 @@ def _fold_rowcount(row: dict[str, Any], roster: dict[str, Any]) -> None:
     totals["rows"] = int(totals.get("rows", 0)) + 1
 
 
+# Reasons that mean "it ran and nothing notable happened". These fold to counts
+# in the roster instead of surviving as lines. `healthy_source` was the original
+# and `quiet` joined it 2026-09-20 with the surface-liveness log: a surface meant
+# to be rare is quiet on almost every turn, so quiet is its heartbeat.
+#
+# WIDENED TO A SET RATHER THAN RENAMED. The cheap route was to call the new
+# state `healthy_source` so it passed the existing single-string test untouched.
+# That would have made the rows pass the filter while lying about what they are,
+# and the lie would live in the data where nobody reads it rather than in the
+# code where somebody might.
+_HEARTBEAT_REASONS: frozenset[str] = frozenset({"healthy_source", "quiet"})
+
+
 def _liveness_is_signal(row: dict[str, Any]) -> bool:
     """Keep a liveness row verbatim unless it says nothing happened.
 
-    The log's stated purpose is failures. `healthy_source` is the heartbeat and
-    is preserved as a count in the roster rather than as half a million lines.
+    The log's stated purpose is failures. Heartbeat rows are preserved as counts
+    in the roster rather than as half a million lines.
+
+    BOUNDARY, stated rather than left to be rediscovered: a row carrying no
+    reason field at all yields the empty string, which is not in the set, so it
+    is KEPT. That is the correct direction -- an unclassified row is signal
+    until somebody classifies it -- and an optimisation that made unknown rows
+    foldable would silently discard exactly the rows nobody understands yet.
     """
-    return str(row.get("reason") or "") != "healthy_source"
+    return str(row.get("reason") or "") not in _HEARTBEAT_REASONS
 
 
 @dataclass(frozen=True)
@@ -186,6 +205,17 @@ POLICIES: tuple[LogPolicy, ...] = (
         fold=_fold_counter,
         keep_if=_liveness_is_signal,
         note="failures are the signal; healthy_source is only the heartbeat",
+    ),
+    LogPolicy(
+        filename="surface_liveness.jsonl",
+        fold=_fold_counter,
+        cumulative=True,
+        keep_if=_liveness_is_signal,
+        note=(
+            "the counts ARE the answer here: quiet folds to a tally so a reader can say "
+            "this surface ran four hundred times and emitted twice, which is the question "
+            "that was unanswerable before it existed"
+        ),
     ),
     LogPolicy(
         filename="retrieval_tally.jsonl",

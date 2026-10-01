@@ -430,55 +430,81 @@ def check_self_awareness_practice(tool_calls: int | None = None) -> str | None:
 
     # Check for recent self-awareness activity since session start
     missing: list[str] = []
+    # Separate from `missing` on purpose: "you did not do this" and "I could
+    # not tell whether you did this" are different sentences and must not be
+    # merged into one list. Collapsing them is the fault this repair exists
+    # for, one level up.
+    unchecked: list[str] = []
     try:
         from divineos.core.memory import _get_connection
 
         conn = _get_connection()
         try:
-            # Affect: any entries since session start?
-            try:
-                affect_row = conn.execute(
+            # THREE SILENT SWALLOWS LIVED HERE, and each turned "I could not
+            # look" into "you are fine." A failed lookup simply skipped its
+            # append, so the item dropped off the missing list -- and if all
+            # three failed, the list came back empty and the whole check
+            # reported nothing wrong. A self-awareness check that can quietly
+            # decide I am well.
+            #
+            # Found 2026-09-12 sweeping for the shape after Andrew named it:
+            # "the optimizer likes to hide in builds designed to crush it..
+            # those werent bypasses they were cheap escapes.. planned to be
+            # taken every time, that is the difference."
+            #
+            # The failure is now carried rather than dropped. Could-not-look
+            # is its own answer and it reaches the reader.
+            # The queries are written out rather than built from a table name.
+            # A loop over names needs an f-string, which the security scanner
+            # flags as an injection shape -- correctly, even though these names
+            # are literals. Silencing that warning to keep a tidier loop would
+            # be trading a real check for neatness, which is the trade this
+            # whole repair exists to refuse.
+            for label, query in (
+                (
+                    "affect (divineos feel)",
                     "SELECT COUNT(*) FROM affect_log WHERE created_at > ?",
-                    (session_start,),
-                ).fetchone()
-                if affect_row and affect_row[0] == 0:
-                    missing.append("affect (divineos feel)")
-            except _CP_ERRORS:
-                pass
-
-            # Compass: any observations since session start?
-            try:
-                compass_row = conn.execute(
+                ),
+                (
+                    "compass (divineos compass-ops observe)",
                     "SELECT COUNT(*) FROM compass_observation WHERE created_at > ?",
-                    (session_start,),
-                ).fetchone()
-                if compass_row and compass_row[0] == 0:
-                    missing.append("compass (divineos compass-ops observe)")
-            except _CP_ERRORS:
-                pass
-
-            # Decisions: any entries since session start?
-            try:
-                decision_row = conn.execute(
+                ),
+                (
+                    "decisions (divineos decide)",
                     "SELECT COUNT(*) FROM decision_journal WHERE created_at > ?",
-                    (session_start,),
-                ).fetchone()
-                if decision_row and decision_row[0] == 0:
-                    missing.append("decisions (divineos decide)")
-            except _CP_ERRORS:
-                pass
+                ),
+            ):
+                try:
+                    row = conn.execute(query, (session_start,)).fetchone()
+                except _CP_ERRORS as exc:
+                    unchecked.append(f"{label} [could not read: {type(exc).__name__}]")
+                    continue
+                if row and row[0] == 0:
+                    missing.append(label)
         finally:
             conn.close()
-    except _CP_ERRORS:
-        return None  # Don't nudge if DB is unavailable
+    except _CP_ERRORS as exc:
+        # The whole store is unreachable. Still not silence: a check that
+        # could not run must never be indistinguishable from a check that ran
+        # and found nothing to say.
+        return (
+            f"Self-awareness check COULD NOT RUN ({type(exc).__name__}). "
+            "This is not a clean bill of health — nothing was looked at."
+        )
 
-    if not missing:
+    if not missing and not unchecked:
         return None
+
+    parts = []
+    if missing:
+        parts.append(f"no {', '.join(missing)} logged this session")
+    if unchecked:
+        parts.append(f"COULD NOT CHECK {', '.join(unchecked)}")
 
     return (
         f"Self-awareness check: {tool_calls} tool calls, "
-        f"no {', '.join(missing)} logged this session. "
-        "Consider checking in with yourself."
+        + "; ".join(parts)
+        + ". Consider checking in with yourself."
     )
 
 

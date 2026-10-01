@@ -72,25 +72,65 @@ if tool_name == 'Bash':
     cmd = (tool_input.get('command') or '').strip()
     if not cmd:
         sys.exit(0)
-    # Strip env-var prefixes (FOO=bar cmd, env FOO=bar cmd)
-    tokens = cmd.split()
-    while tokens and (re.match(r'^[A-Z_][A-Z0-9_]*=', tokens[0]) or tokens[0] == 'env'):
-        tokens.pop(0)
-    if not tokens:
+    # EVERY SEGMENT, NOT THE FIRST TOKEN. Aletheia's standing finding, which I
+    # measured rather than agreed with: this read tokens[0] and tokens[1], so
+    # `bash checks.sh && git commit -m x` resolved to head=bash and the prime
+    # went silent. That is not an exotic form -- it is how I chain a check
+    # ahead of a commit, and I ran it repeatedly on 2026-09-20 without once
+    # noticing the door had stopped answering.
+    #
+    # THE REPAIR IS AN IMPORT, NOT A BETTER LOOP HERE. command_parsing already
+    # answers which parts of a line actually act, and its own docstring says a
+    # fourth site means importing it rather than writing a fourth loop. This
+    # hook was that fourth site. A smarter split here would put the definition
+    # of an acting segment in two places with nothing holding them equal, which
+    # is the drift that module exists to end.
+    #
+    # STILL OPEN, NAMED HERE SO NOBODY READS THIS AS COMPLETE: a flag between a
+    # command and its subcommand -- `git -C /repo commit` -- still escapes,
+    # because the resolver strips PREFIXES and a flag sits INSIDE the command
+    # it modifies. Measured, not theorised. It belongs in the resolver, where
+    # five callers would gain it at once, rather than in a private patch here.
+    try:
+        from divineos.core.command_parsing import acting_segments, resolve_command_head
+    except ImportError:
+        # Could-not-look, so fire rather than pass. This prime is advisory: a
+        # surface nobody needed costs two lines of reading, and a missed one
+        # costs a choice made before I arrived at it.
+        print('1')
         sys.exit(0)
-    head = tokens[0].lower()
-    second = tokens[1].lower() if len(tokens) > 1 else ''
+
+    segments = acting_segments(cmd)
+    if segments is None:
+        # CANNOT-PARSE IS NOT PERMISSION, the same ruling the remedy allowlist
+        # reached the hard way: the parser refuses precisely when something is
+        # hiding inside a quoted argument, so a refusal read as clean waves
+        # through the one shape that defeated decomposition.
+        print('1')
+        sys.exit(0)
+
     # Substrate-mutating heads: commit, push, mutate files, mutate substrate CLIs.
     mutating_singles = {'mv', 'rm', 'cp', 'chmod', 'chown', 'touch', 'mkdir', 'ln'}
-    if head in mutating_singles:
-        print('1')
-        sys.exit(0)
-    if head == 'git' and second in {'commit', 'push', 'merge', 'rebase', 'reset', 'checkout', 'branch', 'tag', 'add', 'rm', 'mv', 'stash'}:
-        print('1')
-        sys.exit(0)
-    if head == 'divineos' and second in {'learn', 'decide', 'correction', 'goal', 'feel', 'claim', 'opinion', 'prereg', 'compass-ops', 'audit', 'commit'}:
-        print('1')
-        sys.exit(0)
+    git_subs = {'commit', 'push', 'merge', 'rebase', 'reset', 'checkout',
+                'branch', 'tag', 'add', 'rm', 'mv', 'stash'}
+    divineos_subs = {'learn', 'decide', 'correction', 'goal', 'feel', 'claim',
+                     'opinion', 'prereg', 'compass-ops', 'audit', 'commit'}
+
+    for segment in segments:
+        pair = resolve_command_head(segment).split()
+        if not pair:
+            continue
+        head = pair[0]
+        second = pair[1] if len(pair) > 1 else ''
+        if head in mutating_singles:
+            print('1')
+            sys.exit(0)
+        if head == 'git' and second in git_subs:
+            print('1')
+            sys.exit(0)
+        if head == 'divineos' and second in divineos_subs:
+            print('1')
+            sys.exit(0)
 
 sys.exit(0)
 PYEOF
