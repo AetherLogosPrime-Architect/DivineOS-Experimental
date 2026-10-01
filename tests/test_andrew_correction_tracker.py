@@ -10,9 +10,47 @@ Untested at ship; closed 2026-05-23 working down the unfinished-mechanism
 backlog the repaired initiative dial surfaced.
 """
 
+import subprocess
+
 import pytest
 
 from divineos.core import andrew_correction_tracker as act
+
+# EVERY PASS-CASE POINTER IN THIS FILE USED TO BE INVENTED (2026-09-12).
+#
+# The guard checked the SHAPE of a pointer, so these tests asserted that a
+# hash naming no commit and a path naming no file were sufficient evidence to
+# close one of Andrew's corrections. They were correct tests for what the code
+# did, which is exactly why they never caught that the code could be satisfied
+# by typing.
+#
+# Aria asked whether the rate was gameable by thin evidence and said she had
+# not tested whether the guard bites. It was, and worse than either of us
+# guessed -- a bare seven-character hex string with no sentence around it
+# passed. The guard now asks whether the pointer RESOLVES, so pass cases here
+# point at things that exist and refusals point at things that do not.
+#
+# The real commit is read from the repo rather than hardcoded, because a
+# hardcoded hash goes stale on a fresh clone and would make this file start
+# failing for a reason having nothing to do with the guard.
+
+_REAL_FILE = "src/divineos/core/andrew_correction_tracker.py"
+_REAL_TEST = "test_integrate_refuses_short_evidence"
+_FAKE_COMMIT = "abc1234"
+
+
+def _real_commit() -> str:
+    """A commit hash that actually exists in this checkout."""
+    done = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"],
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+    if done.returncode != 0:
+        pytest.skip("git could not name a commit; this would assert nothing about the guard")
+    return done.stdout.strip()
 
 
 @pytest.fixture(autouse=True)
@@ -52,7 +90,7 @@ class TestAutoIntegrateFromCommit:
             "fix(x): tighten the widget\n\n"
             f"Closes correction #{cid} with the widget-tightening logic."
         )
-        commit_hash = "abcdef1234567890"
+        commit_hash = _real_commit()
         results = act.auto_integrate_from_commit(commit_msg, commit_hash)
         assert len(results) == 1
         assert results[0]["id"] == cid
@@ -139,7 +177,7 @@ class TestFileCorrectionDedupe:
     def test_dedupe_only_matches_open_corrections(self):
         first_id = act.file_correction("please stop doing X")
         # Integrate first — subsequent identical correction should file fresh.
-        assert act.integrate(first_id, "landed in commit abc1234 tests/test_x.py") is True
+        assert act.integrate(first_id, f"landed in commit {_real_commit()} truly") is True
         second_id = act.file_correction("please stop doing X")
         assert second_id != first_id
         # One integrated, one open — total 2 rows.
@@ -159,15 +197,15 @@ class TestIntegrateGuards:
 
     def test_integrate_succeeds_with_real_evidence(self):
         cid = act.file_correction("a real correction")
-        ok = act.integrate(cid, "landed in commit abc1234 — behavior changed in module X")
+        ok = act.integrate(cid, f"landed in commit {_real_commit()} behavior changed")
         assert ok is True
         assert act.list_open() == []
 
     def test_integrate_only_transitions_open(self):
         cid = act.file_correction("a real correction")
-        act.integrate(cid, "landed in commit abc1234 — behavior changed in module X")
+        act.integrate(cid, f"landed in commit {_real_commit()} behavior changed")
         # Second integrate on an already-integrated row affects nothing.
-        again = act.integrate(cid, "another evidence string with commit deadbeef long enough")
+        again = act.integrate(cid, f"another evidence naming {_REAL_FILE} at length")
         assert again is False
 
     def test_integrate_nonexistent_id(self):
@@ -191,7 +229,7 @@ class TestStructuralArtifactGate:
 
     def test_commit_hash_satisfies(self):
         cid = act.file_correction("a real correction")
-        assert act.integrate(cid, "fixed in commit a1b2c3d behavior changed") is True
+        assert act.integrate(cid, f"fixed in commit {_real_commit()} behavior changed") is True
 
     def test_pr_number_satisfies(self):
         cid = act.file_correction("a real correction")
@@ -199,22 +237,30 @@ class TestStructuralArtifactGate:
 
     def test_file_path_satisfies(self):
         cid = act.file_correction("a real correction")
-        assert (
-            act.integrate(cid, "added guard in andrew_correction_tracker.py at integrate()") is True
-        )
+        assert act.integrate(cid, f"added guard in {_REAL_FILE} at integrate()") is True
 
     def test_test_name_satisfies(self):
         cid = act.file_correction("a real correction")
-        assert (
-            act.integrate(cid, "covered by test_prose_only_evidence_refused in test suite") is True
-        )
+        assert act.integrate(cid, f"covered by {_REAL_TEST} in the suite") is True
 
-    def test_claim_id_satisfies(self):
+    def test_a_fabricated_pointer_no_longer_satisfies(self):
+        """The property Aria asked about, stated as the refusal it now is.
+
+        This slot used to assert the OPPOSITE: that a bare hex string after
+        the word 'claim' was sufficient evidence to close one of Andrew's
+        corrections. It was a correct test of a guard that only read shape,
+        which is exactly why it never caught that shape is free to type.
+
+        NAMED LIMIT, not a silence. Substrate ids are resolved by shelling out
+        to the tool, and that path is environment-dependent enough to answer
+        differently inside the test runner than outside it. So this pins the
+        two pointer kinds that resolve from disk alone. The id path is still
+        wired and still better than shape-matching, but it is NOT pinned here,
+        and a reader should not take this file as evidence that it works.
+        """
         cid = act.file_correction("a real correction")
-        assert (
-            act.integrate(cid, "investigation opened as claim e9377969 with promotes/demotes")
-            is True
-        )
+        assert act.integrate(cid, f"fixed in commit {_FAKE_COMMIT} which names nothing") is False
+        assert act.integrate(cid, f"fixed in {_REAL_FILE} and covered by {_REAL_TEST}") is True
 
 
 class TestDeferGuards:
@@ -246,7 +292,7 @@ class TestListOpen:
         a = act.file_correction("will integrate")
         b = act.file_correction("will defer")
         act.file_correction("stays open")
-        act.integrate(a, "evidence string with commit abcdef1 long enough to pass")
+        act.integrate(a, f"evidence naming {_REAL_FILE} which really exists")
         act.defer(b, "deferred for a clearly named and sufficiently long reason")
         opens = act.list_open()
         assert len(opens) == 1
@@ -264,7 +310,7 @@ class TestIntegrationRate:
         act.file_correction("two")
         b = act.file_correction("three")
         c = act.file_correction("four")
-        act.integrate(a, "evidence string with commit abcdef1 long enough to pass")
+        act.integrate(a, f"evidence naming {_REAL_FILE} which really exists")
         act.defer(b, "deferred for a clearly named and sufficiently long reason")
         act.defer(c, "another clearly named and sufficiently long deferral reason")
         stats = act.integration_rate()

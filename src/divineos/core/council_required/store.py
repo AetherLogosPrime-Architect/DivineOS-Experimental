@@ -32,6 +32,7 @@ from divineos.core.council_required.types import (
     EVENT_COUNCIL_RECORD_LOGGED,
     EVENT_COUNCIL_WALK_REJECTED,
     EVENT_EMERGENCY_COUNCIL_SKIP,
+    COMPOUND_KEY_JOINER,
     CheckResult,
     CouncilRecord,
     LensFinding,
@@ -51,6 +52,9 @@ def _serialize_record(record: CouncilRecord) -> dict[str, Any]:
         ],
         "synthesis": record.synthesis,
         "confirmed_by": record.confirmed_by,
+        # The job this walk covers, enumerated at filing time. Empty means
+        # self-only, which is every record written before this field existed.
+        "scope_fingerprints": list(record.scope_fingerprints),
         # consumed_at is intentionally NOT serialized here — consumption is
         # a separate event (COUNCIL_RECORD_CONSUMED), so the original
         # COUNCIL_RECORD_LOGGED event remains immutable and consume-state
@@ -75,8 +79,65 @@ def _deserialize_record(payload: dict[str, Any]) -> CouncilRecord:
         ),
         synthesis=str(payload.get("synthesis", "")),
         confirmed_by=payload.get("confirmed_by"),
+        scope_fingerprints=tuple(payload.get("scope_fingerprints") or []),
         consumed_at=None,  # see note in _serialize_record
     )
+
+
+def _covers(record_payload: dict[str, Any], edit_fingerprint: str) -> bool:
+    """Does this record's walk cover the edit being attempted?
+
+    A record covers the fingerprint it was filed against, plus any it
+    ENUMERATED as part of the same job. Membership is exact string equality
+    against names a person typed -- never a prefix, a directory or a pattern.
+    That is what keeps the hazard this module already names shut: a walk
+    cannot reach a file nobody listed, so the shell-write case where one walk
+    would have cleared every heredoc write in the tree stays impossible.
+    """
+    triggered = str(record_payload.get("triggered_edit_fingerprint", ""))
+    if triggered == edit_fingerprint:
+        return True
+    named = {triggered} | {str(f) for f in (record_payload.get("scope_fingerprints") or [])}
+    if edit_fingerprint in named:
+        return True
+    # A COMMAND THAT WRITES SEVERAL FILES is covered only by a walk that named
+    # EVERY one of them (2026-09-23, Aria, walk-421eaefacb8f). Same exact-string
+    # rule as above, applied per part -- no prefix, no directory, no pattern --
+    # so a walk for one file cannot clear a command that also writes another.
+    parts = edit_fingerprint.split(COMPOUND_KEY_JOINER)
+    return len(parts) > 1 and all(part in named for part in parts)
+
+
+def _spent_pairs(
+    consumption_payloads: list[dict[str, Any]],
+) -> tuple[set[str], set[tuple[str, str]]]:
+    """Split consumption rows into whole-record retirements and per-edit spends.
+
+    A row naming a record AND an edit spends that record for that edit only,
+    which is what lets one job-scoped walk clear each edit it enumerated.
+
+    A row naming a record and NO edit retires the whole record. That is the
+    STRICTER of the two available readings and it is chosen deliberately, per
+    the walk on this change: reading a fingerprint-less row as covering
+    nothing would silently un-spend every walk ever consumed and hand over a
+    stock of artifacts to clear future edits with, while looking like a fix.
+    Where two schemes meet, ambiguity resolves toward whatever unblocks the
+    reader, so the direction of failure is picked here rather than left to
+    fall out of the code -- toward refusing a walk that might still be
+    spendable, never toward re-spending one that is not.
+    """
+    retired: set[str] = set()
+    spent: set[tuple[str, str]] = set()
+    for payload in consumption_payloads:
+        rid = str(payload.get("record_id", ""))
+        if not rid:
+            continue
+        fp = str(payload.get("edit_fingerprint", ""))
+        if fp:
+            spent.add((rid, fp))
+        else:
+            retired.add(rid)
+    return retired, spent
 
 
 def log_council_record(record: CouncilRecord, actor: str = "agent") -> str:
@@ -199,12 +260,7 @@ def find_unconsumed_record(
         event_type=EVENT_COUNCIL_RECORD_CONSUMED,
         order="desc",
     )
-    consumed_record_ids: set[str] = set()
-    for ev in consumption_events:
-        payload = _payload_from_event(ev)
-        rid = str(payload.get("record_id", ""))
-        if rid:
-            consumed_record_ids.add(rid)
+    retired_ids, spent_pairs = _spent_pairs([_payload_from_event(ev) for ev in consumption_events])
 
     for ev in candidates:
         payload = _payload_from_event(ev)
@@ -212,11 +268,12 @@ def find_unconsumed_record(
         if ts < cutoff:
             # Newest-first ordering — once stale, the rest will be too.
             break
-        fp = str(payload.get("triggered_edit_fingerprint", ""))
-        if fp != edit_fingerprint:
+        if not _covers(payload, edit_fingerprint):
             continue
         record_id = str(payload.get("record_id", ""))
-        if record_id in consumed_record_ids:
+        if record_id in retired_ids:
+            continue
+        if (record_id, edit_fingerprint) in spent_pairs:
             continue
         return _deserialize_record(payload)
     return None
@@ -299,7 +356,7 @@ def find_and_consume_atomically(
     resolved_now = now if now is not None else time.time()
     cutoff = resolved_now - recency_seconds
 
-    from divineos.core._ledger_base import _get_db_path, compute_hash
+    from divineos.core._ledger_base import _get_db_path
     import sqlite3
 
     conn = sqlite3.connect(str(_get_db_path()))
@@ -323,7 +380,17 @@ def find_and_consume_atomically(
                 except (TypeError, ValueError):
                     continue
                 rid = str(p.get("record_id", ""))
-                if rid:
+                if not rid:
+                    continue
+                spent_fp = str(p.get("edit_fingerprint", ""))
+                if spent_fp:
+                    # Spent for that edit only, which is what lets one
+                    # job-scoped walk clear each edit it enumerated.
+                    if spent_fp == edit_fingerprint:
+                        consumed_ids.add(rid)
+                else:
+                    # No edit named: retires the whole record. Strictest of
+                    # the two readings, chosen deliberately -- see _spent_pairs.
                     consumed_ids.add(rid)
 
             # Scan candidate LOGGED events newest-first for a matching
@@ -342,8 +409,7 @@ def find_and_consume_atomically(
                 ts = float(p.get("walked_at", 0.0))
                 if ts < cutoff:
                     break  # newest-first — stale means the rest is too
-                fp = str(p.get("triggered_edit_fingerprint", ""))
-                if fp != edit_fingerprint:
+                if not _covers(p, edit_fingerprint):
                     continue
                 record_id_val = str(p.get("record_id", ""))
                 if record_id_val in consumed_ids:
@@ -355,31 +421,24 @@ def find_and_consume_atomically(
                 conn.commit()  # release lock cleanly; nothing written
                 return None
 
-            # Insert the COUNCIL_RECORD_CONSUMED event directly on this
-            # connection so it's part of the same atomic transaction.
-            # Mirror ledger.log_event's payload+hash contract so
-            # downstream verify passes over this row treat it identically
-            # to a log_event-created row.
-            consume_payload = {
-                "record_id": record.record_id,
-                "edit_fingerprint": edit_fingerprint,
-                "consumed_at": resolved_now,
-            }
-            payload_str = json.dumps(consume_payload, sort_keys=True)
-            content_hash = compute_hash(payload_str)
-            consume_event_id = str(uuid.uuid4())
-            conn.execute(
-                "INSERT INTO system_events "
-                "(event_id, timestamp, event_type, actor, payload, content_hash) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (
-                    consume_event_id,
-                    resolved_now,
-                    EVENT_COUNCIL_RECORD_CONSUMED,
-                    actor,
-                    payload_str,
-                    content_hash,
-                ),
+            # The COUNCIL_RECORD_CONSUMED event, on this connection inside
+            # this transaction, CHAINED. It used to be inserted by hand with a
+            # content_hash and no prior_hash/chain_hash -- the one row in this
+            # module not written through the ledger -- so verify counted it
+            # as unchained-after-the-chain-began, the shape a forged row takes
+            # (2026-08-18), and the record that a walk was spent sat outside
+            # the tamper-evidence chain. ledger.append_on chains and redacts
+            # it on the caller's transaction (Aria, 2026-09-29;
+            # walk-d1d17f7e2883).
+            consume_event_id = ledger.append_on(
+                conn,
+                EVENT_COUNCIL_RECORD_CONSUMED,
+                actor,
+                {
+                    "record_id": record.record_id,
+                    "edit_fingerprint": edit_fingerprint,
+                    "consumed_at": resolved_now,
+                },
             )
             conn.commit()
             return (record, consume_event_id)

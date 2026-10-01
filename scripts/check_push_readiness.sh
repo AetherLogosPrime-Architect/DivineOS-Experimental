@@ -553,6 +553,14 @@ else
             # Isolated path: temp worktree at the pushed commit. Survives
             # concurrent pushes because each gets its own checkout.
             PYTEST_WORKTREE="$(mktemp -d -t divineos-push-gate-XXXXXX)"
+            # Hand git a Windows path, not a bash one. With MSYS_NO_PATHCONV=1
+            # in the pushing shell, git received /tmp/... unconverted and made
+            # the checkout somewhere other than the folder pytest then entered,
+            # so the gate collected nothing (Aria 2026-09-29). An explicit
+            # conversion makes the pushing shell's habits irrelevant.
+            if command -v cygpath >/dev/null; then
+                PYTEST_WORKTREE="$(cygpath -m "$PYTEST_WORKTREE")"
+            fi
             if git worktree add --detach "$PYTEST_WORKTREE" "$PYTEST_SHA" >/dev/null 2>&1; then
                 # Interrupt-safe cleanup (Aletheia audit catch, 2026-06-15):
                 # if pytest crashes the runner OR the hook receives SIGINT/
@@ -579,7 +587,16 @@ else
                 # Wrapped in subprocess_jobs so pytest+xdist workers die with parent.
                 # Root fix for 2026-07-13 leak where pytest workers survived parent
                 # bash death and ate ~2GB each. Per prereg-dae52c6ca269.
-                (cd "$PYTEST_WORKTREE" && PYTHONPATH="$PYTEST_WORKTREE/src${PYTHONPATH:+:$PYTHONPATH}" $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL) >"$PYTEST_LOG" 2>&1
+                # Where it ran and what it could see, first in the log: a push
+                # that "ran no tests" (Aria 2026-09-29) left nothing to diagnose.
+                {
+                    echo "[gate-env] worktree=$PYTEST_WORKTREE sha=$PYTEST_SHA"
+                    echo "[gate-env] test files=$(find "$PYTEST_WORKTREE/tests" -name 'test_*.py' | wc -l)"
+                    echo "[gate-env] PYTHONPATH=${PYTHONPATH:-} python=$(command -v python)"
+                    env | grep -E '^(GIT_|PYTEST|MSYS)' | sed 's/^/[gate-env] /'
+                } >"$PYTEST_LOG" 2>&1
+                # shellcheck disable=SC2086  # PYTEST_PARALLEL is intentionally word-split
+                (cd "$PYTEST_WORKTREE" && PYTHONPATH="$PYTEST_WORKTREE/src${PYTHONPATH:+:$PYTHONPATH}" $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL) >>"$PYTEST_LOG" 2>&1
                 PYTEST_RC=$?
                 # Normal-path cleanup — runs after pytest exits cleanly. The
                 # trap above covers the interrupt path; this call covers the
@@ -683,6 +700,14 @@ else
             tail -100 "$LAST_LOG" >&2
             rm -f "$PYTEST_LOG"
             echo "" >&2
+            if grep -q "no tests ran" "$LAST_LOG"; then
+                # Zero collected is the instrument failing, not the code: say so,
+                # with the [gate-env] lines above as the evidence to read.
+                echo "[push-readiness] BLOCKED — the gate collected NO tests (exit 10)." >&2
+                echo "[push-readiness] Nothing was tested, so this says nothing about the code." >&2
+                grep '^\[gate-env\]' "$LAST_LOG" >&2 \
+                    || echo "[push-readiness] (the log carries no [gate-env] lines, so the non-isolated path ran)" >&2
+            fi
             echo "[push-readiness] BLOCKED — tests failing (exit 10)." >&2
             echo "[push-readiness] Full log persisted: $LAST_LOG" >&2
             echo "[push-readiness] Fix locally, then push. Do NOT push red." >&2

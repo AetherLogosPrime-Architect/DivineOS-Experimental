@@ -153,8 +153,20 @@ except Exception as exc:
 # phrase appeared only in the message itself.
 #
 # This writes the corpus for real: detector verdict beside the reply that
-# tripped it, ready to be labeled by
+# tripped it, ready to be labeled by `divineos label-fire`, which wraps
 # scripts/label_correction_shape_false_positive.py.
+#
+# THE MESSAGE BELOW NAMES THE COMMAND, NOT THE SCRIPT (2026-09-24). It used to
+# prescribe `python scripts/label_...` directly. That raw form can never pass
+# the correction-marker gate standing beside this one -- its bypass matcher
+# reads `divineos <subcommand>` only, on purpose, because widening it would
+# loosen a check that guards arbitrary shell execution. `label-fire` exists
+# (2026-08-05) precisely so the remedy rides the bypass channel every other
+# remedy uses; this message simply never learned its name, so a fire here
+# pointed at a door the neighbour keeps shut. On 2026-09-15 that deadlock was
+# hit live three times and "fixed" by widening the matcher on a branch that
+# never landed -- the route label-fire was built to avoid. This is the fix
+# that route was reaching for.
 #
 # fail-soft: corpus-recording must never suppress the enforcement message
 # below. A gate that goes silent because its telemetry broke is worse than
@@ -193,10 +205,10 @@ Confidence: {confidence:.2f}
 
 Per prereg-c1683e4a49ea, every fire on real self-correction must be paired with:
   1. FORMAL LOG via `divineos correction "<the correction verbatim, plus what error it names>"` — this session's correction goes into the substrate ledger, not just the transcript.
-  2. ROOT-CAUSE LINK — name the specific prior action that produced the error and either (a) file a structural fix (doorman, gate, discipline) that prevents the class OR (b) explicitly cite why no structural fix is possible for THIS instance and why that is honest.
+  2. ROOT-CAUSE LINK — name the specific prior action that produced the error and file a structural fix (doorman, gate, discipline) that prevents the class. If the fix is not found yet, mark it UNRESOLVED and put it on the todo list -- never close it as impossible (Andrew 2026-09-23: "you dont get to decide what can or cannot be built.. you can mark it as yet unresolved.. but never are you to mark anything impossible..").
 
 If this is a FALSE-POSITIVE (I was discussing correction as a topic, or reporting one I already filed and fixed, rather than admitting a new one), label the fire with:
-  python scripts/label_correction_shape_false_positive.py --reason "<what class of MENTION was misread as USE, >= 40 chars>"
+  divineos label-fire --reason "<what class of MENTION was misread as USE, >= 40 chars>"
 
 The clear-marker path is not a bypass — it is the false-positive attribution path. Every clear increments the negative-training-corpus for the eventual Layer B semantic tiebreak. Use it honestly.
 
