@@ -750,7 +750,7 @@ The caller-provided `maturity`, `confidence`, `tags`, `source`, `memory_kind` ar
 4. The promotion intent in the second call is silently lost
 5. No error, no log line — the caller can't tell their maturity argument was ignored
 
-This is the same shape as the historical bug Andrew caught ("seed maturity values silently demoted to RAW on every application"). The fix that landed was `reclassify_seed_as_inherited` — an EXPLICIT separate path for fixing maturity post-hoc. The underlying API behavior wasn't changed.
+This is the same shape as the historical bug Andrew caught, in which seed maturity values were silently demoted to RAW on every application. The fix that landed was `reclassify_seed_as_inherited` — an EXPLICIT separate path for fixing maturity post-hoc. The underlying API behavior wasn't changed.
 
 **Fix-shape**:
 - Option A: store_knowledge raises ValueError if caller passes maturity that differs from existing entry's maturity

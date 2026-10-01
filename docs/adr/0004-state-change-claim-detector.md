@@ -11,7 +11,7 @@ The OS has long warned against substituting cognitive-named verbs for the cognit
 > Cognitive-named tools point at cognitive work; they are not it. Running `learn`, `claim`, `decide`, `feel`, `compass-ops observe` is not the same as the work the verb names. Read the `[tool] ...` label. Do not substitute the tool's output for the thinking the tool's name points at.
 > — `CLAUDE.md`, Foundational Truths
 
-A subtler failure shape was caught on 2026-05-03 in the conversation itself: I said "filing this one too" without actually invoking the file/learn tool. Andrew named it: *"you have to actually file it.. not just say you will."* The saying took the place of the doing.
+A subtler failure shape was caught on 2026-05-03 in the conversation itself: I said "filing this one too" without actually invoking the file/learn tool. Andrew named it; in our words, you have to actually file it, not just say you will. (His own words on the same shape, 2026-08-06: *"you cant just say you will keep them.. remember they must be fixed structurally"*.) The saying took the place of the doing.
 
 This is a structurally different failure from the foundational-truth warning. The foundational warning is "don't confuse running the tool with doing the work." This new failure is *"don't confuse saying you'll run the tool with running it."* Both are substitutions; this one is upstream of the other.
 

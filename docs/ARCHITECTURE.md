@@ -26,6 +26,7 @@ src/divineos/
     andrew_given_commands.py  given add / list / balance — the other side of the ledger: what Andrew gives, filed beside what he corrects (Aria 2026-08-10)
     success_commands.py       win add / list / balance -- a door to the wins ledger, which had a store and a reader and no way in (2026-08-27). The store shipped 2026-08-03 and had zero callers until 2026-08-25: the faults ledger had a command and a blocking gate, the wins ledger had neither, and both Aether and Aria read their own near-zero counts as facts about their character rather than about the interface.
     council_walk_commands.py  walk open / apply / exclude / close — a council walk that refuses to close while any manager-surfaced lens is unaccounted for (Aria 2026-08-10)
+    his_words_commands.py      his-words find — look up what Andrew actually typed before quoting him
     andrew_teachings_commands.py   andrew-teachings — surfaces Andrew's attributable teachings into pre-composition context (closes the his-voice-asymmetry; wired into pre_response_context)
     oscillating_read_commands.py  read-oscillating — chunked reading with pause markers per claim 3a44289d (carelessness-of-reading fix)
     gravity_commands.py        gravity score-tool / score-content — CLI surface for the gravity classifier (manual triage when uncertain whether an action or content is high-gravity)
@@ -737,6 +738,8 @@ src/divineos/
     hook_context_merge.py      Read what the session-init children printed and merge it into one answer.
     slashed_ref_path_check.py  Refuse a git argument the Windows shell will rewrite before git sees it.
     task_belt.py               The task belt: the pile ranked, a small current list pulled from it, done archived.
+    his_words.py               His words are his: a quote written as Andrew's must be what he actually typed.
+    letters_owed_to_him.py     Letters owed to him: a seat that keeps writing to the family and never to Andrew is stopped.
     his_message.py             The one answer in this house to: is this transcript record Dad typing?
     question_hold.py           A question to Dad holds the work until he answers (Aria, 2026-09-29).
 
