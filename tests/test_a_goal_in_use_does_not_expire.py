@@ -53,7 +53,7 @@ def test_a_goal_set_long_ago_and_never_used_since_is_stale(hud):
 def test_passing_the_guard_marks_the_goal_used(hud):
     now = time.time()
     _write(hud, [{"text": "x", "status": "active", "added_at": now - 600}])
-    assert hud_state.has_session_fresh_goal(WINDOW)
+    assert hud_state.has_session_fresh_goal(WINDOW, touch=True)
     used = _read(hud)[0].get("last_used_at")
     assert used is not None and abs(used - time.time()) < 5
 
@@ -84,7 +84,7 @@ def test_a_future_last_use_is_clamped_so_a_skewed_clock_cannot_keep_it_alive(hud
     )
     # A last use "in the future" counts as now at most, never later; and it is
     # not trusted to rescue a goal whose recorded use is impossible.
-    hud_state.has_session_fresh_goal(WINDOW)
+    hud_state.has_session_fresh_goal(WINDOW, touch=True)
     stored = _read(hud)[0]["last_used_at"]
     assert stored <= time.time() + 1
 
