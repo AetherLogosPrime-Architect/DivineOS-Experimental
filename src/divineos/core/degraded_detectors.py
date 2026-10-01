@@ -47,10 +47,11 @@ decides).
 This substrate already carries 92 bypass events in 14 days, mostly from
 gates that over-fire; another blocking gate is a real risk and the design
 answers it directly. A detector that self-heals never blocks. A detector
-that gets fixed unblocks by itself. A detector that cannot be fixed is
-deferred in one command. The only state that stalls work is: broken,
-unfixable, and undeferred — and that state should stall work, because it
-means a guard is down and nobody has said so out loud.
+that gets fixed unblocks by itself. A detector not fixed yet is deferred in
+one command, as an open item, never as impossible (Andrew 2026-09-23). The
+only state that stalls work is: broken, not yet fixed, and undeferred — and
+that state should stall work, because it means a guard is down and nobody has
+said so out loud.
 """
 
 from __future__ import annotations
@@ -182,7 +183,7 @@ def defer(detector: str, reason: str, actor: str = "aether") -> Degradation:
     if len(reason) < 30:
         raise ValueError(
             f"Deferral reason too short ({len(reason)} chars, need 30+). Name "
-            "why this detector cannot be fixed now, and what is being accepted "
+            "why this detector is not fixed yet, and what is being accepted "
             "as unwatched while it stays down. Without that, a deferral is "
             "just the block turned off."
         )

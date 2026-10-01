@@ -63,8 +63,21 @@ def _git(
     repo_root: Path,
     *args: str,
     env: dict[str, str] | None = None,
-    stdin: str | None = None,
+    stdin_data: str | None = None,
 ) -> str:
+    """Run git, raising RetargetRefused on any nonzero exit.
+
+    ``stdin_data`` exists so a caller can hand git an unbounded list of paths
+    through the pipe rather than as arguments. See commit_paths_to_branch for
+    why that is not a style preference.
+
+    NAMED ``stdin_data`` AND NOT ``stdin`` (merge decision, 2026-09-22). Both
+    branches added this parameter independently and named it differently, so
+    this is one of the few places in that merge where both could not be kept.
+    subprocess's own ``stdin`` means a stream; this is bytes handed to
+    ``input=``. A name meaning the opposite thing in the call on the next line
+    is how a reader gets misled, and nothing outside this module calls it.
+    """
     full_env = {**os.environ, **(env or {})}
     proc = subprocess.run(
         ["git", *args],
@@ -72,7 +85,7 @@ def _git(
         capture_output=True,
         text=True,
         env=full_env,
-        input=stdin,
+        input=stdin_data,
         check=False,
     )
     if proc.returncode != 0:
@@ -132,6 +145,36 @@ def commit_paths_to_branch(
         # --add --remove together so a deleted substrate file records as
         # deleted rather than silently persisting on the branch forever.
         #
+        # THE PATHS GO THROUGH THE PIPE, NOT THE ARGUMENT LIST (2026-09-17,
+        # council-54984c91a492). They used to be splatted as arguments, and
+        # Windows refuses a command line past a fixed length. With hundreds of
+        # letters and dreams declared as substrate, that line is too long and
+        # the weave dies here with an error about the filename being too long
+        # — which is confusing, because no filename is too long.
+        #
+        # IT DID NOT BREAK, IT CROSSED. The mechanism is arithmetic: path count
+        # against a fixed limit, and the count only grows as substrate
+        # accumulates. There was a day it fit and a day it did not, and nothing
+        # marks the boundary. It will cross again anywhere, the same way.
+        #
+        # WHY THIS WAS INVISIBLE: the council gate refused `divineos extract`
+        # outright, so the crash sat behind a wall and was reported as a policy
+        # decision rather than a fault. A gate that refuses a command is a
+        # command nobody has tested.
+        #
+        # WHY NOT BATCH THE PATHS INSTEAD. A chunk size is a literal standing
+        # for a platform limit, with nothing linking the limit back to the
+        # literal — the exact defect that cost two full suite runs on the night
+        # this was written. This form has no number in it at all.
+        #
+        # WHY NUL AND NOT NEWLINE: a newline is legal inside a filename, so a
+        # newline-separated list would silently split such a path into two
+        # entries. NUL cannot occur in a path, which is why this input form
+        # exists. It is also stronger than the `--` it replaces: nothing
+        # arriving on stdin is parsed as an option at all.
+        #
+        # AND THE MEASUREMENT FROM THE OTHER BRANCH, which found the same
+        # fault and is kept because it carries the actual numbers:
         # The paths go in over stdin rather than as arguments. As arguments
         # this died on Windows at 342 substrate paths -- about 37k of command
         # line against a hard 32767 ceiling -- and it surfaced as a
@@ -147,7 +190,7 @@ def commit_paths_to_branch(
             "-z",
             "--stdin",
             env=env,
-            stdin="\0".join(paths) + "\0",
+            stdin_data="\0".join(paths) + "\0",
         )
 
         tree = _git(repo_root, "write-tree", env=env)
@@ -358,6 +401,29 @@ def evict_committed_paths(repo_root: Path, result: RetargetResult) -> EvictionRe
 
         try:
             target.unlink()
+        except FileNotFoundError:
+            # REACHED-AND-IT-WAS-NOT-THERE IS NOT REACHED-AND-IT-WAS-STUCK.
+            #
+            # 2026-09-15. Eleven of Aria's record-books came back reported as
+            # "committed but LEFT on disk", each with a not-found error beside
+            # it, and both of us read that as the retarget having failed to
+            # cover a path -- hours after we had agreed the class was closed.
+            # It had covered it. The file was gone. The only thing that failed
+            # was the sentence describing the outcome.
+            #
+            # The exists() check above skips this case, so arriving here means
+            # the file vanished between the look and the removal -- another
+            # process, or the occupant's own tidy. Either way the postcondition
+            # this function exists to establish is TRUE: the substrate is on
+            # the branch and it is not on the floor. Calling that a hold
+            # inflates the ledger of stuck files every night while the room
+            # stands empty, and sends whoever reads it hunting for a coverage
+            # hole that is not there.
+            #
+            # An absence and an obstruction feel identical from inside a grip.
+            # The remedy is not a better grip; it is the second column.
+            evicted.append(rel_path)
+            continue
         except OSError as exc:
             held.append((rel_path, f"removal failed: {exc}"))
             continue
