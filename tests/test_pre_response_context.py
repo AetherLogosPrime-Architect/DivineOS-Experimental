@@ -124,3 +124,48 @@ def test_build_combined_context_returns_string() -> None:
     """The convenience function returns a string."""
     out = build_combined_context("test prompt longer than five characters")
     assert isinstance(out, str)
+
+
+def test_live_compose_path_does_not_invoke_the_memory_linkage_retriever() -> None:
+    """Compose must NOT ask the linkage retriever, and this used to assert the
+    exact opposite. Both intents are kept here on purpose.
+
+    THE ORIGINAL, written 2026-09-20 and right about its own problem: v2, its
+    install seam and its renderer all existed while no production caller
+    invoked them, so a passing suite proved only that a handset could reach a
+    mock exchange. That test asserted the live path called retrieve_v2 and
+    rendered its pointer, and it passed.
+
+    WHY IT IS REVERSED, the same day, by measurement rather than by taste. The
+    retriever fills a module-level embedding cache that dies with its process
+    and embeds every substrate item one at a time through a freshly loaded
+    transformer. Compose runs in a new process per prompt, so wiring it here
+    re-embedded the whole substrate every turn: the UserPromptSubmit hook
+    emitted zero bytes and had not returned at 110 seconds, and being fail-open
+    it reported that outage as silence. Unwired, the same hook emits in about a
+    second. Nine tests in this suite were dying as worker crashes because they
+    crossed the per-test time limit, which is what surfaced it.
+
+    So this now guards the opposite property, and the ORIGINAL concern is not
+    retired by that — it is deferred, with its condition written at the call
+    site in pre_response_context: embeddings must survive the process (the
+    sqlite-vec store in core/semantic_store.py already exists for this) and the
+    hook must be timed end to end in the suite. When both hold, this test
+    should flip back rather than be deleted, and the paragraph above is why.
+    """
+    from divineos.core import memory_linkage
+
+    original_retriever = memory_linkage._ACTIVE_RETRIEVER
+    try:
+        with patch(
+            "divineos.core.memory_linkage_retriever_v2.retrieve_v2",
+            return_value=[],
+        ) as retrieve:
+            out = build_combined_context(
+                "The dashboard is green, but which process supplied its data?"
+            )
+    finally:
+        memory_linkage.set_retriever(original_retriever)
+
+    retrieve.assert_not_called()
+    assert isinstance(out, str)

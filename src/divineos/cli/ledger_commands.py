@@ -265,6 +265,12 @@ def register(cli: click.Group) -> None:
         per_event_pass = result["integrity"] == "PASS"
         chain_pass = bool(chain_result.get("ok", True))
 
+        # A chain that was not walked is not a chain that passed (SC #11).
+        if chain_result.get("skipped") and per_event_pass:
+            click.secho(
+                "\n  INTEGRITY: UNKNOWN -- the chain was not walked", fg="yellow", bold=True
+            )
+            return
         if per_event_pass and chain_pass:
             click.secho("\n  INTEGRITY: PASS", fg="green", bold=True)
         else:
@@ -313,7 +319,14 @@ def register(cli: click.Group) -> None:
             click.confirm("\nDelete these corrupted events?", abort=True)
 
         result = _wrapped_clean_corrupted_events()
-        click.secho(f"[+] Removed {result['deleted_count']} corrupted events.", fg="green")
+        # Counted, not claimed: the notes actually written, in the same
+        # transaction as the removals (SC #10).
+        click.secho(
+            f"[+] Removed {result['deleted_count']} corrupted events; "
+            f"{result.get('logged_count', 0)} LEDGER_CORRUPTION_REPAIRED notes written; "
+            "each gap left standing and named by its note.",
+            fg="green",
+        )
         click.echo("    Run 'divineos verify' to confirm ledger integrity.")
 
     @cli.command("export")
