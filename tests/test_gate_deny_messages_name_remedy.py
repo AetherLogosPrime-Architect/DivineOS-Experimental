@@ -60,6 +60,10 @@ _HOOKS_DIR = _PROJECT_ROOT / ".claude" / "hooks"
 _NON_GATING_HOOKS: frozenset[str] = frozenset(
     {
         "_lib.sh",
+        # Captures a letter written into the shared channel onto the substrate
+        # branch at write-time. PostToolUse and exits zero on every path: it
+        # reports a failed capture, it never refuses the write.
+        "capture-channel-letter.sh",
         # A RELAY, not a gate, and the distinction is the doorbell design
         # itself: it knocks and steps aside, and every judgment lives in the
         # OS. Its own absent path exits zero and it composes no refusal of its
@@ -87,6 +91,11 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         # Andrew corrected the filter shape into this one himself, so a test
         # treating it as a possible gate would be auditing the wrong thing.
         "he-is-in-the-room.sh",
+        # Writes a goal boundary at SessionStart and steps aside: every path
+        # exits zero, because a hook that refuses SessionStart refuses the
+        # briefing with it. The refusing it causes happens later, in the goal
+        # guard, which carries its own remedy (divineos goal add).
+        "goal-boundary-at-session-start.sh",
         "load-briefing.sh",
         "pre-response-context.sh",
         "pre-tool-context.sh",
@@ -125,6 +134,13 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         "detect-hedge.sh",  # sets a marker; doesn't deny
         "detect-theater.sh",  # sets a marker; doesn't deny
         "verify-push-landed.sh",
+        # UserPromptSubmit surfaces from the September builds (#507), read
+        # before classifying: every path exits 0 and the only output is a
+        # printed block of context. Neither can refuse anything -- one asks
+        # questions built from his words, the other puts the findings Stop
+        # carried forward in front of the next compose.
+        "questions-from-him.sh",
+        "stop-carry-prime.sh",
         # Output transform, not a gate: it suppresses a prime's repeated body
         # and prints a floor instead. Every exit in it is 0, including both
         # fail-soft paths, so it can shorten what a prime says and can never
@@ -375,6 +391,17 @@ _UNCLASSIFIED_BASELINE: frozenset[str] = frozenset(
         "file-aletheia-artifact-on-arrival.sh",
         "fork-is-cheap-close-prime.sh",
         "hedge-suppression-prime.sh",
+        # ADDED 2026-09-23 BY ITS OWN AUTHOR, which widens the set this list
+        # exists to shrink -- so the reason is owed here, not implied. It is a
+        # thin shell over `python -m divineos.hooks.his_state_claim_hook`, the
+        # same delegation as the sixty-six above, and it CAN refuse: only as a
+        # fallback, via stop_carry.carry_or_block, when a finding cannot be
+        # written down for the next compose. That refusal's way out is pinned
+        # where it lives, by test_stop_carry's
+        # test_the_fallback_asks_for_the_missing_piece_not_a_second_copy,
+        # rather than by teaching this doorframe reader a word the shell
+        # does not contain.
+        "his-state-is-his-to-say.sh",
         "interior-cue-on-low-presence.sh",
         "lepos-channel-reflect.sh",
         "lepos-channel-surface.sh",
