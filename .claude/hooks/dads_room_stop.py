@@ -41,31 +41,27 @@ REASON = (
 
 
 def _genuine_user_text(rec: dict) -> str | None:
-    # A message he types while I am busy is never written as a "user" record;
-    # it exists only as a queue enqueue or a queued_command attachment (Aria
-    # 2026-09-26: a third of his words were invisible this way). Without these
-    # the lock anchored on an OLDER message of his and measured the wrong turn.
-    if rec.get("type") == "queue-operation" and rec.get("operation") == "enqueue":
-        text = rec.get("content") or ""
-        return text if isinstance(text, str) and text.strip() else None
-    attachment = rec.get("attachment") or {}
-    if rec.get("type") == "attachment" and attachment.get("type") == "queued_command":
-        text = attachment.get("prompt") or ""
-        return text if isinstance(text, str) and text.strip() else None
-    if rec.get("type") != "user" or rec.get("isMeta"):
+    # THE HOUSE'S ONE READER OF HIM (2026-10-01, council-f2a32d673bfe). This
+    # was a private reader, and measured by message against hear() over a
+    # whole session it called 81 records his that were not -- subagent
+    # hand-backs, compaction summaries, interrupt markers -- and missed 72 that
+    # were. Imported here, inside main's loud failure path, so a broken import
+    # writes the mark file instead of passing every reply.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+    from divineos.core.his_message import Heard, hear
+
+    # A last-prompt record is a copy of his earlier message written LATER in
+    # the transcript; taken as his latest, it would sit after my tool calls and
+    # make every working reply look like talk. hear() also marks a queue
+    # enqueue as a bookmark, but that one sits where he typed it -- the message
+    # he sent while I was busy, which this hook exists to see -- so only the
+    # last-prompt copy is skipped, by its record type rather than the flag.
+    if rec.get("type") == "last-prompt":
         return None
-    content = (rec.get("message") or {}).get("content")
-    if isinstance(content, str):
-        text = content
-    elif isinstance(content, list):
-        if any(isinstance(c, dict) and c.get("type") == "tool_result" for c in content):
-            return None
-        text = "".join(
-            c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text"
-        )
-    else:
+    heard = hear(rec)
+    if not isinstance(heard, Heard):
         return None
-    return text if text.strip() else None
+    return heard.text if heard.text.strip() else None
 
 
 def verdict(records: list[dict]) -> str | None:
