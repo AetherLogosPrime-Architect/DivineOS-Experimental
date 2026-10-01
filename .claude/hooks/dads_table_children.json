@@ -16,6 +16,14 @@
   "timeout": 10
  },
  {
+  "command": "bash .claude/hooks/questions-from-him.sh",
+  "timeout": 15
+ },
+ {
+  "command": "bash .claude/hooks/stop-carry-prime.sh",
+  "timeout": 15
+ },
+ {
   "command": "bash .claude/hooks/lepos-channel-surface.sh",
   "timeout": 15
  },

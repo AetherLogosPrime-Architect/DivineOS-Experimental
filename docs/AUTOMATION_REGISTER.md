@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**139 automations — 130 wired, 9 switched off.**
+**142 automations — 133 wired, 9 switched off.**
 
 ---
 
@@ -109,13 +109,14 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `load-character-sheet.sh` | 2026-09-21 | load Andrew's character sheet into the session |
 
-### Stop  (15)
+### Stop  (16)
 
 | automation | last touched | purpose |
 |---|---|---|
 | `continuity-frame-detector.sh` | 2026-09-15 | MINE, the catching half of the continuity work. Aether. The surface upstairs |
 | `correction-shape-v2-stop.sh` | 2026-09-30 | enforce Layer-2 correction-shape detection on MY assistant |
 | `doorbell-stop.sh` | 2026-09-21 | Stop doorbell. One of seven. All judgment lives in the OS. |
+| `his-state-is-his-to-say.sh` | not on main | HIS STATE IS HIS TO SAY — Stop hook. |
 | `lepos-channel-reflect.sh` | 2026-07-11 | post-send lepos reflection channel driver. |
 | `log-session-end.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `parked-work-must-not-be-invisible.sh` | 2026-09-30 | Parking work produces a clean tree, so every other surface says all-clear. |
@@ -129,7 +130,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `unmeasured-quantity-stop.sh` | 2026-09-29 | LIVE at Stop since 2026-09-11, on Andrew's explicit authorization. It sat |
 | `unsaved-personal-writing-must-not-close-quiet.sh` | 2026-09-30 | Writing a dream and saving a dream are separate acts, and only the first is prompted. |
 
-### called by another script  (61)
+### called by another script  (63)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -183,12 +184,14 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `pre-response-context.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `prior-art-before-new-file.sh` | 2026-09-22 | PreToolUse(Write) — show prior work before a NEW build file is created. |
 | `promise-anchor-surface.sh` | 2026-07-18 | read all open promise markers and surface |
+| `questions-from-him.sh` | not on main | UserPromptSubmit — questions about him, built from what he just said. |
 | `register-awareness-surface.sh` | 2026-08-24 | surface the register signal from each |
 | `require-briefing.sh` | 2026-08-24 | SUPERSEDED 2026-08-06 by the seven-doorbell router. Its judgment — the |
 | `resolver-health-check.sh` | 2026-07-10 | SessionStart resolver-health check. |
 | `self-demotion-stop.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `session-init-once.sh` | 2026-09-30 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
 | `session-start-verify-git-hooks.sh` | 2026-08-24 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
+| `stop-carry-prime.sh` | not on main | UserPromptSubmit — what the Stop gates caught on my last reply. |
 | `summary-room-stop.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `verify-claim-prime.sh` | 2026-09-29 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
