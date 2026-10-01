@@ -164,8 +164,12 @@ def sayings_in(path: Path) -> Iterator[Saying]:
                 continue
             if not isinstance(entry, dict) or not is_his(entry):
                 continue
+            # What the one reader returned, kept as he typed it. Running it
+            # through strip_envelopes again flattened his line breaks into
+            # single spaces (Aletheia, reading #507 on 2026-09-30); the
+            # envelopes are already peeled inside hear().
             yield Saying(
-                text=strip_envelopes(content_text(entry) or ""),
+                text=(content_text(entry) or "").strip(),
                 when=str(entry.get("timestamp") or ""),
                 transcript=path.stem,
                 line=number,

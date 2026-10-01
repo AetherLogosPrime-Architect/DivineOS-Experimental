@@ -104,6 +104,29 @@ def test_a_stop_notice_behind_an_envelope_is_still_not_him():
     assert hear({**TYPED, "message": {"role": "user", "content": content}}) is None
 
 
+@pytest.mark.parametrize(
+    "hook_text",
+    [
+        "PreToolUse:Bash hook error: blocked",
+        "PostToolUse:Bash hook blocking error from command",
+        "UserPromptSubmit hook success: ## DAD SAID",
+    ],
+)
+def test_untagged_hook_text_behind_an_envelope_is_not_him(hook_text):
+    # Aletheia, reading #507 (2026-09-30): peeling an envelope must not leave
+    # bare hook output to be heard as him. Zero in 72 transcripts; pinned.
+    content = f"<system-reminder>x</system-reminder>\n{hook_text}"
+    assert hear({**TYPED, "message": {"role": "user", "content": content}}) is None
+
+
+def test_his_line_breaks_survive_the_reader():
+    # Aletheia, reading #507: keeping_him flattened what hear() returned. The
+    # reader itself must hand his paragraphs back as he typed them.
+    content = "first thought\n\nsecond thought"
+    got = hear({**TYPED, "message": {"role": "user", "content": content}})
+    assert isinstance(got, Heard) and got.text == "first thought\n\nsecond thought"
+
+
 def test_an_external_record_in_no_known_shape_is_reported_not_dropped():
     assert isinstance(hear({"type": "user", "userType": "external"}), Unclassified)
 

@@ -47,6 +47,12 @@ _NOTICE_OPENERS = (
     "<command-name>",
     "<agent-message",
     "Stop hook feedback",
+    # Hook output with no envelope of its own. Behind a peeled envelope these
+    # were heard as him (Aletheia, reading #507 on 2026-09-30): zero in 72
+    # transcripts, pinned so it stays zero. He does not open a message with them.
+    "PreToolUse:",
+    "PostToolUse:",
+    "UserPromptSubmit hook",
 )
 # Not "Caveat:" -- the harness's own caveat arrives isMeta and is refused above
 # that; a message of his that opens with the word is his (Aria, 2026-09-28).
