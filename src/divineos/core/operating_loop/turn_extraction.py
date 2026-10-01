@@ -37,7 +37,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from divineos.core.his_message import Heard, hear
+from divineos.core.his_message import Heard, continues_a_turn, hear
 
 
 @dataclass(frozen=True)
@@ -294,7 +294,7 @@ def _user_record_origin(rec: dict) -> str:
     """
     # Continuation is checked first: a compaction summary or a "[Request
     # interrupted" resume continues his turn whatever the reader says of it.
-    if rec.get("isMeta") or rec.get("isCompactSummary"):
+    if continues_a_turn(rec):
         return "continues"
     text = _extract_record_text(rec).lstrip()
     if text.startswith(_CONTINUES_A_TURN_STAMPED):
