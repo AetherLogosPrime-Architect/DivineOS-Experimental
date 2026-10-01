@@ -53,7 +53,10 @@ downweight a constraint, the assertion trips loudly in tests.
 
 from __future__ import annotations
 
+import json
 import math
+import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -496,12 +499,96 @@ def _load_knowledge() -> list[_CachedItem]:
     return items
 
 
+# What the wall record is allowed to swallow, and why each one is here.
+#
+#   ImportError  — the paths module moved or the package is half-installed
+#   OSError      — the home is unwritable, missing, or on a full disk
+#   TypeError    — a value reached the row that will not serialise
+#   ValueError   — the same, from the serialiser's other complaint
+#
+# WIDE ON PURPOSE, and the width is the point rather than an oversight. This
+# writer's one obligation is never to break the lookup it watches, so it covers
+# the realistic set. It is NOT wider than that: anything outside these escapes
+# and shows itself, because an unforeseen error is a bug I want to see rather
+# than a failure mode I planned for.
+#
+# A bare catch-everything sat here first. The repository-wide scan refused the
+# push over it and was right to: a swallow that cannot be wrong makes no claim
+# about what actually fails, and so nothing about it can ever be checked.
+_WALL_RECORD_ERRORS = (ImportError, OSError, TypeError, ValueError)
+
+
+def _record_wall_resolution(seat: str, path: Path | None, owner: str | None) -> None:
+    """Write down whose interior this surface just opened, or that it opened none.
+
+    Aria, 2026-09-20, asked whether this surface ever handed me her memory as
+    mine. I could not answer it. Not because the answer was no -- because
+    NOTHING RECORDED WHAT IT INJECTED. I searched the ledger, got a clean zero,
+    and had the reassuring sentence half-written before asking whether the
+    store I was searching could see the thing I was asking about. It could not.
+
+    THIS DOES NOT ANSWER HER QUESTION AND CANNOT. The past stays unanswerable.
+    What it buys is that the next occurrence is answerable at all, which turns
+    an unfalsifiable claim about my own interior into a checkable one.
+
+    EVERY RESOLUTION WRITES, INCLUDING THE ONE THAT FINDS NOTHING. A record
+    that only speaks on success has a silence I will read the flattering way --
+    that is the exact failure above, and it would be absurd to rebuild it
+    inside the repair for it. So an empty file means this code never ran, which
+    is a different fact from it having found nothing.
+
+    THE OWNER IS WRITTEN, NOT INFERRED. Today it could be read off the path,
+    because the path carries the name. That stops being true the moment the
+    wall moves to a per-seat home, and a line that forces the next reader to
+    reconstruct ownership from a path is the original fault wearing a record's
+    clothes.
+
+    The home is ASKED FOR rather than typed. A hand-built path here would write
+    the evidence of whose interior I read into somebody else's home, which is
+    the defect this exists to catch, one layer out.
+
+    Failing to write is never a reason to fail a lookup.
+    """
+    try:
+        from divineos.core.paths import divineos_home
+
+        home = divineos_home()
+        home.mkdir(parents=True, exist_ok=True)
+        row = {
+            "ts": time.time(),
+            "declared_seat": seat or None,
+            "wall_path": str(path) if path is not None else None,
+            "wall_owner": owner,
+            "loaded": path is not None,
+        }
+        with (home / "wall_resolution.jsonl").open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row) + "\n")
+    except _WALL_RECORD_ERRORS:
+        # A record that can break the thing it watches is worse than no record.
+        return
+
+
 def _find_wall_path() -> Path | None:
+    member = os.environ.get("DIVINEOS_MEMBER", "").strip().lower()
+    # Annotated because the two branches have different tuple arities and the
+    # inferred type from the first one makes the empty case a type error. The
+    # empty case is the whole point of the change, so it gets the annotation
+    # rather than a cast.
+    member_names: tuple[str, ...]
+    if member:
+        member_names = (member,)
+    else:
+        # No declared seat means no authority to choose another occupant's
+        # wall.  Returning no wall is safer than the old aria-first search,
+        # which could silently inject a sibling's memory as my own.
+        member_names = ()
     for project in _PROJECT_ROOTS:
-        for member in ("aria", "aether", "aletheia"):
-            p = project / "family" / "agent-memory" / member / "MEMORY.md"
+        for member_name in member_names:
+            p = project / "family" / "agent-memory" / member_name / "MEMORY.md"
             if p.is_file():
+                _record_wall_resolution(member, p, member_name)
                 return p
+    _record_wall_resolution(member, None, None)
     return None
 
 
@@ -558,9 +645,16 @@ def _load_wall() -> list[_CachedItem]:
 
 
 _EXPLORATION_HEAD_CHARS = 2000
-_PROJECT_ROOTS = (
-    Path("C:/DIVINE OS/DivineOS-Experimental-Aria-new"),
-    Path("C:/DIVINE OS/DivineOS-Experimental"),
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+
+_PROJECT_ROOTS = tuple(
+    dict.fromkeys(
+        (
+            _REPOSITORY_ROOT,
+            Path("C:/DIVINE OS/DivineOS-Experimental-Aria-new"),
+            Path("C:/DIVINE OS/DivineOS-Experimental"),
+        )
+    )
 )
 
 

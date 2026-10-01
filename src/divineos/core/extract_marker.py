@@ -18,8 +18,9 @@ What remains here is ATTRIBUTION, not permission. The marker records what last
 triggered a consolidation so a reader can tell manual from sleep from hook. It
 no longer gates anything, and nothing reads it to decide whether to skip.
 
-The real trigger lives in auto_cycle.TRIGGER_THRESHOLD (0.92 of a 1M window =
-920,000 tokens) and reads its number from core/context_heartbeat.py, which
+The real trigger lives in auto_cycle.TRIGGER_THRESHOLD (read the value there;
+this line once quoted 0.92 and went stale when it moved) and reads its number
+from core/context_heartbeat.py, which
 stamps the count every round and records a blind sensor as UNKNOWN rather than
 as zero.
 

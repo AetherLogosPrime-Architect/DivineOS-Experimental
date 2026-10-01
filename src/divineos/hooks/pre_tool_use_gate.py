@@ -59,7 +59,7 @@ import re
 import sys
 from typing import Any
 
-from divineos.core.command_parsing import CD, strip_prefixes_raw
+from divineos.core.command_parsing import CD, blank_quoted_spans, strip_prefixes_raw
 
 
 # Chain-shape metacharacters that indicate shell-chain composition.
@@ -1280,7 +1280,17 @@ def _is_readonly_probe(cmd: str) -> bool:
             case-sensitive on the long form only.
           * ``2>&1`` duplicates a handle and ``>/dev/null`` discards, so
             neither is a write to anything a person would miss.
+
+        QUOTED TEXT IS DATA (Aether, 2026-09-21; walk-734fa481e6e2). An arrow
+        inside ``grep 'a > b' f`` is not a redirect, and this refused it as
+        one -- including the search for this very character in this very
+        gate. The quoted spans are filled first. When they cannot be filled
+        safely (an escaped quote, a ``$'...'`` string, an unbalanced quote)
+        the clause is scanned whole, as before: the failure stays a refusal.
         """
+        blanked = blank_quoted_spans(clause)
+        if blanked is not None:
+            clause = blanked
         if "--output" in clause:
             return True
         i = 0
@@ -1380,6 +1390,72 @@ def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
         return None
     if not overdue:
         return None
+
+    # A DECLARED REVIEW IS THE THING THIS GATE IS ASKING FOR, so it cannot be
+    # the thing this gate refuses. Added 2026-09-12 after the block denied the
+    # evidence for two reviews in one night and left only a fabricated verdict
+    # or a deferral as exits -- both worse than the review it wanted. See
+    # core/pre_registrations/review_window.py for why this is neither an
+    # allowlist nor a bypass flag.
+    # TWO CAUSES WEAR ONE SENTENCE, and they call for opposite repairs.
+    # Aletheia 2026-09-13: "it does not distinguish the store is unreadable
+    # from the module is not installed. One is an operational fault; the
+    # other means this gate has never worked on this checkout." A missing
+    # import is not a bad day -- it says every substantive tool use on this
+    # clone has been denied since the clone existed, and the fix is an
+    # install rather than a repair. Caught separately so the message can say
+    # which, because a reader told to repair a store that was never there
+    # goes looking for damage that does not exist.
+    window_error = ""
+    window_absent = False
+    # TWO TRIES, NOT ONE, and the reason is a hole Aria's stronger design
+    # exposed in mine. With the import and the CALL under one try, an
+    # ImportError raised from INSIDE active_window -- a dependency of its own
+    # gone missing -- lands in the absent branch, and the gate then announces
+    # that a module which imported perfectly well has never been importable
+    # here. A true-sounding sentence about the wrong subject: the exact class
+    # this repair exists to close, reproduced inside the repair. Only the
+    # import statement itself is allowed to raise the absent verdict.
+    window = None
+    try:
+        from divineos.core.pre_registrations.review_window import active_window
+    except ImportError as exc:
+        window_absent = True
+        window_error = f"{type(exc).__name__}: {exc}"
+    else:
+        try:
+            window = active_window()
+        except Exception as exc:  # noqa: BLE001 -- not swallowed; see the deny below
+            window_error = f"{type(exc).__name__}: {exc}"
+
+    if window is not None and window.state == "open":
+        return None
+    if window is None or window.state == "could-not-check":
+        reason = window_error or getattr(window, "reason", "unknown")
+        if window_absent:
+            return _make_deny(
+                "OVERDUE PRE-REGISTRATIONS block substantive tool use, AND the "
+                "review-window module is NOT INSTALLED on this checkout, so "
+                "this gate cannot tell whether a review is already under "
+                "way.\n\n"
+                f"  why: {reason}\n\n"
+                "This is not a store that broke. The module has never been "
+                "importable here, which means this gate has denied every "
+                "declared review on this clone for as long as the clone has "
+                "existed. Install the package into the interpreter running "
+                "this hook, then retry."
+            )
+        return _make_deny(
+            "OVERDUE PRE-REGISTRATIONS block substantive tool use, AND the "
+            "review-window store could not be READ, so this gate cannot "
+            "tell whether a review is already under way.\n\n"
+            f"  why: {reason}\n\n"
+            "The module is installed, so this is an operational fault in the "
+            "store itself. This is a refusal made without looking, NOT a "
+            "finding that no review is happening. Repair the store, then "
+            "retry."
+        )
+
     ids_preview = ", ".join(p.prereg_id[:24] for p in overdue[:5])
     more = f" (and {len(overdue) - 5} more)" if len(overdue) > 5 else ""
     return _make_deny(
@@ -1391,6 +1467,14 @@ def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
         '--actor <name> --notes "<what happened>"\n'
         "  divineos prereg assess <id> --outcome DEFERRED --actor <name> "
         '--notes "<why deferring>"\n\n'
+        "IF THE EVIDENCE IS BEHIND THIS GATE, say so and go get it:\n"
+        '  divineos prereg reviewing <id> --purpose "<what you will look at>"\n'
+        "  That stands this gate down for a bounded stretch and records the "
+        "window by name. It is not a bypass -- it only opens against a review "
+        "that is genuinely overdue, and a window with no assessment behind it "
+        "is counted and surfaced. Added because this block twice refused the "
+        "evidence for its own reviews, leaving a fabricated verdict or a "
+        "deferral as the only exits.\n\n"
         "List all overdue with: divineos prereg overdue"
     )
 
@@ -2017,7 +2101,41 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
                     'python "scripts/clear_correction_marker.py"',
                     "python C:/DIVINE OS/DivineOS-Experimental/scripts/clear_correction_marker.py",
                 )
-                if _tn == "Bash" and _is_safe_remedy_invocation(_cmd, _correction_remedies):
+                # READS PASS. A fixed remedy list cannot name every way out,
+                # because one of the ways out is not a command -- it is LOOKING.
+                #
+                # 2026-09-21, walked into by Aria with Andrew watching. The ring:
+                # this gate blocks everything but the names above; `divineos
+                # correction` refuses to file without a file path proving a
+                # structural fix, which takes investigation; `divineos learn` is
+                # held by the reach doorman until the artifact it surfaced has
+                # been READ; and reading that artifact is an ordinary read-only
+                # command, which this gate blocks. Four doors, each correct
+                # alone, forming a closed cycle whose only exit was the fire
+                # door. Andrew refused the fire door -- the escape is not an
+                # escape without a root-cause investigation -- so the lock got
+                # repaired instead of opened.
+                #
+                # The carve-out already exists in this file (_is_readonly_probe,
+                # per-clause and compound-hardened) and the overdue-pre-reg gate
+                # already uses it, under Andrew 2026-06-29: "no gate should ever
+                # be blocking you from using what you need to clear the gate."
+                # It was applied to the door it was discovered at and never
+                # swept across the class -- the same recurrence the shared
+                # remedy allowlist was written to end, one scope larger. This
+                # carries it across rather than adding a fifth door name.
+                #
+                # It loosens nothing this gate is for. A probe changes no file,
+                # no store and no remote, so the marker survives it and the next
+                # substantive write is blocked exactly as before. What the gate
+                # stops is WORK proceeding while a correction goes unrecorded;
+                # looking at evidence has never been that work, and a gate that
+                # blocks looking does not produce acknowledgement -- it produces
+                # whichever exit is still reachable.
+                if _tn == "Bash" and (
+                    _is_safe_remedy_invocation(_cmd, _correction_remedies)
+                    or _is_readonly_probe(_cmd)
+                ):
                     # Fall through to allow — the remedy must run.
                     pass
                 else:

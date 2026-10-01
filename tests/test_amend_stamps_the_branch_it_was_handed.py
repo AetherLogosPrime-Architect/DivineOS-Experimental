@@ -74,10 +74,14 @@ def test_no_branch_argument_keeps_acting_on_the_checkout(
     """
     monkeypatch.setattr(push_ready, "current_branch", lambda repo: "whatever")
     monkeypatch.setattr(push_ready, "_resolve_base", lambda repo, branch: "base")
-    seen: dict[str, object] = {}
+    # EVERY command, not the last one. This recorded only the most recent call
+    # and asserted filter-branch was it, so adding a tip-reading after the
+    # rewrite broke a test that was still describing something true. What it
+    # means to pin is that the rewrite was ATTEMPTED, not that it was last.
+    seen: list[list[str]] = []
 
     def fake_run(cmd, **kwargs):  # noqa: ANN001, ANN003
-        seen["cmd"] = cmd
+        seen.append(list(cmd))
 
         class R:
             returncode = 0
@@ -86,10 +90,22 @@ def test_no_branch_argument_keeps_acting_on_the_checkout(
 
         return R()
 
+    # THE TIPS MUST BE STUBBED TOO, since 2026-09-22. The function now reads
+    # HEAD before and after the rewrite and refuses when either reading fails,
+    # which is Aletheia's finding: an unreadable tip was falling through to
+    # success. This test stubs only subprocess, so without these the real git
+    # runs and the refusal fires on a case this test is not about.
+    tips = iter(["aaaaaaaaaaaa", "bbbbbbbbbbbb"])
+    monkeypatch.setattr(
+        push_ready,
+        "_run_git",
+        lambda args, cwd=None: next(tips) if list(args[:2]) == ["rev-parse", "HEAD"] else "",
+    )
+
     monkeypatch.setattr(push_ready.subprocess, "run", fake_run)
     out = amend_trailers(Path("."), [], [_commit()], "round-abc")
     assert out  # it proceeded rather than refusing
-    assert "filter-branch" in seen["cmd"]
+    assert any("filter-branch" in cmd for cmd in seen)
 
 
 def test_a_matching_branch_proceeds(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -104,6 +120,15 @@ def test_a_matching_branch_proceeds(monkeypatch: pytest.MonkeyPatch) -> None:
             stdout = ""
 
         return R()
+
+    # Tips stubbed for the same reason as the test above: the function reads
+    # HEAD either side of the rewrite now and refuses an unreadable reading.
+    tips = iter(["aaaaaaaaaaaa", "bbbbbbbbbbbb"])
+    monkeypatch.setattr(
+        push_ready,
+        "_run_git",
+        lambda args, cwd=None: next(tips) if list(args[:2]) == ["rev-parse", "HEAD"] else "",
+    )
 
     monkeypatch.setattr(push_ready.subprocess, "run", fake_run)
     out = amend_trailers(Path("."), [], [_commit()], "round-abc", branch="the/target-branch")

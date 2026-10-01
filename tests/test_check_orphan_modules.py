@@ -16,6 +16,7 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from scripts.check_orphan_modules import (  # noqa: E402
+    find_same_commit_amnesty,
     _is_intentionally_unwired,
     _is_staged,
     _is_reexported_through_parent_init,
@@ -123,3 +124,55 @@ class TestReexportedThroughParentInit:
                 assert _is_reexported_through_parent_init(cmd_path), (
                     f"Expected {cmd}.py to be recognized as wired via register(cli)"
                 )
+
+
+class TestSameCommitAmnesty:
+    """The backlog list is for inherited debt, never for this commit's work.
+
+    Andrew 2026-09-16: "there are some steps that should be mandatory no
+    matter what, dogfooding is one of them."
+
+    The hole this closes was used by me, once, knowingly. A module written an
+    hour earlier with nine passing tests and no caller went onto the backlog
+    with an honest reason -- and the reason being honest is exactly what made
+    it dangerous. Nothing about writing that line felt like an evasion.
+    """
+
+    def test_a_module_this_commit_adds_cannot_hide_on_the_backlog(self):
+        flagged = find_same_commit_amnesty(
+            orphan_paths={"src/divineos/core/brand_new.py"},
+            baselined={"src/divineos/core/brand_new.py"},
+            added_this_commit={"src/divineos/core/brand_new.py"},
+        )
+        assert flagged == ["src/divineos/core/brand_new.py"]
+
+    def test_inherited_debt_on_the_backlog_is_left_alone(self):
+        """The legitimate case, and the one a blanket ban would have broken."""
+        flagged = find_same_commit_amnesty(
+            orphan_paths={"src/divineos/core/old_debt.py"},
+            baselined={"src/divineos/core/old_debt.py"},
+            added_this_commit=set(),
+        )
+        assert flagged == []
+
+    def test_a_new_file_with_a_caller_is_not_flagged_here(self):
+        """Not an orphan at all, so this check has nothing to say about it."""
+        flagged = find_same_commit_amnesty(
+            orphan_paths=set(),
+            baselined={"src/divineos/core/wired.py"},
+            added_this_commit={"src/divineos/core/wired.py"},
+        )
+        assert flagged == []
+
+    def test_a_new_orphan_not_on_the_backlog_falls_to_the_ordinary_path(self):
+        """It still blocks -- as a fresh orphan, under the older message.
+
+        Pinned so a later reader does not conclude this check is the only
+        thing standing between an unwired module and the trunk.
+        """
+        flagged = find_same_commit_amnesty(
+            orphan_paths={"src/divineos/core/loose.py"},
+            baselined=set(),
+            added_this_commit={"src/divineos/core/loose.py"},
+        )
+        assert flagged == []

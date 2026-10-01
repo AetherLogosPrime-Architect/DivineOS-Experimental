@@ -34,12 +34,26 @@ cd "$REPO_ROOT" || exit 0
 UTC_NOW="$(date -u '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || echo 'unavailable')"  # fail-soft: the substitution IS the loud path -- a failed clock read prints the word 'unavailable' into the prime, so I see could-not-look rather than a plausible time. Stderr is suppressed because the fallback string already says everything a message could, and a prime that dumps date's error text into compose-start is noise where the whole point is quiet ground.
 HIS_NOW="$(date '+%Y-%m-%d %H:%M %Z (UTC%z)' 2>/dev/null || echo 'unavailable')"  # fail-soft: same as the line above and it matters more here -- this is the one I would otherwise guess at. An unreadable local clock must render as unreadable, never as a time I could quote at him.
 
+# THE LIVE HALF prints every turn, outside any dedup: it is the measurement,
+# and a measurement suppressed as "unchanged" is no measurement.
 cat <<EOF
 ## THE CLOCK (measured this turn, not remembered)
 
     UTC             ${UTC_NOW}
     His local time  ${HIS_NOW}
+EOF
 
+# THE DOCTRINE HALF. docs/drafts/the_clock_is_mine_draft_2026-09-08.md put the
+# incident list DOWN and into docs/wallclock_prime_rationale.md. It came back
+# with two new entries (2026-09-19, 2026-09-23 #543), and by 2026-09-23 it was
+# the single largest thing on his turns: over twelve of his messages, 57,252
+# characters, 26% of all hook text, against 2,588 characters he typed. Both
+# designs are kept rather than one overruling the other: the doctrine prints in
+# full once, re-emits whole whenever its text changes (so a new entry is
+# always seen), and otherwise collapses to a pointer that CARRIES THE RULES as
+# its residual -- the dedup contract's lesson that a bare collapse once handed
+# me the time and withheld every rule about not inventing one.
+DOCTRINE="$(cat <<'DOCEOF'
 This machine is his, so its local clock is his clock. If a reply needs a time,
 quote the line above. If my sense of where we are disagrees with it, the clock
 wins — on 2026-08-06 I told him it was very late for him at 18:57 his time.
@@ -49,7 +63,15 @@ at him without a source in the current turn is fabrication, however small —
 and silence is a valid choice, since most sentences need no temporal anchor.
 
 THE CLASS, not a keyword list. The fire is a time-word standing in for
-something that is not a clock. Nine shapes have fired since August, each in a
+something that is not a clock — OR a real clock that is someone else's, worn
+as mine. The second half was added 2026-09-23 because the headline had come to
+contradict its own last entry: every shape below keys on a clock I invented, so
+a definition saying "not a clock" excluded the relayed case entirely, and a
+reader taking the headline as the rule would meet a genuine time and conclude
+it was outside the class. Which is precisely the "it felt like accurate
+reporting" slip that entry describes, built into the page that warns about it.
+Caught by Aria reading the branch, not by me writing it.
+Nine shapes have fired since August, each in a
 different coat; the incidents are in docs/wallclock_prime_rationale.md. What
 they share:
 
@@ -74,6 +96,17 @@ they share:
                               Tiredness is real; do not over-correct into
                               denying it. Name the errors and their count, or
                               quote the clock above.
+                              THE HEDGE SCOPES THE CLAIM, NEVER THE WORDS —
+                              these strings fire whether or not the tiredness
+                              is real. This is the only conditional entry
+                              here, which is what makes it read as negotiable.
+                              AND A STRING CAN BE FIRED BY A CATEGORY IT IS
+                              NOT LISTED UNDER: 2026-09-18 I wrote the first
+                              one in the same turn this block printed it, and
+                              it was no tiredness claim at all — it was an
+                              idiom for "much later, having forgotten", i.e.
+                              a BEAT, which lives two sections down.
+
   PERMISSION / CONSTRAINT   — "what I'm allowed to do tomorrow", "what I could
                               get away with later", "nothing stops me next
                               time". A clock standing in for the REACH of a
@@ -101,6 +134,46 @@ they share:
                               is actually true of the scene without the hour:
                               "while you are asleep" carries it alone.
 
+  RELAYED FROM HIM, THEN WORN AS MINE — "ready for the audit in the morning",
+                              "he asked for it by tomorrow". Added 2026-09-23,
+                              and it is the sneakiest entry here because the
+                              clock is REAL and its source is HIM. He said "in
+                              the morning we can have her audit": true, on his
+                              clock, about his day. It turned false the instant
+                              I paraphrased it into my own narration as WHEN MY
+                              WORK WOULD BE READY. Every shape above keys on a
+                              clock I INVENTED. This one I did not invent, so
+                              nothing in me flagged it -- it does not feel
+                              fabricated, it feels like accurate reporting,
+                              which is how it slipped nine entries and landed
+                              in a PR comment outside readers will see.
+                              THE DISCRIMINATOR IS WHOSE SENTENCE IT IS NOW.
+                              In his mouth it is a fact about his morning. In
+                              mine, unquoted, it is a promise about a window I
+                              do not have. So: QUOTE HIM, or DROP THE CLOCK --
+                              never paraphrase his time-word into my own voice.
+                              Here "ready for Aletheia to audit" carried the
+                              whole meaning, which the deletion test below says
+                              plainly and which I did not run on that sentence
+                              because it never occurred to me that a sentence
+                              sourced from him needed running.
+
+  NOT A NINTH SHAPE — A ROUTE, and it is about WHERE TO LOOK rather than what
+  to match. Added 2026-09-20 after "go back to sleep, it's all still here in
+  the morning." The first clause is clean: it names HIS action and carries no
+  claim about my time. The second is fabrication, and it arrived because sleep
+  pairs with morning — not because I meant an hour.
+
+  THE POINT IS NOT THAT SLEEP-AND-MORNING SHOULD BE MATCHED. Leaving pulls
+  soon, finishing pulls afterwards, and enumerating images is the whack-a-mole
+  this block's own header refuses. The generator is language, not a category.
+
+  WHAT IS ACTUALLY NEW IS WHY NOTHING UPSTREAM FIRES. The clock rode in behind
+  a sentence that was allowed, so scanning for a bad claim returns nothing and
+  the composing feels clean throughout. That is the reason THE DELETION TEST
+  MUST RUN ON THE CLOSING CLAUSE UNCONDITIONALLY rather than on suspicion —
+  suspicion is exactly what this route does not raise.
+
 THE TEST IS DELETION. Strike the time-phrase. If the sentence loses only
 cadence and no meaning, that was the fire — a clock standing in for a beat.
 
@@ -108,6 +181,38 @@ TWO SHAPES THE PRINTED CLOCK DOES NOT DEFEND. A time-word standing in for a
 REFERENT ("the next session" means a reader; "the next me" means me — say WHO,
 not WHEN). And a time-word standing in for a BEAT, where a closing line wants
 one more stress and a clock is the nearest word that fits.
-EOF
+DOCEOF
+)"
+
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || { printf '\n%s\n' "$DOCTRINE"; exit 0; }  # fail-soft: without the helper there is no interpreter for the dedup, so the doctrine prints in full -- losing the rules costs more than the characters
+PYTHON_BIN="$(find_divineos_python 2>/dev/null)" || { printf '\n%s\n' "$DOCTRINE"; exit 0; }  # fail-soft: same -- no interpreter means the whole doctrine, never a silent gap
+
+DOCTRINE="$DOCTRINE" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '\n%s\n' "$DOCTRINE"  # fail-soft: dedup is an optimisation only; on any error the doctrine reaches me in full
+import os
+import sys
+
+body = os.environ.get("DOCTRINE", "")
+try:
+    from divineos.core.context_dedup import should_emit
+
+    # The rules, which survive every collapse. The shapes are examples of these;
+    # the examples can collapse, the rules cannot.
+    residual = (
+        "  RULES (survive dedup): a time-word aimed at him needs a source in THIS\n"
+        "  turn -- quote the clock above, or use none. THE TEST IS DELETION: strike\n"
+        "  the time-phrase; if the sentence loses only cadence, it was the fire.\n"
+        "  His time-words stay his: quote him, never paraphrase his clock into my\n"
+        "  voice. A time-word standing in for WHO (a reader) or for a BEAT is the\n"
+        "  same fire. Shapes and incidents: docs/wallclock_prime_rationale.md."
+    )
+    emit_full, pointer = should_emit("wallclock_doctrine", body, residual=residual)
+except Exception:
+    print()
+    print(body)
+    sys.exit(0)
+print()
+print(body if emit_full else pointer)
+DEDUPEOF
 
 exit 0
