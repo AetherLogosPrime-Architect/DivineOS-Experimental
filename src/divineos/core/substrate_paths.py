@@ -99,7 +99,7 @@ LOCAL_SUBSTRATE_PREFIXES: tuple[str, ...] = (
 # and rides no other. Elsewhere there is nothing to save -- the content is in
 # the database and the command rebuilds it -- so it is restored to HEAD rather
 # than left modified (changed 2026-09-30: "left alone" meant left DIRTY, at
-# every checkpoint, forever; see RESTORABLE_MIRROR_PREFIXES below).
+# every checkpoint, forever; see restorable_mirror_files below).
 #
 # NAMED NARROWLY ON PURPOSE. A general "it might be derived" test invites a yes,
 # because yes is what lets the checkpoint proceed. Admitting a HANDWRITTEN path
@@ -125,25 +125,24 @@ def is_regenerated_mirror(rel_path: str) -> bool:
 # HEAD so the tree stays clean (2026-09-30: main left docs/archives/ modified at
 # every checkpoint, forever). Restoring is an OVERWRITE: free for a file rebuilt
 # from the DB (export_all measured reproducible, timestamp aside), and the loss
-# of the only copy for anything a person wrote. Aria's guard, made structural:
-# this is its own constant so that widening the skip list can never silently
-# widen the overwrite, and the import fails if it ever reaches authored ground.
-RESTORABLE_MIRROR_PREFIXES: tuple[str, ...] = ("docs/archives/",)
+# of the only copy for anything a person wrote.
+#
+# NAMED BY FILE, NEVER BY PREFIX. The first version fenced the whole
+# docs/archives/ folder, and Aria's reading (2026-09-30) found the folder holds
+# twelve files of which the exporter writes eleven: the twelfth, README.md, is
+# hand-written and carries Dad's words, and the restore reverted it. A prefix is
+# a claim about every file under it. So the set is derived from the exporter's
+# own registry: a new export becomes restorable with no edit here, and a
+# hand-written file placed beside the mirrors never does.
+def restorable_mirror_files() -> frozenset[str]:
+    """Exactly the repo-relative paths archive_export writes, and nothing else."""
+    from divineos.core.archive_export import list_exports
 
-for _restorable in RESTORABLE_MIRROR_PREFIXES:
-    if _restorable not in REGENERATED_MIRROR_PREFIXES:
-        raise RuntimeError(f"{_restorable} is restorable but is not a regenerated mirror")
-    for _authored in LOCAL_SUBSTRATE_PREFIXES:
-        if _authored in REGENERATED_MIRROR_PREFIXES:
-            continue
-        if _restorable.startswith(_authored) or _authored.startswith(_restorable):
-            raise RuntimeError(
-                f"{_restorable} overlaps authored {_authored}; a restore could erase it"
-            )
+    return frozenset(f"docs/archives/{name}.md" for name in list_exports())
 
 
 def is_restorable_mirror(rel_path: str) -> bool:
-    """True only for a plain repo-relative file path under a restorable prefix.
+    """True only for a plain repo-relative path the exporter itself writes.
 
     Checked on the normalised path, never on the raw string: a ``..`` segment,
     an absolute path, or an empty name is refused outright rather than
@@ -155,7 +154,7 @@ def is_restorable_mirror(rel_path: str) -> bool:
         return False
     if any(part in ("", ".", "..") for part in posix.split("/")):
         return False
-    return posix.startswith(RESTORABLE_MIRROR_PREFIXES)
+    return posix in restorable_mirror_files()
 
 
 class NoChannelsDeclared(RuntimeError):

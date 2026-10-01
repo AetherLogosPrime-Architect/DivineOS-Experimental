@@ -143,23 +143,36 @@ class TestItNeverTouchesWhatAPersonWrote:
             repo, "show", f"HEAD:{LETTER}"
         )
 
-    def test_the_restorable_set_is_inside_mirrors_and_outside_everything_authored(self):
-        from divineos.core.substrate_paths import (
-            LOCAL_SUBSTRATE_PREFIXES,
-            REGENERATED_MIRROR_PREFIXES,
-            RESTORABLE_MIRROR_PREFIXES,
-        )
+    def test_the_hand_written_readme_beside_the_mirrors_is_never_restored(self, repo):
+        # Aria, station 4 on e9ca094f2: docs/archives/ holds 12 files on main and
+        # the exporter writes 11. The twelfth, README.md, is hand-written and
+        # carries Dad's words. A prefix is a claim about every file under it,
+        # and this one was false for exactly the file that mattered.
+        readme = "docs/archives/README.md"
+        _git(repo, "checkout", "-q", "main")
+        (repo / readme).write_text("hand-written guide\n", encoding="utf-8")
+        _git(repo, "add", readme)
+        _git(repo, "commit", "-qm", "archive guide")
+        _git(repo, "push", "-q", "origin", "main")
+        _git(repo, "checkout", "-q", "-b", "fix/another-change")
+        (repo / readme).write_text("hand-written guide, and his words\n", encoding="utf-8")
+        (repo / ARCHIVE).write_text("claims v2\n", encoding="utf-8")
 
-        assert RESTORABLE_MIRROR_PREFIXES == ("docs/archives/",), (
-            "the restore OVERWRITES working copies; widen this only after proving "
-            "every file under the new prefix is rebuilt wholesale from a DB"
-        )
-        authored = [p for p in LOCAL_SUBSTRATE_PREFIXES if p not in REGENERATED_MIRROR_PREFIXES]
-        assert authored, "control: there must be authored prefixes to compare against"
-        for r in RESTORABLE_MIRROR_PREFIXES:
-            assert r in REGENERATED_MIRROR_PREFIXES
-            for person in authored:
-                assert not r.startswith(person) and not person.startswith(r)
+        auto_commit_substrate(repo, reason="pre-extract", channels=())
+
+        kept = (repo / readme).read_text(encoding="utf-8")
+        assert "his words" in kept or "his words" in _git(repo, "show", f"HEAD:{readme}")
+
+    def test_restorable_files_are_exactly_what_the_exporter_writes(self, tmp_path):
+        from divineos.core.archive_export import export_all
+        from divineos.core.substrate_paths import restorable_mirror_files
+
+        out = tmp_path / "export_only"  # tmp_path also holds the harness's own DB
+        export_all(out)
+        written = {f"docs/archives/{p.name}" for p in out.iterdir()}
+        assert written, "control: the exporter must write something"
+        assert restorable_mirror_files() == frozenset(written)
+        assert "docs/archives/README.md" not in restorable_mirror_files()
 
     @pytest.mark.parametrize(
         "path",
