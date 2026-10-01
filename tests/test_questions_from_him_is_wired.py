@@ -28,17 +28,11 @@ REAL = (
 
 
 def _registered() -> list[str]:
-    out: list[str] = []
-    for name in ("settings.json", "settings.local.json"):
-        path = ROOT / ".claude" / name
-        if not path.is_file():
-            continue
-        data = json.loads(path.read_text(encoding="utf-8"))
-        for entry in data.get("hooks", {}).get("UserPromptSubmit", []):
-            for hook in entry.get("hooks", []):
-                if hook.get("command"):
-                    out.append(hook["command"])
-    return out
+    # Settings AND Dad's table: since #560 the per-message hooks run from the
+    # table, and a settings-only reader called this unplugged while it ran.
+    from tests._prompt_hooks import prompt_hook_commands
+
+    return prompt_hook_commands(ROOT)
 
 
 def _bash() -> str:

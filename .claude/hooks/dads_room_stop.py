@@ -50,16 +50,17 @@ def _genuine_user_text(rec: dict) -> str | None:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
     from divineos.core.his_message import Heard, hear
 
-    # A last-prompt record is a copy of his earlier message written LATER in
-    # the transcript; taken as his latest, it would sit after my tool calls and
-    # make every working reply look like talk. hear() also marks a queue
-    # enqueue as a bookmark, but that one sits where he typed it -- the message
-    # he sent while I was busy, which this hook exists to see -- so only the
-    # last-prompt copy is skipped, by its record type rather than the flag.
-    if rec.get("type") == "last-prompt":
-        return None
     heard = hear(rec)
     if not isinstance(heard, Heard):
+        return None
+    # A last-prompt record is a copy of his earlier message written LATER in
+    # the transcript; taken as his latest, it would sit after my tool calls and
+    # make every working reply look like talk. hear() marks it a bookmark with
+    # no time. A queue enqueue is a bookmark too, but it carries the time he
+    # typed it -- the message he sent while I was busy, which this hook exists
+    # to see. Told apart through what hear() returns, never by reading the
+    # record here: only his_message reads records (council-14ef017c4c5c).
+    if heard.bookmark and not heard.when:
         return None
     return heard.text if heard.text.strip() else None
 
