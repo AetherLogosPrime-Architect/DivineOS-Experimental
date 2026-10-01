@@ -164,7 +164,15 @@ def test_every_hold_is_counted(qh):
 
 
 def _hook(payload, home):
-    env = {**__import__("os").environ, "HOME": str(home), "USERPROFILE": str(home)}
+    # DIVINEOS_HOME too: the hold now resolves each seat's own home, which
+    # follows the checkout's .divineos_data_home marker -- so HOME alone would
+    # point this test at the LIVE seat (2026-10-01).
+    env = {
+        **__import__("os").environ,
+        "HOME": str(home),
+        "USERPROFILE": str(home),
+        "DIVINEOS_HOME": str(home / ".divineos"),
+    }
     return subprocess.run(
         [sys.executable, str(HOOK)],
         input=json.dumps(payload).encode(),
