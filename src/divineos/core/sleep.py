@@ -768,6 +768,7 @@ def _phase_integrity_check(report: DreamReport) -> None:
     import json as _json
     import time as _time
 
+    from divineos.core.ledger import verify_chain
     from divineos.core.ledger_verify import verify_all_events
     from divineos.core.operating_loop_audit import marker_path
 
@@ -788,6 +789,14 @@ def _phase_integrity_check(report: DreamReport) -> None:
             "failures": list(failures[:20]),
             "skipped": int(result.get("skipped", 0)),
         }
+        # Each row can match its own hash while the links between rows are
+        # crossed. verify_all_events cannot see that, so the chain broke on
+        # 2026-08-20 and this phase reported clean for five weeks
+        # (Structured Chaos #28). Walk the links too.
+        chain = verify_chain()
+        marker_payload["chain_ok"] = bool(chain.get("ok"))
+        marker_payload["chain_broken_at"] = chain.get("broken_at")
+        marker_payload["chain_broken_reason"] = chain.get("broken_reason")
     except Exception as exc:  # noqa: BLE001 — fail-soft on verifier crash
         report.integrity_events_failed = 0
         report.integrity_events_verified = 0

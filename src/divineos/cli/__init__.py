@@ -371,6 +371,7 @@ from divineos.cli import (  # noqa: E402
     lab_commands,
     ledger_commands,
     psf_commands,
+    question_hold_commands,
     dashboard_commands,
     lepos_channel_commands,
     lepos_walk_commands,
@@ -380,6 +381,8 @@ from divineos.cli import (  # noqa: E402
     motivation_commands,
     prior_art_commands,
     prereg_commands,
+    game_walk_commands,
+    operator_ask_commands,
     class_fix_commands,
     reach_commands,
     admin_reset_template,
@@ -428,6 +431,7 @@ from divineos.cli import (  # noqa: E402
     backlog_commands,
     wiring_commands,
     prs_commands,
+    replant_commands,
     automerge_commands,
     todos_commands,
     belt_commands,
@@ -447,6 +451,7 @@ error_commands.register(cli)
 andrew_state_commands.register(cli)
 ledger_commands.register(cli)
 psf_commands.register(cli)
+question_hold_commands.register(cli)
 dashboard_commands.register(cli)
 knowledge_commands.register(cli)
 journal_commands.register(cli)
@@ -458,6 +463,7 @@ time_estimate_commands.register(cli)
 backlog_commands.register(cli)
 prs_commands.register(cli)
 prs_commands.register_scope(cli)
+replant_commands.register(cli)
 sibling_correction_commands.register(cli)
 label_fire_commands.register(cli)
 must_read_commands.register(cli)
@@ -530,6 +536,8 @@ prereg_commands.register(cli)
 class_fix_commands.register(cli)
 prior_art_commands.register(cli)
 psf_commands.register(cli)
+game_walk_commands.register(cli)
+operator_ask_commands.register(cli)
 reach_commands.register(cli)
 synchronicity_commands.register(cli)
 empirica_commands.register(cli)

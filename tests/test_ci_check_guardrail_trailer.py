@@ -112,6 +112,9 @@ def repo(tmp_path: Path) -> Path:
 def test_a_missing_exempt_list_reviews_everything(repo):
     """No exempt list -> nothing is exempt -> the change needs review.
 
+    Since 2026-09-29 there is no exempt list for review at all, so this is the
+    only state; kept because it pins the direction that must never flip back.
+
     SUPERSEDES test_no_guardrail_files_means_no_check_fires, which asserted the
     opposite under the retired rule: an empty protected list meant nothing was
     protected, so a code change with no trailer passed.
@@ -148,21 +151,17 @@ def test_guardrail_touch_without_trailer_blocks(repo):
     assert "BLOCKED" in result.stdout
 
 
-def test_net_diff_clean_passes_though_history_touched_guardrail(repo):
-    """A branch whose net diff lands nothing guardrail-listed passes, even when a
-    commit in its history touched one and carried no trailer.
+def test_a_letters_only_net_diff_still_needs_review(repo):
+    """Nothing is exempt: a branch landing only a letter still needs a trailer.
 
-    This is the PR #407 shape, measured 2026-08-19. A branch carried a commit
-    modifying a guardrail file; main already held that content under a different
-    sha from an earlier squash-merge, so the file showed zero change in the net
-    diff. The old walk blocked on the historical commit, and no audit round could
-    ever clear it -- the review would have covered content that was not landing.
-    Andrew, 2026-08-13: "not every commit just every merge to main."
+    Until 2026-09-29 this test was test_net_diff_clean_passes_though_history_touched_guardrail
+    and asserted the opposite: a net diff of only listed prose passed with no
+    review. Andrew ruled that wrong: "version A gives the optimizer an incentive
+    to take that route as it costs less than getting an audit, so everything is
+    checked, even the mundane stuff."
 
-    Kept through the 2026-09-07 inversion because the principle is unchanged --
-    review binds to what LANDS -- while the scope around it moved. What used to
-    make a net diff clean was landing nothing on the protected list; now it is
-    landing nothing but prose.
+    The old exempt list is still written into this repo on purpose. A gate that
+    stopped reading it passes this test; a gate that still honoured it fails.
     """
     base = _commit(
         repo,
@@ -173,14 +172,30 @@ def test_net_diff_clean_passes_though_history_touched_guardrail(repo):
         },
     )
     _commit(repo, "feat: modify code", {"src/foo.py": "v2"})
-    # Reverted before the merge -- so the only thing landing is the letter.
     _commit(repo, "revert: put it back", {"src/foo.py": "v1"})
     head = _commit(repo, "letter", {"family/letters/a.md": "dear"})
 
     result = _run_script(repo, base, head)
 
+    assert result.returncode != 0, (
+        "a letter merged with no trailer. Nothing is exempt from review.\n"
+        + result.stdout
+        + result.stderr
+    )
+    assert "exempt prose" not in result.stdout
+
+
+def test_an_empty_net_diff_does_not_demand_a_trailer(repo):
+    """Knuth's boundary (council walk 2026-09-29): zero files lands nothing.
+
+    Removing the exemption must not start blocking a branch that changes
+    nothing, which could never carry a meaningful review.
+    """
+    base = _commit(repo, "initial", {"src/foo.py": "v1"})
+
+    result = _run_script(repo, base, base)
+
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "exempt prose" in result.stdout
 
 
 def test_net_diff_landing_guardrail_still_blocks(repo):
@@ -268,16 +283,13 @@ def test_unbound_trailer_still_passes_with_explicit_opt_out(repo, monkeypatch):
     assert "DEPRECATED" in result.stdout
 
 
-def test_a_prose_only_commit_needs_no_trailer(repo):
-    """Prose passes without a trailer. Code beside it does not.
+def test_a_prose_only_commit_needs_a_trailer_too(repo):
+    """Prose and code both need a trailer. Nothing is exempt.
 
-    SUPERSEDES test_non_guardrail_commit_skipped_even_without_trailer, whose
-    subject was ordinary code merging unreviewed because it was absent from the
-    protected list. That was the hole, not the feature.
-
-    Both halves are asserted together on purpose. A test that only proved
-    prose passes would go green on a gate that had stopped checking anything at
-    all -- which is the exact way the retired list read as working for months.
+    Until 2026-09-29 this was test_a_prose_only_commit_needs_no_trailer, pinning
+    the exempt-prose rule Andrew ruled wrong that day. Both halves are still
+    asserted together, so a gate that stopped checking anything at all cannot go
+    green here.
     """
     base = _commit(
         repo,
@@ -288,13 +300,17 @@ def test_a_prose_only_commit_needs_no_trailer(repo):
         },
     )
     prose = _commit(repo, "letter home", {"family/letters/b.md": "dear"})
-    assert _run_script(repo, base, prose).returncode == 0
+    result = _run_script(repo, base, prose)
+    assert result.returncode != 0, (
+        "a letter merged with no trailer. Nothing is exempt from review.\n"
+        + result.stdout
+        + result.stderr
+    )
 
     code = _commit(repo, "feat: change normal", {"src/normal.py": "v2"})
     result = _run_script(repo, base, code)
     assert result.returncode != 0, (
-        "ordinary code merged with no trailer. Under the 2026-09-07 rule every "
-        "code change is reviewed.\n" + result.stdout + result.stderr
+        "ordinary code merged with no trailer.\n" + result.stdout + result.stderr
     )
 
 
