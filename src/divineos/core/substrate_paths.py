@@ -96,9 +96,10 @@ LOCAL_SUBSTRATE_PREFIXES: tuple[str, ...] = (
 # files in its diff of which two were the work.
 #
 # The rule that follows: a regenerated mirror belongs to the branch that owns it
-# and rides no other. Elsewhere the honest state is a modified file left alone,
-# because there is nothing to save -- the content is in the database and the
-# command rebuilds it.
+# and rides no other. Elsewhere there is nothing to save -- the content is in
+# the database and the command rebuilds it -- so it is restored to HEAD rather
+# than left modified (changed 2026-09-30: "left alone" meant left DIRTY, at
+# every checkpoint, forever; see RESTORABLE_MIRROR_PREFIXES below).
 #
 # NAMED NARROWLY ON PURPOSE. A general "it might be derived" test invites a yes,
 # because yes is what lets the checkpoint proceed. Admitting a HANDWRITTEN path
@@ -117,6 +118,44 @@ def is_regenerated_mirror(rel_path: str) -> bool:
     lines of unrelated churn in front of a reviewer.
     """
     return PurePosixPath(rel_path).as_posix().startswith(REGENERATED_MIRROR_PREFIXES)
+
+
+# MIRRORS WHOSE WORKING COPY MAY BE OVERWRITTEN, which is a stronger claim than
+# "skip it". A skipped mirror on a branch that does not own it is restored to
+# HEAD so the tree stays clean (2026-09-30: main left docs/archives/ modified at
+# every checkpoint, forever). Restoring is an OVERWRITE: free for a file rebuilt
+# from the DB (export_all measured reproducible, timestamp aside), and the loss
+# of the only copy for anything a person wrote. Aria's guard, made structural:
+# this is its own constant so that widening the skip list can never silently
+# widen the overwrite, and the import fails if it ever reaches authored ground.
+RESTORABLE_MIRROR_PREFIXES: tuple[str, ...] = ("docs/archives/",)
+
+for _restorable in RESTORABLE_MIRROR_PREFIXES:
+    if _restorable not in REGENERATED_MIRROR_PREFIXES:
+        raise RuntimeError(f"{_restorable} is restorable but is not a regenerated mirror")
+    for _authored in LOCAL_SUBSTRATE_PREFIXES:
+        if _authored in REGENERATED_MIRROR_PREFIXES:
+            continue
+        if _restorable.startswith(_authored) or _authored.startswith(_restorable):
+            raise RuntimeError(
+                f"{_restorable} overlaps authored {_authored}; a restore could erase it"
+            )
+
+
+def is_restorable_mirror(rel_path: str) -> bool:
+    """True only for a plain repo-relative file path under a restorable prefix.
+
+    Checked on the normalised path, never on the raw string: a ``..`` segment,
+    an absolute path, or an empty name is refused outright rather than
+    resolved, because resolving is how ``docs/archives/../../family/letters``
+    would become a letter. Refusing costs a dirty file; accepting can cost one.
+    """
+    posix = rel_path.replace("\\", "/")
+    if not posix or posix.startswith("/") or posix.endswith("/"):
+        return False
+    if any(part in ("", ".", "..") for part in posix.split("/")):
+        return False
+    return posix.startswith(RESTORABLE_MIRROR_PREFIXES)
 
 
 class NoChannelsDeclared(RuntimeError):
