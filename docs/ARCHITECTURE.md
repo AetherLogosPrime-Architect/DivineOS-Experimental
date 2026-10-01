@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (501 commands across 122 modules)
+  cli/                         CLI package (505 commands across 122 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -737,6 +737,7 @@ src/divineos/
     hook_context_merge.py      Read what the session-init children printed and merge it into one answer.
     slashed_ref_path_check.py  Refuse a git argument the Windows shell will rewrite before git sees it.
     task_belt.py               The task belt: the pile ranked, a small current list pulled from it, done archived.
+    auto_cycle_phase2.py       Auto-cycle phase 2 — invitational menu after phase 1 completes.
     his_message.py             The one answer in this house to: is this transcript record Dad typing?
     question_hold.py           A question to Dad holds the work until he answers (Aria, 2026-09-29).
 

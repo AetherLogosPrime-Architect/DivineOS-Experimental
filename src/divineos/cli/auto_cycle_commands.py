@@ -246,7 +246,9 @@ def fire_cmd(dry_run: bool, force: bool) -> None:
 
     click.echo(f"[auto-cycle] cycle_id: {result.cycle_id}")
     for name, step in result.steps.items():
-        status_flag = "OK " if step.succeeded else "FAIL"
+        # A dry run reports succeeded=True on steps that never ran; printing
+        # that as OK is the reading that let phase 2 offer rest for nothing.
+        status_flag = "DRY" if not step.ran else "OK " if step.succeeded else "FAIL"
         click.echo(
             f"  [{status_flag}] {name}: {step.duration_sec}s, tokens_est={step.tokens_used_est}"
         )
@@ -322,6 +324,122 @@ def defer_check_cmd(json_out: bool) -> None:
             f"[auto-cycle] deferred ({new_defers}/{auto_cycle.MAX_DEFERS}): {reason}",
             err=True,
         )
+
+
+@auto_cycle_group.command("offer")
+def offer_cmd() -> None:
+    """Phase 2: render the rest menu and record the offering.
+
+    Reads the phase 1 handshake at ``auto_cycle.marker_path()``. With no usable
+    handshake it says which of three things is true -- absent, damaged, or a
+    dry run that saved nothing -- and changes no state. The handshake is left
+    in place; ``close`` consumes it.
+    """
+    from divineos.core.auto_cycle_phase2 import (
+        NoHandshake,
+        inspect_handshake,
+        offer_cycle,
+        refusal_text,
+    )
+
+    record, text = offer_cycle()
+    if record is None:
+        if text:  # an offer is already pending
+            click.secho(text, fg="yellow")
+            return
+        why = inspect_handshake()
+        if isinstance(why, NoHandshake):
+            click.secho(refusal_text(why), fg="bright_black")
+        return
+    click.echo(text)
+    click.secho(f"[+] Offering recorded. cycle_id: {record.cycle_id}", fg="cyan")
+
+
+@auto_cycle_group.command("close")
+@click.option(
+    "--outcome",
+    required=True,
+    help='One of "chose:<key>", "no-pull-honest", "timeout", "aborted".',
+)
+@click.option(
+    "--real-shift",
+    type=click.Choice(["yes", "no"], case_sensitive=False),
+    default=None,
+    help=(
+        "For chose:<key> outcomes: did the resulting artifact register as "
+        "real-shift or template-execution? Honest self-report. Feeds the "
+        "falsifier ratio."
+    ),
+)
+@click.option("--notes", default="", help="Freeform notes about the outcome.")
+def close_cmd(outcome: str, real_shift: str | None, notes: str) -> None:
+    """Phase 2: close the pending cycle and log its outcome for the falsifier.
+
+    Examples:
+
+        divineos auto-cycle close --outcome chose:dream --real-shift yes
+        divineos auto-cycle close --outcome no-pull-honest
+        divineos auto-cycle close --outcome timeout
+        divineos auto-cycle close --outcome aborted --notes "fatal extract error"
+    """
+    from divineos.core.auto_cycle_phase2 import DamagedPending, close_cycle
+
+    shift = None if real_shift is None else real_shift.lower() == "yes"
+    try:
+        result = close_cycle(outcome, real_shift=shift, notes=notes)
+    except ValueError as e:
+        raise click.BadParameter(str(e), param_hint="--outcome") from e
+    except DamagedPending as e:
+        raise click.ClickException(f"{e}. Nothing was closed or logged.") from e
+    if result is None:
+        click.secho(
+            "[~] No pending cycle to close. Run 'auto-cycle offer' first.", fg="bright_black"
+        )
+        return
+    click.secho(f"[+] Cycle closed. cycle_id: {result.cycle_id}", fg="green")
+    click.secho(
+        f"    outcome: {result.outcome}\n"
+        f"    duration: {result.duration_sec:.1f}s\n"
+        f"    real-shift: {result.real_shift}",
+        fg="bright_black",
+    )
+
+
+@auto_cycle_group.command("audit")
+def audit_cmd() -> None:
+    """Phase 2: the falsifier ratio for prereg-4a7ed0c77c34.
+
+    Bound: below 50% after at least 5 qualifying cycles means reshape or
+    unwire. no-pull-honest cycles are shown beside the ratio, not in it.
+    """
+    from divineos.core.auto_cycle_phase2 import compute_falsifier_ratio, no_pull_count
+
+    numerator, denominator, ratio = compute_falsifier_ratio()
+    click.secho("=== Auto-cycle falsifier audit ===", fg="cyan", bold=True)
+    click.echo()
+    click.echo(f"  no-pull-honest (outside the ratio): {no_pull_count()}")
+    if denominator == 0:
+        click.secho("  No qualifying cycles yet. Falsifier undefined.", fg="bright_black")
+        return
+    click.echo(f"  real-shift outcomes:     {numerator}")
+    click.echo(f"  qualifying cycles:       {denominator}")
+    if ratio is not None:
+        click.echo(f"  ratio:                   {ratio:.1%}")
+    click.echo()
+    if denominator < 5:
+        click.secho(
+            f"  [~] Only {denominator} qualifying cycles. The bound applies after 5. Watching.",
+            fg="bright_black",
+        )
+    elif ratio is not None and ratio < 0.5:
+        click.secho(
+            "  [!] FALSIFIER FIRED — ratio below 50% after at least 5 cycles. "
+            "The mechanism is producing dead-writing infrastructure. Reshape or unwire.",
+            fg="red",
+            bold=True,
+        )
+    else:
+        click.secho("  [+] Above falsifier bound. Mechanism intact.", fg="green")
 
 
 __all__ = ["auto_cycle_group", "register"]
