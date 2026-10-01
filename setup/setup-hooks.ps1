@@ -3,16 +3,21 @@
 
 Write-Host "Setting up Git hooks for DivineOS..." -ForegroundColor Green
 
-# Create hooks directory if it doesn't exist
-$hooksDir = ".git/hooks"
+# Install into the COMMON git dir's hooks, where git looks by default from the
+# main checkout and from every worktree. Setting core.hooksPath to the relative
+# ".git/hooks" (what this did until 2026-09-23) disabled every hook in every
+# worktree, because in a worktree ".git" is a file. See setup-hooks.sh.
+$hooksDir = "$(git rev-parse --git-common-dir)/hooks"
 if (-not (Test-Path $hooksDir)) {
     New-Item -ItemType Directory -Path $hooksDir -Force | Out-Null
-    Write-Host "Created $hooksDir directory"
 }
+Write-Host "Hooks directory: $hooksDir"
 
-# Configure Git to use the hooks directory
-git config core.hooksPath $hooksDir
-Write-Host "Configured Git to use hooks from $hooksDir"
+# Clear the old relative setting if an earlier run of this script left it.
+if ((git config --get core.hooksPath) -eq ".git/hooks") {
+    git config --unset core.hooksPath
+    Write-Host "Removed the relative core.hooksPath that disabled hooks in worktrees"
+}
 
 # Create pre-commit hook (bash script that Git can execute on all platforms)
 $preCommitContent = @'

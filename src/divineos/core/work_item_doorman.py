@@ -65,7 +65,9 @@ from pathlib import Path
 from divineos.core._ledger_base import _get_db_path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-EXEMPT_LIST = REPO_ROOT / "scripts" / "review_exempt_paths.txt"
+# The doorman's own list since 2026-09-29, when review stopped exempting
+# anything and the shared list kept only this question.
+EXEMPT_LIST = REPO_ROOT / "scripts" / "work_item_exempt_paths.txt"
 DRAFTS_DIR = REPO_ROOT / "docs" / "drafts"
 
 # Marks required before an edit is allowed. Station 0 and 1 and 2 of
@@ -785,7 +787,7 @@ def decide(tool_name: str, tool_input: dict, session: str = "") -> Decision:
     if exempt is None:
         return Decision(
             State.CANNOT_CHECK,
-            "I could not read scripts/review_exempt_paths.txt, so I cannot tell "
+            "I could not read scripts/work_item_exempt_paths.txt, so I cannot tell "
             "whether this write is prose or code. Holding rather than guessing.",
         )
 

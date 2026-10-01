@@ -96,7 +96,11 @@ addopts = "--strict-markers"
 # against a stale install from a different worktree. See tests/
 # conftest.py::_verify_divineos_import_path for the fail-loud check
 # that pairs with this line.
-pythonpath = ["src"]
+# "." as well, so `from scripts.x import ...` works in any test regardless of
+# collection order. Tests used to insert the root themselves, and four that
+# didn't passed only when a sibling happened to be collected first (CI #519,
+# 2026-09-29).
+pythonpath = ["src", "."]
 # xdist worker cap (--maxprocesses=16) is applied conditionally in
 # tests/conftest.py::pytest_configure so it only fires when xdist is
 # loaded. Putting it in addopts broke minimal envs without xdist —
