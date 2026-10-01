@@ -43,6 +43,65 @@ STATE = _home() / "question_hold.json"
 HOLD_LOG = _home() / "question_hold_log.jsonl"
 ESCAPED = _home() / "question_hold_escaped.json"
 
+# THE SHARED FRIDGE: SEEN, NEVER HELD. Dad, 2026-10-01: "also the shared fridge
+# idea isnt bad, as seeing what the other was asked is a nice addition, it just
+# shouldnt block, only the personal ones do :)". Each seat posts its open
+# question here as a card named for its home folder; the other seat is SHOWN
+# it and never refused by it. Display only: every board failure is swallowed
+# toward "nothing shown", because a board that could block is the defect again.
+#
+# NEXT DOOR TO THE SEAT'S HOME, not Path.home(). The seat homes (~/.divineos,
+# ~/.divineos-aria) sit beside ~/.divineos-shared, so in the house this is the
+# same folder. In a test the seat home is a temporary one, and this follows it
+# there without any test remembering to. Built from Path.home() first, a card
+# leaked onto the live board during a run before that was seen.
+BOARD = _home().parent / ".divineos-shared" / "open_questions"
+CARD = BOARD / f"{_home().name}.json"
+
+
+def _seat_name(home_name: str) -> str:
+    from divineos.core.sibling_corrections import SIBLING_HOMES
+
+    for name, home in SIBLING_HOMES.items():
+        if Path(home).name == home_name:
+            return name.capitalize()
+    return home_name
+
+
+def _post_card(state: dict[str, Any]) -> None:
+    try:
+        CARD.parent.mkdir(parents=True, exist_ok=True)
+        CARD.write_text(json.dumps(state), encoding="utf-8")
+    except OSError:
+        pass  # display only -- the own hold is already armed
+
+
+def _take_card() -> None:
+    try:
+        CARD.unlink(missing_ok=True)
+    except OSError:
+        pass  # display only
+
+
+def others_waiting() -> list[str]:
+    """One line per OTHER seat with an open question to Dad. Never a refusal."""
+    lines = []
+    try:
+        cards = sorted(BOARD.glob("*.json"))
+    except OSError:
+        return []
+    for card in cards:
+        if card.name == CARD.name:
+            continue
+        try:
+            state = json.loads(card.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(state, dict) and state.get("question"):
+            lines.append(f"{_seat_name(card.stem)} is waiting on Dad: {state['question']}")
+    return lines
+
+
 BUILDING_TOOLS = {"Bash", "Edit", "Write", "NotebookEdit"}
 
 # Bash that is listening or talking, not building. Kept narrow on purpose:
@@ -130,6 +189,7 @@ def arm(reply: str) -> dict[str, Any] | None:
     state = {"question": question, "ask_id": ask_id, "since": time.time()}
     STATE.parent.mkdir(parents=True, exist_ok=True)
     STATE.write_text(json.dumps(state), encoding="utf-8")
+    _post_card(state)
     _log("armed", question=question, ask_id=ask_id)
     return state
 
@@ -140,6 +200,7 @@ def release(how: str, reason: str = "") -> bool:
     if not state:
         return False
     STATE.unlink(missing_ok=True)
+    _take_card()
     _log("released", how=how, reason=reason, question=state.get("question"))
     if how == "escape":
         ESCAPED.write_text(

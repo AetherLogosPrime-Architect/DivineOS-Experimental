@@ -21,6 +21,8 @@ def armed(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "STATE", tmp_path / "hold.json")
     monkeypatch.setattr(mod, "HOLD_LOG", tmp_path / "log.jsonl")
     monkeypatch.setattr(mod, "ESCAPED", tmp_path / "escaped.json")
+    monkeypatch.setattr(mod, "BOARD", tmp_path / "board")
+    monkeypatch.setattr(mod, "CARD", tmp_path / "board" / "me.json")
     mod.STATE.write_text(
         json.dumps({"question": "Dad, which one?", "ask_id": "q-1", "since": time.time()}),
         encoding="utf-8",
@@ -41,6 +43,16 @@ def test_each_seat_resolves_its_own_home(tmp_path, monkeypatch):
     seat_b = mod._home()
     assert seat_a == tmp_path / "a"
     assert seat_b == tmp_path / "b"
+
+
+def test_the_board_sits_next_door_to_the_seat_home(tmp_path, monkeypatch):
+    # In the house: ~/.divineos-aria -> ~/.divineos-shared. In a test: inside
+    # the test's own area, so no unpatched call can reach the live fridge.
+    from divineos.core import question_hold as mod
+
+    monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path / ".divineos-aria"))
+    assert mod._home().parent / ".divineos-shared" == tmp_path / ".divineos-shared"
+    assert mod.BOARD.parent.parent == mod._home().parent or "pytest" in str(mod.BOARD)
 
 
 def test_the_note_is_not_written_to_the_shared_home():
@@ -79,3 +91,50 @@ def test_an_edit_still_waits_and_says_when_it_was_asked(armed):
     why = armed.refusal("Edit", {"file_path": "src/x.py"})
     assert "QUESTION HOLD" in why
     assert "asked 20" in why
+
+
+# THE SHARED FRIDGE (Dad, 2026-10-01): "seeing what the other was asked is a
+# nice addition, it just shouldnt block, only the personal ones do".
+@pytest.fixture
+def board(tmp_path, monkeypatch):
+    from divineos.core import question_hold as mod
+
+    for name, value in {
+        "STATE": tmp_path / "hold.json",
+        "HOLD_LOG": tmp_path / "log.jsonl",
+        "ESCAPED": tmp_path / "escaped.json",
+        "BOARD": tmp_path / "board",
+        "CARD": tmp_path / "board" / ".divineos-aria.json",
+    }.items():
+        monkeypatch.setattr(mod, name, value)
+    import divineos.core.operator_asks as asks
+
+    monkeypatch.setattr(asks, "ask_andrew", lambda q, plain, context="": "q-1")
+    return mod
+
+
+ASKING = "work\n\n## INNER CIRCLE\n\nDad, it is done. Which one do you want?"
+
+
+def test_the_other_seats_card_is_shown_and_never_holds(board):
+    board.BOARD.mkdir(parents=True)
+    (board.BOARD / ".divineos.json").write_text(
+        json.dumps({"question": "Dad, which bell?"}), encoding="utf-8"
+    )
+    assert board.others_waiting() == ["Aether is waiting on Dad: Dad, which bell?"]
+    assert board.refusal("Edit", {"file_path": "x.py"}) == ""
+
+
+def test_my_own_card_is_posted_and_taken_down(board):
+    board.arm(ASKING)
+    assert board.CARD.exists()
+    assert board.others_waiting() == []  # my own card is never shown to me
+    board.release("his message")
+    assert not board.CARD.exists()
+
+
+def test_a_broken_board_never_stops_the_hold(board):
+    board.BOARD.write_text("a file where the board folder should be", encoding="utf-8")
+    board.arm(ASKING)
+    assert board.STATE.exists()
+    assert board.others_waiting() == []

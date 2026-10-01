@@ -36,6 +36,20 @@ holding the other's only way out.
 - Nothing else. A question still holds building, still releases on his next
   message, still has its counted emergency exit.
 
+## Amendment — a shared board that only shows
+
+Dad, 2026-10-01, after the per-seat change: *"also the shared fridge idea isnt
+bad, as seeing what the other was asked is a nice addition, it just shouldnt
+block, only the personal ones do :)"*
+
+Arming also writes a card to `~/.divineos-shared/open_questions/<home>.json`,
+keyed by the seat's home folder name (always known, one per seat), shown with
+the name from `sibling_corrections.SIBLING_HOMES`. Clearing the own hold
+removes the card. When a notice arrives or he speaks, the OTHER seats' cards
+are shown as a line ("Aether is waiting on Dad: ..."). They never produce a
+refusal. The board is display only: a broken or missing board never blocks,
+and never stops the own hold from arming.
+
 ## Not touched, and why
 
 Recording actions are what the remedy list holds; it forbids git, rm, cp,

@@ -19,6 +19,9 @@ def qh(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "STATE", tmp_path / "hold.json")
     monkeypatch.setattr(mod, "HOLD_LOG", tmp_path / "log.jsonl")
     monkeypatch.setattr(mod, "ESCAPED", tmp_path / "escaped.json")
+    # The shared board too, or arming posts a test card on the LIVE fridge.
+    monkeypatch.setattr(mod, "BOARD", tmp_path / "board")
+    monkeypatch.setattr(mod, "CARD", tmp_path / "board" / "me.json")
     filed = []
     import divineos.core.operator_asks as asks
 
