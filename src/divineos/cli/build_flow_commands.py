@@ -29,11 +29,13 @@ from pathlib import Path
 
 import click
 
+from divineos.core.council_walk import Coverage, coverage_for
 from divineos.core.build_flow import (
     PrFlowStatus,
     StationResult,
     Status,
     check_aria_station,
+    check_cold_read_station,
     check_audit_station,
     check_build_station,
     check_council_station,
@@ -53,6 +55,12 @@ from divineos.core.build_flow import (
 )
 
 _LETTERS = Path.home() / ".divineos-shared" / "letters"
+# Who owns a branch, DECLARED. One file per branch, so two seats claiming the
+# same branch collide at the declaration rather than at the board. Never
+# inferred from the branch name or the commit identity: both were measured
+# wrong on 2026-09-12, and the identity source is an unconfigured-checkout
+# default that nobody chose and nothing declares.
+_OWNERS = Path.home() / ".divineos-shared" / "branch_owners"
 
 # Every one of these means "could not check", never "checked and found none" --
 # which is exactly the distinction Status carries three values for. A bare
@@ -333,6 +341,123 @@ def _changed_paths(pr: int) -> tuple[str, ...] | None:
     if len(paths) >= _GH_PR_FILES_CAP:
         return None  # may be truncated; unknown is not zero
     return paths
+
+
+_JUDGE_FILES = ("src/divineos/core/build_flow.py", "src/divineos/core/council_walk.py")
+
+
+def _judge_direction() -> str:
+    """Which way the difference runs, because only one way is dangerous.
+
+    The first version of the stamp said "differs from the shared one", which
+    is symmetric and therefore reads as harmless. It is not symmetric. A board
+    BEHIND the shared one is an older judge, and an older judge returns
+    PERMISSIVE verdicts -- it is the version that reported six pieces of work
+    ready when the true answer was zero. A board ahead is carrying repairs
+    that simply have not landed yet, which is a different situation entirely
+    and not a reason to distrust the reading.
+
+    Filed as correction #658. The stamp I shipped an hour earlier warned about
+    staleness while being itself absent from every stale branch, because I put
+    the guard inside the artifact it guards. This closes the half that can be
+    closed in code; the other half is the branch reaching main, which is the
+    only thing that puts the guard where the stale boards are.
+    """
+    import subprocess
+
+    try:
+        behind = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", "HEAD", "origin/main"],
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=False,
+        ).returncode
+    except (OSError, subprocess.SubprocessError):
+        return "Which way it differs COULD NOT BE READ, so treat this verdict as unverified."
+    if behind == 0:
+        return (
+            "It is BEHIND the shared one -- an older judge, which returns "
+            "PERMISSIVE verdicts. Treat any READY here as unproven."
+        )
+    if behind == 1:
+        return "It is AHEAD of the shared one, carrying repairs that have not landed yet."
+    return "Which way it differs COULD NOT BE READ, so treat this verdict as unverified."
+
+
+def _judge_version_line() -> str:
+    """Say WHICH VERSION OF ITSELF produced this verdict.
+
+    THE BOARD JUDGES BRANCHES USING WHATEVER COPY OF ITSELF IS CHECKED OUT,
+    and until 2026-09-12 it never said so. Found by accident: I rebuilt a
+    branch off main, and from there the board reported SIX pieces of work
+    ready. Stepping back onto the branch carrying the day's repairs, the same
+    twelve at the same moment reported ZERO. Two opposite verdicts, minutes
+    apart, neither announcing which judge had spoken.
+
+    That is worse than any single wrong answer, because both readings looked
+    equally authoritative and I nearly reported the flattering one. A verdict
+    whose value depends on where the reader is standing has to say where it
+    was standing, or it is a number without units.
+
+    Three states, as everywhere else today: a named version, a version that
+    differs from the shared one (so the reading is not comparable to anyone
+    else's), and could-not-tell -- which must never be silence.
+    """
+    import subprocess
+
+    try:
+        done = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=False,
+        )
+        if done.returncode != 0:
+            return "  [judge] COULD NOT TELL which version of this board spoke -- git refused."
+        here = done.stdout.strip()
+        drift = subprocess.run(
+            ["git", "diff", "--quiet", "origin/main", "--", *_JUDGE_FILES],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return (
+            f"  [judge] COULD NOT TELL which version of this board spoke -- {type(exc).__name__}."
+        )
+
+    if drift.returncode == 0:
+        return f"  [judge] this verdict comes from the shared version of the board ({here})."
+    if drift.returncode == 1:
+        return (
+            f"  [judge] this verdict comes from the board as it stands on THIS branch ({here}), "
+            f"which differs from the shared one. {_judge_direction()}"
+        )
+    return (
+        f"  [judge] board version {here}; COULD NOT TELL whether it differs from the shared one, "
+        "so this verdict may not be comparable with one read elsewhere."
+    )
+
+
+def _walk_coverage(paths: tuple[str, ...] | None) -> "Coverage":
+    """Is there a CLOSED walk scoped to these files, with every lens settled?
+
+    This is what station 2 now decides on. The count that used to decide is
+    kept beside it as detail, because a number that was never the right
+    question is still worth seeing while the two disagree.
+
+    Failure to import is COULD-NOT-CHECK rather than uncovered: a board that
+    reports a missing module as a missing walk is the false-accusation shape
+    this same station shipped in August, and a station that can only fail
+    teaches me to discount it.
+    """
+    try:
+        return coverage_for(paths)
+    except Exception as exc:  # noqa: BLE001 -- any failure here is could-not-look
+        return Coverage("cannot-check", reason=f"the walk store raised: {exc}")
 
 
 def _lenses_applied(paths: tuple[str, ...] | None) -> int | None:
@@ -741,6 +866,7 @@ def collect(
             anchor, anchor_detail = _anchor_for(branch, deep, n)
             st.stations = [
                 StationResult("2-council", Status.CANNOT_CHECK, "changed files unreadable"),
+                check_cold_read_station(branch, _LETTERS, _OWNERS),
                 check_scope_station(None, branch),
                 check_aria_station(branch, _LETTERS, declared_author(pr.get("body"))),
                 check_draft_station(pr.get("isDraft")),
@@ -773,7 +899,14 @@ def collect(
             check_rough_draft_station(branch, paths),
             # paths, not branch: council walks are keyed by edit
             # fingerprint. See _lenses_applied for the measurement.
-            check_council_station(branch, need, walked, _other_seat_lenses(paths)),
+            check_council_station(
+                branch,
+                need,
+                walked,
+                _other_seat_lenses(paths),
+                coverage=_walk_coverage(paths),
+            ),
+            check_cold_read_station(branch, _LETTERS, _OWNERS),
             check_scope_station(paths, branch),
             check_build_station(paths),
             check_aria_station(branch, _LETTERS, declared_author(pr.get("body"))),
@@ -898,7 +1031,23 @@ def render(
         lines.append(f"  Needing attention: {', '.join(f'#{n}' for n in attention)}")
     else:
         lines.append("  Nothing is off-track. Drafts with stations ahead of them are drafts.")
-    lines.append("  Checked: 2-council, 3-scope, 4-aria, 7-draft, 8-audit, 9-superseded.")
+    # BOTH SEATS' STATIONS, named together after the merge of 2026-09-21.
+    #
+    # This branch had replaced 4-aria with 4-cold-read, on the reasoning that
+    # the station had stopped being about Aria and become about whichever seat
+    # did not write the branch. Main meanwhile kept 4-aria and taught it to ask
+    # who the author is, and added 3-scope and 9-superseded beside it.
+    #
+    # Neither line was wrong; they were answering different questions, and both
+    # stations exist in the merged module with their own callers and tests. So
+    # the board runs all of them and this line names all of them. Dropping
+    # either side's list would have left a station running and unnamed, which
+    # is the same fault the deleted comment was written to record.
+    lines.append(_judge_version_line())
+    lines.append(
+        "  Checked: 2-council, 3-scope, 4-aria, 4-cold-read, 7-draft, 8-audit, 9-superseded."
+    )
+    lines.append("  NOT checked: 1-draft, 3-build, 5-test, 6-more-council, 9-merge.")
     vague = unresolved_supersession_claims(roster)
     if vague:
         named = ", ".join(f"#{n}" for n in vague)
@@ -911,6 +1060,7 @@ def render(
     lines.append("  not a letter from me — an artifact I can produce alone proves only")
     lines.append("  that I spoke. '????' is not a pass; it means the check could not run.")
     lines.append("")
+    lines.extend(_outside_the_flow_lines({f"origin/{s.branch}" for s in statuses}))
 
     # WHOSE RULES SAID SO. Every verdict above is this checkout's copy of the
     # station code talking, and until now the page read as if it were the
@@ -921,6 +1071,164 @@ def render(
     lines.append(f"  [{_MARK[prov_status]}] whose rules  {prov_detail}")
     lines.append("")
     return "\n".join(lines)
+
+
+# Substrate branches are archives and are SUPPOSED to sit there; counting them
+# as unfinished work makes the estate look worse than it is and trains the
+# reader to ignore the number.
+#
+# CLASSIFIED BY CONTENT, NOT BY NAME. The first version keyed on the branch
+# name and immediately mis-sorted a branch called `aria/substrate` into
+# "carrying unlanded work" with 453 files, because the word sat in the wrong
+# position. A name is a claim about a branch; its files are the branch. Names
+# lie by accident, which is the whole subject of this day's work.
+_CODE_PREFIXES = ("src/", "tests/", "scripts/", ".claude/")
+
+
+def classify_branch(unlanded: list[str]) -> tuple[str, int]:
+    """What a branch is, from the files of its that main does not have.
+
+    Returns the verdict and the count of unlanded CODE files: ``landed``
+    (nothing of it is missing from main), ``substrate`` (things are missing
+    but none of them is code — an archive), or ``carrying`` (real unlanded
+    code, a decision somebody owes).
+
+    EXTRACTED SO IT CAN BE CHECKED WITHOUT A REMOTE (council-b02b23372ca0).
+    The rule lived inside the git-shelling loop, so the only way to exercise
+    it was to run the whole board against a live remote — untestable by
+    construction, and exactly where a wrong rule hides. It already misfired
+    once, sorting an archive into unfinished work because it keyed on the
+    branch NAME, and I caught that by eye. Catching a thing by eye is not a
+    mechanism; the next drift would be a slightly different count nobody
+    queries.
+
+    Names lie by accident. Files do not.
+    """
+    if not unlanded:
+        return "landed", 0
+    code = [p for p in unlanded if p.startswith(_CODE_PREFIXES)]
+    if not code:
+        return "substrate", 0
+    return "carrying", len(code)
+
+
+def _outside_the_flow_lines(in_flow: set[str]) -> list[str]:
+    """Branches on the remote with no open request — the work nobody can see.
+
+    WHY THIS EXISTS (council-27a00feec90a). The board above reports open
+    requests and says nothing about everything else, so the instrument the
+    house uses to see its own work has been blind to roughly four fifths of
+    it. That is why Andrew says seventy branches and the board says twelve.
+    Deming: a queue nobody can see cannot be drained, and no amount of
+    inspection substitutes for the system being able to observe itself.
+
+    Feathers: for branches nobody remembers writing, the first artifact is
+    not a plan, it is a record of what each one currently holds. The
+    dangerous failure is not the branch that breaks loudly; it is the one
+    that quietly stops existing while nobody was watching that shelf.
+
+    EVERY LINE CARRIES A VERDICT, NOT A NAME (Dekker). The predictable drift
+    is this becoming a wall of names, each addition reasonable, growing past
+    the point of being read until its presence is indistinguishable from its
+    absence -- the pile itself moved one level up. A name is scrolled past. A
+    verdict is something a reader can disagree with.
+
+    Computed from refs already fetched, so it costs no network. A listing
+    slow enough to skip is a listing that stops being run.
+    """
+    import subprocess
+
+    def _git(*args: str) -> str:
+        try:
+            out = subprocess.run(
+                ["git", *args], capture_output=True, text=True, timeout=30, check=False
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise RuntimeError(str(exc)) from exc
+        if out.returncode != 0:
+            raise RuntimeError(out.stderr.strip() or f"git {' '.join(args)} failed")
+        return out.stdout
+
+    header = ["=== OUTSIDE THE FLOW — branches with no open request ===", ""]
+    try:
+        refs = [
+            r.strip()
+            for r in _git(
+                "for-each-ref", "--format=%(refname:short)", "refs/remotes/origin"
+            ).splitlines()
+            if r.strip() not in ("origin", "origin/HEAD", "origin/main")
+        ]
+    except RuntimeError as exc:
+        # SAY IT COULD NOT LOOK. Reporting an empty estate because git failed
+        # is the could-not-see / this-is-fine collapse the whole surface exists
+        # to prevent.
+        return header + [
+            f"  COULD NOT LOOK: {exc}",
+            "  This is NOT 'no branches outside the flow'. The check did not run.",
+            "",
+        ]
+
+    outside = [r for r in refs if r not in in_flow]
+    if not outside:
+        return header + ["  Nothing outside the flow. Every branch has an open request.", ""]
+
+    landed: list[str] = []
+    substrate: list[str] = []
+    carrying: list[tuple[int, str]] = []
+    unreadable: list[str] = []
+
+    for ref in sorted(outside):
+        try:
+            changed = [
+                p
+                for p in _git("diff", "--name-only", f"origin/main...{ref}").splitlines()
+                if p.strip()
+            ]
+            unlanded = [
+                p
+                for p in changed
+                if _git("diff", "--name-only", "origin/main", ref, "--", p).strip()
+            ]
+        except RuntimeError:
+            # An orphan branch has no merge base and cannot be compared. Named
+            # rather than silently dropped -- a branch that vanishes from the
+            # listing is the failure this listing is for.
+            unreadable.append(ref)
+            continue
+        verdict, code_count = classify_branch(unlanded)
+        if verdict == "landed":
+            landed.append(ref)
+        elif verdict == "substrate":
+            substrate.append(f"{ref}  ({len(unlanded)} file(s), none of it code)")
+        else:
+            carrying.append((code_count, ref))
+
+    lines = list(header)
+    if carrying:
+        lines.append(f"  CARRYING UNLANDED WORK ({len(carrying)}) — real decisions, not clutter:")
+        for count, ref in sorted(carrying, reverse=True):
+            lines.append(f"    {count:>3} code file(s) unlanded   {ref}")
+        lines.append("")
+    if landed:
+        lines.append(f"  ALREADY IN MAIN ({len(landed)}) — nothing of theirs is missing:")
+        for ref in landed:
+            lines.append(f"      {ref}")
+        lines.append("")
+    if substrate:
+        lines.append(f"  SUBSTRATE ({len(substrate)}) — archives, meant to sit here:")
+        for ref in substrate:
+            lines.append(f"      {ref}")
+        lines.append("")
+    if unreadable:
+        lines.append(f"  COULD NOT COMPARE ({len(unreadable)}) — no merge base, judge by hand:")
+        for ref in unreadable:
+            lines.append(f"      {ref}")
+        lines.append("")
+    lines.append("  A branch here is outside the flow entirely — no request, no stations,")
+    lines.append("  nobody reviewing it. 'Already in main' is the only line that means")
+    lines.append("  retireable, and even then check what it carries besides code.")
+    lines.append("")
+    return lines
 
 
 def register(cli: click.Group) -> None:

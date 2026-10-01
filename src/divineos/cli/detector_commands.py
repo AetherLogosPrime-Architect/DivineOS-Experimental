@@ -83,7 +83,7 @@ def register(cli: click.Group) -> None:
     @click.option(
         "--reason",
         required=True,
-        help="Why this cannot be fixed now, and what stays unwatched meanwhile (30+ chars).",
+        help="Why this is not fixed yet, and what stays unwatched meanwhile (30+ chars).",
     )
     @click.option("--actor", default="aether", show_default=True)
     def detectors_defer(detector: str, reason: str, actor: str) -> None:

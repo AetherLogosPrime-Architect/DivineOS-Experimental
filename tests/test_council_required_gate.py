@@ -931,3 +931,28 @@ def test_f49_degraded_gravity_result_fails_closed(scratch_ledger):
         f"(fail-closed), but decision was {decision.outcome}. If this ALLOWs, the "
         f"getattr default in council_required/gate.py reverted from True to False."
     )
+
+
+def test_the_consumed_record_is_a_chained_row(scratch_ledger):
+    """COUNCIL_RECORD_CONSUMED used to be inserted by hand with no chain, the
+    one row in the council store not written through the ledger, and verify
+    counted it as unchained-after-the-chain-began (the forged-row shape of
+    2026-08-18). It goes through ledger.append_on now (Aria, 2026-09-29)."""
+    from divineos.core import _ledger_base
+    from divineos.core.ledger import verify_chain
+
+    fingerprint = _normalize_edit_fingerprint("src/divineos/core/gravity_classifier.py", "Edit")
+    store.log_council_record(_valid_record_for(fingerprint), actor="test-agent")
+    result = store.find_and_consume_atomically(edit_fingerprint=fingerprint, recency_seconds=3600)
+    assert result is not None
+    _, consume_event_id = result
+    conn = sqlite3.connect(str(_ledger_base._get_db_path()))
+    try:
+        prior, chain = conn.execute(
+            "SELECT prior_hash, chain_hash FROM system_events WHERE event_id = ?",
+            (consume_event_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+    assert prior and chain
+    assert verify_chain()["ok"] is True, verify_chain()
