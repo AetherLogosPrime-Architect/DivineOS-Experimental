@@ -8,7 +8,6 @@ the overdue gate refused the doorbell -- two gates holding each other's exit.
 
 from __future__ import annotations
 
-import importlib
 import json
 import time
 
@@ -29,25 +28,29 @@ def armed(tmp_path, monkeypatch):
     return mod
 
 
-def test_each_seat_keeps_its_own_note(tmp_path, monkeypatch):
-    seat_a = tmp_path / "a"
-    seat_b = tmp_path / "b"
-    import divineos.core.question_hold as mod
+def test_each_seat_resolves_its_own_home(tmp_path, monkeypatch):
+    # WRITES NOTHING, on purpose. The first version reloaded the module and
+    # wrote a fake question; under the pre-push run its "temporary" home was a
+    # live one, and "A asks?" held both seats until Dad spoke (2026-10-01).
+    # The property is where each seat's note would live, so ask only that.
+    from divineos.core import question_hold as mod
 
-    monkeypatch.setenv("DIVINEOS_HOME", str(seat_a))
-    a = importlib.reload(mod)
-    a.STATE.parent.mkdir(parents=True, exist_ok=True)
-    a.STATE.write_text(json.dumps({"question": "A asks?", "since": time.time()}), encoding="utf-8")
-    assert a.STATE.parent == seat_a
+    monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path / "a"))
+    seat_a = mod._home()
+    monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path / "b"))
+    seat_b = mod._home()
+    assert seat_a == tmp_path / "a"
+    assert seat_b == tmp_path / "b"
 
-    monkeypatch.setenv("DIVINEOS_HOME", str(seat_b))
-    b = importlib.reload(mod)
-    try:
-        assert b.is_open() is None
-        assert b.refusal("Edit", {"file_path": "x.py"}) == ""
-    finally:
-        monkeypatch.delenv("DIVINEOS_HOME")
-        importlib.reload(mod)
+
+def test_the_note_is_not_written_to_the_shared_home():
+    # The defect itself, pinned: one Path.home() file shared by every seat.
+    from pathlib import Path
+
+    src = (Path(__file__).resolve().parents[1] / "src/divineos/core/question_hold.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'Path.home() / ".divineos"' not in src
 
 
 @pytest.mark.parametrize(
