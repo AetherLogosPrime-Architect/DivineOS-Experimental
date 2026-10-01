@@ -35,6 +35,7 @@ from pathlib import Path
 from divineos.core.command_parsing import runs_only
 from divineos.core.front_door import _as_record
 from divineos.core.harness_envelopes import nothing_of_his
+from divineos.core.his_message import continues_a_turn, may_carry_arrival
 
 SPOKE = "spoke"
 NOT = "not"
@@ -108,9 +109,9 @@ def _starts_a_turn(rec: dict) -> bool:
     so is a compaction summary: the harness flags it, and the turn it lands in
     is still running, so reading it as a new turn would clear his words before
     he was answered (Aether, station four; #554's walk reads it the same way)."""
-    if rec.get("type") != "user" or rec.get("isSidechain") or rec.get("isMeta"):
-        return False
-    if rec.get("isCompactSummary"):
+    # The harness-continuation flags (hook feedback, compaction summary) are
+    # asked of their one home, his_message (council-7f6e044fe7ca).
+    if rec.get("type") != "user" or rec.get("isSidechain") or continues_a_turn(rec):
         return False
     content = (rec.get("message") or {}).get("content")
     if isinstance(content, list):
@@ -146,7 +147,10 @@ def _scan(lines: list[str], whole: bool) -> Verdict | None:
     started = whole  # a whole file begins at a turn start by definition
     words: str | None = None
     for line in lines:
-        if '"user"' not in line and '"queued_command"' not in line:
+        # Arrival shapes live in his_message (council-6ecfe25a3508): a line
+        # that can open a turn is a user record; one that can carry him
+        # mid-turn is an arrival.
+        if '"user"' not in line and not may_carry_arrival(line):
             continue
         try:
             rec = json.loads(line)

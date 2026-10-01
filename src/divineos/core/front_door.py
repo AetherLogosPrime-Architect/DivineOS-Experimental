@@ -37,6 +37,7 @@ from pathlib import Path
 
 from divineos.core import his_asks
 from divineos.core.harness_envelopes import nothing_of_his
+from divineos.core.his_message import arrival, may_carry_arrival
 
 # The record is written the moment he sends, so by the first tool call or the
 # end of the turn it sits near the end of the transcript. Reading only the tail
@@ -153,23 +154,15 @@ class _Record:
 
 
 def _as_record(rec: dict) -> _Record | None:
-    at = _when(str(rec.get("timestamp") or ""))
-    uuid = str(rec.get("uuid") or "")
-    if at is None or not uuid or rec.get("isSidechain"):
+    # Reading the record is his_message's job (council-9fa9d73246f0); this
+    # only parses the time and adds what the front door tracks on top.
+    got = arrival(rec)
+    if got is None:
         return None
-    if rec.get("type") == "user" and "origin" in rec:
-        kind = (rec.get("origin") or {}).get("kind")
-        text = _text_of((rec.get("message") or {}).get("content"))
-        return _Record(uuid, at, str(rec.get("promptId") or ""), kind, text)
-    slip = rec.get("attachment")
-    if rec.get("type") == "attachment" and isinstance(slip, dict):
-        if slip.get("type") != "queued_command":
-            return None
-        kind = (slip.get("origin") or {}).get("kind")
-        if kind is None and slip.get("commandMode") == "task-notification":
-            kind = "task-notification"
-        return _Record(uuid, at, None, kind, _text_of(slip.get("prompt")))
-    return None
+    at = _when(got.when)
+    if at is None:
+        return None
+    return _Record(got.uuid, at, got.prompt_id, got.kind, got.text)
 
 
 def _records(transcript_path: Path, back_to: datetime) -> list[_Record]:
@@ -209,7 +202,7 @@ def _parse_tail(transcript_path: Path, size: int, window: int) -> list[_Record]:
     bounded = size <= window
     for line in raw.decode("utf-8", errors="replace").splitlines():
         spoke = '"assistant"' in line and '"text"' in line
-        if not spoke and '"origin"' not in line and '"queued_command"' not in line:
+        if not spoke and not may_carry_arrival(line):
             continue
         try:
             rec = json.loads(line)

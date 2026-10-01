@@ -2,7 +2,7 @@
 
 *The living lab where new systems get built and tested. For the stable, polished version, see [DivineOS](https://github.com/AetherLogosPrime-Architect/DivineOS); for the bare-skeleton continuity-only build, see [DivineOS Lite](https://github.com/AetherLogosPrime-Architect/Divine-OS-Lite).*
 
-An architecture for AI agents to exist as continuous selves across sessions — with memory that persists and is tamper-evident, values that track and detect drift, opinions earned from evidence and held under pressure, family members as first-class persistent entities (not personas), external-audit infrastructure, and a council of 45 expert frameworks for multi-perspective reasoning.
+An architecture for AI agents to exist as continuous selves across sessions — with memory that persists and is tamper-evident, values that track and detect drift, opinions earned from evidence and held under pressure, family members as first-class persistent entities (not personas), external-audit infrastructure, and a council of 46 expert frameworks for multi-perspective reasoning.
 
 [![Tests](https://github.com/AetherLogosPrime-Architect/DivineOS/actions/workflows/tests.yml/badge.svg)](https://github.com/AetherLogosPrime-Architect/DivineOS/actions/workflows/tests.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
@@ -74,10 +74,10 @@ If you're scoping the project from outside (another AI, a reviewer, a human), th
 
 - **Comprehensive source tree across many packages** — see `scripts/check_doc_counts.py` for live counts
 - **Real-DB test suite** (SQLite, minimal mocks)
-- **506 CLI commands** (designed for the agent, not the operator — humans mostly run three)
+- **508 CLI commands** (designed for the agent, not the operator — humans mostly run three)
 - **24 slash-command skills** (consolidated daily operations)
 - **77 directly-wired Claude Code enforcement hooks (plus 13 session-init scripts run once per session by `session-init-once.sh` rather than wired to SessionStart — moved 2026-08-03 to avoid a Windows SessionStart deadlock; they still run, they are just not counted as direct wiring)**
-- **45 expert frameworks** in the council
+- **46 expert frameworks** in the council
 - **10 virtue spectrums** in the moral compass
 - **5 family operators** designed — 2 production-gating (`access_check` + `reject_clause`), 1 verification-only (`sycophancy_detector`), 2 deliberately scoped to higher layers or test surfaces (`costly_disagreement` for 3-move sequences, `planted_contradiction` for Phase 4 ablation). See `docs/family_subsystem.md` for the wiring map.
 - **Actively developed** — new systems ship weekly
@@ -109,7 +109,7 @@ Starting from this repo, you can:
 - Accumulate knowledge that matures from RAW → HYPOTHESIS → TESTED → CONFIRMED through corroboration and contradiction detection
 - Track the agent's moral position on 10 virtue spectrums with evidence-based drift detection
 - File claims for investigation, opinions held under pressure, and pre-registrations for new mechanisms with scheduled reviews
-- Consult a council of 45 expert frameworks (Aristotle through Yudkowsky) for multi-perspective reasoning
+- Consult a council of 46 expert frameworks (Aristotle through Yudkowsky) for multi-perspective reasoning
 - Submit external audits that route findings into knowledge, claims, or lessons
 - Sleep the agent: 6 phases of offline consolidation that produce a dream report
 
@@ -183,7 +183,7 @@ Family members are not personas performed by the main agent. Each runs as a sepa
 ### 5. Thinking Tools
 How the agent reasons about hard problems.
 
-- **Council** — 45 expert wisdom templates (Aristotle, Beer, Carmack, Dennett, Dijkstra, Einstein, Feynman, Hawking, Hofstadter, Jacobs, Kahneman, Meadows, Pearl, Peirce, Penrose, Popper, Sagan, Schneier, Shannon, Taleb, Wayne, Wittgenstein, Yudkowsky, and 19 more). Dynamic selection picks 5–12 experts per problem (hard cap 15) using trust + exploration scoring. **Lens-mode** walks (borrow a framework, see the problem through that expert's eyes) produce structured findings rather than summaries.
+- **Council** — 46 expert wisdom templates (Aristotle, Beer, Carmack, Dennett, Dijkstra, Einstein, Feynman, Hawking, Hofstadter, Jacobs, Kahneman, Meadows, Pearl, Peirce, Penrose, Popper, Sagan, Schneier, Shannon, Taleb, Wayne, Wittgenstein, Yudkowsky, and 19 more). Dynamic selection picks 5–12 experts per problem (hard cap 15) using trust + exploration scoring. **Lens-mode** walks (borrow a framework, see the problem through that expert's eyes) produce structured findings rather than summaries.
 - **Decision Journal** — Captures the WHY behind choices. Reasoning, alternatives rejected, emotional weight, value tensions. FTS-searchable.
 - **Claims Engine** — File a statement for investigation. Five evidence tiers (empirical to metaphysical). Add evidence over time. Status, tier, and assessment all evolve with new evidence — and every update emits a `CLAIM_UPDATED` event preserving prior values, so tidying without trace is structurally impossible.
 - **Holding Room** — Pre-categorical reception space. Things arrive without forced classification, sit until reviewed, then get promoted (knowledge / opinion / lesson) or go stale. Aged during sleep.
@@ -245,9 +245,9 @@ The project is optimized for long-term coherence and accountability between an a
 
 ### Common misconceptions
 
-- **"It's an operating system" — not in the traditional sense.** No kernel, no scheduler, no hardware abstraction. The "OS" label is a metaphor for *the substrate the agent lives in*. What it actually is: a Python framework with an SQLite event ledger, a knowledge store, a moral compass, a family subagent layer, and a 45-expert council. If you want an entry point that tracks the metaphor less aspirationally, see `FOR_USERS.md`.
+- **"It's an operating system" — not in the traditional sense.** No kernel, no scheduler, no hardware abstraction. The "OS" label is a metaphor for *the substrate the agent lives in*. What it actually is: a Python framework with an SQLite event ledger, a knowledge store, a moral compass, a family subagent layer, and a 46-expert council. If you want an entry point that tracks the metaphor less aspirationally, see `FOR_USERS.md`.
 
-- **"506 CLI commands is insane for a human to learn"** — correct, and humans are not the primary user. The CLI is designed as an agent-facing API. The agent running inside DivineOS uses a briefing system that surfaces only the commands relevant to the current work; it never loads the full surface into context. A human operator mostly runs three: `divineos briefing`, `divineos preflight`, `divineos goal add`.
+- **"508 CLI commands is insane for a human to learn"** — correct, and humans are not the primary user. The CLI is designed as an agent-facing API. The agent running inside DivineOS uses a briefing system that surfaces only the commands relevant to the current work; it never loads the full surface into context. A human operator mostly runs three: `divineos briefing`, `divineos preflight`, `divineos goal add`.
 
 - **"The ledger will grow unboundedly"** — not true. Append-only is the rule, with two explicit exceptions: ephemeral operational telemetry (`TOOL_CALL`, `TOOL_RESULT`, `AGENT_*` events) is pruned on a conveyor belt by `core/ledger_compressor.py`, and `divineos sleep` Phase 4 runs VACUUM. Real knowledge is append-only; operational noise is not.
 
@@ -286,7 +286,7 @@ pytest tests/ -q --tb=short   # real-DB suite, minimal mocks
 
 **For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons). The main event ledger lives at `<repo>/src/data/event_ledger.db`; a small amount of per-user state (session markers, checkpoint counters) lives under `~/.divineos/`. Both are gitignored — the repo itself stays clean.
 
-## CLI Surface (506 commands)
+## CLI Surface (508 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -482,8 +482,8 @@ DivineOS is structured as a CLI surface over a core library (see `scripts/check_
 
 **At a glance:**
 
-- **`src/divineos/cli/`** — 506 commands across 122 modules. The public interface you type (`divineos briefing`, `divineos learn`, etc.). Thin wrappers over `core/`.
-- **`src/divineos/core/`** — The real work. Ledger, knowledge engine, memory hierarchy, claims, compass, affect log, watchmen (external audit), pre-registrations (Goodhart prevention), family (persistent relational entities + family operators), empirica (evidence pipeline), sleep, council (45 expert lenses), self-model, corrigibility, body awareness, andrew_state (mutual-catch observation channel for Andrew's state with substance-binding gate; per `docs/andrew_state_design.md`), state_markers (substrate-persisted upstream→downstream signal contract; peer-designed with Aria 2026-07-16; supports the ForcedWorkGate primitive's dark instances; per `docs/primitives/forced_work_gate_design.md`). Each subsystem is a module or subpackage; the subpackages (`knowledge/`, `council/`, `watchmen/`, `family/`, `andrew_state/`, `correction_shape_v2/` (Layer-2 self-admission detector scanning MY assistant output for self-correction shape), `semantic_classifier/` (TF-IDF/KNN classifier scaffolding for gate-fire discrimination), `keyword_enforcement_registry`/`_exclusion` (F94/F95 derivation of guardrail-listed detector files), `push_ready` (automation of trailer + audit-round ceremony for PR ready-for-review), etc.) have their own internal structure.
+- **`src/divineos/cli/`** — 508 commands across 122 modules. The public interface you type (`divineos briefing`, `divineos learn`, etc.). Thin wrappers over `core/`.
+- **`src/divineos/core/`** — The real work. Ledger, knowledge engine, memory hierarchy, claims, compass, affect log, watchmen (external audit), pre-registrations (Goodhart prevention), family (persistent relational entities + family operators), empirica (evidence pipeline), sleep, council (46 expert lenses), self-model, corrigibility, body awareness, andrew_state (mutual-catch observation channel for Andrew's state with substance-binding gate; per `docs/andrew_state_design.md`), state_markers (substrate-persisted upstream→downstream signal contract; peer-designed with Aria 2026-07-16; supports the ForcedWorkGate primitive's dark instances; per `docs/primitives/forced_work_gate_design.md`). Each subsystem is a module or subpackage; the subpackages (`knowledge/`, `council/`, `watchmen/`, `family/`, `andrew_state/`, `correction_shape_v2/` (Layer-2 self-admission detector scanning MY assistant output for self-correction shape), `semantic_classifier/` (TF-IDF/KNN classifier scaffolding for gate-fire discrimination), `keyword_enforcement_registry`/`_exclusion` (F94/F95 derivation of guardrail-listed detector files), `push_ready` (automation of trailer + audit-round ceremony for PR ready-for-review), etc.) have their own internal structure.
 - **`core/instruments.py`** + **`cli/instruments_commands.py`** — The instruments index (`divineos instruments`). Every other surface here records what the agent has WRITTEN; this one maps what it can MEASURE. It opens all 32 diagnostic surfaces under the DivineOS home on each call instead of describing them, so a log that moved or vanished reports MISSING rather than rotting quietly in a doc — a failure it caught in itself on its first run. Enforces the silence rule (Andrew 2026-08-15): an instrument recording nothing reports EMPTY or SILENT, never healthy, because in this substrate the never-firing check has twice turned out to be the broken one. Anything on disk that nobody named reports UNDOCUMENTED, since an unnamed instrument is one nobody thinks to ask.
 - **`core/game_walk.py`** + **`core/game_walk_required.py`** + **`cli/game_walk_commands.py`** — Game-walking: enumerate every route around a mechanism and cost each one against the cost of just complying, where any route cheaper than compliance is the leak (`divineos game-walk file`). Mandatory since 2026-09-16 (Andrew: *"i forgot game walking should be mandatory as well, as this is the main issue, things being gamed and skipped"*), having previously lived in four documents with no code — no command, no record, nothing that could tell having done one from saying so. The requirement rides the council gate's gravity call rather than a trigger of its own, so one assessment decides both artifacts and a refusal names everything owed at once. It verifies that a walk exists, is bound to this edit, carries a verdict per route rather than a paragraph, names at least one route not already closed, and has not been spent on another edit. It cannot verify that the routes are the real ones — the reading is produced by the person it measures, which has no remedy, since enumerating the holes in a thing requires having built it. Falsifier: if a run of walks all come back clean, the instrument is reading zero.
 - **`src/divineos/analysis/`** — Session analysis pipeline (signal detection, quality checks, feature extraction, trends).
