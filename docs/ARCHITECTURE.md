@@ -739,6 +739,7 @@ src/divineos/
     task_belt.py               The task belt: the pile ranked, a small current list pulled from it, done archived.
     his_message.py             The one answer in this house to: is this transcript record Dad typing?
     question_hold.py           A question to Dad holds the work until he answers (Aria, 2026-09-29).
+    channel_letter_capture.py  Give a letter written straight into the shared channel a home in the repo.
 
   analysis/
     _session_types.py          Session analysis type definitions
