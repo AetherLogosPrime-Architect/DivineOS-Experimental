@@ -44,6 +44,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -92,16 +93,35 @@ def fetch_source(target: str, dest: Path) -> Path:
     return candidates[0]
 
 
+def start_to_seconds(start: str | None) -> float:
+    if not start:
+        return 0.0
+    seconds = 0.0
+    for part in start.split(":"):
+        seconds = seconds * 60 + float(part)
+    return seconds
+
+
 def extract_frames(
     src: Path,
     frames_dir: Path,
     interval_s: float,
     start: str | None,
     duration: int | None,
-) -> list[Path]:
+) -> list[tuple[Path, float]]:
+    """Return (frame_path, seconds_into_video) for each sampled frame.
+
+    The times are MEASURED from ffmpeg, not inferred from the interval. The
+    earlier `fps=1/N` filter placed frame n at (n - 0.5) * N, so a reader
+    who assumed (n - 1) * N landed half an interval off: on 2026-09-25 a
+    zoom aimed at "frame 9 = 8:00" found a different picture, because frame
+    9 was at 8:30. `select` keeps the first frame at or after each interval
+    and `showinfo` reports when each kept frame actually sits.
+    """
     frames_dir.mkdir(parents=True, exist_ok=True)
-    fps_expr = f"1/{interval_s}" if interval_s >= 1 else str(int(1 / interval_s))
-    cmd = [FFMPEG_PATH, "-y", "-hide_banner", "-loglevel", "error"]
+    for stale in frames_dir.glob("frame_*.png"):
+        stale.unlink()
+    cmd = [FFMPEG_PATH, "-y", "-hide_banner", "-loglevel", "info"]
     if start:
         cmd += ["-ss", start]
     if duration:
@@ -110,13 +130,24 @@ def extract_frames(
         "-i",
         str(src),
         "-vf",
-        f"fps={fps_expr}",
-        "-frame_pts",
-        "0",
+        f"select='isnan(prev_selected_t)+gte(t-prev_selected_t,{interval_s})',showinfo",
+        "-fps_mode",
+        "vfr",
         str(frames_dir / "frame_%04d.png"),
     ]
-    subprocess.run(cmd, check=True)
-    return sorted(frames_dir.glob("frame_*.png"))
+    result = subprocess.run(cmd, check=True, capture_output=True, text=True, errors="replace")
+    offset = start_to_seconds(start)
+    times = [
+        round(offset + float(m.group(1)), 3)
+        for line in result.stderr.splitlines()
+        if "showinfo" in line and (m := re.search(r"pts_time:\s*([-\d.eE+]+)", line))
+    ]
+    frames = sorted(frames_dir.glob("frame_*.png"))
+    if len(times) != len(frames):
+        raise RuntimeError(
+            f"ffmpeg wrote {len(frames)} frames but reported {len(times)} timestamps"
+        )
+    return list(zip(frames, times))
 
 
 def transcribe(src: Path, out_path: Path, model_name: str) -> None:
@@ -170,7 +201,8 @@ def main(argv: list[str] | None = None) -> int:
         "start": args.start,
         "duration_seconds": args.duration,
         "frame_count": len(frames),
-        "frames": [str(f.relative_to(run_dir)) for f in frames],
+        "frames": [str(f.relative_to(run_dir)) for f, _ in frames],
+        "frame_times_seconds": [t for _, t in frames],
     }
 
     if args.transcribe:

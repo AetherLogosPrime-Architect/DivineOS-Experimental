@@ -74,10 +74,24 @@ def resolve(path):
     return "\n".join(out), f"{stats['append']} append, {stats['count']} count-leapfrog"
 
 
-for p in sys.argv[1:]:
-    res, msg = resolve(p)
-    if res is None:
-        print(f"REFUSED  {p}: {msg}")
-        sys.exit(3)
-    pathlib.Path(p).write_text(res, encoding="utf-8", newline="")
-    print(f"resolved {p}: {msg}")
+def main(argv):
+    for p in argv:
+        res, msg = resolve(p)
+        if res is None:
+            print(f"REFUSED  {p}: {msg}")
+            return 3
+        pathlib.Path(p).write_text(res, encoding="utf-8", newline="")
+        print(f"resolved {p}: {msg}")
+    return 0
+
+
+# THE GUARD IS NEW AND IT IS A REPAIR, not tidiness. Until 2026-09-18 this loop
+# ran at module scope, so IMPORTING this file executed it against whatever
+# happened to be in sys.argv. Two separate probes hit that within a minute of
+# each other the same evening: a classifier that wanted `_skeleton` got the
+# resolver instead, running over its own command-line arguments.
+#
+# The merge driver below this file's abstraction imports `resolve` directly, so
+# the guard is what makes reuse possible at all rather than merely safer.
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

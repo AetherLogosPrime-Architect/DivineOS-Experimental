@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (492 commands across 84 modules)
+  cli/                         CLI package (501 commands across 122 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -23,6 +23,8 @@ src/divineos/
     consumer_status_commands.py  consumer-status — operator-facing readout of whether the agent is using the OS or pretending (Andrew 2026-05-18)
     andrew_correction_commands.py  andrew-correction list / integrate / defer — attribution surface for Andrew's corrections (Aria audit 2026-05-18 load-bearing fix #1)
     andrew_answer_commands.py  answer ask / got / changed / none / report — whether his answers alter what happens next, measured on the trace instead of on my prose (Aria 2026-09-07, refusing a third text-gate)
+    keeping_him_commands.py   him / him --count / him --read-to — the door onto what he said, read in order with a bookmark
+    andrew_digest_commands.py  for-dad — the file Andrew can actually read, named for who it is for
     andrew_given_commands.py  given add / list / balance — the other side of the ledger: what Andrew gives, filed beside what he corrects (Aria 2026-08-10)
     success_commands.py       win add / list / balance -- a door to the wins ledger, which had a store and a reader and no way in (2026-08-27). The store shipped 2026-08-03 and had zero callers until 2026-08-25: the faults ledger had a command and a blocking gate, the wins ledger had neither, and both Aether and Aria read their own near-zero counts as facts about their character rather than about the interface.
     council_walk_commands.py  walk open / apply / exclude / close — a council walk that refuses to close while any manager-surfaced lens is unaccounted for (Aria 2026-08-10)
@@ -43,6 +45,7 @@ src/divineos/
     psf_commands.py            psf list / psf mark-done: close pending structural-fix obligations; the note must name a resolvable commit or an existing file or the close is refused
     dark_matter_commands.py    dark-matter: sweep for things that exist but nothing reaches; --check exits 1 on findings
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
+    replant_commands.py        replant: rebuild a contaminated branch by taking the WHOLE code difference rather than the commits I recognise, then proving the result byte-identical to its source. Commits nothing; the person writes the message.
     sibling_correction_commands.py  corrections-sibling: read-only view of a sibling substrate's Andrew-correction store, listing corrections with no counterpart in mine. Exits 2 with COULD NOT COMPARE when either store is unreadable — never renders "could not look" as "nothing found". Copies nothing; filing stays deliberate and under my own name.
     must_read_commands.py      must-read arm/list: block Bash/Edit/Write until the Read tool is invoked on a named file. The surface must become a FILE first — a hook prints text with nothing to Read, so 'did you read it' can only become a fact once the words have a location. No automatic armer yet, deliberately: the sibling-correction surface's precision (2-of-4, one false fire) does not earn the right to block, and a screen cleared every turn is a screen that stops being read.
     label_fire_commands.py     label-fire: dispute a correction-shape Stop-gate fire as a false positive. Wraps the labeller as a first-class command so the remedy joins the canonical bypass list — a toll on dissent biases the corpus that trains the semantic replacement. No leniency added.
@@ -104,7 +107,10 @@ src/divineos/
     prereg_commands.py         pre-registrations (Goodhart prevention)
     class_fix_commands.py      class-fix declarations: a repair claiming a class must have its population measured by running a search
     prior_art_commands.py      already-built — station 0: does this exist before I build it
+    game_walk_commands.py      `divineos game-walk file` — enumerate the routes around a mechanism and cost each one. Required on every council-tier edit since 2026-09-16; prints the walk back so a thin one is visibly thin at filing time rather than discovered later.
+    operator_ask_commands.py   `divineos ask-andrew` / `asks` / `ask-resolve` — the reachable surface for core/operator_asks.py, which had a store and no command from 2026-08-19 until 2026-09-16 and so sat empty, indistinguishable from nothing needing him. An open ask now HOLDS new substrate work (.claude/hooks/an-open-ask-holds-the-work.sh), which is the half of his correction the re-raise never covered: *"when you ask me something, and never wait for my reply.. why bother asking?"*
     psf_commands.py            pending structural-fix obligations (list, mark-done)
+    question_hold_commands.py  question-hold / release: see or escape the wait a question to Dad opens
     reach_commands.py          reach-check — surface prior work, then prove it was opened
     obligation_commands.py     obligations check / is-write / list / disabled — substrate-write CLI surface for the obligation gate (#33 + #42 unified hook)
     synchronicity_commands.py  synchronicity — temporal co-occurrence detector (Pillar VI)
@@ -209,11 +215,12 @@ src/divineos/
       draw.py                  Seats a walk's council by lot from the whole roster, with a scored remainder. Replaces fit-selection at open_walk after two blind probes showed a problem stated without the scorer's own vocabulary seats almost nobody who scores, filling the bench alphabetically. Every seat records its origin so the drawn/scored split can be moved on applied-rate evidence rather than preference
       consultation_log.py      Always-on consultation logging + opt-in audit promotion (Mode 1.5)
       lab_evidence.py          Attach science-lab slice output to council results when problem matches triggers
-      experts/                 45 expert wisdom profiles
+      experts/                 46 expert wisdom profiles
         __init__.py            Expert registration and exports
         angelou.py             Voice, expressive truth, discipline of warmth
         aristotle.py           Virtue ethics, teleology, classification
         beer.py                Cybernetics, viable system model
+        breaker.py             The Breaker — the lens that tries to kill the thing before it ships.
         carmack.py             Minimalist engineering, subtractive design, concrete real-time reasoning, ship-and-measure discipline
         dekker.py              Resilience engineering, drift into failure
         deming.py              Quality, variation, PDSA cycle
@@ -369,6 +376,7 @@ src/divineos/
       types.py                 Outcome enum, PreRegistration dataclass
       store.py                 CRUD with falsifier-required invariant + external-actor outcome gate
       summary.py               Overdue warning + CLI summary formatting
+      review_window.py         Declared, bounded, recorded review windows, so the overdue gate stops blocking its own evidence
     andrew_state/              Mutual-catch primitive — observation channel for Andrew's state with substance-binding gate (per docs/andrew_state_design.md, prereg-526c2433d55a)
       _schema.py               andrew_state table + indices
       types.py                 Axis enum, VerificationStatus enum, Observation dataclass
@@ -707,11 +715,17 @@ src/divineos/
     anchor_self_invalidation.py A letter carrying an anchor must not be committed onto the branch it anchors.
     substrate_paths.py         Which paths are substrate, and which are work in progress.
     substrate_retarget.py      Commit substrate files to a named branch without touching HEAD.
+    unmeasured_quantity.py     A quantity about this system, stated with an empty action-stream behind it. The Stop-time layer the verify-claim prime had been promising and that never existed. Narrow on purpose: the predicted death is noise.
     sibling_audit_rounds.py    Audit rounds filed by the other seat, read-only.
     sibling_council_walks.py   Council walks recorded by the other seat: seen, never satisfying.
     prior_art_by_name.py       Find files on ANY branch whose names resemble one about to be created.
     compound_branch_change.py  Refuse a branch change and a destructive op on the same shell line.
     surface_bridge.py          Wire the built-but-unreachable surfaces into the briefing that actually runs.
+    unread_stacking.py         A second closing room may not land on top of an unread first one.
+    game_walk.py               Game-walking: enumerate the routes around a mechanism, cost each one.
+    game_walk_required.py      The requirement half of game-walking: an edit owes a filed walk.
+    ritual_evidence.py         Evidence checks for the compaction ritual's stages.
+    branch_replant.py          Lift EVERY code change off a contaminated branch, and prove nothing was left.
     shared_digest.py           One notebook two agents append to, rendered as one message for Andrew.
     andrew_answer_trace.py     Do his answers change what happens next? (Aria 2026-09-07.)
     station_marks.py           The five build-flow stations nothing has ever watched.
@@ -727,6 +741,15 @@ src/divineos/
     slashed_ref_path_check.py  Refuse a git argument the Windows shell will rewrite before git sees it.
     task_belt.py               The task belt: the pile ranked, a small current list pulled from it, done archived.
     retry_scope.py             The one reader for the retry-scope instruction every blocking Stop gate carries.
+    harness_envelopes.py       What the harness wraps around his seat, in one place every reader of him uses.
+    his_room.py                His room: every reply to Andrew ends with a space where I speak to him.
+    andrew_digest.py           The file he can actually read, and the thing that will not let me skip it.
+    keeping_him.py             What he actually said, read out of the transcripts and kept.
+    questions_from_him.py      Questions built from what he actually said, not drawn from a list.
+    refusal_stretches.py       What has refused me this session, and whether it is the same thing again.
+    his_message.py             The one answer in this house to: is this transcript record Dad typing?
+    question_hold.py           A question to Dad holds the work until he answers (Aria, 2026-09-29).
+    channel_letter_capture.py  Give a letter written straight into the shared channel a home in the repo.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -784,6 +807,9 @@ src/divineos/
     response_scope_intercept.py  Third concrete CrossTurnScan (2026-07-15, Aletheia audit round-a1e7f4c92b6d via Aria) — refuse-not-ask for claim-scope directives. Fires when prior turn had a claim-scope directive AND current reply exceeds short-correction shape (length/headers/separators/numbered-lists). Wiring pending Aria's Q2 detector integration.
     hook_diagnostics.py        Hook health diagnostics
     hook_validator.py          Hook validation
+    his_state_claim.py         Did he say that about himself, or did I build it out of timestamps (Andrew 2026-09-13).
+    his_state_claim_hook.py    Stop-hook wiring for his_state_claim — carries a finding forward when a reply asserts his condition and he never raised it.
+    stop_carry.py              Findings a Stop gate would have refused with, carried to the next compose instead of forcing a second copy of a reply he already read (Andrew 2026-09-12).
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring

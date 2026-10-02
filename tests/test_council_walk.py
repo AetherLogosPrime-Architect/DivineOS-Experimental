@@ -21,14 +21,66 @@ def _isolated(tmp_path, monkeypatch):
 
 
 def test_lens_set_comes_from_the_manager_not_from_me():
-    """The one load-bearing decision: I cannot name my own council."""
+    """The one load-bearing decision: I cannot name my own council.
+
+    WIDENED 2026-09-11, and widening a guard to admit my own change is exactly
+    the move that deserves suspicion, so here is the reasoning in full.
+
+    This pinned the signature to {problem, gravity}, which is stronger than the
+    property it protects and caught a ``scope`` parameter naming FILES rather
+    than lenses. Scope is what lets the build-flow board find a walk at all --
+    without it a walk knows its problem and nothing about the work, which is
+    why the board counted lens events instead and why four self-chosen ones
+    satisfied it.
+
+    A signature pin is a proxy. The property is that NOTHING I pass can change
+    which lenses I face. So the allowlist is named explicitly here, and the
+    test below proves the property behaviourally rather than by shape -- which
+    is the stronger guard, not the weaker one.
+    """
     import inspect
 
     sig = inspect.signature(cw.open_walk)
-    assert set(sig.parameters) == {"problem", "gravity"}, (
-        "open_walk must not accept a lens list — if I can name the lenses, "
-        "I pick the low end every time and the mechanism becomes a form."
+    assert set(sig.parameters) <= {"problem", "gravity", "scope"}, (
+        "open_walk gained a parameter that is not problem/gravity/scope. If it "
+        "can carry lenses, I pick the low end every time and the mechanism "
+        "becomes a form I fill in."
     )
+
+
+def test_scope_cannot_change_which_lenses_i_face(monkeypatch):
+    """The property the signature pin was standing in for.
+
+    MEASURED AT THE SEATER'S DOOR, 2026-09-21, and the move was forced by a
+    merge. This compared the lenses of two walks and required them equal, which
+    worked while seating was derived from the problem alone. Seating is now a
+    DRAW BY LOT, so two walks on one problem differ by design -- the test began
+    failing on a system behaving exactly as intended, and its failure said
+    "scope steered the selection" when nothing of the sort had happened.
+
+    The claim was never really about the output. It is that scope must not
+    REACH the thing that chooses, so that is what is asserted: the seater is
+    called with identical arguments whether or not a scope was supplied. That
+    holds under a draw, under fit-scoring, and under whatever replaces them.
+    """
+    seen: list[tuple] = []
+    real = cw._surface_seats
+
+    def recording(problem, floor=5, rng=None):
+        seen.append((problem, floor))
+        return real(problem, floor=floor, rng=rng)
+
+    monkeypatch.setattr(cw, "_surface_seats", recording)
+
+    cw.open_walk(PROBLEM, gravity="normal")
+    cw.open_walk(
+        PROBLEM,
+        gravity="normal",
+        scope=("src/anything.py", "tests/whatever.py", "docs/a.md"),
+    )
+
+    assert len(seen) == 2, seen
+    assert seen[0] == seen[1], seen
 
 
 def test_close_refuses_while_a_lens_is_open():

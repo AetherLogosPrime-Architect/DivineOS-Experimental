@@ -219,3 +219,251 @@ def test_multiple_overdue_all_named_in_message():
     assert "3 pre-registration(s)" in reason
     for prereg_id in ids:
         assert prereg_id[:20] in reason
+
+
+# --------------------------------------------------------------------------
+# THE DEADLOCK, and its repair. Added 2026-09-12.
+#
+# This gate refused the evidence for two of its own reviews in one night. The
+# exits it offered were a verdict nobody had earned and a deferral that had
+# nothing to do with the evidence, and both are worse than the review it was
+# asking for. The review window is the third exit. These two tests are the
+# ones that matter, because the window can be perfectly built and perfectly
+# unreachable -- which is the painted-door shape found three times this same
+# session, a gate advertising a backstop that does not exist.
+#
+# They run against the real store rather than a stand-in, for the same reason:
+# a fake gate passing a fake window proves nothing about the wiring.
+# --------------------------------------------------------------------------
+
+
+def test_a_declared_review_stands_the_gate_down():
+    from divineos.core.pre_registrations.review_window import open_window
+
+    init_pre_registrations_tables()
+    prereg_id = file_pre_registration(
+        mechanism="test-window-stands-gate-down",
+        claim="X",
+        success_criterion="Y",
+        falsifier="Z",
+        review_window_days=7,
+        actor="aether",
+    )
+    _backdate_review(prereg_id, days_ago=3)
+    assert _check_overdue_prereg_block("pytest tests/") is not None
+
+    open_window(
+        prereg_id,
+        "aether",
+        "run the falsifier against the checker and read what it actually returns",
+        minutes=5,
+    )
+    try:
+        assert _check_overdue_prereg_block("pytest tests/") is None
+    finally:
+        # Recording the outcome is what closes the window, so this both
+        # cleans up and exercises the close path the CLI relies on.
+        record_outcome(
+            prereg_id=prereg_id,
+            actor="andrew",
+            outcome=Outcome.SUCCESS,
+            notes="window closed by assessment",
+        )
+
+
+def test_the_deny_text_names_the_third_exit():
+    """A path nobody is told about is a path nobody takes.
+
+    The gate's own refusal is the only place this is ever read from. If the
+    sentence goes missing the mechanism silently reverts to the two exits it
+    was built to replace, and nothing else would notice.
+    """
+    init_pre_registrations_tables()
+    prereg_id = file_pre_registration(
+        mechanism="test-deny-names-the-door",
+        claim="X",
+        success_criterion="Y",
+        falsifier="Z",
+        review_window_days=7,
+        actor="aether",
+    )
+    _backdate_review(prereg_id, days_ago=3)
+    decision = _check_overdue_prereg_block("pytest tests/")
+    assert decision is not None
+    reason = decision["hookSpecificOutput"]["permissionDecisionReason"]
+    assert "divineos prereg reviewing" in reason
+    assert "--purpose" in reason
+    record_outcome(
+        prereg_id=prereg_id,
+        actor="andrew",
+        outcome=Outcome.SUCCESS,
+        notes="test cleanup",
+    )
+
+
+# TWO CAUSES, ONE SENTENCE -- Aletheia 2026-09-13.
+#
+# The could-not-check deny used to say only that the store could not be
+# consulted. True, and incomplete: a store that broke this morning and a module
+# that was never installed on this clone produce the same words and want
+# opposite repairs. The second case is the loud one -- it means this gate has
+# denied every declared review here for as long as the checkout has existed --
+# and it was the one the sentence hid.
+#
+# Both tests below assert the DISTINCTION rather than the wording, and the
+# third is the control: without it, two tests looking for different substrings
+# could both pass against a single message that happened to contain both.
+
+
+def _one_overdue() -> str:
+    init_pre_registrations_tables()
+    prereg_id = file_pre_registration(
+        mechanism="test-two-causes-one-sentence",
+        claim="X",
+        success_criterion="Y",
+        falsifier="Z",
+        review_window_days=7,
+        actor="aether",
+    )
+    _backdate_review(prereg_id, days_ago=3)
+    return prereg_id
+
+
+def _reason(decision) -> str:
+    assert decision is not None
+    return decision["hookSpecificOutput"]["permissionDecisionReason"]
+
+
+def test_a_module_that_was_never_installed_says_so(monkeypatch):
+    prereg_id = _one_overdue()
+    try:
+        import builtins
+
+        real_import = builtins.__import__
+
+        def _no_review_window(name, *args, **kwargs):
+            if "review_window" in name:
+                raise ImportError("No module named 'review_window'")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", _no_review_window)
+        reason = _reason(_check_overdue_prereg_block("pytest tests/"))
+        assert "NOT INSTALLED" in reason
+        assert "has never been importable" in reason
+    finally:
+        record_outcome(
+            prereg_id=prereg_id,
+            actor="andrew",
+            outcome=Outcome.SUCCESS,
+            notes="test cleanup",
+        )
+
+
+def test_a_store_that_will_not_open_is_reported_as_a_fault_not_an_absence(
+    monkeypatch,
+):
+    from divineos.core.pre_registrations import review_window as rw
+
+    prereg_id = _one_overdue()
+    try:
+
+        def _jammed():
+            raise OSError("the drawer is jammed")
+
+        monkeypatch.setattr(rw, "_get_connection", _jammed)
+        reason = _reason(_check_overdue_prereg_block("pytest tests/"))
+        assert "could not be READ" in reason
+        assert "The module is installed" in reason
+        assert "NOT INSTALLED" not in reason
+    finally:
+        record_outcome(
+            prereg_id=prereg_id,
+            actor="andrew",
+            outcome=Outcome.SUCCESS,
+            notes="test cleanup",
+        )
+
+
+def _without_the_why_line(reason: str) -> str:
+    """Everything except the embedded exception text.
+
+    The first version of the control below compared the two messages whole and
+    passed against the UNFIXED gate, because the old single template already
+    differed between the two cases -- one carried an ImportError in its why
+    line and the other an OSError. So it was green on both sides, which is
+    indistinguishable from coverage while providing none. What has to differ is
+    the gate's own CLASSIFICATION, and that only shows once the line carrying
+    the raw exception is taken out.
+    """
+    return "\n".join(line for line in reason.splitlines() if not line.strip().startswith("why:"))
+
+
+def test_the_two_messages_are_not_the_same_message(monkeypatch):
+    """The control. Two tests hunting different substrings would both pass
+    against one message carrying both, which is exactly the undistinguished
+    sentence this pair exists to rule out."""
+    from divineos.core.pre_registrations import review_window as rw
+
+    import builtins
+
+    prereg_id = _one_overdue()
+    try:
+        real_import = builtins.__import__
+
+        def _no_review_window(name, *args, **kwargs):
+            if "review_window" in name:
+                raise ImportError("No module named 'review_window'")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", _no_review_window)
+        absent = _reason(_check_overdue_prereg_block("pytest tests/"))
+        monkeypatch.undo()
+
+        def _jammed():
+            raise OSError("the drawer is jammed")
+
+        monkeypatch.setattr(rw, "_get_connection", _jammed)
+        unreadable = _reason(_check_overdue_prereg_block("pytest tests/"))
+
+        assert _without_the_why_line(absent) != _without_the_why_line(unreadable)
+    finally:
+        record_outcome(
+            prereg_id=prereg_id,
+            actor="andrew",
+            outcome=Outcome.SUCCESS,
+            notes="test cleanup",
+        )
+
+
+def test_an_import_failing_inside_the_window_is_not_reported_as_the_module_missing(
+    monkeypatch,
+):
+    """The hole Aria's design exposed in mine.
+
+    With the import and the call under one try, an ImportError raised from
+    INSIDE active_window -- some dependency of its own gone missing -- lands in
+    the absent branch, and the gate announces that a module which imported
+    perfectly well has never been importable here. True-sounding, wrong
+    subject: the exact class the distinction was built to close, reproduced
+    inside the fix.
+    """
+    from divineos.core.pre_registrations import review_window as rw
+
+    prereg_id = _one_overdue()
+    try:
+
+        def _import_fails_inside():
+            raise ImportError("No module named 'some_dependency_of_mine'")
+
+        monkeypatch.setattr(rw, "active_window", _import_fails_inside)
+        reason = _reason(_check_overdue_prereg_block("pytest tests/"))
+        assert "NOT INSTALLED" not in reason
+        assert "could not be READ" in reason
+        assert "The module is installed" in reason
+    finally:
+        record_outcome(
+            prereg_id=prereg_id,
+            actor="andrew",
+            outcome=Outcome.SUCCESS,
+            notes="test cleanup",
+        )

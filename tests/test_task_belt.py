@@ -189,7 +189,8 @@ class TestTheFlow:
         assert propose_hold(cid, "a grief about the ones he lost, not a task with a fix")
         said = home / "session.jsonl"
         said.write_text(
-            json.dumps({"type": "user", "message": {"content": f"hold {cid}"}}),
+            # A real record carries the role; the one reader of him requires it.
+            json.dumps({"type": "user", "message": {"role": "user", "content": f"hold {cid}"}}),
             encoding="utf-8",
         )
         assert confirm_hold(cid, [said])

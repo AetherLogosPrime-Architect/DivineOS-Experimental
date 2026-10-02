@@ -60,6 +60,10 @@ _HOOKS_DIR = _PROJECT_ROOT / ".claude" / "hooks"
 _NON_GATING_HOOKS: frozenset[str] = frozenset(
     {
         "_lib.sh",
+        # Captures a letter written into the shared channel onto the substrate
+        # branch at write-time. PostToolUse and exits zero on every path: it
+        # reports a failed capture, it never refuses the write.
+        "capture-channel-letter.sh",
         # A RELAY, not a gate, and the distinction is the doorbell design
         # itself: it knocks and steps aside, and every judgment lives in the
         # OS. Its own absent path exits zero and it composes no refusal of its
@@ -87,6 +91,11 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         # Andrew corrected the filter shape into this one himself, so a test
         # treating it as a possible gate would be auditing the wrong thing.
         "he-is-in-the-room.sh",
+        # Writes a goal boundary at SessionStart and steps aside: every path
+        # exits zero, because a hook that refuses SessionStart refuses the
+        # briefing with it. The refusing it causes happens later, in the goal
+        # guard, which carries its own remedy (divineos goal add).
+        "goal-boundary-at-session-start.sh",
         "load-briefing.sh",
         "pre-response-context.sh",
         "pre-tool-context.sh",
@@ -104,6 +113,13 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         "arm-compaction-monitor-instruction.sh",
         "run-tests.sh",
         "state-gravity-surface.sh",
+        # Stop-time SURFACE, not a gate. It names personal writing that was
+        # still unsaved when a commit went past it and exits 0 on every path;
+        # it cannot refuse anything, so there is no denial for a remedy rule
+        # to attach to. Declared here rather than taught to the denial
+        # patterns, because teaching a pattern to match a hook that never
+        # denies would weaken the rule for the hooks that do.
+        "unsaved-personal-writing-must-not-close-quiet.sh",
         # Compose-start PRIME, not a gate: it prints and exits 0, and the
         # Stop-time translate-first gate is what actually refuses. It
         # matched the denial pattern only because its prose DESCRIBES the
@@ -118,6 +134,19 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         "detect-hedge.sh",  # sets a marker; doesn't deny
         "detect-theater.sh",  # sets a marker; doesn't deny
         "verify-push-landed.sh",
+        # UserPromptSubmit surfaces from the September builds (#507), read
+        # before classifying: every path exits 0 and the only output is a
+        # printed block of context. Neither can refuse anything -- one asks
+        # questions built from his words, the other puts the findings Stop
+        # carried forward in front of the next compose.
+        "questions-from-him.sh",
+        "stop-carry-prime.sh",
+        # Output transform, not a gate: it suppresses a prime's repeated body
+        # and prints a floor instead. Every exit in it is 0, including both
+        # fail-soft paths, so it can shorten what a prime says and can never
+        # refuse the tool call the prime rode in on. Classified 2026-09-20 by
+        # reading every exit in the file rather than by its name.
+        "dedup-wrap.sh",
     }
 )
 
@@ -153,6 +182,24 @@ _DENIAL_PATTERN = re.compile(
 
 # Refusal by exit code, with no words at all. Anchored to line-start so the
 # phrase inside a comment or a message does not count as one.
+#
+# SHAPE FIVE, 2026-09-20: a refusal RAISED INSIDE AN EMBEDDED INTERPRETER and
+# propagated out by the shell. The hook runs a python program as a quoted
+# argument, that program ends on sys.exit(2), and the wrapper ends on exit $?.
+# No line anywhere matches a bare ``exit 2``, so the hook landed in the
+# could-not-classify bucket -- the same bucket the 2026-09-19 entry above was
+# written about, filling again by a new route one day later.
+#
+# Measured before widening: ten hooks refuse this way, and nine were already
+# classified because they also print a BLOCKED-shaped message. Only the
+# open-ask doorman refused in this shape and no other, which is why widening
+# here reddens nothing and yet was worth doing.
+#
+# THE PART WORTH KEEPING is not the new spelling. The previous fix taught this
+# check one more way to say refuse, and a hook written afterwards refused in a
+# way the widened pattern still did not hold. Enumerating spellings does not
+# converge. What converges is the dark-set test below, which refuses to let an
+# unclassified hook sit quietly whatever spelling it invents.
 # A REFUSAL INSIDE AN EMBEDDED INTERPRETER IS STILL A REFUSAL.
 #
 # This matched only the shell spelling, so a hook whose shell wrapper always
@@ -344,6 +391,17 @@ _UNCLASSIFIED_BASELINE: frozenset[str] = frozenset(
         "file-aletheia-artifact-on-arrival.sh",
         "fork-is-cheap-close-prime.sh",
         "hedge-suppression-prime.sh",
+        # ADDED 2026-09-23 BY ITS OWN AUTHOR, which widens the set this list
+        # exists to shrink -- so the reason is owed here, not implied. It is a
+        # thin shell over `python -m divineos.hooks.his_state_claim_hook`, the
+        # same delegation as the sixty-six above, and it CAN refuse: only as a
+        # fallback, via stop_carry.carry_or_block, when a finding cannot be
+        # written down for the next compose. That refusal's way out is pinned
+        # where it lives, by test_stop_carry's
+        # test_the_fallback_asks_for_the_missing_piece_not_a_second_copy,
+        # rather than by teaching this doorframe reader a word the shell
+        # does not contain.
+        "his-state-is-his-to-say.sh",
         "interior-cue-on-low-presence.sh",
         "lepos-channel-reflect.sh",
         "lepos-channel-surface.sh",
@@ -391,6 +449,15 @@ _UNCLASSIFIED_BASELINE: frozenset[str] = frozenset(
         "wallclock-source-prime.sh",
         "wwnd-choice-prime.sh",
         "wwnd-tool-prime.sh",
+        # NON-GATING BY DESIGN, which is a different thing from the names
+        # above it. Those are unexamined: nobody has established whether they
+        # refuse. This one cannot refuse -- it reports whether a recorded push
+        # refusal is still unresolved and always lets the turn close, because a
+        # check that could block the close over a network reading would stop
+        # being read. Added 2026-09-20 with that decision stated rather than
+        # slipped in, since the comment above says the right end-state is an
+        # empty baseline and a name added silently makes that harder to reach.
+        "unlanded-push-must-not-close-quiet.sh",
     }
 )
 
