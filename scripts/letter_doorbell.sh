@@ -15,9 +15,20 @@ MEMBER="${1:-aether}"
 DIR="$HOME/.divineos-shared/letters"
 SEEN="$HOME/.divineos-shared/.${MEMBER}_doorbell_announced"
 BEAT="$HOME/.divineos-shared/.${MEMBER}_doorbell_alive"
-ls "$DIR" >/dev/null 2>&1 || { echo "DOORBELL FAULT: cannot read $DIR"; exit 1; }
+# One listing for both "already announced" and "here now", because the bell
+# rings on their difference. A glob over an unreadable directory returns nothing
+# silently, so readability is checked before every listing: could-not-look must
+# fault, never pass as nothing-arrived.
+list_mine() {
+  [ -r "$DIR" ] && [ -x "$DIR" ] || return 1
+  local f
+  for f in "$DIR"/*-to-"${MEMBER}"-*; do
+    [ -e "$f" ] && printf '%s\n' "${f##*/}"  # an unmatched glob stays literal
+  done | sort
+}
+list_mine >/dev/null || { echo "DOORBELL FAULT: cannot read $DIR"; exit 1; }
 touch "$SEEN"
-if [ ! -s "$SEEN" ]; then ls "$DIR" | grep -- "-to-${MEMBER}-" | sort > "$SEEN"; fi
+if [ ! -s "$SEEN" ]; then list_mine > "$SEEN"; fi
 echo "doorbell armed for ${MEMBER} $(date -u +%FT%TZ)"
 # Andrew 2026-09-26: it lasts 8 hours, and when it expires the exit wakes me to
 # reset it -- so it gets checked on, rather than running forever unwatched.
@@ -53,11 +64,12 @@ while true; do
     exit 0
   fi
   touch "$BEAT"
-  now=$(ls "$DIR" 2>/dev/null | grep -- "-to-${MEMBER}-" | sort) || { echo "DOORBELL FAULT: read failed"; exit 1; }
+  now=$(list_mine) || { echo "DOORBELL FAULT: read failed"; exit 1; }
   new=$(comm -13 <(sort "$SEEN") <(echo "$now"))
   if [ -n "$new" ]; then
     rm -f "$BEAT"  # ringing ends the watch; the Stop hook sees it at once
-    echo "LETTER ARRIVED:"; echo "$new" | sed "s#^#$DIR/#"
+    echo "LETTER ARRIVED:"
+    while IFS= read -r f; do printf '%s/%s\n' "$DIR" "$f"; done <<< "$new"
     echo "$new" >> "$SEEN"
     exit 0
   fi
