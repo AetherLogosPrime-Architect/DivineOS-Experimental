@@ -101,7 +101,19 @@ def test_a_look_goes_through(pending_home: Path, command: str) -> None:
         "ls x; rm -rf x",
         "sed -i s/a/b/ README.md",
         "lsblk",
+        # Aletheia, reading #575 on 2026-10-01: a read verb that runs
+        # something else. Main refused both; adding the read verbs opened them.
+        "cat <(touch /tmp/pwn)",
+        "rg --pre=/tmp/evil.sh x .",
+        "rg --pre /tmp/evil.sh x .",
+        "grep x <(rm y)",
     ],
 )
 def test_an_action_is_still_held(pending_home: Path, command: str) -> None:
     assert _run(pending_home, command) == 2
+
+
+def test_a_flag_that_only_starts_with_pre_is_still_a_look() -> None:
+    from divineos.hooks.pre_tool_use_gate import _is_readonly_probe
+
+    assert _is_readonly_probe('grep -n "--pretty" README.md')
