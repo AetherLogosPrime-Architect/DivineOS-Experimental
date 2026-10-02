@@ -237,6 +237,61 @@ class TestTwoAxisDetection:
         assert "wrong branch" not in out
         assert "great work" in out
 
+    def test_f36_strip_inline_double_quoted_mention(self) -> None:
+        """F36 (Aletheia Round 5): correction-shaped phrase inside inline
+        double-quotes is a MENTION not a USE; must be stripped so the
+        detector doesn't false-fire on audit docs that quote correction
+        patterns as examples. Aletheia's exact live-misfire: an audit
+        doc that quoted "that's not" as an example tripped the correction
+        detector and blocked tool use — the meta-recursive false-positive."""
+        text = 'The detector fires on "that is not" whether used or mentioned'
+        out = strip_relayed(text)
+        assert '"that is not"' not in out
+        assert "that is not" not in out
+        assert "whether used or mentioned" in out
+
+    def test_f36_strip_multiple_inline_quotes(self) -> None:
+        """Multiple inline-quoted mentions all stripped."""
+        text = 'Detectors like "that is not" and "you missed" false-fire on quotes'
+        out = strip_relayed(text)
+        assert "that is not" not in out
+        assert "you missed" not in out
+        assert "false-fire" in out
+
+    def test_f36_strip_curly_double_quotes(self) -> None:
+        """Editor-inserted curly double-quotes also stripped."""
+        text = "The pattern “that is not” in an audit doc."
+        out = strip_relayed(text)
+        assert "that is not" not in out
+        assert "audit doc" in out
+
+    def test_f36_strip_curly_single_quotes(self) -> None:
+        """Editor-inserted curly single-quotes (paired) also stripped —
+        distinct from straight single-quotes because curly singles only
+        appear as paired quotation marks, not as word-internal apostrophes."""
+        text = "The pattern ‘that is not’ in an audit doc."
+        out = strip_relayed(text)
+        assert "that is not" not in out
+        assert "audit doc" in out
+
+    def test_f36_apostrophes_in_words_preserved(self) -> None:
+        """Critical regression guard: straight single-quotes are NOT
+        stripped because apostrophes in words like don't / it's would
+        corrupt text and could ERASE genuine corrections. This is why
+        the F36 fix only strips paired DOUBLE quotes and curly singles,
+        not straight singles."""
+        text = "you don't need to fix that, it's fine"
+        out = strip_relayed(text)
+        assert "don't" in out
+        assert "it's" in out
+
+    def test_f36_direct_correction_still_survives(self) -> None:
+        """Regression: a genuine correction (not quoted) still gets through
+        strip_relayed unchanged. F36 only strips MENTIONS not USES."""
+        text = "no that is not the fix"
+        out = strip_relayed(text)
+        assert "that is not" in out
+
     def test_should_mark_fires_on_direct_correction(self) -> None:
         # Updated 2026-06-23: STRONG patterns now require corrective context
         # to block (was: context-blind). Without context, advise instead.
