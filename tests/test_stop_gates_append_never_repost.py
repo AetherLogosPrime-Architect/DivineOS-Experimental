@@ -21,6 +21,7 @@ from __future__ import annotations
 import ast
 import json
 import re
+import warnings
 from pathlib import Path
 
 import pytest
@@ -310,12 +311,21 @@ class TestNoRepostWording:
         assert not any(p.search(quote) for p in BANNED)
 
     def test_no_stop_message_asks_for_the_reply_again(self):
+        # WARNS, NEVER FAILS (Aletheia 2026-10-01, by Dad's rule that a lint is
+        # backup). The first run against current main proved her point: six
+        # hits, all six false -- two describing the context de-duplicator, one
+        # quoting Dad having to "say it again", one that already said "do NOT
+        # recompose". The block that holds is structural: every refusing Stop
+        # hook leaves through the shared exit (test (c) below), and the
+        # behaviour check reads whether a retry actually re-posted.
         hits = _all_banned_hits()
-        assert not hits, (
-            "A Stop hook can print wording that asks for the whole reply again. "
-            "The reply has already reached him; ask for an addition at the END "
-            "instead.\n  " + "\n  ".join(hits)
-        )
+        if hits:
+            warnings.warn(
+                "Stop-hook wording that may ask for the whole reply again -- read "
+                "each by hand; a description or a quoted prohibition is not one:\n  "
+                + "\n  ".join(hits),
+                stacklevel=1,
+            )
 
 
 # --------------------------------------------------------------------------
