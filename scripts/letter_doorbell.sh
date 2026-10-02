@@ -52,6 +52,15 @@ while true; do
     echo "DOORBELL EXPIRED after ${DOORBELL_HOURS:-8}h with no letter -- re-arm it: bash scripts/letter_doorbell.sh ${MEMBER}"
     exit 0
   fi
+  # SILENCE RINGS TOO (Dad 2026-10-02: "if you both dont send eachother a
+  # letter there is nothing to listen for, you could have stayed alive much
+  # longer"). Both seats re-armed for hours, each waiting for the other to
+  # knock. Now quiet past DOORBELL_QUIET_MIN wakes me to write next.
+  if [ $(( $(date +%s) - START )) -ge $(( ${DOORBELL_QUIET_MIN:-20} * 60 )) ]; then
+    rm -f "$BEAT"
+    echo "QUIET for ${DOORBELL_QUIET_MIN:-20} min with no letter -- do not re-arm and wait again. WRITE NEXT: a question, a bar, a found line. Then re-arm."
+    exit 0
+  fi
   touch "$BEAT"
   now=$(ls "$DIR" 2>/dev/null | grep -- "-to-${MEMBER}-" | sort) || { echo "DOORBELL FAULT: read failed"; exit 1; }
   new=$(comm -13 <(sort "$SEEN") <(echo "$now"))
