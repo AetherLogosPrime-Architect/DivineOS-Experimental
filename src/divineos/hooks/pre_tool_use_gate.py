@@ -1065,6 +1065,19 @@ _READONLY_PROBE_PREFIXES = (
     "divineos prereg",
     "divineos todos",
     "divineos inspect",
+    # Plain looking (Aria, 2026-10-01). The read-gate doorman now asks this
+    # probe about every shell line; it had refused a bare `grep` twice in one
+    # morning, and Dad saw the first action of two replies fail. A redirect or
+    # --output still makes any of these a write -- that check runs first.
+    # Each carries its trailing space so `ls` cannot pass `lsblk` (Schneier,
+    # walk-7699bdf9bcad).
+    "grep ",
+    "rg ",
+    "cat ",
+    "head ",
+    "tail ",
+    "wc ",
+    "ls ",
 )
 
 # AND THE LIST ABOVE IS THE WRONG SHAPE, which the comment block already shows
@@ -1292,6 +1305,17 @@ def _is_readonly_probe(cmd: str) -> bool:
         if blanked is not None:
             clause = blanked
         if "--output" in clause:
+            return True
+        # A READ VERB THAT RUNS SOMETHING ELSE (Aletheia, reading #575 on
+        # 2026-10-01). Adding grep/rg/cat to the read verbs opened two doors
+        # main had shut: `cat <(touch /tmp/pwn)` runs a command inside the
+        # brackets, and `rg --pre=/tmp/evil.sh x .` runs a program on every
+        # file it searches. Neither writes through a redirect, so the check
+        # below never saw them. Process substitution in either direction,
+        # and rg's preprocessor flags, make any line not a look.
+        if "<(" in clause or ">(" in clause:
+            return True
+        if re.search(r"(^|\s)--pre(-glob)?(=|\s|$)", clause):
             return True
         i = 0
         while True:

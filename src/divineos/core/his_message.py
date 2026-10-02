@@ -253,3 +253,63 @@ def heard_in(records: list[dict]) -> list[Heard]:
     dated = {h.text for h in out}
     out.extend(b for b in dict.fromkeys(bookmarks) if b.text not in dated)
     return out
+
+
+# THE SECOND QUESTION THIS HOME ANSWERS (2026-10-01, council-8597329f631a).
+# hear() answers "whose words are these" and drops notices. The front door asks
+# something else: what arrived in his seat, with the harness's stamp, notices
+# included -- it must see a task-notification to know a message was NOT him.
+# That reading used to live in front_door, and check_no_private_his_reader
+# rightly refused it; it is moved here verbatim instead of exempted, so this
+# stays the one place that reads transcript records.
+
+
+@dataclass(frozen=True)
+class Arrival:
+    """One thing that arrived in his seat, as the harness stamped it."""
+
+    uuid: str
+    when: str  # the raw timestamp; callers parse it as they need
+    prompt_id: str | None  # None for a queue slip, which carries none
+    kind: str | None  # the harness's origin.kind; None when it gave none
+    text: str
+
+
+def _arrival_text(content: object) -> str:
+    # front_door's own join, kept exactly: it compares his words with `in`, and
+    # _text_of above differs on empty text blocks and tool results.
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(
+            str(b.get("text", ""))
+            for b in content
+            if isinstance(b, dict) and b.get("type") == "text"
+        )
+    return ""
+
+
+def arrival(record: dict) -> Arrival | None:
+    """What arrived in his seat from this record, with its stamp, or None."""
+    uuid = str(record.get("uuid") or "")
+    if not record.get("timestamp") or not uuid or record.get("isSidechain"):
+        return None
+    when = str(record.get("timestamp"))
+    if record.get("type") == "user" and "origin" in record:
+        kind = (record.get("origin") or {}).get("kind")
+        text = _arrival_text((record.get("message") or {}).get("content"))
+        return Arrival(uuid, when, str(record.get("promptId") or ""), kind, text)
+    slip = record.get("attachment")
+    if record.get("type") == "attachment" and isinstance(slip, dict):
+        if slip.get("type") != "queued_command":
+            return None
+        kind = (slip.get("origin") or {}).get("kind")
+        if kind is None and slip.get("commandMode") == "task-notification":
+            kind = "task-notification"
+        return Arrival(uuid, when, None, kind, _arrival_text(slip.get("prompt")))
+    return None
+
+
+def may_carry_arrival(line: str) -> bool:
+    """A cheap pre-check on a raw transcript line, before parsing it as JSON."""
+    return '"origin"' in line or '"queued_command"' in line
