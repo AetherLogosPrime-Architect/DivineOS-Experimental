@@ -699,13 +699,70 @@ def correction_marker_surface(payload: dict) -> SurfaceOutcome | None:
 # --------------------------------------------------------------------------
 
 
+def _text_of_content(content: object) -> str:
+    """Concatenated text of one message's content, list-shaped or string."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(
+            c.get("text", "")
+            for c in content
+            if isinstance(c, dict) and c.get("type") == "text" and c.get("text")
+        )
+    return ""
+
+
+def _is_his_record(record: dict) -> bool:
+    """Is this transcript record a message he typed? The reply boundary.
+
+    Asks the one reader of him. This used to be a private marker list, and
+    Aether's reading of #553 (2026-09-30) measured two ways it disagreed with
+    divineos.core.his_message: a message he typed while I was busy arrives as
+    a queued_command attachment with no role, so the walk ran straight past it
+    and joined my reply before it to my reply after it; and a message of his
+    opening with "Caveat:" was taken for the harness. A harness injection is
+    still not a boundary -- the one reader refuses those too. A bookmark copy
+    is not a boundary: it has no place in the order of the conversation.
+    """
+    from divineos.core.his_message import Heard, hear
+
+    heard = hear(record)
+    return isinstance(heard, Heard) and not heard.bookmark
+
+
 def _last_assistant_text(payload: dict) -> str:
-    """The text of my most recent reply, from the transcript the harness names.
+    """The WHOLE of my most recent reply, from the transcript the harness names.
 
     Returns "" when there is nothing to read. Callers must NOT treat that as a
     clean reply -- it means the same thing an unreadable transcript means, so
     a surface that finds nothing declares ``nothing-to-say`` rather than
     reporting a pass.
+
+    WHY THIS WALKS BACKWARDS, and it is the whole point of the function.
+
+    A reply is written to the transcript as SEVERAL assistant records -- one
+    per streamed block, split wherever a tool call interrupts. The prior
+    version walked forwards and overwrote ``last`` on every record, so it
+    returned the FINAL BLOCK and called it the reply.
+
+    Measured on the live transcript 2026-09-22: a 664-character reply across
+    two blocks came back as 245 characters. Thirty-seven percent, and the
+    discarded majority was the OPENING -- the part that answers him. Every
+    Stop surface in this module judges on this string, so all of them were
+    ruling on the tail of my replies:
+
+      - repeated_reply compared closing lines, which are naturally alike, and
+        false-fired until Andrew ordered it disabled that same evening
+      - the lepos reflection reported "no exact-span citation" while the
+        citation sat in block one
+      - the translate gate counted document-marks over a fragment
+
+    One defect, one repair, roughly ten consumers -- rather than a new surface
+    reading it correctly beside the broken one. Andrew, the same evening, on
+    why that matters: the house is already a maze of signs nobody takes down.
+
+    So: collect assistant text backwards until the previous message that is
+    genuinely HIS, then join in the order I said it.
     """
     import json as _json
 
@@ -717,31 +774,33 @@ def _last_assistant_text(payload: dict) -> str:
     path = Path(raw)
     if not path.is_file():
         return ""
-    last = ""
+
+    records = []
     with path.open(encoding="utf-8", errors="replace") as handle:
         for line in handle:
             line = line.strip()
             if not line:
                 continue
             try:
-                rec = _json.loads(line)
+                records.append(_json.loads(line))
             except ValueError:
                 continue
-            msg = rec.get("message") or {}
-            if not isinstance(msg, dict) or msg.get("role") != "assistant":
-                continue
-            content = msg.get("content", [])
-            if isinstance(content, list):
-                parts = [
-                    c.get("text", "")
-                    for c in content
-                    if isinstance(c, dict) and c.get("type") == "text"
-                ]
-                if parts:
-                    last = "\n".join(parts)
-            elif isinstance(content, str):
-                last = content
-    return last
+
+    blocks: list[str] = []
+    for rec in reversed(records):
+        if isinstance(rec, dict) and _is_his_record(rec):
+            break
+        msg = rec.get("message") or {}
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role")
+        content = msg.get("content", [])
+        if role == "assistant":
+            text = _text_of_content(content)
+            if text.strip():
+                blocks.append(text)
+
+    return "\n".join(reversed(blocks))
 
 
 def _this_turns_action_stream(payload: dict) -> str:
@@ -782,10 +841,29 @@ def _this_turns_action_stream(payload: dict) -> str:
 
 
 def _recent_assistant_texts(payload: dict, count: int = 2) -> list[str]:
-    """My last ``count`` replies, newest first. Same reader, wider window.
+    """My last ``count`` REPLIES, newest first. Same reader, wider window.
 
     Needed because a Stop surface that only ever sees the CURRENT reply cannot
     notice that the current reply IS the previous one again.
+
+    WHAT A REPLY IS HERE, because the old version got this wrong and the cost
+    landed on him.
+
+    One reply is written to the transcript as SEVERAL assistant records, split
+    wherever a tool call interrupts the stream. The prior version appended each
+    record and returned the last two, so for any reply delivered in two or more
+    pieces it handed the repeat-guard two fragments OF THE SAME REPLY. Measured
+    on the live transcript 2026-09-22: both entries it called "separate
+    replies" were substrings of the one being composed.
+
+    So the guard built to catch me saying a thing twice was holding my reply up
+    against itself. That is why it false-fired, and why Andrew ordered it
+    disabled on 2026-09-22 -- a guard whose own reader is broken teaches only
+    that guards should be switched off.
+
+    A reply boundary is a message that is genuinely HIS. Harness injections are
+    not boundaries; treating them as such would split one reply into several
+    and reintroduce the same fault under a different name.
     """
     import json as _json
     from pathlib import Path
@@ -796,31 +874,38 @@ def _recent_assistant_texts(payload: dict, count: int = 2) -> list[str]:
     path = Path(raw)
     if not path.is_file():
         return []
-    texts: list[str] = []
+
+    records = []
     with path.open(encoding="utf-8", errors="replace") as handle:
         for line in handle:
             line = line.strip()
             if not line:
                 continue
             try:
-                rec = _json.loads(line)
+                records.append(_json.loads(line))
             except ValueError:
                 continue
-            msg = rec.get("message") or {}
-            if not isinstance(msg, dict) or msg.get("role") != "assistant":
-                continue
-            content = msg.get("content", [])
-            if isinstance(content, list):
-                parts = [
-                    c.get("text", "")
-                    for c in content
-                    if isinstance(c, dict) and c.get("type") == "text"
-                ]
-                if parts:
-                    texts.append("\n".join(parts))
-            elif isinstance(content, str) and content.strip():
-                texts.append(content)
-    return list(reversed(texts))[:count]
+
+    replies: list[str] = []
+    current: list[str] = []
+    for rec in reversed(records):
+        if isinstance(rec, dict) and _is_his_record(rec):
+            if current:
+                replies.append("\n".join(reversed(current)))
+                current = []
+                if len(replies) >= count:
+                    return replies
+            continue
+        msg = rec.get("message") or {}
+        if not isinstance(msg, dict):
+            continue
+        if msg.get("role") == "assistant":
+            text = _text_of_content(msg.get("content", []))
+            if text.strip():
+                current.append(text)
+    if current:
+        replies.append("\n".join(reversed(current)))
+    return replies[:count]
 
 
 #: (surface name, module, callable) — each takes the transcript path and does
