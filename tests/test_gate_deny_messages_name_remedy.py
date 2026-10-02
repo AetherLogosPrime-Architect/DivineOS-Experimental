@@ -60,6 +60,11 @@ _HOOKS_DIR = _PROJECT_ROOT / ".claude" / "hooks"
 _NON_GATING_HOOKS: frozenset[str] = frozenset(
     {
         "_lib.sh",
+        # The front door keeps and settles Andrew's messages and never refuses:
+        # every path exits zero, and a failure is recorded as could-not-file.
+        # Refusing is a later, separate piece (the sort-first refusal), which
+        # will be its own hook under this rule, not this one.
+        "front-door.sh",
         # Captures a letter written into the shared channel onto the substrate
         # branch at write-time. PostToolUse and exits zero on every path: it
         # reports a failed capture, it never refuses the write.
