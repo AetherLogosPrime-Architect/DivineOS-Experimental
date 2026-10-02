@@ -118,7 +118,6 @@ def test_the_probe_can_actually_fail(tmp_path, monkeypatch) -> None:
     broken (2026-10-01). A control has to be asserted live, not assumed: so it
     is built here, a repository with a second branch the scan must find.
     """
-    import check_branch_scope
 
     def g(*args: str) -> None:
         subprocess.run(["git", *args], cwd=tmp_path, capture_output=True, check=True)
@@ -132,7 +131,12 @@ def test_the_probe_can_actually_fail(tmp_path, monkeypatch) -> None:
     ).stdout.split()
     assert sorted(refs) == ["refs/heads/main", "refs/heads/other"], "the control is not live"
 
-    monkeypatch.setattr(check_branch_scope, "REPO_ROOT", tmp_path)
+    # Patch the module _other_refs actually reads, not whatever currently holds
+    # the name: test_one_word_one_definition_of_substrate loads a fresh copy of
+    # check_branch_scope into sys.modules, so patching by import hit the new
+    # copy while this file's _other_refs kept reading the old one's REPO_ROOT,
+    # and the full suite went red where the file alone passed (2026-10-01).
+    monkeypatch.setitem(_other_refs.__globals__, "REPO_ROOT", tmp_path)
     assert "refs/heads/other" in _other_refs("main"), (
         "_other_refs found no other ref in a repository built to hold one. Every "
         "check above would pass vacuously on that, so an empty result here is a "
