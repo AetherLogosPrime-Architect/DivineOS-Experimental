@@ -26,6 +26,15 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash .claude/hooks/front-door.sh keep",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/question_hold.py\"; [ -f \"$f\" ] && python \"$f\"",
             "timeout": 30
           },
@@ -60,6 +69,16 @@
       }
     ],
     "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/his-voice-ends-the-turn.sh",
+            "timeout": 10
+          }
+        ]
+      },
       {
         "matcher": "Edit|Write|Bash|NotebookEdit",
         "hooks": [
@@ -485,6 +504,15 @@
       }
     ],
     "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/front-door.sh settle",
+            "timeout": 10
+          }
+        ]
+      },
       {
         "hooks": [
           {
