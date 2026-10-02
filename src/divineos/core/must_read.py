@@ -65,6 +65,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -176,7 +177,10 @@ def require_read(
     digest = hashlib.sha256(content.encode("utf-8")).hexdigest()[:12]
     if _already_read(digest, home):
         return None
-    path = _dir(home) / f"{key}-{digest}.md"
+    # Keys use ":" as a namespace separator; on Windows a ":" in a file name
+    # writes an NTFS alternate stream, so the path handed back cannot be opened.
+    safe_key = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "-", key)
+    path = _dir(home) / f"{safe_key}-{digest}.md"
     if not path.exists():
         path.write_text(content, encoding="utf-8")
 
