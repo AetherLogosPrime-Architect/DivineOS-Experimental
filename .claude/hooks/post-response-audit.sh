@@ -69,6 +69,9 @@ try:
         'lepos_channel_block',
         'lepos_dual_channel_block',
         'lepos_wallclock_block',
+        # His room (Andrew 2026-09-24): every reply he started ends with me
+        # speaking to him. See src/divineos/core/his_room.py.
+        'his_room_block',
         # verify_before_build_block and thread_walk_block RETIRED
         # 2026-07-26 per Aletheia F87 + council-b60f9a2e7b89. Both were
         # Stop-hook lexical detectors bypassable by prose formatting.
@@ -84,14 +87,25 @@ try:
         if len(_reasons) == 1:
             reason = _reasons[0]
         else:
+            # Was 'Address all of them in the recompose' -- an instruction to
+            # RECOMPOSE, printed by the one exit every other gate speaks through.
             reason = (
                 f'MULTIPLE GATES FIRED ({len(_reasons)}) - parallel-aggregate '
                 'per Andrew 2026-07-22 (was chain-OR, short-circuited). '
-                'Address all of them in ONE addition at the end of the reply, '
-                'not one at a time.\n\n'
+                'Address all of them in ONE short addition, not one at a time '
+                'and not by rewriting the reply.\n\n'
                 + '\n\n---\n\n'.join(_reasons)
             )
-        # Once, at the end, even when a wrapped gate message already carries it.
+        # RETRY SCOPE ON EVERY BLOCK, ATTACHED HERE AND NOWHERE ELSE. Andrew
+        # 2026-09-23: 'the issue is you are being forced to rewrite the ENTIRE
+        # POST.. not just the corrected section.. so every post comes out
+        # written twice verbatim'. The delta-only instruction already existed
+        # in _retry_scope.txt, but each gate had to remember to attach it; the
+        # translate-first refusal did not, and every fire of it became a full
+        # duplicate on his screen. This is the one exit all six gates share,
+        # so attaching it here means no gate, present or future, can forget.
+        # Read through the house's one reader (#558), which also lifts out a
+        # copy a wrapped gate message already carries, so it appears once.
         from divineos.core.retry_scope import with_retry_scope
         reason = with_retry_scope(reason)
         print(json.dumps({'decision': 'block', 'reason': reason}))
