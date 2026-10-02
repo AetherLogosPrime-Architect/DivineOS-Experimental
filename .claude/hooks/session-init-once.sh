@@ -145,16 +145,6 @@ load-aletheia-harvest-of-andrew.sh
 resolver-health-check.sh
 session-start-verify-git-hooks.sh
 "
-# letter-monitor-health-surface.sh is deliberately NOT here. It is registered
-# directly on UserPromptSubmit instead, so a monitor that dies MID-session gets
-# re-armed on the next prompt rather than at the next session start. Session-init
-# runs once; the monitor died mid-session on every harness teardown.
-#
-# That is the same placement the old arm-instruction hook tried and abandoned as
-# wallpaper — correctly, because it emitted the SAME text every prompt AND ran a
-# PowerShell process scan each time. This one reads a single small file and
-# prints nothing while the monitor is healthy.
-#
 # The test is SAMENESS, not cadence. Andrew 2026-08-15, revising his own
 # 2026-07-28 line: "its anything that injects every single turn and does not
 # change, so rotations can be injected every turn depending on what they are."

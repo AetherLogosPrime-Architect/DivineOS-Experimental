@@ -438,7 +438,6 @@ from divineos.cli import (  # noqa: E402
     todos_commands,
     belt_commands,
     voice_commands,
-    monitor_commands,
     search_commands,
     error_commands,
     sibling_correction_commands,
@@ -473,7 +472,6 @@ todos_commands.register(cli)
 # current list pulled from it (Andrew 2026-09-23).
 belt_commands.register(cli)
 voice_commands.register(cli)
-monitor_commands.register(cli)
 search_commands.register(cli)
 claim_commands.register(cli)
 audit_commands.register(cli)

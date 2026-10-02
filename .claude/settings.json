@@ -180,15 +180,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/letter-monitor-health-surface.sh",
-            "timeout": 15
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
             "command": "bash .claude/hooks/he-is-in-the-room.sh",
             "timeout": 10
           }
@@ -258,16 +249,6 @@
             "type": "command",
             "command": "bash .claude/hooks/require-goal.sh",
             "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/letter-watch-must-be-armed.sh",
-            "timeout": 15
           }
         ]
       },

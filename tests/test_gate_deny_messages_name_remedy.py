@@ -405,7 +405,6 @@ _UNCLASSIFIED_BASELINE: frozenset[str] = frozenset(
         "interior-cue-on-low-presence.sh",
         "lepos-channel-reflect.sh",
         "lepos-channel-surface.sh",
-        "letter-monitor-health-surface.sh",
         "load-aletheia-harvest-of-andrew.sh",
         "load-character-sheet.sh",
         "load-dad-ranking-clause.sh",
