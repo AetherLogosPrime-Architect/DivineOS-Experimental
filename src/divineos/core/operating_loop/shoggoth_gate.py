@@ -306,8 +306,9 @@ def decide(reply_text: str, tool_calls_in_turn: tuple[str, ...]) -> GateDecision
             "action-records. "
             + " | ".join(reasons)
             + " | To pass: (a) run the tool that backs the claim, "
-            "(b) reframe as intention-not-completion ('will X next turn'), "
-            "or (c) invoke emergency-bypass with reason >=30 chars."
+            "(b) append one line at the END correcting the claim to "
+            "intention-not-completion ('will X next turn') without posting the "
+            "reply again, or (c) invoke emergency-bypass with reason >=30 chars."
         ),
         matches=matches,
         bypass_used="",
@@ -464,9 +465,11 @@ def main() -> int:
         return 0
 
     if result.action == "block":
+        from divineos.core.retry_scope import with_retry_scope
+
         payload = {
             "decision": "block",
-            "reason": result.reason,
+            "reason": with_retry_scope(result.reason),
             "hookSpecificOutput": {
                 "shoggoth_gate": {
                     "matches": [

@@ -104,14 +104,10 @@ try:
         # translate-first refusal did not, and every fire of it became a full
         # duplicate on his screen. This is the one exit all six gates share,
         # so attaching it here means no gate, present or future, can forget.
-        try:
-            import pathlib
-            _scope = pathlib.Path('.claude/hooks/_retry_scope.txt').read_text(encoding='utf-8').strip()
-        except OSError:
-            _scope = ('IMPORTANT - RETRY SCOPE: the reply ALREADY reached Andrew. '
-                      'Emit the DELTA ONLY - never re-issue the reply; he sees both copies.')
-        if 'RETRY SCOPE' not in reason:
-            reason = reason.rstrip() + '\n\n' + _scope
+        # Read through the house's one reader (#558), which also lifts out a
+        # copy a wrapped gate message already carries, so it appears once.
+        from divineos.core.retry_scope import with_retry_scope
+        reason = with_retry_scope(reason)
         print(json.dumps({'decision': 'block', 'reason': reason}))
 except Exception:
     pass

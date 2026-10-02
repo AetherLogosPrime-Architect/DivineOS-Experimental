@@ -133,11 +133,7 @@ _RELAY_INTRODUCER_RE = re.compile(
 # a command and is impossible to miss -- so an enumerated list is survivable
 # here, unlike the read-only probe repaired the same day, where a stale list
 # failed silently and let writes through.
-_HARNESS_ENVELOPE_RE = re.compile(
-    r"<(task-notification|system-reminder|persisted-output|ci-monitor-event)"
-    r"\b[\s\S]*?(?:</\1>|\Z)",
-    re.IGNORECASE,
-)
+# The list itself lives in harness_envelopes now, the house's one list.
 
 # A signature line from a known external agent confirms a block is relayed even
 # when no introducer phrase precedes it. Andrew does not sign as them, and a
@@ -160,8 +156,13 @@ def strip_relayed(text: str) -> str:
     """
     if not text:
         return ""
-    # 1. Harness-injected structural envelopes (never operator voice).
-    text = _HARNESS_ENVELOPE_RE.sub("", text)
+    # 1. Harness-injected structural envelopes (never operator voice), from the
+    # house's one list. This read harness_envelopes on 2026-09-24; the line was
+    # lost when #554 landed and the private four-tag list came back, missing the
+    # command blocks (restored 2026-10-01 on #560).
+    from divineos.core.harness_envelopes import remove_envelopes
+
+    text = remove_envelopes(text)
     # 2. Markdown blockquotes and fenced code.
     text = _BLOCKQUOTE_LINE.sub("", text)
     text = _FENCED_BLOCK.sub("", text)
