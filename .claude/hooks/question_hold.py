@@ -45,6 +45,13 @@ def main() -> int:
             told = qh.escape_to_tell_him()
             if told:
                 print(told)
+        # The shared fridge: shown, never held (Dad, 2026-10-01).
+        waiting = qh.others_waiting()
+        if waiting:
+            print("## ON THE SHARED FRIDGE (seen, not holding me)")
+            for line in waiting:
+                print(line)
+            print()
         state = qh.is_open()
         if not state:
             return 0
