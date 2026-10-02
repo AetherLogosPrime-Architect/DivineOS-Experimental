@@ -206,6 +206,25 @@ def release(how: str, reason: str = "") -> bool:
         ESCAPED.write_text(
             json.dumps({"question": state.get("question"), "reason": reason}), encoding="utf-8"
         )
+        # He has NOT answered: the ask stays open and keeps re-raising.
+        return True
+    # HIS ANSWER CLOSES BOTH HOLDS (2026-10-01, council-5bd771ef0891). arm()
+    # files the question in operator_asks, and an-open-ask-holds-the-work.sh
+    # reads that store. Releasing only this file left the ask open, so his
+    # answer released one hold and the other held the work again -- twice that
+    # night, each cleared by hand with his words. A store failure is logged,
+    # never raised: this runs inside his own message hook.
+    ask_id = state.get("ask_id")
+    if ask_id:
+        from divineos.core.operator_asks import resolve_ask
+
+        try:
+            closed = resolve_ask(ask_id, f"Dad answered ({how})")
+        except Exception as exc:  # noqa: BLE001 -- any store failure, logged below
+            _log("resolve_failed", ask_id=ask_id, error=f"{type(exc).__name__}: {exc}")
+        else:
+            if not closed:
+                _log("resolve_failed", ask_id=ask_id, error="resolve_ask returned False")
     return True
 
 
