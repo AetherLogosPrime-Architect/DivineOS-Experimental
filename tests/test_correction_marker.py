@@ -354,6 +354,20 @@ class TestStripRelayedCoverage20260603:
         out = strip_relayed("<task-notification>arbitrary you missed text</task-notification>")
         assert "you missed" not in out
 
+    def test_a_command_block_is_the_machine_not_him(self) -> None:
+        """The shared list gave this reader the command blocks it never had:
+        a slash command's output echoed into his seat is not his voice."""
+        text = "<local-command-stdout>that's wrong, you missed the call-site</local-command-stdout>"
+        assert "you missed" not in strip_relayed(text)
+        assert should_mark(text) is False
+
+    def test_his_lines_keep_their_shape_after_the_envelope_goes(self) -> None:
+        """Blockquotes are read line by line after the envelopes come out, so
+        cutting an envelope must not fold his lines together."""
+        text = "<system-reminder>x</system-reminder>\n> quoted, not his\nmine"
+        out = strip_relayed(text)
+        assert "quoted" not in out and "mine" in out
+
 
 # =====================================================================
 # LEGACY-SEMANTIC TESTS REMOVED 2026-07-22 (Aether + Aria rewrite).

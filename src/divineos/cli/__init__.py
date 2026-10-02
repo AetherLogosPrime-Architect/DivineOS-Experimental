@@ -444,6 +444,8 @@ from divineos.cli import (  # noqa: E402
     sibling_correction_commands,
     label_fire_commands,
     must_read_commands,
+    his_commands,
+    linkage_commands,
 )
 
 actor_registry_commands.register(cli)
@@ -467,6 +469,8 @@ replant_commands.register(cli)
 sibling_correction_commands.register(cli)
 label_fire_commands.register(cli)
 must_read_commands.register(cli)
+his_commands.register(cli)
+linkage_commands.register(cli)
 automerge_commands.register(cli)
 todos_commands.register(cli)
 # Beside todos on purpose: todos shows the whole pile, the belt is the small

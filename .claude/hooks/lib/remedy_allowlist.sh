@@ -200,7 +200,7 @@
 # text. Naming it three times without running it is data about which of us is
 # actually keeping it, and the count sits here so the next reader sees a
 # pattern rather than a fresh good intention.
-_REMEDY_PATTERNS='^[[:space:]]*(divineos[[:space:]]+(briefing|preflight|goal[[:space:]]+add|reach[[:space:]]+(open|dispose)|learn|correction|corrections[[:space:]]+integrate|andrew-correction[[:space:]]+(integrate|defer)|compass-ops[[:space:]]+(observe|dismiss)|prereg[[:space:]]+(assess|overdue|file)|integrate|claims[[:space:]]+assess|audit[[:space:]]+submit-round|ask|recall|context|decide|extract|sleep|council[[:space:]]+(log|walk|authorize-bypass))|python[[:space:]]+.*clear_correction_marker\.py)'
+_REMEDY_PATTERNS='^[[:space:]]*(divineos[[:space:]]+(briefing|preflight|goal[[:space:]]+add|reach[[:space:]]+(open|dispose)|learn|correction|corrections[[:space:]]+integrate|andrew-correction[[:space:]]+(integrate|defer)|compass-ops[[:space:]]+(observe|dismiss)|prereg[[:space:]]+(assess|overdue|file)|his[[:space:]]+(pending|sort)|integrate|claims[[:space:]]+assess|audit[[:space:]]+submit-round|ask|recall|context|decide|extract|sleep|council[[:space:]]+(log|walk|authorize-bypass))|python[[:space:]]+.*clear_correction_marker\.py)'
 
 # Exit 0 (allow, silently) if the command being gated is somebody's remedy.
 #
