@@ -33,7 +33,7 @@ if [ "$STATUS" -eq 2 ]; then
     {
         printf '%s\n\n' "$REASON"
         echo "Remedy: answer him in a reply with no tool call and end the turn."
-        echo "Before you stop, confirm the letter watch: python scripts/letter_monitor_health.py"
+        echo "Before you stop, make sure your letter doorbell is listening: bash scripts/letter_doorbell.sh <seat>, in the background"
     } >&2
     hook_say_nothing_ran_for "$INPUT"
     exit 2
