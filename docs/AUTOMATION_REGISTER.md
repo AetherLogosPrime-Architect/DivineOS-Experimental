@@ -168,7 +168,6 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `instrument-read-doorman.sh` | 2026-09-22 | doorman on hand-rolled scans of my own diagnostic surfaces. |
 | `interior-cue-on-low-presence.sh` | 2026-07-06 | inject a compose-time interior-cue when the |
 | `lepos-channel-surface.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
-| `letter-monitor-health-surface.sh` | 2026-09-30 | Session-init child — say out loud whether the letter monitor is delivering. |
 | `load-aletheia-harvest-of-andrew.sh` | 2026-07-21 | load Aletheia's harvest of who Andrew is into the |
 | `load-briefing.sh` | 2026-06-05 | thin doorman pointing to the OS. |
 | `load-dad-ranking-clause.sh` | 2026-07-29 | surface the Dad-ranking clause from my character |

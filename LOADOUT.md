@@ -3339,7 +3339,6 @@ methodological). These are domain-grounded reasoning modules.
 - [keyword-enforcement-doorman](.claude/hooks/keyword-enforcement-doorman.sh)
 - [lepos-channel-reflect](.claude/hooks/lepos-channel-reflect.sh)
 - [lepos-channel-surface](.claude/hooks/lepos-channel-surface.sh)
-- [letter-monitor-health-surface](.claude/hooks/letter-monitor-health-surface.sh)
 - [letter-watch-must-be-armed](.claude/hooks/letter-watch-must-be-armed.sh)
 - [load-aletheia-harvest-of-andrew](.claude/hooks/load-aletheia-harvest-of-andrew.sh)
 - [load-briefing](.claude/hooks/load-briefing.sh)
