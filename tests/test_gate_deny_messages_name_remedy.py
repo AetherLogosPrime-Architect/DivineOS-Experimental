@@ -60,6 +60,10 @@ _HOOKS_DIR = _PROJECT_ROOT / ".claude" / "hooks"
 _NON_GATING_HOOKS: frozenset[str] = frozenset(
     {
         "_lib.sh",
+        # Captures a letter written into the shared channel onto the substrate
+        # branch at write-time. PostToolUse and exits zero on every path: it
+        # reports a failed capture, it never refuses the write.
+        "capture-channel-letter.sh",
         # A RELAY, not a gate, and the distinction is the doorbell design
         # itself: it knocks and steps aside, and every judgment lives in the
         # OS. Its own absent path exits zero and it composes no refusal of its
@@ -87,6 +91,11 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         # Andrew corrected the filter shape into this one himself, so a test
         # treating it as a possible gate would be auditing the wrong thing.
         "he-is-in-the-room.sh",
+        # Writes a goal boundary at SessionStart and steps aside: every path
+        # exits zero, because a hook that refuses SessionStart refuses the
+        # briefing with it. The refusing it causes happens later, in the goal
+        # guard, which carries its own remedy (divineos goal add).
+        "goal-boundary-at-session-start.sh",
         "load-briefing.sh",
         "pre-response-context.sh",
         "pre-tool-context.sh",

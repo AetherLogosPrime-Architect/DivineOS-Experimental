@@ -69,6 +69,9 @@ try:
         'lepos_channel_block',
         'lepos_dual_channel_block',
         'lepos_wallclock_block',
+        # His room (Andrew 2026-09-24): every reply he started ends with me
+        # speaking to him. See src/divineos/core/his_room.py.
+        'his_room_block',
         # verify_before_build_block and thread_walk_block RETIRED
         # 2026-07-26 per Aletheia F87 + council-b60f9a2e7b89. Both were
         # Stop-hook lexical detectors bypassable by prose formatting.

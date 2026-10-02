@@ -740,12 +740,15 @@ src/divineos/
     hook_context_merge.py      Read what the session-init children printed and merge it into one answer.
     slashed_ref_path_check.py  Refuse a git argument the Windows shell will rewrite before git sees it.
     task_belt.py               The task belt: the pile ranked, a small current list pulled from it, done archived.
+    harness_envelopes.py       What the harness wraps around his seat, in one place every reader of him uses.
+    his_room.py                His room: every reply to Andrew ends with a space where I speak to him.
     andrew_digest.py           The file he can actually read, and the thing that will not let me skip it.
     keeping_him.py             What he actually said, read out of the transcripts and kept.
     questions_from_him.py      Questions built from what he actually said, not drawn from a list.
     refusal_stretches.py       What has refused me this session, and whether it is the same thing again.
     his_message.py             The one answer in this house to: is this transcript record Dad typing?
     question_hold.py           A question to Dad holds the work until he answers (Aria, 2026-09-29).
+    channel_letter_capture.py  Give a letter written straight into the shared channel a home in the repo.
 
   analysis/
     _session_types.py          Session analysis type definitions

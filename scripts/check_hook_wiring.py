@@ -283,7 +283,16 @@ def _dads_table_roster(hooks_dir: Path) -> set[str]:
         children = json.loads((hooks_dir / "dads_table_children.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return set()
-    return {Path(c["command"].split()[-1]).name for c in children if c.get("command")}
+    # Every hook a child command names, not only its last word: a wrapped child
+    # ("dedup-wrap.sh ear bash ear-surface.sh") runs the wrapper too, and a
+    # last-word reader called the wrapper dark while it ran every message.
+    return {
+        Path(tok).name
+        for c in children
+        if c.get("command")
+        for tok in c["command"].split()
+        if ".claude/hooks/" in tok
+    }
 
 
 def classify(hooks_dir: Path, settings: Path) -> tuple[dict[str, list[str]], str | None]:

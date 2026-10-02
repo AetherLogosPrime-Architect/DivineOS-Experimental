@@ -90,9 +90,16 @@ def verdict(records: list[dict]) -> str | None:
                 worked = True
             elif c.get("type") == "text" and c.get("text", "").strip():
                 last_text = c["text"]
-    if worked and "## INNER CIRCLE" not in last_text:
-        return REASON
-    return None
+    if not worked:
+        return None
+    # One home for what counts as his room (Aletheia's hold on #560): asked of
+    # his_room, never re-decided here, so the two cannot drift apart. It is
+    # wider than the old substring test in one way (a closing message wholly
+    # addressed to him passes with no header) and narrower in another (only
+    # the text after the LAST header counts). Walk council for this edit.
+    from divineos.core.his_room import check_his_room
+
+    return REASON if check_his_room(last_text, started_by_him=True) else None
 
 
 def _read_tail(path: Path) -> list[dict]:
