@@ -19,6 +19,9 @@ def qh(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "STATE", tmp_path / "hold.json")
     monkeypatch.setattr(mod, "HOLD_LOG", tmp_path / "log.jsonl")
     monkeypatch.setattr(mod, "ESCAPED", tmp_path / "escaped.json")
+    # The shared board too, or arming posts a test card on the LIVE fridge.
+    monkeypatch.setattr(mod, "BOARD", tmp_path / "board")
+    monkeypatch.setattr(mod, "CARD", tmp_path / "board" / "me.json")
     filed = []
     import divineos.core.operator_asks as asks
 
@@ -164,7 +167,15 @@ def test_every_hold_is_counted(qh):
 
 
 def _hook(payload, home):
-    env = {**__import__("os").environ, "HOME": str(home), "USERPROFILE": str(home)}
+    # DIVINEOS_HOME too: the hold now resolves each seat's own home, which
+    # follows the checkout's .divineos_data_home marker -- so HOME alone would
+    # point this test at the LIVE seat (2026-10-01).
+    env = {
+        **__import__("os").environ,
+        "HOME": str(home),
+        "USERPROFILE": str(home),
+        "DIVINEOS_HOME": str(home / ".divineos"),
+    }
     return subprocess.run(
         [sys.executable, str(HOOK)],
         input=json.dumps(payload).encode(),
