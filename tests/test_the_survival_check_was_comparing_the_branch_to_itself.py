@@ -108,15 +108,37 @@ def test_an_unidentifiable_ref_reports_could_not_look() -> None:
     )
 
 
-def test_the_probe_can_actually_fail() -> None:
+def test_the_probe_can_actually_fail(tmp_path, monkeypatch) -> None:
     """Prove the scan finds refs at all, so an empty result stays meaningful.
 
     Every assertion above is satisfied by ``_other_refs`` returning nothing for
-    every input. This repository has many refs, so nothing-for-everything means
-    the function is broken rather than that the branch is alone in the world.
+    every input. This used to assert against the real checkout on the premise
+    that "this repository has many refs" -- false on a push-to-main CI checkout,
+    which holds one, so the scan correctly found nothing and the test called it
+    broken (2026-10-01). A control has to be asserted live, not assumed: so it
+    is built here, a repository with a second branch the scan must find.
     """
-    assert _other_refs(_current_branch()), (
-        "_other_refs returned no refs at all for a live branch in a repository "
-        "that has many. Every check above would pass vacuously on that, so an "
-        "empty result here is a broken instrument, not a clean one."
+
+    def g(*args: str) -> None:
+        subprocess.run(["git", *args], cwd=tmp_path, capture_output=True, check=True)
+
+    g("init", "-q", "-b", "main")
+    g("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "a")
+    g("branch", "other")
+    g("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "b")
+    refs = subprocess.run(
+        ["git", "for-each-ref", "--format=%(refname)"], cwd=tmp_path, capture_output=True, text=True
+    ).stdout.split()
+    assert sorted(refs) == ["refs/heads/main", "refs/heads/other"], "the control is not live"
+
+    # Patch the module _other_refs actually reads, not whatever currently holds
+    # the name: test_one_word_one_definition_of_substrate loads a fresh copy of
+    # check_branch_scope into sys.modules, so patching by import hit the new
+    # copy while this file's _other_refs kept reading the old one's REPO_ROOT,
+    # and the full suite went red where the file alone passed (2026-10-01).
+    monkeypatch.setitem(_other_refs.__globals__, "REPO_ROOT", tmp_path)
+    assert "refs/heads/other" in _other_refs("main"), (
+        "_other_refs found no other ref in a repository built to hold one. Every "
+        "check above would pass vacuously on that, so an empty result here is a "
+        "broken instrument, not a clean one."
     )
