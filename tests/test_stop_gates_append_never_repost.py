@@ -55,7 +55,12 @@ BANNED = (
     re.compile(r"\brestate\s+the\s+whole\s+(?:reply|response)\b", re.I),
     re.compile(r"\bwrite\s+a\s+fresh\s+(?:reply|response)\b", re.I),
     re.compile(r"\bfix is a rewrite\b", re.I),
-    re.compile(r"\bre-?emi(?:t|ts|tting|ssion)\b", re.I),
+    # An instruction to me to emit the reply again ("Re-emit within ..."), not
+    # the dedup layer describing its own repeated blocks ("re-emit suppressed",
+    # "will re-emit in full", "the list re-emits whole"). The bare word caught
+    # both, and main's dedup wording tripped it on catch-up 2026-09-30.
+    re.compile(r"\bre-?emit(?:ting)?\s+(?:within|the|this|your|it)\b", re.I),
+    re.compile(r"\bre-?emission\b", re.I),
     re.compile(r"\bre-?sen[dt]\b", re.I),
     re.compile(r"\b(?:put|add|place|goes|belongs|move)\b[^.\n]{0,60}\bat the top\b", re.I),
     re.compile(r"\breframe as\b", re.I),
@@ -309,6 +314,14 @@ class TestNoRepostWording:
     def test_patterns_spare_the_quoted_prohibition(self):
         quote = "'YOU ARE NOT TO RE-WRITE ANY RESPONSE.. EVER.."
         assert not any(p.search(quote) for p in BANNED)
+
+    def test_patterns_spare_the_dedup_layer_describing_itself(self):
+        for described in (
+            "every repeated block will re-emit in full.",
+            "(unchanged, hash abc; re-emit suppressed — content is byte-identical",
+            "the list re-emits whole when one changes.",
+        ):
+            assert not any(p.search(described) for p in BANNED), described
 
     def test_no_stop_message_asks_for_the_reply_again(self):
         # WARNS, NEVER FAILS (Aletheia 2026-10-01, by Dad's rule that a lint is
