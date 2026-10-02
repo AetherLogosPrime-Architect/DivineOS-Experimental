@@ -33,11 +33,39 @@ _PARAS = [
 
 
 def _transcript(tmp_path, *replies: str):
+    """A transcript of consecutive replies, each preceded by a turn from him.
+
+    HIS TURN BETWEEN THEM IS NOT DECORATION, added 2026-09-22. The first
+    version wrote the replies as back-to-back assistant records with nothing
+    between, which no real transcript ever contains -- a reply exists because
+    he said something. That shape let the reader under test define a reply as
+    "one assistant record", and the reader did exactly that: it returned the
+    last two RECORDS and called them the last two replies. For any reply split
+    across blocks by a tool call, the guard was then handed two halves of the
+    SAME reply and compared it against itself. It false-fired until Andrew
+    ordered it disabled.
+
+    So the fixture was agreeing with the defect. Every assertion below is
+    unchanged; only the transcript now looks like a transcript.
+    """
     path = tmp_path / "transcript.jsonl"
-    lines = [
-        json.dumps({"message": {"role": "assistant", "content": [{"type": "text", "text": reply}]}})
-        for reply in replies
-    ]
+    lines: list[str] = []
+    for index, reply in enumerate(replies):
+        lines.append(
+            json.dumps(
+                {
+                    "message": {
+                        "role": "user",
+                        "content": [{"type": "text", "text": f"his question number {index}"}],
+                    }
+                }
+            )
+        )
+        lines.append(
+            json.dumps(
+                {"message": {"role": "assistant", "content": [{"type": "text", "text": reply}]}}
+            )
+        )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return {"transcript_path": str(path)}
 

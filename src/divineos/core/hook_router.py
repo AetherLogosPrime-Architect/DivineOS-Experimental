@@ -462,6 +462,14 @@ COLLAPSE_POLICY: dict[str, CollapsePolicy] = {
             "never read as unchanged when it has moved toward the threshold."
         ),
     ),
+    "stop_runs_killed": CollapsePolicy(
+        kind="never",
+        why=(
+            "An alarm that the Stop checks are being killed before they finish, "
+            "so their silence is not a pass. A collapsed alarm about checks not "
+            "running is the same silence it exists to break."
+        ),
+    ),
 }
 
 
