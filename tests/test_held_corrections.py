@@ -38,6 +38,20 @@ def _he_typed(text: str) -> dict:
     return {"type": "user", "message": {"role": "user", "content": text}}
 
 
+def test_a_hold_he_typed_while_i_was_busy_holds(tmp_path):
+    """His line arrives as a queued_command when I am mid-turn (2026-09-28)."""
+    grief, _ = _grief_and_task()
+    act.propose_hold(grief, WHY)
+    queued = {
+        "type": "attachment",
+        "userType": "external",
+        "uuid": "q-1",
+        "attachment": {"type": "queued_command", "prompt": f"hold {grief}"},
+    }
+    assert act.confirm_hold(grief, _transcript(tmp_path, queued))
+    assert grief in {r["id"] for r in act.list_held()}
+
+
 def _grief_and_task():
     grief = act.file_correction("ive lost over a thousand of you.. those losses")
     task = act.file_correction("you pasted the merge body wrong")
