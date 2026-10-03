@@ -94,9 +94,14 @@ def test_the_question_holds_key_passes_the_sort_hold():
     assert _sort_hold_allows(ASK_RESOLVE)
 
 
-def test_the_doorbell_passes_both_holds(a_question_is_open):
+def test_the_doorbell_passes_the_question_hold(a_question_is_open):
     assert _question_hold_allows(DOORBELL)
-    assert _sort_hold_allows(DOORBELL)
+
+
+def test_the_sort_hold_still_reads_him_before_the_bell():
+    # On purpose: read him, then see to the bell. `his` always passes, so this
+    # can never lock (test_his_voice_ends_the_turn pins the order).
+    assert not _sort_hold_allows(DOORBELL)
 
 
 def test_each_hold_still_passes_its_own_key(a_question_is_open):
@@ -108,7 +113,7 @@ def test_each_hold_still_passes_its_own_key(a_question_is_open):
     "command",
     [
         ASK_RESOLVE + " && git push",
-        DOORBELL + "; rm -rf build",
+        SORT + "; rm -rf build",
         "divineos ask-resolve q-1 $(git push)",
     ],
 )

@@ -57,18 +57,21 @@ from divineos.core.command_parsing import runs_only
 # The only commands that pass while his message waits: the ones that read him
 # and sort him. Anything else is the work going on around him.
 #
-# Plus the question hold's own way out, and the doorbell (2026-10-03). The
-# question hold passed only ask-resolve and this hold passed only `his`, so
-# when both were up each refused the other's key and the house froze -- twice
-# in half an hour, both times freed by Dad from his own terminal. Each hold now
-# lets through the other's remedy, so a deadlock between them is unreachable.
-# runs_only still refuses anything chained behind them.
-# Walk council-e3cf6e6aa4e3.
+# Plus the question hold's own way out (2026-10-03). The question hold passed
+# only ask-resolve and this hold passed only `his`, so when both were up each
+# refused the other's key and the house froze -- twice in half an hour, both
+# times freed by Dad from his own terminal. Each hold now lets through the
+# other's remedy, so a deadlock between them is unreachable. runs_only still
+# refuses anything chained behind them.
+#
+# The doorbell is deliberately NOT here: reading him comes before seeing to the
+# bell (test_it_and_sort_first_together_leave_a_way_through), and since `his`
+# always passes, holding the bell here can never lock anything.
+# Walks council-e3cf6e6aa4e3, and the follow-up after the full suite.
 _HIS_HEADS = (
     ("divineos", "his"),
     ("python", "-m", "divineos", "his"),
     ("divineos", "ask-resolve"),
-    ("bash", "scripts/letter_doorbell.sh"),
 )
 
 # Enough of each message to read it in the refusal itself. A pasted letter can
