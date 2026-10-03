@@ -88,21 +88,40 @@ _EXEMPT = (
     'divineos hud',
     'divineos recall',
     'divineos context',
-    # The sort hold's way out, and the doorbell (2026-10-03). This hold passed
-    # only its own ask-resolve and the sort hold passed only divineos his, so
-    # with both up each refused the other's key and nothing could move. Walk
+    # The sort hold's way out (2026-10-03). This hold passed only its own
+    # ask-resolve and the sort hold passed only divineos his, so with both up
+    # each refused the other's key and nothing could move. Walk
     # council-e3cf6e6aa4e3.
     'divineos his',
-    'bash scripts/letter_doorbell.sh',
 )
+_HEADS = tuple(tuple(e.split()) for e in _EXEMPT)
+
+
+def _own_doorbell(cmd):
+    # The doorbell, exactly, for this seat only: another seat's word silently
+    # stops their bell (Aletheia on #583). The same rule as _is_doorbell_rearm
+    # there; this hook should call that judge once #583 is on main.
+    try:
+        from divineos.core.sibling_audit_rounds import this_seat
+        seat = this_seat()
+    except Exception:
+        return False
+    return bool(seat) and cmd.split() == ['bash', 'scripts/letter_doorbell.sh', seat]
 
 
 def _is_exempt(cmd):
-    flat = ' '.join(cmd.split())
-    for seg in flat.replace(';', '&&').replace('|', '&&').split('&&'):
-        if seg.strip().startswith(_EXEMPT):
-            return True
-    return False
+    # THE ONE PARSER (Aletheia 2026-10-03, proven on main): the old test passed
+    # a command if ANY segment began with an exempt head, so a write could ride
+    # behind one -- ask-resolve 3 && git push -- or hide inside a substitution.
+    # runs_only refuses any chain, pipe, redirect or substitution, the parser
+    # sort_first already uses. Unreadable means held.
+    if _own_doorbell(cmd):
+        return True
+    try:
+        from divineos.core.command_parsing import runs_only
+    except Exception:
+        return False
+    return runs_only(cmd, _HEADS)
 
 
 if tool_name not in ('Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'Bash'):

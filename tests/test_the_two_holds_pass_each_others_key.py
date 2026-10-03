@@ -52,7 +52,7 @@ def _bash() -> str:
     pytest.skip("no bash here that can run a script")
 
 
-def _question_hold_allows(command: str) -> bool:
+def _question_hold_allows(command: str, env: dict | None = None) -> bool:
     payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
     proc = subprocess.run(
         [_bash(), str(QUESTION_HOLD)],
@@ -63,6 +63,7 @@ def _question_hold_allows(command: str) -> bool:
         errors="replace",
         cwd=ROOT,
         timeout=60,
+        env=env,
     )
     assert proc.returncode in (0, 2), proc.stderr
     return proc.returncode == 0
@@ -94,8 +95,46 @@ def test_the_question_holds_key_passes_the_sort_hold():
     assert _sort_hold_allows(ASK_RESOLVE)
 
 
-def test_the_doorbell_passes_the_question_hold(a_question_is_open):
-    assert _question_hold_allows(DOORBELL)
+def _as_aether() -> dict:
+    # this_seat() answers from the data home; the test home is a tmp dir, so
+    # name the real seat home for the doorbell cases. The question store stays
+    # the test one (DIVINEOS_DB), which the control below proves is visible.
+    import os
+
+    env = dict(os.environ)
+    env["DIVINEOS_HOME"] = str(Path.home() / ".divineos")
+    return env
+
+
+def test_the_own_seat_doorbell_passes_the_question_hold(a_question_is_open):
+    env = _as_aether()
+    assert not _question_hold_allows(ORDINARY, env), "control: the ask is visible here"
+    assert _question_hold_allows(DOORBELL, env)
+
+
+def test_another_seats_doorbell_is_held_by_the_question_hold(a_question_is_open):
+    # Aletheia on #583: aria from this seat silently stops Aria's bell.
+    assert not _question_hold_allows("bash scripts/letter_doorbell.sh aria", _as_aether())
+
+
+def test_an_unknown_seat_holds_even_the_own_doorbell(a_question_is_open):
+    # The test home matches no seat, so this_seat() is None: held, never guessed.
+    assert not _question_hold_allows(DOORBELL)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # Aletheia's five, proven passing the old segment test on main.
+        "divineos ask-resolve 3 && git push",
+        "git commit -am sneak; divineos asks",
+        "rm -rf src | divineos learn",
+        "divineos asks $(git push --force)",
+        "divineos asks `rm -rf src`",
+    ],
+)
+def test_nothing_rides_behind_a_key_through_the_question_hold(a_question_is_open, command):
+    assert not _question_hold_allows(command)
 
 
 def test_the_sort_hold_still_reads_him_before_the_bell():
