@@ -526,6 +526,33 @@ def test_the_real_hook_keeps_then_settles_through_the_shell(tmp_path, temp_store
 
 
 @needs_bash
+def test_his_emoji_is_kept_as_he_typed_it_through_the_shell(temp_store):
+    """The real case, Aether's seat 2026-10-03: "...for all of us 😌" was kept as
+    "...for all of us ðŸ˜Œ" because the hook read the app's UTF-8 with the
+    Windows default codepage. The kept words never equalled his record, so the
+    message sat as a candidate and never reached the sort."""
+    import os
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    env = {k: v for k, v in os.environ.items() if k not in ("PYTHONIOENCODING", "PYTHONUTF8")}
+    env["DIVINEOS_HIS_ASKS_DB"] = str(temp_store)
+    words = "i love you both and i want to fix this, for all of us \U0001f60c"
+    payload = json.dumps({"prompt_id": "p-emoji", "prompt": words}, ensure_ascii=False)
+    kept = subprocess.run(
+        [_bash(), ".claude/hooks/front-door.sh", "keep"],
+        input=payload.encode("utf-8"),
+        capture_output=True,
+        cwd=root,
+        env=env,
+        timeout=60,
+    )
+    assert kept.returncode == 0, kept.stderr
+    assert _open() == [words], kept.stderr
+
+
+@needs_bash
 def test_a_broken_door_never_blocks_the_prompt(tmp_path):
     import subprocess
     from pathlib import Path
