@@ -121,6 +121,23 @@ def floor_proven(repo: Path, confirmed_sha: str, head_sha: str) -> Verdict:
     generated register. Anything else is an authored change and goes back to
     the reviewer.
     """
+    # Refuse to judge a state that is not what will be pushed. Mid-merge, HEAD
+    # still points at the confirmed commit, and this once answered "head is the
+    # confirmed commit" -- a confident wrong answer (Aletheia, 2026-10-02:
+    # refusing mid-merge "matters most"). Walk council-132839c81397.
+    # The marker list is the house's one list (auto_commit._MID_OP_MARKERS);
+    # the git dir is asked of git, because in a worktree .git is a pointer
+    # file, not a folder, and a fixed repo/".git" path never sees the markers.
+    from divineos.core.auto_commit import _MID_OP_MARKERS
+
+    git_dir = Path(_git(repo, "rev-parse", "--absolute-git-dir"))
+    for marker in _MID_OP_MARKERS:
+        if (git_dir / marker).exists():
+            return Verdict(
+                False, f"a git operation is in progress ({marker}); finish or abort it first"
+            )
+    if _git(repo, "status", "--porcelain", "--untracked-files=no"):
+        return Verdict(False, "the working tree has uncommitted changes; commit them before asking")
     head = _git(repo, "rev-parse", head_sha)
     confirmed = _git(repo, "rev-parse", confirmed_sha)
     if head == confirmed:

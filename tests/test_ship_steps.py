@@ -141,6 +141,31 @@ def test_one_authored_line_in_the_catch_up_is_refused(repo):
     assert not v.ok and "pr.txt" in v.reason
 
 
+def test_a_half_done_merge_is_refused_not_judged(repo):
+    # Aletheia 2026-10-02: mid-merge it answered "head is the confirmed commit".
+    confirmed = _git(repo, "rev-parse", "pr")
+    _git(repo, "merge", "-q", "--no-edit", "--no-commit", "main")
+    v = floor_proven(repo, confirmed, "HEAD")
+    assert not v.ok and "MERGE_HEAD" in v.reason
+
+
+def test_a_half_done_merge_in_a_worktree_is_refused_too(repo, tmp_path):
+    # In a worktree .git is a pointer file, so a fixed repo/".git" path is blind.
+    wt = tmp_path / "wt"
+    _git(repo, "worktree", "add", "-q", "--detach", str(wt), "pr")
+    confirmed = _git(wt, "rev-parse", "HEAD")
+    _git(wt, "merge", "-q", "--no-edit", "--no-commit", "main")
+    v = floor_proven(wt, confirmed, "HEAD")
+    assert not v.ok and "MERGE_HEAD" in v.reason
+
+
+def test_an_uncommitted_edit_is_refused_not_judged(repo):
+    confirmed = _git(repo, "rev-parse", "pr")
+    (repo / "pr.txt").write_text("edited but not committed\n")
+    v = floor_proven(repo, confirmed, "HEAD")
+    assert not v.ok and "uncommitted" in v.reason
+
+
 def test_a_commit_on_top_of_the_confirm_is_refused(repo):
     confirmed = _git(repo, "rev-parse", "pr")
     (repo / "pr.txt").write_text("changed after review\n")
