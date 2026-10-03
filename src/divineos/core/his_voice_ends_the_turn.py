@@ -10,8 +10,9 @@ So the rule is about ORDER, and it never reads what we wrote: if his words
 arrived after this turn began, no further tool call runs until the turn ends,
 and the turn can only end with a reply, which is therefore the last thing he
 receives. His ask is not overruled, only sequenced: it stays in his message for
-the next turn, and the next turn comes from his next prompt or a letter through
-an armed watch -- which is why the refusal asks for the watch to be confirmed.
+the next turn, and the next turn comes from his next prompt or a letter that
+rings the doorbell -- which is why the refusal asks for the doorbell to be
+listening (the letter watch it once named was retired 2026-10-02, #580).
 
 Why clearing on an answer was rejected: tested against the incident, both of
 our answers were second person and not copies, so any "did they answer him"
@@ -211,7 +212,8 @@ def refusal(his_words: str) -> str:
         "If he asked for work too, it is not lost: it stays in his message, and the "
         "next turn carries it. That next turn comes from his next prompt or from a "
         "letter through your doorbell, so make sure it is listening before you stop: "
-        "bash scripts/letter_doorbell.sh <seat>, run in the background\n\n"
+        "bash scripts/letter_doorbell.sh <seat>, started with the tool's "
+        "run_in_background setting, never with a shell '&' (that form is refused)\n\n"
         "Still allowed, because they are how you read him and settle the house's "
         "own gates: divineos his / ask / recall / corrections and the other "
         "commands that only read or record, scripts/letter_doorbell.sh, "
