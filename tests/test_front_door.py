@@ -238,6 +238,22 @@ def test_two_identical_short_messages_land_on_two_records_in_order(tmp_path):
     assert sorted(k.uuid for k in ha.pending()) == ["u-first", "u-second"]
 
 
+def test_a_new_yes_takes_its_own_record_not_an_unkept_older_one(monkeypatch, tmp_path):
+    """Aletheia, reading PR 584: an older identical record that was never kept
+    (door down, house behind main) sat inside the same-turn window, and
+    oldest-first gave the new "yes" to it, so it was filed as answering what we
+    had said ten minutes earlier. The nearest record to the keep is its own."""
+    _kept_at(monkeypatch, "2099-01-01T00:10:03.000Z")
+    fd.keep({"prompt_id": "turn-1", "prompt": "yes"}, "aether")
+    path = _transcript(
+        tmp_path,
+        _turn("turn-1", "yes", uuid="u-unkept-old", at="2099-01-01T00:00:00.000Z"),
+        _turn("turn-1", "yes", uuid="u-its-own", at="2099-01-01T00:10:00.000Z"),
+    )
+    fd.settle(path, "aether")
+    assert [k.uuid for k in ha.pending()] == ["u-its-own"]
+
+
 def test_a_new_message_is_never_settled_onto_an_old_record_of_the_same_words(tmp_path):
     """His record cannot be older than his keeping."""
     fd.keep({"prompt_id": "running-turn", "prompt": "proceed"}, "aether")

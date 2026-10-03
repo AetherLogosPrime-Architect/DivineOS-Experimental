@@ -289,12 +289,15 @@ def settle(transcript_path: str | Path, seat: str) -> dict[str, str] | None:
         return None
     taken: set[str] = set(already)
     for candidate in candidates:
-        match = next(
-            (r for r in records if r.uuid not in taken and r.stamp and _fits(candidate, r)),
-            None,
-        )
-        if match is None:
+        fitting = [r for r in records if r.uuid not in taken and r.stamp and _fits(candidate, r)]
+        if not fitting:
             continue
+        # The nearest to the keep, not the oldest. An older identical record the
+        # door never kept (door down, house behind main) sits inside the same-
+        # turn window, and oldest-first gave his new "yes" to it -- filing it as
+        # an answer to what we said ten minutes earlier (Aletheia, PR 584).
+        kept_at = _when(candidate.said_at) or now
+        match = min(fitting, key=lambda r: abs((r.at - kept_at).total_seconds()))
         taken.add(match.uuid)
         # The stamp says who sat in the seat, not whose words these are: the
         # harness stamps build notices human (see harness_envelopes).
