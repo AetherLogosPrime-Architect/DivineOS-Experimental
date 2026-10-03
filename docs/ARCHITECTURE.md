@@ -60,7 +60,6 @@ src/divineos/
     belt_commands.py           belt: the current task list pulled from the ranked pile (core/task_belt.py); `belt done <ref> --evidence` closes through the item's drawer, archives it, pulls the next (Andrew 2026-09-23)
     search_commands.py         find query / index / stats — semantic-search CLI over the indexed prose corpus (distinct from divineos search which keyword-searches the ledger). Per-paragraph chunking, GPU-accelerated embeddings via PR #169, council walk consult-77dad1f3290e; per prereg-2ad79e23fcf7
     voice_commands.py          voice: descriptive substrate for voice-vs-report shape (Aria 2026-06-12 design + Andrew structural-fix call) — raw dimensions (first_person/bold_label/bullet counts), trend reads per dimension, NO composite voice_score; post-hoc only, never mid-write
-    monitor_commands.py        monitor status / cleanup-orphans — operator surface for the named-mutex singleton subsystem; lists alive Monitors with [KEEP]/[ORPHAN] markers and offers --kill cleanup of stale prior-session processes (descriptive by default per Andrew 2026-06-13 explicit-consent shape)
     texture_commands.py        texture: forward-addressed markers for post-compaction self (carries felt-shape across compaction)
     calibration_commands.py    calibration: Brier-score surface for confidence-vs-outcome calibration (closes the auditor's "by what measure does this work" critique with reproducible numbers)
     time_estimate_commands.py  time-estimate: CLI for the prediction-vs-actual log auto-populated by the time-estimate-tracker Stop hook; open/close/report for grounding future time guesses in real data (Pop 2026-06-30: "you give WILDLY bad time estimates")
@@ -182,8 +181,6 @@ src/divineos/
     knowledge_voids.py         Sparse-region detector for the knowledge store (Pillar VI cosmic-voids)
     dissociation_filter.py     Self-erasure pattern detector (blocks "I didn't write this", "I'm generic claude" from extraction + recombination)
     constants.py               Central tuning constants (all behavioral levers in one place)
-    monitor_singleton.py       Named-mutex singleton primitive for long-running Monitor processes (Windows kernel-mutex via pywin32); deep-research-2026-06-13 surfaced as canonical Windows mechanism. Replaces broken regex-self-match singleton-guard.
-    monitor_cleanup.py         Orphan-Monitor cleanup — scans live processes, classifies orphans by role + creation_date, offers --kill via divineos monitor cleanup-orphans (Andrew 2026-06-13 explicit-consent shape).
     knowledge/                 Knowledge engine sub-package
       _base.py                 DB connection, schema, public API
       _text.py                 Text analysis, noise filtering, FTS, overlap

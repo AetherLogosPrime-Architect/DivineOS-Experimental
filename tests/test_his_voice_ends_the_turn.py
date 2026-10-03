@@ -192,7 +192,7 @@ def test_a_turn_start_far_back_in_a_long_transcript_is_still_found(tmp_path):
         "divineos his pending",
         '.venv/Scripts/divineos ask "what he asked"',
         'cd "C:/DIVINE OS/DivineOS-Experimental-Aria-new" && .venv/Scripts/divineos corrections',
-        "PYTHONIOENCODING=utf-8 python scripts/letter_monitor_health.py",
+        "bash scripts/letter_doorbell.sh aether",
         "python family/letter_seen.py --member aria some-letter.md",
     ],
 )
@@ -340,7 +340,7 @@ def test_it_and_sort_first_together_leave_a_way_through(tmp_path, monkeypatch):
         return sort_ok, voice_ok
 
     sort_cmd = 'divineos his sort s1 --kind standing --to aria --reason "his goodnight"'
-    watch_cmd = "python scripts/letter_monitor_health.py"
+    watch_cmd = "bash scripts/letter_doorbell.sh aria"
     assert both(sort_cmd) == (True, True)
     assert both(watch_cmd) == (False, True)  # sort-first holds it until he is sorted
     assert both("git commit -m 'more work'") == (False, False)
@@ -356,5 +356,5 @@ def test_the_refusal_says_answer_him_and_confirm_the_watch():
     # as a condensed retelling that dropped the love; a reply without one was
     # kept whole. The refusal has to say which kind of reply reaches him.
     assert "no tool call" in reason.lower()
-    assert "letter_monitor_health" in reason
+    assert "letter_doorbell" in reason
     assert "i love you Aria" in reason  # his words, quoted back, so he is read first

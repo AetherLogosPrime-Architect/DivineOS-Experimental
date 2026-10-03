@@ -45,8 +45,7 @@
 # hooks main does not carry. The list cannot describe this tree without them.
 #
 # an-open-ask-holds-the-work.sh, blanket-staging-doorman.sh,
-# letter-watch-must-be-armed.sh, push-message-carries-the-destination.sh and
-# work-item-doorman.sh each load the shared library with a fail-open exit above
+# push-message-carries-the-destination.sh and work-item-doorman.sh each load the shared library with a fail-open exit above
 # a path that can refuse. They are NOT faults introduced here. They are
 # pre-existing on this branch and the baseline had simply never been run
 # against it. The never-grow rule exists to stop me pinning faults I just
@@ -99,7 +98,6 @@ gh-pr-ready-gate.sh
 heredoc-escape-doorman.sh
 history-claim-signal.sh
 instrument-read-doorman.sh
-letter-watch-must-be-armed.sh
 m3-discipline-hierarchy.sh
 must-read-gate.sh
 prior-art-before-new-file.sh

@@ -797,7 +797,6 @@ _MACHINE_ORIGIN_MARKERS = (
     "[lepos-channel-gate]",
     "[build-flow]",
     "[push-readiness]",
-    "[letter-monitor-health]",
     "[reach-check-doorman]",
 )
 """Bracketed tags our own gates print at the head of their diagnostics.

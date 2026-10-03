@@ -91,8 +91,9 @@ def _prose_lines(path: Path, text: str) -> set[int]:
         mentions and reports dependencies."*
 
     Both were false positives. Every citation of scripts/letter_monitor.py sits
-    inside a comment describing the v1 -> v2 rewrite; the live code calls
-    letter_monitor_v2.py, which exists. check_third_person_drift.py is named in
+    inside a comment describing the v1 -> v2 rewrite; the code called the
+    v2 script, itself retired 2026-10-02 when the doorbell superseded the
+    letter watch. check_third_person_drift.py is named in
     the docstring of distancing_detector.py, in the sentence explaining that
     the module PORTS its patterns because the old script was never wired.
 
