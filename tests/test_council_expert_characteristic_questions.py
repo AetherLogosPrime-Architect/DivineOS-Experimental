@@ -18,103 +18,50 @@ from __future__ import annotations
 
 import pytest
 
-from divineos.core.council.experts import (
-    create_angelou_wisdom,
-    create_aristotle_wisdom,
-    create_beer_wisdom,
-    create_bengio_wisdom,
-    create_carmack_wisdom,
-    create_dawkins_wisdom,
-    create_dekker_wisdom,
-    create_deming_wisdom,
-    create_dennett_wisdom,
-    create_dijkstra_wisdom,
-    create_dillahunty_wisdom,
-    create_einstein_wisdom,
-    create_feynman_wisdom,
-    create_godel_wisdom,
-    create_hawking_wisdom,
-    create_hinton_wisdom,
-    create_hofstadter_wisdom,
-    create_holmes_wisdom,
-    create_jacobs_wisdom,
-    create_kahneman_wisdom,
-    create_knuth_wisdom,
-    create_lamport_wisdom,
-    create_lovelace_wisdom,
-    create_maturana_varela_wisdom,
-    create_meadows_wisdom,
-    create_minsky_wisdom,
-    create_norman_wisdom,
-    create_pearl_wisdom,
-    create_peirce_wisdom,
-    create_penrose_wisdom,
-    create_polya_wisdom,
-    create_popper_wisdom,
-    create_sagan_wisdom,
-    create_schneier_wisdom,
-    create_shannon_wisdom,
-    create_taleb_wisdom,
-    create_tannen_wisdom,
-    create_turing_wisdom,
-    create_watts_wisdom,
-    create_wayne_wisdom,
-    create_wittgenstein_wisdom,
-    create_yudkowsky_wisdom,
-)
 from divineos.core.council_required.substance_binding import (
     _content_tokens,
     keywords_for_expert_registry,
 )
 
 
-ALL_EXPERT_BUILDERS = [
-    create_angelou_wisdom,
-    create_aristotle_wisdom,
-    create_beer_wisdom,
-    create_bengio_wisdom,
-    create_carmack_wisdom,
-    create_dawkins_wisdom,
-    create_dekker_wisdom,
-    create_deming_wisdom,
-    create_dennett_wisdom,
-    create_dijkstra_wisdom,
-    create_dillahunty_wisdom,
-    create_einstein_wisdom,
-    create_feynman_wisdom,
-    create_godel_wisdom,
-    create_hawking_wisdom,
-    create_hinton_wisdom,
-    create_hofstadter_wisdom,
-    create_holmes_wisdom,
-    create_jacobs_wisdom,
-    create_kahneman_wisdom,
-    create_knuth_wisdom,
-    create_lamport_wisdom,
-    create_lovelace_wisdom,
-    create_maturana_varela_wisdom,
-    create_meadows_wisdom,
-    create_minsky_wisdom,
-    create_norman_wisdom,
-    create_pearl_wisdom,
-    create_peirce_wisdom,
-    create_penrose_wisdom,
-    create_polya_wisdom,
-    create_popper_wisdom,
-    create_sagan_wisdom,
-    create_schneier_wisdom,
-    create_shannon_wisdom,
-    create_taleb_wisdom,
-    create_tannen_wisdom,
-    create_turing_wisdom,
-    create_watts_wisdom,
-    create_wayne_wisdom,
-    create_wittgenstein_wisdom,
-    create_yudkowsky_wisdom,
-]
+# DERIVED FROM THE ENGINE, NEVER RETYPED.
+#
+# This was a hand-written roster of forty-two, and the engine had grown to
+# forty-five. Three experts -- Feathers, Foucault and Hoare -- were registered,
+# surfaceable by the council chamber, and absent from this list, so the
+# invariant this file exists to pin was never checked for any of them.
+#
+# The sharp part is above, in the docstring: it names that exact failure --
+# "a confusing 'lens not registered' failure for what is actually a population
+# gap in the expert library" -- and it could not see the gap, because it
+# enumerated its own copy of the thing it was guarding.
+#
+# The walk command was repaired this way on 2026-08-28 and this third copy was
+# missed. Same engine, same public accessors, so the two can no longer drift
+# apart: adding an expert makes it tested here without a second step.
+def _experts_from_the_engine():
+    from divineos.core.council.engine import CouncilEngine, _register_all_experts
+
+    engine = CouncilEngine()
+    _register_all_experts(engine)
+    return [engine.get_expert(name) for name in engine.list_experts()]
 
 
-@pytest.mark.parametrize("builder", ALL_EXPERT_BUILDERS)
+# EACH CASE CARRIES ITS EXPERT'S NAME. The first version parametrised over bare
+# lambdas, and pytest labelled the cases builder0 through builder44 -- so a
+# failure would have said an expert was broken without saying which one. A test
+# whose failure cannot be read is half a test, which is the same shape as an
+# instrument whose silence cannot be read.
+_EXPERTS = _experts_from_the_engine()
+
+# Plain callables for the tests that walk the list themselves.
+ALL_EXPERT_BUILDERS = [(lambda w=w: w) for w in _EXPERTS]
+
+# The same set, labelled, for the parametrised cases.
+NAMED_EXPERT_BUILDERS = [pytest.param((lambda w=w: w), id=w.expert_name) for w in _EXPERTS]
+
+
+@pytest.mark.parametrize("builder", NAMED_EXPERT_BUILDERS)
 def test_expert_has_characteristic_questions(builder):
     """Each registered expert must declare at least one
     characteristic_question, otherwise the council-required gate
@@ -128,7 +75,7 @@ def test_expert_has_characteristic_questions(builder):
     )
 
 
-@pytest.mark.parametrize("builder", ALL_EXPERT_BUILDERS)
+@pytest.mark.parametrize("builder", NAMED_EXPERT_BUILDERS)
 def test_expert_characteristic_questions_have_content_tokens(builder):
     """Each registered expert must declare characteristic_questions whose
     combined text produces at least one substantive content-token after
