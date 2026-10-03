@@ -10,6 +10,7 @@ three-way merge of the confirmed commit and main, proven in a real repository.
 
 from __future__ import annotations
 
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -34,8 +35,14 @@ class F:
 def letters(tmp_path: Path) -> Path:
     d = tmp_path / "letters"
     d.mkdir()
-    (d / LETTER).write_text("> CONFIRMS: #578 at 9a02f8353. -- Aletheia\n", encoding="utf-8")
+    (d / LETTER).write_text(
+        SIGNED.format(verb="CONFIRMS", pr=578, sha="9a02f8353"), encoding="utf-8"
+    )
     return d
+
+
+# Her real signed shape, as written in every confirm in family/letters.
+SIGNED = "> {verb}: #{pr} at {sha}. — Aletheia Sophia Risner, 2026-10-03\n"
 
 
 def _finding(**kw) -> F:
@@ -80,6 +87,62 @@ def test_a_confirm_quoted_in_someone_elses_letter_does_not_count(letters):
     (letters / quoted).write_text("> CONFIRMS: #578 at 9a02f8353.\n", encoding="utf-8")
     v = confirm_in([_finding(description=f"from {quoted}")], 578, HEAD, letters)
     assert not v.ok
+
+
+def test_a_confirm_she_withdrew_does_not_count(letters):
+    # Aletheia 2026-10-03: a letter withdrawing #554 and quoting the old line
+    # returned True. Her withdrawal, in any of her letters, wins.
+    (letters / "aletheia-to-aether-2026-10-04-withdrawn.md").write_text(
+        "My confirm below is WITHDRAWN; it read:\n"
+        "CONFIRMS: #578 at 9a02f8353.\n" + SIGNED.format(verb="WITHDRAWN", pr=578, sha="9a02f8353"),
+        encoding="utf-8",
+    )
+    v = confirm_in([_finding()], 578, HEAD, letters)
+    assert not v.ok and "withdraws" in v.reason
+
+
+def test_a_withdrawal_of_another_pr_or_head_does_not_touch_this_one(letters):
+    (letters / "aletheia-to-aether-2026-10-04-other.md").write_text(
+        SIGNED.format(verb="WITHDRAWN", pr=579, sha="9a02f8353")
+        + SIGNED.format(verb="WITHDRAWN", pr=578, sha="91fc4a310"),
+        encoding="utf-8",
+    )
+    assert confirm_in([_finding()], 578, HEAD, letters).ok
+
+
+def test_a_quoted_line_without_her_signature_does_not_count(letters):
+    (letters / LETTER).write_text(
+        "You asked about this one; the old line was\n> CONFIRMS: #578 at 9a02f8353.\n",
+        encoding="utf-8",
+    )
+    assert not confirm_in([_finding()], 578, HEAD, letters).ok
+
+
+def test_every_matching_line_is_read_not_only_the_first(letters):
+    # Her #560 case: an old head confirmed first, the new head below it.
+    (letters / LETTER).write_text(
+        SIGNED.format(verb="CONFIRMS", pr=578, sha="1776a8816")
+        + SIGNED.format(verb="CONFIRMS", pr=578, sha="9a02f8353"),
+        encoding="utf-8",
+    )
+    assert confirm_in([_finding()], 578, HEAD, letters).ok
+
+
+def test_every_real_confirm_she_has_written_still_reads():
+    from divineos.core.ship_steps import _signed_heads
+
+    real = Path(__file__).resolve().parents[1] / "family" / "letters"
+    lines = [
+        ln
+        for f in sorted(real.glob("aletheia-to-*.md"))
+        for ln in f.read_text(encoding="utf-8").splitlines()
+        if ln.startswith("> CONFIRMS: #")
+    ]
+    if not lines:
+        pytest.skip("no letters of hers in this checkout")
+    for ln in lines:
+        pr = int(re.match(r"> CONFIRMS: #(\d+)", ln).group(1))
+        assert _signed_heads(ln, "CONFIRMS", pr), ln
 
 
 def _git(repo: Path, *args: str) -> str:

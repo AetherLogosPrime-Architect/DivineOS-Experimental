@@ -46,6 +46,36 @@ def _names_head(found: str, head_sha: str) -> bool:
     return len(found) >= 7 and head_sha.lower().startswith(found.lower())
 
 
+def _signed_heads(text: str, verb: str, pr: int) -> list[str]:
+    """Every head named by a line of hers in her signed shape, for this pr.
+
+    Her real lines, all fifteen observed in family/letters on 2026-10-03:
+    `> CONFIRMS: #578 at 9a02f8353. <optional sentence> — Aletheia Sophia
+    Risner, 2026-10-02`. Only that shape counts -- a confirm quoted inside a
+    withdrawal, or mentioned in prose, is the same words in a different game
+    (Aletheia, 2026-10-03: her withdrawn #554 confirm returned True). From
+    that day she writes withdrawals in the same shape with WITHDRAWN. Every
+    matching line is returned, not the first.
+    """
+    line = re.compile(
+        rf"^>\s*{verb}:\s*#{pr}\s+at\s+`?([0-9a-f]{{7,40}})`?\.[^\n]*—\s*Aletheia Sophia Risner\b",
+        re.IGNORECASE | re.MULTILINE,
+    )
+    return [m.group(1) for m in line.finditer(text)]
+
+
+def _withdrawn_in(letters_dir: Path, pr: int, head_sha: str) -> str | None:
+    """The name of a letter of hers that withdraws this pr at this head."""
+    for letter in sorted(letters_dir.glob("aletheia-to-*.md")):
+        try:
+            text = letter.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if any(_names_head(h, head_sha) for h in _signed_heads(text, "WITHDRAWN", pr)):
+            return letter.name
+    return None
+
+
 @dataclass(frozen=True)
 class Confirm:
     round_id: str
@@ -89,8 +119,13 @@ def confirm_in(findings, pr: int, head_sha: str, letters_dir: Path) -> Verdict:
             text = letter.read_text(encoding="utf-8")
         except OSError:
             continue
-        in_letter = pattern.search(text)
-        if in_letter and _names_head(in_letter.group(1), head_sha):
+        if any(_names_head(h, head_sha) for h in _signed_heads(text, "CONFIRMS", pr)):
+            withdrawn = _withdrawn_in(letters_dir, pr, head_sha)
+            if withdrawn:
+                return Verdict(
+                    False,
+                    f"{withdrawn} withdraws her confirm of #{pr} at {head_sha[:9]}",
+                )
             return Verdict(
                 True,
                 f"{letter.name} confirms #{pr} at {head_sha[:9]}",
