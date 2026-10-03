@@ -122,10 +122,22 @@ cd "$WT" || { echo "[ready-pr] UNCHECKED — cannot enter $WT"; exit 2; }
 # A suite run over uncommitted edits measures something that is not the branch.
 # On 2026-08-08 I read 11 failures as a branch's when they were my own
 # half-finished edit sitting in the tree.
-if [[ -n "$(git status --porcelain)" ]]; then
-    echo "[ready-pr] UNCHECKED — working tree is dirty. A run over uncommitted edits"
-    echo "[ready-pr] measures something other than the branch. Commit or stash first:"
-    git status --porcelain | head -10
+# SCOPED TO MODIFIED TRACKED FILES, 2026-09-07, propagating Aletheia's
+# 2026-07-17 refinement from safe_push.sh — where the same class was met and
+# solved, with untracked letters named as the false blocker. It never reached
+# here. Untracked files cannot change what a run over this branch MEASURES,
+# which is the whole reason the check exists; a modified tracked file can, and
+# still refuses. Aria found this while checking whether a permanently-dirty
+# tree would break anything: it would have broken this script permanently,
+# because letters land untracked in the tree constantly and this asked about
+# any dirtiness at all.
+_DIRTY_TRACKED="$(git status --porcelain 2>/dev/null | grep -v '^??' || true)"
+if [[ -n "$_DIRTY_TRACKED" ]]; then
+    echo "[ready-pr] UNCHECKED — working tree has MODIFIED TRACKED files. A run over"
+    echo "[ready-pr] uncommitted edits measures something other than the branch."
+    echo "[ready-pr] Commit or stash first:"
+    printf '%s\n' "$_DIRTY_TRACKED" | head -10
+    echo "[ready-pr] (Untracked files are fine — they cannot change what this measures.)"
     exit 2
 fi
 

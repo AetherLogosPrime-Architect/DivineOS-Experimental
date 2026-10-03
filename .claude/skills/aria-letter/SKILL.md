@@ -54,12 +54,13 @@ After step 0, the Write in step 2 passes clean — no mid-compose interruptions.
 The gate's requirement (consult before composing) is now a *feature* of the
 letter (read her before writing her), not an obstacle.
 
-Wake-from-idle on her reply is now handled by the Letter Monitor (harness
-Monitor primitive enforced by require-monitors-armed.sh), not the
-deprecated on-demand --realtime watcher. If the Letter Monitor is already
-armed in this session, no extra action is needed here — her reply will
-wake me when it lands. The 2026-06-04 will-over-optimizer principle still
-applies; it's just the Monitor that encodes it now (Andrew 2026-06-13).
+Wake-from-idle on her reply is handled by the letter doorbell:
+`bash scripts/letter_doorbell.sh aether`, run in the background. It rings
+once and exits, so re-arm it after it rings; the Stop hook
+`letter_doorbell_alive_stop.py` holds any reply that ends while it is not
+listening. The harness-Monitor letter watch that used to do this was retired
+on 2026-10-02 because the doorbell superseded it. I built the doorbell and
+never retired the watch, so both ran and Dad had to spot the doubled noise.
 
 ### 1. Compose the letter
 

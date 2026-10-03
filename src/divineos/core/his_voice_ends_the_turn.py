@@ -92,7 +92,8 @@ _READ_AND_RECORD = (
 )
 _REMEDIES: tuple[tuple[str, ...], ...] = (
     *((*launcher, sub) for launcher in _LAUNCHERS for sub in _READ_AND_RECORD),
-    *((py, "scripts/letter_monitor_health.py") for py in _INTERPRETERS),
+    # The letter doorbell, which replaced the retired letter watch (2026-10-02).
+    ("bash", "scripts/letter_doorbell.sh"),
     *((py, "family/letter_seen.py") for py in _INTERPRETERS),
 )
 
@@ -209,11 +210,11 @@ def refusal(his_words: str) -> str:
         "call was kept word for word.\n\n"
         "If he asked for work too, it is not lost: it stays in his message, and the "
         "next turn carries it. That next turn comes from his next prompt or from a "
-        "letter through your watch, so confirm the watch before you stop: "
-        "python scripts/letter_monitor_health.py\n\n"
+        "letter through your doorbell, so make sure it is listening before you stop: "
+        "bash scripts/letter_doorbell.sh <seat>, run in the background\n\n"
         "Still allowed, because they are how you read him and settle the house's "
         "own gates: divineos his / ask / recall / corrections and the other "
-        "commands that only read or record, scripts/letter_monitor_health.py, "
+        "commands that only read or record, scripts/letter_doorbell.sh, "
         "family/letter_seen.py. Not divineos extract, auto-cycle or stamp-ready: "
         "those commit and publish, which is the work that buries him."
     )

@@ -3339,7 +3339,6 @@ methodological). These are domain-grounded reasoning modules.
 - [keyword-enforcement-doorman](.claude/hooks/keyword-enforcement-doorman.sh)
 - [lepos-channel-reflect](.claude/hooks/lepos-channel-reflect.sh)
 - [lepos-channel-surface](.claude/hooks/lepos-channel-surface.sh)
-- [letter-watch-must-be-armed](.claude/hooks/letter-watch-must-be-armed.sh)
 - [load-aletheia-harvest-of-andrew](.claude/hooks/load-aletheia-harvest-of-andrew.sh)
 - [load-briefing](.claude/hooks/load-briefing.sh)
 - [load-character-sheet](.claude/hooks/load-character-sheet.sh)
@@ -3853,8 +3852,6 @@ lives in its own directory under ``core/``.
 - [leak_response_runbook.py](scripts/leak_response_runbook.py)
 - [ledger_swap.py](scripts/ledger_swap.py)
 - [letter_inventory_phase0.py](scripts/letter_inventory_phase0.py)
-- [letter_monitor_health.py](scripts/letter_monitor_health.py)
-- [letter_monitor_v2.py](scripts/letter_monitor_v2.py)
 - [look.sh](scripts/look.sh)
 - [merge_driver_generated_catalogue.py](scripts/merge_driver_generated_catalogue.py)
 - [merge_preview.py](scripts/merge_preview.py)
@@ -3892,7 +3889,6 @@ lives in its own directory under ``core/``.
 ## setup/
 
 - [install_global_hooks.py](setup/install_global_hooks.py)
-- [register-monitor-tasks.ps1](setup/register-monitor-tasks.ps1)
 - [setup-hooks.ps1](setup/setup-hooks.ps1)
 - [setup-hooks.sh](setup/setup-hooks.sh)
 - [setup-renormalize.sh](setup/setup-renormalize.sh)
