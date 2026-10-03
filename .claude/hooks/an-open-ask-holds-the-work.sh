@@ -88,6 +88,12 @@ _EXEMPT = (
     'divineos hud',
     'divineos recall',
     'divineos context',
+    # The sort hold's way out, and the doorbell (2026-10-03). This hold passed
+    # only its own ask-resolve and the sort hold passed only divineos his, so
+    # with both up each refused the other's key and nothing could move. Walk
+    # council-e3cf6e6aa4e3.
+    'divineos his',
+    'bash scripts/letter_doorbell.sh',
 )
 
 
