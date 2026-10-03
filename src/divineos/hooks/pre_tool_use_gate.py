@@ -278,6 +278,20 @@ def _is_safe_remedy_invocation(cmd: str, allowed_heads: tuple[str, ...]) -> bool
     return True
 
 
+# The bell is a listener, not work: it writes only its own dotfiles and decides
+# nothing. Dad had to ask 24 times for it to stay on, and three re-arms on
+# 2026-10-03 were refused by the goal and consult checks during quiet talk.
+# Exact command only -- repo path, one seat word, no pipe, no chain.
+# Walk council-7de9f00cec42.
+_DOORBELL_RE = re.compile(r"^bash (?:\./)?scripts/letter_doorbell\.sh [a-z]+$")
+
+
+def _is_doorbell_rearm(cmd: str) -> bool:
+    if not _is_safe_remedy_invocation(cmd, ("bash ",)):
+        return False
+    return bool(_DOORBELL_RE.match(strip_prefixes_raw(cmd).strip()))
+
+
 def _load_bypass_subcommands() -> frozenset[str]:
     """Load the canonical bypass-list from scripts/hook_bypass_commands.txt.
 
@@ -2200,7 +2214,7 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
         _tn = input_data.get("tool_name", "") or ""
         if _tn in ("Bash", "PowerShell"):
             _cmd = (input_data.get("tool_input", {}) or {}).get("command", "") or ""
-            if _is_engagement_clearing_command(_cmd):
+            if _is_engagement_clearing_command(_cmd) or _is_doorbell_rearm(_cmd):
                 _low_friction = True
 
     # Gate 2: session-fresh goal
