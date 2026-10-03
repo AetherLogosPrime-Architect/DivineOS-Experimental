@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**146 automations — 137 wired, 9 switched off.**
+**147 automations — 137 wired, 10 switched off.**
 
 ---
 
@@ -16,6 +16,7 @@ Present, executable, invoked by nothing. This section is first on purpose. On 20
 |---|---|---|
 | `auto-goal-from-prompt.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `detect-theater.sh` | 2026-09-21 | MINE. Aether, May 2026. Theatre is the failure where I perform having done |
+| `inner-circle-stop.sh` | not on main | INTENTIONALLY UNWIRED (2026-10-01): superseded by his_room.check_his_room (#554, on main as d87864001), the one home for the room; Aletheia's hold on  |
 | `no-verify-cost-escalation.sh` | 2026-08-31 | thin doorbell for the no-verify cost-escalation gate. |
 | `operator-asks-surface.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `self-demotion-prime.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |

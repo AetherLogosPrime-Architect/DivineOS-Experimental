@@ -51,7 +51,6 @@ def _serialize_record(record: CouncilRecord) -> dict[str, Any]:
             {"lens_name": f.lens_name, "finding_text": f.finding_text} for f in record.lens_findings
         ],
         "synthesis": record.synthesis,
-        "confirmed_by": record.confirmed_by,
         # The job this walk covers, enumerated at filing time. Empty means
         # self-only, which is every record written before this field existed.
         "scope_fingerprints": list(record.scope_fingerprints),
@@ -78,7 +77,11 @@ def _deserialize_record(payload: dict[str, Any]) -> CouncilRecord:
             for f in (payload.get("lens_findings") or [])
         ),
         synthesis=str(payload.get("synthesis", "")),
-        confirmed_by=payload.get("confirmed_by"),
+        # confirmed_by is deliberately not read back. Records logged before
+        # 2026-09-06 still carry it; the field and the check that demanded it
+        # are gone, and an unread key in an old payload is harmless. Andrew's
+        # confirms live at the merge gate, which is the only place he has ever
+        # said they belong.
         scope_fingerprints=tuple(payload.get("scope_fingerprints") or []),
         consumed_at=None,  # see note in _serialize_record
     )
