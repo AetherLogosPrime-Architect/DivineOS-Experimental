@@ -276,6 +276,48 @@ def test_a_slip_older_than_any_step_could_hold_it_is_some_other_days_words(monke
     assert fd.settle(path, "aether") == {}
 
 
+def test_his_turn_record_written_before_the_keep_is_still_his(monkeypatch, tmp_path):
+    """The real case, 2026-10-03: all 14 of his messages that morning had their
+    record written 2.5 to 10 seconds BEFORE the door kept them, same prompt id,
+    his exact words, stamped human. The clock slack threw out every one, and each
+    reached the sort an hour late as "record never found". Identity beats clock."""
+    _kept_at(monkeypatch, "2026-10-03T15:39:20.323+00:00")
+    fd.keep({"prompt_id": "p-real", "prompt": HIS}, "aria")
+    path = _transcript(tmp_path, _turn("p-real", HIS, uuid="u-his", at="2026-10-03T15:39:14.900Z"))
+    assert list(fd.settle(path, "aria").values()) == [ha.FILED]
+    assert [k.uuid for k in ha.pending()] == ["u-his"]
+
+
+def test_an_early_record_under_another_prompt_id_is_still_not_his(monkeypatch, tmp_path):
+    _kept_at(monkeypatch, "2026-10-03T15:39:20.323+00:00")
+    fd.keep({"prompt_id": "p-real", "prompt": HIS}, "aria")
+    path = _transcript(tmp_path, _turn("p-other", HIS, uuid="u-x", at="2026-10-03T15:39:14.900Z"))
+    assert fd.settle(path, "aria") == {}
+
+
+def test_an_early_record_with_his_id_stamped_by_the_harness_is_not_his(monkeypatch, tmp_path):
+    """Aether's ask: identity must not be fooled by an envelope carrying his words."""
+    _kept_at(monkeypatch, "2026-10-03T15:39:20.323+00:00")
+    fd.keep({"prompt_id": "p-real", "prompt": HIS}, "aria")
+    path = _transcript(
+        tmp_path,
+        _turn("p-real", HIS, kind="task-notification", uuid="u-env", at="2026-10-03T15:39:14.900Z"),
+    )
+    assert ha.FILED not in fd.settle(path, "aria").values()
+    assert ha.pending() == []
+
+
+def test_a_same_id_record_older_than_any_wait_is_not_this_message(monkeypatch, tmp_path):
+    """One prompt id has sat on ten of his messages, so the id alone is not the
+    message: an old "proceed" under the same id must not take a new one."""
+    _kept_at(monkeypatch, "2026-10-03T15:39:20.323+00:00")
+    fd.keep({"prompt_id": "p-real", "prompt": "proceed"}, "aria")
+    path = _transcript(
+        tmp_path, _turn("p-real", "proceed", uuid="u-old", at="2026-10-03T14:00:00.000Z")
+    )
+    assert fd.settle(path, "aria") == {}
+
+
 def test_a_record_already_holding_his_message_is_never_offered_again(monkeypatch, tmp_path):
     """Inside the waiting window, the store's own memory is the guard."""
     _kept_at(monkeypatch, "2026-09-24T22:20:00.000+00:00")

@@ -226,10 +226,17 @@ def _fits(candidate: his_asks.Candidate, record: _Record) -> bool:
     kept_at = _when(candidate.said_at)
     if kept_at is None:
         return False
-    earliest = kept_at - (_SLIP_WAIT if record.prompt_id is None else _CLOCK_SLACK)
-    if record.at < earliest:
-        return False
     if record.prompt_id and candidate.prompt_id and record.prompt_id != candidate.prompt_id:
+        return False
+    # Identity beats the clock. A record carrying the same prompt id as the
+    # keeping is the same turn, whichever was written first: measured 2026-10-03,
+    # all 14 of his records that morning were written 2.5 to 10 seconds BEFORE
+    # the keep, and the two-second slack sent every one to the sort an hour late.
+    # The id alone is not the message (one id has held ten of his), so the words
+    # still have to match and the window is still bounded, at the slip wait.
+    same_turn = record.prompt_id is not None and record.prompt_id == candidate.prompt_id
+    earliest = kept_at - (_SLIP_WAIT if record.prompt_id is None or same_turn else _CLOCK_SLACK)
+    if record.at < earliest:
         return False
     return candidate.his_text.strip() in record.text
 
