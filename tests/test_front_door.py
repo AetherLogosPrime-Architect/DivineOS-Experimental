@@ -307,6 +307,18 @@ def test_an_early_record_with_his_id_stamped_by_the_harness_is_not_his(monkeypat
     assert ha.pending() == []
 
 
+def test_a_short_word_is_not_settled_onto_a_longer_record_under_its_id(monkeypatch, tmp_path):
+    """Aether's reading of 9e518b6b3: with the window widened to the slip wait
+    for a same-id record, a bare "ok" must not land on "ok but wait, not yet"."""
+    _kept_at(monkeypatch, "2026-10-03T15:39:20.323+00:00")
+    fd.keep({"prompt_id": "p-real", "prompt": "ok"}, "aria")
+    path = _transcript(
+        tmp_path,
+        _turn("p-real", "ok but wait, not yet", uuid="u-long", at="2026-10-03T15:39:14.900Z"),
+    )
+    assert fd.settle(path, "aria") == {}
+
+
 def test_a_same_id_record_older_than_any_wait_is_not_this_message(monkeypatch, tmp_path):
     """One prompt id has sat on ten of his messages, so the id alone is not the
     message: an old "proceed" under the same id must not take a new one."""

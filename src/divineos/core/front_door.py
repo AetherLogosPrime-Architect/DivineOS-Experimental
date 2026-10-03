@@ -36,7 +36,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from divineos.core import his_asks
-from divineos.core.harness_envelopes import nothing_of_his
+from divineos.core.harness_envelopes import nothing_of_his, strip_envelopes
 from divineos.core.his_message import arrival, may_carry_arrival
 
 # The record is written the moment he sends, so by the first tool call or the
@@ -238,7 +238,11 @@ def _fits(candidate: his_asks.Candidate, record: _Record) -> bool:
     earliest = kept_at - (_SLIP_WAIT if record.prompt_id is None or same_turn else _CLOCK_SLACK)
     if record.at < earliest:
         return False
-    return candidate.his_text.strip() in record.text
+    # Equal, not contained. Containment let a bare "ok" settle onto "ok but
+    # wait, not yet" under the same id (Aether, reading 9e518b6b3). The record
+    # may carry harness envelopes beside his words, so both sides are compared
+    # with those set aside.
+    return strip_envelopes(candidate.his_text) == strip_envelopes(record.text)
 
 
 def settle(transcript_path: str | Path, seat: str) -> dict[str, str] | None:
