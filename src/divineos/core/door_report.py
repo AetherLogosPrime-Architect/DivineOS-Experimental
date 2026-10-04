@@ -70,6 +70,14 @@ def _nearest(at: datetime, among: Sequence[T], when: Callable[[T], datetime | No
 
 def report(transcript_path: str | Path, seat: str, hours: int = 24) -> DoorReport | None:
     """The door's catch on this seat over the last ``hours``. None if it could not look."""
+    # A path that cannot be read must say so. The transcript reader swallows the
+    # error and returns nothing, which would render as "he said nothing all day"
+    # -- the calm-looking silence this report exists to break (Aletheia 10-03).
+    try:
+        with open(transcript_path, "rb"):
+            pass
+    except OSError:
+        return None
     now = datetime.now(timezone.utc)
     since = now - timedelta(hours=hours)
     rows = his_asks.door_rows(seat, since.isoformat(timespec="milliseconds"))
@@ -130,7 +138,10 @@ def _lines(label: str, problems: list[Problem]) -> list[str]:
 def render(got: DoorReport | None) -> str:
     """Problems first, the rate after."""
     if got is None:
-        return "DOOR REPORT: could not look -- the store was unreadable, so nothing here is known"
+        return (
+            "DOOR REPORT: could not look -- the transcript or the store was unreadable, "
+            "so nothing here is known"
+        )
     window = f"last {got.hours}h on the {got.seat} seat"
     out: list[str] = []
     if got.blind:
@@ -139,7 +150,10 @@ def render(got: DoorReport | None) -> str:
         )
     out += _lines("MISSED", got.missed) + _lines("STUCK ", got.stuck) + _lines("LATE  ", got.late)
     if got.arrived == 0 and not got.blind:
-        out.append(f"door: nothing to judge -- no message of his arrived in the {window}")
+        out.append(
+            f"door: no message of his found in this transcript for the {window} -- "
+            "if he did speak, this may be the wrong window's transcript"
+        )
     else:
         out.append(
             f"door: caught {len(got.caught)} of {got.arrived} that arrived in the {window}"

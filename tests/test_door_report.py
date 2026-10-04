@@ -85,7 +85,17 @@ def test_nothing_arrived_and_nothing_kept_is_nothing_to_judge_not_green(tmp_path
     path = _transcript(tmp_path, _turn("p1", "machine", kind="task-notification"))
     got = dr.report(path, "aria")
     assert got.arrived == 0 and not got.blind
-    assert "nothing to judge" in dr.render(got)
+    # Hedged, not asserted: a real empty count may be the wrong window's transcript.
+    assert "may be the wrong window" in dr.render(got)
+
+
+def test_a_transcript_that_does_not_exist_could_not_look_not_silence(tmp_path):
+    """Aletheia 10-03: one typo in --transcript and the report said he was silent
+    all day. A real path that is not there must come back as could-not-look."""
+    missing = tmp_path / "no_such_transcript.jsonl"
+    assert not missing.exists()
+    assert dr.report(missing, "aria") is None
+    assert "could not look" in dr.render(dr.report(missing, "aria"))
 
 
 def test_problems_lead_and_the_rate_follows(monkeypatch, tmp_path):
