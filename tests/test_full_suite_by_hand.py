@@ -45,6 +45,18 @@ REFUSED = [
     "cd ~ && pytest tests/test_a.py",
     "cd - && pytest tests/test_a.py",
     "pushd src && pytest ../tests",
+    # Aletheia's fourth door, 2026-10-04: a run inside something the check
+    # cannot see into counts as everything.
+    "(cd src; pytest ../tests)",
+    "{ cd src; pytest ../tests; }",
+    'bash -c "cd src && pytest ../tests"',
+    'sh -c "pytest"',
+    'bash -lc "pytest tests/"',
+    "python -c 'import pytest; pytest.main()'",
+    # The price of failing closed, pinned so it stays a choice: a named file
+    # inside a wrapper is refused too. Run it unwrapped.
+    "(pytest tests/test_a.py)",
+    'bash -c "pytest tests/test_a.py"',
 ]
 
 PASSED = [
@@ -67,6 +79,12 @@ PASSED = [
     "pytest tests/ -k=doorbell",
     'pytest tests/ -k "doorbell and not slow"',
     "pytest tests/test_not_star.py",
+    # Wrappers with no test run in them are not this check's business.
+    "(cd docs; ls)",
+    'bash -c "echo hi"',
+    "python -c 'print(1)'",
+    # An unmatched bracket must not make later commands refuse.
+    "echo ) && pytest tests/test_a.py",
 ]
 
 

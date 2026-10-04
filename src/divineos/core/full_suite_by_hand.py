@@ -19,6 +19,7 @@ Walk: walk-2c6c581293b3.
 
 from __future__ import annotations
 
+import re
 import shlex
 import subprocess
 from pathlib import Path
@@ -137,6 +138,33 @@ def _whole_suite_from(args: list[str], base: Path, here: Path | None) -> bool:
     return any(_points_at_everything(t, roots, here) for t in targets)
 
 
+# Programs that run a string they are handed as another command line.
+_SHELLS = {"bash", "sh", "zsh", "dash", "ksh", "fish", "pwsh", "powershell", "cmd"}
+
+
+def _runs_a_string(segment: str) -> bool:
+    """True for `bash -c "..."`, `sh -lc ...`, `cmd /c ...`, `python -c ...`.
+
+    Aletheia, 2026-10-04: the command inside is a string this check never
+    parses, so a pytest in it cannot be placed.
+    """
+    try:
+        tokens = shlex.split(strip_prefixes_raw(segment).strip(), posix=True)
+    except ValueError:
+        return True
+    if not tokens:
+        return False
+    prog = tokens[0].replace("\\", "/").rsplit("/", 1)[-1].lower().removesuffix(".exe")
+    flags = tokens[1:3]
+    if prog in _SHELLS:
+        return any(
+            re.fullmatch(r"-[a-z]*c[a-z]*", f) or f.lower() in ("/c", "-command") for f in flags
+        )
+    if prog.startswith("python") or prog in ("py",):
+        return "-c" in flags
+    return False
+
+
 def _cd_target(segment: str) -> str | None:
     """The directory a ``cd``/``pushd`` segment moves to, or None if it is not one."""
     try:
@@ -201,7 +229,23 @@ def decide(command: str, repo: Path | None = None) -> str | None:
     # unknown place counts as everything.
     here: Path | None = base
     hit = False
+    # Aletheia, 2026-10-04: "(cd src; pytest ../tests)" and "{ ...; }" run in a
+    # group the splitter cuts into pieces, so a brace group's pytest arrives
+    # with no brace on it. Carry the depth across segments: a run inside any
+    # group, or inside a string handed to another shell, cannot be placed and
+    # counts as everything. Failing closed refuses a named file inside a
+    # wrapper too; the way out is to run it unwrapped.
+    depth = 0
     for s in segments:
+        stripped = s.strip()
+        if stripped.startswith(("(", "{")):
+            depth += 1
+        hidden = depth > 0 or _runs_a_string(s)
+        if stripped.endswith((")", "}")):
+            depth = max(0, depth - 1)
+        if "pytest" in s.lower() and hidden:
+            hit = True
+            break
         moved = _cd_target(s)
         if moved is not None:
             if here is None or moved == "-" or any(c in moved for c in "$`~*?["):
