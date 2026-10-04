@@ -301,6 +301,31 @@ def _tracked_on_head(repo_root: Path, rel_path: str) -> bool:
     return proc.returncode == 0
 
 
+# Letters Dad carries by hand between this folder and Aletheia's window. For
+# them the folder is the only channel, not a second copy, so evicting one hides
+# it from the one person who moves it (2026-10-03: two of hers and one of mine
+# vanished from family/letters after a pre-extract checkpoint). The last four
+# are the names aletheia-import files her Downloads deliveries under.
+_CARRIED_PREFIXES = (
+    "aether-to-aletheia-",
+    "aletheia-to-aether-",
+    "CONFIRMS_",
+    "AUDIT_",
+    "FIXLIST_",
+    "REPLY_TO_",
+)
+
+
+def carried_by_hand(rel_path: str) -> bool:
+    """True for a letter Dad carries to or from Aletheia: it stays on the desk."""
+    parts = rel_path.replace("\\", "/").split("/")
+    return (
+        parts[:2] == ["family", "letters"]
+        and len(parts) == 3
+        and parts[2].startswith(_CARRIED_PREFIXES)
+    )
+
+
 def evict_committed_paths(repo_root: Path, result: RetargetResult) -> EvictionResult:
     """Remove from the working tree the files now safely on the substrate branch.
 
@@ -388,6 +413,10 @@ def evict_committed_paths(repo_root: Path, result: RetargetResult) -> EvictionRe
 
         if _tracked_on_head(repo_root, rel_path):
             held.append((rel_path, "tracked on the checked-out branch"))
+            continue
+
+        if carried_by_hand(rel_path):
+            held.append((rel_path, "Dad carries this one; it stays on the desk"))
             continue
 
         on_disk = _blob_on_disk(repo_root, rel_path)
