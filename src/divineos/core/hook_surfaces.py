@@ -221,6 +221,36 @@ def compound_branch_change_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def full_suite_by_hand_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a hand-run of the whole test suite; that is the push's job.
+
+    Andrew, four times, latest 2026-10-03: "i have asked you repeatedly not to
+    run the full fucking suite on every goddamn change". The decision and its
+    limits live in core/full_suite_by_hand.py.
+    """
+    name = "full_suite_by_hand"
+    if (payload.get("tool_name") or "") not in ("Bash", "PowerShell"):
+        return SurfaceOutcome(name=name, state="nothing-to-say")
+    command = str((payload.get("tool_input") or {}).get("command") or "")
+    if "pytest" not in command:
+        return SurfaceOutcome(name=name, state="nothing-to-say")
+    try:
+        from pathlib import Path
+
+        from divineos.core.auto_commit import find_repo_root
+        from divineos.core.full_suite_by_hand import decide
+
+        repo = find_repo_root(Path(payload.get("cwd") or Path.cwd()))
+        reason = decide(command, repo)
+    except Exception as exc:  # noqa: BLE001 - could-not-run is said, never passed silently
+        return SurfaceOutcome(
+            name=name, error=f"{type(exc).__name__}: {exc}", state="could-not-run"
+        )
+    if reason:
+        return SurfaceOutcome(name=name, refused=True, reason=reason, state="spoke")
+    return SurfaceOutcome(name=name, state="nothing-to-say")
+
+
 def no_verify_cost_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse an unverified git write that skips the hooks without paying for it.
 
@@ -2288,6 +2318,8 @@ def install() -> None:
     # migration existed to remove still running underneath it.
     if "no_verify_cost" not in registered("PreToolUse"):
         register("PreToolUse", "no_verify_cost", no_verify_cost_surface)
+    if "full_suite_by_hand" not in registered("PreToolUse"):
+        register("PreToolUse", "full_suite_by_hand", full_suite_by_hand_surface)
 
     # Registered in the SAME change that adds the surface, deliberately. The
     # note above records what happens when those two come apart; a function

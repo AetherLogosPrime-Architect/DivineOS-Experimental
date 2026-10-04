@@ -444,6 +444,7 @@ src/divineos/
     scaffolding_map.py         Scaffolding map — briefing surface for self-authored documents that carry load-bearing state.
     engagement_relevance.py    Engagement relevance — does this thinking command relate to current work?
     compliance_audit.py        Compliance-distribution audit — substantive testing of the compliance log.
+    full_suite_by_hand.py      Refuses a hand-run pytest over the whole tests folder (the push's job) and hands over the test files for what changed instead. Andrew, four times, latest 2026-10-03.
     failure_diagnostics.py     Shared record/read/briefing pattern for silent-fail-open events across enforcement surfaces
     substance_checks.py        Substance checks at rudder-ack file time — Item 7.
     compliance_baseline.py     Baseline calibration from clean-tagged sessions — wires PR-2 into Item 8 detectors.
