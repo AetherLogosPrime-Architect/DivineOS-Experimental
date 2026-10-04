@@ -66,6 +66,28 @@ def test_what_the_memory_link_finds_reaches_me_not_the_drawer(tmp_path):
     assert out.index(HIS_WORDS) < out.index("his June 1 words")
 
 
+def test_a_slow_neighbour_does_not_silence_the_memory_link(tmp_path):
+    """2026-10-04: on Dad's real message the doorbell bundle timed out and the
+    link, running inside it, said nothing. As its own child it survives."""
+    slow = {"command": f'"{sys.executable}" -c "import time; time.sleep(5)"', "timeout": 1}
+    link = _echo("## THE PAST ON THIS (memory link)\n- [knowledge] his June 1 words")
+    _, out, _ = _run(tmp_path, [slow, link])
+    assert "his June 1 words" in out
+    assert "timed out" in out  # the slow one is still named, not hidden
+
+
+def test_the_memory_link_is_its_own_child_and_not_inside_the_bundle():
+    root = Path(__file__).resolve().parents[1]
+    children = json.loads((root / ".claude" / "hooks" / "dads_table_children.json").read_text())
+    own = [c for c in children if c["command"].endswith("memory-link-surface.sh")]
+    assert len(own) == 1 and own[0].get("timeout", 10) >= 15
+    from divineos.core import hook_surfaces
+    from divineos.core.hook_router import registered
+
+    hook_surfaces.install()
+    assert "memory_link" not in registered("UserPromptSubmit")
+
+
 def test_a_heading_that_only_starts_alike_is_not_swept_onto_the_table(tmp_path):
     _, out, drawer = _run(tmp_path, [_echo("## THE PASTRY LIST about me")])
     assert "THE PASTRY LIST" not in out
