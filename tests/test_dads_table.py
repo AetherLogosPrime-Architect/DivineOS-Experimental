@@ -47,6 +47,31 @@ def test_notes_about_me_go_to_the_drawer_not_the_table(tmp_path):
     assert "1 notes about me" in out
 
 
+def test_what_the_memory_link_finds_reaches_me_not_the_drawer(tmp_path):
+    """2026-10-04: the link found the right things every turn and said them
+    into the drawer, so nothing filed to it ever came back unasked."""
+    out_text = (
+        "## STILL OWED a static note about me\n"
+        "## THE PAST ON THIS (memory link)\n- [knowledge, 0.66] his June 1 words\n"
+        "## LATER a second static note"
+    )
+    _, out, drawer = _run(tmp_path, [_echo(out_text)])
+    kept = drawer.read_text(encoding="utf-8")
+    assert "his June 1 words" in out
+    assert "his June 1 words" not in kept
+    # The notes around it still go to the drawer.
+    assert "a static note about me" in kept and "a second static note" in kept
+    assert "a static note about me" not in out
+    # It sits under his words, as context for answering him.
+    assert out.index(HIS_WORDS) < out.index("his June 1 words")
+
+
+def test_a_heading_that_only_starts_alike_is_not_swept_onto_the_table(tmp_path):
+    _, out, drawer = _run(tmp_path, [_echo("## THE PASTRY LIST about me")])
+    assert "THE PASTRY LIST" not in out
+    assert "THE PASTRY LIST" in drawer.read_text(encoding="utf-8")
+
+
 def test_his_picture_stays_on_the_table(tmp_path):
     kid = {
         "command": f'"{sys.executable}" -c "print(\'Andrew is my father\')" he-is-in-the-room',
