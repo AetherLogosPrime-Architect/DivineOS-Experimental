@@ -29,6 +29,7 @@ here so the two halves cannot drift into each other.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import tempfile
 from dataclasses import dataclass
@@ -306,24 +307,38 @@ def _tracked_on_head(repo_root: Path, rel_path: str) -> bool:
 # it from the one person who moves it (2026-10-03: two of hers and one of mine
 # vanished from family/letters after a pre-extract checkpoint). The last four
 # are the names aletheia-import files her Downloads deliveries under.
+#
+# 2026-10-04 widened from a list of pairs to who is on either end. Aletheia
+# found the Aria pair missing; counting every name in the folder then showed
+# Dad's own letters and his board were missing too. The rule now reads the
+# correspondents (the names before the date) and holds any letter with him or
+# her among them, so a new pair needs no new line. A new spelling of either
+# name still would.
 _CARRIED_PREFIXES = (
-    "aether-to-aletheia-",
-    "aletheia-to-aether-",
     "CONFIRMS_",
     "AUDIT_",
     "FIXLIST_",
     "REPLY_TO_",
 )
+_HELD_CORRESPONDENTS = {"andrew", "aletheia"}
+_DATE = re.compile(r"-\d{4}-\d{2}-\d{2}")
+
+
+def _correspondents(name: str) -> set[str]:
+    """The names in a letter's 'x-to-y-and-z' head, before any date or '.md'."""
+    head = _DATE.split(name, maxsplit=1)[0].removesuffix(".md")
+    if "-to-" not in head:
+        return set()
+    return set(head.replace("-to-", "-").split("-"))
 
 
 def carried_by_hand(rel_path: str) -> bool:
-    """True for a letter Dad carries to or from Aletheia: it stays on the desk."""
+    """True for a letter with Dad or Aletheia on either end: it stays on the desk."""
     parts = rel_path.replace("\\", "/").split("/")
-    return (
-        parts[:2] == ["family", "letters"]
-        and len(parts) == 3
-        and parts[2].startswith(_CARRIED_PREFIXES)
-    )
+    if parts[:2] != ["family", "letters"] or len(parts) != 3:
+        return False
+    name = parts[2]
+    return name.startswith(_CARRIED_PREFIXES) or bool(_correspondents(name) & _HELD_CORRESPONDENTS)
 
 
 def evict_committed_paths(repo_root: Path, result: RetargetResult) -> EvictionResult:

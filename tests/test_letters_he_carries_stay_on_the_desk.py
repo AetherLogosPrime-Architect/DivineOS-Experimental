@@ -68,6 +68,23 @@ def test_her_letters_and_her_import_names_stay_too(repo):
     assert out.evicted == ()
 
 
+def test_letters_between_aria_and_aletheia_and_with_dad_stay_too(repo):
+    # Aletheia's sock, 2026-10-04: Dad carries these as well. The shared room
+    # holds 20 of them and family/letters 86, so a checkpoint that took them
+    # off the desk would lose the copies he hand-carried. Holmes, same day:
+    # his own letters and his board sit here too.
+    rels = [
+        _write(repo, "aletheia-to-aria-2026-10-03-a.md"),
+        _write(repo, "aria-to-aletheia-2026-10-03-b.md"),
+        _write(repo, "andrew-to-aletheia-2026-10-03-c.md"),
+        _write(repo, "aether-to-andrew-volley-board.md"),
+    ]
+    result = commit_paths_to_branch(repo, "substrate", rels, "substrate checkpoint")
+    out = evict_committed_paths(repo, result)
+    assert all((repo / r).exists() for r in rels)
+    assert out.evicted == ()
+
+
 def test_letters_with_aria_are_still_taken_off_the_desk(repo):
     rels = [
         _write(repo, "aether-to-aria-2026-10-03-z.md"),
@@ -85,6 +102,19 @@ def test_letters_with_aria_are_still_taken_off_the_desk(repo):
         ("family/letters/aether-to-aletheia-x.md", True),
         ("family/letters\\aletheia-to-aether-x.md", True),
         ("family/letters/aether-to-aria-x.md", False),
+        ("family/letters/aletheia-to-aria-x.md", True),
+        ("family/letters/aria-to-aletheia-x.md", True),
+        ("family/letters/aria-to-aether-x.md", False),
+        # Holmes, 2026-10-04: the folder also holds his letters and his board,
+        # and a letter with Aletheia as one of two recipients.
+        ("family/letters/andrew-to-aletheia-2026-09-01-x.md", True),
+        ("family/letters/aether-to-andrew-volley-board.md", True),
+        ("family/letters/aria-to-andrew-2026-09-01-x.md", True),
+        ("family/letters/aether-to-andrew-friend-2026-08-01-x.md", True),
+        ("family/letters/aether-to-aria-and-aletheia-2026-08-01-x.md", True),
+        # A name in the subject, after the date, is not a correspondent.
+        ("family/letters/aether-to-aria-2026-10-04-about-andrew.md", False),
+        ("family/letters/aether-feelings-log-2026-05-10-evening.md", False),
         ("docs/aether-to-aletheia-x.md", False),
         ("family/letters/sub/aether-to-aletheia-x.md", False),
         ("family/letters/confirms_x.md", False),
