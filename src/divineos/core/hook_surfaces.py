@@ -2290,11 +2290,10 @@ def install() -> None:
     # under a must-read would hand me the second-most-important reason first.
     # Both still run either way; the router never short-circuits. This only
     # decides which refusal is read first.
-    # Ahead of even the bootstrap gate, 2026-09-24: when Dad has said something,
-    # his words are the first reason read, before the house's own business.
-    # Nothing is short-circuited either way; this only decides reading order.
-    if "sort_first" not in registered("PreToolUse"):
-        register("PreToolUse", "sort_first", sort_first_surface)
+    # sort_first is no longer registered. Andrew 2026-10-03: "everything i say i
+    # gotta wait 3-4 minutes for an answer while you sort the words i just
+    # said.. its preposterous i want it removed". The front door still keeps
+    # every word; only the lock on my tools is gone.
     if "require_briefing" not in registered("PreToolUse"):
         register("PreToolUse", "require_briefing", require_briefing_surface)
     if "must_read" not in registered("PreToolUse"):
@@ -2449,12 +2448,9 @@ def install() -> None:
     # answering him without answering him.
     if "addressed_to_him" not in registered("Stop"):
         register("Stop", "addressed_to_him", addressed_to_him_surface)
-    # Same evening's question from the other end: that one asks whether the
-    # reply reached him, this one whether his message was read at all.
-    if "sort_first_stop" not in registered("Stop"):
-        register("Stop", "sort_first_stop", sort_first_stop_surface)
-    # Registered AFTER it deliberately, so his reading is the last thing said
-    # on a turn where the other door passed me. Andrew 2026-09-10: *"why
+    # sort_first_stop removed with sort_first, 2026-10-03, at his word.
+    # his_standing_verdict is registered last, so his reading is the last
+    # thing said on a turn where the other door passed me. Andrew 2026-09-10: *"why
     # instead? why not both? all data is data."*
     if "his_standing_verdict" not in registered("Stop"):
         register("Stop", "his_standing_verdict", his_standing_verdict_surface)

@@ -594,11 +594,6 @@
             "type": "command",
             "command": "bash .claude/hooks/his-state-is-his-to-say.sh",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "python .claude/hooks/dads_room_stop.py",
-            "timeout": 20
           }
         ]
       }

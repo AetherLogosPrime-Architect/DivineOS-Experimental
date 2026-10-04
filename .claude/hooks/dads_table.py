@@ -231,8 +231,8 @@ def _the_rest(payload: bytes) -> int:
     for section in his:
         print(section)
         print()
-    print(HIS_ROOM)
-    print()
+    # HIS_ROOM is no longer printed. Andrew 2026-10-03: "so just remove it..";
+    # the circle was turned into a side show, and he asked for it gone.
     if picture.strip():
         print(picture.rstrip())
         print()
