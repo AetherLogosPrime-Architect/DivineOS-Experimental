@@ -64,6 +64,19 @@ REFUSED = [
     "eval pytest",
     "xargs pytest",
     "timeout 600 python -m pytest tests/",
+    # Aletheia's sixth, 2026-10-04: "readers" that can run their argument, and
+    # pipes into an interpreter.
+    "sed -n '1e pytest' README.md",
+    "awk 'BEGIN{system(\"pytest\")}'",
+    "git bisect run pytest",
+    "git -c alias.t='!pytest' t",
+    "man -P pytest ls",
+    "find . -name conftest.py -exec pytest {} +",
+    "echo pytest | sh",
+    "printf 'pytest' | bash",
+    "echo pytest | xargs -I{} sh -c {}",
+    "git rebase -x pytest main",
+    "git submodule foreach pytest",
     # The price of failing closed, pinned so it stays a choice: a named file
     # inside a wrapper is refused too. Run it unwrapped.
     "(pytest tests/test_a.py)",
@@ -94,8 +107,12 @@ PASSED = [
     "timeout 600 pytest tests/test_a.py",
     # Text that names pytest is data, not a run.
     "grep -rn pytest tests/",
-    "git log --grep pytest",
     "cat tests/pytest.ini",
+    # git only reads unless one of its run forms is present.
+    "git log --grep pytest",
+    'git commit -m "pytest tests/ belongs to the push"',
+    "echo pytest tests/ belongs to the push",
+    "head -5 tests/pytest.ini",
     "rg pytest tests",
     "ls tests/pytest_plugins.py",
     # Wrappers with no test run in them are not this check's business.

@@ -57,8 +57,13 @@ def _pytest_args(segment: str) -> list[str] | None:
     it walked past a check that expected pytest first. Listing runners is the
     list that keeps leaking, so pytest is found anywhere and everything in
     front of it is treated as a runner. The one exception is a program that
-    only READS text (grep, git, cat...), where pytest is data: that list can
-    only be wrong loudly, by refusing an honest search, never silently.
+    can NEVER execute anything, where pytest is only data.
+
+    Aletheia, the sixth round: sed's e, awk's system(), git bisect run and
+    aliases, man -P and find -exec all ran pytest past a list that held them
+    as readers. So membership is decided by can it ever execute, not by is it
+    usually used to read, and pytest named anywhere in a non-reader segment,
+    even inside a quoted script, counts as a run with no targets.
     """
     try:
         tokens = shlex.split(strip_prefixes_raw(segment).strip(), posix=True)
@@ -66,44 +71,60 @@ def _pytest_args(segment: str) -> list[str] | None:
         return None
     if not tokens or _program(tokens[0]) in _READERS:
         return None
+    if _program(tokens[0]) == "git" and not _git_can_run(tokens):
+        return None
     for i, tok in enumerate(tokens):
         if _program(tok) in ("pytest", "py.test"):
             return tokens[i + 1 :]
         if tok == "-m" and i + 1 < len(tokens) and tokens[i + 1] == "pytest":
             return tokens[i + 2 :]
+    if any(_PYTEST_WORD.search(tok) for tok in tokens):
+        return []
     return None
+
+
+def _git_can_run(tokens: list[str]) -> bool:
+    """git reads, except in the forms that run another program: config on the
+    command line (aliases, `-c alias.t='!pytest'`), `bisect run`, `rebase
+    --exec`/`-x`, and `submodule foreach`. Off the reader list it refused every
+    commit message that names pytest, which I write daily."""
+    return any(t in ("-c", "bisect", "--exec", "-x", "foreach") for t in tokens[1:])
 
 
 def _program(token: str) -> str:
     return token.replace("\\", "/").rsplit("/", 1)[-1].lower().removesuffix(".exe")
 
 
-# Programs that read or show text. A pytest after one of these is a word being
-# searched for or printed, not a run.
+# Programs that can NEVER execute anything, so a pytest after one of these is a
+# word being searched for or shown, not a run. The test for joining this list
+# is not "usually reads" but "has no form that runs another program": sed, awk,
+# git, find, man, less and more all do, and were taken off it (Aletheia,
+# 2026-10-04). echo and printf are safe only because a pipe into an
+# interpreter is caught separately in decide().
 _READERS = {
     "grep",
     "egrep",
     "fgrep",
     "rg",
-    "git",
     "cat",
     "ls",
     "echo",
     "printf",
     "head",
     "tail",
-    "less",
-    "more",
     "wc",
-    "find",
-    "sed",
-    "awk",
     "which",
     "type",
-    "man",
     "diff",
     "file",
 }
+_PYTEST_WORD = re.compile(r"\bpy\.?test\b", re.IGNORECASE)
+# Text piped into one of these is run, so any pytest in the line counts.
+_PIPE_INTO_INTERPRETER = re.compile(
+    r"\|\s*(?:\S*[/\\])?(?:sh|bash|zsh|dash|ksh|fish|python[\d.]*|py|xargs|eval|"
+    r"source|pwsh|powershell|cmd)(?:\.exe)?\b",
+    re.IGNORECASE,
+)
 
 
 def _points_at_everything(target: str, roots: tuple[Path, ...], cwd: Path | None) -> bool:
@@ -161,6 +182,11 @@ def _whole_suite_from(args: list[str], base: Path, here: Path | None) -> bool:
         targets.append(a)
         i += 1
     if not targets:
+        return True
+    # An honest narrowed run names test files or test folders. A "target"
+    # that names no test at all is the argument of something else in front of
+    # pytest (man -P pytest ls), so it narrows nothing (Aletheia, 2026-10-04).
+    if not any("test" in t.lower() for t in targets):
         return True
     return any(_points_at_everything(t, roots, here) for t in targets)
 
@@ -263,6 +289,10 @@ def decide(command: str, repo: Path | None = None) -> str | None:
     # counts as everything. Failing closed refuses a named file inside a
     # wrapper too; the way out is to run it unwrapped.
     depth = 0
+    # `echo pytest | sh`: the text is a program once it reaches the pipe.
+    if _PYTEST_WORD.search(command) and _PIPE_INTO_INTERPRETER.search(command):
+        hit = True
+        segments = []
     for s in segments:
         stripped = s.strip()
         if stripped.startswith(("(", "{")):
