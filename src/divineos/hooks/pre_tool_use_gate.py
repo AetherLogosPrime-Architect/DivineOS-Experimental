@@ -56,7 +56,9 @@ __guardrail_required__ = True
 
 import json
 import re
+import shlex
 import sys
+from pathlib import Path
 from typing import Any
 
 from divineos.core.command_parsing import CD, blank_quoted_spans, strip_prefixes_raw
@@ -276,6 +278,61 @@ def _is_safe_remedy_invocation(cmd: str, allowed_heads: tuple[str, ...]) -> bool
     if _has_unquoted_chain_shape(real):
         return False
     return True
+
+
+# The bell is a listener, not work: it writes only its own dotfiles and decides
+# nothing. Dad had to ask 24 times for it to stay on, and three re-arms on
+# 2026-10-03 were refused by the goal and consult checks during quiet talk.
+# Exact command only -- repo path, one seat word, no pipe, no chain.
+# Walk council-7de9f00cec42.
+#
+# Tightened after Aletheia's audit (walk council-0d96371ec724). The bell writes
+# an owner file for whatever seat it is handed, and a replaced bell leaves
+# without ringing, so `letter_doorbell.sh aria` run from my seat silently stops
+# hers while every check reports both healthy. The word must be THIS seat.
+# And the script path is relative, so a leading `cd` elsewhere runs some other
+# checkout's copy ungated: the cd may only land on this repository's root.
+# Either unknown means held.
+_DOORBELL_RE = re.compile(r"^bash (?:\./)?scripts/letter_doorbell\.sh ([a-z]+)$")
+
+
+def _cd_lands_on_this_repo(prefix: str) -> bool:
+    from divineos.core.auto_commit import find_repo_root
+
+    root = find_repo_root(Path(__file__))
+    if root is None:
+        return False  # both-empty: unknown root also means hold, fail closed
+    try:
+        parts = shlex.split(prefix.partition("&&")[0])
+    except ValueError:
+        return False
+    if len(parts) != 2 or parts[0] != "cd":
+        return False
+    target = parts[1]
+    drive = re.match(r"^/([A-Za-z])(/.*)?$", target)  # Git Bash /c/... form
+    if drive:
+        target = f"{drive.group(1)}:{drive.group(2) or '/'}"
+    try:
+        return Path(target).resolve() == root
+    except OSError:
+        return False
+
+
+def _is_doorbell_rearm(cmd: str) -> bool:
+    if not _is_safe_remedy_invocation(cmd, ("bash ",)):
+        return False
+    whole = cmd.strip()
+    real = strip_prefixes_raw(whole).strip()
+    match = _DOORBELL_RE.match(real)
+    if not match:
+        return False
+    from divineos.core.sibling_audit_rounds import this_seat
+
+    seat = this_seat()
+    if seat is None or match.group(1) != seat:
+        return False
+    prefix = whole[: len(whole) - len(real)].strip() if whole.endswith(real) else whole
+    return not prefix or _cd_lands_on_this_repo(prefix)
 
 
 def _load_bypass_subcommands() -> frozenset[str]:
@@ -2200,7 +2257,7 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
         _tn = input_data.get("tool_name", "") or ""
         if _tn in ("Bash", "PowerShell"):
             _cmd = (input_data.get("tool_input", {}) or {}).get("command", "") or ""
-            if _is_engagement_clearing_command(_cmd):
+            if _is_engagement_clearing_command(_cmd) or _is_doorbell_rearm(_cmd):
                 _low_friction = True
 
     # Gate 2: session-fresh goal
