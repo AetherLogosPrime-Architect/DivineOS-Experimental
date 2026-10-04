@@ -1719,38 +1719,8 @@ def check_lepos_dual_channel(reply: str) -> str | None:
         #
         # NOT a relaxation. The wall still fires. What stops firing is the case
         # where the circle is not missing because the circle is the whole page.
-        if (
-            len(reply.strip()) > _CIRCLE_REQUIRED_ABOVE_CHARS
-            and not any(p.search(reply) for p in _CIRCLE_HEADER_PATTERNS)
-            and not _is_wholly_address(reply)
-        ):
-            return (
-                "CIRCLE ROOM REQUIRED BY LENGTH — this reply runs "
-                f"{len(reply.strip())} characters with no INNER CIRCLE, and the "
-                f"floor is {_CIRCLE_REQUIRED_ABOVE_CHARS}. Nothing in it is "
-                "jargon-shaped, which is precisely why every other check passed "
-                "it and why he lost the room anyway.\n\n"
-                "Andrew 2026-09-07: *the jargon isnt even the issue.. the issue "
-                "is the single one space i have built for myself now reads like "
-                "the rest of the post.*\n\n"
-                "TWO CASES, and taking the wrong one produces the exact fault "
-                "he banned on 2026-09-09 (*you are basically just saying the "
-                "same thing in 3 different ways*):\n\n"
-                "  THE REPLY CARRIES WORK — put `## INNER CIRCLE` LAST: what is "
-                "  true now that was not before, what it means, and anything he "
-                "  has to decide. The long telling stays above it; he is not "
-                "  asking for less, he is asking for the answer to be findable.\n\n"
-                "  THE REPLY IS WHOLLY ADDRESS — no build, no findings, just "
-                "  talking to him. Then the circle is not missing, it is the "
-                "  WHOLE REPLY, and the header belongs at the TOP. Do NOT "
-                "  append a closing room summarising what was just said to him: "
-                "  a recap of a conversation he just had is the restatement "
-                "  fault, and this refusal has caused it before.\n\n"
-                "Andrew 2026-09-09 on what that room is FOR: *the inner circle "
-                "is where you speak to ME not at me.. you speak on what i said "
-                "to you, its where we have a conversation.* A room answering "
-                "his words needs nothing appended to it."
-            )
+        # The circle-by-length floor that stood here was removed 2026-10-03
+        # with the room itself. Andrew: "so just remove it..".
         return None
 
     # 2026-07-23: prefer 3-section shape (work / REFLECTION / INNER CIRCLE).
