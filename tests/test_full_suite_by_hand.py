@@ -25,6 +25,26 @@ REFUSED = [
     "uv run pytest tests",
     "poetry run pytest tests/ -q",
     "python3 -m pytest tests",
+    # Aria's three, 2026-10-04. A cd moves where the shell stands.
+    "cd src && pytest ../tests",
+    "cd tests && pytest",
+    "cd tests && pytest .",
+    'cd "src" && pytest ../tests -q',
+    "cd $SOMEWHERE && pytest tests/test_a.py",
+    # A glob is expanded by the shell after this check reads it.
+    "pytest tests/*",
+    "pytest tests/test_*.py",
+    "pytest tests/test_[a-z]*.py",
+    # An expression that selects nothing out, or everything.
+    'pytest tests/ -k ""',
+    'pytest tests/ -k "not zzz"',
+    "pytest tests/ -k=",
+    'pytest -m ""',
+    'pytest tests/ -m "not slow"',
+    "pytest tests/ -k",
+    "cd ~ && pytest tests/test_a.py",
+    "cd - && pytest tests/test_a.py",
+    "pushd src && pytest ../tests",
 ]
 
 PASSED = [
@@ -39,6 +59,14 @@ PASSED = [
     "pytest -m slow -q",
     "pytest tests/integration -q",
     "uv run pytest tests/test_a.py",
+    # The other side of Aria's three.
+    "cd docs && pytest ../tests/test_a.py",
+    "cd src && pytest ../tests/test_a.py -q",
+    "cd tests && pytest test_a.py",
+    "pytest tests/test_a.py -k doorbell",
+    "pytest tests/ -k=doorbell",
+    'pytest tests/ -k "doorbell and not slow"',
+    "pytest tests/test_not_star.py",
 ]
 
 

@@ -23,10 +23,14 @@ import shlex
 import subprocess
 from pathlib import Path
 
-from divineos.core.command_parsing import acting_segments, strip_prefixes_raw
+from divineos.core.command_parsing import split_shell_segments, strip_prefixes_raw
 
-# -m selects by marker, so it narrows the run like -k (Aletheia, 2026-10-03).
-_NARROWING = {"-k", "-m", "--collect-only", "--co"}
+# Nothing runs under these.
+_COLLECT_ONLY = {"--collect-only", "--co"}
+# These narrow only by their expression (Aletheia added -m, 2026-10-03). Aria,
+# 2026-10-04: an empty one, or one that opens with "not", leaves the whole
+# folder selected, so the flag alone proves nothing.
+_EXPRESSION = {"-k", "-m"}
 # Tools that run the next command in an environment: `uv run pytest ...`.
 _RUNNERS = {"uv", "poetry", "pipenv", "pdm", "hatch"}
 # Options whose next token is their value, so it is not a test target.
@@ -74,39 +78,74 @@ def _pytest_args(segment: str) -> list[str] | None:
     return None
 
 
-def _points_at_everything(target: str, base: Path) -> bool:
+def _points_at_everything(target: str, roots: tuple[Path, ...], cwd: Path | None) -> bool:
     """Where this target resolves, not how it is spelled (Aletheia, 2026-10-03).
 
-    A target carrying a shell substitution cannot be placed from here, so it
-    counts as everything: a path that cannot be resolved is the one a route
-    around this would use.
+    A target the check cannot place counts as everything, because a path that
+    cannot be resolved is the one a route around this would use: a shell
+    substitution, a glob the shell expands only after this has read it (Aria,
+    2026-10-04), or any target after a cd to somewhere that could not be
+    followed.
     """
     path = target.split("::", 1)[0]
-    if any(c in path for c in "$`"):
+    if cwd is None or any(c in path for c in "$`*?["):
         return True
-    resolved = (base / path).resolve()
-    return resolved in (base.resolve(), (base / "tests").resolve())
+    resolved = (cwd / path).resolve()
+    return any(resolved in (r, r / "tests") for r in roots)
+
+
+def _narrows(expression: str) -> bool:
+    expression = expression.strip()
+    return bool(expression) and expression.split()[0] != "not"
 
 
 def whole_suite(args: list[str], base: Path | None = None) -> bool:
     """True when these pytest arguments collect the whole tests folder."""
-    base = base or Path.cwd()
+    resolved = (base or Path.cwd()).resolve()
+    return _whole_suite_from(args, resolved, resolved)
+
+
+def _whole_suite_from(args: list[str], base: Path, here: Path | None) -> bool:
+    """``base`` is the repository; ``here`` is where the shell stands after any
+    cd, None when a cd could not be followed. The whole suite is either place,
+    or its tests folder."""
+    roots: tuple[Path, ...] = (base,) if here is None else (base, here)
     targets: list[str] = []
-    skip = False
-    for a in args:
-        if skip:
-            skip = False
-            continue
-        head = a.split("=", 1)[0]
-        if head in _NARROWING:
+    i = 0
+    while i < len(args):
+        a = args[i]
+        head, eq, value = a.partition("=")
+        if head in _COLLECT_ONLY:
             return False
+        if head in _EXPRESSION:
+            if not eq:
+                value = args[i + 1] if i + 1 < len(args) else ""
+                i += 1
+            if _narrows(value):
+                return False
+            i += 1
+            continue
         if a.startswith("-"):
-            skip = a in _TAKES_VALUE
+            if a in _TAKES_VALUE:
+                i += 1
+            i += 1
             continue
         targets.append(a)
+        i += 1
     if not targets:
         return True
-    return any(_points_at_everything(t, base) for t in targets)
+    return any(_points_at_everything(t, roots, here) for t in targets)
+
+
+def _cd_target(segment: str) -> str | None:
+    """The directory a ``cd``/``pushd`` segment moves to, or None if it is not one."""
+    try:
+        tokens = shlex.split(strip_prefixes_raw(segment).strip(), posix=True)
+    except ValueError:
+        return None
+    if not tokens or tokens[0] not in ("cd", "pushd"):
+        return None
+    return tokens[1] if len(tokens) > 1 else "~"
 
 
 def changed_tests(repo: Path) -> list[str]:
@@ -149,14 +188,40 @@ def changed_tests(repo: Path) -> list[str]:
 
 def decide(command: str, repo: Path | None = None) -> str | None:
     """The refusal text when this command hand-runs the whole suite, else None."""
-    segments = acting_segments(command)
+    # The raw split, not acting_segments: that one drops cd as inert, which is
+    # right for the gates it serves and is exactly the segment this one needs.
+    segments = split_shell_segments(command)
     if segments is None:
         segments = [command]
-    if not any((a := _pytest_args(s)) is not None and whole_suite(a, repo) for s in segments):
+    base = (repo or Path.cwd()).resolve()
+    # Aria, 2026-10-04: "cd src && pytest ../tests" ran everything, because the
+    # check read the target from the repository, not from where the cd left
+    # the shell. Walk the segments in order and carry the cd forward. A cd
+    # this cannot follow (a variable, ~, -) leaves the place unknown, and an
+    # unknown place counts as everything.
+    here: Path | None = base
+    hit = False
+    for s in segments:
+        moved = _cd_target(s)
+        if moved is not None:
+            if here is None or moved == "-" or any(c in moved for c in "$`~*?["):
+                here = None
+            else:
+                here = (here / moved).resolve()
+            continue
+        args = _pytest_args(s)
+        if args is not None and _whole_suite_from(args, base, here):
+            hit = True
+            break
+    if not hit:
         return None
     tests = changed_tests(repo) if repo is not None else []
+    # Tannen, 2026-10-04: after a cd these paths would read from the wrong
+    # place, so name where they are written from.
     instead = (
-        "Run the tests for what you changed:\n    pytest " + " ".join(tests) + " -q"
+        "Run the tests for what you changed, from the repository root:\n    pytest "
+        + " ".join(tests)
+        + " -q"
         if tests
         else "No changed file maps to a test file here. Name the test files you mean."
     )
