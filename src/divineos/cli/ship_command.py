@@ -103,7 +103,9 @@ def button(pr: int, round_id: str) -> str:
     in whoever pastes it (Aria's cold read, 2026-10-03)."""
     if not _ROUND_ID.fullmatch(round_id):
         raise ValueError(f"round id {round_id!r} is not in the house's form; nothing printed")
-    return f'gh pr merge {pr} --squash --body "External-Review: {round_id}"'
+    # The trailer must START a line: the merge guard reads it that way and
+    # refused the one-line form this used to print (Breaker, 2026-10-04).
+    return f'gh pr merge {pr} --squash --body "Merged with divineos ship.\n\nExternal-Review: {round_id}"'
 
 
 def run_steps(pr: int, facts: dict, findings, letters_dir: Path) -> tuple[list[Step], str | None]:

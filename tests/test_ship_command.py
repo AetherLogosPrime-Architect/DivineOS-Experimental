@@ -9,7 +9,7 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from divineos.cli import cli
-from divineos.cli.ship_command import checks_step, run_steps, user_confirm_step
+from divineos.cli.ship_command import button, checks_step, run_steps, user_confirm_step
 
 HEAD = "abc1234def5678"
 SIGNED = "> CONFIRMS: #77 at abc1234. Fine. — Aletheia Sophia Risner, 2026-10-03\n"
@@ -49,7 +49,8 @@ def _findings():
 def test_every_step_passing_prints_the_button_and_never_runs_it(tmp_path):
     steps, merge = run_steps(77, _facts(), _findings(), _letters(tmp_path))
     assert [s.ok for s in steps] == [True, True, True, True]
-    assert merge == 'gh pr merge 77 --squash --body "External-Review: round-0123456789ab"'
+    assert merge == button(77, "round-0123456789ab")
+    assert merge.startswith("gh pr merge 77 --squash --body ")
 
 
 def test_a_draft_stops_at_the_first_step(tmp_path):
@@ -111,10 +112,7 @@ def test_a_round_id_not_in_the_houses_shape_is_never_printed():
 
     from divineos.cli.ship_command import button
 
-    assert (
-        button(5, "round-0123456789ab")
-        == 'gh pr merge 5 --squash --body "External-Review: round-0123456789ab"'
-    )
+    assert "External-Review: round-0123456789ab" in button(5, "round-0123456789ab")
     for bad in (
         "round-x$(touch pwned)",
         "round-0123456789a",
@@ -124,6 +122,20 @@ def test_a_round_id_not_in_the_houses_shape_is_never_printed():
     ):
         with _pytest.raises(ValueError):
             button(5, bad)
+
+
+def test_the_button_is_accepted_by_the_merge_guard_it_must_pass():
+    """Breaker, 2026-10-04: the button was compared to a string I wrote, never
+    to the guard that reads it, and the guard refused it -- the trailer has to
+    start a line. So the guard's own function is the judge here."""
+    from divineos.cli.ship_command import button
+    from divineos.core.pr_merge_gate import _command_has_external_review_trailer
+
+    assert _command_has_external_review_trailer(button(582, "round-0123456789ab"))
+    # The shape it used to print, so collapsing it back to one line fails here.
+    assert not _command_has_external_review_trailer(
+        'gh pr merge 582 --squash --body "External-Review: round-0123456789ab"'
+    )
 
 
 def test_the_command_is_registered_and_refuses_with_its_steps(tmp_path, monkeypatch):
