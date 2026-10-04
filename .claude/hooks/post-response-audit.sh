@@ -83,9 +83,7 @@ try:
         # assessed FAILED with his words as the evidence. The successor has to
         # detect ADDRESS vs BROADCAST: whether a reply leaves him anything to
         # answer. That is a different instrument and it is not built.
-        # His room (Andrew 2026-09-24): every reply he started ends with me
-        # speaking to him. See src/divineos/core/his_room.py.
-        'his_room_block',
+        # his_room_block removed 2026-10-03 at Andrew's word: "so just remove it..".
         # verify_before_build_block and thread_walk_block RETIRED
         # 2026-07-26 per Aletheia F87 + council-b60f9a2e7b89. Both were
         # Stop-hook lexical detectors bypassable by prose formatting.
