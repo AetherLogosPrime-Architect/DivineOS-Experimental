@@ -26,15 +26,19 @@ try:
     payload = json.loads(os.environ.get('HOOK_JSON', '') or '{}')
 except ValueError:
     payload = {}
+# A failure goes on the TABLE, under the link's own heading (Aletheia,
+# 2026-10-04): on stderr with exit 0 the dispatcher counts the child as fine,
+# so a broken link looked exactly like a turn with nothing of his relevant.
+HEAD = '## THE PAST ON THIS (memory link)'
 try:
     from divineos.core.hook_surfaces import memory_link_surface
     outcome = memory_link_surface(payload)
 except Exception as exc:
-    print('[memory link] could not run: ' + type(exc).__name__ + ': ' + str(exc), file=sys.stderr)
+    print(HEAD + '\n(could not run: ' + type(exc).__name__ + ': ' + str(exc) + ')')
     sys.exit(0)
 if outcome is not None and outcome.output:
     print(outcome.output)
 elif outcome is not None and outcome.error:
-    print('[memory link] could not run: ' + outcome.error, file=sys.stderr)
+    print(HEAD + '\n(could not run: ' + outcome.error + ')')
 "
 exit 0

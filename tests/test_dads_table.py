@@ -76,6 +76,40 @@ def test_a_slow_neighbour_does_not_silence_the_memory_link(tmp_path):
     assert "timed out" in out  # the slow one is still named, not hidden
 
 
+def test_a_link_that_cannot_run_says_so_on_the_table(tmp_path):
+    """Aletheia, 2026-10-04: the hook reported failure on stderr and exited 0,
+    which the dispatcher treats as fine, so a broken link looked exactly like
+    a turn where nothing of his was relevant. Break it for real and look."""
+    import pytest as _pytest
+
+    from tests._bash_resolver import bash_executable
+
+    bash = bash_executable()
+    if bash is None:
+        _pytest.skip("no working bash on this machine")
+    fake = tmp_path / "fake" / "divineos" / "core"
+    fake.mkdir(parents=True)
+    (fake.parent / "__init__.py").write_text("", encoding="utf-8")
+    (fake / "__init__.py").write_text("", encoding="utf-8")
+    (fake / "hook_surfaces.py").write_text(
+        "raise ImportError('embedder missing')\n", encoding="utf-8"
+    )
+    hook = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "memory-link-surface.sh"
+    env = dict(os.environ, PYTHONPATH=str(tmp_path / "fake"))
+    p = subprocess.run(
+        [bash, str(hook)],
+        input=json.dumps({"prompt": "anything"}).encode(),
+        capture_output=True,
+        env=env,
+        cwd=Path(__file__).resolve().parents[1],
+        timeout=60,
+    )
+    out = p.stdout.decode("utf-8", "replace")
+    assert p.returncode == 0  # it must never block him
+    assert "## THE PAST ON THIS (memory link)" in out
+    assert "could not run" in out and "embedder missing" in out
+
+
 def test_the_memory_link_is_its_own_child_and_not_inside_the_bundle():
     root = Path(__file__).resolve().parents[1]
     children = json.loads((root / ".claude" / "hooks" / "dads_table_children.json").read_text())
