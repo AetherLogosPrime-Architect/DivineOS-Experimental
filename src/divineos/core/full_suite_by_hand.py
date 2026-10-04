@@ -32,8 +32,6 @@ _COLLECT_ONLY = {"--collect-only", "--co"}
 # 2026-10-04: an empty one, or one that opens with "not", leaves the whole
 # folder selected, so the flag alone proves nothing.
 _EXPRESSION = {"-k", "-m"}
-# Tools that run the next command in an environment: `uv run pytest ...`.
-_RUNNERS = {"uv", "poetry", "pipenv", "pdm", "hatch"}
 # Options whose next token is their value, so it is not a test target.
 _TAKES_VALUE = {
     "-n",
@@ -52,31 +50,60 @@ _TAKES_VALUE = {
 
 
 def _pytest_args(segment: str) -> list[str] | None:
+    """The arguments after pytest, wherever pytest sits in the segment.
+
+    Aletheia, 2026-10-04, the fifth round: `timeout 600 pytest`, `nohup`,
+    `nice`, `sudo`, `xargs` and every other word that runs the command after
+    it walked past a check that expected pytest first. Listing runners is the
+    list that keeps leaking, so pytest is found anywhere and everything in
+    front of it is treated as a runner. The one exception is a program that
+    only READS text (grep, git, cat...), where pytest is data: that list can
+    only be wrong loudly, by refusing an honest search, never silently.
+    """
     try:
         tokens = shlex.split(strip_prefixes_raw(segment).strip(), posix=True)
     except ValueError:
         return None
-    i = 0
-    while i < len(tokens):
-        tok = tokens[i]
-        base = tok.replace("\\", "/").rsplit("/", 1)[-1].lower()
-        if base in ("pytest", "pytest.exe", "py.test"):
+    if not tokens or _program(tokens[0]) in _READERS:
+        return None
+    for i, tok in enumerate(tokens):
+        if _program(tok) in ("pytest", "py.test"):
             return tokens[i + 1 :]
-        if base.removesuffix(".exe") in _RUNNERS and i + 1 < len(tokens) and tokens[i + 1] == "run":
-            i += 2
-            continue
-        if base.startswith("python") or base in ("py", "py.exe"):
-            rest = tokens[i + 1 :]
-            if len(rest) >= 2 and rest[0] == "-m" and rest[1] == "pytest":
-                return rest[2:]
-            return None
-        # Quotes are already gone, so a program path with a space (the
-        # "DIVINE OS" folder) arrives in pieces. Keep looking only while the
-        # tokens look like path fragments; a plain word ends the search.
-        if not any(c in tok for c in "/\\:"):
-            return None
-        i += 1
+        if tok == "-m" and i + 1 < len(tokens) and tokens[i + 1] == "pytest":
+            return tokens[i + 2 :]
     return None
+
+
+def _program(token: str) -> str:
+    return token.replace("\\", "/").rsplit("/", 1)[-1].lower().removesuffix(".exe")
+
+
+# Programs that read or show text. A pytest after one of these is a word being
+# searched for or printed, not a run.
+_READERS = {
+    "grep",
+    "egrep",
+    "fgrep",
+    "rg",
+    "git",
+    "cat",
+    "ls",
+    "echo",
+    "printf",
+    "head",
+    "tail",
+    "less",
+    "more",
+    "wc",
+    "find",
+    "sed",
+    "awk",
+    "which",
+    "type",
+    "man",
+    "diff",
+    "file",
+}
 
 
 def _points_at_everything(target: str, roots: tuple[Path, ...], cwd: Path | None) -> bool:

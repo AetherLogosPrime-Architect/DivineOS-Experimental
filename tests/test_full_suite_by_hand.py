@@ -53,6 +53,17 @@ REFUSED = [
     'sh -c "pytest"',
     'bash -lc "pytest tests/"',
     "python -c 'import pytest; pytest.main()'",
+    # Aletheia's fifth, 2026-10-04: runner words in front of pytest.
+    "timeout 600 pytest",
+    "nohup pytest tests/",
+    "time pytest",
+    "exec pytest",
+    "command pytest",
+    "nice -n 10 pytest tests",
+    "sudo pytest",
+    "eval pytest",
+    "xargs pytest",
+    "timeout 600 python -m pytest tests/",
     # The price of failing closed, pinned so it stays a choice: a named file
     # inside a wrapper is refused too. Run it unwrapped.
     "(pytest tests/test_a.py)",
@@ -79,6 +90,14 @@ PASSED = [
     "pytest tests/ -k=doorbell",
     'pytest tests/ -k "doorbell and not slow"',
     "pytest tests/test_not_star.py",
+    # A runner in front of a named file is still a named file.
+    "timeout 600 pytest tests/test_a.py",
+    # Text that names pytest is data, not a run.
+    "grep -rn pytest tests/",
+    "git log --grep pytest",
+    "cat tests/pytest.ini",
+    "rg pytest tests",
+    "ls tests/pytest_plugins.py",
     # Wrappers with no test run in them are not this check's business.
     "(cd docs; ls)",
     'bash -c "echo hi"',
