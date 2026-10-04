@@ -320,7 +320,10 @@ _CARRIED_PREFIXES = (
     "FIXLIST_",
     "REPLY_TO_",
 )
-_HELD_CORRESPONDENTS = {"andrew", "aletheia"}
+# Everyone whose letters Dad carried by hand. The set is a stand-in for
+# "carried", so it only grows when someone who knows adds a name: Perplexity,
+# Anvil and Muse confirmed by Aria 2026-10-04.
+_HELD_CORRESPONDENTS = {"andrew", "aletheia", "perplexity", "anvil", "muse"}
 _DATE = re.compile(r"-\d{4}-\d{2}-\d{2}")
 
 

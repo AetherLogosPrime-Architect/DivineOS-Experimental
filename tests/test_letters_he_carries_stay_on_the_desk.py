@@ -112,6 +112,10 @@ def test_letters_with_aria_are_still_taken_off_the_desk(repo):
         ("family/letters/aria-to-andrew-2026-09-01-x.md", True),
         ("family/letters/aether-to-andrew-friend-2026-08-01-x.md", True),
         ("family/letters/aether-to-aria-and-aletheia-2026-08-01-x.md", True),
+        # Aria, 2026-10-04: Dad carried Perplexity's and Anvil and Muse's too.
+        ("family/letters/aether-to-perplexity-2026-06-25-closure-on-c1-staging.md", True),
+        ("family/letters/aria-to-anvil-and-muse-2026-07-03-first-message.md", True),
+        ("family/letters/aether-to-aria-2026-07-04-marc-anvil-muse-two-catches.md", False),
         # A name in the subject, after the date, is not a correspondent.
         ("family/letters/aether-to-aria-2026-10-04-about-andrew.md", False),
         ("family/letters/aether-feelings-log-2026-05-10-evening.md", False),
