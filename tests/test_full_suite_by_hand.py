@@ -17,6 +17,14 @@ REFUSED = [
     "pytest tests",
     "pytest tests/ tests/test_a.py",
     ".venv/Scripts/pytest.exe tests/",
+    # Aletheia's five, 2026-10-03: the same folder, spelled differently.
+    "pytest .",
+    "pytest ./tests/../tests",
+    "pytest $(pwd)/tests",
+    "pytest tests//",
+    "uv run pytest tests",
+    "poetry run pytest tests/ -q",
+    "python3 -m pytest tests",
 ]
 
 PASSED = [
@@ -28,6 +36,9 @@ PASSED = [
     'git commit -m "run pytest tests/ later"',
     "echo pytest tests/",
     "ls tests/",
+    "pytest -m slow -q",
+    "pytest tests/integration -q",
+    "uv run pytest tests/test_a.py",
 ]
 
 

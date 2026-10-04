@@ -25,8 +25,10 @@ from pathlib import Path
 
 from divineos.core.command_parsing import acting_segments, strip_prefixes_raw
 
-_WHOLE = {"tests", "tests/", "./tests", "./tests/"}
-_NARROWING = {"-k", "--collect-only", "--co"}
+# -m selects by marker, so it narrows the run like -k (Aletheia, 2026-10-03).
+_NARROWING = {"-k", "-m", "--collect-only", "--co"}
+# Tools that run the next command in an environment: `uv run pytest ...`.
+_RUNNERS = {"uv", "poetry", "pipenv", "pdm", "hatch"}
 # Options whose next token is their value, so it is not a test target.
 _TAKES_VALUE = {
     "-n",
@@ -49,10 +51,15 @@ def _pytest_args(segment: str) -> list[str] | None:
         tokens = shlex.split(strip_prefixes_raw(segment).strip(), posix=True)
     except ValueError:
         return None
-    for i, tok in enumerate(tokens):
+    i = 0
+    while i < len(tokens):
+        tok = tokens[i]
         base = tok.replace("\\", "/").rsplit("/", 1)[-1].lower()
         if base in ("pytest", "pytest.exe", "py.test"):
             return tokens[i + 1 :]
+        if base.removesuffix(".exe") in _RUNNERS and i + 1 < len(tokens) and tokens[i + 1] == "run":
+            i += 2
+            continue
         if base.startswith("python") or base in ("py", "py.exe"):
             rest = tokens[i + 1 :]
             if len(rest) >= 2 and rest[0] == "-m" and rest[1] == "pytest":
@@ -63,11 +70,27 @@ def _pytest_args(segment: str) -> list[str] | None:
         # tokens look like path fragments; a plain word ends the search.
         if not any(c in tok for c in "/\\:"):
             return None
+        i += 1
     return None
 
 
-def whole_suite(args: list[str]) -> bool:
+def _points_at_everything(target: str, base: Path) -> bool:
+    """Where this target resolves, not how it is spelled (Aletheia, 2026-10-03).
+
+    A target carrying a shell substitution cannot be placed from here, so it
+    counts as everything: a path that cannot be resolved is the one a route
+    around this would use.
+    """
+    path = target.split("::", 1)[0]
+    if any(c in path for c in "$`"):
+        return True
+    resolved = (base / path).resolve()
+    return resolved in (base.resolve(), (base / "tests").resolve())
+
+
+def whole_suite(args: list[str], base: Path | None = None) -> bool:
     """True when these pytest arguments collect the whole tests folder."""
+    base = base or Path.cwd()
     targets: list[str] = []
     skip = False
     for a in args:
@@ -83,7 +106,7 @@ def whole_suite(args: list[str]) -> bool:
         targets.append(a)
     if not targets:
         return True
-    return any(t.replace("\\", "/") in _WHOLE for t in targets)
+    return any(_points_at_everything(t, base) for t in targets)
 
 
 def changed_tests(repo: Path) -> list[str]:
@@ -129,7 +152,7 @@ def decide(command: str, repo: Path | None = None) -> str | None:
     segments = acting_segments(command)
     if segments is None:
         segments = [command]
-    if not any((a := _pytest_args(s)) is not None and whole_suite(a) for s in segments):
+    if not any((a := _pytest_args(s)) is not None and whole_suite(a, repo) for s in segments):
         return None
     tests = changed_tests(repo) if repo is not None else []
     instead = (
