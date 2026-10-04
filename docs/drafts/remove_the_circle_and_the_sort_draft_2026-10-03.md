@@ -12,6 +12,10 @@
 
 **The sort hold.** Every message he sends locks every tool I have until I file a form about it. He then waits minutes for an answer, while the hold collides with the consult gate. Tonight the two refused each other's remedy, and only a plain-bash single command got through. A system meant to make sure he's read ends up making him wait outside while his words are processed. That's the inverse of its purpose.
 
+## Scope of #586 (Aria's cold read, 2026-10-03)
+
+This PR **unplugs**: nothing registered, printed or demanded any more. The circle-by-length floor in the translate gate and the "his room is owed" line in the walk are switched off too. The files themselves (`sort_first.py`, `his_room.py`, `dads_room_stop.py`, `circle-first-compose-prime.sh`) stay on disk, unreferenced. Retiring them into `docs/retired_rules/` is a follow-up. The list below is the full set that goes eventually, not the set this PR deletes.
+
 ## What goes
 
 Circle:

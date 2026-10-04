@@ -103,7 +103,7 @@ def test_an_unreadable_store_is_not_an_empty_one(tmp_path):
     _store_path().write_text("{not json", encoding="utf-8")
     with pytest.raises(ValueError):
         recent_rooms()
-    assert "could not be read" in _his_room_owed_line()
+    assert _his_room_owed_line() == ""
     t = _write(tmp_path / "t.jsonl", [_user("proceed", **HUMAN), _me(ROOM)])
     assert run_audit(t, write=True)["his_room_block"] is None
     assert recent_rooms() == [room_of(ROOM)]
@@ -320,9 +320,9 @@ def test_the_stop_hook_no_longer_holds_for_the_room():
     assert "'his_room_block'," not in hook.read_text(encoding="utf-8")
 
 
-def test_the_owed_line_is_on_the_door_before_I_write():
+def test_the_owed_line_no_longer_prints():
+    """Silenced with the room, 2026-10-03, at Andrew's word."""
     from divineos.core.lepos_walk import _his_room_owed_line
 
-    assert "HIS ROOM IS OWED" in _his_room_owed_line()
     remember_room("You asked for the chair and here it is.")
-    assert "You asked for the chair" in _his_room_owed_line()
+    assert _his_room_owed_line() == ""
