@@ -63,6 +63,17 @@ It never enables auto-merge. The command does the merge itself, once, after the 
 - `kept_both_sides.py` flags generated files after regeneration, so it should skip or recompute generated registers.
 - The build-flow gate treats `--help` and `git log` as edits.
 
+## The command, first cut (2026-10-03): the checks, then the button
+
+Aletheia (2026-10-03) holds her signature until the head carries `divineos ship`. The first cut of the command is the half-automation Dad set out for merges: the machine does every step it can check and hands me one labelled button, and the press stays mine. So `divineos ship <pr>` runs these read-only, one line per step, and stops at the first one that fails:
+
+1. **Read the PR**: open, not a draft, its head.
+2. **Her confirm at this exact head**, through `confirm_in`, proven by her signed line in her own letter, with a withdrawal winning.
+3. **Dad's confirm in the same round**: a user CONFIRMS for this PR at this head. `ship` never writes one.
+4. **The required checks**: every check on the head has passed or was skipped.
+
+If all four pass, it prints the merge command with the External-Review trailer written literally, ready to run. It doesn't run it, and it never turns on auto-merge. A head that moved since her confirm stops at step 2 in this cut. The floor-only path (`floor_proven`) and the catch-up are the next slice.
+
 ## Order
 
 Draft → council walk → Aria → build → tests (including a dry run against a real confirmed PR) → Aletheia → Dad.
