@@ -72,10 +72,12 @@ def checks_step(facts: dict) -> Step:
         return Step("checks", False, "no checks have reported on this head yet")
     waiting: list[str] = []
     failed: list[str] = []
+    succeeded = 0
     for c in rollup:
         name = c.get("name") or c.get("context") or "?"
         state = (c.get("conclusion") or c.get("state") or "").upper()
         if state in _PASSING:
+            succeeded += state == "SUCCESS"
             continue
         (
             waiting if state in ("", "PENDING", "QUEUED", "IN_PROGRESS", "EXPECTED") else failed
@@ -84,10 +86,23 @@ def checks_step(facts: dict) -> Step:
         return Step("checks", False, "failed: " + ", ".join(sorted(failed)))
     if waiting:
         return Step("checks", False, "still running: " + ", ".join(sorted(waiting)))
-    return Step("checks", True, f"all {len(rollup)} checks passed or were skipped")
+    # Skipped is not evidence the suite ran (Aria's cold read, 2026-10-03).
+    if not succeeded:
+        return Step("checks", False, f"no check concluded SUCCESS: all {len(rollup)} were skipped")
+    return Step(
+        "checks", True, f"{succeeded} passed, {len(rollup) - succeeded} skipped, none failed"
+    )
+
+
+# The house's own form: watchmen/store.py, round- plus twelve hex of a uuid4.
+_ROUND_ID = re.compile(r"round-[0-9a-f]{12}")
 
 
 def button(pr: int, round_id: str) -> str:
+    """The merge line to paste. The id is checked first, because the line acts
+    in whoever pastes it (Aria's cold read, 2026-10-03)."""
+    if not _ROUND_ID.fullmatch(round_id):
+        raise ValueError(f"round id {round_id!r} is not in the house's form; nothing printed")
     return f'gh pr merge {pr} --squash --body "External-Review: {round_id}"'
 
 

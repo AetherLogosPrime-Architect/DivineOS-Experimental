@@ -41,15 +41,15 @@ def _letters(tmp_path: Path, text: str = SIGNED) -> Path:
 
 def _findings():
     return [
-        F("round-1", "aletheia", "CONFIRMS: #77 at abc1234.", "aletheia-to-aether-x.md"),
-        F("round-1", "user", "CONFIRMS: #77 at abc1234."),
+        F("round-0123456789ab", "aletheia", "CONFIRMS: #77 at abc1234.", "aletheia-to-aether-x.md"),
+        F("round-0123456789ab", "user", "CONFIRMS: #77 at abc1234."),
     ]
 
 
 def test_every_step_passing_prints_the_button_and_never_runs_it(tmp_path):
     steps, merge = run_steps(77, _facts(), _findings(), _letters(tmp_path))
     assert [s.ok for s in steps] == [True, True, True, True]
-    assert merge == 'gh pr merge 77 --squash --body "External-Review: round-1"'
+    assert merge == 'gh pr merge 77 --squash --body "External-Review: round-0123456789ab"'
 
 
 def test_a_draft_stops_at_the_first_step(tmp_path):
@@ -72,7 +72,10 @@ def test_no_confirm_of_his_stops_and_ship_writes_none(tmp_path):
 
 def test_his_confirm_in_another_round_does_not_count():
     step = user_confirm_step(
-        [F("round-2", "user", "CONFIRMS: #77 at abc1234.")], "round-1", 77, HEAD
+        [F("round-ba9876543210", "user", "CONFIRMS: #77 at abc1234.")],
+        "round-0123456789ab",
+        77,
+        HEAD,
     )
     assert not step.ok
 
@@ -83,6 +86,44 @@ def test_a_failed_or_running_check_stops_before_the_button(tmp_path):
     assert merge is None and "failed: test" in steps[-1].reason
     assert "still running" in checks_step(_facts(checks=[{"name": "t", "state": "PENDING"}])).reason
     assert not checks_step(_facts(checks=[])).ok
+
+
+def test_every_check_skipped_is_no_evidence_the_checks_ran(tmp_path):
+    """Aria's cold read, 2026-10-03: all SKIPPED read as green."""
+    skipped = _facts(
+        checks=[
+            {"name": "test", "conclusion": "SKIPPED"},
+            {"name": "lint", "conclusion": "SKIPPED"},
+        ]
+    )
+    steps, merge = run_steps(77, skipped, _findings(), _letters(tmp_path))
+    assert merge is None
+    assert "no check concluded SUCCESS" in steps[-1].reason
+
+
+def test_one_success_among_skips_still_passes():
+    assert checks_step(_facts()).ok
+
+
+def test_a_round_id_not_in_the_houses_shape_is_never_printed():
+    """Aria's cold read: the id went into a pasteable shell line unescaped."""
+    import pytest as _pytest
+
+    from divineos.cli.ship_command import button
+
+    assert (
+        button(5, "round-0123456789ab")
+        == 'gh pr merge 5 --squash --body "External-Review: round-0123456789ab"'
+    )
+    for bad in (
+        "round-x$(touch pwned)",
+        "round-0123456789a",
+        "round-0123456789abc",
+        "round-0123456789AB",
+        "round-0123456789ab ",
+    ):
+        with _pytest.raises(ValueError):
+            button(5, bad)
 
 
 def test_the_command_is_registered_and_refuses_with_its_steps(tmp_path, monkeypatch):
