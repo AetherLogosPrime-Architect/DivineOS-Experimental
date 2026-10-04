@@ -144,7 +144,9 @@ def _spent_pairs(
 
 
 def _fold(text: str) -> str:
-    return " ".join(str(text).split())
+    # Case too (Aria's cold read, 2026-10-03): capitalising one word was a copy
+    # that passed. Both doors fold through this one function.
+    return " ".join(str(text).split()).lower()
 
 
 def copied_from(record: CouncilRecord, limit: int = 2000) -> str | None:

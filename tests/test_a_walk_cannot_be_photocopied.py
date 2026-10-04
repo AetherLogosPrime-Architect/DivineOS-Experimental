@@ -101,3 +101,33 @@ def test_council_walk_refuses_a_reflection_already_applied_for_that_lens():
     )
     assert result.exit_code == 1
     assert "copy of one already applied for edit:a.py" in result.output
+
+
+def test_a_copy_differing_only_in_case_is_a_copy():
+    """Aria's cold read, 2026-10-03: capitalising one word got past the fold."""
+    store.log_council_record(_record("edit:a.py", TEXT_A))
+    assert store.copied_from(_record("edit:b.py", TEXT_A.upper())) is not None
+
+
+def test_one_lens_reflection_filed_under_another_lens_is_a_copy():
+    """Aria's cold read, 2026-10-03: Breaker's reflection pasted in as Carmack's passed."""
+    from divineos.core.council_required.types import EVENT_COUNCIL_LENS_APPLIED
+    from divineos.core.ledger import log_event
+
+    log_event(
+        EVENT_COUNCIL_LENS_APPLIED,
+        actor="agent",
+        payload={
+            "expert_name": "breaker",
+            "edit_fingerprint": "edit:a.py",
+            "reflection_prefix": TEXT_A[:400],
+        },
+        validate=False,
+    )
+    result = CliRunner().invoke(
+        cli,
+        ["council", "walk", "--edit", "edit:b.py", "--lens", "Holmes", "--problem", "p"],
+        input=TEXT_A.lower(),
+    )
+    assert result.exit_code == 1
+    assert "copy of one already applied" in result.output

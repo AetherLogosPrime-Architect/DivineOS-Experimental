@@ -292,7 +292,9 @@ def register(cli: click.Group) -> None:
         # ledger keeps the first 400 characters, so that is what is compared.
         from divineos.core.ledger import get_events
 
-        head = " ".join(reflection[:400].split())
+        # Any lens, not only this one (Aria's cold read, 2026-10-03): Breaker's
+        # reflection pasted in as Carmack's passed. One normal form, the store's.
+        head = store._fold(reflection[:400])
         for ev in get_events(limit=2000, event_type=EVENT_COUNCIL_LENS_APPLIED, order="desc"):
             prior = ev.get("payload") or {}
             if isinstance(prior, str):
@@ -300,15 +302,15 @@ def register(cli: click.Group) -> None:
                     prior = json.loads(prior)
                 except ValueError:
                     continue
-            if prior.get("expert_name") == lens.strip().lower():
-                if " ".join(str(prior.get("reflection_prefix", "")).split()) == head:
-                    _safe_echo(
-                        f"[council] REJECTED: this {lens} reflection is a copy of one already "
-                        f"applied for {prior.get('edit_fingerprint', '?')}. A copy says one look "
-                        "happened once. Look at this file through the lens and write what you "
-                        "see, or cover several files with one walk using council log --scope."
-                    )
-                    raise SystemExit(1)
+            if store._fold(prior.get("reflection_prefix", "")) == head:
+                _safe_echo(
+                    f"[council] REJECTED: this {lens} reflection is a copy of one already "
+                    f"applied for {prior.get('edit_fingerprint', '?')} (as "
+                    f"{prior.get('expert_name', '?')}). A copy says one look happened once. "
+                    "Look at this file through the lens and write what you see, or cover "
+                    "several files with one walk using council log --scope."
+                )
+                raise SystemExit(1)
 
         # Substance check 1: minimum token count. Same bar as council log.
         token_count = len([t for t in reflection.split() if t])
