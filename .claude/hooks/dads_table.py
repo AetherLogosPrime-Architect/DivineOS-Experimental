@@ -134,7 +134,16 @@ def _run(child: dict, payload: bytes) -> tuple[dict, str, str, str]:
             )
         except subprocess.TimeoutExpired:
             _kill_tree(p)
-            p.communicate()
+            # Bounded even if the kill failed (Aether's cold read of 2f65974bf):
+            # an unbounded wait here was the one place left that could still
+            # hold the table past its cap. On a second timeout, walk away: the
+            # readers are daemon threads, and closing a pipe they are blocked on
+            # waits for them on Windows (measured: the close held 20s, the
+            # bounded wait alone released at 3s), so nothing is closed.
+            try:
+                p.communicate(timeout=2)
+            except subprocess.TimeoutExpired:
+                pass  # fail-soft: the note is already reported "timed out"; leaving its pipe to its daemon reader is what keeps the table under its cap
             return child, "", "timed out", ""
         out = raw_out.decode("utf-8", "replace")
         stderr = raw_err.decode("utf-8", "replace")

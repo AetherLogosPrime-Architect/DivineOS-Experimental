@@ -268,6 +268,25 @@ def test_a_hung_note_is_still_cut_at_the_deadline_and_named(tmp_path):
     assert "Could not run" in out and "timed out" in out
 
 
+def test_a_failed_kill_still_cannot_hold_the_table(monkeypatch):
+    # Aether's cold read of 2f65974bf: after the kill, an unbounded wait was the
+    # one place left that could hold the table past its cap. The kill is made to
+    # fail on purpose here, the control for the bound actually mattering.
+    import importlib.util
+    import time
+
+    spec = importlib.util.spec_from_file_location("dads_table_kill", SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    monkeypatch.setattr(mod, "_kill_tree", lambda p: None)
+    monkeypatch.setattr(mod, "TABLE_BUDGET", 1.0)
+    monkeypatch.setattr(mod, "_STARTED", time.monotonic())
+    started = time.monotonic()
+    _, _, problem, _ = mod._run(_sleeper(20), b"{}")
+    assert problem == "timed out"
+    assert time.monotonic() - started < 10, "a failed kill held the table anyway"
+
+
 def test_a_bad_budget_never_costs_him_the_table(tmp_path):
     # Read before his words print, so a broken value must fall back, not raise.
     out, _ = _run_with_budget(tmp_path, [_echo("fine")], "not a number")
