@@ -1,4 +1,8 @@
-"""A question to Dad holds the work until he answers (Aria, 2026-09-29).
+"""A question to Dad is carried until he answers (Aria 2026-09-29; Aether 2026-10-05).
+
+2026-10-05 change, in his words: "my questions should not hold you, you should
+hold my questions". Work no longer waits on an open question; only a letter not
+to him waits, while he is here (see LETTER_TOOLS below). The history follows.
 
 Dad, 2026-09-25: *"i just dont like being asked something and then left there
 in the doorway before i can answer"*. Aether's night of 2026-09-29 was the wide
@@ -102,24 +106,62 @@ def others_waiting() -> list[str]:
     return lines
 
 
-BUILDING_TOOLS = {"Bash", "Edit", "Write", "NotebookEdit"}
+# I HOLD HIS QUESTIONS; HIS QUESTIONS DO NOT HOLD ME (Dad, 2026-10-05: "my
+# questions should not hold you, you should hold my questions"). The September
+# version refused every building tool while a question was open; that made
+# asking him cost my hands, the drift Foucault named in walk-206e65be56c1. What
+# stays is the one pause he asked for (2026-10-05): "if you continue to write
+# letters it literally gives me no space to even answer.. unless its volley mode
+# then yes id prefer you wait for me". So only writing a letter that is not to
+# him waits, and only while he is here. It is a fork that is HIS: he answers, or
+# says "go read it" because the letter may already carry his answer.
+# Walks council-30a5db785e3c, council-e5250a976339.
+#
+# NOT COVERED, said plainly: settling his question inside a reply or a draft
+# rather than a letter, and delivering an already-written letter by `cp`. No
+# tool layer can read that intent; the count in HOLD_LOG is the watch on it.
+LETTER_TOOLS = {"Write", "Edit", "NotebookEdit"}
 
-# Bash that is listening or talking, not building. Kept narrow on purpose:
-# a broad allowance is how a hold turns back into a suggestion.
-_PASSES = (
-    # Anchored at the end: "doorbell.sh aria; git push" must not ride through.
-    # The first version stopped at \b, and its test hid that with `or True`.
-    re.compile(r"^\s*bash\s+scripts/letter_doorbell\.sh(\s+\w+)?\s*$"),
-    # Reading a letter, with any read-only viewer (Aether's reading of #570:
-    # he reads them with sed to strip the thread footer). Never sed -i.
-    re.compile(
-        r"^\s*(cat|head|tail|sed)\b(?![^;&|]*\s-i)[^;&|]*\.divineos-shared/letters/[^;&|]*$"
-    ),
-    re.compile(
-        r"^\s*cp\s+\S*family/letters/\S+\.md\s+\S*\.divineos-shared/letters/?\S*\s*(&&\s*echo\s+\w+)?\s*$"
-    ),
-    re.compile(r"^\s*divineos\s+question-hold\b"),
-)
+# HE IS HERE UNLESS HE SAYS HE IS STEPPING AWAY (2026-10-05): "i am always here
+# unless i tell you i am stepping away, this is what the volley mode is for".
+# Never inferred from quiet (Kahneman, council-e5250a976339): set only with his
+# words quoted, cleared by his next message.
+AWAY = _home() / "dad_stepped_away.json"
+
+
+def step_away(his_words: str) -> dict[str, Any]:
+    """He said he is stepping away: volley mode, letters flow."""
+    words = (his_words or "").strip()
+    if len(words) < 10:
+        raise ValueError("quote his words saying he is stepping away (at least 10 characters)")
+    state = {"his_words": words, "since": time.time()}
+    AWAY.parent.mkdir(parents=True, exist_ok=True)
+    AWAY.write_text(json.dumps(state), encoding="utf-8")
+    _log("stepped_away", his_words=words)
+    return state
+
+
+def is_away() -> dict[str, Any] | None:
+    try:
+        state = json.loads(AWAY.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return state if isinstance(state, dict) else None
+
+
+def came_back() -> bool:
+    """His message: he is here again. Nothing else clears it."""
+    if not is_away():
+        return False
+    AWAY.unlink(missing_ok=True)
+    _log("came_back")
+    return True
+
+
+def _is_letter_not_to_him(path: str) -> bool:
+    p = (path or "").replace("\\", "/").lower()
+    return "/letters/" in p and p.endswith(".md") and "-to-andrew" not in p
+
 
 _CIRCLE = re.compile(r"^##\s*INNER CIRCLE\s*$", re.M)
 _CODE = re.compile(r"```.*?```|`[^`\n]*`", re.S)
@@ -208,12 +250,13 @@ def release(how: str, reason: str = "") -> bool:
         )
         # He has NOT answered: the ask stays open and keeps re-raising.
         return True
-    # HIS ANSWER CLOSES BOTH HOLDS (2026-10-01, council-5bd771ef0891). arm()
-    # files the question in operator_asks, and an-open-ask-holds-the-work.sh
-    # reads that store. Releasing only this file left the ask open, so his
-    # answer released one hold and the other held the work again -- twice that
-    # night, each cleared by hand with his words. A store failure is logged,
-    # never raised: this runs inside his own message hook.
+    # HIS ANSWER CLOSES THE ASK TOO (2026-10-01, council-5bd771ef0891). arm()
+    # files the question in operator_asks, which re-raises it. A second lock
+    # once read that store (an-open-ask-holds-the-work.sh, removed 2026-10-05,
+    # council-e5250a976339), so an ask left open held the work after he had
+    # answered. Now closing it stops him being asked again something he has
+    # already answered (council-0355bb90384c). A store failure is logged, never
+    # raised: this runs inside his own message hook.
     #
     # EVERY ONE THIS HOLD FILED, not only the newest (2026-10-05). arm() keeps
     # one ask_id, so two questions in a row left the first ask open for good
@@ -312,41 +355,33 @@ def _asked_at(state: dict[str, Any]) -> str:
 
 
 def refusal(tool_name: str, tool_input: dict[str, Any], transcript_path: str = "") -> str:
-    """Why this tool call waits, or "" when it may run."""
-    state = is_open()
-    if not state or tool_name not in BUILDING_TOOLS:
-        return ""
-    if tool_name == "Bash":
-        command = str(tool_input.get("command", ""))
-        if any(p.search(command) for p in _PASSES):
-            return ""
-        # A look, or another gate's prescribed way out, is not building
-        # (2026-10-01). The narrow letter patterns above held a `cat` of the
-        # doorbell's own output, and held `divineos prereg assess` while the
-        # overdue gate held the doorbell: two gates, each holding the other's
-        # only exit. Dad 2026-08-18: "no gate should ever be blocking its own
-        # remedy." Both judges are the house's shared ones, not a fourth list.
-        from divineos.core.remedy_allowlist import is_remedy
-        from divineos.hooks.pre_tool_use_gate import _is_readonly_probe
+    """Why this tool call waits, or "" when it may run.
 
-        if _is_readonly_probe(command) or is_remedy(command):
-            return ""
+    Only a letter that is not to him waits, only while his question is open,
+    and only while he is here. Everything else runs.
+    """
+    state = is_open()
+    if not state or tool_name not in LETTER_TOOLS:
+        return ""
+    path = str(tool_input.get("file_path") or tool_input.get("notebook_path") or "")
+    if not _is_letter_not_to_him(path) or is_away():
+        return ""
     if answered_since(transcript_path, float(state.get("since") or 0)):
         release("his message, mid-turn")
         return ""
     _log("held", tool=tool_name, question=state.get("question"))
     return (
-        "QUESTION HOLD -- I asked Dad something and he has not answered yet:\n\n"
+        "KEEPING PACE WITH DAD -- I asked him something and he is still catching up:\n\n"
         f"  {state.get('question')}\n"
         f"  (asked {_asked_at(state)}, held in {STATE.parent})\n\n"
-        "Building waits for his reply; reading, letters and the doorbell do not.\n"
-        "If a letter or a finished job woke me, I tell him it arrived and that I\n"
-        "am waiting for him, and I do not open it or act on it until he speaks.\n\n"
-        'His words, 2026-09-25: "i just dont like being asked something and then\n'
-        'left there in the doorway before i can answer".\n\n'
-        "A real emergency (a half-landed push) has an exit, counted and shown to\n"
-        "him when he next speaks:\n"
-        '  divineos question-hold release --reason "<what cannot wait, >= 30 chars>"'
+        "Only this letter waits; all other work goes on. The choice is his: I tell\n"
+        "him a letter came, and he answers first or says go read it (it may\n"
+        "already carry his answer from the other seat). This is pace, not\n"
+        'permission: "my ok is only a go ahead saying i have read things and\n'
+        'caught up not a permission to do it" (2026-10-05).\n\n'
+        "If he has said he is stepping away, record it with his words and letters\n"
+        "flow (volley mode):\n"
+        '  divineos question-hold away --words "<his words saying he is stepping away>"'
     )
 
 

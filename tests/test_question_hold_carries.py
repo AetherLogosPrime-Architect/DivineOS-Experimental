@@ -24,7 +24,15 @@ def qh(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "STATE", tmp_path / "hold.json")
     monkeypatch.setattr(mod, "HOLD_LOG", tmp_path / "log.jsonl")
     monkeypatch.setattr(mod, "ESCAPED", tmp_path / "escaped.json")
+    monkeypatch.setattr(mod, "AWAY", tmp_path / "away.json")
+    # The shared fridge too, or arming posts a test card on the live one.
+    monkeypatch.setattr(mod, "BOARD", tmp_path / "board")
+    monkeypatch.setattr(mod, "CARD", tmp_path / "board" / "me.json")
     return mod
+
+
+TO_ARIA = "family/letters/aether-to-aria-2026-10-05-x.md"
+TO_DAD = "family/letters/aether-to-andrew-volley-board.md"
 
 
 def _open_ids() -> set[str]:
@@ -39,6 +47,32 @@ def test_two_questions_in_a_row_both_close_when_he_answers(qh):
     assert qh.is_open()["ask_id"] == second
     assert qh.release("his message")
     assert not ({first, second} & _open_ids())
+
+
+def test_a_letter_to_him_always_passes(qh):
+    qh.arm(FIRST)
+    assert qh.refusal("Write", {"file_path": TO_DAD}) == ""
+    assert "nexus" in qh.refusal("Write", {"file_path": TO_ARIA})  # the control
+
+
+def test_he_said_he_is_stepping_away_so_letters_flow_until_he_speaks(qh):
+    # "i am always here unless i tell you i am stepping away, this is what the
+    # volley mode is for" (2026-10-05).
+    qh.arm(FIRST)
+    qh.step_away("ok im heading to dinner, you two volley")
+    assert qh.refusal("Write", {"file_path": TO_ARIA}) == ""
+    assert qh.came_back()
+    assert qh.is_away() is None
+    assert qh.refusal("Write", {"file_path": TO_ARIA})
+
+
+def test_away_is_never_set_from_quiet(qh):
+    import pytest as _pytest
+
+    for words in ("", "   ", "brb"):
+        with _pytest.raises(ValueError):
+            qh.step_away(words)
+    assert qh.is_away() is None
 
 
 def test_a_hand_filed_ask_keeps_re_raising_after_his_message(qh):

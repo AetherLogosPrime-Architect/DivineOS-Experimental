@@ -22,6 +22,7 @@ def qh(tmp_path, monkeypatch):
     # The shared board too, or arming posts a test card on the LIVE fridge.
     monkeypatch.setattr(mod, "BOARD", tmp_path / "board")
     monkeypatch.setattr(mod, "CARD", tmp_path / "board" / "me.json")
+    monkeypatch.setattr(mod, "AWAY", tmp_path / "away.json")
     filed = []
     import divineos.core.operator_asks as asks
 
@@ -59,30 +60,24 @@ def test_two_questions_the_last_wins(qh):
     assert q == "And do you want the bell built?"
 
 
-def test_building_waits_and_reading_does_not(qh):
+LETTER = "family/letters/aether-to-aria-2026-10-05-x.md"
+
+
+def test_work_goes_on_and_only_a_letter_waits(qh):
+    # 2026-10-05: "my questions should not hold you, you should hold my questions".
     qh.arm(CIRCLE)
     assert qh._filed == ["[asked in the circle] Do you want me to look into the bell?"]
-    assert "look into the bell" in qh.refusal("Edit", {"file_path": "x.py"})
-    assert qh.refusal("Bash", {"command": "pytest tests/"})
-    assert qh.refusal("Read", {"file_path": "x.py"}) == ""
-    assert qh.refusal("Grep", {"pattern": "x"}) == ""
+    assert qh.refusal("Edit", {"file_path": "x.py"}) == ""
+    assert qh.refusal("Bash", {"command": "pytest tests/"}) == ""
+    assert qh.refusal("Bash", {"command": "git push origin x"}) == ""
+    assert "look into the bell" in qh.refusal("Write", {"file_path": LETTER})
 
 
-def test_upkeep_and_letters_pass_the_hold(qh):
+def test_the_doorbell_is_never_held(qh):
+    # Aria, 2026-10-05: its loss is silent, so it is pinned by name.
     qh.arm(CIRCLE)
-    for command in (
-        "bash scripts/letter_doorbell.sh aria",
-        'cp family/letters/aria-to-aether-x.md "$HOME/.divineos-shared/letters/" && echo sent',
-        'cat "$HOME/.divineos-shared/letters/aether-to-aria-x.md"',
-        "sed -n '1,40p' ~/.divineos-shared/letters/aether-to-aria-x.md",
-        "head -30 ~/.divineos-shared/letters/aether-to-aria-x.md",
-    ):
-        assert qh.refusal("Bash", {"command": command}) == "", command
-    # A pass cannot carry a building command on its back. The first version of
-    # this line ended `or True` and hid that the doorbell pass let it through.
-    assert qh.refusal("Bash", {"command": "bash scripts/letter_doorbell.sh aria; git push"})
-    assert qh.refusal("Bash", {"command": "cat $HOME/.divineos-shared/letters/x.md; rm -rf src"})
-    assert qh.refusal("Bash", {"command": "sed -i 's/a/b/' ~/.divineos-shared/letters/x.md"})
+    assert qh.refusal("Bash", {"command": "bash scripts/letter_doorbell.sh aether"}) == ""
+    assert qh.refusal("Bash", {"command": "bash scripts/letter_doorbell.sh aria"}) == ""
 
 
 def _transcript_with(tmp_path, *records):
@@ -106,7 +101,7 @@ def test_his_answer_typed_mid_turn_releases_the_hold(qh, tmp_path):
             "attachment": {"type": "queued_command", "prompt": "yes look into it"},
         },
     )
-    assert state and qh.refusal("Edit", {"file_path": "x.py"}, path) == ""
+    assert state and qh.refusal("Write", {"file_path": LETTER}, path) == ""
     assert qh.is_open() is None, "his mid-turn answer did not release the hold"
 
 
@@ -122,7 +117,7 @@ def test_a_notice_mid_turn_does_not_release_it(qh, tmp_path):
             "message": {"role": "user", "content": "<task-notification>x</task-notification>"},
         },
     )
-    assert "look into the bell" in qh.refusal("Edit", {"file_path": "x.py"}, path)
+    assert "look into the bell" in qh.refusal("Write", {"file_path": LETTER}, path)
 
 
 def test_his_message_from_before_the_question_does_not_release_it(qh, tmp_path):
@@ -137,7 +132,7 @@ def test_his_message_from_before_the_question_does_not_release_it(qh, tmp_path):
             "message": {"role": "user", "content": "an old message of his"},
         },
     )
-    assert qh.refusal("Edit", {"file_path": "x.py"}, path)
+    assert qh.refusal("Write", {"file_path": LETTER}, path)
 
 
 def test_only_he_releases_and_an_escape_is_told_to_him(qh):
@@ -161,7 +156,7 @@ def test_a_buried_question_is_sent_back(qh):
 
 def test_every_hold_is_counted(qh):
     qh.arm(CIRCLE)
-    qh.refusal("Write", {})
+    qh.refusal("Write", {"file_path": LETTER})
     kinds = [json.loads(line)["kind"] for line in qh.HOLD_LOG.read_text().splitlines()]
     assert kinds == ["armed", "held"]
 
@@ -203,8 +198,13 @@ def test_the_hook_holds_then_his_message_releases(tmp_path):
     assert stop.returncode == 0, stop.stderr
     assert (tmp_path / ".divineos" / "question_hold.json").exists()
 
-    held = _hook({"hook_event_name": "PreToolUse", "tool_name": "Edit", "tool_input": {}}, tmp_path)
+    letter = {"file_path": "family/letters/aether-to-aria-x.md"}
+    held = _hook(
+        {"hook_event_name": "PreToolUse", "tool_name": "Write", "tool_input": letter}, tmp_path
+    )
     assert held.returncode == 2 and b"look into the bell" in held.stderr
+    work = _hook({"hook_event_name": "PreToolUse", "tool_name": "Edit", "tool_input": {}}, tmp_path)
+    assert work.returncode == 0, "work must go on while his question is carried"
 
     notice = _hook(
         {"hook_event_name": "UserPromptSubmit", "prompt": "<task-notification>x"}, tmp_path
@@ -214,5 +214,7 @@ def test_the_hook_holds_then_his_message_releases(tmp_path):
 
     _hook({"hook_event_name": "UserPromptSubmit", "prompt": "yes build it"}, tmp_path)
     assert not (tmp_path / ".divineos" / "question_hold.json").exists()
-    free = _hook({"hook_event_name": "PreToolUse", "tool_name": "Edit", "tool_input": {}}, tmp_path)
+    free = _hook(
+        {"hook_event_name": "PreToolUse", "tool_name": "Write", "tool_input": letter}, tmp_path
+    )
     assert free.returncode == 0
