@@ -53,6 +53,24 @@ def test_the_reply_side_door_stays_plugged_in():
     assert (ROOT / ".claude" / "hooks" / "his-words-stop.sh").exists()
 
 
+def test_the_hold_names_its_way_out():
+    """The one block this hook can make must say how to clear it, and the wording
+    is what the remedy meta-test leans on when it declares the wrapper non-gating.
+    Read the real function, with a real passage, so a rewording that drops the
+    exit fails here rather than silently stranding me at a hold."""
+    from divineos.core.his_words_door import Hit, Passage, hold_reason
+
+    passage = Passage(
+        text="check what is eating up all the memory",
+        day="2026-10-05",
+        ts="2026-10-05T12:00:00Z",
+    )
+    text = hold_reason(Hit(passage=passage, score=0.7))
+    assert "check what is eating up all the memory" in text  # control: the fixture reached the text
+    assert "Quote him, then say what you have to say about it" in text
+    assert "Append only that; do not re-post the reply" in text
+
+
 def test_a_hold_already_in_progress_is_never_held_again(tmp_path):
     out = _run_hook({"stop_hook_active": True, "transcript_path": "unused"}, tmp_path / "m.txt")
     assert out.returncode == 0
