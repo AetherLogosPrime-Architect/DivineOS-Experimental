@@ -182,6 +182,7 @@ class TestEmbeddedAuditBody:
         class _F:
             actor: str = "user"
             review_stance: object = None
+            title: str = "CONFIRMS: #99 at abc."
 
         fake_tree = "f" * 40
         import time as _t
@@ -200,14 +201,14 @@ class TestEmbeddedAuditBody:
                 "divineos.core.watchmen.store.list_findings",
                 return_value=[_F(actor="user"), _F(actor="aletheia")],
             ),
-            patch.object(pr_merge_gate, "_current_head_tree_hash", return_value=fake_tree),
+            patch.object(pr_merge_gate, "_pr_head_tree_hash", return_value=fake_tree),
         ):
             reason = pr_merge_gate.block_reason("gh pr merge 99 --squash")
             assert reason is not None
             assert f"External-Review: round-abc123 tree-hash:{fake_tree}" in reason
 
     def test_emitted_body_falls_back_to_legacy_when_git_unreachable(self) -> None:
-        """If _current_head_tree_hash returns empty (git unavailable), the
+        """If _pr_head_tree_hash returns empty (GitHub unreachable), the
         emitted trailer drops to legacy form."""
         from dataclasses import dataclass
 
@@ -221,6 +222,7 @@ class TestEmbeddedAuditBody:
         class _F:
             actor: str = "user"
             review_stance: object = None
+            title: str = "CONFIRMS: #99 at abc."
 
         import time as _t
 
@@ -238,7 +240,7 @@ class TestEmbeddedAuditBody:
                 "divineos.core.watchmen.store.list_findings",
                 return_value=[_F(actor="user"), _F(actor="aletheia")],
             ),
-            patch.object(pr_merge_gate, "_current_head_tree_hash", return_value=""),
+            patch.object(pr_merge_gate, "_pr_head_tree_hash", return_value=""),
         ):
             reason = pr_merge_gate.block_reason("gh pr merge 99 --squash")
             assert reason is not None

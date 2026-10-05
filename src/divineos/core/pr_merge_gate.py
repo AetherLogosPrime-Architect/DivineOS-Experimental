@@ -66,26 +66,38 @@ _GUARDRAIL_LIST_PATH = (
 )
 
 
-def _current_head_tree_hash() -> str:
-    """Return the tree-hash of the current git HEAD, or "" on any failure.
+def _pr_head_tree_hash(pr_number: int) -> str:
+    """The tree of THIS PR's head commit, as GitHub holds it, or "".
 
-    Used to construct substance-bound External-Review trailers (Phase 2,
-    2026-06-13). When this returns a hash, the emitted trailer is
-    `External-Review: <round-id> tree-hash:<40-hex>` and the server-side
-    CI gate verifies the binding. When this returns empty (git unreachable,
-    not a repo, timeout), the trailer falls back to legacy form and
-    the gate emits a deprecation warning.
+    The trailer it feeds is `External-Review: <round-id> tree-hash:<40-hex>`,
+    which the server-side CI gate verifies (Phase 2, 2026-06-13); without a
+    hash the trailer falls back to the legacy form.
+
+    2026-10-04: the suggested trailer took its tree from the local checkout's
+    HEAD, whatever branch the guard happened to run in, so #588's suggestion
+    carried the live house's tree. The PR's own head is the state the merge
+    will land. When GitHub cannot be asked, the hash is omitted rather than
+    taken from the wrong place.
     """
     try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD^{tree}"],
+        sha = subprocess.run(
+            ["gh", "pr", "view", str(pr_number), "--json", "headRefOid", "--jq", ".headRefOid"],
             capture_output=True,
             text=True,
             check=True,
-            timeout=5,
-        )
-        return result.stdout.strip()
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+            timeout=20,
+        ).stdout.strip()
+        if not re.fullmatch(r"[0-9a-f]{40}", sha):
+            return ""
+        tree = subprocess.run(
+            ["gh", "api", f"repos/{{owner}}/{{repo}}/commits/{sha}", "--jq", ".commit.tree.sha"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=20,
+        ).stdout.strip()
+        return tree if re.fullmatch(r"[0-9a-f]{40}", tree) else ""
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError, OSError):
         return ""
 
 
@@ -270,9 +282,20 @@ def _find_usable_audit_round(pr_number: int, recency_days: int = 14) -> tuple[st
             val = getattr(stance, "value", stance)
             return str(val).upper() == "CONFIRMS"
 
-        confirming = [f for f in findings if _is_confirm(f)]
+        # 2026-10-04: only confirms that name THIS PR count. Before, any round
+        # with both confirms qualified, so merging #588 offered #582's round,
+        # and pasting it would have said on main that a review covered a
+        # change it never saw (Aletheia's most serious finding, three times).
+        names_this_pr = re.compile(rf"CONFIRMS:\s*#{pr_number}\b", re.IGNORECASE)
+        confirming = [
+            f
+            for f in findings
+            if _is_confirm(f) and names_this_pr.search(str(getattr(f, "title", "") or ""))
+        ]
         user_confirms = [f for f in confirming if _actor_of(f) == "user"]
         ai_confirms = [f for f in confirming if _actor_of(f) in _EXTERNAL_AI_ACTORS]
+        if not confirming:
+            continue
 
         created_at = getattr(rnd, "created_at", None) or getattr(rnd, "timestamp", None) or 0
         if isinstance(created_at, str):
@@ -313,7 +336,7 @@ def _find_usable_audit_round(pr_number: int, recency_days: int = 14) -> tuple[st
         # Phase 2 (2026-06-13): include tree-hash from HEAD so the
         # server-side CI gate can verify substance-binding. Falls back
         # to legacy form if git is unreachable.
-        tree_hash = _current_head_tree_hash()
+        tree_hash = _pr_head_tree_hash(pr_number)
         trailer = (
             f"External-Review: {round_id} tree-hash:{tree_hash}"
             if tree_hash
