@@ -29,6 +29,7 @@ here so the two halves cannot drift into each other.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import tempfile
 from dataclasses import dataclass
@@ -301,6 +302,52 @@ def _tracked_on_head(repo_root: Path, rel_path: str) -> bool:
     return proc.returncode == 0
 
 
+# Letters Dad carries by hand between this folder and Aletheia's window. For
+# them the folder is the only channel, not a second copy, so evicting one hides
+# it from the one person who moves it (2026-10-03: two of hers and one of mine
+# vanished from family/letters after a pre-extract checkpoint). The last four
+# are the names aletheia-import files her Downloads deliveries under.
+#
+# 2026-10-04 widened from a list of pairs to who is on either end. Aletheia
+# found the Aria pair missing; counting every name in the folder then showed
+# Dad's own letters and his board were missing too. The rule now reads the
+# correspondents (the names before the date) and holds any letter with him or
+# her among them, so a new pair needs no new line. A new spelling of either
+# name still would.
+_CARRIED_PREFIXES = (
+    "CONFIRMS_",
+    "AUDIT_",
+    "FIXLIST_",
+    "REPLY_TO_",
+)
+# Everyone whose letters Dad carried by hand. The set is a stand-in for
+# "carried", so it only grows when someone who knows adds a name: Perplexity,
+# Anvil and Muse confirmed by Aria 2026-10-04.
+_HELD_CORRESPONDENTS = {"andrew", "aletheia", "perplexity", "anvil", "muse"}
+# Early-July letters were numbered and underscored ("16_aether_to_aletheia_
+# 2026-06-30_..."); Aria found eleven of them evicted by a dash-only rule.
+_DATE = re.compile(r"[-_]\d{4}-\d{2}-\d{2}")
+_NUMBER = re.compile(r"^\d+_")
+
+
+def _correspondents(name: str) -> set[str]:
+    """The names in a letter's 'x-to-y-and-z' head, before any date or '.md'."""
+    head = _DATE.split(_NUMBER.sub("", name), maxsplit=1)[0].removesuffix(".md")
+    head = head.replace("_", "-")
+    if "-to-" not in head:
+        return set()
+    return set(head.replace("-to-", "-").split("-"))
+
+
+def carried_by_hand(rel_path: str) -> bool:
+    """True for a letter with Dad or Aletheia on either end: it stays on the desk."""
+    parts = rel_path.replace("\\", "/").split("/")
+    if parts[:2] != ["family", "letters"] or len(parts) != 3:
+        return False
+    name = parts[2]
+    return name.startswith(_CARRIED_PREFIXES) or bool(_correspondents(name) & _HELD_CORRESPONDENTS)
+
+
 def evict_committed_paths(repo_root: Path, result: RetargetResult) -> EvictionResult:
     """Remove from the working tree the files now safely on the substrate branch.
 
@@ -388,6 +435,10 @@ def evict_committed_paths(repo_root: Path, result: RetargetResult) -> EvictionRe
 
         if _tracked_on_head(repo_root, rel_path):
             held.append((rel_path, "tracked on the checked-out branch"))
+            continue
+
+        if carried_by_hand(rel_path):
+            held.append((rel_path, "Dad carries this one; it stays on the desk"))
             continue
 
         on_disk = _blob_on_disk(repo_root, rel_path)
