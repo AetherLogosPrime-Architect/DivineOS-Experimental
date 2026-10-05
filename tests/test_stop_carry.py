@@ -219,12 +219,16 @@ def _registered() -> list[str]:
     return prompt_hook_commands(ROOT)
 
 
-def test_the_surface_is_registered():
-    """Without this the gates are notes that go nowhere, which is worse than
-    the duplication -- he would get a worse me and nothing to show for it."""
+def test_the_surface_is_off_on_purpose_and_says_why():
+    """Inverted 2026-10-04: a print-only note every turn, taken out with the
+    wallpaper at Andrew's word ("all of it comes out, it does nothing for you
+    and wastes tokens"). Unregistered, and the file says so -- so it is a
+    decision on record, not a hook that went dark by accident."""
     commands = _registered()
     assert commands, "no compose-start hooks found at all; the probe is broken"
-    assert any(HOOK in c for c in commands), "the carry has nowhere to come back through"
+    assert not any(HOOK in c for c in commands)
+    hook = Path(__file__).resolve().parents[1] / HOOK
+    assert "INTENTIONALLY UNWIRED" in hook.read_text(encoding="utf-8")
 
 
 def _bash() -> str:

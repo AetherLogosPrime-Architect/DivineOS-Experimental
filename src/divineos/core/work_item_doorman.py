@@ -55,7 +55,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import sqlite3
 import time
 from dataclasses import dataclass
@@ -63,6 +62,7 @@ from enum import Enum
 from pathlib import Path
 
 from divineos.core._ledger_base import _get_db_path
+from divineos.core.command_parsing import shell_write_targets
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 # The doorman's own list since 2026-09-29, when review stopped exempting
@@ -161,126 +161,16 @@ def needs_an_item(paths: list[str]) -> tuple[str, ...]:
 # the Edit/Write tools. This was the cheapest route in the attack tree, and
 # it is not hypothetical: I wrote this module's own design draft through a
 # heredoc an hour before writing this function.
-# QUOTED TEXT IS NOT SHELL SYNTAX. A redirection never lives inside quotes, so
-# quoted spans come out before anything is matched. Measured 2026-09-10:
-# `echo 'write it > somewhere'` produced a phantom file named `somewhere` and
-# a refusal to go with it.
-#
-# THE PATTERN ITSELF LIVES FURTHER DOWN, beside shell_code_only, and this note
-# stays here because it explains why the patterns below may assume quoted text
-# is already gone. Both sides of the 2026-09-22 merge had written a
-# _QUOTED_SPAN; the escape-aware, longest-first one won, because a
-# double-quoted string containing an apostrophe is otherwise split at it.
-
-_SHELL_WRITE_PATTERNS: tuple[re.Pattern[str], ...] = (
-    # BLANKING QUOTED TEXT IS THE WHOLE REPAIR. Found by this doorman firing
-    # wrongly on Aria twice while she was reading my work, and then on me, in
-    # the command I wrote to reproduce her report. A redirection sign was
-    # matched wherever it appeared, so an arrow inside a formatted string
-    # yielded a file named for whatever followed it, and Aria's probe text
-    # produced a target named for half a subtraction. She took a counted
-    # bypass rather than routing around it, twice, and paid in writing both
-    # times.
-    #
-    # I SHIPPED A SECOND NARROWING AND IT OPENED A HOLE. Aletheia's audit,
-    # 2026-09-10: my first repair also skipped a redirection sign preceded by
-    # a dash or an equals, to kill the arrow and the comparison. She pointed
-    # out that an option ending in equals followed immediately by a redirection
-    # is a REAL write — the shell reads the argument, then the redirect — and
-    # the exclusion made it invisible.
-    #
-    # MEASURED RATHER THAN TAKEN, AND HER REMEDY WAS ALSO WRONG. She proposed
-    # dropping the exclusion entirely, on the ground that every false case is
-    # quoted and blanking alone therefore suffices. Run against this module's
-    # own tests, that is false: one of the recorded false cases is an arrow in
-    # an UNQUOTED shell comment, and her version names a file for it again.
-    #
-    # So the fork she offered — keep the exclusion and miss a real write, or
-    # drop it and refuse Aria again — is not a fork. What separates the two is
-    # not the dash or the equals, it is whether the arrow is a STANDALONE
-    # TOKEN. An arrow between spaces is prose. An option ending in a dash or an
-    # equals has a word character behind it, and what follows is a real
-    # redirection.
-    #
-    # So the exclusion now requires the dash or equals to be preceded by
-    # whitespace. Measured, with a control: her attack is caught, a dash-shaped
-    # variant of it she did not name is caught, both plain redirects are
-    # caught, and all four false cases stay silent — including the unquoted one
-    # her remedy would have brought back.
-    #
-    # Her sentence stands anyway, because the unease it named was correct: one
-    # half was doing the work and the other half was carrying the risk. She
-    # found the hole. The shape of the repair is the part that was still open.
-    #
-    # The trailing lookahead stays. It excludes a greater-or-equal comparison,
-    # which quoting does not always cover and which names no file either way.
-    re.compile(r"(?<!(?<=[\s])[-=])>>?\s*(?![=\s])([^\s;|&<>()]+)"),
-    re.compile(r"\btee\s+(?:-a\s+)?([^\s;|&<>()]+)"),
-    re.compile(r"\bsed\s+(?:-[a-zA-Z]*i[a-zA-Z]*\S*\s+)(?:[^\s]+\s+)*?([^\s;|&<>()]+)\s*$"),
-    re.compile(r"\b(?:cp|mv|install)\s+(?:-\S+\s+)*\S+\s+([^\s;|&<>()]+)"),
-    re.compile(r"\bpatch\s+(?:-\S+\s+)*([^\s;|&<>()]+)"),
-)
-
-
-_HEREDOC_OPEN = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
-
-# Quoted spans, longest-first so a double-quoted string containing an
-# apostrophe is taken whole rather than split at it.
-_QUOTED_SPAN = re.compile(r'"(?:[^"\\]|\\.)*"' + r"|'(?:[^'\\]|\\.)*'")
-
-# A quoted argument leaves a MARK rather than a hole, and the mark carries a
-# dollar sign so the existing unresolvable-token filter discards it.
-#
-# Substituting a space was my first version and it shipped, and the doorman
-# caught the regression on the very next command I ran -- a copy whose arguments
-# were both quoted collapsed to `cp && echo`, so the copy pattern read the next
-# word along as a destination and announced `echo` as a file I was about to
-# write. Removing an argument changes a command's arity, and these patterns
-# count arguments. One hour between the fix and its own regression, found by the
-# thing I had just repaired.
-_QUOTED_PLACEHOLDER = "$QUOTED"
-
-
-def shell_code_only(cmd: str) -> str:
-    """The command with its DATA removed, leaving what the shell will run.
-
-    A heredoc body is data. A quoted string is data. Neither is a place the
-    shell performs a redirect, and scanning them for one is how this gate came
-    to announce `8}` and `{paths` as files I was about to write -- a format
-    specifier and an arrow out of a print statement, both inside a script whose
-    only purpose was to test this function.
-
-    Andrew, 2026-09-12: count every red mark and automate what can be
-    automated. This gate was second on that list at thirty-six fires, and at
-    least six were prose read as paths: a heredoc terminator, the word `and` in
-    a chained command, the word `inside` lifted out of a correction I was
-    filing.
-
-    AN UNQUOTED HEREDOC IS NOT STRIPPED, per Knuth on the walk. The shell
-    expands inside one, so a write can genuinely live there; only a quoted
-    delimiter makes the body inert. A heredoc whose terminator never appears is
-    malformed, and the conservative reading of a malformed command is to scan
-    all of it rather than assume the remainder is data.
-
-    THE EVASION THIS OPENS, named rather than waved past. A real write hidden
-    inside quotes now escapes. Aristotle's test on the walk settles whether
-    that trade is right: of the fires I can identify this session, every one
-    was prose, a format spec, a terminator or a chained word, and none was a
-    write concealed in a quote. The design was defending against an attack that
-    has never occurred at the cost of an error happening six times a day -- and
-    the attacker it feared is me, so the defence was never structural anyway.
-    """
-    out = cmd
-    for match in list(_HEREDOC_OPEN.finditer(cmd)):
-        quote, word = match.group(1), match.group(2)
-        if not quote:
-            continue  # the shell expands here; a redirect inside is real
-        terminator = re.search(rf"^\s*{re.escape(word)}\s*$", out[match.end() :], re.MULTILINE)
-        if terminator is None:
-            continue  # malformed: scan it all rather than assume it is data
-        body_start = match.end()
-        out = out[:body_start] + " " + out[body_start + terminator.end() :]
-    return _QUOTED_SPAN.sub(_QUOTED_PLACEHOLDER, out)
+# THE SHELL IS READ BY command_parsing.shell_write_targets NOW (2026-09-23).
+# This spot held five regexes, a quoted-span blanker and a placeholder -- the
+# history of each regex learning one more piece of shell grammar: the arrow in
+# quotes, Aletheia's `--opt=>file`, the arrow in an unquoted comment, a copy
+# collapsing to `cp && echo`. Those cases are all still tests. The last trade
+# the regexes made was named honestly: a write whose destination is quoted
+# escaped them. A tokeniser does not need that trade, because a quoted string
+# stays one word -- it can neither fake a redirect nor hide a destination.
+# Measured before switching: every Bash command in this house's transcripts
+# (22,849) replayed through both readers, and every disagreement read.
 
 
 def paths_from_tool_call(tool_name: str, tool_input: dict) -> list[str]:
@@ -313,20 +203,17 @@ def paths_from_tool_call(tool_name: str, tool_input: dict) -> list[str]:
         p = tool_input.get("file_path") or tool_input.get("notebook_path")
         return [p] if p else []
     if tool_name == "Bash":
-        cmd = shell_code_only(tool_input.get("command") or "")
         found: list[str] = []
-        for pattern in _SHELL_WRITE_PATTERNS:
-            for m in pattern.finditer(cmd):
-                candidate = m.group(1).strip("\"'")
-                if not candidate or candidate.startswith("/dev/"):
-                    continue
-                # An unexpanded variable or glob is not a path I can resolve,
-                # and resolving it relative to the working directory turns an
-                # outside-the-repo write into a false hold. Found by wiring
-                # this in and being refused on a scratchpad path.
-                if any(ch in candidate for ch in "$*?~`"):
-                    continue
-                found.append(candidate)
+        for candidate in shell_write_targets(tool_input.get("command") or ""):
+            if candidate.startswith("/dev/"):
+                continue
+            # An unexpanded variable or glob is not a path I can resolve,
+            # and resolving it relative to the working directory turns an
+            # outside-the-repo write into a false hold. Found by wiring
+            # this in and being refused on a scratchpad path.
+            if any(ch in candidate for ch in "$*?~`"):
+                continue
+            found.append(candidate)
         return found
     return []
 
@@ -361,6 +248,10 @@ def _connect() -> sqlite3.Connection:
             conn.execute(f"ALTER TABLE work_items ADD COLUMN {column}")
         except sqlite3.OperationalError:
             pass
+    try:
+        conn.execute("ALTER TABLE work_item_bypasses ADD COLUMN his_words TEXT NOT NULL DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
     return conn
 
 
@@ -527,7 +418,7 @@ def open_item_for_branch(
     branch = branch or current_branch()
     with _connect() as conn:
         row = conn.execute(
-            "SELECT item_id, opened_at, opened_dirty FROM work_items "
+            "SELECT item_id, opened_at, opened_dirty, trigger FROM work_items "
             "WHERE branch = ? AND session = ? AND closed_at IS NULL "
             "ORDER BY opened_at DESC LIMIT 1",
             (branch, session),
@@ -552,11 +443,98 @@ def open_item_for_branch(
     # walk done BEFORE the last commit still does not count -- which is the
     # protection the window existed for.
     window = landed if landed is not None and landed < row[1] else row[1]
+    window = _continuing_window(row[3], landed, window)
     try:
         snapshot: frozenset[str] | None = frozenset(json.loads(row[2])) if row[2] else None
     except (ValueError, TypeError):
         snapshot = None
     return (row[0], window, snapshot)
+
+
+def _landings(limit: int = 2) -> list[tuple[float, str]] | None:
+    """The newest ``limit`` landings on this branch as (time, sha), newest first.
+
+    Same rule as ``head_commit_time``: an auto-commit is a save, not a piece of
+    work ending, so it is skipped. None means git could not be read.
+    """
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            ["git", "log", "-60", "--format=%ct%x00%H%x00%s"],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None  # both-empty: git could not be read; the caller keeps the ordinary window rather than widening it
+    if proc.returncode != 0:
+        return None  # both-empty: same answer as above -- unknown never widens a window
+    out: list[tuple[float, str]] = []
+    for line in proc.stdout.splitlines():
+        stamp, _, rest = line.partition("\x00")
+        sha, _, subject = rest.partition("\x00")
+        if subject.strip().lower().startswith(_NOT_A_LANDING):
+            continue
+        try:
+            out.append((float(stamp.strip()), sha.strip()))
+        except ValueError:
+            return None  # both-empty: an unparseable stamp is could-not-look; do not widen
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _files_changed_by(sha: str) -> frozenset[str] | None:
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            ["git", "show", "--name-only", "--format=", "-m", sha],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None  # both-empty: could not look, so no inheritance
+    if proc.returncode != 0:
+        return None  # both-empty: same -- an unreadable commit never widens a window
+    return frozenset(p.strip() for p in proc.stdout.splitlines() if p.strip())
+
+
+def _continuing_window(trigger: str, landed: float | None, window: float) -> float:
+    """Reach back one piece of work when the edit continues the work that landed.
+
+    WORK CONTINUES ACROSS A LANDING (2026-09-23). The window starts at the last
+    landing, which ends the previous piece -- right for new work, wrong for the
+    work that just landed. Aether's case, from his store: the pre-push suite
+    refused a push, he went to fix session-init-once.sh, a file changed BY the
+    landing his window started from, and the door refused him for missing a
+    search, draft and walk that were sitting there from before the landing.
+
+    So: when the item's trigger is a file the last landing changed, the edit
+    belongs to that landed work, and its window reaches back to where THAT
+    work's window began -- the landing before the last. One piece back, never
+    further, so September's propped door (a finished piece paying for unrelated
+    work) stays shut: an edit to a file the landing did not touch gets the
+    ordinary window.
+
+    What this does NOT prove, said so it cannot be read as more: "a file the
+    landing changed" is evidence the edit continues that work, not proof. A
+    later unrelated change to the same file inherits too -- bounded to one
+    piece back, and ended by the next landing. Unreadable git never widens.
+    """
+    if landed is None or not trigger:
+        return window
+    landings = _landings(2)
+    if not landings or len(landings) < 2 or landings[0][0] != landed:
+        return window
+    changed = _files_changed_by(landings[0][1])
+    if changed is None or trigger not in changed:
+        return window
+    return min(window, landings[1][0])
 
 
 def close_item(item_id: str) -> None:
@@ -583,17 +561,22 @@ def has_bypass(item_id: str) -> bool:
     return bool(row and row[0])
 
 
-def record_bypass(item_id: str, reason: str) -> None:
+def record_bypass(item_id: str, reason: str, his_words: str = "") -> None:
     """Truth #12: a bypass is a tool, and the guard is that it is counted.
 
     Also the deadlock escape Hofstadter's loop demands -- a doorman that
     breaks in the refusing direction cannot otherwise be repaired, because
     its own fix is an edit it refuses.
+
+    ``his_words`` is set only when the reason leans on Andrew and the words were
+    verified against his own recent messages (core/his_words.py). It is stored
+    beside the reason so what I claimed he said can be read next to what he
+    said. Empty means the bypass is mine.
     """
     with _connect() as conn:
         conn.execute(
-            "INSERT INTO work_item_bypasses(item_id, at, reason) VALUES (?,?,?)",
-            (item_id, time.time(), reason),
+            "INSERT INTO work_item_bypasses(item_id, at, reason, his_words) VALUES (?,?,?,?)",
+            (item_id, time.time(), reason, his_words),
         )
 
 
@@ -728,8 +711,8 @@ _HOW = {
     "prior-art search": 'divineos reach open "<the thing you are about to build>"',
     "rough draft": "write docs/drafts/<name>_draft_<date>.md -- the idea, not a plan",
     "council walk": (
-        'divineos walk open "<the question>" then `walk apply <id> --lens L '
-        "--finding ...` for each lens surfaced, then `walk close <id>`. "
+        'divineos walk open "<the question>" then `walk apply <id> <Lens> '
+        "--finding ...` (the lens is positional; there is no --lens) for each lens surfaced, then `walk close <id>`. "
         "NOT `mansion council --show`: that primes lenses into context and "
         "satisfies nothing here."
     ),
@@ -819,14 +802,26 @@ def decide(tool_name: str, tool_input: dict, session: str = "") -> Decision:
         )
 
     existing = open_item_for_branch(session=session)
+    opened_now = existing is None
     if existing is None:
         item_id = open_item(trigger=code_paths[0], session=session)
-        return Decision(
-            State.HELD,
-            _refusal_text(item_id, code_paths, list(REQUIRED_BEFORE_BUILD), opened_now=True),
-            item_id=item_id,
-            missing=REQUIRED_BEFORE_BUILD,
-        )
+        # A NEW ITEM IS CHECKED, NOT REFUSED ON SIGHT (2026-09-23). This used to
+        # return a hold listing all three stations the moment it opened, without
+        # looking. The marks window already reaches back to the last landing, so
+        # a search, draft and walk done properly BEFORE the first edit were real
+        # and counted -- on the second knock. The first knock said "nothing has
+        # been searched yet" while the search sat there, which is the landlord
+        # Aether named: refusing you for not doing again what you already did.
+        # Measured live the same night, on the edit that began this repair.
+        existing = open_item_for_branch(session=session)
+        if existing is None:
+            return Decision(
+                State.HELD,
+                _refusal_text(item_id, code_paths, list(REQUIRED_BEFORE_BUILD), opened_now=True)
+                + _stranded_note(session),
+                item_id=item_id,
+                missing=REQUIRED_BEFORE_BUILD,
+            )
 
     item_id, opened_at, snapshot = existing
     if has_bypass(item_id):
@@ -847,12 +842,66 @@ def decide(tool_name: str, tool_input: dict, session: str = "") -> Decision:
         return Decision(
             State.HELD,
             _refusal_text(
-                item_id, code_paths, list(missing), opened_now=False, walked_around=walked_around
-            ),
+                item_id,
+                code_paths,
+                list(missing),
+                opened_now=opened_now,
+                walked_around=walked_around,
+            )
+            + _stranded_note(session),
             item_id=item_id,
             missing=missing,
         )
     return Decision(State.OPEN, f"work item {item_id} is at station 3", item_id=item_id)
+
+
+def _stranded_note(session: str, branch: str | None = None) -> str:
+    """Name items this session left open on OTHER branches. Grants nothing.
+
+    AETHER'S CASE FOUR (2026-09-23, from his store). He opened an item on one
+    branch, did the reach and the walk while it was open, then moved the work to
+    its own branch -- where a fresh item opened with nothing attached and
+    refused him. The old item is still open. Nothing told him his marks were
+    sitting on another branch's item, and silent loss was the part that cost
+    him.
+
+    A rule that passed those marks across was proposed and deliberately NOT
+    built: it rests on one case, and a rule that passes marks is a key. This is
+    the step before it. It states what the store holds -- branch, the file that
+    opened it, how long ago -- and changes no decision. The other item is not
+    closed from here either: that would erase the only evidence the case
+    happened.
+
+    Returns "" only when nothing is open elsewhere. An unreadable store says so
+    in one line instead -- the precommit check asked whether a caller could tell
+    those two apart, and with both returning "" it could not. The decision
+    itself never depends on this note either way.
+    """
+    branch = branch or current_branch()
+    try:
+        with _connect() as conn:
+            rows = conn.execute(
+                "SELECT branch, trigger, opened_at FROM work_items "
+                "WHERE session = ? AND closed_at IS NULL AND branch != ? "
+                "ORDER BY opened_at DESC LIMIT 3",
+                (session, branch),
+            ).fetchall()
+    except sqlite3.Error:
+        return (
+            "\n  (Could not check for items left open on other branches: the store did not answer.)"
+        )
+    if not rows:
+        return ""
+    lines = [
+        "",
+        "ALSO OPEN, ON ANOTHER BRANCH -- told so it is not silent, and it grants nothing here:",
+    ]
+    for other_branch, trigger, opened_at in rows:
+        minutes = int((time.time() - opened_at) / 60)
+        lines.append(f"  {other_branch}: opened {minutes} min ago on {trigger}")
+    lines.append("  Any search, draft or walk done while that item was open was counted there. If")
+    lines.append("  this is the same work moved here, the marks did not come with it.")
+    return "\n".join(lines)
 
 
 def _files_written_unseen(snapshot: frozenset[str] | None) -> tuple[str, ...]:
@@ -975,9 +1024,13 @@ def _refusal_text(
         "come before it, and this is the first thing in the house that makes that",
         "true rather than remembered.",
         "",
-        "If this genuinely has to go through now -- the doorman itself is broken, or",
-        "Andrew is standing there -- the escape is honest and counted, not hidden:",
+        # WAS "or Andrew is standing there". The sign invited the exact fault:
+        # four bypasses on 2026-09-22 gave his presence as the reason and he had
+        # said yes to none of them. Presence is not permission (his_words.py).
+        "If this genuinely has to go through now -- the doorman itself is broken,",
+        "or Andrew told you to in his own words -- the escape is honest and counted:",
         f'  divineos work-item bypass {item_id} --reason "<why, in a sentence>"',
+        '  (a reason that leans on him also needs --his-words "<his words, verbatim>")',
         "",
         "MINE, and here is why. I have watched us build a thing, announce it, and",
         "never call it again -- a store built for one of his oldest complaints that",

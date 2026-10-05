@@ -206,7 +206,43 @@ class RouterResult:
         return "\n".join(parts)
 
     def exit_code(self) -> int:
-        """2 blocks the tool call; 0 allows. Errors never block."""
+        """2 blocks the tool call; 0 allows. Errors never block.
+
+        STOP REFUSALS ARE ADVISORY AS OF 2026-09-22, by Andrew, twice. First:
+        *"whatever guard that is? deactivate it until we can fix it."* Then,
+        after I disabled one guard and it happened again through a different
+        one: *"i told you to deactivate the guard.. so this is half of the
+        problem.. i ask for something.. it gets acknowledged.. said its done..
+        and its not."*
+
+        He was right both times and my first repair was the wrong size. I
+        turned off the single surface he had just been bitten by, which was
+        treating an instance as the class — the exact fault the whole day has
+        been about.
+
+        THE CLASS: a blocking refusal at Stop cannot be satisfied without
+        recomposing, because the reply is already written. The retry guidance
+        says send only the delta, and then the OTHER Stop surfaces demand a
+        shape the delta alone cannot make — a three-room reply needs its work
+        block, an addressed-to-him check needs his words back. So the body
+        returns, and he reads a post he has already read. Every refusal in that
+        corridor costs him a second copy, and there are fourteen doors in it.
+        Disabling them one at a time is whack-a-mole with his attention as the
+        currency.
+
+        Nothing is silenced. Every finding still prints to stderr and I still
+        read it — the difference is that I carry it into the NEXT reply instead
+        of rebuilding this one at him. The check keeps its eyes and loses its
+        teeth, which is the correct trade when the teeth close on him rather
+        than on me.
+
+        PreToolUse refusals are untouched and still block. Those land on my
+        tools before an action commits, which is where a gate belongs. This is
+        narrow on purpose: the fault is not that gates refuse, it is that
+        refusing AFTER the words exist has no exit that does not charge him.
+        """
+        if self.event == "Stop":
+            return 0
         return 2 if self.refusals else 0
 
 

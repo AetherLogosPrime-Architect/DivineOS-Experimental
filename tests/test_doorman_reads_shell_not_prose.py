@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import pytest
 
-from divineos.core.work_item_doorman import paths_from_tool_call, shell_code_only
+from divineos.core.work_item_doorman import needs_an_item, paths_from_tool_call
 
 NL = chr(10)
 SQ = chr(39)
@@ -144,8 +144,12 @@ def test_a_fully_quoted_copy_does_not_swallow_the_next_command():
     destination and announced it as a file I was about to write. Caught by the
     doorman on the very next command I ran -- by the thing I had just repaired.
 
-    A quoted argument now leaves a mark rather than a hole, and the mark is an
-    unresolvable token the existing filter discards.
+    RE-ASSERTED 2026-09-24, when the tokeniser replaced the quoted-span
+    blanker. This used to assert that nothing at all was reported, which wrote
+    the blanker's blindness into the requirement: `/somewhere/else/` IS the
+    destination, and a reader that reports it is right. What this test exists
+    for is that `echo` is never taken for a file, and that a write outside the
+    repo opens no work. Aether's read, from replaying 87,926 commands.
     """
     cmd = (
         "cp "
@@ -158,7 +162,8 @@ def test_a_fully_quoted_copy_does_not_swallow_the_next_command():
         + DQ
         + " && echo delivered"
     )
-    assert _bash(cmd) == []
+    assert _bash(cmd) == ["/somewhere/else/"]
+    assert needs_an_item(_bash(cmd)) == ()
 
 
 def test_a_quoted_source_still_finds_an_unquoted_destination():
@@ -166,23 +171,25 @@ def test_a_quoted_source_still_finds_an_unquoted_destination():
     assert _bash(cmd) == ["src/divineos/core/thing.py"]
 
 
-# --- the stripper itself ----------------------------------------------------
+# --- what the stripper was for, asked of the doorman -------------------------
+#
+# These three called shell_code_only directly. It is gone: the doorman reads
+# the shell with command_parsing's tokeniser, where a quoted string stays one
+# word and can neither fake a redirect nor hide a destination. The behaviour
+# the stripper protected is asserted here instead, through the doorman.
 
 
-def test_stripping_leaves_the_runnable_part():
-    kept = shell_code_only("echo " + DQ + "a " + GT + " b" + DQ + " " + GT + " out.txt")
-    assert GT + " out.txt" in kept
-    assert "a " + GT + " b" not in kept
+def test_an_arrow_inside_quotes_is_data_and_the_real_redirect_is_seen():
+    cmd = "echo " + DQ + "a " + GT + " b" + DQ + " " + GT + " out.txt"
+    assert _bash(cmd) == ["out.txt"]
 
 
-def test_stripping_a_command_with_no_data_changes_nothing():
-    plain = "git status --short"
-    assert shell_code_only(plain) == plain
+def test_a_command_with_no_data_and_no_write_reports_nothing():
+    assert _bash("git status --short") == []
 
 
 def test_an_empty_command_is_empty_not_a_path():
     assert _bash("") == []
-    assert shell_code_only("") == ""
 
 
 def test_write_and_edit_tools_are_untouched_by_this():

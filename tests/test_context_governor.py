@@ -210,8 +210,10 @@ def test_compaction_ceiling_default_is_current_cliff():
     If this assertion fails, the cliff drifted AGAIN — update the literal
     in context_governor.py and date the comment. This test did its job on
     2026-09-18: it is the thing that turns a silent platform change into a
-    red line somebody has to read."""
-    assert cg.COMPACTION_CEILING == 950_000
+    red line somebody has to read.
+
+    Moved again 2026-10-04, Andrew: "it resets at 970k now not 999k"."""
+    assert cg.COMPACTION_CEILING == 970_000
 
 
 def test_compaction_ceiling_env_override(monkeypatch):
@@ -249,14 +251,37 @@ def test_hard_line_agrees_with_the_auto_cycle_trigger():
     Equal-by-hand is not an invariant. This test is the invariant. If a future
     session moves one, it moves both or this fails by name.
     """
+    # CHANGED 2026-10-04, on purpose. Extract and sleep moved to the END of the
+    # ritual (Andrew), so the write-block no longer belongs at the start line --
+    # it would lock out the walk and the memory filing. It now sits at the line
+    # where the ritual forces the mechanical close. Still one constant compared
+    # against another, so the invariant this test exists for is kept.
+    import re
+    from pathlib import Path
+
+    from divineos.core.context_meter import RITUAL_FORCE_TOKENS
+
+    assert cg.HARD_THRESHOLD == RITUAL_FORCE_TOKENS
+    hook = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "auto-cycle-token-trigger.sh"
+    hard = re.search(r"AUTO_CYCLE_HARD_TOKENS:-(\d+)", hook.read_text(encoding="utf-8"))
+    assert hard and int(hard.group(1)) == RITUAL_FORCE_TOKENS, (
+        "the ritual forces its close at a different line than the governor blocks"
+    )
+
+
+def test_the_ritual_starts_where_its_one_home_says():
+    import re
+    from pathlib import Path
+
     from divineos.core import auto_cycle
     from divineos.core.context_heartbeat import CONTEXT_WINDOW_TOKENS
+    from divineos.core.context_meter import COMPACTION_CEILING_TOKENS, DEFAULT_FIRE_THRESHOLD
 
-    trigger_tokens = auto_cycle.TRIGGER_THRESHOLD * CONTEXT_WINDOW_TOKENS
-    assert cg.HARD_THRESHOLD == trigger_tokens, (
-        f"governor hard line {cg.HARD_THRESHOLD:,} disagrees with the auto-cycle "
-        f"trigger at {trigger_tokens:,.0f} — move both or neither"
-    )
+    assert auto_cycle.TRIGGER_THRESHOLD == DEFAULT_FIRE_THRESHOLD
+    assert CONTEXT_WINDOW_TOKENS == COMPACTION_CEILING_TOKENS
+    hook = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "auto-cycle-token-trigger.sh"
+    fire = re.search(r"AUTO_CYCLE_FIRE_TOKENS:-(\d+)", hook.read_text(encoding="utf-8"))
+    assert fire and int(fire.group(1)) == round(DEFAULT_FIRE_THRESHOLD * COMPACTION_CEILING_TOKENS)
 
 
 # THE HEADROOM THIS DESIGN HAS DELIBERATELY CHOSEN, in tokens.
@@ -286,7 +311,21 @@ def test_hard_line_agrees_with_the_auto_cycle_trigger():
 # headroom has not silently SHRUNK below what was last chosen on purpose, which
 # is the thing a test can actually know. If a close ever runs out of room at
 # 70k, that is the measurement, and this number moves with it.
-CHOSEN_HEADROOM = 70_000
+#
+# 2026-10-04: the close is no longer one block after this line. The ritual
+# starts at 850k and only the mechanical tail (extract, sleep) remains past the
+# hard line, against a wall Andrew observed at 970k. Two numbers now, both his
+# or derived from his: 120k for the whole ritual, and the tail's 50k, which is
+# unmeasured and moves the day a close runs out of room.
+CHOSEN_HEADROOM = 50_000
+CHOSEN_RITUAL_ROOM = 120_000
+
+
+def test_the_whole_ritual_has_the_room_andrew_chose():
+    from divineos.core.context_meter import COMPACTION_CEILING_TOKENS, DEFAULT_FIRE_THRESHOLD
+
+    start = round(DEFAULT_FIRE_THRESHOLD * COMPACTION_CEILING_TOKENS)
+    assert cg.COMPACTION_CEILING - start >= CHOSEN_RITUAL_ROOM
 
 
 def test_the_hard_line_leaves_room_under_the_compaction_cliff():

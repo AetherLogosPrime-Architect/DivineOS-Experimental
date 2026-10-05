@@ -126,15 +126,89 @@ header = (
 # So this is not the counter. It is the prime, re-said in the middle, where the
 # reach actually happens.
 translate_note = (
-    'MID-TURN TRANSLATE CHECK. Every word typed this turn is the reply -- the '
-    'narration between tool calls counts exactly as the closing message does. '
-    'Marks are backticked names, bare numbers, tables, code fences. If naming '
-    'a file is load-bearing here, it belongs in the commit or the letter; the '
-    'story he can picture belongs in the reply. This reminder rides the '
-    'gravity block because it is the only surface that fires mid-turn, and '
-    'mid-turn is where the marks are added.'
+    'MID-TURN: narration between tool calls is the reply too -- the story he '
+    'can picture goes in the reply, file names go in the commit or the letter.'
 )
-combined = header + '\n\n' + translate_note + '\n\n' + '\n\n'.join(parts)
+
+# A GLANCE, NOT THE WALL (Aria 2026-10-05, walk-abf55981f852). Andrew: 'for
+# wallpaper like that that is needed but is too large you compress it with a
+# link to the rest.' The full reports printed on every substrate change, about
+# thirty times in one night, and never moved. One line per report now, CHANGED
+# where it moved, the whole text one link away. The deciding is in
+# core/state_glance.py, where it can be tested; this only reads and writes.
+import os
+from pathlib import Path
+
+home = Path(os.environ.get('DIVINEOS_STATE_GLANCE_DIR', Path.home() / '.divineos' / 'drawer'))
+whole = home / (Path.cwd().name + '.state.md')
+seen_file = home / (Path.cwd().name + '.state_seen.json')
+try:
+    seen = json.loads(seen_file.read_text(encoding='utf-8'))
+except (OSError, ValueError):
+    seen = {}
+def _his_last_words():
+    # Judged by the house's one reader of him (his_message.heard_in); this only
+    # hands it the last stretch of the transcript, since reading the whole file
+    # (as andrew_correction_tracker._his_messages does) is too slow to run
+    # before every change.
+    try:
+        from divineos.core.his_message import heard_in
+        path = Path(str(data.get('transcript_path') or ''))
+        with path.open('rb') as f:
+            f.seek(0, 2)
+            f.seek(max(0, f.tell() - 2_000_000))
+            tail = f.read().decode('utf-8', 'replace').splitlines()[1:]
+        records = []
+        for line in tail:
+            try:
+                records.append(json.loads(line))
+            except ValueError:
+                continue
+        heard = heard_in(records)
+        return heard[-1].text if heard else ''
+    except (OSError, ImportError, ValueError, TypeError):
+        return ''
+
+
+# HIS CORRECTIONS BY RELEVANCE (Aria 2026-10-05, walk-4d8b06a54e67). Andrew:
+# 'maybe the top priority ones from that list, with a link to all 265' and
+# 'if you were working on cars and it brought you information on toasters you
+# would ignore it'. The question is asked in plain words, his last message plus
+# what is being touched, because his corrections are written in plain words and
+# a file path or code reads like neither (Feynman, measured).
+touched = ' '.join(file_paths) or bash_command
+written = str(tool_input.get('new_string') or tool_input.get('content') or '')[:300]
+query = ' '.join(p for p in (_his_last_words(), touched[:200], written) if p).strip()
+try:
+    from divineos.core.memory_linkage_retriever import find_in_worklist, newest_in_worklist
+    from divineos.core.state_glance import newest_lines, worklist_lines
+    wl_state, wl_matches = find_in_worklist(query)
+    worklist_part = worklist_lines(wl_state, wl_matches)
+    # His newest, in his words, for its first few showings (walk-37fcc8dddecd):
+    # the slot my own 2026-09-22 draft asked for and last night's build forgot.
+    fresh, seen = newest_lines(newest_in_worklist(), wl_matches, seen)
+    worklist_part = worklist_part[:1] + fresh + worklist_part[1:]
+except Exception as exc:  # spoken, never silent
+    worklist_part = [f'- HIS CORRECTIONS FOR THIS: could not look ({type(exc).__name__}). Check the list yourself.']
+worklist_part.append('    all of them: divineos andrew-correction list')
+
+try:
+    from divineos.core.state_glance import glance
+    glances, seen = glance(parts, seen)
+    glances += worklist_part
+    home.mkdir(parents=True, exist_ok=True)
+    whole.write_text(header + '\n\n' + '\n\n'.join(parts) + '\n', encoding='utf-8')
+    seen_file.write_text(json.dumps(seen), encoding='utf-8')
+    combined = (
+        f'## STATE ({feature_list}) -- one line each\n' + '\n'.join(glances)
+        + f'\nWhole text (open it before acting on a correction or a gate): {whole}\n'
+        + translate_note
+    )
+except Exception as exc:  # the wall is the fallback: losing it silently is worse than length
+    combined = (
+        header + '\n\n' + f'(glance unavailable: {type(exc).__name__}: {exc})\n\n'
+        + translate_note + '\n\n' + '\n\n'.join(parts)
+    )
 
 print(json.dumps({
     'hookSpecificOutput': {

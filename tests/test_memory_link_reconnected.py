@@ -144,6 +144,7 @@ def test_warm_embeds_exactly_the_texts_the_loaders_will_look_up(monkeypatch):
         "_load_corrections",
         "_load_knowledge",
         "_load_wall",
+        "_load_memory_files",
         "_load_exploration",
         "_load_letters",
     ):
@@ -293,3 +294,27 @@ def test_the_lane_stays_inside_its_budget_at_the_size_of_this_house(monkeypatch)
     block = memory_linkage.compose_block("how long does this take")
     assert block.could_not_run is None
     assert block.seconds < memory_linkage.LANE_BUDGET_SECONDS
+
+
+def test_memory_files_reach_the_lane_and_the_index_does_not(monkeypatch, tmp_path):
+    # Andrew 2026-10-04: the index was loaded whole every session while none
+    # of the files behind it could be found by relevance.
+    (tmp_path / "MEMORY.md").write_text("- [a](a.md) — index line\n", encoding="utf-8")
+    (tmp_path / "car.md").write_text(
+        '---\nname: car\ndescription: "his father sold used cars"\n---\n\nNot a carpenter.\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "hollow.md").write_text("---\nname: hollow\n---\n", encoding="utf-8")
+    (tmp_path / "blank.md").write_text("", encoding="utf-8")
+    monkeypatch.setattr(v1, "_memory_files_dir", lambda: tmp_path)
+    monkeypatch.setattr(v1, "_embed_text_impl", lambda text: [1.0])
+    items = v1._load_memory_files()
+    assert [i.id for i in items] == ["memory-car"]
+    assert items[0].source == "wall"
+    assert items[0].title == "his father sold used cars"
+    assert "Not a carpenter." in items[0].content
+
+
+def test_no_memory_directory_is_no_items(monkeypatch, tmp_path):
+    monkeypatch.setattr(v1, "_memory_files_dir", lambda: tmp_path / "absent")
+    assert v1._load_memory_files() == []

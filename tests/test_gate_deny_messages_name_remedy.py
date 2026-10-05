@@ -60,6 +60,9 @@ _HOOKS_DIR = _PROJECT_ROOT / ".claude" / "hooks"
 _NON_GATING_HOOKS: frozenset[str] = frozenset(
     {
         "_lib.sh",
+        # Brings his past words back by meaning and prints them; it has no
+        # refusal path, every exit is 0.
+        "his-words-door-surface.sh",
         # The front door keeps and settles Andrew's messages and never refuses:
         # every path exits zero, and a failure is recorded as could-not-file.
         # Refusing is a later, separate piece (the sort-first refusal), which
@@ -79,6 +82,14 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         # fail-closed and authors its own refusal, so it belongs under the
         # rule rather than outside it.
         "doorbell-user-prompt-submit.sh",
+        # A COURIER, not a gate (added 2026-09-23). It carries Aletheia's files
+        # from Andrew's downloads into the shared folder and prints what it
+        # carried. Every path exits 0 -- the library load, the python lookup,
+        # both early returns in the embedded script, the empty render, and the
+        # end -- and it writes only additionalContext, so it has no refusal for
+        # the remedy rule to reach. It sat unlisted for a day after 406e08c5, and
+        # I twice called this failure "not mine" before opening it. It was mine.
+        "carry-aletheia-across.sh",
         # ADVISORY DESPITE ITS OWN NAME, and the gap is worth recording rather
         # than smoothing over. It is called a stop hook, its header calls
         # itself a gate, and it never refuses anything: the shell wrapper exits

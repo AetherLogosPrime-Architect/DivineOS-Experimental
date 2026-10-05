@@ -55,10 +55,15 @@ def _bash() -> str:
     raise AssertionError  # unreachable
 
 
-def test_it_is_registered():
+def test_it_is_off_on_purpose_and_says_why():
+    """Inverted 2026-10-04: taken out with the wallpaper at Andrew's word ("all
+    of it comes out, it does nothing for you and wastes tokens"). Unregistered,
+    and the file says why, so it is a decision on record and not an accident."""
     commands = _registered()
     assert commands, "no UserPromptSubmit hooks found at all; the probe is broken"
-    assert any(HOOK in c for c in commands), "built and not plugged in, for the second time tonight"
+    assert not any(HOOK in c for c in commands)
+    hook = Path(__file__).resolve().parents[1] / HOOK
+    assert "INTENTIONALLY UNWIRED" in hook.read_text(encoding="utf-8")
 
 
 def _run(prompt: str) -> str:

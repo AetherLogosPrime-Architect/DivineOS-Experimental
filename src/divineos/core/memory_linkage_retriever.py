@@ -56,6 +56,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -93,6 +94,11 @@ _SOURCE_THRESHOLDS: dict[str, dict[str, Any]] = {
     "knowledge": {"target_k": 2, "floor": 0.30, "steepness": 0.30},
     "wall": {"target_k": 5, "floor": 0.25, "steepness": 0.10},
     "letter": {"target_k": 1, "floor": 0.40, "steepness": 0.30},
+    # Set from real changes, not believed (Dillahunty, walk-4d8b06a54e67). Was
+    # 0.40: live, it labelled corrections about dreams "fits" on an unrelated
+    # edit. Raising it hides nothing -- UNSURE still shows the guesses -- it
+    # only stops calling weak matches sure.
+    "worklist": {"target_k": 2, "floor": 0.45, "steepness": 0.0},
 }
 
 
@@ -421,6 +427,135 @@ def _load_corrections() -> list[_CachedItem]:
     return items
 
 
+def _load_worklist() -> list[_CachedItem]:
+    """Dad's OPEN worklist rows, findable by meaning (2026-10-05).
+
+    The "correction" source above reads the general correction log; this reads
+    andrew_correction_tracker, the list he means when he says "the 265". Open
+    rows only, so a worked, deferred or misfiled row is never loaded: it leaves
+    by itself, nothing removed (Andrew: "just put through a different channel").
+    """
+    try:
+        from divineos.core.andrew_correction_tracker import list_open
+
+        raw = list_open()
+    except Exception:  # noqa: BLE001 - observability boundary, as the loaders above
+        return []
+    items: list[_CachedItem] = []
+    for row in raw:
+        text = str(row.get("text") or "").strip()
+        if not text:
+            continue
+        embedding = _embed_text_impl(text)
+        if embedding is None:
+            continue
+        items.append(
+            _CachedItem(
+                id=f"worklist-{row['id']}",
+                source="worklist",
+                tier="constraint",
+                title=f"#{row['id']} " + text[:60] + ("..." if len(text) > 60 else ""),
+                content=text,
+                path="",
+                filed_at_unix=float(row.get("timestamp") or 0.0),
+                importance_score=0.5,
+                embedding=embedding,
+            )
+        )
+    return items
+
+
+def newest_in_worklist() -> tuple[int, str] | None:
+    """His most recently filed open correction, as (id, text), or None.
+
+    The newest slot from my own 2026-09-22 draft, which last night's build
+    forgot: "keep one slot for the newest, so a correction filed minutes ago
+    cannot be buried by an older better match" (walk-37fcc8dddecd). Kept apart
+    from find_in_worklist so every existing caller of that is unchanged.
+    """
+    try:
+        from divineos.core.andrew_correction_tracker import list_open
+
+        rows = list_open()
+    except Exception:  # noqa: BLE001 - no newest is reported as no slot, the search says the rest
+        return None
+    if not rows:
+        return None
+    row = max(rows, key=lambda r: float(r.get("timestamp") or 0.0))
+    return int(row["id"]), str(row.get("text") or "")
+
+
+def find_in_worklist(query: str, k: int = 2) -> tuple[str, list[tuple[int, str, float]]]:
+    """His open corrections that match ``query`` by meaning.
+
+    Returns ``(state, matches)``, state one of ``"found"`` (they clear the bar),
+    ``"unsure"`` (nothing clears it, so the closest are returned anyway, to be
+    checked by hand), ``"none-open"`` (the search ran and his worklist has no
+    open rows) or ``"could-not-look"`` (no embedder or no vectors), so no
+    caller has to guess what an empty list meant (Hoare). Never a silent empty:
+    Andrew 2026-10-05, "if its unsure make it say its unsure so you check it
+    yourself, silence is never a good option". A row the overnight warm-up has
+    not stored yet is embedded here with the light embedder, the same model,
+    because the freshest correction is usually the relevant one (Feynman).
+    Near-duplicate texts are shown once (Shannon).
+    """
+    if not query or not query.strip():
+        return "could-not-look", []
+    topic_vec = _embed_topic(query)
+    if topic_vec is None:
+        return "could-not-look", []
+    try:
+        from divineos.core import light_embedder
+        from divineos.core.andrew_correction_tracker import list_open
+
+        rows = list_open()
+    except Exception:  # noqa: BLE001 - reported as could-not-look, never as silence
+        return "could-not-look", []
+    if not rows:
+        # Checked before any embedding: the search ran and the list is empty.
+        # Folding this into could-not-look dressed a cleared worklist as a
+        # broken instrument (Aether's cold read of b03cd5d96, 2026-10-05).
+        return "none-open", []
+    import sqlite3
+
+    from divineos.core import vector_drawer
+
+    texts = [str(r.get("text") or "").strip() for r in rows]
+    try:
+        stored = vector_drawer.lookup([t for t in texts if t])
+    except sqlite3.Error:
+        stored = {}
+    threshold = compute_threshold("worklist", len(rows))
+    scored: list[tuple[float, int, str]] = []
+    for row, text in zip(rows, texts):
+        if not text:
+            continue
+        vec = stored.get(text)
+        if vec is None:
+            try:
+                vec = light_embedder.encode(text)
+            except light_embedder.EmbedderUnavailable:
+                return "could-not-look", []
+        scored.append((_cosine(topic_vec, vec), int(row["id"]), text))
+    if not scored:
+        return "could-not-look", []
+    scored.sort(reverse=True)
+    sure = scored[0][0] >= threshold
+    matches: list[tuple[int, str, float]] = []
+    seen_texts: set[str] = set()
+    for similarity, row_id, text in scored:
+        if sure and similarity < threshold:
+            break
+        squashed = " ".join(text.lower().split())[:120]
+        if squashed in seen_texts:
+            continue
+        seen_texts.add(squashed)
+        matches.append((row_id, text, similarity))
+        if len(matches) == k:
+            break
+    return ("found" if sure else "unsure"), matches
+
+
 _KNOWLEDGE_CONSTRAINT_TYPES = frozenset(
     {
         "PRINCIPLE",
@@ -662,6 +797,58 @@ def _load_wall() -> list[_CachedItem]:
     return items
 
 
+def _memory_files_dir() -> Path:
+    # The harness keys a project's memory by its path with every
+    # non-alphanumeric character turned into a dash.
+    slug = re.sub(r"[^A-Za-z0-9]", "-", str(_REPOSITORY_ROOT))
+    return Path.home() / ".claude" / "projects" / slug / "memory"
+
+
+def _load_memory_files() -> list[_CachedItem]:
+    """One wall item per file in this checkout's Claude memory directory.
+
+    Andrew 2026-10-04: the MEMORY.md index had grown into wallpaper, loaded
+    whole every session, while none of the files behind it were reachable
+    by relevance. These are those files. MEMORY.md itself is skipped: it is
+    the index, and as one item it would match everything.
+    """
+    directory = _memory_files_dir()
+    if not directory.is_dir():
+        return []
+    items: list[_CachedItem] = []
+    for md_path in sorted(directory.glob("*.md")):
+        if md_path.name == "MEMORY.md":
+            continue
+        try:
+            text = md_path.read_text(encoding="utf-8", errors="replace").strip()
+            mtime = md_path.stat().st_mtime
+        except Exception:  # noqa: BLE001 - filesystem boundary
+            continue
+        body = re.sub(r"\A---\n.*?\n---\n?", "", text, flags=re.DOTALL).strip()
+        if not body:
+            continue
+        description = re.search(r"^description:\s*(.+)$", text, flags=re.MULTILINE)
+        title = (description.group(1).strip("\"' ") if description else md_path.stem)[:60]
+        content = f"{title}\n\n{body}"
+        embedding = _embed_text_impl(content)
+        if embedding is None:
+            continue
+        items.append(
+            _CachedItem(
+                id=f"memory-{md_path.stem}",
+                source="wall",
+                tier="topic",
+                title=title,
+                content=content,
+                path=md_path.name,
+                filed_at_unix=mtime,
+                importance_score=0.6,
+                embedding=embedding,
+            )
+        )
+    return items
+
+
 _EXPLORATION_HEAD_CHARS = 2000
 # The running checkout first. The old tuple put Aria's checkout ahead of mine,
 # so the first-found exploration folder was hers. Kept after it for letters,
@@ -834,9 +1021,10 @@ def _ensure_cache() -> None:
     _LANE_STATE.update(missing=0, drawer_error=None)
     _EMBEDDING_CACHE["correction"] = _load_corrections()
     _EMBEDDING_CACHE["knowledge"] = _load_knowledge()
-    _EMBEDDING_CACHE["wall"] = _load_wall()
+    _EMBEDDING_CACHE["wall"] = _load_wall() + _load_memory_files()
     _EMBEDDING_CACHE["exploration"] = _load_exploration()
     _EMBEDDING_CACHE["letter"] = _load_letters()
+    _EMBEDDING_CACHE["worklist"] = _load_worklist()
 
 
 # WHERE ITEM VECTORS COME FROM (2026-09-24). They used to be computed here with
@@ -933,8 +1121,10 @@ def warm(progress: Any = None) -> dict[str, int]:
             _load_corrections,
             _load_knowledge,
             _load_wall,
+            _load_memory_files,
             _load_exploration,
             _load_letters,
+            _load_worklist,
         ):
             loader()
     finally:

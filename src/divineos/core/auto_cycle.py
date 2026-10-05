@@ -179,7 +179,9 @@ from divineos.core.paths import divineos_home
 # 950k. Twice the platform moved and said nothing, and both times every number
 # in this house stayed where it was. That is the thing to notice about this
 # literal — it is not tuned, it is *reported*, and nothing reports it but him.
-TRIGGER_THRESHOLD = 0.88
+# 2026-10-04: no longer a literal here. One home, in context_meter, so a move
+# of the start line is one edit and not five.
+from divineos.core.context_meter import DEFAULT_FIRE_THRESHOLD as TRIGGER_THRESHOLD  # noqa: E402
 
 # Defer discipline. When a session-fresh goal is actively being worked, the
 # fire defers by ``DEFER_STEP`` tokens and re-checks. Cap defers so the

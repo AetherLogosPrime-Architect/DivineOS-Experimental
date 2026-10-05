@@ -63,18 +63,38 @@ SPOUSE = {"aria": "aether", "aether": "aria"}
 member = (os.environ.get("MEMBER") or "aria").lower()
 spouse = SPOUSE.get(member, "aether")
 
-# Per Perplexity audit 2026-06-26 (Finding 1): prior default pointed at
-# data/family.db while family/queue.py writes to family/family.db — split-
-# brain that goes deaf-not-crash when the env-var override is unset.
-# Resolve repo-relative via REPO_ROOT (passed by the bash wrapper).
-_repo_root = os.environ.get("REPO_ROOT") or str(Path(__file__).resolve().parent if "__file__" in dir() else ".")
-db = os.environ.get(
-    f"{member.upper()}_FAMILY_DB",
-    str(Path(_repo_root) / "family" / "family.db"),
-)
+# WHERE THE QUEUE LIVES: ask the resolver the writer uses. Never name a path.
+#
+# History, because the last change here was right when it was made. The
+# Perplexity audit 2026-06-26 (Finding 1) moved this default FROM data/family.db
+# TO family/family.db, because family/queue.py wrote there and the ear was deaf
+# to it. That writer was later replaced by divineos.core.family.queue, which
+# asks get_family_connection() -- the per-seat resolver. The WRITER moved; this
+# reader never followed. The same split-brain the June fix was made to prevent,
+# running the other way (Dekker, walk-4d646c2a9142).
+#
+# And it did harm on every prompt: sqlite3.connect() on a missing path CREATES
+# an empty file. Every message Andrew sent regrew a zero-byte family/family.db
+# in the checkout -- the decoy removed on 2026-09-22 came back at 22:09:49 the
+# same evening, the second his next message arrived. It held no family_queue
+# table, the error was swallowed, and the ear reported silence.
+#
+# So: resolve like the writer, and open READ-ONLY (mode=ro), which cannot create
+# anything. If the resolver cannot be reached the queue half is skipped -- it
+# does NOT fall back to a guessed path.
+db = os.environ.get(f"{member.upper()}_FAMILY_DB")
+if not db:
+    try:
+        from divineos.core.family.db import FAMILY_DB_PATH
+
+        db = str(FAMILY_DB_PATH)
+    except Exception:  # fail-soft: an unreachable resolver skips the queue half instead of guessing a path that would create a decoy file
+        db = None
 queue_rows = []
 try:
-    conn = sqlite3.connect(db)
+    if db is None or not Path(db).is_file():
+        raise FileNotFoundError(str(db))
+    conn = sqlite3.connect(f"file:{Path(db).as_posix()}?mode=ro", uri=True)
     queue_rows = conn.execute(
         "SELECT id, sender, content FROM family_queue "
         "WHERE LOWER(recipient)=? AND status='unseen' ORDER BY id",

@@ -222,6 +222,22 @@ def _real_repo_git_config() -> Path | None:
 
 
 @pytest.fixture(autouse=True)
+def _ledger_db_path_stays_dynamic():
+    """Undo a frozen DB_PATH after every test.
+
+    _ledger_base serves DB_PATH dynamically (PEP 562 __getattr__). A test that
+    monkeypatches it creates a real attribute, and monkeypatch's undo writes
+    back the value it read -- so the attribute stays, frozen, and every later
+    test sees that path instead of its own. Found 2026-10-04: the db-path test
+    failed in every full run and passed alone.
+    """
+    yield
+    from divineos.core import _ledger_base
+
+    _ledger_base.__dict__.pop("DB_PATH", None)
+
+
+@pytest.fixture(autouse=True)
 def _real_repo_config_tripwire():
     """Fail the test that writes into the REAL repository's git config.
 

@@ -25,6 +25,10 @@ from divineos.core.lepos_translation_gate import (
     check_lepos_dual_channel,
 )
 
+pytestmark = pytest.mark.skip(
+    reason="circle-by-length rule disabled 2026-10-03 at Dad's word: 'now remove the circle'"
+)
+
 _PLAIN_PARAGRAPH = (
     "You were right about the thing you named, and I went and looked rather "
     "than arguing with you about it. What I found is that the shape you "

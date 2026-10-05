@@ -692,7 +692,10 @@ def blank_quoted_spans(text: str) -> str | None:
 # asks here, and the reading is the shell's own: quotes stay whole, a line
 # break ends a command, a heredoc body is data.
 
-_HEREDOC_OPEN = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
+# Not a here-string: `<<<` feeds one word and claims no lines after it, but
+# without the lookarounds its last two `<` read as an opener and swallowed every
+# line down to one matching the word (Aether, station four on 722d00a3).
+_HEREDOC_OPEN = re.compile(r"(?<!<)<<-?(?!<)\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 
 
 def strip_quoted_heredocs(cmd: str) -> str:
@@ -705,21 +708,46 @@ def strip_quoted_heredocs(cmd: str) -> str:
     heredoc whose terminator never appears is malformed, and the conservative
     reading is to scan all of it. Carried here from the doorman's
     shell_code_only when the doorman started asking this module.
+
+    WALKED LINE BY LINE, as the shell reads it (2026-09-24). This used to find
+    each opener by searching for its text from the top and cut from just after
+    it, which was wrong twice. A second ``<<'EOF'`` resolved to the FIRST one,
+    so its body was measured from there and swallowed the second ``cat >``
+    line. And the body was taken to start right after the opener, when the
+    shell starts it on the NEXT line -- so ``cat <<'EOF' > tests/x.py``, the
+    commonest way to write a file from a heredoc, lost its own redirect. Aether
+    found the first by replaying 87,926 commands through two readers; the
+    second both readers shared, which is why no comparison between them could.
+
+    LINES ARE JOINED BEFORE OPENERS ARE LOOKED FOR (Dijkstra on the walk,
+    walk-6bc5491434b2). A backslash-newline makes two physical lines one
+    command, so an opener's body begins after the LOGICAL line. Joining later,
+    in the token layer, left ``cat <<'EOF' && \\`` then ``cp a b`` sending the
+    copy into the body. The pair is kept in the output; the neutraliser
+    deletes it when the tokens are read.
     """
-    out = cmd
-    for match in list(_HEREDOC_OPEN.finditer(cmd)):
-        quote, word = match.group(1), match.group(2)
-        if not quote:
-            continue
-        body_start = out.find(match.group(0))
-        if body_start == -1:
-            continue
-        body_start += len(match.group(0))
-        terminator = re.search(rf"^\s*{re.escape(word)}\s*$", out[body_start:], re.MULTILINE)
-        if terminator is None:
-            continue
-        out = out[:body_start] + " " + out[body_start + terminator.end() :]
-    return out
+    lines = cmd.split("\n")
+    out: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        i += 1
+        while line.rstrip("\r").endswith("\\") and i < len(lines):
+            line += "\n" + lines[i]
+            i += 1
+        out.append(line)
+        # Bodies follow the opener's line, one after another, in opener order.
+        for match in _HEREDOC_OPEN.finditer(line):
+            quoted, word = bool(match.group(1)), match.group(2)
+            end = i
+            while end < len(lines) and lines[end].strip() != word:
+                end += 1
+            if end == len(lines):
+                break  # malformed: leave the rest to be scanned as shell
+            if not quoted:
+                out.extend(lines[i : end + 1])  # expanded by the shell: scan it
+            i = end + 1
+    return "\n".join(out)
 
 
 def _strip_comments(cmd: str) -> str:
@@ -777,12 +805,24 @@ def _neutralise_literal_operators(cmd: str) -> str:
     made only of operator characters, or a backslash before one, is replaced by
     a plain word before lexing. Quote-aware, so the separator in
     ``"a" ; "b"`` is left alone.
+
+    A BACKSLASH BEFORE A LINE BREAK IS NOT AN ESCAPED OPERATOR. The shell deletes
+    the pair and joins the lines. Treated as a literal operator, it became a
+    placeholder glued to the next word, so ``&& \\`` then ``cp a b`` on the next
+    line read as the command ``QUOTEDOPcp`` -- and every writer that is a command
+    word (cp, mv, sed -i, tee) went unseen after a continuation. 2026-09-24.
     """
     out: list[str] = []
     i = 0
     n = len(cmd)
     while i < n:
         ch = cmd[i]
+        if ch == "\\" and cmd.startswith("\n", i + 1):
+            i += 2
+            continue
+        if ch == "\\" and cmd.startswith("\r\n", i + 1):
+            i += 3
+            continue
         if ch == "\\" and i + 1 < n:
             out.append(_LITERAL_OPERATOR if cmd[i + 1] in _OPERATOR_CHARS else cmd[i : i + 2])
             i += 2

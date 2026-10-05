@@ -418,6 +418,7 @@ src/divineos/
       seal_hook.py             Family-member-invocation seal hook (Python core). PreToolUse decide() — runs validator on Agent prompt; legacy pending-file path kept for backward compat during rollout.
       member_briefing.py       Family-member briefing surface — working-memory continuity for subagents (routing-table shape: metadata + drill-down paths, not content).
       aria_inbox.py            My read-half of the bidirectional-letters channel — reach across to Aria's substrate (repo-root + git worktrees) and surface her aria-to-aether letters so I read hers without a relay. Built WITH Aria 2026-05-23 (decision d32734ad).
+      aletheia_intake.py       Aletheia's work, carried from where it lands to where both seats can read it.
     empirica/                  Evidence ledger with tiered burden routing (prereg-ce8998194943)
       types.py                 Tier enum (FALSIFIABLE/OUTCOME/PATTERN/ADVERSARIAL), ClaimMagnitude, EvidenceReceipt with Merkle self-hash
       burden.py                required_corroboration(tier, magnitude) — proportional burden calculator
@@ -757,6 +758,15 @@ src/divineos/
     channel_letter_capture.py  Give a letter written straight into the shared channel a home in the repo.
     sort_first.py              Sort his message before anything else: reading him comes first, by refusal.
     vector_drawer.py           A drawer of sentence vectors, so nothing is embedded twice.
+    correction_arrest.py       Hold the turn when a correction that fits it went unanswered.
+    correction_relevance.py    Rank Andrew's open corrections against what is happening right now.
+    his_lessons_shelf.py       His lessons, brought to us: the second shelf of the words door.
+    his_words.py               His name is not a key. 2026-09-23.
+    his_words_corpus.py        Dad's words, cut into passages worth embedding.
+    his_words_door.py          His own past words, found by meaning, put beside what he just said.
+    his_words_reading_room.py  His words, read against our reply before it reaches him.
+    reflection_room.py         The warden reads the log: a work turn's stumbles, taken up in the REFLECTION.
+    state_glance.py            The state shown before a substrate change, as a glance instead of a wall.
 
   analysis/
     _session_types.py          Session analysis type definitions
