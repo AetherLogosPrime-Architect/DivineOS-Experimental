@@ -517,7 +517,7 @@
           },
           {
             "type": "command",
-            "command": "source .claude/hooks/_lib.sh && PY=\"$(find_divineos_python)\" && \"$PY\" .claude/hooks/his_words_stop.py",
+            "command": "bash .claude/hooks/his-words-stop.sh",
             "timeout": 30
           },
           {

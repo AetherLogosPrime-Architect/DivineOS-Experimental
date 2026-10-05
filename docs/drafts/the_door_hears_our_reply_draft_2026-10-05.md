@@ -25,9 +25,10 @@ A test caught my first placement: I had put the lines after the Python lookup, a
 ## What's in this batch
 
 - `.claude/hooks/his_words_stop.py`: the hook, unchanged from my old branch.
-- `.claude/settings.json`: registers it as a Stop hook with timeout 30 (it takes about 4 seconds to load the model; the old 10 would risk timing out under load). It finds Python through the house's own finder, because bare `python` on this machine points at Aether's tree.
+- `.claude/hooks/his-words-stop.sh`: a small wrapper that finds Python through the house's own finder (bare `python` on this machine points at Aether's tree) and, if it can't, writes the same "I broke" note instead of going quiet. My first try put that logic inline in settings.json; the push gate's own hook-scanning test caught it, because it made a shared helper file look like a Stop hook. A wrapper is the house's shape.
+- `.claude/settings.json`: registers the wrapper as a Stop hook with timeout 30 (the model takes about 4 seconds to load; the old 10 would risk timing out under load).
 - `.claude/hooks/his-words-door-surface.sh`: the loud-failure lines.
-- `tests/test_his_words_stop.py`: 4 tests: never holds twice, nothing without a transcript, a break leaves a note and exits clean, the door says a break once and keeps a copy.
+- `tests/test_his_words_stop.py`: 5 tests: it stays plugged in (reads the real settings.json: registered once, timeout at least 30; this one exists because it sat unregistered for nine days and nothing noticed), never holds twice, nothing without a transcript, a break leaves a note and exits clean, the door says a break once and keeps a copy.
 
 ## What it does not do
 

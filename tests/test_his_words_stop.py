@@ -36,6 +36,23 @@ def _run_hook(payload: dict, mark: Path) -> subprocess.CompletedProcess:
     )
 
 
+def test_the_reply_side_door_stays_plugged_in():
+    """It sat unregistered for nine days and nothing noticed. Read the REAL
+    settings.json: the Stop list must hold his-words-stop.sh, with a timeout that
+    survives the model load (about 4 seconds; the old 10 would risk it under load)."""
+    stop_groups = json.loads((ROOT / ".claude" / "settings.json").read_text(encoding="utf-8"))[
+        "hooks"
+    ]["Stop"]
+    commands = [h for g in stop_groups for h in g["hooks"]]
+    assert commands, (
+        "read an empty Stop list: the control must exist before the finding means anything"
+    )
+    ours = [h for h in commands if "his-words-stop.sh" in h["command"]]
+    assert len(ours) == 1, f"his-words-stop.sh must be registered exactly once, found {len(ours)}"
+    assert ours[0]["timeout"] >= 30
+    assert (ROOT / ".claude" / "hooks" / "his-words-stop.sh").exists()
+
+
 def test_a_hold_already_in_progress_is_never_held_again(tmp_path):
     out = _run_hook({"stop_hook_active": True, "transcript_path": "unused"}, tmp_path / "m.txt")
     assert out.returncode == 0
