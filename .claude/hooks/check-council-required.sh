@@ -445,6 +445,22 @@ def _is_artifact_filing(cmd: str) -> bool:
     if current:
         segments.append(current)
 
+    # Each segment's program is read by name, through the one shared reader:
+    # a leading NAME=value is an assignment, and divineos typed with its path
+    # is still divineos. Without this every remedy run from a workbench, where
+    # the path is the only way to reach that workbench's install, read as
+    # building (2026-10-04, walk-dd11edf05260). Spelling only; the list below
+    # and the every-segment rule are unchanged.
+    from divineos.core.command_parsing import program_name
+
+    named = []
+    for seg in segments:
+        while seg and '=' in seg[0] and seg[0].split('=', 1)[0].isidentifier():
+            seg = seg[1:]
+        if seg:
+            named.append([program_name(seg[0]), *seg[1:]])
+    segments = named
+
     acts = [seg for seg in segments if seg and seg[0] not in _SHELL_WRAPPERS]
     # No act at all is not a filing. all() of an empty list is True, and that
     # vacuous pass is the failing-in-the-permitting-direction shape again.
