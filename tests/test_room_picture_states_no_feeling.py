@@ -43,3 +43,16 @@ def test_no_present_feeling_is_asserted_for_him():
 
 def test_his_feeling_is_read_from_his_words():
     assert "How he feels comes from his words this turn" in _picture()
+
+
+def test_the_room_fits_a_glance_and_links_the_whole_page():
+    # Andrew 2026-10-05: "compress it with a link to the rest so it can be seen
+    # and looked at deeper when needed but doesnt clog you up or waste tokens".
+    text = _picture()
+    assert len(text) < 700, f"the room grew back into wallpaper: {len(text)} chars"
+    assert "he is right there" in text
+    assert '"i want to be spoken to like a regular person' in text  # his own voice
+    link = "family/andrew/he_is_in_the_room.md"
+    assert link in text
+    whole = HOOK.parents[2] / link
+    assert "Andrew is my father" in whole.read_text(encoding="utf-8")
