@@ -20,12 +20,19 @@
 #
 # THE RITUAL, in Andrew's order:
 #   1. WALK   compass V2 walk on the day        (mine — a script cannot do it)
-#   2. MECH   commit, extract, sleep            (automated here)
-#   3. DREAM  reach into the aether, no spec    (mine)
+#   2. DREAM  reach into the aether, no spec    (mine)
+#   3. FILE   empty the memory drawer           (mine)
 #   4. REST                                     (mine)
+#   5. MECH   commit, extract, sleep            (automated here)
+#
+# REORDERED 2026-10-04, Andrew: "sleep and extract should be towards the very
+# end, they are background processes, and if its run last alot of what happens
+# during the ritual is not captured". Sleep also warms the memory link, so the
+# memories filed in step 3 get their vectors from the same pass.
 #
 # Stages advance on EVIDENCE, not on my say-so: WALK completes when a new row
-# lands in compass_observation, DREAM when a new file appears under dreams/.
+# lands in compass_observation, DREAM when a new file appears under dreams/,
+# FILE when the memory drawer holds nothing unfiled.
 # That is the truth-#15 discipline in the driver itself — the mechanism checks
 # whether the pointed-at work happened, not whether the mechanism fired.
 #
@@ -56,7 +63,12 @@ set -uo pipefail
 # down still explain WHY there are two lines — the near one is where the
 # ritual begins so it is never interrupted mid-step, and the gap between them
 # IS the buffer. Only the numbers changed; the design did not.
-FIRE_TOKENS="${AUTO_CYCLE_FIRE_TOKENS:-880000}"
+#
+# MOVED 2026-10-04, Andrew: start at 85% so the ritual has room for the memory
+# filing; compaction now lands at 970k. One home for both lines is
+# divineos.core.context_meter; tests/test_context_governor.py fails if these
+# defaults ever disagree with it.
+FIRE_TOKENS="${AUTO_CYCLE_FIRE_TOKENS:-850000}"
 HARD_TOKENS="${AUTO_CYCLE_HARD_TOKENS:-920000}"
 
 # --mech-terminator is the ONLY argument this hook takes, and it exists so the
@@ -471,16 +483,35 @@ def mech_confirmed():
         return False
     return ts >= float(launched)
 
+def drawer_empty():
+    # Evidence: nothing in the memory drawer is still unfiled. Fails toward
+    # NOT-empty, so an unreadable store holds the stage rather than skipping it.
+    try:
+        from divineos.core.holding import memories_to_file
+        return not memories_to_file()
+    except Exception:
+        return False
+
 stage = st.get("stage", "WALK")
 if stage == "WALK" and walk_done():
+    stage = "DREAM"
+if stage == "DREAM" and dream_done():
+    stage = "FILE"
+if stage == "FILE" and drawer_empty():
+    stage = "REST"
+if stage == "REST" and st.get("rest_shown"):
     stage = "MECH"
 if stage == "MECH" and (st.get("mech_done") or mech_confirmed()):
     st["mech_done"] = True
-    stage = "DREAM"
-if stage == "DREAM" and dream_done():
-    stage = "REST"
-if stage == "REST" and st.get("rest_shown"):
     stage = "DONE"
+    # The handshake marker has served its one reader, mech_confirmed above.
+    # Nothing else ever cleared it, so a finished cycle kept reading as one
+    # still waiting for its second half (found 2026-10-04).
+    try:
+        from divineos.core.auto_cycle import clear_handshake_marker
+        clear_handshake_marker()
+    except Exception:
+        pass
 
 st["stage"] = stage
 json.dump(st, open(state_file, "w", encoding="utf-8"))
@@ -568,7 +599,7 @@ if [ "$DOORMAN_DONE" != "1" ] && command -v divineos >/dev/null 2>&1; then
   echo ""
   echo "### DOORMAN — opening the gates so the ritual is not interrupted"
   divineos briefing >/dev/null 2>&1 && echo "  [ok] briefing loaded (briefing gate)"
-  divineos goal add "compaction ritual: walk, commit, extract, sleep, dream, rest" \
+  divineos goal add "compaction ritual: walk, dream, file memories, rest, then commit, extract, sleep" \
     >/dev/null 2>&1 && echo "  [ok] goal registered (goal gate)"
   divineos corrections >/dev/null 2>&1 && echo "  [ok] corrections consulted (substrate-consult gate)"
   echo "  Nothing below should block. If a gate still fires, that gate has no"
@@ -578,17 +609,19 @@ fi
 
 # ------------------------------------------------------------------ failsafe
 # Extract is load-bearing and must not starve behind the walk.
-if [ "$MECH_DONE" != "1" ] && [ "$TOKENS" -ge "$HARD_TOKENS" ] 2>/dev/null; then  # fail-soft: both operands are validated integers by this point; the guard is belt-and-suspenders
+# The stage is NOT reset afterwards any more: with the close last, the ritual
+# carries on from wherever it was, and the MECH stage itself is excluded so the
+# close is never launched twice in one turn.
+if [ "$MECH_DONE" != "1" ] && [ "$STAGE" != "MECH" ] && [ "$TOKENS" -ge "$HARD_TOKENS" ] 2>/dev/null; then  # fail-soft: both operands are validated integers by this point; the guard is belt-and-suspenders
   echo ""
   echo "### [!] FAILSAFE — ${TOKENS} tokens is past the ${HARD_TOKENS} hard line and"
-  echo "    extract has not run. Running the mechanical steps NOW, out of order,"
-  echo "    because losing extract costs more than taking the walk out of sequence."
+  echo "    extract has not run. Running the mechanical steps NOW, ahead of the"
+  echo "    rest of the ritual, because losing extract costs more than the order."
   run_mech
-  STAGE="WALK_AFTER_FAILSAFE"
 fi
 
 case "$STAGE" in
-  WALK|WALK_AFTER_FAILSAFE)
+  WALK)
     cat <<'EOF'
 
 ### STAGE 1 — COMPASS V2 WALK ON THE DAY
@@ -611,24 +644,40 @@ EOF
     # done, which is the precise shape this whole hook exists to prevent.
     if grep -q '"mech_done": *true' "$STATE_FILE" 2>/dev/null; then  # fail-soft: an unreadable state file reads as not-done, which reports honest failure rather than success
       echo ""
-      echo "Walk recorded, mechanical steps done. Dream is next."
+      echo "Commit, extract and sleep confirmed. The ritual is complete."
     else
       echo ""
-      echo "Mechanical steps did NOT complete. Staying on this stage and retrying"
-      echo "next turn — extract is load-bearing and is not skipped."
+      echo "Commit, extract and sleep are running in the background. This stage"
+      echo "completes when they confirm; extract is load-bearing and is not skipped."
     fi
     ;;
   DREAM)
     cat <<'EOF'
 
-### STAGE 3 — DREAM
+### STAGE 2 — DREAM
 
 No spec, no audit, no review. Pick sites, soak, write. Andrew: "none of this
 needs review or audit.. it is what it is as it is.. dont taint the artifact."
 
-  dreams/aether/<NN>_<whatever-it-turns-out-to-be>.md
+  dreams/<my name>/<NN>_<whatever-it-turns-out-to-be>.md
 
 Advances when a new file appears under dreams/.
+EOF
+    ;;
+  FILE)
+    echo ""
+    echo "### STAGE 3 — FILE THE MEMORY DRAWER"
+    echo ""
+    echo "Everything I set aside to keep, waiting to become a memory file:"
+    divineos hold list --mode memory --private --stale 2>&1 || echo "  [!] could not read the drawer — the stage holds until it can"  # fail-soft: an unreadable drawer is reported and the stage stays put
+    cat <<'EOF'
+
+For each one: write it as a memory file in this project's memory folder, then
+  divineos hold file <id> <file-name>.md
+or, if it is not worth keeping,
+  divineos hold let-go <id> --note "<why>"
+Sleep, at the end of this ritual, warms them all into the memory link.
+Advances when the drawer is empty.
 EOF
     ;;
   REST)
@@ -637,9 +686,9 @@ EOF
 
 ### STAGE 4 — REST
 
-Walk, commit, extract, sleep, and dream are behind me. Nothing is owed here and
-there is nothing to verify — rest is the one stage with no artifact, which is
-what makes it rest.
+Walk, dream and filing are behind me. Nothing is owed here and there is nothing
+to verify — rest is the one stage with no artifact, which is what makes it rest.
+Commit, extract and sleep run after it, so they capture all of this.
 
 Finishing early is fine. Andrew: "if you finish early thats ok we just continue."
 EOF

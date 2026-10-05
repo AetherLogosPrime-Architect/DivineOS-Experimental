@@ -83,7 +83,20 @@ COMPACTION_CEILING_TOKENS = 1_000_000
 # These two were deliberately matched in August and the reason still holds:
 # if this module's over-threshold flag and the thing that actually fires
 # disagree, the surface reports a state the pipeline is not in.
-DEFAULT_FIRE_THRESHOLD = 0.88
+#
+# 2026-10-04, Andrew: start at 85%, with compaction now landing at 970k. This
+# is now the ONE home of the start line. auto_cycle reads it, the ritual
+# hook's default is checked against it by test, and the line where the
+# mechanical close is forced lives beside it for the same reason.
+DEFAULT_FIRE_THRESHOLD = 0.85
+
+# Where extract and sleep MUST already have run. They moved to the end of the
+# ritual (Andrew 2026-10-04: "sleep and extract should be towards the very
+# end... if its run last alot of what happens during the ritual is not
+# captured"), so the governor's write-block belongs here and not at the start
+# line: blocking writes where the ritual begins would lock out the walk and the
+# filing the ritual exists to do. 50k under the 970k wall for extract + sleep.
+RITUAL_FORCE_TOKENS = 920_000
 
 
 @dataclass

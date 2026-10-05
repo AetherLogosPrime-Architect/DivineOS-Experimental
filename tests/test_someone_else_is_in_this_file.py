@@ -28,6 +28,15 @@ import pytest
 REPO = Path(__file__).resolve().parents[1]
 HOOK = REPO / ".claude" / "hooks" / "someone-else-is-in-this-file.sh"
 
+# The hook runs against this real repository and is exempt mid-merge or
+# mid-rebase by design. In that state the knock cases cannot be judged at all,
+# so they say so instead of failing on the exemption (found 2026-10-04: these
+# four blocked the very commit that concluded a merge).
+_MID_OPERATION = any((REPO / ".git" / m).exists() for m in ("MERGE_HEAD", "REBASE_HEAD"))
+needs_quiet_repo = pytest.mark.skipif(
+    _MID_OPERATION, reason="repository is mid-merge or mid-rebase; the hook is exempt there"
+)
+
 # Taken from Aether's test_merge_question_hook.py rather than rewritten, and
 # the reason is in his header: bare `bash` on this machine resolves to the WSL
 # relay, which exits 1 without ever running the hook. His runner counted every
@@ -98,12 +107,14 @@ def _run(rel: str, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     return result
 
 
+@needs_quiet_repo
 def test_it_knocks_on_a_file_someone_else_is_changing(seeded: dict[str, str]) -> None:
     result = _run(CONTESTED, seeded)
     assert result.returncode == 2, "a contested file must stop, not merely mention"
     assert BRANCH in result.stderr, "the knock must name the branch, not just the fact"
 
 
+@needs_quiet_repo
 def test_the_second_file_on_the_same_branch_is_silent(seeded: dict[str, str]) -> None:
     """Aether's amendment, and the reason it is right.
 
@@ -126,6 +137,7 @@ def test_a_file_nobody_else_is_in_stays_quiet(seeded: dict[str, str]) -> None:
     assert result.stderr.strip() == ""
 
 
+@needs_quiet_repo
 def test_a_second_branch_is_still_announced(tmp_path: Path) -> None:
     """Why the unit is per-BRANCH and not per-partner, which was my refinement.
 
@@ -151,6 +163,7 @@ def test_a_second_branch_is_still_announced(tmp_path: Path) -> None:
     assert other in second.stderr
 
 
+@needs_quiet_repo
 def test_it_says_what_it_cannot_see(seeded: dict[str, str]) -> None:
     """A quiet gap reads as coverage, so the limit ships inside the message.
 

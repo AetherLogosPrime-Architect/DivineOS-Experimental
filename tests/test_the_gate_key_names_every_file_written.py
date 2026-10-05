@@ -131,6 +131,17 @@ class TestEveryCommandThatNamesAnEditUsesTheSameKey:
     authorization could not clear the edit it named."""
 
     COMMAND = f"cp src.md {KILN}"
+    QUOTE = "a quote long enough to be recorded as the operator's words"
+
+    @pytest.fixture(autouse=True)
+    def _his_recent_words_carry_the_quote(self, monkeypatch) -> None:
+        # authorize-bypass checks the quote against his real recent messages
+        # (core/his_words.py, "his name is not a key"). These tests are about
+        # which KEY an authorization is stored under, not about that check, so
+        # his recent words are given as containing the quote they use.
+        from divineos.core import his_words
+
+        monkeypatch.setattr(his_words, "his_recent_turns", lambda *a, **k: ([self.QUOTE], ""))
 
     def _run(self, *args: str):
         from click.testing import CliRunner

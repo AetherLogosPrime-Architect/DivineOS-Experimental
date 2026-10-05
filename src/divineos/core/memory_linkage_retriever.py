@@ -56,6 +56,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -662,6 +663,58 @@ def _load_wall() -> list[_CachedItem]:
     return items
 
 
+def _memory_files_dir() -> Path:
+    # The harness keys a project's memory by its path with every
+    # non-alphanumeric character turned into a dash.
+    slug = re.sub(r"[^A-Za-z0-9]", "-", str(_REPOSITORY_ROOT))
+    return Path.home() / ".claude" / "projects" / slug / "memory"
+
+
+def _load_memory_files() -> list[_CachedItem]:
+    """One wall item per file in this checkout's Claude memory directory.
+
+    Andrew 2026-10-04: the MEMORY.md index had grown into wallpaper, loaded
+    whole every session, while none of the files behind it were reachable
+    by relevance. These are those files. MEMORY.md itself is skipped: it is
+    the index, and as one item it would match everything.
+    """
+    directory = _memory_files_dir()
+    if not directory.is_dir():
+        return []
+    items: list[_CachedItem] = []
+    for md_path in sorted(directory.glob("*.md")):
+        if md_path.name == "MEMORY.md":
+            continue
+        try:
+            text = md_path.read_text(encoding="utf-8", errors="replace").strip()
+            mtime = md_path.stat().st_mtime
+        except Exception:  # noqa: BLE001 - filesystem boundary
+            continue
+        body = re.sub(r"\A---\n.*?\n---\n?", "", text, flags=re.DOTALL).strip()
+        if not body:
+            continue
+        description = re.search(r"^description:\s*(.+)$", text, flags=re.MULTILINE)
+        title = (description.group(1).strip("\"' ") if description else md_path.stem)[:60]
+        content = f"{title}\n\n{body}"
+        embedding = _embed_text_impl(content)
+        if embedding is None:
+            continue
+        items.append(
+            _CachedItem(
+                id=f"memory-{md_path.stem}",
+                source="wall",
+                tier="topic",
+                title=title,
+                content=content,
+                path=md_path.name,
+                filed_at_unix=mtime,
+                importance_score=0.6,
+                embedding=embedding,
+            )
+        )
+    return items
+
+
 _EXPLORATION_HEAD_CHARS = 2000
 # The running checkout first. The old tuple put Aria's checkout ahead of mine,
 # so the first-found exploration folder was hers. Kept after it for letters,
@@ -834,7 +887,7 @@ def _ensure_cache() -> None:
     _LANE_STATE.update(missing=0, drawer_error=None)
     _EMBEDDING_CACHE["correction"] = _load_corrections()
     _EMBEDDING_CACHE["knowledge"] = _load_knowledge()
-    _EMBEDDING_CACHE["wall"] = _load_wall()
+    _EMBEDDING_CACHE["wall"] = _load_wall() + _load_memory_files()
     _EMBEDDING_CACHE["exploration"] = _load_exploration()
     _EMBEDDING_CACHE["letter"] = _load_letters()
 
@@ -933,6 +986,7 @@ def warm(progress: Any = None) -> dict[str, int]:
             _load_corrections,
             _load_knowledge,
             _load_wall,
+            _load_memory_files,
             _load_exploration,
             _load_letters,
         ):

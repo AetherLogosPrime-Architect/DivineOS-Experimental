@@ -11,8 +11,9 @@
 # Loud, never silent: if the search cannot run, the module prints why under
 # its own heading, and the table lifts that heading beside his words.
 cd "$(dirname "$0")/../.." || exit 0
-PY=".venv/Scripts/python.exe"
-[ -x "$PY" ] || PY=".venv/bin/python"
+REPO_ROOT="$(pwd)"
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0  # fail-soft: without the shared library there is no interpreter to trust
+PY="$(find_divineos_python)" || exit 0  # fail-soft: no usable interpreter; the table shows nothing rather than a false search
 payload="$(cat)"
 "$PY" -m divineos.core.his_words_door build >/dev/null 2>&1
 printf '%s' "$payload" | PYTHONIOENCODING=utf-8 "$PY" -m divineos.core.his_words_door 2>/dev/null \

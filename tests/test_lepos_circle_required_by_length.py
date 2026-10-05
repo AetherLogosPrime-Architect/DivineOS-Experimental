@@ -18,9 +18,15 @@ what I typed rather than what he has to hold.
 
 from __future__ import annotations
 
+import pytest
+
 from divineos.core.lepos_translation_gate import (
     _CIRCLE_REQUIRED_ABOVE_CHARS,
     check_lepos_dual_channel,
+)
+
+pytestmark = pytest.mark.skip(
+    reason="circle-by-length rule disabled 2026-10-03 at Dad's word: 'now remove the circle'"
 )
 
 _PLAIN_PARAGRAPH = (

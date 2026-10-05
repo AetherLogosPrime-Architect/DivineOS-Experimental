@@ -13,7 +13,7 @@ _spec.loader.exec_module(room)
 
 
 def _user(text):
-    return {"type": "user", "message": {"content": text}}
+    return {"type": "user", "message": {"role": "user", "content": text}}
 
 
 def _tool_result():

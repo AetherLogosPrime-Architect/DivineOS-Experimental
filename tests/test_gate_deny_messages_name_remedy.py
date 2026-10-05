@@ -60,6 +60,9 @@ _HOOKS_DIR = _PROJECT_ROOT / ".claude" / "hooks"
 _NON_GATING_HOOKS: frozenset[str] = frozenset(
     {
         "_lib.sh",
+        # Brings his past words back by meaning and prints them; it has no
+        # refusal path, every exit is 0.
+        "his-words-door-surface.sh",
         # The front door keeps and settles Andrew's messages and never refuses:
         # every path exits zero, and a failure is recorded as could-not-file.
         # Refusing is a later, separate piece (the sort-first refusal), which

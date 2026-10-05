@@ -86,7 +86,8 @@ def _read_ceiling_override() -> int | None:
 # is the drift this literal was written to expect. The old value did not merely
 # become inaccurate — it put the consolidation hard line AT the cliff, so the
 # margin the whole design rests on had quietly gone to zero.
-COMPACTION_CEILING = _read_ceiling_override() or 950_000
+# MOVED UP 2026-10-04, Andrew: "it resets at 970k now not 999k".
+COMPACTION_CEILING = _read_ceiling_override() or 970_000
 #
 # BOTH BRANCHES REPAIRED THIS, in different words, and the merge kept both
 # halves (2026-09-22). They did not disagree about the world -- both quote the
@@ -141,8 +142,15 @@ COMPACTION_CEILING = _read_ceiling_override() or 950_000
 #
 # 880k against 950k restores 70k, wider than the 49k this design ran on before,
 # because the close has grown: a compass walk, commit, extract, sleep, dream.
-CONSOLIDATION_THRESHOLD = 880_000  # hard line (also the default for consolidation_due)
-HARD_THRESHOLD = 880_000
+#
+# MOVED OFF THE START LINE, 2026-10-04. Extract and sleep now run LAST in the
+# ritual, so a write-block at the start line would stop the walk and the memory
+# filing before the close ever reached extract. The block now sits where the
+# ritual forces the mechanical close, and reads that line from its one home.
+from divineos.core.context_meter import RITUAL_FORCE_TOKENS  # noqa: E402
+
+CONSOLIDATION_THRESHOLD = RITUAL_FORCE_TOKENS  # hard line (also the default for consolidation_due)
+HARD_THRESHOLD = RITUAL_FORCE_TOKENS
 _MARKER_NAME = "context_consolidated.json"
 
 

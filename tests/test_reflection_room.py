@@ -9,7 +9,9 @@ REFUSAL = (
 
 
 def _his(text):
-    return {"type": "user", "message": {"content": text}}
+    # Shaped like a real record, role included: the room asks the one shared
+    # reader of him, which checks it (2026-10-04).
+    return {"type": "user", "message": {"role": "user", "content": text}}
 
 
 def _queued(text):

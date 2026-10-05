@@ -316,6 +316,11 @@ fi
 if [[ -f "$REPO_ROOT/scripts/check_merge_resolution_tested.sh" ]]; then
     bash "$REPO_ROOT/scripts/check_merge_resolution_tested.sh" || exit 1
 fi
+# Its sister, added 2026-10-04: a merge that settled a two-sided file by copying
+# one side whole, dropping the other side's work. Tests or no tests.
+if [[ -f "$REPO_ROOT/scripts/check_merge_kept_both_sides.py" ]]; then
+    python "$REPO_ROOT/scripts/check_merge_kept_both_sides.py" || exit 1
+fi
 
 # 4. Wiring-claim gate — SOFT WARNING. Surfaces "wire X to Y" /
 # "bridge", "integrate", "connect", "end-to-end", "close the gap"

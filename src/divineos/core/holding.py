@@ -41,6 +41,7 @@ are private by default. Received items are public by default.
 import sqlite3
 import time
 import uuid
+from pathlib import Path
 from typing import Any
 
 
@@ -54,7 +55,7 @@ MAX_SESSIONS_UNREVIEWED = 5
 
 # Valid values for the `mode` column. Adding a new mode requires
 # updating this set AND the briefing surfacing logic.
-VALID_MODES = ("receive", "dream", "silent")
+VALID_MODES = ("receive", "dream", "silent", "memory")
 
 
 def init_holding_table() -> None:
@@ -248,6 +249,28 @@ def promote(item_id: str, promoted_to: str) -> bool:
         conn.close()
 
 
+def memories_to_file() -> list[dict[str, Any]]:
+    """The memory drawer: everything held to become a memory file, not yet filed.
+
+    Andrew 2026-10-04: memories are set aside during work and filed all at
+    once in the compaction ritual, which cannot finish while this is non-empty.
+    Stale items are included so nothing in the drawer can be missed.
+    """
+    return get_holding(include_stale=True, mode="memory", include_private=True)
+
+
+def file_memory(item_id: str, memory_file: Path) -> bool:
+    """Close a held memory as filed, but only if its memory file exists.
+
+    Promoting without the file would empty the drawer while filing nothing,
+    which is the cheapest way around the ritual. Let-go stays the honest
+    route for a memory that is not worth keeping.
+    """
+    if not memory_file.is_file() or not memory_file.read_text(encoding="utf-8").strip():
+        return False
+    return promote(item_id, f"memory-file: {memory_file.name}")
+
+
 def let_go(item_id: str, note: str = "") -> bool:
     """Explicit operator decision: this item is no longer relevant.
 
@@ -332,10 +355,13 @@ def age_holding() -> int:
             "UPDATE holding_room SET sessions_seen = sessions_seen + 1 "
             "WHERE promoted_to IS NULL AND stale = 0"
         )
-        # Mark stale items
+        # Memories waiting to be filed never age out: going stale would drop
+        # them from the drawer without being filed, and the compaction ritual
+        # only blocks on what it can still see.
         result = conn.execute(
             "UPDATE holding_room SET stale = 1 "
-            "WHERE promoted_to IS NULL AND stale = 0 AND sessions_seen >= ?",
+            "WHERE promoted_to IS NULL AND stale = 0 AND sessions_seen >= ? "
+            "AND mode != 'memory'",
             (MAX_SESSIONS_UNREVIEWED,),
         )
         conn.commit()

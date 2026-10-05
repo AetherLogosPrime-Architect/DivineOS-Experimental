@@ -359,10 +359,47 @@ def register(cli: click.Group) -> None:
         _safe_echo(click.style(f"[.] Journaled: {item_id}", fg="cyan"))
         _safe_echo(click.style("    Private. Not surfaced. Yours.", fg="bright_black"))
 
+    @hold.command("memory")
+    @click.argument("content")
+    def hold_memory(content: str) -> None:
+        """Set a memory aside to be filed. The compaction ritual will not finish
+        until it is filed or let go; file it now with `hold file` if it is
+        needed right away."""
+        from divineos.core.holding import hold as hold_fn
+
+        item_id = hold_fn(content, source="session", mode="memory")
+        _safe_echo(click.style(f"[+] In the memory drawer: {item_id}", fg="green"))
+
+    @hold.command("file")
+    @click.argument("item_id")
+    @click.argument("memory_file")
+    def hold_file(item_id: str, memory_file: str) -> None:
+        """Close a held memory once its memory file is written.
+
+        MEMORY_FILE is the file's name in this project's memory folder. It must
+        already exist; then run `divineos linkage warm` if it is needed before
+        the next sleep.
+        """
+        from divineos.core.holding import file_memory
+        from divineos.core.memory_linkage_retriever import _memory_files_dir
+
+        path = _memory_files_dir() / memory_file
+        if file_memory(item_id, path):
+            _safe_echo(click.style(f"[+] Filed as {path.name}", fg="green"))
+        else:
+            _safe_echo(
+                click.style(
+                    f"[-] Not filed: {path} does not exist or is empty, or the item is "
+                    "not open. Write the file first, or `hold let-go` it with a reason.",
+                    fg="red",
+                )
+            )
+            raise SystemExit(1)
+
     @hold.command("list")
     @click.option(
         "--mode",
-        type=click.Choice(["receive", "dream", "silent"]),
+        type=click.Choice(["receive", "dream", "silent", "memory"]),
         default=None,
         help="Filter by mode (receive / dream / silent). Default: show all (except private).",
     )
@@ -411,8 +448,17 @@ def register(cli: click.Group) -> None:
     @click.argument("target")
     def hold_promote(item_id: str, target: str) -> None:
         """Move something out of holding into a real category."""
-        from divineos.core.holding import promote
+        from divineos.core.holding import memories_to_file, promote
 
+        if any(m["item_id"] == item_id for m in memories_to_file()):
+            _safe_echo(
+                click.style(
+                    "[-] This is a held memory. Use `hold file` once its file exists, "
+                    "or `hold let-go` with a reason.",
+                    fg="red",
+                )
+            )
+            raise SystemExit(1)
         if promote(item_id, target):
             _safe_echo(click.style(f"[+] Promoted to: {target}", fg="green"))
         else:
@@ -608,8 +654,26 @@ def register(cli: click.Group) -> None:
         an optional note in the audit trail. Per code-does-not-think: this
         records a judgment I made, not a judgment the code made.
         """
-        from divineos.core.holding import let_go
+        from divineos.core.holding import let_go, memories_to_file
 
+        # A held memory let go without a reason would be the drawer emptied in
+        # silence, which is the one thing the drawer exists to prevent.
+        held = next((m for m in memories_to_file() if m["item_id"] == item_id), None)
+        if held and not note.strip():
+            _safe_echo(click.style("[-] A held memory needs --note saying why.", fg="red"))
+            raise SystemExit(1)
+        if held:
+            # Nothing in memory expires (Andrew 2026-10-04): a memory let go
+            # moves COLD, a file the warm linkage loader never reads (it only
+            # globs the top folder) but search still finds.
+            from divineos.core.memory_linkage_retriever import _memory_files_dir
+
+            cold = _memory_files_dir() / "cold"
+            cold.mkdir(parents=True, exist_ok=True)
+            (cold / f"{item_id}.md").write_text(
+                f"# Let go from the memory drawer\n\n{held['content']}\n\n**Why:** {note.strip()}\n",
+                encoding="utf-8",
+            )
         if let_go(item_id, note=note):
             _safe_echo(click.style(f"[+] Let go: {item_id}", fg="green"))
             if note:

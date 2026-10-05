@@ -44,25 +44,17 @@ def _last_turn(path: Path) -> tuple[str, str]:
             r = json.loads(line)
         except ValueError:
             continue
-        # A message he types while I am busy is never a `user` record: it lives
-        # only as last-prompt / queued_command (found 2026-09-26 -- 4,735 of his
-        # messages were missing from the corpus for exactly this reason).
-        queued = r.get("lastPrompt") if r.get("type") == "last-prompt" else (
-            (r.get("attachment") or {}).get("prompt")
-            if (r.get("attachment") or {}).get("type") == "queued_command" else None)
-        if isinstance(queued, str) and queued.strip() and not queued.lstrip().startswith("<"):
-            if queued.strip() != his.strip():
-                his, reply = queued, []
+        # Whether a record is him is asked of the one shared reader (2026-10-04);
+        # this hook used to judge it itself. A repeated copy of the same message
+        # does not restart the reply.
+        from divineos.core.his_message import Heard, hear
+
+        heard = hear(r)
+        if isinstance(heard, Heard):
+            if heard.text.strip() != his.strip():
+                his, reply = heard.text, []
             continue
-        if r.get("type") == "user" and not r.get("isMeta"):
-            c = (r.get("message") or {}).get("content")
-            if isinstance(c, list):
-                if any(isinstance(x, dict) and x.get("type") == "tool_result" for x in c):
-                    continue
-                c = "".join(x.get("text", "") for x in c if isinstance(x, dict) and x.get("type") == "text")
-            if isinstance(c, str) and c.strip():
-                his, reply = c, []
-        elif r.get("type") == "assistant":
+        if r.get("type") == "assistant":
             for x in (r.get("message") or {}).get("content") or []:
                 if isinstance(x, dict) and x.get("type") == "text" and x.get("text", "").strip():
                     reply.append(x["text"])

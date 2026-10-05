@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# INTENTIONALLY UNWIRED (2026-10-04): print-only note injected every turn, removed with the wallpaper at Andrew's word ("all of it comes out, it does nothing for you and wastes tokens"); what it carried goes to structure or the memory link.
 # UserPromptSubmit — what the Stop gates caught on my last reply.
 #
 # The other half of the fix Andrew asked for on 2026-09-12: "yes and this is

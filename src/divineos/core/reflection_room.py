@@ -89,29 +89,15 @@ def _text(content) -> str:
 
 
 def _his_message(rec: dict) -> str | None:
-    """His genuine message, including one he typed while I was busy."""
-    if rec.get("type") == "last-prompt":
-        t = rec.get("lastPrompt")
-        return t if isinstance(t, str) and t.strip() and not t.lstrip().startswith("<") else None
-    att = rec.get("attachment") or {}
-    if att.get("type") == "queued_command":
-        t = att.get("prompt")
-        return t if isinstance(t, str) and t.strip() and not t.lstrip().startswith("<") else None
-    if rec.get("type") != "user" or rec.get("isMeta"):
-        return None
-    content = (rec.get("message") or {}).get("content")
-    if isinstance(content, list) and any(
-        isinstance(c, dict) and c.get("type") == "tool_result" for c in content
-    ):
-        return None
-    t = _text(content)
-    if (
-        not t.strip()
-        or t.lstrip().startswith(NOTICE_PREFIXES)
-        or t.startswith("Stop hook feedback")
-    ):
-        return None
-    return t
+    """His genuine message, including one he typed while I was busy.
+
+    Asked of the one shared reader (2026-10-04): this used to judge the record
+    itself, a second definition of what counts as him beside his_message.
+    """
+    from divineos.core.his_message import Heard, hear
+
+    heard = hear(rec)
+    return heard.text if isinstance(heard, Heard) else None
 
 
 def _key(text: str) -> str:
@@ -146,7 +132,7 @@ def _key(text: str) -> str:
 def this_turn(records: list[dict]) -> tuple[bool, list[Stumble], str]:
     """(worked, stumbles, my reply text) since his last genuine message."""
     # The latest thing he said -- then the FIRST record carrying it. The harness
-    # re-writes a queued message as 'last-prompt' again and again through the
+    # re-writes a queued message as a bookmark again and again through the
     # turn; taking the last copy moved the turn's start forward and dropped the
     # stumbles before it (replay 2026-09-26: 1 of 23 turns held, measured wrong).
     start, his = None, ""

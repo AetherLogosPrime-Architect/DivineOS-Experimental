@@ -39,18 +39,13 @@ REASON = (
 
 
 def _genuine_user_text(rec: dict) -> str | None:
-    if rec.get("type") != "user" or rec.get("isMeta"):
-        return None
-    content = (rec.get("message") or {}).get("content")
-    if isinstance(content, str):
-        text = content
-    elif isinstance(content, list):
-        if any(isinstance(c, dict) and c.get("type") == "tool_result" for c in content):
-            return None
-        text = "".join(c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text")
-    else:
-        return None
-    return text if text.strip() else None
+    # Asked of the one shared reader (2026-10-04); this hook used to judge the
+    # record itself, a second definition of what counts as him.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+    from divineos.core.his_message import Heard, hear
+
+    heard = hear(rec)
+    return heard.text if isinstance(heard, Heard) else None
 
 
 def verdict(records: list[dict]) -> str | None:

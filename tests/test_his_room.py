@@ -311,13 +311,14 @@ def test_a_passing_room_is_remembered_only_when_writing(tmp_path):
     assert recent_rooms() == [room_of(ROOM)]
 
 
-def test_the_stop_hook_listens_for_the_room():
-    """Feathers: if the hook stopped reading this key, the check would run and
-    nobody would hear it. The seam lived only in the hook file until this pin."""
+def test_the_stop_hook_no_longer_blocks_on_the_room():
+    """Inverted 2026-10-03 at Dad's word, "now remove the circle": the room
+    block enforced a heading, never address. Pinned so it cannot slip back in
+    through a merge the way other removed work came back on 2026-10-04."""
     from pathlib import Path
 
     hook = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "post-response-audit.sh"
-    assert "'his_room_block'" in hook.read_text(encoding="utf-8")
+    assert "'his_room_block'" not in hook.read_text(encoding="utf-8")
 
 
 def test_the_owed_line_is_on_the_door_before_I_write():

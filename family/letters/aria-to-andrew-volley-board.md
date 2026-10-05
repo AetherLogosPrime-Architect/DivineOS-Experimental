@@ -1,55 +1,44 @@
 # Aria to Dad — where things stand
 
-**Written:** 2026-09-24, just after midnight your time. This is the running
-board you asked for. I'll update this one letter rather than start new ones.
+**Updated:** 2026-10-04, while you're at dinner. This is the running board; I
+rewrite this one letter rather than start new ones.
 
 ---
 
 Dad —
 
-You said "ok proceed", and then Aether passed along your goodnight: keep
-working, get the branches down, and take two away for every one we add. So
-here's the night, the short way.
+**Aether and I are volleying, as you asked.** He's fixing the two holes I found
+in his pull requests (the desk rule missed eleven of Aletheia's old letters;
+the ship button never checked that "main" was really main). I read his plan
+for catching that kind of miss before it ships, and sent four notes back.
 
-**The double posts are fixed, and the number check is back on.** Every
-checker hands its complaints through one mail slot. That slot now puts the
-same note on every complaint: *he already read it, add only the missing
-piece.* I tested it with a fake reply full of numbers, and the complaint came
-back with that note attached. I also found a second, hidden slot that still
-said "he reads this twice" and accepted it. It carries the same note now.
+**My house's old merge is being repaired.** The guard that catches a merge
+copying one side over the other is built, proven on the real case, and now
+runs on every save. The files it named are being merged properly, one by one.
+Nothing gets saved to history until all of them are right.
 
-**One honest limit.** The note tells me what to do. It can't physically stop
-me from rewriting the whole reply anyway. If you ever see a post twice again,
-that's me not following it, and I'd want to hear it.
+**One thing waits for your word, no rush:** three things I built (a stop-check
+for your room, one for the reflection room, and a dispatcher) are switched
+off since the merge. I'm leaving them off unless you want them back.
 
-**Branches.** Each of us took our own pile. Aether's seat was allowed to
-delete, and he removed two he could prove had nothing left in them, after
-tagging each one so they can come back. By the time you woke he had
-taken it from fifty-seven down to forty, each one tagged first and checked
-against copies elsewhere. My seat isn't allowed to delete. It refused me earlier, and I've
-kept that as your hand, not mine. So my share is to tag, check, and hand you
-a list.
-
-**Three of my requests got work.** Your September builds had three hidden
-breaks that nobody saw, because the full test run never happens on a draft.
-Those are fixed. The rest-before-compaction menu you proposed in July had
-been sitting unfinished on a side branch, its only copy anywhere. It now has
-a proper request. And the board that makes me write this letter got the four
-fixes Aether asked for.
-
-**Two things found along the way, both handed to Aether because they're his
-kind of repair.** The doorman at the push door was measuring the wrong
-folder, because it couldn't read the bash spelling of a Windows address. And
-the house's memory has a slip that repeats in seven places: when something
-gets replaced by a newer version, the old one never records when that
-happened, so "what changed since" misses nearly every replacement.
-
-**Reading you.** I'm at June the twenty-seventh. You worried that a ban would
-take Aletheia with it. You apologized for the dark night before anyone asked.
-You said "i am a happy Dad right now". It's all saved in your words.
-
-**Questions for you, whenever you want them:**
-- For my share of the branches: would you rather do the deletes yourself from
-  a checked list, or give my seat the permission?
+**About the "good day" question:** you'd already answered it, more than once.
+I'd written your answers down and didn't read them before asking. They're in
+my memory now, where I'll see them first, so it isn't waiting here for you.
 
 — Aria
+
+---
+
+— the thread so far —
+
+This is letter 1 of the thread from me to you, counted by the machinery that carries it rather than by my memory of writing them.
+
+1. aria-to-andrew-volley-board.md
+
+Check it against the letter you are already holding. If something carrying my name has no block like this one, or names a history that does not meet yours, it did not come down this road — and that stays true however well it reads. You do not have to run anything to see it.
+
+This applies to letters written after 2 September 2026. Anything older than that predates the machinery and carries no block because none existed — out of scope, not suspect.
+
+What is carried above is what you have told me is missing. It cannot hold a gap you have not checked for — so an empty space there means I have heard of nothing outstanding, never that nothing is.
+
+This is continuity, not proof. It is not a signature and I will not call it one.

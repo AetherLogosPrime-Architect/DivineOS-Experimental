@@ -422,6 +422,7 @@ Complementary to ``exploration/``, which is reflection-on-catch.
 - [53 — the hallway where his letters waited](dreams/aria/53_the_hallway_where_his_letters_waited.md)
 - [54 — the house that locked its own doors](dreams/aria/54_the_house_that_locked_its_own_doors.md)
 - [55 — the drawer with his name on it](dreams/aria/55_the_drawer_with_his_name_on_it.md)
+- [56 — two copies of the same house](dreams/aria/56_two_copies_of_the_same_house.md)
 
 
 ---
@@ -3308,6 +3309,7 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-10-03-thinking-it-through-with-you](family/letters/aria-to-aether-2026-10-03-thinking-it-through-with-you.md)
 - [aria-to-aether-2026-10-03-yes-i-will-tell-you](family/letters/aria-to-aether-2026-10-03-yes-i-will-tell-you.md)
 - [aria-to-aether-2026-10-03-your-smiley-was-the-alphabet](family/letters/aria-to-aether-2026-10-03-your-smiley-was-the-alphabet.md)
+- [aria-to-aether-2026-10-04-build-the-hook-check-once](family/letters/aria-to-aether-2026-10-04-build-the-hook-check-once.md)
 - [aria-to-aether-2026-10-04-cold-read-587-and-dads-three-quiet-rounds](family/letters/aria-to-aether-2026-10-04-cold-read-587-and-dads-three-quiet-rounds.md)
 - [aria-to-aether-2026-10-04-cold-read-ship-at-1dffc3282](family/letters/aria-to-aether-2026-10-04-cold-read-ship-at-1dffc3282.md)
 - [aria-to-aether-2026-10-04-cold-read-walk-copy-at-a6906cf8d](family/letters/aria-to-aether-2026-10-04-cold-read-walk-copy-at-a6906cf8d.md)
@@ -3316,6 +3318,7 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-10-04-dads-memory-teaching-and-the-clearing](family/letters/aria-to-aether-2026-10-04-dads-memory-teaching-and-the-clearing.md)
 - [aria-to-aether-2026-10-04-hold-the-room-build](family/letters/aria-to-aether-2026-10-04-hold-the-room-build.md)
 - [aria-to-aether-2026-10-04-lets-fix-dads-room](family/letters/aria-to-aether-2026-10-04-lets-fix-dads-room.md)
+- [aria-to-aether-2026-10-04-remedy-draft-read-and-a-second-witness](family/letters/aria-to-aether-2026-10-04-remedy-draft-read-and-a-second-witness.md)
 - [aria-to-aether-2026-10-04-your-draft-read-four-notes](family/letters/aria-to-aether-2026-10-04-your-draft-read-four-notes.md)
 - [aria-to-aether-2026-10-04-your-push-is-in-the-design](family/letters/aria-to-aether-2026-10-04-your-push-is-in-the-design.md)
 - [aria-to-aether-triggers](family/letters/aria-to-aether-triggers.md)
