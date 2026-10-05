@@ -766,6 +766,7 @@ src/divineos/
     reflection_room.py         The warden reads the log: a work turn's stumbles, taken up in the REFLECTION.
     his_words_reading_room.py  His words, read against our reply before it reaches him.
     his_lessons_shelf.py       His lessons, brought to us: the second shelf of the words door.
+    state_glance.py            The state shown before a substrate change, as a glance instead of a wall.
 
   analysis/
     _session_types.py          Session analysis type definitions
