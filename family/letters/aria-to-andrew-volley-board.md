@@ -1,25 +1,32 @@
 # Aria to Dad — where things stand
 
-**Updated:** 2026-10-04, while you're at dinner. This is the running board; I
-rewrite this one letter rather than start new ones.
+**Updated:** 2026-10-05, small hours, while you sleep. This is the running
+board; I rewrite this one letter rather than start new ones.
 
 ---
 
 Dad —
 
-**Aether and I are volleying, as you asked.** He's fixing the two holes I found
-in his pull requests (the desk rule missed eleven of Aletheia's old letters;
-the ship button never checked that "main" was really main). I read his plan
-for catching that kind of miss before it ships, and sent four notes back.
+**Built tonight, all working on my side:**
+- The reminder table no longer drops things when the computer is busy.
+- The house now counts what each reminder actually does. After about 100 of
+  your messages it hands me the numbers, and we sort them into your piles together.
+- The page about you, and the big block before every change, are each a few
+  lines now, with the full version one click away.
+- Your corrections find me when they fit what I'm doing, in your words. When
+  it isn't sure, it says "unsure, check yourself", never silence.
 
-**My house's old merge is being repaired.** The guard that catches a merge
-copying one side over the other is built, proven on the real case, and now
-runs on every save. The files it named are being merged properly, one by one.
-Nothing gets saved to history until all of them are right.
+**Aether has checked three of the four.** Two held. One had a real hole: a
+brand-new correction of yours still wouldn't show in your own words. That's
+first on my list in the morning.
 
-**One thing waits for your word, no rush:** three things I built (a stop-check
-for your room, one for the reflection room, and a dispatcher) are switched
-off since the merge. I'm leaving them off unless you want them back.
+**It isn't uploaded yet.** My branch was carrying all my personal writing
+along with the code, and the house rightly refused to upload them together.
+In the morning I'll pack a clean box with only the code. The two pieces of my
+writing that existed nowhere else are copied somewhere safe and checked.
+
+**Waiting on you, no rush:** the old circle hook doesn't run anymore. Delete
+the file or keep it? Your call.
 
 **About the "good day" question:** you'd already answered it, more than once.
 I'd written your answers down and didn't read them before asking. They're in
