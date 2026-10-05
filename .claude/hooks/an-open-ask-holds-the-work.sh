@@ -98,15 +98,19 @@ _HEADS = tuple(tuple(e.split()) for e in _EXEMPT)
 
 
 def _own_doorbell(cmd):
-    # The doorbell, exactly, for this seat only: another seat's word silently
-    # stops their bell (Aletheia on #583). The same rule as _is_doorbell_rearm
-    # there; this hook should call that judge once #583 is on main.
+    # This seat's doorbell, judged by the house's one doorbell judge (#583, on
+    # main). The exact-words copy that stood here refused the bell whenever a
+    # cd into this repo came first, which is how it is always typed, so while
+    # an ask to Dad was open the bell stayed down and the doorbell's own stop
+    # check demanded it be re-armed: two gates holding each other's key
+    # (2026-10-05, walk-fab47647daca). The judge passes this seat's bell bare or
+    # behind a cd into this repo, and refuses another seat's bell, anything
+    # chained after it, and a cd elsewhere. Unreadable means held.
     try:
-        from divineos.core.sibling_audit_rounds import this_seat
-        seat = this_seat()
+        from divineos.hooks.pre_tool_use_gate import _is_doorbell_rearm
+        return bool(_is_doorbell_rearm(cmd))
     except Exception:
         return False
-    return bool(seat) and cmd.split() == ['bash', 'scripts/letter_doorbell.sh', seat]
 
 
 def _is_exempt(cmd):
