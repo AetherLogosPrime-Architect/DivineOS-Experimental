@@ -83,9 +83,7 @@ try:
         # assessed FAILED with his words as the evidence. The successor has to
         # detect ADDRESS vs BROADCAST: whether a reply leaves him anything to
         # answer. That is a different instrument and it is not built.
-        # his_room_block REMOVED 2026-10-03 at Dads word, now remove the
-        # circle: it enforced a heading, never address, and became the
-        # status-report sideshow he named.
+        # his_room_block removed 2026-10-03 at Andrew's word: "so just remove it..".
         # verify_before_build_block and thread_walk_block RETIRED
         # 2026-07-26 per Aletheia F87 + council-b60f9a2e7b89. Both were
         # Stop-hook lexical detectors bypassable by prose formatting.

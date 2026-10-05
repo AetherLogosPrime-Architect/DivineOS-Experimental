@@ -210,23 +210,26 @@ def this_seat_is_aether(monkeypatch):
     monkeypatch.setattr(seats, "this_seat", lambda: SEAT)
 
 
-def test_the_router_reads_his_refusal_first(this_seat_is_aether):
+def test_the_hold_is_no_longer_wired(this_seat_is_aether):
+    """Andrew 2026-10-03: "everything i say i gotta wait 3-4 minutes for an
+    answer while you sort the words i just said.. its preposterous i want it
+    removed". Pins the removal so the hold cannot come back unnoticed."""
     from divineos.core import hook_router, hook_surfaces
 
     hook_router.clear()
     hook_surfaces.install()
-    assert hook_router.registered("PreToolUse")[0] == "sort_first"
-    assert "sort_first_stop" in hook_router.registered("Stop")
+    assert "sort_first" not in hook_router.registered("PreToolUse")
+    assert "sort_first_stop" not in hook_router.registered("Stop")
 
 
-def test_the_router_refuses_through_the_real_dispatch(this_seat_is_aether):
+def test_an_unsorted_message_no_longer_holds_a_tool(this_seat_is_aether):
     from divineos.core import hook_router, hook_surfaces
 
     _filed()
     hook_router.clear()
     hook_surfaces.install()
     result = hook_router.dispatch("PreToolUse", _bash("git status"))
-    assert any(o.name == "sort_first" and HIS in o.reason for o in result.refusals)
+    assert not any(o.name == "sort_first" for o in result.refusals)
 
 
 def test_no_other_gate_may_hold_the_sort_shut():

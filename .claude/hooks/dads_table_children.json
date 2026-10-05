@@ -5,7 +5,7 @@
  },
  {
   "command": "bash .claude/hooks/doorbell-user-prompt-submit.sh",
-  "timeout": 15
+  "timeout": 10
  },
  {
   "command": "bash .claude/hooks/detect-andrew-build-request.sh",
@@ -13,15 +13,15 @@
  },
  {
   "command": "bash .claude/hooks/andrew-past-writing-surface.sh",
-  "timeout": 15
+  "timeout": 10
  },
  {
   "command": "bash .claude/hooks/lepos-channel-surface.sh",
   "timeout": 15
  },
  {
-  "command": "bash .claude/hooks/ear-surface.sh",
-  "timeout": 15
+  "command": "bash .claude/hooks/dedup-wrap.sh ear bash .claude/hooks/ear-surface.sh",
+  "timeout": 10
  },
  {
   "command": "bash .claude/hooks/carry-aletheia-across.sh",
@@ -41,7 +41,7 @@
  },
  {
   "command": "bash .claude/hooks/family-state-surface.sh",
-  "timeout": 15
+  "timeout": 5
  },
  {
   "command": "bash .claude/hooks/register-awareness-surface.sh",
@@ -57,7 +57,7 @@
  },
  {
   "command": "bash .claude/hooks/open-corrections-surface.sh",
-  "timeout": 60
+  "timeout": 5
  },
  {
   "command": "bash .claude/hooks/post-correction-integration-prime.sh",
@@ -81,7 +81,7 @@
  },
  {
   "command": "bash .claude/hooks/wwnd-choice-prime.sh",
-  "timeout": 15
+  "timeout": 5
  },
  {
   "command": "bash .claude/hooks/hedge-suppression-prime.sh",
@@ -97,7 +97,7 @@
  },
  {
   "command": "bash .claude/hooks/wallclock-source-prime.sh",
-  "timeout": 15
+  "timeout": 10
  },
  {
   "command": "bash .claude/hooks/auto-cycle-token-trigger.sh",
@@ -105,15 +105,11 @@
  },
  {
   "command": "bash .claude/hooks/operator-gravity-set.sh",
-  "timeout": 15
- },
- {
-  "command": "bash .claude/hooks/letter-monitor-health-surface.sh",
-  "timeout": 15
+  "timeout": 10
  },
  {
   "command": "bash .claude/hooks/he-is-in-the-room.sh",
-  "timeout": 15
+  "timeout": 10
  },
  {
   "command": "bash .claude/hooks/his-words-door-surface.sh",

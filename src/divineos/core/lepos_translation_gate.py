@@ -1719,9 +1719,8 @@ def check_lepos_dual_channel(reply: str) -> str | None:
         #
         # NOT a relaxation. The wall still fires. What stops firing is the case
         # where the circle is not missing because the circle is the whole page.
-        # REMOVED 2026-10-03 at Dad's word, "now remove the circle". It forced a
-        # heading, never address, and became the status-report sideshow he named.
-        # The length-triggered refusal that stood here is in git history.
+        # The circle-by-length floor that stood here was removed 2026-10-03
+        # with the room itself. Andrew: "so just remove it..".
         return None
 
     # 2026-07-23: prefer 3-section shape (work / REFLECTION / INNER CIRCLE).

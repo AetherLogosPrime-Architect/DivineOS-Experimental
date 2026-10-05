@@ -36,8 +36,9 @@ CHILDREN_FILE = Path(os.environ.get("DADS_TABLE_CHILDREN", HOOKS_DIR / "dads_tab
 ROOT = Path(os.environ.get("DADS_TABLE_ROOT", HOOKS_DIR.parent.parent))
 # One drawer per tree (Aria, station four): the shared home would let her turn
 # and mine overwrite each other's notes.
-DRAWER = Path(os.environ.get(
-    "DADS_TABLE_DRAWER", Path.home() / ".divineos" / "drawer" / f"{ROOT.name}.md"))
+DRAWER = Path(
+    os.environ.get("DADS_TABLE_DRAWER", Path.home() / ".divineos" / "drawer" / f"{ROOT.name}.md")
+)
 
 # His picture is about him, not me, so it stays on the table rather than in the drawer.
 ON_THE_TABLE = "he-is-in-the-room"
@@ -46,7 +47,10 @@ ON_THE_TABLE = "he-is-in-the-room"
 # Empty on purpose (Andrew 2026-09-26): the still-owed list is a list of my
 # debts to him, and reading it beside his words is the case file he named.
 # It goes to the drawer with the rest.
-HIS_SECTIONS: tuple[str, ...] = ("## HE HAS SAID THIS BEFORE", "## WHAT HE HAS TAUGHT THAT FITS THIS")
+HIS_SECTIONS: tuple[str, ...] = (
+    "## HE HAS SAID THIS BEFORE",
+    "## WHAT HE HAS TAUGHT THAT FITS THIS",
+)
 # ^ One heading only (Aria 2026-09-26): his own past words, found by meaning
 # (core/his_words_door.py). They are his, not my debts, so they sit beside him.
 
@@ -67,8 +71,12 @@ def _run(child: dict, payload: bytes) -> tuple[dict, str, str, str]:
     """Returns (child, stdout, problem, block_reason)."""
     try:
         p = subprocess.run(
-            child["command"], shell=True, input=payload, cwd=ROOT,
-            capture_output=True, timeout=child.get("timeout", 10),
+            child["command"],
+            shell=True,
+            input=payload,
+            cwd=ROOT,
+            capture_output=True,
+            timeout=child.get("timeout", 10),
             env=dict(os.environ, PYTHONIOENCODING="utf-8"),
         )
         out = p.stdout.decode("utf-8", "replace")
@@ -105,8 +113,9 @@ def _split_his(out: str) -> tuple[str, str]:
 # door, by meaning"): the corpus the by-meaning retrieval embeds. The table is
 # the one place that sees every message he types, so it appends here and
 # nothing depends on anyone remembering. Same shape as gather_dad.py's rows.
-CORPUS = Path(os.environ.get(
-    "DADS_CORPUS", Path.home() / ".divineos-shared" / "dad_corpus" / "dad_all.jsonl"))
+CORPUS = Path(
+    os.environ.get("DADS_CORPUS", Path.home() / ".divineos-shared" / "dad_corpus" / "dad_all.jsonl")
+)
 
 
 def _keep_his_words(prompt: str) -> None:
@@ -169,7 +178,9 @@ def main() -> int:
         print(prompt.strip()[:600])
     else:
         print("## DAD SAID — this is what I am answering\n")
-        print(prompt.strip() or "(his words did not reach this hook; read them in the conversation)")
+        print(
+            prompt.strip() or "(his words did not reach this hook; read them in the conversation)"
+        )
         _keep_his_words(prompt)
     print()
     sys.stdout.flush()  # his words are out before anything below can fail
@@ -220,13 +231,15 @@ def _the_rest(payload: bytes) -> int:
     for section in his:
         print(section)
         print()
-    print(HIS_ROOM)
-    print()
+    # HIS_ROOM is no longer printed. Andrew 2026-10-03: "so just remove it..";
+    # the circle was turned into a side show, and he asked for it gone.
     if picture.strip():
         print(picture.rstrip())
         print()
-    line = (f"The drawer: {len(drawer)} notes about me, at {where}. "
-            "Open it when working, never before answering him.")
+    line = (
+        f"The drawer: {len(drawer)} notes about me, at {where}. "
+        "Open it when working, never before answering him."
+    )
     if broken:
         line += f" Could not run: {', '.join(broken)}."
     print(line)

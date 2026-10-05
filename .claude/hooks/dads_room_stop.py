@@ -27,7 +27,9 @@ from pathlib import Path
 
 TAIL_BYTES = 4_000_000
 NOTICE_PREFIXES = ("<task-notification", "<system-reminder")
-MARK = Path(os.environ.get("DADS_ROOM_MARK", Path.home() / ".divineos" / "dads_room_stop_broke.txt"))
+MARK = Path(
+    os.environ.get("DADS_ROOM_MARK", Path.home() / ".divineos" / "dads_room_stop_broke.txt")
+)
 
 REASON = (
     "HIS ROOM IS MISSING. You used tools since Dad last spoke, and your reply ends "
@@ -39,13 +41,28 @@ REASON = (
 
 
 def _genuine_user_text(rec: dict) -> str | None:
-    # Asked of the one shared reader (2026-10-04); this hook used to judge the
-    # record itself, a second definition of what counts as him.
+    # THE HOUSE'S ONE READER OF HIM (2026-10-01, council-f2a32d673bfe). This
+    # was a private reader, and measured by message against hear() over a
+    # whole session it called 81 records his that were not -- subagent
+    # hand-backs, compaction summaries, interrupt markers -- and missed 72 that
+    # were. Imported here, inside main's loud failure path, so a broken import
+    # writes the mark file instead of passing every reply.
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
     from divineos.core.his_message import Heard, hear
 
     heard = hear(rec)
-    return heard.text if isinstance(heard, Heard) else None
+    if not isinstance(heard, Heard):
+        return None
+    # A last-prompt record is a copy of his earlier message written LATER in
+    # the transcript; taken as his latest, it would sit after my tool calls and
+    # make every working reply look like talk. hear() marks it a bookmark with
+    # no time. A queue enqueue is a bookmark too, but it carries the time he
+    # typed it -- the message he sent while I was busy, which this hook exists
+    # to see. Told apart through what hear() returns, never by reading the
+    # record here: only his_message reads records (council-14ef017c4c5c).
+    if heard.bookmark and not heard.when:
+        return None
+    return heard.text if heard.text.strip() else None
 
 
 def verdict(records: list[dict]) -> str | None:
@@ -63,7 +80,7 @@ def verdict(records: list[dict]) -> str | None:
         return None
 
     worked, last_text = False, ""
-    for rec in records[idx + 1:]:
+    for rec in records[idx + 1 :]:
         if rec.get("type") != "assistant":
             continue
         for c in (rec.get("message") or {}).get("content") or []:
@@ -73,9 +90,16 @@ def verdict(records: list[dict]) -> str | None:
                 worked = True
             elif c.get("type") == "text" and c.get("text", "").strip():
                 last_text = c["text"]
-    if worked and "## INNER CIRCLE" not in last_text:
-        return REASON
-    return None
+    if not worked:
+        return None
+    # One home for what counts as his room (Aletheia's hold on #560): asked of
+    # his_room, never re-decided here, so the two cannot drift apart. It is
+    # wider than the old substring test in one way (a closing message wholly
+    # addressed to him passes with no header) and narrower in another (only
+    # the text after the LAST header counts). Walk council for this edit.
+    from divineos.core.his_room import check_his_room
+
+    return REASON if check_his_room(last_text, started_by_him=True) else None
 
 
 def _read_tail(path: Path) -> list[dict]:

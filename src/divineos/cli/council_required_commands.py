@@ -211,6 +211,15 @@ def register(cli: click.Group) -> None:
             synthesis=synthesis,
             scope_fingerprints=tuple(name.strip() for name in scope_arg.split(",") if name.strip()),
         )
+        copied = store.copied_from(record)
+        if copied:
+            _safe_echo(
+                f"[council] REJECTED: this walk is a copy of {copied}. Its findings are "
+                "word for word ones already filed. A copy says one look happened once; "
+                "it does not say this file was looked at. If one piece of thinking "
+                "really covers several files, file it once with --scope naming them all."
+            )
+            raise SystemExit(1)
         keywords = _load_expert_keywords()
         # No kiln flag here any more. It existed only to select the signature
         # demand, and that is gone (2026-09-06) -- confirms happen at the
@@ -277,6 +286,31 @@ def register(cli: click.Group) -> None:
                 "collects the substance of your walk, not just an ack."
             )
             raise SystemExit(1)
+
+        # A reflection already applied for this lens, word for word, is a copy
+        # (Dad 2026-10-03, "did you just run the council as a program?"). The
+        # ledger keeps the first 400 characters, so that is what is compared.
+        from divineos.core.ledger import get_events
+
+        # Any lens, not only this one (Aria's cold read, 2026-10-03): Breaker's
+        # reflection pasted in as Carmack's passed. One normal form, the store's.
+        head = store._fold(reflection[:400])
+        for ev in get_events(limit=2000, event_type=EVENT_COUNCIL_LENS_APPLIED, order="desc"):
+            prior = ev.get("payload") or {}
+            if isinstance(prior, str):
+                try:
+                    prior = json.loads(prior)
+                except ValueError:
+                    continue
+            if store._fold(prior.get("reflection_prefix", "")) == head:
+                _safe_echo(
+                    f"[council] REJECTED: this {lens} reflection is a copy of one already "
+                    f"applied for {prior.get('edit_fingerprint', '?')} (as "
+                    f"{prior.get('expert_name', '?')}). A copy says one look happened once. "
+                    "Look at this file through the lens and write what you see, or cover "
+                    "several files with one walk using council log --scope."
+                )
+                raise SystemExit(1)
 
         # Substance check 1: minimum token count. Same bar as council log.
         token_count = len([t for t in reflection.split() if t])

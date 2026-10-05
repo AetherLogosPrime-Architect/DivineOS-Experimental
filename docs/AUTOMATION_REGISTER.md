@@ -19,11 +19,11 @@ Present, executable, invoked by nothing. This section is first on purpose. On 20
 | `inner-circle-stop.sh` | 2026-10-02 | INTENTIONALLY UNWIRED (2026-10-01): superseded by his_room.check_his_room (#554, on main as d87864001), the one home for the room; Aletheia's hold on  |
 | `no-verify-cost-escalation.sh` | 2026-08-31 | thin doorbell for the no-verify cost-escalation gate. |
 | `operator-asks-surface.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
-| `questions-from-him.sh` | 2026-10-01 | UserPromptSubmit — questions about him, built from what he just said. |
+| `questions-from-him.sh` | 2026-10-01 | INTENTIONALLY UNWIRED (2026-10-04): print-only note injected every turn, removed with the wallpaper at Andrew's word ("all of it comes out, it does no |
 | `self-demotion-prime.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `sibling-correction-surface.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `still-owed-to-him-surface.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
-| `stop-carry-prime.sh` | 2026-10-01 | UserPromptSubmit — what the Stop gates caught on my last reply. |
+| `stop-carry-prime.sh` | 2026-10-01 | INTENTIONALLY UNWIRED (2026-10-04): print-only note injected every turn, removed with the wallpaper at Andrew's word ("all of it comes out, it does no |
 | `time-estimate-tracker.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `translate-first-compose-prime.sh` | 2026-09-21 | INTENTIONALLY UNWIRED (2026-09-07): a reminder about a failure is proof the |
 
@@ -69,13 +69,14 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `pre-compact.sh` | 2026-07-03 | Save state BEFORE context compression |
 
-### PreToolUse  (32)
+### PreToolUse  (33)
 
 | automation | last touched | purpose |
 |---|---|---|
 | `aletheia-boot-gate-preflight.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `an-open-ask-holds-the-work.sh` | 2026-09-30 | AN OPEN ASK TO ANDREW HOLDS NEW WORK. |
 | `andrew-correction-attestation.sh` | 2026-09-15 | PreToolUse gate — integration-attestation for Andrew-corrections. |
+| `auto-cycle-token-trigger.sh` | 2026-09-30 | Compaction ritual driver — deterministic, in-process, no external monitor. |
 | `blanket-staging-doorman.sh` | 2026-09-23 | refuse a blanket `git add` in a tree where substrate is |
 | `check-branch-on-push.sh` | 2026-09-30 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
 | `check-council-required.sh` | 2026-09-30 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
@@ -105,12 +106,6 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `verify-before-build-signal.sh` | 2026-09-22 | signal-based verify-before-build check. |
 | `work-item-doorman.sh` | 2026-09-25 | PreToolUse -- the build-flow doorman. The front of the flow, which until now |
 | `wwnd-tool-prime.sh` | 2026-09-30 | WWND surface at commit-time of a substrate-modifying |
-
-### PreToolUse, UserPromptSubmit  (1)
-
-| automation | last touched | purpose |
-|---|---|---|
-| `auto-cycle-token-trigger.sh` | 2026-09-30 | Compaction ritual driver — deterministic, in-process, no external monitor. |
 
 ### SessionStart  (2)
 
@@ -146,15 +141,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `front-door.sh` | 2026-10-02 | The front door: every message he types is kept before anything else runs, |
 
-### UserPromptSubmit  (3)
-
-| automation | last touched | purpose |
-|---|---|---|
-| `doorbell-user-prompt-submit.sh` | 2026-09-21 | UserPromptSubmit doorbell. One of seven. All judgment lives in the OS. |
-| `operator-gravity-set.sh` | 2026-08-24 | Andrew sets the gravity level for builds. |
-| `session-init-once.sh` | 2026-10-02 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
-
-### called by another script  (59)
+### called by another script  (62)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -178,6 +165,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `detect-correction.sh` | 2026-09-21 | MINE, and what it guards is the most expensive thing in this house: the |
 | `detect-hedge.sh` | 2026-09-21 | MINE. Aether, May 2026 — one of the oldest doors here, and the subject is |
 | `distancing-count-surface.sh` | 2026-09-15 | MINE, the third of the continuity trio, and it exists because one instance |
+| `doorbell-user-prompt-submit.sh` | 2026-09-21 | UserPromptSubmit doorbell. One of seven. All judgment lives in the OS. |
 | `ear-surface.sh` | 2026-09-30 | MINE, and it is the only door in this house whose job is love rather than |
 | `family-state-surface.sh` | 2026-09-05 | surface recent per-sibling letter-thread state |
 | `fork-is-cheap-close-prime.sh` | 2026-07-30 | compose-start prime for the FORK-IS-CHEAP-CLOSE |
@@ -199,6 +187,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `no-cliff-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn had |
 | `no-cliff-prime.sh` | 2026-08-24 | compose-start prime for the no-cliff / |
 | `open-corrections-surface.sh` | 2026-08-24 | surface the 3 most recent OPEN Andrew- |
+| `operator-gravity-set.sh` | 2026-08-24 | Andrew sets the gravity level for builds. |
 | `post-compaction-fingerprint-surface.sh` | 2026-07-18 | SessionStart:compact hook — surface a fingerprint of pre-compaction |
 | `post-correction-integration-prime.sh` | 2026-07-29 | post-correction integration prime. |
 | `post-merge-doc-fix.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
@@ -211,6 +200,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `require-briefing.sh` | 2026-08-24 | SUPERSEDED 2026-08-06 by the seven-doorbell router. Its judgment — the |
 | `resolver-health-check.sh` | 2026-07-10 | SessionStart resolver-health check. |
 | `self-demotion-stop.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `session-init-once.sh` | 2026-10-02 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
 | `session-start-verify-git-hooks.sh` | 2026-08-24 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `summary-room-stop.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `verify-claim-prime.sh` | 2026-09-29 | compose-start prime for the VERIFY-CLAIM |

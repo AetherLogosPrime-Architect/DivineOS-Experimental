@@ -143,6 +143,35 @@ def _spent_pairs(
     return retired, spent
 
 
+def _fold(text: str) -> str:
+    # Case too (Aria's cold read, 2026-10-03): capitalising one word was a copy
+    # that passed. Both doors fold through this one function.
+    return " ".join(str(text).split()).lower()
+
+
+def copied_from(record: CouncilRecord, limit: int = 2000) -> str | None:
+    """The record_id of an accepted walk this one copies, else None.
+
+    Dad, 2026-10-03: "did you just run the council as a program?" -- one set of
+    findings had been stamped onto every file by a script; 47 of the last 400
+    records were exact copies. A copy is the whole findings set, or any single
+    lens finding, identical once whitespace is folded, to one already accepted,
+    the same fingerprint included (a second filing for the same edit is a copy
+    too). Exact copies only: a reworded copy passes, and that is said here so
+    silence is not read as coverage. Draft:
+    docs/drafts/a_walk_cannot_be_photocopied_draft_2026-10-03.md.
+    """
+    mine = [_fold(f.finding_text) for f in record.lens_findings]
+    mine_set = " | ".join(mine)
+    singles = {m for m in mine if m}
+    for ev in ledger.get_events(limit=limit, event_type=EVENT_COUNCIL_RECORD_LOGGED, order="desc"):
+        prior = _deserialize_record(_payload_from_event(ev))
+        theirs = [_fold(f.finding_text) for f in prior.lens_findings]
+        if " | ".join(theirs) == mine_set or singles & set(theirs):
+            return prior.record_id
+    return None
+
+
 def log_council_record(record: CouncilRecord, actor: str = "agent") -> str:
     """Write a passing council walk to the ledger.
 
