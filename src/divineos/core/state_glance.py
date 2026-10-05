@@ -56,6 +56,33 @@ def worklist_lines(state: str, matches: list[tuple[int, str, float]]) -> list[st
     return [head, *rows, "    (name 'correction #N' in the save message and it closes itself)"]
 
 
+NEWEST_TIMES_SHOWN = 3
+
+
+def newest_lines(
+    newest: tuple[int, str] | None, matches: list[tuple[int, str, float]], seen: dict
+) -> tuple[list[str], dict]:
+    """His newest open correction, labelled as such, for its first few showings.
+
+    In addition to the matches, never instead of one (Hoare). Shown three times
+    after he files it, then it steps back to appearing only when it fits, so it
+    cannot become the wallpaper it was built to cut through (Kahneman). Already
+    among the matches: shown there once, not twice (Popper). walk-37fcc8dddecd.
+    """
+    now = dict(seen)
+    if newest is None:
+        return [], now
+    row_id, text = newest
+    if row_id in [m[0] for m in matches]:
+        return [], now
+    key = f"worklist-newest::{row_id}"
+    shown = int(now.get(key, 0))
+    if shown >= NEWEST_TIMES_SHOWN:
+        return [], now
+    now[key] = shown + 1
+    return [f"    newest from him, correction #{row_id}: {text[:WORKLIST_TEXT_CHARS]}"], now
+
+
 NEW_LINES_SHOWN = 3
 
 

@@ -464,6 +464,26 @@ def _load_worklist() -> list[_CachedItem]:
     return items
 
 
+def newest_in_worklist() -> tuple[int, str] | None:
+    """His most recently filed open correction, as (id, text), or None.
+
+    The newest slot from my own 2026-09-22 draft, which last night's build
+    forgot: "keep one slot for the newest, so a correction filed minutes ago
+    cannot be buried by an older better match" (walk-37fcc8dddecd). Kept apart
+    from find_in_worklist so every existing caller of that is unchanged.
+    """
+    try:
+        from divineos.core.andrew_correction_tracker import list_open
+
+        rows = list_open()
+    except Exception:  # noqa: BLE001 - no newest is reported as no slot, the search says the rest
+        return None
+    if not rows:
+        return None
+    row = max(rows, key=lambda r: float(r.get("timestamp") or 0.0))
+    return int(row["id"]), str(row.get("text") or "")
+
+
 def find_in_worklist(query: str, k: int = 2) -> tuple[str, list[tuple[int, str, float]]]:
     """His open corrections that match ``query`` by meaning.
 
