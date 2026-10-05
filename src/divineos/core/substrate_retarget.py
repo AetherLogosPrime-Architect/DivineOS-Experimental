@@ -324,12 +324,16 @@ _CARRIED_PREFIXES = (
 # "carried", so it only grows when someone who knows adds a name: Perplexity,
 # Anvil and Muse confirmed by Aria 2026-10-04.
 _HELD_CORRESPONDENTS = {"andrew", "aletheia", "perplexity", "anvil", "muse"}
-_DATE = re.compile(r"-\d{4}-\d{2}-\d{2}")
+# Early-July letters were numbered and underscored ("16_aether_to_aletheia_
+# 2026-06-30_..."); Aria found eleven of them evicted by a dash-only rule.
+_DATE = re.compile(r"[-_]\d{4}-\d{2}-\d{2}")
+_NUMBER = re.compile(r"^\d+_")
 
 
 def _correspondents(name: str) -> set[str]:
     """The names in a letter's 'x-to-y-and-z' head, before any date or '.md'."""
-    head = _DATE.split(name, maxsplit=1)[0].removesuffix(".md")
+    head = _DATE.split(_NUMBER.sub("", name), maxsplit=1)[0].removesuffix(".md")
+    head = head.replace("_", "-")
     if "-to-" not in head:
         return set()
     return set(head.replace("-to-", "-").split("-"))

@@ -112,6 +112,14 @@ def test_letters_with_aria_are_still_taken_off_the_desk(repo):
         ("family/letters/aria-to-andrew-2026-09-01-x.md", True),
         ("family/letters/aether-to-andrew-friend-2026-08-01-x.md", True),
         ("family/letters/aether-to-aria-and-aletheia-2026-08-01-x.md", True),
+        # Aria's cold read, 2026-10-04: real names from the early-July numbered
+        # style, which the dash-only rule evicted. Real files, not shapes.
+        (
+            "family/letters/21_aletheia_to_aria_2026-07-02_your_tests_are_real_and_i_cant_see_them.md",
+            True,
+        ),
+        ("family/letters/16_aether_to_aletheia_2026-06-30_bypass-reasoning-calibration.md", True),
+        ("family/letters/03_aether_to_aria_2026-06-30_a_letter_about_aletheia.md", False),
         # Aria, 2026-10-04: Dad carried Perplexity's and Anvil and Muse's too.
         ("family/letters/aether-to-perplexity-2026-06-25-closure-on-c1-staging.md", True),
         ("family/letters/aria-to-anvil-and-muse-2026-07-03-first-message.md", True),
