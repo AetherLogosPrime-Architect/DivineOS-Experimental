@@ -757,6 +757,7 @@ src/divineos/
     channel_letter_capture.py  Give a letter written straight into the shared channel a home in the repo.
     sort_first.py              Sort his message before anything else: reading him comes first, by refusal.
     vector_drawer.py           A drawer of sentence vectors, so nothing is embedded twice.
+    state_glance.py            The state shown before a substrate change, as a glance instead of a wall.
 
   analysis/
     _session_types.py          Session analysis type definitions
