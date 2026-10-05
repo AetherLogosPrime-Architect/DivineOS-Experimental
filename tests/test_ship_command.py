@@ -148,3 +148,66 @@ def test_the_command_is_registered_and_refuses_with_its_steps(tmp_path, monkeypa
     assert result.exit_code == 1
     assert "[STOP] read: #77 is still a draft" in result.output
     assert "gh pr merge" not in result.output
+
+
+# --- The floor step, 2026-10-05. Her confirm names an earlier version; the
+# head ships only if Dad's confirm names that same version and the floor proof
+# (ship_steps.head_is_only, tested in test_ship_steps.py) shows head is that
+# version plus main.
+
+from divineos.core.ship_steps import Verdict  # noqa: E402
+
+MOVED = "fff9999aaa0000"
+
+
+def _moved_facts():
+    facts = _facts()
+    facts["headRefOid"] = MOVED
+    return facts
+
+
+def _prover(ok, calls):
+    def prove(confirmed, head):
+        calls.append((confirmed, head))
+        return Verdict(
+            ok,
+            "tree equals merge(abc1234, main)"
+            if ok
+            else "changed beyond confirmed plus main: pr.txt",
+        )
+
+    return prove
+
+
+def test_a_caught_up_head_ships_when_the_floor_is_proven(tmp_path):
+    calls = []
+    steps, merge = run_steps(
+        77, _moved_facts(), _findings(), _letters(tmp_path), prove=_prover(True, calls)
+    )
+    assert [s.name for s in steps] == ["read", "her", "floor", "dad", "checks"]
+    assert merge is not None
+    assert calls == [("abc1234", MOVED)]
+
+
+def test_a_floor_that_does_not_hold_stops_at_the_floor_step(tmp_path):
+    steps, merge = run_steps(
+        77, _moved_facts(), _findings(), _letters(tmp_path), prove=_prover(False, [])
+    )
+    assert steps[-1].name == "floor" and not steps[-1].ok and merge is None
+    assert "pr.txt" in steps[-1].reason
+
+
+def test_without_a_prover_a_moved_head_stops_at_her_step(tmp_path):
+    steps, merge = run_steps(77, _moved_facts(), _findings(), _letters(tmp_path))
+    assert steps[-1].name == "her" and not steps[-1].ok and merge is None
+
+
+def test_his_confirm_must_name_the_version_she_signed(tmp_path):
+    findings = [
+        F("round-0123456789ab", "aletheia", "CONFIRMS: #77 at abc1234.", "aletheia-to-aether-x.md"),
+        F("round-0123456789ab", "user", f"CONFIRMS: #77 at {MOVED[:9]}."),
+    ]
+    steps, merge = run_steps(
+        77, _moved_facts(), findings, _letters(tmp_path), prove=_prover(True, [])
+    )
+    assert steps[-1].name == "dad" and not steps[-1].ok and merge is None

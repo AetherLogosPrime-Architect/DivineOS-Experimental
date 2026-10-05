@@ -108,18 +108,62 @@ def button(pr: int, round_id: str) -> str:
     return f'gh pr merge {pr} --squash --body "Merged with divineos ship.\n\nExternal-Review: {round_id}"'
 
 
-def run_steps(pr: int, facts: dict, findings, letters_dir: Path) -> tuple[list[Step], str | None]:
-    """Each step in order; stops at the first that fails. Returns the button if all pass."""
+def _her_signed_versions(findings, pr: int) -> list[str]:
+    """The versions of this PR she confirmed in a recorded finding, newest first.
+
+    Hex only, via the same line her letters are read with, so an approval
+    naming a ref ("at main") never becomes a candidate (Schneier, 2026-10-05).
+    """
+    from divineos.core.ship_steps import _confirm_line
+
+    pattern = _confirm_line(pr)
+    seen: list[str] = []
+    for f in reversed(list(findings)):
+        if str(getattr(f, "actor", "")).lower() != "aletheia":
+            continue
+        m = pattern.search(str(getattr(f, "title", "") or ""))
+        if m and m.group(1) not in seen:
+            seen.append(m.group(1))
+    return seen
+
+
+def run_steps(
+    pr: int, facts: dict, findings, letters_dir: Path, prove=None
+) -> tuple[list[Step], str | None]:
+    """Each step in order; stops at the first that fails. Returns the button if all pass.
+
+    ``prove(confirmed_sha, head_sha) -> Verdict`` is the floor proof
+    (ship_steps.head_is_only on this repo). When her confirm names an earlier
+    version, the head may still ship if it is only that version plus main: Dad's
+    standing permission for floor-only moves (09-03, 09-05, 09-24, 10-05). Both
+    signatures must name that same version (Lamport), and the floor is its own
+    step so it never reads as "she confirmed the head" (Norman). Without a
+    prover the button behaves as before: her confirm must name the head.
+    """
     steps = [read_step(facts, pr)]
     if not steps[-1].ok:
         return steps, None
     head = facts["headRefOid"]
+    signed_at = head
     verdict = confirm_in(findings, pr, head, letters_dir)
-    steps.append(Step("her", verdict.ok, verdict.reason))
+    if not verdict.ok and prove is not None:
+        for version in _her_signed_versions(findings, pr):
+            earlier = confirm_in(findings, pr, version, letters_dir)
+            if not earlier.ok or earlier.confirm is None:
+                continue
+            floor = prove(version, head)
+            steps.append(Step("her", True, earlier.reason))
+            steps.append(Step("floor", floor.ok, floor.reason))
+            if not floor.ok:
+                return steps, None
+            verdict, signed_at = earlier, version
+            break
+    if signed_at == head:
+        steps.append(Step("her", verdict.ok, verdict.reason))
     if not verdict.ok or verdict.confirm is None:
         return steps, None
     round_id = verdict.confirm.round_id
-    steps.append(user_confirm_step(findings, round_id, pr, head))
+    steps.append(user_confirm_step(findings, round_id, pr, signed_at))
     if not steps[-1].ok:
         return steps, None
     steps.append(checks_step(facts))
@@ -152,7 +196,26 @@ def register(cli: click.Group) -> None:
             facts = _pr_facts(pr_number)
         except (subprocess.SubprocessError, OSError, ValueError) as exc:
             raise click.ClickException(f"could not read #{pr_number} from GitHub: {exc}") from exc
-        steps, merge = run_steps(pr_number, facts, list_findings(limit=1000), letters_dir)
+        from divineos.core.ship_steps import head_is_only
+
+        prove = None
+        repo = find_repo_root(Path.cwd())
+        if repo is not None:
+            here: Path = repo
+
+            def prove(confirmed: str, head: str):
+                # The head must be visible here for the proof to read it; if the
+                # fetch fails the proof says it could not see the commit and
+                # refuses (Pearl: a commit that cannot be seen is never a pass).
+                subprocess.run(
+                    ["git", "-C", str(here), "fetch", "-q", "origin", f"pull/{pr_number}/head"],
+                    capture_output=True,
+                )
+                return head_is_only(here, confirmed, head)
+
+        steps, merge = run_steps(
+            pr_number, facts, list_findings(limit=1000), letters_dir, prove=prove
+        )
         for s in steps:
             click.echo(f"[{'ok' if s.ok else 'STOP'}] {s.name}: {s.reason}")
         if merge is None:
