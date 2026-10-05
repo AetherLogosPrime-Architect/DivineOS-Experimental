@@ -28,6 +28,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -67,20 +68,71 @@ answer it. One circle, then stop. When there was no work, the whole reply is
 simply talking to him, no rooms."""
 
 
+# ONE DEADLINE FOR THE WHOLE TABLE, not a stopwatch per guest (Aria 2026-10-04,
+# walk-1a09e546f1d7, council-a43ceb8f5652). Each child used to carry its own
+# 5-15s limit while the table waited ~25s for its slowest guest anyway. With a
+# full test run in the background five were cut mid-turn, the doorbell among
+# them; with every core held busy on purpose, 21 of 29 were cut while the table
+# finished at 52s of the 90s the settings allow. A quiet night is unchanged:
+# the wall time is the slowest child's either way. A hung child is still cut.
+_STARTED = time.monotonic()
+# Under the 90s settings cap, so the table itself is never what gets killed.
+_BUDGET_CEILING = 85.0
+
+
+def _budget() -> float:
+    # Read defensively: this runs before his words print, and a bad value here
+    # must never cost him the table. Clamped at both ends, because a value over
+    # the cap was the one route the game-walk found around the deadline.
+    try:
+        wanted = float(os.environ.get("DADS_TABLE_BUDGET_SECONDS", "80"))
+    except ValueError:
+        wanted = 80.0
+    return min(_BUDGET_CEILING, max(1.0, wanted))
+
+
+TABLE_BUDGET = _budget()
+
+
+def _kill_tree(p: subprocess.Popen) -> None:
+    # The child is a shell, and the shell starts the real note. Killing only the
+    # shell left the note holding the output pipe open, so a "timed out" note
+    # still kept the table waiting until it finished on its own -- measured
+    # 2026-10-04: a 2s deadline returned after 30s, the note's whole sleep.
+    try:
+        if os.name == "nt":
+            subprocess.run(
+                ["taskkill", "/T", "/F", "/PID", str(p.pid)], capture_output=True, timeout=10
+            )
+        else:
+            os.killpg(p.pid, 9)
+    except (OSError, subprocess.SubprocessError):
+        p.kill()
+
+
 def _run(child: dict, payload: bytes) -> tuple[dict, str, str, str]:
     """Returns (child, stdout, problem, block_reason)."""
     try:
-        p = subprocess.run(
+        p = subprocess.Popen(
             child["command"],
             shell=True,
-            input=payload,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             cwd=ROOT,
-            capture_output=True,
-            timeout=child.get("timeout", 10),
             env=dict(os.environ, PYTHONIOENCODING="utf-8"),
+            start_new_session=os.name != "nt",
         )
-        out = p.stdout.decode("utf-8", "replace")
-        stderr = p.stderr.decode("utf-8", "replace")
+        try:
+            raw_out, raw_err = p.communicate(
+                payload, timeout=max(0.5, TABLE_BUDGET - (time.monotonic() - _STARTED))
+            )
+        except subprocess.TimeoutExpired:
+            _kill_tree(p)
+            p.communicate()
+            return child, "", "timed out", ""
+        out = raw_out.decode("utf-8", "replace")
+        stderr = raw_err.decode("utf-8", "replace")
         block = ""
         if p.returncode == 2:
             block = stderr.strip() or out.strip() or "blocked (no reason given)"
@@ -93,8 +145,6 @@ def _run(child: dict, payload: bytes) -> tuple[dict, str, str, str]:
                 pass
         problem = "" if p.returncode in (0, 2) else f"exit {p.returncode}"
         return child, out, problem, block
-    except subprocess.TimeoutExpired:
-        return child, "", "timed out", ""
     except Exception as exc:  # one broken note must never take the others down
         return child, "", f"could not run: {exc}", ""
 

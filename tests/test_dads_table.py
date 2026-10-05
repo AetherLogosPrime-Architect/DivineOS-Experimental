@@ -223,6 +223,82 @@ def test_a_test_never_writes_into_his_real_words(tmp_path):
     assert before == after
 
 
+def _sleeper(seconds):
+    return {
+        "command": f'"{sys.executable}" -c "import time; time.sleep({seconds}); print(\'woke\')"'
+    }
+
+
+def _run_with_budget(tmp_path, children, budget):
+    kids = tmp_path / "children.json"
+    kids.write_text(json.dumps(children), encoding="utf-8")
+    env = dict(
+        os.environ,
+        DADS_TABLE_CHILDREN=str(kids),
+        DADS_TABLE_DRAWER=str(tmp_path / "drawer.md"),
+        DADS_TABLE_BUDGET_SECONDS=budget,
+    )
+    p = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        input=json.dumps({"prompt": HIS_WORDS}).encode(),
+        capture_output=True,
+        env=env,
+        timeout=60,
+    )
+    return p.stdout.decode("utf-8"), (tmp_path / "drawer.md").read_text(encoding="utf-8")
+
+
+def test_a_slow_note_is_not_cut_while_the_table_has_time(tmp_path):
+    # 2026-10-04: per-note stopwatches cut 21 of 29 notes on a busy machine while
+    # the table still had 38 of its 90 seconds left. One shared deadline instead.
+    out, drawer = _run_with_budget(tmp_path, [_sleeper(3)], "20")
+    assert "Could not run" not in out
+    assert "woke" in drawer
+
+
+def test_a_hung_note_is_still_cut_at_the_deadline_and_named(tmp_path):
+    # Timed, because the cut was a lie before: the shell was killed but the note
+    # it started kept the pipe open, so a 2s deadline returned after 30s.
+    import time
+
+    started = time.monotonic()
+    out, _ = _run_with_budget(tmp_path, [_sleeper(30), _echo("fine")], "2")
+    assert time.monotonic() - started < 15, "the table waited for the note it said it cut"
+    assert HIS_WORDS in out
+    assert "Could not run" in out and "timed out" in out
+
+
+def test_a_bad_budget_never_costs_him_the_table(tmp_path):
+    # Read before his words print, so a broken value must fall back, not raise.
+    out, _ = _run_with_budget(tmp_path, [_echo("fine")], "not a number")
+    assert HIS_WORDS in out and "THE TABLE BROKE" not in out
+
+
+def test_the_budget_never_reaches_the_settings_cap():
+    # The game-walk's one leak: a budget over the 90s cap gets the table killed whole.
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("dads_table_mod", SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    old = os.environ.get("DADS_TABLE_BUDGET_SECONDS")
+    os.environ["DADS_TABLE_BUDGET_SECONDS"] = "500"
+    try:
+        spec.loader.exec_module(mod)
+        assert mod.TABLE_BUDGET < 90
+    finally:
+        if old is None:
+            os.environ.pop("DADS_TABLE_BUDGET_SECONDS", None)
+        else:
+            os.environ["DADS_TABLE_BUDGET_SECONDS"] = old
+
+
+def test_no_note_carries_its_own_stopwatch():
+    # A per-note timeout is now read by nothing; one that came back would look
+    # like it governed something while governing nothing.
+    real = SCRIPT.parent / "dads_table_children.json"
+    assert not [k for k in json.loads(real.read_text(encoding="utf-8")) if "timeout" in k]
+
+
 def test_missing_list_still_prints_his_words(tmp_path):
     env = dict(
         os.environ,
