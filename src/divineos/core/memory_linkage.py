@@ -59,6 +59,10 @@ MemoryLinkageSource = Literal[
     "exploration",
     "wall",
     "letter",
+    # Dad's open worklist (andrew_correction_tracker), distinct from the general
+    # "correction" log above. Added 2026-10-05: the 265 had never been findable
+    # by meaning, only shown by age (walk-4d8b06a54e67).
+    "worklist",
 ]
 
 # Tier literal — see §Q4 of the workbench spec.
