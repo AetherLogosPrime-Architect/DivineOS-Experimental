@@ -124,9 +124,47 @@ LETTER_TOOLS = {"Write", "Edit", "NotebookEdit"}
 
 # HE IS HERE UNLESS HE SAYS HE IS STEPPING AWAY (2026-10-05): "i am always here
 # unless i tell you i am stepping away, this is what the volley mode is for".
-# Never inferred from quiet (Kahneman, council-e5250a976339): set only with his
-# words quoted, cleared by his next message.
+# Never inferred from quiet (Kahneman, council-e5250a976339), and never set in
+# words he did not say (Aria's cold read: ten characters of my own typing set
+# it): the quoted words must appear in his latest real message as the house
+# filed it, which I cannot write (Schneier, council-8486d9949ba1). Cleared by
+# his next message.
 AWAY = _home() / "dad_stepped_away.json"
+
+
+def _flat(text: str) -> str:
+    return " ".join((text or "").lower().split())
+
+
+def _his_latest_words() -> str:
+    """His most recent real message, as the house filed it at UserPromptSubmit.
+
+    The store also files notices in his seat, so envelopes are peeled with the
+    one reader of him and a notice-only record is skipped (Hoare,
+    council-8486d9949ba1). Read-only; an unreadable store reads as "", which
+    refuses, never passes.
+    """
+    import sqlite3
+
+    from divineos.core.his_asks import his_asks_path
+    from divineos.core.his_message import _his_part
+
+    path = his_asks_path()
+    try:
+        conn = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True, timeout=5)
+        try:
+            rows = conn.execute(
+                "SELECT his_text FROM messages ORDER BY filed_at DESC LIMIT 50"
+            ).fetchall()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return ""
+    for (text,) in rows:
+        words = _his_part(str(text or "")).strip()
+        if words:
+            return words
+    return ""
 
 
 def step_away(his_words: str) -> dict[str, Any]:
@@ -134,6 +172,11 @@ def step_away(his_words: str) -> dict[str, Any]:
     words = (his_words or "").strip()
     if len(words) < 10:
         raise ValueError("quote his words saying he is stepping away (at least 10 characters)")
+    if _flat(words) not in _flat(_his_latest_words()):
+        raise ValueError(
+            "those words are not in his latest message. Away is set only from what he "
+            "said, copied from it; when he speaks again it clears by itself."
+        )
     state = {"his_words": words, "since": time.time()}
     AWAY.parent.mkdir(parents=True, exist_ok=True)
     AWAY.write_text(json.dumps(state), encoding="utf-8")
@@ -158,9 +201,14 @@ def came_back() -> bool:
     return True
 
 
+# The names a letter to him goes by. Aria's cold read of b6d7a5c90: only
+# "-to-andrew" was known, so "aria-to-dad-..." was held as if not to him.
+_TO_HIM = ("-to-andrew", "-to-dad", "-to-pop")
+
+
 def _is_letter_not_to_him(path: str) -> bool:
     p = (path or "").replace("\\", "/").lower()
-    return "/letters/" in p and p.endswith(".md") and "-to-andrew" not in p
+    return "/letters/" in p and p.endswith(".md") and not any(n in p for n in _TO_HIM)
 
 
 _CIRCLE = re.compile(r"^##\s*INNER CIRCLE\s*$", re.M)
@@ -236,8 +284,13 @@ def arm(reply: str) -> dict[str, Any] | None:
     return state
 
 
-def release(how: str, reason: str = "") -> bool:
-    """His next message releases it. An escape also releases it, counted."""
+def release(how: str, reason: str = "", his_words: str = "") -> bool:
+    """His next message releases it. An escape also releases it, counted.
+
+    ``his_words`` is his message, kept as the answer so the record shows what
+    he said, not only that he spoke (Aria's cold read; Norman,
+    council-8486d9949ba1).
+    """
     state = is_open()
     if not state:
         return False
@@ -264,6 +317,12 @@ def release(how: str, reason: str = "") -> bool:
     # filed asks are not touched: those re-raise until he resolves them.
     from divineos.core.operator_asks import open_asks, resolve_ask
 
+    # Verbatim, cut visibly if long (council-5017d9b5f774): a label is never
+    # heard again, and a paraphrase would turn his voice into mine.
+    words = " ".join((his_words or "").split())
+    if len(words) > 500:
+        words = words[:500] + " ..."
+    answer = f"Dad answered: {words}" if words else f"Dad answered ({how})"
     try:
         mine = [a["question_id"] for a in open_asks(limit=200) if _filed_here(a)]
     except Exception as exc:  # noqa: BLE001 -- any store failure, logged below
@@ -271,7 +330,7 @@ def release(how: str, reason: str = "") -> bool:
         mine = []
     for ask_id in mine:
         try:
-            closed = resolve_ask(ask_id, f"Dad answered ({how})")
+            closed = resolve_ask(ask_id, answer)
         except Exception as exc:  # noqa: BLE001 -- any store failure, logged below
             _log("resolve_failed", ask_id=ask_id, error=f"{type(exc).__name__}: {exc}")
         else:

@@ -55,9 +55,18 @@ def test_a_letter_to_him_always_passes(qh):
     assert "nexus" in qh.refusal("Write", {"file_path": TO_ARIA})  # the control
 
 
-def test_he_said_he_is_stepping_away_so_letters_flow_until_he_speaks(qh):
+def test_letters_to_him_by_any_of_his_names_pass(qh):
+    # Aria's cold read: "aria-to-dad-..." was held as if not to him.
+    qh.arm(FIRST)
+    for name in ("aria-to-dad-x.md", "aether-to-pop-x.md", "aria-to-andrew-x.md"):
+        assert qh.refusal("Write", {"file_path": f"family/letters/{name}"}) == "", name
+
+
+def test_he_said_he_is_stepping_away_so_letters_flow_until_he_speaks(qh, monkeypatch):
     # "i am always here unless i tell you i am stepping away, this is what the
     # volley mode is for" (2026-10-05).
+    said = "OK im heading to dinner,   you two volley"
+    monkeypatch.setattr(qh, "_his_latest_words", lambda: said)
     qh.arm(FIRST)
     qh.step_away("ok im heading to dinner, you two volley")
     assert qh.refusal("Write", {"file_path": TO_ARIA}) == ""
@@ -66,13 +75,46 @@ def test_he_said_he_is_stepping_away_so_letters_flow_until_he_speaks(qh):
     assert qh.refusal("Write", {"file_path": TO_ARIA})
 
 
-def test_away_is_never_set_from_quiet(qh):
-    import pytest as _pytest
-
+def test_away_is_never_set_from_quiet(qh, monkeypatch):
+    monkeypatch.setattr(qh, "_his_latest_words", lambda: "brb")
     for words in ("", "   ", "brb"):
-        with _pytest.raises(ValueError):
+        with pytest.raises(ValueError):
             qh.step_away(words)
     assert qh.is_away() is None
+
+
+def test_away_cannot_be_set_in_words_he_did_not_say(qh, monkeypatch):
+    # Aria's cold read of b6d7a5c90: the exact forgery, with him sitting there.
+    monkeypatch.setattr(qh, "_his_latest_words", lambda: "go ahead and wire it in")
+    with pytest.raises(ValueError, match="not in his latest message"):
+        qh.step_away("I'm stepping away for a while")
+    assert qh.is_away() is None
+
+
+def test_a_notice_is_never_read_as_his_words(tmp_path, monkeypatch, qh):
+    # The store files notices in his seat too; only his real words count.
+    import sqlite3
+
+    db = tmp_path / "asks.db"
+    monkeypatch.setenv("DIVINEOS_HIS_ASKS_DB", str(db))
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE messages (his_text TEXT, filed_at REAL)")
+    conn.execute("INSERT INTO messages VALUES ('heading to bed, you two volley', 1)")
+    conn.execute("INSERT INTO messages VALUES ('<task-notification>x</task-notification>', 2)")
+    conn.commit()
+    conn.close()
+    assert qh._his_latest_words() == "heading to bed, you two volley"
+
+
+def test_his_answer_is_kept_in_his_words(qh):
+    first = qh.arm(FIRST)["ask_id"]
+    assert qh.release("his message", his_words="it's   more of a hub, everything hangs off it")
+    row = next(
+        q
+        for q in __import__("divineos.core.questions", fromlist=["x"]).get_questions(limit=500)
+        if q["question_id"] == first
+    )
+    assert "Dad answered: it's more of a hub, everything hangs off it" in str(row)
 
 
 def test_a_hand_filed_ask_keeps_re_raising_after_his_message(qh):

@@ -64,7 +64,9 @@ def main() -> int:
                 "his answer; I do not open it or act on it until he speaks.\n"
             )
             return 0
-        qh.release("his message")
+        from divineos.core.his_message import _his_part
+
+        qh.release("his message", his_words=_his_part(str(data.get("prompt", ""))))
         return 0
 
     if event == "Stop":
