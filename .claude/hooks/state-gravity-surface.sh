@@ -180,10 +180,14 @@ touched = ' '.join(file_paths) or bash_command
 written = str(tool_input.get('new_string') or tool_input.get('content') or '')[:300]
 query = ' '.join(p for p in (_his_last_words(), touched[:200], written) if p).strip()
 try:
-    from divineos.core.memory_linkage_retriever import find_in_worklist
-    from divineos.core.state_glance import worklist_lines
+    from divineos.core.memory_linkage_retriever import find_in_worklist, newest_in_worklist
+    from divineos.core.state_glance import newest_lines, worklist_lines
     wl_state, wl_matches = find_in_worklist(query)
     worklist_part = worklist_lines(wl_state, wl_matches)
+    # His newest, in his words, for its first few showings (walk-37fcc8dddecd):
+    # the slot my own 2026-09-22 draft asked for and last night's build forgot.
+    fresh, seen = newest_lines(newest_in_worklist(), wl_matches, seen)
+    worklist_part = worklist_part[:1] + fresh + worklist_part[1:]
 except Exception as exc:  # spoken, never silent
     worklist_part = [f'- HIS CORRECTIONS FOR THIS: could not look ({type(exc).__name__}). Check the list yourself.']
 worklist_part.append('    all of them: divineos andrew-correction list')

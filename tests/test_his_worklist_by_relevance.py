@@ -80,6 +80,50 @@ def test_one_open_row_is_past_the_zero_boundary():
     assert state in ("found", "unsure")
 
 
+@needs_model
+def test_his_newest_correction_reaches_me_in_his_words_even_when_it_does_not_fit():
+    # Aether's cold read of 0e451dece: the report folds a new row into
+    # "... and N more", so the glance only saw a total tick up. The slot my
+    # 2026-09-22 draft asked for, tested through the real writer and search.
+    from divineos.core.memory_linkage_retriever import newest_in_worklist
+    from divineos.core.state_glance import newest_lines
+
+    # A world big enough that the closest guesses for a truck question are
+    # truck corrections; with two rows, unsure hands back both and the newest is
+    # already shown among them, which is correct but tests nothing.
+    file_correction(ROOM)
+    file_correction("check the timing belt tension before you torque anything on the engine")
+    file_correction("the water pump bolts go in a star pattern, not in a circle")
+    fresh_id = file_correction("the kettle should be on the left of the stove, not the right")
+    state, matches = find_in_worklist(CARS)
+    assert fresh_id not in [m[0] for m in matches], (
+        "the control: the newest must not be a match here"
+    )
+    seen: dict = {}
+    shown = []
+    for _ in range(5):
+        lines, seen = newest_lines(newest_in_worklist(), matches, seen)
+        shown.append(lines)
+    assert "kettle should be on the left" in shown[0][0] and "newest from him" in shown[0][0]
+    assert f"correction #{fresh_id}" in shown[0][0]
+    assert [bool(x) for x in shown] == [True, True, True, False, False], (
+        "three times, then it steps back"
+    )
+
+
+def test_a_newest_that_already_fits_is_shown_once_not_twice():
+    from divineos.core.state_glance import newest_lines
+
+    lines, _ = newest_lines((7, "his words"), [(7, "his words", 0.6)], {})
+    assert lines == []
+
+
+def test_no_open_corrections_means_no_newest_slot():
+    from divineos.core.state_glance import newest_lines
+
+    assert newest_lines(None, [], {})[0] == []
+
+
 def test_each_shown_row_names_the_form_that_closes_it():
     lines = worklist_lines("found", [(42, "a correction of his", 0.6)])
     assert any("correction #42" in ln for ln in lines)
