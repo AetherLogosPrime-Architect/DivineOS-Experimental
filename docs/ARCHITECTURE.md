@@ -759,6 +759,7 @@ src/divineos/
     sort_first.py              Sort his message before anything else: reading him comes first, by refusal.
     vector_drawer.py           A drawer of sentence vectors, so nothing is embedded twice.
     ship_steps.py              The checks `divineos ship` runs in order, each one a yes or a named no.
+    git_hooks_drift.py         Do the installed git hooks still say what setup/setup-hooks.sh would write?
 
   analysis/
     _session_types.py          Session analysis type definitions
