@@ -214,10 +214,19 @@ def release(how: str, reason: str = "") -> bool:
     # answer released one hold and the other held the work again -- twice that
     # night, each cleared by hand with his words. A store failure is logged,
     # never raised: this runs inside his own message hook.
-    ask_id = state.get("ask_id")
-    if ask_id:
-        from divineos.core.operator_asks import resolve_ask
+    #
+    # EVERY ONE THIS HOLD FILED, not only the newest (2026-10-05). arm() keeps
+    # one ask_id, so two questions in a row left the first ask open for good
+    # and the asks-store hook held the work after he had answered both. Hand-
+    # filed asks are not touched: those re-raise until he resolves them.
+    from divineos.core.operator_asks import open_asks, resolve_ask
 
+    try:
+        mine = [a["question_id"] for a in open_asks(limit=200) if _filed_here(a)]
+    except Exception as exc:  # noqa: BLE001 -- any store failure, logged below
+        _log("resolve_failed", ask_id="*", error=f"{type(exc).__name__}: {exc}")
+        mine = []
+    for ask_id in mine:
         try:
             closed = resolve_ask(ask_id, f"Dad answered ({how})")
         except Exception as exc:  # noqa: BLE001 -- any store failure, logged below
@@ -226,6 +235,13 @@ def release(how: str, reason: str = "") -> bool:
             if not closed:
                 _log("resolve_failed", ask_id=ask_id, error="resolve_ask returned False")
     return True
+
+
+def _filed_here(ask: dict[str, Any]) -> bool:
+    """An ask arm() filed, told by the context arm() writes and nothing else."""
+    return any(
+        line.strip() == "question-hold" for line in str(ask.get("context") or "").splitlines()
+    )
 
 
 def escape_to_tell_him() -> str:
