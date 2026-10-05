@@ -41,6 +41,11 @@ DRAWER = Path(
     os.environ.get("DADS_TABLE_DRAWER", Path.home() / ".divineos" / "drawer" / f"{ROOT.name}.md")
 )
 
+# The wrappers automation arrives in. Known ones only (Aria): matching any "<"
+# would label a paste of his as automation. One list, read by the heading and
+# by the tally, so the two can never disagree about what was him.
+NOTICE_PREFIXES = ("<task-notification", "<system-reminder", "<agent-message")
+
 # His picture is about him, not me, so it stays on the table rather than in the drawer.
 ON_THE_TABLE = "he-is-in-the-room"
 # Sections that are HIS words, wherever they are printed (Aria, station four):
@@ -223,7 +228,7 @@ def main() -> int:
     # which is the one lie this hook must never tell: automation is not him.
     # Known wrappers only (Aria): matching any "<" would label a paste of his
     # as automation, erring toward "he did not speak", the wrong way to err.
-    if prompt.lstrip().startswith(("<task-notification", "<system-reminder", "<agent-message")):
+    if prompt.lstrip().startswith(NOTICE_PREFIXES):
         print("## NOT FROM DAD — an automated notice arrived, he has not spoken\n")
         print(prompt.strip()[:600])
     else:
@@ -249,6 +254,99 @@ def main() -> int:
         return 0
 
 
+# THE TALLY (Aria 2026-10-05, walk-4813425e3e51, from Dad: "isnt that
+# wallpaper?" then "yes build the tally"). One row per message: for each
+# reminder, did it speak, was it new against its own last row this session, how
+# much, and where it went. It is how the reminders get sorted into his piles
+# from evidence instead of my impression. It sorts nothing and prints nothing.
+# What it cannot see: a reminder that works without speaking reads as silent
+# here, so silence is never evidence that one is dead.
+TALLY = Path(
+    os.environ.get(
+        "DADS_TABLE_TALLY", Path.home() / ".divineos" / "table_tally" / f"{ROOT.name}.jsonl"
+    )
+)
+# A sorting instrument, not an archive: past this it keeps its newer half.
+TALLY_CEILING_BYTES = 4_000_000
+
+
+def _note(name: str, out: str, problem: str, went: list[str]) -> dict:
+    import hashlib
+
+    said = out.strip()
+    return {
+        "name": name,
+        "chars": len(said),
+        "print": hashlib.sha1(said.encode("utf-8")).hexdigest()[:10] if said else "",
+        "went": went,
+        "problem": problem,
+    }
+
+
+def _keep_tally(payload: bytes, notes: list[dict]) -> str:
+    """Append this turn's row. Returns "" when kept, else the reason it was not."""
+    # Same isolation as his words: under pytest the real tally is never written.
+    if os.environ.get("PYTEST_CURRENT_TEST") and "DADS_TABLE_TALLY" not in os.environ:
+        return ""
+    try:
+        import datetime
+
+        data = json.loads(payload or b"{}")
+        prompt = str(data.get("prompt", ""))
+        row = {
+            "ts": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "session": str(data.get("session_id") or "unknown"),
+            "kind": "notice" if prompt.lstrip().startswith(NOTICE_PREFIXES) else "his",
+            "notes": notes,
+        }
+        TALLY.parent.mkdir(parents=True, exist_ok=True)
+        if TALLY.exists() and TALLY.stat().st_size > TALLY_CEILING_BYTES:
+            lines = TALLY.read_text(encoding="utf-8").splitlines()
+            TALLY.write_text("\n".join(lines[len(lines) // 2 :]) + "\n", encoding="utf-8")
+        with TALLY.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+        return ""
+    except (OSError, ValueError, TypeError) as exc:
+        return f"{type(exc).__name__}: {exc}"
+
+
+# The report is not mine to remember to run (Andrew 2026-10-05: "the game spots
+# are anywhere where you have control and options to choose, especially things
+# you can skip, this is why you bake it in"). Once enough turns are tallied, the
+# table writes the report itself and puts one line in front of me, once.
+def _ready_turns() -> int:
+    try:
+        return max(1, int(os.environ.get("DADS_TABLE_TALLY_READY_TURNS", "100")))
+    except ValueError:
+        return 100
+
+
+def _tally_ready_line() -> str:
+    """One line, the first turn the tally has enough to sort from; else ""."""
+    marker = TALLY.with_suffix(".reported")
+    report = TALLY.with_suffix(".report.txt")
+    try:
+        if marker.exists() or not TALLY.exists():
+            return ""
+        with TALLY.open(encoding="utf-8") as f:
+            turns = sum(1 for _ in f)
+        if turns < _ready_turns():
+            return ""
+        done = subprocess.run(
+            [sys.executable, str(HOOKS_DIR.parent.parent / "scripts" / "table_tally_report.py"), str(TALLY)],
+            capture_output=True,
+            timeout=30,
+        )
+        report.write_bytes(done.stdout)
+        marker.write_text(str(turns), encoding="utf-8")
+        return (
+            f"THE TALLY IS READY: {turns} turns of what each reminder did. Sort them into "
+            f"Dad's piles WITH him, numbers beside each name: {report}"
+        )
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        return f"THE TALLY REPORT could not be made ({type(exc).__name__}: {exc})"
+
+
 def _the_rest(payload: bytes) -> int:
     children = json.loads(CHILDREN_FILE.read_text(encoding="utf-8"))
 
@@ -256,20 +354,27 @@ def _the_rest(payload: bytes) -> int:
         results = list(pool.map(lambda c: _run(c, payload), children))
 
     picture, his, drawer, broken, blocks = "", [], [], [], []
+    notes = []
     for child, out, problem, block in results:
         name = Path(child["command"].split()[-1]).stem
         if name == ON_THE_TABLE:
             picture = out
+            notes.append(_note(name, out, problem, ["visible"] if out.strip() else []))
             continue
         if problem:
             broken.append(f"{name} ({problem})")
         if block:
             blocks.append(f"{name}: {block}")
         mine_about_him, rest = _split_his(out)
+        went = []
         if mine_about_him.strip():
             his.append(mine_about_him.rstrip())
+            went.append("visible")
         if rest.strip():
             drawer.append(f"<!-- {name} -->\n{rest.rstrip()}\n")
+            went.append("drawer")
+        notes.append(_note(name, out, problem, went))
+    tally_trouble = _keep_tally(payload, notes)
 
     try:
         DRAWER.parent.mkdir(parents=True, exist_ok=True)
@@ -292,7 +397,12 @@ def _the_rest(payload: bytes) -> int:
     )
     if broken:
         line += f" Could not run: {', '.join(broken)}."
+    if tally_trouble:
+        line += f" Tally NOT kept this turn: {tally_trouble}."
     print(line)
+    ready = _tally_ready_line()
+    if ready:
+        print(ready)
 
     # A child that refuses the prompt keeps its teeth (Aria, station four):
     # before this, a refusal went into the drawer and the prompt went through.
