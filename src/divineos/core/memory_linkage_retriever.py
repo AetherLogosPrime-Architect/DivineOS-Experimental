@@ -93,6 +93,8 @@ _SOURCE_THRESHOLDS: dict[str, dict[str, Any]] = {
     "knowledge": {"target_k": 2, "floor": 0.30, "steepness": 0.30},
     "wall": {"target_k": 5, "floor": 0.25, "steepness": 0.10},
     "letter": {"target_k": 1, "floor": 0.40, "steepness": 0.30},
+    # Set from tonight's real changes, not believed (Dillahunty, walk-4d8b06a54e67).
+    "worklist": {"target_k": 2, "floor": 0.40, "steepness": 0.0},
 }
 
 
@@ -419,6 +421,109 @@ def _load_corrections() -> list[_CachedItem]:
             )
         )
     return items
+
+
+def _load_worklist() -> list[_CachedItem]:
+    """Dad's OPEN worklist rows, findable by meaning (2026-10-05).
+
+    The "correction" source above reads the general correction log; this reads
+    andrew_correction_tracker, the list he means when he says "the 265". Open
+    rows only, so a worked, deferred or misfiled row is never loaded: it leaves
+    by itself, nothing removed (Andrew: "just put through a different channel").
+    """
+    try:
+        from divineos.core.andrew_correction_tracker import list_open
+
+        raw = list_open()
+    except Exception:  # noqa: BLE001 - observability boundary, as the loaders above
+        return []
+    items: list[_CachedItem] = []
+    for row in raw:
+        text = str(row.get("text") or "").strip()
+        if not text:
+            continue
+        embedding = _embed_text_impl(text)
+        if embedding is None:
+            continue
+        items.append(
+            _CachedItem(
+                id=f"worklist-{row['id']}",
+                source="worklist",
+                tier="constraint",
+                title=f"#{row['id']} " + text[:60] + ("..." if len(text) > 60 else ""),
+                content=text,
+                path="",
+                filed_at_unix=float(row.get("timestamp") or 0.0),
+                importance_score=0.5,
+                embedding=embedding,
+            )
+        )
+    return items
+
+
+def find_in_worklist(query: str, k: int = 2) -> tuple[str, list[tuple[int, str, float]]]:
+    """His open corrections that match ``query`` by meaning.
+
+    Returns ``(state, matches)``, state one of ``"found"`` (they clear the bar),
+    ``"unsure"`` (nothing clears it, so the closest are returned anyway, to be
+    checked by hand) or ``"could-not-look"`` (no embedder or no vectors), so no
+    caller has to guess what an empty list meant (Hoare). Never a silent empty:
+    Andrew 2026-10-05, "if its unsure make it say its unsure so you check it
+    yourself, silence is never a good option". A row the overnight warm-up has
+    not stored yet is embedded here with the light embedder, the same model,
+    because the freshest correction is usually the relevant one (Feynman).
+    Near-duplicate texts are shown once (Shannon).
+    """
+    if not query or not query.strip():
+        return "could-not-look", []
+    topic_vec = _embed_topic(query)
+    if topic_vec is None:
+        return "could-not-look", []
+    try:
+        from divineos.core import light_embedder
+        from divineos.core.andrew_correction_tracker import list_open
+
+        rows = list_open()
+    except Exception:  # noqa: BLE001 - reported as could-not-look, never as silence
+        return "could-not-look", []
+    import sqlite3
+
+    from divineos.core import vector_drawer
+
+    texts = [str(r.get("text") or "").strip() for r in rows]
+    try:
+        stored = vector_drawer.lookup([t for t in texts if t])
+    except sqlite3.Error:
+        stored = {}
+    threshold = compute_threshold("worklist", len(rows))
+    scored: list[tuple[float, int, str]] = []
+    for row, text in zip(rows, texts):
+        if not text:
+            continue
+        vec = stored.get(text)
+        if vec is None:
+            try:
+                vec = light_embedder.encode(text)
+            except light_embedder.EmbedderUnavailable:
+                return "could-not-look", []
+        scored.append((_cosine(topic_vec, vec), int(row["id"]), text))
+    if not scored:
+        return "could-not-look", []
+    scored.sort(reverse=True)
+    sure = scored[0][0] >= threshold
+    matches: list[tuple[int, str, float]] = []
+    seen_texts: set[str] = set()
+    for similarity, row_id, text in scored:
+        if sure and similarity < threshold:
+            break
+        squashed = " ".join(text.lower().split())[:120]
+        if squashed in seen_texts:
+            continue
+        seen_texts.add(squashed)
+        matches.append((row_id, text, similarity))
+        if len(matches) == k:
+            break
+    return ("found" if sure else "unsure"), matches
 
 
 _KNOWLEDGE_CONSTRAINT_TYPES = frozenset(
@@ -837,6 +942,7 @@ def _ensure_cache() -> None:
     _EMBEDDING_CACHE["wall"] = _load_wall()
     _EMBEDDING_CACHE["exploration"] = _load_exploration()
     _EMBEDDING_CACHE["letter"] = _load_letters()
+    _EMBEDDING_CACHE["worklist"] = _load_worklist()
 
 
 # WHERE ITEM VECTORS COME FROM (2026-09-24). They used to be computed here with
@@ -935,6 +1041,7 @@ def warm(progress: Any = None) -> dict[str, int]:
             _load_wall,
             _load_exploration,
             _load_letters,
+            _load_worklist,
         ):
             loader()
     finally:

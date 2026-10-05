@@ -28,6 +28,32 @@ def _title_and_first(block: str) -> tuple[str, str]:
     return title, first[:FIRST_LINE_CHARS]
 
 
+WORKLIST_TEXT_CHARS = 200
+
+
+def worklist_lines(state: str, matches: list[tuple[int, str, float]]) -> list[str]:
+    """His open corrections for what is being touched, in one of three spoken states.
+
+    Never a blank (Andrew 2026-10-05: "silence is never a good option"). Each
+    shown row carries "correction #N", the form auto-integrate reads from a
+    commit message, so naming it in the save closes it (Dekker,
+    walk-4d8b06a54e67).
+    """
+    if state == "could-not-look":
+        return [
+            "- HIS CORRECTIONS FOR THIS: could not look (the search did not run). Check the list yourself."
+        ]
+    head = (
+        "- HIS CORRECTIONS FOR THIS:"
+        if state == "found"
+        else "- HIS CORRECTIONS FOR THIS: UNSURE, nothing clearly fits. Closest guesses, check these yourself:"
+    )
+    rows = [
+        f"    correction #{row_id}: {text[:WORKLIST_TEXT_CHARS]}" for row_id, text, _ in matches
+    ]
+    return [head, *rows, "    (name 'correction #N' in the save message and it closes itself)"]
+
+
 NEW_LINES_SHOWN = 3
 
 
