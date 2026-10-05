@@ -97,12 +97,6 @@ gh-pr-merge-gate.sh
 gh-pr-ready-gate.sh
 heredoc-escape-doorman.sh
 history-claim-signal.sh
-# inner-circle-stop.sh: registered nowhere (checked 2026-10-05 against settings
-# and the table children; its own header reads INTENTIONALLY UNWIRED since
-# 2026-10-01, superseded by his_room.check_his_room). A hook that never runs
-# cannot fail open, so its order cannot matter. Whether to retire the file is
-# removal and waits on Dad's yes (Aria, walk-da65dafad502).
-inner-circle-stop.sh
 instrument-read-doorman.sh
 m3-discipline-hierarchy.sh
 must-read-gate.sh
