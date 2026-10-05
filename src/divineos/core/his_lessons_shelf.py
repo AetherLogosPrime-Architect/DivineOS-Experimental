@@ -186,7 +186,7 @@ def bring(
     try:
         items, vecs = _load(index_dir)
         q = door._embed([door._squash(f"{message} {context}")[:2000]])[0]
-    except Exception as exc:  # say so, never go quiet
+    except door.SEARCH_ERRORS as exc:  # say so, never go quiet
         return [], f"his lessons could not be searched: {exc}"
     scores = vecs @ q  # type: ignore[operator]
     out: list[Brought] = []

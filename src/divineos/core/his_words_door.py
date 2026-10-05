@@ -168,6 +168,14 @@ def _model():
     return _MODEL
 
 
+# What a search can genuinely raise: the model import and load (ImportError,
+# OSError, RuntimeError), and an index of the wrong shape (ValueError, KeyError,
+# TypeError). Named, not "except Exception", so an unexpected error is not
+# swallowed as "could not be searched" (walk-da65dafad502). The shelf uses this
+# same list, so the two cannot drift.
+SEARCH_ERRORS = (ImportError, OSError, RuntimeError, ValueError, KeyError, TypeError)
+
+
 def _embed(texts: list[str]):
     return _model().encode(
         texts,
@@ -233,7 +241,7 @@ def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
         return Door([], [], looked=False, reason=f"his words could not be searched: {exc}")
     try:
         q = _embed([_squash(message + " " + context)])[0]
-    except Exception as exc:  # the model is an import away from failing; say so, never go quiet
+    except SEARCH_ERRORS as exc:  # the model is an import away from failing; say so, never go quiet
         return Door([], [], looked=False, reason=f"his words could not be searched: {exc}")
     scores = vecs @ q
     hits: list[Hit] = []
@@ -286,7 +294,7 @@ def owed_in_reply(reply: str, his_message: str = "", index_dir: Path = INDEX_DIR
     try:
         items, vecs = _load_index(index_dir)
         q = _embed([_squash(reply)[:2000]])[0]
-    except Exception:
+    except SEARCH_ERRORS:
         return None  # the prompt-side door already says loudly when search is down
     scores = vecs @ q
     top = [int(i) for i in scores.argsort()[::-1][:25]]
