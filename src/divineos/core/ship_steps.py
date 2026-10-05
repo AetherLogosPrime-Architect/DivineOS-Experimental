@@ -173,37 +173,96 @@ def floor_proven(repo: Path, confirmed_sha: str, head_sha: str) -> Verdict:
             )
     if _git(repo, "status", "--porcelain", "--untracked-files=no"):
         return Verdict(False, "the working tree has uncommitted changes; commit them before asking")
-    head = _git(repo, "rev-parse", head_sha)
-    confirmed = _git(repo, "rev-parse", confirmed_sha)
+    return head_is_only(repo, confirmed_sha, head_sha)
+
+
+SHORTEST_SHA = 7
+
+
+def _commit(repo: Path, sha: str) -> str | None:
+    proc = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}"],
+        capture_output=True,
+        text=True,
+    )
+    return proc.stdout.strip() if proc.returncode == 0 else None
+
+
+def head_is_only(
+    repo: Path, confirmed_sha: str, head_sha: str, main_ref: str = "origin/main"
+) -> Verdict:
+    """Is head only the confirmed commit plus floor from main? Graph only.
+
+    Pure: reads commits, never the working tree, so the merge gate can ask it of
+    a PR without some other window's state refusing the PR (Dijkstra, room two,
+    docs/drafts/an_approval_names_the_version_it_saw_draft_2026-10-05.md).
+    Only the final tree lands, so one check against the newest floor stands in
+    for any number of catch-ups (Dijkstra, room three): the confirmed commit is
+    an ancestor of head, head's newest main parent is on main, and head's tree
+    equals the clean three-way merge of the two, the regenerated register aside.
+    Every refusal names both versions and the check that failed (Norman).
+    Dad's standing permission for floor-only moves: 09-03, 09-05, 09-24, 10-05.
+    """
+    # A hand-typed version from an approval ("CONFIRMS: #N at abc1234") is hex;
+    # a short one matches too much. Named refs come only from the house's own
+    # callers and must still resolve. An approval naming a ref ("at main") is a
+    # door, closed where approvals are read: the merge gate takes only hex.
+    typed = confirmed_sha.strip()
+    if re.fullmatch(r"[0-9a-fA-F]+", typed) and len(typed) < SHORTEST_SHA:
+        return Verdict(
+            False,
+            f"'{confirmed_sha}' is shorter than {SHORTEST_SHA} characters: a guess, not a version",
+        )
+    confirmed = _commit(repo, confirmed_sha)
+    head = _commit(repo, head_sha)
+    if confirmed is None or head is None:
+        missing = confirmed_sha if confirmed is None else head_sha
+        return Verdict(False, f"could not see commit {missing} here; fetch it first (never a pass)")
     if head == confirmed:
         return Verdict(True, "head is the confirmed commit")
+    is_ancestor = subprocess.run(
+        ["git", "-C", str(repo), "merge-base", "--is-ancestor", confirmed, head],
+        capture_output=True,
+    )
+    if is_ancestor.returncode != 0:
+        return Verdict(False, f"the confirmed {confirmed[:9]} is not in head {head[:9]}'s history")
     parents = _git(repo, "log", "-1", "--format=%P", head).split()
-    if len(parents) != 2 or parents[0] != confirmed:
+    if len(parents) != 2:
         return Verdict(
-            False, f"head {head[:9]} is not a merge of the confirmed {confirmed[:9]} with main"
+            False,
+            f"head {head[:9]} is not a catch-up merge, so something was authored after "
+            f"{confirmed[:9]} was confirmed; that goes back to the reviewer",
         )
-    # The tree check below agrees with any honest merge, so on its own it let a
-    # scratch branch through as a catch-up (Aria, 2026-10-04). Ancestry, not
-    # equality: main may move after the catch-up. Walk walk-d028b6a2d5f3.
+    newest_floor = parents[1]
+    # Ancestry, not equality: main may move after the catch-up (walk-d028b6a2d5f3).
+    # And it refuses a merge of anything that is not main (Aria, 2026-10-04).
     on_main = subprocess.run(
-        ["git", "-C", str(repo), "merge-base", "--is-ancestor", parents[1], "origin/main"],
+        ["git", "-C", str(repo), "merge-base", "--is-ancestor", newest_floor, main_ref],
         capture_output=True,
     )
     if on_main.returncode != 0:
-        return Verdict(False, f"the merged-in parent {parents[1][:9]} is not on main (origin/main)")
+        return Verdict(
+            False, f"the merged-in parent {newest_floor[:9]} is not on main ({main_ref})"
+        )
     proc = subprocess.run(
-        ["git", "-C", str(repo), "merge-tree", "--write-tree", confirmed, parents[1]],
+        ["git", "-C", str(repo), "merge-tree", "--write-tree", confirmed, newest_floor],
         capture_output=True,
         text=True,
     )
     if proc.returncode != 0:
         return Verdict(
-            False, "the confirmed head and main do not merge cleanly, so a resolution was authored"
+            False,
+            f"the confirmed {confirmed[:9]} and main at {newest_floor[:9]} do not merge cleanly, "
+            "so a resolution was authored",
         )
     expected = proc.stdout.splitlines()[0].strip()
     differing = _git(repo, "diff", "--name-only", expected, head).splitlines()
     authored = [p for p in differing if p not in GENERATED]
     if authored:
-        return Verdict(False, "changed beyond the three-way merge: " + ", ".join(authored))
+        return Verdict(
+            False,
+            f"head {head[:9]} changed beyond confirmed {confirmed[:9]} plus main: "
+            + ", ".join(authored),
+        )
     tail = " apart from the regenerated register" if differing else ""
-    return Verdict(True, f"tree equals merge({confirmed[:9]}, {parents[1][:9]}){tail}")
+    return Verdict(True, f"tree equals merge({confirmed[:9]}, {newest_floor[:9]}){tail}")

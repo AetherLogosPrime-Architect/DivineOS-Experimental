@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from divineos.core.ship_steps import confirm_in, floor_proven
+from divineos.core.ship_steps import confirm_in, floor_proven, head_is_only
 
 HEAD = "9a02f835395f9b6298dba85e1f76f92d7338d1c1"
 LETTER = "aletheia-to-aether-2026-10-02-four-confirmed.md"
@@ -249,3 +249,59 @@ def test_a_commit_on_top_of_the_confirm_is_refused(repo):
     (repo / "pr.txt").write_text("changed after review\n")
     _git(repo, "commit", "-q", "-am", "after review")
     assert not floor_proven(repo, confirmed, "HEAD").ok
+
+
+# --- The floor proof, 2026-10-05 (three rooms; draft
+# an_approval_names_the_version_it_saw_draft_2026-10-05.md). Dad: floor-only
+# moves need no re-review.
+
+
+def _move_main(repo, name):
+    _git(repo, "checkout", "-q", "main")
+    (repo / name).write_text(f"{name}\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", f"main moved again: {name}")
+    _git(repo, "update-ref", "refs/remotes/origin/main", "main")
+    _git(repo, "checkout", "-q", "pr")
+
+
+def test_two_catch_ups_after_the_confirm_are_still_only_floor(repo):
+    # Main moves twice after the confirm; the branch catches up twice.
+    confirmed = _git(repo, "rev-parse", "pr")
+    _git(repo, "merge", "-q", "--no-edit", "main")
+    _move_main(repo, "second.txt")
+    _git(repo, "merge", "-q", "--no-edit", "main")
+    v = floor_proven(repo, confirmed, "HEAD")
+    assert v.ok, v.reason
+
+
+def test_an_edit_hidden_in_an_early_catch_up_is_refused(repo):
+    # The edit survives into the final tree, so the final tree is not merge(A, M).
+    confirmed = _git(repo, "rev-parse", "pr")
+    _git(repo, "merge", "-q", "--no-edit", "--no-commit", "main")
+    (repo / "pr.txt").write_text("quietly edited in the first catch-up\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "catch-up 1 with a sneaked edit")
+    _move_main(repo, "second.txt")
+    _git(repo, "merge", "-q", "--no-edit", "main")
+    v = floor_proven(repo, confirmed, "HEAD")
+    assert not v.ok and "pr.txt" in v.reason and confirmed[:9] in v.reason
+
+
+def test_a_hex_version_shorter_than_seven_is_refused(repo):
+    v = head_is_only(repo, "ab12", "HEAD")
+    assert not v.ok and "shorter than 7" in v.reason
+
+
+def test_a_commit_that_cannot_be_seen_is_refused_never_passed(repo):
+    v = head_is_only(repo, "0123456789abcdef0123456789abcdef01234567", "HEAD")
+    assert not v.ok and "could not see commit" in v.reason
+
+
+def test_the_pure_proof_ignores_a_dirty_working_tree(repo):
+    # The merge gate asks this of a PR; another window's mess must not refuse it.
+    confirmed = _git(repo, "rev-parse", "pr")
+    _git(repo, "merge", "-q", "--no-edit", "main")
+    (repo / "a.txt").write_text("unrelated local mess\n")
+    assert head_is_only(repo, confirmed, "HEAD").ok
+    assert not floor_proven(repo, confirmed, "HEAD").ok  # the ship path still refuses it
