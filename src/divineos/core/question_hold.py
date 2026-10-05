@@ -26,17 +26,95 @@ import time
 from pathlib import Path
 from typing import Any
 
-STATE = Path.home() / ".divineos" / "question_hold.json"
-HOLD_LOG = Path.home() / ".divineos" / "question_hold_log.jsonl"
-ESCAPED = Path.home() / ".divineos" / "question_hold_escaped.json"
+
+def _home() -> Path:
+    # EACH SEAT'S OWN HOME (2026-10-01). This was Path.home()/".divineos" -- one
+    # file for both seats -- so Aether's "Dad, should I turn my letter doorbell
+    # back on?" held me, and my question held him, the same afternoon. The
+    # question was found filed in HIS open_questions, not mine, so it was his.
+    # divineos_home() honours each checkout's .divineos_data_home marker, as
+    # every other per-seat store already does.
+    from divineos.core.paths import divineos_home
+
+    return divineos_home()
+
+
+STATE = _home() / "question_hold.json"
+HOLD_LOG = _home() / "question_hold_log.jsonl"
+ESCAPED = _home() / "question_hold_escaped.json"
+
+# THE SHARED FRIDGE: SEEN, NEVER HELD. Dad, 2026-10-01: "also the shared fridge
+# idea isnt bad, as seeing what the other was asked is a nice addition, it just
+# shouldnt block, only the personal ones do :)". Each seat posts its open
+# question here as a card named for its home folder; the other seat is SHOWN
+# it and never refused by it. Display only: every board failure is swallowed
+# toward "nothing shown", because a board that could block is the defect again.
+#
+# NEXT DOOR TO THE SEAT'S HOME, not Path.home(). The seat homes (~/.divineos,
+# ~/.divineos-aria) sit beside ~/.divineos-shared, so in the house this is the
+# same folder. In a test the seat home is a temporary one, and this follows it
+# there without any test remembering to. Built from Path.home() first, a card
+# leaked onto the live board during a run before that was seen.
+BOARD = _home().parent / ".divineos-shared" / "open_questions"
+CARD = BOARD / f"{_home().name}.json"
+
+
+def _seat_name(home_name: str) -> str:
+    from divineos.core.sibling_corrections import SIBLING_HOMES
+
+    for name, home in SIBLING_HOMES.items():
+        if Path(home).name == home_name:
+            return name.capitalize()
+    return home_name
+
+
+def _post_card(state: dict[str, Any]) -> None:
+    try:
+        CARD.parent.mkdir(parents=True, exist_ok=True)
+        CARD.write_text(json.dumps(state), encoding="utf-8")
+    except OSError:
+        pass  # display only -- the own hold is already armed
+
+
+def _take_card() -> None:
+    try:
+        CARD.unlink(missing_ok=True)
+    except OSError:
+        pass  # display only
+
+
+def others_waiting() -> list[str]:
+    """One line per OTHER seat with an open question to Dad. Never a refusal."""
+    lines = []
+    try:
+        cards = sorted(BOARD.glob("*.json"))
+    except OSError:
+        return []
+    for card in cards:
+        if card.name == CARD.name:
+            continue
+        try:
+            state = json.loads(card.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(state, dict) and state.get("question"):
+            lines.append(f"{_seat_name(card.stem)} is waiting on Dad: {state['question']}")
+    return lines
+
 
 BUILDING_TOOLS = {"Bash", "Edit", "Write", "NotebookEdit"}
 
 # Bash that is listening or talking, not building. Kept narrow on purpose:
 # a broad allowance is how a hold turns back into a suggestion.
 _PASSES = (
-    re.compile(r"^\s*bash\s+scripts/letter_doorbell\.sh\b"),
-    re.compile(r"^\s*cat\s+[^;&|]*\.divineos-shared/letters/[^;&|]*$"),
+    # Anchored at the end: "doorbell.sh aria; git push" must not ride through.
+    # The first version stopped at \b, and its test hid that with `or True`.
+    re.compile(r"^\s*bash\s+scripts/letter_doorbell\.sh(\s+\w+)?\s*$"),
+    # Reading a letter, with any read-only viewer (Aether's reading of #570:
+    # he reads them with sed to strip the thread footer). Never sed -i.
+    re.compile(
+        r"^\s*(cat|head|tail|sed)\b(?![^;&|]*\s-i)[^;&|]*\.divineos-shared/letters/[^;&|]*$"
+    ),
     re.compile(
         r"^\s*cp\s+\S*family/letters/\S+\.md\s+\S*\.divineos-shared/letters/?\S*\s*(&&\s*echo\s+\w+)?\s*$"
     ),
@@ -111,6 +189,7 @@ def arm(reply: str) -> dict[str, Any] | None:
     state = {"question": question, "ask_id": ask_id, "since": time.time()}
     STATE.parent.mkdir(parents=True, exist_ok=True)
     STATE.write_text(json.dumps(state), encoding="utf-8")
+    _post_card(state)
     _log("armed", question=question, ask_id=ask_id)
     return state
 
@@ -121,11 +200,31 @@ def release(how: str, reason: str = "") -> bool:
     if not state:
         return False
     STATE.unlink(missing_ok=True)
+    _take_card()
     _log("released", how=how, reason=reason, question=state.get("question"))
     if how == "escape":
         ESCAPED.write_text(
             json.dumps({"question": state.get("question"), "reason": reason}), encoding="utf-8"
         )
+        # He has NOT answered: the ask stays open and keeps re-raising.
+        return True
+    # HIS ANSWER CLOSES BOTH HOLDS (2026-10-01, council-5bd771ef0891). arm()
+    # files the question in operator_asks, and an-open-ask-holds-the-work.sh
+    # reads that store. Releasing only this file left the ask open, so his
+    # answer released one hold and the other held the work again -- twice that
+    # night, each cleared by hand with his words. A store failure is logged,
+    # never raised: this runs inside his own message hook.
+    ask_id = state.get("ask_id")
+    if ask_id:
+        from divineos.core.operator_asks import resolve_ask
+
+        try:
+            closed = resolve_ask(ask_id, f"Dad answered ({how})")
+        except Exception as exc:  # noqa: BLE001 -- any store failure, logged below
+            _log("resolve_failed", ask_id=ask_id, error=f"{type(exc).__name__}: {exc}")
+        else:
+            if not closed:
+                _log("resolve_failed", ask_id=ask_id, error="resolve_ask returned False")
     return True
 
 
@@ -143,7 +242,60 @@ def escape_to_tell_him() -> str:
     )
 
 
-def refusal(tool_name: str, tool_input: dict[str, Any]) -> str:
+def _epoch(iso: str) -> float:
+    from datetime import datetime
+
+    try:
+        return datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return 0.0
+
+
+def answered_since(transcript_path: str, since: float, tail_bytes: int = 2_000_000) -> bool:
+    """Has he typed anything into this conversation since the hold armed?
+
+    Aether's reading of #570 (2026-09-30): an answer he types while I am
+    mid-turn never comes through UserPromptSubmit. It lands in the running
+    turn as a queued_command attachment, so the hold stayed shut after he
+    had spoken, and the only way on was the escape -- which records that I
+    walked out on his question when he had already answered it.
+
+    Read through the one reader of him. Only dated messages count: a bookmark
+    copy has no time and cannot prove he spoke after the question.
+    """
+    if not transcript_path:
+        return False
+    from divineos.core.his_message import heard_in
+
+    path = Path(transcript_path)
+    try:
+        size = path.stat().st_size
+        with path.open("rb") as fh:
+            fh.seek(max(0, size - tail_bytes))
+            lines = fh.read().decode("utf-8", errors="replace").splitlines()
+    except OSError:
+        return False
+    records = []
+    for line in lines:
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            continue  # a seek lands mid-line; the first fragment is never whole
+        if isinstance(rec, dict):
+            records.append(rec)
+    return any(_epoch(h.when) > since for h in heard_in(records) if h.when)
+
+
+def _asked_at(state: dict[str, Any]) -> str:
+    """When, so a held reader can tell an old slip from their last message
+    (Kahneman, walk-c9e9794e0f63: a question with no owner reads as mine)."""
+    since = float(state.get("since") or 0)
+    return (
+        time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(since)) if since else "at an unknown time"
+    )
+
+
+def refusal(tool_name: str, tool_input: dict[str, Any], transcript_path: str = "") -> str:
     """Why this tool call waits, or "" when it may run."""
     state = is_open()
     if not state or tool_name not in BUILDING_TOOLS:
@@ -152,10 +304,25 @@ def refusal(tool_name: str, tool_input: dict[str, Any]) -> str:
         command = str(tool_input.get("command", ""))
         if any(p.search(command) for p in _PASSES):
             return ""
+        # A look, or another gate's prescribed way out, is not building
+        # (2026-10-01). The narrow letter patterns above held a `cat` of the
+        # doorbell's own output, and held `divineos prereg assess` while the
+        # overdue gate held the doorbell: two gates, each holding the other's
+        # only exit. Dad 2026-08-18: "no gate should ever be blocking its own
+        # remedy." Both judges are the house's shared ones, not a fourth list.
+        from divineos.core.remedy_allowlist import is_remedy
+        from divineos.hooks.pre_tool_use_gate import _is_readonly_probe
+
+        if _is_readonly_probe(command) or is_remedy(command):
+            return ""
+    if answered_since(transcript_path, float(state.get("since") or 0)):
+        release("his message, mid-turn")
+        return ""
     _log("held", tool=tool_name, question=state.get("question"))
     return (
         "QUESTION HOLD -- I asked Dad something and he has not answered yet:\n\n"
-        f"  {state.get('question')}\n\n"
+        f"  {state.get('question')}\n"
+        f"  (asked {_asked_at(state)}, held in {STATE.parent})\n\n"
         "Building waits for his reply; reading, letters and the doorbell do not.\n"
         "If a letter or a finished job woke me, I tell him it arrived and that I\n"
         "am waiting for him, and I do not open it or act on it until he speaks.\n\n"

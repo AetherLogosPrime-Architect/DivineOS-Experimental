@@ -19,14 +19,14 @@ from divineos.core import work_item_doorman as doorman
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_the_exempt_list_is_the_one_the_merge_check_reads() -> None:
-    """One list, two consumers.
+def test_the_exempt_list_is_the_doormans_own() -> None:
+    """One list, one reader, one question.
 
-    A second copy would drift, and the drift would be invisible until a
-    guardrail file slipped through one of them. This is the whole reason the
-    doorman does not carry its own idea of what counts as prose.
+    Until 2026-09-29 this list also decided what skipped review before main.
+    Review now exempts nothing, so the list answers only what may be edited
+    without a work item -- and the merge checks read no list at all.
     """
-    assert doorman.EXEMPT_LIST == ROOT / "scripts" / "review_exempt_paths.txt"
+    assert doorman.EXEMPT_LIST == ROOT / "scripts" / "work_item_exempt_paths.txt"
     prefixes = doorman.load_exempt_prefixes()
     assert prefixes is not None, "the exempt list did not read"
     assert "family/letters/" in prefixes

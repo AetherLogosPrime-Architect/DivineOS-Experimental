@@ -92,6 +92,10 @@ REMEDIES: tuple[tuple[str, ...], ...] = (
     ("divineos", "decide"),
     ("divineos", "council"),
     ("divineos", "psf", "mark-done"),
+    # The sort-first refusal's way out (core/sort_first.py): reading what Dad
+    # said and sorting it. The sort records a judgement; it edits nothing.
+    ("divineos", "his", "pending"),
+    ("divineos", "his", "sort"),
 )
 
 #: Verbs that must never appear here, asserted by a test rather than trusted to
@@ -104,19 +108,15 @@ FORBIDDEN_HEADS: frozenset[str] = frozenset(
 _LOG = Path.home() / ".divineos" / "remedy_passthrough.log"
 
 
-def _tokens(command: str) -> list[str]:
-    """The command as tokens, with wrappers and assignments already stripped."""
-    try:
-        from divineos.core.command_parsing import stripped_command
-
-        cleaned = stripped_command(command)
-    except Exception:  # noqa: BLE001 — fail toward not-a-remedy, never toward a block
-        cleaned = command
-    return cleaned.split()
-
-
 def is_remedy(command: str) -> bool:
-    """True when this command is some gate's prescribed exit.
+    """True when this command is some gate's prescribed exit, and nothing else.
+
+    A remedy with other work chained behind it is not a remedy. Until
+    2026-09-24 this matched the FRONT of a command, so `divineos decide "x" &&
+    git commit` walked past every refusal on the router with the commit riding
+    on the recording command -- found by the adversarial pass on the sort-first
+    refusal. Setup links (a worktree cd, an assignment, `set -o pipefail`) still
+    pass; see ``command_parsing.runs_only``.
 
     Fails toward FALSE on any parsing trouble. That direction matters: a false
     negative leaves the calling gate exactly as it behaves today, while a false
@@ -124,10 +124,12 @@ def is_remedy(command: str) -> bool:
     """
     if not command or not command.strip():
         return False
-    tokens = _tokens(command)
-    if not tokens:
+    try:
+        from divineos.core.command_parsing import runs_only
+
+        return runs_only(command, REMEDIES)
+    except Exception:  # noqa: BLE001 — fail toward not-a-remedy, never toward a block
         return False
-    return any(tuple(tokens[: len(prefix)]) == prefix for prefix in REMEDIES)
 
 
 def note_pass_through(caller: str, command: str) -> None:

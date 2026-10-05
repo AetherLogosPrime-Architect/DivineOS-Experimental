@@ -257,19 +257,33 @@ def _build_knn_graph() -> None:
     if not all_items:
         return
 
-    for i, item in enumerate(all_items):
-        # Compute similarity to every other item; keep top-K.
-        sims: list[tuple[float, str]] = []
-        for j, other in enumerate(all_items):
-            if i == j:
-                continue
-            sim = _cosine(item.embedding, other.embedding)
-            sims.append((sim, other.id))
-        sims.sort(reverse=True)
-        neighbors = [neighbor_id for _sim, neighbor_id in sims[:KNN_K]]
-        _KNN_GRAPH[item.id] = neighbors
-        for neighbor_id in neighbors:
-            _KNN_INDEGREE[neighbor_id] = _KNN_INDEGREE.get(neighbor_id, 0) + 1
+    # AS MATRICES, IN BLOCKS (2026-09-24). This was one Python cosine per pair,
+    # which the docstring priced as manageable at N=1631. Measured at N=10147 it
+    # had not finished after 300s: 100 million pure-Python calls. The same
+    # neighbours come from one normalised matrix product per block of rows,
+    # with argpartition for the top K. Blocks keep memory at rows x N rather
+    # than N x N. Clamped at zero, as _cosine does, so ranking ties match.
+    import numpy as np
+
+    matrix = np.vstack([np.asarray(item.embedding, dtype=np.float32) for item in all_items])
+    norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+    matrix = matrix / np.where(norms == 0, 1.0, norms)
+    k = min(KNN_K, len(all_items) - 1)
+    if k <= 0:
+        _KNN_GRAPH[all_items[0].id] = []
+        return
+    for start in range(0, len(all_items), 512):
+        block = np.clip(matrix[start : start + 512] @ matrix.T, 0.0, 1.0)
+        for row in range(block.shape[0]):
+            block[row, start + row] = -1.0  # never your own neighbour
+        top = np.argpartition(-block, k, axis=1)[:, :k]
+        for row, cand in enumerate(top):
+            order = cand[np.argsort(-block[row, cand], kind="stable")]
+            item = all_items[start + row]
+            neighbors = [all_items[j].id for j in order]
+            _KNN_GRAPH[item.id] = neighbors
+            for neighbor_id in neighbors:
+                _KNN_INDEGREE[neighbor_id] = _KNN_INDEGREE.get(neighbor_id, 0) + 1
 
 
 def _is_hub(item_id: str) -> bool:

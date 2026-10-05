@@ -161,6 +161,14 @@ def _isolated_db(tmp_path):
     os.environ["DIVINEOS_DB"] = str(db_path)
     os.environ["DIVINEOS_HOME"] = str(home_path)
     os.environ["DIVINEOS_DISABLE_AUTO_REMEDIATE"] = "1"
+    # The repeat-suppression store, per test (2026-09-24). Unset, it fell back to
+    # the REAL state directory, so every test that rendered a compose surface
+    # wrote the live session's memory of what had been shown -- and two tests
+    # rendering the lepos floor in the same second (its questions are drawn from
+    # a per-second seed) handed the second one the short "already shown" pointer.
+    # test_build_walk_surface_is_speaking_floor failed that way in a push gate
+    # while passing alone.
+    os.environ["DIVINEOS_CONTEXT_DEDUP_DIR"] = str(tmp_path / "context_dedup")
 
     from divineos.core.ledger import init_db
 
@@ -168,6 +176,7 @@ def _isolated_db(tmp_path):
     yield
     os.environ.pop("DIVINEOS_DB", None)
     os.environ.pop("DIVINEOS_HOME", None)
+    os.environ.pop("DIVINEOS_CONTEXT_DEDUP_DIR", None)
     os.environ.pop("DIVINEOS_DISABLE_AUTO_REMEDIATE", None)
     os.environ.pop("DIVINEOS_SESSION_ID", None)
 
