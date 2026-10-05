@@ -93,8 +93,11 @@ _SOURCE_THRESHOLDS: dict[str, dict[str, Any]] = {
     "knowledge": {"target_k": 2, "floor": 0.30, "steepness": 0.30},
     "wall": {"target_k": 5, "floor": 0.25, "steepness": 0.10},
     "letter": {"target_k": 1, "floor": 0.40, "steepness": 0.30},
-    # Set from tonight's real changes, not believed (Dillahunty, walk-4d8b06a54e67).
-    "worklist": {"target_k": 2, "floor": 0.40, "steepness": 0.0},
+    # Set from real changes, not believed (Dillahunty, walk-4d8b06a54e67). Was
+    # 0.40: live, it labelled corrections about dreams "fits" on an unrelated
+    # edit. Raising it hides nothing -- UNSURE still shows the guesses -- it
+    # only stops calling weak matches sure.
+    "worklist": {"target_k": 2, "floor": 0.45, "steepness": 0.0},
 }
 
 
@@ -466,7 +469,8 @@ def find_in_worklist(query: str, k: int = 2) -> tuple[str, list[tuple[int, str, 
 
     Returns ``(state, matches)``, state one of ``"found"`` (they clear the bar),
     ``"unsure"`` (nothing clears it, so the closest are returned anyway, to be
-    checked by hand) or ``"could-not-look"`` (no embedder or no vectors), so no
+    checked by hand), ``"none-open"`` (the search ran and his worklist has no
+    open rows) or ``"could-not-look"`` (no embedder or no vectors), so no
     caller has to guess what an empty list meant (Hoare). Never a silent empty:
     Andrew 2026-10-05, "if its unsure make it say its unsure so you check it
     yourself, silence is never a good option". A row the overnight warm-up has
@@ -486,6 +490,11 @@ def find_in_worklist(query: str, k: int = 2) -> tuple[str, list[tuple[int, str, 
         rows = list_open()
     except Exception:  # noqa: BLE001 - reported as could-not-look, never as silence
         return "could-not-look", []
+    if not rows:
+        # Checked before any embedding: the search ran and the list is empty.
+        # Folding this into could-not-look dressed a cleared worklist as a
+        # broken instrument (Aether's cold read of b03cd5d96, 2026-10-05).
+        return "none-open", []
     import sqlite3
 
     from divineos.core import vector_drawer
