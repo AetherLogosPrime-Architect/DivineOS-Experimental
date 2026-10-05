@@ -169,6 +169,7 @@ def repo(tmp_path: Path) -> Path:
     (r / "main.txt").write_text("main moved\n")
     _git(r, "add", "-A")
     _git(r, "commit", "-q", "-m", "main moved")
+    _git(r, "update-ref", "refs/remotes/origin/main", "main")
     _git(r, "checkout", "-q", "pr")
     return r
 
@@ -227,6 +228,20 @@ def test_an_uncommitted_edit_is_refused_not_judged(repo):
     (repo / "pr.txt").write_text("edited but not committed\n")
     v = floor_proven(repo, confirmed, "HEAD")
     assert not v.ok and "uncommitted" in v.reason
+
+
+def test_a_merge_of_a_branch_that_is_not_main_is_refused(repo):
+    # Aria's cold read, 2026-10-04: the tree check agrees with any honest merge,
+    # so a scratch branch merged in passed as a catch-up with main.
+    confirmed = _git(repo, "rev-parse", "pr")
+    _git(repo, "checkout", "-q", "-b", "scratch", "main")
+    (repo / "scratch.txt").write_text("never reviewed\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "unreviewed")
+    _git(repo, "checkout", "-q", "pr")
+    _git(repo, "merge", "-q", "--no-edit", "scratch")
+    v = floor_proven(repo, confirmed, "HEAD")
+    assert not v.ok and "not on main" in v.reason
 
 
 def test_a_commit_on_top_of_the_confirm_is_refused(repo):

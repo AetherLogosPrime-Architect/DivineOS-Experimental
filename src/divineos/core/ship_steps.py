@@ -182,6 +182,15 @@ def floor_proven(repo: Path, confirmed_sha: str, head_sha: str) -> Verdict:
         return Verdict(
             False, f"head {head[:9]} is not a merge of the confirmed {confirmed[:9]} with main"
         )
+    # The tree check below agrees with any honest merge, so on its own it let a
+    # scratch branch through as a catch-up (Aria, 2026-10-04). Ancestry, not
+    # equality: main may move after the catch-up. Walk walk-d028b6a2d5f3.
+    on_main = subprocess.run(
+        ["git", "-C", str(repo), "merge-base", "--is-ancestor", parents[1], "origin/main"],
+        capture_output=True,
+    )
+    if on_main.returncode != 0:
+        return Verdict(False, f"the merged-in parent {parents[1][:9]} is not on main (origin/main)")
     proc = subprocess.run(
         ["git", "-C", str(repo), "merge-tree", "--write-tree", confirmed, parents[1]],
         capture_output=True,
