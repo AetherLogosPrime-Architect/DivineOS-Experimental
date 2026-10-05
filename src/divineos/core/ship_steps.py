@@ -242,7 +242,10 @@ def head_is_only(
     )
     if on_main.returncode != 0:
         return Verdict(
-            False, f"the merged-in parent {newest_floor[:9]} is not on main ({main_ref})"
+            False,
+            f"the merged-in parent {newest_floor[:9]} is not on this computer's copy of main "
+            f"({main_ref}). If main moved recently that copy may be stale: fetch it and run "
+            "again. If it is current, something other than main was merged in.",
         )
     proc = subprocess.run(
         ["git", "-C", str(repo), "merge-tree", "--write-tree", confirmed, newest_floor],

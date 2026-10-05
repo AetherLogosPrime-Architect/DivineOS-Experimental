@@ -207,10 +207,14 @@ def register(cli: click.Group) -> None:
                 # The head must be visible here for the proof to read it; if the
                 # fetch fails the proof says it could not see the commit and
                 # refuses (Pearl: a commit that cannot be seen is never a pass).
-                subprocess.run(
-                    ["git", "-C", str(here), "fetch", "-q", "origin", f"pull/{pr_number}/head"],
-                    capture_output=True,
-                )
+                # Main too (Aria's cold read, 2026-10-05): the proof asks whether
+                # the merged-in parent is on origin/main as THIS computer last saw
+                # it. Stale can only refuse a good catch-up, never pass a bad one.
+                for ref in (f"pull/{pr_number}/head", "main"):
+                    subprocess.run(
+                        ["git", "-C", str(here), "fetch", "-q", "origin", ref],
+                        capture_output=True,
+                    )
                 return head_is_only(here, confirmed, head)
 
         steps, merge = run_steps(

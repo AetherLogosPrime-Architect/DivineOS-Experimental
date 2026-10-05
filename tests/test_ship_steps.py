@@ -241,7 +241,9 @@ def test_a_merge_of_a_branch_that_is_not_main_is_refused(repo):
     _git(repo, "checkout", "-q", "pr")
     _git(repo, "merge", "-q", "--no-edit", "scratch")
     v = floor_proven(repo, confirmed, "HEAD")
-    assert not v.ok and "not on main" in v.reason
+    assert not v.ok and "not on this computer's copy of main" in v.reason
+    # A refusal that could be a stale copy says so and names the next step.
+    assert "stale" in v.reason and "fetch" in v.reason
 
 
 def test_a_commit_on_top_of_the_confirm_is_refused(repo):
