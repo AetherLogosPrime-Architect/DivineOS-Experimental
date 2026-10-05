@@ -63,6 +63,23 @@ def test_a_worked_correction_is_never_shown():
     assert row not in [m[0] for m in matches]
 
 
+@needs_model
+def test_a_cleared_worklist_says_none_open_not_that_the_search_broke():
+    # Aether's cold read of b03cd5d96: an empty worklist fell into the same
+    # branch as a broken embedder and read "the search did not run".
+    state, matches = find_in_worklist(ASK)  # the suite's store starts empty
+    assert state == "none-open" and matches == []
+    line = worklist_lines(state, matches)[0]
+    assert "no open corrections" in line and "did not run" not in line
+
+
+@needs_model
+def test_one_open_row_is_past_the_zero_boundary():
+    file_correction(ROOM)
+    state, _ = find_in_worklist(ASK)
+    assert state in ("found", "unsure")
+
+
 def test_each_shown_row_names_the_form_that_closes_it():
     lines = worklist_lines("found", [(42, "a correction of his", 0.6)])
     assert any("correction #42" in ln for ln in lines)

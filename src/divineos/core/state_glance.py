@@ -39,6 +39,8 @@ def worklist_lines(state: str, matches: list[tuple[int, str, float]]) -> list[st
     commit message, so naming it in the save closes it (Dekker,
     walk-4d8b06a54e67).
     """
+    if state == "none-open":
+        return ["- HIS CORRECTIONS FOR THIS: his worklist has no open corrections."]
     if state == "could-not-look":
         return [
             "- HIS CORRECTIONS FOR THIS: could not look (the search did not run). Check the list yourself."
