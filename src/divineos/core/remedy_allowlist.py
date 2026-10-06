@@ -111,7 +111,32 @@ FORBIDDEN_HEADS: frozenset[str] = frozenset(
     {"git", "gh", "pytest", "rm", "mv", "cp", "python", "bash", "sh", "npm", "pip"}
 )
 
+#: The letter doorbell, kept OFF the remedies list on purpose. The Stop guard
+#: prescribes this exact command as its way out, so every other guard must let
+#: it through -- and `bash` is forbidden above, because bash runs anything. So
+#: the exemption is one exact script path as a token pair, asked through
+#: ``is_doorbell`` and never through ``is_remedy``. 2026-10-06: it was refused
+#: five times in a day by three guards, one of which knew only the bare spelling
+#: and refused the same command with a `cd` in front of it.
+DOORBELL: tuple[str, ...] = ("bash", "scripts/letter_doorbell.sh")
+
 _LOG = Path.home() / ".divineos" / "remedy_passthrough.log"
+
+
+def is_doorbell(command: str) -> bool:
+    """True only when every acting segment is the doorbell script.
+
+    Setup links (a worktree cd, an assignment) pass, and work chained behind it
+    refuses the whole line, by the same parser the remedy list uses. Fails toward
+    FALSE on anything it cannot read, so a doubt leaves the guard asking."""
+    if not command or not command.strip():
+        return False
+    try:
+        from divineos.core.command_parsing import runs_only
+
+        return runs_only(command, (DOORBELL,))
+    except Exception:  # noqa: BLE001 — fail toward not-the-doorbell, never toward a block
+        return False
 
 
 def is_remedy(command: str) -> bool:

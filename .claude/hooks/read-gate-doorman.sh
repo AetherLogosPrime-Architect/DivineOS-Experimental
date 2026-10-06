@@ -95,6 +95,15 @@ if tool_name == "Bash":
     command = str((data.get("tool_input") or {}).get("command") or "")
     if _is_readonly_probe is not None and _is_readonly_probe(command):
         sys.exit(0)
+    # The doorbell is the way out the Stop guard prescribes, and the voice hold
+    # refuses the Read this gate asks for, so the two held each other (2026-10-06).
+    # One shared judge, bash itself stays off the remedy list.
+    try:
+        from divineos.core.remedy_allowlist import is_doorbell
+    except ImportError:
+        is_doorbell = None
+    if is_doorbell is not None and is_doorbell(command):
+        sys.exit(0)
 
 try:
     from divineos.core import read_gate
