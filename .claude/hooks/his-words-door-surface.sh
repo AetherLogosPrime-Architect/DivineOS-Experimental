@@ -11,6 +11,16 @@
 # Loud, never silent: if the search cannot run, the module prints why under
 # its own heading, and the table lifts that heading beside his words.
 cd "$(dirname "$0")/../.." || exit 0
+# The reply-side door (his_words_stop.py) writes a note when it breaks, and
+# nothing read it, so a dead Stop hook looked like a quiet one (walk-14f1a5a2567e).
+# Said once, FIRST and with bash alone: a missing interpreter is exactly when that
+# hook breaks, so the note must not wait on the lookup below. A .seen copy keeps
+# the record.
+BROKE="${HIS_WORDS_STOP_MARK:-$HOME/.divineos/his_words_stop_broke.txt}"
+if [ -f "$BROKE" ]; then
+  printf '## THE REPLY-SIDE WORDS DOOR BROKE LAST TURN\n%s\n' "$(cat "$BROKE")"
+  mv -f "$BROKE" "$BROKE.seen" 2>/dev/null || true  # fail-soft: a failed rename repeats the notice next turn, which is louder, not quieter
+fi
 REPO_ROOT="$(pwd)"
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0  # fail-soft: without the shared library there is no interpreter to trust
 PY="$(find_divineos_python)" || exit 0  # fail-soft: no usable interpreter; the table shows nothing rather than a false search

@@ -65,6 +65,14 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         # never a refusal. Read exit-by-exit before declaring (walk
         # council-94728f824e72).
         "his-words-door-surface.sh",
+        # Runs his_words_stop.py at Stop. The wrapper itself never refuses (every
+        # path exits zero, or execs the python). The one block it relays, the hold,
+        # is the Stop hook's own and fires once per reply (stop_hook_active ends it),
+        # and its wording names the way out: quote him, say what you have to say,
+        # append only that. That wording is pinned by test_the_hold_names_its_way_out
+        # in tests/test_his_words_stop.py, so the declaration rests on a checked fact
+        # (walk council-939de942c381).
+        "his-words-stop.sh",
         # The front door keeps and settles Andrew's messages and never refuses:
         # every path exits zero, and a failure is recorded as could-not-file.
         # Refusing is a later, separate piece (the sort-first refusal), which

@@ -517,6 +517,11 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/his-words-stop.sh",
+            "timeout": 30
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/log-session-end.sh",
             "timeout": 10
           },
