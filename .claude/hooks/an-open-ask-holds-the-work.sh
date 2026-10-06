@@ -78,6 +78,7 @@ command = str(tool_input.get('command', '') or '')
 _EXEMPT = (
     'divineos ask-andrew',
     'divineos ask-resolve',
+    'divineos question-hold',
     'divineos asks',
     'divineos correction',
     'divineos council',

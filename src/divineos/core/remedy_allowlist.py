@@ -87,6 +87,12 @@ REMEDIES: tuple[tuple[str, ...], ...] = (
     ("divineos", "prereg", "assess"),
     ("divineos", "prereg", "overdue"),
     ("divineos", "ask"),
+    # The two exits of the open-question pair (2026-10-06). The open-ask hook
+    # prints `ask-resolve` as its way out and the question hold prints
+    # `question-hold release` as its; each refused the other's, so a question
+    # filed by mistake held all building with no exit but a shell neither watched.
+    ("divineos", "ask-resolve"),
+    ("divineos", "question-hold", "release"),
     ("divineos", "recall"),
     ("divineos", "context"),
     ("divineos", "decide"),

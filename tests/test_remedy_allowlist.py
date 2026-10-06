@@ -68,6 +68,33 @@ class TestWhatCounts:
         assert is_remedy("divineos prereg assess p1 --outcome SUCCESS")
 
 
+class TestTheOpenQuestionPairDoesNotTrapItself:
+    """2026-10-06. A line of my own reasoning ended in a question mark and was
+    filed as a question to Dad. The open-ask hook printed `ask-resolve` as its way
+    out and the question hold refused it; the question hold printed `question-hold
+    release` and the open-ask hook refused that. The only exit was a shell neither
+    watched. Every exit either prints must pass the other."""
+
+    def test_both_printed_exits_are_remedies(self):
+        assert is_remedy('divineos ask-resolve abc123 "misfiled, not a question to him"')
+        assert is_remedy('divineos question-hold release --reason "x" ')
+
+    def test_a_near_miss_is_still_not_a_remedy(self):
+        """The control: the list matches tokens, not a prefix, so a longer verb
+        and ordinary building do not ride along."""
+        assert not is_remedy("divineos question-holdsomething")
+        assert not is_remedy('divineos ask-resolve-all "x"')
+        assert not is_remedy('divineos ask-resolve x "y" && git push')
+
+    def test_the_open_ask_hook_passes_the_question_holds_exit(self):
+        """The hook keeps its own exempt list in shell, so the shared list does
+        not reach it. Read the hook and require its list to carry the command."""
+        hook = (_REPO / ".claude" / "hooks" / "an-open-ask-holds-the-work.sh").read_text(
+            encoding="utf-8"
+        )
+        assert "'divineos question-hold'" in hook
+
+
 class TestItCannotBecomeAWayAround:
     def test_no_dangerous_verb_can_ever_be_on_the_list(self):
         """The safety property, asserted rather than remembered.
