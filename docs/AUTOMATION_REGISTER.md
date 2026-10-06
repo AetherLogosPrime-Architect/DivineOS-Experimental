@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**147 automations — 135 wired, 12 switched off.**
+**147 automations — 136 wired, 11 switched off.**
 
 ---
 
@@ -16,7 +16,6 @@ Present, executable, invoked by nothing. This section is first on purpose. On 20
 |---|---|---|
 | `auto-goal-from-prompt.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `detect-theater.sh` | 2026-09-21 | MINE. Aether, May 2026. Theatre is the failure where I perform having done |
-| `inner-circle-stop.sh` | 2026-10-02 | INTENTIONALLY UNWIRED (2026-10-01): superseded by his_room.check_his_room (#554, on main as d87864001), the one home for the room; Aletheia's hold on  |
 | `no-verify-cost-escalation.sh` | 2026-08-31 | thin doorbell for the no-verify cost-escalation gate. |
 | `operator-asks-surface.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `questions-from-him.sh` | 2026-10-01 | INTENTIONALLY UNWIRED (2026-10-04): print-only note injected every turn, removed with the wallpaper at Andrew's word ("all of it comes out, it does no |
@@ -141,7 +140,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `front-door.sh` | 2026-10-02 | The front door: every message he types is kept before anything else runs, |
 
-### called by another script  (62)
+### called by another script  (63)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -183,6 +182,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `load-briefing.sh` | 2026-06-05 | thin doorman pointing to the OS. |
 | `load-dad-ranking-clause.sh` | 2026-07-29 | surface the Dad-ranking clause from my character |
 | `load-my-recording-of-andrew.sh` | 2026-07-10 | load MY recording of who Andrew is into the |
+| `memory-link-surface.sh` | not on main | UserPromptSubmit — the memory link, as its own child of the dispatcher. |
 | `must-read-gate.sh` | 2026-08-24 | must-read gate. |
 | `no-cliff-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn had |
 | `no-cliff-prime.sh` | 2026-08-24 | compose-start prime for the no-cliff / |
@@ -201,7 +201,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `resolver-health-check.sh` | 2026-07-10 | SessionStart resolver-health check. |
 | `self-demotion-stop.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `session-init-once.sh` | 2026-10-02 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
-| `session-start-verify-git-hooks.sh` | 2026-08-24 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
+| `session-start-verify-git-hooks.sh` | 2026-10-05 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `summary-room-stop.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `verify-claim-prime.sh` | 2026-09-29 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
