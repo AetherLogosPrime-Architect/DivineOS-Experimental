@@ -226,23 +226,39 @@ def compose_block(prompt: str, transcript_path: str | None = None) -> ComposeBlo
     Called by the ``memory_link`` router surface. The retriever reads item
     vectors from the drawer (never computing them here) and embeds only the
     prompt, so the seventeen-second toolkit is never imported on this path.
+
+    THE QUERY IS HIS MESSAGE AND NOTHING ELSE (2026-10-06). It used to be my last
+    six conversation records with his message appended at the END; the search
+    model keeps only its first 256 tokens and those records ran to a median 643,
+    so in 17 of 25 real messages none of his words reached it. Rated blind on 30
+    of his messages: 8% of what that returned was useful, against 42% for his
+    message alone, and everything useful the old way found, his message alone
+    found too. ``transcript_path`` is kept so callers do not change, and is no
+    longer read. A message too short to search on, or an automated notice, is not
+    searched and says so (his rule, 2026-10-05: "if its unsure make it say its
+    unsure"), the same two cases and the same words-floor as the words door.
     """
+    import re
     import time
 
     started = time.perf_counter()
     from divineos.core import memory_linkage_retriever as retriever
+    from divineos.core.his_words_door import MIN_SIGNAL_WORDS, NOTICE_PREFIXES
     from divineos.core.memory_linkage_retriever_v2 import install
 
-    recent = ""
-    if transcript_path:
-        try:
-            from divineos.core.operating_loop.turn_extraction import recent_turns_text
-
-            recent = recent_turns_text(transcript_path)
-        except Exception:  # noqa: BLE001 - the prompt alone still retrieves
-            recent = ""
+    head = "## THE PAST ON THIS (memory link)\n"
+    if prompt.lstrip().startswith(NOTICE_PREFIXES):
+        return ComposeBlock(
+            text=head + "Not searched this turn: an automated notice, not his message.",
+            seconds=time.perf_counter() - started,
+        )
+    if len(re.findall(r"[a-zA-Z']+", prompt)) < MIN_SIGNAL_WORDS:
+        return ComposeBlock(
+            text=head + "Not searched this turn: his message is too short to search on by itself.",
+            seconds=time.perf_counter() - started,
+        )
     install()
-    payloads = retrieve_for_context(prompt, recent or None)
+    payloads = retrieve_for_context(prompt, None)
     state = retriever.lane_state()
     seconds = time.perf_counter() - started
     for problem in ("drawer_error", "embedder_error"):

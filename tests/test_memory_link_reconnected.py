@@ -276,7 +276,9 @@ def test_a_broken_drawer_is_could_not_run_never_an_empty_success(monkeypatch):
     monkeypatch.setattr(v1, "_ensure_cache", broken_load)
     monkeypatch.setattr(v2, "_ensure_cache", broken_load)
     monkeypatch.setattr(v2, "_embed_topic", lambda _t: None)
-    block = memory_linkage.compose_block("anything at all")
+    # Four words, not three: a shorter message is not searched at all now, and this
+    # test is about a broken drawer, so the message must be long enough to search.
+    block = memory_linkage.compose_block("anything at all please")
     assert block.could_not_run and "locked" in block.could_not_run
 
 
