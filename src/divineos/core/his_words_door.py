@@ -190,11 +190,23 @@ def _key(p: Passage) -> str:
     return hashlib.sha256(f"{p.ts}|{p.text}".encode("utf-8")).hexdigest()
 
 
-def build_index(corpus: Path = CORPUS, index_dir: Path = INDEX_DIR) -> int:
-    """Embed every passage not yet in the index. Returns how many were added.
+# What one hook run embeds at most. A full pass over his real corpus (14,795
+# passages) took 64.9 seconds on a quiet machine; the hook is killed at 30. A run
+# of 1,500 measured 12.1 seconds with the model's load included, too much of a
+# budget the search and the lesson shelf also draw on, so 800: about 8 seconds, and
+# the whole corpus catches up in about 19 turns.
+MAX_EMBED_PER_RUN = 800
+
+
+def build_index(
+    corpus: Path = CORPUS, index_dir: Path = INDEX_DIR, limit: int | None = None
+) -> int:
+    """Embed the passages not yet in the index, at most ``limit`` (default
+    MAX_EMBED_PER_RUN) per call. Returns how many were added.
 
     Incremental: new words of his cost only their own embedding. A model change
-    re-embeds everything rather than mixing two models' vectors (Knuth).
+    re-embeds everything, over as many runs as it takes, rather than mixing two
+    models' vectors (Knuth).
     """
     import numpy as np
 
@@ -206,20 +218,37 @@ def build_index(corpus: Path = CORPUS, index_dir: Path = INDEX_DIR) -> int:
         meta = {"model": MODEL_NAME, "cleaner": CLEANER, "items": []}
     elif vec_path.exists():
         vecs = np.load(vec_path)
-    # A build killed between its two writes leaves the files disagreeing. Start
-    # over from the corpus rather than append onto a torn pair (Aether, 2026-10-05).
-    if (vecs is None) != (not meta["items"]) or (
-        vecs is not None and len(vecs) != len(meta["items"])
+    # A build killed between its two writes leaves the files disagreeing (Aether,
+    # 2026-10-05). Vectors are written first and in item order, so the only tear the
+    # write order can produce is vectors AHEAD of items, and then row i still belongs
+    # to item i: keep the first len(items) rows and let the passages the lost item
+    # list never recorded be embedded again. A full re-embed of his real corpus took
+    # 64.9 seconds and the hook is killed at 30, so it would never finish. Fewer
+    # vectors than items (an older torn pair, a hand edit) or a missing file leaves
+    # no row to trust: start over.
+    healed = False
+    if vecs is not None and len(vecs) > len(meta["items"]):
+        vecs = vecs[: len(meta["items"])] if meta["items"] else None
+        healed = True
+    elif (vecs is None) != (not meta["items"]) or (
+        vecs is not None and len(vecs) < len(meta["items"])
     ):
         meta = {"model": MODEL_NAME, "cleaner": CLEANER, "items": []}
         vecs = None
     known = {i["key"] for i in meta["items"]}
     fresh = [p for p in load_passages(corpus) if _key(p) not in known]
-    if not fresh:
+    # Bounded work per run: what a hook can finish before it is killed. The rest
+    # waits for the next run; each run saves a consistent pair, so the index only
+    # ever grows toward whole (and a search over a partial index is still valid).
+    fresh = fresh[: MAX_EMBED_PER_RUN if limit is None else limit]
+    if not fresh and not (healed and vecs is not None):
         return 0
-    new = _embed([p.text for p in fresh]).astype("float32")
-    vecs = new if vecs is None else np.vstack([vecs, new])
-    meta["items"] += [{"key": _key(p), "text": p.text, "day": p.day, "ts": p.ts} for p in fresh]
+    if fresh:
+        new = _embed([p.text for p in fresh]).astype("float32")
+        vecs = new if vecs is None else np.vstack([vecs, new])
+        meta["items"] += [{"key": _key(p), "text": p.text, "day": p.day, "ts": p.ts} for p in fresh]
+    if vecs is None:  # a heal that left no rows and nothing to embed: nothing to save
+        return 0
     # Each file is written whole to a temporary name and swapped in, by the house
     # writers (fsync, and a retry when Windows briefly locks the target). Vectors
     # first, the item list last, so a kill between them always leaves vectors AHEAD
@@ -233,6 +262,16 @@ def build_index(corpus: Path = CORPUS, index_dir: Path = INDEX_DIR) -> int:
     atomic_write_bytes(vec_path, buf.getvalue())
     atomic_write_text(meta_path, json.dumps(meta, ensure_ascii=False))
     return len(fresh)
+
+
+def unindexed(corpus: Path = CORPUS, index_dir: Path = INDEX_DIR) -> int:
+    """How many of his passages are not in the index yet: the work still to do."""
+    meta_path = index_dir / "passages.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+    if meta.get("model") != MODEL_NAME or meta.get("cleaner") != CLEANER:
+        return len(load_passages(corpus))
+    known = {i["key"] for i in meta["items"]}
+    return sum(1 for p in load_passages(corpus) if _key(p) not in known)
 
 
 def _load_index(index_dir: Path):
@@ -297,6 +336,7 @@ def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
 
 
 HOLD_FLOOR = 0.60  # measured on the 2026-09-26 replay of real replies; see tests
+LAST_SENTENCES = 4  # how many sentences from the end of a long reply are searched alone
 SAME_THING = 0.60  # two passages of his this close say the same thing
 
 
@@ -316,10 +356,21 @@ def owed_in_reply(reply: str, his_message: str = "", index_dir: Path = INDEX_DIR
         return None
     try:
         items, vecs = _load_index(index_dir)
-        q = _embed([_squash(reply)[:2000]])[0]
+        # The END of a reply is the part that faces him; the front is usually the
+        # work (Aether, 2026-10-05). A reply of 2000 characters or fewer is searched
+        # exactly as before, as one piece; none of my last 123 turns was longer. A
+        # longer one is searched as its last 2000 characters AND as its last few
+        # sentences one by one, because one embedding of a long stretch averages the
+        # part addressed to him with the work around it and the average hears neither.
+        text = _squash(reply)
+        queries = [text[-2000:]]
+        if len(text) > 2000:
+            sentences = [s for s in re.split(r"(?<=[.!?])\s+", text) if len(s) >= 25]
+            queries += sentences[-LAST_SENTENCES:]
+        q = _embed(queries)
     except SEARCH_ERRORS:
         return None  # the prompt-side door already says loudly when search is down
-    scores = vecs @ q
+    scores = (vecs @ q.T).max(axis=1)
     top = [int(i) for i in scores.argsort()[::-1][:25]]
     # What the reply already quotes and answers. A reply that has taken up his
     # words on a thing has answered the thing: another passage of his saying the
@@ -382,7 +433,10 @@ if __name__ == "__main__":
     import sys
 
     if sys.argv[1:2] == ["build"]:
-        print(f"added {build_index()} passage(s) to his index")
+        added = build_index()
+        left = unindexed()
+        print(f"added {added} passage(s) to his index; {left} still to add")
+        sys.exit(3 if left else 0)  # nonzero while behind, so the hook can say so
     else:
         payload = json.loads(sys.stdin.read() or "{}")
         print(surface(str(payload.get("prompt", ""))), end="")

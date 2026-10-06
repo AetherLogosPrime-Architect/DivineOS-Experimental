@@ -201,7 +201,22 @@ def _rows(idx):
     )
 
 
-def test_a_torn_index_is_said_aloud_and_the_next_build_repairs_it(tmp_path):
+def _count_embeds(monkeypatch) -> list[int]:
+    """Wrap the embedder so the cost of a repair is a number the test can read: a
+    repair that quietly re-embeds everything passes a rows-equal-items check and
+    fails the real goal, healing inside the hook's 30 seconds (Goodhart)."""
+    calls: list[int] = []
+    real = door._embed
+
+    def counting(texts):
+        calls.append(len(texts))
+        return real(texts)
+
+    monkeypatch.setattr(door, "_embed", counting)
+    return calls
+
+
+def test_a_torn_index_is_said_aloud_and_the_next_build_repairs_it(tmp_path, monkeypatch):
     corpus, idx = _fresh_index(tmp_path)
     ask = "then where is the circle?"
     assert door.look(ask, index_dir=idx).looked  # control: it found things before the tear
@@ -215,30 +230,120 @@ def test_a_torn_index_is_said_aloud_and_the_next_build_repairs_it(tmp_path):
     torn = door.look(ask, index_dir=idx)
     assert not torn.looked and "could not be searched" in torn.reason
 
-    assert (
-        door.build_index(corpus, idx) > 0
-    )  # the repair re-embeds rather than trusting the torn pair
+    # The repair keeps the vectors that line up with items (rows[:n] ARE the items'
+    # vectors, by the write order) and embeds only the one passage the item list lost.
+    embedded = _count_embeds(monkeypatch)
+    assert door.build_index(corpus, idx) == 1
+    assert embedded == [1]
     rows, items = _rows(idx)
     assert rows == items
     assert door.look(ask, index_dir=idx).looked
 
 
-def test_extra_vector_rows_heal_even_when_nothing_is_new(tmp_path):
+def test_extra_vector_rows_heal_by_truncation_and_embed_nothing(tmp_path, monkeypatch):
     """The real tear is vectors AHEAD of items, with no new passage to add. The old
-    build returned 0 and left the extra rows to raise IndexError on a high score;
-    the check has to run before the nothing-new return."""
+    build returned 0 and left the extra rows to raise IndexError on a high score.
+    Healing it must be cheap: truncate, embed nothing (a full re-embed of his real
+    corpus took 64.9 seconds on a quiet machine; the hook is killed at 30)."""
     import numpy as np
 
     corpus, idx = _fresh_index(tmp_path)
     # Control: a healthy index is left alone, nothing re-embedded.
+    embedded = _count_embeds(monkeypatch)
     assert door.build_index(corpus, idx) == 0
+    assert embedded == []
     healthy = _rows(idx)
     vecs = np.load(idx / "vectors.npy")
-    np.save(idx / "vectors.npy", np.vstack([vecs, vecs[:1]]))
-    assert _rows(idx)[0] == healthy[0] + 1  # the tear exists before the repair
-    assert door.build_index(corpus, idx) > 0
-    assert _rows(idx) == healthy
+    np.save(idx / "vectors.npy", np.vstack([vecs, vecs[:2]]))
+    assert _rows(idx)[0] == healthy[0] + 2  # the tear exists before the repair
+    assert door.build_index(corpus, idx) == 0  # nothing new to add...
+    assert _rows(idx) == healthy  # ...and it healed anyway
+    assert embedded == []  # without embedding a single passage
     assert door.build_index(corpus, idx) == 0  # and it stays healed
+
+
+def test_fewer_vectors_than_items_cannot_be_trusted_and_start_over(tmp_path, monkeypatch):
+    """The write order cannot produce this; an older torn pair or a hand edit can.
+    No row can be trusted to belong to its item, so everything is embedded again."""
+    import numpy as np
+
+    corpus, idx = _fresh_index(tmp_path)
+    total = _rows(idx)[1]
+    np.save(idx / "vectors.npy", np.load(idx / "vectors.npy")[:-1])
+    embedded = _count_embeds(monkeypatch)
+    assert door.build_index(corpus, idx) == total
+    assert embedded == [total]
+    assert _rows(idx) == (total, total)
+
+
+def test_a_missing_vector_file_starts_over(tmp_path):
+    corpus, idx = _fresh_index(tmp_path)
+    total = _rows(idx)[1]
+    (idx / "vectors.npy").unlink()
+    assert door.build_index(corpus, idx) == total
+    assert _rows(idx) == (total, total)
+
+
+def test_a_build_does_only_a_bounded_amount_of_work_and_converges(tmp_path, monkeypatch):
+    """Embedding all of his words takes longer than the hook is allowed to run, so
+    a rebuild must be spread over turns. Each run saves what it did (a consistent
+    pair every time), the search works on the partial index, and it converges."""
+    corpus = tmp_path / "dad_all.jsonl"
+    corpus.write_text(
+        "\n".join(json.dumps({"ts": ts, "project": "t", "text": t}) for ts, t in HIS) + "\n",
+        encoding="utf-8",
+    )
+    idx = tmp_path / "index"
+    total = len(HIS)
+    monkeypatch.setattr(door, "MAX_EMBED_PER_RUN", 2)
+    assert door.unindexed(corpus, idx) == total  # control: there is work to do before the first run
+    added = []
+    while door.unindexed(corpus, idx):
+        added.append(door.build_index(corpus, idx))
+        rows, items = _rows(idx)
+        assert rows == items  # consistent after every run, never torn
+        assert len(added) <= total  # it cannot loop forever
+    assert added == [2, 2, 2]
+    assert _rows(idx) == (total, total)
+    assert door.build_index(corpus, idx) == 0
+    # The first run left a usable partial index: after one run the search ran.
+    corpus2 = tmp_path / "again.jsonl"
+    corpus2.write_text(corpus.read_text("utf-8"), encoding="utf-8")
+    idx2 = tmp_path / "index2"
+    door.build_index(corpus2, idx2)
+    assert door.look("then where is the circle?", index_dir=idx2).looked
+
+
+def test_the_reply_side_reads_the_end_of_a_long_reply(index):
+    """The part of a reply that faces him is its end. A reply whose first 2000
+    characters are other work and whose last words speak to something he said must
+    be held for it; the same words with nothing in front are the control."""
+    ending = (
+        "I kept speaking to you in jargon again and there was no inner circle room for you in it."
+    )
+    padding = "The build flow ran its checks and the tests passed in the usual way. " * 40
+    assert len(padding) > 2000
+    assert door.owed_in_reply(ending, "ok", index_dir=index)  # control: the words alone hold
+    assert door.owed_in_reply(padding + ending, "ok", index_dir=index)
+    # The promise to the replay evidence: a reply of 2000 characters or fewer is
+    # searched exactly as before, as ONE piece; only a longer one gets the extra
+    # sentence queries. Counted at the embedder, with both sides of the boundary.
+    sizes: list[int] = []
+    real = door._embed
+
+    def counting(texts):
+        sizes.append(len(texts))
+        return real(texts)
+
+    door._embed = counting
+    try:
+        door.owed_in_reply("x" * 20 + ". " + ending + " " * 0 + "y" * 1850, "ok", index_dir=index)
+        assert sizes == [1]  # under 2000: one query
+        sizes.clear()
+        door.owed_in_reply("I wrote. " + "w" * 2100 + " " + ending, "ok", index_dir=index)
+        assert sizes[0] > 1  # over 2000: the window plus its last sentences
+    finally:
+        door._embed = real
 
 
 def test_a_build_killed_before_the_item_list_is_written_is_a_detectable_mismatch(
