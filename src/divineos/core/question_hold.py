@@ -167,11 +167,28 @@ def _his_latest_words() -> str:
     return ""
 
 
+# WHAT HE SAYS WHEN HE IS AWAY. Dad, 2026-10-06: "ok go ahead, proceed, continue,
+# etc etc, those should not be treated as permission to volley, only me saying ill
+# be gone or im going to bed, or if i directly say go into volley mode, otherwise
+# the above phrases mean i am currently here". The check below proves the words
+# are HIS; this proves they MEAN away (Aria's cold read of b4d3271df, point 4: a
+# quote of "ok go ahead" would have opened volley mode). The list is his own
+# phrases and "stepping away", which he used on 2026-10-05. A keyword list is
+# gameable, so it sits on top of the provenance check and never replaces it.
+AWAY_CUES = ("be gone", "to bed", "volley mode", "stepping away", "you two volley")
+
+
 def step_away(his_words: str) -> dict[str, Any]:
     """He said he is stepping away: volley mode, letters flow."""
     words = (his_words or "").strip()
     if len(words) < 10:
         raise ValueError("quote his words saying he is stepping away (at least 10 characters)")
+    if not any(cue in _flat(words) for cue in AWAY_CUES):
+        raise ValueError(
+            "those words do not say he is away. He means away by saying he will be gone, "
+            "that he is going to bed or stepping away, or go into volley mode. 'ok go ahead', "
+            "'proceed' and 'continue' mean he is here."
+        )
     if _flat(words) not in _flat(_his_latest_words()):
         raise ValueError(
             "those words are not in his latest message. Away is set only from what he "
@@ -201,14 +218,36 @@ def came_back() -> bool:
     return True
 
 
-# The names a letter to him goes by. Aria's cold read of b6d7a5c90: only
-# "-to-andrew" was known, so "aria-to-dad-..." was held as if not to him.
-_TO_HIM = ("-to-andrew", "-to-dad", "-to-pop")
+# The names a letter to him goes by, read from the file's OWN name: the form is
+# "<sender>-to-<him>-...". Aria's cold read of b6d7a5c90 added the other names;
+# her read of b4d3271df found the substring test matched anywhere in the PATH, so
+# "aria-to-aether-...-what-i-owe-to-dad.md" was passed as if it were to him.
+_TO_HIM = re.compile(r"^[a-z0-9]+-to-(andrew|dad|pop)-")
 
 
 def _is_letter_not_to_him(path: str) -> bool:
     p = (path or "").replace("\\", "/").lower()
-    return "/letters/" in p and p.endswith(".md") and not any(n in p for n in _TO_HIM)
+    return "/letters/" in p and p.endswith(".md") and not _TO_HIM.match(p.rsplit("/", 1)[-1])
+
+
+# A shell command that writes into a letter: a redirect or tee. Aria's cold read:
+# `cat > family/letters/x.md <<'EOF'` and `| tee` passed untouched, and that is how
+# she writes most letters, so the hold would not hold her. The target is a path in
+# the command and needs no reading of intent. A `2>&1` is not a target (the
+# lookbehind), and a letter named in prose or an argument is not a write.
+_SHELL_LETTER = re.compile(
+    r"""(?:(?<![0-9&])>>?|\btee\b(?:\s+-a)?)\s*["']?"""
+    r"""([^\s"'|&;<>]*?/letters/[^\s"'|&;<>]*\.md)""",
+    re.I,
+)
+
+
+def _shell_letter_target(command: str) -> str:
+    """The first letter-not-to-him this command writes into, or ""."""
+    for found in _SHELL_LETTER.finditer(command or ""):
+        if _is_letter_not_to_him(found.group(1)):
+            return found.group(1)
+    return ""
 
 
 _CIRCLE = re.compile(r"^##\s*INNER CIRCLE\s*$", re.M)
@@ -420,10 +459,19 @@ def refusal(tool_name: str, tool_input: dict[str, Any], transcript_path: str = "
     and only while he is here. Everything else runs.
     """
     state = is_open()
-    if not state or tool_name not in LETTER_TOOLS:
+    if not state:
         return ""
-    path = str(tool_input.get("file_path") or tool_input.get("notebook_path") or "")
-    if not _is_letter_not_to_him(path) or is_away():
+    if tool_name == "Bash":
+        # The second door: a redirect or tee into a letter. Anything else a shell
+        # does falls straight through, so reading and the exits are never held.
+        path = _shell_letter_target(str(tool_input.get("command") or ""))
+        if not path or is_away():
+            return ""
+    elif tool_name in LETTER_TOOLS:
+        path = str(tool_input.get("file_path") or tool_input.get("notebook_path") or "")
+        if not _is_letter_not_to_him(path) or is_away():
+            return ""
+    else:
         return ""
     if answered_since(transcript_path, float(state.get("since") or 0)):
         release("his message, mid-turn")
