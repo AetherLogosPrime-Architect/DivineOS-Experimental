@@ -29,8 +29,13 @@ VICTIM = "tests/test_mini_save.py::TestMiniSessionSave::test_no_session_files_re
 
 
 def _crash(node: str, gw: str = "gw1") -> str:
+    # xdist files the crash under the test the dead worker was holding, so the
+    # case's own classname/name are that test's, derived from its node id.
+    path, _, rest = node.partition("::")
+    classname = ".".join([path[: -len(".py")].replace("/", "."), *rest.split("::")[:-1]])
+    name = rest.split("::")[-1]
     return (
-        '<testcase classname="tests.test_mini_save.TestMiniSessionSave" name="x">'
+        f'<testcase classname="{classname}" name="{name}">'
         f"<failure message=\"worker '{gw}' crashed while running '{node}'\">"
         f"worker '{gw}' crashed while running '{node}'</failure></testcase>"
     )
@@ -147,3 +152,60 @@ def test_the_junit_flag_reaches_every_run_through_the_one_variable():
 @pytest.mark.parametrize("bad", ["", "a", "a b c d"])
 def test_main_wants_exactly_two_arguments(bad):
     assert rcw.main(["x"] + bad.split()) == 1
+
+
+# Aria's cold read of #596, 2026-10-06: two ways through, reproduced.
+
+
+def test_a_real_failure_that_quotes_a_crash_line_is_still_a_real_failure(tmp_path):
+    # The tests for this very script carry the crash string as a fixture, so a
+    # real failure of one of them quotes it. It names a DIFFERENT passing test.
+    quoted = (
+        '<testcase classname="tests.test_recover_crashed_workers" name="test_x">'
+        '<failure message="AssertionError: wrong victims">'
+        f"expected 1, got worker 'gw1' crashed while running '{VICTIM}'</failure></testcase>"
+    )
+    called = []
+    allow, reason, _ = _decide(tmp_path, quoted, replay=lambda v, r: called.append(v) or 0)
+    assert not allow and "real failure" in reason and not called
+
+
+def test_a_crash_line_naming_a_different_test_than_the_case_is_not_a_crash(tmp_path):
+    # The crash line must name the very test the case is. Taking the id from the
+    # line alone let a failure point the replay at an innocent passing test.
+    mismatched = (
+        '<testcase classname="tests.test_real" name="test_real">'
+        f"<failure message=\"worker 'gw1' crashed while running '{VICTIM}'\">x</failure>"
+        "</testcase>"
+    )
+    called = []
+    allow, _, _ = _decide(tmp_path, mismatched, replay=lambda v, r: called.append(v) or 0)
+    assert not allow and not called
+
+
+@pytest.mark.parametrize("hostile", ["--collect-only", "-x", "tests/a.py", "other/a.py::t"])
+def test_a_victim_id_that_is_not_a_test_node_id_blocks(tmp_path, hostile):
+    odd = (
+        '<testcase classname="x" name="y">'
+        f"<failure message=\"worker 'gw1' crashed while running '{hostile}'\">x</failure>"
+        "</testcase>"
+    )
+    called = []
+    allow, _, _ = _decide(tmp_path, odd, replay=lambda v, r: called.append(v) or 0)
+    assert not allow and not called
+
+
+def test_the_replay_command_ends_options_before_the_ids():
+    cmd = rcw.replay_command([VICTIM])
+    assert cmd[cmd.index(VICTIM) - 1] == "--"
+
+
+def test_a_test_that_keeps_killing_its_worker_is_named_loudly(tmp_path, monkeypatch):
+    # Aria counted one test crashing a worker in 5 of 11 full runs. The recovery
+    # lets each push through, which is right for the push and hides the test.
+    monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
+    for _ in range(5):
+        rcw._record(True, "ok", [VICTIM])
+    line = rcw.recurrence_line([VICTIM])
+    assert "5 of the last 5" in line and VICTIM in line
+    assert rcw.recurrence_line(["tests/never.py::seen"]) == ""
