@@ -246,7 +246,7 @@ def test_a_build_killed_before_the_item_list_is_written_is_a_detectable_mismatch
 ):
     """Kill the real build at its second write. os.replace of the item list is the
     last step, so the interrupted state is vectors-ahead-of-items, never the reverse."""
-    import os
+    from pathlib import Path
 
     corpus = tmp_path / "dad_all.jsonl"
     corpus.write_text(
@@ -257,14 +257,15 @@ def test_a_build_killed_before_the_item_list_is_written_is_a_detectable_mismatch
     with corpus.open("a", encoding="utf-8") as f:
         f.write(json.dumps({"ts": HIS[2][0], "project": "t", "text": HIS[2][1]}) + "\n")
 
-    real_replace = os.replace
+    real_replace = Path.replace
 
-    def killed_at_the_item_list(src, dst):
-        if str(dst).endswith("passages.json"):
+    def killed_at_the_item_list(self, target):
+        if str(target).endswith("passages.json"):
             raise KeyboardInterrupt("the hook was killed here")
-        return real_replace(src, dst)
+        return real_replace(self, target)
 
-    monkeypatch.setattr(os, "replace", killed_at_the_item_list)
+    # The house writer swaps with Path.replace; cut it at the item list.
+    monkeypatch.setattr(Path, "replace", killed_at_the_item_list)
     with pytest.raises(KeyboardInterrupt):
         door.build_index(corpus, idx)
     monkeypatch.undo()

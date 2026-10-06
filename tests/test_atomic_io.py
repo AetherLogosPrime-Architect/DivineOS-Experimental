@@ -64,3 +64,36 @@ def test_atomic_write_handles_path_with_no_suffix(tmp_path: Path) -> None:
     target = tmp_path / "marker_no_suffix"
     atomic_write_text(target, "hello")
     assert target.read_text(encoding="utf-8") == "hello"
+
+
+def test_atomic_write_bytes_replaces_whole_and_leaves_no_temp(tmp_path: Path) -> None:
+    from divineos.core.atomic_io import atomic_write_bytes
+
+    target = tmp_path / "vectors.npy"
+    target.write_bytes(b"old")
+    atomic_write_bytes(target, b"\x93NUMPY\x00\xff")  # control: bytes that are not valid text
+    assert target.read_bytes() == b"\x93NUMPY\x00\xff"
+    assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_atomic_write_bytes_retries_when_windows_holds_the_target(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """The reason the words door uses the house writer: a brief lock is waited
+    out, the same as for text, not raised."""
+    from divineos.core import atomic_io
+
+    target = tmp_path / "vectors.npy"
+    real = Path.replace
+    calls = {"n": 0}
+
+    def locked_twice(self, dest):
+        calls["n"] += 1
+        if calls["n"] <= 2:
+            raise PermissionError("held by a scanner")
+        return real(self, dest)
+
+    monkeypatch.setattr(Path, "replace", locked_twice)
+    monkeypatch.setattr(atomic_io.time, "sleep", lambda s: None)
+    atomic_io.atomic_write_bytes(target, b"abc")
+    assert calls["n"] == 3 and target.read_bytes() == b"abc"

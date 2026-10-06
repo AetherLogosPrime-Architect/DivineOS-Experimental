@@ -220,30 +220,19 @@ def build_index(corpus: Path = CORPUS, index_dir: Path = INDEX_DIR) -> int:
     new = _embed([p.text for p in fresh]).astype("float32")
     vecs = new if vecs is None else np.vstack([vecs, new])
     meta["items"] += [{"key": _key(p), "text": p.text, "day": p.day, "ts": p.ts} for p in fresh]
-    # Each file is written whole to a temporary name and swapped in. Vectors first,
-    # the item list last, so a kill between them always leaves vectors AHEAD of
-    # items: a mismatch _load_index detects, never a quiet wrong quote.
-    _replace_atomically(vec_path, lambda tmp: _save_npy(tmp, vecs))
-    _replace_atomically(
-        meta_path,
-        lambda tmp: tmp.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8"),
-    )
+    # Each file is written whole to a temporary name and swapped in, by the house
+    # writers (fsync, and a retry when Windows briefly locks the target). Vectors
+    # first, the item list last, so a kill between them always leaves vectors AHEAD
+    # of items: a mismatch _load_index detects, never a quiet wrong quote.
+    from io import BytesIO
+
+    from divineos.core.atomic_io import atomic_write_bytes, atomic_write_text
+
+    buf = BytesIO()
+    np.save(buf, vecs)
+    atomic_write_bytes(vec_path, buf.getvalue())
+    atomic_write_text(meta_path, json.dumps(meta, ensure_ascii=False))
     return len(fresh)
-
-
-def _save_npy(path: Path, arr) -> None:
-    import numpy as np
-
-    with path.open("wb") as f:  # a file object, so numpy cannot add its own suffix
-        np.save(f, arr)
-
-
-def _replace_atomically(path: Path, write) -> None:
-    import os
-
-    tmp = path.with_name(path.name + ".tmp")
-    write(tmp)
-    os.replace(tmp, path)
 
 
 def _load_index(index_dir: Path):
