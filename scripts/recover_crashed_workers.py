@@ -9,9 +9,11 @@ is such a crash victim and each one passes alone. Anything else blocks exactly a
 before. Walk walk-3d234701aed3; draft
 docs/drafts/a_dropped_worker_is_not_a_failed_test_draft_2026-10-05.md.
 
-Usage: recover_crashed_workers.py JUNIT_XML REPO_DIR
+Usage: recover_crashed_workers.py JUNIT_XML REPO_DIR [RUN_LOG]
 Exit 0: only crashes, every victim passed alone -- the push may proceed.
-Exit 1: anything else -- blocked, as today. A missing junit file blocks.
+Exit 1: anything else -- blocked, as today. A missing junit file blocks, and so
+does a run whose log says xdist gave up early (tests absent from the record are
+not failures, so the record alone cannot clear it).
 """
 
 from __future__ import annotations
@@ -87,10 +89,30 @@ def rerun(victims: list[str], repo: Path) -> int:
     return subprocess.run(replay_command(victims), cwd=repo, env=env, timeout=900).returncode
 
 
+GAVE_UP = "maximum crashed workers reached"
+
+
 def decide(
-    junit: Path, repo: Path, rerun_fn: Callable[[list[str], Path], int] = rerun
+    junit: Path,
+    repo: Path,
+    rerun_fn: Callable[[list[str], Path], int] = rerun,
+    log: Path | None = None,
 ) -> tuple[bool, str, list[str]]:
     """(allow, reason, victims). The verdict is one line of logic by design."""
+    if log is not None:
+        # A run that gave up early leaves most tests ABSENT from the record, and an
+        # absence is not a failure (Aletheia, 2026-10-06). Today the xdist default
+        # keeps that from happening, but a safety that rests on an unwritten
+        # default is not one. A log that cannot be read cannot rule it out.
+        try:
+            if GAVE_UP in log.read_text(encoding="utf-8", errors="replace"):
+                return False, "xdist gave up early (maximum crashed workers reached)", []
+        except OSError:
+            return (
+                False,
+                "the run's log could not be read, so an early give-up is not ruled out",
+                [],
+            )
     try:
         real, victims = parse(junit)
     except FileNotFoundError:
@@ -162,7 +184,9 @@ def recurrence_line(victims: list[str]) -> str:
     read it, so this reads it. Loud, never blocking: a block here would lock the
     gate on exactly the nights it is needed."""
     try:
-        rows = [json.loads(ln) for ln in _log_path().read_text("utf-8").splitlines() if ln][-RECENT:]
+        rows = [json.loads(ln) for ln in _log_path().read_text("utf-8").splitlines() if ln][
+            -RECENT:
+        ]
     except (OSError, ValueError):
         return ""
     out = []
@@ -175,10 +199,11 @@ def recurrence_line(victims: list[str]) -> str:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 3:
-        print("usage: recover_crashed_workers.py JUNIT_XML REPO_DIR", file=sys.stderr)
+    if len(argv) not in (3, 4):
+        print("usage: recover_crashed_workers.py JUNIT_XML REPO_DIR [RUN_LOG]", file=sys.stderr)
         return 1
-    allow, reason, victims = decide(Path(argv[1]), Path(argv[2]))
+    log = Path(argv[3]) if len(argv) == 4 else None
+    allow, reason, victims = decide(Path(argv[1]), Path(argv[2]), log=log)
     head = "ALLOWED" if allow else "STILL BLOCKED"
     print(f"[push-readiness] crashed-worker check: {head} -- {reason}")
     if victims:

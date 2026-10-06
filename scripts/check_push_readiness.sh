@@ -562,7 +562,7 @@ else
         recover_if_only_crashes() {
             local report
             report="$(mktemp)"
-            python scripts/recover_crashed_workers.py "$PYTEST_JUNIT" "$1" >"$report" 2>&1
+            python scripts/recover_crashed_workers.py "$PYTEST_JUNIT" "$1" "$PYTEST_LOG" >"$report" 2>&1
             local rc=$?
             cat "$report" >&2
             cat "$report" >>"$PYTEST_LOG"

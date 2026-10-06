@@ -225,3 +225,58 @@ def test_a_test_that_keeps_killing_its_worker_is_named_loudly(tmp_path, monkeypa
     line = rcw.recurrence_line([VICTIM])
     assert "5 of the last 5" in line and VICTIM in line
     assert rcw.recurrence_line(["tests/never.py::seen"]) == ""
+
+
+# Aletheia's read of #596 at f064dfa83 (2026-10-06): a run that GIVES UP early
+# (xdist "maximum crashed workers reached") leaves most tests absent from the
+# record, and absences are not failures. It could not slip through today because
+# of an unwritten xdist default; this pins it.
+
+
+def _log(tmp_path, text):
+    p = tmp_path / "run.log"
+    p.write_text(text, encoding="utf-8")
+    return p
+
+
+def test_a_run_that_gave_up_early_blocks_even_when_the_record_looks_like_one_crash(tmp_path):
+    log = _log(tmp_path, "[gw1] node down\nmaximum crashed workers reached: 4\n")
+    called = []
+    allow, reason, _ = rcw.decide(
+        _junit(tmp_path, _crash(VICTIM)),
+        tmp_path,
+        rerun_fn=lambda v, r: called.append(v) or 0,
+        log=log,
+    )
+    assert not allow and "gave up" in reason and not called
+
+
+def test_a_log_without_the_give_up_line_changes_nothing(tmp_path):
+    log = _log(tmp_path, "[gw1] node down: Not properly terminated\n2 failed, 15000 passed\n")
+    allow, _, victims = rcw.decide(
+        _junit(tmp_path, _crash(VICTIM)), tmp_path, rerun_fn=lambda v, r: 0, log=log
+    )
+    assert allow and victims == [VICTIM]
+
+
+def test_a_log_that_cannot_be_read_blocks_it_cannot_rule_out_a_give_up(tmp_path):
+    allow, reason, _ = rcw.decide(
+        _junit(tmp_path, _crash(VICTIM)),
+        tmp_path,
+        rerun_fn=lambda v, r: 0,
+        log=tmp_path / "gone.log",
+    )
+    assert not allow and "log could not be read" in reason
+
+
+def test_main_takes_the_log_as_an_optional_third_argument(tmp_path, capsys):
+    junit = _junit(tmp_path, _crash(VICTIM))
+    log = _log(tmp_path, "maximum crashed workers reached\n")
+    assert rcw.main(["x", str(junit), str(tmp_path), str(log)]) == 1
+    assert "gave up" in capsys.readouterr().out
+    assert rcw.main(["x", "a", "b", "c", "d"]) == 1  # too many
+
+
+def test_the_push_gate_hands_the_run_log_to_the_recovery():
+    text = PUSH_GATE.read_text(encoding="utf-8")
+    assert 'recover_crashed_workers.py "$PYTEST_JUNIT" "$1" "$PYTEST_LOG"' in text
