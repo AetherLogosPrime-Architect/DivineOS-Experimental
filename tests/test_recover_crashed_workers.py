@@ -157,6 +157,22 @@ def test_main_wants_exactly_two_arguments(bad):
 # Aria's cold read of #596, 2026-10-06: two ways through, reproduced.
 
 
+def test_the_real_xdist_record_shape_is_a_crash(tmp_path):
+    # Copied from a real push's junit file (2026-10-06): an <error>, the message
+    # wraps the crash line in 'failed on setup with "..."', and the BODY is the
+    # crash line and nothing else. My first strict rule demanded the message
+    # begin with it, which rejected exactly this and blocked a genuine crash.
+    node = "tests/test_keeping_him.py::test_the_instrument_finds_him_in_the_real_corpus"
+    real = (
+        '<testcase classname="tests.test_keeping_him" '
+        'name="test_the_instrument_finds_him_in_the_real_corpus" time="0.020">'
+        f"<error message=\"failed on setup with &quot;worker 'gw10' crashed while running "
+        f"'{node}'&quot;\">worker 'gw10' crashed while running '{node}'</error></testcase>"
+    )
+    allow, _, victims = _decide(tmp_path, real)
+    assert allow and victims == [node]
+
+
 def test_a_real_failure_that_quotes_a_crash_line_is_still_a_real_failure(tmp_path):
     # The tests for this very script carry the crash string as a fixture, so a
     # real failure of one of them quotes it. It names a DIFFERENT passing test.
@@ -175,8 +191,8 @@ def test_a_crash_line_naming_a_different_test_than_the_case_is_not_a_crash(tmp_p
     # line alone let a failure point the replay at an innocent passing test.
     mismatched = (
         '<testcase classname="tests.test_real" name="test_real">'
-        f"<failure message=\"worker 'gw1' crashed while running '{VICTIM}'\">x</failure>"
-        "</testcase>"
+        f"<failure message=\"worker 'gw1' crashed while running '{VICTIM}'\">"
+        f"worker 'gw1' crashed while running '{VICTIM}'</failure></testcase>"
     )
     called = []
     allow, _, _ = _decide(tmp_path, mismatched, replay=lambda v, r: called.append(v) or 0)
@@ -187,8 +203,8 @@ def test_a_crash_line_naming_a_different_test_than_the_case_is_not_a_crash(tmp_p
 def test_a_victim_id_that_is_not_a_test_node_id_blocks(tmp_path, hostile):
     odd = (
         '<testcase classname="x" name="y">'
-        f"<failure message=\"worker 'gw1' crashed while running '{hostile}'\">x</failure>"
-        "</testcase>"
+        f"<failure message=\"worker 'gw1' crashed while running '{hostile}'\">"
+        f"worker 'gw1' crashed while running '{hostile}'</failure></testcase>"
     )
     called = []
     allow, _, _ = _decide(tmp_path, odd, replay=lambda v, r: called.append(v) or 0)

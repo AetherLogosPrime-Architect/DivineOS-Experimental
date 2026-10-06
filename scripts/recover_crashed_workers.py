@@ -29,7 +29,7 @@ from pathlib import Path
 # More than a few crash victims in one run is a fact about the machine, not
 # noise to retry past (Kahneman, walk-3d234701aed3).
 MAX_VICTIMS = 3
-# The message must BEGIN with the crash line. A real failure whose text merely
+# The failure body must BE the crash line. A real failure whose text merely
 # quotes one (the tests for this script do) is still a real failure.
 CRASH = re.compile(r"worker '(gw\d+)' crashed while running '([^']+)'")
 
@@ -58,7 +58,10 @@ def parse(junit: Path) -> tuple[list[str], list[str]]:
         if bad is None:
             continue
         classname, name = case.get("classname") or "", case.get("name") or ""
-        found = CRASH.match((bad.get("message") or bad.text or "").lstrip())
+        # The BODY of a real xdist crash record is the crash line and nothing else
+        # (the message wraps it: 'failed on setup with "worker ..."'). A real
+        # failure has a traceback body, so quoting the line inside one never fits.
+        found = CRASH.fullmatch((bad.text or "").strip())
         victim = found.group(2) if found else ""
         if found and _is_node_id(victim) and _names_this_case(victim, classname, name):
             victims.append(victim)
