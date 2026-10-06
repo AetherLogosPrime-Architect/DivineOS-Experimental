@@ -206,6 +206,13 @@ def build_index(corpus: Path = CORPUS, index_dir: Path = INDEX_DIR) -> int:
         meta = {"model": MODEL_NAME, "cleaner": CLEANER, "items": []}
     elif vec_path.exists():
         vecs = np.load(vec_path)
+    # A build killed between its two writes leaves the files disagreeing. Start
+    # over from the corpus rather than append onto a torn pair (Aether, 2026-10-05).
+    if (vecs is None) != (not meta["items"]) or (
+        vecs is not None and len(vecs) != len(meta["items"])
+    ):
+        meta = {"model": MODEL_NAME, "cleaner": CLEANER, "items": []}
+        vecs = None
     known = {i["key"] for i in meta["items"]}
     fresh = [p for p in load_passages(corpus) if _key(p) not in known]
     if not fresh:
@@ -213,8 +220,18 @@ def build_index(corpus: Path = CORPUS, index_dir: Path = INDEX_DIR) -> int:
     new = _embed([p.text for p in fresh]).astype("float32")
     vecs = new if vecs is None else np.vstack([vecs, new])
     meta["items"] += [{"key": _key(p), "text": p.text, "day": p.day, "ts": p.ts} for p in fresh]
-    np.save(vec_path, vecs)
-    meta_path.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+    # Each file is written whole to a temporary name and swapped in, by the house
+    # writers (fsync, and a retry when Windows briefly locks the target). Vectors
+    # first, the item list last, so a kill between them always leaves vectors AHEAD
+    # of items: a mismatch _load_index detects, never a quiet wrong quote.
+    from io import BytesIO
+
+    from divineos.core.atomic_io import atomic_write_bytes, atomic_write_text
+
+    buf = BytesIO()
+    np.save(buf, vecs)
+    atomic_write_bytes(vec_path, buf.getvalue())
+    atomic_write_text(meta_path, json.dumps(meta, ensure_ascii=False))
     return len(fresh)
 
 
@@ -225,7 +242,13 @@ def _load_index(index_dir: Path):
     if meta.get("model") != MODEL_NAME:
         raise ValueError(f"index built with {meta.get('model')}, not {MODEL_NAME}")
     items = [Passage(text=i["text"], day=i["day"], ts=i["ts"]) for i in meta["items"]]
-    return items, np.load(index_dir / "vectors.npy")
+    vecs = np.load(index_dir / "vectors.npy")
+    if len(vecs) != len(items):
+        raise ValueError(
+            f"the index disagrees with itself ({len(items)} passages, {len(vecs)} vectors): "
+            "a build was cut off, and the next build rebuilds it"
+        )
+    return items, vecs
 
 
 def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:

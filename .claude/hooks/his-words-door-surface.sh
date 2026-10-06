@@ -25,7 +25,10 @@ REPO_ROOT="$(pwd)"
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0  # fail-soft: without the shared library there is no interpreter to trust
 PY="$(find_divineos_python)" || exit 0  # fail-soft: no usable interpreter; the table shows nothing rather than a false search
 payload="$(cat)"
-"$PY" -m divineos.core.his_words_door build >/dev/null 2>&1
+# A failing build used to leave no trace: the search ran on a stale index and never
+# said so (Aether, 2026-10-05). Said once on stdout; the search still runs.
+"$PY" -m divineos.core.his_words_door build >/dev/null 2>&1 || echo "## HIS WORDS INDEX COULD NOT BE UPDATED THIS TURN
+The search below ran on the last good copy, so his newest words may be missing."  # fail-soft: the build was cut off or broke; the search below still runs
 NOT_STARTED_DOOR="## HE HAS SAID THIS BEFORE (found by meaning, his words as he wrote them)
 Not searched this turn: the search itself failed to start."
 printf '%s' "$payload" | PYTHONIOENCODING=utf-8 "$PY" -m divineos.core.his_words_door 2>/dev/null || echo "$NOT_STARTED_DOOR"  # fail-soft: stderr is the model's loading chatter; a failed search is spoken on stdout as could-not-be-searched, tested 2026-10-05 with no index (walk-da65dafad502)

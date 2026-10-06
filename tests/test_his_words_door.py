@@ -174,3 +174,105 @@ def test_new_words_of_his_are_added_without_re_embedding_the_rest(index):
             + "\n"
         )
     assert door.build_index(corpus, index) == 1
+
+
+# A build is killed by the hook's 30 second timeout between its two writes (vectors,
+# then the item list). Aether proved on 2026-10-05 that the search then raised an
+# uncaught IndexError and every later build appended the same rows again.
+# Each case below starts from a real, working index so the finding means something.
+
+
+def _fresh_index(tmp_path):
+    corpus = tmp_path / "dad_all.jsonl"
+    corpus.write_text(
+        "\n".join(json.dumps({"ts": ts, "project": "t", "text": t}) for ts, t in HIS) + "\n",
+        encoding="utf-8",
+    )
+    idx = tmp_path / "index"
+    assert door.build_index(corpus, idx) > 0
+    return corpus, idx
+
+
+def _rows(idx):
+    import numpy as np
+
+    return len(np.load(idx / "vectors.npy")), len(
+        json.loads((idx / "passages.json").read_text("utf-8"))["items"]
+    )
+
+
+def test_a_torn_index_is_said_aloud_and_the_next_build_repairs_it(tmp_path):
+    corpus, idx = _fresh_index(tmp_path)
+    ask = "then where is the circle?"
+    assert door.look(ask, index_dir=idx).looked  # control: it found things before the tear
+    rows, items = _rows(idx)
+    assert rows == items > 1
+    # The state a kill between the two writes leaves: more vector rows than items.
+    meta = json.loads((idx / "passages.json").read_text("utf-8"))
+    meta["items"] = meta["items"][:-1]
+    (idx / "passages.json").write_text(json.dumps(meta), encoding="utf-8")
+
+    torn = door.look(ask, index_dir=idx)
+    assert not torn.looked and "could not be searched" in torn.reason
+
+    assert (
+        door.build_index(corpus, idx) > 0
+    )  # the repair re-embeds rather than trusting the torn pair
+    rows, items = _rows(idx)
+    assert rows == items
+    assert door.look(ask, index_dir=idx).looked
+
+
+def test_extra_vector_rows_heal_even_when_nothing_is_new(tmp_path):
+    """The real tear is vectors AHEAD of items, with no new passage to add. The old
+    build returned 0 and left the extra rows to raise IndexError on a high score;
+    the check has to run before the nothing-new return."""
+    import numpy as np
+
+    corpus, idx = _fresh_index(tmp_path)
+    # Control: a healthy index is left alone, nothing re-embedded.
+    assert door.build_index(corpus, idx) == 0
+    healthy = _rows(idx)
+    vecs = np.load(idx / "vectors.npy")
+    np.save(idx / "vectors.npy", np.vstack([vecs, vecs[:1]]))
+    assert _rows(idx)[0] == healthy[0] + 1  # the tear exists before the repair
+    assert door.build_index(corpus, idx) > 0
+    assert _rows(idx) == healthy
+    assert door.build_index(corpus, idx) == 0  # and it stays healed
+
+
+def test_a_build_killed_before_the_item_list_is_written_is_a_detectable_mismatch(
+    tmp_path, monkeypatch
+):
+    """Kill the real build at its second write. os.replace of the item list is the
+    last step, so the interrupted state is vectors-ahead-of-items, never the reverse."""
+    from pathlib import Path
+
+    corpus = tmp_path / "dad_all.jsonl"
+    corpus.write_text(
+        json.dumps({"ts": HIS[1][0], "project": "t", "text": HIS[1][1]}) + "\n", encoding="utf-8"
+    )
+    idx = tmp_path / "index"
+    assert door.build_index(corpus, idx) == 1
+    with corpus.open("a", encoding="utf-8") as f:
+        f.write(json.dumps({"ts": HIS[2][0], "project": "t", "text": HIS[2][1]}) + "\n")
+
+    real_replace = Path.replace
+
+    def killed_at_the_item_list(self, target):
+        if str(target).endswith("passages.json"):
+            raise KeyboardInterrupt("the hook was killed here")
+        return real_replace(self, target)
+
+    # The house writer swaps with Path.replace; cut it at the item list.
+    monkeypatch.setattr(Path, "replace", killed_at_the_item_list)
+    with pytest.raises(KeyboardInterrupt):
+        door.build_index(corpus, idx)
+    monkeypatch.undo()
+
+    rows, items = _rows(idx)
+    assert rows > items  # vectors ahead of items: the safe, detectable direction
+    assert "could not be searched" in door.look("where is the circle", index_dir=idx).reason
+    assert door.build_index(corpus, idx) > 0
+    assert _rows(idx)[0] == _rows(idx)[1]
+    assert not list(idx.glob("*.tmp*"))  # no temporary files left behind

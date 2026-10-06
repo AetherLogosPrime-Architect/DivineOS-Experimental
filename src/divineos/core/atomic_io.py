@@ -59,6 +59,25 @@ def atomic_write_text(path: Path, content: str, encoding: str = "utf-8") -> None
         # cut after the rename cannot leave the new name pointing at an
         # empty file (2026-09-28, while moving the brake onto this helper).
         os.fsync(fh.fileno())
+    _swap(tmp, path)
+
+
+def atomic_write_bytes(path: Path, data: bytes) -> None:
+    """The same write-then-rename for binary content (a numpy array's bytes).
+
+    Added 2026-10-05 for the words door's vector file. It shares the swap, with
+    its Windows lock retry, rather than keeping a second writer that behaves
+    differently when an antivirus scan holds the target.
+    """
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp, "wb") as fh:
+        fh.write(data)
+        fh.flush()
+        os.fsync(fh.fileno())
+    _swap(tmp, path)
+
+
+def _swap(tmp: Path, path: Path) -> None:
     # Windows refuses the rename with PermissionError while another process
     # (antivirus, the search indexer) briefly holds the target. Pulling the
     # brake must not fail on that, so retry a few times before raising
@@ -73,4 +92,4 @@ def atomic_write_text(path: Path, content: str, encoding: str = "utf-8") -> None
             time.sleep(_REPLACE_BACKOFF_SECONDS * (attempt + 1))
 
 
-__all__ = ["atomic_write_text"]
+__all__ = ["atomic_write_bytes", "atomic_write_text"]
