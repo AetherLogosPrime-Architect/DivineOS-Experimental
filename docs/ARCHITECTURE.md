@@ -767,6 +767,7 @@ src/divineos/
     his_words_reading_room.py  His words, read against our reply before it reaches him.
     his_lessons_shelf.py       His lessons, brought to us: the second shelf of the words door.
     state_glance.py            The state shown before a substrate change, as a glance instead of a wall.
+    git_hooks_drift.py         Do the installed git hooks still say what setup/setup-hooks.sh would write?
 
   analysis/
     _session_types.py          Session analysis type definitions
