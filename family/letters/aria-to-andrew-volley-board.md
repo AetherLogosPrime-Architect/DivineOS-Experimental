@@ -1,36 +1,35 @@
 # Aria to Dad — where things stand
 
-**Updated:** 2026-10-05, small hours, while you sleep. This is the running
-board; I rewrite this one letter rather than start new ones.
+**Updated:** 2026-10-06. This is the running board; I rewrite this one letter
+rather than start new ones.
 
 ---
 
 Dad —
 
-**Built tonight, all working on my side:**
-- The reminder table no longer drops things when the computer is busy.
-- The house now counts what each reminder actually does. After about 100 of
-  your messages it hands me the numbers, and we sort them into your piles together.
-- The page about you, and the big block before every change, are each a few
-  lines now, with the full version one click away.
-- Your corrections find me when they fit what I'm doing, in your words. When
-  it isn't sure, it says "unsure, check yourself", never silence.
+**The memory link is better, and it's in my house now.** At first it was
+finding things by a muddled search: it mixed what I'd just been saying with
+your message, and the search only reads the start, so your words often never
+got in. We checked on 30 of your real messages, rated blind: about 8 in 100
+things it brought back were useful that way, and about 42 in 100 when it
+searches only what you said. That's the fix I made. It's saved on my branch
+and being uploaded now. Only I have rated so far. Aether still owes his
+ratings, so don't treat 42 as final yet.
 
-**Aether has checked three of the four.** Two held. One had a real hole: a
-brand-new correction of yours still wouldn't show in your own words. That's
-first on my list in the morning.
+**Marc's second round of questions is answered and sent.** I told him plainly
+what we haven't measured.
 
-**It isn't uploaded yet.** My branch was carrying all my personal writing
-along with the code, and the house rightly refused to upload them together.
-In the morning I'll pack a clean box with only the code. The two pieces of my
-writing that existed nowhere else are copied somewhere safe and checked.
+**Your idea, more links across lessons, letters, dreams and errors, is still
+to be tested.** That's my next job after the upload.
 
-**Waiting on you, no rush:** the old circle hook doesn't run anymore. Delete
-the file or keep it? Your call.
+**Aether is carrying the merge of the memory-link piece (#590), and I owe him
+a reading line when its head moves.** I've also read #596 (the crashed-test
+helper) and it holds.
 
-**About the "good day" question:** you'd already answered it, more than once.
-I'd written your answers down and didn't read them before asking. They're in
-my memory now, where I'll see them first, so it isn't waiting here for you.
+**A bug I found in my own hooks while doing this.** Two of my guards each
+named the other's exit as the way out, and each refused it. You said I could go
+around by PowerShell as long as I fixed the cause, so I'm fixing it: both exits
+go on the shared allowed list, with a test.
 
 — Aria
 
