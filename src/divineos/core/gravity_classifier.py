@@ -363,6 +363,78 @@ def _shell_write_targets(command: str) -> tuple[str, ...] | None:
     return tuple(found)
 
 
+def _concludes_clean_merge_of_main(command: str) -> bool:
+    """True when this commit only seals a merge of work already on origin/main.
+
+    ANDREW 2026-10-06: a mundane act does not owe a council walk, and he
+    cannot leave the judging to me in the moment because the optimizer would
+    skip it every time -- so the exemption is computed from git state, never
+    from my say-so. Bringing main into my branch authors nothing; the content
+    was reviewed when it reached main.
+
+    Every condition must hold, and any doubt falls toward scrutiny (False):
+    a merge is in progress, the merged-in commit is already reachable from
+    origin/main, the command is a bare `git commit` with only --no-edit or a
+    -m message (no -a, which would sweep my own working-tree edits into the
+    merge), and everything staged is a file the merged side changed -- so a
+    file I added by hand, or a conflict I resolved by authoring, still walks.
+
+    RESIDUAL: if I hand-edit a file main also changed, the path matches and
+    the content is not re-read. Narrow, and named rather than claimed closed.
+    """
+    import subprocess
+
+    from divineos.core.command_parsing import resolve_command_head, split_shell_segments
+
+    # Judge each commit segment on its own: a chained `| tail` or a following
+    # `git rev-list` is not part of the commit, and reading the whole line made
+    # the exemption refuse the very command it was written for. The shared
+    # splitter cuts `2>&1` at the `&`, leaving a bare `2>` token to tolerate.
+    segments = split_shell_segments(command)
+    if segments is None:
+        return False  # both-empty: unparseable and not-a-clean-merge both mean score as an ordinary commit
+    commit_segments = 0
+    for segment in segments:
+        head = resolve_command_head(segment.strip())
+        if not (head == "git commit" or head.startswith("git commit ")):
+            continue
+        commit_segments += 1
+        try:
+            tokens = shlex.split(segment)
+        except ValueError:
+            return False  # both-empty: unparseable and not-a-clean-merge both mean score as an ordinary commit
+        expecting_message = False
+        for tok in tokens[tokens.index("commit") + 1 :]:
+            if expecting_message:
+                expecting_message = False
+            elif tok in ("-m", "--message"):
+                expecting_message = True
+            elif tok != "--no-edit" and not re.fullmatch(r"\d*>+&?\d*", tok):
+                return False
+    if commit_segments == 0:
+        return False
+
+    def _git(*args: str) -> str | None:
+        try:
+            done = subprocess.run(
+                ["git", *args], capture_output=True, text=True, timeout=20, check=True
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return done.stdout.strip()
+
+    merge_head = _git("rev-parse", "-q", "--verify", "MERGE_HEAD")
+    if not merge_head:
+        return False
+    if _git("merge-base", "--is-ancestor", merge_head, "origin/main") is None:
+        return False
+    staged = _git("diff", "--cached", "--name-only")
+    from_main = _git("diff", "--name-only", "HEAD...MERGE_HEAD")
+    if staged is None or from_main is None:
+        return False
+    return set(staged.splitlines()) <= set(from_main.splitlines())
+
+
 def score_substrate_modification(
     tool_name: str,
     file_paths: tuple[str, ...] = (),
@@ -558,7 +630,7 @@ def score_substrate_modification(
         return tool_kind in {"Edit", "Write", "MultiEdit", "NotebookEdit"} or wrote
 
     # Feature 1: git-commit
-    if tool == "Bash" and _performs_git_commit(cmd):
+    if tool == "Bash" and _performs_git_commit(cmd) and not _concludes_clean_merge_of_main(cmd):
         fired.append("git-commit")
 
     # Feature 2: edit src/divineos/

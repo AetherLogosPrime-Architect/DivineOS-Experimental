@@ -21,6 +21,19 @@ from divineos.core.gravity_classifier import (
     score_substrate_modification,
 )
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _outside_any_repo(tmp_path, monkeypatch):
+    """The merge-of-main exemption reads git state from the working directory.
+    These tests are about the commit feature itself, so they must not depend on
+    whether the checkout running them happens to be mid-merge. The runner's temp
+    folders sit inside this repo, so the ceiling is what keeps git from walking
+    up into it."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path.parent))
+
 
 class TestSubstrateModificationFeatures:
     def test_git_commit_fires(self):

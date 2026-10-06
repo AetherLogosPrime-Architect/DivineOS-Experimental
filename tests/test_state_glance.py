@@ -76,7 +76,10 @@ def test_the_real_hook_emits_a_glance_and_keeps_the_whole_text(tmp_path):
     from divineos.core.andrew_correction_tracker import file_correction
 
     file_correction("a test correction, filed into the suite's own empty store")
-    payload = {"tool_name": "Bash", "tool_input": {"command": "git commit -m x"}}
+    # `-a` keeps this an ordinary commit whatever state the checkout is in: a bare
+    # commit sealing a merge of main is exempt from the gravity score, and this
+    # test runs in the real repo, which may be mid-merge.
+    payload = {"tool_name": "Bash", "tool_input": {"command": "git commit -a -m x"}}
     env = dict(os.environ, DIVINEOS_STATE_GLANCE_DIR=str(tmp_path))
     done = subprocess.run(
         [_bash(), str(HOOK)],
