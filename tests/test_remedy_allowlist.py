@@ -94,6 +94,20 @@ class TestTheOpenQuestionPairDoesNotTrapItself:
         )
         assert "'divineos question-hold'" in hook
 
+    def test_the_open_ask_hook_asks_the_shared_judges(self):
+        """2026-10-07. The hook kept a private list and never asked the shared
+        ones, so it refused the doorbell the Stop guard demands while a question
+        to Dad stood open. It must ask both judges, and the judges themselves
+        must pass the doorbell and refuse work chained behind it."""
+        from divineos.core.remedy_allowlist import is_doorbell
+
+        hook = (_REPO / ".claude" / "hooks" / "an-open-ask-holds-the-work.sh").read_text(
+            encoding="utf-8"
+        )
+        assert "is_doorbell(command) or is_remedy(command)" in hook
+        assert is_doorbell("bash scripts/letter_doorbell.sh aria")
+        assert not is_doorbell("bash scripts/letter_doorbell.sh aria && git commit -m x")
+
 
 class TestItCannotBecomeAWayAround:
     def test_no_dangerous_verb_can_ever_be_on_the_list(self):
