@@ -387,8 +387,8 @@ def staleness() -> str | None:
         from divineos.core.memory_linkage_retriever import _find_letters_roots
 
         newest = max((root.stat().st_mtime for root in _find_letters_roots()), default=0.0)
-    except OSError:
-        return None
+    except OSError as exc:
+        return f"could not check whether the letter index is out of date: {exc}"
     if newest > built:
         return (
             "letters have been written since the letter index was built: run divineos linkage warm"

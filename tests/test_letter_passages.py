@@ -173,6 +173,26 @@ def test_a_zero_query_is_empty_and_not_a_problem(built):
     assert lp.best_letters(np.zeros(DIM, dtype=np.float32), k=1) == ([], None)
 
 
+class _UnreadableRoot:
+    def stat(self):
+        raise OSError("disk went away")
+
+
+def test_a_fresh_index_says_nothing_but_an_unreadable_folder_says_it_could_not_look(
+    built, monkeypatch, tmp_path
+):
+    """None must not mean both fresh and could-not-check: a failing read once read as all is well."""
+    from divineos.core import memory_linkage_retriever as v1
+
+    old = tmp_path / "family" / "letters"
+    monkeypatch.setattr(v1, "_find_letters_roots", lambda: [old])
+    assert lp.staleness() is None  # control: the folder is older than the index, so fresh
+
+    monkeypatch.setattr(v1, "_find_letters_roots", lambda: [_UnreadableRoot()])
+    said = lp.staleness()
+    assert said is not None and "could not check" in said and "disk went away" in said
+
+
 def test_a_vector_of_the_wrong_size_is_a_stated_problem(built):
     hits, problem = lp.best_letters(np.ones(DIM + 3, dtype=np.float32), k=1)
     assert hits == [] and problem and "different vector size" in problem
