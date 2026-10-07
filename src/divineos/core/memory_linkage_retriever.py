@@ -942,70 +942,13 @@ def _find_letters_roots() -> list[Path]:
     return roots
 
 
-def _load_letters() -> list[_CachedItem]:
-    """Scan family/letters and family/<member>/letters for *.md.
-
-    Wired 2026-07-02 as source-adapter #4. Same head-window embedding
-    strategy as _load_exploration — letters can be long; the opening
-    carries the topic signal. All ``topic`` tier per §Q4 — letters are
-    episodic-relational; constraint-worthy content in them should be
-    distilled into knowledge separately.
-
-    Empty list on any load error — behavior-neutral fallback.
-    """
-    roots = _find_letters_roots()
-    if not roots:
-        return []
-    seen_paths: set[Path] = set()
-    # By NAME as well as by path: the same letter sits in every checkout on
-    # this machine, so path-only dedup loaded each one up to three times
-    # (measured 2026-09-24: 7490 items for about 2600 letters), and a letter
-    # could crowd the results with copies of itself. The first root read is
-    # the running checkout, so that copy is the one kept.
-    seen_names: set[str] = set()
-    items: list[_CachedItem] = []
-    for root in roots:
-        for md_path in sorted(root.rglob("*.md")):
-            resolved = md_path.resolve()
-            if resolved in seen_paths or md_path.name in seen_names:
-                continue
-            seen_paths.add(resolved)
-            seen_names.add(md_path.name)
-            try:
-                content = md_path.read_text(encoding="utf-8", errors="replace").strip()
-            except Exception:  # noqa: BLE001 - filesystem boundary
-                continue
-            if not content:
-                continue
-            head = content[:_EXPLORATION_HEAD_CHARS]
-            embedding = _embed_text_impl(head)
-            if embedding is None:
-                continue
-            try:
-                mtime = md_path.stat().st_mtime
-            except Exception:  # noqa: BLE001 - filesystem boundary
-                mtime = 0.0
-            stem = md_path.stem
-            title = stem.lstrip("0123456789_-").replace("_", " ").replace("-", " ").strip() or stem
-            title = title[:60] + ("..." if len(title) > 60 else "")
-            try:
-                rel_path = str(md_path.relative_to(root.parent.parent))
-            except ValueError:
-                rel_path = str(md_path)
-            items.append(
-                _CachedItem(
-                    id=f"letter-{stem}",
-                    source="letter",
-                    tier="topic",
-                    title=title,
-                    content=head,
-                    path=rel_path,
-                    filed_at_unix=mtime,
-                    importance_score=0.5,
-                    embedding=embedding,
-                )
-            )
-    return items
+# LETTERS ARE NOT LOADED HERE ANY MORE (2026-10-06). They used to be one vector per
+# letter, made from its opening window, which matched a long letter on whatever
+# its start shared with his words and never looked at the middle: one letter in
+# thirty helped, rated blind by two people. They are matched by passage in
+# ``letter_passages`` instead, from a matrix searched in one multiply, and the
+# per-letter loop that cost 1.09 s of a 1.31 s cache load is gone.
+# ``_find_letters_roots`` above stays: the new index reads the same folders.
 
 
 def _ensure_cache() -> None:
@@ -1023,7 +966,6 @@ def _ensure_cache() -> None:
     _EMBEDDING_CACHE["knowledge"] = _load_knowledge()
     _EMBEDDING_CACHE["wall"] = _load_wall() + _load_memory_files()
     _EMBEDDING_CACHE["exploration"] = _load_exploration()
-    _EMBEDDING_CACHE["letter"] = _load_letters()
     _EMBEDDING_CACHE["worklist"] = _load_worklist()
 
 
@@ -1123,7 +1065,6 @@ def warm(progress: Any = None) -> dict[str, int]:
             _load_wall,
             _load_memory_files,
             _load_exploration,
-            _load_letters,
             _load_worklist,
         ):
             loader()
@@ -1132,7 +1073,17 @@ def warm(progress: Any = None) -> dict[str, int]:
     texts = list(_COLLECTED)
     _COLLECTED.clear()
     _EMBEDDING_CACHE.clear()
-    return vector_drawer.fill(texts, progress)
+    out = vector_drawer.fill(texts, progress)
+    # The letters are cut into passages and indexed beside the drawer. The same
+    # entry point fills both, so one `linkage warm` leaves the whole lane current.
+    from divineos.core import letter_passages
+
+    built = letter_passages.build(progress)
+    out["letters"] = built["letters"]
+    out["letter_passages"] = built["passages"]
+    out["computed"] += built["computed"]
+    out["asked"] += built["passages"]
+    return out
 
 
 def _cosine(a: Any, b: Any) -> float:

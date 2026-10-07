@@ -86,6 +86,7 @@ import math
 import re
 from dataclasses import replace
 import time
+from typing import Any
 
 from divineos.core.memory_linkage import (
     MemoryLinkagePayload,
@@ -164,45 +165,59 @@ conversational turns.
 # ruler.
 PRIMING_MAX_BOOST = 0.15
 
-# LETTERS RANK LAST, NOT GONE (2026-10-06). Rated blind by two people over 30 of
-# Dad's real messages, a letter was useful 1 time in 30 for each of us: it
-# matches on shared words and says nothing about what he just wrote. Source type
-# is a proxy for the real question, does this speak to what he said, so letters
-# stay findable when nothing else passed and lose to anything that did. A letter
-# is still the right answer the day he asks about a letter.
-LETTER_RANK_FACTOR = 0.5
-
-# ...EXCEPT WHEN HE QUOTES IT. A flat halving buried a letter he asks for on
-# purpose: on 40 real letters asked for by a quoted sentence, 15 came back with
-# no penalty and 1 with it (Aether's review of a82bb19e5 named the risk, and the
-# replay of his 30 real messages could not show it because none asked for a
-# letter). Similarity cannot tell the two apart: a quoted letter's median
-# similarity was 0.46 and the noise letters ran 0.42 to 0.60. Quoting can. A run
-# of this many words copied from the letter appeared by accident in 0 of 77 of
-# his messages against 1M words of letters; six did in 2, so seven is the
-# shortest clean run on that sample. A paraphrase or a title does not count, and
-# that limit is stated, not closed.
-LETTER_QUOTE_RUN = 7
+# LETTERS COME FROM THE PASSAGE INDEX, ONE SLOT AT MOST (2026-10-06). Dad: letters
+# belong "if they are relevant, as long as they dont drown out my words". A letter
+# used to be one vector from its opening window and one in thirty helped, so I
+# ranked letters last, then exempted quoted ones: both patched a symptom. The
+# cause was the window, so letters are now matched by passage (``letter_passages``)
+# and compete on the same composite score as everything else, with no
+# letter-specific multiplier. The single slot is the guard against drowning his
+# words: only the best passage of the best letter is ever a candidate.
+LETTER_SLOT_CAP = 1
 
 # A text this short is not enough to say two items are the same thing.
 _MIN_KEY_CHARS = 20
 
 
-def _plain_words(text: str) -> list[str]:
-    return " ".join(re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).split()).split()
+def _letter_candidates(topic_vec: Any) -> list[tuple[MemoryLinkagePayload, str]]:
+    """The best passage of the best letter, as a payload and its content key, or
+    nothing. The index's own problem or staleness is written into the lane state, so
+    a letter lane that could not look is never reported as one with nothing to say."""
+    from divineos.core import letter_passages
+    from divineos.core.memory_linkage_retriever import _LANE_STATE, _SOURCE_THRESHOLDS
 
-
-def _quotes_a_run(prompt_words: list[str], content: str) -> bool:
-    """True when the message copies LETTER_QUOTE_RUN or more words in a row from
-    this text. Case and punctuation do not matter; a shorter message never does."""
-    n = LETTER_QUOTE_RUN
-    if len(prompt_words) < n:
-        return False
-    body = " " + " ".join(_plain_words(content)) + " "
-    return any(
-        " " + " ".join(prompt_words[i : i + n]) + " " in body
-        for i in range(len(prompt_words) - n + 1)
-    )
+    floor = float(_SOURCE_THRESHOLDS["letter"]["floor"])
+    hits, problem = letter_passages.best_letters(topic_vec, k=LETTER_SLOT_CAP, floor=floor)
+    _LANE_STATE["letter_index_error"] = problem
+    _LANE_STATE["letter_index_stale"] = letter_passages.staleness() if problem is None else None
+    out: list[tuple[MemoryLinkagePayload, str]] = []
+    for hit in hits[:LETTER_SLOT_CAP]:
+        recency_days = _days_since(hit.mtime)
+        rank = composite_score(
+            similarity=hit.similarity,
+            tier="topic",
+            recency_days=recency_days,
+            importance_score=0.5,
+        )
+        snippet = " ".join(hit.text.split())
+        payload = MemoryLinkagePayload(
+            source="letter",
+            id=hit.letter_id,
+            tier="topic",
+            similarity=hit.similarity,
+            recency_days=recency_days,
+            importance_score=0.5,
+            composite_rank=rank,
+            title=hit.title,
+            content=snippet,
+            matched_reason=(
+                f"letter '{hit.title}' passage matched at sim={hit.similarity:.2f} > threshold {floor:.2f}"
+            ),
+            content_kind="snippet",
+            path_or_ref=hit.path,
+        )
+        out.append((payload, _content_key(hit.text)))
+    return out
 
 
 def _content_key(text: str) -> str:
@@ -543,7 +558,6 @@ def retrieve_v2(
 
     candidates: list[MemoryLinkagePayload] = []
     keys: list[str] = []  # content identity of each candidate, same order
-    prompt_words = _plain_words(prompt)
     # item id -> priming factor in [0, PRIMING_MAX_BOOST]; scaled by the
     # contested span after the loop. Empty when nothing is primed.
     _priming_factors: dict[str, float] = {}
@@ -566,8 +580,6 @@ def retrieve_v2(
                 recency_days=recency_days,
                 importance_score=item.importance_score,
             )
-            if item.source == "letter" and not _quotes_a_run(prompt_words, item.content):
-                base_rank *= LETTER_RANK_FACTOR
 
             # C5 constraint-exemption: constraint-tier items get no
             # priming boost and always report primed_by=None.
@@ -608,6 +620,10 @@ def retrieve_v2(
                 )
             )
             keys.append(_content_key(item.content))
+
+    for payload, key in _letter_candidates(topic_vec):
+        candidates.append(payload)
+        keys.append(key)
 
     candidates = _collapse_by_content(candidates, keys)
 
@@ -712,6 +728,9 @@ def retrieve_similarity_only(prompt: str) -> list[MemoryLinkagePayload]:
                 )
             )
 
+    # The same letter candidate as the main lane, from the same helper: two lanes
+    # with two rulers for one source is how the comment above says they disagree.
+    candidates.extend(payload for payload, _ in _letter_candidates(topic_vec))
     candidates.sort(key=lambda p: p.composite_rank, reverse=True)
     return candidates
 

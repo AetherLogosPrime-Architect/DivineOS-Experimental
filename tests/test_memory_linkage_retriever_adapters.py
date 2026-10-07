@@ -323,32 +323,26 @@ def test_load_exploration_skips_empty_files(monkeypatch, tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# _load_letters — cross-worktree dedup by resolved path
+# Letters are no longer a per-letter adapter here: they are matched by passage in
+# core/letter_passages.py, and the cross-checkout dedup and the no-roots case are
+# tested there (tests/test_letter_passages.py).
 # ---------------------------------------------------------------------------
 
 
-def test_load_letters_dedupes_across_roots(monkeypatch, tmp_path):
-    """When multiple worktrees expose the same letter dir via different
-    _PROJECT_ROOTS entries, resolved-path dedup must prevent the same
-    file from being loaded twice. Otherwise the cache would double-count
-    every letter and the composite ranking would be skewed."""
-    shared = tmp_path / "shared_letters"
-    shared.mkdir()
-    (shared / "letter.md").write_text("shared letter", encoding="utf-8")
-
-    monkeypatch.setattr(mlr, "_find_letters_roots", lambda: [shared, shared])
-    monkeypatch.setattr(mlr, "_embed_text_impl", lambda text: np.ones(4, dtype=np.float32))
-
-    result = mlr._load_letters()
-    assert len(result) == 1
-    assert result[0].content == "shared letter"
-
-
-def test_load_letters_returns_empty_when_no_roots(monkeypatch):
-    """If no letter directories exist on any known project root,
-    adapter returns [] rather than crashing."""
-    monkeypatch.setattr(mlr, "_find_letters_roots", lambda: [])
-    assert mlr._load_letters() == []
+def test_the_cache_no_longer_carries_a_letter_source(monkeypatch):
+    monkeypatch.setattr(mlr, "_EMBEDDING_CACHE", {})
+    for name in (
+        "_load_corrections",
+        "_load_knowledge",
+        "_load_wall",
+        "_load_memory_files",
+        "_load_exploration",
+        "_load_worklist",
+    ):
+        monkeypatch.setattr(mlr, name, list)
+    mlr._ensure_cache()
+    assert "letter" not in mlr._EMBEDDING_CACHE
+    assert not hasattr(mlr, "_load_letters")
 
 
 # ---------------------------------------------------------------------------

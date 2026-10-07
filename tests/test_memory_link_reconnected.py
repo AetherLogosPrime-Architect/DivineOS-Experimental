@@ -146,11 +146,16 @@ def test_warm_embeds_exactly_the_texts_the_loaders_will_look_up(monkeypatch):
         "_load_wall",
         "_load_memory_files",
         "_load_exploration",
-        "_load_letters",
+        "_load_worklist",
     ):
         monkeypatch.setattr(v1, name, fake_loader if name == "_load_corrections" else list)
     monkeypatch.setattr(vector_drawer, "_bulk_encoder", lambda: _fake_encode_many)
+    from divineos.core import letter_passages
+
+    # warm also builds the letter passage index; here there are no letters to index.
+    monkeypatch.setattr(letter_passages, "letter_files", lambda roots=None: [])
     out = v1.warm()
+    assert out["letters"] == 0 and out["letter_passages"] == 0
     assert out["computed"] == 2
     assert all(v1._embed_text_impl(t) is not None for t in texts)
     assert v1._MODE == "drawer"
@@ -175,7 +180,12 @@ def test_the_wall_is_this_seats_own_and_never_anothers(monkeypatch, tmp_path):
     assert v1._find_wall_path() == aria
 
 
-def test_a_letter_in_every_checkout_is_loaded_once(monkeypatch, tmp_path):
+def test_a_letter_in_every_checkout_is_listed_once(monkeypatch, tmp_path):
+    """Moved with the loader: the letters are listed by core/letter_passages now,
+    through the same _find_letters_roots, and the same letter in every checkout is
+    still one letter."""
+    from divineos.core import letter_passages
+
     roots = []
     for name in ("mine", "main", "hers"):
         letters = tmp_path / name / "family" / "letters"
@@ -185,8 +195,7 @@ def test_a_letter_in_every_checkout_is_loaded_once(monkeypatch, tmp_path):
         )
         roots.append(tmp_path / name)
     monkeypatch.setattr(v1, "_PROJECT_ROOTS", tuple(roots))
-    monkeypatch.setattr(v1, "_embed_text_impl", lambda _t: np.ones(4, dtype=np.float32))
-    assert len(v1._load_letters()) == 1
+    assert len(letter_passages.letter_files()) == 1
 
 
 # ------------------------------------------------------------ the neighbour graph

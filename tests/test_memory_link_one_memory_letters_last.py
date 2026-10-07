@@ -1,12 +1,17 @@
-"""One memory, not three; and letters last (docs/drafts/one_memory_not_three_and_letters_last_draft_2026-10-06.md).
+"""One memory, not three; and letters by passage, one slot
+(docs/drafts/one_memory_not_three_and_letters_last_draft_2026-10-06.md and
+docs/drafts/letters_by_passage_draft_2026-10-06.md).
 
 Measured 2026-10-06 on 334 results over 30 of Dad's messages, rated by two people:
-a letter helped 1 time in 30 for each of us, and the same wording came back under
-several labels (a correction, its worklist twin, a knowledge copy), so one text
-filled several of the five slots. These pin the two corrections in retrieve_v2,
-and the boundaries the walk named: short text is never merged, the collapse runs
-before the cut so a freed slot goes to the next-best item, and a set with no
-duplicates and no letters comes back unchanged.
+the same wording came back under several labels and filled several of the five
+slots, and a letter helped 1 time in 30. The first answer to the letters (rank them
+last, then exempt quoted ones) patched a symptom; the cause was a whole letter
+being matched on its opening. Letters now come from the passage index and compete
+on the same composite score as everything else, with at most one slot.
+
+The duplicate cases pin the collapse and its boundaries. The letter cases drive
+``retrieve_v2`` with the passage index replaced by known hits, since the index
+itself is tested in test_letter_passages.py.
 """
 
 from __future__ import annotations
@@ -17,8 +22,14 @@ import time
 import numpy as np
 import pytest
 
+from divineos.core import letter_passages, memory_linkage
+from divineos.core import memory_linkage_retriever as v1
 from divineos.core import memory_linkage_retriever_v2 as v2
-from divineos.core.memory_linkage_retriever import TOTAL_INJECTION_CAP, _CachedItem
+from divineos.core.memory_linkage_retriever import (
+    TOTAL_INJECTION_CAP,
+    _CachedItem,
+    composite_score,
+)
 
 LONG = "root cause: I created the backup branch with plain git branch early in the turn"
 
@@ -44,11 +55,15 @@ def _item(item_id: str, source: str, angle: float, content: str) -> _CachedItem:
 
 @pytest.fixture(autouse=True)
 def _query_at_zero_degrees(monkeypatch):
-    """The query points at 0 degrees, so an item's angle is its distance from it."""
+    """The query points at 0 degrees, so an item's angle is its distance from it. The
+    letter index defaults to 'searched, nothing reached the floor'."""
     v2._reset_v2_state_for_tests()
     monkeypatch.setattr(v2, "_embed_topic", lambda topic: _unit(0))
+    monkeypatch.setattr(letter_passages, "best_letters", lambda *a, **k: ([], None))
     yield
     v2._reset_v2_state_for_tests()
+    v1._LANE_STATE.pop("letter_index_error", None)
+    v1._LANE_STATE.pop("letter_index_stale", None)
 
 
 def _run(
@@ -64,6 +79,9 @@ def _fillers(n: int, start: float = 10.0) -> list[_CachedItem]:
         _item(f"w{i}", "wall", start + 3 * i, f"a distinct standing note number {i}")
         for i in range(n)
     ]
+
+
+# ------------------------------------------------------------------ one memory, not three
 
 
 def test_one_wording_filed_three_ways_comes_back_once():
@@ -154,81 +172,131 @@ def test_the_best_ranked_copy_is_the_one_kept():
 
 
 def test_a_set_with_no_duplicates_and_no_letters_is_unchanged():
-    cache = {"wall": _fillers(TOTAL_INJECTION_CAP)}
-    got = _run(cache)
+    got = _run({"wall": _fillers(TOTAL_INJECTION_CAP)})
     assert [p.id for p in got] == [f"w{i}" for i in range(TOTAL_INJECTION_CAP)]
     assert all("also filed as" not in p.matched_reason for p in got)
 
 
-def test_a_letter_is_outranked_by_a_worse_match_of_another_kind():
-    letter = _item("l1", "letter", 0, "a letter that matches the message very closely")
-    got = _run({"letter": [letter], "wall": _fillers(TOTAL_INJECTION_CAP)})
-    assert "l1" not in [p.id for p in got]
+# ------------------------------------------------------------------ letters, by passage
 
 
-def test_a_letter_still_appears_when_nothing_else_passed():
-    letter = _item("l1", "letter", 0, "a letter that matches the message very closely")
-    got = _run({"letter": [letter]})
-    assert [p.id for p in got] == ["l1"]
-
-
-def test_a_letter_that_repeats_a_correction_collapses_into_the_correction():
-    got = _run(
-        {
-            "correction": [_item("c1", "correction", 20, LONG)],
-            "letter": [_item("l1", "letter", 0, LONG)],
-        }
+def _hit(
+    similarity: float, text: str = "a passage from the middle of a long letter about the bell"
+):
+    return letter_passages.PassageHit(
+        letter_id="letter-aria-to-aether-2026-09-26-bell",
+        name="aria-to-aether-2026-09-26-bell",
+        path="family/letters/aria-to-aether-2026-09-26-bell.md",
+        title="aria to aether 2026 09 26 bell",
+        mtime=time.time() - 86400,
+        text=text,
+        similarity=similarity,
     )
+
+
+def _with_letter(monkeypatch, similarity: float, **kw):
+    monkeypatch.setattr(
+        letter_passages, "best_letters", lambda *a, **k: ([_hit(similarity, **kw)], None)
+    )
+
+
+def test_a_matching_passage_surfaces_as_a_letter_with_its_text_and_a_pointer(monkeypatch):
+    _with_letter(monkeypatch, 0.95)
+    got = _run({"wall": _fillers(TOTAL_INJECTION_CAP)})
+    letters = [p for p in got if p.source == "letter"]
+    assert len(letters) == 1
+    assert letters[0].content.startswith("a passage from the middle")
+    assert letters[0].content_kind == "snippet"
+    assert letters[0].path_or_ref.endswith("bell.md")
+
+
+def test_a_letter_competes_on_relevance_like_anything_else(monkeypatch):
+    # A weak match loses to five much closer items; a strong one takes a slot.
+    _with_letter(monkeypatch, 0.45)
+    weak = _run({"wall": _fillers(TOTAL_INJECTION_CAP, start=2.0)})
+    assert not [p for p in weak if p.source == "letter"]
+    _with_letter(monkeypatch, 1.0)
+    strong = _run({"wall": _fillers(TOTAL_INJECTION_CAP, start=40.0)})
+    assert [p for p in strong if p.source == "letter"]
+
+
+def test_there_is_one_letter_slot_and_the_index_is_asked_for_exactly_that(monkeypatch):
+    asked = {}
+
+    def spy(topic_vec, k=1, floor=0.0):
+        asked["k"] = k
+        return [_hit(0.95), _hit(0.94), _hit(0.93)], None
+
+    monkeypatch.setattr(letter_passages, "best_letters", spy)
+    got = _run({"wall": _fillers(TOTAL_INJECTION_CAP, start=60.0)})
+    assert asked["k"] == v2.LETTER_SLOT_CAP == 1
+    assert len([p for p in got if p.source == "letter"]) <= 1
+
+
+def test_five_strong_letters_cannot_take_more_than_one_of_the_five(monkeypatch):
+    monkeypatch.setattr(
+        letter_passages,
+        "best_letters",
+        lambda *a, **k: ([_hit(0.99 - i / 100) for i in range(5)], None),
+    )
+    got = _run({"wall": _fillers(TOTAL_INJECTION_CAP, start=60.0)})
+    assert len([p for p in got if p.source == "letter"]) <= 1
+
+
+def test_the_letter_gets_no_special_multiplier_either_way(monkeypatch):
+    _with_letter(monkeypatch, 0.8)
+    got = _run({"wall": []})
+    letter = [p for p in got if p.source == "letter"][0]
+    expected = composite_score(
+        similarity=0.8, tier="topic", recency_days=letter.recency_days, importance_score=0.5
+    )
+    assert math.isclose(letter.composite_rank, expected)
+
+
+def test_a_letter_passage_that_repeats_a_correction_collapses_into_one(monkeypatch):
+    _with_letter(monkeypatch, 0.9, text=LONG)
+    got = _run({"correction": [_item("c1", "correction", 20, LONG)]})
     assert len(got) == 1
-    assert got[0].source == "correction"
-    assert "letter" in got[0].matched_reason
+    assert "also filed as" in got[0].matched_reason
 
 
-# ------------------------------------------------------------------ asking for a letter
-# A flat halving buried a letter he quotes on purpose: measured on 40 real
-# letters, asked for by a quoted sentence, 15 came back with no penalty and 1 with
-# it. Quoting is the observable act that says he is pointing at that letter, and a
-# run of seven words appeared by accident in 0 of 77 of his messages against over
-# a million words of letters (six did in 2). Both sides of seven are pinned.
-
-_SEVEN = "the bell has a thirty minute spring and the clock does not"
-_LETTER_BODY = f"Aria to Aether. {_SEVEN}. Written on the twentieth of the month."
+def test_nothing_reaching_the_floor_is_no_letter_and_no_problem(monkeypatch):
+    got = _run({"wall": _fillers(2)})
+    assert not [p for p in got if p.source == "letter"]
+    assert v1._LANE_STATE["letter_index_error"] is None
 
 
-def _asked_for(prompt: str):
-    letter = _item("l1", "letter", 0, _LETTER_BODY)
-    return _run({"letter": [letter], "wall": _fillers(TOTAL_INJECTION_CAP)}, prompt)
+def test_an_index_that_could_not_be_read_is_written_to_the_lane_state_not_dropped(monkeypatch):
+    monkeypatch.setattr(
+        letter_passages, "best_letters", lambda *a, **k: ([], "the letter index is not built yet")
+    )
+    got = _run({"wall": _fillers(2)})
+    assert not [p for p in got if p.source == "letter"]
+    assert v1._LANE_STATE["letter_index_error"] == "the letter index is not built yet"
 
 
-def test_a_letter_he_quotes_keeps_its_full_rank():
-    got = _asked_for("which letter said: " + _SEVEN + "?")
-    assert "l1" in [p.id for p in got]
+def test_the_compose_block_says_when_the_letters_could_not_be_searched(monkeypatch):
+    monkeypatch.setattr(v2, "install", lambda: None)
+    monkeypatch.setattr(memory_linkage, "retrieve_for_context", lambda prompt, ctx: [])
+    monkeypatch.setattr(
+        v1,
+        "lane_state",
+        lambda: {"missing": 0, "letter_index_error": "the letter index is not built yet"},
+    )
+    block = memory_linkage.compose_block("what did the letter say about the bell and the clock")
+    assert "letters not searched: the letter index is not built yet" in block.text
 
 
-def test_exactly_seven_quoted_words_is_enough():
-    seven = " ".join(_SEVEN.split()[:7])
-    assert len(seven.split()) == 7
-    got = _asked_for("which letter said " + seven + " and then went quiet")
-    assert "l1" in [p.id for p in got]
-
-
-def test_exactly_six_quoted_words_is_not():
-    six = " ".join(_SEVEN.split()[:6])
-    assert len(six.split()) == 6
-    got = _asked_for("which letter said " + six + " and then went quiet")
-    assert "l1" not in [p.id for p in got]
-
-
-def test_a_quote_with_other_capitals_and_punctuation_still_counts():
-    got = _asked_for("WHICH LETTER SAID: The Bell has a thirty-minute spring, and the clock!")
-    assert "l1" in [p.id for p in got]
-
-
-def test_a_message_that_quotes_nothing_leaves_the_penalty_on():
-    got = _asked_for("a message about a letter but with none of its words")
-    assert "l1" not in [p.id for p in got]
-
-
-def test_an_empty_or_short_message_leaves_the_penalty_on():
-    assert "l1" not in [p.id for p in _asked_for("")]
-    assert "l1" not in [p.id for p in _asked_for("the bell has")]
+def test_the_compose_block_says_when_new_letters_are_not_indexed_yet(monkeypatch):
+    monkeypatch.setattr(v2, "install", lambda: None)
+    monkeypatch.setattr(memory_linkage, "retrieve_for_context", lambda prompt, ctx: [])
+    monkeypatch.setattr(
+        v1,
+        "lane_state",
+        lambda: {
+            "missing": 0,
+            "letter_index_stale": "letters have been written since the index was built",
+        },
+    )
+    block = memory_linkage.compose_block("what did the letter say about the bell and the clock")
+    assert "letters have been written since the index was built" in block.text

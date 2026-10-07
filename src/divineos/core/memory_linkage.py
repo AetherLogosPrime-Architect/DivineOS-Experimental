@@ -279,6 +279,12 @@ def compose_block(prompt: str, transcript_path: str | None = None) -> ComposeBlo
             f"[memory link] {state['missing']} items have no stored vector yet and were "
             "not searched. Refill: divineos linkage warm"
         )
+    # A letter lane that could not look says so, in words: "no letter matched" and
+    # "the letter index could not be read" read the same to him and mean opposites.
+    if state.get("letter_index_error"):
+        notes.append(f"[memory link] letters not searched: {state['letter_index_error']}")
+    elif state.get("letter_index_stale"):
+        notes.append(f"[memory link] {state['letter_index_stale']}")
     if seconds > LANE_BUDGET_SECONDS:
         notes.append(
             f"[memory link] took {seconds:.1f}s, over its {LANE_BUDGET_SECONDS:.0f}s budget"

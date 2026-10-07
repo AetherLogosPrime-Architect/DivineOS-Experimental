@@ -13,6 +13,32 @@ from __future__ import annotations
 import click
 
 
+def _letter_index_status() -> None:
+    """What the letter passage index holds, and whether it can be searched. The check
+    is the one the compose path uses, so status cannot say fine where a turn would say
+    it could not look."""
+    import sqlite3
+
+    import numpy as np
+
+    from divineos.core import letter_passages
+
+    _, problem = letter_passages.best_letters(np.ones(384, dtype=np.float32), k=1)
+    if problem and "different vector size" not in problem:
+        click.secho(f"letter index: CANNOT SEARCH: {problem}", fg="red")
+        return
+    conn = sqlite3.connect(f"file:{letter_passages.db_path().as_posix()}?mode=ro", uri=True)
+    try:
+        passages = conn.execute("SELECT COUNT(*) FROM passages").fetchone()[0]
+        letters = conn.execute("SELECT COUNT(DISTINCT letter_id) FROM passages").fetchone()[0]
+    finally:
+        conn.close()
+    click.echo(f"letter index: {letters} letters as {passages} passages")
+    stale = letter_passages.staleness()
+    if stale:
+        click.secho(f"letter index: {stale}", fg="yellow")
+
+
 def register(cli: click.Group) -> None:
     @cli.group("linkage", invoke_without_command=True)
     @click.pass_context
@@ -37,6 +63,10 @@ def register(cli: click.Group) -> None:
             f"{out['asked']} items in all.",
             fg="green",
         )
+        click.secho(
+            f"[+] letters: {out['letters']} indexed as {out['letter_passages']} passages.",
+            fg="green" if out["letter_passages"] else "red",
+        )
 
     @linkage_group.command("status")
     def status_cmd() -> None:
@@ -54,3 +84,4 @@ def register(cli: click.Group) -> None:
         if state.get("drawer_error"):
             raise click.ClickException(f"the drawer could not be read: {state['drawer_error']}")
         click.echo(f"items with no stored vector: {state.get('missing', 0)}")
+        _letter_index_status()
