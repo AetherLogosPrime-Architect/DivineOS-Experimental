@@ -585,25 +585,33 @@ def set_marker(trigger_text: str, match: CorrectionMatch | None = None) -> None:
     # clerical step (logging); the pointed-at cognitive work
     # (integrating the correction into behavior) still requires me and
     # is enforced by the marker+gate downstream.
+    #
+    # NOT FOR OUR OWN GATES TALKING (2026-10-07). The Stop gate calls this directly
+    # with its own diagnostic, and that text used to be filed here as if he had
+    # said it: rows 216, 220 and 381 of the tracker are the detector's string, and
+    # the state glance showed #381 as "newest from him". The prompt-side door already
+    # asks is_machine_origin_prompt; this door did not. The markers above still arm,
+    # because the advertised clear path needs them; only the filing is skipped.
     try:
-        from divineos.core.corrections import log_correction
-        from divineos.core.session_manager import get_current_session_id
+        if not is_machine_origin_prompt(trigger_text or ""):
+            from divineos.core.corrections import log_correction
+            from divineos.core.session_manager import get_current_session_id
 
-        try:
-            _auto_session_id = get_current_session_id() or ""
-        except Exception:  # noqa: BLE001 — session_id is optional metadata
-            _auto_session_id = ""
-        log_correction((trigger_text or "")[:2000], session_id=_auto_session_id)
-        # File into the Andrew-correction-attribution tracker so the
-        # correction surfaces in the briefing with its integration
-        # status. Matches the manual `divineos correction` wiring so
-        # the auto-log path has equivalent observability.
-        try:
-            from divineos.core.andrew_correction_tracker import file_correction
+            try:
+                _auto_session_id = get_current_session_id() or ""
+            except Exception:  # noqa: BLE001 — session_id is optional metadata
+                _auto_session_id = ""
+            log_correction((trigger_text or "")[:2000], session_id=_auto_session_id)
+            # File into the Andrew-correction-attribution tracker so the
+            # correction surfaces in the briefing with its integration
+            # status. Matches the manual `divineos correction` wiring so
+            # the auto-log path has equivalent observability.
+            try:
+                from divineos.core.andrew_correction_tracker import file_correction
 
-            file_correction((trigger_text or "")[:2000])
-        except Exception:  # noqa: BLE001 — observability boundary
-            pass
+                file_correction((trigger_text or "")[:2000])
+            except Exception:  # noqa: BLE001 — observability boundary
+                pass
     except Exception:  # noqa: BLE001 — fail open; never break the hook
         pass
 

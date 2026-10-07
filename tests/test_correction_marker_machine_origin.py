@@ -28,6 +28,55 @@ from divineos.core.correction_marker import (
 )
 
 
+class TestTheMarkerArmsButDoesNotFileOurOwnText:
+    """The second door. The Stop gate calls set_marker directly with its own
+    diagnostic, and set_marker used to file that string into his corrections as if
+    he had said it (rows 216, 220 and 381; the state glance showed #381 as "newest
+    from him"). The marker must still arm, because the advertised clear path needs
+    it; only the filing is skipped. Collaborators are recorded, not mocked away: the
+    assertion is on what reaches them."""
+
+    def _run(self, text, tmp_path):
+        from unittest.mock import patch
+
+        from divineos.core import correction_marker
+
+        filed: list[str] = []
+        logged: list[str] = []
+        with (
+            patch.object(correction_marker, "marker_path", return_value=tmp_path / "m.json"),
+            patch(
+                "divineos.core.andrew_correction_tracker.file_correction",
+                side_effect=lambda t: filed.append(t) or 1,
+            ),
+            patch(
+                "divineos.core.corrections.log_correction",
+                side_effect=lambda t, session_id=None: logged.append(t) or {},
+            ),
+        ):
+            correction_marker.set_marker(text)
+            armed = correction_marker.read_marker()
+        return armed, filed, logged
+
+    def test_our_own_diagnostic_arms_the_marker_and_files_nothing(self, tmp_path):
+        fire = "[correction-shape-v2 stop-gate] USE clause matched (1 hits); conf=1.00"
+        armed, filed, logged = self._run(fire, tmp_path)
+        assert armed is not None and armed["trigger"] == fire
+        assert filed == [] and logged == []
+
+    def test_a_real_correction_is_still_filed_both_places(self, tmp_path):
+        """The control: the guard must not have switched filing off altogether."""
+        armed, filed, logged = self._run("no, that is wrong, you did not check it", tmp_path)
+        assert armed is not None
+        assert filed == ["no, that is wrong, you did not check it"]
+        assert logged == ["no, that is wrong, you did not check it"]
+
+    def test_his_words_after_our_tag_are_still_his(self, tmp_path):
+        text = "[correction-shape-v2 stop-gate] USE clause matched\nno, that is wrong"
+        _, filed, _ = self._run(text, tmp_path)
+        assert filed == [text]
+
+
 class TestOurOwnGatesTalkingToThemselves:
     def test_a_bare_stop_gate_diagnostic_is_machine_origin(self):
         """The literal shape that locked the house, from the block message."""
