@@ -131,40 +131,61 @@ _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 _PEM_BEGIN = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")
 _PEM_END = re.compile(r"-----END [A-Z ]*PRIVATE KEY-----")
 _PEM_NAME = "pem-private-key"
+_PEM_TRUNCATED_NAME = "pem-private-key-truncated"
+_BLANK_LINE = re.compile(r"\n[ \t\r]*\n")
+
+# A BEGIN line with no END line after it is most likely a key whose output was cut
+# off, and the old pattern waited for an END that never came and stored the body in
+# the clear (2026-10-07). The stretch redacted is bounded: to the next blank line or
+# this many characters, whichever comes first. Roughly the length of a 4096-bit RSA
+# key's PEM. The ledger is append-only, so a false positive loses prose for good and
+# a false negative stores a live key for good; the ceiling is what keeps a bare header
+# mentioned in prose from swallowing a document. A body longer than this, or split
+# from its header by a blank line, still leaks its remainder: the bound is the price.
+_PEM_TRUNCATED_REACH = 4096
 
 
-def _redact_pem(value: str) -> tuple[str, bool]:
-    """Replace each PRIVATE KEY block, BEGIN line through the nearest END line.
+def _redact_pem(value: str) -> tuple[str, list[str]]:
+    """Replace each PRIVATE KEY block. Returns the new text and the marker names used.
 
-    The same result as the lazy regex it replaces (the nearest END after each BEGIN,
-    scanning resumes after it, a BEGIN with no END after it is left alone) in one
-    pass over each marker list instead of a rescan to the end of the string for
-    every BEGIN.
+    A BEGIN with an END after it: the BEGIN line through the nearest END line, the same
+    result as the lazy regex this replaces (scanning resumes after the END), in one pass
+    over each marker list instead of a rescan to the end of the string for every BEGIN.
+    A BEGIN with no END after it: a bounded stretch, under its own marker name so a
+    guessed stretch can be told from a whole block.
     """
     begins = [(m.start(), m.end()) for m in _PEM_BEGIN.finditer(value)]
     if not begins:
-        return value, False
+        return value, []
     ends = [(m.start(), m.end()) for m in _PEM_END.finditer(value)]
-    marker = _make_marker(_PEM_NAME)
+    whole = _make_marker(_PEM_NAME)
+    guessed = _make_marker(_PEM_TRUNCATED_NAME)
     parts: list[str] = []
+    fired: list[str] = []
     pos = 0
     nxt = 0
-    hit = False
     for b_start, b_end in begins:
         if b_start < pos:
-            continue  # inside a block already replaced
+            continue  # inside a stretch already replaced
         while nxt < len(ends) and ends[nxt][0] < b_end:
             nxt += 1
-        if nxt == len(ends):
-            break  # no END after this BEGIN, so none after any later one either
         parts.append(value[pos:b_start])
-        parts.append(marker)
-        pos = ends[nxt][1]
-        hit = True
-    if not hit:
-        return value, False
+        if nxt < len(ends):
+            parts.append(whole)
+            pos = ends[nxt][1]
+            name = _PEM_NAME
+        else:
+            reach = b_end + _PEM_TRUNCATED_REACH
+            blank = _BLANK_LINE.search(value, b_end, reach)
+            parts.append(guessed)
+            pos = blank.start() if blank else min(reach, len(value))
+            name = _PEM_TRUNCATED_NAME
+        if name not in fired:
+            fired.append(name)
+    if not fired:
+        return value, []
     parts.append(value[pos:])
-    return "".join(parts), True
+    return "".join(parts), fired
 
 
 def _scan_string(value: str) -> tuple[str, list[str]]:
@@ -176,9 +197,8 @@ def _scan_string(value: str) -> tuple[str, list[str]]:
     if not value:
         return value, []
     fired: list[str] = []
-    out, pem_hit = _redact_pem(value)
-    if pem_hit:
-        fired.append(_PEM_NAME)
+    out, pem_fired = _redact_pem(value)
+    fired.extend(pem_fired)
     for name, pattern in _SECRET_PATTERNS:
         if pattern.search(out):
             out = pattern.sub(_make_marker(name), out)

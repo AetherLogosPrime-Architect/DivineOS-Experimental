@@ -293,7 +293,8 @@ class TestEveryPositionOfEveryStringIsExamined:
         t = time.time()
         out, _ = redact_payload({"k": flood})
         assert time.time() - t < 5, "the PEM scan went quadratic again (10 s at 400,000 before)"
-        assert out["k"] == flood  # no END anywhere, so nothing is a block, as before
+        # No END anywhere, so each stretch is a bounded guess; none of the flood survives.
+        assert "abc" not in out["k"] and "BEGIN" not in out["k"]
 
 
 class TestPemPairingKeepsTheLazyPatternsMeaning:
