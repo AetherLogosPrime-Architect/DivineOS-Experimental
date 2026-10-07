@@ -106,6 +106,66 @@ def test_balance_distinguishes_unreadable_corrections_from_zero(monkeypatch):
     assert b["wins_per_correction"] is None
 
 
+def test_an_unreadable_wins_ledger_is_none_not_zero(tmp_path, monkeypatch):
+    """The hook note says an unreadable ledger is not a ledger of zero, and its COULD NOT
+    READ branch fires when wins is None. For months the loader turned every read failure
+    into [] so wins was 0 and that branch was dead (found 2026-10-07 by running the claim).
+    Control first: a readable ledger of two wins must report 2, so a broken probe cannot
+    pass this test."""
+    import json
+
+    good = tmp_path / "wins_good.jsonl"
+    good.write_text(
+        json.dumps({"what": "a", "ts": 1}) + "\n" + json.dumps({"what": "b", "ts": 2}) + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(sl, "_path", lambda: good)
+    assert sl.ledger_balance()["wins"] == 2
+
+    unreadable = tmp_path / "wins_is_a_directory"
+    unreadable.mkdir()
+    monkeypatch.setattr(sl, "_path", lambda: unreadable)
+    bal = sl.ledger_balance()
+    assert bal["wins"] is None
+    assert bal["wins_from_missed_goals"] is None
+    assert bal["wins_per_correction"] is None
+    assert sl.load_successes() == []  # the public loader's old contract is unchanged
+
+
+def test_a_ledger_of_pure_garbage_is_unreadable_not_zero(tmp_path, monkeypatch):
+    bad = tmp_path / "wins_garbage.jsonl"
+    bad.write_text("{not json\nalso not json\n", encoding="utf-8")
+    monkeypatch.setattr(sl, "_path", lambda: bad)
+    assert sl.ledger_balance()["wins"] is None
+
+
+def test_no_ledger_yet_and_an_empty_ledger_are_a_true_zero(tmp_path, monkeypatch):
+    """The other side of the distinction: not recording anything is not an outage."""
+    monkeypatch.setattr(sl, "_path", lambda: tmp_path / "does_not_exist.jsonl")
+    assert sl.ledger_balance()["wins"] == 0
+    empty = tmp_path / "empty.jsonl"
+    empty.write_text("", encoding="utf-8")
+    monkeypatch.setattr(sl, "_path", lambda: empty)
+    assert sl.ledger_balance()["wins"] == 0
+
+
+def test_the_win_balance_command_says_it_could_not_read(tmp_path, monkeypatch):
+    """The second caller: its own COULD NOT BE READ branch was dead for the same reason."""
+    from click.testing import CliRunner
+
+    from divineos.cli import success_commands
+
+    unreadable = tmp_path / "wins_is_a_directory"
+    unreadable.mkdir()
+    monkeypatch.setattr(sl, "_path", lambda: unreadable)
+    import click
+
+    group = click.Group()
+    success_commands.register(group)
+    result = CliRunner().invoke(group, ["win", "balance"])
+    assert "COULD NOT BE READ" in result.output
+
+
 def test_corrupt_lines_are_skipped_not_fatal():
     sl.record_success("good", evidence="e", yielded="y")
     p = sl._path()

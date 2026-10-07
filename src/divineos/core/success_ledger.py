@@ -125,17 +125,27 @@ def record_success(
     return entry
 
 
-def load_successes() -> list[dict[str, Any]]:
-    """All recorded wins, oldest first. Read failures return []."""
+def _read_successes() -> list[dict[str, Any]] | None:
+    """All recorded wins, or None when the ledger exists but could not be read.
+
+    Two different facts, kept apart: no ledger yet (or an empty one) is an honest
+    empty list, while a ledger that cannot be read is None, and so is one that has
+    text in it but not a single valid entry (all garbage reads as unreadable, not as
+    zero). The balance used to see all of these as zero, so its own COULD NOT READ
+    branches (the win balance command and the corrections surface hook) were dead
+    code, found 2026-10-07 by running a claim the hook's comment made.
+    """
     path = _path()
     if not path.exists():
         return []
     out: list[dict[str, Any]] = []
+    saw_text = False
     try:
         for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
             line = line.strip()
             if not line:
                 continue
+            saw_text = True
             try:
                 obj = json.loads(line)
             except json.JSONDecodeError:
@@ -143,8 +153,16 @@ def load_successes() -> list[dict[str, Any]]:
             if isinstance(obj, dict):
                 out.append(obj)
     except _LEDGER_ERRORS:
-        return []
+        return None
+    if saw_text and not out:
+        return None
     return out
+
+
+def load_successes() -> list[dict[str, Any]]:
+    """All recorded wins, oldest first. Read failures return []."""
+    got = _read_successes()
+    return [] if got is None else got
 
 
 def recent_successes(limit: int = 5) -> list[dict[str, Any]]:
@@ -168,7 +186,7 @@ def ledger_balance() -> dict[str, int | float | None]:
     facts, and collapsing them is the failure this substrate spent a session
     cataloguing.
     """
-    wins = load_successes()
+    wins = _read_successes()
     try:
         from divineos.core.corrections import load_corrections
 
@@ -177,12 +195,14 @@ def ledger_balance() -> dict[str, int | float | None]:
         corrections = None
 
     ratio: float | None = None
-    if corrections:
+    if corrections and wins is not None:
         ratio = round(len(wins) / corrections, 3)
 
     return {
-        "wins": len(wins),
+        "wins": None if wins is None else len(wins),
         "corrections": corrections,
         "wins_per_correction": ratio,
-        "wins_from_missed_goals": len(wins_from_missed_goals()),
+        "wins_from_missed_goals": (
+            None if wins is None else len([w for w in wins if w.get("goal_met") is False])
+        ),
     }
