@@ -42,6 +42,34 @@ def register(cli: click.Group) -> None:
         for date, msg in hits:
             _safe_echo(f"[{date or 'undated'}] {' '.join(msg.split())[:600]}\n")
 
+    @his_words_group.command("edit")
+    @click.option("--was", required=True, help="the words he typed, exactly")
+    @click.option("--now", required=True, help="the corrected wording")
+    @click.option("--proof", required=True, help="his exact words saying yes to this fix")
+    def edit_cmd(was: str, now: str, proof: str) -> None:
+        """Record a fix he confirmed. Refused unless his own words prove both halves.
+
+        The corrected wording is added BESIDE what he typed; nothing he typed is removed.
+        """
+        from datetime import date
+
+        from divineos.core import his_words as hw
+        from divineos.core import his_words_edits as edits
+
+        if hw.words(was) == hw.words(now):
+            raise click.ClickException(
+                "--was and --now are the same words; there is nothing to fix."
+            )
+        index = hw.load_index()
+        if not index.is_exact(was):
+            raise click.ClickException(f"--was is not his exact words: {was[:150]}")
+        if not index.is_exact(proof):
+            raise click.ClickException(
+                f"--proof is not his exact words, so his yes is not on the record: {proof[:150]}"
+            )
+        row = edits.append_edit(was, now, proof, date.today().isoformat())
+        _safe_echo(f"Recorded. He typed: {row['was']}\n          now reads: {row['now']}")
+
     @his_words_group.command("check")
     @click.argument("path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
     def check_cmd(path: Path) -> None:

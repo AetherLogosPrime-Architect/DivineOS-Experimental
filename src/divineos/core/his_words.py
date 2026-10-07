@@ -382,6 +382,11 @@ def load_index(
         raise RuntimeError(
             f"no words of his could be read from {len(sessions)} conversation file(s)"
         )
+    # Edits he confirmed are added BESIDE what he typed, never in its place.
+    from divineos.core import his_words_edits as edits
+
+    joined = [" " + " ".join(words(t)) + " " for _, t in messages]
+    messages += edits.corrected_copies(messages, joined, edits.read_edits(marks_dir / EDITS_NAME))
     return Index(messages=messages, sources=len(files))  # type: ignore[arg-type]
 
 
@@ -493,11 +498,37 @@ def added_attributions(new_text: str, old_text: str = "") -> list[str]:
 # ---------------------------------------------------------------- the door
 
 
+EDITS_NAME = "edits_log.jsonl"
+
+
 @dataclass
 class DoorResult:
     state: str  # "pass" | "held" | "cannot_check"
     held: list[tuple[str, tuple[str, str] | None]] = field(default_factory=list)
     error: str = ""
+    # (quote, the words he typed) where the only difference looks like a typo.
+    # A PROPOSAL for him to confirm. Never applied here: the quote stays held.
+    typos: list[tuple[str, str]] = field(default_factory=list)
+    # Why spelling could not be judged, when it could not. Empty means it was judged.
+    spelling_unjudged: str = ""
+
+
+def typo_proposals(held: list[str], index: Index) -> tuple[list[tuple[str, str]], str]:
+    """(proposals, why spelling could not be judged). Never raises: the quote stays held."""
+    from divineos.core import his_words_edits as edits
+    from divineos.core.light_embedder import EmbedderUnavailable
+
+    found: list[tuple[str, str]] = []
+    try:
+        for quote in held:
+            for mw in index._words:
+                window = edits.typed_window(quote, mw)
+                if window:
+                    found.append((quote, " ".join(window)))
+                    break
+    except EmbedderUnavailable as exc:
+        return [], str(exc)
+    return found, ""
 
 
 def check(new_text: str, old_text: str = "", index: Index | None = None) -> DoorResult:
@@ -510,7 +541,10 @@ def check(new_text: str, old_text: str = "", index: Index | None = None) -> Door
         except Exception as exc:  # noqa: BLE001 -- any failure to read him is CANNOT_CHECK, and CANNOT_CHECK holds
             return DoorResult(state="cannot_check", error=f"{type(exc).__name__}: {exc}")
     held = [(q, index.nearest(q)) for q in quotes if not index.is_exact(q)]
-    return DoorResult(state="held" if held else "pass", held=held)
+    typos, unjudged = typo_proposals([q for q, _ in held], index) if held else ([], "")
+    return DoorResult(
+        state="held" if held else "pass", held=held, typos=typos, spelling_unjudged=unjudged
+    )
 
 
 def refusal_text(result: DoorResult) -> str:
@@ -539,6 +573,24 @@ def refusal_text(result: DoorResult) -> str:
         else:
             lines.append("  nearest he typed:  nothing close")
         lines.append("")
+    if result.spelling_unjudged:
+        lines += [
+            f"Spelling could not be judged here, so no typo fix is proposed: {result.spelling_unjudged}",
+            "",
+        ]
+    if result.typos:
+        lines.append(
+            "This looks like a SPELLING SLIP of his, not a different sentence. A proposal only:"
+        )
+        for quote, typed in result.typos:
+            lines.append(f"  he typed:   {typed[:200]}")
+            lines.append(f"  you wrote:  {quote[:200]}")
+        lines += [
+            "Nothing is applied until HE confirms. Ask him; if he says yes, record it with his",
+            'own words of yes: divineos his-words edit --was "<he typed>" --now "<you wrote>"',
+            '--proof "<his exact words of yes>". Until then this stays held.',
+            "",
+        ]
     lines += [
         "Two honest ways to write this, and both are normal:",
         '  - quote what he actually typed, word for word (divineos his-words find "<words>")',

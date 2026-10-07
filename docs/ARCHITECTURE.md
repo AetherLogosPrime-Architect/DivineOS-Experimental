@@ -760,6 +760,7 @@ src/divineos/
     sort_first.py              Sort his message before anything else: reading him comes first, by refusal.
     vector_drawer.py           A drawer of sentence vectors, so nothing is embedded twice.
     git_hooks_drift.py         Do the installed git hooks still say what setup/setup-hooks.sh would write?
+    his_words_edits.py         Edits to his words: typo fixes he confirmed, logged, never replacing what he typed.
 
   analysis/
     _session_types.py          Session analysis type definitions
