@@ -182,6 +182,124 @@ class LensFinding:
         return len([t for t in self.finding_text.split() if t])
 
 
+# Shell wrappers are not the act. Anchoring a bash fingerprint on the command's
+# first word made a directory change the subject of the gate, so one walk filed
+# for a directory change cleared every later command that happened to start the
+# same way -- failing in the PERMITTING direction, which leaves no trace anyone
+# reads (council-c667d7096362).
+_SHELL_WRAPPERS = ("cd", "set", "export", "env", "source", ".", "exec", "sudo", "time")
+
+# Joins the per-file keys of a command that writes several files. Chosen so the
+# whole key survives being pasted into `council log --edit '...'`, and so it
+# does not collide with `--scope`, which splits on commas.
+#
+# A FILENAME CONTAINING THIS SEQUENCE IS PROTECTED, NOT MERELY REFUSED -- and
+# this said "refuses" until Aether ran it (2026-09-23, reading #541). A file
+# really named `a + b.md` keys as `write:a + b.md` and its own exact walk
+# covers it through the exact-string match, which fires first. Walks filed for
+# `a` and for `b.md` cannot falsely combine to clear it: splitting yields
+# `write:a` and `b.md`, and the second part has no `write:` prefix, so no walk
+# can ever have named it. Worth saying exactly, because a comment that
+# undersells a guard invites the next reader to "fix" the refusal away.
+COMPOUND_KEY_JOINER = " + "
+
+
+def bash_act(command: str) -> str:
+    """The meaningful head of a shell command: tool plus subcommand.
+
+    ONE DERIVATION, IMPORTED BY EVERY CALLER (council-65213f1efba1). This lived
+    in the hook first while ``gate.decide`` kept its own copy, and the two
+    promptly disagreed -- the refusal named one fingerprint while the lookup
+    searched for a shorter one, which is worse than plain coarseness because
+    the message looks helpful while sending the reader to file something that
+    will never be found. Nothing detects divergence between two functions that
+    compute the same thing, so there is one.
+
+    BETTER AND STILL COARSE, deliberately. Two tokens means a walk for one
+    version-control subcommand no longer clears another, while a walk for one
+    filing under a tool still clears other filings under it. It stays small
+    enough to state in a sentence because the person filing the artifact has to
+    predict the same fingerprint the gate will compute -- a coarse anchor
+    someone can guess beats an accurate one nobody can.
+    """
+    # THE KEY WAS MOVING, WHICH IS WHY FILING NEVER STUCK (2026-09-19).
+    #
+    # This flattened newlines into spaces and split only on the chaining
+    # operators, so a multi-line command produced ONE segment headed by a shell
+    # builtin -- and the fallback then returned the ENTIRE command text as the
+    # anchor. Including, on a commit, the message being written.
+    #
+    # So the anchor differed on every attempt. File the required thinking
+    # against the key the refusal names, retry, key has changed because the
+    # text changed, refused again. Four filings in one session, none findable
+    # afterwards. I read that as the cost of discipline for hours.
+    #
+    # And the escape telemetry counts what that loop produces, then prints a
+    # verdict about whether I route around gates -- so a process defect was
+    # being measured as a fact about me. Deming on the walk: look at the
+    # process before concluding anything about the operator.
+    #
+    # Delegates to the shared home now, which is quote-aware and treats a
+    # newline as the statement separator it is. Sixth site to stop keeping a
+    # private copy of this.
+    from divineos.core.command_parsing import resolve_command_head, split_shell_segments
+
+    if not (command or "").strip():
+        return ""
+    segments = split_shell_segments(command)
+    if segments is None:
+        # Cannot be taken apart safely. Anchor on the flattened text rather
+        # than inventing a subject -- an honest odd key beats a plausible wrong
+        # one, which is the same refusal the old fallback made.
+        return " ".join(command.split())
+    for segment in segments:
+        head = resolve_command_head(segment)
+        if head and head.split()[0] not in _SHELL_WRAPPERS:
+            return head
+    return " ".join(command.split())
+
+
+def fingerprint_for(tool_name: str, file_paths: tuple[str, ...], bash_command: str) -> str:
+    """The one fingerprint every gate should use for a proposed edit.
+
+    ONE DERIVATION, BOTH CALLERS (council-0cf89990d60f). The act-anchor was
+    written in the hook first while ``gate.decide`` kept its own copy, and the
+    two disagreed within minutes -- the refusal named one fingerprint while the
+    lookup searched another, so doing exactly what the message said still got
+    you refused. That is why this exists rather than a second private copy.
+
+    A SHELL WRITE IS NAMED BY ITS FILE, NOT BY THE COMMAND. When the assessor
+    learned to see redirects and heredocs, the gate began refusing them
+    correctly but naming the edit by the command shape -- so a single walk
+    filed against two words of shell would have cleared every heredoc write in
+    the tree afterwards, with both the refusal and the walk looking correct in
+    isolation. Failing by permitting, while looking healthy.
+
+    Parity is deliberate: the same file written two ways gets the same
+    fingerprint, so one walk covers the act rather than the implementation
+    detail. The accepted risk, named in the walk: a walk filed for a careful
+    tool edit will clear a careless shell one to the same path. That is why the
+    path stays exact rather than being widened to a directory.
+    """
+    if tool_name == "Bash" and bash_command:
+        from divineos.core.gravity_classifier import _shell_write_targets
+
+        written = _shell_write_targets(bash_command)
+        if written:
+            # EVERY FILE WRITTEN IS IN THE KEY, not whichever one the reader
+            # reached first (2026-09-23, Aria, walk-421eaefacb8f). Keyed on
+            # written[0], a walk for one file cleared a command that also wrote
+            # others. Sorted and deduplicated so the same writes in another
+            # order name the same edit; one file keys exactly as it always has,
+            # so no walk already on the ledger is stranded. store._covers reads
+            # the joined form back part by part.
+            parts = sorted({_normalize_edit_fingerprint(path, "Write") for path in written})
+            return COMPOUND_KEY_JOINER.join(parts)
+        return _normalize_edit_fingerprint(bash_act(bash_command), tool_name)
+    primary = file_paths[0] if file_paths else ""
+    return _normalize_edit_fingerprint(primary, tool_name)
+
+
 def _normalize_edit_fingerprint(file_path: str, tool_kind: str) -> str:
     """Compute the canonical fingerprint binding a council_record to a
     specific proposed edit.
@@ -241,9 +359,15 @@ class CouncilRecord:
     """A council walk artifact — what a real walk produces.
 
     Written to the substrate ledger as a COUNCIL_RECORD_LOGGED event.
-    All fields are required except confirmed_by (only populated for
-    kiln-layer edits per Aether Catch 3) and consumed_at (set when
-    the record is consumed on first matching edit per Catch 2).
+    All fields are required except consumed_at (set when the record is
+    consumed on first matching edit per Catch 2).
+
+    ``confirmed_by`` was removed 2026-09-06 along with the check that read
+    it. It existed only to hold Andrew's or Aletheia's signature so a
+    kiln-layer edit could proceed, and no confirm belongs on that side of
+    the work -- the merge gate carries it, where he has said ten times it
+    goes. Records written before that date still carry the field in their
+    stored payload and are read back fine; it is simply no longer loaded.
 
     The hash-chained ledger event makes the artifact tamper-evident.
     The gate verifies the event exists, the fingerprint matches the
@@ -258,8 +382,35 @@ class CouncilRecord:
     lenses_surfaced: tuple[str, ...]  # ordered list of lens names
     lens_findings: tuple[LensFinding, ...]  # one per lens in lenses_surfaced
     synthesis: str  # cross-lens integration text
-    confirmed_by: str | None = None  # populated for kiln-layer; Andrew/Aletheia
     consumed_at: float | None = None  # consume-on-use marker (Catch 2)
+    # THE JOB THIS WALK COVERS, enumerated at filing time (Andrew 2026-09-20).
+    #
+    # Empty means self-only: the record clears exactly the fingerprint it was
+    # filed against, which is every walk ever written before this field
+    # existed. Nothing already in the ledger widens retroactively, because
+    # absent and self-only are deliberately the same value.
+    #
+    # WHY IT EXISTS. The ceremony binds to an artifact when the thinking binds
+    # to a JOB. Declaring a behaviour-check on each guard in this house is one
+    # piece of reasoning applied to many files, and one-walk-per-file turned it
+    # into six walks for a single file, the last two about a comment. Andrew,
+    # seeing that: "you are applying the ceremony to each individual piece when
+    # you could be applying it to the entire job at once."
+    #
+    # WHY IT DOES NOT REOPEN THE HAZARD THIS MODULE ALREADY NAMES. The closed
+    # door is a walk clearing edits it never contemplated -- the shell-write
+    # case, where one walk against two words of shell would have cleared every
+    # heredoc write in the tree, failing by permitting while looking healthy.
+    # Membership here is EXACT STRING EQUALITY against names a person typed
+    # when filing. There is no prefix, no directory, no pattern. A scope cannot
+    # reach a file nobody listed, and the per-edit content-overlap check still
+    # runs, so a file the walk never engages with fails on its own terms.
+    #
+    # THE LEAK, left open and named: enumerating is cheap and thinking is not,
+    # so a wide thin scope passes exactly like a wide honest one and nothing
+    # measures the ratio. Only a reader can tell them apart, which is why the
+    # list lives on the record where an auditor meets it.
+    scope_fingerprints: tuple[str, ...] = ()
 
     @property
     def synthesis_token_count(self) -> int:
@@ -291,7 +442,14 @@ CHECK_FINDING_TOKEN_COUNT = "finding_token_count"
 CHECK_FINDING_KEYWORD = "finding_keyword"
 CHECK_SYNTHESIS_TOKEN_COUNT = "synthesis_token_count"
 CHECK_SYNTHESIS_REFERENCES_LENSES = "synthesis_references_lenses"
-CHECK_KILN_CONFIRMED_BY = "kiln_confirmed_by"
+# kiln_confirmed_by lived here until 2026-09-06 and demanded Andrew's or
+# Aletheia's signature before a kiln-layer file could be EDITED. Removed,
+# not disabled: the merge gate already requires multi-party review for every
+# guardrail-listed file, so this was a second copy of one job sitting on the
+# wrong side of the work. Andrew, counting it as the tenth time he had said
+# it: "our confirms only come when merging to fucking main." Historical
+# rejection events still carry the old name in their payload; that string is
+# their record and is left alone.
 # Andrew Failure B / Aria Q3 reshape 2026-07-16 — verify each lens
 # named in the record has a matching COUNCIL_LENS_INVOKED event in the
 # ledger. No trace → the lens was fabricated (agent-generated "Through
@@ -317,7 +475,6 @@ CHECK_NAMES: frozenset[str] = frozenset(
         CHECK_FINDING_KEYWORD,
         CHECK_SYNTHESIS_TOKEN_COUNT,
         CHECK_SYNTHESIS_REFERENCES_LENSES,
-        CHECK_KILN_CONFIRMED_BY,
         CHECK_NOT_CONSUMED,
         CHECK_LENS_LOAD_TRACE,
         CHECK_EDIT_TOKEN_OVERLAP,

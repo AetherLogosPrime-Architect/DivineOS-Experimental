@@ -291,7 +291,11 @@ def claims(text: str) -> list[tuple[str, str]]:
 #: nothing and is the true sentence anyway -- I have not found one YET, here is
 #: what I tried, here is the next thing I am trying. A pause is not a verdict,
 #: and only the verdict is being refused.
-FULL_COUNCIL = 45
+#:
+#: Read from the one constant, not written here. It said 45 on its own while the
+#: council grew to 46 with the Breaker, the drift that constant exists to stop
+#: (Aether, 2026-09-23).
+from divineos.core.council import EXPECTED_EXPERT_COUNT as FULL_COUNCIL  # noqa: E402
 
 #: THE TARGET WAS WRONG, and this is the correction.
 #:

@@ -530,7 +530,7 @@ def build_walk_surface() -> str:
 
         questions = select_questions_for_turn()
     except Exception:  # noqa: BLE001 - observability boundary
-        return ""
+        return _his_room_owed_line().strip()
     lines = [
         "## LEPOS FLOOR — the room is open, speak first in your own voice",
         "",
@@ -574,8 +574,15 @@ def build_walk_surface() -> str:
 
         emit_full, pointer = should_emit("lepos_floor", rendered)
     except Exception:  # noqa: BLE001 - never let dedup suppress the room
-        return rendered
-    return rendered if emit_full else (pointer or rendered)
+        return rendered + _his_room_owed_line()
+    return (rendered if emit_full else (pointer or rendered)) + _his_room_owed_line()
+
+
+def _his_room_owed_line() -> str:
+    """The note that named his room before each reply. Silenced 2026-10-03
+    with the room itself. Andrew: "so just remove it..". It named a room he
+    asked to have taken out, so it no longer prints."""
+    return ""
 
 
 def walk_stats() -> dict[str, int]:

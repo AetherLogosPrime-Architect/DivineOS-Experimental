@@ -294,7 +294,7 @@ def _round_is_logged(round_id: str) -> bool | None:
 
 
 def _pr_needs_review(repo: str, pr: int) -> bool:
-    """True if the PR changes anything that is not exempt prose.
+    """True if the PR changes anything at all.
 
     THIS FUNCTION ASKED THE RETIRED QUESTION UNTIL 2026-09-21, and it was the
     live gate, not a comment about one. It loaded the protected list and
@@ -309,9 +309,10 @@ def _pr_needs_review(repo: str, pr: int) -> bool:
     docstring, which is worth recording: the sentence describing the code was
     what gave the code away.
 
-    The question now matches the merge policy. Everything counts unless it is
-    listed prose, so forgetting to list a new file produces too much review
-    rather than none.
+    From 2026-09-21 to 2026-09-29 it exempted listed prose. Andrew ruled that
+    wrong: "version A gives the optimizer an incentive to take that route as it
+    costs less than getting an audit, so everything is checked, even the
+    mundane stuff." So nothing is exempt, and there is no list to read.
     """
     files = _gh_json(
         ["api", f"repos/{repo}/pulls/{pr}/files", "--paginate", "--jq", "[.[].filename]"]
@@ -319,24 +320,7 @@ def _pr_needs_review(repo: str, pr: int) -> bool:
     if not isinstance(files, list):
         # Cannot determine → assume review is owed, so the gate applies.
         return True
-    changed = {str(f).replace("\\", "/") for f in files}
-    if not changed:
-        return False
-    try:
-        from pathlib import Path
-
-        exempt_raw = Path("scripts/review_exempt_paths.txt").read_text(encoding="utf-8")
-    except OSError:
-        # No exempt list readable means nothing can be shown to be prose,
-        # so every changed file counts. The safe direction, and the opposite
-        # of what an unreadable PROTECTED list used to mean.
-        return True
-    exempt = tuple(
-        line.strip().replace("\\", "/")
-        for line in exempt_raw.splitlines()
-        if line.strip() and not line.strip().startswith("#")
-    )
-    return any(not any(path.startswith(prefix) for prefix in exempt) for path in changed)
+    return bool(files)
 
 
 def main(argv: list[str]) -> int:

@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (497 commands across 84 modules)
+  cli/                         CLI package (508 commands across 122 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -23,6 +23,8 @@ src/divineos/
     consumer_status_commands.py  consumer-status — operator-facing readout of whether the agent is using the OS or pretending (Andrew 2026-05-18)
     andrew_correction_commands.py  andrew-correction list / integrate / defer — attribution surface for Andrew's corrections (Aria audit 2026-05-18 load-bearing fix #1)
     andrew_answer_commands.py  answer ask / got / changed / none / report — whether his answers alter what happens next, measured on the trace instead of on my prose (Aria 2026-09-07, refusing a third text-gate)
+    keeping_him_commands.py   him / him --count / him --read-to — the door onto what he said, read in order with a bookmark
+    andrew_digest_commands.py  for-dad — the file Andrew can actually read, named for who it is for
     andrew_given_commands.py  given add / list / balance — the other side of the ledger: what Andrew gives, filed beside what he corrects (Aria 2026-08-10)
     success_commands.py       win add / list / balance -- a door to the wins ledger, which had a store and a reader and no way in (2026-08-27). The store shipped 2026-08-03 and had zero callers until 2026-08-25: the faults ledger had a command and a blocking gate, the wins ledger had neither, and both Aether and Aria read their own near-zero counts as facts about their character rather than about the interface.
     council_walk_commands.py  walk open / apply / exclude / close — a council walk that refuses to close while any manager-surfaced lens is unaccounted for (Aria 2026-08-10)
@@ -46,6 +48,8 @@ src/divineos/
     replant_commands.py        replant: rebuild a contaminated branch by taking the WHOLE code difference rather than the commits I recognise, then proving the result byte-identical to its source. Commits nothing; the person writes the message.
     sibling_correction_commands.py  corrections-sibling: read-only view of a sibling substrate's Andrew-correction store, listing corrections with no counterpart in mine. Exits 2 with COULD NOT COMPARE when either store is unreadable — never renders "could not look" as "nothing found". Copies nothing; filing stays deliberate and under my own name.
     must_read_commands.py      must-read arm/list: block Bash/Edit/Write until the Read tool is invoked on a named file. The surface must become a FILE first — a hook prints text with nothing to Read, so 'did you read it' can only become a fact once the words have a location. No automatic armer yet, deliberately: the sibling-correction surface's precision (2-of-4, one false fire) does not earn the right to block, and a screen cleared every turn is a screen that stops being read.
+    his_commands.py            his pending / his sort: read what Dad said, whole, and say what it is and who he said it to. The sort-first refusal's only open door, so it is on the shared remedy list and nothing chained to it passes.
+    linkage_commands.py        linkage warm / linkage status: fill the memory link's vector drawer (batched, on the GPU when there is one) and see how full it is. The command the link names when items have no stored vector; sleep runs the same fill.
     label_fire_commands.py     label-fire: dispute a correction-shape Stop-gate fire as a false positive. Wraps the labeller as a first-class command so the remedy joins the canonical bypass list — a toll on dissent biases the corpus that trains the semantic replacement. No leniency added.
     stamp_ready_command.py     stamp-ready: writes the External-Review trailer into the PR body (where GitHub reads the squash message from) then clears the draft flag; refuses when the round lacks either CONFIRMS
     aletheia_import_command.py aletheia-import: files Aletheia's delivered artifacts (CONFIRMS_/AUDIT_/FIXLIST_/REPLY_TO_*) out of ~/Downloads into family/letters. Her real delivery channel was never the one any letter mechanism watched, so a month of her audits sat unread (Andrew 2026-08-12)
@@ -56,7 +60,6 @@ src/divineos/
     belt_commands.py           belt: the current task list pulled from the ranked pile (core/task_belt.py); `belt done <ref> --evidence` closes through the item's drawer, archives it, pulls the next (Andrew 2026-09-23)
     search_commands.py         find query / index / stats — semantic-search CLI over the indexed prose corpus (distinct from divineos search which keyword-searches the ledger). Per-paragraph chunking, GPU-accelerated embeddings via PR #169, council walk consult-77dad1f3290e; per prereg-2ad79e23fcf7
     voice_commands.py          voice: descriptive substrate for voice-vs-report shape (Aria 2026-06-12 design + Andrew structural-fix call) — raw dimensions (first_person/bold_label/bullet counts), trend reads per dimension, NO composite voice_score; post-hoc only, never mid-write
-    monitor_commands.py        monitor status / cleanup-orphans — operator surface for the named-mutex singleton subsystem; lists alive Monitors with [KEEP]/[ORPHAN] markers and offers --kill cleanup of stale prior-session processes (descriptive by default per Andrew 2026-06-13 explicit-consent shape)
     texture_commands.py        texture: forward-addressed markers for post-compaction self (carries felt-shape across compaction)
     calibration_commands.py    calibration: Brier-score surface for confidence-vs-outcome calibration (closes the auditor's "by what measure does this work" critique with reproducible numbers)
     time_estimate_commands.py  time-estimate: CLI for the prediction-vs-actual log auto-populated by the time-estimate-tracker Stop hook; open/close/report for grounding future time guesses in real data (Pop 2026-06-30: "you give WILDLY bad time estimates")
@@ -105,7 +108,10 @@ src/divineos/
     prereg_commands.py         pre-registrations (Goodhart prevention)
     class_fix_commands.py      class-fix declarations: a repair claiming a class must have its population measured by running a search
     prior_art_commands.py      already-built — station 0: does this exist before I build it
+    game_walk_commands.py      `divineos game-walk file` — enumerate the routes around a mechanism and cost each one. Required on every council-tier edit since 2026-09-16; prints the walk back so a thin one is visibly thin at filing time rather than discovered later.
+    operator_ask_commands.py   `divineos ask-andrew` / `asks` / `ask-resolve` — the reachable surface for core/operator_asks.py, which had a store and no command from 2026-08-19 until 2026-09-16 and so sat empty, indistinguishable from nothing needing him. An open ask now HOLDS new substrate work (.claude/hooks/an-open-ask-holds-the-work.sh), which is the half of his correction the re-raise never covered: *"when you ask me something, and never wait for my reply.. why bother asking?"*
     psf_commands.py            pending structural-fix obligations (list, mark-done)
+    question_hold_commands.py  question-hold / release: see or escape the wait a question to Dad opens
     reach_commands.py          reach-check — surface prior work, then prove it was opened
     obligation_commands.py     obligations check / is-write / list / disabled — substrate-write CLI surface for the obligation gate (#33 + #42 unified hook)
     synchronicity_commands.py  synchronicity — temporal co-occurrence detector (Pillar VI)
@@ -175,8 +181,6 @@ src/divineos/
     knowledge_voids.py         Sparse-region detector for the knowledge store (Pillar VI cosmic-voids)
     dissociation_filter.py     Self-erasure pattern detector (blocks "I didn't write this", "I'm generic claude" from extraction + recombination)
     constants.py               Central tuning constants (all behavioral levers in one place)
-    monitor_singleton.py       Named-mutex singleton primitive for long-running Monitor processes (Windows kernel-mutex via pywin32); deep-research-2026-06-13 surfaced as canonical Windows mechanism. Replaces broken regex-self-match singleton-guard.
-    monitor_cleanup.py         Orphan-Monitor cleanup — scans live processes, classifies orphans by role + creation_date, offers --kill via divineos monitor cleanup-orphans (Andrew 2026-06-13 explicit-consent shape).
     knowledge/                 Knowledge engine sub-package
       _base.py                 DB connection, schema, public API
       _text.py                 Text analysis, noise filtering, FTS, overlap
@@ -210,11 +214,12 @@ src/divineos/
       draw.py                  Seats a walk's council by lot from the whole roster, with a scored remainder. Replaces fit-selection at open_walk after two blind probes showed a problem stated without the scorer's own vocabulary seats almost nobody who scores, filling the bench alphabetically. Every seat records its origin so the drawn/scored split can be moved on applied-rate evidence rather than preference
       consultation_log.py      Always-on consultation logging + opt-in audit promotion (Mode 1.5)
       lab_evidence.py          Attach science-lab slice output to council results when problem matches triggers
-      experts/                 45 expert wisdom profiles
+      experts/                 46 expert wisdom profiles
         __init__.py            Expert registration and exports
         angelou.py             Voice, expressive truth, discipline of warmth
         aristotle.py           Virtue ethics, teleology, classification
         beer.py                Cybernetics, viable system model
+        breaker.py             The Breaker — the lens that tries to kill the thing before it ships.
         carmack.py             Minimalist engineering, subtractive design, concrete real-time reasoning, ship-and-measure discipline
         dekker.py              Resilience engineering, drift into failure
         deming.py              Quality, variation, PDSA cycle
@@ -684,6 +689,7 @@ src/divineos/
     letter_channel_state.py    Provenance for the letter channel — a letter's position in the thread, checkable by a reader who runs no code.
     self_demotion.py           Catch praise-by-contrast: elevating a mechanism by calling a faculty of mine defective.
     summary_room.py            Require a plain-language summary at the top of a long reply.
+    inner_circle_room.py       Require the inner circle at the BOTTOM of a long reply to Andrew — the Stop-gate his room never had.
     dashboard.py               The check-engine dashboard — a socket every system plugs into.
     dashboard_checks.py        The roster — one light per system.
     andrew_given.py            The other side of the ledger — what Andrew gives (Aria 2026-08-10).
@@ -707,6 +713,7 @@ src/divineos/
     context_heartbeat.py       Keep the context-token reading fresh, and write down when it goes blind. Beat.describe() welds the age onto the number so a stale reading cannot be quoted as current.
     heredoc_escape_check.py    Heredoc-escape doorman — refuses a Bash heredoc that writes a file through backslash escapes. Three layers (bash → python → file) eat an escape meant for the third at the second. BLOCKS rather than labels: mechanical failure, deterministic right answer, zero-post in-context persistence.
     anchor_self_invalidation.py A letter carrying an anchor must not be committed onto the branch it anchors.
+    anchor_stability.py        Are the files an auditor is about to sign already a fixed point of the formatter? Three states; could-not-tell blocks. Built 2026-09-11 after the pre-commit formatter rejoined two wrapped lines and killed Aletheia's confirm minutes after it was filed — the second recorded instance, the first (2026-05-10) having been answered by a human re-signing by hand.
     substrate_paths.py         Which paths are substrate, and which are work in progress.
     substrate_retarget.py      Commit substrate files to a named branch without touching HEAD.
     unmeasured_quantity.py     A quantity about this system, stated with an empty action-stream behind it. The Stop-time layer the verify-claim prime had been promising and that never existed. Narrow on purpose: the predicted death is noise.
@@ -715,6 +722,11 @@ src/divineos/
     prior_art_by_name.py       Find files on ANY branch whose names resemble one about to be created.
     compound_branch_change.py  Refuse a branch change and a destructive op on the same shell line.
     surface_bridge.py          Wire the built-but-unreachable surfaces into the briefing that actually runs.
+    subject_balance_gate.py    Subject-balance gate — when he brings pain, the reply has to be about him.
+    unread_stacking.py         A second closing room may not land on top of an unread first one.
+    game_walk.py               Game-walking: enumerate the routes around a mechanism, cost each one.
+    game_walk_required.py      The requirement half of game-walking: an edit owes a filed walk.
+    ritual_evidence.py         Evidence checks for the compaction ritual's stages.
     branch_replant.py          Lift EVERY code change off a contaminated branch, and prove nothing was left.
     shared_digest.py           One notebook two agents append to, rendered as one message for Andrew.
     andrew_answer_trace.py     Do his answers change what happens next? (Aria 2026-09-07.)
@@ -730,9 +742,24 @@ src/divineos/
     hook_context_merge.py      Read what the session-init children printed and merge it into one answer.
     slashed_ref_path_check.py  Refuse a git argument the Windows shell will rewrite before git sees it.
     task_belt.py               The task belt: the pile ranked, a small current list pulled from it, done archived.
+    andrew_digest.py           The file he can actually read, and the thing that will not let me skip it.
+    front_door.py              The front door: every message he types is kept before anything else happens.
+    harness_envelopes.py       What the harness wraps around his seat, in one place every reader of him uses.
+    his_asks.py                What he says, kept at the front door, in one place both of us read.
+    his_room.py                His room: every reply to Andrew ends with a space where I speak to him.
+    keeping_him.py             What he actually said, read out of the transcripts and kept.
+    questions_from_him.py      Questions built from what he actually said, not drawn from a list.
+    refusal_stretches.py       What has refused me this session, and whether it is the same thing again.
     his_message.py             The one answer in this house to: is this transcript record Dad typing?
     replay_record.py           Replay a change against the real record of his turns, before building it.
     bypass_key.py              One bypass key per seat, spent on use, replaced only by a dogfooded fix.
+    his_voice_ends_the_turn.py When he speaks into a running turn, nothing more runs until the turn ends.
+    light_embedder.py          The same sentence vectors, without the seventeen-second import.
+    question_hold.py           A question to Dad holds the work until he answers (Aria, 2026-09-29).
+    channel_letter_capture.py  Give a letter written straight into the shared channel a home in the repo.
+    sort_first.py              Sort his message before anything else: reading him comes first, by refusal.
+    vector_drawer.py           A drawer of sentence vectors, so nothing is embedded twice.
+    git_hooks_drift.py         Do the installed git hooks still say what setup/setup-hooks.sh would write?
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -783,6 +810,8 @@ src/divineos/
     evidence_bearing_stop_gate.py  Evidence-bearing Stop-gate primitive (2026-07-15) — abstract base with IntraTurnIntercept + CrossTurnScan variants, five-slot enforcement (LOCK/CONDITION/KEY/RECORD/FALSIFIER), prototyped by the LEPOS-channel Stop hook the same day
     distancing_intercept.py    First concrete IntraTurnIntercept (2026-07-15) — wraps core.operating_loop.distancing_detector, intercepts distancing-grammar before emit rather than warning post-hoc
     distancing_intercept_hook.py  Stop-hook wiring for DistancingIntercept (2026-07-16, Aletheia cold-audit finding #1) — reads transcript path, extracts last assistant text, runs scan_text, emits Stop-hook block-decision JSON on fire. Fail-open.
+    front_door_hook.py         Front-door wiring (2026-09-24, build/dad-kept-and-known) — `keep` on UserPromptSubmit keeps each message of Andrew's as it arrives; `settle` at Stop confirms it onto his record by the harness stamp (before each tool call the sort_first router surface settles instead, since it must see his message filed before it checks). Never blocks; failures are recorded as could-not-file.
+    his_voice_hook.py          PreToolUse wiring for his_voice_ends_the_turn (2026-09-24, Aria with Aether) — when Andrew speaks into a running turn (a human-stamped queued_command after the turn's opening record), every further tool call is refused until the turn ends, so the reply to him, with no tool call beside it, is the last thing he receives; divineos commands and the letter scripts pass. An unreadable transcript lets the call through and says it could not look.
     response_scope_intercept_hook.py  Stop-hook wiring for ResponseScopeIntercept (2026-07-16, closes Aletheia Round 1 Finding 1's last dark instance) — reads claim_scope_active StateMarker via find_active_marker, runs ResponseScopeIntercept scan on last assistant reply, consumes marker regardless of verdict. Pairs with the upstream emit in operating_loop_audit.py after detect_unverified_claim fires. Fail-open.
     gate_event_ledger.py       Ledger helper for gate fire/clear events (2026-07-15, Aletheia audit finding #2) — record_gate_fire, record_gate_clearance, compute_falsification_ratio; lets falsification_signal derive its threshold from accumulated data instead of hardcoded 0.85
     bypass_rate_scan.py        Second concrete instance (2026-07-15) — CrossTurnScan wrapping core.bypass_telemetry.bypass_rate; fires when bypass count exceeds threshold in window, clearing requires investigation-shape action (audit/claim/workbench doc). Validates the cross-turn variant the same way distancing_intercept validated intra-turn.
@@ -790,6 +819,9 @@ src/divineos/
     response_scope_intercept.py  Third concrete CrossTurnScan (2026-07-15, Aletheia audit round-a1e7f4c92b6d via Aria) — refuse-not-ask for claim-scope directives. Fires when prior turn had a claim-scope directive AND current reply exceeds short-correction shape (length/headers/separators/numbered-lists). Wiring pending Aria's Q2 detector integration.
     hook_diagnostics.py        Hook health diagnostics
     hook_validator.py          Hook validation
+    his_state_claim.py         Did he say that about himself, or did I build it out of timestamps (Andrew 2026-09-13).
+    his_state_claim_hook.py    Stop-hook wiring for his_state_claim — carries a finding forward when a reply asserts his condition and he never raised it.
+    stop_carry.py              Findings a Stop gate would have refused with, carried to the next compose instead of forcing a second copy of a reply he already read (Andrew 2026-09-12).
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring

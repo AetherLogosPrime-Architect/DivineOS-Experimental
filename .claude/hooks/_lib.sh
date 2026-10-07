@@ -344,22 +344,41 @@ divineos_home() {
   printf '%s' "$HOME/.divineos"
 }
 
+# Prepend the active worktree's src/ to PYTHONPATH, once.
+#
+# 2026-09-24 (Aether, build/dad-kept-and-known): THIS NEVER REACHED A SINGLE
+# HOOK. Every caller writes PYTHON_BIN="$(find_divineos_python)", and command
+# substitution runs the function in a subshell, so the export below died with
+# it. Measured: after that call PYTHONPATH was unset and divineos loaded from
+# the main checkout; after a direct call it was the worktree's src. In the main
+# checkout the two copies agree, so nothing looked wrong; in a worktree every
+# hook silently ran main's code -- including the build-flow doorman, which is
+# part of why it could not see worktrees. Found by an end-to-end test of the
+# front-door hook, whose module did not exist yet on main.
+#
+# The fix runs the prepend at SOURCE time, in the caller's own shell, and keeps
+# it inside find_divineos_python for direct callers. Idempotent.
+_lib_prepend_worktree_src() {
+  local repo_root
+  repo_root="$(_lib_repo_root)"
+  [ -d "$repo_root/src" ] || return 0
+  # 2026-06-30 fix #1 (round-61d7311e03c7): OS-specific PYTHONPATH separator.
+  local _pp_sep=":"
+  case "${OSTYPE:-}" in
+    msys*|cygwin*|win*) _pp_sep=";" ;;
+  esac
+  case "${_pp_sep}${PYTHONPATH:-}${_pp_sep}" in
+    *"${_pp_sep}${repo_root}/src${_pp_sep}"*) return 0 ;;
+  esac
+  export PYTHONPATH="$repo_root/src${PYTHONPATH:+${_pp_sep}${PYTHONPATH}}"
+}
+
 find_divineos_python() {
   local repo_root
   repo_root="$(_lib_repo_root)"
-  # Side effect: prepend active worktree's src/ to PYTHONPATH so the
-  # active source-of-truth wins over any stale editable install. See
-  # the docstring's "Side effect" section for the bug this prevents.
-  #
-  # 2026-06-30 fix #1 (round-61d7311e03c7): use OS-specific PYTHONPATH
-  # separator. Latent Windows bug, NOT the family-wrapper root cause.
-  if [ -d "$repo_root/src" ]; then
-    local _pp_sep=":"
-    case "${OSTYPE:-}" in
-      msys*|cygwin*|win*) _pp_sep=";" ;;
-    esac
-    export PYTHONPATH="$repo_root/src${PYTHONPATH:+${_pp_sep}${PYTHONPATH}}"
-  fi
+  # Side effect for direct callers; callers using $(...) get it from the
+  # source-time call at the bottom of this file instead.
+  _lib_prepend_worktree_src
   # 2026-06-30 fix #2 (round-61d7311e03c7) — REAL root cause of the 11
   # family-wrapper test failures the push-readiness gate surfaced. On
   # Windows, the Microsoft Store python3 stub at
@@ -446,6 +465,53 @@ sys.exit(0 if got == want else 3)
     "no viable python found; candidates checked: venv/system"
   return 1
 }
+
+# THE SIDE EFFECT ABOVE NEVER REACHED A SINGLE HOOK, and this is where it has
+# to live instead. Found 2026-09-23 chasing #519 tests that failed only inside
+# the pre-push suite.
+#
+# find_divineos_python exports PYTHONPATH so this checkout's src/ wins over
+# the editable install. But 110 hooks call it as PYTHON_BIN="$(find_divineos_python)",
+# and command substitution runs the function in a subshell: the export dies
+# with the subshell and the caller's PYTHONPATH is untouched. Measured: from a
+# worktree with PYTHONPATH unset, sourcing this file and calling it that way
+# leaves PYTHONPATH empty, and the resolved python imports divineos from the
+# MAIN checkout. So in every worktree, every hook has been running whatever
+# branch the main checkout happens to be on -- the silent-stale-substrate class
+# that side effect was written to prevent, still open at all 110 sites.
+#
+# Doing it when this file is SOURCED puts it in the hook's own shell, which is
+# the only place an export survives. Idempotent, so the copy inside
+# find_divineos_python stays harmless for the callers that do run it directly.
+#
+# AN EXPLICIT CHOICE STILL WINS. What was wrong was the editable install
+# winning BY DEFAULT, a copy nobody picked. A caller whose PYTHONPATH already
+# names a directory providing divineos has picked which one to load -- my own
+# hand runs with PYTHONPATH=src, and tests/test_doorbell_absence.py shimming a
+# broken package to prove a doorbell says NOT RUNNING. Overriding that choice
+# silently would be the same fault in reverse: the hook deciding for the
+# caller what code the caller meant.
+#
+# THE LIMIT THAT COMES WITH THAT (Aletheia 2026-09-23, reviewing this): a
+# PYTHONPATH chosen on purpose and one INHERITED from a shell aimed at the main
+# checkout look identical from here -- both already provide divineos. So in a
+# worktree whose shell carries PYTHONPATH=<main>/src, this steps aside and the
+# hook runs main's code: the very bug above. It cures the unset case, not the
+# inherited-main case. If a worktree still behaves like main, check the shell.
+_lib_prefer_this_checkout() {
+  local _root _sep=":" _entry _rest
+  _root="$(_lib_repo_root)"
+  [ -d "$_root/src" ] || return 0
+  case "${OSTYPE:-}" in msys*|cygwin*|win*) _sep=";" ;; esac
+  _rest="${PYTHONPATH:-}"
+  while [ -n "$_rest" ]; do
+    _entry="${_rest%%"$_sep"*}"
+    [ "$_entry" = "$_rest" ] && _rest="" || _rest="${_rest#*"$_sep"}"
+    [ -n "$_entry" ] && [ -f "$_entry/divineos/__init__.py" ] && return 0
+  done
+  export PYTHONPATH="$_root/src${PYTHONPATH:+${_sep}${PYTHONPATH}}"
+}
+_lib_prefer_this_checkout
 
 
 # is_bypass_command — return 0 if the given command matches a
@@ -598,6 +664,16 @@ hook_say_nothing_ran_for() {
   command="$(printf '%s' "$payload" | extract_tool_command 2>/dev/null)" || return 0  # fail-soft: extraction spawns a Python that can fail for reasons unrelated to the refusal in progress; the block must survive that, and the footer is the part allowed to go missing
   hook_say_nothing_ran "$command"
 }
+
+# Source-time worktree prepend, in the caller's own shell (see
+# _lib_prepend_worktree_src: the in-function export never survived $(...)).
+# Only when nothing set PYTHONPATH: an explicit path is a deliberate choice --
+# test_doorbell_absence points hooks at a broken OS that way to prove a doorbell
+# says it is absent -- and this new step must not overrule it. Direct callers
+# of find_divineos_python keep the old unconditional prepend, unchanged.
+if [ -z "${PYTHONPATH:-}" ]; then
+  _lib_prepend_worktree_src
+fi
 
 # F90 heartbeat call (must be at end-of-file — after _lib_log_liveness
 # is defined). Aletheia 2026-07-28: "the liveness mechanism cannot

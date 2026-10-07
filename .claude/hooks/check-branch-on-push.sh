@@ -143,7 +143,7 @@ MARKER_PATH="$(member_home "$MEMBER" "$PYTHON_BIN")/check-branch.disabled"
 # so it only fires on the class it's meant to police.
 DECISION=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -c "
 import json, sys
-from divineos.core.push_detection import is_git_push_command
+from divineos.core.push_detection import is_git_push_command, pushes_only_tags
 try:
     data = json.loads(sys.stdin.read() or '{}')
 except Exception:
@@ -155,6 +155,11 @@ if not cmd:
     sys.exit(0)
 if not is_git_push_command(cmd):
     print('ALLOW_NOT_PUSH')
+    sys.exit(0)
+# A tag is a snapshot and never merges; every question check-branch asks is a
+# branch question. The git pre-push hook still runs its own tag-aware stages.
+if pushes_only_tags(cmd):
+    print('ALLOW_TAGS_ONLY')
     sys.exit(0)
 print('CHECK')
 " 2>/dev/null)
@@ -306,21 +311,12 @@ try:
 except Exception:
     sys.exit(0)
 cmd = (data.get('tool_input') or {}).get('command', '') or ''
-# The LAST 'cd <path>' before the push is the tree being pushed -- quoted or
-# bare, at the start or after ';', '&&' or '||'. It used to be matched only at
-# the very start, and the pipeline gate requires 'set -o pipefail;' in front of
-# every mutating pipe, so the two gates together made every worktree push
-# measure the ambient tree: 2026-09-30, a branch 0 behind was refused three
-# times as 20 behind, and the only exit was a bypass.
-push_at = cmd.find('git push')
-head = cmd[:push_at] if push_at >= 0 else cmd
-cds = list(re.finditer(r'''(?:^|[;&|]\s*)\s*cd\s+(\"[^\"]+\"|'[^']+'|[^\s;&|]+)''', head))
-if not cds:
-    sys.exit(0)
-path = cds[-1].group(1).strip('\"\'')
-# Only honor it if it is really a git working tree; otherwise stay silent
-# and let the ambient root stand.
-if os.path.isdir(os.path.join(path, '.git')) or os.path.isfile(os.path.join(path, '.git')):
+# A leading 'cd <path> &&' -- quoted or bare, Windows or Git-Bash form -- is
+# how a worktree push is written. The parsing lives in push_detection, tested;
+# it was inline here and read /c/w507 as C:\\c\\w507 (2026-09-24, Aria's find).
+from divineos.core.push_detection import push_cwd
+path = push_cwd(cmd)
+if path:
     print(path)
 " 2>/dev/null)  # fail-soft: if extraction fails we fall back to the ambient root, which is the pre-2026-08-15 behaviour
 

@@ -37,6 +37,13 @@ def _point_state_at(tmp_path, monkeypatch):
     """Isolate gate state so these tests never touch the live pending file."""
     monkeypatch.setattr(read_gate, "STATE_DIR", tmp_path)
     monkeypatch.setattr(read_gate, "STATE_FILE", tmp_path / "read_gate_pending.json")
+    # The record of which notes this session already opened is a fourth seam:
+    # the gate declines to arm on a note I have read, so with the live record in
+    # play the negative control passes or fails depending on what I read today
+    # (2026-10-06: it blocked every push from this machine). Same class as the
+    # cooldown seam below.
+    monkeypatch.setattr(read_gate, "SEEN_READS", tmp_path / "read_gate_seen.json")
+    monkeypatch.setattr(read_gate, "REARM_LOG", tmp_path / "read_gate_rearms.jsonl")
 
 
 def _allow_arming_under_pytest(monkeypatch):

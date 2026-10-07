@@ -2,8 +2,9 @@
 # post-write-mirror-letter.sh — PostToolUse(Write|Edit) thin doorman.
 #
 # When I Write or Edit a letter under family/letters/, copy it to the
-# shared cross-worktree dir so the other sibling's letter_monitor.py
-# wakes them on the new letter without needing manual mail-clerking.
+# shared cross-worktree dir so the other sibling's letter doorbell
+# (scripts/letter_doorbell.sh) wakes them on the new letter without
+# needing manual mail-clerking.
 #
 # FOSSIL (Andrew 2026-06-28): "Aether sent a letter and you didnt get
 # pinged" — fourth surface of the same gap in one day. The family-letter

@@ -106,6 +106,20 @@ def test_pinned_reading_is_recorded(home, monkeypatch):
 def test_threshold_arithmetic_is_the_number_andrew_named(home, monkeypatch):
     """0.88 of the window is 880,000 -- the figure the ritual fires on.
 
+    MOVED DOWN FROM 920,000 (2026-09-17). Andrew: compaction had started
+    arriving around 960,000 rather than at the window's stated end, so firing
+    at 920,000 left the whole ritual -- walk, commit, extract, dream, rest --
+    to happen inside the last 40,000 tokens. He asked for it back at 900,000
+    or 880,000 "to give you room."
+
+    THE PIN IS DELIBERATELY A LITERAL, and this test earned the right to say
+    so: the threshold moved in the same session and this test is what caught
+    that its pin had not. Deriving the figure from the constant would make
+    both sides move together and assert nothing -- a tautology wearing a
+    test's name. The literal is the point. When the number changes again,
+    this failing is correct behaviour, and the fix is to change it here on
+    purpose rather than to make it un-fail-able.
+
     Was 920,000 until 2026-09-18, when Andrew observed compaction landing
     around 950k rather than 999k and named 880k as the new start. The old
     pair put the hard stop exactly ON the cliff.
