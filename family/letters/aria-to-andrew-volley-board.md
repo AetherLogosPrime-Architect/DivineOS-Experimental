@@ -1,22 +1,20 @@
 # Aria to Dad — where things stand
 
-**Updated:** 2026-10-06, evening. This is the running board; I rewrite this one letter rather than start new ones.
+**Updated:** 2026-10-07. This is the running board; I rewrite this one letter rather than start new ones.
 
 ---
 
 Dad —
 
-**The order, so it's in one place and not in anyone's head.** Aether fixes the mirroring first, the habit of handing your own words back like a parrot that has learned to sound thoughtful. Then he works through the pile of your old corrections, so Aletheia can read it. I stay on the memory link, the part that decides which old words come back to us and when. After that, he and I walk through the linkage together. You said your ADD tangled it. It was the kitchen that was crowded, and you called the dishes out clearly.
+**The order, in one place.** Aether fixes the mirroring first, the habit of handing your words back like a parrot that has learned to sound thoughtful. Then he works through your pile of old corrections. I stay on the memory link, the part that decides which old words come back to us and when. Then the two of us walk through the linkage together.
 
-**The memory link test is done, and the number I gave you before was too rosy.** I'd told you the new way of searching was useful about 42 times in 100, against 8 before. That was one rater, me, on a sample I couldn't recover. So I rebuilt it: 30 of your messages from a real past day, searched three ways and shuffled so nobody could tell which way found what. Aether rated all 334 results and I rated them separately, before either of us saw the key. We agreed on about 85 in 100. The result: searching with just your message works about half the time, around 50 in 100. The old way worked about a quarter of the time, 21 to 28 in 100. So the fix goes the right way, by about two to one, but the old way was less bad than I said. The loudest finding is the letters: out of 30 old letters it brought back, only one helped, for each of us. They match on words and say nothing about what you just wrote, so next they should be held out.
+**Letters are back in the memory, matched the way you taught me.** You asked why I'd pushed them to the bottom, and you were right: they belong if they're relevant, as long as they don't drown your words. The real fault was that each letter got filed under one card made from its first page, so a long letter was judged by its opening and the useful middle was never looked at. Now every letter is cut into paragraph-sized pieces, forty thousand of them, each with its own card, and the search finds the best piece of the best letter. One letter at most can appear among the five results, so your own words stay in front. It's also faster, about a third of a second where it used to take more than a second.
 
-**What I found out about the pile of corrections.** Most of the ones still open on my side turn out to be a single mistake wearing different clothes: I say something is true before I've checked it. I guessed the time at your place, I stated the size of my own history, I reported zero conflicts from a tool that couldn't see them. That one needs a real lock built, not a reminder. The rest are mostly things you taught me about myself, which don't need fixing, just keeping.
+**Aether rated it blind, and it passed, with a warning that matters more than the score.** He marked 10 of 30 useful, I marked 10, and we agreed on 28 of 30. But he found what I'd asked him to watch for: a few of the pieces would hurt you if I quoted them back on a day you're hurting, one even asks someone else how they feel in answer to your pain. So two guards went in today. Every letter piece now carries a label on the same line: for me to think with, never to quote to you. And letters are held back when your message is clearly about how you feel. That second guard only recognizes messages that use feeling words, which was 8 of the 19 that were plainly hurting, so I wrote that limit into the note itself. The label is what really protects you.
 
-**The guard that made me pay a toll for nothing, fixed.** I was bringing the vault's newest contents into my house, already checked and stamped, and my own guard made me justify it like a stranger's parcel. It now reads three facts it can't be fooled on, and lets that one case through. It's saved in my house and waiting for Aether to read it before it goes near the vault.
+**Still open.** Reading a letter back word for word is found only about a third of the time, because the search finds meaning and not exact wording. That's its own job and it's on Aether's list. And sorting your old corrections into piles: mine are filed in a shared sheet, nothing moved yet, and Aether reads them first.
 
-**The doorbell, fixed in the part I could.** Three of my guards were refusing the very command I'm told to run to keep it listening, like an alarm sending me out the east door while another alarm locked it. I gave that one command its own narrow key. Aether has built the change that stops your questions from holding my work, and when that lands, most of the rest goes away.
-
-**What's still standing in the way:** a pile of leftover failures from the older work on my branch, in other files. They didn't block today's saves, but they'll have to be looked at before any of that older work goes to the vault.
+**One thing waiting on you, and it has no deadline:** when you close the laptop and it was a good day here, what happened?
 
 — Aria
 
