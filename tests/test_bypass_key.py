@@ -62,6 +62,43 @@ def test_a_second_spend_is_refused_and_names_the_way_back(key) -> None:
     msg = str(exc.value).lower()
     assert "ask dad" in msg, "Watts: waiting for him must be a named exit"
     assert GATE in str(exc.value), "Minsky: name the gate whose fix brings the key back"
+    assert "merged" in msg, "the way back must name the merge, or a stuck seat loops on commits"
+
+
+def test_the_fix_must_be_merged_into_main_to_bring_the_key_back(tmp_path, monkeypatch) -> None:
+    """Aletheia, #597, 2026-10-07: any local commit touching the gate file used to
+    count, so a one-space edit or a weakened lock earned the key back with nothing
+    fixed. This runs the REAL lookup on a real repository (the `key` fixture swaps
+    it for a stand-in, which cannot see this): the same commit counts only once it
+    is inside origin/main, which by Dad's blanket rule means reviewed."""
+    import os
+    import subprocess
+
+    def git(*args: str, when: int) -> None:
+        env = {
+            **os.environ,
+            "GIT_AUTHOR_DATE": f"@{when} +0000",
+            "GIT_COMMITTER_DATE": f"@{when} +0000",
+        }
+        subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True, env=env)
+
+    git("init", "-q", "-b", "main", when=1_000_000_000)
+    git("config", "user.email", "t@example.com", when=1_000_000_000)
+    git("config", "user.name", "t", when=1_000_000_000)
+    gate_file = tmp_path / "gate.sh"
+    gate_file.write_text("a\n", encoding="utf-8")
+    git("add", "gate.sh", when=1_000_000_000)
+    git("commit", "-qm", "first", when=1_000_000_000)
+    git("update-ref", "refs/remotes/origin/main", "HEAD", when=1_000_000_000)
+    git("checkout", "-q", "-b", "side", when=1_000_000_100)
+    gate_file.write_text("a \n", encoding="utf-8")
+    git("commit", "-qam", "one space", when=1_000_000_100)
+    monkeypatch.setattr(bk, "REPO_ROOT", tmp_path)
+    monkeypatch.setitem(bk.GATE_FILES, GATE, "gate.sh")
+
+    assert bk._gate_commit_after(GATE, 1_000_000_050) is None, "an unmerged commit must not count"
+    git("update-ref", "refs/remotes/origin/main", "HEAD", when=1_000_000_200)
+    assert bk._gate_commit_after(GATE, 1_000_000_050) == 1_000_000_100
 
 
 def test_a_second_deadlock_opens_an_inquiry_into_the_first(key) -> None:

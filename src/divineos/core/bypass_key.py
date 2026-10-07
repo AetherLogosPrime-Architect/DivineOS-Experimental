@@ -148,6 +148,10 @@ def status() -> KeyStatus:
     )
 
 
+# The fix must be merged here for the key to come back: merged means reviewed.
+MAIN_REF = "origin/main"
+
+
 def _refusal(st: KeyStatus) -> str:
     if not st.known_ledger:
         return (
@@ -160,11 +164,12 @@ def _refusal(st: KeyStatus) -> str:
         return "Your bypass key can't be read from the ledger, so there is no key to use. Ask Dad."
     return (
         f"Your one bypass key is already used: it opened {st.spent_gate} for "
-        f"'{st.spent_fingerprint}'. To get it back, fix that lock: commit a change "
-        f"to {GATE_FILES.get(st.spent_gate, st.spent_gate)}, then run the same "
-        "command through it again with no override. When the lock lets it through, "
-        "the key comes back by itself. Or ask Dad -- an inquiry into the unfixed "
-        "lock has been opened, because running out of keys means a fix was skipped."
+        f"'{st.spent_fingerprint}'. To get it back, fix that lock: change "
+        f"{GATE_FILES.get(st.spent_gate, st.spent_gate)} and get the change merged "
+        f"into {MAIN_REF} (merged means reviewed; a local edit does not count), then "
+        "run the same command through it again with no override. When the lock lets "
+        "it through, the key comes back by itself. Or ask Dad -- an inquiry into the "
+        "unfixed lock has been opened, because running out of keys means a fix was skipped."
     )
 
 
@@ -206,13 +211,19 @@ def spend(gate: str, command: str, now: float | None = None) -> None:
 
 
 def _gate_commit_after(gate: str, since: float) -> float | None:
-    """Commit time of the first commit touching the gate's file after ``since``."""
+    """Commit time of the first MERGED commit touching the gate's file after ``since``.
+
+    Merged means reachable from origin/main, which by Dad's blanket rule means
+    reviewed. Aletheia, #597, 2026-10-07: counting any local commit let the key
+    come back for a one-space edit to the gate file, or for weakening the lock,
+    with nothing fixed. A stale local copy of origin/main only delays the key.
+    """
     path = GATE_FILES.get(gate)
     if not path:
         return None
     try:
         out = subprocess.run(
-            ["git", "log", "--format=%ct", f"--since=@{int(since)}", "--", path],
+            ["git", "log", "--format=%ct", f"--since=@{int(since)}", MAIN_REF, "--", path],
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
