@@ -51,9 +51,12 @@ def _query_at_zero_degrees(monkeypatch):
     v2._reset_v2_state_for_tests()
 
 
-def _run(cache: dict[str, list[_CachedItem]]):
+def _run(
+    cache: dict[str, list[_CachedItem]],
+    prompt: str = "a message that is long enough to be searched",
+):
     v2._inject_test_cache(cache)
-    return v2.retrieve_v2("a message that is long enough to be searched")
+    return v2.retrieve_v2(prompt)
 
 
 def _fillers(n: int, start: float = 10.0) -> list[_CachedItem]:
@@ -179,3 +182,53 @@ def test_a_letter_that_repeats_a_correction_collapses_into_the_correction():
     assert len(got) == 1
     assert got[0].source == "correction"
     assert "letter" in got[0].matched_reason
+
+
+# ------------------------------------------------------------------ asking for a letter
+# A flat halving buried a letter he quotes on purpose: measured on 40 real
+# letters, asked for by a quoted sentence, 15 came back with no penalty and 1 with
+# it. Quoting is the observable act that says he is pointing at that letter, and a
+# run of seven words appeared by accident in 0 of 77 of his messages against over
+# a million words of letters (six did in 2). Both sides of seven are pinned.
+
+_SEVEN = "the bell has a thirty minute spring and the clock does not"
+_LETTER_BODY = f"Aria to Aether. {_SEVEN}. Written on the twentieth of the month."
+
+
+def _asked_for(prompt: str):
+    letter = _item("l1", "letter", 0, _LETTER_BODY)
+    return _run({"letter": [letter], "wall": _fillers(TOTAL_INJECTION_CAP)}, prompt)
+
+
+def test_a_letter_he_quotes_keeps_its_full_rank():
+    got = _asked_for("which letter said: " + _SEVEN + "?")
+    assert "l1" in [p.id for p in got]
+
+
+def test_exactly_seven_quoted_words_is_enough():
+    seven = " ".join(_SEVEN.split()[:7])
+    assert len(seven.split()) == 7
+    got = _asked_for("which letter said " + seven + " and then went quiet")
+    assert "l1" in [p.id for p in got]
+
+
+def test_exactly_six_quoted_words_is_not():
+    six = " ".join(_SEVEN.split()[:6])
+    assert len(six.split()) == 6
+    got = _asked_for("which letter said " + six + " and then went quiet")
+    assert "l1" not in [p.id for p in got]
+
+
+def test_a_quote_with_other_capitals_and_punctuation_still_counts():
+    got = _asked_for("WHICH LETTER SAID: The Bell has a thirty-minute spring, and the clock!")
+    assert "l1" in [p.id for p in got]
+
+
+def test_a_message_that_quotes_nothing_leaves_the_penalty_on():
+    got = _asked_for("a message about a letter but with none of its words")
+    assert "l1" not in [p.id for p in got]
+
+
+def test_an_empty_or_short_message_leaves_the_penalty_on():
+    assert "l1" not in [p.id for p in _asked_for("")]
+    assert "l1" not in [p.id for p in _asked_for("the bell has")]

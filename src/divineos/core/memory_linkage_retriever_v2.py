@@ -172,8 +172,37 @@ PRIMING_MAX_BOOST = 0.15
 # is still the right answer the day he asks about a letter.
 LETTER_RANK_FACTOR = 0.5
 
+# ...EXCEPT WHEN HE QUOTES IT. A flat halving buried a letter he asks for on
+# purpose: on 40 real letters asked for by a quoted sentence, 15 came back with
+# no penalty and 1 with it (Aether's review of a82bb19e5 named the risk, and the
+# replay of his 30 real messages could not show it because none asked for a
+# letter). Similarity cannot tell the two apart: a quoted letter's median
+# similarity was 0.46 and the noise letters ran 0.42 to 0.60. Quoting can. A run
+# of this many words copied from the letter appeared by accident in 0 of 77 of
+# his messages against 1M words of letters; six did in 2, so seven is the
+# shortest clean run on that sample. A paraphrase or a title does not count, and
+# that limit is stated, not closed.
+LETTER_QUOTE_RUN = 7
+
 # A text this short is not enough to say two items are the same thing.
 _MIN_KEY_CHARS = 20
+
+
+def _plain_words(text: str) -> list[str]:
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).split()).split()
+
+
+def _quotes_a_run(prompt_words: list[str], content: str) -> bool:
+    """True when the message copies LETTER_QUOTE_RUN or more words in a row from
+    this text. Case and punctuation do not matter; a shorter message never does."""
+    n = LETTER_QUOTE_RUN
+    if len(prompt_words) < n:
+        return False
+    body = " " + " ".join(_plain_words(content)) + " "
+    return any(
+        " " + " ".join(prompt_words[i : i + n]) + " " in body
+        for i in range(len(prompt_words) - n + 1)
+    )
 
 
 def _content_key(text: str) -> str:
@@ -514,6 +543,7 @@ def retrieve_v2(
 
     candidates: list[MemoryLinkagePayload] = []
     keys: list[str] = []  # content identity of each candidate, same order
+    prompt_words = _plain_words(prompt)
     # item id -> priming factor in [0, PRIMING_MAX_BOOST]; scaled by the
     # contested span after the loop. Empty when nothing is primed.
     _priming_factors: dict[str, float] = {}
@@ -536,7 +566,7 @@ def retrieve_v2(
                 recency_days=recency_days,
                 importance_score=item.importance_score,
             )
-            if item.source == "letter":
+            if item.source == "letter" and not _quotes_a_run(prompt_words, item.content):
                 base_rank *= LETTER_RANK_FACTOR
 
             # C5 constraint-exemption: constraint-tier items get no
