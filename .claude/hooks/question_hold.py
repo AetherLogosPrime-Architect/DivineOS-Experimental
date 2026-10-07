@@ -49,6 +49,14 @@ def main() -> int:
         waiting = qh.others_waiting()
         if waiting:
             print("## ON THE SHARED FRIDGE (seen, not holding me)")
+            # Dad, 2026-10-07: "the board is for you and Aether, i can literally see
+            # what he asks me in his window as he asks me". This surface kept handing me
+            # the other seat's question and I kept relaying it to him, from both sides.
+            # The rule is printed WITH the thing it governs, not left in a note.
+            print(
+                "(For me and Aether only. Dad sees each of these in the window where it "
+                "was asked. I do not repeat them to him.)"
+            )
             for line in waiting:
                 print(line)
             print()
