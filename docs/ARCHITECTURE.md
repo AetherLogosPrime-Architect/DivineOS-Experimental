@@ -830,6 +830,8 @@ src/divineos/
     hook_validator.py          Hook validation
     his_state_claim.py         Did he say that about himself, or did I build it out of timestamps (Andrew 2026-09-13).
     his_state_claim_hook.py    Stop-hook wiring for his_state_claim — carries a finding forward when a reply asserts his condition and he never raised it.
+    his_said_claim.py          Did he say that, or did I infer it and hand it back as his (Andrew 2026-10-07). An attribution to him needs his exact sentence in quotes, found verbatim in his record, or my label that it is a guess. Exact match, not meaning search, which probed worse than useless.
+    his_said_claim_hook.py     Stop-hook wiring for his_said_claim — carries a finding forward when a reply attributes a saying or a want to him with no quote and no label, or quotes words he never wrote.
     stop_carry.py              Findings a Stop gate would have refused with, carried to the next compose instead of forcing a second copy of a reply he already read (Andrew 2026-09-12).
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server

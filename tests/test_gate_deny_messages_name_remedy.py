@@ -439,6 +439,13 @@ _UNCLASSIFIED_BASELINE: frozenset[str] = frozenset(
         # rather than by teaching this doorframe reader a word the shell
         # does not contain.
         "his-state-is-his-to-say.sh",
+        # ADDED 2026-10-07 BY ITS OWN AUTHOR, the same widening and the same reason
+        # as the entry above, so it is owed here and not implied. A thin shell over
+        # `python -m divineos.hooks.his_said_claim_hook`; it CAN refuse, only as the
+        # stop_carry fallback when a finding cannot be written down, and that refusal's
+        # way out is the one pinned by test_stop_carry. Not in _NON_GATING_HOOKS,
+        # because a hook that can refuse is not non-gating.
+        "his-said-needs-his-sentence.sh",
         "interior-cue-on-low-presence.sh",
         "lepos-channel-reflect.sh",
         "lepos-channel-surface.sh",

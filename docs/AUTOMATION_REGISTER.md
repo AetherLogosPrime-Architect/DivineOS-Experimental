@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**147 automations — 136 wired, 11 switched off.**
+**148 automations — 137 wired, 11 switched off.**
 
 ---
 
@@ -113,13 +113,14 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `goal-boundary-at-session-start.sh` | 2026-10-01 | A new stretch names its own work (2026-10-01, council-7666a3816f92). |
 | `load-character-sheet.sh` | 2026-09-21 | load Andrew's character sheet into the session |
 
-### Stop  (16)
+### Stop  (17)
 
 | automation | last touched | purpose |
 |---|---|---|
 | `continuity-frame-detector.sh` | 2026-09-15 | MINE, the catching half of the continuity work. Aether. The surface upstairs |
 | `correction-shape-v2-stop.sh` | 2026-09-30 | enforce Layer-2 correction-shape detection on MY assistant |
 | `doorbell-stop.sh` | 2026-09-21 | Stop doorbell. One of seven. All judgment lives in the OS. |
+| `his-said-needs-his-sentence.sh` | not on main | HE SAID IT, OR I GUESSED IT — Stop hook. |
 | `his-state-is-his-to-say.sh` | 2026-10-01 | HIS STATE IS HIS TO SAY — Stop hook. |
 | `lepos-channel-reflect.sh` | 2026-07-11 | post-send lepos reflection channel driver. |
 | `log-session-end.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
