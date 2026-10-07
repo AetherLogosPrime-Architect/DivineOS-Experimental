@@ -179,13 +179,30 @@ LETTER_SLOT_CAP = 1
 _MIN_KEY_CHARS = 20
 
 
-def _letter_candidates(topic_vec: Any) -> list[tuple[MemoryLinkagePayload, str]]:
+def _letter_candidates(topic_vec: Any, prompt: str) -> list[tuple[MemoryLinkagePayload, str]]:
     """The best passage of the best letter, as a payload and its content key, or
     nothing. The index's own problem or staleness is written into the lane state, so
-    a letter lane that could not look is never reported as one with nothing to say."""
+    a letter lane that could not look is never reported as one with nothing to say.
+
+    HELD BACK WHEN HIS MESSAGE IS ABOUT HOW HE FEELS (Aether's marks on the passage
+    sheet, 2026-10-07: three passages would have hurt if quoted on a hurting day, and
+    one was a note about myself that must never be said to him). The judge is the
+    house's one reader of what kind of thing he just did, ``turn_shape``, and it is
+    NOT a hurt detector: measured on 30 of his real messages it caught 8 of the 19
+    that were plainly hurting, and the tone reader caught none. So this is partial by
+    construction, the reason is written into the lane state and the block says what
+    it covers, and the unconditional protection is the label every letter line
+    carries. The error direction is the cheap one: a false alarm hides a letter."""
     from divineos.core import letter_passages
     from divineos.core.memory_linkage_retriever import _LANE_STATE, _SOURCE_THRESHOLDS
+    from divineos.core.questions_from_him import turn_shape
 
+    if turn_shape(prompt) == "feeling":
+        _LANE_STATE["letter_index_error"] = None
+        _LANE_STATE["letter_index_stale"] = None
+        _LANE_STATE["letters_held_back"] = "feeling"
+        return []
+    _LANE_STATE["letters_held_back"] = None
     floor = float(_SOURCE_THRESHOLDS["letter"]["floor"])
     hits, problem = letter_passages.best_letters(topic_vec, k=LETTER_SLOT_CAP, floor=floor)
     _LANE_STATE["letter_index_error"] = problem
@@ -621,7 +638,7 @@ def retrieve_v2(
             )
             keys.append(_content_key(item.content))
 
-    for payload, key in _letter_candidates(topic_vec):
+    for payload, key in _letter_candidates(topic_vec, prompt):
         candidates.append(payload)
         keys.append(key)
 
@@ -730,7 +747,7 @@ def retrieve_similarity_only(prompt: str) -> list[MemoryLinkagePayload]:
 
     # The same letter candidate as the main lane, from the same helper: two lanes
     # with two rulers for one source is how the comment above says they disagree.
-    candidates.extend(payload for payload, _ in _letter_candidates(topic_vec))
+    candidates.extend(payload for payload, _ in _letter_candidates(topic_vec, prompt))
     candidates.sort(key=lambda p: p.composite_rank, reverse=True)
     return candidates
 

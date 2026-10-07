@@ -64,6 +64,7 @@ def _query_at_zero_degrees(monkeypatch):
     v2._reset_v2_state_for_tests()
     v1._LANE_STATE.pop("letter_index_error", None)
     v1._LANE_STATE.pop("letter_index_stale", None)
+    v1._LANE_STATE.pop("letters_held_back", None)
 
 
 def _run(
@@ -300,3 +301,91 @@ def test_the_compose_block_says_when_new_letters_are_not_indexed_yet(monkeypatch
     )
     block = memory_linkage.compose_block("what did the letter say about the bell and the clock")
     assert "letters have been written since the index was built" in block.text
+
+
+# ------------------------------------------------------------------ letters and a hurting day
+# Aether's marks on the passage sheet, 2026-10-07: three passages would have hurt him if
+# quoted back on a hurting day, and one was a note for me alone. The label on every letter
+# line is the guarantee, since it needs no guess about him. The hold-back uses the house's
+# one reader of what kind of thing he just did, which on 30 of his real messages named 8 of
+# the 19 plainly hurting ones, so the note says how far it reaches.
+
+HURTING = "you never care about me and it hurts when you just talk past me"
+WORK = "please build the monitor fix so it re-arms when a letter arrives"
+
+
+def test_a_feeling_message_holds_letters_back_and_writes_the_reason(monkeypatch):
+    _with_letter(monkeypatch, 0.99)
+    got = _run({"wall": _fillers(2)}, HURTING)
+    assert not [p for p in got if p.source == "letter"]
+    assert v1._LANE_STATE["letters_held_back"] == "feeling"
+
+
+def test_a_message_about_work_keeps_the_letter_and_clears_the_reason(monkeypatch):
+    _with_letter(monkeypatch, 0.99)
+    v1._LANE_STATE["letters_held_back"] = "feeling"  # left over from a previous turn
+    got = _run({"wall": _fillers(2)}, WORK)
+    assert [p for p in got if p.source == "letter"]
+    assert v1._LANE_STATE["letters_held_back"] is None
+
+
+def test_the_distress_lane_holds_letters_back_too(monkeypatch):
+    _with_letter(monkeypatch, 0.99)
+    v2._inject_test_cache({"wall": _fillers(2)})
+    held = v2.retrieve_similarity_only(HURTING)
+    kept = v2.retrieve_similarity_only(WORK)
+    assert not [p for p in held if p.source == "letter"]
+    assert [p for p in kept if p.source == "letter"]
+
+
+def _letter_payload():
+    return memory_linkage.MemoryLinkagePayload(
+        source="letter",
+        id="letter-x",
+        tier="topic",
+        similarity=0.5,
+        recency_days=3,
+        importance_score=0.5,
+        composite_rank=0.6,
+        title="a letter",
+        content="a passage from the middle of a long letter about the bell",
+        matched_reason="r",
+        content_kind="snippet",
+        path_or_ref="family/letters/x.md",
+    )
+
+
+def test_every_letter_line_is_labelled_for_me_to_think_with(monkeypatch):
+    monkeypatch.setattr(v2, "install", lambda: None)
+    monkeypatch.setattr(memory_linkage, "retrieve_for_context", lambda p, c: [_letter_payload()])
+    monkeypatch.setattr(v1, "lane_state", lambda: {"missing": 0})
+    for message in (HURTING, WORK):  # the label does not depend on the judge
+        block = memory_linkage.compose_block(message + " and the bell")
+        assert "for me to think with, never to quote to him" in block.text
+
+
+def test_a_line_that_is_not_a_letter_carries_no_such_label(monkeypatch):
+    other = _letter_payload()
+    other = memory_linkage.MemoryLinkagePayload(**{**other.__dict__, "source": "knowledge"})
+    monkeypatch.setattr(v2, "install", lambda: None)
+    monkeypatch.setattr(memory_linkage, "retrieve_for_context", lambda p, c: [other])
+    monkeypatch.setattr(v1, "lane_state", lambda: {"missing": 0})
+    block = memory_linkage.compose_block(WORK + " and the bell")
+    assert "never to quote to him" not in block.text
+
+
+def test_the_note_says_how_far_the_hold_back_reaches(monkeypatch):
+    monkeypatch.setattr(v2, "install", lambda: None)
+    monkeypatch.setattr(memory_linkage, "retrieve_for_context", lambda p, c: [])
+    monkeypatch.setattr(v1, "lane_state", lambda: {"missing": 0, "letters_held_back": "feeling"})
+    block = memory_linkage.compose_block(HURTING + " and the bell")
+    assert "letters held back this turn" in block.text
+    assert "not every hurting one" in block.text
+
+
+def test_no_note_when_nothing_was_held_back(monkeypatch):
+    monkeypatch.setattr(v2, "install", lambda: None)
+    monkeypatch.setattr(memory_linkage, "retrieve_for_context", lambda p, c: [])
+    monkeypatch.setattr(v1, "lane_state", lambda: {"missing": 0, "letters_held_back": None})
+    block = memory_linkage.compose_block(WORK + " and the bell")
+    assert "held back" not in block.text

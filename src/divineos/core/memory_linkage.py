@@ -271,13 +271,29 @@ def compose_block(prompt: str, transcript_path: str | None = None) -> ComposeBlo
         if len(gist) > _LINE_CHARS:
             gist = gist[:_LINE_CHARS].rstrip() + "..."
         where = f" ({payload.path_or_ref})" if payload.path_or_ref else ""
-        lines.append(f"- [{payload.source}, {payload.similarity:.2f}] {gist}{where}")
+        # EVERY LETTER LINE CARRIES THIS, whatever the turn (Aether's marks on the
+        # passage sheet, 2026-10-07: some passages are for me to think with and
+        # would hurt him if said back). It needs no guess about how he feels, which
+        # is why it is the guarantee and the hold-back below is not.
+        tag = f"{payload.source}, {payload.similarity:.2f}"
+        if payload.source == "letter":
+            tag += ", for me to think with, never to quote to him"
+        lines.append(f"- [{tag}] {gist}{where}")
     blocks = ["## THE PAST ON THIS (memory link)\n" + "\n".join(lines)] if lines else []
     notes = []
     if state.get("missing", 0) >= _STALE_AFTER:
         notes.append(
             f"[memory link] {state['missing']} items have no stored vector yet and were "
             "not searched. Refill: divineos linkage warm"
+        )
+    # Held back is a decision about letters, not a reading of him, and it says how
+    # far it reaches: measured on 30 of his real messages the judge named 8 of the
+    # 19 that were plainly hurting. Silence here must not read as coverage.
+    if state.get("letters_held_back"):
+        notes.append(
+            "[memory link] letters held back this turn: his message is about how he feels. "
+            "That judge sees messages with feeling words, not every hurting one, so a letter "
+            "line below is still for me to think with and never to quote to him."
         )
     # A letter lane that could not look says so, in words: "no letter matched" and
     # "the letter index could not be read" read the same to him and mean opposites.
