@@ -83,6 +83,7 @@ See ``tests/core/test_memory_linkage_retriever_v2.py`` for the seven
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import replace
 import time
 
@@ -162,6 +163,59 @@ conversational turns.
 # was never the magnitude. It was measuring a relative thing with an absolute
 # ruler.
 PRIMING_MAX_BOOST = 0.15
+
+# LETTERS RANK LAST, NOT GONE (2026-10-06). Rated blind by two people over 30 of
+# Dad's real messages, a letter was useful 1 time in 30 for each of us: it
+# matches on shared words and says nothing about what he just wrote. Source type
+# is a proxy for the real question, does this speak to what he said, so letters
+# stay findable when nothing else passed and lose to anything that did. A letter
+# is still the right answer the day he asks about a letter.
+LETTER_RANK_FACTOR = 0.5
+
+# A text this short is not enough to say two items are the same thing.
+_MIN_KEY_CHARS = 20
+
+
+def _content_key(text: str) -> str:
+    """The identity of a wording: lowercased, punctuation dropped, spaces
+    collapsed. Empty when too short to be sure, and empty never merges."""
+    key = " ".join(re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).split())
+    return key if len(key) >= _MIN_KEY_CHARS else ""
+
+
+def _collapse_by_content(
+    candidates: list[MemoryLinkagePayload], keys: list[str]
+) -> list[MemoryLinkagePayload]:
+    """One memory, not three: items with the same wording become the best-ranked
+    one, which names where else the wording is filed. Runs before the cut, so a
+    freed slot goes to the next-best item."""
+    best: dict[str, int] = {}
+    others: dict[str, list[str]] = {}
+    for i, (cand, key) in enumerate(zip(candidates, keys, strict=True)):
+        if not key:
+            continue
+        if key not in best:
+            best[key] = i
+            continue
+        keep = best[key]
+        if cand.composite_rank > candidates[keep].composite_rank:
+            others.setdefault(key, []).append(candidates[keep].source)
+            best[key] = i
+        else:
+            others.setdefault(key, []).append(cand.source)
+    kept: list[MemoryLinkagePayload] = []
+    for i, (cand, key) in enumerate(zip(candidates, keys, strict=True)):
+        if not key:
+            kept.append(cand)
+        elif best[key] == i:
+            if key in others:
+                where = ", ".join(dict.fromkeys(others[key]))
+                cand = replace(
+                    cand, matched_reason=f"{cand.matched_reason}; also filed as: {where}"
+                )
+            kept.append(cand)
+    return kept
+
 
 # Priming may move an item by at most this fraction of the SPAN of the
 # contested set on the current prompt. 0.20 means a primed item can close at
@@ -459,6 +513,7 @@ def retrieve_v2(
     topic_vec = _embed_topic(topic)
 
     candidates: list[MemoryLinkagePayload] = []
+    keys: list[str] = []  # content identity of each candidate, same order
     # item id -> priming factor in [0, PRIMING_MAX_BOOST]; scaled by the
     # contested span after the loop. Empty when nothing is primed.
     _priming_factors: dict[str, float] = {}
@@ -481,6 +536,8 @@ def retrieve_v2(
                 recency_days=recency_days,
                 importance_score=item.importance_score,
             )
+            if item.source == "letter":
+                base_rank *= LETTER_RANK_FACTOR
 
             # C5 constraint-exemption: constraint-tier items get no
             # priming boost and always report primed_by=None.
@@ -520,6 +577,9 @@ def retrieve_v2(
                     primed_by=primed_by_id,
                 )
             )
+            keys.append(_content_key(item.content))
+
+    candidates = _collapse_by_content(candidates, keys)
 
     # SPAN-RELATIVE PRIMING (2026-08-10). Two passes are required and this is
     # the second: the boost cannot be computed in the loop above because it is
