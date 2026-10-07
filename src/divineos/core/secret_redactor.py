@@ -48,10 +48,17 @@ logger = logging.getLogger(__name__)
 # 16 is well past any realistic payload shape we emit.
 _MAX_DEPTH = 16
 
-# Maximum string length to scan. Strings longer than this are checked for
-# secret prefixes at the start only — full regex over very large strings
-# is expensive and rarely productive.
-_MAX_SCAN_LEN = 100_000
+# THERE IS NO LENGTH CAP, and there used to be one (2026-10-07). Strings over
+# 100,000 characters were scanned in their first 100,000 only, on the reasoning
+# that full regex over large strings is expensive and rarely productive. Running
+# that claim: a key placed just past the window, or 300,000 characters in, came
+# out in the clear, in a ledger that is append-only. The cap was covering for two
+# patterns that go quadratic on long runs (url credential on a run of letters:
+# 4.7 s at 100,000 characters and 77 s at 400,000; PEM on a flood of BEGIN lines).
+# Those two are linear now, so every position of every string is examined, and a
+# cap anywhere would be the same hole one size larger. The promise is the one in
+# the header, stated with its true limit: no key of a KNOWN shape survives. A shape
+# not in the list below still would.
 
 # Replacement marker. The matched pattern name is appended so audits can
 # distinguish real-secret redactions from over-eager false positives.
@@ -98,27 +105,66 @@ _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("stripe-test-key", re.compile(r"\bsk_test_[0-9a-zA-Z]{24,}\b")),
     # HuggingFace API tokens (2026-07-02 Fable audit finding #6).
     ("huggingface-token", re.compile(r"\bhf_[A-Za-z0-9]{34,}\b")),
-    # PEM private key blocks (2026-07-02 Fable audit finding #6).
-    # DOTALL so . matches newlines — the whole block from BEGIN to END
-    # gets redacted, not just the header line. The auditor named this as
-    # the highest-severity gap in the current pattern set.
-    (
-        "pem-private-key",
-        re.compile(
-            r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
-            re.DOTALL,
-        ),
-    ),
+    # (PEM private key blocks are not in this list. They are found by a linear
+    # pairing in _redact_pem below, because the lazy DOTALL regex this used to be
+    # went quadratic on a flood of BEGIN lines with no END: 0.6 s at 100,000
+    # characters, 10 s at 400,000. Fable audit finding #6, 2026-07-02, named them
+    # the highest-severity gap; they are still redacted first, in _scan_string.)
+    #
     # Credentials embedded in URLs (2026-07-02 Fable audit finding #6).
     # Matches the scheme://user:password@ prefix; the host/path after the
     # @ is preserved in the surrounding text (only this prefix is replaced
     # with the marker). This deletes the credential while keeping the URL
     # context visible for debugging/audit.
+    #
+    # THE SCHEME IS BOUNDED AT 32 CHARACTERS (2026-10-07). It was an unbounded run,
+    # so on a long run of letters with no "://" every start position walked the whole
+    # run again: 4.7 s at 100,000 characters, 77 s at 400,000. A real scheme is
+    # shorter than this; a longer one starts its match later in the run, so the span
+    # replaced is shorter, but the user:password@ after it is still caught.
     (
         "url-embedded-credential",
-        re.compile(r"[a-z][a-z0-9+.\-]*://[^:/\s@]+:[^@/\s]+@"),
+        re.compile(r"[a-z][a-z0-9+.\-]{0,31}://[^:/\s@]+:[^@/\s]+@"),
     ),
 )
+
+_PEM_BEGIN = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")
+_PEM_END = re.compile(r"-----END [A-Z ]*PRIVATE KEY-----")
+_PEM_NAME = "pem-private-key"
+
+
+def _redact_pem(value: str) -> tuple[str, bool]:
+    """Replace each PRIVATE KEY block, BEGIN line through the nearest END line.
+
+    The same result as the lazy regex it replaces (the nearest END after each BEGIN,
+    scanning resumes after it, a BEGIN with no END after it is left alone) in one
+    pass over each marker list instead of a rescan to the end of the string for
+    every BEGIN.
+    """
+    begins = [(m.start(), m.end()) for m in _PEM_BEGIN.finditer(value)]
+    if not begins:
+        return value, False
+    ends = [(m.start(), m.end()) for m in _PEM_END.finditer(value)]
+    marker = _make_marker(_PEM_NAME)
+    parts: list[str] = []
+    pos = 0
+    nxt = 0
+    hit = False
+    for b_start, b_end in begins:
+        if b_start < pos:
+            continue  # inside a block already replaced
+        while nxt < len(ends) and ends[nxt][0] < b_end:
+            nxt += 1
+        if nxt == len(ends):
+            break  # no END after this BEGIN, so none after any later one either
+        parts.append(value[pos:b_start])
+        parts.append(marker)
+        pos = ends[nxt][1]
+        hit = True
+    if not hit:
+        return value, False
+    parts.append(value[pos:])
+    return "".join(parts), True
 
 
 def _scan_string(value: str) -> tuple[str, list[str]]:
@@ -129,17 +175,10 @@ def _scan_string(value: str) -> tuple[str, list[str]]:
     """
     if not value:
         return value, []
-    # Skip oversized strings — only check their leading window for the
-    # common case of "the key is the start of a long log line".
-    if len(value) > _MAX_SCAN_LEN:
-        head = value[:_MAX_SCAN_LEN]
-        redacted_head, head_fired = _scan_string(head)
-        if not head_fired:
-            return value, []
-        return redacted_head + value[_MAX_SCAN_LEN:], head_fired
-
     fired: list[str] = []
-    out = value
+    out, pem_hit = _redact_pem(value)
+    if pem_hit:
+        fired.append(_PEM_NAME)
     for name, pattern in _SECRET_PATTERNS:
         if pattern.search(out):
             out = pattern.sub(_make_marker(name), out)

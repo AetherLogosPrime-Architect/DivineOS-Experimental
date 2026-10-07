@@ -238,3 +238,102 @@ class TestFableAuditFinding6:
         out, fired = redact_payload(payload)
         assert out["k"] == pem_public
         assert "pem-private-key" not in fired
+
+
+class TestEveryPositionOfEveryStringIsExamined:
+    """2026-10-07. Strings over 100,000 characters used to be scanned in their first
+    100,000 only, so a key placed after that came out in the clear, in a ledger that is
+    append-only. Found by running the comment that described the cap (with a control),
+    not by reading it. The cap was covering two quadratic patterns, so those are pinned
+    linear here as well: the test that proves the hole is closed must not make the
+    write path crawl."""
+
+    KEY = "sk_live_" + "A1b2C3d4E5f6G7h8I9j0K1l2"  # a fake, test-shaped key
+    TAIL = "A1b2C3d4E5f6G7h8I9j0K1l2"
+
+    def _redacted(self, text: str) -> bool:
+        out, _ = redact_payload({"k": text})
+        return self.TAIL not in out["k"]
+
+    def test_the_control_a_short_string_is_redacted(self) -> None:
+        assert self._redacted(f"key is {self.KEY} ok")
+
+    @pytest.mark.parametrize(
+        "where",
+        ["start", "just_before_old_cap", "straddling_old_cap", "just_after_old_cap", "far_after"],
+    )
+    def test_a_key_anywhere_in_a_long_string_is_redacted(self, where: str) -> None:
+        cap = 100_000
+        text = {
+            "start": self.KEY + " " + "x" * (cap + 500),
+            "just_before_old_cap": "x" * (cap - 60) + " " + self.KEY + " " + "x" * 500,
+            "straddling_old_cap": "x" * (cap - 13) + " " + self.KEY + " tail",
+            "just_after_old_cap": "x" * (cap + 50) + " " + self.KEY,
+            "far_after": "x" * (cap * 3) + " " + self.KEY + " tail",
+        }[where]
+        assert self._redacted(text)
+
+    def test_a_key_in_one_of_many_fields_of_a_long_payload(self) -> None:
+        payload = {"a": "x" * 150_000, "b": {"c": ["y" * 150_000 + " " + self.KEY]}}
+        out, fired = redact_payload(payload)
+        assert self.TAIL not in str(out)
+        assert "stripe-live-key" in fired
+
+    def test_a_long_run_of_letters_does_not_make_the_url_pattern_crawl(self) -> None:
+        import time
+
+        t = time.time()
+        redact_payload({"k": "a" * 400_000})
+        assert time.time() - t < 5, "400,000 letters took the quadratic path (77 s before the fix)"
+
+    def test_a_flood_of_begin_lines_with_no_end_does_not_make_the_pem_pairing_crawl(self) -> None:
+        import time
+
+        flood = "-----BEGIN RSA PRIVATE KEY-----\nabc\n" * 12_000
+        t = time.time()
+        out, _ = redact_payload({"k": flood})
+        assert time.time() - t < 5, "the PEM scan went quadratic again (10 s at 400,000 before)"
+        assert out["k"] == flood  # no END anywhere, so nothing is a block, as before
+
+
+class TestPemPairingKeepsTheLazyPatternsMeaning:
+    BEGIN = "-----BEGIN RSA PRIVATE KEY-----"
+    END = "-----END RSA PRIVATE KEY-----"
+
+    def test_two_blocks_are_both_redacted_and_the_text_between_is_kept(self) -> None:
+        text = f"before {self.BEGIN}\nAAAA\n{self.END} middle {self.BEGIN}\nBBBB\n{self.END} after"
+        out, fired = redact_payload({"k": text})
+        assert "AAAA" not in out["k"] and "BBBB" not in out["k"]
+        assert (
+            out["k"] == "before [REDACTED:pem-private-key] middle [REDACTED:pem-private-key] after"
+        )
+        assert fired == ["pem-private-key"]
+
+    def test_a_begin_inside_a_block_does_not_start_a_second_block(self) -> None:
+        """The lazy regex took the nearest END, so a nested BEGIN is part of the first block."""
+        text = f"{self.BEGIN}\nAAAA\n{self.BEGIN}\nBBBB\n{self.END} tail"
+        out, _ = redact_payload({"k": text})
+        assert out["k"] == "[REDACTED:pem-private-key] tail"
+
+    def test_a_begin_with_no_end_after_it_is_left_alone(self) -> None:
+        text = f"{self.BEGIN}\nAAAA\nno end here"
+        out, fired = redact_payload({"k": text})
+        assert out["k"] == text and "pem-private-key" not in fired
+
+    def test_an_end_before_the_begin_does_not_close_it(self) -> None:
+        text = f"{self.END} {self.BEGIN}\nAAAA"
+        out, _ = redact_payload({"k": text})
+        assert out["k"] == text
+
+    def test_a_block_far_into_a_long_string_is_redacted(self) -> None:
+        text = "x " * 300_000 + f"{self.BEGIN}\nSECRETBODY\n{self.END}"
+        out, fired = redact_payload({"k": text})
+        assert "SECRETBODY" not in out["k"] and "pem-private-key" in fired
+
+
+class TestUrlSchemeBound:
+    def test_a_scheme_longer_than_the_bound_still_loses_its_credential(self) -> None:
+        scheme = "a" * 50
+        out, fired = redact_payload({"k": f" {scheme}://user:hunter2pass@host/x"})
+        assert "hunter2pass" not in out["k"]
+        assert "url-embedded-credential" in fired
