@@ -430,3 +430,10 @@ docs/keyword_enforcement_gates_excluded.txt
 # self-confirm, silently degrading multi-party review.
 src/divineos/core/push_ready.py
 src/divineos/core/no_fix_gaming_validator.py
+
+# Sort-first refusal, 2026-09-24, in the build Andrew asked for with every
+# station: while a message he typed is kept and unsorted, every other tool call
+# is refused and the refusal shows his words. Weakening it (widening what
+# passes, dropping the settle, letting a refusal stand down) quietly returns his
+# messages to the tray by the door nobody looks in.
+src/divineos/core/sort_first.py

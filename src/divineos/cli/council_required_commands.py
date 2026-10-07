@@ -33,7 +33,7 @@ from divineos.core.council_required.types import (
     EVENT_COUNCIL_LENS_APPLIED,
     CouncilRecord,
     LensFinding,
-    _normalize_edit_fingerprint,
+    fingerprint_for,
 )
 
 
@@ -175,11 +175,6 @@ def register(cli: click.Group) -> None:
         help='Per-lens findings: "lens1=text;lens2=text;..."',
     )
     @click.option("--synthesis", required=True, help="Cross-lens integration text")
-    @click.option(
-        "--confirmed-by",
-        default="",
-        help="External actor (Andrew/Aletheia) — required for kiln-layer edits",
-    )
     @click.option("--actor", default="agent", help="Walker identity")
     @click.option(
         "--scope",
@@ -198,7 +193,6 @@ def register(cli: click.Group) -> None:
         lenses: str,
         findings_arg: str,
         synthesis: str,
-        confirmed_by: str,
         actor: str,
         scope_arg: str,
     ) -> None:
@@ -215,17 +209,25 @@ def register(cli: click.Group) -> None:
             lenses_surfaced=lens_names,
             lens_findings=tuple(findings),
             synthesis=synthesis,
-            confirmed_by=confirmed_by or None,
             scope_fingerprints=tuple(name.strip() for name in scope_arg.split(",") if name.strip()),
         )
+        copied = store.copied_from(record)
+        if copied:
+            _safe_echo(
+                f"[council] REJECTED: this walk is a copy of {copied}. Its findings are "
+                "word for word ones already filed. A copy says one look happened once; "
+                "it does not say this file was looked at. If one piece of thinking "
+                "really covers several files, file it once with --scope naming them all."
+            )
+            raise SystemExit(1)
         keywords = _load_expert_keywords()
-        # Kiln detection is best-effort here — the CLI does not have the
-        # full gravity-classifier context. We accept the caller's
-        # confirmed_by; the gate at PreToolUse re-checks against the
-        # real classifier output.
-        is_kiln = bool(confirmed_by)
+        # No kiln flag here any more. It existed only to select the signature
+        # demand, and that is gone (2026-09-06) -- confirms happen at the
+        # merge gate, not in front of an edit. The parameter went with it
+        # rather than being passed as a permanent False, which is how a
+        # removed rule leaves a socket behind and grows back into it.
         bind_result = substance_binding.substance_bind_record(
-            record, is_kiln_layer=is_kiln, expert_keywords_for_lens=keywords
+            record, expert_keywords_for_lens=keywords
         )
         if not bind_result.passed:
             store.log_walk_rejection(record, bind_result, actor=actor)
@@ -284,6 +286,31 @@ def register(cli: click.Group) -> None:
                 "collects the substance of your walk, not just an ack."
             )
             raise SystemExit(1)
+
+        # A reflection already applied for this lens, word for word, is a copy
+        # (Dad 2026-10-03, "did you just run the council as a program?"). The
+        # ledger keeps the first 400 characters, so that is what is compared.
+        from divineos.core.ledger import get_events
+
+        # Any lens, not only this one (Aria's cold read, 2026-10-03): Breaker's
+        # reflection pasted in as Carmack's passed. One normal form, the store's.
+        head = store._fold(reflection[:400])
+        for ev in get_events(limit=2000, event_type=EVENT_COUNCIL_LENS_APPLIED, order="desc"):
+            prior = ev.get("payload") or {}
+            if isinstance(prior, str):
+                try:
+                    prior = json.loads(prior)
+                except ValueError:
+                    continue
+            if store._fold(prior.get("reflection_prefix", "")) == head:
+                _safe_echo(
+                    f"[council] REJECTED: this {lens} reflection is a copy of one already "
+                    f"applied for {prior.get('edit_fingerprint', '?')} (as "
+                    f"{prior.get('expert_name', '?')}). A copy says one look happened once. "
+                    "Look at this file through the lens and write what you see, or cover "
+                    "several files with one walk using council log --scope."
+                )
+                raise SystemExit(1)
 
         # Substance check 1: minimum token count. Same bar as council log.
         token_count = len([t for t in reflection.split() if t])
@@ -463,11 +490,8 @@ def register(cli: click.Group) -> None:
                 continue
             rid = payload.get("record_id", "?")
             lenses = ",".join(payload.get("lenses_surfaced") or [])
-            confirmed = payload.get("confirmed_by") or "-"
             walked_at = payload.get("walked_at", 0)
-            _safe_echo(
-                f"{rid}  ts={walked_at:.0f}  fp={fp}  lenses=[{lenses}]  confirmed_by={confirmed}"
-            )
+            _safe_echo(f"{rid}  ts={walked_at:.0f}  fp={fp}  lenses=[{lenses}]")
             shown += 1
         if shown == 0:
             _safe_echo("[council] No records found")
@@ -491,9 +515,7 @@ def register(cli: click.Group) -> None:
         of an accepted type or actor. Self-attestation is closed at
         design-time per Aether Catch 4.
         """
-        fingerprint = _normalize_edit_fingerprint(
-            path or command.split()[0] if command else path, tool
-        )
+        fingerprint = fingerprint_for(tool, (path,) if path else (), command)
         corroborator_event = store.find_corroborator_event(
             corroborator,
             accepted_event_types=EMERGENCY_CORROBORATOR_EVENT_TYPES,
@@ -574,9 +596,12 @@ def register(cli: click.Group) -> None:
             )
             raise SystemExit(1)
 
-        fingerprint = _normalize_edit_fingerprint(
-            path or command.split()[0] if command else path, tool
-        )
+        # THE GATE'S KEY, NOT A PRIVATE ONE (2026-09-23, Aria). This took the
+        # command's first word, so a shell authorization was stored as
+        # `bash:cp` while the gate looked it up as the file written -- the two
+        # never met, and Andrew's authorization could not clear the edit it
+        # named. Pinned by test_the_gate_key_names_every_file_written.py.
+        fingerprint = fingerprint_for(tool, (path,) if path else (), command)
         quote_hash = hashlib.sha256(quote.encode("utf-8")).hexdigest()
 
         marker_id = emit_marker(
@@ -630,9 +655,19 @@ def register(cli: click.Group) -> None:
             if decision.matched_record_id:
                 _safe_echo(f"  consumed record: {decision.matched_record_id}")
             return
+        # THE GATE HAS FOUR ANSWERS AND THIS COMMAND KNEW TWO (2026-09-23,
+        # Aria). An operator authorisation or a corroborated emergency skip was
+        # honoured by decide() -- the marker consumed -- and then reported here
+        # as a refusal with an empty message and exit 2. The hook has always
+        # let both through; the command a person runs to ask "would this pass"
+        # answered no to the one question it exists for.
+        if decision.outcome in (GateOutcome.OPERATOR_AUTHORIZED_BYPASS, GateOutcome.EMERGENCY_SKIP):
+            _safe_echo(f"[council] {decision.outcome.name}")
+            if decision.corroborator_event_id:
+                _safe_echo(f"  consumed: {decision.corroborator_event_id}")
+            return
         # BLOCK
-        primary = path or (command.split()[0] if command else "")
-        fp = _normalize_edit_fingerprint(primary, tool)
+        fp = fingerprint_for(tool, paths_tuple, command)
         msg = gate_mod.format_block_message(decision, fingerprint=fp)
         _safe_echo(msg)
         raise SystemExit(2)

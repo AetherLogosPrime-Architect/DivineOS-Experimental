@@ -79,7 +79,7 @@ class TestRealRoster:
         install()
         install()
         assert db.registered().count("letters.queue") == 1
-        assert "letters.monitor" in db.registered()
+        assert "letters.doorbell" in db.registered()
 
     def test_every_registered_check_returns_a_result(self):
         """A check returning None would crash render; pin the contract."""
@@ -90,10 +90,21 @@ class TestRealRoster:
             assert isinstance(r, CheckResult)
             assert r.state in (OK, PROBLEM, UNKNOWN)
 
-    def test_letter_monitor_is_honestly_unknown(self):
-        """It cannot be determined from a CLI process, and says so rather than
-        guessing green — the scheduled task that looked armed held a real pipe
-        to a log-writer and passed every test available from outside."""
-        from divineos.core.dashboard_checks import letter_monitor_armed
+    def test_the_doorbell_heartbeat_reads_at_every_boundary(self, tmp_path):
+        """The letter watch was retired 2026-10-02; the doorbell is the one
+        listener. Missing and stale read as not listening, never as unknown;
+        only a fresh heartbeat is OK. Exactly at the limit is still fresh."""
+        import os
 
-        assert letter_monitor_armed().state == UNKNOWN
+        from divineos.core.dashboard_checks import (
+            DOORBELL_STALE_SECONDS,
+            letter_doorbell_listening,
+        )
+
+        beat = tmp_path / ".aether_doorbell_alive"
+        assert letter_doorbell_listening(beat, now=1000.0).state == PROBLEM  # missing
+        beat.write_text("")  # empty is fine: the bell only touches it
+        os.utime(beat, (1000.0, 1000.0))
+        assert letter_doorbell_listening(beat, now=1000.0).state == OK
+        assert letter_doorbell_listening(beat, now=1000.0 + DOORBELL_STALE_SECONDS).state == OK
+        assert letter_doorbell_listening(beat, now=1001.0 + DOORBELL_STALE_SECONDS).state == PROBLEM

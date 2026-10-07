@@ -127,13 +127,25 @@ class TestWhatItCannotSee:
     @pytest.mark.parametrize(
         "command",
         [
-            "cp /tmp/prepared.py src/divineos/core/foo.py",
-            "mv /tmp/prepared.py src/divineos/core/foo.py",
             "python write_it.py",
         ],
     )
     def test_still_invisible(self, command: str) -> None:
         assert _shell_write_targets(command) == ()
+
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "cp /tmp/prepared.py src/divineos/core/foo.py",
+            "mv /tmp/prepared.py src/divineos/core/foo.py",
+        ],
+    )
+    def test_copying_into_place_is_seen_now(self, command: str) -> None:
+        """Closed 2026-09-23 by reading through the shared command reader, and
+        this is the note-update the class docstring above asks for: these two
+        sat in the invisible list and failed the moment they became visible."""
+        assert _shell_write_targets(command) == ("src/divineos/core/foo.py",)
+        assert _shell(command).fired_features == _tool("src/divineos/core/foo.py").fired_features
 
     def test_unreadable_is_not_the_same_answer_as_nothing_found(self) -> None:
         """The first version returned empty for BOTH, which is Aria's shape

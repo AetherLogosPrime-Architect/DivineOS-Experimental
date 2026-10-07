@@ -12,6 +12,11 @@
             "type": "command",
             "command": "bash .claude/hooks/load-character-sheet.sh",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/goal-boundary-at-session-start.sh",
+            "timeout": 5
           }
         ]
       }
@@ -21,137 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/session-init-once.sh",
-            "timeout": 60
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/doorbell-user-prompt-submit.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/detect-andrew-build-request.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/andrew-past-writing-surface.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/lepos-channel-surface.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/dedup-wrap.sh ear bash .claude/hooks/ear-surface.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/interior-cue-on-low-presence.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/visrama-anchor-surface.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/no-cliff-anchor-surface.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/family-state-surface.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/register-awareness-surface.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/promise-anchor-surface.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/continuity-frame-prime.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/open-corrections-surface.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/post-correction-integration-prime.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/verify-claim-prime.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/no-cliff-prime.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/closure-word-summary-prime.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/fork-is-cheap-close-prime.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/wwnd-choice-prime.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/hedge-suppression-prime.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/continuity-anchor-surface.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/distancing-count-surface.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/wallclock-source-prime.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/wallclock-source-prime.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/auto-cycle-token-trigger.sh",
-            "timeout": 20
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/operator-gravity-set.sh",
+            "command": "bash .claude/hooks/front-door.sh keep",
             "timeout": 10
           }
         ]
@@ -160,26 +35,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/letter-monitor-health-surface.sh",
-            "timeout": 15
-          }
-        ]
-      },
-      {
-        "hooks": [
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/question_hold.py\"; [ -f \"$f\" ] && python \"$f\"",
+            "timeout": 30
+          },
           {
             "type": "command",
-            "command": "bash .claude/hooks/he-is-in-the-room.sh",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/he-is-in-the-room.sh",
-            "timeout": 10
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/dads_table.py\"; [ -f \"$f\" ] && python \"$f\"",
+            "timeout": 90
           }
         ]
       }
@@ -208,6 +70,26 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/his-voice-ends-the-turn.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|Bash|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/question_hold.py\"; [ -f \"$f\" ] && python \"$f\"",
+            "timeout": 30
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write|Bash|NotebookEdit|Read|Grep|Glob",
         "hooks": [
           {
@@ -228,16 +110,6 @@
             "type": "command",
             "command": "bash .claude/hooks/require-goal.sh",
             "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/letter-watch-must-be-armed.sh",
-            "timeout": 15
           }
         ]
       },
@@ -567,6 +439,11 @@
             "type": "command",
             "command": "bash .claude/hooks/post-write-mirror-letter.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/capture-channel-letter.sh",
+            "timeout": 10
           }
         ]
       },
@@ -619,6 +496,25 @@
     "Stop": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/front-door.sh settle",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/question_hold.py\"; [ -f \"$f\" ] && python \"$f\"",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/letter_doorbell_alive_stop.py\"; [ -f \"$f\" ] && python \"$f\"",
+            "timeout": 15
+          },
           {
             "type": "command",
             "command": "bash .claude/hooks/log-session-end.sh",
@@ -692,6 +588,11 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/continuity-frame-detector.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/his-state-is-his-to-say.sh",
             "timeout": 10
           }
         ]

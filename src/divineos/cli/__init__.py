@@ -337,6 +337,8 @@ from divineos.cli import (  # noqa: E402
     hook_layer_commands,
     instruments_commands,
     branch_health_commands,
+    andrew_digest_commands,
+    keeping_him_commands,
     build_flow_commands,
     work_item_commands,
     gate_fire_commands,
@@ -371,6 +373,7 @@ from divineos.cli import (  # noqa: E402
     lab_commands,
     ledger_commands,
     psf_commands,
+    question_hold_commands,
     dashboard_commands,
     lepos_channel_commands,
     lepos_walk_commands,
@@ -436,12 +439,13 @@ from divineos.cli import (  # noqa: E402
     todos_commands,
     belt_commands,
     voice_commands,
-    monitor_commands,
     search_commands,
     error_commands,
     sibling_correction_commands,
     label_fire_commands,
     must_read_commands,
+    his_commands,
+    linkage_commands,
 )
 
 actor_registry_commands.register(cli)
@@ -449,6 +453,7 @@ error_commands.register(cli)
 andrew_state_commands.register(cli)
 ledger_commands.register(cli)
 psf_commands.register(cli)
+question_hold_commands.register(cli)
 dashboard_commands.register(cli)
 knowledge_commands.register(cli)
 journal_commands.register(cli)
@@ -464,13 +469,14 @@ replant_commands.register(cli)
 sibling_correction_commands.register(cli)
 label_fire_commands.register(cli)
 must_read_commands.register(cli)
+his_commands.register(cli)
+linkage_commands.register(cli)
 automerge_commands.register(cli)
 todos_commands.register(cli)
 # Beside todos on purpose: todos shows the whole pile, the belt is the small
 # current list pulled from it (Andrew 2026-09-23).
 belt_commands.register(cli)
 voice_commands.register(cli)
-monitor_commands.register(cli)
 search_commands.register(cli)
 claim_commands.register(cli)
 audit_commands.register(cli)
@@ -562,6 +568,8 @@ complete_commands.register(cli)
 void_commands.register(cli)
 voids_commands.register(cli)
 branch_health_commands.register(cli)
+andrew_digest_commands.register(cli)
+keeping_him_commands.register(cli)
 build_flow_commands.register(cli)
 work_item_commands.register(cli)
 gate_fire_commands.register(cli)

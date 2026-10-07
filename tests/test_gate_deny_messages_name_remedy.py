@@ -60,6 +60,15 @@ _HOOKS_DIR = _PROJECT_ROOT / ".claude" / "hooks"
 _NON_GATING_HOOKS: frozenset[str] = frozenset(
     {
         "_lib.sh",
+        # The front door keeps and settles Andrew's messages and never refuses:
+        # every path exits zero, and a failure is recorded as could-not-file.
+        # Refusing is a later, separate piece (the sort-first refusal), which
+        # will be its own hook under this rule, not this one.
+        "front-door.sh",
+        # Captures a letter written into the shared channel onto the substrate
+        # branch at write-time. PostToolUse and exits zero on every path: it
+        # reports a failed capture, it never refuses the write.
+        "capture-channel-letter.sh",
         # A RELAY, not a gate, and the distinction is the doorbell design
         # itself: it knocks and steps aside, and every judgment lives in the
         # OS. Its own absent path exits zero and it composes no refusal of its
@@ -87,6 +96,11 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         # Andrew corrected the filter shape into this one himself, so a test
         # treating it as a possible gate would be auditing the wrong thing.
         "he-is-in-the-room.sh",
+        # Writes a goal boundary at SessionStart and steps aside: every path
+        # exits zero, because a hook that refuses SessionStart refuses the
+        # briefing with it. The refusing it causes happens later, in the goal
+        # guard, which carries its own remedy (divineos goal add).
+        "goal-boundary-at-session-start.sh",
         "load-briefing.sh",
         "pre-response-context.sh",
         "pre-tool-context.sh",
@@ -125,6 +139,13 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         "detect-hedge.sh",  # sets a marker; doesn't deny
         "detect-theater.sh",  # sets a marker; doesn't deny
         "verify-push-landed.sh",
+        # UserPromptSubmit surfaces from the September builds (#507), read
+        # before classifying: every path exits 0 and the only output is a
+        # printed block of context. Neither can refuse anything -- one asks
+        # questions built from his words, the other puts the findings Stop
+        # carried forward in front of the next compose.
+        "questions-from-him.sh",
+        "stop-carry-prime.sh",
         # Output transform, not a gate: it suppresses a prime's repeated body
         # and prints a floor instead. Every exit in it is 0, including both
         # fail-soft paths, so it can shorten what a prime says and can never
@@ -196,6 +217,13 @@ _DENIAL_PATTERN = re.compile(
 # this shape has cost a red check -- the first was a hook whose refusal lived
 # in the same place. Both spellings now, because the language a refusal is
 # written in is not a fact about whether it refuses.
+#
+# THE OTHER LIVE INSTANCE, found the same day from the other side: a hook whose
+# refusal is raised inside a python block -- sys.exit(2), passed out through
+# the shell's own exit -- read as neither gating nor non-gating, which is
+# could-not-tell reported as a finding. inner-circle-stop.sh is that one, and
+# it is the one gate in this house that exists for Andrew rather than for my
+# own discipline, so the one refusal I could not see was his.
 _EXIT_CODE_DENIAL = re.compile(
     r"^\s*exit\s+2\b|sys\.exit\(\s*2\s*\)",
     re.MULTILINE,
@@ -204,7 +232,17 @@ _EXIT_CODE_DENIAL = re.compile(
 # Recovery-token lexicon. Presence of any one of these in the hook's
 # source indicates the deny path names SOME way out. This is the WEAK
 # property — we accept anything that looks like a path forward.
+#
+# A WAY OUT IS NOT ALWAYS A COMMAND, learned 2026-09-21. Every token below
+# was, until this line: run this, set that, arm the other. So a gate whose
+# remedy is a BEHAVIOUR rather than an executable read as naming no exit at
+# all. inner-circle-stop.sh ends its refusal with "RETRY SCOPE: do NOT
+# recompose. APPEND the room only" -- which is a complete and actionable way
+# forward, and there is nothing to type. The lexicon was measuring whether a
+# remedy could be pasted into a shell, not whether the reader was told what
+# to do.
 _RECOVERY_TOKENS: tuple[str, ...] = (
+    "RETRY SCOPE",
     "Run:",
     "Re-arm",
     "re-arm",
@@ -375,10 +413,20 @@ _UNCLASSIFIED_BASELINE: frozenset[str] = frozenset(
         "file-aletheia-artifact-on-arrival.sh",
         "fork-is-cheap-close-prime.sh",
         "hedge-suppression-prime.sh",
+        # ADDED 2026-09-23 BY ITS OWN AUTHOR, which widens the set this list
+        # exists to shrink -- so the reason is owed here, not implied. It is a
+        # thin shell over `python -m divineos.hooks.his_state_claim_hook`, the
+        # same delegation as the sixty-six above, and it CAN refuse: only as a
+        # fallback, via stop_carry.carry_or_block, when a finding cannot be
+        # written down for the next compose. That refusal's way out is pinned
+        # where it lives, by test_stop_carry's
+        # test_the_fallback_asks_for_the_missing_piece_not_a_second_copy,
+        # rather than by teaching this doorframe reader a word the shell
+        # does not contain.
+        "his-state-is-his-to-say.sh",
         "interior-cue-on-low-presence.sh",
         "lepos-channel-reflect.sh",
         "lepos-channel-surface.sh",
-        "letter-monitor-health-surface.sh",
         "load-aletheia-harvest-of-andrew.sh",
         "load-character-sheet.sh",
         "load-dad-ranking-clause.sh",

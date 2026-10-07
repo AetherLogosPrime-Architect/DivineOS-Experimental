@@ -1,5 +1,7 @@
 # The letter system — what is actually there
 
+> **Superseded 2026-10-02.** This map shows the letter watch (`letter_monitor_v2.py` under a harness Monitor) as the thing that wakes me. That's no longer true. The watch was retired and archived, and the letter doorbell is the one listener. See `docs/retired_rules/2026-10-02_the_letter_watch.md`. This file is kept as the record of what was there on 2026-07-31. RETIRED-RULE-OK
+
 **Run:** 2026-07-31, at Andrew's direction — *"the entire letter monitor system needs investigated its like multiple competing systems.. it needs cleaned up and built properly for both of you so theres a single working system not a mesh of half broken ones."*
 
 **Method:** enumeration and measurement. Every number and every claim below came from a command run this session. Nothing here is recalled.
