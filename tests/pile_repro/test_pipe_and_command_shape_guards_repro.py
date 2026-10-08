@@ -19,26 +19,27 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
 from divineos.core.gravity_classifier import score_substrate_modification
+from tests._bash_resolver import bash_executable
 
 REPO = Path(__file__).resolve().parent.parent.parent
 HOOK = REPO / ".claude" / "hooks" / "pipeline-exit-ambiguity.sh"
+BASH = bash_executable()
 
 
 def _hook_output(command: str, home: Path) -> dict:
     """Run the real pipe-guard hook on one command and return its decision."""
-    if shutil.which("bash") is None:
-        pytest.skip("bash is not available, so the shell hook cannot be run")
+    if BASH is None:
+        pytest.skip("no working bash is available, so the shell hook cannot be run")
     env = dict(os.environ, HOME=str(home))
     payload = json.dumps({"tool_input": {"command": command}})
     proc = subprocess.run(
-        ["bash", str(HOOK)],
+        [BASH, str(HOOK)],
         input=payload,
         capture_output=True,
         text=True,
