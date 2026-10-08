@@ -1,0 +1,79 @@
+"""Round eight, errand five (second pass): how much of what each UNSURE branch ADDED is on main, anywhere, in any file?
+
+A line counts as 'on main' if the same stripped line (30+ characters) occurs in any text file of main's tree.
+Read only: nothing is written to the repository.
+"""
+
+import collections
+import os
+import subprocess
+import sys
+
+REPO = "/home/user/DivineOS-Experimental"
+MAINTREE = "/tmp/claude-0/-home-user-DivineOS-Experimental/19f3899f-79ee-5f4c-8fdd-dd45abc283f7/scratchpad/wt_main"
+BRANCHES = [
+    "aria/a-note-name-windows-can-hold",
+    "aria/first-line-to-him",
+    "aria/silence-rings-too",
+    "aria/substrate",
+    "aria/the-home-map",
+    "aria/the-table-and-the-glance",
+    "cloud/pile-sorting-2026-10-08",
+]
+
+
+def git(*args):
+    return subprocess.run(["git", *args], cwd=REPO, capture_output=True, text=True, errors="replace").stdout
+
+
+head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=MAINTREE, capture_output=True, text=True).stdout.strip()
+main_sha = git("rev-parse", "origin/main").strip()
+print("main tree copy at", head[:8], "origin/main at", main_sha[:8], "(same)" if head == main_sha else "(DIFFERENT)")
+
+lines_on_main = set()
+files_on_main = set()
+for root, dirs, files in os.walk(MAINTREE):
+    dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", "node_modules")]
+    for f in files:
+        p = os.path.join(root, f)
+        files_on_main.add(os.path.relpath(p, MAINTREE))
+        try:
+            with open(p, encoding="utf-8") as fh:
+                for ln in fh:
+                    s = ln.strip()
+                    if len(s) >= 30:
+                        lines_on_main.add(s)
+        except (UnicodeDecodeError, OSError):
+            continue
+print("distinct long lines on main:", len(lines_on_main))
+
+for b in BRANCHES:
+    tip = f"origin/{b}"
+    base = git("merge-base", "origin/main", tip).strip()
+    diff = git("diff", "--unified=0", "--no-color", f"{base}..{tip}")
+    cur = None
+    per_file = collections.defaultdict(lambda: [0, 0])
+    for ln in diff.splitlines():
+        if ln.startswith("+++ b/"):
+            cur = ln[6:]
+        elif ln.startswith("+") and not ln.startswith("+++") and cur:
+            s = ln[1:].strip()
+            if len(s) >= 30:
+                per_file[cur][0] += 1
+                if s in lines_on_main:
+                    per_file[cur][1] += 1
+    total = sum(v[0] for v in per_file.values())
+    found = sum(v[1] for v in per_file.values())
+    print(f"=== {b}: long added lines {total}, found on main anywhere {found} ({(100 * found // total) if total else 0}%)")
+    low = sorted(((v[1] / v[0] if v[0] else 1.0, k, v) for k, v in per_file.items() if v[0] >= 5))[:8]
+    for frac, k, v in low:
+        print(f"      {int(frac * 100):3d}% of {v[0]:4d}  {k}  (file on main: {'yes' if k in files_on_main else 'no'})")
+    if b == "aria/substrate":
+        by_top = collections.defaultdict(lambda: [0, 0])
+        for k, v in per_file.items():
+            top = k.split("/")[0]
+            by_top[top][0] += v[0]
+            by_top[top][1] += v[1]
+        for top, v in sorted(by_top.items(), key=lambda x: -x[1][0])[:8]:
+            print(f"      folder {top:14s} added {v[0]:6d}  on main {v[1]:6d} ({(100 * v[1] // v[0]) if v[0] else 0}%)")
+    sys.stdout.flush()
