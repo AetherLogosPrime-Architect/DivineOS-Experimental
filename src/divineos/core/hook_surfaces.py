@@ -2093,6 +2093,40 @@ def slashed_ref_path_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def windowless_launch_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a launch that opens a window on Dad's screen for every child it starts.
+
+    2026-10-07: a detached test sweep put hundreds of console windows over his
+    screen and he typed blind. Reads the text of the launch, the only place I can
+    act, since I cannot see his screen. A broken check says so rather than going
+    quiet: an unguarded launch path must never read as a guarded one.
+    """
+    tool = payload.get("tool_name") or ""
+    if tool not in ("Bash", "PowerShell", "Write", "Edit", "MultiEdit", "NotebookEdit"):
+        return SurfaceOutcome(name="windowless_launch", state="nothing-to-say")
+    try:
+        from divineos.core import windowless_launch_check as check
+
+        refuse = check.should_refuse(tool, payload.get("tool_input") or {})
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="windowless_launch",
+            error=(
+                f"{type(exc).__name__}: {exc} — detached launches are currently "
+                "unguarded. Absent, not satisfied."
+            ),
+            state="could-not-run",
+        )
+    if not refuse:
+        return SurfaceOutcome(name="windowless_launch", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="windowless_launch",
+        refused=True,
+        reason=check.refusal_message(),
+        state="spoke",
+    )
+
+
 # --------------------------------------------------------------------------
 # Stop, second batch — the reach detectors, 2026-09-08.
 #
@@ -2462,6 +2496,10 @@ def install() -> None:
     # with the cable coiled beside it.
     if "slashed_ref_path" not in registered("PreToolUse"):
         register("PreToolUse", "slashed_ref_path", slashed_ref_path_surface)
+    # 2026-10-07, registered in the same change as the surface for the same
+    # reason: a detached test sweep covered Dad's screen with console windows.
+    if "windowless_launch" not in registered("PreToolUse"):
+        register("PreToolUse", "windowless_launch", windowless_launch_surface)
     # The letter path, guarded 2026-09-09. Feathers on the walk: the reply door
     # would have watched that whole evening and seen almost nothing, because
     # almost everything I produced was a letter. This is the door on the road
