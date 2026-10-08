@@ -59,9 +59,24 @@ HOOKS_DIR = ".claude/hooks"
 SETTINGS_FILE = ".claude/settings.json"
 
 _SCRIPT_RE = re.compile(r"([A-Za-z0-9_\-]+\.(?:sh|py))")
-_OS_IMPORT_RE = re.compile(r"from divineos|import divineos")
+# "-m divineos" is the doorbell form: a thin hook that finds a Python and runs a module of
+# the OS. The measure did not know it, so ten of the 45 files it called "detached from the OS"
+# (2026-10-08) were exactly the thing the migration wants.
+_OS_IMPORT_RE = re.compile(r"from divineos|import divineos|\s-m\s+divineos\b")
 _OS_CLI_RE = re.compile(r"\bdivineos [a-z]")
 _INLINE_PY_RE = re.compile(r"python3?\s+-\s*<<|python3?\s+-c\s|<<'PY'|<<PY")
+
+
+def _code_only(text: str) -> str:
+    """The script without its whole-line comments.
+
+    A comment that spells `divineos briefing` or `from divineos import x` is
+    talk, not a call. Five scripts on main counted as attached only because of
+    one, and two of them make no call at all. Trailing comments after code stay:
+    telling them apart from a `#` inside a string is a parser's job, and this
+    errs toward attached, the safer direction for a migration list.
+    """
+    return "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith("#"))
 
 
 @dataclass
@@ -150,7 +165,8 @@ def inventory(root: Path | str = ".") -> HookInventory:
         if _INLINE_PY_RE.search(text):
             inv.inline_python_files += 1
             inv.inline_python_lines += lines
-        if not _OS_IMPORT_RE.search(text) and not _OS_CLI_RE.search(text):
+        code = _code_only(text)
+        if not _OS_IMPORT_RE.search(code) and not _OS_CLI_RE.search(code):
             inv.detached_files += 1
             inv.detached_lines += lines
 
