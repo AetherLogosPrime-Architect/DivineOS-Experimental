@@ -48,6 +48,73 @@ def _scan(tmp_path: Path, source: str, corpus: str = "") -> list[cc.Claim]:
         cc.REPO_ROOT = monkey
 
 
+# The blank line after the marker matters: adjacent comment lines are read as ONE
+# thought, and the dated marker would make the whole block "history" and drop the
+# claim for a reason that has nothing to do with the skip under test.
+_CLAIMING_HOOK = """#!/bin/bash
+{marker}
+
+# The gate never blocks a read and skips every tool that only looks.
+if [ -z "$1" ]; then exit 0; fi
+"""
+
+
+def _hook_repo(tmp_path: Path) -> None:
+    hooks = tmp_path / ".claude" / "hooks"
+    hooks.mkdir(parents=True)
+    unwired = "# INTENTIONALLY UNWIRED (2026-09-08): superseded by the router."
+    (hooks / "retired.sh").write_text(_CLAIMING_HOOK.format(marker=unwired), encoding="utf-8")
+    # A live script that lies in its header: the marker, but registered.
+    (hooks / "live_but_marked.sh").write_text(
+        _CLAIMING_HOOK.format(marker=unwired), encoding="utf-8"
+    )
+    (hooks / "plain.sh").write_text(_CLAIMING_HOOK.format(marker=""), encoding="utf-8")
+    (tmp_path / ".claude" / "settings.json").write_text(
+        '{"hooks": {"Stop": [{"hooks": [{"command": "bash .claude/hooks/live_but_marked.sh"}]}]}}',
+        encoding="utf-8",
+    )
+
+
+def _collect_hooks(tmp_path: Path):
+    real = cc.REPO_ROOT
+    cc.REPO_ROOT = tmp_path
+    try:
+        return cc.collect([".claude/hooks"])
+    finally:
+        cc.REPO_ROOT = real
+
+
+def test_a_claim_in_a_script_the_router_replaced_is_not_on_the_list(tmp_path: Path) -> None:
+    """2026-10-07: five of the first fifty-one listed claims were on scripts that are
+    declared unwired. Running them told nothing about the running system."""
+    _hook_repo(tmp_path)
+    claims, tally = _collect_hooks(tmp_path)
+    paths = {claim.path for claim in claims}
+    assert ".claude/hooks/retired.sh" not in paths
+    assert tally.files_unwired == 1
+
+
+def test_the_controls_a_plain_script_and_a_live_one_marked_unwired_are_still_scanned(
+    tmp_path: Path,
+) -> None:
+    """The skip must not be a list anyone can append to. A registered script keeps
+    its claims whatever its header says, and an unmarked one was never skipped."""
+    _hook_repo(tmp_path)
+    claims, _tally = _collect_hooks(tmp_path)
+    paths = {claim.path for claim in claims}
+    assert ".claude/hooks/plain.sh" in paths
+    assert ".claude/hooks/live_but_marked.sh" in paths
+
+
+def test_unreadable_wiring_skips_nothing(tmp_path: Path) -> None:
+    """If the registrations cannot be read, listing more is the safe direction."""
+    _hook_repo(tmp_path)
+    (tmp_path / ".claude" / "settings.json").write_text("{not json", encoding="utf-8")
+    claims, tally = _collect_hooks(tmp_path)
+    assert tally.files_unwired == 0
+    assert ".claude/hooks/retired.sh" in {claim.path for claim in claims}
+
+
 def test_the_comment_that_actually_misled_me_is_found(tmp_path: Path) -> None:
     """The instance the whole file exists for."""
     claims = _scan(tmp_path, _HISTORICAL)

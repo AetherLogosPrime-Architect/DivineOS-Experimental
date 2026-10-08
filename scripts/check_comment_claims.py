@@ -63,6 +63,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import importlib.util
 import re
 import sys
 from dataclasses import dataclass
@@ -151,6 +152,9 @@ class Tally:
     files_unparsed: int = 0
     comments_read: int = 0
     claims_matched: int = 0
+    # Hook scripts the wiring check classes as declared-unwired. Counted and
+    # printed so a shorter list can never be mistaken for a cleaner house.
+    files_unwired: int = 0
 
 
 def _test_corpus() -> str:
@@ -267,9 +271,34 @@ def scan_file(path: Path, corpus: str, tally: Tally) -> list[Claim]:
     return found
 
 
+def _declared_unwired() -> set[str]:
+    """Hook script names that are declared unwired AND not registered anywhere.
+
+    A claim in a script the router replaced says nothing about the running
+    system, and five of the first fifty-one on this list were exactly that
+    (2026-10-07). The marker alone is not trusted: the one wiring definition in
+    the house, check_hook_wiring.classify, decides, and it counts a registered
+    script as registered whatever its header says. So a live script cannot hide
+    its claims by adding the line. If the wiring cannot be read, nothing is
+    skipped: more on the list is the safe direction.
+    """
+    path = Path(__file__).resolve().parent / "check_hook_wiring.py"
+    spec = importlib.util.spec_from_file_location("check_hook_wiring", path)
+    if spec is None or spec.loader is None:
+        return set()
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    states, error = module.classify(
+        REPO_ROOT / ".claude" / "hooks", REPO_ROOT / ".claude" / "settings.json"
+    )
+    return set() if error else set(states.get("DECLARED", []))
+
+
 def collect(roots: list[str]) -> tuple[list[Claim], Tally]:
     tally = Tally()
     corpus = _test_corpus()
+    unwired = _declared_unwired()
     claims: list[Claim] = []
     for root in roots:
         base = REPO_ROOT / root
@@ -287,6 +316,9 @@ def collect(roots: list[str]) -> tuple[list[Claim], Tally]:
         for suffix in ("*.py", "*.sh"):
             for path in sorted(base.rglob(suffix)):
                 if "/tests/" in str(path).replace("\\", "/"):
+                    continue
+                if path.parent.name == "hooks" and path.name in unwired:
+                    tally.files_unwired += 1
                     continue
                 claims.extend(scan_file(path, corpus, tally))
     return claims, tally
@@ -321,6 +353,7 @@ def main(argv: list[str] | None = None) -> int:
     # and a house with nothing to find print the same finding count.
     print(
         f"[examined] files={tally.files_opened} unparsed={tally.files_unparsed} "
+        f"unwired-skipped={tally.files_unwired} "
         f"comments={tally.comments_read} claims={tally.claims_matched}"
     )
     if tally.files_opened == 0:

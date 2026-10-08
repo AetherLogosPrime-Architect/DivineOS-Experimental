@@ -127,10 +127,19 @@ except StopIteration:
     print('SKIP no push verb')
     sys.exit(0)
 args = tokens[idx+1:]
-# Strip flags. Conservative: drop tokens starting with '-' AND their
-# value if the flag takes one (we don't try to be exhaustive; we just
-# pop leading flags until we hit a non-flag).
-positional = [a for a in args if not a.startswith('-')]
+# Strip flags, and the separate value of the few that take one: a push
+# option such as -o ci.skip used to be read as the remote (2026-10-07). Flags
+# written as --flag=value carry the value inside the token already.
+VALUE_FLAGS = ('-o', '--push-option', '--repo', '--receive-pack', '--exec')
+positional = []
+skip_next = False
+for a in args:
+    if skip_next:
+        skip_next = False
+    elif a in VALUE_FLAGS:
+        skip_next = True
+    elif not a.startswith('-'):
+        positional.append(a)
 if len(positional) >= 2:
     remote, refspec = positional[0], positional[1]
 elif len(positional) == 1:
@@ -139,9 +148,16 @@ elif len(positional) == 1:
 else:
     # 'git push' — use upstream
     remote, refspec = '', ''
-# Split refspec local:remote if applicable; we want the LOCAL side.
-local_branch = refspec.split(':')[0] if refspec else ''
-print(f'OK|{remote}|{local_branch}')
+# local:remote — the LOCAL side finds the tip, the REMOTE side is the ref the
+# push wrote to and so the one to ask the remote about. Checking the local
+# name on the remote printed a green verified for main:other when main was
+# already there and other never landed (2026-10-07, real bare remote).
+if ':' in refspec:
+    local_branch, remote_branch = refspec.split(':', 1)
+else:
+    local_branch, remote_branch = refspec, refspec
+remote_branch = remote_branch.replace('refs/heads/', '', 1)
+print(f'OK|{remote}|{local_branch}|{remote_branch}')
 " 2>/dev/null)
 
 case "$PY_PARSED" in
@@ -158,12 +174,15 @@ esac
 
 REMOTE=$(printf '%s' "$PY_PARSED" | cut -d'|' -f2)
 LOCAL_BRANCH=$(printf '%s' "$PY_PARSED" | cut -d'|' -f3)
+REMOTE_BRANCH=$(printf '%s' "$PY_PARSED" | cut -d'|' -f4)
 
 # Defaults when omitted.
 [ -z "$REMOTE" ] && REMOTE="origin"
 if [ -z "$LOCAL_BRANCH" ]; then
   LOCAL_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
 fi
+# No explicit remote side means the push wrote to the same name.
+[ -z "$REMOTE_BRANCH" ] && REMOTE_BRANCH="$LOCAL_BRANCH"
 
 if [ -z "$LOCAL_BRANCH" ] || [ "$LOCAL_BRANCH" = "HEAD" ]; then
   cat > "$MARKER" <<EOF
@@ -213,7 +232,7 @@ attempt=1
 REMOTE_TIP=""
 LAST_REASON=""
 while [ "$attempt" -le "$PUSH_VERIFY_MAX_RETRIES" ]; do
-  LS_OUTPUT=$(timeout 15 git ls-remote "$REMOTE" "refs/heads/$LOCAL_BRANCH" 2>/dev/null)
+  LS_OUTPUT=$(timeout 15 git ls-remote "$REMOTE" "refs/heads/$REMOTE_BRANCH" 2>/dev/null)
   LS_EXIT=$?
 
   if [ "$LS_EXIT" -ne 0 ]; then
@@ -234,7 +253,7 @@ EOF
 
   # Race-window candidate. Record reason for after-the-loop write.
   if [ -z "$REMOTE_TIP" ]; then
-    LAST_REASON="branch $LOCAL_BRANCH not on $REMOTE (no ref returned)"
+    LAST_REASON="branch $REMOTE_BRANCH not on $REMOTE (no ref returned)"
   else
     LAST_REASON="local-tip $LOCAL_TIP != origin-tip $REMOTE_TIP"
   fi
@@ -263,7 +282,7 @@ fi
 
 # Both hashes match. THIS is the only path that writes "verified".
 cat > "$MARKER" <<EOF
-{"status": "verified", "branch": "$LOCAL_BRANCH", "remote": "$REMOTE", "sha": "$LOCAL_TIP", "verified_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
+{"status": "verified", "branch": "$LOCAL_BRANCH", "remote_branch": "$REMOTE_BRANCH", "remote": "$REMOTE", "sha": "$LOCAL_TIP", "verified_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
 EOF
-echo "[verify-push] ✓ verified: $LOCAL_BRANCH on $REMOTE at $LOCAL_TIP" >&2
+echo "[verify-push] ✓ verified: $LOCAL_BRANCH on $REMOTE as $REMOTE_BRANCH at $LOCAL_TIP" >&2
 exit 0

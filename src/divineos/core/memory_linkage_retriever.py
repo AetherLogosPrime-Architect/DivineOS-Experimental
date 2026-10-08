@@ -12,33 +12,31 @@ This module is the promotion of that pseudocode to real code, filling
 in the math and the Q2 exemption enforcement while leaving the
 source-adapters + embedding wrapper as the next-turn work.
 
-## Current implementation state (v1-alpha, 2026-07-01)
+## Current implementation state (corrected 2026-10-07)
 
-Real code today (unit-testable):
-- Composite scoring: ``composite_score(similarity, tier, recency_days, importance)``
-- Per-source threshold curves: ``compute_threshold(source, cache_size)``
-- Recency decay: ``recency_multiplier(days)``
-- Tier weighting: ``tier_weight(tier)``
-- Topic synthesis: ``synthesize_topic(prompt, recent_context)``
-- Q2 exemption enforcement: ``apply_behavior_feedback()`` with explicit
-  ``assert`` guarding downweight against constraint-tier items — the
-  audit block Aletheia specced lives here as code, not convention
+Written 2026-07-01 as v1-alpha, when the source loaders and the embedder
+were stubs. This section described that state for months after it stopped
+being true, and described the one thing still unwired as real. A claim run
+(2026-10-07) found both; this is the corrected account.
+
+Live, and running every turn through the memory link:
+- Composite scoring, per-source threshold curves, recency decay, tier
+  weighting, topic synthesis (``composite_score``, ``compute_threshold``,
+  ``recency_multiplier``, ``tier_weight``, ``synthesize_topic``)
+- The five source loaders (``_load_corrections``, ``_load_knowledge``,
+  ``_load_wall``, ``_load_exploration``, ``_load_letters``) read the real
+  stores
+- The embedder (``_embed_topic``) encodes the query with ``light_embedder``,
+  the same model as the vector drawer, and ``warm()`` fills the drawer
 - Install seam: ``install()`` binds ``retrieve_v1`` via
   ``memory_linkage.set_retriever``
 
-Stubbed (next-turn work):
-- Source adapters (``_load_corrections``, ``_load_knowledge``,
-  ``_load_wall``, ``_load_exploration``, ``_load_letters``): return
-  empty lists until the concrete importers land
-- Embedding wrapper (``_embed_topic``): returns a zero vector until
-  wired to ``divineos.core.embeddings``
-
-Because the source adapters return empty, ``retrieve_v1`` currently
-returns an empty list — meaning ``install()`` today is behavior-neutral
-on origin: memory-linkage stays quiet until the adapters wire up. This
-matches the ``[no-theater]`` directive: every line here does something
-real (the math is unit-tested), and the deferred pieces are explicit
-rather than aspirational.
+NOT wired: the behavior-feedback loop. ``apply_behavior_feedback()`` has no
+caller anywhere, and ``_boost_importance`` / ``_downweight_importance``
+persist nothing, so an item's importance never changes from being used or
+ignored. The Q2 exemption below is real code (the assert trips if a
+constraint-tier item is handed to the downweight), but it guards nothing
+live until something calls the loop.
 
 ## Q2 exemption enforcement — LOAD-BEARING
 
@@ -375,7 +373,7 @@ def synthesize_topic(prompt: str, recent_context: str | None) -> str:
 
 
 # --------------------------------------------------------------------
-# Source loading + embedding (STUBBED — next-turn work)
+# Source loading + embedding (live; the stub note here was corrected 2026-10-07)
 # --------------------------------------------------------------------
 
 
@@ -1181,10 +1179,9 @@ def retrieve_v1(
     via ``install()`` — Aether's ``retrieve_for_context`` delegates
     here.
 
-    In v1-alpha the source adapters return empty and the cosine
-    stub returns 0.0, so this function returns [] and memory-linkage
-    stays behavior-neutral on origin. Next-turn work wires the real
-    adapters and embedding.
+    The source loaders and the embedder are live (see the module header),
+    so this returns real matches. It returns [] when the prompt is empty or
+    when the embedder cannot run here; the reason is kept in ``lane_state()``.
     """
     if not prompt:
         return []
