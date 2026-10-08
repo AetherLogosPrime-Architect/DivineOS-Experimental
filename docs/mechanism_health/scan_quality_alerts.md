@@ -26,7 +26,7 @@ Three failure modes within the class:
 
 **Not per-write gates.** Adding a gate per write does not help — each write is individually correct.
 
-**Health surfaces.** The letter-delivery reconciliation surface itself is a scan-quality alert — it fires each turn to make the drift observable. Andrew's naming of the pattern: *"the scan preserves the intentional strictness of the delivery pattern. This surface exists to make the drift observable, not to relax the pattern."*
+**Health surfaces.** The letter-delivery reconciliation surface itself is a scan-quality alert — it fires each turn to make the drift observable. The pattern Andrew named, in our words (he marked the quoted version not his): the scan preserves the intentional strictness of the delivery pattern; this surface exists to make the drift observable, not to relax the pattern.
 
 **Root-cause investigation triggers.** Every scan-quality alert should have a "why this is happening" investigation attached — either fix the mechanism or fix the items it is mis-handling, but do not let the alert accumulate as ambient noise.
 
