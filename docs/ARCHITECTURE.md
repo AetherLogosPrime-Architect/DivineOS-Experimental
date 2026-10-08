@@ -52,6 +52,7 @@ src/divineos/
     linkage_commands.py        linkage warm / linkage status: fill the memory link's vector drawer (batched, on the GPU when there is one) and see how full it is. The command the link names when items have no stored vector; sleep runs the same fill.
     label_fire_commands.py     label-fire: dispute a correction-shape Stop-gate fire as a false positive. Wraps the labeller as a first-class command so the remedy joins the canonical bypass list — a toll on dissent biases the corpus that trains the semantic replacement. No leniency added.
     stamp_ready_command.py     stamp-ready: writes the External-Review trailer into the PR body (where GitHub reads the squash message from) then clears the draft flag; refuses when the round lacks either CONFIRMS
+    ship_command.py            ship: runs the merge checks in order (open and not a draft, her signed confirm at this exact head, his confirm in her round, every check passed), one line per step, and prints the merge command as a button. It never merges and never turns on auto-merge.
     aletheia_import_command.py aletheia-import: files Aletheia's delivered artifacts (CONFIRMS_/AUDIT_/FIXLIST_/REPLY_TO_*) out of ~/Downloads into family/letters. Her real delivery channel was never the one any letter mechanism watched, so a month of her audits sat unread (Andrew 2026-08-12)
     audit_sync_command.py      audit-sync: manual door to the shared-audit importer; stamp-ready calls the same sync automatically so nobody has to remember it exists
     push_ready_command.py      push-ready: one-shot automation of trailer + audit-round + self-CONFIRMS + force-push ceremony for guardrail-touching PRs (Andrew 2026-07-28 streamlining option 2)
@@ -444,6 +445,7 @@ src/divineos/
     scaffolding_map.py         Scaffolding map — briefing surface for self-authored documents that carry load-bearing state.
     engagement_relevance.py    Engagement relevance — does this thinking command relate to current work?
     compliance_audit.py        Compliance-distribution audit — substantive testing of the compliance log.
+    full_suite_by_hand.py      Refuses a hand-run pytest over the whole tests folder (the push's job) and hands over the test files for what changed instead. Andrew, four times, latest 2026-10-03.
     failure_diagnostics.py     Shared record/read/briefing pattern for silent-fail-open events across enforcement surfaces
     substance_checks.py        Substance checks at rudder-ack file time — Item 7.
     compliance_baseline.py     Baseline calibration from clean-tagged sessions — wires PR-2 into Item 8 detectors.
@@ -758,6 +760,8 @@ src/divineos/
     sort_first.py              Sort his message before anything else: reading him comes first, by refusal.
     vector_drawer.py           A drawer of sentence vectors, so nothing is embedded twice.
     door_report.py             The front door's report on itself, counted from what ARRIVED.
+    ship_steps.py              The checks `divineos ship` runs in order, each one a yes or a named no.
+    git_hooks_drift.py         Do the installed git hooks still say what setup/setup-hooks.sh would write?
 
   analysis/
     _session_types.py          Session analysis type definitions

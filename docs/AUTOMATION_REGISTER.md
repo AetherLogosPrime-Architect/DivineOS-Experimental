@@ -123,7 +123,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `lepos-channel-reflect.sh` | 2026-07-11 | post-send lepos reflection channel driver. |
 | `log-session-end.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `parked-work-must-not-be-invisible.sh` | 2026-09-30 | Parking work produces a clean tree, so every other surface says all-clear. |
-| `post-response-audit.sh` | 2026-10-02 | thin doorman pointing to the OS. |
+| `post-response-audit.sh` | 2026-10-04 | thin doorman pointing to the OS. |
 | `promise-reach-detector.sh` | 2026-07-18 | scan last assistant reply for promise-shape phrases and |
 | `retrieval-tally-check.sh` | 2026-07-21 | post-compose retrieval-tally check. |
 | `shoggoth-gate.sh` | 2026-07-10 | shoggoth gate. |
@@ -198,7 +198,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `resolver-health-check.sh` | 2026-07-10 | SessionStart resolver-health check. |
 | `self-demotion-stop.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `session-init-once.sh` | 2026-10-02 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
-| `session-start-verify-git-hooks.sh` | 2026-08-24 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
+| `session-start-verify-git-hooks.sh` | 2026-10-05 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `stop-carry-prime.sh` | 2026-10-01 | UserPromptSubmit — what the Stop gates caught on my last reply. |
 | `summary-room-stop.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `verify-claim-prime.sh` | 2026-09-29 | compose-start prime for the VERIFY-CLAIM |

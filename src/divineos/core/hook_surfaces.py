@@ -221,6 +221,36 @@ def compound_branch_change_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def full_suite_by_hand_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a hand-run of the whole test suite; that is the push's job.
+
+    Andrew, four times, latest 2026-10-03: "i have asked you repeatedly not to
+    run the full fucking suite on every goddamn change". The decision and its
+    limits live in core/full_suite_by_hand.py.
+    """
+    name = "full_suite_by_hand"
+    if (payload.get("tool_name") or "") not in ("Bash", "PowerShell"):
+        return SurfaceOutcome(name=name, state="nothing-to-say")
+    command = str((payload.get("tool_input") or {}).get("command") or "")
+    if "pytest" not in command:
+        return SurfaceOutcome(name=name, state="nothing-to-say")
+    try:
+        from pathlib import Path
+
+        from divineos.core.auto_commit import find_repo_root
+        from divineos.core.full_suite_by_hand import decide
+
+        repo = find_repo_root(Path(payload.get("cwd") or Path.cwd()))
+        reason = decide(command, repo)
+    except Exception as exc:  # noqa: BLE001 - could-not-run is said, never passed silently
+        return SurfaceOutcome(
+            name=name, error=f"{type(exc).__name__}: {exc}", state="could-not-run"
+        )
+    if reason:
+        return SurfaceOutcome(name=name, refused=True, reason=reason, state="spoke")
+    return SurfaceOutcome(name=name, state="nothing-to-say")
+
+
 def no_verify_cost_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse an unverified git write that skips the hooks without paying for it.
 
@@ -2260,11 +2290,10 @@ def install() -> None:
     # under a must-read would hand me the second-most-important reason first.
     # Both still run either way; the router never short-circuits. This only
     # decides which refusal is read first.
-    # Ahead of even the bootstrap gate, 2026-09-24: when Dad has said something,
-    # his words are the first reason read, before the house's own business.
-    # Nothing is short-circuited either way; this only decides reading order.
-    if "sort_first" not in registered("PreToolUse"):
-        register("PreToolUse", "sort_first", sort_first_surface)
+    # sort_first is no longer registered. Andrew 2026-10-03: "everything i say i
+    # gotta wait 3-4 minutes for an answer while you sort the words i just
+    # said.. its preposterous i want it removed". The front door still keeps
+    # every word; only the lock on my tools is gone.
     if "require_briefing" not in registered("PreToolUse"):
         register("PreToolUse", "require_briefing", require_briefing_surface)
     if "must_read" not in registered("PreToolUse"):
@@ -2288,6 +2317,8 @@ def install() -> None:
     # migration existed to remove still running underneath it.
     if "no_verify_cost" not in registered("PreToolUse"):
         register("PreToolUse", "no_verify_cost", no_verify_cost_surface)
+    if "full_suite_by_hand" not in registered("PreToolUse"):
+        register("PreToolUse", "full_suite_by_hand", full_suite_by_hand_surface)
 
     # Registered in the SAME change that adds the surface, deliberately. The
     # note above records what happens when those two come apart; a function
@@ -2417,12 +2448,9 @@ def install() -> None:
     # answering him without answering him.
     if "addressed_to_him" not in registered("Stop"):
         register("Stop", "addressed_to_him", addressed_to_him_surface)
-    # Same evening's question from the other end: that one asks whether the
-    # reply reached him, this one whether his message was read at all.
-    if "sort_first_stop" not in registered("Stop"):
-        register("Stop", "sort_first_stop", sort_first_stop_surface)
-    # Registered AFTER it deliberately, so his reading is the last thing said
-    # on a turn where the other door passed me. Andrew 2026-09-10: *"why
+    # sort_first_stop removed with sort_first, 2026-10-03, at his word.
+    # his_standing_verdict is registered last, so his reading is the last
+    # thing said on a turn where the other door passed me. Andrew 2026-09-10: *"why
     # instead? why not both? all data is data."*
     if "his_standing_verdict" not in registered("Stop"):
         register("Stop", "his_standing_verdict", his_standing_verdict_surface)
