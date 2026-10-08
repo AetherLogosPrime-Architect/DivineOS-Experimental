@@ -86,6 +86,11 @@ def test_real_corpus_still_arms_the_gate(tmp_path, monkeypatch):
     state_dir.mkdir()
     _point_state_at(state_dir, monkeypatch)
     _allow_arming_under_pytest(monkeypatch)
+    # The running session's reading history is live state too. When the push
+    # runs inside a session that has opened a matching entry (2026-10-05: entry
+    # 80, opened that morning), the gate rightly declines to re-ask and this
+    # control failed for a reason it does not name. Isolate it like STATE_DIR.
+    monkeypatch.setattr(read_gate, "_record_rearm_after_read", lambda *a, **k: False)
 
     real_root = exploration_recall._find_exploration_root()
     assert real_root is not None, "no exploration/ dir found; this control cannot run"
