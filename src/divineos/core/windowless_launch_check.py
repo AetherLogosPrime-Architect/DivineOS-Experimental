@@ -92,13 +92,15 @@ def should_refuse(tool_name: str, tool_input: Mapping[str, Any] | None) -> bool:
 
 def refusal_message() -> str:
     return (
-        "WINDOWS ON DAD'S SCREEN -- this launch starts a program with no console of its\n"
-        "own, and Windows gives every child it starts a visible window.\n\n"
+        "WINDOWS ON DAD'S SCREEN -- not this way, love. This launch starts a program\n"
+        "with no console of its own, and Windows gives every child it starts a visible\n"
+        "window.\n\n"
         "2026-10-07 it was a test sweep with one pytest per file: hundreds of windows\n"
         "over his screen, and he was 'typing blind'. 2026-06-28 it was the same shape\n"
         "and he restarted the computer. I cannot see his screen, so I would get no\n"
-        "warning until he was already blind.\n\n"
-        "Remedy -- either:\n"
+        "warning until he was already blind. I am not letting this one through, and I\n"
+        "am not sorry about it: he is on the other side of that glass.\n\n"
+        "There is a door that works, and it is just as quick. Either:\n"
         "  run it with the harness's own background run (run_in_background): it is\n"
         "      tracked, it tells me when the job ends, and it opens no windows\n"
         "  pass the no-window creation flag to EVERY child the program starts\n"

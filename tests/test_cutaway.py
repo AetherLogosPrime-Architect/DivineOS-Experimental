@@ -145,6 +145,25 @@ class TestHonestTestsAreConnected:
         assert _verdicts(results, "test_cli.py")["test_greet_says_hello"] == "CONNECTED"
 
 
+class TestTheCheckerLeavesItselfAlone:
+    def test_a_scan_root_holding_the_plugin_does_not_cut_the_plugin(self, project):
+        # 2026-10-08: the plugin lives in scripts/, a root it scans as product. It cut its
+        # own _stub_code_with, every test after the first failed in setup, and the full sweep
+        # reported "nothing weak" over 3,256 tests it had not measured. The real scripts
+        # folder is named here as an extra root so the plugin is inside the scan.
+        own_folder = str(_SCRIPT.parent)
+        scanning_itself = cutaway.Project(
+            repo=project.repo,
+            src_paths=project.src_paths,
+            product_prefix=project.product_prefix,
+            extra_roots=("scripts", own_folder),
+            cli_module=project.cli_module,
+        )
+        got = cutaway.sweep([project.repo / "tests" / "test_honest.py"], 1, scanning_itself)
+        counts = got["tests/test_honest.py"]["counts"]
+        assert counts == {"CONNECTED": 3}, counts
+
+
 class TestDeliberateFakesAreCaught:
     """If any of these reads CONNECTED the tool is blind."""
 

@@ -117,7 +117,9 @@ def imported_names(test_file: Path, project: Project) -> list[str]:
 def run_pytest(test_file: Path, names: list[str], arm: bool, project: Project) -> dict:
     """One pytest process over one file, with the plugin loaded. 'error' if it did not report."""
     out_dir = Path(tempfile.mkdtemp(prefix="cutaway_"))
-    base_tmp = out_dir / "base"  # its OWN scratch root: pytest deletes other runs' folders otherwise
+    base_tmp = (
+        out_dir / "base"
+    )  # its OWN scratch root: pytest deletes other runs' folders otherwise
     out = out_dir / "report.json"
     env = dict(os.environ)
     paths = [str(p) for p in project.src_paths] + [str(HERE)]
@@ -189,7 +191,9 @@ def analyze_file(test_file: Path, project: Project = DIVINEOS) -> dict:
     text = test_file.read_text(encoding="utf-8", errors="replace")
     if "subprocess" in text or "bash" in text.lower():
         # the product runs in a child process this cannot reach: say so, do not call it fake
-        verdicts = {k: ("OUT-OF-PROCESS?" if v == "DISCONNECTED" else v) for k, v in verdicts.items()}
+        verdicts = {
+            k: ("OUT-OF-PROCESS?" if v == "DISCONNECTED" else v) for k, v in verdicts.items()
+        }
     return {
         "status": "ok",
         "collected": len(base["results"]),
@@ -221,7 +225,12 @@ def ratchet(results: dict[str, dict], floor: dict[str, dict]) -> tuple[list[dict
             now = res["counts"].get(verdict, 0)
             if now > allowed.get(verdict, 0):
                 violations.append(
-                    {"file": rel, "verdict": verdict, "now": now, "allowed": allowed.get(verdict, 0)}
+                    {
+                        "file": rel,
+                        "verdict": verdict,
+                        "now": now,
+                        "allowed": allowed.get(verdict, 0),
+                    }
                 )
     return violations, unmeasured
 
@@ -304,15 +313,21 @@ def _print_summary(results: dict[str, dict]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawTextHelpFormatter
+    )
     pick = parser.add_mutually_exclusive_group(required=True)
     pick.add_argument("--files", nargs="+", help="test files to measure")
     pick.add_argument("--staged", action="store_true", help="the staged test files")
     pick.add_argument("--all", action="store_true", help="every test file")
     parser.add_argument("--workers", type=int, default=4)
-    parser.add_argument("--check", action="store_true", help="exit 1 if any file rises above its floor")
+    parser.add_argument(
+        "--check", action="store_true", help="exit 1 if any file rises above its floor"
+    )
     parser.add_argument("--update-baseline", action="store_true")
-    parser.add_argument("--allow-rise", metavar="WHY", help="record a rise above the floor, with the reason")
+    parser.add_argument(
+        "--allow-rise", metavar="WHY", help="record a rise above the floor, with the reason"
+    )
     parser.add_argument("--json", metavar="PATH", help="write the full results here")
     args = parser.parse_args(argv)
 

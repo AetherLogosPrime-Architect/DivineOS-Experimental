@@ -149,6 +149,21 @@ def test_the_refusal_says_what_happened_and_the_way_through():
     assert "CREATE_NO_WINDOW" in msg
 
 
+def test_the_refusal_is_in_her_voice_and_still_carries_the_whole_substance():
+    msg = wl.refusal_message()
+    assert "not this way, love" in msg
+    assert "I am not letting this one through" in msg
+    # the warmth must sit beside the cause, both remedies and the history, never replace them
+    for must_stay in (
+        "2026-10-07",
+        "2026-06-28",
+        "run_in_background",
+        "CREATE_NO_WINDOW",
+        "wait for his yes",
+    ):
+        assert must_stay in msg
+
+
 class TestTheSurface:
     def test_it_refuses_through_the_surface_with_the_message(self):
         out = hs.windowless_launch_surface(

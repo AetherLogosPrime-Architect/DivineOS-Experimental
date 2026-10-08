@@ -116,6 +116,11 @@ def _register_click(obj) -> None:
 
 def _register_module(mod: types.ModuleType) -> None:
     name = mod.__name__
+    if name == __name__:
+        # The plugin sits in scripts/, a folder it scans as product. Cutting its own
+        # _stub_code_with made every test after the first fail in setup, and the first
+        # full sweep (2026-10-08) reported "nothing weak" over 3,256 unmeasured tests.
+        return
     for attr, obj in list(vars(mod).items()):
         if attr.startswith("__"):
             continue
@@ -224,7 +229,13 @@ RESULTS: dict[str, dict] = {}
 def pytest_runtest_call(item):
     item._cutaway_before = _CUTAWAY_HITS[0]  # noqa: F821
     if ARM:
-        _arm()
+        try:
+            _arm()
+        except BaseException:
+            # The test body never ran, so whatever red follows says nothing about the product.
+            item._cutaway_arm_failed = True
+            _disarm()
+            raise
     try:
         yield
     finally:
@@ -236,7 +247,9 @@ def pytest_runtest_call(item):
 def pytest_runtest_makereport(item, call):
     outcome = yield
     rep = outcome.get_result()
-    if call.when == "call":
+    if call.when == "call" and getattr(item, "_cutaway_arm_failed", False):
+        RESULTS[item.nodeid] = {"outcome": "setup-arm-failed", "hits": 0}
+    elif call.when == "call":
         hits = _CUTAWAY_HITS[0] - getattr(item, "_cutaway_before", 0)  # noqa: F821
         RESULTS[item.nodeid] = {"outcome": rep.outcome, "hits": hits}
     elif call.when == "setup" and rep.outcome != "passed":
