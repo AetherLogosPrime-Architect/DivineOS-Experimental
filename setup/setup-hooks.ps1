@@ -109,6 +109,16 @@ else
     echo "  (shellcheck not installed, skipping)"
 fi
 
+STAGED_TESTS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^tests/.*test_[^/]*\.py$' || true)
+if [ -n "$STAGED_TESTS" ]; then
+    echo "Running the cut-away check on staged tests (can they fail?)..."
+    python scripts/cutaway.py --staged --check || {
+        echo "A staged test still passes when the code it names is cut away, or could not be measured."
+        echo "Make it depend on the product, or record why with: python scripts/cutaway.py --staged --update-baseline --allow-rise '<why>'"
+        exit 1
+    }
+fi
+
 echo "All checks passed!"
 exit 0
 '@
