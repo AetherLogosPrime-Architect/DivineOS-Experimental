@@ -399,6 +399,25 @@ if ! python scripts/check_retired_rules_not_served.py; then
     note_fail
 fi
 
+# A staged test must DEPEND on the code it names. Found 2026-10-07: 22 tests that
+# stayed green when the command they test crashed, because "exit code is not zero"
+# and "no warning printed" are both true of a crash. This cuts the code out from
+# under each staged test file (a stub that crashes, live only while the test body
+# runs) and fails if a file now has more DISCONNECTED or SWALLOWED tests than its
+# recorded floor in scripts/cutaway_baseline.json. Existing weak tests sit in the
+# floor, so only a NEW one fails. Exit 2 means a file could not be measured, which
+# is not a pass. Two pytest runs per staged test file: tens of seconds, and it runs
+# only when a test file is staged.
+section "Tests that cannot fail (cut-away)"
+STAGED_TESTS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^tests/.*test_[^/]*\.py$' || true)  # fail-soft: grep exits 1 when no test file is staged, which is the ordinary case and not a failure
+if [ -n "$STAGED_TESTS" ]; then
+    if ! python scripts/cutaway.py --staged --check; then
+        note_fail
+    fi
+else
+    echo "  no test file staged: nothing was cut away and nothing was measured."
+fi
+
 # A refusing gate whose refusal sits behind a load that exits 0 on failure will
 # ALLOW what it exists to stop, the moment that load breaks. Aletheia found it
 # in the emergency stop itself, 2026-09-21. The stop is repaired; the rest are
