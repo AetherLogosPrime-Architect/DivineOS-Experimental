@@ -924,6 +924,10 @@ def _recent_assistant_texts(payload: dict, count: int = 2) -> list[str]:
 _TRANSCRIPT_AUDITS: tuple[tuple[str, str, str], ...] = (
     ("hedge_audit", "divineos.core.hedge_audit", "run_hedge_audit"),
     ("theater_audit", "divineos.core.theater_audit", "run_theater_audit"),
+    # Moved in from .claude/hooks/retrieval-tally-check.sh 2026-10-08, the first end-of-reply
+    # script to come inside. A failure here now says could-not-run; the shell version
+    # swallowed every error.
+    ("retrieval_tally", "divineos.core.retrieval_tally", "run_retrieval_tally"),
 )
 
 

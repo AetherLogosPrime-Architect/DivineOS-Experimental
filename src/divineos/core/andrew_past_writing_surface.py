@@ -261,14 +261,14 @@ def build_surface(repo_root: Path) -> str:
 def _record_retrieval_tally(
     repo_root: Path, letters: list[Path], tagged: list[Path], body: list[Path]
 ) -> None:
-    """Best-effort retrieval-tally record. Absent script or import
-    error = silent no-op (same fail-open as the shell hook)."""
+    """Best-effort retrieval-tally record. An import error = silent no-op (same
+    fail-open as the shell hook). The tally lives in the package since 2026-10-08;
+    it was a script reached by a sys.path insert."""
     all_paths = [str(p) for p in letters + tagged + body]
     if not all_paths:
         return
     try:
-        sys.path.insert(0, str(repo_root / "scripts"))
-        import retrieval_tally  # type: ignore[import-not-found]
+        from divineos.core import retrieval_tally
 
         retrieval_tally.record_surfaced(all_paths)
     except Exception:  # noqa: BLE001 - hook layer, fail-open

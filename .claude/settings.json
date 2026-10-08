@@ -522,11 +522,6 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/retrieval-tally-check.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/doorbell-stop.sh",
             "timeout": 10
           },

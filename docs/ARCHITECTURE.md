@@ -771,6 +771,7 @@ src/divineos/
     letter_passages.py         Letters matched by passage, not by their opening.
     windowless_launch_check.py Refuse a launch that opens a window on Dad's screen for every program it starts.
     order_question_check.py    A reply must not end by asking Dad which order to do things in.
+    retrieval_tally.py         Retrieval-tally: measure whether surfaced past-writing actually gets read.
 
   analysis/
     _session_types.py          Session analysis type definitions

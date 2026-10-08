@@ -1,4 +1,10 @@
 #!/bin/bash
+# SUPERSEDED 2026-10-08 by the router. The decision now lives in
+# divineos.core.retrieval_tally (run_retrieval_tally), a row in the Stop table of
+# divineos.core.hook_surfaces, dispatched by doorbell-stop.sh. The registration came
+# out of settings.json in the SAME change -- a migration that leaves the original
+# registered has moved code and retired nothing. The first end-of-reply script moved.
+# INTENTIONALLY UNWIRED (2026-10-08): superseded, see above.
 # Stop hook — post-compose retrieval-tally check.
 #
 # The past-writing-to-Andrew surface fires at compose-start and records
