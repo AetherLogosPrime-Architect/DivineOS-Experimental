@@ -153,9 +153,12 @@ class TestEmergencyBypassReasonGate:
         # will hit "infrastructure error" (rc=2) or "no guardrail files"
         # (rc=0). Either way, record_emergency_use must NOT have been called.
         try:
-            script_module.main(["--pr", "42", "--repo", "owner/repo"])
-        except SystemExit:
-            pass
+            rc = script_module.main(["--pr", "42", "--repo", "owner/repo"])
+        except SystemExit as exc:
+            rc = exc.code
+        # "the spy was never called" is also true if main did nothing at all, so require that it
+        # ran the normal path to one of the two ends the comment above names.
+        assert rc in (0, 2), f"main did not finish the normal path: {rc!r}"
         assert call_count["n"] == 0
 
     def test_empty_env_var_treated_as_unset(self, script_module, monkeypatch):
@@ -177,7 +180,8 @@ class TestEmergencyBypassReasonGate:
         )
 
         try:
-            script_module.main(["--pr", "42", "--repo", "owner/repo"])
-        except SystemExit:
-            pass
+            rc = script_module.main(["--pr", "42", "--repo", "owner/repo"])
+        except SystemExit as exc:
+            rc = exc.code
+        assert rc in (0, 2), f"main did not finish the normal path: {rc!r}"
         assert call_count["n"] == 0
