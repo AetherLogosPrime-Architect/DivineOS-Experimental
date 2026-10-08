@@ -110,6 +110,22 @@ def test_a_doorbell_that_runs_a_module_of_the_os_is_not_detached(tmp_path):
     assert hl.inventory(root).detached_files == 1
 
 
+def test_a_doorbell_spelled_with_quotes_or_no_space_is_still_a_doorbell(tmp_path):
+    """The cloud helper's F5 and F6: `-m "divineos.hooks.x"` and `-mdivineos.hooks.x`
+    are real calls the first version of the pattern read as detached."""
+    root = _tree(
+        tmp_path,
+        {"Stop": ["quoted.sh", "tight.sh", "own.sh"]},
+        {
+            "quoted.sh": '#!/bin/bash\nexec "$PYTHON_BIN" -m "divineos.hooks.x"\n',
+            "tight.sh": '#!/bin/bash\nexec "$PYTHON_BIN" -mdivineos.hooks.x\n',
+            "own.sh": "#!/bin/bash\necho the judgment lives in this file\n",
+        },
+    )
+    # Control: own.sh stays detached, so a loosened pattern cannot call everything attached.
+    assert hl.inventory(root).detached_files == 1
+
+
 def test_a_comment_that_names_the_os_does_not_attach_a_script(tmp_path):
     """Five scripts on main were 'attached' only because a comment said
     `divineos <word>`; two of them make no OS call at all."""

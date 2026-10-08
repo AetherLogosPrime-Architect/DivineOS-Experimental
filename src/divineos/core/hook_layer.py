@@ -62,7 +62,9 @@ _SCRIPT_RE = re.compile(r"([A-Za-z0-9_\-]+\.(?:sh|py))")
 # "-m divineos" is the doorbell form: a thin hook that finds a Python and runs a module of
 # the OS. The measure did not know it, so ten of the 45 files it called "detached from the OS"
 # (2026-10-08) were exactly the thing the migration wants.
-_OS_IMPORT_RE = re.compile(r"from divineos|import divineos|\s-m\s+divineos\b")
+# The module name may be quoted and the flag may touch it (`-m "divineos.x"`, `-mdivineos.x`);
+# `grep -m 1 divineos` must stay unmatched, so a number between the flag and the name still fails.
+_OS_IMPORT_RE = re.compile(r"""from divineos|import divineos|\s-m\s*["']?divineos\b""")
 _OS_CLI_RE = re.compile(r"\bdivineos [a-z]")
 _INLINE_PY_RE = re.compile(r"python3?\s+-\s*<<|python3?\s+-c\s|<<'PY'|<<PY")
 
