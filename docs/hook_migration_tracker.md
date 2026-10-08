@@ -14,10 +14,13 @@
 > ```
 >
 > Feynman's rule from the 2026-09-08 council walk — observation beats
-> authority, so no plan may trust a hand-kept list. The ceiling that now holds
-> the layer down lives in `docs/hook_ratchet.json` and is enforced at
-> pre-commit by `scripts/check_hook_ratchet.py`, which is four lines calling
-> `divineos.core.hook_layer`.
+> authority, so no plan may trust a hand-kept list. **There is no ceiling on the
+> number of hooks, and none should be built.** An earlier version of this header
+> said one lived in a ratchet file enforced at pre-commit; that file and its check
+> were removed the day they were made, after Andrew asked "why would you build
+> something that can only shrink and never grow?" (RETIRED-RULE-OK).
+> `divineos.core.hook_layer` measures and enforces nothing. The retired rule and
+> why it was retired: `docs/retired_rules/2026-10-08_the_hook_count_ceiling.md`.
 
 **Started:** 2026-06-30 (Aether)
 **Principle (Pop 2026-06-30):** *"Make the hooks dumber so they can't be wrong; put the logic in the OS so the decision happens where the contract is. Replace the decision with structure so it makes the choice for you."*
