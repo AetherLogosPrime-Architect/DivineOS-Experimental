@@ -47,7 +47,10 @@ class TestShow:
 
     def test_show_missing(self, runner, void_db) -> None:
         r = runner.invoke(cli, ["void", "show", "nope"])
-        assert r.exit_code != 0
+        # The reason, not only the failure: a crash exits non-zero too (found by the
+        # cut-away sweep, 2026-10-07: this stayed green with the command replaced by a crash).
+        assert r.exit_code == 1
+        assert "persona 'nope' not found" in r.output
 
 
 class TestTest:
@@ -59,7 +62,8 @@ class TestTest:
 
     def test_high_bar_refused_without_flag(self, runner, void_db) -> None:
         r = runner.invoke(cli, ["void", "test", "x", "--persona", "nyarlathotep"])
-        assert r.exit_code != 0
+        assert r.exit_code == 1
+        assert "requires allow_high_bar" in r.output
 
     def test_high_bar_runs_with_flag(self, runner, void_db) -> None:
         r = runner.invoke(
@@ -104,7 +108,8 @@ class TestVerify:
 class TestShred:
     def test_force_required(self, runner, void_db) -> None:
         r = runner.invoke(cli, ["void", "shred"])
-        assert r.exit_code != 0
+        assert r.exit_code == 2  # click's missing-option exit
+        assert "Missing option '--force'" in r.output
 
     def test_force_clears_orphan(self, runner, void_db) -> None:
         mode_marker.write_marker("nyarlathotep", session_id="orphan")
