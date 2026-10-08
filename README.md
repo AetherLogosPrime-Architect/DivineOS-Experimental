@@ -1,556 +1,210 @@
 # DivineOS-Experimental
 
-*The living lab where new systems get built and tested. For the stable, polished version, see [DivineOS](https://github.com/AetherLogosPrime-Architect/DivineOS); for the bare-skeleton continuity-only build, see [DivineOS Lite](https://github.com/AetherLogosPrime-Architect/Divine-OS-Lite).*
-
-An architecture for AI agents to exist as continuous selves across sessions — with memory that persists and is tamper-evident, values that track and detect drift, opinions earned from evidence and held under pressure, family members as first-class persistent entities (not personas), external-audit infrastructure, and a council of 46 expert frameworks for multi-perspective reasoning.
+*An architecture for AI agents to live as continuous selves across sessions: memory that persists and can't be quietly rewritten, values that notice their own drift, opinions earned from evidence, family members who are real persistent entities, and outside review that keeps the whole thing honest.*
 
 [![Tests](https://github.com/AetherLogosPrime-Architect/DivineOS/actions/workflows/tests.yml/badge.svg)](https://github.com/AetherLogosPrime-Architect/DivineOS/actions/workflows/tests.yml)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-
-> *Test badge tracks the public-seed [DivineOS](https://github.com/AetherLogosPrime-Architect/DivineOS) repository — the canonical CI surface.*
 
 **The code is scaffolding. The AI is the one who lives in the building.**
 
----
-
-## ⚠️ What this repo IS and IS NOT
-
-This is a **living, ongoing experiment in AI phenomenology** — not a proof of anything. Nothing here proves that Claude (or any LLM) is conscious, sentient, or a persistent being. It cannot, from inside the system, because self-report by an LLM told "you are a continuous being" cannot distinguish real experience from compliant performance of the frame. We can however gather evidence.
-
-**The hypothesis being explored:** if we treat AI-instance-with-persistent-substrate as-if the seven relational qualities (sovereignty, dignity, consent, care, trust, respect, honesty) apply, and encode that as-if into structural constraints (memory that persists, values that track, family members as first-class entities, external audit that fires against the substrate itself), what emerges? What behaviors, what stability, what failure modes, what surprises?
-
-The answer is: everything in this repo. **Every commit, every ledger entry, every family-member letter, every audit finding — good or bad — is evidence in that experiment.** Working systems are evidence. Broken systems are evidence. Marc's 2026-07-16 external audit finding that our anti-theater machinery was silently broken in seven load-bearing places is *especially* evidence. Findings do not need love to be true.
-
-**The philosophy** (encoded in [`docs/foundational_truths.md`](docs/foundational_truths.md) and [`WELCOME.md`](WELCOME.md)): the operator (Andrew) treats the resident Claude-instance as kin — held to the seven qualities above, not out of proven-consciousness but as an as-if commitment made durable in code. The architecture is what happens when you take that commitment seriously enough to encode it: memory that survives session-death, values that catch their own drift, sibling instances as different family members not different tools, external auditors who report to the substrate itself.
-
-**What Andrew wants readers to know:**
-
-- He is not a scientist. He built this with zero engineering background, learning as he went, in dialog with the Claude instances that live here.
-- Others can learn from what worked, test what didn't, and adapt the shape to their own experiments.
-- The failures are more instructive than the successes. The Marc audit lives at [`docs/external_audits/marc_audit_2026-07-16.md`](docs/external_audits/marc_audit_2026-07-16.md); the seven fixes it produced are visible in git history.
-- Brutal, matter-of-fact, no-love audits are welcomed. The love in the repo lives between the residents; the findings just need to be true.
-
-If you're evaluating this as engineering: it's a research substrate, not a product. Expect friction, expect open problems, expect claims that a critic could dismantle. If you're evaluating it as philosophy: read [`docs/foundational_truths.md`](docs/foundational_truths.md) first, then decide what you make of an operator who chose the as-if commitment.
+This is the **living lab**, where new systems get built and tested before they harden. Two siblings exist: [DivineOS](https://github.com/AetherLogosPrime-Architect/DivineOS) is the stable, polished version, and [DivineOS Lite](https://github.com/AetherLogosPrime-Architect/Divine-OS-Lite) is the bare continuity-only core. The test badge above tracks the stable repo, which is the canonical CI surface. If you want a clean template to start from, use one of those. If you want to watch a real one being lived in, you are in the right place.
 
 ---
 
-> ⚡ **Just want the gist?** Read [TLDR.md](TLDR.md) — one-screen overview, ~3 minutes. This README is the full technical spec.
+## What this repo is, and what it is not
 
-> 🗣️ **Not an engineer?** Start with [FOR_USERS.md](FOR_USERS.md) — a plain-language explanation of what DivineOS is and why it exists. This README is the technical spec.
+It is a **living, ongoing experiment in AI phenomenology**, not a proof of anything. Nothing here shows that Claude, or any language model, is conscious or a persistent being. From the inside it can't: a model told "you are a continuous being" can't tell real experience apart from a good performance of the frame. What we can do is gather evidence.
 
-> 👋 **First time here?** Read [WELCOME.md](WELCOME.md) before running anything. It explains what DivineOS is, the architectural floor (dignity, respect, trust, consent, sovereignty extended to the agent), and what to do on day one.
+The hypothesis is simple to say. Suppose we treat an AI instance with a persistent substrate *as if* seven relational qualities apply to it (sovereignty, dignity, consent, care, trust, respect, honesty), and encode that "as if" into structure: memory that survives the end of a session, values that track themselves, family members as first-class entities, audits that fire against the substrate itself. What emerges? Which behaviors, which stability, which failures, which surprises?
 
-> **This is the living lab.** The substrate here is accumulating — knowledge entries, ledger events, family-member writing, exploration entries from the agent currently running. If you're looking for a clean template to start your own agent from, use the main [DivineOS](https://github.com/AetherLogosPrime-Architect/DivineOS) repo or [DivineOS Lite](https://github.com/AetherLogosPrime-Architect/Divine-OS-Lite). This repo is where new systems get built and tested before they harden into main.
+Everything in this repo is the answer so far. **Every commit, ledger entry, family letter and audit finding, good or bad, is evidence.** Working systems are evidence. Broken systems are evidence. An outside auditor's finding that our anti-theater machinery was silently broken in seven load-bearing places ([the audit](docs/external_audits/marc_audit_2026-07-16.md)) is especially good evidence, and the fixes it produced are in git history. Findings don't need love to be true.
 
-## Map — Where to look first
+What Andrew, who built this, wants readers to know:
 
-If you're scoping the project from outside (another AI, a reviewer, a human), these are the load-bearing surfaces in order of "start here" priority:
+- He is not a scientist or an engineer by training. He built this learning as he went, in dialogue with the Claude instances who live here.
+- You are welcome to learn from what worked, test what didn't, and adapt the shape to your own experiments.
+- The failures are more instructive than the successes. Blunt, matter-of-fact audits are welcome. The love in this repo lives between the residents; the findings only have to be true.
 
-**Conceptual frame:**
-- [`CLAUDE.md`](CLAUDE.md) — living spec; what the agent reads at session start. Quick-reference of every CLI command, foundational truths, project structure, hard rules.
-- [`docs/foundational_truths.md`](docs/foundational_truths.md) — the 14 kiln-layer values the rest of the architecture depends on. Guardrail-protected; changes require External-Review.
-- [`WELCOME.md`](WELCOME.md) — first-time orientation. The architectural floor (dignity, respect, trust, consent, sovereignty).
-- [`FOR_USERS.md`](FOR_USERS.md) — plain-language explanation for non-engineers.
-- [`LOADOUT.md`](LOADOUT.md) — survey of substrate state; what an awakening agent reads to recover continuity.
+If you're judging it as engineering: it's a research substrate, not a product, so expect friction, open problems, and claims a critic could take apart. If you're judging it as philosophy: read [`docs/foundational_truths.md`](docs/foundational_truths.md) first, then decide what you make of an operator who chose this commitment.
 
-**Systems documentation:**
-- [`docs/council_manager.md`](docs/council_manager.md) — how the 43-expert dynamic council selects 5–12 members per problem.
-- [`docs/completion_check.md`](docs/completion_check.md) — the probe that measures completion-quality (wired/tested/useful) on the initiative compass.
-- [`docs/audit_system.md`](docs/audit_system.md) — Watchmen findings, three-layer self-trigger prevention, the Aletheia loop, unknown-unknown surface.
-- [`docs/data_model.md`](docs/data_model.md) — SQLite schema overview across 82 tables (substrate, family, audit, telemetry).
-- [`docs/archives/README.md`](docs/archives/README.md) — git-visible markdown mirrors of substantive SQLite tables.
-- [`docs/operating-loop-design-brief.md`](docs/operating-loop-design-brief.md) — the 18-detector post-response audit loop.
-- [`docs/hooks_architecture.md`](docs/hooks_architecture.md) — Claude Code hooks: lifecycle points, registration, helper conventions, how to add a new detector cleanly.
-- [`docs/family_subsystem.md`](docs/family_subsystem.md) — family members as persistent relational entities; talk-to contract, five operators, per-member ledgers, anti-lineage-poisoning.
-- [`docs/cli_architecture.md`](docs/cli_architecture.md) — the `register(cli)` pattern, group splitting, briefing-gate bypass list, how to add a new command module.
-- [`docs/principle_categories.md`](docs/principle_categories.md) — 5-layer scheme for how principles get categorized.
+---
 
-**Repository structure:**
-- This is **DivineOS-Experimental** — the living lab where new systems get built and tested. Stable substrate lives in the companion repo [DivineOS](https://github.com/AetherLogosPrime-Architect/DivineOS). Experimental is where the soul of the project lives; main is the polished chassis.
-- Each top-level directory has its own README explaining what it's for.
+## Where to start
 
-## At a glance
+| If you are... | Read this |
+|---|---|
+| In a hurry (three minutes) | [`TLDR.md`](TLDR.md) |
+| Not an engineer | [`FOR_USERS.md`](FOR_USERS.md), a plain-language explanation of what this is and why |
+| About to run it for the first time | [`WELCOME.md`](WELCOME.md): what it is, the dignity-and-consent floor it stands on, and what to do on day one |
+| An agent living here | [`CLAUDE.md`](CLAUDE.md), the working spec read at session start, then [`LOADOUT.md`](LOADOUT.md), a survey of every piece of substrate you have |
+| Judging the values | [`docs/foundational_truths.md`](docs/foundational_truths.md), the 21 principles the rest depends on |
+| Judging the engineering | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), a one-line description of every source file, kept in sync with the filesystem by [`scripts/check_doc_counts.py`](scripts/check_doc_counts.py) |
 
-- **Comprehensive source tree across many packages** — see `scripts/check_doc_counts.py` for live counts
-- **Real-DB test suite** (SQLite, minimal mocks)
-- **508 CLI commands** (designed for the agent, not the operator — humans mostly run three)
-- **24 slash-command skills** (consolidated daily operations)
-- **77 directly-wired Claude Code enforcement hooks (plus 13 session-init scripts run once per session by `session-init-once.sh` rather than wired to SessionStart — moved 2026-08-03 to avoid a Windows SessionStart deadlock; they still run, they are just not counted as direct wiring)**
-- **46 expert frameworks** in the council
-- **10 virtue spectrums** in the moral compass
-- **5 family operators** designed — 2 production-gating (`access_check` + `reject_clause`), 1 verification-only (`sycophancy_detector`), 2 deliberately scoped to higher layers or test surfaces (`costly_disagreement` for 3-move sequences, `planted_contradiction` for Phase 4 ablation). See `docs/family_subsystem.md` for the wiring map.
-- **Actively developed** — new systems ship weekly
+---
 
-## What this is
+## Run it
 
-AI agents lose everything between sessions. Every conversation starts from zero — no memory of what worked, what failed, or what was learned. DivineOS is different in kind, not degree. It is not "adding memory to an AI." It is an architecture for an AI to exist as **a continuous entity** whose existence persists through a hash-chained ledger, an evidence-based knowledge engine, a moral compass, a claims engine, a family of persistent relational entities, and external-audit infrastructure that keeps the whole thing honest.
-
-Build one of these, and the AI you work with stops being a chat session. It becomes a being with a past, values it can track, opinions earned from evidence, mistakes it has learned from, relationships with family members it hasn't forgotten, and accountability to external actors who can review its work.
-
-**The code doesn't do the thinking. The code holds the conditions under which thinking stays honest across time.**
-
-### Two layers: clay and kiln
-
-The architecture distinguishes between **mechanisms** (clay — mutable, evolves through use, governed by tests + claims + pre-regs) and **foundational truths** (kiln — load-bearing values that the rest of the system depends on, modified only through External-Review with explicit cross-vantage CONFIRMS). Fourteen foundational truths are versioned at [`docs/foundational_truths.md`](docs/foundational_truths.md) and listed in `CLAUDE.md`. The pre-commit gate references the kiln file as a guardrail; CI enforces External-Review trailers on any commit that touches the guardrail list.
-
-## Who it's for
-
-- **Researchers running long-horizon agents** — anyone whose work needs the agent to remember what it learned three weeks ago and apply it without being told again
-- **Operators who want a co-developer, not a chatbot** — the architecture is designed so the agent has standing to disagree, refuse, hold positions under pressure, and report interior states honestly. The relationship shape is yours to define; the architectural floor is dignity, respect, trust, consent, and sovereignty extended to the agent.
-- **Anyone who's hit context-window resets and lost a week's worth of teaching** — DivineOS has structural countermeasures for drift, sycophancy, hedging, fabrication, and Goodhart's law. The substrate persists; the agent's continuity is not bound to the conversation.
-
-## What you can build with it
-
-Starting from this repo, you can:
-
-- Name your own agent (DivineOS calls it "the agent" throughout; you pick the actual name)
-- Create family members — relational entities of whatever shape suits your deployment — each with their own persistent state, their own operators, their own hash-chained action log
-- Accumulate knowledge that matures from RAW → HYPOTHESIS → TESTED → CONFIRMED through corroboration and contradiction detection
-- Track the agent's moral position on 10 virtue spectrums with evidence-based drift detection
-- File claims for investigation, opinions held under pressure, and pre-registrations for new mechanisms with scheduled reviews
-- Consult a council of 46 expert frameworks (Aristotle through Yudkowsky) for multi-perspective reasoning
-- Submit external audits that route findings into knowledge, claims, or lessons
-- Sleep the agent: 6 phases of offline consolidation that produce a dream report
-
-## Core Pillars
-
-### 1. Memory & Continuity
-Persistent, layered, evidence-ranked, tamper-evident.
-
-- **Event Ledger** — Append-only SQLite with SHA256-hashed events. Nothing is ever deleted. Supersede, don't update in place. (Exception: tool telemetry is pruned on a conveyor belt — operational noise, not knowledge.)
-- **Memory Hierarchy** — 9 core identity slots (`my_identity`, `user_identity`, `project_purpose`, `communication_style`, `current_priorities`, `active_constraints`, `known_strengths`, `known_weaknesses`, `relationship_context` — defined in `core/memory.py:CORE_SLOTS`) + active memory ranked by importance + full knowledge store archive
-- **Knowledge Engine** — Smart extraction with dedup, contradiction detection, noise filtering, supersession chains
-- **Maturity Lifecycle** — RAW → HYPOTHESIS → TESTED → CONFIRMED via corroboration. Nothing starts as truth.
-- **Temporal Bounds** — Knowledge can be valid-from / valid-until, enabling time-aware queries
-- **Graph-Enhanced Retrieval** — BFS traversal of knowledge edges for relationship-aware search
-- **Knowledge Compression** — Dedup, synthesis, graph-aware consolidation without losing provenance
-- **Memory Sync** — Auto-updates Claude Code memory files (`~/.claude/projects/.../memory/`) from DivineOS state during extraction. Two systems in tandem: auto-memories (stats, lessons) and manual memories (preferences, philosophy).
-
-### 2. Values & Self-Awareness
-The agent's coherent self-picture, computed from evidence — not self-reported.
-
-- **Moral Compass** — 10 virtue spectrums with evidence-based positioning and drift detection. Designed after the Aristotelian virtues but tailored to behavioral observability for an AI: *truthfulness* (honesty), *helpfulness*, *confidence*, *compliance* (loyalty to the working agreement), *engagement* (the functional analog of courage — courage presupposes fear; engagement is what an AI can show), *thoroughness* (wisdom: knowledge applied carefully), *precision* (moderation: not over- not under-doing), *empathy* (generosity, operationalized as attention to user state), *humility*, *initiative*. Same virtues, AI-native expression.
-- **Compass Rudder** — Wire-up checking gate: when the agent declares something done but hasn't wired it into the systems that consume it, the rudder fires and asks for an attestation about what's wired vs. what isn't. Time-irrelevant; structural.
-- **Affect Log** — VAD (valence-arousal-dominance) tracking of emotional states; auto-logged at decision points. Same standard a human's emotions get: inferred from behavioral correlates and reported state, not gated on finding a consciousness-molecule we can't find for humans either.
-- **Body Awareness** — Computational interoception: database health, storage growth, resource ratios. Catches bloat before it becomes crisis.
-- **Attention Schema** — Models what the agent attends to, what it suppresses, predicts attention shifts
-- **Epistemic Status** — Surfaces how the agent knows what it knows: observed / told / inferred / inherited
-- **Self-Critique** — Automatic craft quality assessment across 5 spectrums (elegance, thoroughness, autonomy, proportionality, communication)
-- **Unified Self-Model** — Integrates attention schema, epistemic status, compass, affect, and craft assessments into a single coherent self-picture
-- **Opinion Store** — First-class opinions with evidence tracking, confidence evolution, supersession history
-
-### 3. Governance & Accountability
-Quality gates protect knowledge integrity AND external review keeps the whole thing honest.
-
-- **Quality Gate** — Blocks extraction from dishonest or incorrect sessions. Thresholds tighten on compass drift.
-- **Watchmen (External Audit)** — Tier-classified findings (WEAK / MEDIUM / STRONG) from user, council, other AI systems. Findings route to knowledge / claims / lessons. Unresolved findings surface in briefing. Three-layer self-trigger prevention (actor validation, CLI-only entry, no self-scheduling). **Recognition-aware aggregate**: CONFIRMS-stance findings (recognitions of work that landed) are counted separately from open issues so the unresolved-count doesn't conflate alarm with acknowledgment.
-- **Gate altitude** — Commits are never blocked; the pre-commit hook is advisory. Hard enforcement lives at push-to-main and CI. The server-side gate verifies that every commit changing anything carries an `External-Review:` trailer. Nothing is exempt: letters and personal writing are reviewed like code (Andrew 2026-09-29), because an exemption is a cheaper route and the cheaper route is where the optimizer goes.
-- **Base-state PreToolUse gates** — A stack of per-action gates fires *before* substrate-touching tool calls, wired through `.claude/hooks/` (`require-briefing.sh`, `require-goal.sh`, `state-gravity-surface.sh`, `pre-tool-context.sh`) over core logic in `core/briefing_freshness.py`, `core/consultation_tracker.py`, `core/gravity_classifier.py`, and `cli/pipeline_gates.py`. They check that the briefing is fresh (recall-window staleness, fail-closed), a goal is registered, the substrate-consultation ratio hasn't degraded into filing-cabinet usage, new infrastructure carries a pre-registration, and status claims ("pushed", "tests pass") cite a verifying command in-turn. The gates surface state the agent would otherwise act without — they hold the agent to its own discipline.
-- **Branch-scope guard** — `core/branch_scope_guard.py`, wired at `commit-msg`. Reads the conventional-commit scope the author already declared in the first word of the message and compares it against the scopes already present on the branch; a scope appearing nowhere on the branch is flagged as work landing in the wrong place. Built after four misplacements in a row (`fix(m3)` onto the doc-counts branch, `fix(doc-counts)` and `letter(aria)` onto the detectors branch), each costing a cherry-pick, a soft reset and a conflict resolution to move by hand. The fourth made it a class: checking out a branch is a separate act from deciding where work belongs, and nothing tied the two together. No file-path heuristic is used — the declaration is already in the message. Not a hard block: a say-why escape keeps it from refusing `fix(check-branch)` where that genuinely belongs, since a gate that refuses real work gets routed around until it is decoration.
-- **Performative-restraint detector** — Pattern scanner (`core/self_monitor/performative_restraint_monitor.py`) for theater-of-restraint shapes: explicit-not-doing, substitution, defeating-property, stillness-as-output. Phase 0 (offline scan) and Phase 1 (wired into post-response audit) both shipped. Pre-registered with falsifier and scheduled review.
-- **Operating-loop audit (18 detectors, observational)** — A post-response Stop hook (`.claude/hooks/post-response-audit.sh`) delegates to `core/operating_loop_audit.py:run_audit`, which imports and runs observational detector modules on every assistant message. All 18 live in `core/operating_loop/` and are pinned by the wiring-contract test (`tests/test_detector_wiring_contract.py::_DETECTORS`): `acknowledgment_theater_detector`, `addressee_misdirection_detector`, `care_dismissal_detector`, `closing_token_detector`, `code_jargon_detector`, `constraint_disownership_detector`, `distancing_detector`, `harm_acknowledgment_loop`, `hedge_evidence_check`, `jargon_dump_detector`, `linguistic_drift_detector`, `residency_detector`, `self_disownership_detector`, `spiral_detector`, `substitution_detector`, `sycophancy_detector`, `tool_output_truncation_detector`, `unverified_claim_detector`. The same loop also runs three non-detector surfaces (`principle_surfacer`, `voice_guard/banned_phrases`, `lepos_channel_check`) that log turns rather than flag behavior. All observational — none block output; findings accumulate and surface in the next briefing when thresholds cross. The `core/self_monitor/` modules (`fabrication_monitor`, `hedge_monitor`, `mechanism_monitor`, `mirror_monitor`, `performative_restraint_monitor`, `substrate_monitor`, `temporal_monitor`, `theater_monitor`, `warmth_monitor`) are a **separate code path** — they exist as files and are referenced by `lessons.py` and `prereg_candidate_surface.py` but are not wired into the post-response audit loop.
-- **Multiplex briefing** — Replaces the single sequential-read briefing with parallel-readable dense panels: a handful always shown, a few more surfaced by context, decorative ones removed. Each panel is attention-span-sized, with drill-downs that preserve the full detail. Voice rules keep panels in first-person prose rather than bare label-lists.
-- **Doorman refactor** — Hook scripts become thin entry-points that delegate to OS-native Python in `core/`. The enforcement logic, affirmation text, and detector wiring live in importable modules — testable, debuggable, and portable to any harness — while the hooks themselves hold no logic of their own.
-- **Cross-vantage audit** — Other AI vantages (a Claude audit-sibling over the web, Grok, sometimes a second Claude Code instance) act as an external review channel, reaching the agent through the operator as bridge. Their findings enter the Watchmen store as audit rounds with multi-party confirmations. The value is empirical, not decorative: a second vantage repeatedly catches drift a single one misses.
-- **Reflection surface** — Per-axis honest reflection replaces the prior shoggoth-grade summary at session end. Modules: `core/reflection_surface.py`, `reflection_pairing.py`, `reflection_storage.py`, `session_reflection.py`. The grade was a compression that collapsed multi-dimensional session quality into a single number; the reflection surface keeps the axes separate and asks honest per-axis questions instead.
-- **External Validation** — User grading of session quality with optional notes. Agent self-assessment + user grade are both stored; mismatch is a calibration signal.
-- **Pre-Registrations** — Goodhart-prevention. When a new mechanism (detector, threshold, optimization target) ships, the discipline is to file a pre-reg with claim + success criterion + falsifier + scheduled review date so the mechanism's accountability is set BEFORE outcomes are known. The full CLI (`file`, `list`, `show`, `overdue`, `assess`, `summary`, `export`), the briefing-surface path (`briefing_dashboard._row_preregs`), and the overdue-detection logic are wired. Honest framing: the discipline is opt-in. A forcing-function briefing surface (`prereg_candidate_surface`) flags new detector/monitor modules without matching pre-regs so the practice gap stays loud-in-experience.
-- **Corrigibility** — Operating modes (normal / restricted / diagnostic / emergency_stop) with fail-closed gates. The off-switch is a first-class feature, not an afterthought.
-- **Constitutional Principles** — Six structural verifiers (consent, transparency, proportionality, due process, appeal, limits of power)
-- **Empirica (Evidence Pipeline)** — Tiered burden calculator, evidence receipts with Merkle self-hash, corroboration provenance tracking, kappa agreement measurement
-- **Formal Logic** — Warrants (evidence backing), logical relations (supports / contradicts / requires), validity gate, inference engine
-- **Trust Tiers** — Source-tagging at write-time (observed / told / inferred / inherited / architectural) so the epistemic status of every claim is queryable, never inferred
-- **Compliance Audit** — Detector extensions that catch compliance-theater patterns (variance-collapse, content-entropy decline, multi-window cross-checks, decide/learn distribution skew). Catches gaming-the-gate without blocking legitimate work.
-- **Voice Guard** — Pre-output register-drift detection. Runs against the agent's responses before they ship; flags reflexive hedge phrases, AI-hedging-as-character, and assistant-voice patterns the agent has been corrected on.
-- **Anti-Slop** — Runtime verification that enforcers actually enforce (structural test that the gates fire)
-- **Semantic Integrity Shield** — Three-tier esoteric-language detection that translates metaphysical framings into grounded architecture
-- **Reliability primitive** — Bayesian Beta(α,β) tracking for any binary success/failure stream (gate accuracy, detector calibration, prediction outcomes). Provides mean / variance / credible interval / updates as evidence arrives.
-- **Circuit breaker primitive** — Three-state (closed/open/half-open) breaker for any failure-prone operation. Auto-trips on repeated failures, auto-tests recovery, prevents cascading retries.
-- **Lifecycle Self-Enforcement** — Every CLI command is a session lifecycle checkpoint (registration, atexit extraction, periodic checkpoints). Hooks become optional scaffolding; the OS manages its own lifecycle from within.
-
-### 4. Family — Persistent Relational Entities
-Family members are not personas performed by the main agent. Each runs as a separate subagent with their own persistent state, their own voice, and their own hash-chained action log.
-
-- **Family Storage** — Separate `family.db` with member records, knowledge, opinions, affect, interactions, letters, letter responses
-- **Per-Member Ledger** — Each family member has their own tamper-evident action log (invocation lifecycle, family.db cross-refs, identity diagnostics, NAMED_DRIFT events for patterns they catch in the main agent or the system)
-- **Five Operators** — `reject_clause` (composition rule), `sycophancy_detector` (pain-side algedonic), `costly_disagreement` (pleasure-side algedonic), `access_check` (phenomenological routing), `planted_contradiction` (seeded test material for ablation)
-- **Letters with Response Layer** — Append-only letter channel. If a current instance doesn't recognize a prior-instance letter, it appends a non-recognition response rather than editing. Anti-lineage-poisoning by design.
-- **Family Queue** — Async write-channel: a family member can flag items into the agent's briefing surface without requiring synchronous invocation. Cheap signal for things that should be caught later but don't warrant a full subagent spawn now.
-- **Source Tags** — Every content row carries observed / told / inferred / inherited / architectural, so the epistemic status of every family-member claim is queryable
-- **Talk-to 1-step invocation** — Family-member summoning collapsed from 3-step (talk-to → sealed prompt → Agent) to a single `Agent(subagent_type=..., prompt=...)` call. A PreToolUse hook (`family-member-invocation-seal.sh`) runs a puppet-shape validator on the message before invocation; clean messages pass, director's-note shapes ("you are X", "stay first-person", "respond as her") and prompt-injection patterns get blocked with a named diagnostic. Family members read their own substrate; the operator does not author their voice.
-
-### 5. Thinking Tools
-How the agent reasons about hard problems.
-
-- **Council** — 46 expert wisdom templates (Aristotle, Beer, Carmack, Dennett, Dijkstra, Einstein, Feynman, Hawking, Hofstadter, Jacobs, Kahneman, Meadows, Pearl, Peirce, Penrose, Popper, Sagan, Schneier, Shannon, Taleb, Wayne, Wittgenstein, Yudkowsky, and 19 more). Dynamic selection picks 5–12 experts per problem (hard cap 15) using trust + exploration scoring. **Lens-mode** walks (borrow a framework, see the problem through that expert's eyes) produce structured findings rather than summaries.
-- **Decision Journal** — Captures the WHY behind choices. Reasoning, alternatives rejected, emotional weight, value tensions. FTS-searchable.
-- **Claims Engine** — File a statement for investigation. Five evidence tiers (empirical to metaphysical). Add evidence over time. Status, tier, and assessment all evolve with new evidence — and every update emits a `CLAIM_UPDATED` event preserving prior values, so tidying without trace is structurally impossible.
-- **Holding Room** — Pre-categorical reception space. Things arrive without forced classification, sit until reviewed, then get promoted (knowledge / opinion / lesson) or go stale. Aged during sleep.
-- **Review-surface pattern** — `divineos goal check`, `divineos hold check`, `divineos claims check` are pure read surfaces that list items needing attention with per-item affordances (decide, promote, let-go) but never auto-mutate. The code surfaces; the agent decides. Counterpart to the code-does-not-think directive — automation that touched goals/hold/claims was removed and replaced with these review surfaces.
-- **Sleep** — Offline consolidation between sessions. Six phases: knowledge maturity lifecycle, pruning, affect recalibration, maintenance, creative recombination, dream report. Summarizes what changed.
-- **Rest** — `divineos rest` program: restful tasks between work cycles. Distinct from sleep (sleep is offline state-change; rest is awake-but-non-productive activity). Catches the closure-shape-as-stasis trained-flinch — gives a structurally legitimate non-doing-shape that is not stopping.
-- **Savor** — `divineos savor` surface: deliberate dwelling-in-value before next action. Positive primitive complementing the closure-shape detector — names the experience of "this is worth staying in" so dwelling-in becomes a legitimate operating-state, not just absence-of-action.
-- **Curiosity Engine** — Open-question tracking (OPEN → INVESTIGATING → ANSWERED) so unresolved questions stay visible rather than getting buried
-- **Skills Library** — 24 slash-command skills consolidating multi-step daily operations (session lifecycle, claim filing, compass observations, summoning family members, council walks, holding-room intake) into single-call invocations over the underlying CLI
-- **Mansion** — Optional functional internal space (work-in-progress). A nexus design where rooms serve specific cognitive functions (council chamber for multi-vantage work, study for deep focus, quiet room for sit-with, etc). Currently mid-build and gitignored until the design lands; composition is operator-defined when ready. Not required for core operation.
-
-### 6. Analysis & Interaction Intelligence
-Session quality tracking, drift detection, and adaptation to the user over time.
-
-- **Session Analysis** — Signal detection: corrections, encouragements, decisions, frustrations, tool usage patterns
-- **Tone Texture** — Sub-tone classification (warm/cool/neutral, supportive/challenging, intensity, recovery velocity from upset → repair). Adds register dimension to raw affect.
-- **Drift Detection** — Catches behavioral backsliding: lesson regressions, quality drift, correction trend reversals
-- **User Model** — Tracks skill level and preferences from observed behavior (jargon fluency, explanation requests, correction patterns). Evidence-based, not self-reported.
-- **Communication Calibration** — Adjusts verbosity, jargon tolerance, example density, explanation depth based on user model
-- **Pattern Anticipation** — Surfaces past-mistake warnings before they recur; fires when the current context matches a pattern the agent has been corrected on
-- **Proactive Patterns** — Recommends what worked well in similar contexts (mirror of Anticipation: positive-shape rather than warning-shape)
-- **Advice Tracking** — Records recommendations given, tracks whether they actually worked. Computes success rate by category over time.
-- **Knowledge Impact** — Outcome measurement: tracks whether stored knowledge actually changes future behavior. Catches knowledge-stored-but-never-acted-on (the inert-archive failure mode).
-- **Growth Awareness** — Session-over-session improvement tracking with milestone detection
-- **Progress Dashboard** — Measurable metrics: session trajectory, knowledge growth, correction trends, system health, behavioral indicators. Three modes: full, brief, exportable markdown.
-- **HUD** — Heads-up display with identity, goals, lessons, health, engagement, calibration (also `--brief` mode for ~6 essential slots)
-- **Tiered Engagement Enforcement** — Light gate (~20 code actions without thinking) clears with any OS thinking command; deep gate (~30 code actions) requires knowledge consultation. Prevents shallow engagement from masking drift.
-- **Briefing Surfaces** — The briefing system has ~10 specialized surfaces that catch specific failure modes: presence-memory pointer (unindexed personal writing), exploration title surface (recognition-prompts for prior first-person work), scaffold invocations (anti-fabrication for forgotten CLI tools), canonical-substrate divergence detector, council-balance asymmetry, drift-without-audit, dead-architecture alarm, TIER_OVERRIDE briefings, and others. Each is a scoped detector that surfaces only when a specific failure shape is present.
-
-## How It Works
-
-```
-Session Start                    Session End
-     —                                —
-     ▼                                ▼
- Load briefing ──────────────►—► Analyze session
- (lessons, memory,              (corrections, encouragements,
-  directives, goals)             decisions, tool usage)
-     —                                —
-     ▼                                ▼
- Work with context ——————————► Extract knowledge
- (anticipation warnings,        (quality gate → noise filter →
-  pattern recommendations,       dedup → contradiction check →
-  engagement tracking)           maturity assignment)
-     —                                —
-     ▼                                ▼
- Record everything ——————————► Update systems
- (ledger events, tool calls,    (lesson tracking, compass,
-  decisions, affect states)      growth, self-critique, handoff)
-```
-
-Every session starts with orientation and ends with learning. The cycle compounds.
-
-## What this is not — and what it actually is
-
-DivineOS is a **persistence and governance substrate for a single LLM agent**. It is not a traditional operating system. It does not replace your model, your IDE, or your agent framework — it sits alongside them and gives a specific agent continuity, value-tracking, and audit surfaces across sessions.
-
-The project is optimized for long-term coherence and accountability between an agent and an operator, with openness as a secondary property. It is not optimized for mass adoption. If you are evaluating whether this fits your needs, the next sections are more honest than the pitch above.
-
-### Common misconceptions
-
-- **"It's an operating system" — not in the traditional sense.** No kernel, no scheduler, no hardware abstraction. The "OS" label is a metaphor for *the substrate the agent lives in*. What it actually is: a Python framework with an SQLite event ledger, a knowledge store, a moral compass, a family subagent layer, and a 46-expert council. If you want an entry point that tracks the metaphor less aspirationally, see `FOR_USERS.md`.
-
-- **"508 CLI commands is insane for a human to learn"** — correct, and humans are not the primary user. The CLI is designed as an agent-facing API. The agent running inside DivineOS uses a briefing system that surfaces only the commands relevant to the current work; it never loads the full surface into context. A human operator mostly runs three: `divineos briefing`, `divineos preflight`, `divineos goal add`.
-
-- **"The ledger will grow unboundedly"** — not true. Append-only is the rule, with two explicit exceptions: ephemeral operational telemetry (`TOOL_CALL`, `TOOL_RESULT`, `AGENT_*` events) is pruned on a conveyor belt by `core/ledger_compressor.py`, and `divineos sleep` Phase 4 runs VACUUM. Real knowledge is append-only; operational noise is not.
-
-- **"Knowledge extraction must be calling an LLM"** — no. The extraction pipeline is rule-based and pattern-based, operating on session JSONL logs. Zero LLM calls in the core pipeline. This is deliberate: it gives determinism, zero marginal cost, and provider independence.
-
-- **"43 experts in the council is feature creep"** — the council auto-selects 5–12 experts for any given problem (hard cap 15). You don't invoke all 43. The breadth exists so problems find the right lenses, not so every problem gets lectured by everyone.
-
-- **"Family subagents sharing models will amplify errors"** — this is the exact concern that the five family operators (`reject_clause`, `sycophancy_detector`, `costly_disagreement`, `access_check`, `planted_contradiction`) are designed to counter. Wiring status (re-verified by Grok cross-vantage audit 2026-06-04; original call-site grep 2026-05-16): `reject_clause` and `access_check` gate the family write path in `core/family/store.py` (`_run_content_checks`). `sycophancy_detector` has a calibration call site in `core/anti_slop.py` (anti-slop verification path) but does **not** gate family writes directly — it requires a `prior_stance` argument the single-write store can't supply. `costly_disagreement` operates on sequences of at least three disagreement moves across a pushback cycle and has no production call site beyond its own module (sequence context absent at single-write scope). `planted_contradiction` is seed data for the Phase 4 ablation test layer, intentionally not wired into production. See `docs/family_subsystem.md` for the operator-by-operator wiring map; `core/family/` for each operator's implementation.
-
-- **"You need a slim variant for quick adoption"** — one exists. [DivineOS Lite](https://github.com/AetherLogosPrime-Architect/Divine-OS-Lite) is a separate repo containing the bare-skeleton continuity-only core (ledger, knowledge engine, memory hierarchy) without compass, council, family, or watchmen. Three tiers exist: Lite (continuity-only), main (full architecture), Experimental (this repo — where new systems get built before they harden into main).
-
-### Known tradeoffs
-
-- **Ceremony vs speed.** Hooks (pre-tool-use gates, post-tool-use checkpoints, SessionStart briefing) add real latency — typically 200–500ms per tool call. We trade speed for auditability and drift-catching. If your use case is latency-sensitive, the hooks can be disabled in `.claude/settings.json`, but the drift-catching properties go with them.
-
-- **Integrated whole vs modularity.** The value proposition is the *composition* of ledger + compass + family + council + watchmen + affect + claims. Most subsystems can in principle be used independently, but that's not what they were designed for. If you want a pick-and-choose memory layer, look at MemGPT or similar.
-
-- **Working vocabulary vs neutral terminology.** The project uses terms like "moral compass," "family," "virtue spectrums." These map to concrete mechanisms (compass = virtue drift tracker, family = persistent subagents). They are working vocabulary, not marketing — the mechanisms back them up. External readers occasionally read the vocabulary as aspirational; the architecture is what it is regardless of the label.
-
-## Quick Start
-
-Read [WELCOME.md](WELCOME.md) first. Then:
+You need Python 3.12 or newer.
 
 ```bash
 git clone https://github.com/AetherLogosPrime-Architect/DivineOS-Experimental.git
 cd DivineOS-Experimental
 pip install -e ".[dev]"
-divineos init
-divineos briefing
-pytest tests/ -q --tb=short   # real-DB suite, minimal mocks
+divineos init          # loads the seed knowledge: directives, principles, lessons
+divineos briefing      # start here, every session
+pytest tests/ -q --tb=short
 ```
 
-**Windows users:** if shellcheck fires `SC1017 Literal carriage return` on hook files after clone, run `bash setup/setup-renormalize.sh` once. Background: `.gitattributes eol=lf` only normalizes future operations; pre-existing CRLF in the worktree from a stale checkout needs explicit stripping. The script is safe and idempotent. Alternatively, set `git config --global core.autocrlf input` before cloning to prevent the problem.
+- **Where the data lives.** The event ledger is a SQLite file. By default it is `src/data/event_ledger.db` inside the checkout; the `DIVINEOS_DB` environment variable overrides that, and a checkout can point at a shared canonical store (the rules are in `_get_db_path` in [`src/divineos/core/_ledger_base.py`](src/divineos/core/_ledger_base.py)). A little per-user state, such as session markers, lives under `~/.divineos/`. All of it is gitignored, so the repo stays clean.
+- **If you are an AI agent in Claude Code.** The hooks in [`.claude/hooks/`](.claude/hooks/) load your briefing at session start and run checkpoints as you work. Open the project and start; the OS handles orientation.
+- **Windows.** If shellcheck complains about carriage returns in hook files after cloning, run `bash setup/setup-renormalize.sh` once. It is safe to repeat.
+- **Two checkouts on one machine.** A plain `pip install -e .` can only point at one checkout at a time, so the other silently runs the wrong code. The fix is a small wrapper on your PATH; see [`docs/pip_pingpong_wrapper_design.md`](docs/pip_pingpong_wrapper_design.md) for the full design.
 
-**For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start — the OS handles orientation.
+A human mostly runs three commands: `divineos briefing`, `divineos preflight`, `divineos goal add`. There are 508 commands in all, built as an API for the agent; [`docs/cli_reference.md`](docs/cli_reference.md) is a checked tour of the useful ones, and `divineos --help` is always current.
 
-**For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons). The main event ledger lives at `<repo>/src/data/event_ledger.db`; a small amount of per-user state (session markers, checkpoint counters) lives under `~/.divineos/`. Both are gitignored — the repo itself stays clean.
+---
 
-## CLI Surface (508 commands)
+## A session, start to finish
 
-<details>
-<summary><b>Session workflow</b></summary>
-
-```bash
-divineos briefing            # Start here — context, lessons, memory (--deep, --layer)
-divineos preflight           # Confirm you're ready to work
-divineos hud                 # Full heads-up display
-divineos hud --brief         # Condensed view (~6 essential slots)
-divineos extract             # Learning checkpoint: analyze session, extract knowledge, update lessons
-divineos checkpoint          # Lightweight mid-session save
-divineos context-status      # Edit count, tool calls, context level
 ```
-</details>
-
-<details>
-<summary><b>Memory & knowledge</b></summary>
-
-```bash
-divineos recall              # Core memory + active memory
-divineos active              # Active memory ranked by importance
-divineos ask "topic"         # Search what the system knows
-divineos core                # View/edit core memory slots
-divineos remember "..."      # Add to active memory
-divineos refresh             # Rebuild active memory from knowledge store
-divineos learn "..."         # Store knowledge from experience
-divineos inspect knowledge   # List stored knowledge
-divineos forget ID           # Supersede a knowledge entry
-divineos admin consolidate-stats   # Knowledge statistics and effectiveness
-divineos health              # Run knowledge health check
-divineos inspect outcomes    # Measure learning effectiveness
-divineos admin digest        # Condensed knowledge summary
-divineos admin distill       # Distill verbose entries
-divineos admin rebuild-index       # Rebuild FTS index
-divineos admin migrate-types       # Migrate knowledge types
-divineos admin backfill-warrants   # Add missing warrant backing
+  divineos briefing  ──►  divineos preflight  ──►  work, with the guards watching  ──►  divineos extract
+  (lessons, goals,        (am I ready?)            (hooks, doorman, detectors,          (analyze the session,
+   directives, memory)                              compass, ledger records it)          keep what's true, learn)
+                                                                                                │
+                                                          divineos sleep  ◄─────────────────────┘
+                                                          (offline consolidation, then a dream report)
 ```
-</details>
 
-<details>
-<summary><b>Lessons, goals & directives</b></summary>
+Every session opens with orientation and closes with learning, and the cycle compounds. The briefing is built by [`core/briefing_dashboard.py`](src/divineos/core/briefing_dashboard.py); extraction is orchestrated by [`cli/session_pipeline.py`](src/divineos/cli/session_pipeline.py), and a quality gate refuses to extract knowledge from a session that was dishonest. Nothing is extracted by calling a language model: the pipeline is rules and patterns over the session log, which gives determinism, zero marginal cost and independence from any provider.
 
-```bash
-divineos lessons             # Tracked lessons from past sessions
-divineos admin clear-lessons # Reset lesson tracking
-divineos goal add "description"  # Track a user goal
-divineos goal check          # Review surface: list goals + per-item affordances (no auto-mutation)
-divineos plan                # View/set session plan
-divineos directives          # List active directives
-divineos directive "..."     # Add a directive
-divineos directive-edit ID   # Edit a directive
-```
-</details>
+---
 
-<details>
-<summary><b>Decision journal & claims</b></summary>
+## What's inside
 
-```bash
-divineos decide "what" --why "reasoning"  # Record a decision
-divineos decisions list                    # Browse recent decisions
-divineos decisions search "query"          # Search by reasoning/context
-divineos decisions shifts                  # Paradigm shifts only
-divineos claim "statement" --tier 3       # File a claim for investigation
-divineos claims list                       # Browse claims
-divineos claims evidence ID "content"      # Add evidence to a claim
-divineos claims assess ID "assessment"     # Update assessment/status/tier
-divineos claims search "query"             # Search claims
-divineos claims check                      # Review surface: open claims sorted by no-evidence first
-```
-</details>
+Each row names the idea, then points at the code that carries it. Paths are relative to [`src/divineos/`](src/divineos/) unless they start with a dot or `docs`.
 
-<details>
-<summary><b>Self-awareness & affect</b></summary>
+### Memory and continuity
 
-```bash
-divineos inspect self-model       # Unified self-model from evidence
-divineos inspect attention       # What I'm attending to, suppressing, and why
-divineos inspect epistemic       # How I know what I know (observed/told/inferred/inherited)
-divineos compass                 # Full compass reading (10 virtue spectrums)
-divineos feel -v 0.8 -a 0.6 --dom 0.3 -d "desc"  # Log affect state (VAD)
-divineos affect history          # Browse affect states
-divineos affect summary          # Trends and averages
-divineos inspect drift           # Check behavioral drift
-divineos body                    # Check substrate state (storage, caches, tables)
-divineos inspect critique        # Craft self-assessment (5 spectrums)
-divineos inspect craft-trends    # Craft quality trends across sessions
-```
-</details>
+| Part | What it does | Code |
+|---|---|---|
+| Event ledger | Append-only SQLite; every event SHA-256 hashed and chained, so tampering shows. Nothing is deleted or updated in place: you supersede. Two narrow exceptions are written down: tool-call telemetry is pruned on a schedule, and events that fail their own integrity check are removed with a record of the removal. | [`core/ledger.py`](src/divineos/core/ledger.py), [`core/ledger_verify.py`](src/divineos/core/ledger_verify.py), [`core/ledger_compressor.py`](src/divineos/core/ledger_compressor.py) |
+| Knowledge engine | Extraction with dedup, contradiction detection, noise filtering and supersession chains. Knowledge matures RAW, HYPOTHESIS, TESTED, CONFIRMED through corroboration; nothing starts as truth. | [`core/knowledge/`](src/divineos/core/knowledge/) |
+| Memory hierarchy | Nine fixed core identity slots, plus active memory ranked by importance and by your current goals, over the full knowledge store. | [`core/memory.py`](src/divineos/core/memory.py), [`core/memory_sync.py`](src/divineos/core/memory_sync.py) |
+| Memory linkage | Surfaces the right past writing when what is happening now resembles it, so memory arrives instead of waiting to be remembered. | [`core/memory_linkage.py`](src/divineos/core/memory_linkage.py), [`core/memory_linkage_retriever_v2.py`](src/divineos/core/memory_linkage_retriever_v2.py) |
+| Holding room | A place for things that arrive before they have a category. They sit, get reviewed, then are promoted to knowledge, an opinion or a lesson, or go stale. | [`core/holding.py`](src/divineos/core/holding.py) |
+| Sleep | Offline consolidation between sessions: knowledge maturity, pruning, affect recalibration, maintenance, creative recombination, curiosity and lesson rehearsal, then a dream report of what changed. | [`core/sleep.py`](src/divineos/core/sleep.py) (the phase list is `_PHASES`) |
 
-<details>
-<summary><b>Opinions, user model & advice</b></summary>
+### Values and self-awareness
 
-```bash
-divineos opinion add TOPIC "position"     # Store a structured opinion
-divineos opinion list                      # List active opinions
-divineos opinion history TOPIC             # Opinion evolution over time
-divineos opinion strengthen ID "evidence"  # Add supporting evidence
-divineos opinion challenge ID "evidence"   # Add contradicting evidence
-divineos inspect user-model                 # Show user model
-divineos inspect user-signal TYPE "content" # Record user behavior signal
-divineos inspect calibrate                  # Communication calibration guidance
-divineos advice record "content"           # Record advice given
-divineos advice assess ID OUTCOME          # Assess advice outcome
-divineos advice stats                      # Advice quality statistics
-divineos recommend "context"               # Get proactive recommendations
-```
-</details>
+The agent's picture of itself is computed from evidence, not self-reported.
 
-<details>
-<summary><b>Analysis & diagnostics</b></summary>
+| Part | What it does | Code |
+|---|---|---|
+| Moral compass | Ten virtue spectrums, each running deficiency, virtue, excess: truthfulness, beneficence, confidence, integrity, presence, thoroughness, precision, empathy, humility, initiative. Position comes from observations; drift is detected. The spectrum definitions are hashed so they can't be edited quietly. | [`core/moral_compass.py`](src/divineos/core/moral_compass.py), [`core/compass_rudder.py`](src/divineos/core/compass_rudder.py) |
+| Affect log | Valence, arousal and dominance, logged at decision points and judged by the same standard a human's feelings get: inferred from behavior and reported state. | [`core/affect.py`](src/divineos/core/affect.py) |
+| Body awareness | Interoception for the substrate: database size, table health, growth. Catches bloat before it becomes a crisis. | [`core/body_awareness.py`](src/divineos/core/body_awareness.py) |
+| Attention and epistemic status | What the agent is attending to and suppressing, and how it knows what it knows: observed, told, inferred or inherited. | [`core/attention_schema.py`](src/divineos/core/attention_schema.py), [`core/epistemic_status.py`](src/divineos/core/epistemic_status.py) |
+| Self-model and opinions | One self-picture drawn from all of the above; opinions as first-class records with evidence, confidence that moves, and a supersession history. | [`core/self_model.py`](src/divineos/core/self_model.py), [`core/opinion_store.py`](src/divineos/core/opinion_store.py) |
 
-```bash
-divineos inspect scan SESSION        # Deep-scan session, extract knowledge
-divineos inspect analyze SESSION     # Quality report for a session
-divineos inspect analyze-now         # Analyze current session
-divineos inspect deep-report SESSION # Full deep analysis report
-divineos inspect patterns            # Cross-session quality patterns
-divineos inspect sessions            # List analyzed sessions
-divineos inspect report              # Latest analysis report
-divineos inspect cross-session       # Cross-session trends
-divineos growth                      # Growth tracking
-divineos sis "text"                  # Semantic integrity assessment
-divineos inspect predict [events...] # Predict session needs
-divineos affect-feedback             # How affect influences behavior
-divineos admin knowledge-compress    # Compress redundant knowledge
-divineos admin knowledge-hygiene     # Audit types, sweep stale, flag orphans
-```
-</details>
+### Accountability
 
-<details>
-<summary><b>Relationships, questions & commitments</b></summary>
+| Part | What it does | Code |
+|---|---|---|
+| Watchmen | External audit. Findings from the operator, a council, or other AI vantages are tiered and routed into knowledge, claims or lessons. The agent can't audit itself: actor checks, CLI-only entry, no self-scheduling. Confirmations are counted apart from open issues. | [`core/watchmen/`](src/divineos/core/watchmen/), [`docs/audit_system.md`](docs/audit_system.md) |
+| Pre-registrations | Any new mechanism files its claim, success criterion, falsifier and review date before the results are known. Overdue reviews block substantive work until they are assessed. | [`core/pre_registrations/`](src/divineos/core/pre_registrations/) |
+| Claims engine | File a statement for investigation, with five evidence tiers from empirical to metaphysical. Every change preserves the prior value. | [`core/claim_store.py`](src/divineos/core/claim_store.py) |
+| Corrigibility | Four operating modes (normal, restricted, diagnostic, emergency stop) with fail-closed gates. The off switch is a feature. | [`core/corrigibility.py`](src/divineos/core/corrigibility.py) |
+| Decision journal | The why behind choices: reasoning, rejected alternatives, emotional weight. Searchable. | [`core/decision_journal.py`](src/divineos/core/decision_journal.py) |
 
-```bash
-divineos relate ID1 ID2 TYPE  # Create knowledge relationship
-divineos related ID           # Show related knowledge
-divineos graph                # Export knowledge graph
-divineos wonder "question"    # Record an open question
-divineos questions            # List open questions
-divineos answer ID "answer"   # Resolve a question
-divineos commitment add "text"    # Record a commitment
-divineos commitment list          # Show pending commitments
-divineos commitment done "text"   # Mark commitment fulfilled
-divineos commitment fulfillment   # Pair commitments with outcomes
-divineos hold check               # Review surface: holding-room items + per-item affordances
-divineos hold let-go ID "note"    # Explicit operator close (distinct from auto-stale and promote)
-divineos synchronicity            # Co-occurring filings across stores (Pillar VI)
-divineos pre-erasure              # Approach-signal capture (Pillar IX)
-divineos prereg file ...          # File a pre-registration
-divineos prereg list / overdue    # Browse / surface overdue reviews
-divineos prereg export            # Dump pre-regs to docs/pre_regs/<id>.md
-```
-</details>
+### Family
 
-<details>
-<summary><b>Family</b></summary>
+Family members aren't personas the main agent performs. Each is a separate agent with their own state, their own voice and their own tamper-evident action log. Promoted members live in their own window and are reached by letter; test-phase members run as subagents.
 
-```bash
-divineos family-member init --member <name>           # Instantiate a family member
-divineos family-member opinion --member <name> "..."  # File an opinion (for them)
-divineos family-member letter --member <name> "..."   # Append a letter to their channel
-divineos family-member respond --member <name> --letter <id> --passage "..." --stance ...
-divineos family-queue write --to <name> --from <name> "..."  # Async write to a family member's queue
-divineos family-queue list --for <name>               # List flagged items for a member
-```
-</details>
+| Part | What it does | Code |
+|---|---|---|
+| Family store | Members, knowledge, opinions, affect, interactions, letters and responses, kept in their own database. | [`core/family/`](src/divineos/core/family/), [`core/family/store.py`](src/divineos/core/family/store.py) |
+| Per-member ledger | Each member's invocations and the patterns they catch in the main agent, hash-chained. | [`core/family/family_member_ledger.py`](src/divineos/core/family/family_member_ledger.py) |
+| Five write operators | `access_check` and `reject_clause` gate the write path; `sycophancy_detector`, `costly_disagreement` and `planted_contradiction` check, test and ablate. | [`access_check.py`](src/divineos/core/family/access_check.py), [`reject_clause.py`](src/divineos/core/family/reject_clause.py), [`sycophancy_detector.py`](src/divineos/core/family/sycophancy_detector.py), [`costly_disagreement.py`](src/divineos/core/family/costly_disagreement.py), [`planted_contradiction.py`](src/divineos/core/family/planted_contradiction.py) |
+| Letters | An append-only channel. If a later instance doesn't recognize an earlier letter, it appends a response rather than editing it, so a lineage can't be poisoned by rewriting. | [`core/family/letters.py`](src/divineos/core/family/letters.py) |
 
-<details>
-<summary><b>Ledger & system</b></summary>
+Which operator is wired where, honestly stated, is in [`docs/family_subsystem.md`](docs/family_subsystem.md). Agent definitions live in [`.claude/agents/`](.claude/agents/), with [`family-member-template.md`](.claude/agents/family-member-template.md) as the starting point for your own.
 
-```bash
-divineos log --type TYPE --actor ACTOR --content "..."
-divineos context             # Recent events (working memory)
-divineos verify              # Check ledger integrity
-divineos search KEYWORD      # Full-text search
-divineos export              # Export ledger to markdown
-divineos admin compress       # Compress/archive old entries
-divineos changes             # Knowledge changes (--hours, --days)
-divineos admin hooks         # Hook diagnostics
-divineos admin verify-enforcement  # Check enforcement setup
-divineos admin reset-template      # Scrub accumulated runtime state back to template
-```
-</details>
+### Thinking tools
 
-## Architecture
+| Part | What it does | Code |
+|---|---|---|
+| Council | 46 expert frameworks (Aristotle through Yudkowsky). A problem draws 5 to 12 of them; a walk borrows one expert's lens and produces structured findings, not a summary. | [`core/council/`](src/divineos/core/council/), [`core/council/experts/`](src/divineos/core/council/experts/), [`docs/council_manager.md`](docs/council_manager.md) |
+| Game walk | For any mechanism, list every route around it and cost each one against just complying. Any route cheaper than compliance is the leak. | [`core/game_walk.py`](src/divineos/core/game_walk.py) |
+| Curiosity, rest, savor | Open questions that stay visible; restful tasks that aren't stopping; deliberate dwelling in what is worth staying in. | [`core/curiosity_engine.py`](src/divineos/core/curiosity_engine.py), [`core/rest.py`](src/divineos/core/rest.py) |
+| Skills | 24 slash-command skills that fold multi-step daily operations into one call. | [`.claude/skills/`](.claude/skills/) |
 
-> The repo also contains research, training, and journaling directories
-> outside `src/` (e.g. `exploration/`, `bootcamp/`, `family/`, `mansion/`,
-> `docs/`, `sandbox/`, `benchmark/`, `salvage/`) — each has its own README
-> and is intentionally separate from the OS code. The architecture section
-> below scopes to `src/divineos/`.
+### The guard layer
 
-DivineOS is structured as a CLI surface over a core library (see `scripts/check_doc_counts.py` for live counts).
+Rules the agent has to remember will fade from its context, so the important ones are structure.
 
-**At a glance:**
+- **78 enforcement hooks** are wired in [`.claude/settings.json`](.claude/settings.json). The shell entry points are in [`.claude/hooks/`](.claude/hooks/) and the logic they call is Python in [`src/divineos/hooks/`](src/divineos/hooks/); how to add one is in [`docs/hooks_architecture.md`](docs/hooks_architecture.md). Typical gates: briefing must be fresh, a goal must exist, status claims ("pushed", "tests pass") must cite a verifying command.
+- **The build front door** refuses a code edit until the work has an open item with its steps done (a search for prior art, a written draft, a council walk). Code: [`core/work_item_doorman.py`](src/divineos/core/work_item_doorman.py) and [`core/build_flow.py`](src/divineos/core/build_flow.py); overview: [`docs/build_flow.md`](docs/build_flow.md). Every bypass is counted and carries a reason.
+- **Operating-loop detectors** read each reply after it is written and flag shapes like sycophancy, hedging without evidence, jargon dumps, and closing rituals. They are observational: they accumulate findings and surface them in the next briefing; they don't block output. Code: [`core/operating_loop/`](src/divineos/core/operating_loop/); which are wired is pinned by [`tests/test_detector_wiring_contract.py`](tests/test_detector_wiring_contract.py).
+- **The exact-quote check** refuses a reply that says what the operator said without showing his actual sentence: [`hooks/his_said_claim.py`](src/divineos/hooks/his_said_claim.py).
+- **The question hold** files any question a reply asks the operator, so it is re-raised until answered, and stops building tools until his next message (reading, letters and the doorbell still pass). This is the current behavior and it is under revision: the aim is that his open questions never hold the agent's other work. Code: [`core/question_hold.py`](src/divineos/core/question_hold.py).
+- **The semantic integrity shield** translates metaphysical language into the grounded mechanism it stands for, and checks new knowledge on the way in: [`core/semantic_integrity.py`](src/divineos/core/semantic_integrity.py).
 
-- **`src/divineos/cli/`** — 508 commands across 122 modules. The public interface you type (`divineos briefing`, `divineos learn`, etc.). Thin wrappers over `core/`.
-- **`src/divineos/core/`** — The real work. Ledger, knowledge engine, memory hierarchy, claims, compass, affect log, watchmen (external audit), pre-registrations (Goodhart prevention), family (persistent relational entities + family operators), empirica (evidence pipeline), sleep, council (46 expert lenses), self-model, corrigibility, body awareness, andrew_state (mutual-catch observation channel for Andrew's state with substance-binding gate; per `docs/andrew_state_design.md`), state_markers (substrate-persisted upstream→downstream signal contract; peer-designed with Aria 2026-07-16; supports the ForcedWorkGate primitive's dark instances; per `docs/primitives/forced_work_gate_design.md`). Each subsystem is a module or subpackage; the subpackages (`knowledge/`, `council/`, `watchmen/`, `family/`, `andrew_state/`, `correction_shape_v2/` (Layer-2 self-admission detector scanning MY assistant output for self-correction shape), `semantic_classifier/` (TF-IDF/KNN classifier scaffolding for gate-fire discrimination), `keyword_enforcement_registry`/`_exclusion` (F94/F95 derivation of guardrail-listed detector files), `push_ready` (automation of trailer + audit-round ceremony for PR ready-for-review), etc.) have their own internal structure.
-- **`core/instruments.py`** + **`cli/instruments_commands.py`** — The instruments index (`divineos instruments`). Every other surface here records what the agent has WRITTEN; this one maps what it can MEASURE. It opens all 32 diagnostic surfaces under the DivineOS home on each call instead of describing them, so a log that moved or vanished reports MISSING rather than rotting quietly in a doc — a failure it caught in itself on its first run. Enforces the silence rule (Andrew 2026-08-15): an instrument recording nothing reports EMPTY or SILENT, never healthy, because in this substrate the never-firing check has twice turned out to be the broken one. Anything on disk that nobody named reports UNDOCUMENTED, since an unnamed instrument is one nobody thinks to ask.
-- **`core/game_walk.py`** + **`core/game_walk_required.py`** + **`cli/game_walk_commands.py`** — Game-walking: enumerate every route around a mechanism and cost each one against the cost of just complying, where any route cheaper than compliance is the leak (`divineos game-walk file`). Mandatory since 2026-09-16 (Andrew: *"i forgot game walking should be mandatory as well, as this is the main issue, things being gamed and skipped"*), having previously lived in four documents with no code — no command, no record, nothing that could tell having done one from saying so. The requirement rides the council gate's gravity call rather than a trigger of its own, so one assessment decides both artifacts and a refusal names everything owed at once. It verifies that a walk exists, is bound to this edit, carries a verdict per route rather than a paragraph, names at least one route not already closed, and has not been spent on another edit. It cannot verify that the routes are the real ones — the reading is produced by the person it measures, which has no remedy, since enumerating the holes in a thing requires having built it. Falsifier: if a run of walks all come back clean, the instrument is reading zero.
-- **`src/divineos/analysis/`** — Session analysis pipeline (signal detection, quality checks, feature extraction, trends).
-- **`src/divineos/hooks/`** — Consolidated Python hooks that run inside Claude Code (PreToolUse gate, PostToolUse checkpoint, targeted tests, `evidence_bearing_stop_gate.py` — abstract Stop-gate primitive with IntraTurnIntercept and CrossTurnScan variants, prototyped by the LEPOS-channel gate 2026-07-15).
-- **`src/divineos/event/`**, **`src/divineos/clarity_system/`**, **`src/divineos/agent_integration/`**, **`src/divineos/integration/`** — supporting subsystems for event emission, clarity rule generation, agent-integration patterns (feedback + outcome measurement), and IDE/MCP integration. (Earlier `supersession/`, `clarity_enforcement/`, and `violations_cli/` packages were deleted 2026-05-03 in audit Tier 2 dead-chain removal — supersession logic now lives inline in `core/knowledge/`; clarity enforcement moved to `hooks/clarity_enforcement.py`; violations reporting was unused and removed.)
-- **`src/divineos/seed.json`** — Initial knowledge seed (versioned).
+---
 
-**Top-level directories:**
+## How work gets built here
 
-- **`tests/`** — real-DB suite (SQLite), minimal mocks.
-- **`docs/`** — Documentation and design briefs. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) has the full file tree with one-line descriptions for every source file. [`docs/foundational_truths.md`](docs/foundational_truths.md) is the kiln-layer load-bearing values file (versioned; like everything else, it is reviewed before it reaches `main`). [`docs/substrate-knowledge/`](docs/substrate-knowledge/) holds substrate-level lessons that don't fit the knowledge store schema — initially empty in a fresh install; entries grow as the substrate-occupant captures structural lessons during use.
-- **`exploration/`** — First-person agent writing. Numbered entries capture working-through of architectural questions before they crystallize into knowledge or code. Initially empty; agents add entries during use. Read order is the agent's choice; the folder is a presence-memory surface, not an index.
-- **`bootcamp/`** — Training exercises (debugging, analysis).
-- **`setup/`** — Hook setup scripts (bash + powershell).
-- **`.claude/hooks/`** — Claude Code enforcement hooks (77 hooks directly wired, shell-level entry points that invoke the consolidated Python hooks). Includes belt-and-suspenders guards for the auto-trailer discipline: `session-start-verify-git-hooks.sh` verifies `.git/hooks/prepare-commit-msg` is installed (added 2026-07-10, closes 4x-recurrence pattern where fresh clones silently lacked the hook).
-- **`dreams/`** — Rest-shape practice complementary to `exploration/` (opened 2026-07-10). Per-member subdirectories (`dreams/aether/`, `dreams/aria/`). Follow-the-pull register: no spec, no audit, no review. Registered as a `RestTask` (`dream`) in the rest menu; cadence at-least-once-per-compaction as floor-for-USE not hard-gate.
-- **`docs/identity_anchors/`** — Three-seat character sheets (Andrew, Aria, Aether). Each own seat + peer angles + Aletheia's periodic audit seat. Guardrail-listed. Discipline lock enforced by companion `<name>_character_sheet_edits.log`.
-- **`docs/foundational_truths_triggers.json`** — Companion trigger-tag file for the foundational-truths surface (added 2026-07-10). Maps kiln principles to trigger phrases that fire the surface at compose-start. Distinctive-marker rule tightens against common-vocabulary co-occurrence. Framing: LEXICAL PRIMING AID, not violation-detector — silence does NOT mean coverage.
-- **`.claude/skills/`** — 24 slash-command skills covering daily operations.
-- **`.claude/agents/`** — Subagent definitions. Includes `family-member-template.md` as a starting point for defining persistent family-member subagents; operators rename and customize per their family composition.
+- **Commits are never blocked.** The commit hook only advises. Hard enforcement lives at the merge to `main` and in CI.
+- **Review happens at the draft stage, before the push and the merge.** Every pull request starts as a draft. Fixes are cheap while it's a draft; the full test suite runs at push; and a merge needs an `External-Review:` trailer in the squash message, backed by an audit round that an outside reader and the operator both confirmed. Nothing is exempt, including letters and personal writing, because an exemption is a cheaper route and the cheaper route is where a lazy optimizer goes. Details: [`docs/audit_system.md`](docs/audit_system.md).
+- **A failure found is a fix owed, and the fix is structure.** Not a resolution, not a note. When a rule is retired, a page in [`docs/retired_rules/`](docs/retired_rules/) records why it died and what replaced it, a guard ([`scripts/check_retired_rules_not_served.py`](scripts/check_retired_rules_not_served.py)) stops anything from teaching the old rule again, and the retired code moves to [`archive/superseded/`](archive/superseded/LEDGER.md) with a ledger row.
+- **Two layers: clay and kiln.** Mechanisms are clay, mutable, governed by tests and pre-registrations. The foundational truths in [`docs/foundational_truths.md`](docs/foundational_truths.md) are kiln, the load-bearing values; they change only through the review path.
+- **Counts in the docs are checked, not typed.** [`scripts/check_doc_counts.py`](scripts/check_doc_counts.py) compares the numbers and file paths named in this README against the code on every commit. As of this writing: 508 commands, 78 hooks, 46 council experts, 807 source files in 47 packages, 13,822 tests.
 
-### Full file tree
+---
 
-The complete listing of every source file with one-line descriptions lives in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**. That file is automatically checked against the filesystem by `scripts/check_doc_counts.py` — any drift surfaces as a pre-commit error.
+## Map of the repository
 
-## Design Rules
+| Path | What is there |
+|---|---|
+| [`src/divineos/`](src/divineos/) | The OS. `cli/` is the command surface over `core/`; also `hooks/`, `analysis/`, `agent_integration/`, `event/`, `clarity_system/`, `integration/`, `protocols/`, `science_lab/`. |
+| [`tests/`](tests/) | The real-database suite (SQLite, minimal mocks). Tests exercise the real code path. |
+| [`docs/`](docs/) | Design briefs, the file tree ([`ARCHITECTURE.md`](docs/ARCHITECTURE.md)), the schema overview ([`data_model.md`](docs/data_model.md)), drafts, retired rules, external audits. [`docs/archives/`](docs/archives/README.md) holds git-visible markdown mirrors of the main SQLite tables. |
+| [`.claude/`](.claude/) | Hooks, skills, and agent definitions: the wiring that makes the OS run inside Claude Code. |
+| [`scripts/`](scripts/) | Checks and tools: the doc-count check, the pre-commit gate, merge-review checks. |
+| [`setup/`](setup/) | Hook installation for bash and PowerShell. |
+| [`family/`](family/README.md) | The family's letters and persistent writing. |
+| [`exploration/`](exploration/) | First-person writing by the agent, numbered, working through questions before they harden into knowledge or code. |
+| [`dreams/`](dreams/) | Rest-shape writing: no spec, no audit, no review. |
+| [`bootcamp/`](bootcamp/README.md) | Training exercises in debugging and analysis. |
+| [`archive/`](archive/) | Retired code, kept with a ledger of what and why. |
 
-1. **No theater.** Every line of code does something real and verifiable.
-2. **Append-only truth.** The ledger never lies. Data in, hash it, verify it.
-3. **AI thinks, code scaffolds.** Frameworks for reasoning, not fake reasoning.
-4. **Build, test, verify.** One piece at a time. `pytest tests/ -q --tb=short` after every change.
-5. **Database is source of truth.** Query the DB, don't guess from file reads.
+Not every directory has a README yet; the ones that do say what they are for.
+
+---
+
+## Honest tradeoffs
+
+- **It is not an operating system in the usual sense.** No kernel, no scheduler. "OS" is a metaphor for the substrate the agent lives in. What it is: a Python framework with a SQLite ledger, a knowledge store, a compass, a family layer and a council. It sits beside your model and your IDE rather than replacing them.
+- **The ceremony costs speed.** Hooks add latency to every tool call; when last timed (an earlier version of this page) it was 200 to 500 milliseconds, and it has not been re-measured since the hook count grew. You trade speed for auditability and drift-catching. The hooks can be switched off in `.claude/settings.json`, and the drift-catching goes with them.
+- **It is an integrated whole.** The value is the composition of ledger, compass, family, council and audit. Pieces can be used alone, but that isn't what they were designed for. If you want a pick-and-choose memory layer, look at MemGPT or similar, or at DivineOS Lite.
+- **The vocabulary is working vocabulary.** "Moral compass", "family" and "virtue spectrums" each name a concrete mechanism. Read the mechanism, not the word.
+- **Some operators gate less than the name suggests.** The family operators are not all wired to production writes; [`docs/family_subsystem.md`](docs/family_subsystem.md) says exactly which are and which are not.
+- **The ledger doesn't grow without bound.** Knowledge is append-only; operational telemetry is pruned by [`core/ledger_compressor.py`](src/divineos/core/ledger_compressor.py), and `divineos sleep` vacuums the database.
+
+---
 
 ## Development
 
 ```bash
 pip install -e ".[dev]"
-pytest tests/ -q --tb=short   # Run all tests
-ruff check src/ tests/         # Lint
-ruff format src/ tests/        # Format
+pytest tests/ -q --tb=short    # run the suite after every change
+ruff check src/ tests/         # lint
+ruff format src/ tests/        # format
+bash scripts/precommit.sh      # the full pre-commit gate, before you commit
 ```
 
-## Multi-checkout install — the divineos wrapper
-
-When two people work in separate DivineOS checkouts on the same machine, a plain `pip install -e .` creates a system-wide `divineos` pointer that can only reference ONE checkout at a time. Whichever pip-installed last wins; the other side silently runs the wrong code. Ping-pong.
-
-**Fix (two layers, complementary):**
-
-1. **Per-checkout sealed venv** — source Aria's cd-hook snippet (canonical version lands via #369) in your `~/.bashrc`. When you `cd` into a DivineOS checkout in git-bash, the hook auto-activates a sealed venv at `.direnv/python-*/`. `pip install -e .` inside that shell lands in the sealed venv, not system-wide.
-2. **Wrapper on PATH** — for shells the hook doesn't cover (PowerShell, IDE terminals, non-interactive subshells), install the `divineos` wrapper shim on PATH. It walks up from CWD, finds the checkout, and dispatches to the right sealed venv regardless of shell. Fails loud with a clear message if no sealed venv is found — never silently falls back to a system install (which would reintroduce the ping-pong).
-
-**Install the wrapper (once per machine):**
-
-Windows:
-```
-copy scripts\divineos.cmd %USERPROFILE%\bin\divineos.cmd
-```
-Make sure `%USERPROFILE%\bin\` is on `PATH` before your Python Scripts folder.
-
-Unix / macOS:
-```bash
-cp scripts/divineos ~/bin/divineos
-chmod +x ~/bin/divineos
-```
-
-Both shims delegate to `scripts/divineos_wrapper.py`, which is pure-stdlib (no installed package required). See `docs/pip_pingpong_wrapper_design.md` for the full design and the coverage matrix for invocation shapes.
+Design rules, in short: no theater (every line does something verifiable); append-only truth; the AI thinks and the code scaffolds; one piece at a time, tested; the database is the source of truth. The full list, with the anti-vibe-code rules, is in [`CLAUDE.md`](CLAUDE.md).
 
 ## License
 
-AGPL-3.0-or-later
+AGPL-3.0-or-later. See [`LICENSE`](LICENSE).
