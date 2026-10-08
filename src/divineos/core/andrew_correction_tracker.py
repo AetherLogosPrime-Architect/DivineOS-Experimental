@@ -881,10 +881,29 @@ def _squash(text: str) -> str:
 
 
 def _default_transcripts(limit: int = 5) -> list[Path]:
+    """The newest transcripts of THIS checkout: its own project folder and its worktrees.
+
+    Correction numbers are per store, so a "hold 12" he typed to the other seat is not about
+    this seat's row 12. This read every project folder on the machine (found 2026-10-08).
+    A worktree is the folder name plus "--claude-worktrees-"; a bare prefix match is wrong
+    because the other seat's folder name is the front half of this one's.
+    """
+    from divineos.core.context_tokens import _encode_cwd_for_claude
+
     root = Path.home() / ".claude" / "projects"
     if not root.is_dir():
         return []
-    found = sorted(root.glob("*/*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    mine = _encode_cwd_for_claude()
+    folders = [
+        d
+        for d in root.iterdir()
+        if d.is_dir() and (d.name == mine or d.name.startswith(mine + "--claude-worktrees-"))
+    ]
+    found = sorted(
+        (p for d in folders for p in d.glob("*.jsonl")),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
     return found[:limit]
 
 

@@ -911,5 +911,42 @@ if [[ "${DIVINEOS_SKIP_PIN_CHECK:-0}" != "1" ]]; then
     fi
 fi
 
+# --- Can the branch's changed tests fail? (the cut-away check, blocking) -------
+#
+# Aether 2026-10-08: scripts/precommit.sh is wired to nothing, and the commit-time copy of
+# this check lives in a hook that --no-verify skips and that exists only where setup ran.
+# The push is the one place every branch passes, so the same check runs here over the whole
+# branch's changed tests. Unlike the pin check above it BLOCKS, because it is a ratchet
+# against recorded floors: it fails only when a file's count of weak tests rises, never for
+# the backlog the floors already record.
+#
+# The ways this could pass without looking are each made to speak. No merge base, or a tool
+# that crashed, is COULD NOT CHECK, never a pass; and the number of files it examined is
+# always printed, so "checked 0" reads as a statement and not as silence.
+if [[ "${DIVINEOS_SKIP_CUTAWAY_CHECK:-0}" != "1" ]]; then
+    CUT_SCRIPT="$REPO_ROOT/scripts/cutaway.py"
+    if [[ -f "$CUT_SCRIPT" ]]; then
+        echo "[push-readiness] Can the branch's changed tests fail? (cut-away)"
+        CUT_BASE="$(git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD main 2>/dev/null || true)"
+        if [[ -z "$CUT_BASE" ]]; then
+            echo "[push-readiness]   cut-away: COULD NOT CHECK — no merge base with main. This is not a pass." >&2
+        else
+            mapfile -t CUT_FILES < <(git diff --name-only --diff-filter=ACM "$CUT_BASE" HEAD | grep -E '^tests/.*test_[^/]*\.py$' || true)
+            echo "[push-readiness]   cut-away: ${#CUT_FILES[@]} changed test file(s) to examine"
+            if [[ ${#CUT_FILES[@]} -gt 0 ]]; then
+                if ! python "$CUT_SCRIPT" --files "${CUT_FILES[@]}" --check >&2; then
+                    echo "" >&2
+                    echo "[push-readiness] BLOCKED — a changed test still passes when the code it names is cut away (exit 22)." >&2
+                    echo "[push-readiness] Make it depend on the product, or record why:" >&2
+                    echo "[push-readiness]   python scripts/cutaway.py --files <file> --update-baseline --allow-rise '<why>'" >&2
+                    echo "[push-readiness] Emergency bypass: DIVINEOS_SKIP_CUTAWAY_CHECK=1 git push" >&2
+                    exit 22
+                fi
+                echo "[push-readiness]   cut-away: OK"
+            fi
+        fi
+    fi
+fi
+
 echo "[push-readiness] All gates passed. Pushing."
 exit 0

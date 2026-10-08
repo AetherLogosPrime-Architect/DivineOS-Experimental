@@ -139,16 +139,24 @@ def run_pytest(test_file: Path, names: list[str], arm: bool, project: Project) -
         sys.executable, "-m", "pytest", "-p", "cutaway_plugin", "-p", "no:cacheprovider",
         "-p", "no:randomly", "-q", "--tb=no", f"--basetemp={base_tmp}", str(test_file),
     ]  # fmt: skip
+    report: dict = {"error": "never ran", "results": {}}
     try:
-        subprocess.run(
-            cmd, cwd=str(project.repo), env=env, capture_output=True, text=True,
-            timeout=900, creationflags=NO_WINDOW,
-        )  # fmt: skip
-        report = json.loads(out.read_text(encoding="utf-8"))
-    except subprocess.TimeoutExpired:
-        report = {"error": "timeout", "results": {}}
-    except (OSError, ValueError) as exc:
-        report = {"error": f"no report: {type(exc).__name__}", "results": {}}
+        # A child that dies before writing its report (seen once in 70 files under four
+        # workers, 2026-10-08, and clean when rerun alone) is tried a second time; a second
+        # silence is reported as it is.
+        for _attempt in range(2):
+            try:
+                subprocess.run(
+                    cmd, cwd=str(project.repo), env=env, capture_output=True, text=True,
+                    timeout=900, creationflags=NO_WINDOW,
+                )  # fmt: skip
+                report = json.loads(out.read_text(encoding="utf-8"))
+                break
+            except subprocess.TimeoutExpired:
+                report = {"error": "timeout", "results": {}}
+                break
+            except (OSError, ValueError) as exc:
+                report = {"error": f"no report: {type(exc).__name__}", "results": {}}
     finally:
         shutil.rmtree(out_dir, ignore_errors=True)
     return report
@@ -161,6 +169,11 @@ def classify(base: dict, cut: dict) -> dict[str, str]:
     """A verdict per test. Pure: the unit tests drive it with hand-built reports."""
     verdicts: dict[str, str] = {}
     for nodeid, b in base.get("results", {}).items():
+        if b["outcome"] in ("skipped", "setup-skipped"):
+            # a test its own file chose not to run is unmeasured, not broken: 102 of the 131
+            # "not green" in the first full sweep were skips (a library absent, a platform)
+            verdicts[nodeid] = "SKIPPED"
+            continue
         if b["outcome"] != "passed":
             verdicts[nodeid] = "BASELINE-NOT-GREEN"
             continue
@@ -288,7 +301,20 @@ def sweep(files: list[Path], workers: int, project: Project = DIVINEOS) -> dict[
         return path.relative_to(project.repo).as_posix(), analyze_file(path, project)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
-        return dict(pool.map(one, files))
+        results = dict(pool.map(one, files))
+
+    # Some files fight over a shared on-disk resource when run beside each other: their first
+    # pass fails outright and leaves no report (four of 70 on 2026-10-08, every one clean when
+    # run alone). A file that could not be measured in the crowd gets one run on its own before
+    # it is reported as unmeasurable.
+    if workers > 1:
+        for path in files:
+            rel = path.relative_to(project.repo).as_posix()
+            if results[rel].get("status") == "could-not-measure" and "no report" in str(
+                results[rel].get("why", "")
+            ):
+                results[rel] = analyze_file(path, project)
+    return results
 
 
 # ----------------------------------------------------------------------------- the command line
@@ -332,7 +358,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.files:
-        files = [Path(f) if Path(f).is_absolute() else (REPO / f).resolve() for f in args.files]
+        named = [Path(f) if Path(f).is_absolute() else (REPO / f).resolve() for f in args.files]
+        # the same archive rule as --staged and --all: archived tests are not run, so there is
+        # nothing to cut away from under them (a push over 70 files died on one, 2026-10-08)
+        files = [p for p in named if "_archive" not in p.parts]
+        if len(files) != len(named):
+            print(
+                f"[cutaway] skipped {len(named) - len(files)} archived file(s): not run, not measured."
+            )
     elif args.staged:
         files = staged_test_files()
     else:

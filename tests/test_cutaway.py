@@ -212,6 +212,14 @@ class TestClassifyIsPure:
             "e": "BASELINE-NOT-GREEN",
         }
 
+    def test_a_skipped_test_is_called_skipped_not_broken(self):
+        base = self._report(a=("skipped", 0), b=("setup-skipped", 0), c=("failed", 0))
+        assert cutaway.classify(base, {"results": {}}) == {
+            "a": "SKIPPED",
+            "b": "SKIPPED",
+            "c": "BASELINE-NOT-GREEN",
+        }
+
     def test_a_test_that_did_not_run_under_the_cut_is_not_called_clean(self):
         base = self._report(a=("passed", 0))
         assert cutaway.classify(base, {"results": {}}) == {"a": "NOT-RUN-UNDER-CUT"}
@@ -283,6 +291,63 @@ class TestTheFloorCannotBeLoosenedQuietly:
         assert cutaway.updated_floor(res, {"t.py": {"DISCONNECTED": 5}}, None)["t.py"] == {
             "DISCONNECTED": 5
         }
+
+
+class TestAPushOverManyFilesDoesNotDieOnOne:
+    def test_a_named_archived_file_is_skipped_and_said_so(self, capsys):
+        # --staged and --all always skipped the archive; --files forgot, and a push over 70
+        # files came back exit 2 because one archived file collected nothing (2026-10-08)
+        assert cutaway.main(["--files", "tests/_archive/test_nothing.py"]) == 0
+        out = capsys.readouterr().out
+        assert "skipped 1 archived file(s)" in out
+        assert "no test files selected" in out
+
+    def test_a_child_that_dies_before_its_report_is_tried_a_second_time(self, project, monkeypatch):
+        calls = {"n": 0}
+        real_run = cutaway.subprocess.run
+
+        def flaky(cmd, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return None  # died: no report written
+            return real_run(cmd, **kwargs)
+
+        monkeypatch.setattr(cutaway.subprocess, "run", flaky)
+        got = cutaway.run_pytest(project.repo / "tests" / "test_honest.py", [], False, project)
+        assert calls["n"] == 2
+        assert "error" not in got and got["results"]
+
+    def test_a_file_unmeasurable_in_the_crowd_gets_one_run_alone(self, project, monkeypatch):
+        crowded = project.repo / "tests" / "test_a.py"
+        steady = project.repo / "tests" / "test_b.py"
+        calls: list[str] = []
+
+        def fake(path, proj):
+            calls.append(path.name)
+            if path.name == "test_a.py" and calls.count("test_a.py") == 1:
+                return {"status": "could-not-measure", "why": "no report: FileNotFoundError"}
+            return {"status": "ok", "counts": {"CONNECTED": 1}, "verdicts": {}}
+
+        monkeypatch.setattr(cutaway, "analyze_file", fake)
+        got = cutaway.sweep([crowded, steady], 2, project)
+        assert got["tests/test_a.py"]["status"] == "ok"
+        assert calls.count("test_a.py") == 2 and calls.count("test_b.py") == 1
+
+    def test_a_file_that_collects_nothing_is_not_rerun(self, project, monkeypatch):
+        calls: list[str] = []
+
+        def fake(path, proj):
+            calls.append(path.name)
+            return {"status": "could-not-measure", "why": "collected no tests"}
+
+        monkeypatch.setattr(cutaway, "analyze_file", fake)
+        cutaway.sweep([project.repo / "tests" / "test_empty.py"], 2, project)
+        assert calls == ["test_empty.py"]
+
+    def test_two_silences_in_a_row_are_reported_as_they_are(self, project, monkeypatch):
+        monkeypatch.setattr(cutaway.subprocess, "run", lambda cmd, **kwargs: None)
+        got = cutaway.run_pytest(project.repo / "tests" / "test_honest.py", [], False, project)
+        assert got["error"].startswith("no report")
 
 
 def test_every_child_process_the_tool_starts_passes_the_no_window_flag():
