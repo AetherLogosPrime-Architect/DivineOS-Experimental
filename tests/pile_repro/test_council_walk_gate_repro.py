@@ -136,7 +136,7 @@ def test_a_read_only_look_up_owes_no_council_walk(command):
     """A list, show, summary, history, overdue or search command writes nothing,
     yet the classifier says it needs a council walk.
 
-    Rows: psf-7ce1ee55, psf-2b544912, psf-c717c6e4, psf-b1f8d754, psf-624616e3, psf-d36076f1, psf-4e4e3ad2
+    Rows: psf-7ce1ee55, psf-c717c6e4, psf-d36076f1, psf-4e4e3ad2
     Note (psf-7ce1ee55): "read-only subcommands (`audit list|show|summary`, `prereg list|show|overdue|summary`, `compass-ops history|summary|spectrums`, `journal list|search`) and `--help` should not owe the council gate a wal"
 
     Calls the real ``score_substrate_modification`` that the council gate uses.
@@ -190,7 +190,7 @@ def test_a_read_only_look_up_owes_no_council_walk(command):
 def test_asking_for_help_owes_no_council_walk(command):
     """Opening a command with --help writes nothing, yet it owes a walk.
 
-    Rows: psf-d5aa48d4, psf-52209a28, psf-7ce1ee55
+    Rows: psf-d5aa48d4, psf-d36076f1, psf-7ce1ee55
     Note (psf-d5aa48d4): "exempt `--help` and `--version` calls from the substrate-write classifier, which is already entry 9 on the gameplan."
 
     Calls the real ``score_substrate_modification``. ``divineos --version`` is
