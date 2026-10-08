@@ -152,7 +152,8 @@ class TestLearn:
     def test_learn_invalid_type(self, runner):
         runner.invoke(cli, ["init"])
         result = runner.invoke(cli, ["learn", "--type", "INVALID", "--content", "nope"])
-        assert result.exit_code != 0
+        assert result.exit_code == 2
+        assert "'INVALID' is not one of" in result.output
 
 
 class TestKnowledgeCmd:
@@ -169,7 +170,12 @@ class TestKnowledgeCmd:
         result = runner.invoke(cli, ["inspect", "knowledge"])
         # Post-init, "No knowledge" would indicate init didn't load
         # the seed. The actual expected state is that some entries
-        # were loaded.
+        # were loaded. The absence alone passes when the command crashes before
+        # printing, so the listing's own header is required first.
+        import re
+
+        match = re.search(r"=== (\d+) knowledge entries ===", result.output)
+        assert match and int(match.group(1)) > 0, result.output
         assert "No knowledge" not in result.output, (
             "After 'divineos init' the knowledge store should contain "
             "seed entries. Seeing 'No knowledge' means init is not "
@@ -706,13 +712,11 @@ class TestAnalyzeIntegration:
         session_file = tmp_path / "empty.jsonl"
         session_file.write_text("")
 
-        # Analyze should fail gracefully
+        # It reports the file as invalid, and exits 0 (measured 2026-10-07). The old
+        # disjunction ("or 'no' in output") passed on almost any output, including a crash
+        # banner, so it is pinned to what the command actually says.
         result = runner.invoke(cli, ["inspect", "analyze", str(session_file)])
-        assert (
-            result.exit_code != 0
-            or "error" in result.output.lower()
-            or "no" in result.output.lower()
-        )
+        assert "Invalid session: No messages found" in result.output
 
     def test_analyze_malformed_jsonl(self, runner, tmp_path):
         """Test analyze with malformed JSONL."""
@@ -724,12 +728,8 @@ class TestAnalyzeIntegration:
 
         # Analyze should fail gracefully
         result = runner.invoke(cli, ["inspect", "analyze", str(session_file)])
-        # Should either fail or show error message
-        assert (
-            result.exit_code != 0
-            or "error" in result.output.lower()
-            or "invalid" in result.output.lower()
-        )
+        # The malformed lines are skipped, nothing parses, and the file is reported invalid.
+        assert "Invalid session: No messages found" in result.output
 
     def test_analyze_stores_in_database(self, runner, tmp_path):
         """Test that analyze stores results in the database."""
@@ -801,9 +801,14 @@ class TestAnalyzeErrorHandling:
         # Try to remove read permissions (may not work on all systems)
         try:
             os.chmod(session_file, 0o000)
+            if os.access(session_file, os.R_OK):
+                # Windows (and root) still read a chmod 000 file, so permission denial cannot
+                # be tested here. This test used to pass anyway: the successful report
+                # contains the word "error" somewhere (2026-10-07). A skip says so honestly.
+                pytest.skip("this system still lets a chmod 000 file be read")
             result = runner.invoke(cli, ["inspect", "analyze", str(session_file)])
             # Should fail or handle gracefully
-            assert result.exit_code != 0 or "error" in result.output.lower()
+            assert result.exit_code != 0 or "permission" in result.output.lower()
         finally:
             # Restore permissions for cleanup
             os.chmod(session_file, 0o644)

@@ -18,6 +18,7 @@ Falsifiability:
 
 from __future__ import annotations
 
+import pytest
 from click.testing import CliRunner
 
 from divineos.cli import cli
@@ -62,18 +63,29 @@ class TestPreludeShape:
 
 
 class TestPreludeInBriefing:
-    def test_prelude_appears_before_corrections(self) -> None:
-        """Premise has to land before dynamic data makes sense."""
-        runner = CliRunner()
-        result = runner.invoke(cli, ["briefing"])
-        out = result.output
-        if "[orientation]" not in out:
-            # Prelude was truncated or failed to render — surfaces after
-            # corrections are still validated elsewhere.
-            return
-        orientation_idx = out.find("[orientation]")
-        corrections_idx = out.find("Recent Corrections")
-        if corrections_idx != -1:
-            assert orientation_idx < corrections_idx, (
-                "orientation prelude must appear before the corrections block"
-            )
+    """Found by the cut-away sweep, 2026-10-07. The old single test returned silently when the
+    prelude was missing and compared against a heading, "Recent Corrections", that the
+    multiplex briefing no longer prints, so its ordering claim was never checked. It is now
+    two tests: that the prelude is in the briefing (checked), and the ordering claim as an
+    expected failure, because measured today the prelude is NOT first."""
+
+    def test_the_prelude_is_in_the_briefing(self) -> None:
+        out = CliRunner().invoke(cli, ["briefing"]).output
+        assert "[orientation]" in out, out[:400]
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason=(
+            "measured 2026-10-07: the prelude prints after the multiplex panels, not before "
+            "them. The module's own falsifiability line says the premise should land first. "
+            "Either the briefing order or this claim is wrong; the owner decides. If the order "
+            "is fixed this turns into an unexpected pass and fails, which forces the removal "
+            "of this marker."
+        ),
+    )
+    def test_the_prelude_lands_before_the_panels(self) -> None:
+        out = CliRunner().invoke(cli, ["briefing"]).output
+        header = out.find("=== BRIEFING (multiplex")
+        assert header != -1, "the multiplex briefing header is missing"
+        first_panel = out.find("\n\n", header) + 2
+        assert out.find("[orientation]") < first_panel

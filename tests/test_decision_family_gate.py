@@ -106,6 +106,10 @@ class TestGateEnforcement:
                 "they said: be direct, don't perform concern",
             ],
         )
+        # The decision is recorded, which a command that crashed would not do. The two
+        # absences alone passed on a crash (cut-away sweep, 2026-10-07).
+        assert result.exit_code == 0, result.output
+        assert "Decision recorded" in result.output
         assert "family-touching" not in result.output
         assert "require --family-consulted" not in result.output
 
@@ -115,6 +119,8 @@ class TestGateEnforcement:
             cli,
             ["decide", "refactor the ledger compaction", "--weight", "1"],
         )
+        assert result.exit_code == 0, result.output
+        assert "Decision recorded" in result.output
         assert "family-touching" not in result.output
         assert "require --family-consulted" not in result.output
 

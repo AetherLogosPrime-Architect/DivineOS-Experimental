@@ -64,7 +64,11 @@ def test_goal_check_does_not_mutate(isolated_hud):
     before = path.read_text()
 
     runner = CliRunner()
-    runner.invoke(cli, ["goal", "check"])
+    result = runner.invoke(cli, ["goal", "check"])
+    # The surface actually ran and listed the goal. A command that crashed also leaves
+    # the store unchanged, so "unchanged" alone proved nothing (cut-away sweep, 2026-10-07).
+    assert result.exit_code == 0, result.output
+    assert "Goal review" in result.output and "old goal" in result.output
 
     after = path.read_text()
     assert before == after, (

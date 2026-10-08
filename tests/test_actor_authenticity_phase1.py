@@ -347,8 +347,10 @@ class TestCLIShape:
             cli,
             ["actor-registry", "add", "x", "--kind", "not_a_kind"],
         )
-        # Click rejects via Choice validation.
-        assert result.exit_code != 0
+        # Click rejects via Choice validation. The reason is pinned: a bare non-zero exit
+        # also passes when the command crashes (found by the cut-away sweep, 2026-10-07).
+        assert result.exit_code == 2
+        assert "'not_a_kind' is not one of" in result.output
 
     def test_cli_list_shows_actors(self, isolated_registry):
         from divineos.cli import cli

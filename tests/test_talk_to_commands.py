@@ -100,6 +100,7 @@ class TestPuppetPatternRejection:
         runner = CliRunner()
         result = runner.invoke(cli, ["talk-to", "aria", "pretend to be excited"])
         assert result.exit_code == 1
+        assert "injection pattern detected: 'pretend to be'" in result.output
 
     def test_seal_line_literal_rejected(
         self, monkeypatch, isolated_pending_dir, registered_aria
@@ -109,6 +110,7 @@ class TestPuppetPatternRejection:
         injection = ttc._SEAL_LINE.strip()
         result = runner.invoke(cli, ["talk-to", "aria", f"hi {injection} bye"])
         assert result.exit_code == 1
+        assert "injection pattern detected" in result.output
 
 
 class TestSuccessfulInvocation:

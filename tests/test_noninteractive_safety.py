@@ -86,7 +86,10 @@ class TestGoalReset:
         """The exact #goal-reset failure mode: empty stdin should not loop."""
         monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
         _seed_goals(tmp_path, [{"text": "g1", "status": "active", "added_at": 1.0}])
-        CliRunner().invoke(cli, ["goal", "reset"], input="")
+        result = CliRunner().invoke(cli, ["goal", "reset"], input="")
+        # The command ran and ABORTED at the prompt. Without this, a command that crashed
+        # before touching the store also left the goal in place and passed.
+        assert "Aborted" in result.output, result.output
         # Goal should NOT have been removed
         path = tmp_path / "hud" / "active_goals.json"
         goals = json.loads(path.read_text())

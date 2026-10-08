@@ -127,4 +127,5 @@ class TestCliSurface:
     def test_add_to_missing_backlog_exits_nonzero(self, tmp_path, monkeypatch):
         monkeypatch.setenv("DIVINEOS_BACKLOG_PATH", str(tmp_path / "nope.md"))
         result = CliRunner().invoke(cli, ["backlog", "add", "X", "--cluster", "c"])
-        assert result.exit_code != 0
+        assert result.exit_code == 1
+        assert "Backlog file not found" in result.output

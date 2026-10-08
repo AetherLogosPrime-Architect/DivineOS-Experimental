@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import subprocess
 
+import pytest
 from click.testing import CliRunner
 
 from divineos.cli import cli
@@ -58,10 +59,11 @@ class TestSourceRefRequired:
                 "--no-source-ref",
             ],
         )
-        # Either succeeds (round created) or fails for unrelated DB reasons —
-        # the key assertion is the gate does NOT fire on this path.
-        if result.exit_code != 0:
-            assert "source-ref" not in result.output.lower()
+        # The round is created. The old form ("if it failed, the message must not name
+        # source-ref") passed when the command crashed outright, which the cut-away sweep
+        # found on 2026-10-07; "the gate did not fire" now rests on the round existing.
+        assert result.exit_code == 0, result.output
+        assert "Audit round created" in result.output
 
     def test_invalid_source_ref_is_blocked(self):
         runner = CliRunner()
@@ -85,7 +87,7 @@ class TestSourceRefRequired:
     def test_valid_source_ref_passes_gate(self):
         """If we're in a git repo with HEAD reachable, HEAD itself is a valid ref."""
         if not _is_in_git_repo():
-            return  # skip; not in git repo
+            pytest.skip("not in a git repository")  # said, not a silent green
         runner = CliRunner()
         result = runner.invoke(
             cli,
@@ -99,11 +101,11 @@ class TestSourceRefRequired:
                 "HEAD",
             ],
         )
-        # Gate should pass — round creation may still fail for unrelated
-        # DB reasons during test isolation, but the gate-block message
-        # should NOT appear.
-        gate_block_text = "is not reachable"
-        assert gate_block_text not in result.output
+        # Gate should pass: the round is created (measured 2026-10-07), and the
+        # gate-block message is absent. Absence alone passed on a crashed command.
+        assert result.exit_code == 0, result.output
+        assert "Audit round created" in result.output
+        assert "is not reachable" not in result.output
 
 
 class TestAnnotation:
@@ -112,7 +114,7 @@ class TestAnnotation:
     def test_source_ref_annotation_in_output(self):
         """When --source-ref is used, the CLI prints the binding."""
         if not _is_in_git_repo():
-            return
+            pytest.skip("not in a git repository")  # said, not a silent green
         runner = CliRunner()
         result = runner.invoke(
             cli,
@@ -126,9 +128,10 @@ class TestAnnotation:
                 "HEAD",
             ],
         )
-        # Output (if successful) names the source ref
-        if result.exit_code == 0:
-            assert "Source ref: HEAD" in result.output
+        # The round is created and its output names the source ref. This was
+        # conditional on success, so a command that failed passed it silently.
+        assert result.exit_code == 0, result.output
+        assert "Source ref: HEAD" in result.output
 
 
 class TestHelpTextMentionsFinding(object):
@@ -158,7 +161,7 @@ class TestFinding77ClosureCommitReachability:
         """When notes contain no tree-hash reference, the gate doesn't
         fire — there's no claim to verify."""
         if not _is_in_git_repo():
-            return
+            pytest.skip("not in a git repository")  # said, not a silent green
         runner = CliRunner()
         result = runner.invoke(
             cli,
@@ -174,10 +177,10 @@ class TestFinding77ClosureCommitReachability:
                 "some notes without any tree-hash claim",
             ],
         )
-        # Should not hit the tree-hash unreachable path. Round-creation
-        # may succeed or fail for unrelated reasons, but specifically
-        # the "not reachable on origin" message about a tree-hash
-        # should NOT appear.
+        # Should not hit the tree-hash unreachable path: the round is created
+        # (positive evidence the command ran) and the unreachable message is absent.
+        assert result.exit_code == 0, result.output
+        assert "Audit round created" in result.output
         assert "tree-hash(es) cited in --notes are not" not in result.output
 
     def test_unreachable_tree_hash_in_notes_is_blocked(self):
@@ -188,7 +191,7 @@ class TestFinding77ClosureCommitReachability:
         gate would pass for an unreachable tree-hash. This test pins the
         fix — unreachable tree-hashes now block."""
         if not _is_in_git_repo():
-            return
+            pytest.skip("not in a git repository")  # said, not a silent green
         # 40-char hex that's vanishingly unlikely to be a real tree-hash
         fake_tree_hash = "deadbeef" * 5  # 40 chars
         runner = CliRunner()
@@ -219,7 +222,7 @@ class TestFinding77ClosureCommitReachability:
         definition reachable from that ref) so this test is robust
         against local-only commits that aren't yet on origin."""
         if not _is_in_git_repo():
-            return
+            pytest.skip("not in a git repository")  # said, not a silent green
         # Find a branch that exists on origin and get its tree-hash.
         # Try origin/main first; fall back to origin/finding-75-source-ref;
         # skip test if neither is fetched.
@@ -242,7 +245,7 @@ class TestFinding77ClosureCommitReachability:
             except OSError:
                 continue
         if real_tree_hash is None or source_ref_name is None:
-            return  # Skip if no suitable origin ref is fetched
+            pytest.skip("no suitable origin ref is fetched")  # said, not a silent green
 
         runner = CliRunner()
         result = runner.invoke(
@@ -259,9 +262,10 @@ class TestFinding77ClosureCommitReachability:
                 f"tree-hash: {real_tree_hash}",
             ],
         )
-        # Should NOT hit the tree-hash unreachable block path. Round creation
-        # may still succeed or fail for unrelated reasons, but specifically
-        # the unreachable-tree-hash message should not appear.
+        # Should NOT hit the tree-hash unreachable block path: the round is created,
+        # which a crashed command would not do, and the unreachable message is absent.
+        assert result.exit_code == 0, result.output
+        assert "Audit round created" in result.output
         assert "tree-hash(es) cited in --notes are not" not in result.output, (
             f"Real tree-hash {real_tree_hash} on origin/{source_ref_name} "
             f"was reported unreachable; gate logic regressed. Output: {result.output}"
