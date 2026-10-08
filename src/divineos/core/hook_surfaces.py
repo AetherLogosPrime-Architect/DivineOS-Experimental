@@ -2405,8 +2405,10 @@ def install() -> None:
     # Wired 2026-09-24 in the same change that makes it cheap enough to wire:
     # item vectors read from the drawer, the prompt embedded by the light
     # embedder. The last time it was wired without that, the hook hung.
-    if "memory_link" not in registered("UserPromptSubmit"):
-        register("UserPromptSubmit", "memory_link", memory_link_surface)
+    # memory_link is NOT registered here any more (2026-10-04): it runs as its
+    # own dispatcher child, .claude/hooks/memory-link-surface.sh, because when
+    # this bundle timed out on Dad's message the link's finds were dropped with
+    # it. Registering it here as well would print it twice on quick turns.
 
     # Fourth door, 2026-09-08. Order matters here in a way it does not on the
     # other doors: summary_room REFUSES, and the router runs every surface

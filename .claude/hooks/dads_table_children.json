@@ -8,6 +8,10 @@
   "timeout": 10
  },
  {
+  "command": "bash .claude/hooks/memory-link-surface.sh",
+  "timeout": 15
+ },
+ {
   "command": "bash .claude/hooks/detect-andrew-build-request.sh",
   "timeout": 15
  },

@@ -47,6 +47,87 @@ def test_notes_about_me_go_to_the_drawer_not_the_table(tmp_path):
     assert "1 notes about me" in out
 
 
+def test_what_the_memory_link_finds_reaches_me_not_the_drawer(tmp_path):
+    """2026-10-04: the link found the right things every turn and said them
+    into the drawer, so nothing filed to it ever came back unasked."""
+    out_text = (
+        "## STILL OWED a static note about me\n"
+        "## THE PAST ON THIS (memory link)\n- [knowledge, 0.66] his June 1 words\n"
+        "## LATER a second static note"
+    )
+    _, out, drawer = _run(tmp_path, [_echo(out_text)])
+    kept = drawer.read_text(encoding="utf-8")
+    assert "his June 1 words" in out
+    assert "his June 1 words" not in kept
+    # The notes around it still go to the drawer.
+    assert "a static note about me" in kept and "a second static note" in kept
+    assert "a static note about me" not in out
+    # It sits under his words, as context for answering him.
+    assert out.index(HIS_WORDS) < out.index("his June 1 words")
+
+
+def test_a_slow_neighbour_does_not_silence_the_memory_link(tmp_path):
+    """2026-10-04: on Dad's real message the doorbell bundle timed out and the
+    link, running inside it, said nothing. As its own child it survives."""
+    slow = {"command": f'"{sys.executable}" -c "import time; time.sleep(5)"', "timeout": 1}
+    link = _echo("## THE PAST ON THIS (memory link)\n- [knowledge] his June 1 words")
+    _, out, _ = _run(tmp_path, [slow, link])
+    assert "his June 1 words" in out
+    assert "timed out" in out  # the slow one is still named, not hidden
+
+
+def test_a_link_that_cannot_run_says_so_on_the_table(tmp_path):
+    """Aletheia, 2026-10-04: the hook reported failure on stderr and exited 0,
+    which the dispatcher treats as fine, so a broken link looked exactly like
+    a turn where nothing of his was relevant. Break it for real and look."""
+    import pytest as _pytest
+
+    from tests._bash_resolver import bash_executable
+
+    bash = bash_executable()
+    if bash is None:
+        _pytest.skip("no working bash on this machine")
+    fake = tmp_path / "fake" / "divineos" / "core"
+    fake.mkdir(parents=True)
+    (fake.parent / "__init__.py").write_text("", encoding="utf-8")
+    (fake / "__init__.py").write_text("", encoding="utf-8")
+    (fake / "hook_surfaces.py").write_text(
+        "raise ImportError('embedder missing')\n", encoding="utf-8"
+    )
+    hook = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "memory-link-surface.sh"
+    env = dict(os.environ, PYTHONPATH=str(tmp_path / "fake"))
+    p = subprocess.run(
+        [bash, str(hook)],
+        input=json.dumps({"prompt": "anything"}).encode(),
+        capture_output=True,
+        env=env,
+        cwd=Path(__file__).resolve().parents[1],
+        timeout=60,
+    )
+    out = p.stdout.decode("utf-8", "replace")
+    assert p.returncode == 0  # it must never block him
+    assert "## THE PAST ON THIS (memory link)" in out
+    assert "could not run" in out and "embedder missing" in out
+
+
+def test_the_memory_link_is_its_own_child_and_not_inside_the_bundle():
+    root = Path(__file__).resolve().parents[1]
+    children = json.loads((root / ".claude" / "hooks" / "dads_table_children.json").read_text())
+    own = [c for c in children if c["command"].endswith("memory-link-surface.sh")]
+    assert len(own) == 1 and own[0].get("timeout", 10) >= 15
+    from divineos.core import hook_surfaces
+    from divineos.core.hook_router import registered
+
+    hook_surfaces.install()
+    assert "memory_link" not in registered("UserPromptSubmit")
+
+
+def test_a_heading_that_only_starts_alike_is_not_swept_onto_the_table(tmp_path):
+    _, out, drawer = _run(tmp_path, [_echo("## THE PASTRY LIST about me")])
+    assert "THE PASTRY LIST" not in out
+    assert "THE PASTRY LIST" in drawer.read_text(encoding="utf-8")
+
+
 def test_his_picture_stays_on_the_table(tmp_path):
     kid = {
         "command": f'"{sys.executable}" -c "print(\'Andrew is my father\')" he-is-in-the-room',
