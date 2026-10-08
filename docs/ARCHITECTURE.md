@@ -770,6 +770,7 @@ src/divineos/
     git_hooks_drift.py         Do the installed git hooks still say what setup/setup-hooks.sh would write?
     letter_passages.py         Letters matched by passage, not by their opening.
     windowless_launch_check.py Refuse a launch that opens a window on Dad's screen for every program it starts.
+    order_question_check.py    A reply must not end by asking Dad which order to do things in.
 
   analysis/
     _session_types.py          Session analysis type definitions

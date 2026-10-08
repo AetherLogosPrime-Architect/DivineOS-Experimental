@@ -1625,6 +1625,30 @@ def self_demotion_stop_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def order_question_stop_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a reply that ends by asking Dad which order to do things in.
+
+    Andrew, nine times: order is irrelevant unless it is relevant. See
+    core/order_question_check.py for what this decides, and what it cannot see.
+    """
+    text = _last_assistant_text(payload)
+    if not text.strip():
+        return SurfaceOutcome(name="order_question", state="nothing-to-say")
+    try:
+        from divineos.core import order_question_check as oq
+
+        if not oq.should_refuse(text):
+            return SurfaceOutcome(name="order_question", state="nothing-to-say")
+        reason = oq.refusal_message(text)
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="order_question",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    return SurfaceOutcome(name="order_question", refused=True, state="spoke", reason=reason)
+
+
 #: Two replies sharing this fraction of their paragraphs are the same reply.
 #: Deliberately high: a genuine follow-up on the same subject reuses phrases,
 #: and refusing that would be worse than the fault being caught.
@@ -2585,6 +2609,10 @@ def install() -> None:
         register("Stop", "self_demotion_stop", self_demotion_stop_surface)
     if "summary_room" not in registered("Stop"):
         register("Stop", "summary_room", summary_room_surface)
+    # In-process, no new hook script. Refuses once when the reply ends by handing him a
+    # choice of order with no stated dependency (prereg-c4888c81eca6).
+    if "order_question" not in registered("Stop"):
+        register("Stop", "order_question", order_question_stop_surface)
     # Beside summary_room because both refuse rather than annotate. That one asks
     # whether he can FIND the answer; this one asks whether the answer was
     # checked against the thing it is about.
