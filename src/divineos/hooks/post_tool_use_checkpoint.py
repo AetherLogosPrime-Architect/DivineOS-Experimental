@@ -120,6 +120,16 @@ _READ_ONLY_GIT = frozenset(
 
 _WRITE_MARKERS = (">", ">>", "|&", "tee ", "sed -i", "sed --in-place")
 
+# `find` actions that delete, run a command, or write a file. Plain `find` only lists.
+_FIND_ACTIONS = frozenset(
+    {"-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint", "-fprint0", "-fprintf", "-fls"}
+)
+
+# The only arguments with which `git branch` lists rather than creates or deletes.
+_GIT_BRANCH_LISTING_FLAGS = frozenset(
+    {"-a", "-r", "-v", "-vv", "--list", "--show-current", "--all", "--remotes", "--verbose"}
+)
+
 
 def _is_read_only_command(command: str) -> bool:
     """True only if EVERY segment of this shell command merely looks.
@@ -142,6 +152,15 @@ def _is_read_only_command(command: str) -> bool:
     # Heredocs carry arbitrary payloads; never exempt one.
     if "<<" in command:
         return False
+    # A WORD ON THE ALLOWLIST CAN STILL WRITE (2026-10-07). Running this function's own
+    # claim ("conservative by construction"): ten of ten writes dressed as reads came
+    # back read-only. Substitution runs a command and splices its output in, so
+    # `cat $(touch x)` is a touch dressed as a cat; and `--output` makes git show, log
+    # or diff write a file. The per-command cases (find, sort, git branch) are below.
+    if "$(" in command or "`" in command or "<(" in command or ">(" in command:
+        return False
+    if "--output" in lowered:
+        return False
     segments = re.split(r"&&|\|\||;|\||\n", command)
     saw_one = False
     for raw in segments:
@@ -155,6 +174,15 @@ def _is_read_only_command(command: str) -> bool:
         if head == "git":
             if len(parts) < 2 or parts[1] not in _READ_ONLY_GIT:
                 return False
+            # `git branch` lists with no argument and creates or deletes with one.
+            if parts[1] == "branch" and not set(parts[2:]) <= _GIT_BRANCH_LISTING_FLAGS:
+                return False
+        elif head == "find":
+            if _FIND_ACTIONS & set(parts):
+                return False
+        elif head == "sort":
+            if any(p.startswith("-o") or p.startswith("--output") for p in parts[1:]):
+                return False  # -o FILE, -oFILE and --output=FILE all write
         elif head == "sed":
             # sed prints unless asked to edit; -i was already rejected above,
             # but require the explicit print flag rather than assuming.
@@ -163,18 +191,7 @@ def _is_read_only_command(command: str) -> bool:
         elif head not in _READ_ONLY_COMMANDS:
             return False
         saw_one = True
-    if not saw_one:
-        return False
-    # A WORD ON THE ALLOWLIST CAN STILL WRITE (2026-10-07). Running this function's own
-    # claim ("conservative by construction", a write dressed as a read is closed): ten
-    # of ten probes came back read-only. `find -delete` and `-exec`, `sort -o`, `git
-    # branch -D` or `git branch NAME`, `git show --output=`, command substitution and
-    # backticks all start with a listed word. The gate's own judge, which the doorman
-    # and the question hold ask, caught all twelve of the same probes. So ask it too:
-    # this can only get stricter, never wider than the small list above.
-    from divineos.hooks.pre_tool_use_gate import _is_readonly_probe
-
-    return _is_readonly_probe(command)
+    return saw_one
 
 
 def _is_divineos_command(command: str) -> bool:
