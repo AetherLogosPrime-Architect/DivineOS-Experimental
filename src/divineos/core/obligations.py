@@ -397,7 +397,10 @@ def format_block_message(obligations: dict[str, Any]) -> str:
     lines.append("")
     lines.append('  divineos integrate <knowledge-id> --notes "<what backs it: file, test, gate>"')
     lines.append("      the usual one. Emits KNOWLEDGE_INTEGRATION_CHANGED.")
-    lines.append('  divineos prereg file "<mechanism>" --claim ... --falsifier ...')
+    lines.append(
+        '  divineos prereg file "<mechanism>" --claim ... --success ... '
+        "--falsifier ... --embarrassing ..."
+    )
     lines.append("      correct when the backing IS a new detector or threshold.")
     lines.append("  divineos claims assess <id> ... | divineos audit submit-round ...")
     lines.append("")

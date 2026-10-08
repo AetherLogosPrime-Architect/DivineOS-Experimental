@@ -21,6 +21,7 @@ New detectors can game their own metrics in ways that look like success but aren
 - **Claim** — what we believe this mechanism will do
 - **Success criterion** — what observable output would indicate the mechanism works
 - **Falsifier** — what would prove it doesn't work or has drifted
+- **Embarrassing reading** — the reading this mechanism could produce that would make you sorry you built it (not the same question as the falsifier; the command requires it)
 - **Review date** — when to actually come back and check (30/60/90 days typical)
 
 ## Filing
@@ -30,6 +31,7 @@ divineos prereg file "<mechanism>" \
   --claim "<what we believe it does>" \
   --success "<observable success criterion>" \
   --falsifier "<what would prove it wrong>" \
+  --embarrassing "<the reading that would make you sorry you built it>" \
   --review-days 30
 ```
 
