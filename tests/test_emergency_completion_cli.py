@@ -132,6 +132,8 @@ def test_resolve_refuses_when_there_is_no_debt():
         ],
     )
     assert result.exit_code == 1
+    # exit code 1 is also what a crash gives, so pin the refusal's own words
+    assert "No outstanding emergency-completion debt to resolve" in result.output
 
 
 def test_status_reports_a_clean_lane():

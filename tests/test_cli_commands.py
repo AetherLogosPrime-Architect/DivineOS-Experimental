@@ -217,11 +217,17 @@ class TestRelationshipCmd:
         return ""
 
     def test_related_empty(self, initialized):
-        r = initialized.invoke(cli, ["learn", "--type", "FACT", "--content", "Test fact"])
+        r = initialized.invoke(cli, ["learn", "--type", "FACT", "--content", "A lone test fact"])
         kid = self._extract_id(r.output)
-        if kid:
-            result = initialized.invoke(cli, ["related", kid])
-            assert result.exit_code == 0
+        assert kid, f"learn did not report an id, so there was nothing to ask about: {r.output!r}"
+        # _ensure_db is guarded by a process-wide flag, so after earlier tests in this file the
+        # fresh scratch database never gets its edges table. A real run has one database.
+        from divineos.core.knowledge.edges import init_edge_table
+
+        init_edge_table()
+        result = initialized.invoke(cli, ["related", kid])
+        assert result.exit_code == 0
+        assert "No relationships for" in result.output
 
 
 # ─── Question Commands ───────────────────────────────────────────────

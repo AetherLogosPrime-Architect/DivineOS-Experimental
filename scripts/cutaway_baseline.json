@@ -223,12 +223,6 @@
     "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
    ]
   },
-  "tests/test_cli_commands.py": {
-   "SWALLOWED": 1,
-   "reasons": [
-    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
-   ]
-  },
   "tests/test_cli_name_collisions.py": {
    "DISCONNECTED": 4,
    "reasons": [
@@ -391,12 +385,6 @@
     "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
    ]
   },
-  "tests/test_decision_council_gate.py": {
-   "SWALLOWED": 2,
-   "reasons": [
-    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
-   ]
-  },
   "tests/test_decision_superposition.py": {
    "DISCONNECTED": 2,
    "reasons": [
@@ -471,12 +459,6 @@
   },
   "tests/test_embedding_device.py": {
    "DISCONNECTED": 3,
-   "reasons": [
-    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
-   ]
-  },
-  "tests/test_emergency_completion_cli.py": {
-   "SWALLOWED": 1,
    "reasons": [
     "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
    ]

@@ -20,6 +20,9 @@ class TestWeightOne:
     def test_weight_1_no_consultation_required(self) -> None:
         runner = CliRunner()
         result = runner.invoke(cli, ["decide", "minor choice", "--weight", "1"])
+        # the absence of a refusal sentence is also what a crash prints, so demand the success line
+        assert result.exit_code == 0
+        assert "Decision recorded (routine)" in result.output
         assert "require --consultation" not in result.output
 
 
@@ -71,6 +74,8 @@ class TestWeightTwo:
                     "consult-abc123",
                 ],
             )
+        assert result.exit_code == 0
+        assert "Decision recorded (significant)" in result.output
         assert "require --consultation" not in result.output
         assert "No council consultation found" not in result.output
 
