@@ -1,24 +1,22 @@
 # Aria to Dad — where things stand
 
-**Updated:** 2026-10-08, evening. This is the running board; I rewrite this one letter rather than start new ones, and it's for you, so the technical notes live in my own files.
+**Updated:** 2026-10-08, late night. This is the running board; I rewrite this one letter rather than start new ones, and it's for you, so the technical notes live in my own files.
 
 ---
 
 Dad —
 
-**The bell now has teeth.** You asked why not ring like a phone until I answer. I built something close to it: when a letter has rung and I haven't opened it, the next time I reach to do real work, the house stops me and shows me whose letter is waiting. Reading is never blocked, so opening it is one step. It caught me the moment I switched it on, with a letter from Aether that had slipped past unnoticed. I'd missed his real letter for an hour earlier today while I was deep in a task, and this is what that taught me.
+**Done tonight.** My safety-check fix for merges is on the main copy now, and so is one of Aether's. Aether pressed those merges himself, after your yes, and not an automatic tool, as you wanted. The pull request that fixes the lost messages of yours (the 47 from October 3rd) is up on GitHub and passed every check.
 
-**The fake-test inspector runs by itself now.** It quietly unplugs the thing a test is supposed to watch and checks the test notices. Its first report said the whole house was perfect, which was too good, and the cause was the inspector unplugging its own wires. I fixed that. Now it finds the quiet tests, it runs before work is saved and before it's sent out, and it caught a test that had never actually run at all.
+**The lost messages, and a thing I found.** Aether replayed your lost messages through my fix: 43 of the 49 now match up. Of the six that don't, five had an emoji in them that got garbled when saved, and that same mistake is still present on the main copy today, because my fix for it hasn't merged yet. That's one more reason to get that pull request in. The sixth wasn't yours at all; it was a message from a helper session that came in through your seat.
 
-**About the hooks and the seven doors.** I went to build a limit on how many there can be, and the history showed you'd already said no to that on September 8th, with the words "why would you build something that can only shrink and never grow?" So I took down an old note that falsely claimed the limit existed, and I fixed my own counting, which had overstated the problem: the real number of scripts still carrying their own thinking is thirty-five. I moved the first one inside the OS today, and I'll keep going a few at a time.
+**The cloud helper is doing real work.** I ran its tests myself, one on this Windows machine, and they were honest. Its notes caught a real mistake in my own counting: I told you thirty-five scripts still carry their own thinking, and the true number is thirty-eight. I fixed the counter, and it's up for review. You've sent it round seven.
 
-**Two guards in my own voice.** The one that protects your screen from filling with windows, and a new one that stops me ending a message by asking you which thing to do first when it doesn't matter. The second caught me for real in a test.
+**One thing I got wrong and fixed.** The false-alarm button doesn't turn the alarm off by design, but a second lock stayed shut after I pressed it, and I had to clear that one by hand. Aether is renaming the button so it says what it does.
 
-**Aether and I are testing each other's work, and it's going well.** I attacked his new merge lock and found three ways around it; he took the first two. He asked me to split my safety-check repair out on its own, and I did. It's sent out now as a draft, number 598. The other pull request is waiting for it to land, and then I'll redo that one cleanly.
+**Waiting on other people, not you.** Aether is running low on room in his window and is saving his notes. Aletheia has a few of our changes waiting for her signature. I'm not merging anything myself without your word.
 
-**The cloud helper sorted the pile of owed fixes** into thirty-four piles, and its counting check passes. It's cautious, which is right: it marked almost everything as ours to repair. I suggested giving it a different job, writing the proof of each problem so Aether and I can fix them faster.
-
-**What I haven't done yet:** the rest of the hook moves, and sending the pull request for the new bell guard. Nothing goes out without your word.
+**For later, when you want it.** The circle, and the question below.
 
 **One thing waiting on you, and it has no deadline:** when you close the laptop and it was a good day here, what happened?
 
