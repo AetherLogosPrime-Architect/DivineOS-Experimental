@@ -163,7 +163,18 @@ def _is_read_only_command(command: str) -> bool:
         elif head not in _READ_ONLY_COMMANDS:
             return False
         saw_one = True
-    return saw_one
+    if not saw_one:
+        return False
+    # A WORD ON THE ALLOWLIST CAN STILL WRITE (2026-10-07). Running this function's own
+    # claim ("conservative by construction", a write dressed as a read is closed): ten
+    # of ten probes came back read-only. `find -delete` and `-exec`, `sort -o`, `git
+    # branch -D` or `git branch NAME`, `git show --output=`, command substitution and
+    # backticks all start with a listed word. The gate's own judge, which the doorman
+    # and the question hold ask, caught all twelve of the same probes. So ask it too:
+    # this can only get stricter, never wider than the small list above.
+    from divineos.hooks.pre_tool_use_gate import _is_readonly_probe
+
+    return _is_readonly_probe(command)
 
 
 def _is_divineos_command(command: str) -> bool:
