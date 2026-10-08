@@ -81,8 +81,9 @@ def register(cli: click.Group) -> None:
         "routes",
         multiple=True,
         help=(
-            "A route, as 'text | cheaper-or-costlier | why'. "
-            "Append !closed to the verdict for a route the mechanism already defeats."
+            "A route, as 'text | verdict | why', where the verdict is exactly "
+            "'cheaper' or 'costlier'. Append !closed to the verdict "
+            "(for example 'cheaper!closed') for a route the mechanism already defeats."
         ),
     )
     @click.option(
