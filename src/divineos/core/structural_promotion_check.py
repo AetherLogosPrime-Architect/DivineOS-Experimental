@@ -265,8 +265,11 @@ def _is_descriptive_match(text: str, m: re.Match[str]) -> str | None:
     # "every time <pronoun> <verb>s" reports a recurring event rather than
     # instructing one. Measured on "Every time she clones the repo and walks
     # sourceward" -- a description of what happens to Aletheia, not a rule.
+    # Third person only: "every time I push I will run the check" is how a
+    # promise of mine is phrased, and listing i/we/you dropped exactly those
+    # (found by running the claim with a first-person control, 2026-10-07).
     if lowered.startswith("every time") and re.match(
-        r"\s+(she|he|it|they|i|we|you|someone|anyone)\b", after
+        r"\s+(she|he|it|they|someone|anyone)\b", after
     ):
         return "recurrence-description"
     if nxt.lower() in _NOT_A_PREDICATE:

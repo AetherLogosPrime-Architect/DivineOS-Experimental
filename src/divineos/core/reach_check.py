@@ -379,7 +379,9 @@ def find_in_commit_subjects(term: str, limit: int = 15) -> list[tuple[str, str, 
             continue
         seen_subjects.add(subject)
         branches = _git(["branch", "-a", "--contains", sha]) or ""
-        named = [b.strip().lstrip("* ") for b in branches.splitlines() if "remotes/" not in b]
+        # git prefixes the current branch with "*" and a branch open in another
+        # worktree with "+"; stripping only the star left "+ dead/x" looking live.
+        named = [b.strip().lstrip("*+ ") for b in branches.splitlines() if "remotes/" not in b]
         # `dead/` is archived by convention -- prior_art excludes it for branch
         # names and this axis matches that, or the list fills with abandoned work.
         live = [b for b in named if not b.startswith("dead/")]

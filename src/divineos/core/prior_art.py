@@ -157,7 +157,8 @@ def find_elsewhere_in_git(term: str, here: set[str]) -> list[tuple[str, str, str
             continue
         seen.add(line)
         branches = _git(["branch", "-a", "--contains", commit]) or ""
-        named = [b.strip().lstrip("* ") for b in branches.splitlines() if "remotes/" not in b]
+        # "*" marks the current branch and "+" one open in another worktree.
+        named = [b.strip().lstrip("*+ ") for b in branches.splitlines() if "remotes/" not in b]
         found.append((line, commit[:8], named[0] if named else "(remote only)"))
         if len(found) >= 20:
             break

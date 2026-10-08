@@ -98,10 +98,14 @@ RESEARCH_DIR = "docs/ai_research/"
 # The remedy is exempt or this is a wall, not a doorman. `divineos reach ...`
 # is a Bash call, so without this the gate refuses the exact command it is
 # demanding. Checked before anything else so no later branch can reorder it.
-if "divineos reach" in haystack:
-    sys.exit(0)
-
+# The exemption is for the remedy ALONE: a store write chained to a harmless
+# reach status on the same line used to pass (2026-10-07, claim run with the
+# real hook), because the phrase appearing anywhere bought the whole line.
+# The remedy never contains a store-write verb outside quotes, so no real
+# remedy is refused by this.
 is_store_write = any(v in haystack for v in STORE_WRITES)
+if "divineos reach" in haystack and not is_store_write:
+    sys.exit(0)
 is_research_write = RESEARCH_DIR in haystack and tool_name in ("Write", "Edit")
 if not (is_store_write or is_research_write):
     sys.exit(0)

@@ -59,6 +59,26 @@ def test_detects_must_rule_shape() -> None:
     assert is_rule
 
 
+def test_every_time_about_someone_else_is_a_description_not_a_rule() -> None:
+    """2026-10-07, claim run: 'every time she clones the repo' reports what happens
+    to a third person. It must stay exempt."""
+    is_rule, _ = looks_like_rule("Every time she clones the repo and walks sourceward she hits it.")
+    assert not is_rule
+
+
+def test_every_time_i_is_how_my_own_promise_is_phrased() -> None:
+    """The same claim run, with a first-person control: the exemption used to list
+    i/we/you, so 'every time I push I will run the check' was dismissed as a
+    description, silently, on the exact sentences the check exists to catch."""
+    for sentence in (
+        "Every time I push a branch I will run the check first.",
+        "Every time we merge we will read the stamp first.",
+    ):
+        is_rule, triggers = looks_like_rule(sentence)
+        assert is_rule, sentence
+        assert triggers
+
+
 def test_skips_when_falsifier_mentioned() -> None:
     """Loop-prevention: entries that already name a falsifier are
     addressing the question, not deferring it."""

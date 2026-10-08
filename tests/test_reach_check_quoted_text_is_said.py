@@ -70,6 +70,10 @@ RUN = [
     'cd x && divineos claim "y" --tier 3',
     # a quoted mention of the remedy must not buy an exemption
     'echo "divineos reach"; divineos learn "sneak"',
+    # 2026-10-07 claim run, real hook: the phrase UNQUOTED next to a write bought the
+    # whole line, in either order. The remedy is exempt alone, not as a neighbour.
+    'divineos learn "chained" && divineos reach status',
+    'divineos reach status; divineos claim "chained first" --tier 3',
 ]
 
 
