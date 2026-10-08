@@ -59,7 +59,12 @@ HOOKS_DIR = ".claude/hooks"
 SETTINGS_FILE = ".claude/settings.json"
 
 _SCRIPT_RE = re.compile(r"([A-Za-z0-9_\-]+\.(?:sh|py))")
-_OS_IMPORT_RE = re.compile(r"from divineos|import divineos")
+# "-m divineos" is the doorbell form: a thin hook that finds a Python and runs a module of
+# the OS. The measure did not know it, so 12 of the 47 files it called "detached from the OS"
+# (2026-10-08) were exactly the thing the migration wants. Like the other two forms this is a
+# text match: a comment that spells the form out would also count, so the measure can
+# under-count detached files but never over-count them.
+_OS_IMPORT_RE = re.compile(r"from divineos|import divineos|\s-m\s+divineos\b")
 _OS_CLI_RE = re.compile(r"\bdivineos [a-z]")
 _INLINE_PY_RE = re.compile(r"python3?\s+-\s*<<|python3?\s+-c\s|<<'PY'|<<PY")
 

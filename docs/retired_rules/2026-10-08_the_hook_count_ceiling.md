@@ -31,4 +31,4 @@ On 2026-10-08 he asked why there were 78 hooks when he remembered seven, and a r
 
 ## What replaced it
 
-Nothing that limits the count. The seven he remembers is a plan: seven doorbells, one per harness event, with the judgment as surfaces in `divineos.core.hook_surfaces`. `divineos hook-layer show` computes where that stands (78 registrations, 26 shell files embedding python, 47 never calling the OS, four of seven events with a doorbell). If anything is ever enforced it should be thickness, whether a hook carries its own judgment, and never number.
+Nothing that limits the count. The seven he remembers is a plan: seven doorbells, one per harness event, with the judgment as surfaces in `divineos.core.hook_surfaces`. `divineos hook-layer show` computes where that stands (78 registrations, 26 shell files embedding python, 35 never calling the OS, four of seven events with a doorbell; this entry first said 47, a count from a measure that did not recognise the `python -m divineos` doorbell form, corrected the same day). If anything is ever enforced it should be thickness, whether a hook carries its own judgment, and never number.

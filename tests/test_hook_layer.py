@@ -95,6 +95,21 @@ def test_shell_that_never_touches_the_os_is_counted_apart(tmp_path):
     assert hl.inventory(root).detached_files == 1  # only a.sh; the others reach the OS
 
 
+def test_a_doorbell_that_runs_an_os_module_with_dash_m_is_not_detached(tmp_path):
+    """12 of the first 47 'detached' files were exactly this form (2026-10-08)."""
+    root = _tree(
+        tmp_path,
+        {"Stop": ["bell.sh", "brain.sh"]},
+        {
+            "bell.sh": '#!/bin/bash\necho "$IN" | "$PY" -m divineos.hooks.some_hook 2>/dev/null\n',
+            "brain.sh": "#!/bin/bash\n# holds its own logic\necho hi\n",
+        },
+    )
+    inv = hl.inventory(root)
+    assert inv.detached_files == 1  # brain.sh; the doorbell reaches the OS
+    assert inv.detached_lines == 3  # and it is brain.sh's three lines, not the doorbell's two
+
+
 def test_embedded_python_is_counted_as_judgment_in_the_shell(tmp_path):
     root = _tree(
         tmp_path,

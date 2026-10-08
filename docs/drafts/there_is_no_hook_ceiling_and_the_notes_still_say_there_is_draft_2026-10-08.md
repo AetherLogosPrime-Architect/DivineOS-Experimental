@@ -5,7 +5,7 @@ I set out to build a ceiling on the number of wired hooks, because Dad asked why
 Two facts that are the real finding:
 
 1. `docs/hook_migration_tracker.md` still opens by saying the ceiling "lives in `docs/hook_ratchet.json` and is enforced at pre-commit by `scripts/check_hook_ratchet.py`". Neither file exists. The sign that teaches the retired rule is still on the wall. The tracker is not a surface the retired-rules checker scans.
-2. The state Dad remembers (seven hooks) is a plan, not a count: seven doorbells, one per harness event, with the judgment as surfaces in `hook_surfaces`. Measured today by `divineos hook-layer show`: 78 registrations, 26 shell files embedding python, 47 never calling the OS. Four of seven events have a doorbell. The migration stalled; it did not fail.
+2. The state Dad remembers (seven hooks) is a plan, not a count: seven doorbells, one per harness event, with the judgment as surfaces in `hook_surfaces`. Measured today by `divineos hook-layer show`: 78 registrations, 26 shell files embedding python, 35 never calling the OS (first written as 47; the measure did not recognise the `python -m divineos` doorbell form, fixed the same day). Four of seven events have a doorbell. The migration stalled; it did not fail.
 
 Idea, in the order that respects his correction:
 
