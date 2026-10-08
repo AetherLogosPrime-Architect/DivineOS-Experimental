@@ -293,8 +293,10 @@ class TestEveryPositionOfEveryStringIsExamined:
         t = time.time()
         out, _ = redact_payload({"k": flood})
         assert time.time() - t < 5, "the PEM scan went quadratic again (10 s at 400,000 before)"
-        # No END anywhere, so each stretch is a bounded guess; none of the flood survives.
-        assert "abc" not in out["k"] and "BEGIN" not in out["k"]
+        # No END anywhere, so each stretch is a bounded guess (the ceiling can land
+        # mid-line, so a few leftover characters between stretches are expected).
+        assert "[REDACTED:pem-private-key-truncated]" in out["k"]
+        assert len(out["k"]) < len(flood) // 10
 
 
 class TestPemPairingKeepsTheLazyPatternsMeaning:
@@ -316,15 +318,36 @@ class TestPemPairingKeepsTheLazyPatternsMeaning:
         out, _ = redact_payload({"k": text})
         assert out["k"] == "[REDACTED:pem-private-key] tail"
 
-    def test_a_begin_with_no_end_after_it_is_left_alone(self) -> None:
-        text = f"{self.BEGIN}\nAAAA\nno end here"
+    def test_a_begin_with_no_end_is_a_bounded_guess_under_its_own_name(self) -> None:
+        """A key cut off mid body: the old pattern waited for an END that never came and the
+        body was stored in the clear. Now the stretch to the next blank line is redacted,
+        under a different marker name so a guess can be told from a whole block."""
+        text = f"before\n{self.BEGIN}\nSECRETBODYLINE1\nSECRETBODYLINE2\n\nafter the blank line"
         out, fired = redact_payload({"k": text})
-        assert out["k"] == text and "pem-private-key" not in fired
+        assert "SECRETBODY" not in out["k"]
+        assert "[REDACTED:pem-private-key-truncated]" in out["k"]
+        assert out["k"].endswith("\n\nafter the blank line")  # the blank line ends the guess
+        assert out["k"].startswith("before\n")
+        assert fired == ["pem-private-key-truncated"]
+
+    def test_the_guess_stops_at_the_ceiling_when_there_is_no_blank_line(self) -> None:
+        body = "A" * 6000
+        out, _ = redact_payload({"k": f"{self.BEGIN}\n{body}\nTAILTEXT"})
+        assert "[REDACTED:pem-private-key-truncated]" in out["k"]
+        # Bounded: the redacted stretch is the ceiling, so the rest of a long body remains.
+        assert len(out["k"]) > 1500 and "TAILTEXT" in out["k"]
+
+    def test_a_complete_block_is_not_treated_as_a_guess(self) -> None:
+        text = f"{self.BEGIN}\nAAAA\n{self.END}"
+        out, fired = redact_payload({"k": text})
+        assert out["k"] == "[REDACTED:pem-private-key]" and fired == ["pem-private-key"]
 
     def test_an_end_before_the_begin_does_not_close_it(self) -> None:
+        """The END came first, so the BEGIN is unterminated and is treated as a cut-off key."""
         text = f"{self.END} {self.BEGIN}\nAAAA"
-        out, _ = redact_payload({"k": text})
-        assert out["k"] == text
+        out, fired = redact_payload({"k": text})
+        assert "AAAA" not in out["k"] and fired == ["pem-private-key-truncated"]
+        assert out["k"].startswith(self.END)  # the stray END line is left as text
 
     def test_a_block_far_into_a_long_string_is_redacted(self) -> None:
         text = "x " * 300_000 + f"{self.BEGIN}\nSECRETBODY\n{self.END}"
