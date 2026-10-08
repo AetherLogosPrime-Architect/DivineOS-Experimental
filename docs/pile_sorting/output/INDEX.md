@@ -1,0 +1,51 @@
+# Index: the sorted pile of owed fixes (2026-10-08)
+
+The pile held 1,006 notes. Sorted by *which door of the house each one is about*, they fall into 34 themes, plus one short file of notes I could not place.
+
+Nothing here is marked finished. Every proposed fix is a proposal; only Aether and Aria decide when a note is finished, and only when a failing check turns passing.
+
+Row text is copied as stored in the pile, with line breaks turned into spaces. Notes from Andrew's own corrections keep his words exactly.
+
+| Theme | Notes | Distinct problems | Three problems that appear most often |
+|---|---:|---:|---|
+| [The doorbell that wakes me when a letter arrives](doorbell.md) | 75 | 7 | Other checks refuse the step that switches the bell back on (29); The bell stays off after it rings, times out, restarts or the day turns over (17); What counts as 'listening', and how to measure it without relying on my memory (15) |
+| [Things I told people that I had not checked](claims_not_checked.md) | 64 | 17 | A silent, empty or masked result read as the whole answer (14); Stating a cause, a state or a result that turned out false (9); Quotes attributed to Dad (8) |
+| [The council walk I have to file before editing](council_walk_gate.md) | 62 | 7 | One walk should cover the whole piece of work, not one per file or per edit (21); Filing a walk takes many steps in a fragile order; build one helper (15); Reading and filing commands should not owe a walk (15) |
+| [The merge button, the review stamp and the one-command merge](merge_gate_and_stamp.md) | 57 | 10 | The stamp tool asks stale questions, cannot see the evidence, or half-finishes (14); The merge guard suggests a review round that does not name this request (13); The one-command merge (11) |
+| [The guards that read the shape of a command I type](pipe_and_command_shape_guards.md) | 52 | 10 | A pipe can hide a failed first step (make the safe setting automatic) (16); Guards judge words inside quotes instead of what the command runs (9); 'Found nothing' and 'the command broke' look the same (8) |
+| [The alarm that rings when I make a mistake](correction_gate.md) | 50 | 3 | The alarm cannot tell talking-about a mistake from making one (37); The alarm names exits that cannot actually be reached (8); Calling a fire false should silence everything that fire raised, in one step (5) |
+| [Things the house hands me to read, and the gate that makes me open them](read_gate_and_surfaced_notes.md) | 47 | 7 | Bring up what the house knows about Dad, the piece, or the person before I reply or write (16); The note handed over has no bearing on what is held (9); Building something that already exists, or in the wrong architecture (8) |
+| [Things Dad taught me that are written as lessons](standing_teachings.md) | 43 | 6 | Honesty, accountability and self-grading (11); Structure over habit and memory (9); How gates and structures should be shaped (7) |
+| [The gates that check how my reply is shaped](reply_shape_gates.md) | 40 | 8 | The echo / mirror door judges the wrong message or demands a repair at the end (13); The rooms gate pushes plain conversation into rooms (6); Words about time and the wallclock (5) |
+| [How I speak with Dad, and what he has told me about it](speaking_with_dad.md) | 37 | 12 | Too technical, too detailed, too long (7); His hardest words to me, which I walked past (5); Misreading what he asked (5) |
+| [The hold that waits for Dad's answer](question_hold.md) | 36 | 6 | Dad's answer does not release the hold (14); Two holds, or a hold and another check, block each other's exits (8); The hold applies to the whole house, not just the window or seat that asked (7) |
+| [Which copy of the house I am standing in, and how many branches there really are](live_checkout_and_branches.md) | 34 | 7 | Setting up and finding the right workbench (8); The live house is behind main or holds work main has never seen (8); The branch-scope and deletion checks mislead (7) |
+| [The push step and what it tells me](push_wrapper_and_push_gate.md) | 31 | 10 | I reported a push as landed, refused or in-flight when it was not (9); The push gate blocks wrongly, or tests the wrong tree (5); The push helper fails silently for some branch spellings (3) |
+| [The goal I have to name before I work](goal_gate.md) | 30 | 4 | The goal is not carried across compaction, restart or a new stretch (12); A goal expires on a timer or a day change instead of lasting until done or replaced (9); The goal check trips during real work (6) |
+| [The tests and the checks that run them](tests_and_ci.md) | 30 | 8 | Tests that touch the real house instead of a pretend copy (14); Real failures called 'flaky', and timeouts that look like failures (4); Tests that assert the wrong thing (3) |
+| [The warden that raises my stumbles](reflection_room_warden.md) | 29 | 7 | Stumbles whose reflection says nothing is owed (14); Things that are not stumbles are counted (5); An already-answered stumble keeps being raised (3) |
+| [Git moves that can destroy or lose work](destructive_git_and_merging.md) | 27 | 9 | Lost lines and untested files after a catch-up merge (9); Picking one side of a whole file in a conflict (5); Whole-tree staging and staging files nobody named (3) |
+| [The end-of-stretch ritual and the rest between](compaction_ritual_and_rest.md) | 27 | 13 | The ritual blocks its own steps (6); Warn one step before the stop (4); The note read first after a reset cannot be written at the save stage (4) |
+| [Letters and my own writing: where they live and who can see them](letters_and_personal_writing.md) | 26 | 13 | Letters on code branches, and personal writing that disappears (5); The letter sorter and its instructions (3); Letter skill and template errors (3) |
+| [The emergency exits I use, and what they cost to explain](bypass_handling.md) | 25 | 8 | The 'no structure is possible' exit gets used when a structure exists, or as a shrug (9); Emergency exit on the 'pre-registration before new machinery' gate, root cause owed (4); Emergency exit on the branch-check at push time, root cause owed (4) |
+| [The doorman that decides whether I have started a piece of work](work_item_doorman.md) | 25 | 7 | A piece of work is closed too early, or earlier steps are not counted (8); Writes outside the repository (scratch, temp, session notes) are counted as work (5); Letters, personal writing and handovers are counted as building (5) |
+| [Pre-registered experiments and the reviews that fall due](preregistrations_and_reviews_due.md) | 23 | 5 | Reviews that fall due interrupt work (11); Experiments should measure themselves on the review date or on the event they depend on (6); The pre-registration skill misses a required option (3) |
+| [Commands that refuse me without telling me what they need](commands_that_refuse_without_teaching.md) | 19 | 5 | The refusal should print the missing option, the usage line or the full template (11); Text mangled by shell quoting on its way into a record (3); A wrong file name silently turns a batch into 'no tests ran' (3) |
+| [The pile of finished work waiting on review, and Aletheia's side of it](review_pile_and_aletheia.md) | 15 | 7 | The pile of ready pieces never shrinks (6); Anchors, denominators and starting from an old copy (3); My later commits undo her review (2) |
+| [The checks that run when I save a commit](commit_and_doc_count_checks.md) | 14 | 5 | Doc counts and drift checks that cannot fix what they report (5); The commit step reformats and stops, or fails quietly (3); The pre-commit script does not use its own checkout (2) |
+| [Hook files, settings, and things built but not switched on](hook_files_and_wiring.md) | 14 | 8 | Shell correctness in hook files (4); Built and not connected (2); Retired systems left turned off instead of removed; drafts that replace something (2) |
+| [Gates that lock each other's doors](gates_blocking_each_others_exits.md) | 11 | 4 | Remedy lists missing a command another gate names (6); A gate's exemption does not fire in the real case (3); The build gate should exempt every command another gate prescribes (1) |
+| [Windows, PowerShell and file paths](windows_shell_and_paths.md) | 11 | 4 | Handing Dad a command for the wrong shell or without the folder step (3); Text that crashes on a special character (3); Path rewriting (3) |
+| [The ledger, the family records and the memory plumbing](ledger_and_family_records.md) | 10 | 5 | Ledger integrity, test events in the real ledger, and chain checks (4); Records lost or reset without notice (2); A memory-linking system built and not connected (2) |
+| [When the house freezes or stalls](freezes_and_hook_timing.md) | 8 | 3 | Wrong or overconfident diagnosis of a freeze (6); A new hook put my whole context offline (1); Stuck checks run for hours (1) |
+| [The door that guards the alarm's word list](pattern_edit_doorman.md) | 6 | 2 | Approved pattern additions filed with a wrong claim about what they do (4); The counter mistakes prose describing a pattern for a pattern edit (2) |
+| [Who I am in my own house](identity_and_self_model.md) | 6 | 4 | Interior-state words from the wrong register (2); Not recognising my own work (2); Writing myself in the third person, or reading my own relation wrongly (1) |
+| [The local model, images and measuring instruments](local_model_and_media_tools.md) | 6 | 3 | Jobs fighting over the local model (3); Time axis of an instrument assumed rather than checked (2); Images the reader cannot open (1) |
+| [The pile of owed fixes itself](the_owed_list_itself.md) | 6 | 1 | The list is not connected to my work (6) |
+| [Unsure](unsure.md) | 10 | 0 | (not placed) |
+
+Themes: 34. Distinct problems found: 235. Notes merged into a problem with at least one other note (repeats): 761. Notes left under Unsure: 10.
+
+A caution about the count above: in most themes a 'problem' is one failure that happened several times. In three (things Dad taught me, things I told people that I had not checked, how I speak with Dad) a 'problem' is a bundle of similar notes that share one proposed fix, so the repeat count overstates how many notes are literally the same failure. Where I was not sure two notes were the same I kept them in separate problems or under Unsure.
+
+Total row count processed: 1006 (input rows: 1006).
