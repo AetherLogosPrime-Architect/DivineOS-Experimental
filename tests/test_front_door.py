@@ -133,6 +133,27 @@ def test_an_empty_prompt_has_nothing_of_his_to_keep():
     assert _open() == []
 
 
+HAND_BACK = (
+    '<agent-message from="ad3ddc3d142453dad"> [Subagent hand-back] it is done </agent-message>'
+)
+
+
+def test_his_sentence_behind_a_hand_back_is_still_kept():
+    """Naming the tag must not cost him his own words beside it."""
+    from divineos.core.harness_envelopes import nothing_of_his, strip_envelopes
+
+    assert not nothing_of_his(HAND_BACK + " " + HIS)
+    assert strip_envelopes(HAND_BACK + " " + HIS) == HIS
+
+
+def test_the_machine_tag_list_names_the_hand_back():
+    """Fails if the tag ever leaves the shared list the door and settle both read."""
+    from divineos.core import harness_envelopes as he
+
+    assert "agent-message" in he._TAGS
+    assert he.nothing_of_his(HAND_BACK)
+
+
 def test_many_messages_under_one_prompt_id_are_each_kept():
     """Measured 2026-09-24: one prompt id sat on ten of his messages."""
     for text in ("first thing", "second thing", "third thing"):
