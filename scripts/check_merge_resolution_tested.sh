@@ -55,7 +55,8 @@ fi
 declare -A TESTS=()
 for path in "${CHANGED[@]}"; do
     case "$path" in
-        tests/*) TESTS["$path"]=1 ; continue ;;
+        tests/_archive/*) continue ;;  # retired tests; collecting them clashes with the live conftest
+        tests/*) [[ -f "$REPO_ROOT/$path" ]] && TESTS["$path"]=1 ; continue ;;  # a moved or deleted test is not run
         *.py|*.sh) ;;
         *) continue ;;
     esac
@@ -63,6 +64,7 @@ for path in "${CHANGED[@]}"; do
     base="${base%.*}"
     [[ -z "$base" ]] && continue
     while IFS= read -r hit; do
+        [[ "$hit" == */tests/_archive/* ]] && continue
         [[ -n "$hit" ]] && TESTS["$hit"]=1
     done < <(grep -rl --include='test_*.py' -F "$base" "$REPO_ROOT/tests" 2>/dev/null)  # fail-soft: this search exits non-zero simply by matching nothing, which is the ordinary case for most changed paths and is not an error worth printing
 done
@@ -75,12 +77,43 @@ if [[ "${#TESTS[@]}" -eq 0 ]]; then
 fi
 
 echo "[merge-test] running ${#TESTS[@]} test file(s) covering this merge's paths" >&2
-if ! python -m pytest "${!TESTS[@]}" -q --tb=short; then
+# 2026-10-04: the paths go through a pytest argument file. Passed as words, a
+# merge touching a thousand tests exceeded the Windows command-line limit, and
+# that could-not-run was reported below as "a test fails" -- the first time
+# this check ever ran in Aria's house, because her installed hooks were stale.
+# The project's own interpreter is preferred: a bare `python` can be one with
+# none of the house's packages, which also fails without running anything.
+PY="python"
+for cand in "$REPO_ROOT/.venv/Scripts/python.exe" "$REPO_ROOT/.venv/bin/python"; do
+    [[ -x "$cand" ]] && { PY="$cand"; break; }
+done
+ARGFILE="$(mktemp)"
+printf '%s\n' "${!TESTS[@]}" > "$ARGFILE"
+# Serial on purpose: with xdist the workers never expand the argument file, so
+# nothing is collected (pytest exit 5, seen 2026-10-04).
+# Run as from a clean shell, the same scrub check_push_readiness.sh uses: this
+# check runs inside `git commit`, which exports its in-progress state to every
+# child. A test that makes its own worktree inherited the commit's index and
+# failed with exit 128 only during a commit, never alone (2026-10-04).
+env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u GIT_INDEX_FILE \
+    -u GIT_OBJECT_DIRECTORY -u GIT_ALTERNATE_OBJECT_DIRECTORIES -u GIT_PREFIX \
+    -u GIT_NAMESPACE -u GIT_QUARANTINE_PATH \
+    "$PY" -m pytest "@$ARGFILE" -q --tb=short -p no:cacheprovider
+rc=$?
+rm -f "$ARGFILE"
+if [[ $rc -eq 1 ]]; then
     echo "" >&2
     echo "[merge-test] REFUSED: a test covering a resolved file fails." >&2
     echo "[merge-test] Read it before touching it. The most likely reading is not" >&2
     echo "[merge-test] that the test is stale -- it is that the resolution describes" >&2
     echo "[merge-test] behaviour the merged code no longer has." >&2
+    exit 1
+fi
+if [[ $rc -ne 0 ]]; then
+    # pytest's other codes mean it did not get as far as judging any test.
+    echo "" >&2
+    echo "[merge-test] REFUSED: the tests could not be run (pytest exit $rc)." >&2
+    echo "[merge-test] That is not a failing test and not a pass. Fix the run first." >&2
     exit 1
 fi
 

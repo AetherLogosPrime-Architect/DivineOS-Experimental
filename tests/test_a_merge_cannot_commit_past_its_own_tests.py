@@ -152,6 +152,44 @@ def test_a_resolution_its_own_test_accepts_passes(tmp_path: Path):
     assert "REFUSED" not in result.stderr
 
 
+def _archived_failing_test(repo: Path) -> None:
+    """A retired test that names the module and fails, as 25 of them did on 2026-10-08."""
+    (repo / "tests" / "_archive").mkdir(parents=True)
+    (repo / "tests" / "_archive" / "test_mod_retired.py").write_text(
+        "from mod import VALUE\n\n\ndef test_retired():\n    assert False, 'retired against a rewrite'\n",
+        encoding="utf-8",
+    )
+
+
+def test_a_retired_test_that_fails_does_not_refuse_a_good_resolution(tmp_path: Path):
+    """The merge of main into a branch was refused on 25 failures in tests/_archive, none of
+    them about the resolved file: main's guard ran every test whose text named a touched path,
+    archived ones included. The archive is retired, not covering."""
+    repo = _repo(tmp_path)
+    _archived_failing_test(repo)
+    _conflicting_merge(repo)
+    _resolve(repo, "1")
+
+    result = _run_guard(repo)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "REFUSED" not in result.stderr
+    assert "test_mod_retired" not in result.stdout + result.stderr
+
+
+def test_the_same_archive_does_not_hide_a_wrong_resolution(tmp_path: Path):
+    """The control for the case above: skipping the archive must not make the guard stop
+    refusing. A live test still catches the wrong resolution with the retired one beside it."""
+    repo = _repo(tmp_path)
+    _archived_failing_test(repo)
+    _conflicting_merge(repo)
+    _resolve(repo, "3")
+
+    result = _run_guard(repo)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "REFUSED" in result.stderr
+    assert "test_mod_retired" not in result.stdout + result.stderr
+
+
 def test_outside_a_merge_it_says_nothing_at_all(tmp_path: Path):
     """No conflicted set to reason about, so silence is the correct answer."""
     repo = _repo(tmp_path)
