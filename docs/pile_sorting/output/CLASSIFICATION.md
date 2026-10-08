@@ -115,7 +115,7 @@ Where only some rows of a problem are mechanical I split the problem into lines 
 
 ## commit_and_doc_count_checks
 
-- commit_and_doc_count_checks #1 (row 376 only) Doc counts and drift checks that cannot fix what they report — MECHANICAL — The doc-count checker has fixers for tests, hooks and commands but none for the council phrases, a script's own missing function that a small test can prove (addressed in a repair).
+- commit_and_doc_count_checks #1 (row 376 only) Doc counts and drift checks that cannot fix what they report — DELICATE — RECLASSIFIED while building: the doc-count checker has no council fixer and a test can prove it, but it is a pre-commit check that the house's own gravity classifier treats as a guard, and a council fixer would let a save pass where the check used to stop it, so it stays with Aether and Aria; I kept the failing test to use as a round-three proof.
 - commit_and_doc_count_checks #1 (row 578 only) Doc counts and drift checks that cannot fix what they report — DELICATE — The existing command-count fixer already matches the 'N commands' wording and has tests, so this looks already handled on main; I left it for Aether and Aria to confirm.
 - commit_and_doc_count_checks #1 (row 965 only) Doc counts and drift checks that cannot fix what they report — DELICATE — The file's own comment says ghost lines are never removed automatically on purpose, so changing that is a design decision, not a bug.
 - commit_and_doc_count_checks #1 (rows 6 and 209) Doc counts and drift checks that cannot fix what they report — DELICATE — These are a lesson and a one-time slip about doc entries, not a defect I can write a failing test for.
@@ -354,4 +354,4 @@ Where only some rows of a problem are mechanical I split the problem into lines 
 
 The 10 notes under Unsure in `unsure.md` are not repair candidates until someone can say what they ask for.
 
-Problems: 235. Classification lines (after splits): 242. Lines labelled MECHANICAL: 3.
+Problems: 235. Classification lines (after splits): 242. Lines labelled MECHANICAL: 2.
