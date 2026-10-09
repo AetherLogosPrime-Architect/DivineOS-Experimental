@@ -20,15 +20,20 @@ from pathlib import Path
 
 import pytest
 
+from tests._bash_resolver import bash_executable
+
+BASH = bash_executable()
+pytestmark = pytest.mark.skipif(BASH is None, reason="no working bash on this machine")
+
 REPO = Path(__file__).resolve().parents[2]
-LOOK = REPO / "scripts" / "look.sh"
+LOOK =REPO / "scripts" / "look.sh"
 NO_MATCH = "grep -q zzz_a_word_that_is_not_in_it README.md"
 MISSING_FILE = "grep -q anything /nonexistent/file_for_look_test"
 FOUND = "grep -q DivineOS README.md"
 
 
 def look(command: str, strict: bool) -> tuple[int, str]:
-    args = ["bash", str(LOOK)] + (["--strict"] if strict else []) + [command]
+    args = [BASH, str(LOOK)] + (["--strict"] if strict else []) + [command]
     done = subprocess.run(args, capture_output=True, text=True, cwd=str(REPO), check=False)
     return done.returncode, done.stdout + done.stderr
 
