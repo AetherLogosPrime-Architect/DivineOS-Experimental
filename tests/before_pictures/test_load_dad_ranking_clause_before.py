@@ -9,7 +9,8 @@ takes the section that starts `## How I rank Dad`, and prints one JSON object wh
 is a fixed header followed by that section. It prints nothing when the sheet or the section is missing.
 
 One of these tests records a fact worth knowing: the real sheet in this checkout has no section with
-that heading (it was renamed on 2026-07-29), so today the script prints nothing against the real sheet.
+that heading (the nearest section was rewritten on 2026-07-29; I could not see the old heading, so it
+is not known whether it was renamed), so today the script prints nothing against the real sheet.
 If someone restores the heading, or moves the script and changes this, that test will say so.
 
 The script only runs when the resolver finds a python whose `divineos` lives under the same repo's
