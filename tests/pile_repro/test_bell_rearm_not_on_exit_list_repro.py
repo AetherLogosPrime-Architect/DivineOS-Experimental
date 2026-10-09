@@ -19,6 +19,11 @@ from pathlib import Path
 
 import pytest
 
+from tests._bash_resolver import bash_executable
+
+BASH = bash_executable()
+pytestmark = pytest.mark.skipif(BASH is None, reason="no working bash on this machine")
+
 REPO = Path(__file__).resolve().parents[2]
 LIB = REPO / ".claude" / "hooks" / "lib" / "remedy_allowlist.sh"
 STOP_GUARD = REPO / ".claude" / "hooks" / "letter_doorbell_alive_stop.py"
@@ -28,9 +33,10 @@ BELL = "bash scripts/letter_doorbell.sh aether"
 def passes_through(command: str) -> bool:
     """True when the shared library treats the command as somebody's prescribed exit."""
     payload = json.dumps({"tool_input": {"command": command}})
-    script = f'HOOK_NAME=probe; source "{LIB}"; remedy_pass_through "$1"; echo CONTINUED'
+    # as_posix: backslashes inside the double quotes would be eaten by bash on Windows.
+    script = f'HOOK_NAME=probe; source "{LIB.as_posix()}"; remedy_pass_through "$1"; echo CONTINUED'
     done = subprocess.run(
-        ["bash", "-c", script, "_", payload], capture_output=True, text=True, check=False
+        [BASH, "-c", script, "_", payload], capture_output=True, text=True, check=False
     )
     assert done.returncode == 0, done.stderr
     return "CONTINUED" not in done.stdout
