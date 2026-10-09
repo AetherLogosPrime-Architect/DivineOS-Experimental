@@ -87,6 +87,18 @@ def _run(script: Path, dedup_dir: Path | None = None) -> str:
     env = dict(os.environ)
     if dedup_dir is not None:
         env["DIVINEOS_CONTEXT_DEDUP_DIR"] = str(dedup_dir)
+        # Its own HOME too (every platform's spelling: bash reads HOME, Windows Python
+        # reads USERPROFILE). Some primes print live telemetry from the home folder,
+        # and a reply scored between the two runs changed the text and defeated the
+        # dedup, so the case failed beside a busy session and passed alone.
+        home = dedup_dir / "home"
+        home.mkdir(exist_ok=True)
+        env.update(
+            HOME=str(home),
+            USERPROFILE=str(home),
+            HOMEDRIVE=home.drive,
+            HOMEPATH=str(home)[len(home.drive) :],
+        )
     r = subprocess.run(
         [_real_bash(), str(script)],
         input=PAYLOAD,
@@ -97,6 +109,23 @@ def _run(script: Path, dedup_dir: Path | None = None) -> str:
         env=env,
     )
     return r.stdout or ""
+
+
+def test_the_contract_run_reads_a_private_home_not_the_live_one(tmp_path: Path):
+    """Why the circle-first case failed twice on 2026-10-09 under the push gate and
+    passed alone. That prime puts "my last work blocks, scored" in its text, read from
+    `~/.divineos/lepos_work_mark_counts.jsonl`, and the gate appends a row there on every
+    reply I compose. The push gate runs for minutes while I am still talking, so a reply
+    landing between this test's two runs changed the text, the hash no longer matched,
+    and the second run came out full length: "did not shrink", blamed on the hook.
+    Measured in a throwaway home: quiet between runs, 9873 then 954 characters; one new
+    row between runs, 9873 then 9879. The cure is the one this file already uses for the
+    dedup memory: give every case its own home, so no live log can reach it."""
+    script = HOOK_DIR / "circle-first-compose-prime.sh"
+    log = tmp_path / "home" / ".divineos" / "lepos_work_mark_counts.jsonl"
+    log.parent.mkdir(parents=True)
+    log.write_text(json.dumps({"ts": 1.0, "marks": 4321, "limit": 3}) + "\n", encoding="utf-8")
+    assert "4321" in _run(script, dedup_dir=tmp_path), "the hook read the live home, not this one"
 
 
 def test_some_hook_claims_the_contract():
