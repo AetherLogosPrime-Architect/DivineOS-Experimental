@@ -537,7 +537,6 @@ prereg_commands.register(cli)
 # moment a fix is declared done (council-5bec78b85acc).
 class_fix_commands.register(cli)
 prior_art_commands.register(cli)
-psf_commands.register(cli)
 game_walk_commands.register(cli)
 operator_ask_commands.register(cli)
 reach_commands.register(cli)

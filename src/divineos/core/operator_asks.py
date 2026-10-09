@@ -284,5 +284,5 @@ def format_open_asks() -> str:
             lines.append(
                 f"    [technical — MINE, and lifting ANY of it into the circle is the second defect below] {technical}"
             )
-        lines.append(f'    (id {a["question_id"][:8]} — resolve: divineos answer <id> "...")')
+        lines.append(f'    (id {a["question_id"][:8]} — resolve: divineos ask-resolve <id> "...")')
     return "\n".join(lines)

@@ -461,7 +461,7 @@ def questions_cmd(status: str | None, limit: int) -> None:
         click.echo()
 
 
-@click.command("answer")
+@click.command("answer-question")
 @click.argument("question_id")
 @click.argument("resolution")
 def answer_cmd(question_id: str, resolution: str) -> None:
