@@ -267,7 +267,7 @@ def _build_knn_graph() -> None:
 
     matrix = np.vstack([np.asarray(item.embedding, dtype=np.float32) for item in all_items])
     norms = np.linalg.norm(matrix, axis=1, keepdims=True)
-    matrix = matrix / np.where(norms == 0, 1.0, norms)
+    matrix = (matrix / np.where(norms == 0, 1.0, norms)).astype(np.float32)
     k = min(KNN_K, len(all_items) - 1)
     if k <= 0:
         _KNN_GRAPH[all_items[0].id] = []
