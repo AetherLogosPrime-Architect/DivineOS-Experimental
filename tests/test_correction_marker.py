@@ -522,6 +522,48 @@ class TestMarkerRecordsWhoSetIt:
             got = correction_marker.read_marker()
         assert got is not None and "source" not in got
 
+    def test_the_gate_does_not_replace_a_live_marker_of_his(self, tmp_path) -> None:
+        """Aria 2026-10-09: one slot, last writer wins. He corrects me, my reply
+        admits it, the gate fires. The marker must stay HIS (so labelling the
+        gate's fire cannot clear his acknowledgement lock), with the gate's fire
+        recorded beside it."""
+        mpath = tmp_path / "marker.json"
+        with (
+            patch.object(correction_marker, "marker_path", return_value=mpath),
+            patch.object(correction_marker, "_auto_log_his_correction"),
+        ):
+            correction_marker.set_marker("no, that is wrong, fix it")
+            correction_marker.set_marker(GATE_STRING, source=correction_marker.SOURCE_STOP_GATE)
+            got = correction_marker.read_marker()
+        assert got is not None
+        assert got["source"] == "his-message"
+        assert got["trigger"] == "no, that is wrong, fix it"
+        assert [f["source"] for f in got["also_fired"]] == ["stop-gate"]
+        assert got["also_fired"][0]["trigger"].startswith("[correction-shape-v2 stop-gate]")
+
+    def test_the_gate_writes_normally_when_no_marker_of_his_is_live(self, tmp_path) -> None:
+        mpath = tmp_path / "marker.json"
+        with (
+            patch.object(correction_marker, "marker_path", return_value=mpath),
+            patch.object(correction_marker, "_auto_log_his_correction"),
+        ):
+            correction_marker.set_marker(GATE_STRING, source=correction_marker.SOURCE_STOP_GATE)
+            got = correction_marker.read_marker()
+        assert got is not None and got["source"] == "stop-gate"
+        assert "also_fired" not in got
+
+    def test_his_message_after_the_gate_ends_as_his(self, tmp_path) -> None:
+        """The reverse order already ended as his: pinned so it stays so."""
+        mpath = tmp_path / "marker.json"
+        with (
+            patch.object(correction_marker, "marker_path", return_value=mpath),
+            patch.object(correction_marker, "_auto_log_his_correction"),
+        ):
+            correction_marker.set_marker(GATE_STRING, source=correction_marker.SOURCE_STOP_GATE)
+            correction_marker.set_marker("no, that is wrong")
+            got = correction_marker.read_marker()
+        assert got is not None and got["source"] == "his-message"
+
     def test_the_stop_hook_passes_the_modules_own_constant(self) -> None:
         """A hook that kept calling with the default would score as done and fix
         nothing, so pin the call itself."""

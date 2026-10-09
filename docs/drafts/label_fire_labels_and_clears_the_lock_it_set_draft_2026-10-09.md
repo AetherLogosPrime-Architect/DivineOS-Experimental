@@ -26,6 +26,12 @@ Aria's two asks from 2026-10-09 are here: the whole-source comparison with the m
 4. no marker -> label recorded, "nothing to clear";
 5. `--misread-clauses` missing or under its length floor -> refused before anything is cleared (the key's own rule, unchanged).
 
+## Added after Aria read this draft (2026-10-09): the overwrite hole
+
+`set_marker` writes one slot, last writer wins. If he corrects me (his-message marker armed) and my reply admits the error, the Stop gate then overwrote his marker with its own, and a later `label-fire` would clear what looked like the gate's lock, with his acknowledgement lock gone and nobody lying. **Fixed in `set_marker` on this branch:** a gate write never replaces a live marker whose source is `his-message`; his marker stays whole and the gate's fire is appended beside it as `also_fired`. Tests: his marker then a gate write keeps his source, trigger and the `also_fired` entry (fails on the commit before this one); a gate write with no live marker of his writes normally; the reverse order ends as his.
+
+**Still open, named, not closed:** the compass-required marker rides the same cascade (`_cr_set("correction", ...)` at the end of `set_marker`), has no `source`, and `clear_marker()` clears it too. B must either record a source there, or clear the compass marker only when the correction marker it just cleared was the gate's. That is B's work, not this branch's.
+
 ## Not in this change
 
 The CI-notice path (closed history, Aria's trace), the 91 misfiled rows (done at Dad's word), and any change to the Stop gate's detection.

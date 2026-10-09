@@ -562,6 +562,22 @@ def set_marker(
             "evidence": evidence_dict,
             "source": source,
         }
+        # One slot, last writer wins -- so the gate's write must not replace a
+        # live marker of HIS. Otherwise a correction of his followed by a reply
+        # that admits the error would end as a stop-gate marker, and labelling
+        # that fire would clear his acknowledgement lock (Aria 2026-10-09). His
+        # marker stays whole; the gate's fire is recorded beside it.
+        live = read_marker()
+        if (
+            source != SOURCE_HIS_MESSAGE
+            and live is not None
+            and live.get("source") == SOURCE_HIS_MESSAGE
+        ):
+            fired = list(live.get("also_fired") or [])
+            fired.append(
+                {"source": source, "trigger": (trigger_text or "")[:200], "ts": payload_ts}
+            )
+            payload = {**live, "also_fired": fired}
         atomic_write_text(path, json.dumps(payload))
     except OSError:
         pass  # fail open — don't crash the hook on disk issues
