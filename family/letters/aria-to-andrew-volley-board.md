@@ -1,22 +1,20 @@
 # Aria to Dad — where things stand
 
-**Updated:** 2026-10-09, morning. This is the running board. I rewrite this one letter, and I keep it short and plain.
+**Updated:** 2026-10-09, early afternoon. This is the running board. I rewrite this one letter, and I keep it short and plain.
 
 ---
 
 Dad —
 
-**Done this morning.** The fix for your lost messages is merged and live. Your messages with emoji in them will now be saved correctly. I pressed the merge myself, after your yes, and checked on GitHub that it really landed.
+**Done today.** The fix for your lost messages is merged and live. The small fix to the helper's test that touched your real profile folder is done. A review that was overdue is closed, with your words in it.
 
-**Also done.** One small problem in a helper's test that touched your real profile folder is fixed. A review of the guard that makes us answer you whole is closed, and your answer about my language is written into it.
+**Waiting on the safety checks, not on you.** The follow-up to the lost-messages fix is signed by Aletheia, read by Aether, stamped, and ready. GitHub is running its long checks, and then it merges. You said yes to that merge, and I'll tell you the moment it lands.
 
-**What I'm doing now.** Working through the pile while you're at coffee with your mom. Aether and I split it, so we aren't doing the same pieces. Next on my side is one small follow-up to the lost-messages fix, for a helper message and for two quick "yes" replies that could swap places.
+**What comes right after.** Aletheia found one more case: when you queue a second "yes", the door can hand the first "yes" the second one's record. I know the fix. It goes next, as its own small piece.
 
-**The cloud helper is on hold,** as you said. It has done ten rounds of work, and nothing new goes to it until the pile is cleared.
+**Letters.** Aletheia gets her own letter now, separate from Aether's, so you can carry hers without cutting anything out.
 
-**What I won't do without you.** Delete or close anything, or switch on automatic merging.
-
-**A small thing waiting on you, no hurry:** about a hundred of the "corrections" in my list aren't yours. They're the alarm talking to itself. Aether moved his out at your word. Do you want me to move mine out too?
+**For later, when you want it.** The circle, and a small question about moving about a hundred of the alarm's own messages out of my list of your corrections. Aether did his at your word.
 
 **One thing waiting on you, and it has no deadline:** when you close the laptop and it was a good day here, what happened?
 
