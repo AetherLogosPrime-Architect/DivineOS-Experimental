@@ -430,6 +430,8 @@ docs/keyword_enforcement_gates_excluded.txt
 # self-confirm, silently degrading multi-party review.
 src/divineos/core/push_ready.py
 src/divineos/core/no_fix_gaming_validator.py
+src/divineos/core/bypass_key.py
+.claude/hooks/check-branch-on-push.sh
 
 # Sort-first refusal, 2026-09-24, in the build Andrew asked for with every
 # station: while a message he typed is kept and unsorted, every other tool call

@@ -199,6 +199,28 @@ EOF
         hook_say_nothing_ran_for "$INPUT"
         exit 2
     fi
+    # SPEND THE ONE KEY, or refuse. Andrew 2026-09-30: "a single bypass key,
+    # and in order to get it replaced when you use it, you must show evidence
+    # of an actual root cause fix". A reason I write myself used to be enough
+    # to open this gate; now the reason is the log and the key is the key.
+    # core/bypass_key.py, prereg-b3e8453df633, walk-0e68ddafaa93.
+    KEY_REFUSAL=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -c "
+import json, sys
+from divineos.core import bypass_key as bk
+cmd = (json.loads(sys.stdin.read() or '{}').get('tool_input') or {}).get('command', '') or ''
+at = cmd.find('git push')
+seg = cmd[at:].split(';')[0].split('&&')[0].split('||')[0].split('|')[0] if at >= 0 else cmd
+try:
+    bk.spend('check-branch-on-push', seg)
+except bk.KeySpent as e:
+    print(e)
+" 2>&1)
+    if [ -n "$KEY_REFUSAL" ]; then
+        echo "[check-branch-on-push] NO KEY — the override did not open the gate." >&2
+        echo "  $KEY_REFUSAL" >&2
+        hook_say_nothing_ran_for "$INPUT"
+        exit 2
+    fi
     # Fire the four-step LOGGED/REPORTED/ADDRESSED/FIXED loop.
     # Fail-open on any Python-side error: bypass still proceeds (kill-switch
     # authority preserved) but stderr records the telemetry-firing miss.
@@ -309,7 +331,20 @@ CHECK_RC=$?
 
 case "$CHECK_RC" in
   0)
-    # Healthy. Allow silently.
+    # Healthy, and reached with no override (the marker path exits above), so
+    # this is the lock letting a push through on its own. If the key was spent
+    # on this same push, this is the dogfood that earns it back -- witnessed by
+    # the gate, never typed. Fail-soft: a pass must never be blocked by the
+    # bookkeeping of a pass.
+    printf '%s' "$INPUT" | "$PYTHON_BIN" -c "
+import json, sys
+from divineos.core import bypass_key as bk
+cmd = (json.loads(sys.stdin.read() or '{}').get('tool_input') or {}).get('command', '') or ''
+at = cmd.find('git push')
+seg = cmd[at:].split(';')[0].split('&&')[0].split('||')[0].split('|')[0] if at >= 0 else cmd
+if bk.note_clean_pass('check-branch-on-push', seg):
+    print('[check-branch-on-push] KEY RETURNED — the lock let the same push through after its fix.', file=sys.stderr)
+" || true  # fail-soft: see comment above
     exit 0
     ;;
   1|2)

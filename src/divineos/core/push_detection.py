@@ -124,7 +124,10 @@ def pushes_only_tags(command: str) -> bool:
     return bool(pushes) and all(_segment_pushes_only_tags(s) for s in pushes)
 
 
-_CD_PREFIX_RE = re.compile(r"""\s*cd\s+("[^"]+"|'[^']+'|\S+)""")
+# A 'cd <path>' at the start of the command or after ';', '&&', '||' or '|'. The LAST
+# one before the push is the tree being pushed: the pipeline gate requires
+# 'set -o pipefail;' in front of a mutating pipe, so the cd is rarely first.
+_CD_PREFIX_RE = re.compile(r"""(?:^|[;&|]\s*)\s*cd\s+("[^"]+"|'[^']+'|[^\s;&|]+)""")
 _GIT_BASH_DRIVE_RE = re.compile(r"^/([A-Za-z])(?:/|$)")
 
 
@@ -151,10 +154,13 @@ def push_cwd(command: str, *, windows: bool | None = None) -> str | None:
     """
     import os
 
-    match = _CD_PREFIX_RE.match(command or "")
-    if not match:
+    command = command or ""
+    push_at = command.find("git push")
+    head = command[:push_at] if push_at >= 0 else command
+    matches = list(_CD_PREFIX_RE.finditer(head))
+    if not matches:
         return None
-    path = match.group(1).strip("\"'")
+    path = matches[-1].group(1).strip("\"'")
     if windows if windows is not None else os.name == "nt":
         path = windows_path_from_git_bash(path)
     marker = os.path.join(path, ".git")

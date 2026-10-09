@@ -753,6 +753,8 @@ src/divineos/
     questions_from_him.py      Questions built from what he actually said, not drawn from a list.
     refusal_stretches.py       What has refused me this session, and whether it is the same thing again.
     his_message.py             The one answer in this house to: is this transcript record Dad typing?
+    replay_record.py           Replay a change against the real record of his turns, before building it.
+    bypass_key.py              One bypass key per seat, spent on use, replaced only by a dogfooded fix.
     his_voice_ends_the_turn.py When he speaks into a running turn, nothing more runs until the turn ends.
     light_embedder.py          The same sentence vectors, without the seventeen-second import.
     question_hold.py           A question to Dad holds the work until he answers (Aria, 2026-09-29).
