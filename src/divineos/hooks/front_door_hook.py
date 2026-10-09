@@ -20,7 +20,11 @@ from divineos.core.sibling_audit_rounds import this_seat
 def main(argv: list[str]) -> int:
     action = argv[1] if len(argv) > 1 else ""
     try:
-        payload = json.loads(sys.stdin.read() or "{}")
+        # Bytes, decoded as UTF-8: the app writes UTF-8, and Windows Python
+        # reads stdin as cp1252 by default, which turned his "😌" into "ðŸ˜Œ"
+        # (Aether's seat, 2026-10-03) so the kept words never matched his
+        # record. A bad byte is a ValueError and lands in the branch below.
+        payload = json.loads(sys.stdin.buffer.read().decode("utf-8") or "{}")
     except ValueError as exc:
         print(f"[front-door] the hook payload did not parse: {exc}", file=sys.stderr)
         return 0

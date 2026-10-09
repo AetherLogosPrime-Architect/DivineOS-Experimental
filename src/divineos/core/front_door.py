@@ -36,7 +36,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from divineos.core import his_asks
-from divineos.core.harness_envelopes import nothing_of_his
+from divineos.core.harness_envelopes import nothing_of_his, strip_envelopes
 from divineos.core.his_message import arrival, may_carry_arrival
 
 # The record is written the moment he sends, so by the first tool call or the
@@ -226,12 +226,23 @@ def _fits(candidate: his_asks.Candidate, record: _Record) -> bool:
     kept_at = _when(candidate.said_at)
     if kept_at is None:
         return False
-    earliest = kept_at - (_SLIP_WAIT if record.prompt_id is None else _CLOCK_SLACK)
-    if record.at < earliest:
-        return False
     if record.prompt_id and candidate.prompt_id and record.prompt_id != candidate.prompt_id:
         return False
-    return candidate.his_text.strip() in record.text
+    # Identity beats the clock. A record carrying the same prompt id as the
+    # keeping is the same turn, whichever was written first: measured 2026-10-03,
+    # all 14 of his records that morning were written 2.5 to 10 seconds BEFORE
+    # the keep, and the two-second slack sent every one to the sort an hour late.
+    # The id alone is not the message (one id has held ten of his), so the words
+    # still have to match and the window is still bounded, at the slip wait.
+    same_turn = record.prompt_id is not None and record.prompt_id == candidate.prompt_id
+    earliest = kept_at - (_SLIP_WAIT if record.prompt_id is None or same_turn else _CLOCK_SLACK)
+    if record.at < earliest:
+        return False
+    # Equal, not contained. Containment let a bare "ok" settle onto "ok but
+    # wait, not yet" under the same id (Aether, reading 9e518b6b3). The record
+    # may carry harness envelopes beside his words, so both sides are compared
+    # with those set aside.
+    return strip_envelopes(candidate.his_text) == strip_envelopes(record.text)
 
 
 def settle(transcript_path: str | Path, seat: str) -> dict[str, str] | None:
@@ -278,12 +289,15 @@ def settle(transcript_path: str | Path, seat: str) -> dict[str, str] | None:
         return None
     taken: set[str] = set(already)
     for candidate in candidates:
-        match = next(
-            (r for r in records if r.uuid not in taken and r.stamp and _fits(candidate, r)),
-            None,
-        )
-        if match is None:
+        fitting = [r for r in records if r.uuid not in taken and r.stamp and _fits(candidate, r)]
+        if not fitting:
             continue
+        # The nearest to the keep, not the oldest. An older identical record the
+        # door never kept (door down, house behind main) sits inside the same-
+        # turn window, and oldest-first gave his new "yes" to it -- filing it as
+        # an answer to what we said ten minutes earlier (Aletheia, PR 584).
+        kept_at = _when(candidate.said_at) or now
+        match = min(fitting, key=lambda r: abs((r.at - kept_at).total_seconds()))
         taken.add(match.uuid)
         # The stamp says who sat in the seat, not whose words these are: the
         # harness stamps build notices human (see harness_envelopes).
