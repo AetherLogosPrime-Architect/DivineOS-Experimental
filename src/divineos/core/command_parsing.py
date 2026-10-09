@@ -575,6 +575,20 @@ _CHAIN_OPERATOR_CHARS = frozenset(";&|<>()")
 _QUIET_TAIL_RE = re.compile(r"(?:\s+(?:2>&1|2?>\s*/dev/null))+\s*$")
 
 
+def program_name(token: str) -> str:
+    """The program a command's first word names: its file name, without ``.exe``.
+
+    ``divineos``, ``.venv/Scripts/divineos.exe`` and ``C:/x/divineos.exe`` are
+    one program. Every remedy list compared the raw first word, so a remedy typed
+    with its path -- the only way to reach a workbench's own install -- read as
+    building, and every gate's exit was shut from every workbench (2026-10-04).
+    Spelling only: what is allowed is decided elsewhere and unchanged, and
+    ``/usr/bin/git`` now reads as the ``git`` it is.
+    """
+    name = re.split(r"[\\/]", token)[-1]
+    return name[:-4] if name.lower().endswith(".exe") else name
+
+
 def _chain_links(command: str) -> list[list[str]] | None:
     """The command's chain, each link as tokens with leading assignments removed.
 
@@ -604,7 +618,7 @@ def _chain_links(command: str) -> list[list[str]] | None:
         while link and (link[0].lower() == "env" or _ENV_ASSIGN_RE.match(link[0])):
             link = link[1:]
         if link:
-            cleaned.append(link)
+            cleaned.append([program_name(link[0]), *link[1:]])
     return cleaned
 
 
