@@ -288,6 +288,44 @@ def _without_heredoc_bodies(command: str) -> str:
     return "\n".join(out)
 
 
+def _runs_divineos_verb(command: str, verbs: tuple[str, ...]) -> bool:
+    """True when a segment of the command really runs ``divineos <verb>``.
+
+    WHY (2026-10-09, Aria, twice in one afternoon). These two features searched
+    the raw text for the two words, so a heredoc body that merely mentioned the
+    command, a quoted string, or the help flag all counted as the act. The
+    git-commit feature had already been moved to reading each segment's real
+    head; this gives the others the same reading through one shared helper.
+
+    A command the splitter cannot read (a substitution hides what runs) stays on
+    the old text search. For THIS question unreadable must mean assume-heavy,
+    the same direction the git-commit branch's long comment argues for the other
+    question, so reading better never loosens what could not be read at all.
+    Help is judged per segment: asking one segment for help does not excuse a
+    different segment that runs a verb.
+    """
+    from divineos.core.command_parsing import split_shell_segments, strip_command_prefixes
+
+    segments = split_shell_segments(_without_heredoc_bodies(command))
+    if segments is None:
+        return bool(re.search(r"\bdivineos\s+(" + "|".join(verbs) + r")\b", command))
+    for segment in segments:
+        tokens = [t.lower() for t in strip_command_prefixes(segment)]
+        while tokens and tokens[0] == "sudo":
+            tokens = tokens[1:]
+        if len(tokens) >= 2 and tokens[0] in ("python", "python3", "py") and tokens[1] == "-m":
+            tokens = tokens[2:]
+        if len(tokens) < 2:
+            continue
+        program = tokens[0].replace("\\", "/").rsplit("/", 1)[-1]
+        if program.removesuffix(".exe") != "divineos" or tokens[1] not in verbs:
+            continue
+        if any(t in ("--help", "-h") for t in tokens[2:]):
+            continue
+        return True
+    return False
+
+
 def _shell_write_targets(command: str) -> tuple[str, ...] | None:
     """Paths this shell command appears to write, or None when it cannot read it.
 
@@ -586,9 +624,8 @@ def score_substrate_modification(
             fired.append("edit-guardrail")
 
     # Feature 4: substrate-write CLI
-    if tool == "Bash" and re.search(
-        r"\bdivineos\s+(audit|claim|learn|prereg|decide|feel|compass-ops|journal)\b",
-        cmd,
+    if tool == "Bash" and _runs_divineos_verb(
+        cmd, ("audit", "claim", "learn", "prereg", "decide", "feel", "compass-ops", "journal")
     ):
         fired.append("substrate-write-cli")
 
@@ -604,7 +641,7 @@ def score_substrate_modification(
             fired.append("edit-kiln-layer")
 
     # Feature 6: consolidation CLI
-    if tool == "Bash" and re.search(r"\bdivineos\s+(extract|sleep)\b", cmd):
+    if tool == "Bash" and _runs_divineos_verb(cmd, ("extract", "sleep")):
         fired.append("consolidation-cli")
 
     # Feature 7: edit a path declared in scripts/guardrail_files.txt
