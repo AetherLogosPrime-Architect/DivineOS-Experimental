@@ -51,6 +51,7 @@ QUOTED = [
             text,
             id=name,
             marks=pytest.mark.xfail(
+                raises=AssertionError,
                 strict=True,
                 reason="reproduces: a sentence the old notes quote as a no-fix claim produces no hit",
             ),

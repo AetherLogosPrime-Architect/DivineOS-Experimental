@@ -62,6 +62,7 @@ def _pull_request_touches_a_protected_file(monkeypatch):
 
 
 @pytest.mark.xfail(
+    raises=AssertionError,
     strict=True,
     reason="reproduces: the merge guard blocks the --body-file merge that stamp-ready prints, because it never reads the file",
 )
@@ -74,6 +75,7 @@ def test_the_merge_the_stamp_prints_is_not_refused(tmp_path: Path):
 
 
 @pytest.mark.xfail(
+    raises=AssertionError,
     strict=True,
     reason="reproduces: switching auto-merge off is judged as a merge and blocked",
 )

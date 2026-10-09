@@ -41,6 +41,7 @@ def test_control_a_plain_reply_with_no_tool_call_is_allowed():
         pytest.param(
             text,
             marks=pytest.mark.xfail(
+                raises=AssertionError,
                 strict=True,
                 reason=f"reproduces: the gate has no pattern for this claim ({ids})",
             ),

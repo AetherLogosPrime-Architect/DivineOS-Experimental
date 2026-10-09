@@ -50,84 +50,108 @@ def _no_keywords():
             "divineos audit list",
             id="audit-list",
             marks=pytest.mark.xfail(
-                strict=True, reason="reproduces: a read-only look-up still owes a council walk"
+                raises=AssertionError,
+                strict=True,
+                reason="reproduces: a read-only look-up still owes a council walk",
             ),
         ),
         pytest.param(
             "divineos audit show finding-1",
             id="audit-show",
             marks=pytest.mark.xfail(
-                strict=True, reason="reproduces: a read-only look-up still owes a council walk"
+                raises=AssertionError,
+                strict=True,
+                reason="reproduces: a read-only look-up still owes a council walk",
             ),
         ),
         pytest.param(
             "divineos audit summary",
             id="audit-summary",
             marks=pytest.mark.xfail(
-                strict=True, reason="reproduces: a read-only look-up still owes a council walk"
+                raises=AssertionError,
+                strict=True,
+                reason="reproduces: a read-only look-up still owes a council walk",
             ),
         ),
         pytest.param(
             "divineos prereg list",
             id="prereg-list",
             marks=pytest.mark.xfail(
-                strict=True, reason="reproduces: a read-only look-up still owes a council walk"
+                raises=AssertionError,
+                strict=True,
+                reason="reproduces: a read-only look-up still owes a council walk",
             ),
         ),
         pytest.param(
             "divineos prereg show prereg-1",
             id="prereg-show",
             marks=pytest.mark.xfail(
-                strict=True, reason="reproduces: a read-only look-up still owes a council walk"
+                raises=AssertionError,
+                strict=True,
+                reason="reproduces: a read-only look-up still owes a council walk",
             ),
         ),
         pytest.param(
             "divineos prereg overdue",
             id="prereg-overdue",
             marks=pytest.mark.xfail(
-                strict=True, reason="reproduces: a read-only look-up still owes a council walk"
+                raises=AssertionError,
+                strict=True,
+                reason="reproduces: a read-only look-up still owes a council walk",
             ),
         ),
         pytest.param(
             "divineos prereg summary",
             id="prereg-summary",
             marks=pytest.mark.xfail(
-                strict=True, reason="reproduces: a read-only look-up still owes a council walk"
+                raises=AssertionError,
+                strict=True,
+                reason="reproduces: a read-only look-up still owes a council walk",
             ),
         ),
         pytest.param(
             "divineos compass-ops history",
             id="compass-history",
             marks=pytest.mark.xfail(
-                strict=True, reason="reproduces: a read-only look-up still owes a council walk"
+                raises=AssertionError,
+                strict=True,
+                reason="reproduces: a read-only look-up still owes a council walk",
             ),
         ),
         pytest.param(
             "divineos compass-ops summary",
             id="compass-summary",
             marks=pytest.mark.xfail(
-                strict=True, reason="reproduces: a read-only look-up still owes a council walk"
+                raises=AssertionError,
+                strict=True,
+                reason="reproduces: a read-only look-up still owes a council walk",
             ),
         ),
         pytest.param(
             "divineos compass-ops spectrums",
             id="compass-spectrums",
             marks=pytest.mark.xfail(
-                strict=True, reason="reproduces: a read-only look-up still owes a council walk"
+                raises=AssertionError,
+                strict=True,
+                reason="reproduces: a read-only look-up still owes a council walk",
             ),
         ),
         pytest.param(
             "divineos journal list",
             id="journal-list",
             marks=pytest.mark.xfail(
-                strict=True, reason="reproduces: a read-only look-up still owes a council walk"
+                raises=AssertionError,
+                strict=True,
+                reason="reproduces: a read-only look-up still owes a council walk",
             ),
         ),
         pytest.param(
             "divineos journal search topic",
             id="journal-search",
             marks=pytest.mark.xfail(
-                strict=True, reason="reproduces: a read-only look-up still owes a council walk"
+                raises=AssertionError,
+                strict=True,
+                reason="reproduces: a read-only look-up still owes a council walk",
             ),
         ),
     ],
@@ -165,6 +189,7 @@ def test_a_read_only_look_up_owes_no_council_walk(command):
             "divineos prereg --help",
             id="prereg-help",
             marks=pytest.mark.xfail(
+                raises=AssertionError,
                 strict=True,
                 reason="reproduces: asking a command for its help still owes a council walk",
             ),
@@ -173,6 +198,7 @@ def test_a_read_only_look_up_owes_no_council_walk(command):
             "divineos audit --help",
             id="audit-help",
             marks=pytest.mark.xfail(
+                raises=AssertionError,
                 strict=True,
                 reason="reproduces: asking a command for its help still owes a council walk",
             ),
@@ -181,6 +207,7 @@ def test_a_read_only_look_up_owes_no_council_walk(command):
             "divineos audit submit-round --help",
             id="write-verb-help",
             marks=pytest.mark.xfail(
+                raises=AssertionError,
                 strict=True,
                 reason="reproduces: asking a command for its help still owes a council walk",
             ),
@@ -214,6 +241,7 @@ def test_asking_for_help_owes_no_council_walk(command):
             "divineos audit list",
             id="audit-list",
             marks=pytest.mark.xfail(
+                raises=AssertionError,
                 strict=True,
                 reason="reproduces: the gate blocks a read-only look-up with no walk on record",
             ),
@@ -222,6 +250,7 @@ def test_asking_for_help_owes_no_council_walk(command):
             "divineos audit show finding-1",
             id="audit-show",
             marks=pytest.mark.xfail(
+                raises=AssertionError,
                 strict=True,
                 reason="reproduces: the gate blocks a read-only look-up with no walk on record",
             ),
@@ -230,6 +259,7 @@ def test_asking_for_help_owes_no_council_walk(command):
             "divineos prereg show prereg-1",
             id="prereg-show",
             marks=pytest.mark.xfail(
+                raises=AssertionError,
                 strict=True,
                 reason="reproduces: the gate blocks a read-only look-up with no walk on record",
             ),
@@ -263,6 +293,7 @@ def test_the_gate_lets_a_read_only_look_up_through_with_no_walk_on_record(scratc
 
 
 @pytest.mark.xfail(
+    raises=AssertionError,
     strict=True,
     reason="reproduces: a walk filed against a file path in one working copy does not match the same file in another copy",
 )

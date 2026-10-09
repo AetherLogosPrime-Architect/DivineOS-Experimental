@@ -67,6 +67,7 @@ def _tree(
 
 
 @pytest.mark.xfail(
+    raises=AssertionError,
     strict=True,
     reason="reproduces: a Dad's-table entry naming a script that does not exist is not reported as a phantom",
 )

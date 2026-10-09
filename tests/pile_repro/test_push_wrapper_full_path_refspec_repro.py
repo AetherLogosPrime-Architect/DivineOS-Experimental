@@ -92,6 +92,7 @@ def _remote_has(repo: Path, ref: str) -> bool:
 
 
 @pytest.mark.xfail(
+    raises=AssertionError,
     strict=True,
     reason="reproduces: a push named by its full path lands, and the helper reports it as PUSH_FAILED_silently (exit 22)",
 )

@@ -66,6 +66,7 @@ def test_control_the_exit_codes_still_differ_under_strict():
 
 
 @pytest.mark.xfail(
+    raises=AssertionError,
     strict=True,
     reason="reproduces: --strict prints CANNOT-LOOK for a grep that looked and found nothing "
     "(psf-5f682720); the pipe guard points at --strict for a grep last stage",

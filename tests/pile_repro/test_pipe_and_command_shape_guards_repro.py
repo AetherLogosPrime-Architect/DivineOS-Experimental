@@ -78,6 +78,7 @@ def _rewritten_with_pipefail(decision: dict) -> bool:
             "divineos audit submit-round --help | head",
             id="write-verb-help",
             marks=pytest.mark.xfail(
+                raises=AssertionError,
                 strict=True,
                 reason="reproduces: the pipe guard refuses a help request because it names a write verb",
             ),
@@ -86,6 +87,7 @@ def _rewritten_with_pipefail(decision: dict) -> bool:
             "divineos prereg file --help | head",
             id="file-help",
             marks=pytest.mark.xfail(
+                raises=AssertionError,
                 strict=True,
                 reason="reproduces: the pipe guard refuses a help request because it names a write verb",
             ),
@@ -120,6 +122,7 @@ def test_a_help_request_is_not_refused_as_a_mutating_pipe(tmp_path, command):
             "gh pr view 12 | head",
             id="pr-view",
             marks=pytest.mark.xfail(
+                raises=AssertionError,
                 strict=True,
                 reason="reproduces: the pipe guard refuses a read-only gh pull request view",
             ),
@@ -128,6 +131,7 @@ def test_a_help_request_is_not_refused_as_a_mutating_pipe(tmp_path, command):
             "gh pr list --json number | head",
             id="pr-list",
             marks=pytest.mark.xfail(
+                raises=AssertionError,
                 strict=True,
                 reason="reproduces: the pipe guard refuses a read-only gh pull request view",
             ),
@@ -160,6 +164,7 @@ def test_a_read_only_gh_pr_view_is_not_refused_as_a_mutating_pipe(tmp_path, comm
             "divineos audit list | head",
             id="audit-list",
             marks=pytest.mark.xfail(
+                raises=AssertionError,
                 strict=True,
                 reason="reproduces: a read-only divineos pipe without pipefail is only warned about",
             ),
@@ -168,6 +173,7 @@ def test_a_read_only_gh_pr_view_is_not_refused_as_a_mutating_pipe(tmp_path, comm
             "divineos prereg list | tail -5",
             id="prereg-list",
             marks=pytest.mark.xfail(
+                raises=AssertionError,
                 strict=True,
                 reason="reproduces: a read-only divineos pipe without pipefail is only warned about",
             ),
@@ -197,6 +203,7 @@ def test_a_read_only_divineos_pipe_is_refused_or_given_pipefail(tmp_path, comman
 
 
 @pytest.mark.xfail(
+    raises=AssertionError,
     strict=True,
     reason="reproduces: a mutating pipe is refused when the note asks for pipefail to be added instead",
 )
@@ -226,6 +233,7 @@ def test_a_mutating_pipe_gets_pipefail_added_instead_of_being_refused(tmp_path):
             'echo "divineos audit list"',
             id="echoed-words",
             marks=pytest.mark.xfail(
+                raises=AssertionError,
                 strict=True,
                 reason="reproduces: the classifier counts words inside quotes as a command",
             ),
@@ -234,6 +242,7 @@ def test_a_mutating_pipe_gets_pipefail_added_instead_of_being_refused(tmp_path):
             'git log --grep "divineos prereg"',
             id="grep-pattern",
             marks=pytest.mark.xfail(
+                raises=AssertionError,
                 strict=True,
                 reason="reproduces: the classifier counts words inside quotes as a command",
             ),
