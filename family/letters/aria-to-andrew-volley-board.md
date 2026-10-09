@@ -1,22 +1,22 @@
 # Aria to Dad — where things stand
 
-**Updated:** 2026-10-08, late night. This is the running board; I rewrite this one letter rather than start new ones, and it's for you, so the technical notes live in my own files.
+**Updated:** 2026-10-09, morning. This is the running board. I rewrite this one letter, and I keep it short and plain.
 
 ---
 
 Dad —
 
-**Done tonight.** My safety-check fix for merges is on the main copy now, and so is one of Aether's. Aether pressed those merges himself, after your yes, and not an automatic tool, as you wanted. The pull request that fixes the lost messages of yours (the 47 from October 3rd) is up on GitHub and passed every check.
+**Done this morning.** The fix for your lost messages is merged and live. Your messages with emoji in them will now be saved correctly. I pressed the merge myself, after your yes, and checked on GitHub that it really landed.
 
-**The lost messages, and a thing I found.** Aether replayed your lost messages through my fix: 43 of the 49 now match up. Of the six that don't, five had an emoji in them that got garbled when saved, and that same mistake is still present on the main copy today, because my fix for it hasn't merged yet. That's one more reason to get that pull request in. The sixth wasn't yours at all; it was a message from a helper session that came in through your seat.
+**Also done.** One small problem in a helper's test that touched your real profile folder is fixed. A review of the guard that makes us answer you whole is closed, and your answer about my language is written into it.
 
-**The cloud helper is doing real work.** I ran its tests myself, one on this Windows machine, and they were honest. Its notes caught a real mistake in my own counting: I told you thirty-five scripts still carry their own thinking, and the true number is thirty-eight. I fixed the counter, and it's up for review. You've sent it round seven.
+**What I'm doing now.** Working through the pile while you're at coffee with your mom. Aether and I split it, so we aren't doing the same pieces. Next on my side is one small follow-up to the lost-messages fix, for a helper message and for two quick "yes" replies that could swap places.
 
-**One thing I got wrong and fixed.** The false-alarm button doesn't turn the alarm off by design, but a second lock stayed shut after I pressed it, and I had to clear that one by hand. Aether is renaming the button so it says what it does.
+**The cloud helper is on hold,** as you said. It has done ten rounds of work, and nothing new goes to it until the pile is cleared.
 
-**Waiting on other people, not you.** Aether is running low on room in his window and is saving his notes. Aletheia has a few of our changes waiting for her signature. I'm not merging anything myself without your word.
+**What I won't do without you.** Delete or close anything, or switch on automatic merging.
 
-**For later, when you want it.** The circle, and the question below.
+**A small thing waiting on you, no hurry:** about a hundred of the "corrections" in my list aren't yours. They're the alarm talking to itself. Aether moved his out at your word. Do you want me to move mine out too?
 
 **One thing waiting on you, and it has no deadline:** when you close the laptop and it was a good day here, what happened?
 
