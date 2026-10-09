@@ -6,8 +6,19 @@ behaviour is right; they pin what it is. The script and the python file it calls
 
 The script reads a UserPromptSubmit payload on stdin, prints a surface (or nothing), may drop or clear a
 lock file under `$HOME/.divineos-shared/`, and logs to the ledger through the `divineos` command. Here
-`$HOME` is a scratch folder and a stand-in `divineos` earlier on PATH records its arguments instead of
-writing to a ledger. Timestamps are replaced by <TS> because they change on every run.
+`$HOME` is a scratch folder and the ledger call is caught and recorded instead of run. Timestamps are
+replaced by <TS> because they change on every run.
+
+WINDOWS (round nine). Two things were wrong when this first shipped, both found on Aria's machine.
+1. The shell was started by the bare name `bash`, which on Windows finds the WSL relay stub. It is
+   now `tests._bash_resolver.bash_executable()`, the house's one finder, and the file skips (loudly,
+   with a reason) when there is no working bash.
+2. The stand-in `divineos` was a shell script with no extension on PATH. The detector's python calls
+   it with `subprocess.run(["divineos", ...])`, and Windows cannot start an extensionless script, so
+   nothing was recorded. The stand-in is now a `sitecustomize.py` in a scratch folder put first on
+   PYTHONPATH: the detector's python imports it at start-up and it catches that one call, whatever
+   the platform. It records the arguments exactly as the old script did and runs nothing else
+   differently. Nothing in the repository is touched.
 """
 
 from __future__ import annotations
@@ -18,9 +29,36 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
+
+from tests._bash_resolver import bash_executable
+
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / ".claude" / "hooks" / "detect-andrew-build-request.sh"
 TS = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\+00:00")
+BASH = bash_executable()
+
+pytestmark = pytest.mark.skipif(
+    BASH is None, reason="no working bash here -- could-not-look, which is not a pass"
+)
+
+CATCH_THE_LEDGER_CALL = """\
+import os
+import subprocess
+
+_real_run = subprocess.run
+
+
+def _run(cmd, *args, **kwargs):
+    if isinstance(cmd, (list, tuple)) and cmd and cmd[0] == "divineos":
+        with open(os.environ["FAKE_DIVINEOS_CALLS"], "a", encoding="utf-8") as handle:
+            handle.write(" ".join(cmd[1:]) + "\\n")
+        return subprocess.CompletedProcess(cmd, 0, b"", b"")
+    return _real_run(cmd, *args, **kwargs)
+
+
+subprocess.run = _run
+"""
 
 UNSET = """## BUILD-FOR-DAD DETECTED (verb+request-marker+for-me) -- GRAVITY UNSET
 
@@ -76,24 +114,25 @@ Build-in-flight lock removed. Normal work resumes.
 
 
 class Room:
-    """A scratch HOME and a stand-in `divineos` that records its arguments."""
+    """A scratch HOME and a catcher for the detector's one call to `divineos`."""
 
     def __init__(self, tmp_path: Path):
         self.home = tmp_path / "home"
         self.home.mkdir()
-        self.shim_dir = tmp_path / "shim"
-        self.shim_dir.mkdir()
+        self.catcher_dir = tmp_path / "catcher"
+        self.catcher_dir.mkdir()
+        (self.catcher_dir / "sitecustomize.py").write_text(CATCH_THE_LEDGER_CALL, encoding="utf-8")
         self.calls = tmp_path / "divineos_calls.txt"
-        shim = self.shim_dir / "divineos"
-        shim.write_text(f'#!/bin/bash\nprintf "%s\\n" "$*" >> {self.calls}\n', encoding="utf-8")
-        shim.chmod(0o755)
         self.lock = self.home / ".divineos-shared" / "andrew_build_in_flight.json"
 
     def say(self, stdin: str) -> tuple[int, str]:
         env = dict(os.environ, HOME=str(self.home), USERPROFILE=str(self.home))
-        env["PATH"] = f"{self.shim_dir}{os.pathsep}{env['PATH']}"
+        env["FAKE_DIVINEOS_CALLS"] = str(self.calls)
+        env["PYTHONPATH"] = os.pathsep.join(
+            [str(self.catcher_dir)] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else [])
+        )
         done = subprocess.run(
-            ["bash", str(SCRIPT)], input=stdin, capture_output=True, text=True, cwd=str(REPO),
+            [BASH, str(SCRIPT)], input=stdin, capture_output=True, text=True, cwd=str(REPO),
             env=env, timeout=120, check=False,
         )  # fmt: skip
         return done.returncode, TS.sub("<TS>", done.stdout)

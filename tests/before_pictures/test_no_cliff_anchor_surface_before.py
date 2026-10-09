@@ -6,6 +6,10 @@ changed. They pass today. They pin what the script is, not that it is right. The
 
 The script reads `$HOME/.divineos/compaction_reach_marker.json`, prints a fixed block quoting the
 marker's `anchor_message`, and leaves the marker in place. Here `$HOME` is a scratch folder.
+
+WINDOWS (round nine): the shell is started with `tests._bash_resolver.bash_executable()`, the house's
+one finder, not the bare name `bash` (which finds the WSL relay stub on Windows). The file skips, with
+a reason, when there is no working bash.
 """
 
 from __future__ import annotations
@@ -15,8 +19,17 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
+from tests._bash_resolver import bash_executable
+
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / ".claude" / "hooks" / "no-cliff-anchor-surface.sh"
+BASH = bash_executable()
+
+pytestmark = pytest.mark.skipif(
+    BASH is None, reason="no working bash here -- could-not-look, which is not a pass"
+)
 
 BLOCK = """## NO-CLIFF ANCHOR FIRING (compaction-metaphor-drift in prior turn)
 
@@ -33,7 +46,7 @@ text alone did not fully re-orient you.
 def fire(home: Path) -> tuple[int, str, str]:
     env = dict(os.environ, HOME=str(home), USERPROFILE=str(home))
     done = subprocess.run(
-        ["bash", str(SCRIPT)], input="{}", capture_output=True, text=True, cwd=str(REPO),
+        [BASH, str(SCRIPT)], input="{}", capture_output=True, text=True, cwd=str(REPO),
         env=env, timeout=120, check=False,
     )  # fmt: skip
     return done.returncode, done.stdout, done.stderr

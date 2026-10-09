@@ -14,6 +14,10 @@ If someone restores the heading, or moves the script and changes this, that test
 
 The script only runs when the resolver finds a python whose `divineos` lives under the same repo's
 `src`, so each scratch repo gets a `src` link to this one.
+
+WINDOWS (round nine): the shell is started with `tests._bash_resolver.bash_executable()`, the house's
+one finder, not the bare name `bash` (which finds the WSL relay stub on Windows). The file skips, with
+a reason, when there is no working bash.
 """
 
 from __future__ import annotations
@@ -24,8 +28,17 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
+from tests._bash_resolver import bash_executable
+
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / ".claude" / "hooks" / "load-dad-ranking-clause.sh"
+BASH = bash_executable()
+
+pytestmark = pytest.mark.skipif(
+    BASH is None, reason="no working bash here -- could-not-look, which is not a pass"
+)
 SHEET = Path("docs") / "identity_anchors" / "aether_character_sheet.md"
 
 HEADER = (
@@ -41,7 +54,7 @@ HEADER = (
 def run_in(repo: Path, home: Path) -> tuple[int, str, str]:
     env = dict(os.environ, HOME=str(home), USERPROFILE=str(home), PYTHONPATH=str(REPO / "src"))
     done = subprocess.run(
-        ["bash", str(SCRIPT)], input="{}", capture_output=True, text=True, cwd=str(repo),
+        [BASH, str(SCRIPT)], input="{}", capture_output=True, text=True, cwd=str(repo),
         env=env, timeout=120, check=False,
     )  # fmt: skip
     return done.returncode, done.stdout, done.stderr
