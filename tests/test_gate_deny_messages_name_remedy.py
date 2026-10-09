@@ -60,6 +60,11 @@ _HOOKS_DIR = _PROJECT_ROOT / ".claude" / "hooks"
 _NON_GATING_HOOKS: frozenset[str] = frozenset(
     {
         "_lib.sh",
+        # Shows Andrew's own past words and lessons at the table. Every exit is
+        # `exit 0`; a failed search is spoken on stdout as could-not-be-searched,
+        # never a refusal. Read exit-by-exit before declaring (walk
+        # council-94728f824e72).
+        "his-words-door-surface.sh",
         # The front door keeps and settles Andrew's messages and never refuses:
         # every path exits zero, and a failure is recorded as could-not-file.
         # Refusing is a later, separate piece (the sort-first refusal), which
