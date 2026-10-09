@@ -512,8 +512,25 @@ def _session_id_placeholder() -> str:
     return f"{first}:placeholder-pid-{pid}"
 
 
-def set_marker(trigger_text: str, match: CorrectionMatch | None = None) -> None:
+SOURCE_HIS_MESSAGE = "his-message"
+SOURCE_STOP_GATE = "stop-gate"
+
+
+def set_marker(
+    trigger_text: str,
+    match: CorrectionMatch | None = None,
+    *,
+    source: str = SOURCE_HIS_MESSAGE,
+) -> None:
     """Write the marker. Called by the UserPromptSubmit hook on detection.
+
+    ``source`` records WHO set it, written once by the caller that knows, so
+    nothing has to read the marker's words to find out (Aletheia 2026-10-09:
+    he pastes things, and a pasted gate line would carry the gate's prefix). The
+    Stop gate passes ``"stop-gate"``; a marker from before this field has none
+    and reads as unknown. A marker from anything but his message does NOT file
+    its text as a correction of his: 91 of his open corrections were this
+    gate's own strings.
 
     ``trigger_text`` is the user message (first ~200 chars) that tripped
     the correction pattern. ``match`` is the evidence record from
@@ -543,6 +560,7 @@ def set_marker(trigger_text: str, match: CorrectionMatch | None = None) -> None:
             "ts": payload_ts,
             "trigger": (trigger_text or "")[:200],
             "evidence": evidence_dict,
+            "source": source,
         }
         atomic_write_text(path, json.dumps(payload))
     except OSError:
@@ -585,27 +603,11 @@ def set_marker(trigger_text: str, match: CorrectionMatch | None = None) -> None:
     # clerical step (logging); the pointed-at cognitive work
     # (integrating the correction into behavior) still requires me and
     # is enforced by the marker+gate downstream.
-    try:
-        from divineos.core.corrections import log_correction
-        from divineos.core.session_manager import get_current_session_id
-
-        try:
-            _auto_session_id = get_current_session_id() or ""
-        except Exception:  # noqa: BLE001 — session_id is optional metadata
-            _auto_session_id = ""
-        log_correction((trigger_text or "")[:2000], session_id=_auto_session_id)
-        # File into the Andrew-correction-attribution tracker so the
-        # correction surfaces in the briefing with its integration
-        # status. Matches the manual `divineos correction` wiring so
-        # the auto-log path has equivalent observability.
-        try:
-            from divineos.core.andrew_correction_tracker import file_correction
-
-            file_correction((trigger_text or "")[:2000])
-        except Exception:  # noqa: BLE001 — observability boundary
-            pass
-    except Exception:  # noqa: BLE001 — fail open; never break the hook
-        pass
+    # Only HIS words are filed as his correction. The gate's own diagnostic is
+    # not something he said (source recorded above), and filing it had put 91
+    # of the gate's strings into his list of open corrections.
+    if source == SOURCE_HIS_MESSAGE:
+        _auto_log_his_correction(trigger_text)
 
     # Cascade: a correction is virtue-relevant by definition (the user
     # named drift). Set the compass-required marker so the next tool
@@ -630,6 +632,36 @@ def set_marker(trigger_text: str, match: CorrectionMatch | None = None) -> None:
             cr_summary = (trigger_text or "")[:120]
         _cr_set("correction", cr_summary)
     except (ImportError, OSError, AttributeError):
+        pass
+
+
+def _auto_log_his_correction(trigger_text: str) -> None:
+    """File his words as a correction the moment the detector fires.
+
+    2026-07-22 AUTOMATE-v1 (Aether + Aria + Andrew): removes the clerical step
+    of running ``divineos correction`` by hand; the marker still sets, so the
+    gate still forces the integration work. A duplicate row from a later manual
+    run is harmless (append-only corrections DB). Fail open: a failure here must
+    never break the hook.
+    """
+    try:
+        from divineos.core.corrections import log_correction
+        from divineos.core.session_manager import get_current_session_id
+
+        try:
+            session_id = get_current_session_id() or ""
+        except Exception:  # noqa: BLE001 — session_id is optional metadata
+            session_id = ""
+        log_correction((trigger_text or "")[:2000], session_id=session_id)
+        # Into the Andrew-correction-attribution tracker so it surfaces in the
+        # briefing with its integration status, like the manual command does.
+        try:
+            from divineos.core.andrew_correction_tracker import file_correction
+
+            file_correction((trigger_text or "")[:2000])
+        except Exception:  # noqa: BLE001 — observability boundary
+            pass
+    except Exception:  # noqa: BLE001 — fail open; never break the hook
         pass
 
 
