@@ -15,6 +15,8 @@ from __future__ import annotations
 import json
 from unittest.mock import patch
 
+import pytest
+
 from divineos.core import correction_marker
 from divineos.core.correction_marker import classify_correction, strip_relayed
 
@@ -53,7 +55,7 @@ class TestMarkerRoundTrip:
     def test_set_and_read_preserves_trigger(self, tmp_path) -> None:
         mpath = tmp_path / "marker.json"
         with patch.object(correction_marker, "marker_path", return_value=mpath):
-            correction_marker.set_marker("no, that's wrong")
+            correction_marker.set_marker("no, that's wrong", source="his-message")
             got = correction_marker.read_marker()
         assert got is not None
         assert got["trigger"] == "no, that's wrong"
@@ -63,7 +65,7 @@ class TestMarkerRoundTrip:
         mpath = tmp_path / "marker.json"
         long_text = "x" * 500
         with patch.object(correction_marker, "marker_path", return_value=mpath):
-            correction_marker.set_marker(long_text)
+            correction_marker.set_marker(long_text, source="his-message")
             got = correction_marker.read_marker()
         assert len(got["trigger"]) == 200
 
@@ -460,7 +462,7 @@ class TestSetMarkerEvidenceStorage:
             tier="STRONG",
         )
         with patch.object(correction_marker, "marker_path", return_value=mpath):
-            correction_marker.set_marker("you are wrong here", match=m)
+            correction_marker.set_marker("you are wrong here", match=m, source="his-message")
             got = correction_marker.read_marker()
         assert got is not None
         assert got["evidence"] is not None
@@ -475,10 +477,116 @@ class TestSetMarkerEvidenceStorage:
         # evidence=None and format_gate_message falls back to prior shape.
         mpath = tmp_path / "marker.json"
         with patch.object(correction_marker, "marker_path", return_value=mpath):
-            correction_marker.set_marker("some prompt")
+            correction_marker.set_marker("some prompt", source="his-message")
             got = correction_marker.read_marker()
         assert got is not None
         assert got.get("evidence") is None
+
+
+GATE_STRING = "[correction-shape-v2 stop-gate] USE clause matched (1 hits)"
+
+
+class TestMarkerRecordsWhoSetIt:
+    """Aletheia 2026-10-09: record WHO set the marker rather than reading its
+    words, because he pastes things. 91 of his open corrections were the Stop
+    gate's own strings, filed by set_marker as if he had said them."""
+
+    def _set(self, tmp_path, text, **kwargs):
+        mpath = tmp_path / "marker.json"
+        with (
+            patch.object(correction_marker, "marker_path", return_value=mpath),
+            patch.object(correction_marker, "_auto_log_his_correction") as filed,
+        ):
+            correction_marker.set_marker(text, **kwargs)
+            got = correction_marker.read_marker()
+        return got, filed
+
+    def test_a_gate_sourced_marker_files_no_correction_of_his(self, tmp_path) -> None:
+        got, filed = self._set(tmp_path, GATE_STRING, source=correction_marker.SOURCE_STOP_GATE)
+        assert got is not None and got["source"] == "stop-gate"
+        filed.assert_not_called()
+
+    def test_his_message_is_filed_and_sourced_to_him(self, tmp_path) -> None:
+        got, filed = self._set(tmp_path, "no, that is wrong", source="his-message")
+        assert got is not None and got["source"] == "his-message"
+        filed.assert_called_once()
+
+    def test_his_message_that_begins_with_the_gate_string_is_still_his(self, tmp_path) -> None:
+        """He pastes things. The words must never decide who set the marker."""
+        got, filed = self._set(
+            tmp_path, GATE_STRING + " and also you got this wrong", source="his-message"
+        )
+        assert got is not None and got["source"] == "his-message"
+        filed.assert_called_once()
+
+    def test_a_caller_that_does_not_say_who_it_is_is_refused(self, tmp_path) -> None:
+        """Aletheia 2026-10-09: a default of his-message would speak for him whenever a
+        caller forgot to say who it was, the shape of the bug this field fixes. No default,
+        keyword only: forgetting fails at the call, and nothing is recorded as Dad."""
+        mpath = tmp_path / "marker.json"
+        with patch.object(correction_marker, "marker_path", return_value=mpath):
+            with pytest.raises(TypeError):
+                correction_marker.set_marker("no, that is wrong")  # type: ignore[call-arg]
+            assert correction_marker.read_marker() is None
+
+    def test_a_marker_written_before_the_field_reads_as_unknown(self, tmp_path) -> None:
+        mpath = tmp_path / "marker.json"
+        mpath.write_text(json.dumps({"ts": 1.0, "trigger": GATE_STRING, "evidence": None}))
+        with patch.object(correction_marker, "marker_path", return_value=mpath):
+            got = correction_marker.read_marker()
+        assert got is not None and "source" not in got
+
+    def test_the_gate_does_not_replace_a_live_marker_of_his(self, tmp_path) -> None:
+        """Aria 2026-10-09: one slot, last writer wins. He corrects me, my reply
+        admits it, the gate fires. The marker must stay HIS (so labelling the
+        gate's fire cannot clear his acknowledgement lock), with the gate's fire
+        recorded beside it."""
+        mpath = tmp_path / "marker.json"
+        with (
+            patch.object(correction_marker, "marker_path", return_value=mpath),
+            patch.object(correction_marker, "_auto_log_his_correction"),
+        ):
+            correction_marker.set_marker("no, that is wrong, fix it", source="his-message")
+            correction_marker.set_marker(GATE_STRING, source=correction_marker.SOURCE_STOP_GATE)
+            got = correction_marker.read_marker()
+        assert got is not None
+        assert got["source"] == "his-message"
+        assert got["trigger"] == "no, that is wrong, fix it"
+        assert [f["source"] for f in got["also_fired"]] == ["stop-gate"]
+        assert got["also_fired"][0]["trigger"].startswith("[correction-shape-v2 stop-gate]")
+
+    def test_the_gate_writes_normally_when_no_marker_of_his_is_live(self, tmp_path) -> None:
+        mpath = tmp_path / "marker.json"
+        with (
+            patch.object(correction_marker, "marker_path", return_value=mpath),
+            patch.object(correction_marker, "_auto_log_his_correction"),
+        ):
+            correction_marker.set_marker(GATE_STRING, source=correction_marker.SOURCE_STOP_GATE)
+            got = correction_marker.read_marker()
+        assert got is not None and got["source"] == "stop-gate"
+        assert "also_fired" not in got
+
+    def test_his_message_after_the_gate_ends_as_his(self, tmp_path) -> None:
+        """The reverse order already ended as his: pinned so it stays so."""
+        mpath = tmp_path / "marker.json"
+        with (
+            patch.object(correction_marker, "marker_path", return_value=mpath),
+            patch.object(correction_marker, "_auto_log_his_correction"),
+        ):
+            correction_marker.set_marker(GATE_STRING, source=correction_marker.SOURCE_STOP_GATE)
+            correction_marker.set_marker("no, that is wrong", source="his-message")
+            got = correction_marker.read_marker()
+        assert got is not None and got["source"] == "his-message"
+
+    def test_the_stop_hook_passes_the_modules_own_constant(self) -> None:
+        """A hook that kept calling with the default would score as done and fix
+        nothing, so pin the call itself."""
+        from pathlib import Path
+
+        hook = Path(__file__).resolve().parents[1] / ".claude" / "hooks"
+        text = (hook / "correction-shape-v2-stop.sh").read_text(encoding="utf-8")
+        assert "SOURCE_STOP_GATE" in text and "source=SOURCE_STOP_GATE" in text
+        assert correction_marker.SOURCE_STOP_GATE == "stop-gate"
 
 
 class TestGateMessageDisplaysEvidence:

@@ -136,8 +136,11 @@ if verdict != 'fire':
 # Arming here makes the advertised path real end-to-end, and the false-positive
 # attributions start reaching the corpus that was always meant to receive them.
 try:
-    from divineos.core.correction_marker import set_marker
-    set_marker(f"[correction-shape-v2 stop-gate] {reason} conf={confidence:.2f}")
+    from divineos.core.correction_marker import SOURCE_STOP_GATE, set_marker
+    set_marker(
+        f"[correction-shape-v2 stop-gate] {reason} conf={confidence:.2f}",
+        source=SOURCE_STOP_GATE,
+    )
 except Exception as exc:
     print(f"[correction-shape-v2] marker NOT armed ({exc}) — the clear path "
           f"below will report nothing to clear, which is this gate's own "
