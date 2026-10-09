@@ -30,7 +30,7 @@ Draft #614 (`cloud/before-pictures-three-hooks`): 20 passing tests in `tests/bef
 
 ## What surprised me
 
-- `load-dad-ranking-clause.sh` prints nothing against the real character sheet: the section it looks for ("How I rank Dad") was renamed on 2026-07-29. It has been quiet, not broken, and a test now records the fact.
+- `load-dad-ranking-clause.sh` prints nothing against the real character sheet: the section it looks for ("How I rank Dad") is not among the sheet's headings (the nearest is "How I treat Dad — equal-treatment discipline", axis-corrected 2026-07-29; *corrected in round nine: I wrote "renamed" here, but I could not see the old heading in this shallow clone, so "renamed" was an inference*). It has been quiet, not broken, and a test now records the fact.
 - The goal badge is renewed by use now (a fix from 2026-10-01), but the first command after a compaction still hits the "no goal" wall, and I met it twice today.
 - `aria/first-line-to-him` looked unmerged and is 99% on main.
 
