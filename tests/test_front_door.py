@@ -133,6 +133,27 @@ def test_an_empty_prompt_has_nothing_of_his_to_keep():
     assert _open() == []
 
 
+HAND_BACK = (
+    '<agent-message from="ad3ddc3d142453dad"> [Subagent hand-back] it is done </agent-message>'
+)
+
+
+def test_his_sentence_behind_a_hand_back_is_still_kept():
+    """Naming the tag must not cost him his own words beside it."""
+    from divineos.core.harness_envelopes import nothing_of_his, strip_envelopes
+
+    assert not nothing_of_his(HAND_BACK + " " + HIS)
+    assert strip_envelopes(HAND_BACK + " " + HIS) == HIS
+
+
+def test_the_machine_tag_list_names_the_hand_back():
+    """Fails if the tag ever leaves the shared list the door and settle both read."""
+    from divineos.core import harness_envelopes as he
+
+    assert "agent-message" in he._TAGS
+    assert he.nothing_of_his(HAND_BACK)
+
+
 def test_many_messages_under_one_prompt_id_are_each_kept():
     """Measured 2026-09-24: one prompt id sat on ten of his messages."""
     for text in ("first thing", "second thing", "third thing"):
@@ -421,6 +442,91 @@ def test_a_tool_result_sharing_his_prompt_id_never_settles_it(tmp_path):
     fd.keep({"prompt_id": "p1", "prompt": HIS}, "aether")
     assert fd.settle(_transcript(tmp_path, _tool_result("p1")), "aether") == {}
     assert _open() == [HIS]
+
+
+# ----------------------------------------- quick replies and helper hand-backs
+
+
+def _record_of(db, candidate_id):
+    with sqlite3.connect(db) as conn:
+        return conn.execute(
+            "SELECT uuid FROM messages WHERE candidate_id = ?", (candidate_id,)
+        ).fetchone()[0]
+
+
+def test_two_identical_quick_yeses_each_take_their_own_record(monkeypatch, tmp_path, temp_store):
+    """Aether's measurement, 2026-10-08, from Aletheia's owed item of 10-03: two
+    identical "yes" under one prompt id, kept five seconds apart, each record written
+    eight seconds before its keep. Taking the record nearest to the keep in either
+    direction gave the FIRST yes the SECOND's record, so each was filed against the
+    other's context (what we had said just before). The records keep their order."""
+    _kept_at(monkeypatch, "2099-01-01T00:00:08.000Z")
+    first = fd.keep({"prompt_id": "turn-1", "prompt": "yes"}, "aether")
+    _kept_at(monkeypatch, "2099-01-01T00:00:13.000Z")
+    second = fd.keep({"prompt_id": "turn-1", "prompt": "yes"}, "aether")
+    path = _transcript(
+        tmp_path,
+        _turn("turn-1", "yes", uuid="u-first", at="2099-01-01T00:00:00.000Z"),
+        _turn("turn-1", "yes", uuid="u-second", at="2099-01-01T00:00:05.000Z"),
+    )
+    fd.settle(path, "aether")
+    assert _record_of(temp_store, first) == "u-first"
+    assert _record_of(temp_store, second) == "u-second"
+
+
+def test_two_quick_yeses_whose_records_come_after_each_keep_stay_in_order(
+    monkeypatch, tmp_path, temp_store
+):
+    """Control: the slip case, each record written just AFTER its keep, already kept
+    the order and must keep it."""
+    _kept_at(monkeypatch, "2099-01-01T00:00:00.000Z")
+    first = fd.keep({"prompt_id": "turn-1", "prompt": "yes"}, "aether")
+    _kept_at(monkeypatch, "2099-01-01T00:00:05.000Z")
+    second = fd.keep({"prompt_id": "turn-1", "prompt": "yes"}, "aether")
+    path = _transcript(
+        tmp_path,
+        _turn("turn-1", "yes", uuid="u-first", at="2099-01-01T00:00:01.000Z"),
+        _turn("turn-1", "yes", uuid="u-second", at="2099-01-01T00:00:06.000Z"),
+    )
+    fd.settle(path, "aether")
+    assert _record_of(temp_store, first) == "u-first"
+    assert _record_of(temp_store, second) == "u-second"
+
+
+HAND_BACK_RECORD = (
+    "Another Claude session sent a message: "
+    + HAND_BACK
+    + " And some prose the helper wrote outside its wrapper."
+)
+
+
+def test_a_helper_hand_back_is_withdrawn_not_left_unmatched(monkeypatch, tmp_path):
+    """The sixth of the 49 unmatched rows (Aria's seat, 2026-10-04): the kept text is
+    only an agent-message wrapper, the harness stamps its record `peer` and adds its own
+    sentence, so the equal-words test could never match it and it sat as "his words that
+    failed to match". It is not his words: with nothing of his in the kept text it settles
+    onto its peer-stamped record and is withdrawn, as every other machine arrival is."""
+    _kept_at(monkeypatch, "2026-10-04T15:33:07.217+00:00")
+    fd.keep({"prompt_id": "p-hb", "prompt": HAND_BACK}, "aria")
+    path = _transcript(
+        tmp_path,
+        _turn("p-hb", HAND_BACK_RECORD, kind="peer", uuid="u-hb", at="2026-10-04T15:33:02.000Z"),
+    )
+    assert list(fd.settle(path, "aria").values()) == [ha.WITHDRAWN]
+    assert ha.pending() == []
+
+
+def test_a_machine_only_message_never_takes_a_record_that_is_his(monkeypatch, tmp_path):
+    """The safety on the rule above: a prompt id can sit on ten of his messages, so a
+    machine-only candidate must not eat a record stamped human, even one on its own id."""
+    _kept_at(monkeypatch, "2026-10-04T15:33:07.217+00:00")
+    fd.keep({"prompt_id": "p-hb", "prompt": HAND_BACK}, "aria")
+    path = _transcript(
+        tmp_path,
+        _turn("p-hb", HIS, kind="human", uuid="u-his", at="2026-10-04T15:33:02.000Z"),
+    )
+    assert fd.settle(path, "aria") == {}
+    assert _open() == [HAND_BACK]  # still waiting, visibly; his record was not eaten
 
 
 def test_a_tool_result_carrying_its_own_nested_origin_never_settles_it(tmp_path):

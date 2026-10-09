@@ -29,7 +29,8 @@ def test_both_older_lists_are_covered():
         "persisted-output",
         "ci-monitor-event",
     }
-    assert from_keeping_him | from_correction_marker == set(_TAGS)
+    # agent-message joined 2026-10-08: his_message already knew it, this list did not.
+    assert from_keeping_him | from_correction_marker | {"agent-message"} == set(_TAGS)
 
 
 def test_an_envelope_that_never_closes_runs_to_the_end():
