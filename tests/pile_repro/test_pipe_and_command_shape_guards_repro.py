@@ -36,7 +36,16 @@ def _hook_output(command: str, home: Path) -> dict:
     """Run the real pipe-guard hook on one command and return its decision."""
     if BASH is None:
         pytest.skip("no working bash is available, so the shell hook cannot be run")
-    env = dict(os.environ, HOME=str(home))
+    # Isolate the home on every platform: bash reads HOME, but the hook's Python half uses
+    # Path.home(), which on Windows reads USERPROFILE (then HOMEDRIVE+HOMEPATH). Setting only
+    # HOME wrote this test's liveness lines into the real profile (Aletheia, 2026-10-08).
+    env = dict(
+        os.environ,
+        HOME=str(home),
+        USERPROFILE=str(home),
+        HOMEDRIVE=home.drive,
+        HOMEPATH=str(home)[len(home.drive) :],
+    )
     payload = json.dumps({"tool_input": {"command": command}})
     proc = subprocess.run(
         [BASH, str(HOOK)],
