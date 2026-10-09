@@ -13,7 +13,7 @@ Files: [`freshness/ROUND9_INDEX.md`](freshness/ROUND9_INDEX.md), `freshness/test
 
 ## Two. My own #614 tests, repaired for Windows
 
-Draft #614 (`cloud/before-pictures-three-hooks`), now at commit `b891a480`:
+Draft #614 (`cloud/before-pictures-three-hooks`), now at commit `57bf2d34` (the repair is in `b891a480`; the later commit only corrects a sentence about the ranking-clause heading):
 
 - All three files start the shell with `tests._bash_resolver.bash_executable()` and skip with a reason if no working bash exists.
 - The stand-in for the ledger command is no longer an extensionless script on the path. Windows cannot start such a file from python, which is why 2 of the 20 failed even with the right bash. It is now a small `sitecustomize.py` in a scratch folder at the front of `PYTHONPATH`; the detector's python loads it at start-up and it catches the one `divineos` call and writes its arguments down, the same text the old script wrote.
