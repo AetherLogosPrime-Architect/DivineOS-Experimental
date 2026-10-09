@@ -132,3 +132,66 @@ def test_prose_with_an_apostrophe_still_parses(is_filing) -> None:
     """
     command = "divineos council walk <<'EOF'" + NL + "it doesn't tokenise" + NL + "EOF"
     assert is_filing(command) is True
+
+
+# --- A walk or a log FED to the filing command through a pipe ---------------
+#
+# The walk command reads its reflection from stdin and its own help prescribes
+# echo piped into it. The exemption demanded that EVERY segment be a filing
+# command, so the feeder segment (cat, echo, printf) was an act that could never
+# be exempt: the prescribed remedy was refused by the gate that prescribes it.
+# The structural obligation for this stood open ten times with nothing built
+# (psf-05479077) while each walk cost a detour through a file on stdin.
+#
+# The feeder carries text and has no act of its own PROVIDED it writes nothing,
+# runs nothing, and pipes straight into a filing command. Every one of those
+# conditions has a test below that fails if it is dropped.
+
+FEEDER_HEREDOC = "cat <<'EOF' | divineos council walk --edit x" + NL + "prose" + NL + "EOF"
+
+
+def test_a_cat_heredoc_piped_into_a_walk_is_exempt(is_filing) -> None:
+    assert is_filing(FEEDER_HEREDOC) is True, (
+        "the shape every walk was typed in today; the feeder only carries the prose"
+    )
+
+
+def test_the_form_the_walk_help_prescribes_is_exempt(is_filing) -> None:
+    """echo piped into walk is literally the usage line in the walk command help."""
+    assert is_filing('echo "a typed reflection" | divineos council walk --edit x') is True
+
+
+def test_printf_piped_into_a_log_is_exempt(is_filing) -> None:
+    assert is_filing("printf 'text' | divineos council log --edit x") is True
+
+
+def test_a_feeder_that_writes_a_file_is_not_a_feeder(is_filing) -> None:
+    """THE HOLE this must not open: a write to a protected file wearing a feeder's name."""
+    assert is_filing("cat > docs/foundational_truths.md | divineos council walk --edit x") is False
+    assert is_filing("echo x >> docs/foundational_truths.md | divineos council walk") is False
+
+
+def test_a_feeder_running_a_command_substitution_is_not_a_feeder(is_filing) -> None:
+    """echo with a substitution runs the substituted command, whatever the pipe feeds."""
+    assert is_filing("echo " + chr(36) + "(git commit -qm sneak) | divineos council walk") is False
+    assert (
+        is_filing("echo " + chr(96) + "git commit -qm sneak" + chr(96) + " | divineos council walk")
+        is False
+    )
+
+
+def test_a_feeder_piped_into_something_else_is_refused(is_filing) -> None:
+    assert is_filing("cat notes.txt | git commit -qm sneak") is False
+
+
+def test_a_feeder_not_piped_into_the_filing_command_is_refused(is_filing) -> None:
+    assert is_filing("cat notes.txt ; divineos council walk --edit x") is False
+
+
+def test_a_fed_walk_chained_to_another_act_is_refused(is_filing) -> None:
+    assert is_filing("echo x | divineos council walk --edit x && git commit -qm sneak") is False
+
+
+def test_a_feeder_with_nothing_after_it_is_refused(is_filing) -> None:
+    """A trailing pipe feeds nothing; the feeder alone is no filing."""
+    assert is_filing("cat notes.txt |") is False

@@ -268,6 +268,16 @@ _SHELL_WRAPPERS = ('cd', 'set', 'export', 'env', 'source', '.', 'exec', 'sudo', 
 
 _SEGMENT_SEPARATORS = ('&&', '||', ';', '|', '&', '\n')
 
+# A plain text FEEDER carries text into the next segment and has no act of its
+# own, PROVIDED it writes nothing, runs nothing, and is piped (not chained)
+# straight into that next segment. The walk command reads its reflection from
+# stdin and its own help prescribes echo piped into it; without this the gate
+# refused the form its own help prescribes (psf-05479077, ten repeats). Three
+# named words and not a pattern: growth has to arrive as a visible edit, like
+# the list of filing commands above.
+_PIPE_FEEDERS = ('cat', 'echo', 'printf')
+_REDIRECT_STARTS = ('>', '1>', '2>', '&>')
+
 
 def _strip_heredoc_bodies(cmd: str) -> str:
     # THE DELIMITERS BELOW ARE SINGLE QUOTES ON PURPOSE. A triple DOUBLE quote
@@ -434,18 +444,41 @@ def _is_artifact_filing(cmd: str) -> bool:
         return False
 
     segments = []
+    enders = []
     current = []
     for token in tokens:
         if token in _SEGMENT_SEPARATORS:
             if current:
                 segments.append(current)
+                enders.append(token)
             current = []
         else:
             current.append(token)
     if current:
         segments.append(current)
+        enders.append('')
 
-    acts = [seg for seg in segments if seg and seg[0] not in _SHELL_WRAPPERS]
+    # A feeder segment is skipped ONLY when all of these hold: it is one of the
+    # three named words, it is piped (not chained) into a segment that follows,
+    # it has no redirect token, and no token carries a substitution character.
+    # The characters are built with chr() because this program sits inside a
+    # double-quoted shell argument. Anything else stays an act and must itself
+    # be a filing command, so a feeder can carry text and nothing more.
+    substitution = (chr(36), chr(96))
+    acts = []
+    for index, seg in enumerate(segments):
+        if seg[0] in _SHELL_WRAPPERS:
+            continue
+        carries_text_only = (
+            seg[0] in _PIPE_FEEDERS
+            and enders[index] == '|'
+            and index + 1 < len(segments)
+            and not any(t.startswith(_REDIRECT_STARTS) for t in seg)
+            and not any(c in t for t in seg for c in substitution)
+        )
+        if carries_text_only:
+            continue
+        acts.append(seg)
     # No act at all is not a filing. all() of an empty list is True, and that
     # vacuous pass is the failing-in-the-permitting-direction shape again.
     if not acts:
