@@ -44,7 +44,7 @@
 # tree with main's list immediately named five more, because this branch adds
 # hooks main does not carry. The list cannot describe this tree without them.
 #
-# an-open-ask-holds-the-work.sh, blanket-staging-doorman.sh,
+# an-open-ask-holds-the-work.sh (removed 2026-10-05), blanket-staging-doorman.sh,
 # push-message-carries-the-destination.sh and work-item-doorman.sh each load the shared library with a fail-open exit above
 # a path that can refuse. They are NOT faults introduced here. They are
 # pre-existing on this branch and the baseline had simply never been run
@@ -83,7 +83,6 @@
 # left on the list, nothing would catch a slide back to `|| exit 0`, and
 # tests/test_the_doorman_holds_without_its_library.py asserts it stays off.
 
-an-open-ask-holds-the-work.sh
 andrew-correction-attestation.sh
 branch-scope-guard.sh
 check-branch-on-push.sh

@@ -23,6 +23,7 @@ def armed(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "ESCAPED", tmp_path / "escaped.json")
     monkeypatch.setattr(mod, "BOARD", tmp_path / "board")
     monkeypatch.setattr(mod, "CARD", tmp_path / "board" / "me.json")
+    monkeypatch.setattr(mod, "AWAY", tmp_path / "away.json")
     mod.STATE.write_text(
         json.dumps({"question": "Dad, which one?", "ask_id": "q-1", "since": time.time()}),
         encoding="utf-8",
@@ -83,13 +84,15 @@ def test_a_look_or_another_gates_exit_passes(armed, command):
     "command",
     ["git commit -m x", "rm -rf build", "grep x a > out.txt", "python -c 'print(1)'"],
 )
-def test_building_still_waits(armed, command):
-    assert "QUESTION HOLD" in armed.refusal("Bash", {"command": command})
+def test_building_no_longer_waits(armed, command):
+    # 2026-10-05: "my questions should not hold you, you should hold my questions".
+    assert armed.refusal("Bash", {"command": command}) == ""
+    assert armed.refusal("Edit", {"file_path": "src/x.py"}) == ""
 
 
-def test_an_edit_still_waits_and_says_when_it_was_asked(armed):
-    why = armed.refusal("Edit", {"file_path": "src/x.py"})
-    assert "QUESTION HOLD" in why
+def test_a_letter_waits_and_says_when_it_was_asked(armed):
+    why = armed.refusal("Write", {"file_path": "family/letters/aether-to-aria-x.md"})
+    assert "KEEPING PACE WITH DAD" in why
     assert "asked 20" in why
 
 
@@ -105,6 +108,7 @@ def board(tmp_path, monkeypatch):
         "ESCAPED": tmp_path / "escaped.json",
         "BOARD": tmp_path / "board",
         "CARD": tmp_path / "board" / ".divineos-aria.json",
+        "AWAY": tmp_path / "away.json",
     }.items():
         monkeypatch.setattr(mod, name, value)
     import divineos.core.operator_asks as asks
@@ -122,7 +126,7 @@ def test_the_other_seats_card_is_shown_and_never_holds(board):
         json.dumps({"question": "Dad, which bell?"}), encoding="utf-8"
     )
     assert board.others_waiting() == ["Aether is waiting on Dad: Dad, which bell?"]
-    assert board.refusal("Edit", {"file_path": "x.py"}) == ""
+    assert board.refusal("Write", {"file_path": "family/letters/aria-to-aether-x.md"}) == ""
 
 
 def test_my_own_card_is_posted_and_taken_down(board):

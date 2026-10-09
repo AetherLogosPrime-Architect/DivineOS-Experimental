@@ -3289,7 +3289,6 @@ methodological). These are domain-grounded reasoning modules.
 - [_lib](.claude/hooks/_lib.sh)
 - [aletheia-boot-gate-preflight](.claude/hooks/aletheia-boot-gate-preflight.sh)
 - [ambiguous-verification-detector](.claude/hooks/ambiguous-verification-detector.sh)
-- [an-open-ask-holds-the-work](.claude/hooks/an-open-ask-holds-the-work.sh)
 - [andrew-correction-attestation](.claude/hooks/andrew-correction-attestation.sh)
 - [andrew-past-writing-surface](.claude/hooks/andrew-past-writing-surface.sh)
 - [auto-cycle-token-trigger](.claude/hooks/auto-cycle-token-trigger.sh)
