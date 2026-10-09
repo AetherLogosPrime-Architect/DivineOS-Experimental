@@ -94,6 +94,47 @@ def must_read_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def unread_letter_surface(payload: dict) -> SurfaceOutcome | None:
+    """Hold real work while a letter the bell rang for is still unopened.
+
+    The ring used to be a line in a background file I could scroll past (an hour, 2026-10-08).
+    Now it has a consequence at the one moment it changes what I do next. Reading is never
+    blocked, a Read of the letter's exact path clears it here, and re-arming the bell always
+    gets through. See core/unread_letter.py for the full reasoning and what it cannot do.
+    """
+    import os
+
+    tool = payload.get("tool_name") or ""
+    tool_input = payload.get("tool_input") or {}
+    try:
+        from divineos.core import unread_letter as ul
+
+        member = ul.seat_for(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
+        if tool == "Read":
+            cleared = ul.clear_on_read(member, tool_input.get("file_path") or "")
+            if cleared:
+                return SurfaceOutcome(
+                    name="unread_letter", output=f"[letter] opened: {', '.join(cleared)}"
+                )
+            return None
+        if tool in _ALWAYS_ALLOWED or tool not in _SUBSTANTIVE_TOOLS:
+            return None
+        if tool in ("Bash", "PowerShell") and ul.is_bell_command(
+            str(tool_input.get("command") or "")
+        ):
+            return None
+        waiting = ul.unread_rung(member)
+    except Exception as exc:  # noqa: BLE001 - a gate that cannot look must say so, never lock
+        return SurfaceOutcome(
+            name="unread_letter", error=f"{type(exc).__name__}: {exc}", state="could-not-run"
+        )
+    if not waiting:
+        return None
+    return SurfaceOutcome(
+        name="unread_letter", refused=True, state="spoke", reason=ul.refusal_message(waiting)
+    )
+
+
 _BRIEFING_TAIL = (
     "(Plain-chat responses are still allowed; this gate only blocks tool use. "
     "The OS does the rendering — this hook is just the doorman.)"
@@ -2298,6 +2339,10 @@ def install() -> None:
         register("PreToolUse", "require_briefing", require_briefing_surface)
     if "must_read" not in registered("PreToolUse"):
         register("PreToolUse", "must_read", must_read_surface)
+    # Beside must_read, which it mirrors: that one holds work for a file a surface handed me;
+    # this one holds it for a letter the bell rang for (prereg-4ae408966aed).
+    if "unread_letter" not in registered("PreToolUse"):
+        register("PreToolUse", "unread_letter", unread_letter_surface)
 
     # WIRED 2026-08-25. Seventy-six minutes passed between the surface above
     # being written and this line existing, because the ritual hard-stopped my
