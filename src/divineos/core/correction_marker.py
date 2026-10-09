@@ -520,7 +520,7 @@ def set_marker(
     trigger_text: str,
     match: CorrectionMatch | None = None,
     *,
-    source: str = SOURCE_HIS_MESSAGE,
+    source: str,
 ) -> None:
     """Write the marker. Called by the UserPromptSubmit hook on detection.
 
@@ -951,7 +951,7 @@ def hook_main() -> int:
 
     if match.verdict == "block":
         try:
-            set_marker(prompt, match)
+            set_marker(prompt, match, source=SOURCE_HIS_MESSAGE)
         except Exception:  # noqa: BLE001
             pass
     elif match.verdict == "advise":

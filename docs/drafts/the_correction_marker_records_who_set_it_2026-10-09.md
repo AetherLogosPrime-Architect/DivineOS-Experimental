@@ -15,7 +15,7 @@ Reach check `reach-9eadfae1d7cf`: no prior art on the CLI axis; `set_marker` and
 
 ## The change
 
-- `set_marker(trigger_text, match=None, *, source="his-message")`: the marker JSON gains `"source"`. The prompt path keeps the default; the Stop hook passes `source="stop-gate"`.
+- `set_marker(trigger_text, match=None, *, source)`: the marker JSON gains `"source"`, **required and keyword-only, no default** (Aletheia 2026-10-09: a default of `his-message` would speak for Dad whenever a caller forgot to say who it is, the shape of the bug being fixed). The prompt path passes `SOURCE_HIS_MESSAGE` explicitly; the Stop hook passes `source="stop-gate"`; a call without `source` raises `TypeError` (pinned by a test), and every existing test caller now names itself.
 - When `source != "his-message"`, `set_marker` does NOT run `log_correction` / `file_correction`: a gate's text is not a correction of his, so it stops filing itself into his list.
 - `read_marker()` is unchanged; a marker with no `source` (written before this) reads as unknown, never as his or the gate's.
 

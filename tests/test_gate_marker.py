@@ -301,7 +301,9 @@ def test_semantic_equivalence_correction_marker_active_state(_isolated_db):
     assert is_active("correction_filed_unlogged") is False
 
     # Set via the legacy API.
-    correction_marker.set_marker(trigger_text="no don't do that — read the file first.")
+    correction_marker.set_marker(
+        trigger_text="no don't do that — read the file first.", source="his-message"
+    )
     legacy = correction_marker.read_marker()
     assert legacy is not None
     assert "trigger" in legacy
