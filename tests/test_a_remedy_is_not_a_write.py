@@ -160,6 +160,52 @@ def test_the_two_things_every_review_needs_first_are_not_blocked(command):
     assert _check_overdue_prereg_block(command) is None
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        # Aether's two holes, found by running crafted commands against the
+        # first version (2026-10-10): a newline carried a second command
+        # through a hard block, and a redirect or --output wrote a file.
+        f"{_D} briefing\nrm -rf build",
+        f"{_D} briefing\n\nrm -rf build",
+        f"{_D} briefing > docs/AUTOMATION_REGISTER.md",
+        f"{_D} briefing >> family/letters/x.md",
+        f"{_D} briefing --output x.md",
+        f"{_D} briefing 2> err.txt",
+        f"{_D} goal add 'x'\nrm -rf build",
+        f"{_D} goal add 'x' > some_file",
+        f'{_D} goal add "$(rm -rf build)"',
+        f'{_D} goal add "`rm -rf build`"',
+        f"{_D} goal add x y z",
+        f"cd /tmp\n{_D} briefing\nrm x",
+    ],
+)
+def test_the_allowance_is_a_closed_shape_not_a_prefix(command, monkeypatch):
+    """The first version anchored only the START of the command, so anything
+    after the first line was ignored. A hard block may be loosened for one
+    exact shape, never for whatever follows it."""
+    from divineos.core import hud_state
+
+    _one_overdue_review()
+    monkeypatch.setattr(hud_state, "has_session_fresh_goal", lambda *a, **k: False)
+    assert _check_overdue_prereg_block(command) is not None, command
+
+
+@pytest.mark.parametrize(
+    "tail",
+    ["; rm x", " && rm x", "\nrm x", " > some_file", " | tee some_file"],
+)
+def test_the_bell_cannot_carry_a_second_command_or_a_file_write(tail, monkeypatch):
+    """Aether could not probe this because the bell wants the running seat to
+    be the seat named. With the seat set, the order of the checks is the thing
+    to be suspicious of: the bell is judged before the compound-shape check."""
+    from divineos.core import sibling_audit_rounds
+
+    _one_overdue_review()
+    monkeypatch.setattr(sibling_audit_rounds, "this_seat", lambda: "aria")
+    assert _check_overdue_prereg_block("bash scripts/letter_doorbell.sh aria" + tail) is not None
+
+
 def test_a_goal_is_allowed_only_while_the_goal_gate_is_asking_for_one(monkeypatch):
     """Aether's point: a pinned test treats `goal add` as work the gate exists
     to stop. It is, once a goal exists. It is the exit only while the session

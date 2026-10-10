@@ -1438,7 +1438,15 @@ def _is_readonly_probe(cmd: str) -> bool:
     return all(_clause_is_probe(c) for c in clauses)
 
 
-_REVIEW_PREREQUISITE_RE = re.compile(r"^divineos\s+(briefing|goal\s+add)\b")
+# CLOSED SHAPES, matched whole (Aether, 2026-10-10, from running crafted
+# commands against the first version, which anchored only the START: a newline
+# carried a second command through this hard block, and a redirect or --output
+# wrote a file). Nothing may follow the verb except, for a goal, ONE quoted
+# argument with no newline, no substitution and no escape inside it.
+_BRIEFING_SHAPE = re.compile(r"divineos[ \t]+briefing[ \t]*")
+_GOAL_SHAPE = re.compile(
+    r"""divineos[ \t]+goal[ \t]+add[ \t]+(?:'[^'\n$`]*'|"[^"\n$`\\]*")[ \t]*"""
+)
 
 
 def _is_a_review_prerequisite(cmd: str) -> bool:
@@ -1467,11 +1475,10 @@ def _is_a_review_prerequisite(cmd: str) -> bool:
     stripped = _strip_cd_prefix(cmd).strip()
     if _has_compound_shape(stripped):
         return False
-    match = _REVIEW_PREREQUISITE_RE.match(stripped)
-    if match is None:
-        return False
-    if match.group(1) == "briefing":
+    if _BRIEFING_SHAPE.fullmatch(stripped):
         return True
+    if not _GOAL_SHAPE.fullmatch(stripped):
+        return False
     from divineos.core.hud_state import has_session_fresh_goal
 
     return not has_session_fresh_goal()
