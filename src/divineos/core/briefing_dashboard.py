@@ -384,6 +384,66 @@ def _row_open_prs() -> DashboardRow | None:
         return None
 
 
+def _row_landing() -> DashboardRow | None:
+    """The fixes waiting on the external auditor, so the pile arrives unasked.
+
+    Dad, 2026-10-10: the pile is fixes that never land. A command I must
+    remember to run fails by construction, so the counts ride the briefing
+    (walk-0032613dac1c). The readiness board takes minutes and is NOT read here,
+    so no fix can show as ready from this row. A pile that could not be read is a
+    row saying so, never silence.
+    """
+    from divineos.core import landing_status as ls
+
+    prs = ls.open_prs()
+    if prs is None:
+        return DashboardRow(
+            area="Fixes waiting on Aletheia",
+            count=0,
+            stale_count=1,
+            drill_down="divineos landing",
+            detail="could not read the open PR list; that is not an empty pile",
+        )
+    if not prs:
+        return None
+
+    rows = ls.classify_pile(prs, ls.read_letters(), ls.today(), None)
+
+    def of(label: str) -> list:
+        return [(pr, s) for pr, s in rows if s.label == label]
+
+    waiting, changed = of(ls.NO_ANSWER), of(ls.CHANGED)
+    never, confirmed, unknown = of(ls.NEVER_TOLD), of(ls.CONFIRMED), of(ls.UNKNOWN)
+
+    parts: list[str] = []
+    for group, words in (
+        (waiting, "waiting on her answer"),
+        (changed, "changed since she looked"),
+        (never, "never asked"),
+        (confirmed, "confirmed"),
+        (unknown, "could not be read"),
+    ):
+        if group:
+            parts.append(f"{len(group)} {words}")
+    ages = [s.days_since_asked for _, s in waiting if s.days_since_asked is not None]
+    if ages:
+        parts.append(f"oldest ask {max(ages)} days ago")
+    parts.append("board not read here, so none can show ready")
+
+    needs_ask = changed + never
+    preview = [
+        f"[{s.label}] #{pr['number']} {str(pr.get('title') or '')[:70]}" for pr, s in needs_ask[:3]
+    ]
+    return DashboardRow(
+        area="Fixes waiting on Aletheia",
+        count=len(prs),
+        stale_count=len(needs_ask),
+        drill_down="divineos landing --request",
+        detail=", ".join(parts),
+        preview=preview,
+    )
+
+
 def _row_preregs() -> DashboardRow | None:
     try:
         from divineos.core.pre_registrations.store import list_pre_registrations
@@ -1322,6 +1382,7 @@ _ROW_FNS = [
     _row_audit_surprises,
     _row_detector_errors,
     _row_open_prs,
+    _row_landing,
     _row_preregs,
     _row_prereg_candidates,
     _row_gate_failures,

@@ -18,10 +18,13 @@ judge that re-checks at merge time.
 
 from __future__ import annotations
 
+import json
 import re
+import subprocess
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 
 NEVER_TOLD = "NEVER TOLD"
 NO_ANSWER = "NO ANSWER"
@@ -42,6 +45,68 @@ class Status:
     label: str
     detail: str
     next_step: str
+    days_since_asked: int | None = None
+
+
+def today() -> date:
+    return date.today()
+
+
+def _letter_dirs() -> list[Path]:
+    # Letters live in several places and the shared one is only the crossing
+    # point (dashboard_checks.letter_queue learned this the hard way).
+    repo = Path(__file__).resolve().parents[3]
+    return [
+        Path.home() / ".divineos-shared" / "letters",
+        repo / "family" / "letters",
+        repo / "family" / "aletheia",
+    ]
+
+
+def read_letters() -> dict[str, str]:
+    """Every letter to or from the auditor, from every place one lives."""
+    letters: dict[str, str] = {}
+    for folder in _letter_dirs():
+        if not folder.is_dir():
+            continue
+        for path in folder.glob("*.md"):
+            if not path.name.startswith((_HER_LETTER, _MY_LETTER)):
+                continue
+            try:
+                letters.setdefault(path.name, path.read_text(encoding="utf-8", errors="replace"))
+            except OSError:
+                continue
+    return letters
+
+
+def open_prs() -> list[dict] | None:
+    """The open PRs with their live heads, or None when they cannot be read.
+
+    None is not an empty pile: an unreadable list must never look like nothing
+    waiting.
+    """
+    try:
+        run = subprocess.run(
+            [
+                "gh",
+                "pr",
+                "list",
+                "--state",
+                "open",
+                "--limit",
+                "100",
+                "--json",
+                "number,headRefName,headRefOid,title",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=True,
+        )
+        parsed = json.loads(run.stdout)
+    except (subprocess.SubprocessError, OSError, json.JSONDecodeError):
+        return None
+    return parsed if isinstance(parsed, list) else None
 
 
 def confirms_from_letters(letters: Mapping[str, str]) -> dict[int, list[str]]:
@@ -129,8 +194,46 @@ def classify(
             NO_ANSWER,
             f"asked {told_dates[pr].isoformat()}, {days} {unit}, no confirm",
             "put it in the next confirm request and check the last letter reached her",
+            days_since_asked=days,
         )
     return Status(NEVER_TOLD, "no letter to her names it", "put it in the next confirm request")
+
+
+def classify_pile(
+    prs: list[dict],
+    letters: Mapping[str, str],
+    on: date,
+    held_by_pr: Mapping[int, tuple[str, ...]] | None,
+    unread_board: tuple[str, ...] = ("board",),
+) -> list[tuple[dict, Status]]:
+    """Label every open PR.
+
+    ``held_by_pr`` None means the readiness board was not read. Every fix is
+    then held by ``unread_board``, so READY is impossible: could not look is not
+    a pass.
+    """
+    branches = {int(p["number"]): str(p.get("headRefName") or "") for p in prs}
+    confirms = confirms_from_letters(letters)
+    told = told_dates_from_letters(letters, branches)
+    rows: list[tuple[dict, Status]] = []
+    for pr in prs:
+        number = int(pr["number"])
+        stations = held_by_pr.get(number, unread_board) if held_by_pr is not None else unread_board
+        rows.append(
+            (
+                pr,
+                classify(
+                    pr=number,
+                    branch=branches[number],
+                    head_sha=str(pr.get("headRefOid") or ""),
+                    confirms=confirms,
+                    told_dates=told,
+                    held_stations=stations,
+                    today=on,
+                ),
+            )
+        )
+    return rows
 
 
 def render_request(waiting: list[tuple[int, str, str]]) -> str:
