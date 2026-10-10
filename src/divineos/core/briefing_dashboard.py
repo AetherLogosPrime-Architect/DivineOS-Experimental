@@ -428,6 +428,11 @@ def _row_landing() -> DashboardRow | None:
     ages = [s.days_since_asked for _, s in waiting if s.days_since_asked is not None]
     if ages:
         parts.append(f"oldest ask {max(ages)} days ago")
+    # 2026-10-09: sixteen drafts from the cloud helper read as the pile growing
+    # because nobody had said how many to expect. Its share is counted here.
+    cloud = [p for p in prs if str(p.get("headRefName") or "").startswith("cloud/")]
+    if cloud:
+        parts.append(f"{len(cloud)} of these came from the cloud helper")
     parts.append("board not read here, so none can show ready")
 
     needs_ask = changed + never

@@ -81,6 +81,78 @@ def test_the_briefing_can_never_say_ready(pile) -> None:
     assert "ready" not in detail.replace("none can show ready", "")
 
 
+def test_the_cloud_helpers_share_of_the_pile_is_counted(pile) -> None:
+    """2026-10-09: sixteen drafts from the helper read as the pile growing, and
+    nobody had been told how many to expect. The row says how many came from
+    it, so a flood is visible the first morning."""
+    prs = [
+        _pr(1, branch="cloud/repro-a"),
+        _pr(2, branch="cloud/repro-b"),
+        _pr(3, branch="fix/own-work"),
+    ]
+    pile(prs, _letters(told=[1, 2, 3]))
+    assert "2 of these came from the cloud helper" in bd._row_landing().detail
+
+
+def test_no_cloud_helper_work_adds_no_words(pile) -> None:
+    pile([_pr(1, branch="fix/own-work")], _letters(told=[1]))
+    assert "cloud helper" not in bd._row_landing().detail
+
+
+class TestTheDefaultBriefingActuallyCarriesIt:
+    """The first version of this row was tested through its own helper and
+    never reached the default briefing (multiplex panels since 2026-05-22; the
+    dashboard rows render only behind --legacy). Found by running the real
+    briefing and reading it. These assert the chain at its far end."""
+
+    def _panels(self):
+        from divineos.core import multiplex_panels as mp
+
+        return {p.name: p for p in mp.build_panels("chatting")}
+
+    def test_the_pile_is_a_panel_in_the_default_build(self, pile) -> None:
+        pile([_pr(1), _pr(2)], _letters(told=[1]))
+        assert "waiting_on_aletheia" in self._panels()
+
+    def test_it_speaks_in_the_voice_the_briefing_requires(self, pile) -> None:
+        from divineos.core.multiplex_voice import check_voice
+
+        pile([_pr(1), _pr(2)], _letters(told=[1]))
+        content = self._panels()["waiting_on_aletheia"].content
+        assert content.startswith("I have 2 fixes waiting on Aletheia")
+        assert check_voice(content).passed, check_voice(content).summary()
+        assert 80 <= len(content) <= 600
+
+    def test_it_reaches_the_rendered_text_not_only_the_list(self, pile) -> None:
+        from divineos.core import multiplex_panels as mp
+        from divineos.core.multiplex_renderer import render_multiplex
+
+        pile([_pr(1), _pr(2)], _letters(told=[1, 2]))
+        assert "fixes waiting on Aletheia" in render_multiplex(mp.build_panels("chatting"))
+
+    def test_one_fix_reads_as_one_fix(self, pile) -> None:
+        pile([_pr(1)], _letters(told=[1]))
+        assert self._panels()["waiting_on_aletheia"].content.startswith(
+            "I have 1 fix waiting on Aletheia"
+        )
+
+    def test_with_no_pile_there_is_no_panel(self, pile) -> None:
+        """The control: the test can fail, so a pass means something."""
+        pile([], {})
+        assert "waiting_on_aletheia" not in self._panels()
+
+    def test_an_unreadable_pile_still_speaks(self, pile) -> None:
+        pile(None, {})
+        content = self._panels()["waiting_on_aletheia"].content
+        assert "could not read" in content.lower()
+
+    def test_the_panel_names_the_cloud_helpers_share(self, pile) -> None:
+        pile([_pr(1, branch="cloud/a"), _pr(2, branch="cloud/b")], _letters(told=[1, 2]))
+        assert (
+            "2 of these came from the cloud helper" in self._panels()["waiting_on_aletheia"].content
+        )
+
+
 def test_a_pile_it_could_not_read_is_a_row_not_silence(pile) -> None:
     pile(None, {})
     row = bd._row_landing()
