@@ -74,6 +74,10 @@ def test_looking_or_recording_a_review_owes_no_walk(command):
         f"{_D} prereg list --output out.txt",
         f"{_D} prereg list -o out.txt",
         f"{_D} prereg show prereg-abc123 | tee out.txt",
+        f"{_D} prereg show prereg-abc123 &>out.txt",
+        f"{_D} prereg show prereg-abc123 &>>out.txt",
+        f"{_D} prereg show prereg-abc123 >&out.txt",
+        f"{_D} prereg list -of",
     ],
 )
 def test_a_look_that_redirects_its_output_is_work_not_a_look(command):

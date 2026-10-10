@@ -306,7 +306,8 @@ def _runs_divineos_verb(command: str, verbs: tuple[str, ...]) -> bool:
     """
     from divineos.core.command_parsing import split_shell_segments, strip_command_prefixes
 
-    segments = split_shell_segments(_without_heredoc_bodies(command))
+    whole = _without_heredoc_bodies(command)
+    segments = split_shell_segments(whole)
     if segments is None:
         return bool(re.search(r"\bdivineos\s+(" + "|".join(verbs) + r")\b", command))
     for segment in segments:
@@ -322,7 +323,7 @@ def _runs_divineos_verb(command: str, verbs: tuple[str, ...]) -> bool:
             continue
         if any(t in ("--help", "-h") for t in tokens[2:]):
             continue
-        if _is_a_look_or_a_remedy(tokens) and not _writes_through_the_shell(segment, segments):
+        if _is_a_look_or_a_remedy(tokens) and not _writes_through_the_shell(whole, segments):
             continue
         return True
     return False
@@ -330,6 +331,11 @@ def _runs_divineos_verb(command: str, verbs: tuple[str, ...]) -> bool:
 
 def _writes_through_the_shell(segment: str, segments: list) -> bool:
     """True when the shell around a look writes: an UNQUOTED redirect, or a tee.
+
+    Handed the WHOLE command line, not one segment (Aletheia, same day): the
+    splitter reads `&` as a background separator, so `&>f` left its `>f` in a
+    segment with no verb and escaped a per-segment check. Asking the whole line
+    removes that class instead of listing it.
 
     Aletheia 2026-10-10: the verb is honest, the redirect writes. QUOTE-AWARE on
     purpose: the overdue block's own prescribed exit carries `--notes
@@ -385,7 +391,10 @@ def _is_a_look_or_a_remedy(tokens: list[str]) -> bool:
     # 2026-10-10). Any redirect, tee, or output option makes it work. Fails
     # toward heavy: a quoted '>' is a loud, arguable false refusal, and a quiet
     # hole is not.
-    if any(t in ("-o", "--out") or t.startswith("--output") for t in tokens):
+    if any(
+        (t.startswith("-o") and not t.startswith("--")) or t == "--out" or t.startswith("--output")
+        for t in tokens
+    ):
         return False
     verb, sub = tokens[1], tokens[2]
     if sub not in _LOOK_SUBVERBS | _REMEDY_SUBVERBS_OF.get(verb, frozenset()):
