@@ -143,12 +143,29 @@ body = '\n\n'.join(parts)
 # the whole text, so any new correction or bypass re-emits; dedup state is
 # cleared on compaction (context_dedup.on_compaction) so silence never points
 # at content that is gone. Failure guarded: ten identical blocks in an hour.
+# What survives suppression is the STANDING COUNTS: the first data line of each
+# block (the dedup contract, test_hook_dedup_contract.py, says something must
+# survive every suppression, and these are the figures worth never composing
+# without). The long text and the per-edit relevance lines stay gone.
+standing = []
+for block in parts:
+    for line in str(block).splitlines():
+        if line.strip() and not line.lstrip().startswith('#'):
+            standing.append(line.strip()[:200])
+            break
+residual = '\n'.join(standing)
 try:
     from divineos.core.context_dedup import should_emit
-    emit, _pointer = should_emit('state_gravity_blocks', body)
+    emit, _pointer = should_emit('state_gravity_blocks', body, residual=residual)
 except Exception:
     emit = True
 if not emit:
+    print(json.dumps({
+        'hookSpecificOutput': {
+            'hookEventName': 'PreToolUse',
+            'additionalContext': residual,
+        },
+    }))
     sys.exit(0)
 combined = header + '\n\n' + body
 

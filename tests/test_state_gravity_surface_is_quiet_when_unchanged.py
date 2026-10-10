@@ -67,7 +67,10 @@ def test_the_second_identical_block_is_silent_and_the_translate_note_is_gone():
             pytest.skip("no state blocks to show on this checkout, so nothing to repeat")
         assert "MID-TURN TRANSLATE" not in first, "the Stop floor already locks this"
         second = _run(d)
-        assert second == "", "an unchanged block spoke twice: the token waste is back"
+        # Something must survive suppression (test_hook_dedup_contract.py): the
+        # standing counts. But it is a small fraction of the full block.
+        assert second, "nothing survived the suppression, which the dedup contract forbids"
+        assert len(second) * 3 < len(first), "an unchanged block spoke in full: the waste is back"
 
 
 def test_a_changed_block_speaks_again():
