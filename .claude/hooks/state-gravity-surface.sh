@@ -134,7 +134,23 @@ translate_note = (
     'gravity block because it is the only surface that fires mid-turn, and '
     'mid-turn is where the marks are added.'
 )
-combined = header + '\n\n' + translate_note + '\n\n' + '\n\n'.join(parts)
+body = '\n\n'.join(parts)
+# NOTE TO SELF (Aria 2026-10-10, Dad's token-waste order). Two cuts here.
+# (1) The MID-TURN TRANSLATE reminder is gone: the Stop-time translation floor
+# (core/translation_floor.py) already locks that behavior, so a note riding
+# every edit was a second voice. (2) These blocks are DATA, not rules: when the
+# full text is byte-identical to what I was last shown, say nothing. The key is
+# the whole text, so any new correction or bypass re-emits; dedup state is
+# cleared on compaction (context_dedup.on_compaction) so silence never points
+# at content that is gone. Failure guarded: ten identical blocks in an hour.
+try:
+    from divineos.core.context_dedup import should_emit
+    emit, _pointer = should_emit('state_gravity_blocks', body)
+except Exception:
+    emit = True
+if not emit:
+    sys.exit(0)
+combined = header + '\n\n' + body
 
 print(json.dumps({
     'hookSpecificOutput': {
