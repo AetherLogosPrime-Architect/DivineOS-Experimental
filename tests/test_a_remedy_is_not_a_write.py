@@ -66,6 +66,24 @@ def test_looking_or_recording_a_review_owes_no_walk(command):
 @pytest.mark.parametrize(
     "command",
     [
+        f"{_D} prereg show prereg-abc123 > src/divineos/core/x.py",
+        f"{_D} prereg show prereg-abc123 >> notes.md",
+        f"{_D} prereg show prereg-abc123 >| notes.md",
+        f"{_D} prereg show prereg-abc123 >out.txt",
+        f"{_D} prereg show prereg-abc123 2> out.txt",
+        f"{_D} prereg list --output out.txt",
+        f"{_D} prereg list -o out.txt",
+        f"{_D} prereg show prereg-abc123 | tee out.txt",
+    ],
+)
+def test_a_look_that_redirects_its_output_is_work_not_a_look(command):
+    """Aletheia 2026-10-10: the verb is honest, the shell around it writes."""
+    assert _fired(command), f"a look with a redirect scored as nothing: {command}"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
         f"{_D} prereg file x --claim a --success b --falsifier c --embarrassing d",
         f"{_D} audit submit x --round r",
         f"{_D} learn status",
@@ -116,6 +134,10 @@ def test_every_exit_the_overdue_block_names_passes_the_build_gate():
     reason = decision["hookSpecificOutput"]["permissionDecisionReason"]
     exits = re.findall(r"divineos prereg (?:assess|reviewing)[^\n]*", reason)
     assert exits, "the block names no exit; the contract has nothing to check"
+    # A test over an empty or partial list is green while checking nothing
+    # (Aletheia, 2026-10-10): the three exits must all be in what was found.
+    for needed in ("prereg assess", "prereg reviewing"):
+        assert any(needed in line for line in exits), f"{needed} not found in the exits"
     for line in exits:
         concrete = line.replace("<id>", prereg_id).replace("<name>", "aria")
         assert "substrate-write-cli" not in _fired(concrete), concrete

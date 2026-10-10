@@ -322,9 +322,37 @@ def _runs_divineos_verb(command: str, verbs: tuple[str, ...]) -> bool:
             continue
         if any(t in ("--help", "-h") for t in tokens[2:]):
             continue
-        if _is_a_look_or_a_remedy(tokens):
+        if _is_a_look_or_a_remedy(tokens) and not _writes_through_the_shell(segment, segments):
             continue
         return True
+    return False
+
+
+def _writes_through_the_shell(segment: str, segments: list) -> bool:
+    """True when the shell around a look writes: an UNQUOTED redirect, or a tee.
+
+    Aletheia 2026-10-10: the verb is honest, the redirect writes. QUOTE-AWARE on
+    purpose: the overdue block's own prescribed exit carries `--notes
+    "<why deferring>"`, and a plain search for '>' re-shut the very door this
+    exists to keep open (found by the contract test within minutes). Quoted
+    text stays inside the quote; a bare `>` is its own act. Escaped or odd
+    quoting fails toward heavy.
+    """
+    from divineos.core.command_parsing import strip_command_prefixes
+
+    quote = ""
+    for ch in str(segment):
+        if quote:
+            if ch == quote:
+                quote = ""
+        elif ch in ("'", '"'):
+            quote = ch
+        elif ch == ">":
+            return True
+    for other in segments:
+        head = strip_command_prefixes(other)[:1]
+        if head and head[0].replace("\\", "/").rsplit("/", 1)[-1].lower() == "tee":
+            return True
     return False
 
 
@@ -352,6 +380,12 @@ def _is_a_look_or_a_remedy(tokens: list[str]) -> bool:
     that cannot be read leaves the command heavy.
     """
     if len(tokens) < 3 or tokens[2].startswith("-"):
+        return False
+    # The verb is honest; the shell around it can still write (Aletheia
+    # 2026-10-10). Any redirect, tee, or output option makes it work. Fails
+    # toward heavy: a quoted '>' is a loud, arguable false refusal, and a quiet
+    # hole is not.
+    if any(t in ("-o", "--out") or t.startswith("--output") for t in tokens):
         return False
     verb, sub = tokens[1], tokens[2]
     if sub not in _LOOK_SUBVERBS | _REMEDY_SUBVERBS_OF.get(verb, frozenset()):
