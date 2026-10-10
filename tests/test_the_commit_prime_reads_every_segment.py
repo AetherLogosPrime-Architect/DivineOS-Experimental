@@ -69,7 +69,7 @@ pytestmark = [
 ]
 
 
-def _fired(command: str) -> bool:
+def _fired(command: str, tool_name: str = "Bash") -> bool:
     """Run the real hook and read the decision it recorded about itself.
 
     The hook prints nothing a caller can read — it writes whether it fired to
@@ -89,7 +89,7 @@ def _fired(command: str) -> bool:
     so rather than picking the newest.
     """
     assert BASH is not None
-    payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
+    payload = json.dumps({"tool_name": tool_name, "tool_input": {"command": command}})
 
     with tempfile.TemporaryDirectory(prefix="prime-home-") as home:
         env = dict(os.environ)
@@ -125,6 +125,17 @@ def test_a_commit_behind_a_chain_fires():
     assert _fired("bash scripts/checks.sh && git commit -m x"), (
         "a commit reached through a chain is still invisible to the prime"
     )
+
+
+def test_a_file_edit_stays_silent_because_the_walk_gate_already_asks():
+    """The every-edit injection was removed on 2026-10-10 (token waste).
+
+    The build-flow gate already forces a written route and a why before any
+    code edit, so the prime was a second voice saying the same thing. If this
+    fails, someone put it back: read the NOTE TO SELF in the hook first.
+    """
+    for tool in ("Edit", "Write", "MultiEdit", "NotebookEdit"):
+        assert not _fired("", tool_name=tool), f"{tool} fires the prime again"
 
 
 def test_a_read_only_command_stays_silent():
