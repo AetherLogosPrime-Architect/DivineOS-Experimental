@@ -835,6 +835,14 @@ def gate_status() -> tuple[bool, str]:
     # the other needs to get out of the way; the old code treated them alike.
     for path_str in delivered_whole:
         _mark_satisfied(path_str, "inlined in full — delivery is the read")
+    if len(delivered_whole) == len(reqs):
+        # Everything above arrived whole, and that is the read. The long closing
+        # speech ended "So open it", so the file was read twice (Aria 2026-10-10).
+        lines += [
+            "",
+            "Delivered in full above. That is the read; no need to open it again.",
+        ]
+        return True, "\n".join(lines)
     lines += [
         "",
         "Read is never blocked — I made sure of that. A gate whose cure sits",
