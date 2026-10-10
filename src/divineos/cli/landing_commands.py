@@ -11,8 +11,21 @@ confirm-only letter for me to read and send.
 
 from __future__ import annotations
 
+import json
+import subprocess
+
 import click
 
+from divineos.core.landing_homework import (
+    ClerkRefused,
+    confirm_steps,
+    explain_station,
+    her_confirmed_sha,
+    parse_patch_id_output,
+    parse_round_id,
+    render_header,
+    round_step,
+)
 from divineos.core.landing_status import (
     CHANGED,
     CONFIRMED,
@@ -51,16 +64,78 @@ def _held_by_pr() -> dict[int, tuple[str, ...]] | None:
     }
 
 
+def _held_stations(pr: int) -> list[tuple[str, str]] | None:
+    """(station, detail) for every unproven station of one request, or None."""
+    from divineos.cli.build_flow_commands import collect
+    from divineos.core.build_flow import Status as FlowStatus
+
+    statuses, _why, _roster = collect()
+    if statuses is None:
+        return None
+    mine = next((s for s in statuses if s.number == pr), None)
+    if mine is None:
+        return None
+    return [(r.station, r.detail) for r in mine.stations if r.status is not FlowStatus.SATISFIED]
+
+
+def _pr_facts(pr: int) -> dict:
+    """branch, live head and title of one open request, or a plain refusal."""
+    try:
+        run = subprocess.run(
+            ["gh", "pr", "view", str(pr), "--json", "headRefName,headRefOid,title"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=True,
+        )
+        parsed = json.loads(run.stdout)
+    except (subprocess.SubprocessError, OSError, json.JSONDecodeError) as exc:
+        raise ClerkRefused(f"could not read request #{pr} from GitHub: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise ClerkRefused(f"request #{pr} came back from GitHub in a shape I cannot read")
+    return parsed
+
+
+def _changed_files(branch: str) -> list[str]:
+    run = subprocess.run(
+        ["git", "diff", "--name-only", f"origin/main...origin/{branch}"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    if run.returncode != 0:
+        raise ClerkRefused(f"could not list the changed files of {branch}: {run.stderr.strip()}")
+    return [line.strip() for line in run.stdout.splitlines() if line.strip()]
+
+
+def _run_audit(argv: list[str]) -> str:
+    """Run one existing audit command and return what it printed.
+
+    The clerk shells out to the audit commands that already hold the rules
+    (walk-4fbd1daa1539, Carmack): no second implementation of the round or the
+    confirm ladder. A non-zero exit is a refusal, shown as the command said it.
+    """
+    run = subprocess.run(argv, capture_output=True, text=True, timeout=300, check=False)
+    out = (run.stdout or "") + (run.stderr or "")
+    if run.returncode != 0:
+        raise ClerkRefused(f"{' '.join(argv[:3])} refused: {out.strip()[:400]}")
+    return out
+
+
 def register(cli: click.Group) -> None:
-    @cli.command("landing")
+    @cli.group("landing", invoke_without_command=True)
     @click.option(
         "--request",
         "show_request",
         is_flag=True,
         help="Print the confirm-only letter for the fixes that need her. Sends nothing.",
     )
-    def landing_cmd(show_request: bool) -> None:
+    @click.pass_context
+    def landing_cmd(ctx: click.Context, show_request: bool) -> None:
         """One line per waiting fix: where it stands toward the auditor."""
+        if ctx.invoked_subcommand is not None:
+            return
         prs = open_prs()
         if prs is None:
             click.secho(
@@ -103,3 +178,102 @@ def register(cli: click.Group) -> None:
             text = render_request(waiting)
             click.echo("")
             click.echo(text or "(nothing needs her confirm right now)")
+
+    @landing_cmd.command("homework")
+    @click.argument("pr", type=int)
+    def homework_cmd(pr: int) -> None:
+        """What each unproven station of one fix needs, in plain words. Read-only."""
+        try:
+            facts = _pr_facts(pr)
+            branch, head = str(facts["headRefName"]), str(facts["headRefOid"])
+            files = _changed_files(branch)
+            held = _held_stations(pr)
+        except ClerkRefused as exc:
+            raise SystemExit(f"[landing] REFUSED: {exc}") from exc
+        her = her_confirmed_sha(read_letters(), pr, head) is not None
+        click.echo(render_header(pr))
+        if held is None:
+            click.secho(
+                "[!] The readiness board could not be read, so the missing stations are "
+                "unknown. That is not 'nothing missing'.",
+                fg="yellow",
+            )
+            return
+        if not held:
+            click.echo("The board holds nothing for this fix.")
+        for station, detail in held:
+            click.echo("")
+            for line in explain_station(station, detail, pr, files, her):
+                click.echo(f"  {line}")
+
+    @landing_cmd.command("file-confirm")
+    @click.argument("pr", type=int)
+    @click.option(
+        "--andrew-said",
+        required=True,
+        help="His own words, quoted. No words, no confirm of his on the record.",
+    )
+    def file_confirm_cmd(pr: int, andrew_said: str) -> None:
+        """File the round, her confirm and his, for ONE fix whose live head she confirmed."""
+        try:
+            facts = _pr_facts(pr)
+            branch, head = str(facts["headRefName"]), str(facts["headRefOid"])
+            title = str(facts.get("title") or "")
+            her_short = her_confirmed_sha(read_letters(), pr, head)
+            if her_short is None:
+                raise ClerkRefused(
+                    f"no letter of hers names the live head of #{pr} ({head[:9]}). "
+                    "Nothing is filed on a remembered yes."
+                )
+            tip, tree, patch = parse_patch_id_output(
+                _run_audit(["divineos", "audit", "patch-id", "--branch", branch])
+            )
+            if tip != head:
+                raise ClerkRefused(f"the branch tip {tip[:9]} is not the live head {head[:9]}")
+            # Built before anything is filed, so a refusal (his words, a bad
+            # fingerprint) leaves no half-filed round behind.
+            placeholder = confirm_steps(
+                pr=pr,
+                title=title,
+                branch=branch,
+                tip=tip,
+                tree=tree,
+                patch_id=patch,
+                her_short=her_short,
+                andrew_said=andrew_said,
+                round_id="round-000000",
+            )
+            del placeholder
+            made = _run_audit(
+                round_step(
+                    pr=pr,
+                    title=title,
+                    branch=branch,
+                    tree=tree,
+                    patch_id=patch,
+                    her_short=her_short,
+                )
+            )
+            round_id = parse_round_id(made)
+            steps = confirm_steps(
+                pr=pr,
+                title=title,
+                branch=branch,
+                tip=tip,
+                tree=tree,
+                patch_id=patch,
+                her_short=her_short,
+                andrew_said=andrew_said,
+                round_id=round_id,
+            )
+            her_out = _run_audit(steps["external"])
+            his_out = _run_audit(steps["user"])
+        except ClerkRefused as exc:
+            raise SystemExit(f"[landing] REFUSED: {exc}") from exc
+        click.echo(render_header(pr))
+        click.echo(f"round: {round_id}")
+        click.echo(her_out.strip())
+        click.echo(his_out.strip())
+        click.echo(
+            f"Next, in your own hands: divineos stamp-ready {pr} --audit-round {round_id} --dry-run"
+        )

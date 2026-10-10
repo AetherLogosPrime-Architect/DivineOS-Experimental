@@ -764,6 +764,7 @@ src/divineos/
     ship_steps.py              The checks `divineos ship` runs in order, each one a yes or a named no.
     git_hooks_drift.py         Do the installed git hooks still say what setup/setup-hooks.sh would write?
     landing_status.py          Where each waiting fix stands toward the external auditor, from the real facts.
+    landing_homework.py        A clerk for the author's side of landing a fix.
 
   analysis/
     _session_types.py          Session analysis type definitions
