@@ -322,8 +322,43 @@ def _runs_divineos_verb(command: str, verbs: tuple[str, ...]) -> bool:
             continue
         if any(t in ("--help", "-h") for t in tokens[2:]):
             continue
+        if _is_a_look_or_a_remedy(tokens):
+            continue
         return True
     return False
+
+
+# Sub-verbs of a command GROUP that look at the store, and the verbs another
+# gate names as its own way out. Neither is the building a council walk is for.
+# 2026-10-10 the overdue-review block's prescribed exits (`prereg assess`,
+# `prereg reviewing`) and the plain reads (`prereg show`) were all refused
+# here for owing a walk, so the exit from one lock was shut by another and the
+# day could not start. `prereg file` is untouched: filing is the thinking.
+# `export` is NOT a look: it writes files into docs, and an exempted word has
+# to be a true label.
+_LOOK_SUBVERBS = frozenset({"show", "list", "status", "summary", "history", "overdue", "windows"})
+_REMEDY_SUBVERBS_OF = {"prereg": frozenset({"assess", "reviewing"})}
+
+
+def _is_a_look_or_a_remedy(tokens: list[str]) -> bool:
+    """True for ``divineos <group> <look-or-remedy>`` and nothing else.
+
+    ``tokens`` is one segment, lower-cased, program first. The second word must
+    be a command GROUP before the third counts as a verb: for the leaf
+    ``divineos learn status`` the third word is the LESSON, and a lesson whose
+    text spells a read verb is a write (Aria, 2026-09-01, from running it, in
+    the sibling rule in the pre-tool-use gate). Asked of click's own
+    resolution, not of a list. Could-not-look is not an exemption: a registry
+    that cannot be read leaves the command heavy.
+    """
+    if len(tokens) < 3 or tokens[2].startswith("-"):
+        return False
+    verb, sub = tokens[1], tokens[2]
+    if sub not in _LOOK_SUBVERBS | _REMEDY_SUBVERBS_OF.get(verb, frozenset()):
+        return False
+    from divineos.hooks.pre_tool_use_gate import _is_command_group
+
+    return _is_command_group(verb) is True
 
 
 def _shell_write_targets(command: str) -> tuple[str, ...] | None:
