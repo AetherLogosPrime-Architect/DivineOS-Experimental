@@ -236,24 +236,32 @@ NO_READING = "none"
 
 
 def _declared_readings(text: str) -> tuple[bool, list[str]]:
-    """``(field_present, branches)`` from the one declared line.
+    """``(field_present, branches)`` from every declared line.
 
     Read literally. Everything else in the letter -- title, filename, prose,
     the ``In response to`` line -- is deliberately not consulted, because
     inference from her prose is what produced the wrong credits this replaces.
 
+    EVERY ``**Reading:**`` line counts, not the first (2026-10-11): a letter that
+    named two branches on two lines was read as naming only the first, and the
+    second showed as unread with nothing said. A line is still the whole field and
+    commas still separate branches inside it.
+
     The two return values are separate on purpose: a letter declaring ``none``
     is present-with-no-branches, and reporting that as no-declaration would
     punish exactly the discipline the field asks for.
     """
+    present = False
+    branches: list[str] = []
     for line in text.splitlines():
         stripped = line.strip()
         if not stripped.startswith(READING_DECLARATION):
             continue
+        present = True
         value = stripped[len(READING_DECLARATION) :]
         parts = [p.strip().strip("`").lower() for p in value.split(",")]
-        return True, [p for p in parts if p and p != NO_READING]
-    return False, []
+        branches.extend(p for p in parts if p and p != NO_READING)
+    return present, branches
 
 
 OWNER_DECLARATION = "Owner:"
