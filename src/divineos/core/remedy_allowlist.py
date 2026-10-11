@@ -124,7 +124,15 @@ FORBIDDEN_HEADS: frozenset[str] = frozenset(
 )
 
 #: --actor user, in the spellings a person types: spaced, equals, quoted.
-_IN_HIS_VOICE = re.compile(r"""--actor(?:[ \t]+|=)['"]?user['"]?(?=[ \t'"]|$)""")
+#: The actors a filing may name and still be a remedy, as a CLOSED list of
+#: literals. The first version blocked `--actor user` and let everything else
+#: through, so a spelling it missed (a capital, a variable, split quotes, no actor
+#: at all) filed in Dad's voice with no pause (Aether's hold, 2026-10-11). Now a
+#: miss fails toward the pause: anything not literally named here is not a remedy.
+#: A real new actor is added here by name, which is the only place to do it.
+_NAMED_ACTOR = re.compile(
+    r"--actor(?:[ \t]+|=)(?:aletheia|aria|aether|grok|gemini|claude-[a-z0-9.-]+)(?=[ \t]|$)"
+)
 _AUDIT_FILING = re.compile(r"\baudit[ \t]+(?:submit|file-external-confirm)\b")
 #: An output option (--output, --out, -o...) on the DIVINEOS command itself: it
 #: writes a file wherever it is pointed. Looked for only AFTER the program name,
@@ -135,6 +143,21 @@ _WRITES_WHERE_TOLD = re.compile(
 )
 
 _LOG = Path.home() / ".divineos" / "remedy_passthrough.log"
+
+
+def outside_quotes(command: str) -> str:
+    """The command with quoted arguments blanked, or the text whole when that
+    cannot be done safely. A word inside a quoted lesson is data, not an option
+    and not a second goal (Aether, 2026-10-11); ``blank_quoted_spans`` already
+    refuses the shapes where blanking would hide a real write, and returns None,
+    which here means scan the text as it stands."""
+    try:
+        from divineos.core.command_parsing import blank_quoted_spans
+
+        blanked = blank_quoted_spans(command)
+    except Exception:  # noqa: BLE001 — not parseable: look at the text whole
+        blanked = None
+    return command if blanked is None else blanked
 
 
 def is_remedy(command: str) -> bool:
@@ -153,17 +176,23 @@ def is_remedy(command: str) -> bool:
     """
     if not command or not command.strip():
         return False
-    # A finding filed with --actor user is DAD's confirm. The pause before words
-    # are put in his voice is one of the few worth keeping, so it is not a
-    # remedy (Aether 2026-10-11). Checked on the whole text and failing toward
-    # not-a-remedy: a spelling this misses still reaches the gate it came from.
-    if _IN_HIS_VOICE.search(command) and _AUDIT_FILING.search(command):
+    # A finding filed with --actor user is DAD's confirm, and the pause before
+    # words are put in his voice is one of the few worth keeping (Aether
+    # 2026-10-11). So an audit filing is a remedy only when it carries exactly ONE
+    # --actor and it is a literal from the closed list. Anything else (a capital, a
+    # variable, split quotes, no actor, or a second --actor that would win) is NOT
+    # a remedy, so a spelling this misses FAILS TOWARD THE PAUSE. The first version
+    # blocked `user` and let the rest through, which was the other direction.
+    if _AUDIT_FILING.search(command) and not (
+        len(re.findall(r"--actor\b", command)) == 1 and _NAMED_ACTOR.search(command)
+    ):
         return False
     # A remedy that writes where it is told is not a remedy: `briefing --output
     # x.md` is a file write wearing a recording command's name (Aletheia attacked
     # this shape on 619; the shared list took any arguments, so asking it first
-    # brought the hole back, found by that PR's own closed-shape test).
-    if _WRITES_WHERE_TOLD.search(command):
+    # brought the hole back, found by that PR's own closed-shape test). Looked for
+    # OUTSIDE quoted spans: a lesson that mentions `-o` is data (Aether).
+    if _WRITES_WHERE_TOLD.search(outside_quotes(command)):
         return False
     try:
         from divineos.core.command_parsing import runs_only

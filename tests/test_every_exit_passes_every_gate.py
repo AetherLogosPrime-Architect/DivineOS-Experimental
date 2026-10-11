@@ -133,7 +133,7 @@ def test_the_control_can_see_a_refusal():
         f"{_D} audit submit-round 'a focus' --actor aletheia",
         f"{_D} audit prepare-merge round-abc",
         f"{_D} audit submit 'a finding' --round r --actor aletheia",
-        f"{_D} audit file-external-confirm round-abc",
+        f"{_D} audit file-external-confirm --round round-abc --actor aletheia --branch b",
     ],
 )
 def test_the_merge_path_exits_are_remedies(command):
@@ -153,6 +153,44 @@ def test_words_in_his_voice_keep_their_pause(command):
     """Aether 2026-10-11: a finding filed with --actor user is Dad's confirm, and
     the walk before it is one of the few pauses before words are put in his voice."""
     assert not is_remedy(command)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"{_D} audit submit 'x' --round r --actor User",
+        f"{_D} audit submit 'x' --round r --actor USER",
+        f"{_D} audit submit 'x' --round r --actor \"$A\"",
+        f"{_D} audit submit 'x' --round r --actor \"$(printf user)\"",
+        f'{_D} audit submit \'x\' --round r --actor "us""er"',
+        f"{_D} audit submit 'x' --round r --actor",
+        f"{_D} audit submit 'x' --round r",
+        f"{_D} audit file-external-confirm round-abc",
+        f"{_D} audit submit 'x' --round r --actor someone-unlisted",
+    ],
+)
+def test_a_spelling_the_pattern_misses_keeps_the_pause_too(command):
+    """Aether's hold, 2026-10-11: the first version blocked `--actor user` and let
+    everything else through, so a spelling it missed filed in Dad's voice with no
+    pause. The rule is now the other way round: only a literal actor from a short
+    closed list that is not Dad is a remedy, and a miss fails toward the pause."""
+    assert not is_remedy(command)
+
+
+@pytest.mark.parametrize(
+    "actor", ["aletheia", "aria", "aether", "grok", "gemini", "claude-opus-5-5"]
+)
+def test_a_named_actor_that_is_not_dad_is_a_remedy(actor):
+    assert is_remedy(f"{_D} audit submit 'x' --round r --actor {actor}")
+    assert is_remedy(f"{_D} audit submit 'x' --round r --actor={actor}")
+
+
+def test_words_inside_a_quoted_lesson_are_data_not_options():
+    """Aether's small ones: a lesson that merely MENTIONS `-o` or `goal add` is a
+    lesson, not an output option and not a second goal."""
+    assert is_remedy(f'{_D} learn "set -o pipefail was missing"')
+    _overdue_review()
+    assert _check_overdue_prereg_block(f'{_D} learn "never run goal add twice"') is None
 
 
 @pytest.mark.parametrize(
