@@ -148,6 +148,10 @@ class Coverage:
     # ones nobody thought about.
     covered_paths: int = 0
     total_paths: int = 0
+    # When the covering walk closed, epoch seconds. Station 6 asks whether the
+    # lenses saw the CURRENT shape and has to read it from the walk it is
+    # judging, not from the newest lens event anywhere in the ledger.
+    closed_at: float | None = None
 
     def __post_init__(self) -> None:
         allowed = ("covered", "partial", "uncovered", "cannot-check")
@@ -179,12 +183,12 @@ def coverage_for(paths: tuple[str, ...] | None) -> Coverage:
         return Coverage("cannot-check", reason=f"the walk store could not be opened: {exc}")
     try:
         rows = conn.execute(
-            "SELECT id, scope FROM walks WHERE closed_at IS NOT NULL AND scope != ''"
+            "SELECT id, scope, closed_at FROM walks WHERE closed_at IS NOT NULL AND scope != ''"
             " ORDER BY closed_at DESC"
         ).fetchall()
         wanted = set(paths)
         best: Coverage | None = None
-        for walk_id, scope in rows:
+        for walk_id, scope, closed_at in rows:
             scoped = {line.strip() for line in (scope or "").splitlines() if line.strip()}
             hit = scoped & wanted
             if not hit:
@@ -210,6 +214,7 @@ def coverage_for(paths: tuple[str, ...] | None) -> Coverage:
                     lenses=len(lenses),
                     covered_paths=len(hit),
                     total_paths=len(wanted),
+                    closed_at=closed_at,
                 )
             # A partial hit is kept as the best answer so far, but the search
             # continues -- a later walk may cover the branch whole, and taking
