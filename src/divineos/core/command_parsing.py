@@ -405,6 +405,35 @@ _SEGMENT_SEPARATORS = ("&&", "||", "|", ";", "&", "\n")
 # answered by their suites rather than by my reasoning, so they were run.
 
 
+_SHELL_PROGRAMS = frozenset({"bash", "sh", "zsh", "dash", "ksh"})
+
+
+def shell_command_body(tokens: list[str]) -> str | None:
+    """The command string a shell is told to run, or ``None`` if this is not that.
+
+    ``bash -c "<cmd>"`` (also ``-lc``, ``-ic``, ``--login -c``, any of the common
+    shells, a full path) and ``eval <cmd>``. A reader that judges each segment by
+    its head sees ``bash`` and one quoted token, so the real command inside is
+    invisible to it; this hands the inside back so the caller can judge it the
+    same way it judges the plain form. ``None`` for a shell running a script file,
+    for ``-c`` with nothing after it, and for anything that is not a shell.
+    """
+    if not tokens:
+        return None
+    program = tokens[0].replace("\\", "/").rsplit("/", 1)[-1].rsplit(":", 1)[-1]
+    program = program.lower().removesuffix(".exe")
+    if program == "eval":
+        return " ".join(tokens[1:]) if len(tokens) > 1 else None
+    if program not in _SHELL_PROGRAMS:
+        return None
+    for index, token in enumerate(tokens[1:], start=1):
+        if not token.startswith("-"):
+            return None
+        if not token.startswith("--") and "c" in token[1:]:
+            return tokens[index + 1] if index + 1 < len(tokens) else None
+    return None
+
+
 def split_shell_segments(bash_command: str) -> list[str] | None:
     """Split on unquoted separators, or ``None`` if it cannot be done safely.
 
