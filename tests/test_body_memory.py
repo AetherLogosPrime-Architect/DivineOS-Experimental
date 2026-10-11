@@ -10,7 +10,9 @@ Readings here are plain dataclasses written to a temp file; nothing mocks the ju
 
 from __future__ import annotations
 
+import json
 import sys
+from dataclasses import asdict
 
 import pytest
 
@@ -46,8 +48,8 @@ def test_a_flat_series_does_not_warn():
 
 def test_a_gap_rising_across_three_readings_above_the_floor_warns():
     readings = [
-        _reading(NOW - 1200, gap=3.4),
-        _reading(NOW - 600, gap=5.0),
+        _reading(NOW - 3600, gap=3.4),
+        _reading(NOW - 1800, gap=5.0),
         _reading(NOW, gap=8.0),
     ]
     notes = bm.assess(readings, now=NOW)
@@ -63,6 +65,66 @@ def test_a_big_but_flat_gap_does_not_warn_for_rising():
 def test_a_rising_gap_below_the_floor_does_not_warn():
     readings = [_reading(NOW - 1200, gap=0.2), _reading(NOW - 600, gap=0.9), _reading(NOW, gap=1.8)]
     assert "warn" not in _levels(bm.assess(readings, now=NOW))
+
+
+def test_three_readings_seconds_apart_with_a_wobble_do_not_warn():
+    """Aria's cold read of 624: three `divineos body` runs in a minute can trip a rising rule."""
+    readings = [
+        _reading(NOW - 20, gap=4.00),
+        _reading(NOW - 10, gap=4.01),
+        _reading(NOW, gap=4.02),
+    ]
+    assert "warn" not in _levels(bm.assess(readings, now=NOW))
+
+
+def test_a_rise_too_small_over_a_long_span_does_not_warn():
+    readings = [
+        _reading(NOW - 7200, gap=4.00),
+        _reading(NOW - 3600, gap=4.10),
+        _reading(NOW, gap=4.20),
+    ]
+    assert "warn" not in _levels(bm.assess(readings, now=NOW))
+
+
+def test_a_real_rise_over_the_minimum_span_warns():
+    readings = [
+        _reading(NOW - 1800, gap=4.0),
+        _reading(NOW - 900, gap=4.2),
+        _reading(NOW, gap=4.4),
+    ]
+    assert "warn" in _levels(bm.assess(readings, now=NOW))
+
+
+def test_unreadable_programs_are_named_in_the_report(tmp_path, monkeypatch):
+    """An unreadable program makes the gap look larger, so the report must say how many."""
+    unreadable = bm.Reading(**{**asdict(_reading(NOW)), "unreadable": 7})
+    monkeypatch.setattr(bm, "take_reading", lambda: unreadable)
+    text = bm.memory_sense_report(path=tmp_path / "r.jsonl", tags_path=tmp_path / "t.json")
+    assert "7 programs could not be read" in text
+
+
+def test_old_history_lines_without_the_new_field_still_load(tmp_path):
+    path = tmp_path / "readings.jsonl"
+    line = {k: v for k, v in asdict(_reading(NOW)).items() if k != "unreadable"}
+    path.write_text(json.dumps(line) + "\n", encoding="utf-8")
+    assert len(bm.load_readings(path)) == 1
+
+
+def test_a_broken_memory_sense_says_unavailable_in_the_body_command(monkeypatch):
+    """Silence reads as 'nothing to report', so a failing sense must print why (Aria, 624)."""
+    import click
+    from click.testing import CliRunner
+
+    from divineos.cli import body_commands
+
+    def broken():
+        raise RuntimeError("pool call failed")
+
+    monkeypatch.setattr(bm, "memory_sense_report", broken)
+    group = click.Group()
+    body_commands.register(group)
+    result = CliRunner().invoke(group, ["body"])
+    assert "[unavailable: RuntimeError: pool call failed]" in result.output
 
 
 def test_nonpaged_pool_above_the_floor_warns_on_its_own():

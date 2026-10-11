@@ -33,6 +33,10 @@ from pathlib import Path
 GAP_WARN_GB = 3.0
 NONPAGED_WARN_GB = 2.0
 RISING_READINGS = 3
+# Aria's cold read of 624 (2026-10-11): "rising across three readings" needs a span and a size,
+# or three body runs a minute apart with a hundredth of wobble would trip it.
+RISING_MIN_SPAN_SECONDS = 30 * 60
+RISING_MIN_RISE_GB = 0.3
 BOOT_QUIET_SECONDS = 15 * 60
 STALE_SECONDS = 60 * 60
 TAGS_STALE_SECONDS = 60 * 60
@@ -55,6 +59,9 @@ class Reading:
     gap_gb: float
     nonpaged_gb: float
     paged_gb: float
+    # Programs whose memory could not be read (access denied). They make the gap look
+    # larger, so the report says how many. Default keeps older history lines loadable.
+    unreadable: int = 0
 
 
 @dataclass(frozen=True)
@@ -109,9 +116,12 @@ def take_reading(now: float | None = None) -> Reading | None:
         return None
     vm = psutil.virtual_memory()
     programs = 0
+    unreadable = 0
     for proc in psutil.process_iter(["memory_info"]):
         info = proc.info.get("memory_info")
-        if info is not None:
+        if info is None:
+            unreadable += 1
+        else:
             programs += info.rss
     used = vm.total - vm.available
     return Reading(
@@ -123,6 +133,7 @@ def take_reading(now: float | None = None) -> Reading | None:
         gap_gb=(used - programs) / _GB,
         nonpaged_gb=pool[0],
         paged_gb=pool[1],
+        unreadable=unreadable,
     )
 
 
@@ -199,6 +210,8 @@ def assess(readings: list[Reading], now: float, tags: dict | None = None) -> lis
         len(gaps) == RISING_READINGS
         and all(g > GAP_WARN_GB for g in gaps)
         and all(a < b for a, b in zip(gaps, gaps[1:]))
+        and series[-1].ts - series[0].ts >= RISING_MIN_SPAN_SECONDS
+        and gaps[-1] - gaps[0] >= RISING_MIN_RISE_GB
     ):
         trail = " -> ".join(f"{g:.1f}" for g in gaps)
         notes.append(
@@ -260,6 +273,10 @@ def memory_sense_report(path: Path | None = None, tags_path: Path | None = None)
         f"    Driver memory (kernel pool): {reading.nonpaged_gb:.1f} GB held, "
         f"{reading.paged_gb:.1f} GB swappable"
     )
+    if reading.unreadable:
+        lines.append(
+            f"    {reading.unreadable} programs could not be read, which makes the gap look larger."
+        )
     lines.append(f"    The push gate says: {pytest_parallel_flag('the pre-push suite')[1]}")
     for note in assess(load_readings(path), reading.ts, _load_tags(tags_path)):
         lines.append(f"    [{note.level}] {note.text}")
