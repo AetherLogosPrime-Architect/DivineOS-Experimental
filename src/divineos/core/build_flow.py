@@ -253,8 +253,19 @@ def _declared_readings(text: str) -> tuple[bool, list[str]]:
     """
     present = False
     branches: list[str] = []
+    in_fence = False
     for line in text.splitlines():
         stripped = line.strip()
+        # The declaration lives in the HEADER (Aria's cold read of 628, 2026-10-11): the
+        # first `---` ends it, so a pasted copy of someone's header further down credits
+        # nothing; a fenced block and a four-space or tab-indented line are quotes.
+        if stripped == "---":
+            break
+        if stripped.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence or line.startswith(("    ", "\t")):
+            continue
         if not stripped.startswith(READING_DECLARATION):
             continue
         present = True
@@ -262,6 +273,27 @@ def _declared_readings(text: str) -> tuple[bool, list[str]]:
         parts = [p.strip().strip("`").lower() for p in value.split(",")]
         branches.extend(p for p in parts if p and p != NO_READING)
     return present, branches
+
+
+def _newer_declaration(
+    newest: tuple[float, str, list[str]] | None, letter: Path, declarations: list[str]
+) -> tuple[float, str, list[str]] | None:
+    """Keep the most recently written letter that declared any branch (by file time)."""
+    if not declarations:
+        return newest
+    stamp = letter.stat().st_mtime
+    if newest is None or stamp >= newest[0]:
+        return (stamp, letter.name, declarations)
+    return newest
+
+
+def _what_the_newest_declared(newest: tuple[float, str, list[str]] | None) -> str:
+    """A miss reads as a miss on the field, not a silent drop (Aria, 2026-10-11): name what
+    the newest letter DID declare, so a branch left off a line is visible at once."""
+    if newest is None:
+        return ""
+    _, name, branches = newest
+    return f" (the newest, {name}, declares: {', '.join(branches)})"
 
 
 OWNER_DECLARATION = "Owner:"
@@ -336,11 +368,13 @@ def _reading_declared_by(reviewer: str, branch: str, letters_dir: Path) -> Stati
     """Did ``reviewer`` declare a reading of ``branch``? Shared by both seats."""
     needle = branch.lower()
     declared_anywhere = 0
+    newest: tuple[float, str, list[str]] | None = None
     for f in sorted(letters_dir.glob(f"{reviewer}-to-*.md")):
         try:
             present, declarations = _declared_readings(
                 f.read_text(encoding="utf-8", errors="replace")
             )
+            newest = _newer_declaration(newest, f, declarations)
         except OSError:
             continue
         if present:
@@ -360,7 +394,8 @@ def _reading_declared_by(reviewer: str, branch: str, letters_dir: Path) -> Stati
     return StationResult(
         "4-cold-read",
         Status.MISSING,
-        f"none of {reviewer}'s {declared_anywhere} declared reading(s) names this branch",
+        f"none of {reviewer}'s {declared_anywhere} declared reading(s) names this branch"
+        f"{_what_the_newest_declared(newest)}",
     )
 
 
@@ -605,12 +640,14 @@ def check_aria_station(branch: str, letters_dir: Path, author: str | None = None
 
     needle = branch.lower()
     declared_anywhere = 0
+    newest: tuple[float, str, list[str]] | None = None
     unparsed: str | None = None
     for f in sorted(letters_dir.glob(reader_glob)):
         try:
             present, declarations = _declared_readings(
                 f.read_text(encoding="utf-8", errors="replace")
             )
+            newest = _newer_declaration(newest, f, declarations)
         except OSError:
             continue
         if present:
@@ -670,7 +707,8 @@ def check_aria_station(branch: str, letters_dir: Path, author: str | None = None
         # guessing. A stale explanation of a removed limit is worse than none,
         # because it tells a reader that a real miss is an inapplicable
         # question and the check keeps running with nobody acting on it.
-        f"none of the {declared_anywhere} declared reading(s) by {reader_name} names this branch",
+        f"none of the {declared_anywhere} declared reading(s) by {reader_name} names this branch"
+        f"{_what_the_newest_declared(newest)}",
     )
 
 
