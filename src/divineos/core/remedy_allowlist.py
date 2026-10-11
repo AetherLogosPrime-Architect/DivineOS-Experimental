@@ -141,7 +141,15 @@ _CLAUDE_ACTOR = re.compile(r"claude-[a-z0-9.-]+")
 #: same parsed chain the remedy match reads, never as text: a regex over the raw
 #: line missed `audit "submit"` while the parser saw `submit` (Aether's second
 #: hold on this branch, 2026-10-11), two readers of one line.
-_VOICED_FILINGS = (("divineos", "audit", "submit"), ("divineos", "audit", "file-external-confirm"))
+#: `submit-round` is here because a round names the real reviewer and a user-named
+#: round is what a later user confirm leans on (Aether, 2026-10-11). The list is still
+#: commands I have met, not the kind: "records who spoke" is the rule, owed as a test
+#: over every command with a required --actor option.
+_VOICED_FILINGS = (
+    ("divineos", "audit", "submit"),
+    ("divineos", "audit", "file-external-confirm"),
+    ("divineos", "audit", "submit-round"),
+)
 #: An output option (--output, --out, -o...) on the DIVINEOS command itself: it
 #: writes a file wherever it is pointed. Looked for only AFTER the program name,
 #: so a `set -o pipefail` setup link is not mistaken for it. Fails toward
