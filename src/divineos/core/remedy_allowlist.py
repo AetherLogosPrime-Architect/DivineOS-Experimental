@@ -87,6 +87,12 @@ REMEDIES: tuple[tuple[str, ...], ...] = (
     # one is ordinary substrate writing and nobody's prescribed exit.
     ("divineos", "prereg", "assess"),
     ("divineos", "prereg", "overdue"),
+    # The overdue block's own third exit: it prints `prereg reviewing` as the way
+    # to go get evidence, and the build-flow gate then asked for council paperwork
+    # that the overdue block itself refused to let be filed. `game-walk file` is
+    # the other half of that paperwork. Neither edits a file.
+    ("divineos", "prereg", "reviewing"),
+    ("divineos", "game-walk", "file"),
     ("divineos", "ask"),
     ("divineos", "recall"),
     ("divineos", "context"),
