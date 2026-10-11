@@ -361,7 +361,13 @@ def test_the_build_gate_control_still_refuses_ordinary_work(build_gate_exempts):
 # How many PreToolUse hook commands settings.json wires when this was written.
 # Adding one makes this fail, which is the point: ask whether the new gate asks
 # the shared list, then change the number.
-_PRE_TOOL_USE_HOOKS_WHEN_WRITTEN = 34
+# 34 -> 33 on 2026-10-11: merging #585 retired the old open-ask hook (moved to
+# archive/superseded) and took its line out of settings.json. A hook was REMOVED, so there
+# is no new gate to ask about the exit list. What it printed as its way out, `ask-resolve`,
+# is still missing from the python list and is owed. A count pins how many hooks exist, not
+# which: a gate swapped for another keeps the number, so this is a tripwire for additions
+# and the survey of printed exits is the real check.
+_PRE_TOOL_USE_HOOKS_WHEN_WRITTEN = 33
 
 
 def _pre_tool_use_hook_count() -> int:
