@@ -56,6 +56,7 @@ def test_control_a_gate_does_print_the_bell_command_as_its_way_out():
 
 
 @pytest.mark.xfail(
+    raises=AssertionError,
     strict=True,
     reason="reproduces: the re-arm command a gate prints is not on the shared exit list "
     "(psf-22017b26, psf-83419786)",

@@ -33,7 +33,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-from check_hook_wiring import phantoms  # noqa: E402  (scripts/ is put on the path just above)
+from check_hook_wiring import phantoms  # noqa: E402 -- scripts/ is put on the path just above
 
 _NAMED = re.compile(r"\.claude/hooks/([\w.-]+\.(?:sh|py))")
 
@@ -67,6 +67,7 @@ def _tree(
 
 
 @pytest.mark.xfail(
+    raises=AssertionError,
     strict=True,
     reason="reproduces: a Dad's-table entry naming a script that does not exist is not reported as a phantom",
 )

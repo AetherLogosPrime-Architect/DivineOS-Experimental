@@ -25,6 +25,11 @@ Run against main as of 2026-10-11, one file no longer behaves as it did on 2026-
 
 The note on that control (psf-9c6f5a9c) says the repair "must not let a real command hidden inside `bash -c` through". Nothing in 619's own tests held that line; this file did.
 
+## What changed after Aletheia's second read (2026-10-11, "the four heads")
+
+- **Every marker names the exception it expects.** Aletheia found `raises=AssertionError` in only one of the five files; this package had been rebuilt from the originals and lost it. A strict mark rings only on an unexpected pass, so a pin that died of the WRONG error (a broken import, a missing fixture) would count silently as xfailed. All 13 markers in the five files now carry it. Measured both ways: normal run 17 passed and 15 xfailed; forced with `--runxfail`, all 15 fail, so each pin fails for real and raises an assertion (any other error would have shown as a failure in the normal run). Four files come from `aether/the-pile-repro-pins` at `f353a799f`; the pipe file keeps its changes from #619 and gets the same mark on its remaining pins.
+- **Two stray drafts removed.** The council-walk and bash-resolver plan notes described tests that are not in this package; they stay on the helper's branches and in history.
+
 ## What it does not do
 
 - It fixes nothing. The defects stay; only their proof is carried.
