@@ -26,6 +26,8 @@ Real store rows, no mock of the judge: a last message three hours old makes `is_
 
 ## Not in this change, said plainly
 
+- **The store is only as complete as the filing hook in each window** (Aria's cold read, 2026-10-11, who checked the store against 56 of her own typed turns: every message of his had a row within two minutes). His words in a window that does not file them, such as Aletheia's web window or a session with the hook not running, never reach it, so two hours spent talking to her would read here as two hours of silence. The one act of his that lands somewhere we read is carrying her letter: a new `aletheia-to-*` file in the shared folder means he was there. That signal is named here and NOT wired tonight; the first time this bites, that is where to look.
+
 - Aletheia's named limit on #585 (`cp`, `mv` and `python -c "open(...).write"` into a letter are not caught) stands; it belongs to that PR's draft.
 - The `AWAY_CUES` phrase list stays as it is. Aletheia says the guessing list of other goodbye phrases "isn't needed" now that silence counts, but removing it is a separate decision and loosening nothing here.
 
