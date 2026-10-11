@@ -24,6 +24,15 @@ def register(cli: click.Group) -> None:
         else:
             click.echo(format_vitals())
 
+        # The plain vitals read only total used and free, so memory held by no program
+        # (a driver leak) reads as normal. This keeps a history and judges the climb.
+        try:
+            from divineos.core.body_memory import memory_sense_report
+
+            click.echo(memory_sense_report())
+        except Exception:  # noqa: BLE001 — a vitals readout must never crash the command
+            pass
+
         # Real context-window fullness (governor step 2, 2026-05-29): the
         # ground-truth fill read from the transcript's per-turn token usage,
         # complementing the proxy-based pre-erasure signal (which admits it
