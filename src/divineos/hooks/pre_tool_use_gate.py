@@ -1438,6 +1438,52 @@ def _is_readonly_probe(cmd: str) -> bool:
     return all(_clause_is_probe(c) for c in clauses)
 
 
+# CLOSED SHAPES, matched whole (Aether, 2026-10-10, from running crafted
+# commands against the first version, which anchored only the START: a newline
+# carried a second command through this hard block, and a redirect or --output
+# wrote a file). Nothing may follow the verb except, for a goal, ONE quoted
+# argument with no newline, no substitution and no escape inside it.
+_BRIEFING_SHAPE = re.compile(r"divineos[ \t]+briefing[ \t]*")
+_GOAL_SHAPE = re.compile(
+    r"""divineos[ \t]+goal[ \t]+add[ \t]+(?:'[^'\n$`]*'|"[^"\n$`\\]*")[ \t]*"""
+)
+
+
+def _is_a_review_prerequisite(cmd: str) -> bool:
+    """True for the few commands any review needs BEFORE it can be done.
+
+    2026-10-10. The date rolled, a review came due, and this block refused
+    ``briefing`` and ``goal add``. The key that opens the build-flow gate needs
+    the day's briefing, and the exit this block names (``prereg reviewing`` /
+    ``assess``) needed that key, so a ring formed with no free link. The
+    engagement gate beside this one already lets the briefing and the seat's own
+    bell through for exactly this reason (the deadlock-fix of 2026-07-18); this
+    block was the one that never got the same exits.
+
+    Narrower than that neighbour on purpose: a LONE clause only. The
+    neighbour tests every segment of a chain, which would let ``briefing && rm``
+    through a hard block. And a goal is allowed only while the goal gate is
+    itself asking for one, so the allowance cannot become a way to keep adding
+    goals while a review is overdue (Aether's point: a pinned test treats
+    ``goal add`` as the work this block exists to stop, and once a goal exists
+    it still is).
+    """
+    if not cmd:
+        return False
+    if _is_doorbell_rearm(cmd):
+        return True
+    stripped = _strip_cd_prefix(cmd).strip()
+    if _has_compound_shape(stripped):
+        return False
+    if _BRIEFING_SHAPE.fullmatch(stripped):
+        return True
+    if not _GOAL_SHAPE.fullmatch(stripped):
+        return False
+    from divineos.core.hud_state import has_session_fresh_goal
+
+    return not has_session_fresh_goal()
+
+
 def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
     """Hard-block substantive tool use when any pre-registration is overdue.
 
@@ -1456,7 +1502,7 @@ def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
     # Looking is not the work this gate means to stop. See
     # _READONLY_PROBE_PREFIXES for the two live cases where blocking a
     # read forced a DEFERRED that had nothing to do with the evidence.
-    if _is_readonly_probe(cmd):
+    if _is_readonly_probe(cmd) or _is_a_review_prerequisite(cmd):
         return None
 
     try:
