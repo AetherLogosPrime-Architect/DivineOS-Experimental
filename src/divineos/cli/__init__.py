@@ -397,6 +397,7 @@ from divineos.cli import (  # noqa: E402
     push_commands,
     push_ready_command,
     stamp_ready_command,
+    ship_command,
     audit_sync_command,
     aletheia_import_command,
     context_tokens_commands,
@@ -514,6 +515,7 @@ letter_seen_commands.register(cli)
 push_commands.register(cli)
 push_ready_command.register(cli)
 stamp_ready_command.register(cli)
+ship_command.register(cli)
 audit_sync_command.register(cli)
 aletheia_import_command.register(cli)
 context_tokens_commands.register(cli)

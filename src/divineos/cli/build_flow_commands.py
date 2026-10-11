@@ -120,11 +120,16 @@ def _dark_surfaces_or_none() -> list[str] | None:
         return None
 
 
-def _walk_postdates_build(branch: str) -> bool | None:
-    """Did any council walk land after the branch's most recent commit?
+def _walk_postdates_build(branch: str, coverage: "Coverage | None" = None) -> bool | None:
+    """Did the walk that covers this branch land after its most recent commit?
 
     Station 6. A walk that predates the last build reviewed a shape that has
     since changed -- the stale-anchor defect, one station earlier.
+
+    When station 2 found a covering walk, that walk's own close time is the
+    answer. Asking "any lens event anywhere in the ledger" read a branch whose
+    covering walk closed an hour after its last commit as stale (Aria, #619).
+    Without a covering walk the old reading stands, unchanged.
     """
     out = _run_git(["log", "-1", "--format=%ct", f"origin/main..{branch}"])
     if out is None or not out.strip():
@@ -137,6 +142,11 @@ def _walk_postdates_build(branch: str) -> bool | None:
         last_commit = float(out.strip())
     except ValueError:
         return None  # both-empty: see above -- unreadable commit time
+
+    if coverage is not None and coverage.state == "covered":
+        # None stays None: a covering walk with no readable close time is
+        # could-not-check, never fresh.
+        return None if coverage.closed_at is None else coverage.closed_at > last_commit
 
     try:
         from divineos.core.ledger import get_events
@@ -892,6 +902,7 @@ def collect(
         need = required_lens_count(gravity, paths)
         st = PrFlowStatus(number=n, branch=branch, gravity=gravity, required_lenses=need)
         walked = _lenses_applied(paths)
+        coverage = _walk_coverage(paths)
         anchor, anchor_detail = _anchor_for(branch, deep, n)
         # The four that always ran, plus the five that never did. Andrew
         # 2026-09-07: "wire station 1, 3, 5, 6 and 9 into the board."
@@ -904,14 +915,19 @@ def collect(
                 need,
                 walked,
                 _other_seat_lenses(paths),
-                coverage=_walk_coverage(paths),
+                coverage=coverage,
             ),
             check_cold_read_station(branch, _LETTERS, _OWNERS),
             check_scope_station(paths, branch),
             check_build_station(paths),
             check_aria_station(branch, _LETTERS, declared_author(pr.get("body"))),
             check_test_station(paths, _dark_surfaces_or_none()),
-            check_more_council_station(branch, walked, need, _walk_postdates_build(branch)),
+            check_more_council_station(
+                branch,
+                coverage.lenses if coverage.state == "covered" else walked,
+                need,
+                _walk_postdates_build(branch, coverage),
+            ),
             check_draft_station(pr.get("isDraft")),
             check_audit_station(
                 n,
