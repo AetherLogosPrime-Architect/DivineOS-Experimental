@@ -241,6 +241,46 @@ def test_two_goals_chained_are_still_refused_on_an_overdue_day():
     assert _check_overdue_prereg_block(f"{_D} goal add 'a' && {_D} goal add 'b'") is not None
 
 
+# -- the review window opener, through BOTH gates ------------------------------
+# 2026-10-11: the overdue block printed `prereg reviewing` as the way to go get
+# evidence, and the build-flow gate then wanted council paperwork that the overdue
+# block would not let be filed. Each gate was tested alone and each was fine.
+
+_HOOK = _REPO / ".claude" / "hooks" / "check-council-required.sh"
+_NL = chr(10)
+_END = "return all(' '.join(seg).startswith(_ARTIFACT_FILING_COMMANDS) for seg in acts)"
+
+
+@pytest.fixture(scope="module")
+def build_gate_exempts():
+    """The REAL function lifted out of the hook, not a copy that drifts."""
+    src = _HOOK.read_text(encoding="utf-8")
+    start = src.rindex(_NL, 0, src.index("_ARTIFACT_FILING_COMMANDS = ("))
+    namespace: dict = {}
+    exec(compile(src[start : src.index(_END) + len(_END)], "hook", "exec"), namespace)
+    return namespace["_is_artifact_filing"]
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"{_D} prereg reviewing prereg-x --purpose 'look at the evidence'",
+        f"{_D} game-walk file --mechanism m --route 'r | costlier | w' --edit e",
+    ],
+)
+def test_the_review_window_exits_pass_both_gates(command, build_gate_exempts):
+    _overdue_review()
+    assert is_remedy(command)
+    assert _check_overdue_prereg_block(command) is None
+    assert build_gate_exempts(command) is True
+
+
+def test_the_build_gate_control_still_refuses_ordinary_work(build_gate_exempts):
+    """CONTROL: the lifted check can say no, so the pass above means something."""
+    assert build_gate_exempts("git commit -qm sneak") is False
+    assert build_gate_exempts(f"{_D} prereg reviewing x && git commit -qm sneak") is False
+
+
 # -- a gate added without a decision about this list ---------------------------
 
 # How many PreToolUse hook commands settings.json wires when this was written.

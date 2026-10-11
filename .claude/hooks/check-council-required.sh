@@ -233,6 +233,11 @@ _ARTIFACT_FILING_COMMANDS = (
     'divineos game-walk file',
     'divineos prereg assess',
     'divineos prereg file',
+    # THIRD WIDENING, 2026-10-11. The overdue block prints prereg reviewing as
+    # its way to go get evidence, and this gate then asked for council paperwork
+    # that the overdue block refused to let me file -- the key locked inside the
+    # door again. Entry bar met: another gate prints it as its exit.
+    'divineos prereg reviewing',
     # SECOND WIDENING, same day, and THAT is the finding rather than the fix.
     # The correction gate prints these three as its own prescribed remedies and
     # this gate refused all three, so a caught mistake could not be written
