@@ -1449,6 +1449,31 @@ _GOAL_SHAPE = re.compile(
 )
 
 
+_GOAL_ADD_ANYWHERE = re.compile(r"\bgoal[ \t]+add\b")
+
+
+def _is_a_shared_remedy(cmd: str) -> bool:
+    """True when some other gate prescribes this command as ITS way out.
+
+    2026-10-11. This block kept its own private list of shapes while the shared
+    one (``core/remedy_allowlist.py``) existed, so five exits were refused here
+    that a gate beside this one prescribes (`his sort`, `his pending`, `psf
+    mark-done`, `andrew-correction integrate`/`defer`). Armed together, the two
+    gates would have locked each other. Measured by test_every_exit_passes_every_gate.
+
+    ONE exception, encoded rather than left to the order of two checks: any line
+    that mentions `goal add` is NOT decided by the shared list, because
+    `goal add 'a' && goal add 'b'` is two remedies to it and 619's rule is that
+    a goal passes only while the goal gate is itself asking
+    (`_is_a_review_prerequisite` holds that condition).
+    """
+    if not cmd or _GOAL_ADD_ANYWHERE.search(cmd):
+        return False
+    from divineos.core.remedy_allowlist import is_remedy
+
+    return is_remedy(cmd)
+
+
 def _is_a_review_prerequisite(cmd: str) -> bool:
     """True for the few commands any review needs BEFORE it can be done.
 
@@ -1502,7 +1527,7 @@ def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
     # Looking is not the work this gate means to stop. See
     # _READONLY_PROBE_PREFIXES for the two live cases where blocking a
     # read forced a DEFERRED that had nothing to do with the evidence.
-    if _is_readonly_probe(cmd) or _is_a_review_prerequisite(cmd):
+    if _is_readonly_probe(cmd) or _is_a_review_prerequisite(cmd) or _is_a_shared_remedy(cmd):
         return None
 
     try:
