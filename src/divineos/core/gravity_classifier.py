@@ -304,7 +304,12 @@ def _runs_divineos_verb(command: str, verbs: tuple[str, ...]) -> bool:
     Help is judged per segment: asking one segment for help does not excuse a
     different segment that runs a verb.
     """
-    from divineos.core.command_parsing import split_shell_segments, strip_command_prefixes
+    from divineos.core.command_parsing import (
+        shell_command_body,
+        shell_command_is_unplaced,
+        split_shell_segments,
+        strip_command_prefixes,
+    )
 
     whole = _without_heredoc_bodies(command)
     segments = split_shell_segments(whole)
@@ -314,6 +319,17 @@ def _runs_divineos_verb(command: str, verbs: tuple[str, ...]) -> bool:
         tokens = [t.lower() for t in strip_command_prefixes(segment)]
         while tokens and tokens[0] == "sudo":
             tokens = tokens[1:]
+        # A shell told to run a string runs that string: judge it as the plain form.
+        # (#619 read each head, so `bash -c "divineos ..."` showed only `bash`.)
+        body = shell_command_body(tokens)
+        if body is not None and _runs_divineos_verb(body, verbs):
+            return True
+        # A `-c` the reader could not reach (a token before it was not placeable) is
+        # unsure, and unsure falls toward firing, like the unreadable-line case above.
+        if shell_command_is_unplaced(tokens) and re.search(
+            r"\bdivineos\s+(" + "|".join(verbs) + r")\b", command
+        ):
+            return True
         if len(tokens) >= 2 and tokens[0] in ("python", "python3", "py") and tokens[1] == "-m":
             tokens = tokens[2:]
         if len(tokens) < 2:

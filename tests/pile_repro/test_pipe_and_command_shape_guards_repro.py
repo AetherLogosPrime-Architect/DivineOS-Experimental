@@ -298,21 +298,12 @@ def test_control_a_read_only_pipe_still_gets_a_warning(tmp_path):
     assert "additionalContext" in decision and not _denied(decision)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "reproduces a regression from #619: reading each segment's head means a real "
-        "command inside a quoted bash -c string is not seen, so it skips the council gate"
-    ),
-)
 def test_control_a_real_command_hidden_in_bash_dash_c_is_still_caught():
-    """Control, now a reproduction: the classifier must still catch a write run
-    through ``bash -c``, which a repair for quoted words must not let through.
-    It passed while the classifier read raw text and FAILS on main since #619
-    (checked 2026-10-11): ``bash -c "divineos prereg file x --claim y"`` scores
-    zero. The mark comes off in the change that reads the quoted string as a
-    command.
+    """Control: the classifier must still catch a write run through ``bash -c``,
+    which a repair for quoted words must not let through. It passed while the
+    classifier read raw text, failed on main after #619 (checked 2026-10-11:
+    ``bash -c "divineos prereg file x --claim y"`` scored zero), and passes again
+    now that a shell's quoted string is read as a command.
 
     Rows: psf-9c6f5a9c
     Note (psf-9c6f5a9c): "the scorer should judge a command being run and not the words inside a quoted block, without letting a real command hidden inside `bash -c` through. Aria is taking it with the shared segment reader, a"
