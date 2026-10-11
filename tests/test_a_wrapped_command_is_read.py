@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from divineos.core.command_parsing import shell_command_body
+from divineos.core.command_parsing import shell_command_body, shell_command_is_unplaced
 from divineos.core.gravity_classifier import score_substrate_modification
 
 WRITE = "divineos prereg file x --claim y"
@@ -47,6 +47,12 @@ def _fires(command: str) -> bool:
         f'bash --init-file rc.sh -c "{WRITE}"',
         f'bash --rcfile=rc.sh -c "{WRITE}"',
         f'bash -e -o pipefail -c "{WRITE}"',
+        # Aletheia's second read (2026-10-11): the plus forms, and a shape nobody listed.
+        f'bash +o pipefail -c "{WRITE}"',
+        f'bash +O extglob -c "{WRITE}"',
+        f'bash -O nullglob -O extglob -c "{WRITE}"',
+        f'bash --posix --not-an-option-we-know arg -c "{WRITE}"',
+        f'bash somefile -c "{WRITE}"',
         f'env bash -c "{WRITE}"',
         f'exec bash -c "{WRITE}"',
         f'nohup bash -c "{WRITE}"',
@@ -77,6 +83,8 @@ def test_a_real_write_inside_a_shell_string_fires_as_the_plain_form_does(command
         'bash -c "divineos audit list"',  # wrapped look
         f'bash -c "{WRITE} --help"',  # wrapped help
         'bash -c "git status"',  # wrapped, unrelated
+        'bash script.sh -c "just words"',  # unplaced, but nothing divineos-shaped to fire on
+        'bash +o pipefail -c "echo hello"',  # placed or not, the string is not a write
         "bash script.sh",  # a shell with no -c
         "bash -x script.sh",  # a flag that is not -c
         'git log --grep "divineos prereg"',  # words in a search pattern
@@ -102,6 +110,9 @@ def test_an_unreadable_shell_string_falls_toward_firing():
         (["bash", "-O", "extglob", "-c", "ls"], "ls"),
         (["bash", "--rcfile", "rc.sh", "-c", "ls"], "ls"),
         (["bash", "--init-file", "rc.sh", "-c", "ls"], "ls"),
+        (["bash", "+o", "pipefail", "-c", "ls"], "ls"),
+        (["bash", "+O", "extglob", "-c", "ls"], "ls"),
+        (["bash", "+x", "-c", "ls"], "ls"),
         (["bash", "-o", "pipefail", "script.sh"], None),
         (["bash", "-o"], None),
         (["/usr/bin/zsh", "-ic", "ls"], "ls"),
@@ -115,3 +126,22 @@ def test_an_unreadable_shell_string_falls_toward_firing():
 )
 def test_the_shared_helper_names_the_body_a_shell_is_told_to_run(tokens, expected):
     assert shell_command_body(tokens) == expected
+
+
+@pytest.mark.parametrize(
+    ("tokens", "expected"),
+    [
+        (["bash", "--posix", "--mystery", "arg", "-c", "ls"], True),
+        (["bash", "somefile", "-c", "ls"], True),
+        (["bash", "-c", "ls"], False),  # placed: not unplaced
+        (["bash", "-o", "pipefail", "-c", "ls"], False),
+        (["bash", "script.sh"], False),  # no -c anywhere: nothing to be unsure about
+        (["bash", "-x", "script.sh"], False),
+        (["python", "somefile", "-c", "ls"], False),  # not a shell
+        ([], False),
+    ],
+)
+def test_a_shell_string_whose_place_cannot_be_found_is_named_as_such(tokens, expected):
+    """Aletheia: when a shell is given -c and a token before it cannot be placed, the line is
+    heavy. The helper cannot return a body it could not find, so it says it was unsure."""
+    assert shell_command_is_unplaced(tokens) is expected

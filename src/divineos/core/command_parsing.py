@@ -408,9 +408,49 @@ _SEGMENT_SEPARATORS = ("&&", "||", "|", ";", "&", "\n")
 _SHELL_PROGRAMS = frozenset({"bash", "sh", "zsh", "dash", "ksh"})
 # Options that take the NEXT word as their argument, so that word is not the command.
 # Aria's cold read of 623 (2026-10-11): `bash -o pipefail -c "..."` is a common script line.
-_SHELL_OPTIONS_WITH_ARGUMENT = frozenset({"-o", "-O", "--rcfile", "--init-file"})
+_SHELL_OPTIONS_WITH_ARGUMENT = frozenset({"-o", "-O", "+o", "+O", "--rcfile", "--init-file"})
 # Words that run the shell after them unchanged.
 _TRANSPARENT_PREFIXES = frozenset({"exec", "nohup", "command", "builtin", "time"})
+
+
+def _program_name(token: str) -> str:
+    name = token.replace("\\", "/").rsplit("/", 1)[-1].rsplit(":", 1)[-1]
+    return name.lower().removesuffix(".exe")
+
+
+def _after_prefixes(tokens: list[str]) -> list[str]:
+    while tokens and _program_name(tokens[0]) in _TRANSPARENT_PREFIXES:
+        tokens = tokens[1:]
+    return tokens
+
+
+def _is_c_flag(token: str) -> bool:
+    return token.startswith("-") and not token.startswith("--") and "c" in token[1:]
+
+
+def _scan_shell(tokens: list[str]) -> tuple[str | None, bool]:
+    """(the string the shell is told to run, whether a ``-c`` was seen but never reached).
+
+    The second value is the heavy case. A table of options that take an argument can
+    never be complete (Aletheia, 2026-10-11: the ``+o`` forms were missing the day after
+    ``-o`` was added), so when a token before the ``-c`` cannot be placed the answer is
+    not "nothing found" but "unsure", and the caller falls toward firing.
+    """
+    tokens = _after_prefixes(tokens)
+    if not tokens or _program_name(tokens[0]) not in _SHELL_PROGRAMS:
+        return None, False
+    index = 1
+    while index < len(tokens):
+        token = tokens[index]
+        if token[:1] not in ("-", "+"):
+            return None, any(_is_c_flag(t) for t in tokens[index + 1 :])
+        if token in _SHELL_OPTIONS_WITH_ARGUMENT:
+            index += 2  # the option and the word it consumes, e.g. `-o pipefail`
+            continue
+        if _is_c_flag(token):
+            return (tokens[index + 1] if index + 1 < len(tokens) else None), False
+        index += 1
+    return None, False
 
 
 def shell_command_body(tokens: list[str]) -> str | None:
@@ -423,28 +463,19 @@ def shell_command_body(tokens: list[str]) -> str | None:
     same way it judges the plain form. ``None`` for a shell running a script file,
     for ``-c`` with nothing after it, and for anything that is not a shell.
     """
-    if not tokens:
-        return None
-    program = tokens[0].replace("\\", "/").rsplit("/", 1)[-1].rsplit(":", 1)[-1]
-    program = program.lower().removesuffix(".exe")
-    if program == "eval":
+    tokens = _after_prefixes(tokens)
+    if tokens and _program_name(tokens[0]) == "eval":
         return " ".join(tokens[1:]) if len(tokens) > 1 else None
-    if program in _TRANSPARENT_PREFIXES:
-        return shell_command_body(tokens[1:])
-    if program not in _SHELL_PROGRAMS:
-        return None
-    index = 1
-    while index < len(tokens):
-        token = tokens[index]
-        if not token.startswith("-"):
-            return None
-        if token in _SHELL_OPTIONS_WITH_ARGUMENT:
-            index += 2  # the option and the word it consumes, e.g. `-o pipefail`
-            continue
-        if not token.startswith("--") and "c" in token[1:]:
-            return tokens[index + 1] if index + 1 < len(tokens) else None
-        index += 1
-    return None
+    return _scan_shell(tokens)[0]
+
+
+def shell_command_is_unplaced(tokens: list[str]) -> bool:
+    """True when a shell was given ``-c`` but a token before it could not be placed.
+
+    Then ``shell_command_body`` has nothing to return, and that must not read as
+    "no command here": the caller treats the line as heavy.
+    """
+    return _scan_shell(tokens)[1]
 
 
 def split_shell_segments(bash_command: str) -> list[str] | None:
