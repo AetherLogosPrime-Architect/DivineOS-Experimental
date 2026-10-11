@@ -1467,10 +1467,13 @@ def _is_a_shared_remedy(cmd: str) -> bool:
     a goal passes only while the goal gate is itself asking
     (`_is_a_review_prerequisite` holds that condition).
     """
-    if not cmd or _GOAL_ADD_ANYWHERE.search(cmd):
-        return False
-    from divineos.core.remedy_allowlist import is_remedy
+    from divineos.core.remedy_allowlist import is_remedy, outside_quotes
 
+    # Outside quoted spans: a lesson that merely MENTIONS `goal add` is data, not
+    # a second goal (Aether, 2026-10-11). The helper scans the text whole when
+    # blanking would be unsafe, so a real chained goal add is still caught.
+    if not cmd or _GOAL_ADD_ANYWHERE.search(outside_quotes(cmd)):
+        return False
     return is_remedy(cmd)
 
 
