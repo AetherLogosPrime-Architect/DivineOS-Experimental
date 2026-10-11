@@ -53,7 +53,7 @@ HEADER = (
 
 
 def run_in(repo: Path, home: Path) -> tuple[int, str, str]:
-    env = dict(os.environ, HOME=str(home), USERPROFILE=str(home), PYTHONPATH=str(REPO / "src"))
+    env = dict(os.environ, HOME=str(home), USERPROFILE=str(home), PYTHONPATH=str(repo / "src"))
     done = subprocess.run(
         [BASH, str(SCRIPT)], input="{}", capture_output=True, text=True, cwd=str(repo),
         env=env, timeout=120, check=False,
@@ -68,7 +68,12 @@ def scratch_repo(tmp_path: Path, sheet_text: str | None) -> Path:
     hooks = repo / ".claude" / "hooks"
     hooks.mkdir(parents=True)
     shutil.copy(REPO / ".claude" / "hooks" / "_lib.sh", hooks / "_lib.sh")
-    os.symlink(REPO / "src", repo / "src")
+    # _lib.sh accepts a python only if the divineos it can see lives under THIS repo's src.
+    # A stand-in package here satisfies that without a link out of the sandbox (a link to
+    # the real src is the shape the house's link check refuses); the script itself only
+    # uses the standard library.
+    (repo / "src" / "divineos").mkdir(parents=True)
+    (repo / "src" / "divineos" / "__init__.py").write_text("", encoding="utf-8")
     if sheet_text is not None:
         (repo / SHEET).parent.mkdir(parents=True)
         (repo / SHEET).write_text(sheet_text, encoding="utf-8")
