@@ -260,10 +260,16 @@ def test_the_seats_own_bell_can_be_turned_on_while_a_review_is_overdue(monkeypat
 @pytest.mark.parametrize(
     "command",
     [
-        f"{_D} learn 'a lesson'",
+        # 2026-10-11: `learn 'a lesson'` and `briefing; learn x` moved OUT of this
+        # list on purpose. The block now asks the shared exit list
+        # (core/remedy_allowlist.py), which prescribes learn as the correction
+        # gate's way out, and Aether agreed (letter 2026-10-11, Question 2): two
+        # recording remedies pass together. Replaced by commands that are still not
+        # an exit, so these rows keep refusing something.
+        f"{_D} claim 'a claim'",
         f"{_D} goal complete 1",
         f"{_D} briefing && rm -rf build",
-        f"{_D} briefing; {_D} learn x",
+        f"{_D} briefing; rm -rf build",
         f"{_D} goal add x | tee out.txt",
         "echo hello",
     ],

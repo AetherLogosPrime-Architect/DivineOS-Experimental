@@ -63,6 +63,7 @@ gate are here.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 #: Command prefixes, as token tuples, that some gate names as its way out.
@@ -90,7 +91,24 @@ REMEDIES: tuple[tuple[str, ...], ...] = (
     ("divineos", "recall"),
     ("divineos", "context"),
     ("divineos", "decide"),
-    ("divineos", "council"),
+    # council is a GROUP: a bare ("divineos", "council") prefix also matched
+    # `authorize-bypass` and `emergency-skip`, so the fire door was a routine
+    # remedy every gate asking this list let through (Aether found it 2026-10-11
+    # and the matrix test in test_every_exit_passes_every_gate.py measures it). The
+    # emergency exits stay reachable by their own route; these are the walk's own.
+    ("divineos", "council", "log"),
+    ("divineos", "council", "walk"),
+    ("divineos", "council", "show"),
+    ("divineos", "council", "recent"),
+    ("divineos", "council", "check"),
+    # The merge path prescribes these, and filing a review round otherwise owed a
+    # fresh council walk per command. They record and edit nothing. `submit` and
+    # `file-external-confirm` carry a condition, below: a line in Dad's voice is not
+    # a remedy.
+    ("divineos", "audit", "submit-round"),
+    ("divineos", "audit", "prepare-merge"),
+    ("divineos", "audit", "submit"),
+    ("divineos", "audit", "file-external-confirm"),
     ("divineos", "psf", "mark-done"),
     # The sort-first refusal's way out (core/sort_first.py): reading what Dad
     # said and sorting it. The sort records a judgement; it edits nothing.
@@ -103,6 +121,17 @@ REMEDIES: tuple[tuple[str, ...], ...] = (
 #: anti-deadlock measure and become a way around the gates.
 FORBIDDEN_HEADS: frozenset[str] = frozenset(
     {"git", "gh", "pytest", "rm", "mv", "cp", "python", "bash", "sh", "npm", "pip"}
+)
+
+#: --actor user, in the spellings a person types: spaced, equals, quoted.
+_IN_HIS_VOICE = re.compile(r"""--actor(?:[ \t]+|=)['"]?user['"]?(?=[ \t'"]|$)""")
+_AUDIT_FILING = re.compile(r"\baudit[ \t]+(?:submit|file-external-confirm)\b")
+#: An output option (--output, --out, -o...) on the DIVINEOS command itself: it
+#: writes a file wherever it is pointed. Looked for only AFTER the program name,
+#: so a `set -o pipefail` setup link is not mistaken for it. Fails toward
+#: not-a-remedy.
+_WRITES_WHERE_TOLD = re.compile(
+    r"divineos\b[^;&|\n]*?[ \t](?:--out(?:put)?(?:[ \t=]|$)|-o(?:[ \t=]|\S|$))"
 )
 
 _LOG = Path.home() / ".divineos" / "remedy_passthrough.log"
@@ -123,6 +152,18 @@ def is_remedy(command: str) -> bool:
     positive would wave something past a gate that meant to stop it.
     """
     if not command or not command.strip():
+        return False
+    # A finding filed with --actor user is DAD's confirm. The pause before words
+    # are put in his voice is one of the few worth keeping, so it is not a
+    # remedy (Aether 2026-10-11). Checked on the whole text and failing toward
+    # not-a-remedy: a spelling this misses still reaches the gate it came from.
+    if _IN_HIS_VOICE.search(command) and _AUDIT_FILING.search(command):
+        return False
+    # A remedy that writes where it is told is not a remedy: `briefing --output
+    # x.md` is a file write wearing a recording command's name (Aletheia attacked
+    # this shape on 619; the shared list took any arguments, so asking it first
+    # brought the hole back, found by that PR's own closed-shape test).
+    if _WRITES_WHERE_TOLD.search(command):
         return False
     try:
         from divineos.core.command_parsing import runs_only
