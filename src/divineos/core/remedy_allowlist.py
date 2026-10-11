@@ -129,17 +129,19 @@ FORBIDDEN_HEADS: frozenset[str] = frozenset(
     {"git", "gh", "pytest", "rm", "mv", "cp", "python", "bash", "sh", "npm", "pip"}
 )
 
-#: --actor user, in the spellings a person types: spaced, equals, quoted.
 #: The actors a filing may name and still be a remedy, as a CLOSED list of
 #: literals. The first version blocked `--actor user` and let everything else
 #: through, so a spelling it missed (a capital, a variable, split quotes, no actor
 #: at all) filed in Dad's voice with no pause (Aether's hold, 2026-10-11). Now a
 #: miss fails toward the pause: anything not literally named here is not a remedy.
 #: A real new actor is added here by name, which is the only place to do it.
-_NAMED_ACTOR = re.compile(
-    r"--actor(?:[ \t]+|=)(?:aletheia|aria|aether|grok|gemini|claude-[a-z0-9.-]+)(?=[ \t]|$)"
-)
-_AUDIT_FILING = re.compile(r"\baudit[ \t]+(?:submit|file-external-confirm)\b")
+_NAMED_ACTORS = frozenset({"aletheia", "aria", "aether", "grok", "gemini"})
+_CLAUDE_ACTOR = re.compile(r"claude-[a-z0-9.-]+")
+#: The commands that put words in somebody's voice. Matched as TOKENS, from the
+#: same parsed chain the remedy match reads, never as text: a regex over the raw
+#: line missed `audit "submit"` while the parser saw `submit` (Aether's second
+#: hold on this branch, 2026-10-11), two readers of one line.
+_VOICED_FILINGS = (("divineos", "audit", "submit"), ("divineos", "audit", "file-external-confirm"))
 #: An output option (--output, --out, -o...) on the DIVINEOS command itself: it
 #: writes a file wherever it is pointed. Looked for only AFTER the program name,
 #: so a `set -o pipefail` setup link is not mistaken for it. Fails toward
@@ -149,6 +151,29 @@ _WRITES_WHERE_TOLD = re.compile(
 )
 
 _LOG = Path.home() / ".divineos" / "remedy_passthrough.log"
+
+
+def _no_voiced_filing_lacks_a_closed_actor(command: str) -> bool:
+    """False when some link is a filing in somebody's voice that does not name exactly
+    one actor from the closed list; True otherwise, including for a line with no such
+    link. Reads the SAME parsed chain links ``runs_only`` reads, so the question "is
+    this a filing" and the question "is this on the exit list" cannot disagree about
+    what the line says. An unreadable line returns True here because ``runs_only``
+    refuses it anyway."""
+    from divineos.core.command_parsing import _chain_links
+
+    for link in _chain_links(command) or []:
+        if tuple(link[:3]) not in _VOICED_FILINGS:
+            continue
+        named: list[str] = []
+        for index, token in enumerate(link[3:], start=3):
+            if token == "--actor":
+                named.append(link[index + 1] if index + 1 < len(link) else "")
+            elif token.startswith("--actor="):
+                named.append(token[len("--actor=") :])
+        if len(named) != 1 or not (named[0] in _NAMED_ACTORS or _CLAUDE_ACTOR.fullmatch(named[0])):
+            return False
+    return True
 
 
 def outside_quotes(command: str) -> str:
@@ -187,11 +212,10 @@ def is_remedy(command: str) -> bool:
     # 2026-10-11). So an audit filing is a remedy only when it carries exactly ONE
     # --actor and it is a literal from the closed list. Anything else (a capital, a
     # variable, split quotes, no actor, or a second --actor that would win) is NOT
-    # a remedy, so a spelling this misses FAILS TOWARD THE PAUSE. The first version
-    # blocked `user` and let the rest through, which was the other direction.
-    if _AUDIT_FILING.search(command) and not (
-        len(re.findall(r"--actor\b", command)) == 1 and _NAMED_ACTOR.search(command)
-    ):
+    # a remedy, so a spelling this misses FAILS TOWARD THE PAUSE. Decided from the
+    # parsed chain links, the same ones the match below reads: a text pattern here
+    # saw `audit "submit"` as nothing while the parser saw a filing.
+    if not _no_voiced_filing_lacks_a_closed_actor(command):
         return False
     # A remedy that writes where it is told is not a remedy: `briefing --output
     # x.md` is a file write wearing a recording command's name (Aletheia attacked
