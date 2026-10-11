@@ -250,6 +250,9 @@ def test_two_goals_chained_are_still_refused_on_an_overdue_day():
 _FILINGS = (
     ["audit", "submit", "x", "--round", "r", "--severity", "info", "--category", "integrity"],
     ["audit", "file-external-confirm", "r", "--branch", "b"],
+    # Aether's find at 16753f8bb: a round names the real reviewer, and a user-named
+    # round is what a later user confirm leans on. --actor is required by this command.
+    ["audit", "submit-round", "focus", "--no-source-ref"],
 )
 
 
