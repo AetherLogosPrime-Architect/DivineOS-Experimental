@@ -406,6 +406,11 @@ _SEGMENT_SEPARATORS = ("&&", "||", "|", ";", "&", "\n")
 
 
 _SHELL_PROGRAMS = frozenset({"bash", "sh", "zsh", "dash", "ksh"})
+# Options that take the NEXT word as their argument, so that word is not the command.
+# Aria's cold read of 623 (2026-10-11): `bash -o pipefail -c "..."` is a common script line.
+_SHELL_OPTIONS_WITH_ARGUMENT = frozenset({"-o", "-O", "--rcfile", "--init-file"})
+# Words that run the shell after them unchanged.
+_TRANSPARENT_PREFIXES = frozenset({"exec", "nohup", "command", "builtin", "time"})
 
 
 def shell_command_body(tokens: list[str]) -> str | None:
@@ -424,13 +429,21 @@ def shell_command_body(tokens: list[str]) -> str | None:
     program = program.lower().removesuffix(".exe")
     if program == "eval":
         return " ".join(tokens[1:]) if len(tokens) > 1 else None
+    if program in _TRANSPARENT_PREFIXES:
+        return shell_command_body(tokens[1:])
     if program not in _SHELL_PROGRAMS:
         return None
-    for index, token in enumerate(tokens[1:], start=1):
+    index = 1
+    while index < len(tokens):
+        token = tokens[index]
         if not token.startswith("-"):
             return None
+        if token in _SHELL_OPTIONS_WITH_ARGUMENT:
+            index += 2  # the option and the word it consumes, e.g. `-o pipefail`
+            continue
         if not token.startswith("--") and "c" in token[1:]:
             return tokens[index + 1] if index + 1 < len(tokens) else None
+        index += 1
     return None
 
 

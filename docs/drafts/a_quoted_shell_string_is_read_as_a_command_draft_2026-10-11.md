@@ -24,6 +24,7 @@ Found by the cloud helper's control test (written 2026-10-08, psf-9c6f5a9c: the 
 
 - Other wrappers (`xargs`, `find -exec`, `timeout`) are not read; the family names `eval` and the shells only. If a test finds one, that is the next change.
 - `full_suite_by_hand`'s private shell list is unchanged.
+- Aria's cold read (2026-10-11) found `bash -o pipefail -c "..."` returned nothing. The helper now skips the options that take an argument (`-o`, `-O`, `--rcfile`, `--init-file`) and reads through `exec`, `nohup`, `command`, `builtin` and `time`; her four shapes are tests, red first. An option NOT in that table before `-c` (a newer bash option) still makes the helper return nothing: a stated limit, because falling toward firing on every unknown dash option would fire on `bash -x script.sh`. `powershell -Command`, `pwsh -c` and `cmd /c` are not read either; whether the gate sees them depends on the tool a line arrives through.
 - An UNQUOTED Windows backslash path to the shell (`C:\Git\bin\bash.exe -c "..."`) is mangled by the shared tokenizer before this helper sees it (`C:Gitbinbash.exe`), so it is not read. The quoted form and the forward-slash form are, and are tested. Fixing the tokenizer is a different change.
 
 ## Falsifier (an event)
