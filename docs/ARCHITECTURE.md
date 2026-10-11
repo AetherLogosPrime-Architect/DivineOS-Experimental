@@ -762,6 +762,7 @@ src/divineos/
     door_report.py             The front door's report on itself, counted from what ARRIVED.
     ship_steps.py              The checks `divineos ship` runs in order, each one a yes or a named no.
     git_hooks_drift.py         Do the installed git hooks still say what setup/setup-hooks.sh would write?
+    body_memory.py             Memory sense: the body feels memory held by no program, and remembers the climb.
 
   analysis/
     _session_types.py          Session analysis type definitions
