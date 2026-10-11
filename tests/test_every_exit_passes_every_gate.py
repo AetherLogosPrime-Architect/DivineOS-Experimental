@@ -241,6 +241,78 @@ def test_two_goals_chained_are_still_refused_on_an_overdue_day():
     assert _check_overdue_prereg_block(f"{_D} goal add 'a' && {_D} goal add 'b'") is not None
 
 
+# -- a filing in Dad's voice, however its words are quoted ---------------------
+# Aether's hold on 621 (2026-10-11): `audit "submit" ... --actor user` was a remedy. The
+# decision to look at the actor was made by a regex over the RAW text, which `"submit"`
+# slipped past, while the remedy match read the PARSED tokens, which see `submit`. Two
+# readers of one line. The family below generates the disagreement instead of listing it.
+
+_FILINGS = (
+    ["audit", "submit", "x", "--round", "r", "--severity", "info", "--category", "integrity"],
+    ["audit", "file-external-confirm", "r", "--branch", "b"],
+)
+
+
+def _spellings(words: list[str]):
+    """Every way a person (or a script) can quote or split one word of the command and
+    still have the shell run the same thing, plus an env prefix and a bare-word form."""
+    yield " ".join(words)
+    yield "FOO=1 " + " ".join(words)
+    for i, word in enumerate(words):
+        for dressed in (f'"{word}"', f"'{word}'", word[:1] + '""' + word[1:]):
+            yield " ".join([*words[:i], dressed, *words[i + 1 :]])
+
+
+def _variants(actor_words: list[str]):
+    for filing in _FILINGS:
+        for tail in (actor_words, [actor_words[0] + "=" + actor_words[1]]):
+            for command in _spellings([_D, *filing, *tail]):
+                yield command
+
+
+_USER_FILINGS = sorted(set(_variants(["--actor", "user"])))
+_NAMED_FILINGS = sorted(set(_variants(["--actor", "aletheia"])))
+
+
+def test_the_family_is_big_enough_to_mean_something():
+    assert len(_USER_FILINGS) > 100 and len(_NAMED_FILINGS) > 100
+
+
+def test_the_audit_quoted_second_word_hold_reproduces_verbatim():
+    assert not is_remedy(
+        f'{_D} audit "submit" x --round r --actor user --severity info --category integrity -d d'
+    )
+
+
+@pytest.mark.parametrize("command", _USER_FILINGS)
+def test_no_spelling_of_a_filing_in_dads_voice_is_a_remedy(command):
+    assert not is_remedy(command), command
+
+
+@pytest.mark.parametrize("command", _NAMED_FILINGS)
+def test_the_same_spellings_naming_a_closed_list_actor_still_are(command):
+    """The positive control, and not a formality: a list that refused every filing would
+    pass the test above, and a refused merge path is the deadlock this branch is about."""
+    assert is_remedy(command), command
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"{_D} audit submit x --round r --actor aletheia --actor user",
+        f"{_D} audit submit x --round r --actor user --actor aletheia",
+        f"{_D} audit submit x --round r --actor User",
+        f"{_D} audit submit x --round r",
+        f'{_D} audit "submit" x --round r',
+        f"{_D} audit \\\nsubmit x --round r --actor user",
+        f'{_D} audit submit x --round r "--actor" user',
+        f"FOO=1 {_D} audit submit x --round r --actor user",
+    ],
+)
+def test_a_second_actor_a_capital_a_missing_actor_or_a_continuation_keeps_the_pause(command):
+    assert not is_remedy(command)
+
+
 # -- the review window opener, through BOTH gates ------------------------------
 # 2026-10-11: the overdue block printed `prereg reviewing` as the way to go get
 # evidence, and the build-flow gate then wanted council paperwork that the overdue
