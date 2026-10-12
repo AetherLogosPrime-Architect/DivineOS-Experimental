@@ -1218,7 +1218,9 @@ def check_more_council_station(
         "6-more-council",
         Status.MISSING,
         "every walk predates the last build commit -- the lenses reviewed a shape "
-        "that has since changed",
+        "that has since changed. Close the walk from inside the work copy "
+        "(walk close --repo <work copy>); closed from the main checkout it stays "
+        "unbound and reads the weaker, clock way",
     )
 
 
