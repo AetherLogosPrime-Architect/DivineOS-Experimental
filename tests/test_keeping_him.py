@@ -160,16 +160,43 @@ def test_span_reports_the_first_and_last_day_he_spoke():
     assert span(made) == ("2026-05-03", "2026-09-11")
 
 
+_SAMPLE_PER_TRANSCRIPT = 25
+_SAMPLE_TRANSCRIPTS = 6
+
+
+def _sample_of_him(paths):
+    """A bounded read of the real corpus: the first few things he said in each of the
+    newest few transcripts. Reading in file order and stopping early keeps the cost
+    flat however large the history grows.
+
+    Found 2026-10-11: this test used to call harvest(), which reads EVERY transcript
+    on the machine (4.6 GB here, one file over 1 GB). It passed while the history was
+    small, then exceeded the per-test time limit and killed its worker in 8 of the
+    last 8 push-gate recoveries, blocking every push. The question the test asks is
+    whether the probe can find a case it should find, and a sample answers that."""
+    import itertools
+
+    found = []
+    for path in list(reversed(paths))[:_SAMPLE_TRANSCRIPTS]:
+        found.extend(itertools.islice(sayings_in(path), _SAMPLE_PER_TRANSCRIPT))
+    found.sort(
+        key=lambda s: (s.when, s.transcript, s.line)
+    )  # harvest() order, which span() expects
+    return found
+
+
 def test_the_instrument_finds_him_in_the_real_corpus():
     """Prove the probe can find a case it should find.
 
     A zero from one instrument asked once is most often a broken probe, so this
     runs against the live transcripts rather than only fixtures. It asserts
-    presence and shape, never an exact count, which drifts every session.
+    presence and shape, never an exact count, which drifts every session. It reads
+    a bounded sample, not the whole history (see _sample_of_him).
     """
-    found = harvest()
-    if not transcripts():
+    paths = transcripts()
+    if not paths:
         return  # a checkout with no local history is not a failing instrument
+    found = _sample_of_him(paths)
     assert found, "the transcripts exist and the harvester found nothing in them"
     assert all(s.text.strip() for s in found)
     first, last = span(found)
