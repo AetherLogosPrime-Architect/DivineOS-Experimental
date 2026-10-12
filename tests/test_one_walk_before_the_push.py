@@ -109,7 +109,9 @@ def test_the_target_folder_is_read_from_the_call_not_the_hook(repo, tmp_path):
     assert pc.target_dir((str(repo / "new" / "deep.py"),), "", other) == repo
     # Forward slashes, as the shell here is given. An unquoted backslash path is eaten by the
     # tokenizer (a stated limit), and that case lands on None, which is the strict direction.
-    here = repo.as_posix()
+    # Quoted, as a real shell needs when the path has a space (both real checkouts live
+    # under "C:/DIVINE OS/"; Aria found this test passing only where the path had none).
+    here = f'"{repo.as_posix()}"'
     assert pc.target_dir((), f"cd {here} && git commit -qm x", other) == repo
     assert pc.target_dir((), f"git -C {here} commit -qm x", other) == repo
     assert pc.target_dir((), f"cd {here} && cd sub && git commit -qm x", other) == sub
