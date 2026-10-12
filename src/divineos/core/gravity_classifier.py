@@ -717,10 +717,13 @@ def score_substrate_modification(
         if guardrail_match:
             fired.append("edit-guardrail")
 
-    # Feature 4: substrate-write CLI
-    if tool == "Bash" and _runs_divineos_verb(
-        cmd, ("audit", "claim", "learn", "prereg", "decide", "feel", "compass-ops", "journal")
-    ):
+    # Feature 4: substrate-write CLI. These file into stores other gates and other people
+    # read, or that a gate accepts as proof (decide is a walk-record for the
+    # verify-before-build gate, so a free decide would be its cheap way through). My own
+    # records of myself (journal, feel, compass-ops) are NOT here: they are not edits of the
+    # house and nothing trusts them as evidence (Dad, 2026-10-12: the savoring is the
+    # paperwork). If one of them later feeds a store a gate trusts, it goes back by name.
+    if tool == "Bash" and _runs_divineos_verb(cmd, ("audit", "claim", "learn", "prereg", "decide")):
         fired.append("substrate-write-cli")
 
     # Feature 5: kiln-layer edit

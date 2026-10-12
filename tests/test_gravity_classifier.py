@@ -55,15 +55,23 @@ class TestSubstrateModificationFeatures:
         assert "edit-guardrail" in r.fired_features
 
     def test_substrate_write_cli_fires(self):
-        for sub in ("audit", "claim", "learn", "prereg", "decide", "feel", "journal"):
+        for sub in ("audit", "claim", "learn", "prereg", "decide"):
             r = score_substrate_modification("Bash", bash_command=f"divineos {sub} x")
             assert "substrate-write-cli" in r.fired_features, sub
 
-    def test_compass_ops_fires_substrate_write(self):
-        r = score_substrate_modification(
-            "Bash", bash_command="divineos compass-ops observe initiative -p 0.1 -e x"
-        )
-        assert "substrate-write-cli" in r.fired_features
+    def test_my_own_records_are_not_substrate_writes(self):
+        """Dad, 2026-10-12: the rest program's journal step asked for a full council walk,
+        and the compaction ritual's compass stage did too. `journal`, `feel` and
+        `compass-ops` are my records of myself, not edits of the house; nothing trusts
+        them as proof. `decide` is NOT in this set: another gate accepts it as a
+        walk-record, so a free `decide` would be the cheap way past that gate."""
+        for command in (
+            "divineos journal save t c",
+            "divineos feel -v 0.5 -a 0.3",
+            "divineos compass-ops observe initiative -p 0.1 -e x",
+        ):
+            r = score_substrate_modification("Bash", bash_command=command)
+            assert "substrate-write-cli" not in r.fired_features, command
 
     def test_readonly_cli_does_not_fire(self):
         r = score_substrate_modification("Bash", bash_command="divineos briefing")

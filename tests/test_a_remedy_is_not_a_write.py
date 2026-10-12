@@ -93,7 +93,6 @@ def test_a_look_that_redirects_its_output_is_work_not_a_look(command):
         f"{_D} learn status",
         f"{_D} claim summary",
         f"{_D} decide list",
-        f"{_D} journal save x",
         f"{_D} prereg export",
     ],
 )
