@@ -241,7 +241,11 @@ def record_free_pass(fingerprint: str) -> None:
 
 def _words(segment: str) -> list[str]:
     """The words of one shell segment, quotes honoured, so a folder with a space in its
-    name stays one word. ``posix=False`` keeps backslashes in a Windows path intact."""
+    name stays one word. ``posix=False`` keeps backslashes in a Windows path intact.
+
+    STATED LIMIT: an UNQUOTED folder with a space (``cd C:/DIVINE OS/x``) still splits and
+    lands on None, which is the strict direction. A real shell needs the quotes there too,
+    so quoting is the contract (Aria's cold read, 2026-10-12)."""
     try:
         raw = shlex.split(segment, posix=False)
     except ValueError:
