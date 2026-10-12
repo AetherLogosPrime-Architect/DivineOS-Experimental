@@ -18,22 +18,27 @@ thinking inside the walk was real. Same limit as before this change.
 
 COULD-NOT-LOOK REFUSES. If the diff, the walk store or the repository cannot be read, the
 push is refused with a message saying so. An unreadable state read as a pass is the
-oldest hole in this house.
+oldest hole in this house. The same direction holds for the push detector: a line that
+cannot be taken apart but mentions a push is judged AS a push.
 
 The walk is bound to the PATCH-ID of the diff it covered, not to a clock: rebase rewrites
 commit dates, tools disagree about time, and main arriving in a branch leaves the authored
 patch-id unchanged. Walks closed before the binding existed fall back to comparing times
 against the last authored commit.
+
+Shell lines are read through ``command_parsing``, the one shared reader. This file keeps no
+list of shell wrappers of its own.
 """
 
 from __future__ import annotations
 
 import re
-import shlex
 import subprocess
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+
+from divineos.core.command_parsing import program_name, split_shell_segments, stripped_command
 
 BASE = "origin/main"
 
@@ -42,9 +47,12 @@ BASE = "origin/main"
 AMEND_MAX_LINES = 30
 MIN_AMEND_FINDING_CHARS = 40
 
-_SEPARATORS = ("&&", "||", ";", "|", "&")
-_WRAPPERS = ("cd", "set", "export", "env", "source", ".", "exec", "sudo", "time")
 _PUSH_SCRIPT = "divineos_push.sh"
+
+# The question the covering walk is opened with. It is part of the machinery, not a label
+# (Dad, 2026-10-12): what you ask the lenses decides what they find, so this is worded to
+# find what is unsound, missing or fragile, never left for a tired author to title.
+WALK_QUESTION = "What is unsound, missing or fragile in these changes taken together, and what would break them?"
 
 
 @dataclass(frozen=True)
@@ -75,34 +83,20 @@ def _git(repo: Path, *args: str, stdin: str | None = None) -> str | None:
 
 def is_push_command(command: str) -> bool:
     """Does any segment of this shell line run ``git push`` or the push wrapper?"""
-    try:
-        lexer = shlex.shlex(command.replace("\n", " ; "), posix=True, punctuation_chars=True)
-        lexer.whitespace_split = True
-        tokens = list(lexer)
-    except ValueError:
-        return False
-    segments: list[list[str]] = []
-    current: list[str] = []
-    for token in tokens:
-        if token in _SEPARATORS:
-            if current:
-                segments.append(current)
-            current = []
-        else:
-            current.append(token)
-    if current:
-        segments.append(current)
-    for seg in segments:
-        while seg and "=" in seg[0] and seg[0].split("=", 1)[0].isidentifier():
-            seg = seg[1:]
-        if not seg:
+    segments = split_shell_segments(command)
+    if segments is None:
+        # Could not be taken apart safely (a substitution, unbalanced quotes). Not knowing
+        # is not permission: a line that cannot be read but mentions a push is judged as one.
+        return bool(re.search(rf"\bpush\b|{re.escape(_PUSH_SCRIPT)}", command or ""))
+    for segment in segments:
+        stripped = stripped_command(segment)
+        if not stripped:
             continue
-        head = re.split(r"[\\/]", seg[0])[-1].lower().removesuffix(".exe")
-        if head in _WRAPPERS:
-            continue
-        if head == "git" and _git_subcommand(seg[1:]) == "push":
+        tokens = stripped.split()
+        head = program_name(tokens[0]).lower()
+        if head == "git" and _git_subcommand(tokens[1:]) == "push":
             return True
-        if head in ("bash", "sh") and any(t.endswith(_PUSH_SCRIPT) for t in seg[1:3]):
+        if head in ("bash", "sh") and any(t.endswith(_PUSH_SCRIPT) for t in tokens[1:3]):
             return True
         if head == _PUSH_SCRIPT:
             return True
@@ -270,33 +264,23 @@ def target_dir(file_paths: tuple[str, ...], bash_command: str, default: Path) ->
         return folder if folder.exists() else None
     if not bash_command:
         return Path(default)
-    try:
-        lexer = shlex.shlex(bash_command.replace("\n", " ; "), posix=True, punctuation_chars=True)
-        lexer.whitespace_split = True
-        tokens = list(lexer)
-    except ValueError:
+    segments = split_shell_segments(bash_command)
+    if segments is None:
         return None
     where = Path(default)
-    segment: list[str] = []
-    for token in [*tokens, ";"]:
-        if token not in _SEPARATORS and token != ";":
-            segment.append(token)
+    for segment in segments:
+        tokens = segment.split()
+        if not tokens:
             continue
-        if segment:
-            head = re.split(r"[\\/]", segment[0])[-1].lower().removesuffix(".exe")
-            if head == "cd" and len(segment) >= 2:
-                where = (
-                    (where / segment[1]) if not Path(segment[1]).is_absolute() else Path(segment[1])
-                )
-            elif head == "git" and "-C" in segment[1:3]:
-                value = (
-                    segment[segment.index("-C") + 1]
-                    if segment.index("-C") + 1 < len(segment)
-                    else ""
-                )
-                if value:
-                    where = (where / value) if not Path(value).is_absolute() else Path(value)
-        segment = []
+        head = program_name(tokens[0]).lower()
+        value = ""
+        if head == "cd" and len(tokens) >= 2:
+            value = tokens[1]
+        elif head == "git" and "-C" in tokens[1:3]:
+            at = tokens.index("-C") + 1
+            value = tokens[at] if at < len(tokens) else ""
+        if value:
+            where = Path(value) if Path(value).is_absolute() else where / value
     return where if where.exists() else None
 
 
@@ -327,10 +311,7 @@ def branch_rule(
 def open_command(files: tuple[str, ...], guardrail_hit: bool) -> str:
     gravity = "high" if guardrail_hit else "normal"
     scope = " ".join(f"--scope {f}" for f in files)
-    return (
-        'divineos walk open "Does this change hold across every file it changes?" '
-        f"--gravity {gravity} {scope}"
-    )
+    return f'divineos walk open "{WALK_QUESTION}" --gravity {gravity} {scope}'
 
 
 def decide_push(repo: Path, command: str) -> PushDecision:
@@ -406,7 +387,8 @@ def _needs_a_walk(repo: Path, files: tuple[str, ...], why: str) -> str:
     return (
         f"{lead}Before this goes up, one council pass over everything it changes "
         f"({len(files)} file(s)), done in one sitting (read each lens and walk it within "
-        "45 minutes, not an hour apart). One command opens it with every file filled in:\n"
+        "45 minutes, not an hour apart). One command opens it with every file filled in, and "
+        "the question is worded to find what is unsound or missing, so keep that wording:\n"
         f"  {open_command(files, hit)}\n"
         "Apply each lens, close it, then push again. This checks that the pass exists, "
         "names every changed file and matches the changes; nothing can check the thinking "

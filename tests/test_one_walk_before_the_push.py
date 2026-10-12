@@ -88,6 +88,9 @@ def test_a_push_with_no_walk_is_refused_and_the_message_hands_over_the_command(r
     assert "divineos walk open" in decision.message
     assert "--scope a.py" in decision.message
     assert "one sitting" in decision.message
+    # The question is part of the machinery: worded to find what is unsound or missing,
+    # never left for a tired author to title (Dad, 2026-10-12).
+    assert "unsound" in decision.message and "missing" in decision.message
 
 
 def test_a_covering_walk_closed_after_the_work_lets_the_push_through(repo):
