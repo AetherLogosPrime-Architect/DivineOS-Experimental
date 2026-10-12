@@ -20,6 +20,10 @@ One tiny change (a one-line comment Aria asked for) took: three fresh lens reads
 
 Station two already judges a branch by `coverage_for(paths)`: a CLOSED walk scoped to the changed files with every lens settled (`divineos walk open ... --scope <every file>`). Station six (draft `station_six_reads_the_covering_walk`) already reads that walk's close time against the last commit. So the machinery for "one walk over all the changes, finished after the last change" is built and runs at stamp time. This draft moves that question earlier and removes the per-edit duplicate. It builds almost nothing new.
 
+## CORRECTION (Dad, 2026-10-12, after the first version was built): "a push" means the REAL push
+
+*"i want to clarify that a push means an actual push (like before the merge) not a draft, drafts you can push even if it doesnt meet the standard as you may need Aletheia's help and she needs to be able to see it."* Everything below was written with the push as the choke, and the first built version refused any branch push without a covering walk. That would have hidden unfinished work from the one reader who can help with it, so it is **gone**: nothing in the branch rule refuses a draft push. The covering check lives where the real push already is, **the stamp (ready-for-review, the step before the merge)**, which already requires a closed covering walk at station two; this change makes station six judge that walk by the diff it was bound to instead of by a clock. Read "the push is the choke" below as "the stamp is the choke", and read "Aria: yes, push is the right choke" as overruled for exactly the reason Dad gave. The operator-exit finding of the covering review no longer applies (there is no refusal left to exit from), and the code behind it was removed, along with the refusal function, its message and the walk-question constant (the standard questions move to the next change, `the_council_asks_the_right_questions_draft`).
+
 ## The shape
 
 Two phases, and the line between them is the push.

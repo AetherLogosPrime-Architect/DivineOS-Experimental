@@ -1,30 +1,33 @@
-"""One council walk over all the changes, checked at the push.
+"""Building edits on a branch are free; the covering walk is judged at the stamp.
 
 Dad, 2026-07-30, 2026-10-07 and 2026-10-12: the full paperwork on every single change is
-brutal. Make the changes, then do ONE walk over all of them before the push. The design,
-the council that reviewed it and Aria's cold read are in
+brutal. Make the changes, then do ONE walk over all of them before the real push. The
+design, the council that reviewed it and Aria's cold reads are in
 docs/drafts/one_walk_before_the_push_not_one_per_edit_draft_2026-10-12.md.
 
-THE INVARIANT. Every authored change that leaves one of our seats for the remote is
-covered by a closed walk bound to its diff. This file establishes it at the push; the
-stamp station re-establishes it for pushes that come from outside. Exactly two exceptions
-exist: main arriving in a branch (not authored work) and an edit made on main itself (no
-later gate to defer to, so the per-edit rule stays as it was). A third exception proposed
-for convenience is a hole in the proof.
+WHAT "PUSH" MEANS (Dad, 2026-10-12, a correction to the first version of this file): an
+actual push, the ready-for-review step before the merge, never a push to a draft. Drafts
+are pushed freely even when they do not meet the standard, because Aletheia may be needed
+to help and has to be able to see the work. So NOTHING in this file refuses a draft push.
+The first version refused any branch push without a covering walk; it is gone.
+
+THE INVARIANT. Every authored change that reaches ready-for-review or the merge is covered
+by a closed walk bound to its diff. The stamp establishes it (station six compares the
+walk's bound patch-id with the diff of the branch it is about to promote). Exactly two
+exceptions exist: main arriving in a branch (not authored work) and an edit made on main
+itself (no later gate to defer to, so the per-edit rule stays as it was).
 
 WHAT IT CHECKS, said plainly so a pass is never read as a review: that a closed walk
 exists, names every changed file, and matches the current diff. It cannot check that the
-thinking inside the walk was real. Same limit as before this change.
+thinking inside the walk was real.
 
-COULD-NOT-LOOK REFUSES. If the diff, the walk store or the repository cannot be read, the
-push is refused with a message saying so. An unreadable state read as a pass is the
-oldest hole in this house. The same direction holds for the push detector: a line that
-cannot be taken apart but mentions a push is judged AS a push.
+COULD-NOT-LOOK IS NEVER FRESH. If the diff, the walk store or the repository cannot be
+read, the answer is could-not-check, never a pass.
 
 The walk is bound to the PATCH-ID of the diff it covered, not to a clock: rebase rewrites
 commit dates, tools disagree about time, and main arriving in a branch leaves the authored
-patch-id unchanged. Walks closed before the binding existed fall back to comparing times
-against the last authored commit.
+patch-id unchanged. Walks closed before the binding existed keep the older time rule at
+station six.
 
 Shell lines are read through ``command_parsing``, the one shared reader. This file keeps no
 list of shell wrappers of its own.
@@ -48,17 +51,6 @@ AMEND_MAX_LINES = 30
 MIN_AMEND_FINDING_CHARS = 40
 
 _PUSH_SCRIPT = "divineos_push.sh"
-
-# The question the covering walk is opened with. It is part of the machinery, not a label
-# (Dad, 2026-10-12): what you ask the lenses decides what they find, so this is worded to
-# find what is unsound, missing or fragile, never left for a tired author to title.
-WALK_QUESTION = "What is unsound, missing or fragile in these changes taken together, and what would break them?"
-
-
-@dataclass(frozen=True)
-class PushDecision:
-    allow: bool
-    message: str = ""
 
 
 def _git(repo: Path, *args: str, stdin: str | None = None) -> str | None:
@@ -149,9 +141,14 @@ def changed_files(repo: Path, base: str = BASE) -> tuple[str, ...] | None:
     return tuple(sorted(line.strip() for line in out.splitlines() if line.strip()))
 
 
-def diff_identity(repo: Path, base: str = BASE) -> str | None:
-    """The patch-id of everything this branch changes against ``base``; "" for no change."""
-    diff = _git(repo, "diff", f"{base}...HEAD")
+def diff_identity(repo: Path, base: str = BASE, head: str = "HEAD") -> str | None:
+    """The patch-id of everything ``head`` changes against ``base``; "" for no change.
+
+    ``head`` is the checked-out HEAD by default, and a named ref when the stamp judges a
+    branch it is not sitting on. None means could-not-look, which a caller must never read
+    as fresh.
+    """
+    diff = _git(repo, "diff", f"{base}...{head}")
     if diff is None:
         return None
     if not diff.strip():
@@ -165,14 +162,6 @@ def diff_identity(repo: Path, base: str = BASE) -> str | None:
 def head_sha(repo: Path) -> str | None:
     out = _git(repo, "rev-parse", "HEAD")
     return out.strip() if out else None
-
-
-def _last_authored_commit_time(repo: Path, base: str = BASE) -> float | None:
-    """When the newest commit that is not a merge was made. Merges are main arriving."""
-    out = _git(repo, "log", "--no-merges", "-1", "--format=%ct", f"{base}..HEAD")
-    if out is None:
-        return None
-    return float(out.strip()) if out.strip() else 0.0
 
 
 def _sections(diff: str) -> dict[str, Counter]:
@@ -212,8 +201,8 @@ def change_between(repo: Path, old_head: str, base: str = BASE) -> tuple[int, se
 
 
 # The features a BUILDING edit fires. On a branch these pass without a per-edit walk,
-# because the covering walk at the push reads the same diff at a point it can still be
-# fixed. Every other feature (substrate-write commands, consolidation, the kiln layer)
+# because the covering walk judged at the stamp reads the same diff at a point it can still
+# be fixed. Every other feature (substrate-write commands, consolidation, the kiln layer)
 # is not branch work and goes back to the old strict gate untouched: freeing "every
 # council-required command on a branch" would let a prereg or audit filing skip the walk.
 BUILDING_FEATURES = frozenset(
@@ -287,18 +276,16 @@ def target_dir(file_paths: tuple[str, ...], bash_command: str, default: Path) ->
 def branch_rule(
     repo: Path, tool_name: str, bash_command: str, fired_features: tuple[str, ...], fingerprint: str
 ) -> BranchRule:
-    """The one place the rule lives: building on a branch is free, the push is the choke.
+    """The one place the rule lives: building on a branch is free.
 
-    Main is not handled here (an edit made on main has no later gate to defer to). A
-    push on a branch is judged by ``decide_push``. A building edit on a branch passes and
-    leaves a line. Anything else, including an unreadable branch, is NOT handled and falls
-    through to the old strict gate, which is the safe direction.
+    Main is not handled here (an edit made on main has no later gate to defer to). A push of
+    any kind is NOT handled here either: a draft push is never refused (Dad, 2026-10-12) and
+    the covering check lives at the stamp. A building edit on a branch passes and leaves a
+    line. Anything else, including an unreadable branch, is NOT handled and falls through to
+    the old strict gate, which is the safe direction.
     """
     if bash_command and is_push_command(bash_command):
-        if on_main(repo) is True:
-            return BranchRule(False)
-        decision = decide_push(repo, bash_command)
-        return BranchRule(True, 0 if decision.allow else 2, decision.message)
+        return BranchRule(False)
     if on_main(repo) is False and fired_features and set(fired_features) <= BUILDING_FEATURES:
         try:
             record_free_pass(fingerprint)
@@ -306,93 +293,3 @@ def branch_rule(
             return BranchRule(True, 0, f"[branch-rule] free pass not recorded: {exc}")
         return BranchRule(True, 0, "")
     return BranchRule(False)
-
-
-def open_command(files: tuple[str, ...], guardrail_hit: bool) -> str:
-    gravity = "high" if guardrail_hit else "normal"
-    scope = " ".join(f"--scope {f}" for f in files)
-    return f'divineos walk open "{WALK_QUESTION}" --gravity {gravity} {scope}'
-
-
-def decide_push(repo: Path, command: str) -> PushDecision:
-    """May this command push? Anything that is not a push is nothing to this."""
-    if not is_push_command(command):
-        return PushDecision(True)
-    repo = Path(repo)
-    main = on_main(repo)
-    if main is None:
-        return PushDecision(
-            False,
-            "I could not tell which branch this is, so the push is refused rather than "
-            "guessed at. Run it from inside the work copy.",
-        )
-    if main:
-        return PushDecision(True)  # main keeps the per-edit rule; nothing later defers it
-    files = changed_files(repo)
-    if files is None:
-        return PushDecision(
-            False,
-            f"I could not read what this branch changes against {BASE}, so the push is "
-            "refused rather than guessed at. Fetch origin and try again.",
-        )
-    if not files:
-        return PushDecision(True)
-
-    from divineos.core import council_walk
-
-    coverage = council_walk.coverage_for(files)
-    if coverage.state == "cannot-check":
-        return PushDecision(
-            False,
-            f"I could not read the walk store ({coverage.reason}), so the push is refused "
-            "rather than guessed at.",
-        )
-    if coverage.state != "covered":
-        return PushDecision(False, _needs_a_walk(repo, files, coverage.reason))
-
-    current = diff_identity(repo)
-    if current is None:
-        return PushDecision(
-            False, "I could not read the diff to compare it with the walk, so the push is refused."
-        )
-    if coverage.bound_diff is not None:  # "" is a real binding (an empty diff), not an absent one
-        if coverage.bound_diff == current:
-            return PushDecision(True)
-        return PushDecision(
-            False,
-            f"The changes have changed since {coverage.walk_id} was closed. A small follow-up "
-            f"(up to {AMEND_MAX_LINES} lines, inside the files already walked) is one command: "
-            f'divineos walk amend {coverage.walk_id} --finding "<what changed and why it is '
-            'safe>". Anything larger needs a fresh pass, in one sitting.',
-        )
-    # A walk closed before the binding existed: compare times, the older and weaker way.
-    last = _last_authored_commit_time(repo)
-    if last is None:
-        return PushDecision(False, "I could not read the commit times, so the push is refused.")
-    if coverage.closed_at is not None and coverage.closed_at >= last:
-        return PushDecision(True)
-    return PushDecision(
-        False,
-        f"{coverage.walk_id} was closed before your last commit, so it has not seen the "
-        "final changes. " + _needs_a_walk(repo, files, ""),
-    )
-
-
-def _needs_a_walk(repo: Path, files: tuple[str, ...], why: str) -> str:
-    from divineos.core import pr_scope
-
-    guard, _ = pr_scope.load_guardrail_set(repo)
-    hit = bool(guard and set(files) & guard)
-    lead = f"{why}. " if why else ""
-    return (
-        f"{lead}Before this goes up, one council pass over everything it changes "
-        f"({len(files)} file(s)), done in one sitting (read each lens and walk it within "
-        "45 minutes, not an hour apart). One command opens it with every file filled in, and "
-        "the question is worded to find what is unsound or missing, so keep that wording. "
-        f"Open it AND close it from inside {repo} (a walk closed in another folder stays "
-        "tied to nothing and is read the weaker way):\n"
-        f"  {open_command(files, hit)}\n"
-        "Apply each lens, close it, then push again. This checks that the pass exists, "
-        "names every changed file and matches the changes; nothing can check the thinking "
-        "inside it."
-    )

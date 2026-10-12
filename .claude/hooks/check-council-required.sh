@@ -525,23 +525,9 @@ except Exception as e:
     _rule = None
     sys.stderr.write(f'[council-required] branch rule raised, gate stays strict: {e}\n')
 if _rule is not None and _rule.handled:
-    # A REFUSED PUSH NEEDS AN HONEST EXIT (the covering review of this change, Taleb's
-    # finding): this block returns before the operator-bypass marker below is ever
-    # consulted, so without this a bug in the choke would stop every push from this seat
-    # and nothing could clear it. The same one-use marker the old gate honours clears it.
-    if _rule.exit_code == 2:
-        try:
-            _marker = gate_mod._check_operator_bypass_authorization(
-                fingerprint=_primary_fingerprint(), actor='agent'
-            )
-        except Exception:
-            _marker = None
-        if _marker is not None:
-            sys.stderr.write(
-                f'[branch-rule] OPERATOR_AUTHORIZED_BYPASS cleared this refusal '
-                f'(marker consumed: {_marker.corroborator_event_id}).\n'
-            )
-            sys.exit(0)
+    # The branch rule never refuses: it frees a building edit or does not handle the call.
+    # (A draft push is never refused here either, Dad 2026-10-12: Aletheia must be able to
+    # see unfinished work. The covering check lives at the stamp.)
     if _rule.message:
         sys.stderr.write(_rule.message + '\n')
     sys.exit(_rule.exit_code)
