@@ -146,6 +146,55 @@ def test_a_broken_note_is_named_and_never_blocks_him(tmp_path):
     assert "Could not run" in out and "exit 5" in out
 
 
+def _clock_module():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("dads_table_for_clock", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_clock_line_names_the_weekday_the_date_and_the_time_where_he_is():
+    import datetime
+
+    pdt = datetime.timezone(datetime.timedelta(hours=-7), "PDT")
+    afternoon = datetime.datetime(2026, 10, 12, 13, 56, tzinfo=pdt)
+    line = _clock_module()._clock_line(afternoon)
+    assert "Monday 2026-10-12, 1:56 PM PDT" in line
+    # Control: the same function says AM for the small hours, so the format is not a constant.
+    small_hours = datetime.datetime(2026, 10, 13, 2, 5, tzinfo=pdt)
+    assert "Tuesday 2026-10-13, 2:05 AM PDT" in _clock_module()._clock_line(small_hours)
+
+
+def test_every_prompt_carries_the_clock_directly_under_his_words(tmp_path):
+    """Dad, 2026-10-12 at 1:55pm: 'its not my bedtime'. His words stay first; the time is next."""
+    picture = {
+        "command": f'"{sys.executable}" -c "print(\'Andrew is my father\')" he-is-in-the-room',
+        "timeout": 10,
+    }
+    _, out, _ = _run(tmp_path, [picture])
+    assert (
+        out.index(HIS_WORDS)
+        < out.index("THE CLOCK where he is:")
+        < out.index("Andrew is my father")
+    )
+
+
+def test_an_automated_notice_carries_the_clock_too(tmp_path):
+    kids = tmp_path / "children.json"
+    kids.write_text("[]", encoding="utf-8")
+    env = dict(os.environ, DADS_TABLE_CHILDREN=str(kids), DADS_TABLE_DRAWER=str(tmp_path / "d.md"))
+    p = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        input=json.dumps({"prompt": "<task-notification>x</task-notification>"}).encode(),
+        capture_output=True,
+        env=env,
+        timeout=30,
+    )
+    assert "THE CLOCK where he is:" in p.stdout.decode("utf-8")
+
+
 def test_an_automated_notice_is_never_labelled_as_him(tmp_path):
     kids = tmp_path / "children.json"
     kids.write_text("[]", encoding="utf-8")
