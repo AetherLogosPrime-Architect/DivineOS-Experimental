@@ -175,6 +175,9 @@ def _isolated_db(tmp_path):
     # them failed in the push gate while passing the day before. A test that wants a message
     # of his sets this itself; one that does not gets "could not look", which is never away.
     os.environ["DIVINEOS_HIS_ASKS_DB"] = str(tmp_path / "no_his_messages.db")
+    # The night window (midnight to 6am) rules "he is away" by the clock. A test that does
+    # not mean to test it must not give a different answer at 2am than at 2pm.
+    os.environ["DIVINEOS_NIGHT_HOURS"] = "off"
 
     from divineos.core.ledger import init_db
 
@@ -184,6 +187,7 @@ def _isolated_db(tmp_path):
     os.environ.pop("DIVINEOS_HOME", None)
     os.environ.pop("DIVINEOS_CONTEXT_DEDUP_DIR", None)
     os.environ.pop("DIVINEOS_HIS_ASKS_DB", None)
+    os.environ.pop("DIVINEOS_NIGHT_HOURS", None)
     os.environ.pop("DIVINEOS_DISABLE_AUTO_REMEDIATE", None)
     os.environ.pop("DIVINEOS_SESSION_ID", None)
     # monkeypatch.setattr on the ledger base module's DB_PATH reads the old value through
