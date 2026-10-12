@@ -37,6 +37,13 @@ def _point_state_at(tmp_path, monkeypatch):
     """Isolate gate state so these tests never touch the live pending file."""
     monkeypatch.setattr(read_gate, "STATE_DIR", tmp_path)
     monkeypatch.setattr(read_gate, "STATE_FILE", tmp_path / "read_gate_pending.json")
+    # The record of which notes this session already opened is a fourth seam:
+    # the gate declines to arm on a note I have read, so with the live record in
+    # play the negative control passes or fails depending on what I read today
+    # (2026-10-06: it blocked every push from this machine). Same class as the
+    # cooldown seam below.
+    monkeypatch.setattr(read_gate, "SEEN_READS", tmp_path / "read_gate_seen.json")
+    monkeypatch.setattr(read_gate, "REARM_LOG", tmp_path / "read_gate_rearms.jsonl")
 
 
 def _allow_arming_under_pytest(monkeypatch):
@@ -79,6 +86,11 @@ def test_real_corpus_still_arms_the_gate(tmp_path, monkeypatch):
     state_dir.mkdir()
     _point_state_at(state_dir, monkeypatch)
     _allow_arming_under_pytest(monkeypatch)
+    # The running session's reading history is live state too. When the push
+    # runs inside a session that has opened a matching entry (2026-10-05: entry
+    # 80, opened that morning), the gate rightly declines to re-ask and this
+    # control failed for a reason it does not name. Isolate it like STATE_DIR.
+    monkeypatch.setattr(read_gate, "_record_rearm_after_read", lambda *a, **k: False)
 
     real_root = exploration_recall._find_exploration_root()
     assert real_root is not None, "no exploration/ dir found; this control cannot run"

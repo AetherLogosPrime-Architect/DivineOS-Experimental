@@ -54,6 +54,12 @@ HIS_SECTIONS: tuple[str, ...] = (
 # ^ One heading only (Aria 2026-09-26): his own past words, found by meaning
 # (core/his_words_door.py). They are his, not my debts, so they sit beside him.
 
+# Not his words, but the same kind of thing: chosen by relevance, so different
+# every turn. 2026-10-04: the memory link found the right things every turn and
+# said them into the drawer, because the split sorted by author, not by whether
+# a section changes. Anything filed for the link never came back unasked.
+RELEVANT_SECTIONS: tuple[str, ...] = ("## THE PAST ON THIS (memory link)",)
+
 # His room, in his rules, always on the table. Andrew 2026-09-26: "again the
 # circle is missing and again this is code speak" -- the three-room prime was
 # not reaching me by any path, before or after the table was cleared, so the
@@ -104,7 +110,7 @@ def _split_his(out: str) -> tuple[str, str]:
     his, rest, keep = [], [], False
     for line in out.splitlines():
         if line.startswith("## "):
-            keep = line.startswith(HIS_SECTIONS)
+            keep = line.startswith(HIS_SECTIONS + RELEVANT_SECTIONS)
         (his if keep else rest).append(line)
     return "\n".join(his), "\n".join(rest)
 

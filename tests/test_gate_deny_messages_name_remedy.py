@@ -96,6 +96,10 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         # Andrew corrected the filter shape into this one himself, so a test
         # treating it as a possible gate would be auditing the wrong thing.
         "he-is-in-the-room.sh",
+        # Carries the memory link's block to the table and nothing else: every
+        # path exits zero, and its error paths print to stderr. Split out of
+        # the doorbell bundle 2026-10-04 so a slow bundle cannot drop it.
+        "memory-link-surface.sh",
         # Writes a goal boundary at SessionStart and steps aside: every path
         # exits zero, because a hook that refuses SessionStart refuses the
         # briefing with it. The refusing it causes happens later, in the goal

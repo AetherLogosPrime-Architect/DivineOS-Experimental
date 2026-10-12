@@ -132,7 +132,7 @@ class TestCorrectionChain:
                 return_value=tmp_path / "cr.json",
             ),
         ):
-            correction_marker.set_marker("you missed something")
+            correction_marker.set_marker("you missed something", source="his-message")
             # Step 1: both markers exist. compass-required (gate 1.47) runs
             # first in the gate order. Advisory fires (advised_count: 0 -> 1).
             # The advisory message contains the kind ("correction").
@@ -259,7 +259,7 @@ class TestNoCascadeUnderPytestByDefault:
                     return_value=tmp_path / "cr.json",
                 ),
             ):
-                correction_marker.set_marker("trigger")
+                correction_marker.set_marker("trigger", source="his-message")
                 assert (tmp_path / "c.json").exists()
                 # Cascade should NOT fire; compass_required stays absent.
                 assert not (tmp_path / "cr.json").exists()
