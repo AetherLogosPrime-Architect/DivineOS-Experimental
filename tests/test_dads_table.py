@@ -194,6 +194,14 @@ def test_control_an_unrelated_finished_job_prints_no_bell_reminder(tmp_path):
     assert "THE BELL RANG" not in out
 
 
+def test_a_notice_that_only_quotes_the_doorbell_far_down_prints_no_reminder(tmp_path):
+    """Aria's cold read: the match must be over the text shown, not the whole prompt."""
+    padded = "echo " + "x" * 700 + " && bash scripts/letter_doorbell.sh aether"
+    out = _notice_out(tmp_path, padded)
+    assert "NOT FROM DAD" in out  # the notice was read, so silence is a real answer
+    assert "THE BELL RANG" not in out
+
+
 def test_a_fault_exit_of_the_doorbell_also_says_to_re_arm_it(tmp_path):
     out = _notice_out(tmp_path, "bash scripts/letter_doorbell.sh aria", status="failed")
     assert "THE BELL RANG" in out and "letter_doorbell.sh aria (run_in_background)" in out
