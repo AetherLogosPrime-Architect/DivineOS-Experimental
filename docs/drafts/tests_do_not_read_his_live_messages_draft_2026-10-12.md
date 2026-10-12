@@ -12,6 +12,10 @@ The picture is a smoke alarm test that works only when the real kitchen happens 
 
 One setting in the shared test setup (`tests/conftest.py`): every test starts with the store of his messages pointed at a file that does not exist. That reads as "could not look", and could-not-look is never away. A test that wants a message of his sets one itself, as the silence tests already do.
 
+## The second find, same run
+
+With the first fix in, one test still failed in the gate: the one that checks where the question board sits. It passed or failed depending on which test worker happened to load the module first, because the board's location is fixed at that moment and the test's escape clause only passed if the location happened to contain the word "pytest". The test now checks the board's shape (the folder names it must have) instead of which home it was built from; the line above it already checks the formula against the seat's home.
+
 ## Proof
 
 Before: the push gate ran the whole suite and reported 23 failed in five question-hold files. After: those five files pass together (85 passed), and the new test file passes (two tests): one shows a test with nothing set reads no message of his and is not away; its control sets a three-hour-old message and shows the reader can still see one and rules it away.
