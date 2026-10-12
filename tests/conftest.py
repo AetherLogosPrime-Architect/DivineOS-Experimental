@@ -57,6 +57,26 @@ def _verify_divineos_import_path(config: pytest.Config) -> None:
         )
 
 
+def _warm_the_embedding_library(config: pytest.Config) -> None:
+    """Import the embedding library here, where no test timer is running.
+
+    2026-10-12: the per-test limit kills the whole worker when it is exceeded, and the first
+    test in each worker that needed this library spent most of its budget importing it
+    (6-14s alone, over 30s under load). Importing it at worker start moves that cost to a
+    place no timer watches. Workers only: the controller process runs no tests.
+    """
+    is_controller = not hasattr(config, "workerinput") and getattr(
+        config.option, "numprocesses", None
+    )
+    if is_controller:
+        return
+    try:
+        import divineos  # noqa: F401  (sets USE_TF=0 before the library can import TensorFlow)
+        import sentence_transformers  # noqa: F401
+    except ImportError:
+        pass
+
+
 def pytest_configure(config: pytest.Config) -> None:
     """Set basetemp to a project-local directory to avoid Windows permissions issues."""
     # Cap xdist workers at 16 when xdist is loaded (Aletheia FLAG 2, 2026-07-02).
@@ -69,6 +89,7 @@ def pytest_configure(config: pytest.Config) -> None:
     # box resolved to 40 workers, each ~1.5GB, demanding 60GB on a 31GB
     # system. Andrew's call: cap at 16.
     _verify_divineos_import_path(config)
+    _warm_the_embedding_library(config)
 
     if config.pluginmanager.hasplugin("xdist"):
         current = getattr(config.option, "maxprocesses", None)
