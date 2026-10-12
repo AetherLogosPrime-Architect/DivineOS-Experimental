@@ -1,0 +1,92 @@
+# One walk before the push, not one per edit — draft, 2026-10-12
+
+Not a plan to ship. The shape, the parts I do not trust, and the questions I want Aria to push on.
+
+## What Dad said, three times
+
+2026-07-30: *"doing the full gambit on every single piece is ludicrous so we add it all to the stack as part of the plan then you can council walk all of it at once."*
+
+2026-10-07: *"running the entire council walk on a single line change is silly, especially since it already will undergo audit, and your workspaces are the testing area and where most mistakes will be made, things change fast... make all the changes and fixes and get things ready to draft, but before that step, do another council walk, look over the changes, makes sure everything is correct or that you arent missing something, like a final review before the audit."*
+
+2026-10-12: *"having to do the full gauntlet on every single change is brutal and shouldnt be the case, what should be happening is the normal build flow as it is now, but you can make all the changes you want, then before we push to draft we can do another council walk or something to look over all the changes at once."*
+
+Three times means the structure is wrong, not that I forgot.
+
+## What it costs today, measured this morning
+
+One tiny change (a one-line comment Aria asked for) took: three fresh lens reads (a lens must be read within 45 minutes), three lens walks, a council log, a game-walk, then the same again for the commit, then the push. Roughly fourteen paperwork calls for one comment. Every substrate-write fingerprint (`edit:<path>`, `bash:git add`, `bash:git commit`, `bash:git push`, `bash:gh pr`) owes its own council record and game-walk, and each is spent once. The thinking is the same thinking each time; only the paper is new.
+
+## What already exists and is reused
+
+Station two already judges a branch by `coverage_for(paths)`: a CLOSED walk scoped to the changed files with every lens settled (`divineos walk open ... --scope <every file>`). Station six (draft `station_six_reads_the_covering_walk`) already reads that walk's close time against the last commit. So the machinery for "one walk over all the changes, finished after the last change" is built and runs at stamp time. This draft moves that question earlier and removes the per-edit duplicate. It builds almost nothing new.
+
+## The shape
+
+Two phases, and the line between them is the push.
+
+**Building (a branch other than main, in a work copy):** an edit, a write, `git add`, `git commit` pass without a per-edit walk. Each pass leaves one line in a log (what, when, which branch), so the final walk can read what was done instead of being told.
+
+**The push to draft is the choke point.** `git push` (and the push wrapper) is refused unless `coverage_for` over every file changed against `origin/main` says covered, with the walk closed after the last commit, plus one game-walk filed for the job after the last commit. The refusal prints the exact command to open the walk, with every changed file already in `--scope`, so the right path is one paste.
+
+**Main stays as strict as today.** An edit made while the checkout is on `main` has no push to defer to, so it still owes its own walk. That is the conditional rule: edits are free where a later gate will see them, and strict where none will. "On main" is decided by "HEAD is not a branch other than main", never by reading a branch name, because many work copies sit on a detached HEAD (Aria).
+
+### What Aria's cold read changed (2026-10-12)
+
+**"The last commit" means the last AUTHORED commit.** The walk must close after the last commit, and main moves under every push, so a catch-up merge of main is always a commit after the walk. A rule that counts it refuses a clean branch for a reason that has nothing to do with the thinking, and the optimizer learns the choke is noise. So a commit whose only content is main arriving (a merge whose second parent is on `origin/main` and whose diff against the first parent is entirely main's own) is ignored when asking whether the walk postdates the build. This one rule also repairs station six at stamp time, where 621 stopped tonight on "every walk predates the last build commit" for exactly that reason. One fix in two places.
+
+**`git merge --continue` and `git commit` are one act.** Tonight a merge finished with no paper through `--continue` while `git commit` on the same merge owed the full set. Both get the same treatment: no per-edit walk on a branch.
+
+**The lens count follows the diff's gravity, and a guardrail-listed file forces the high floor.** These are the edits where a thin walk is most expensive, and a fixed small count over a diff that edits the gate itself would be a downgrade from today.
+
+**One sitting.** The covering walk needs its lenses read within 45 minutes of walking them. The refusal says so in plain words: read the lenses and walk them in one sitting, never read first and walk an hour later.
+
+### What the design council added (walk-42c6876438ac, 2026-10-12)
+
+**The invariant, stated so it can be checked (Dijkstra).** Every authored change that leaves one of our seats for the remote is covered by a closed walk bound to its diff. The choke establishes it at push; the stamp station re-establishes it for pushes from outside; exactly two exceptions exist, a pure arrival of main and an edit made on main itself. A third exception proposed for convenience is a hole in the proof and is refused.
+
+**Bind the walk to the diff, not to the clock (Lamport, Peirce).** Comparing the walk's close time to the last commit's wall clock breaks under rebase (which rewrites commit dates) and under clock differences between tools. At close, the walk is bound to the patch-id of the diff it covered; any later authored change makes the binding stale by construction, and Aria's catch-up merge leaves the authored patch-id unchanged so it falls out for free. Times stay only as the fallback for walks that were closed before the binding existed. A sign of thinking must still denote its object: this one denotes exactly these changes and goes stale the moment they change.
+
+**Could-not-look refuses (Schneier).** If the choke cannot read the diff, the ledger or the walk, it refuses the push with a could-not-look message. It never allows. The scope is the whole diff against `origin/main`, never the files since the last push, so splitting one change into many small pushes each with a trivial walk does not work.
+
+**The cases to answer (Breaker).** Empty diff against `origin/main`: pass. Tag-only push: pass. Branch with no upstream yet: judge against `origin/main`. Force push and multi-ref push: judged per ref. A delete push: out of scope. A diff of a hundred and sixty files: the refusal generates the open command from the diff, I never type the scope. A push from the push gate's own temporary copy: not my seat, out of scope.
+
+**The refusal is short and says what it checked (Tannen, Lovelace).** It speaks as the next step: one pass over everything before it goes up, the one command with every changed file filled in, done in one sitting. It says the council pass in plain words, not just "walk". And it says what it did and did not verify: the paper (a closed walk exists, covers every changed file, matches the diff), never the thinking inside it. The same limit as today, stated and not hidden.
+
+**It must not lock its own exit (Hofstadter).** This change edits the gate and is pushed under the rule it introduces, so its own push is the first test. A bug in the new choke must not refuse the push of its own fix: the walk filing commands are already exempt, and the operator bypass is the honest exit.
+
+### The follow-up problem I found while designing the binding (mine, not yet read by Aria)
+
+Binding the walk to the diff means a review round that changes one line makes the walk stale, and a full eight-lens walk for one line is exactly the silliness Dad named on 10-07. So a small follow-up gets a light **amendment**, with the limit written where he can read and change it: `divineos walk amend <walk> --finding "<what changed and why it is safe>"` re-binds the walk to the new diff when (a) the change since the walk's bound commit is at most 30 added plus removed lines, (b) it touches only files already in the walk's scope, and (c) the finding is at least 40 characters. Larger or wider changes need a fresh walk. Every amendment is counted and visible beside the walk, so a branch that is amended eleven times shows eleven. This is the conditional rule (truth #11c): always walk everything, except a small change inside what was already walked, with the exception stated so the optimizer cannot reason it larger.
+
+## Why this is both shapes of right (truth #11)
+
+The cheap path (skip the walk) and the right path (think once, over everything) stop being different paths: thinking once over the whole diff is the cheap path, and it is better thinking, because a per-edit walk can only see one line and the final walk sees the interactions. It takes away a choice-point (per-edit paper) and replaces it with one the optimizer cannot reason around (the push refuses without it).
+
+## What I do not trust
+
+**The thin walk.** A covering walk is only as good as the lens findings in it. The existing checks (finding length, lens keywords, closed walk) still apply; nothing here makes a thin walk thicker. Same limit as today, said plainly.
+
+**Other doors to the remote (Aria named them).** The cloud helper's `cloud/repro-*` branches are pushed from a cloud session with none of our hooks at all. Beyond that: a direct `git push` outside the wrapper, a push from the push-gate's own temporary work copy, `gh api` writes to refs or contents, the web editor, and a push to any other remote. The choke covers my seat and Aria's; anything pushed from outside is caught later, by the stamp station reading the covering walk. So the stamp must keep reading that walk and never trust the push gate alone. Station 8 and the merge gate remain behind that.
+
+**Edits that never reach a push.** Files edited and left uncommitted are never walked. That is the same as today for anything not substrate, and it is also why the log line per edit exists: an unwalked edit is visible, not silent.
+
+**The log becoming wallpaper.** If every edit prints a line, I stop reading them. The line goes to a file, never to the screen, and only the push refusal speaks.
+
+## Who pays for keeping both (truth #19)
+
+Keeping the per-edit walk as an option costs the interruptions Dad named. I do not keep it: it is removed on branches, and it stays only on main. Nothing about the old walk is lost for the work that matters, because the covering walk reads the same diff at the point it can still be fixed.
+
+## Falsifier
+
+Fails if, over the next two weeks, a draft reaches review with a change that a per-edit walk would have caught and the covering walk did not (the walk was thin or skipped), OR if the number of paperwork calls per change does not fall by more than half. Both are countable from the log and the ledger.
+
+## Asked of Aria, answered (2026-10-12)
+
+1. Push or draft creation as the choke? **Push.** Draft creation comes after the push, so Aletheia could read unwalked work first.
+2. Doors not named? Listed above under what I do not trust.
+3. Does main-strict leave a hole? **Not for a branch that never pushes** (nothing can see it; whoever pushes it pays all at once, which is what Dad asked for). The hole was detached HEAD, now closed above.
+4. Lens count by gravity? **Yes**, with a high floor for guardrail-listed files.
+
+## What is still open
+
+How the per-edit log line is read by the covering walk (a plain file listing the changed files and times, or the existing edit-fingerprint events). To be decided with Aria once the choke is built and measured; the falsifier above is what judges it.

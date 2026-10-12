@@ -136,6 +136,31 @@ def register(cli: click.Group) -> None:
         if st["open_lenses"]:
             click.echo(f"\n{len(st['open_lenses'])} still unaccounted for.")
 
+    @walk_group.command("amend")
+    @click.argument("walk_id")
+    @click.option(
+        "--finding",
+        required=True,
+        help="What changed since the walk and why it is safe (a real sentence).",
+    )
+    def amend_cmd(walk_id: str, finding: str) -> None:
+        """Re-bind a closed walk to a SMALL follow-up instead of walking everything again.
+
+        The limits (lines, files already walked, a real finding) are in
+        ``push_choke.AMEND_MAX_LINES`` and are enforced there, not here.
+        """
+        from divineos.core.council_walk import amend_walk
+
+        try:
+            result = amend_walk(walk_id, finding)
+        except WalkRefused as exc:
+            raise click.ClickException(str(exc)) from exc
+        click.secho(
+            f"[+] {walk_id} amended: {result['lines_changed']} line(s) in "
+            f"{', '.join(result['files'])}. The walk now covers the current changes.",
+            fg="green",
+        )
+
     @walk_group.command("close")
     @click.argument("walk_id")
     def close_cmd(walk_id: str) -> None:
