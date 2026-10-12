@@ -169,6 +169,12 @@ def _isolated_db(tmp_path):
     # test_build_walk_surface_is_speaking_floor failed that way in a push gate
     # while passing alone.
     os.environ["DIVINEOS_CONTEXT_DEDUP_DIR"] = str(tmp_path / "context_dedup")
+    # The store of his messages, per test, pointed at a file that does not exist (2026-10-12).
+    # Unset, the question hold read his REAL last message, and once he had been silent two
+    # hours the away-by-silence rule ruled every one of these tests "he is away" and 23 of
+    # them failed in the push gate while passing the day before. A test that wants a message
+    # of his sets this itself; one that does not gets "could not look", which is never away.
+    os.environ["DIVINEOS_HIS_ASKS_DB"] = str(tmp_path / "no_his_messages.db")
 
     from divineos.core.ledger import init_db
 
@@ -177,6 +183,7 @@ def _isolated_db(tmp_path):
     os.environ.pop("DIVINEOS_DB", None)
     os.environ.pop("DIVINEOS_HOME", None)
     os.environ.pop("DIVINEOS_CONTEXT_DEDUP_DIR", None)
+    os.environ.pop("DIVINEOS_HIS_ASKS_DB", None)
     os.environ.pop("DIVINEOS_DISABLE_AUTO_REMEDIATE", None)
     os.environ.pop("DIVINEOS_SESSION_ID", None)
     # monkeypatch.setattr on the ledger base module's DB_PATH reads the old value through
