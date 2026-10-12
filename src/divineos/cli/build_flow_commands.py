@@ -144,6 +144,16 @@ def _walk_postdates_build(branch: str, coverage: "Coverage | None" = None) -> bo
         return None  # both-empty: see above -- unreadable commit time
 
     if coverage is not None and coverage.state == "covered":
+        if coverage.bound_diff is not None:
+            # A walk bound to the diff it covered is judged by that identity, never by a
+            # clock (one walk before the push, 2026-10-12). main arriving in the branch
+            # is a commit after the walk by the clock and changes nothing about what was
+            # walked, which is why the clock rule refused clean branches on every catch-up
+            # (Aria, 621). None stays None: an unreadable ref is could-not-check, never fresh.
+            from divineos.core.council_required import push_choke
+
+            current = push_choke.diff_identity(Path.cwd(), head=branch)
+            return None if current is None else coverage.bound_diff == current
         # None stays None: a covering walk with no readable close time is
         # could-not-check, never fresh.
         return None if coverage.closed_at is None else coverage.closed_at > last_commit

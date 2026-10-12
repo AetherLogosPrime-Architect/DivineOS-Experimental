@@ -207,6 +207,7 @@ src/divineos/
       substance_binding.py     Anti-cardboard checks: lens count, finding token count, lens-specific keyword cross-reference (load-bearing protection), synthesis token count, synthesis-references-lenses, kiln-confirmed-by (tier-graduated trust)
       gate.py                  PreToolUse entry point. decide() composes gravity + store + substance-binding into a single GateDecision; decide_with_emergency_skip implements the corroborator-required emergency carve-out
       decision_walk_link.py    Opportunistic auto-attachment of council_record as evidence on overlapping pending decision-walks; conservative substring match against action-description; writes DECISION_WALK_LINKED_COUNCIL event when linked
+      push_choke.py            One council walk over all the changes, checked at the push: branch building edits are free and leave one log line, git push needs a closed walk bound to the diff (patch-id), small follow-ups are amended under a stated ceiling, main stays per-edit strict, unreadable state refuses
       abstention_telemetry.py  F39 abstention telemetry — Aletheia review-note followup (2026-07-18): records how often edit-token-overlap check ran with real tokens vs abstained on unreadable file / non-absolute path, so dark-check state is visible not silent
     council/                   Expert council sub-package
       engine.py                CouncilEngine — analyze problems through expert lenses
@@ -763,6 +764,7 @@ src/divineos/
     ship_steps.py              The checks `divineos ship` runs in order, each one a yes or a named no.
     git_hooks_drift.py         Do the installed git hooks still say what setup/setup-hooks.sh would write?
     body_memory.py             Memory sense: the body feels memory held by no program, and remembers the climb.
+    checkout_behind_main.py    How far behind origin/main is the checkout the hooks run from?
 
   analysis/
     _session_types.py          Session analysis type definitions
