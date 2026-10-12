@@ -55,6 +55,17 @@ def test_the_next_day_gets_its_own_note(tmp_path):
     assert len(list(letters.iterdir())) == 2
 
 
+def test_each_seat_is_told_to_write_its_own_board_not_the_others(tmp_path):
+    """Aria's hold: the board path was fixed to aether's, so her note told her to write mine."""
+    timer = _timer()
+    aria = timer.write_note("aria", DAY, tmp_path / "letters").read_text(encoding="utf-8")
+    aether = timer.write_note("aether", DAY, tmp_path / "letters").read_text(encoding="utf-8")
+    assert "aria-to-andrew-volley-board.md" in aria
+    assert "aether-to-andrew-volley-board.md" not in aria
+    assert "aether-to-andrew-volley-board.md" in aether
+    assert "aria-to-andrew-volley-board.md" not in aether
+
+
 def test_the_note_says_what_it_is_and_what_it_asks(tmp_path):
     text = _timer().write_note("aether", DAY, tmp_path).read_text(encoding="utf-8")
     assert "not a person" in text and "morning section" in text and "doorbell" in text

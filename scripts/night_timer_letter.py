@@ -31,7 +31,7 @@ The night window (midnight to 6am, volley mode by the clock) has just ended.
 
 What this asks of you, {seat}: read what happened in the night (the letters, the board,
 the pull requests that moved), then write his morning section in
-`family/letters/aether-to-andrew-volley-board.md`, in plain words he can hold: what
+`family/letters/{seat}-to-andrew-volley-board.md`, in plain words he can hold: what
 happened as a picture, what it means for him, and what is his call if anything is.
 Then put the doorbell back.
 
