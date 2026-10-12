@@ -32,9 +32,12 @@ WITH_DIVINEOS = f"import sys, divineos; import sentence_transformers; {REPORT}"
 WITHOUT_DIVINEOS = f"import sys; import sentence_transformers; {REPORT}"
 
 
-def test_importing_divineos_turns_tensorflow_off_for_the_embedding_library():
+def test_importing_divineos_turns_tensorflow_off_for_the_embedding_library(monkeypatch):
+    # Remove the variable first, so a value exported from outside the process
+    # cannot make this pass without the package doing anything.
+    monkeypatch.delenv("USE_TF", raising=False)
+    importlib.reload(divineos)
     assert os.environ.get("USE_TF") == "0"
-    assert divineos  # imported above, which is what set it
 
 
 def _probe(code: str) -> str:

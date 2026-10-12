@@ -43,7 +43,18 @@ control in the same environment that does not import the package shows TensorFlo
 not a blind probe. (My first version of the test ran the wrong copy of the package and forced TensorFlow on,
 which crashes it; both were caught by running it.)
 
-## Not yet measured
+## Measured, and what this does not cover
 
-The real proof: Aria's failing full run with `USE_TF=0` (she is running it in `C:/w553`), and two concurrent runs of
-the model-loading test files here, which lost five workers in two of three runs before this change.
+Two concurrent runs of the model-loading test files: before, workers were lost in two of three runs; after, both
+runs passed (116 each).
+
+Aria ran her failing merge with `USE_TF=0` (907 files, 13845 passed). `test_extract_command` still failed, with an
+ordinary assertion ("No active session") and no dead worker anywhere in the run. So this change addresses the
+dead-worker failures and does not touch that one; a separate hunt is under way (session state leaking in from
+another test file; it passes alone and passes with the rest of its own file).
+
+## Owed, not done here
+
+The rule that a test over 30 seconds kills the whole worker is still in force. This change makes the first import
+cheaper (14s to 6s), which is a margin, not a structure. The durable form is a longer limit on the tests that load
+the model (a marker or fixture), so a slow import costs time and not a worker. Named here so it is not lost.
