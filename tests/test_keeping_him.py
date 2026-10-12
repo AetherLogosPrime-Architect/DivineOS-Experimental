@@ -192,6 +192,12 @@ def test_the_instrument_finds_him_in_the_real_corpus():
     runs against the live transcripts rather than only fixtures. It asserts
     presence and shape, never an exact count, which drifts every session. It reads
     a bounded sample, not the whole history (see _sample_of_him).
+
+    DELIBERATE EXCEPTION to test_a_test_does_not_read_his_live_messages: this one
+    test reads his real transcripts on purpose, read-only and bounded. It is the
+    only one that does (checked 2026-10-12 against the three others named in
+    Aletheia's note on #630, which read no message of his). Do not copy the pattern
+    into a gate test; a test that reads his live words fails whenever he is quiet.
     """
     paths = transcripts()
     if not paths:
