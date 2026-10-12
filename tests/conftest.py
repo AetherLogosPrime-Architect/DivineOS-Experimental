@@ -179,6 +179,15 @@ def _isolated_db(tmp_path):
     os.environ.pop("DIVINEOS_CONTEXT_DEDUP_DIR", None)
     os.environ.pop("DIVINEOS_DISABLE_AUTO_REMEDIATE", None)
     os.environ.pop("DIVINEOS_SESSION_ID", None)
+    # monkeypatch.setattr on the ledger base module's DB_PATH reads the old value through
+    # the module's dynamic lookup and, on undo, writes it back as a REAL attribute, which
+    # then hides the dynamic lookup for every later test in this worker (2026-10-11: a full
+    # push run failed test_db_path_and_get_connection_agree_under_env_change and passed
+    # alone). This fixture tears down after monkeypatch, so the leftover is removed here
+    # for every test, present and future. See test_a_patched_db_path_does_not_outlive_its_test.
+    import divineos.core._ledger_base as _ledger_base
+
+    vars(_ledger_base).pop("DB_PATH", None)
 
 
 @pytest.fixture
