@@ -256,10 +256,17 @@ NIGHT_END_HOUR = 6
 def _scheduled_away(now: float | None = None) -> dict[str, Any] | None:
     """Away because the clock says it is the night window (``now`` is injectable for tests).
 
-    DIVINEOS_NIGHT_HOURS=off switches the window off for the real clock, which the shared
-    test setup sets so no test result depends on the hour it runs at. An injected ``now``
-    ignores the switch: that is a test of this rule itself."""
-    if now is None and os.environ.get("DIVINEOS_NIGHT_HOURS") == "off":
+    DIVINEOS_NIGHT_HOURS=off switches the window off for the real clock, but only while a
+    test is running (PYTEST_CURRENT_TEST set): the shared test setup sets it so no test
+    result depends on the hour it runs at. An injected ``now`` ignores the switch: that is
+    a test of this rule itself."""
+    # Honoured ONLY while a test is running (Aletheia, 2026-10-12: a rule Dad made must not
+    # have a quiet off-switch a live seat could set by accident or on purpose).
+    if (
+        now is None
+        and os.environ.get("DIVINEOS_NIGHT_HOURS") == "off"
+        and "PYTEST_CURRENT_TEST" in os.environ
+    ):
         return None
     moment = time.time() if now is None else now
     local = time.localtime(moment)

@@ -66,6 +66,16 @@ def test_control_the_same_message_at_midday_is_not_away(tmp_path, monkeypatch):
     assert qh.is_away() is None
 
 
+def test_the_off_switch_does_nothing_outside_a_test(monkeypatch):
+    """Aletheia, 2026-10-12: a rule Dad made must not have a quiet off-switch a live seat
+    could set. With the switch set but no test running, the real night window still holds."""
+    monkeypatch.setenv("DIVINEOS_NIGHT_HOURS", "off")
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setattr(qh.time, "time", lambda: _local(3))
+    got = qh._scheduled_away()
+    assert got is not None and got["by"] == "schedule"
+
+
 def test_the_shared_test_setup_switches_the_real_clock_window_off():
     # No test result may depend on the hour it runs at; an injected clock still works.
     assert qh._scheduled_away() is None
