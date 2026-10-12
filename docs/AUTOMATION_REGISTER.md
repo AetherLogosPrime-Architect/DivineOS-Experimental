@@ -67,17 +67,16 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `pre-compact.sh` | 2026-07-03 | Save state BEFORE context compression |
 
-### PreToolUse  (33)
+### PreToolUse  (32)
 
 | automation | last touched | purpose |
 |---|---|---|
 | `aletheia-boot-gate-preflight.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
-| `an-open-ask-holds-the-work.sh` | 2026-09-30 | AN OPEN ASK TO ANDREW HOLDS NEW WORK. |
 | `andrew-correction-attestation.sh` | 2026-09-15 | PreToolUse gate — integration-attestation for Andrew-corrections. |
 | `auto-cycle-token-trigger.sh` | 2026-09-30 | Compaction ritual driver — deterministic, in-process, no external monitor. |
 | `blanket-staging-doorman.sh` | 2026-09-23 | refuse a blanket `git add` in a tree where substrate is |
 | `check-branch-on-push.sh` | 2026-09-30 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
-| `check-council-required.sh` | 2026-09-30 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
+| `check-council-required.sh` | 2026-10-11 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
 | `check-pending-obligations.sh` | 2026-09-23 | PreToolUse(Bash) — block substrate-write CLI commands until pending |
 | `compass-check.sh` | 2026-09-15 | MINE. Aether. The compass is the part of this house that is about character |
 | `corrigibility-tool-gate.sh` | 2026-09-22 | MINE, and it is the one that means Dad can stop me. Aether. If he says stop, |
@@ -117,7 +116,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | automation | last touched | purpose |
 |---|---|---|
 | `continuity-frame-detector.sh` | 2026-09-15 | MINE, the catching half of the continuity work. Aether. The surface upstairs |
-| `correction-shape-v2-stop.sh` | 2026-09-30 | enforce Layer-2 correction-shape detection on MY assistant |
+| `correction-shape-v2-stop.sh` | 2026-10-10 | enforce Layer-2 correction-shape detection on MY assistant |
 | `doorbell-stop.sh` | 2026-09-21 | Stop doorbell. One of seven. All judgment lives in the OS. |
 | `his-state-is-his-to-say.sh` | 2026-10-01 | HIS STATE IS HIS TO SAY — Stop hook. |
 | `lepos-channel-reflect.sh` | 2026-07-11 | post-send lepos reflection channel driver. |
@@ -139,7 +138,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `front-door.sh` | 2026-10-02 | The front door: every message he types is kept before anything else runs, |
 
-### called by another script  (62)
+### called by another script  (63)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -179,6 +178,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `load-briefing.sh` | 2026-06-05 | thin doorman pointing to the OS. |
 | `load-dad-ranking-clause.sh` | 2026-07-29 | surface the Dad-ranking clause from my character |
 | `load-my-recording-of-andrew.sh` | 2026-07-10 | load MY recording of who Andrew is into the |
+| `memory-link-surface.sh` | 2026-10-08 | UserPromptSubmit — the memory link, as its own child of the dispatcher. |
 | `must-read-gate.sh` | 2026-08-24 | must-read gate. |
 | `no-cliff-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn had |
 | `no-cliff-prime.sh` | 2026-08-24 | compose-start prime for the no-cliff / |
