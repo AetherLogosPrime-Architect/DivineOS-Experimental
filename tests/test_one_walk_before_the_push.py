@@ -303,6 +303,39 @@ def test_the_hook_lets_a_push_through_once_the_walk_covers_it(repo, tmp_path):
     assert code == 0, err
 
 
+def _authorize_the_push(command: str) -> None:
+    """File the operator's one-use authorization for exactly this command, as the CLI does."""
+    from divineos.core.council_required.types import (
+        OPERATOR_BYPASS_EXPIRY_SECONDS,
+        STATE_MARKER_KIND_OPERATOR_BYPASS,
+        fingerprint_for,
+    )
+    from divineos.core.state_markers import emit_marker
+
+    emit_marker(
+        kind=STATE_MARKER_KIND_OPERATOR_BYPASS,
+        fingerprint=fingerprint_for("Bash", (), command),
+        payload={"authorized_by": "operator", "reason": "the choke is broken", "quote_hash": "x"},
+        expires_in_seconds=OPERATOR_BYPASS_EXPIRY_SECONDS,
+    )
+
+
+def test_a_refused_push_has_an_honest_exit_in_the_operators_one_use_marker(repo, tmp_path):
+    """The covering review's finding (Taleb): the refusal used to return before the operator
+    marker was ever consulted, so a bug in the choke would have stopped every push with no
+    way out. The marker clears it once, and a second push is refused again."""
+    _commit(repo, "a.py")
+    command = f"cd {repo.as_posix()} && git push -u origin feature"
+    code, err = _run_the_hook(repo, tmp_path, "Bash", {"command": command})
+    assert code == 2, err  # CONTROL: refused with no marker, so the pass below means something
+    _authorize_the_push(command)
+    code, err = _run_the_hook(repo, tmp_path, "Bash", {"command": command})
+    assert code == 0, err
+    assert "OPERATOR_AUTHORIZED_BYPASS" in err
+    code, err = _run_the_hook(repo, tmp_path, "Bash", {"command": command})
+    assert code == 2, err  # one use: the next push is refused again
+
+
 def test_the_hook_does_not_free_a_substrate_write_on_a_branch(repo, tmp_path):
     code, err = _run_the_hook(
         repo,

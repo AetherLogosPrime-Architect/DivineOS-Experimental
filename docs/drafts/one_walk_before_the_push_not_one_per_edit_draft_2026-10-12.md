@@ -74,6 +74,20 @@ Binding the walk to the diff means a review round that changes one line makes th
 
 **An empty-diff binding is a binding.** `if coverage.bound_diff:` read `""` as unbound; it is now `is not None`. (With the subset rule an empty diff cannot be bound at all, so this is a guard on a case that cannot arise today and would otherwise degrade silently.)
 
+### The covering review of this change itself (walk-f2170b1ecc64, nine lenses, 2026-10-12)
+
+The design council reviewed the shape; this walk reviewed the built diff, with the question the machinery now prints. It found one thing to fix before merge and several to carry.
+
+**Fixed in this change (Taleb).** A refused push had no honest exit: the branch rule returned before the operator-bypass marker was ever consulted, so a bug in the choke would have stopped every push from this seat with nothing able to clear it, and the design council's own finding ("the operator bypass is the honest exit") was not actually wired. The hook now consults the same one-use marker the old gate honours, only on the refusal branch; two end-to-end tests pin it (refused with no marker, cleared once by a marker, refused again on the next push).
+
+**Carried, not fixed here, each with its lens:**
+- *Large diffs (Knuth).* The refusal prints one `--scope` per file, and a hundred-and-sixty-file change may exceed the shell line length; the open command should be able to take the scope another way.
+- *A stale `origin/main` (Wayne).* It inflates the changed-file set, so the refusal says "no walk covers these files" when the real cause is a stale reference; it should say to fetch first.
+- *The pass log has no reader (Dekker).* Free passes leave a line nobody sees, so normalization of unwalked edits has no feedback until the preregistered review; the count belongs in the briefing. And the lens floor should rise with the size of the diff, because nine lenses over many files is thinner than per-edit thinking ever was.
+- *Information (Hawking).* Per-edit walks carried the reasoning for each edit into the ledger; a free pass keeps only a fingerprint and a time. A deliberate trade, mitigated by commit messages and by the diff being bound in the walk, and named here so it is a decision and not a loss nobody noticed.
+- *The pre-build walk is advisory (Dennett, and Dad's two-walks note).* Once only the final walk is enforced, the rational move for a lazy author is to skip the first one. The first walk needs its own prompt: the questions Dad named (what are we trying to achieve, what is the overall goal, what are we trying to avoid), research on the open internet for what already exists, and lens priming carried into the work, with the covering review as the net for lenses that faded from context over a long build. That is its own change on the doorman's `walk open`.
+- *What is unproven (Popper, Dillahunty).* The end-to-end tests run the hook program extracted from the file, not the hook as registered, and the claim that paperwork falls by half is a prediction held by the preregistration, not a result. Both are settled only by the first real pushes after merge and fourteen days of the log.
+
 ## Why this is both shapes of right (truth #11)
 
 The cheap path (skip the walk) and the right path (think once, over everything) stop being different paths: thinking once over the whole diff is the cheap path, and it is better thinking, because a per-edit walk can only see one line and the final walk sees the interactions. It takes away a choice-point (per-edit paper) and replaces it with one the optimizer cannot reason around (the push refuses without it).
