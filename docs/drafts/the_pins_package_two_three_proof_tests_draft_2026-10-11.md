@@ -16,6 +16,8 @@ Each test is marked as a known failure, with a reason that names the defect, so 
 
 Run as they stand: 8 passed, 6 marked failures. Run with the marks forced off: the 6 fail with AssertionError, which is the defect showing and not a broken test. Each marked failure carries a raises clause, so a test that dies for the wrong reason (an import error, a typo) turns red instead of hiding inside the mark. Three of three raise the expected error.
 
+One thing the next reader should know (Aria's cold read, 2026-10-12): in the push-wrapper test the marked assertion has its own "did it land" check first, so a push that failed for an unrelated reason would die with AssertionError and hide inside the mark. The third test in that file, the long-form push really landing (asserting the remote only), is the control that rules this out today. The pair is what is sound; the control carries that weight.
+
 ## Not carried
 
 The fourth test file (council walk gate, #601) is left out: its 16 pins now pass, because the defects it proved have since been fixed. Carrying it would carry marks that are already wrong. It needs its marks removed and the tests kept as ordinary regression tests, which is a separate change. #612, #613, #615 and #616 still need the helper's work and are held.
