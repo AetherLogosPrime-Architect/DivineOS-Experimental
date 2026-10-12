@@ -193,11 +193,14 @@ def test_the_instrument_finds_him_in_the_real_corpus():
     presence and shape, never an exact count, which drifts every session. It reads
     a bounded sample, not the whole history (see _sample_of_him).
 
-    DELIBERATE EXCEPTION to test_a_test_does_not_read_his_live_messages: this one
-    test reads his real transcripts on purpose, read-only and bounded. It is the
-    only one that does (checked 2026-10-12 against the three others named in
-    Aletheia's note on #630, which read no message of his). Do not copy the pattern
-    into a gate test; a test that reads his live words fails whenever he is quiet.
+    DELIBERATE EXCEPTION to the rule that tests do not read his live messages (the rule
+    is stated in test_a_test_does_not_read_his_live_messages.py, which guards only the
+    question hold's store; nothing scans other tests for this marker). This one test
+    reads his real transcripts on purpose, read-only and bounded. It is the only one
+    that does: Aletheia proved it on 2026-10-12 by locking the transcripts folder and
+    watching exactly this test fail while the three others she had named passed. Do not
+    copy the pattern into a gate test; a test that reads his live words fails whenever
+    he is quiet.
     """
     paths = transcripts()
     if not paths:
