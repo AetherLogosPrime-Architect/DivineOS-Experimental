@@ -338,6 +338,74 @@ def test_an_amendment_cannot_swallow_a_large_or_wider_change(repo):
         cw.amend_walk(walk, "this is long enough to be a finding but a new file arrived", repo=repo)
 
 
+def test_amendments_add_up_from_the_original_walk_not_from_the_last_one(repo):
+    """Aria's hold: three 25-line steps are each under the 30-line cap, and together they
+    are 75 lines nobody walked. The cap is a TOTAL measured from where the walk closed."""
+    _commit(repo, "a.py", "start\n")
+    walk = _closed_walk(repo, ("a.py",))
+    body = "start\n"
+    for step in range(3):
+        body += "".join(f"step{step} line {i}\n" for i in range(25))
+        (repo / "a.py").write_text(body, encoding="utf-8")
+        _git(repo, "add", "a.py")
+        _git(repo, "commit", "-qm", f"step {step}")
+        if step == 0:
+            cw.amend_walk(
+                walk, "twenty five lines of a reviewer's follow-up, no behaviour change", repo=repo
+            )
+        else:
+            with pytest.raises(cw.WalkRefused, match="lines"):
+                cw.amend_walk(
+                    walk, "another twenty five lines that together are far too many", repo=repo
+                )
+            break
+
+
+def test_closing_from_the_right_folder_says_it_bound(repo):
+    _commit(repo, "a.py")
+    opened = cw.open_walk("does this change hold across every file it touches", scope=("a.py",))
+    for lens in opened["lenses"]:
+        cw.apply_lens(opened["walk_id"], lens, "a finding that is long enough to count: " + lens)
+    result = cw.close_walk(opened["walk_id"], repo=repo)
+    assert result["bound"] is True
+    assert Path(result["bound_in"]) == repo
+
+
+def test_a_walk_closed_in_the_wrong_folder_is_not_tied_to_that_folders_changes(tmp_path):
+    """Aria's strong suggestion: the shell resets to the main checkout, so a walk closed there
+    used to be bound to that folder's UNRELATED diff, and the push then refused for a reason
+    that looked like a defect in the thinking. Now it stays unbound and says so."""
+
+    def _make(name: str, filename: str) -> Path:
+        r = tmp_path / name
+        r.mkdir()
+        _git(r, "init", "-q", "--initial-branch=main")
+        (r / "base.txt").write_text("base\n", encoding="utf-8")
+        _git(r, "add", ".")
+        _git(r, "commit", "-qm", "base")
+        _git(r, "update-ref", "refs/remotes/origin/main", "HEAD")
+        _git(r, "switch", "-qc", "feature")
+        _commit(r, filename)
+        return r
+
+    work = _make("work", "a.py")
+    elsewhere = _make("elsewhere", "unrelated.py")
+    opened = cw.open_walk("does this change hold across every file it touches", scope=("a.py",))
+    for lens in opened["lenses"]:
+        cw.apply_lens(opened["walk_id"], lens, "a finding that is long enough to count: " + lens)
+    wrong = cw.close_walk(opened["walk_id"], repo=elsewhere)
+    assert wrong["bound"] is False
+    assert Path(wrong["bound_in"]) == elsewhere
+    # unbound, so the work copy's push reads it the weaker way and still passes: the walk
+    # closed after the work, which is all the older rule asks
+    assert pc.decide_push(work, PUSH).allow is True
+    # and it cannot be amended from anywhere: it has no fixed origin to measure from
+    with pytest.raises(cw.WalkRefused, match="walked head"):
+        cw.amend_walk(
+            opened["walk_id"], "a long enough sentence about what changed here", repo=work
+        )
+
+
 def test_an_amendment_needs_a_real_finding(repo):
     _commit(repo, "a.py", "one\n")
     walk = _closed_walk(repo, ("a.py",))

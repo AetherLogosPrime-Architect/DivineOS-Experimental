@@ -355,7 +355,7 @@ def decide_push(repo: Path, command: str) -> PushDecision:
         return PushDecision(
             False, "I could not read the diff to compare it with the walk, so the push is refused."
         )
-    if coverage.bound_diff:
+    if coverage.bound_diff is not None:  # "" is a real binding (an empty diff), not an absent one
         if coverage.bound_diff == current:
             return PushDecision(True)
         return PushDecision(
@@ -388,7 +388,9 @@ def _needs_a_walk(repo: Path, files: tuple[str, ...], why: str) -> str:
         f"{lead}Before this goes up, one council pass over everything it changes "
         f"({len(files)} file(s)), done in one sitting (read each lens and walk it within "
         "45 minutes, not an hour apart). One command opens it with every file filled in, and "
-        "the question is worded to find what is unsound or missing, so keep that wording:\n"
+        "the question is worded to find what is unsound or missing, so keep that wording. "
+        f"Open it AND close it from inside {repo} (a walk closed in another folder stays "
+        "tied to nothing and is read the weaker way):\n"
         f"  {open_command(files, hit)}\n"
         "Apply each lens, close it, then push again. This checks that the pass exists, "
         "names every changed file and matches the changes; nothing can check the thinking "

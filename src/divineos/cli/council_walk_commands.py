@@ -143,16 +143,24 @@ def register(cli: click.Group) -> None:
         required=True,
         help="What changed since the walk and why it is safe (a real sentence).",
     )
-    def amend_cmd(walk_id: str, finding: str) -> None:
+    @click.option(
+        "--repo",
+        default=None,
+        type=click.Path(file_okay=False),
+        help="The work copy the changes live in (default: the current folder).",
+    )
+    def amend_cmd(walk_id: str, finding: str, repo: str | None) -> None:
         """Re-bind a closed walk to a SMALL follow-up instead of walking everything again.
 
         The limits (lines, files already walked, a real finding) are in
         ``push_choke.AMEND_MAX_LINES`` and are enforced there, not here.
         """
+        from pathlib import Path
+
         from divineos.core.council_walk import amend_walk
 
         try:
-            result = amend_walk(walk_id, finding)
+            result = amend_walk(walk_id, finding, repo=Path(repo) if repo else None)
         except WalkRefused as exc:
             raise click.ClickException(str(exc)) from exc
         click.secho(
@@ -163,13 +171,31 @@ def register(cli: click.Group) -> None:
 
     @walk_group.command("close")
     @click.argument("walk_id")
-    def close_cmd(walk_id: str) -> None:
-        """Close the walk. Refuses while any lens is open."""
+    @click.option(
+        "--repo",
+        default=None,
+        type=click.Path(file_okay=False),
+        help="The work copy the changes live in (default: the current folder).",
+    )
+    def close_cmd(walk_id: str, repo: str | None) -> None:
+        """Close the walk. Refuses while any lens is open. Binds it to the branch's changes."""
+        from pathlib import Path
+
         try:
-            st = close_walk(walk_id)
+            st = close_walk(walk_id, repo=Path(repo) if repo else None)
         except WalkRefused as exc:
             raise click.ClickException(str(exc)) from exc
         click.secho(f"[+] {walk_id} closed — {len(st['lenses'])} lenses accounted for.", fg="green")
+        if st.get("bound"):
+            click.echo(f"    bound to the branch changes in {st['bound_in']}")
+        else:
+            click.secho(
+                f"    NOT bound to any branch changes (looked in {st['bound_in']}: its changes "
+                "are not a non-empty subset of this walk's scope). The push check will read this "
+                "walk the older, weaker way. To bind it, close it from inside the work copy "
+                "or pass --repo.",
+                fg="yellow",
+            )
 
         # Distinctness prints HERE because closing is the only moment the
         # question "was that thinking or nine restatements?" is answerable and

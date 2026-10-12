@@ -115,7 +115,11 @@ def _conn() -> sqlite3.Connection:
     # the patch-id of the branch's diff against origin/main and the commit it was read at.
     # NULL on a walk closed before this existed, which the push check reads the older,
     # weaker way (clock against the last authored commit) rather than as a pass.
-    for column in ("bound_diff TEXT", "bound_head TEXT"):
+    # walked_head is where the walk was ORIGINALLY closed and only close writes it. An
+    # amendment moves bound_head and never this, so the amendment cap is a TOTAL measured
+    # from what was actually walked, and many small steps cannot add up to a large one
+    # (Aria's cold read of the first version, which measured from the last amendment).
+    for column in ("bound_diff TEXT", "bound_head TEXT", "walked_head TEXT"):
         try:
             conn.execute(f"ALTER TABLE walks ADD COLUMN {column}")
         except sqlite3.OperationalError:
@@ -569,31 +573,55 @@ def status(walk_id: str) -> dict[str, Any]:
     }
 
 
-def _bind_to_diff(walk_id: str, repo: Path | None) -> None:
+def _scope_of(walk_id: str) -> set[str]:
+    conn = _conn()
+    try:
+        row = conn.execute("SELECT scope FROM walks WHERE id = ?", (walk_id,)).fetchone()
+    finally:
+        conn.close()
+    return {line.strip() for line in (row[0] or "").splitlines() if line.strip()} if row else set()
+
+
+def _bind_to_diff(walk_id: str, repo: Path | None) -> tuple[bool, str]:
     """Record the diff this walk covered, so a later authored change makes it stale.
 
-    Best effort on purpose and read the weaker way when absent: outside a git repository,
-    or with no origin/main to compare against, the walk simply stays unbound and the push
-    check falls back to comparing times. It is never read as covering anything.
+    Returns ``(bound, where_it_looked)``. A walk is bound only to a repository whose branch
+    changes are a NON-EMPTY subset of the files the walk is scoped to. Anything else
+    (outside a git repository, no origin/main, or a folder whose diff is some other work)
+    leaves it unbound, which the push check reads the older, weaker way (clock against the
+    last authored commit) and the caller says out loud. Aria's cold read: bound to whatever
+    folder ``close`` happened to run in, a walk closed from the main checkout was tied to
+    that folder's unrelated diff, and the push then refused with a reason that looked like
+    a defect in the thinking.
     """
     from divineos.core.council_required import push_choke
 
     where = Path(repo) if repo is not None else Path.cwd()
+    scope = _scope_of(walk_id)
+    changed = push_choke.changed_files(where)
     diff, head = push_choke.diff_identity(where), push_choke.head_sha(where)
-    if diff is None or head is None:
-        return
+    if changed is None or diff is None or head is None or not changed:
+        return False, str(where)
+    if not scope or not set(changed) <= scope:
+        return False, str(where)
     conn = _conn()
     try:
         conn.execute(
-            "UPDATE walks SET bound_diff = ?, bound_head = ? WHERE id = ?", (diff, head, walk_id)
+            "UPDATE walks SET bound_diff = ?, bound_head = ?, walked_head = ? WHERE id = ?",
+            (diff, head, head, walk_id),
         )
         conn.commit()
     finally:
         conn.close()
+    return True, str(where)
 
 
 def close_walk(walk_id: str, repo: Path | None = None) -> dict[str, Any]:
-    """Refuse while any surfaced lens is unaccounted for. Binds the walk to the diff."""
+    """Refuse while any surfaced lens is unaccounted for. Binds the walk to the diff.
+
+    The returned status carries ``bound`` (did it bind to a diff) and ``bound_in`` (the
+    folder it looked in), so the caller can say plainly when it did not.
+    """
     st = status(walk_id)
     if st["closed"]:
         raise WalkRefused(f"{walk_id} is already closed")
@@ -609,8 +637,10 @@ def close_walk(walk_id: str, repo: Path | None = None) -> dict[str, Any]:
         conn.commit()
     finally:
         conn.close()
-    _bind_to_diff(walk_id, repo)
-    return status(walk_id)
+    bound, bound_in = _bind_to_diff(walk_id, repo)
+    result = status(walk_id)
+    result["bound"], result["bound_in"] = bound, bound_in
+    return result
 
 
 def amend_walk(walk_id: str, finding: str, repo: Path | None = None) -> dict[str, Any]:
@@ -638,16 +668,24 @@ def amend_walk(walk_id: str, finding: str, repo: Path | None = None) -> dict[str
     conn = _conn()
     try:
         row = conn.execute(
-            "SELECT scope, bound_head FROM walks WHERE id = ?", (walk_id,)
+            "SELECT scope, walked_head, bound_head FROM walks WHERE id = ?", (walk_id,)
         ).fetchone()
     finally:
         conn.close()
     scope = {line.strip() for line in (row[0] or "").splitlines() if line.strip()} if row else set()
-    bound_head = row[1] if row else None
-    if not bound_head:
-        raise WalkRefused(f"{walk_id} was closed before walks were bound to a diff; walk again")
+    # Measured from where the walk was ORIGINALLY closed, which only close writes. Never from
+    # bound_head, which each amendment moves: that was the first version, and three
+    # thirty-line steps then swallowed ninety lines nobody walked. No fallback to bound_head
+    # for a walk that lacks the origin: the fallback IS the stepwise route.
+    origin = row[1] if row else None
+    bound_head = row[2] if row else None
+    if not origin:
+        raise WalkRefused(
+            f"{walk_id} was not closed against a branch diff (no walked head), so there is no "
+            "fixed origin to measure from; walk again from inside the work copy"
+        )
     where = Path(repo) if repo is not None else Path.cwd()
-    measured = push_choke.change_between(where, bound_head)
+    measured = push_choke.change_between(where, origin)
     if measured is None:
         raise WalkRefused("could not compare the changes with the walk; walk again")
     lines, touched = measured
