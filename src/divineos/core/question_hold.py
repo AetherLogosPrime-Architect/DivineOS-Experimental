@@ -292,6 +292,9 @@ def _shell_letter_target(command: str) -> str:
 _CIRCLE = re.compile(r"^##\s*INNER CIRCLE\s*$", re.M)
 _CODE = re.compile(r"```.*?```|`[^`\n]*`", re.S)
 _QUOTED = re.compile(r"\"[^\"\n]*\"|“[^”\n]*”|\*\"[^\n]*?\"\*")
+# 2026-10-12: a source's own title ends in "?" ("What is an agent harness?") and was read as a
+# question to Dad, twice in one night. A link is a pointer, never something said to him.
+_LINK = re.compile(r"\[[^\]\n]*\]\([^)\n]*\)")
 _SENTENCE = re.compile(r"[^.!?\n]*[.!?]+", re.S)
 
 
@@ -307,6 +310,7 @@ def _addressed_part(reply: str) -> str:
 
 def _clean(text: str) -> str:
     text = _CODE.sub(" ", text)
+    text = _LINK.sub(" ", text)
     text = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith(">"))
     return _QUOTED.sub(" ", text)
 
