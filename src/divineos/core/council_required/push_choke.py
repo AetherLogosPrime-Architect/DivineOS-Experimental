@@ -36,7 +36,9 @@ list of shell wrappers of its own.
 from __future__ import annotations
 
 import re
+import shlex
 import subprocess
+import sys
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -237,6 +239,32 @@ def record_free_pass(fingerprint: str) -> None:
         handle.write(line + "\n")
 
 
+def _words(segment: str) -> list[str]:
+    """The words of one shell segment, quotes honoured, so a folder with a space in its
+    name stays one word. ``posix=False`` keeps backslashes in a Windows path intact.
+
+    STATED LIMIT: an UNQUOTED folder with a space (``cd C:/DIVINE OS/x``) still splits and
+    lands on None, which is the strict direction. A real shell needs the quotes there too,
+    so quoting is the contract (Aria's cold read, 2026-10-12)."""
+    try:
+        raw = shlex.split(segment, posix=False)
+    except ValueError:
+        raw = segment.split()
+    return [w[1:-1] if len(w) >= 2 and w[0] == w[-1] and w[0] in "\"'" else w for w in raw]
+
+
+def _native_folder(value: str) -> str:
+    """A git-bash style drive path (``/c/work``) as the folder Windows knows (``C:/work``).
+
+    Found 2026-10-12: a ``cd /c/w-behind`` was not an existing folder to Python on Windows,
+    so the lighter branch rule fell back to the strict gate on every such line."""
+    if sys.platform == "win32":
+        match = re.match(r"^/([A-Za-z])(/.*)?$", value)
+        if match:
+            return f"{match.group(1).upper()}:{match.group(2) or '/'}"
+    return value
+
+
 def target_dir(file_paths: tuple[str, ...], bash_command: str, default: Path) -> Path | None:
     """The folder a call acts in, or None when it cannot be told (the caller stays strict).
 
@@ -258,7 +286,7 @@ def target_dir(file_paths: tuple[str, ...], bash_command: str, default: Path) ->
         return None
     where = Path(default)
     for segment in segments:
-        tokens = segment.split()
+        tokens = _words(segment)
         if not tokens:
             continue
         head = program_name(tokens[0]).lower()
@@ -269,6 +297,7 @@ def target_dir(file_paths: tuple[str, ...], bash_command: str, default: Path) ->
             at = tokens.index("-C") + 1
             value = tokens[at] if at < len(tokens) else ""
         if value:
+            value = _native_folder(value)
             where = Path(value) if Path(value).is_absolute() else where / value
     return where if where.exists() else None
 
