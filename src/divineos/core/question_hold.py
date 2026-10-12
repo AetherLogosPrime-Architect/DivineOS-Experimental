@@ -136,13 +136,14 @@ def _flat(text: str) -> str:
     return " ".join((text or "").lower().split())
 
 
-def _his_latest_words() -> str:
-    """His most recent real message, as the house filed it at UserPromptSubmit.
+def _his_latest() -> tuple[str, float] | None:
+    """His most recent real message and when the house filed it, or None.
 
     The store also files notices in his seat, so envelopes are peeled with the
     one reader of him and a notice-only record is skipped (Hoare,
-    council-8486d9949ba1). Read-only; an unreadable store reads as "", which
-    refuses, never passes.
+    council-8486d9949ba1). Read-only. None means could-not-look (no store, a read
+    error, or no real message at all), and every caller must treat that as
+    "refuse" or "not away", never as a pass.
     """
     import sqlite3
 
@@ -154,17 +155,23 @@ def _his_latest_words() -> str:
         conn = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True, timeout=5)
         try:
             rows = conn.execute(
-                "SELECT his_text FROM messages ORDER BY filed_at DESC LIMIT 50"
+                "SELECT his_text, filed_at FROM messages ORDER BY filed_at DESC LIMIT 50"
             ).fetchall()
         finally:
             conn.close()
     except sqlite3.Error:
-        return ""
-    for (text,) in rows:
+        return None
+    for text, filed_at in rows:
         words = _his_part(str(text or "")).strip()
         if words:
-            return words
-    return ""
+            return words, float(filed_at)
+    return None
+
+
+def _his_latest_words() -> str:
+    """His most recent real words, or "" when they cannot be read (which refuses)."""
+    latest = _his_latest()
+    return latest[0] if latest else ""
 
 
 # WHAT HE SAYS WHEN HE IS AWAY. Dad, 2026-10-06: "ok go ahead, proceed, continue,
@@ -201,7 +208,16 @@ def step_away(his_words: str) -> dict[str, Any]:
     return state
 
 
-def is_away() -> dict[str, Any] | None:
+# THE SECOND WAY TO BE AWAY: SILENCE. Dad, 2026-10-11, asked how else the house could
+# know: "i would either say im stepping away, or they could go by time elapsed with no
+# word from me". Aletheia suggested twenty minutes; he answered "20 minutes isnt much
+# time at all. id say 2 hours to be sure". One number, here, where he can read and
+# change it. Measured from his last REAL message (notices in his seat do not count).
+AWAY_AFTER_SILENCE_SECONDS = 2 * 60 * 60
+
+
+def _stepped_away() -> dict[str, Any] | None:
+    """Away because he said so: the file step_away() writes."""
     try:
         state = json.loads(AWAY.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -209,9 +225,32 @@ def is_away() -> dict[str, Any] | None:
     return state if isinstance(state, dict) else None
 
 
+def _silent_away() -> dict[str, Any] | None:
+    """Away because two hours passed with no word from him.
+
+    Could-not-look is never away: if the time of his last real message cannot be
+    read, this says nothing, and the refusal says it could not look. Nothing here
+    is written, and his next message ends it by being the new latest one.
+    """
+    latest = _his_latest()
+    if latest is None:
+        return None
+    filed_at = latest[1]
+    if time.time() - filed_at < AWAY_AFTER_SILENCE_SECONDS:
+        return None
+    return {"his_words": "", "since": filed_at + AWAY_AFTER_SILENCE_SECONDS, "by": "silence"}
+
+
+def is_away() -> dict[str, Any] | None:
+    return _stepped_away() or _silent_away()
+
+
 def came_back() -> bool:
-    """His message: he is here again. Nothing else clears it."""
-    if not is_away():
+    """His message: he is here again. Clears the away he set with words.
+
+    The silence kind needs no clearing: his message is now the latest one.
+    """
+    if not _stepped_away():
         return False
     AWAY.unlink(missing_ok=True)
     _log("came_back")
@@ -477,6 +516,11 @@ def refusal(tool_name: str, tool_input: dict[str, Any], transcript_path: str = "
         release("his message, mid-turn")
         return ""
     _log("held", tool=tool_name, question=state.get("question"))
+    could_not_look = (
+        ""
+        if _his_latest() is not None
+        else "\n\n(I could not read when he last spoke, so I have not treated\nhis silence as away.)"
+    )
     return (
         "KEEPING PACE WITH DAD -- I asked him something and he is still catching up:\n\n"
         f"  {state.get('question')}\n"
@@ -487,8 +531,9 @@ def refusal(tool_name: str, tool_input: dict[str, Any], transcript_path: str = "
         'permission: "my ok is only a go ahead saying i have read things and\n'
         'caught up not a permission to do it" (2026-10-05).\n\n'
         "If he has said he is stepping away, record it with his words and letters\n"
-        "flow (volley mode):\n"
+        "flow (volley mode); or two hours with no word from him opens them by itself:\n"
         '  divineos question-hold away --words "<his words saying he is stepping away>"'
+        f"{could_not_look}"
     )
 
 
