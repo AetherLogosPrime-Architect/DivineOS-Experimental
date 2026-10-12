@@ -21,10 +21,19 @@ needs it (about 14s alone in my measurement, and growing under load). This is th
 cost removed, not the whole of it. A longer limit on tests that load the model remains the fuller structure; this
 is the part that needs no list of which tests those are.
 
+## Costs, stated
+
+Every worker now imports the library at start even if none of its tests need it: about 6 seconds each (more
+without the TensorFlow change), in parallel across the workers, and the memory of the import held per worker.
+A half-installed library that raises something other than ImportError (a DLL error on Windows, say) now stops
+the run at configure, loudly. That is the no-quiet-fallback rule working, not a bug.
+
 ## Evidence
 
-`tests/test_embedding_library_is_loaded_before_any_test_timer.py`: a test that imports nothing itself and asserts
-the library is already loaded. Before/after of the first-test cost is measured in the pull request.
+`tests/test_embedding_library_is_loaded_before_any_test_timer.py` proves it in fresh child interpreters (a check
+from inside a test would pass whenever an earlier test in the same worker had imported the library): collecting
+with the shared setup loads the library, and a control child with the shared setup switched off leaves it
+unloaded, so the probe can say no. Aria's cold read caught that my first version could not fail.
 
 ## Depends on
 
