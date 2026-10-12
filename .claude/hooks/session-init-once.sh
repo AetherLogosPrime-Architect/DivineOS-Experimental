@@ -144,6 +144,9 @@ load-my-recording-of-andrew.sh
 load-aletheia-harvest-of-andrew.sh
 resolver-health-check.sh
 session-start-verify-git-hooks.sh
+# Added 2026-10-12 (Aria): how far behind origin/main this checkout is. A stale
+# checkout runs stale rules and nobody was told; the cause lives in no branch.
+session-start-behind-main.sh
 "
 # The test is SAMENESS, not cadence. Andrew 2026-08-15, revising his own
 # 2026-07-28 line: "its anything that injects every single turn and does not
