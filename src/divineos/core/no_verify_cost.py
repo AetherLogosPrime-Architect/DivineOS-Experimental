@@ -101,11 +101,17 @@ def _quoted_commands_in(seg: list[str]) -> list[str]:
     """
     out: list[str] = []
     for i, tok in enumerate(seg):
-        name = tok.replace("\\", "/").rsplit("/", 1)[-1].lower()
+        if not _at_command_position(seg, i):
+            continue  # `echo bash -c "..."` talks about a shell; it does not run one
+        name = _basename(tok)
         if name in _SHELLS:
+            # The flags come right after the shell. The first non-flag word is a
+            # script, and a `-c` after that belongs to the script (`bash run.sh -c x`).
             for j in range(i + 1, len(seg) - 1):
                 flag = seg[j]
-                if flag.startswith("-") and not flag.startswith("--") and "c" in flag[1:]:
+                if not flag.startswith("-"):
+                    break
+                if not flag.startswith("--") and "c" in flag[1:]:
                     out.append(seg[j + 1])
                     break
         elif name == "eval" and i + 1 < len(seg):
@@ -113,10 +119,39 @@ def _quoted_commands_in(seg: list[str]) -> list[str]:
     return out
 
 
+# Words that run the next word as a command, so the next word still sits at command position.
+_WRAPPERS = frozenset({"env", "command", "sudo", "exec", "nohup", "time", "nice"})
+
+
+def _basename(token: str) -> str:
+    return token.replace("\\", "/").rsplit("/", 1)[-1].lower()
+
+
+def _is_git(token: str) -> bool:
+    """``git``, ``/usr/bin/git`` and ``git.exe`` are the same program (Aria, 2026-10-13)."""
+    return _basename(token) in ("git", "git.exe")
+
+
+def _at_command_position(seg: list[str], i: int) -> bool:
+    """True when everything before ``seg[i]`` is an env assignment, a wrapper, or a wrapper's flag."""
+    for tok in seg[:i]:
+        if tok.startswith("-") or (("=" in tok) and not tok.startswith("-")):
+            continue
+        if _basename(tok) in _WRAPPERS:
+            continue
+        return False
+    return True
+
+
 def _env_sets_hooks_path(token: str) -> bool:
     """``GIT_CONFIG_KEY_<n>=core.hooksPath``: the ``-c`` override, spelled as an environment variable."""
     key, sep, value = token.partition("=")
-    return bool(sep) and key.upper().startswith("GIT_CONFIG_KEY_") and _is_hooks_path_setting(value)
+    if not sep:
+        return False
+    if key.upper().startswith("GIT_CONFIG_KEY_"):
+        return _is_hooks_path_setting(value)
+    # `GIT_CONFIG_PARAMETERS="'core.hookspath=/dev/null'"`: the same override, packed in one variable.
+    return key.upper() == "GIT_CONFIG_PARAMETERS" and "core.hookspath" in value.lower()
 
 
 def _has_unverified_git_write(tokens: list[str], depth: int = 0) -> str | None:
@@ -174,12 +209,11 @@ def _has_unverified_git_write(tokens: list[str], depth: int = 0) -> str | None:
                 found = _has_unverified_git_write(inner_tokens, depth + 1)
                 if found:
                     return found
-        if len(seg) < 2 or seg[0] != "git":
+        if len(seg) < 2 or not _is_git(seg[0]):
             # `env FOO=bar git commit ...` and `sudo git ...` shapes: find git
             # anywhere in the segment, since a segment is one command.
-            try:
-                gi = seg.index("git")
-            except ValueError:
+            gi = next((n for n, t in enumerate(seg) if _is_git(t)), -1)
+            if gi < 0:
                 continue
         else:
             gi = 0

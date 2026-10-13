@@ -28,3 +28,9 @@ Before writing the walk I tried the fix on the shapes I could think of, instead 
 
 - It is a gate on what I type. A person (or a script I run) can still change the setting some other way, such as editing the git config file with a write tool. That is a different door and this does not close it.
 - It does not forbid an honest skip. The same named-reason route exists and is counted, by design: *bypass is a tool, not a sin; intent decides* (truth #12). What changes is that the skip can no longer be silent.
+
+## Taken from Aria's cold read (2026-10-13)
+
+- A path-qualified git (`/usr/bin/git`, `git.exe`) is now recognised the same as the bare word.
+- `GIT_CONFIG_PARAMETERS` carrying `core.hookspath` is treated as the same environment route as the numbered keys.
+- A shell word counts only where a command would run: `echo bash -c "..."` and `bash run.sh -c "..."` now pass; env assignments and wrappers (`env`, `sudo`, `command`, `exec`, `nohup`, `time`, `nice`) in front still count. Still named as not covered: a wrapper with an argument-taking flag (`sudo -u root bash -c ...`) puts a plain word at command position and passes.

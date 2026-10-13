@@ -104,6 +104,35 @@ def test_talking_about_a_skip_or_running_an_ordinary_shell_is_not_stopped(comman
     assert not _denied(command), f"the gate over-fired on: {command}"
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "/usr/bin/git commit --no-verify -m x",
+        "git.exe commit --no-verify -m x",
+        "C:/Program Files/Git/bin/git.exe -c core.hooksPath=/dev/null commit -m x",
+        "GIT_CONFIG_PARAMETERS=\"'core.hookspath=/dev/null'\" git commit -m x",
+        'env FOO=1 bash -c "git commit --no-verify -m x"',
+        'sudo bash -lc "git commit -n -m x"',
+    ],
+)
+def test_a_path_qualified_git_and_the_packed_environment_route_are_stopped(command: str) -> None:
+    """Aria's cold read of 656: the gate was anchored to the literal word `git`."""
+    assert _denied(command), f"the gate went silent on: {command}"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'echo bash -c "git commit --no-verify -m x"',
+        'bash run.sh -c "git commit --no-verify -m x"',
+        "GIT_CONFIG_PARAMETERS=\"'user.name=t'\" git commit -m x",
+        "/usr/bin/git commit -m x",
+    ],
+)
+def test_a_shell_word_that_is_not_running_a_shell_is_not_stopped(command: str) -> None:
+    assert not _denied(command), f"the gate over-fired on: {command}"
+
+
 def test_control_the_plain_form_is_still_stopped() -> None:
     # If the option-stepping broke the old path, the tests above could pass for the wrong reason.
     assert _denied("git commit --no-verify -m x")
