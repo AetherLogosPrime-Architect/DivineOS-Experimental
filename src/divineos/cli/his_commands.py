@@ -106,3 +106,18 @@ def register(cli: click.Group) -> None:
         if left:
             click.echo(f"{len(left)} more of his still waiting here: divineos his pending")
         click.echo("The sort is the reading, not the reply. He is still owed an answer.")
+
+    @his_group.command("door")
+    @click.option(
+        "--transcript",
+        "transcript_path",
+        required=True,
+        type=click.Path(exists=True, dir_okay=False),
+        help="The session transcript to count his arrivals from.",
+    )
+    @click.option("--hours", default=24, show_default=True, help="How far back to count.")
+    def door_cmd(transcript_path: str, hours: int) -> None:
+        """How many of his messages the door caught, counted from what arrived."""
+        from divineos.core import door_report
+
+        click.echo(door_report.render(door_report.report(transcript_path, _seat(), hours)))
