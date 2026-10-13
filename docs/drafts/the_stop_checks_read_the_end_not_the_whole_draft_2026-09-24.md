@@ -72,6 +72,20 @@ thousands of old records and the answers in the last few, and count
 `json.loads` calls. A surface that parses the whole file to find the last
 message fails the test — including one added next month.
 
+## Owed, with Aria's measurement (2026-10-13)
+
+Aria timed the four readers on her largest transcript (317 MB). Normal case, his last message near the end:
+0.06 s in total. The case that matters is the quiet night: when his last message is further back than the 32 MB
+window, each reader falls back to the whole file, and the memo is per question, so four questions parse the file
+four times: 2.38 + 2.35 + 1.90 + 1.81 = **8.45 s against the doorbell's 10 s limit**. That is under the limit and
+leaves about a second and a half for every other Stop surface, in exactly the nights this change is for.
+
+The fix she proposed, and I agree with, is to parse once per file state: one memoised "where is his last record"
+(a byte offset found by the same widening windows) that every question then reads from, so the fallback costs about
+2.4 s once and no longer depends on how many questions are asked. It is not in this change, which is already large
+and equivalence-tested; it is the next build, as its own request, and it is named here with both numbers so that
+nobody reads 0.06 s as the worst case.
+
 ## Limits, named
 
 - A long notification-only stretch still costs one whole read for
