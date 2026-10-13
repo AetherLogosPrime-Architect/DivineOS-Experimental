@@ -18,9 +18,8 @@ from divineos.core import read_gate
 def isolated_gate(tmp_path, monkeypatch):
     monkeypatch.setattr(read_gate, "STATE_DIR", tmp_path)
     monkeypatch.setattr(read_gate, "STATE_FILE", tmp_path / "pending.json")
-    monkeypatch.setattr(read_gate, "CLEAR_LOG", tmp_path / "clears.jsonl")
-    monkeypatch.setattr(read_gate, "REARM_LOG", tmp_path / "rearms.jsonl")
-    monkeypatch.setattr(read_gate, "SEEN_READS", tmp_path / "seen.json")
+    # The rearm log, the seen-reads file and the clear log are all derived from
+    # STATE_DIR in read_gate, so redirecting STATE_DIR isolates them too.
     monkeypatch.setattr(read_gate, "is_pytest_scratch", lambda _target: False)
     return tmp_path
 
