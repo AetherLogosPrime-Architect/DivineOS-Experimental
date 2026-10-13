@@ -114,6 +114,17 @@ def _has_unverified_git_write(tokens: list[str]) -> str | None:
     invocation it is being read against. Checking ``"-n" in tokens`` globally
     would fire on ``grep -n foo && git commit``, which is the over-fire that
     teaches me to reach for the escape hatch.
+
+    GIT'S OWN OPTIONS SIT BETWEEN ``git`` AND THE SUBCOMMAND (2026-10-13, the
+    second time this gate was anchored to a position). The subcommand was read
+    as the token right after ``git``, so ``git -c core.hooksPath=/dev/null
+    commit`` read as a subcommand named ``-c`` and was never recognised as a
+    commit at all. I skipped every pre-commit check that way, on a merge, and
+    nothing stopped me; Dad: "fix why you were even able to skip it so you
+    cant". The same blind spot meant ``git -C some/folder commit --no-verify``
+    also went unseen, and I type ``git -C`` constantly. Both are closed here:
+    the options are stepped over to find the real subcommand, and a hooks-path
+    override counts as the same act as ``--no-verify``, because it is.
     """
     for seg in _segments(tokens):
         if len(seg) < 2 or seg[0] != "git":
@@ -125,9 +136,15 @@ def _has_unverified_git_write(tokens: list[str]) -> str | None:
                 continue
         else:
             gi = 0
-        sub = seg[gi + 1] if gi + 1 < len(seg) else ""
+        sub, hooks_off, sub_at = _git_subcommand(seg, gi)
+        if sub == "config" and _sets_hooks_path(seg[sub_at + 1 :]):
+            # Setting core.hooksPath persists: every later commit skips the
+            # checks without any flag to see.
+            return sub
         if sub not in ("commit", "push"):
             continue
+        if hooks_off:
+            return sub
         # `-n` is --no-verify for COMMIT and --dry-run for PUSH. Treating them
         # alike would deny `git push -n`, a harmless rehearsal, and an
         # over-firing gate is how the reach for the escape hatch gets taught.
@@ -135,6 +152,56 @@ def _has_unverified_git_write(tokens: list[str]) -> str | None:
         if any(flag in seg[gi:] for flag in flags):
             return sub
     return None
+
+
+# Git options that sit before the subcommand and take the next token as their value.
+_GIT_OPTS_TAKING_A_VALUE = ("-C", "--git-dir", "--work-tree", "--namespace", "--super-prefix")
+
+
+def _is_hooks_path_setting(text: str) -> bool:
+    return text.lower().startswith("core.hookspath")
+
+
+def _git_subcommand(seg: list[str], gi: int) -> tuple[str, bool, int]:
+    """Step over git's own leading options to the real subcommand.
+
+    Returns ``(subcommand, hooks_path_overridden, index_of_subcommand)``. An
+    override of core.hooksPath given as ``-c core.hooksPath=...`` (or the joined
+    ``-ccore.hooksPath=...`` or ``--config-env`` forms) turns every hook off for
+    that one command, which is exactly what ``--no-verify`` does.
+    """
+    i = gi + 1
+    hooks_off = False
+    while i < len(seg) and seg[i].startswith("-"):
+        tok = seg[i]
+        takes_next = i + 1 < len(seg)
+        if tok == "-c" and takes_next:
+            hooks_off = hooks_off or _is_hooks_path_setting(seg[i + 1])
+            i += 2
+        elif tok == "--config-env" and takes_next:
+            hooks_off = hooks_off or _is_hooks_path_setting(seg[i + 1])
+            i += 2
+        elif tok in _GIT_OPTS_TAKING_A_VALUE and takes_next:
+            i += 2
+        else:
+            if tok.startswith("-c") and _is_hooks_path_setting(tok[2:]):
+                hooks_off = True
+            if tok.lower().startswith("--config-env=") and _is_hooks_path_setting(tok[13:]):
+                hooks_off = True
+            i += 1
+    return (seg[i] if i < len(seg) else ""), hooks_off, i
+
+
+def _sets_hooks_path(args: list[str]) -> bool:
+    """A ``git config`` that WRITES core.hooksPath (reading it back is harmless)."""
+    reads = ("--get", "--get-all", "--list", "-l", "--get-regexp", "--unset", "--unset-all")
+    if any(a in reads for a in args):
+        return False
+    for at, a in enumerate(args):
+        # The key with nothing after it only reads the value back; a write has a value.
+        if _is_hooks_path_setting(a):
+            return any(not later.startswith("-") for later in args[at + 1 :])
+    return False
 
 
 def decide(tool_input: dict[str, Any] | None) -> dict[str, Any] | None:
