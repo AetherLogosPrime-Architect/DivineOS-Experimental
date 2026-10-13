@@ -38,6 +38,12 @@ The two tests that reset the flag by hand no longer do. Nothing else read it.
 session; setup twice in a row keeps one. Both fail on current main code (2 failed) and pass with the change.
 The original failing order (the three files above) now passes: 14 passed.
 
+## Named, not changed here
+
+The branch that logs "Continuing without session initialization" when starting a session fails now runs on every
+setup call instead of once. It was already a quiet fallback and this does not make it worse, only more visible if
+it ever fires. It is its own item; named here so nobody wonders later. (Aria's cold read.)
+
 ## Not covered
 
 This explains and fixes the one stubborn test. It does not touch the dead-worker failures (a separate cause, in
