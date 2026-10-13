@@ -18,6 +18,8 @@ what I typed rather than what he has to hold.
 
 from __future__ import annotations
 
+import pytest
+
 from divineos.core.lepos_translation_gate import (
     _CIRCLE_REQUIRED_ABOVE_CHARS,
     check_lepos_dual_channel,
@@ -47,6 +49,10 @@ def test_a_short_plain_reply_still_needs_no_room():
     assert check_lepos_dual_channel(short) is None
 
 
+_ROOM_REMOVED = 'Andrew 2026-10-03: "so just remove it.." -- the circle room is gone'
+
+
+@pytest.mark.skip(reason=_ROOM_REMOVED)
 def test_a_long_jargon_free_reply_is_refused_for_having_no_circle():
     reply = _wall(_CIRCLE_REQUIRED_ABOVE_CHARS + 400)
     result = check_lepos_dual_channel(reply)
@@ -71,6 +77,7 @@ def test_the_same_long_reply_passes_once_it_carries_the_room():
     assert check_lepos_dual_channel(reply) is None
 
 
+@pytest.mark.skip(reason=_ROOM_REMOVED)
 def test_the_threshold_is_the_thing_under_test_not_the_prose():
     """Just under the floor passes; just over it does not. Pins the trigger to
     length rather than to anything about the wording, so a rephrase cannot

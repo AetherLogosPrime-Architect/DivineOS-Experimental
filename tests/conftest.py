@@ -57,6 +57,26 @@ def _verify_divineos_import_path(config: pytest.Config) -> None:
         )
 
 
+def _warm_the_embedding_library(config: pytest.Config) -> None:
+    """Import the embedding library here, where no test timer is running.
+
+    2026-10-12: the per-test limit kills the whole worker when it is exceeded, and the first
+    test in each worker that needed this library spent most of its budget importing it
+    (6-14s alone, over 30s under load). Importing it at worker start moves that cost to a
+    place no timer watches. Workers only: the controller process runs no tests.
+    """
+    is_controller = not hasattr(config, "workerinput") and getattr(
+        config.option, "numprocesses", None
+    )
+    if is_controller:
+        return
+    try:
+        import divineos  # noqa: F401  (sets USE_TF=0 before the library can import TensorFlow)
+        import sentence_transformers  # noqa: F401
+    except ImportError:
+        pass
+
+
 def pytest_configure(config: pytest.Config) -> None:
     """Set basetemp to a project-local directory to avoid Windows permissions issues."""
     # Cap xdist workers at 16 when xdist is loaded (Aletheia FLAG 2, 2026-07-02).
@@ -69,6 +89,7 @@ def pytest_configure(config: pytest.Config) -> None:
     # box resolved to 40 workers, each ~1.5GB, demanding 60GB on a 31GB
     # system. Andrew's call: cap at 16.
     _verify_divineos_import_path(config)
+    _warm_the_embedding_library(config)
 
     if config.pluginmanager.hasplugin("xdist"):
         current = getattr(config.option, "maxprocesses", None)
@@ -161,6 +182,23 @@ def _isolated_db(tmp_path):
     os.environ["DIVINEOS_DB"] = str(db_path)
     os.environ["DIVINEOS_HOME"] = str(home_path)
     os.environ["DIVINEOS_DISABLE_AUTO_REMEDIATE"] = "1"
+    # The repeat-suppression store, per test (2026-09-24). Unset, it fell back to
+    # the REAL state directory, so every test that rendered a compose surface
+    # wrote the live session's memory of what had been shown -- and two tests
+    # rendering the lepos floor in the same second (its questions are drawn from
+    # a per-second seed) handed the second one the short "already shown" pointer.
+    # test_build_walk_surface_is_speaking_floor failed that way in a push gate
+    # while passing alone.
+    os.environ["DIVINEOS_CONTEXT_DEDUP_DIR"] = str(tmp_path / "context_dedup")
+    # The store of his messages, per test, pointed at a file that does not exist (2026-10-12).
+    # Unset, the question hold read his REAL last message, and once he had been silent two
+    # hours the away-by-silence rule ruled every one of these tests "he is away" and 23 of
+    # them failed in the push gate while passing the day before. A test that wants a message
+    # of his sets this itself; one that does not gets "could not look", which is never away.
+    os.environ["DIVINEOS_HIS_ASKS_DB"] = str(tmp_path / "no_his_messages.db")
+    # The night window (midnight to 6am) rules "he is away" by the clock. A test that does
+    # not mean to test it must not give a different answer at 2am than at 2pm.
+    os.environ["DIVINEOS_NIGHT_HOURS"] = "off"
 
     from divineos.core.ledger import init_db
 
@@ -168,8 +206,39 @@ def _isolated_db(tmp_path):
     yield
     os.environ.pop("DIVINEOS_DB", None)
     os.environ.pop("DIVINEOS_HOME", None)
+    os.environ.pop("DIVINEOS_CONTEXT_DEDUP_DIR", None)
+    os.environ.pop("DIVINEOS_HIS_ASKS_DB", None)
+    os.environ.pop("DIVINEOS_NIGHT_HOURS", None)
     os.environ.pop("DIVINEOS_DISABLE_AUTO_REMEDIATE", None)
     os.environ.pop("DIVINEOS_SESSION_ID", None)
+    # monkeypatch.setattr on the ledger base module's DB_PATH reads the old value through
+    # the module's dynamic lookup and, on undo, writes it back as a REAL attribute, which
+    # then hides the dynamic lookup for every later test in this worker (2026-10-11: a full
+    # push run failed test_db_path_and_get_connection_agree_under_env_change and passed
+    # alone). This fixture tears down after monkeypatch, so the leftover is removed here
+    # for every test, present and future. See test_a_patched_db_path_does_not_outlive_its_test.
+    import divineos.core._ledger_base as _ledger_base
+
+    vars(_ledger_base).pop("DB_PATH", None)
+
+
+@pytest.fixture(autouse=True)
+def _read_gate_state_is_the_tests_own(tmp_path, monkeypatch):
+    """No test can reach the live read-gate state, whether or not it remembers to patch.
+
+    The read gate resolves its state folder when its module loads, which is before
+    ``_isolated_db`` redirects DIVINEOS_HOME, so the environment change above never
+    reaches it. Tests that patched ``STATE_DIR`` themselves were safe; every other
+    test that armed or cleared the gate wrote fixture rows into the LIVE logs. Measured
+    2026-10-11: about 63 percent of Aria's seat's clears log and about 78 percent of
+    Aether's (by line) were test debris, so every measure of the gate was inflated.
+    Isolation is the default here, so a future test cannot forget it.
+    """
+    from divineos.core import read_gate
+
+    gate_state = tmp_path / "read_gate_state"
+    monkeypatch.setattr(read_gate, "STATE_DIR", gate_state)
+    monkeypatch.setattr(read_gate, "STATE_FILE", gate_state / "read_gate_pending.json")
 
 
 @pytest.fixture
