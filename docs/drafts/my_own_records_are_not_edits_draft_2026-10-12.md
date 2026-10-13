@@ -12,6 +12,12 @@ A picture: a diary with a lock that asks you to write an essay about why you may
 
 My first version also removed `decide`. Taleb's lens caught that this was wrong: the verify-before-build gate accepts a `divineos decide` entry as a "walk-record", so if `decide` were free, a thin decision note would become the cheap way to clear that gate, and today's paperwork is part of what makes the right path (actually looking first) the cheaper one. So **`decide` stays on the list**, and only the three that nothing trusts as evidence come off.
 
+**Corrected after Aletheia's read (2026-10-12): `compass-ops observe` IS someone's evidence.** An observation clears
+the compass-required marker, so "nothing trusts it" was wrong for that one. The reason it still comes off this list is
+different and narrower: a council walk is the wrong cost to charge for recording one. The observation stays logged and
+visible; it just does not owe a walk before it is written. `journal` and `feel` are my own records that no gate takes as
+proof, so for those the original reasoning holds.
+
 ## The change
 
 Remove `journal`, `feel` and `compass-ops` from the list. `audit`, `claim`, `learn`, `prereg` and `decide` stay: they file into stores other gates and other people read, or that another gate accepts as proof, so thinking first is the right toll there.
