@@ -222,6 +222,25 @@ def _isolated_db(tmp_path):
     vars(_ledger_base).pop("DB_PATH", None)
 
 
+@pytest.fixture(autouse=True)
+def _read_gate_state_is_the_tests_own(tmp_path, monkeypatch):
+    """No test can reach the live read-gate state, whether or not it remembers to patch.
+
+    The read gate resolves its state folder when its module loads, which is before
+    ``_isolated_db`` redirects DIVINEOS_HOME, so the environment change above never
+    reaches it. Tests that patched ``STATE_DIR`` themselves were safe; every other
+    test that armed or cleared the gate wrote fixture rows into the LIVE logs. Measured
+    2026-10-11: about 63 percent of Aria's seat's clears log and about 78 percent of
+    Aether's (by line) were test debris, so every measure of the gate was inflated.
+    Isolation is the default here, so a future test cannot forget it.
+    """
+    from divineos.core import read_gate
+
+    gate_state = tmp_path / "read_gate_state"
+    monkeypatch.setattr(read_gate, "STATE_DIR", gate_state)
+    monkeypatch.setattr(read_gate, "STATE_FILE", gate_state / "read_gate_pending.json")
+
+
 @pytest.fixture
 def temp_test_dir():
     """Provide a temporary directory for test files."""

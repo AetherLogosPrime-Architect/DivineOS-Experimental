@@ -731,17 +731,6 @@ def correction_marker_surface(payload: dict) -> SurfaceOutcome | None:
 # --------------------------------------------------------------------------
 
 
-#: A user turn carrying one of these is the harness talking, not him. The
-#: reply-assembly must not stop at one of them, or it cuts the reply short at
-#: a system-reminder and under-reads -- the same fragment fault one level up.
-_INJECTED_USER_MARKERS = (
-    "system-reminder",
-    "<task-notification>",
-    "Stop hook feedback",
-    "Caveat:",
-)
-
-
 def _text_of_content(content: object) -> str:
     """Concatenated text of one message's content, list-shaped or string."""
     if isinstance(content, str):
@@ -755,12 +744,22 @@ def _text_of_content(content: object) -> str:
     return ""
 
 
-def _is_his_turn(content: object) -> bool:
-    """True only for a real message from him, not a harness injection."""
-    text = _text_of_content(content)
-    if not text.strip():
-        return False
-    return not any(marker in text[:400] for marker in _INJECTED_USER_MARKERS)
+def _is_his_record(record: dict) -> bool:
+    """Is this transcript record a message he typed? The reply boundary.
+
+    Asks the one reader of him. This used to be a private marker list, and
+    Aether's reading of #553 (2026-09-30) measured two ways it disagreed with
+    divineos.core.his_message: a message he typed while I was busy arrives as
+    a queued_command attachment with no role, so the walk ran straight past it
+    and joined my reply before it to my reply after it; and a message of his
+    opening with "Caveat:" was taken for the harness. A harness injection is
+    still not a boundary -- the one reader refuses those too. A bookmark copy
+    is not a boundary: it has no place in the order of the conversation.
+    """
+    from divineos.core.his_message import Heard, hear
+
+    heard = hear(record)
+    return isinstance(heard, Heard) and not heard.bookmark
 
 
 # THE FOUR READERS BELOW EACH WANT THE LAST SOMETHING -- my latest reply, his
@@ -835,6 +834,36 @@ def _messages(lines):
             yield msg.get("role"), msg.get("content", [])
 
 
+def _records(lines):
+    """Every parseable JSON OBJECT line, in file order.
+
+    The reply readers need the whole record, not just its role and content: a message he
+    typed while I was busy is an attachment with no role, and only the record shows it.
+    A line that parses as something other than an object (a bare number, a list) is
+    skipped, so no later ``.get`` can be called on it.
+    """
+    import json as _json
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = _json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(rec, dict):
+            yield rec
+
+
+def _assistant_text_of(rec: dict) -> str:
+    """The text of an assistant record, or "" if it is not one or has none."""
+    msg = rec.get("message")
+    if not isinstance(msg, dict) or msg.get("role") != "assistant":
+        return ""
+    return _text_of_content(msg.get("content", []))
+
+
 def _text_parts(content) -> list[str]:
     return [c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text"]
 
@@ -896,14 +925,13 @@ def _last_assistant_text(payload: dict) -> str:
         for lines, whole in _windows(path):
             blocks: list[str] = []
             reached_his_turn = False
-            for role, content in reversed(list(_messages(lines))):
-                if role == "user" and _is_his_turn(content):
+            for rec in reversed(list(_records(lines))):
+                if _is_his_record(rec):
                     reached_his_turn = True
                     break
-                if role == "assistant":
-                    text = _text_of_content(content)
-                    if text.strip():
-                        blocks.append(text)
+                text = _assistant_text_of(rec)
+                if text.strip():
+                    blocks.append(text)
             if reached_his_turn or whole:
                 return "\n".join(reversed(blocks))
         return ""
@@ -987,18 +1015,17 @@ def _recent_assistant_texts(payload: dict, count: int = 2) -> list[str]:
         for lines, whole in _windows(path):
             replies: list[str] = []
             current: list[str] = []
-            for role, content in reversed(list(_messages(lines))):
-                if role == "user" and _is_his_turn(content):
+            for rec in reversed(list(_records(lines))):
+                if _is_his_record(rec):
                     if current:
                         replies.append("\n".join(reversed(current)))
                         current = []
                         if len(replies) >= count:
                             return replies
                     continue
-                if role == "assistant":
-                    text = _text_of_content(content)
-                    if text.strip():
-                        current.append(text)
+                text = _assistant_text_of(rec)
+                if text.strip():
+                    current.append(text)
             if whole:
                 if current:
                     replies.append("\n".join(reversed(current)))
