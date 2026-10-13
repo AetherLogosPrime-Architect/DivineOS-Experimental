@@ -72,6 +72,38 @@ def test_an_honest_skip_with_a_named_reason_still_passes() -> None:
     assert not _denied(cmd)
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        'bash -c "git commit --no-verify -m x"',
+        "sh -c 'git -c core.hooksPath=/dev/null commit -m x'",
+        'eval "git commit --no-verify -m x"',
+        'bash -lc "cd /x && git commit -n -m y"',
+        "bash -c \"bash -c 'git commit --no-verify -m x'\"",
+        "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null git commit -m x",
+    ],
+)
+def test_a_skip_inside_a_quoted_command_or_the_environment_is_stopped(command: str) -> None:
+    """Found by TESTING the first fix: `bash -c "git commit --no-verify"` is one quoted token,
+    so neither the old gate nor the option-stepping saw a commit in it."""
+    assert _denied(command), f"the gate went silent on: {command}"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'bash -c "git commit -m x"',
+        'bash -c "echo hello"',
+        "bash script.sh",
+        'grep -c "git commit --no-verify" notes.txt',
+        'echo "git commit --no-verify"',
+        "GIT_CONFIG_KEY_0=user.name git commit -m x",
+    ],
+)
+def test_talking_about_a_skip_or_running_an_ordinary_shell_is_not_stopped(command: str) -> None:
+    assert not _denied(command), f"the gate over-fired on: {command}"
+
+
 def test_control_the_plain_form_is_still_stopped() -> None:
     # If the option-stepping broke the old path, the tests above could pass for the wrong reason.
     assert _denied("git commit --no-verify -m x")

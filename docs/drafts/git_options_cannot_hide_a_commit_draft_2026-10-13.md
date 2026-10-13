@@ -16,7 +16,15 @@ The gate read the word right after `git` as the subcommand. In `git -c core.hook
 - Turning the hooks off by a `core.hooksPath` override on a commit or push counts as the same act as `--no-verify`, and so does *writing* that setting with `git config` (it persists, so every later commit would skip with no flag to see). Reading it back does not.
 - Tested both ways: twelve routes that must be stopped, ten ordinary commands that must pass (`git -C folder commit`, `git -c user.name=t commit`, `git config --get core.hooksPath`, `git push -n`), the honest path (a named reason) still passes, and a control that the plain form behaves as before. Twelve of the tests fail on the gate before this change.
 
+## Found by testing the fix, same day
+
+Before writing the walk I tried the fix on the shapes I could think of, instead of trusting it, and it was far from enough: `bash -c "git commit --no-verify -m x"` was allowed, before and after my first change, because a quoted command is one token to the tokenizer. So were `sh -c`, `eval`, and the hooks path set through the environment (`GIT_CONFIG_KEY_0=core.hooksPath`). All of these are now read: a string handed to `bash`, `sh`, `zsh`, `dash`, `ksh` with `-c` (also joined, like `-lc`) or to `eval` is read as a command in its own right, to a depth of three, and the environment form counts like `-c core.hooksPath`. Two over-fire guards pin that a `grep` or an `echo` that merely mentions the words is not stopped, and neither is `bash -c "git commit -m x"` or plain `bash script.sh`.
+
 ## What it does not do, named
+
+- A script file that contains the skip (`bash script.sh` where the script runs `git commit --no-verify`) is not read; the gate sees the command line, not the files it runs.
+- A git alias that expands to a commit with the skip is not read either; the gate sees `git <alias-name>`.
+- Command substitution (`$(...)`) and a here-string handed to a shell are not unwrapped.
 
 - It is a gate on what I type. A person (or a script I run) can still change the setting some other way, such as editing the git config file with a write tool. That is a different door and this does not close it.
 - It does not forbid an honest skip. The same named-reason route exists and is counted, by design: *bypass is a tool, not a sin; intent decides* (truth #12). What changes is that the skip can no longer be silent.

@@ -89,7 +89,37 @@ def _segments(tokens: list[str]) -> list[list[str]]:
     return [seg for seg in out if seg]
 
 
-def _has_unverified_git_write(tokens: list[str]) -> str | None:
+_MAX_NESTING = 3
+_SHELLS = frozenset({"bash", "sh", "zsh", "dash", "ksh"})
+
+
+def _quoted_commands_in(seg: list[str]) -> list[str]:
+    """Command strings a segment hands to another shell: ``bash -c "..."`` and ``eval ...``.
+
+    Only the shapes that run a string as a command; a program that merely has a
+    quoted argument is not one. ``-c`` may be joined with other short flags (``-lc``).
+    """
+    out: list[str] = []
+    for i, tok in enumerate(seg):
+        name = tok.replace("\\", "/").rsplit("/", 1)[-1].lower()
+        if name in _SHELLS:
+            for j in range(i + 1, len(seg) - 1):
+                flag = seg[j]
+                if flag.startswith("-") and not flag.startswith("--") and "c" in flag[1:]:
+                    out.append(seg[j + 1])
+                    break
+        elif name == "eval" and i + 1 < len(seg):
+            out.append(" ".join(seg[i + 1 :]))
+    return out
+
+
+def _env_sets_hooks_path(token: str) -> bool:
+    """``GIT_CONFIG_KEY_<n>=core.hooksPath``: the ``-c`` override, spelled as an environment variable."""
+    key, sep, value = token.partition("=")
+    return bool(sep) and key.upper().startswith("GIT_CONFIG_KEY_") and _is_hooks_path_setting(value)
+
+
+def _has_unverified_git_write(tokens: list[str], depth: int = 0) -> str | None:
     """The subcommand of a git commit/push carrying a no-verify flag, else None.
 
     FIRST-GIT-WINS WAS THE BUG (2026-08-22, Andrew: "fix the reaching using
@@ -125,8 +155,25 @@ def _has_unverified_git_write(tokens: list[str]) -> str | None:
     also went unseen, and I type ``git -C`` constantly. Both are closed here:
     the options are stepped over to find the real subcommand, and a hooks-path
     override counts as the same act as ``--no-verify``, because it is.
+
+    A SKIP INSIDE A QUOTED COMMAND (found the same day, by testing the fix
+    rather than trusting it): ``bash -c "git commit --no-verify"`` is one
+    quoted token to the tokenizer, so neither the old gate nor the first
+    version of this fix saw a commit in it. Strings handed to ``bash -c``,
+    ``sh -c`` and ``eval`` are now read as commands in their own right, to a
+    shallow depth. And the hooks path set through the environment
+    (``GIT_CONFIG_KEY_0=core.hooksPath``) counts like the ``-c`` form.
     """
     for seg in _segments(tokens):
+        if depth < _MAX_NESTING:
+            for inner in _quoted_commands_in(seg):
+                try:
+                    inner_tokens = shlex.split(inner)
+                except ValueError:
+                    continue
+                found = _has_unverified_git_write(inner_tokens, depth + 1)
+                if found:
+                    return found
         if len(seg) < 2 or seg[0] != "git":
             # `env FOO=bar git commit ...` and `sudo git ...` shapes: find git
             # anywhere in the segment, since a segment is one command.
@@ -137,6 +184,7 @@ def _has_unverified_git_write(tokens: list[str]) -> str | None:
         else:
             gi = 0
         sub, hooks_off, sub_at = _git_subcommand(seg, gi)
+        hooks_off = hooks_off or any(_env_sets_hooks_path(t) for t in seg[:gi])
         if sub == "config" and _sets_hooks_path(seg[sub_at + 1 :]):
             # Setting core.hooksPath persists: every later commit skips the
             # checks without any flag to see.
