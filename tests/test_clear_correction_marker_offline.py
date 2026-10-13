@@ -84,7 +84,7 @@ def test_clears_marker_and_logs_escape_when_marker_present(
     from divineos.core.correction_marker import marker_path, set_marker
     from scripts.clear_correction_marker import main
 
-    set_marker("Andrew: the original correction text here")
+    set_marker("Andrew: the original correction text here", source="his-message")
     assert marker_path().exists()
     long_reason = (
         "mid-rebase cli/__init__.py SyntaxError; will re-log correction once rebase completes"
@@ -113,9 +113,9 @@ def test_log_appends_rather_than_overwrites(isolated_divineos_home):
     long_reason_a = "first escape: " + "a" * 30
     long_reason_b = "second escape: " + "b" * 30
 
-    set_marker("trigger A")
+    set_marker("trigger A", source="his-message")
     main(["--cli-broken", "--reason", long_reason_a])
-    set_marker("trigger B")
+    set_marker("trigger B", source="his-message")
     main(["--cli-broken", "--reason", long_reason_b])
 
     log_path = isolated_divineos_home / "cli_broken_escapes.jsonl"

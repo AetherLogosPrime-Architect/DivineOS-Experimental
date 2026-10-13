@@ -233,6 +233,11 @@ _ARTIFACT_FILING_COMMANDS = (
     'divineos game-walk file',
     'divineos prereg assess',
     'divineos prereg file',
+    # THIRD WIDENING, 2026-10-11. The overdue block prints prereg reviewing as
+    # its way to go get evidence, and this gate then asked for council paperwork
+    # that the overdue block refused to let me file -- the key locked inside the
+    # door again. Entry bar met: another gate prints it as its exit.
+    'divineos prereg reviewing',
     # SECOND WIDENING, same day, and THAT is the finding rather than the fix.
     # The correction gate prints these three as its own prescribed remedies and
     # this gate refused all three, so a caught mistake could not be written
@@ -445,6 +450,22 @@ def _is_artifact_filing(cmd: str) -> bool:
     if current:
         segments.append(current)
 
+    # Each segment's program is read by name, through the one shared reader:
+    # a leading NAME=value is an assignment, and divineos typed with its path
+    # is still divineos. Without this every remedy run from a workbench, where
+    # the path is the only way to reach that workbench's install, read as
+    # building (2026-10-04, walk-dd11edf05260). Spelling only; the list below
+    # and the every-segment rule are unchanged.
+    from divineos.core.command_parsing import program_name
+
+    named = []
+    for seg in segments:
+        while seg and '=' in seg[0] and seg[0].split('=', 1)[0].isidentifier():
+            seg = seg[1:]
+        if seg:
+            named.append([program_name(seg[0]), *seg[1:]])
+    segments = named
+
     acts = [seg for seg in segments if seg and seg[0] not in _SHELL_WRAPPERS]
     # No act at all is not a filing. all() of an empty list is True, and that
     # vacuous pass is the failing-in-the-permitting-direction shape again.
@@ -476,6 +497,40 @@ try:
 except Exception as e:
     sys.stderr.write(f'[council-required] gravity scorer raised, gate disabled: {e}\n')
     sys.exit(0)
+
+# BRANCH WORK IS FREE, THE PUSH IS THE CHOKE (2026-10-12, Dad's third ask: one council
+# walk over everything before the push, not one per edit). The rule and its proof live in
+# council_required/push_choke.py, so this stays thin glue. The call is placed here, after
+# the features are known and before the game-walk requirement, so no free pass can occur
+# before the features that justify it are known. It reads the TARGET folder from the call,
+# because this hook runs from the session checkout and not from the work copy being edited.
+# Its own try on purpose, like the comment-only check below: if anything here raises, this
+# gate stays exactly as strict as it was, and it cannot go permissive through an error.
+try:
+    import os as _os
+    from pathlib import Path as _Path
+    from divineos.core.council_required import push_choke as _push_choke
+    _target = _push_choke.target_dir(file_paths, bash_command, _Path(_os.getcwd()))
+    if _target is None:
+        _rule = None
+    else:
+        _rule = _push_choke.branch_rule(
+            _target,
+            tool_name,
+            bash_command,
+            tuple(getattr(gravity, 'fired_features', ()) or ()),
+            _primary_fingerprint(),
+        )
+except Exception as e:
+    _rule = None
+    sys.stderr.write(f'[council-required] branch rule raised, gate stays strict: {e}\n')
+if _rule is not None and _rule.handled:
+    # The branch rule never refuses: it frees a building edit or does not handle the call.
+    # (A draft push is never refused here either, Dad 2026-10-12: Aletheia must be able to
+    # see unfinished work. The covering check lives at the stamp.)
+    if _rule.message:
+        sys.stderr.write(_rule.message + '\n')
+    sys.exit(_rule.exit_code)
 
 # ONE ASSESSMENT, TWO ARTIFACTS (2026-09-16, council-f579d35396ba).
 # is_game_walk_required reads the same is_council_required flag rather than
