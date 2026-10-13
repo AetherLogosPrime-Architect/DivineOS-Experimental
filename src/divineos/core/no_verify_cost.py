@@ -38,6 +38,8 @@ import re
 import shlex
 from typing import Any
 
+from divineos.core.command_parsing import program_name, shell_command_body
+
 
 _REASON_PATTERN = re.compile(r'DIVINEOS_NO_VERIFY_REASON=(?:"([^"]+)"|\'([^\']+)\'|(\S+))')
 _MIN_REASON_LEN = 8
@@ -90,37 +92,23 @@ def _segments(tokens: list[str]) -> list[list[str]]:
 
 
 _MAX_NESTING = 3
-_SHELLS = frozenset({"bash", "sh", "zsh", "dash", "ksh"})
 
 
 def _quoted_commands_in(seg: list[str]) -> list[str]:
     """Command strings a segment hands to another shell: ``bash -c "..."`` and ``eval ...``.
 
-    Only the shapes that run a string as a command; a program that merely has a
-    quoted argument is not one. ``-c`` may be joined with other short flags (``-lc``).
+    The shared home answers what a shell is told to run; this only decides where in the
+    segment a command could start. ``echo bash -c "..."`` talks about a shell and does
+    not run one, so a shell word counts only behind env assignments and ``env``/``sudo``.
     """
     out: list[str] = []
-    for i, tok in enumerate(seg):
-        if not _at_command_position(seg, i):
-            continue  # `echo bash -c "..."` talks about a shell; it does not run one
-        name = _basename(tok)
-        if name in _SHELLS:
-            # The flags come right after the shell. The first non-flag word is a
-            # script, and a `-c` after that belongs to the script (`bash run.sh -c x`).
-            for j in range(i + 1, len(seg) - 1):
-                flag = seg[j]
-                if not flag.startswith("-"):
-                    break
-                if not flag.startswith("--") and "c" in flag[1:]:
-                    out.append(seg[j + 1])
-                    break
-        elif name == "eval" and i + 1 < len(seg):
-            out.append(" ".join(seg[i + 1 :]))
+    for i in range(len(seg)):
+        if any(("=" not in t) and program_name(t) not in ("env", "sudo") for t in seg[:i]):
+            break
+        body = shell_command_body(seg[i:])
+        if body is not None:
+            out.append(body)
     return out
-
-
-# Words that run the next word as a command, so the next word still sits at command position.
-_WRAPPERS = frozenset({"env", "command", "sudo", "exec", "nohup", "time", "nice"})
 
 
 def _basename(token: str) -> str:
@@ -130,17 +118,6 @@ def _basename(token: str) -> str:
 def _is_git(token: str) -> bool:
     """``git``, ``/usr/bin/git`` and ``git.exe`` are the same program (Aria, 2026-10-13)."""
     return _basename(token) in ("git", "git.exe")
-
-
-def _at_command_position(seg: list[str], i: int) -> bool:
-    """True when everything before ``seg[i]`` is an env assignment, a wrapper, or a wrapper's flag."""
-    for tok in seg[:i]:
-        if tok.startswith("-") or (("=" in tok) and not tok.startswith("-")):
-            continue
-        if _basename(tok) in _WRAPPERS:
-            continue
-        return False
-    return True
 
 
 def _env_sets_hooks_path(token: str) -> bool:
