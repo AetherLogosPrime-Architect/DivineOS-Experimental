@@ -32,6 +32,7 @@ from divineos.core.council_required.types import (
     EVENT_COUNCIL_RECORD_LOGGED,
     EVENT_COUNCIL_WALK_REJECTED,
     EVENT_EMERGENCY_COUNCIL_SKIP,
+    COMPOUND_KEY_JOINER,
     CheckResult,
     CouncilRecord,
     LensFinding,
@@ -50,7 +51,6 @@ def _serialize_record(record: CouncilRecord) -> dict[str, Any]:
             {"lens_name": f.lens_name, "finding_text": f.finding_text} for f in record.lens_findings
         ],
         "synthesis": record.synthesis,
-        "confirmed_by": record.confirmed_by,
         # The job this walk covers, enumerated at filing time. Empty means
         # self-only, which is every record written before this field existed.
         "scope_fingerprints": list(record.scope_fingerprints),
@@ -77,7 +77,11 @@ def _deserialize_record(payload: dict[str, Any]) -> CouncilRecord:
             for f in (payload.get("lens_findings") or [])
         ),
         synthesis=str(payload.get("synthesis", "")),
-        confirmed_by=payload.get("confirmed_by"),
+        # confirmed_by is deliberately not read back. Records logged before
+        # 2026-09-06 still carry it; the field and the check that demanded it
+        # are gone, and an unread key in an old payload is harmless. Andrew's
+        # confirms live at the merge gate, which is the only place he has ever
+        # said they belong.
         scope_fingerprints=tuple(payload.get("scope_fingerprints") or []),
         consumed_at=None,  # see note in _serialize_record
     )
@@ -93,9 +97,18 @@ def _covers(record_payload: dict[str, Any], edit_fingerprint: str) -> bool:
     cannot reach a file nobody listed, so the shell-write case where one walk
     would have cleared every heredoc write in the tree stays impossible.
     """
-    if str(record_payload.get("triggered_edit_fingerprint", "")) == edit_fingerprint:
+    triggered = str(record_payload.get("triggered_edit_fingerprint", ""))
+    if triggered == edit_fingerprint:
         return True
-    return edit_fingerprint in {str(f) for f in (record_payload.get("scope_fingerprints") or [])}
+    named = {triggered} | {str(f) for f in (record_payload.get("scope_fingerprints") or [])}
+    if edit_fingerprint in named:
+        return True
+    # A COMMAND THAT WRITES SEVERAL FILES is covered only by a walk that named
+    # EVERY one of them (2026-09-23, Aria, walk-421eaefacb8f). Same exact-string
+    # rule as above, applied per part -- no prefix, no directory, no pattern --
+    # so a walk for one file cannot clear a command that also writes another.
+    parts = edit_fingerprint.split(COMPOUND_KEY_JOINER)
+    return len(parts) > 1 and all(part in named for part in parts)
 
 
 def _spent_pairs(
@@ -128,6 +141,35 @@ def _spent_pairs(
         else:
             retired.add(rid)
     return retired, spent
+
+
+def _fold(text: str) -> str:
+    # Case too (Aria's cold read, 2026-10-03): capitalising one word was a copy
+    # that passed. Both doors fold through this one function.
+    return " ".join(str(text).split()).lower()
+
+
+def copied_from(record: CouncilRecord, limit: int = 2000) -> str | None:
+    """The record_id of an accepted walk this one copies, else None.
+
+    Dad, 2026-10-03: "did you just run the council as a program?" -- one set of
+    findings had been stamped onto every file by a script; 47 of the last 400
+    records were exact copies. A copy is the whole findings set, or any single
+    lens finding, identical once whitespace is folded, to one already accepted,
+    the same fingerprint included (a second filing for the same edit is a copy
+    too). Exact copies only: a reworded copy passes, and that is said here so
+    silence is not read as coverage. Draft:
+    docs/drafts/a_walk_cannot_be_photocopied_draft_2026-10-03.md.
+    """
+    mine = [_fold(f.finding_text) for f in record.lens_findings]
+    mine_set = " | ".join(mine)
+    singles = {m for m in mine if m}
+    for ev in ledger.get_events(limit=limit, event_type=EVENT_COUNCIL_RECORD_LOGGED, order="desc"):
+        prior = _deserialize_record(_payload_from_event(ev))
+        theirs = [_fold(f.finding_text) for f in prior.lens_findings]
+        if " | ".join(theirs) == mine_set or singles & set(theirs):
+            return prior.record_id
+    return None
 
 
 def log_council_record(record: CouncilRecord, actor: str = "agent") -> str:
@@ -346,7 +388,7 @@ def find_and_consume_atomically(
     resolved_now = now if now is not None else time.time()
     cutoff = resolved_now - recency_seconds
 
-    from divineos.core._ledger_base import _get_db_path, compute_hash
+    from divineos.core._ledger_base import _get_db_path
     import sqlite3
 
     conn = sqlite3.connect(str(_get_db_path()))
@@ -411,31 +453,24 @@ def find_and_consume_atomically(
                 conn.commit()  # release lock cleanly; nothing written
                 return None
 
-            # Insert the COUNCIL_RECORD_CONSUMED event directly on this
-            # connection so it's part of the same atomic transaction.
-            # Mirror ledger.log_event's payload+hash contract so
-            # downstream verify passes over this row treat it identically
-            # to a log_event-created row.
-            consume_payload = {
-                "record_id": record.record_id,
-                "edit_fingerprint": edit_fingerprint,
-                "consumed_at": resolved_now,
-            }
-            payload_str = json.dumps(consume_payload, sort_keys=True)
-            content_hash = compute_hash(payload_str)
-            consume_event_id = str(uuid.uuid4())
-            conn.execute(
-                "INSERT INTO system_events "
-                "(event_id, timestamp, event_type, actor, payload, content_hash) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (
-                    consume_event_id,
-                    resolved_now,
-                    EVENT_COUNCIL_RECORD_CONSUMED,
-                    actor,
-                    payload_str,
-                    content_hash,
-                ),
+            # The COUNCIL_RECORD_CONSUMED event, on this connection inside
+            # this transaction, CHAINED. It used to be inserted by hand with a
+            # content_hash and no prior_hash/chain_hash -- the one row in this
+            # module not written through the ledger -- so verify counted it
+            # as unchained-after-the-chain-began, the shape a forged row takes
+            # (2026-08-18), and the record that a walk was spent sat outside
+            # the tamper-evidence chain. ledger.append_on chains and redacts
+            # it on the caller's transaction (Aria, 2026-09-29;
+            # walk-d1d17f7e2883).
+            consume_event_id = ledger.append_on(
+                conn,
+                EVENT_COUNCIL_RECORD_CONSUMED,
+                actor,
+                {
+                    "record_id": record.record_id,
+                    "edit_fingerprint": edit_fingerprint,
+                    "consumed_at": resolved_now,
+                },
             )
             conn.commit()
             return (record, consume_event_id)

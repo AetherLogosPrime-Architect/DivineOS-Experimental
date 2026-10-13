@@ -89,6 +89,34 @@ class TestItCannotBecomeAWayAround:
     def test_bare_env_invocation(self):
         assert is_remedy('env divineos correction "x"')
 
+    def test_a_remedy_cannot_carry_other_work_behind_it(self):
+        """2026-09-24, the adversarial pass on the sort-first refusal: this
+        matched the FRONT of a command, so a commit chained behind a recording
+        command walked past every refusal on the router. A remedy is a remedy
+        only when it is all that runs."""
+        for command in (
+            'divineos decide "x" --why y && git commit -m sneaky',
+            'divineos goal add "x"; rm -rf tests',
+            'git push && divineos learn "x"',
+            'divineos correction "x" | tee out.txt',
+            'divineos correction "x" > out.txt',
+            'divineos correction "$(rm -rf tests)"',
+            'divineos correction "x"\ngit push',
+        ):
+            assert not is_remedy(command), command
+
+    def test_setup_links_and_quiet_habits_still_pass(self):
+        """The prefixes each earlier note records, kept: a worktree cd, an
+        assignment, the fourth prefix, and the output-merging habit a remedy is
+        typed with. Quoted operators are words in an argument, not a chain."""
+        for command in (
+            'cd "C:/DIVINE OS/DivineOS-Experimental" && set -o pipefail && divineos correction "x"',
+            'divineos correction "x" 2>&1',
+            "divineos learn x 2>/dev/null",
+            'divineos decide "a && b; c | d" --why "e > f"',
+        ):
+            assert is_remedy(command), command
+
 
 class TestTheRouterStandsAside:
     def setup_method(self):
@@ -549,3 +577,22 @@ class TestCannotParseIsNotPermission:
         library exists to keep open.
         """
         assert _is_remedy("divineos ask what do I know about this")
+
+
+class TestTheReviewWindowExitsAreOnTheSharedList:
+    """The overdue block prints `prereg reviewing`, and the build-flow gate asks for
+    `game-walk file` paperwork. Both were added to the python list and the build gate's
+    own tuple on 2026-10-11 and not to this list, which nineteen other gates read, so a
+    gate sourcing it still refused the exit its neighbour printed. The survey of printed
+    exits found the disagreement; these pin the two cases it found."""
+
+    def test_the_review_window_opener_passes(self):
+        assert _is_remedy("divineos prereg reviewing prereg-abc --purpose 'look at the evidence'")
+
+    def test_the_game_walk_filer_passes(self):
+        assert _is_remedy(
+            "divineos game-walk file --mechanism m --route 'r | costlier | w' --edit e"
+        )
+
+    def test_the_control_still_refuses_ordinary_work(self):
+        assert not _is_remedy(f"{_GIT} commit -qm x")

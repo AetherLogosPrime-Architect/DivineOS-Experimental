@@ -47,12 +47,30 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 # shellcheck disable=SC1091
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || true  # fail-soft: timing instrumentation must never be able to break the verifier it observes
 
-HOOK_PATH="$REPO_ROOT/.git/hooks/prepare-commit-msg"
+# Asked of git: in a worktree .git is a pointer file, so "$REPO_ROOT/.git/hooks"
+# does not exist and every check below reported the hooks MISSING from there.
+GIT_HOOKS_DIR="$(git -C "$REPO_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)/hooks"
+HOOK_PATH="$GIT_HOOKS_DIR/prepare-commit-msg"
 SETUP_SCRIPT="$REPO_ROOT/setup/setup-hooks.sh"
 
 if [ ! -f "$SETUP_SCRIPT" ]; then
     # No setup script — this repo doesn't have the hook system.
     exit 0
+fi
+
+# Every installed hook against what setup writes, both ways (2026-10-04, Aria:
+# "Check whether your installed hooks match your setup ... nothing flags it").
+# Early, so the exits below cannot skip it, and on STDOUT: at SessionStart only
+# stdout reaches the session, and the stderr warnings below may never have.
+# Never overwrites; quiet when every hook matches.
+_drift_py="$(find_divineos_python 2>/dev/null || true)"
+if [ -n "$_drift_py" ]; then
+    # By file path, not -m: it needs only the standard library, and a PYTHONPATH
+    # joined with ':' is one unreadable entry to a Windows python.
+    "$_drift_py" "$REPO_ROOT/src/divineos/core/git_hooks_drift.py" "$REPO_ROOT" \
+        || echo "## GIT HOOKS vs SETUP: could not run the check. Not a match."
+else
+    echo "## GIT HOOKS vs SETUP: no python found to run the check. Not a match."
 fi
 
 if [ ! -f "$HOOK_PATH" ]; then
@@ -123,7 +141,7 @@ fi
 # The prepare-commit-msg check above catches MISSING and UNMARKED.
 # This catches a third state: present, marked, and structurally
 # outdated. Signal is the glob loop — hardcoded names mean pre-fix.
-POST_COMMIT_PATH="$REPO_ROOT/.git/hooks/post-commit"
+POST_COMMIT_PATH="$GIT_HOOKS_DIR/post-commit"
 if [ -f "$POST_COMMIT_PATH" ]; then
     # fail-soft: unreadable post-commit hook is itself the staleness signal this check reports; grep noise would mask it
     if ! grep -q 'post-commit-\*\.sh' "$POST_COMMIT_PATH" 2>/dev/null; then

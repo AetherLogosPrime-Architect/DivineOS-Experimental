@@ -189,14 +189,14 @@ class TestCompressLedger:
         from divineos.core._ledger_base import get_connection
 
         conn = get_connection()
-        count = conn.execute("SELECT COUNT(*) FROM system_events").fetchone()[0]
+        kinds = sorted(r[0] for r in conn.execute("SELECT event_type FROM system_events"))
         conn.close()
-        # 3 meaningful + 1 compaction summary + 1 chain-repair audit = 5
-        # (Chain-repair audit added 2026-07-16, Marc audit finding #6 —
-        # every compression run now emits LEDGER_CHAIN_REPAIRED capturing
-        # the pre/post orphan counts. Same shape as
-        # LEDGER_CORRUPTION_REPAIRED in ledger_verify.py.)
-        assert count == 5
+        # Each meaningful event by name, plus the chained compaction note.
+        # (This counted 5 until 2026-09-29: the 07-16 relink also wrote a
+        # LEDGER_CHAIN_REPAIRED receipt. The compressor no longer rewrites the
+        # chain, so there is nothing to repair and no receipt; checking the
+        # meaningful events by name is the stronger test of what this is for.)
+        assert kinds == ["LEDGER_COMPACTION", "SESSION_END", "SUPERSESSION", "USER_INPUT"]
 
     def test_respects_retention_window(self, tmp_path, monkeypatch):
         _setup(tmp_path, monkeypatch)

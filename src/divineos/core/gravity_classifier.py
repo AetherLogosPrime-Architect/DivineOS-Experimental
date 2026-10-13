@@ -244,9 +244,6 @@ def _normalize_to_repo_relative(path: str, repo_root: str) -> str | None:
 # command -- which is how a gate gets turned off.
 _NOT_A_WRITE = ("/dev/null", "nul", "/dev/stderr", "/dev/stdout", "-")
 
-# In-place editors: the write has no redirect to spot, the path is an argument.
-_INPLACE_WRITERS = ("tee",)
-
 
 _HEREDOC_RE = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 
@@ -291,6 +288,138 @@ def _without_heredoc_bodies(command: str) -> str:
     return "\n".join(out)
 
 
+def _runs_divineos_verb(command: str, verbs: tuple[str, ...]) -> bool:
+    """True when a segment of the command really runs ``divineos <verb>``.
+
+    WHY (2026-10-09, Aria, twice in one afternoon). These two features searched
+    the raw text for the two words, so a heredoc body that merely mentioned the
+    command, a quoted string, or the help flag all counted as the act. The
+    git-commit feature had already been moved to reading each segment's real
+    head; this gives the others the same reading through one shared helper.
+
+    A command the splitter cannot read (a substitution hides what runs) stays on
+    the old text search. For THIS question unreadable must mean assume-heavy,
+    the same direction the git-commit branch's long comment argues for the other
+    question, so reading better never loosens what could not be read at all.
+    Help is judged per segment: asking one segment for help does not excuse a
+    different segment that runs a verb.
+    """
+    from divineos.core.command_parsing import (
+        shell_command_body,
+        shell_command_is_unplaced,
+        split_shell_segments,
+        strip_command_prefixes,
+    )
+
+    whole = _without_heredoc_bodies(command)
+    segments = split_shell_segments(whole)
+    if segments is None:
+        return bool(re.search(r"\bdivineos\s+(" + "|".join(verbs) + r")\b", command))
+    for segment in segments:
+        tokens = [t.lower() for t in strip_command_prefixes(segment)]
+        while tokens and tokens[0] == "sudo":
+            tokens = tokens[1:]
+        # A shell told to run a string runs that string: judge it as the plain form.
+        # (#619 read each head, so `bash -c "divineos ..."` showed only `bash`.)
+        body = shell_command_body(tokens)
+        if body is not None and _runs_divineos_verb(body, verbs):
+            return True
+        # A `-c` the reader could not reach (a token before it was not placeable) is
+        # unsure, and unsure falls toward firing, like the unreadable-line case above.
+        if shell_command_is_unplaced(tokens) and re.search(
+            r"\bdivineos\s+(" + "|".join(verbs) + r")\b", command
+        ):
+            return True
+        if len(tokens) >= 2 and tokens[0] in ("python", "python3", "py") and tokens[1] == "-m":
+            tokens = tokens[2:]
+        if len(tokens) < 2:
+            continue
+        program = tokens[0].replace("\\", "/").rsplit("/", 1)[-1]
+        if program.removesuffix(".exe") != "divineos" or tokens[1] not in verbs:
+            continue
+        if any(t in ("--help", "-h") for t in tokens[2:]):
+            continue
+        if _is_a_look_or_a_remedy(tokens) and not _writes_through_the_shell(whole, segments):
+            continue
+        return True
+    return False
+
+
+def _writes_through_the_shell(segment: str, segments: list) -> bool:
+    """True when the shell around a look writes: an UNQUOTED redirect, or a tee.
+
+    Handed the WHOLE command line, not one segment (Aletheia, same day): the
+    splitter reads `&` as a background separator, so `&>f` left its `>f` in a
+    segment with no verb and escaped a per-segment check. Asking the whole line
+    removes that class instead of listing it.
+
+    Aletheia 2026-10-10: the verb is honest, the redirect writes. QUOTE-AWARE on
+    purpose: the overdue block's own prescribed exit carries `--notes
+    "<why deferring>"`, and a plain search for '>' re-shut the very door this
+    exists to keep open (found by the contract test within minutes). Quoted
+    text stays inside the quote; a bare `>` is its own act. Escaped or odd
+    quoting fails toward heavy.
+    """
+    from divineos.core.command_parsing import strip_command_prefixes
+
+    quote = ""
+    for ch in str(segment):
+        if quote:
+            if ch == quote:
+                quote = ""
+        elif ch in ("'", '"'):
+            quote = ch
+        elif ch == ">":
+            return True
+    for other in segments:
+        head = strip_command_prefixes(other)[:1]
+        if head and head[0].replace("\\", "/").rsplit("/", 1)[-1].lower() == "tee":
+            return True
+    return False
+
+
+# Sub-verbs of a command GROUP that look at the store, and the verbs another
+# gate names as its own way out. Neither is the building a council walk is for.
+# 2026-10-10 the overdue-review block's prescribed exits (`prereg assess`,
+# `prereg reviewing`) and the plain reads (`prereg show`) were all refused
+# here for owing a walk, so the exit from one lock was shut by another and the
+# day could not start. `prereg file` is untouched: filing is the thinking.
+# `export` is NOT a look: it writes files into docs, and an exempted word has
+# to be a true label.
+_LOOK_SUBVERBS = frozenset({"show", "list", "status", "summary", "history", "overdue", "windows"})
+_REMEDY_SUBVERBS_OF = {"prereg": frozenset({"assess", "reviewing"})}
+
+
+def _is_a_look_or_a_remedy(tokens: list[str]) -> bool:
+    """True for ``divineos <group> <look-or-remedy>`` and nothing else.
+
+    ``tokens`` is one segment, lower-cased, program first. The second word must
+    be a command GROUP before the third counts as a verb: for the leaf
+    ``divineos learn status`` the third word is the LESSON, and a lesson whose
+    text spells a read verb is a write (Aria, 2026-09-01, from running it, in
+    the sibling rule in the pre-tool-use gate). Asked of click's own
+    resolution, not of a list. Could-not-look is not an exemption: a registry
+    that cannot be read leaves the command heavy.
+    """
+    if len(tokens) < 3 or tokens[2].startswith("-"):
+        return False
+    # The verb is honest; the shell around it can still write (Aletheia
+    # 2026-10-10). Any redirect, tee, or output option makes it work. Fails
+    # toward heavy: a quoted '>' is a loud, arguable false refusal, and a quiet
+    # hole is not.
+    if any(
+        (t.startswith("-o") and not t.startswith("--")) or t == "--out" or t.startswith("--output")
+        for t in tokens
+    ):
+        return False
+    verb, sub = tokens[1], tokens[2]
+    if sub not in _LOOK_SUBVERBS | _REMEDY_SUBVERBS_OF.get(verb, frozenset()):
+        return False
+    from divineos.hooks.pre_tool_use_gate import _is_command_group
+
+    return _is_command_group(verb) is True
+
+
 def _shell_write_targets(command: str) -> tuple[str, ...] | None:
     """Paths this shell command appears to write, or None when it cannot read it.
 
@@ -319,9 +448,10 @@ def _shell_write_targets(command: str) -> tuple[str, ...] | None:
     command that talks about one.
 
     Returns an empty tuple when it sees no write, which is NOT a claim that
-    none happened. Copying a prepared file into place, a language runtime
-    opening a file, an editor in batch mode, anything behind a variable: all
-    still invisible. Shell is arbitrary and no complete list exists. The honest
+    none happened. Copies and moves ARE seen now (cp, mv, install, git mv,
+    sed -i, patch -- through the shared reader, 2026-09-23). A language
+    runtime opening a file, an editor in batch mode, anything behind a
+    variable or inside a substitution: all still invisible. Shell is arbitrary and no complete list exists. The honest
     completion is an explicit "I was not shown this" state rather than a
     confident zero from here.
     """
@@ -329,54 +459,39 @@ def _shell_write_targets(command: str) -> tuple[str, ...] | None:
         return ()
     command = _without_heredoc_bodies(command)
     try:
-        tokens = shlex.split(command, posix=True)
+        shlex.split(command, posix=True)
     except ValueError:
         # Unbalanced quotes: this cannot read the command, so it must not
         # report on it. None, not empty -- see the docstring.
         return None
 
+    # THE READING ITSELF IS THE SHARED READER'S NOW (2026-09-23, Aria, walk-
+    # 421eaefacb8f). This walked raw posix tokens, which dropped the quotes
+    # (`echo '>' notes.txt` read as a write), had no command boundaries (two
+    # writes keyed as `write:a.md;`), and knew no copy -- so `cp src.md
+    # docs/foundational_truths.md` scored ZERO and the council gate never ran.
+    # Four readers of one grammar had grown in this house; this is one fewer.
+    #
+    # The could-not-read check above STAYS HERE, deliberately (Beer, on the
+    # walk). The shared reader approximates malformed quoting rather than
+    # refusing, which is right for its other callers and wrong for this one:
+    # here cannot-read must mean scrutiny, so the refusal to read is decided
+    # before the reader is asked.
+    #
+    # The extension rule that used to sit in this filter is gone with the
+    # regex walk it compensated for: it guessed that an extensionless token
+    # after `tee` was a flag value. The shared reader knows which token is the
+    # destination, and a directory or an extensionless file is still a place
+    # being written.
+    from divineos.core.command_parsing import shell_write_targets
+
     found: list[str] = []
-
-    def _as_target(raw: str) -> str:
-        """The normalised write target, or empty string if this is not one.
-
-        Returns a STRING rather than an optional, so the only None in this
-        whole function is the one that means "could not read the command".
-        Two different nothings in one function is the exact confusion this
-        change exists to remove, and a void helper with bare returns reads as
-        a second one to anything scanning for the shape.
-        """
-        norm = raw.replace("\\", "/").strip().strip("\"'")
+    for raw in shell_write_targets(command):
+        norm = raw.replace("\\", "/").strip()
         if not norm or norm.lower() in _NOT_A_WRITE or norm.startswith("/dev/"):
-            return ""
-        # No extension on the last segment: far more likely a flag value or a
-        # directory than a file being written.
-        if "." not in norm.rsplit("/", 1)[-1]:
-            return ""
-        return norm
-
-    def _take(raw: str) -> None:
-        norm = _as_target(raw)
-        if norm and norm not in found:
+            continue
+        if norm not in found:
             found.append(norm)
-
-    for i, tok in enumerate(tokens):
-        nxt = tokens[i + 1] if i + 1 < len(tokens) else ""
-        # `>` / `>>` as their own token, or glued to the target (`>file`).
-        if tok in (">", ">>") and nxt:
-            _take(nxt)
-        elif tok.startswith(">") and len(tok) > 1 and not tok.startswith(">&"):
-            _take(tok.lstrip(">"))
-        elif tok in _INPLACE_WRITERS:
-            for cand in tokens[i + 1 :]:
-                if cand.startswith("-"):
-                    continue
-                _take(cand)
-                break
-        elif tok == "sed" or tok.endswith("/sed"):
-            in_place = any(t.startswith("-i") for t in tokens[i + 1 :])
-            if in_place and tokens[i + 1 :]:
-                _take(tokens[-1])
     return tuple(found)
 
 
@@ -603,9 +718,8 @@ def score_substrate_modification(
             fired.append("edit-guardrail")
 
     # Feature 4: substrate-write CLI
-    if tool == "Bash" and re.search(
-        r"\bdivineos\s+(audit|claim|learn|prereg|decide|feel|compass-ops|journal)\b",
-        cmd,
+    if tool == "Bash" and _runs_divineos_verb(
+        cmd, ("audit", "claim", "learn", "prereg", "decide", "feel", "compass-ops", "journal")
     ):
         fired.append("substrate-write-cli")
 
@@ -621,7 +735,7 @@ def score_substrate_modification(
             fired.append("edit-kiln-layer")
 
     # Feature 6: consolidation CLI
-    if tool == "Bash" and re.search(r"\bdivineos\s+(extract|sleep)\b", cmd):
+    if tool == "Bash" and _runs_divineos_verb(cmd, ("extract", "sleep")):
         fired.append("consolidation-cli")
 
     # Feature 7: edit a path declared in scripts/guardrail_files.txt

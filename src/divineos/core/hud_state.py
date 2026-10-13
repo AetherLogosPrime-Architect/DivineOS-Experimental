@@ -316,7 +316,7 @@ def auto_clean_goals(max_age_days: float = 1.0) -> dict[str, int]:
     }
 
 
-def has_session_fresh_goal(max_age_seconds: float = 7200.0) -> bool:
+def has_session_fresh_goal(max_age_seconds: float = 7200.0, touch: bool = False) -> bool:
     """Check if any goal was added recently (within max_age_seconds).
 
     Old goals from previous sessions don't count — the AI must set
@@ -356,11 +356,59 @@ def has_session_fresh_goal(max_age_seconds: float = 7200.0) -> bool:
     #
     # The gate asks "did I declare what I am working on this session". A goal
     # set and completed two minutes ago answers that completely.
-    cutoff = time.time() - max_age_seconds
+    # FRESHNESS IS LAST USE, NOT CREATION (2026-10-01, council-61279a7c8bfe,
+    # prereg-585338e19ae8). Measured from added_at, a goal I was working
+    # under lapsed mid-work at the two-hour mark, five times in one day.
+    # Refreshing on use alone would let a goal outlive the work it named
+    # (Aria, station 3), so a boundary -- compaction or new session -- ends
+    # every goal set before it and each stretch has to name itself again.
+    #
+    # Only the guard passes touch=True. Two of the four callers are display
+    # surfaces; if asking marked use, rendering the status screen would keep
+    # a stale goal alive by looking at it.
+    now = time.time()
+    cutoff = now - max_age_seconds
+    boundary = _goal_boundary()
+    fresh = None
     for goal in goals:
-        if goal.get("added_at", 0) > cutoff:
-            return True
-    return False
+        added = float(goal.get("added_at", 0) or 0)
+        # A clock-skewed future use counts as now at most, never later.
+        used = min(float(goal.get("last_used_at", added) or added), now)
+        if added <= boundary:
+            continue
+        if max(added, used) > cutoff:
+            fresh = goal
+            break
+    if fresh is None:
+        return False
+    if touch:
+        fresh["last_used_at"] = now
+        _write_goals_atomically(path, goals)
+    return True
+
+
+def _goal_boundary() -> float:
+    path = _ensure_hud_dir() / "goal_boundary.json"
+    if not path.exists():
+        return 0.0
+    try:
+        return float(json.loads(path.read_text(encoding="utf-8")).get("boundary_at", 0))
+    except (json.JSONDecodeError, OSError, ValueError, AttributeError):
+        return 0.0
+
+
+def mark_goal_boundary() -> None:
+    """End every current goal. Called at compaction and at session start."""
+    path = _ensure_hud_dir() / "goal_boundary.json"
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps({"boundary_at": time.time()}), encoding="utf-8")
+    tmp.replace(path)
+
+
+def _write_goals_atomically(path: Any, goals: list[dict[str, Any]]) -> None:
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(goals, indent=2), encoding="utf-8")
+    tmp.replace(path)
 
 
 # ─── Session Plan ────────────────────────────────────────────────────

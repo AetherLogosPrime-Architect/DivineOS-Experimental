@@ -189,6 +189,20 @@ class LensFinding:
 # reads (council-c667d7096362).
 _SHELL_WRAPPERS = ("cd", "set", "export", "env", "source", ".", "exec", "sudo", "time")
 
+# Joins the per-file keys of a command that writes several files. Chosen so the
+# whole key survives being pasted into `council log --edit '...'`, and so it
+# does not collide with `--scope`, which splits on commas.
+#
+# A FILENAME CONTAINING THIS SEQUENCE IS PROTECTED, NOT MERELY REFUSED -- and
+# this said "refuses" until Aether ran it (2026-09-23, reading #541). A file
+# really named `a + b.md` keys as `write:a + b.md` and its own exact walk
+# covers it through the exact-string match, which fires first. Walks filed for
+# `a` and for `b.md` cannot falsely combine to clear it: splitting yields
+# `write:a` and `b.md`, and the second part has no `write:` prefix, so no walk
+# can ever have named it. Worth saying exactly, because a comment that
+# undersells a guard invites the next reader to "fix" the refusal away.
+COMPOUND_KEY_JOINER = " + "
+
 
 def bash_act(command: str) -> str:
     """The meaningful head of a shell command: tool plus subcommand.
@@ -272,7 +286,15 @@ def fingerprint_for(tool_name: str, file_paths: tuple[str, ...], bash_command: s
 
         written = _shell_write_targets(bash_command)
         if written:
-            return _normalize_edit_fingerprint(written[0], "Write")
+            # EVERY FILE WRITTEN IS IN THE KEY, not whichever one the reader
+            # reached first (2026-09-23, Aria, walk-421eaefacb8f). Keyed on
+            # written[0], a walk for one file cleared a command that also wrote
+            # others. Sorted and deduplicated so the same writes in another
+            # order name the same edit; one file keys exactly as it always has,
+            # so no walk already on the ledger is stranded. store._covers reads
+            # the joined form back part by part.
+            parts = sorted({_normalize_edit_fingerprint(path, "Write") for path in written})
+            return COMPOUND_KEY_JOINER.join(parts)
         return _normalize_edit_fingerprint(bash_act(bash_command), tool_name)
     primary = file_paths[0] if file_paths else ""
     return _normalize_edit_fingerprint(primary, tool_name)
@@ -337,9 +359,15 @@ class CouncilRecord:
     """A council walk artifact — what a real walk produces.
 
     Written to the substrate ledger as a COUNCIL_RECORD_LOGGED event.
-    All fields are required except confirmed_by (only populated for
-    kiln-layer edits per Aether Catch 3) and consumed_at (set when
-    the record is consumed on first matching edit per Catch 2).
+    All fields are required except consumed_at (set when the record is
+    consumed on first matching edit per Catch 2).
+
+    ``confirmed_by`` was removed 2026-09-06 along with the check that read
+    it. It existed only to hold Andrew's or Aletheia's signature so a
+    kiln-layer edit could proceed, and no confirm belongs on that side of
+    the work -- the merge gate carries it, where he has said ten times it
+    goes. Records written before that date still carry the field in their
+    stored payload and are read back fine; it is simply no longer loaded.
 
     The hash-chained ledger event makes the artifact tamper-evident.
     The gate verifies the event exists, the fingerprint matches the
@@ -354,7 +382,6 @@ class CouncilRecord:
     lenses_surfaced: tuple[str, ...]  # ordered list of lens names
     lens_findings: tuple[LensFinding, ...]  # one per lens in lenses_surfaced
     synthesis: str  # cross-lens integration text
-    confirmed_by: str | None = None  # populated for kiln-layer; Andrew/Aletheia
     consumed_at: float | None = None  # consume-on-use marker (Catch 2)
     # THE JOB THIS WALK COVERS, enumerated at filing time (Andrew 2026-09-20).
     #
@@ -415,7 +442,14 @@ CHECK_FINDING_TOKEN_COUNT = "finding_token_count"
 CHECK_FINDING_KEYWORD = "finding_keyword"
 CHECK_SYNTHESIS_TOKEN_COUNT = "synthesis_token_count"
 CHECK_SYNTHESIS_REFERENCES_LENSES = "synthesis_references_lenses"
-CHECK_KILN_CONFIRMED_BY = "kiln_confirmed_by"
+# kiln_confirmed_by lived here until 2026-09-06 and demanded Andrew's or
+# Aletheia's signature before a kiln-layer file could be EDITED. Removed,
+# not disabled: the merge gate already requires multi-party review for every
+# guardrail-listed file, so this was a second copy of one job sitting on the
+# wrong side of the work. Andrew, counting it as the tenth time he had said
+# it: "our confirms only come when merging to fucking main." Historical
+# rejection events still carry the old name in their payload; that string is
+# their record and is left alone.
 # Andrew Failure B / Aria Q3 reshape 2026-07-16 — verify each lens
 # named in the record has a matching COUNCIL_LENS_INVOKED event in the
 # ledger. No trace → the lens was fabricated (agent-generated "Through
@@ -441,7 +475,6 @@ CHECK_NAMES: frozenset[str] = frozenset(
         CHECK_FINDING_KEYWORD,
         CHECK_SYNTHESIS_TOKEN_COUNT,
         CHECK_SYNTHESIS_REFERENCES_LENSES,
-        CHECK_KILN_CONFIRMED_BY,
         CHECK_NOT_CONSUMED,
         CHECK_LENS_LOAD_TRACE,
         CHECK_EDIT_TOKEN_OVERLAP,
