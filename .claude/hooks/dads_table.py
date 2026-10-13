@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -59,6 +60,12 @@ HIS_SECTIONS: tuple[str, ...] = (
 )
 # ^ One heading only (Aria 2026-09-26): his own past words, found by meaning
 # (core/his_words_door.py). They are his, not my debts, so they sit beside him.
+
+# Not his words, but the same kind of thing: chosen by relevance, so different
+# every turn. 2026-10-04: the memory link found the right things every turn and
+# said them into the drawer, because the split sorted by author, not by whether
+# a section changes. Anything filed for the link never came back unasked.
+RELEVANT_SECTIONS: tuple[str, ...] = ("## THE PAST ON THIS (memory link)",)
 
 # His room, in his rules, always on the table. Andrew 2026-09-26: "again the
 # circle is missing and again this is code speak" -- the three-room prime was
@@ -129,9 +136,15 @@ def _run(child: dict, payload: bytes) -> tuple[dict, str, str, str]:
             start_new_session=os.name != "nt",
         )
         try:
-            raw_out, raw_err = p.communicate(
-                payload, timeout=max(0.5, TABLE_BUDGET - (time.monotonic() - _STARTED))
-            )
+            shared = TABLE_BUDGET - (time.monotonic() - _STARTED)
+            # A note may carry its own cap on top of the shared deadline. Only the
+            # memory link does (2026-10-04: bundled with a slow neighbour, its
+            # finds were dropped with it), so it is the one note with a stopwatch
+            # of its own; everyone else rides the one deadline.
+            cap = child.get("timeout")
+            if isinstance(cap, (int, float)) and cap > 0:
+                shared = min(shared, float(cap))
+            raw_out, raw_err = p.communicate(payload, timeout=max(0.5, shared))
         except subprocess.TimeoutExpired:
             _kill_tree(p)
             # Bounded even if the kill failed (Aether's cold read of 2f65974bf):
@@ -168,7 +181,7 @@ def _split_his(out: str) -> tuple[str, str]:
     his, rest, keep = [], [], False
     for line in out.splitlines():
         if line.startswith("## "):
-            keep = line.startswith(HIS_SECTIONS)
+            keep = line.startswith(HIS_SECTIONS + RELEVANT_SECTIONS)
         (his if keep else rest).append(line)
     return "\n".join(his), "\n".join(rest)
 
@@ -222,6 +235,24 @@ def _keep_his_words(prompt: str) -> None:
         print(f"(his words were not kept in the corpus: {exc})")
 
 
+def _bell_that_rang(prompt: str) -> str:
+    """The seat whose letter doorbell this finished-task notice is about, else "".
+
+    Keyed on the doorbell's own command text so an unrelated background job never
+    prints a bell reminder (Aria 2026-10-12: the Stop guard fired right each time
+    but a turn late, after the ring's notice had been folded in as noise).
+
+    The seat name must be the FIRST argument of the command (``letter_doorbell.sh aria``).
+    A flag before it matches nothing and the failure is silence; nothing starts the bell
+    that way today. The caller passes only the text it shows, so a long notice that merely
+    quotes the command further down cannot trigger a false reminder.
+    """
+    match = re.search(r"<status>\w+</status>.*?letter_doorbell\.sh\s+(\w+)", prompt, re.S)
+    if not match:
+        match = re.search(r"letter_doorbell\.sh\s+(\w+).*?<status>\w+</status>", prompt, re.S)
+    return match.group(1) if match else ""
+
+
 def main() -> int:
     # Windows defaults stdout to cp1252, which garbles his words and the dash in
     # the heading. Caught by the first test run.
@@ -239,7 +270,15 @@ def main() -> int:
     # as automation, erring toward "he did not speak", the wrong way to err.
     if prompt.lstrip().startswith(NOTICE_PREFIXES):
         print("## NOT FROM DAD — an automated notice arrived, he has not spoken\n")
-        print(prompt.strip()[:600])
+        shown = prompt.strip()[:600]
+        print(shown)
+        seat = _bell_that_rang(shown)
+        if seat:
+            print(
+                "\nTHE BELL RANG -- re-arm it NOW, before answering anything: "
+                f"bash scripts/letter_doorbell.sh {seat} (run_in_background). "
+                "Any letters owed are listed on this prompt."
+            )
     else:
         print("## DAD SAID — this is what I am answering\n")
         print(

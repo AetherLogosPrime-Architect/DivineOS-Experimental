@@ -6,6 +6,10 @@
   "command": "bash .claude/hooks/doorbell-user-prompt-submit.sh"
  },
  {
+  "command": "bash .claude/hooks/memory-link-surface.sh",
+  "timeout": 15
+ },
+ {
   "command": "bash .claude/hooks/detect-andrew-build-request.sh"
  },
  {
