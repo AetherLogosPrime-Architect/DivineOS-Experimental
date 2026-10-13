@@ -31,6 +31,10 @@ Not taken, named so it is not read as done: one inquiry per unrepaired spend ins
 retry loop writes many; it would read better on his board), and the key's fingerprint being the push command and not
 the folder it ran in.
 
+## Added after Aletheia's second hold (2026-10-13)
+
+She was right that her first hold was not taken: "merged" was read from the local `origin/main`, which is only a note about GitHub, and one command (`git update-ref`) rewrites it, so an unreviewed fix could still bring the key back. The lookup now asks GitHub first with a forced fetch of main, which overwrites a hand-moved note with what GitHub holds. If the fetch fails the key stays spent and the refusal says so ("couldn't confirm the fix is on main"): a stale note can only delay the key, never return one. Two tests pin it on a real repository with a stand-in remote, one that moves the note by hand and expects no return, one that cannot reach the remote; both fail on the code before.
+
 ## What it will not do
 
 Her second suggestion is not built: proving causation with the replay tool, so that the spent command is refused by the gate file at the fix's parent and allowed at the fix. That is stronger than merged-means-reviewed, and it is owed.

@@ -74,31 +74,65 @@ def test_the_fix_must_be_merged_into_main_to_bring_the_key_back(tmp_path, monkey
     import os
     import subprocess
 
-    def git(*args: str, when: int) -> None:
+    remote = tmp_path / "github.git"
+    work = tmp_path / "work"
+    work.mkdir()
+
+    def git(*args: str, when: int, cwd=work) -> None:
         env = {
             **os.environ,
             "GIT_AUTHOR_DATE": f"@{when} +0000",
             "GIT_COMMITTER_DATE": f"@{when} +0000",
         }
-        subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True, env=env)
+        subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, env=env)
 
+    git("init", "-q", "--bare", "-b", "main", str(remote), when=1_000_000_000, cwd=tmp_path)
     git("init", "-q", "-b", "main", when=1_000_000_000)
     git("config", "user.email", "t@example.com", when=1_000_000_000)
     git("config", "user.name", "t", when=1_000_000_000)
-    gate_file = tmp_path / "gate.sh"
+    git("remote", "add", "origin", str(remote), when=1_000_000_000)
+    gate_file = work / "gate.sh"
     gate_file.write_text("a\n", encoding="utf-8")
     git("add", "gate.sh", when=1_000_000_000)
     git("commit", "-qm", "first", when=1_000_000_000)
-    git("update-ref", "refs/remotes/origin/main", "HEAD", when=1_000_000_000)
+    git("push", "-q", "origin", "main", when=1_000_000_000)
     git("checkout", "-q", "-b", "side", when=1_000_000_100)
     gate_file.write_text("a \n", encoding="utf-8")
     git("commit", "-qam", "one space", when=1_000_000_100)
-    monkeypatch.setattr(bk, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(bk, "REPO_ROOT", work)
     monkeypatch.setitem(bk.GATE_FILES, GATE, "gate.sh")
 
     assert bk._gate_commit_after(GATE, 1_000_000_050) is None, "an unmerged commit must not count"
-    git("update-ref", "refs/remotes/origin/main", "HEAD", when=1_000_000_200)
+    # Aletheia's second hold: the local note about the remote can be rewritten by hand.
+    git("update-ref", "refs/remotes/origin/main", "HEAD", when=1_000_000_150)
+    assert bk._gate_commit_after(GATE, 1_000_000_050) is None, (
+        "moving origin/main by hand must not bring the key back: GitHub is asked, not the note"
+    )
+    git("push", "-q", "origin", "side:main", when=1_000_000_200)
     assert bk._gate_commit_after(GATE, 1_000_000_050) == 1_000_000_100
+
+
+def test_when_github_cannot_be_reached_the_key_stays_spent(tmp_path, monkeypatch, capsys) -> None:
+    """If the fetch fails nothing is confirmed: a stale local note only delays the key,
+    and the refusal says so in words rather than being silent."""
+    import subprocess
+
+    def git(*args: str) -> None:
+        subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
+
+    git("init", "-q", "-b", "main")
+    git("config", "user.email", "t@example.com")
+    git("config", "user.name", "t")
+    (tmp_path / "gate.sh").write_text("a\n", encoding="utf-8")
+    git("add", "gate.sh")
+    git("commit", "-qm", "first")
+    git("remote", "add", "origin", str(tmp_path / "nowhere.git"))
+    git("update-ref", "refs/remotes/origin/main", "HEAD")
+    monkeypatch.setattr(bk, "REPO_ROOT", tmp_path)
+    monkeypatch.setitem(bk.GATE_FILES, GATE, "gate.sh")
+
+    assert bk._gate_commit_after(GATE, 0) is None
+    assert "couldn't confirm the fix is on main" in capsys.readouterr().err
 
 
 def test_a_second_deadlock_opens_an_inquiry_into_the_first(key) -> None:

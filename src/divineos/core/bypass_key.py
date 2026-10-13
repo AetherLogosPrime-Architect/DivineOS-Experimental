@@ -42,6 +42,7 @@ import json
 import re
 import sqlite3
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -216,10 +217,28 @@ def _gate_commit_after(gate: str, since: float) -> float | None:
     Merged means reachable from origin/main, which by Dad's blanket rule means
     reviewed. Aletheia, #597, 2026-10-07: counting any local commit let the key
     come back for a one-space edit to the gate file, or for weakening the lock,
-    with nothing fixed. A stale local copy of origin/main only delays the key.
+    with nothing fixed. Her second hold, 2026-10-13: the local ``origin/main`` is
+    only a note about the remote, and ``git update-ref`` rewrites it in one
+    command, so the note is refreshed from GitHub first (a forced fetch overwrites
+    a hand-moved one). If GitHub cannot be reached nothing counts: a stale note
+    only delays the key, it never returns one.
     """
     path = GATE_FILES.get(gate)
     if not path:
+        return None
+    try:
+        fetched = subprocess.run(
+            ["git", "fetch", "--quiet", "origin", f"+refs/heads/main:refs/remotes/{MAIN_REF}"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        fetched = None
+    if fetched is None or fetched.returncode != 0:
+        print("the key stays spent: couldn't confirm the fix is on main", file=sys.stderr)
         return None
     try:
         out = subprocess.run(
