@@ -108,7 +108,9 @@ def test_correction_set_dual_writes_both_stores(_isolated_db):
     assert correction_marker.read_marker() is None
     assert gate_marker.is_active("correction_filed_unlogged") is False
 
-    correction_marker.set_marker(trigger_text="no don't do that — read the file first.")
+    correction_marker.set_marker(
+        trigger_text="no don't do that — read the file first.", source="his-message"
+    )
 
     legacy = correction_marker.read_marker()
     assert legacy is not None
@@ -119,7 +121,7 @@ def test_correction_set_dual_writes_both_stores(_isolated_db):
 
 def test_correction_clear_dual_clears_both_stores(_isolated_db):
     """correction_marker.clear_marker clears legacy AND gate_marker."""
-    correction_marker.set_marker(trigger_text="that's not what I meant")
+    correction_marker.set_marker(trigger_text="that's not what I meant", source="his-message")
     assert correction_marker.read_marker() is not None
     assert gate_marker.is_active("correction_filed_unlogged") is True
 
@@ -137,7 +139,7 @@ def test_correction_session_id_carries_identity_prefix(_isolated_db):
     is visible in marker contents. Until the real session_id helper
     ships, the placeholder format is ``<identity>:placeholder-pid-<pid>``.
     """
-    correction_marker.set_marker(trigger_text="check this")
+    correction_marker.set_marker(trigger_text="check this", source="his-message")
     paths = gate_marker.find_markers("correction_filed_unlogged")
     assert len(paths) == 1
     marker = gate_marker.read_marker(paths[0])
@@ -241,7 +243,7 @@ def test_each_gate_isolated_from_others(_isolated_db):
     assert gate_marker.is_active("correction_filed_unlogged") is False
     assert gate_marker.is_active("fabrication_detected") is False
 
-    correction_marker.set_marker(trigger_text="correction text")
+    correction_marker.set_marker(trigger_text="correction text", source="his-message")
     assert gate_marker.is_active("hedge_fire") is True
     assert gate_marker.is_active("correction_filed_unlogged") is True
     assert gate_marker.is_active("fabrication_detected") is False
