@@ -96,9 +96,10 @@ LOCAL_SUBSTRATE_PREFIXES: tuple[str, ...] = (
 # files in its diff of which two were the work.
 #
 # The rule that follows: a regenerated mirror belongs to the branch that owns it
-# and rides no other. Elsewhere the honest state is a modified file left alone,
-# because there is nothing to save -- the content is in the database and the
-# command rebuilds it.
+# and rides no other. Elsewhere there is nothing to save -- the content is in
+# the database and the command rebuilds it -- so it is restored to HEAD rather
+# than left modified (changed 2026-09-30: "left alone" meant left DIRTY, at
+# every checkpoint, forever; see restorable_mirror_files below).
 #
 # NAMED NARROWLY ON PURPOSE. A general "it might be derived" test invites a yes,
 # because yes is what lets the checkpoint proceed. Admitting a HANDWRITTEN path
@@ -117,6 +118,43 @@ def is_regenerated_mirror(rel_path: str) -> bool:
     lines of unrelated churn in front of a reviewer.
     """
     return PurePosixPath(rel_path).as_posix().startswith(REGENERATED_MIRROR_PREFIXES)
+
+
+# MIRRORS WHOSE WORKING COPY MAY BE OVERWRITTEN, which is a stronger claim than
+# "skip it". A skipped mirror on a branch that does not own it is restored to
+# HEAD so the tree stays clean (2026-09-30: main left docs/archives/ modified at
+# every checkpoint, forever). Restoring is an OVERWRITE: free for a file rebuilt
+# from the DB (export_all measured reproducible, timestamp aside), and the loss
+# of the only copy for anything a person wrote.
+#
+# NAMED BY FILE, NEVER BY PREFIX. The first version fenced the whole
+# docs/archives/ folder, and Aria's reading (2026-09-30) found the folder holds
+# twelve files of which the exporter writes eleven: the twelfth, README.md, is
+# hand-written and carries Dad's words, and the restore reverted it. A prefix is
+# a claim about every file under it. So the set is derived from the exporter's
+# own registry: a new export becomes restorable with no edit here, and a
+# hand-written file placed beside the mirrors never does.
+def restorable_mirror_files() -> frozenset[str]:
+    """Exactly the repo-relative paths archive_export writes, and nothing else."""
+    from divineos.core.archive_export import list_exports
+
+    return frozenset(f"docs/archives/{name}.md" for name in list_exports())
+
+
+def is_restorable_mirror(rel_path: str) -> bool:
+    """True only for a plain repo-relative path the exporter itself writes.
+
+    Checked on the normalised path, never on the raw string: a ``..`` segment,
+    an absolute path, or an empty name is refused outright rather than
+    resolved, because resolving is how ``docs/archives/../../family/letters``
+    would become a letter. Refusing costs a dirty file; accepting can cost one.
+    """
+    posix = rel_path.replace("\\", "/")
+    if not posix or posix.startswith("/") or posix.endswith("/"):
+        return False
+    if any(part in ("", ".", "..") for part in posix.split("/")):
+        return False
+    return posix in restorable_mirror_files()
 
 
 class NoChannelsDeclared(RuntimeError):

@@ -434,6 +434,15 @@ COLLAPSE_POLICY: dict[str, CollapsePolicy] = {
             "change; an identical repeat is the same retrieval and adds nothing."
         ),
     ),
+    "memory_link": CollapsePolicy(
+        kind="info",
+        why=(
+            "What the past says about this prompt, retrieved from the prompt and "
+            "the recent turns, so it changes whenever they do. An identical "
+            "repeat is recall already read this session; collapsing it loses no "
+            "memory of him."
+        ),
+    ),
     "auto_goal": CollapsePolicy(
         kind="never",
         why=(

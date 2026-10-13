@@ -405,6 +405,79 @@ _SEGMENT_SEPARATORS = ("&&", "||", "|", ";", "&", "\n")
 # answered by their suites rather than by my reasoning, so they were run.
 
 
+_SHELL_PROGRAMS = frozenset({"bash", "sh", "zsh", "dash", "ksh"})
+# Options that take the NEXT word as their argument, so that word is not the command.
+# Aria's cold read of 623 (2026-10-11): `bash -o pipefail -c "..."` is a common script line.
+_SHELL_OPTIONS_WITH_ARGUMENT = frozenset({"-o", "-O", "+o", "+O", "--rcfile", "--init-file"})
+# Words that run the shell after them unchanged.
+_TRANSPARENT_PREFIXES = frozenset({"exec", "nohup", "command", "builtin", "time"})
+
+
+def _program_name(token: str) -> str:
+    name = token.replace("\\", "/").rsplit("/", 1)[-1].rsplit(":", 1)[-1]
+    return name.lower().removesuffix(".exe")
+
+
+def _after_prefixes(tokens: list[str]) -> list[str]:
+    while tokens and _program_name(tokens[0]) in _TRANSPARENT_PREFIXES:
+        tokens = tokens[1:]
+    return tokens
+
+
+def _is_c_flag(token: str) -> bool:
+    return token.startswith("-") and not token.startswith("--") and "c" in token[1:]
+
+
+def _scan_shell(tokens: list[str]) -> tuple[str | None, bool]:
+    """(the string the shell is told to run, whether a ``-c`` was seen but never reached).
+
+    The second value is the heavy case. A table of options that take an argument can
+    never be complete (Aletheia, 2026-10-11: the ``+o`` forms were missing the day after
+    ``-o`` was added), so when a token before the ``-c`` cannot be placed the answer is
+    not "nothing found" but "unsure", and the caller falls toward firing.
+    """
+    tokens = _after_prefixes(tokens)
+    if not tokens or _program_name(tokens[0]) not in _SHELL_PROGRAMS:
+        return None, False
+    index = 1
+    while index < len(tokens):
+        token = tokens[index]
+        if token[:1] not in ("-", "+"):
+            return None, any(_is_c_flag(t) for t in tokens[index + 1 :])
+        if token in _SHELL_OPTIONS_WITH_ARGUMENT:
+            index += 2  # the option and the word it consumes, e.g. `-o pipefail`
+            continue
+        if _is_c_flag(token):
+            return (tokens[index + 1] if index + 1 < len(tokens) else None), False
+        index += 1
+    return None, False
+
+
+def shell_command_body(tokens: list[str]) -> str | None:
+    """The command string a shell is told to run, or ``None`` if this is not that.
+
+    ``bash -c "<cmd>"`` (also ``-lc``, ``-ic``, ``--login -c``, any of the common
+    shells, a full path) and ``eval <cmd>``. A reader that judges each segment by
+    its head sees ``bash`` and one quoted token, so the real command inside is
+    invisible to it; this hands the inside back so the caller can judge it the
+    same way it judges the plain form. ``None`` for a shell running a script file,
+    for ``-c`` with nothing after it, and for anything that is not a shell.
+    """
+    tokens = _after_prefixes(tokens)
+    if tokens and _program_name(tokens[0]) == "eval":
+        return " ".join(tokens[1:]) if len(tokens) > 1 else None
+    return _scan_shell(tokens)[0]
+
+
+def shell_command_is_unplaced(tokens: list[str]) -> bool:
+    """True when a shell was given ``-c`` but a token before it could not be placed.
+
+    Then ``shell_command_body`` has nothing to return, and that must not read as
+    "no command here": the caller treats the line as heavy.
+    """
+    return _scan_shell(tokens)[1]
+
+
 def split_shell_segments(bash_command: str) -> list[str] | None:
     """Split on unquoted separators, or ``None`` if it cannot be done safely.
 
@@ -549,6 +622,95 @@ def remedy_segment(bash_command: str) -> str:
             return ""
         safe.append(candidate)
     return "\n".join(safe)
+
+
+# 2026-09-24, found by the adversarial pass on the sort-first refusal. The Python
+# allowlist matched a remedy at the FRONT of a command and ignored everything
+# after it, so `divineos decide "x" && git commit` walked past every refusal on
+# the router: the harmless recording command at the front carried the real work
+# behind it. remedy_segment above has the mirror-image hole, `git push && divineos
+# learn x`. Both ask "is a remedy in here?" when the question that keeps a gate
+# honest is "is a remedy ALL that runs?".
+#
+# So a command passes only when every link in its chain is either one of the
+# given commands or a harmless setup step. That keeps each prefix the notes above
+# record (a worktree cd, an assignment, `set -o pipefail`) without letting
+# anything else ride along.
+_HARMLESS_HEADS = frozenset({"cd", "set", "export"})
+_CHAIN_SEPARATORS = frozenset({"&&", "||", ";"})
+# Its own name, not _OPERATOR_CHARS (2026-10-01, council-a8d569f767c2): main
+# defines _OPERATOR_CHARS further down as the str shlex wants, a clean merge
+# kept both, the later binding won, and set(token) <= str raised on exactly
+# the piped and redirected commands this check exists to refuse.
+_CHAIN_OPERATOR_CHARS = frozenset(";&|<>()")
+# Redirections that discard or merge output and write nothing: the habits a
+# remedy is typed with, which must not turn it back into a refusal.
+_QUIET_TAIL_RE = re.compile(r"(?:\s+(?:2>&1|2?>\s*/dev/null))+\s*$")
+
+
+def program_name(token: str) -> str:
+    """The program a command's first word names: its file name, without ``.exe``.
+
+    ``divineos``, ``.venv/Scripts/divineos.exe`` and ``C:/x/divineos.exe`` are
+    one program. Every remedy list compared the raw first word, so a remedy typed
+    with its path -- the only way to reach a workbench's own install -- read as
+    building, and every gate's exit was shut from every workbench (2026-10-04).
+    Spelling only: what is allowed is decided elsewhere and unchanged, and
+    ``/usr/bin/git`` now reads as the ``git`` it is.
+    """
+    name = re.split(r"[\\/]", token)[-1]
+    return name[:-4] if name.lower().endswith(".exe") else name
+
+
+def _chain_links(command: str) -> list[list[str]] | None:
+    """The command's chain, each link as tokens with leading assignments removed.
+
+    None when anything in it could run or write outside what the tokens show:
+    a substitution (quoted or not -- bash runs both), a backtick, a pipe, a
+    redirect to a file, a background job, a subshell, or a parse failure.
+    """
+    if not command or "`" in command or "$(" in command:
+        return None  # both-empty: an unsafe command and an unparseable one both mean "cannot vouch for it", and every caller refuses on either
+    text = _QUIET_TAIL_RE.sub("", command.replace("\r\n", "\n").replace("\n", " ; "))
+    lexer = shlex.shlex(text, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    try:
+        tokens = list(lexer)
+    except ValueError:
+        return None  # both-empty: unparseable and unsafe both mean "cannot vouch for it", and every caller refuses on either
+    links: list[list[str]] = [[]]
+    for token in tokens:
+        if token in _CHAIN_SEPARATORS:
+            links.append([])
+        elif token and set(token) <= _CHAIN_OPERATOR_CHARS:
+            return None
+        else:
+            links[-1].append(token)
+    cleaned = []
+    for link in links:
+        while link and (link[0].lower() == "env" or _ENV_ASSIGN_RE.match(link[0])):
+            link = link[1:]
+        if link:
+            cleaned.append([program_name(link[0]), *link[1:]])
+    return cleaned
+
+
+def runs_only(command: str, allowed: tuple[tuple[str, ...], ...]) -> bool:
+    """True when every link in the chain is an allowed command or harmless setup.
+
+    At least one link must be an allowed command: a chain of nothing but `cd`
+    is not anybody's remedy. Fails toward False on anything it cannot read.
+    """
+    links = _chain_links(command)
+    if not links:
+        return False
+    found = False
+    for link in links:
+        if any(tuple(link[: len(prefix)]) == prefix for prefix in allowed):
+            found = True
+        elif link[0] not in _HARMLESS_HEADS:
+            return False
+    return found
 
 
 # A quoted span is replaced by this, same length, so offsets hold and what was

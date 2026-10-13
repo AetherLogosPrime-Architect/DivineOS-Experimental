@@ -306,7 +306,7 @@ def register_mansion_commands(cli: click.Group) -> None:
         audit_tier: str | None,
         as_code: bool,
     ) -> None:
-        """The council chamber — 45 chairs in a circle.
+        """The council chamber — every expert seated in a circle.
 
         --show NAME prints one expert's full methodology set. Added 2026-08-05
         after Andrew asked whether I was pulling lenses from training rather

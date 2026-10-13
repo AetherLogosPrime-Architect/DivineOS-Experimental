@@ -41,7 +41,6 @@ class TestEnforcementErrorHandling:
         import divineos.core.enforcement as enf_module
 
         enf_module._signal_handlers_setup = False
-        enf_module._session_initialized = False
 
         with patch("divineos.core.enforcement.initialize_session") as mock_init:
             mock_init.side_effect = OSError("Session init failed")
@@ -58,7 +57,6 @@ class TestEnforcementErrorHandling:
         import divineos.core.enforcement as enf_module
 
         enf_module._signal_handlers_setup = False
-        enf_module._session_initialized = False
 
         with patch("divineos.core.enforcement.initialize_session"):
             with patch("divineos.core.enforcement._setup_signal_handlers") as mock_signal:
