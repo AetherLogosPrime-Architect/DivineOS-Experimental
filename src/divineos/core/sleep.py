@@ -107,6 +107,9 @@ class DreamReport:
     # that would make the phase look permanently unnecessary.
     loadout_drift_before: dict[str, int] = field(default_factory=dict)
     loadout_result: dict[str, Any] = field(default_factory=dict)
+    # Phase: memory-link refill (2026-09-24). Counts from the vector drawer's
+    # fill: items asked about, already stored, computed now.
+    memory_link_refill: dict[str, Any] = field(default_factory=dict)
 
     # Phase: Integrity check (F14/F52 auto-verify per prereg-be0c8dee184a).
     # The ledger has tamper-evidence via hash-chained events; without an
@@ -717,6 +720,23 @@ def _phase_loadout_refresh(report: DreamReport) -> None:
     report.loadout_result = write_loadout()
 
 
+def _phase_memory_link_refill(report: DreamReport) -> None:
+    """Give every new letter, lesson and correction its vector in the drawer.
+
+    The memory link never computes a vector at reply time (that hung the
+    compose hook on 2026-09-20), so anything filed since the last fill is
+    invisible to it until something fills the drawer. Sleep is that something,
+    for the same reasons as the LOADOUT refresh above: between sessions,
+    idempotent, and what it maintains matters most at the next cold start.
+
+    In-process: the fill is its own batched write to its own small database,
+    and it runs on the GPU when there is one.
+    """
+    from divineos.core.memory_linkage_retriever import warm
+
+    report.memory_link_refill = warm()
+
+
 # ─── Phase: Integrity check (F14/F52 auto-verify) ─────────────────────
 
 
@@ -748,6 +768,7 @@ def _phase_integrity_check(report: DreamReport) -> None:
     import json as _json
     import time as _time
 
+    from divineos.core.ledger import verify_chain
     from divineos.core.ledger_verify import verify_all_events
     from divineos.core.operating_loop_audit import marker_path
 
@@ -768,6 +789,14 @@ def _phase_integrity_check(report: DreamReport) -> None:
             "failures": list(failures[:20]),
             "skipped": int(result.get("skipped", 0)),
         }
+        # Each row can match its own hash while the links between rows are
+        # crossed. verify_all_events cannot see that, so the chain broke on
+        # 2026-08-20 and this phase reported clean for five weeks
+        # (Structured Chaos #28). Walk the links too.
+        chain = verify_chain()
+        marker_payload["chain_ok"] = bool(chain.get("ok"))
+        marker_payload["chain_broken_at"] = chain.get("broken_at")
+        marker_payload["chain_broken_reason"] = chain.get("broken_reason")
     except Exception as exc:  # noqa: BLE001 — fail-soft on verifier crash
         report.integrity_events_failed = 0
         report.integrity_events_verified = 0
@@ -1369,6 +1398,7 @@ _PHASES: list[tuple[str, Any]] = [
     # month, reading "(none yet)" over 222 explorations. In-process (scan +
     # one write), so deliberately not in _SUBPROCESS_PHASES.
     ("loadout_refresh", _phase_loadout_refresh),
+    ("memory_link_refill", _phase_memory_link_refill),
 ]
 
 
@@ -1454,7 +1484,9 @@ def run_sleep(skip_maintenance: bool = False, _in_process_only: bool = False) ->
     in-process (lightweight, no shared-state risk).
 
     Args:
-        skip_maintenance: Skip the VACUUM/log/cache phase (useful for testing).
+        skip_maintenance: Skip the upkeep phases (useful for testing): VACUUM,
+            logs and caches, and the memory-link refill, which fills a cache
+            of vectors and on an empty drawer takes most of a minute.
         _in_process_only: Run ALL phases in-process, bypassing the
             subprocess architecture. For tests only — tests use empty
             fixture DBs where shared-state poisoning can't trigger,
@@ -1468,7 +1500,7 @@ def run_sleep(skip_maintenance: bool = False, _in_process_only: bool = False) ->
     report = DreamReport(started_at=time.time())
 
     for phase_name, phase_fn in _PHASES:
-        if skip_maintenance and phase_name == "maintenance":
+        if skip_maintenance and phase_name in ("maintenance", "memory_link_refill"):
             continue
         if phase_name in _SUBPROCESS_PHASES and not _in_process_only:
             tmp = _tempfile.NamedTemporaryFile(

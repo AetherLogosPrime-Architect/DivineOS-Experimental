@@ -48,7 +48,15 @@ def register(cli: click.Group) -> None:
         show_default=True,
         help="Lens floor: normal 5, high 9, severe 12, critical 15 (Andrew's ladder).",
     )
-    def open_cmd(problem: str, gravity: str) -> None:
+    @click.option(
+        "--scope",
+        "scope",
+        multiple=True,
+        help="Repo-relative file(s) this walk is FOR. Without it the build-flow "
+        "board cannot find this walk and falls back to counting lens events, "
+        "which the single-lens recorder satisfies just as happily.",
+    )
+    def open_cmd(problem: str, gravity: str, scope: tuple[str, ...]) -> None:
         """Open a walk. The SEATING picks the lenses, not me.
 
         Most seats are drawn by lot from the whole roster; the rest go to the
@@ -57,7 +65,7 @@ def register(cli: click.Group) -> None:
         recognisable as such rather than read as the council being thin.
         """
         try:
-            result = open_walk(problem, gravity=gravity)
+            result = open_walk(problem, gravity=gravity, scope=scope)
         except WalkRefused as exc:
             raise click.ClickException(str(exc)) from exc
         lenses = result["lenses"]
@@ -128,15 +136,66 @@ def register(cli: click.Group) -> None:
         if st["open_lenses"]:
             click.echo(f"\n{len(st['open_lenses'])} still unaccounted for.")
 
+    @walk_group.command("amend")
+    @click.argument("walk_id")
+    @click.option(
+        "--finding",
+        required=True,
+        help="What changed since the walk and why it is safe (a real sentence).",
+    )
+    @click.option(
+        "--repo",
+        default=None,
+        type=click.Path(file_okay=False),
+        help="The work copy the changes live in (default: the current folder).",
+    )
+    def amend_cmd(walk_id: str, finding: str, repo: str | None) -> None:
+        """Re-bind a closed walk to a SMALL follow-up instead of walking everything again.
+
+        The limits (lines, files already walked, a real finding) are in
+        ``push_choke.AMEND_MAX_LINES`` and are enforced there, not here.
+        """
+        from pathlib import Path
+
+        from divineos.core.council_walk import amend_walk
+
+        try:
+            result = amend_walk(walk_id, finding, repo=Path(repo) if repo else None)
+        except WalkRefused as exc:
+            raise click.ClickException(str(exc)) from exc
+        click.secho(
+            f"[+] {walk_id} amended: {result['lines_changed']} line(s) in "
+            f"{', '.join(result['files'])}. The walk now covers the current changes.",
+            fg="green",
+        )
+
     @walk_group.command("close")
     @click.argument("walk_id")
-    def close_cmd(walk_id: str) -> None:
-        """Close the walk. Refuses while any lens is open."""
+    @click.option(
+        "--repo",
+        default=None,
+        type=click.Path(file_okay=False),
+        help="The work copy the changes live in (default: the current folder).",
+    )
+    def close_cmd(walk_id: str, repo: str | None) -> None:
+        """Close the walk. Refuses while any lens is open. Binds it to the branch's changes."""
+        from pathlib import Path
+
         try:
-            st = close_walk(walk_id)
+            st = close_walk(walk_id, repo=Path(repo) if repo else None)
         except WalkRefused as exc:
             raise click.ClickException(str(exc)) from exc
         click.secho(f"[+] {walk_id} closed — {len(st['lenses'])} lenses accounted for.", fg="green")
+        if st.get("bound"):
+            click.echo(f"    bound to the branch changes in {st['bound_in']}")
+        else:
+            click.secho(
+                f"    NOT bound to any branch changes (looked in {st['bound_in']}: its changes "
+                "are not a non-empty subset of this walk's scope). The push check will read this "
+                "walk the older, weaker way. To bind it, close it from inside the work copy "
+                "or pass --repo.",
+                fg="yellow",
+            )
 
         # Distinctness prints HERE because closing is the only moment the
         # question "was that thinking or nine restatements?" is answerable and

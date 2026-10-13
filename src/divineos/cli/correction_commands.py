@@ -198,18 +198,65 @@ def register(cli: click.Group) -> None:
         # free and unnamed, indistinguishable from the main road. Requiring a
         # named reason keeps the exit open and makes it say who used it and
         # why.
-        _NO_STRUCTURE_MARKER = "no structure possible:"
-        claims_no_structure = _NO_STRUCTURE_MARKER in _lower
+        #
+        # The door stays; its SIGN changed 2026-09-23. It used to read "no
+        # structure possible", which is a verdict of impossibility, and Andrew
+        # that day: "you dont get to decide what can or cannot be built.. you can
+        # mark it as yet unresolved.. but never are you to mark anything
+        # impossible..". So the exit now says what is true -- the structure is
+        # not found YET -- and the obligation it files is that open item. The
+        # old spelling is still read, so a filing in the old words is not
+        # refused, but it is recorded under the new name.
+        _NO_STRUCTURE_MARKERS = ("structure not yet found:", "no structure possible:")
+        _marker = next((m for m in _NO_STRUCTURE_MARKERS if m in _lower), None)
+        claims_no_structure = _marker is not None
         no_structure_reason = ""
-        if claims_no_structure:
-            no_structure_reason = _lower.split(_NO_STRUCTURE_MARKER, 1)[1].strip()
-        habit_only = has_fix and not claims_structural_fix
+        if _marker:
+            no_structure_reason = _lower.split(_marker, 1)[1].strip()
+        # STRUCTURAL FIX OWED — the state that had no slot, and its absence
+        # produced a deadlock rather than a discipline.
+        #
+        # Andrew 2026-09-07 hit it live. The correction marker blocks tool use
+        # until a correction is filed; filing demands a structural fix backed
+        # by a file path; building that fix requires the tools the marker is
+        # blocking. Three correct rules composing into a wall, and the only
+        # ways through were to claim a behaviour change I did not mean or to
+        # bypass a gate that was working exactly as designed.
+        #
+        # The gap was narrow: a correction whose right fix IS structural but is
+        # not built yet had nowhere honest to sit. Claiming it done would be a
+        # lie; calling it a behaviour change would understate it; and the
+        # no-structure exit is for corrections that have no structural form at
+        # all, which is a different thing entirely.
+        #
+        # So this marker files the correction and records the fix as DEBT. It
+        # does not count as a completed fix and it is not an escape hatch: the
+        # correction files as owing, the reason has to be real, and the debt
+        # is written to the pending structural-fix list (below, where the
+        # correction is recorded) under trigger "structural fix owed" with the
+        # owed reason first, so the briefing keeps showing it until it is
+        # marked done. Andrew 2026-09-07: "its all to help you, not be a cage,
+        # none of this code is sacred, nothing is permanent, all of it can be
+        # tweaked and adjusted and altered as long as it follows the proper
+        # guidelines"
+        _FIX_OWED_MARKER = "structural fix owed:"
+        claims_fix_owed = _FIX_OWED_MARKER in _lower
+        fix_owed_reason = ""
+        if claims_fix_owed:
+            fix_owed_reason = _lower.split(_FIX_OWED_MARKER, 1)[1].strip()
+        habit_only = has_fix and not claims_structural_fix and not claims_fix_owed
 
         missing: list[str] = []
         if not has_root_cause:
             missing.append('"root cause:" (the specific prior action/reach)')
-        if not has_fix:
+        if not has_fix and not claims_fix_owed:
             missing.append('"structural fix:" or "behavior change:" (a real in-turn change)')
+        if claims_fix_owed and len(fix_owed_reason) < 40:
+            missing.append(
+                'a real description after "structural fix owed:" (>=40 chars) — name '
+                "what will be built and why it cannot be built in this turn. An "
+                "undescribed debt is the escape hatch, not the exception"
+            )
         if not has_positives:
             missing.append(
                 '"positives:" (what this fault actually yielded — a mechanism, '
@@ -229,16 +276,37 @@ def register(cli: click.Group) -> None:
                 "FEASIBILITY TEST — it proves the shape can be held at all, which is "
                 "real and worth keeping. It is not the cure: a held intention fades in "
                 "roughly 8-9 prompts, so structure is what carries it past that. Name "
-                "what you built. If this one genuinely has no structural form, say "
-                '"no structure possible: <why>" (>=40 chars) — that exit stays open on '
-                "purpose (truth #12, bypass is a tool not a sin), it just has to say "
-                "who used it and why"
+                "what you built. If you have not found its structure yet, say "
+                '"structure not yet found: <why>" (>=40 chars) — that exit stays open '
+                "on purpose (truth #12, bypass is a tool not a sin); it files the item "
+                "as UNRESOLVED on the todo list, never as impossible"
             )
         if claims_no_structure and len(no_structure_reason) < 40:
             missing.append(
-                'a real reason after "no structure possible:" (>=40 chars) — an '
+                'a real reason after "structure not yet found:" (>=40 chars) — an '
                 "unexplained exception is the escape hatch, not the exception"
             )
+        if claims_fix_owed and not missing:
+            # The debt has to be loud, or the new state becomes the soft road.
+            # It files, and it says out loud that it filed owing something.
+            click.secho(
+                "\n[!] FILED OWING A FIX — this correction is not closed.",
+                fg="yellow",
+                err=True,
+            )
+            click.secho(
+                f"    Owed: {fix_owed_reason[:200]}",
+                fg="yellow",
+                err=True,
+            )
+            click.secho(
+                '    File again with "structural fix:" and the path once it is built. '
+                "Until then this correction stands as debt rather than as answered, "
+                "and saying so is the whole point of the state.",
+                fg="bright_black",
+                err=True,
+            )
+
         if missing:
             click.secho(
                 "[-] Correction refused: root-cause+fix pairing missing.",
@@ -317,7 +385,7 @@ def register(cli: click.Group) -> None:
 
                 record_bypass(
                     "correction-structural-fix-requirement",
-                    "no-structure-possible",
+                    "structure-not-yet-found",
                     reason=no_structure_reason[:300],
                     is_compliance=False,
                 )
@@ -395,7 +463,23 @@ def register(cli: click.Group) -> None:
                 record_pending_fix,
             )
 
-            trigger = detect_structural_fix_shape(text)
+            # An owed fix is recorded as its own debt, reason first so the
+            # stored 200-char excerpt carries what is owed rather than the
+            # root-cause preamble. It replaces the generic detection, which
+            # would otherwise match "structural fix" and file a second row.
+            if claims_fix_owed:
+                psf_id = record_pending_fix(
+                    f"structural fix owed: {fix_owed_reason}",
+                    lesson_id=session_id,
+                    trigger="structural fix owed",
+                    source_kind="correction",
+                )
+                if psf_id:
+                    click.secho(
+                        f"    [!] owed fix recorded as pending obligation {psf_id}",
+                        fg="yellow",
+                    )
+            trigger = None if claims_fix_owed else detect_structural_fix_shape(text)
             if trigger:
                 psf_id = record_pending_fix(
                     text,

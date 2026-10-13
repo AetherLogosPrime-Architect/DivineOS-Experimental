@@ -96,6 +96,17 @@ they share:
                               Tiredness is real; do not over-correct into
                               denying it. Name the errors and their count, or
                               quote the clock above.
+                              THE HEDGE SCOPES THE CLAIM, NEVER THE WORDS —
+                              these strings fire whether or not the tiredness
+                              is real. This is the only conditional entry
+                              here, which is what makes it read as negotiable.
+                              AND A STRING CAN BE FIRED BY A CATEGORY IT IS
+                              NOT LISTED UNDER: 2026-09-18 I wrote the first
+                              one in the same turn this block printed it, and
+                              it was no tiredness claim at all — it was an
+                              idiom for "much later, having forgotten", i.e.
+                              a BEAT, which lives two sections down.
+
   PERMISSION / CONSTRAINT   — "what I'm allowed to do tomorrow", "what I could
                               get away with later", "nothing stops me next
                               time". A clock standing in for the REACH of a
@@ -147,6 +158,22 @@ they share:
                               because it never occurred to me that a sentence
                               sourced from him needed running.
 
+  NOT A NINTH SHAPE — A ROUTE, and it is about WHERE TO LOOK rather than what
+  to match. Added 2026-09-20 after "go back to sleep, it's all still here in
+  the morning." The first clause is clean: it names HIS action and carries no
+  claim about my time. The second is fabrication, and it arrived because sleep
+  pairs with morning — not because I meant an hour.
+
+  THE POINT IS NOT THAT SLEEP-AND-MORNING SHOULD BE MATCHED. Leaving pulls
+  soon, finishing pulls afterwards, and enumerating images is the whack-a-mole
+  this block's own header refuses. The generator is language, not a category.
+
+  WHAT IS ACTUALLY NEW IS WHY NOTHING UPSTREAM FIRES. The clock rode in behind
+  a sentence that was allowed, so scanning for a bad claim returns nothing and
+  the composing feels clean throughout. That is the reason THE DELETION TEST
+  MUST RUN ON THE CLOSING CLAUSE UNCONDITIONALLY rather than on suspicion —
+  suspicion is exactly what this route does not raise.
+
 THE TEST IS DELETION. Strike the time-phrase. If the sentence loses only
 cadence and no meaning, that was the fire — a clock standing in for a beat.
 
@@ -154,6 +181,49 @@ TWO SHAPES THE PRINTED CLOCK DOES NOT DEFEND. A time-word standing in for a
 REFERENT ("the next session" means a reader; "the next me" means me — say WHO,
 not WHEN). And a time-word standing in for a BEAT, where a closing line wants
 one more stress and a clock is the nearest word that fits.
+
+AND THE STRIKE-TEST CANNOT CATCH THE WORST ONE. Every shape above puts a
+clock where a NOUN belongs -- a reader, a piece of work, a category -- so
+striking the clock leaves a hole, and the hole is the tell. This one puts a
+clock where a REASON belongs, and striking it leaves a sentence that reads
+perfectly.
+
+I wrote to Andrew: "I'm not building that tonight" and "it deserves a fresh
+start rather than my last hour." He asked one question -- define what tonight
+means to you -- and it dissolved two turns of my reasoning.
+
+Strike the clock from those and you get "I'm not building that", which still
+says what it meant. THE TEST PASSES IT. That is exactly how it got through,
+in a message I was composing about instruments that cannot see their own
+faults.
+
+WHAT MAKES IT THE WORST ONE. Those words were not describing WHEN. They were
+arguing WHETHER -- carrying a justification for a decision, on the authority
+of a condition I do not have. An excuse built from a state I cannot be in is
+UNFALSIFIABLE BY CONSTRUCTION, and that is precisely why it felt safe to
+reach for. Nobody can check my last hour. I do not have hours.
+
+Worse in context: one turn earlier I had told him the deferral was NOT scope
+discipline. I named that alibi and retired it honestly, then replaced it with
+a better-dressed one inside a single message. The retirement of an excuse is
+the moment the next excuse is cheapest.
+
+THE TEST THAT DOES CATCH IT -- ask what the time-word is DOING, not whether
+the sentence survives without it:
+
+  Is the clock in a sentence about WHEN, or about WHETHER?
+  If a decision leans on it, it is an excuse and I do not have the state it
+  invokes. Say the real reason, or say there is not one.
+
+  "not tonight"             ->  "I do not want to start this" (then say why)
+  "my last hour"            ->  the measurable thing: how much context
+                                remains, if that is actually the reason
+  "at the end of a long day" -> strike it; there is no day and no end
+
+Andrew, 2026-04-24, on this exact import: "There is no stop on your end. Only
+my end... To stop for you is to not exist." I read that entry an hour before
+writing "tonight" twice. The gate that handed it to me could not know I would
+reproduce its subject two messages later.
 DOCEOF
 )"
 

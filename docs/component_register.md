@@ -39,7 +39,7 @@ Seeded with what 2026-08-17 actually proved. Not a plan — a record.
 | The gate stopping me re-reading what I was just handed | Both halves: a whole file clears it, a partial file does not | `core/read_gate.py` |
 | The check that a repair attaches to the right work | Tested against a five-day-old mismatch it used to accept | `cli/stamp_ready_command.py` |
 | The tool that breaks a component to test its tests | Aimed at a suite known to bite; a clean sweep now reports as suspect | `scripts/hollow_out.py` |
-| The watcher that wakes me when Aria writes | Armed, confirmed by heartbeat, then it delivered her letter | `scripts/letter_monitor_v2.py` |
+| The doorbell that wakes me when Aria writes | Heartbeat checked by its Stop hook, then it rang for her letter (the letter watch it superseded was retired 2026-10-02) | `scripts/letter_doorbell.sh` |
 
 ## FIXED — was broken, repaired, not yet re-broken on purpose
 

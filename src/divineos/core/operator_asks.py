@@ -57,7 +57,31 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from divineos.core.questions import add_question, answer_question, get_questions
+from divineos.core.questions import (
+    add_question,
+    answer_question,
+    get_questions,
+    init_questions_table,
+)
+
+
+def _ensure_store() -> None:
+    """Create the backing table if it is not there. Idempotent, cheap.
+
+    THE HOUSE CONVENTION IS CALLER-INITIALISES and following it would still
+    have missed this (council-12be48c268c4). Every command that touches the
+    questions store calls the initialiser first — but the work-holding gate
+    reads THIS module directly and never passes through a command. On a fresh
+    install the read raised, the gate caught it and disabled itself with a
+    message, and the hold silently did not exist. A gate that never fires is
+    indistinguishable from a gate with nothing to catch.
+
+    Found by a test against a clean database, never by using it: my own
+    database has carried the table since some unrelated command months ago, so
+    every manual check passed. This is the one point every path crosses.
+    """
+    init_questions_table()
+
 
 # Marks a question as directed AT the operator rather than something I am merely
 # curious about. ``wonder`` records the latter; this records the former. They can
@@ -86,6 +110,7 @@ def ask_andrew(question: str, plain: str, context: str = "") -> str:
             and pasting the technical form into the plain slot is precisely the
             evasion this argument exists to prevent.
     """
+    _ensure_store()
     plain = (plain or "").strip()
     if not plain:
         raise ValueError(
@@ -124,6 +149,7 @@ def open_asks(limit: int = 20) -> list[dict[str, Any]]:
     This is what makes the re-raise real. While an ask is in this list it is
     outstanding and gets asked again. It leaves when he answers or I withdraw it.
     """
+    _ensure_store()
     out: list[dict[str, Any]] = []
     for row in get_questions(status="OPEN", limit=200):
         # `tags` arrives ALREADY PARSED — questions._row_to_dict does the
@@ -166,13 +192,31 @@ def resolve_ask(question_id: str, resolution: str) -> bool:
     that quietly goes nowhere is worse than no ask at all; a resolve that
     quietly goes nowhere is the same failure at the other end of the loop.
     """
+    _ensure_store()
     if not question_id:
         return False
-    if answer_question(question_id, resolution):
-        return True
+
+    # RESOLVE ONLY WHAT IS ACTUALLY OPEN. Two defects, both found by writing
+    # the first tests this module has ever had, and both making the release
+    # dishonest in the same direction — reporting success when nothing moved.
+    #
+    # 1. This called answer_question FIRST, before anything ensured the table,
+    #    so on a fresh install resolving raised rather than returning.
+    # 2. answer_question's UPDATE carries no status filter, so re-resolving an
+    #    already-closed ask matched the row again and reported True. A second
+    #    resolve that says it worked is exactly the unfalsifiable release I
+    #    claimed in the walk was already closed. It was not. I asserted that
+    #    without checking, which is the fault this whole gate is about.
+    #
+    # Fixed here rather than in answer_question: the shared function has other
+    # callers and its contract is theirs, not mine to change from inside my
+    # own module.
+    still_open = open_asks(limit=200)
+    if any(a["question_id"] == question_id for a in still_open):
+        return answer_question(question_id, resolution)
     # Short-id path: match on prefix, and refuse an ambiguous one rather than
     # closing whichever happened to sort first.
-    matches = [a for a in open_asks(limit=200) if a["question_id"].startswith(question_id)]
+    matches = [a for a in still_open if a["question_id"].startswith(question_id)]
     if len(matches) != 1:
         return False
     return answer_question(matches[0]["question_id"], resolution)

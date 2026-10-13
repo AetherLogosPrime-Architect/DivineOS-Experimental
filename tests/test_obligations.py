@@ -15,8 +15,14 @@ from __future__ import annotations
 from divineos.core.obligations import (
     Obligation,
     command_references_open_obligation,
+    describe_obligation,
     format_block_message,
     is_substrate_write_command,
+)
+from divineos.core.structural_promotion_check import (
+    BASIS_REJUDGED,
+    BASIS_UNREADABLE,
+    BASIS_UNRECORDED,
 )
 
 
@@ -261,3 +267,145 @@ class TestTheBlockMessageMustNameAWorkingRemedy:
 
     def test_it_still_states_the_threshold(self) -> None:
         assert "below threshold (5)" in self._blocked()
+
+
+class TestTheGateCanSayWhatItHolds:
+    """2026-09-17. Every obligation this gate has ever printed rendered an id,
+    a trigger list, and an indented EMPTY line where its meaning belongs —
+    because `summary` was fed from a key the producer never set, and the text
+    was fetched one function upstream to re-judge the row and then discarded.
+
+    An empty indented slot does not read as plumbing. It reads as the system
+    having looked and found nothing, so the gate named a debt it could not
+    describe to the only person it stops. Six lessons were held as six debts
+    for a month and nobody could ask the clerk what they were.
+
+    These pin the two halves of the repair: the gate says what it holds, and
+    saying it never changes what it holds.
+    """
+
+    @staticmethod
+    def _ob(summary: str, basis: str) -> Obligation:
+        return Obligation(
+            kind="will-shape",
+            knowledge_id="abc12345-0000-0000-0000-000000000000",
+            summary=summary,
+            triggers=["must land"],
+            basis=basis,
+        )
+
+    def test_real_text_is_printed_verbatim(self) -> None:
+        o = self._ob("never run the suite with the bypass set", BASIS_REJUDGED)
+        assert describe_obligation(o) == "never run the suite with the bypass set"
+
+    def test_an_unreadable_row_says_it_was_never_told(self) -> None:
+        """The sentence the whole repair exists for."""
+        said = describe_obligation(self._ob("", BASIS_UNREADABLE))
+        assert "never been told" in said
+
+    def test_an_unrecorded_basis_says_unknown_not_empty(self) -> None:
+        """A producer that does not say how it judged must never be read as
+        having judged — that silent read is the defect one level up."""
+        said = describe_obligation(self._ob("", BASIS_UNRECORDED))
+        assert "unknown, not empty" in said.lower()
+
+    def test_no_describable_row_ever_renders_blank(self) -> None:
+        for basis in (BASIS_REJUDGED, BASIS_UNREADABLE, BASIS_UNRECORDED, "garbage"):
+            assert describe_obligation(self._ob("", basis)).strip()
+
+    # ─── THE INVARIANT. Read the game-walk before touching these. ──────
+    #
+    # The cheapest attack on this gate is not forging backing — backing costs
+    # real work. It is making an entry UNREADABLE, which evades re-judging for
+    # free and now earns a sympathetic label. If that label is ever allowed to
+    # discount a row, breaking the fetch becomes strictly cheaper than paying
+    # the debt and the gate has been taught to reward damage to its own
+    # instrument. The change that does this will arrive looking like a
+    # kindness. These two tests are what it has to get past.
+
+    def test_an_unreadable_obligation_still_counts_and_still_blocks(self) -> None:
+        msg = format_block_message(
+            {
+                "total": 6,
+                "unbacked_promises": [self._ob("", BASIS_UNREADABLE)],
+                "unpaired_observations": [],
+                "should_block": True,
+            }
+        )
+        assert "BLOCKED" in msg
+        assert "(6 total)" in msg
+
+    def test_the_confession_says_the_row_is_still_owed(self) -> None:
+        """The confession must not be mistakable for a discharge — a reader
+        who stops here instead of investigating is the failure mode."""
+        for basis in (BASIS_UNREADABLE, BASIS_UNRECORDED):
+            assert "still owed" in describe_obligation(self._ob("", basis))
+
+    def test_the_message_totals_what_it_cannot_describe(self) -> None:
+        """A repeated sentence habituates; a number that climbs does not.
+        This is the only signal that the fetch is rotting."""
+        msg = format_block_message(
+            {
+                "total": 2,
+                "unbacked_promises": [
+                    self._ob("a real rule", BASIS_REJUDGED),
+                    self._ob("", BASIS_UNREADABLE),
+                ],
+                "unpaired_observations": [],
+                "should_block": True,
+            }
+        )
+        assert "1 CANNOT BE DESCRIBED" in msg
+
+    def test_no_undescribed_line_when_every_row_has_text(self) -> None:
+        msg = format_block_message(
+            {
+                "total": 1,
+                "unbacked_promises": [self._ob("a real rule", BASIS_REJUDGED)],
+                "unpaired_observations": [],
+                "should_block": True,
+            }
+        )
+        assert "CANNOT BE DESCRIBED" not in msg
+
+
+class TestTheAuditCarriesTheTextItFetches:
+    """The upstream half. `verify_recent` fetches each entry's text to re-judge
+    it against the current detector, and used to append the raw event dict —
+    which carries only an id, a timestamp and the matched triggers. The
+    consumer then asked for a `content` key that had never existed.
+
+    Pinned at the shape level rather than through the live store, because the
+    defect was never in the fetch. It was that the fetched value did not reach
+    the row.
+    """
+
+    def test_a_rejudged_row_carries_its_text_and_its_basis(self) -> None:
+        row = {
+            **{"knowledge_id": "k", "triggers": []},
+            "content": "never X",
+            "basis": BASIS_REJUDGED,
+        }
+        o = Obligation(
+            kind="will-shape",
+            knowledge_id=row["knowledge_id"],
+            summary=(row.get("content") or "")[:120],
+            triggers=row.get("triggers") or [],
+            basis=row.get("basis") or BASIS_UNRECORDED,
+        )
+        assert o.summary == "never X"
+        assert describe_obligation(o) == "never X"
+
+    def test_a_row_with_no_basis_key_defaults_to_unrecorded(self) -> None:
+        """Fails toward unknown. A row that says nothing about how it was
+        judged must never be read as having been judged."""
+        row: dict = {"knowledge_id": "k", "triggers": []}
+        o = Obligation(
+            kind="will-shape",
+            knowledge_id=row["knowledge_id"],
+            summary=(row.get("content") or "")[:120],
+            triggers=row.get("triggers") or [],
+            basis=row.get("basis") or BASIS_UNRECORDED,
+        )
+        assert o.basis == BASIS_UNRECORDED
+        assert "unknown, not empty" in describe_obligation(o).lower()

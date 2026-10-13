@@ -80,6 +80,22 @@ tool_name = data.get("tool_name", "")
 if tool_name not in ("Edit", "Write", "MultiEdit", "NotebookEdit", "Bash"):
     sys.exit(0)
 
+# A shell line that only looks is not an action. Bash was gated wholesale, so
+# the doorman refused a bare grep -- twice on 2026-10-01, each the first action
+# of a reply Dad was watching. Asked of the one read-only judge in the house,
+# which refuses any line holding a single writing clause. NO APOSTROPHES in
+# this block: it sits inside a single-quoted shell string, and one in a comment
+# broke this whole hook the first time it was written.
+# docs/drafts/a_look_is_not_a_change_draft_2026-10-01.md
+if tool_name == "Bash":
+    try:
+        from divineos.hooks.pre_tool_use_gate import _is_readonly_probe
+    except ImportError:
+        _is_readonly_probe = None  # gate as before rather than open on a broken import
+    command = str((data.get("tool_input") or {}).get("command") or "")
+    if _is_readonly_probe is not None and _is_readonly_probe(command):
+        sys.exit(0)
+
 try:
     from divineos.core import read_gate
 except ImportError as exc:
