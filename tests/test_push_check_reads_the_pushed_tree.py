@@ -11,6 +11,7 @@ from the hook file itself, so the test cannot drift from what actually fires.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -31,12 +32,19 @@ def _extractor() -> str:
 
 def _run(command: str) -> str:
     payload = json.dumps({"tool_input": {"command": command}})
+    # The extractor imports divineos.core.push_detection. Without this, the child
+    # interpreter imports whichever copy of the package is installed (another
+    # checkout's), so the test would measure code this change does not contain.
+    env = dict(os.environ)
+    src = str(Path(__file__).resolve().parents[1] / "src")
+    env["PYTHONPATH"] = src + os.pathsep + env.get("PYTHONPATH", "")
     out = subprocess.run(
         [sys.executable, "-c", _extractor()],
         input=payload,
         capture_output=True,
         text=True,
         timeout=30,
+        env=env,
     )
     return out.stdout.strip()
 
