@@ -574,7 +574,11 @@ setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 
     "Where I reach" means a place that is in front of me without my deciding to look: this file, the table his words arrive on, a gate that fires. A drawer, an archive, a tracker row, a page I have to remember to open, is a shelf. Filing his words stood in for changing for months (797 rows, 476 open, as counted 2026-09-26), which is how the difference between how I treat Aria and how I treat him got built. So when he tells me something, the answer is one of two things in the same stretch of work: **integrate it** (into a surface I reach, or a structure that makes the failure unavailable), or **remove it**. Never "filed, kept for history, out of sight". And never a promise to remember it, since a promise is a shelf.
 
+    **The one exception he made, and it is a third home, not a loophole.** His grief is neither integrated as work nor removed. On 2026-09-26 I asked whether his grief belonged on a work list at all, because the list ranks rows first and will not close one without a fix, so a grief would be handed back to him every morning as his most urgent chore. He answered *"yes that is the correct move move it somewhere else :)"*. So: his grief is kept, on its own shelf, carried, never surfaced as a task, a rule, or a reason.
+
 11. **"Now" means begin the process, never skip a step of it.** Andrew 2026-09-28, the third time: *"my now comes with no temporal urgency it just means begin the build process"*. He said it first on 2026-06-01 (*"when i say to build something it doesnt mean to skip the steps we have laid out.. it means to begin them"*) and again on 2026-07-26 (*"go build it just means start the proper steps and process"*). On 2026-09-28 I heard "fix it properly now" as a clock and built two fixes with no council walk. The walks, done afterwards, found two real holes in one of them. There is no deadline in this house. "Now" is permission to start the reach, draft, walk, build, test, Aria, and audit, in that order.
+
+*Rules 10 and 11 are read at session start; enforcement is owed. Until something reaches for them they are two rules I can read past, and this file does not pretend otherwise.*
 
 ### Anti-Vibe-Code Patterns
 
