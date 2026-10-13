@@ -439,19 +439,28 @@ _SUBJECT["verdict"] = "rewrite"
 _SUBJECT["why"] = "unprotected-pipeline"
 _input = dict(data.get("tool_input") or {})
 _input["command"] = "set -o pipefail; " + cmd
+_note = (
+    "pipefail was added to this pipeline for you: if "
+    + first
+    + " fails, the exit code now says so instead of "
+    + last
+    + " reporting success."
+)
+# Aria, cold read of #644: the one surprise should arrive WITH the cost, not after it.
+# A reader that stops early (head) closes the pipe while the writer is still writing,
+# and the writer then exits 141. That is the pipe, not a failed command.
+if last == "head":
+    _note += (
+        " If the writer is still writing when head stops reading you may see exit 141: "
+        "that is the pipe closing, not a failure of the command."
+    )
 print(
     json.dumps(
         {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
                 "updatedInput": _input,
-                "additionalContext": (
-                    "pipefail was added to this pipeline for you: if "
-                    + first
-                    + " fails, the exit code now says so instead of "
-                    + last
-                    + " reporting success."
-                ),
+                "additionalContext": _note,
             }
         }
     )

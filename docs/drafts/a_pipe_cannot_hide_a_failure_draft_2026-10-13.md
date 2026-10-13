@@ -44,6 +44,14 @@ A read-only pipe whose reader closes early (`git log | head -3`) can now report 
 stopped the writer, although its output is fine. That is the honest status of the pipeline. It is rare, visible,
 and it replaced a warning that taught me to stop looking.
 
+## Added after Aria's cold read (2026-10-13)
+
+- When the pipe ends in `head`, the note that comes with the rewrite says the exit 141 that can follow is the
+  pipe closing and not a failed command, so the surprise arrives with the cost and not after it. `tail`, which
+  reads everything, gets no such sentence.
+- A test fails if any other hook names `updatedInput`, because two rewriters of the same input object would fight
+  and the docs do not say which wins; and a control proves the scan can find the one that exists.
+
 ## Limits
 
 - The docs are silent on two points and I did not test them: what happens when two hooks on the same call both
