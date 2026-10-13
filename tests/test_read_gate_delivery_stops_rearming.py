@@ -36,9 +36,11 @@ def gate_state(tmp_path, monkeypatch):
     """Point every state seam at a scratch dir, including the undocumented ones."""
     monkeypatch.setattr(read_gate, "STATE_DIR", tmp_path, raising=False)
     monkeypatch.setattr(read_gate, "STATE_FILE", tmp_path / "read_gate.json", raising=False)
-    monkeypatch.setattr(read_gate, "SEEN_READS", tmp_path / "seen.json", raising=False)
-    monkeypatch.setattr(read_gate, "CLEAR_LOG", tmp_path / "clears.jsonl", raising=False)
-    monkeypatch.setattr(read_gate, "REARM_LOG", tmp_path / "rearm.jsonl", raising=False)
+    # The three logs are resolved by functions at call time (2026-10-11). Patching
+    # the function, without raising=False, fails loudly if the name ever changes.
+    monkeypatch.setattr(read_gate, "_seen_reads", lambda: tmp_path / "seen.json")
+    monkeypatch.setattr(read_gate, "_clear_log", lambda: tmp_path / "clears.jsonl")
+    monkeypatch.setattr(read_gate, "_rearm_log", lambda: tmp_path / "rearm.jsonl")
     return tmp_path
 
 
