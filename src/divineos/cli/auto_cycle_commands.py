@@ -412,34 +412,52 @@ def audit_cmd() -> None:
     Bound: below 50% after at least 5 qualifying cycles means reshape or
     unwire. no-pull-honest cycles are shown beside the ratio, not in it.
     """
-    from divineos.core.auto_cycle_phase2 import compute_falsifier_ratio, no_pull_count
+    from divineos.core.auto_cycle_phase2 import (
+        FALSIFIER_BOUND,
+        FALSIFIER_MIN_CYCLES,
+        compute_falsifier_ratio,
+        damaged_audit_line_count,
+        no_pull_count,
+    )
 
     numerator, denominator, ratio = compute_falsifier_ratio()
     click.secho("=== Auto-cycle falsifier audit ===", fg="cyan", bold=True)
     click.echo()
     click.echo(f"  no-pull-honest (outside the ratio): {no_pull_count()}")
+    damaged = damaged_audit_line_count()
+    if damaged:
+        click.secho(
+            f"  [!] {damaged} damaged audit line(s) could not be read and are not counted below.",
+            fg="yellow",
+        )
     if denominator == 0:
         click.secho("  No qualifying cycles yet. Falsifier undefined.", fg="bright_black")
         return
-    click.echo(f"  real-shift outcomes:     {numerator}")
-    click.echo(f"  qualifying cycles:       {denominator}")
+    click.echo(f"  real-shift outcomes (self-reported):  {numerator}")
+    click.echo(f"  qualifying cycles:                    {denominator}")
     if ratio is not None:
-        click.echo(f"  ratio:                   {ratio:.1%}")
+        click.echo(f"  ratio (of self-reports):              {ratio:.1%}")
     click.echo()
-    if denominator < 5:
+    if denominator < FALSIFIER_MIN_CYCLES:
         click.secho(
-            f"  [~] Only {denominator} qualifying cycles. The bound applies after 5. Watching.",
+            f"  [~] Only {denominator} qualifying cycles. The bound applies after "
+            f"{FALSIFIER_MIN_CYCLES}. Watching.",
             fg="bright_black",
         )
-    elif ratio is not None and ratio < 0.5:
+    elif ratio is not None and ratio < FALSIFIER_BOUND:
         click.secho(
-            "  [!] FALSIFIER FIRED — ratio below 50% after at least 5 cycles. "
-            "The mechanism is producing dead-writing infrastructure. Reshape or unwire.",
+            f"  [!] FALSIFIER FIRED — self-reports below {FALSIFIER_BOUND:.0%} after at least "
+            f"{FALSIFIER_MIN_CYCLES} cycles. The mechanism is producing dead-writing "
+            "infrastructure. Reshape or unwire.",
             fg="red",
             bold=True,
         )
     else:
-        click.secho("  [+] Above falsifier bound. Mechanism intact.", fg="green")
+        click.secho(
+            "  [+] Self-reports are above the bound. Nothing observes them, so this does not "
+            "show the mechanism is working.",
+            fg="green",
+        )
 
 
 __all__ = ["auto_cycle_group", "register"]

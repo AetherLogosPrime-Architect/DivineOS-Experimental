@@ -415,7 +415,9 @@ class TestCommands:
         assert closed.exit_code == 0, closed.output
         assert "Cycle closed" in closed.output
         audit = self._run("auto-cycle", "audit")
-        assert "real-shift outcomes:     1" in audit.output
+        assert "real-shift outcomes (self-reported):  1" in audit.output
+        # The audit may not say the mechanism works on the strength of reports alone.
+        assert "Mechanism intact" not in audit.output
 
     def test_close_refuses_an_unknown_outcome(self, home: Path):
         _write_handshake()
@@ -482,3 +484,53 @@ class TestComputeFalsifierRatio:
         n, d, r = compute_falsifier_ratio()
         assert d == 5
         assert r is not None and r < 0.5
+
+
+class TestWhatTheNumbersCannotHide:
+    """Aria's cold read of #551 (2026-10-12): a damaged audit line, an unreadable use
+    count and an unreadable offered_at each used to look like an ordinary value."""
+
+    def test_the_bound_is_pinned(self):
+        assert ac.FALSIFIER_BOUND == 0.5
+        assert ac.FALSIFIER_MIN_CYCLES == 5
+
+    def test_a_damaged_audit_line_is_counted_not_skipped_silently(self, home: Path):
+        ac._audit_log_path().write_text(
+            json.dumps({"outcome": "chose:dream", "real_shift": True})
+            + "\nthis line is not json\n[1, 2]\n",
+            encoding="utf-8",
+        )
+        assert ac.damaged_audit_line_count() == 2
+        assert compute_falsifier_ratio()[:2] == (1, 1)
+
+    def test_an_intact_log_reports_no_damage(self, home: Path):
+        ac._audit_log_path().write_text(json.dumps({"outcome": "timeout"}) + "\n", encoding="utf-8")
+        assert ac.damaged_audit_line_count() == 0
+
+    def test_an_unreadable_use_count_file_is_not_shown_as_zero(self, home: Path):
+        (home / "hud" / "rest_session.json").write_text("not json", encoding="utf-8")
+        assert ac._use_counts_since_last_cycle() is None
+
+    def test_a_missing_use_count_file_is_zero(self, home: Path):
+        counts = ac._use_counts_since_last_cycle()
+        assert counts is not None and set(counts.values()) == {0}
+
+    def test_the_menu_says_could_not_read_for_an_unreadable_count(self, home: Path):
+        _write_handshake()
+        handshake = read_handshake()
+        assert handshake is not None
+        text = render_menu(handshake, None)
+        assert "could not read" in text
+        assert "used 0x" not in text
+
+    def test_an_unreadable_offered_at_is_marked_in_the_notes(self, home: Path):
+        _write_handshake()
+        record, _ = offer_cycle()
+        assert record is not None
+        pending = json.loads(_pending().read_text(encoding="utf-8"))
+        pending["offered_at"] = "garbage"
+        _pending().write_text(json.dumps(pending), encoding="utf-8")
+        closed = close_cycle("timeout", notes="late")
+        assert closed is not None
+        assert "duration not measured" in closed.notes
+        assert closed.notes.startswith("late")

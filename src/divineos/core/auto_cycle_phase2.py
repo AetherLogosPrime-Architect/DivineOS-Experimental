@@ -21,6 +21,19 @@ Phase 2 is the invitational layer. Its job:
 *Force the option, not the use.* The menu always shows every option. The
 choosing is the substrate-occupant's alone, and "no pull" is a valid outcome.
 
+## What the falsifier ratio is made of, and what it cannot show
+
+The ratio's numerator is the cycles that closed ``chose:<key>`` with
+``real_shift`` True, **as reported by the one who chose**. Nothing observes it,
+so the ratio measures the reports, not the rest: a run of untrue ``yes`` answers
+would score 1.0. A cycle that chose without stating ``real_shift`` counts in the
+denominator and not the numerator. ``no-pull-honest`` and an abort after a fatal
+phase 1 stay out of both. The bound (``FALSIFIER_BOUND`` over at least
+``FALSIFIER_MIN_CYCLES`` qualifying cycles) can say the reports have fallen
+below what was set; it cannot say the mechanism is working. The audit log skips
+lines it cannot parse, and ``damaged_audit_line_count`` reports how many, so a
+damaged line cannot move the ratio unseen.
+
 ## Rebuilt 2026-09-25 after Aether's station four on #551
 
 The July reader believed a completion by default. It read ``succeeded`` and
@@ -131,6 +144,12 @@ _TRANSIENT_ERROR_CLASSES = frozenset(
 
 _PLAIN_OUTCOMES = frozenset({"no-pull-honest", "timeout", "aborted"})
 
+# The falsifier's bound for prereg-4a7ed0c77c34: below this ratio, after at least this many
+# qualifying cycles, the mechanism is reshaped or unwired. Named here, not in the command
+# file, so the tests can pin them and a change is seen.
+FALSIFIER_BOUND = 0.5
+FALSIFIER_MIN_CYCLES = 5
+
 
 def inspect_handshake() -> HandshakeResult | NoHandshake:
     """Read phase 1's marker and say what it proves.
@@ -208,11 +227,12 @@ def refusal_text(why: NoHandshake) -> str:
     return f"{lead}\n    {why.reason}\n    Run phase 1 for real: divineos auto-cycle fire"
 
 
-def _use_counts_since_last_cycle() -> dict[str, int]:
+def _use_counts_since_last_cycle() -> dict[str, int] | None:
     """Every REST_TASKS key mapped to its use-count since the last cycle.
 
-    Best-effort mirror: any read failure yields zero for every key so the menu
-    stays whole.
+    No session file means nothing was used: zero for every key. A file that
+    exists but cannot be read returns None, and the menu says "could not read"
+    rather than showing a zero it does not know (Aria's cold read of #551).
     """
     counts: dict[str, int] = {task.key: 0 for task in REST_TASKS}
     session_path = _ensure_hud_dir() / "rest_session.json"
@@ -221,12 +241,12 @@ def _use_counts_since_last_cycle() -> dict[str, int]:
     try:
         data = json.loads(session_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return counts
+        return None
     if not isinstance(data, dict):
-        return counts
+        return None
     completions = data.get("completions") or []
     if not isinstance(completions, list):
-        return counts
+        return None
     for c in completions:
         if isinstance(c, dict):
             k = c.get("task_key")
@@ -247,7 +267,7 @@ def _handshake_summary(hr: HandshakeResult) -> dict[str, Any]:
     }
 
 
-def render_menu(handshake: HandshakeResult, use_counts: dict[str, int]) -> str:
+def render_menu(handshake: HandshakeResult, use_counts: dict[str, int] | None) -> str:
     """Render every option in REST_TASKS order, each with its use-count mirror.
 
     No ranking, no reordering, no subset: Aletheia's tightening at the menu
@@ -287,8 +307,10 @@ def render_menu(handshake: HandshakeResult, use_counts: dict[str, int]) -> str:
     lines.append("")
 
     for i, task in enumerate(REST_TASKS, start=1):
-        count = use_counts.get(task.key, 0)
-        mirror = f"(used {count}x since last cycle)"
+        if use_counts is None:
+            mirror = "(use count: could not read)"
+        else:
+            mirror = f"(used {use_counts.get(task.key, 0)}x since last cycle)"
         lines.append(f"  {i:>2}. {task.title}  {mirror}")
         lines.append(f"      key: {task.key}")
         lines.append(f"      run: {task.invoke_hint}")
@@ -367,7 +389,7 @@ def offer_cycle() -> tuple[OfferingRecord | None, str]:
         cycle_id=handshake.cycle_id,
         offered_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         menu_shown=[task.key for task in REST_TASKS],
-        use_counts_at_offering=dict(use_counts),
+        use_counts_at_offering=dict(use_counts or {}),
         handshake_summary=_handshake_summary(handshake),
     )
     path = _pending_path()
@@ -431,6 +453,7 @@ def close_cycle(
         return None
 
     cycle_id = str(pending.get("cycle_id", ""))
+    duration_known = True
     try:
         # offered_at is UTC (written from time.gmtime with a Z). calendar.timegm
         # reads it as UTC; time.mktime read it as LOCAL time, so off-UTC every
@@ -440,6 +463,9 @@ def close_cycle(
         )
     except (ValueError, TypeError):
         offered_ts = time.time()
+        duration_known = False
+    if not duration_known:
+        notes = (notes + " " if notes else "") + "[offered_at unreadable; duration not measured]"
 
     record = CloseOutcome(
         cycle_id=cycle_id,
@@ -481,18 +507,33 @@ def _append_audit_log(pending: dict[str, Any], outcome: CloseOutcome) -> None:
 
 
 def _audit_entries() -> list[dict[str, Any]]:
+    return _read_audit()[0]
+
+
+def damaged_audit_line_count() -> int:
+    """Lines of the audit log that could not be read, and so are not in the ratio."""
+    return _read_audit()[1]
+
+
+def _read_audit() -> tuple[list[dict[str, Any]], int]:
     path = _audit_log_path()
     if not path.exists():
-        return []
-    out = []
+        return [], 0
+    out: list[dict[str, Any]] = []
+    damaged = 0
     for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
         try:
             entry = json.loads(line)
         except json.JSONDecodeError:
+            damaged += 1
             continue
         if isinstance(entry, dict):
             out.append(entry)
-    return out
+        else:
+            damaged += 1
+    return out, damaged
 
 
 def compute_falsifier_ratio() -> tuple[int, int, float | None]:
@@ -531,9 +572,12 @@ __all__ = [
     "DamagedPending",
     "HandshakeResult",
     "NoHandshake",
+    "FALSIFIER_BOUND",
+    "FALSIFIER_MIN_CYCLES",
     "OfferingRecord",
     "close_cycle",
     "compute_falsifier_ratio",
+    "damaged_audit_line_count",
     "inspect_handshake",
     "no_pull_count",
     "offer_cycle",
