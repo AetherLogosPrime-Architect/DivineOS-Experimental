@@ -363,9 +363,16 @@ def _redirect_that_writes_ends_at(text: str, at: int) -> int | None:
     if j < len(text) and text[j] == "&":
         k = j + 1
         if k < len(text) and (text[k].isdigit() or text[k] == "-"):
-            while k < len(text) and text[k].isdigit():
-                k += 1
-            return k if k > j + 1 else j + 2  # `>&-` closes; `>&2` duplicates
+            if text[k] == "-":
+                k += 1  # `>&-` closes the stream
+            else:
+                while k < len(text) and text[k].isdigit():
+                    k += 1  # `>&2` duplicates stream 2
+            # A duplication is only that when nothing is glued on after it: `>&2file`
+            # is a write to a file named `2file`, found by trying it.
+            if k < len(text) and text[k] not in " \t\n;&|)":
+                return None
+            return k
         return None  # `>&file` writes a file
     while j < len(text) and text[j] in " \t":
         j += 1

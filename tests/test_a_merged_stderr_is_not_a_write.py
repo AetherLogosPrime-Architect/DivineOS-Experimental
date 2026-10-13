@@ -56,6 +56,13 @@ def test_a_harmless_redirect_leaves_a_look_or_a_remedy_light(command: str) -> No
         f"{_D} prereg show prereg-x 2>&1 | tee out.txt",
         f"{_D} prereg show prereg-x >| out.txt",
         f"{_D} prereg show prereg-x > /dev/nullfile",
+        # A duplication is only that when nothing is glued on after it: these three write to a
+        # file named `2file`, `1file` and `-x` (found by trying them against the first version).
+        f"{_D} prereg show prereg-x >&2file",
+        f"{_D} prereg show prereg-x 2>&1file",
+        f"{_D} prereg show prereg-x >&-x",
+        f"{_D} prereg show prereg-x > >(tee out.txt)",
+        f"{_D} prereg show prereg-x >/dev/null/x",
     ],
 )
 def test_a_redirect_to_a_real_file_still_makes_it_heavy(command: str) -> None:
