@@ -549,6 +549,27 @@ else
             echo "[push-readiness] pytest parallelism: $PYTEST_PARALLEL (memory-scaled)"
         fi
 
+        # A worker that dies mid-run is reported by xdist as a FAILED test, and the
+        # exit code cannot tell that from a broken one (2026-10-05: 15,001 passed,
+        # one "failed", and it passed alone). Every run writes a junit record, and
+        # scripts/recover_crashed_workers.py replays only crash victims, alone.
+        # Anything else stays blocked. Called at all three pytest lines below.
+        PYTEST_JUNIT="$(mktemp -t divineos-push-junit-XXXXXX)"
+        if command -v cygpath >/dev/null; then
+            PYTEST_JUNIT="$(cygpath -m "$PYTEST_JUNIT")"
+        fi
+        PYTEST_PARALLEL="$PYTEST_PARALLEL --junitxml=$PYTEST_JUNIT"
+        recover_if_only_crashes() {
+            local report
+            report="$(mktemp)"
+            python scripts/recover_crashed_workers.py "$PYTEST_JUNIT" "$1" "$PYTEST_LOG" >"$report" 2>&1
+            local rc=$?
+            cat "$report" >&2
+            cat "$report" >>"$PYTEST_LOG"
+            rm -f "$report"
+            return $rc
+        }
+
         if [[ -n "$PYTEST_SHA" ]] && command -v git >/dev/null && [[ "${DIVINEOS_PUSH_GATE_NO_WORKTREE:-0}" != "1" ]]; then
             # Isolated path: temp worktree at the pushed commit. Survives
             # concurrent pushes because each gets its own checkout.
@@ -596,7 +617,7 @@ else
                     env | grep -E '^(GIT_|PYTEST|MSYS)' | sed 's/^/[gate-env] /'
                 } >"$PYTEST_LOG" 2>&1
                 # shellcheck disable=SC2086  # PYTEST_PARALLEL is intentionally word-split
-                (cd "$PYTEST_WORKTREE" && PYTHONPATH="$PYTEST_WORKTREE/src${PYTHONPATH:+:$PYTHONPATH}" $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL) >>"$PYTEST_LOG" 2>&1
+                (cd "$PYTEST_WORKTREE" && PYTHONPATH="$PYTEST_WORKTREE/src${PYTHONPATH:+:$PYTHONPATH}" $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL) >>"$PYTEST_LOG" 2>&1 || recover_if_only_crashes "$PYTEST_WORKTREE"
                 PYTEST_RC=$?
                 # Normal-path cleanup — runs after pytest exits cleanly. The
                 # trap above covers the interrupt path; this call covers the
@@ -616,7 +637,7 @@ else
                 echo "[push-readiness] worktree isolation unavailable, running pytest in main worktree (concurrency-fragile)" >&2
                 # shellcheck disable=SC2086  # PYTEST_PARALLEL is intentionally word-split ("-n auto" is two tokens)
                 # Wrapped per prereg-dae52c6ca269 — same rationale as the isolated path above.
-                $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1
+                $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1 || recover_if_only_crashes "$PWD"
                 PYTEST_RC=$?
             fi
         else
@@ -636,7 +657,7 @@ else
             # looking at, and a sibling call site left behind. The
             # divergence is invisible until you are waiting on the slow one.
             # shellcheck disable=SC2086  # PYTEST_PARALLEL is intentionally word-split
-            $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1
+            $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1 || recover_if_only_crashes "$PWD"
             PYTEST_RC=$?
         fi
         if [[ $PYTEST_RC -ne 0 ]]; then

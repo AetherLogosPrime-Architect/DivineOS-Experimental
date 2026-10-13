@@ -56,7 +56,9 @@ __guardrail_required__ = True
 
 import json
 import re
+import shlex
 import sys
+from pathlib import Path
 from typing import Any
 
 from divineos.core.command_parsing import CD, blank_quoted_spans, strip_prefixes_raw
@@ -276,6 +278,61 @@ def _is_safe_remedy_invocation(cmd: str, allowed_heads: tuple[str, ...]) -> bool
     if _has_unquoted_chain_shape(real):
         return False
     return True
+
+
+# The bell is a listener, not work: it writes only its own dotfiles and decides
+# nothing. Dad had to ask 24 times for it to stay on, and three re-arms on
+# 2026-10-03 were refused by the goal and consult checks during quiet talk.
+# Exact command only -- repo path, one seat word, no pipe, no chain.
+# Walk council-7de9f00cec42.
+#
+# Tightened after Aletheia's audit (walk council-0d96371ec724). The bell writes
+# an owner file for whatever seat it is handed, and a replaced bell leaves
+# without ringing, so `letter_doorbell.sh aria` run from my seat silently stops
+# hers while every check reports both healthy. The word must be THIS seat.
+# And the script path is relative, so a leading `cd` elsewhere runs some other
+# checkout's copy ungated: the cd may only land on this repository's root.
+# Either unknown means held.
+_DOORBELL_RE = re.compile(r"^bash (?:\./)?scripts/letter_doorbell\.sh ([a-z]+)$")
+
+
+def _cd_lands_on_this_repo(prefix: str) -> bool:
+    from divineos.core.auto_commit import find_repo_root
+
+    root = find_repo_root(Path(__file__))
+    if root is None:
+        return False  # both-empty: unknown root also means hold, fail closed
+    try:
+        parts = shlex.split(prefix.partition("&&")[0])
+    except ValueError:
+        return False
+    if len(parts) != 2 or parts[0] != "cd":
+        return False
+    target = parts[1]
+    drive = re.match(r"^/([A-Za-z])(/.*)?$", target)  # Git Bash /c/... form
+    if drive:
+        target = f"{drive.group(1)}:{drive.group(2) or '/'}"
+    try:
+        return Path(target).resolve() == root
+    except OSError:
+        return False
+
+
+def _is_doorbell_rearm(cmd: str) -> bool:
+    if not _is_safe_remedy_invocation(cmd, ("bash ",)):
+        return False
+    whole = cmd.strip()
+    real = strip_prefixes_raw(whole).strip()
+    match = _DOORBELL_RE.match(real)
+    if not match:
+        return False
+    from divineos.core.sibling_audit_rounds import this_seat
+
+    seat = this_seat()
+    if seat is None or match.group(1) != seat:
+        return False
+    prefix = whole[: len(whole) - len(real)].strip() if whole.endswith(real) else whole
+    return not prefix or _cd_lands_on_this_repo(prefix)
 
 
 def _load_bypass_subcommands() -> frozenset[str]:
@@ -1065,6 +1122,19 @@ _READONLY_PROBE_PREFIXES = (
     "divineos prereg",
     "divineos todos",
     "divineos inspect",
+    # Plain looking (Aria, 2026-10-01). The read-gate doorman now asks this
+    # probe about every shell line; it had refused a bare `grep` twice in one
+    # morning, and Dad saw the first action of two replies fail. A redirect or
+    # --output still makes any of these a write -- that check runs first.
+    # Each carries its trailing space so `ls` cannot pass `lsblk` (Schneier,
+    # walk-7699bdf9bcad).
+    "grep ",
+    "rg ",
+    "cat ",
+    "head ",
+    "tail ",
+    "wc ",
+    "ls ",
 )
 
 # AND THE LIST ABOVE IS THE WRONG SHAPE, which the comment block already shows
@@ -1293,6 +1363,17 @@ def _is_readonly_probe(cmd: str) -> bool:
             clause = blanked
         if "--output" in clause:
             return True
+        # A READ VERB THAT RUNS SOMETHING ELSE (Aletheia, reading #575 on
+        # 2026-10-01). Adding grep/rg/cat to the read verbs opened two doors
+        # main had shut: `cat <(touch /tmp/pwn)` runs a command inside the
+        # brackets, and `rg --pre=/tmp/evil.sh x .` runs a program on every
+        # file it searches. Neither writes through a redirect, so the check
+        # below never saw them. Process substitution in either direction,
+        # and rg's preprocessor flags, make any line not a look.
+        if "<(" in clause or ">(" in clause:
+            return True
+        if re.search(r"(^|\s)--pre(-glob)?(=|\s|$)", clause):
+            return True
         i = 0
         while True:
             i = clause.find(">", i)
@@ -1357,6 +1438,80 @@ def _is_readonly_probe(cmd: str) -> bool:
     return all(_clause_is_probe(c) for c in clauses)
 
 
+# CLOSED SHAPES, matched whole (Aether, 2026-10-10, from running crafted
+# commands against the first version, which anchored only the START: a newline
+# carried a second command through this hard block, and a redirect or --output
+# wrote a file). Nothing may follow the verb except, for a goal, ONE quoted
+# argument with no newline, no substitution and no escape inside it.
+_BRIEFING_SHAPE = re.compile(r"divineos[ \t]+briefing[ \t]*")
+_GOAL_SHAPE = re.compile(
+    r"""divineos[ \t]+goal[ \t]+add[ \t]+(?:'[^'\n$`]*'|"[^"\n$`\\]*")[ \t]*"""
+)
+
+
+_GOAL_ADD_ANYWHERE = re.compile(r"\bgoal[ \t]+add\b")
+
+
+def _is_a_shared_remedy(cmd: str) -> bool:
+    """True when some other gate prescribes this command as ITS way out.
+
+    2026-10-11. This block kept its own private list of shapes while the shared
+    one (``core/remedy_allowlist.py``) existed, so five exits were refused here
+    that a gate beside this one prescribes (`his sort`, `his pending`, `psf
+    mark-done`, `andrew-correction integrate`/`defer`). Armed together, the two
+    gates would have locked each other. Measured by test_every_exit_passes_every_gate.
+
+    ONE exception, encoded rather than left to the order of two checks: any line
+    that mentions `goal add` is NOT decided by the shared list, because
+    `goal add 'a' && goal add 'b'` is two remedies to it and 619's rule is that
+    a goal passes only while the goal gate is itself asking
+    (`_is_a_review_prerequisite` holds that condition).
+    """
+    from divineos.core.remedy_allowlist import is_remedy, outside_quotes
+
+    # Outside quoted spans: a lesson that merely MENTIONS `goal add` is data, not
+    # a second goal (Aether, 2026-10-11). The helper scans the text whole when
+    # blanking would be unsafe, so a real chained goal add is still caught.
+    if not cmd or _GOAL_ADD_ANYWHERE.search(outside_quotes(cmd)):
+        return False
+    return is_remedy(cmd)
+
+
+def _is_a_review_prerequisite(cmd: str) -> bool:
+    """True for the few commands any review needs BEFORE it can be done.
+
+    2026-10-10. The date rolled, a review came due, and this block refused
+    ``briefing`` and ``goal add``. The key that opens the build-flow gate needs
+    the day's briefing, and the exit this block names (``prereg reviewing`` /
+    ``assess``) needed that key, so a ring formed with no free link. The
+    engagement gate beside this one already lets the briefing and the seat's own
+    bell through for exactly this reason (the deadlock-fix of 2026-07-18); this
+    block was the one that never got the same exits.
+
+    Narrower than that neighbour on purpose: a LONE clause only. The
+    neighbour tests every segment of a chain, which would let ``briefing && rm``
+    through a hard block. And a goal is allowed only while the goal gate is
+    itself asking for one, so the allowance cannot become a way to keep adding
+    goals while a review is overdue (Aether's point: a pinned test treats
+    ``goal add`` as the work this block exists to stop, and once a goal exists
+    it still is).
+    """
+    if not cmd:
+        return False
+    if _is_doorbell_rearm(cmd):
+        return True
+    stripped = _strip_cd_prefix(cmd).strip()
+    if _has_compound_shape(stripped):
+        return False
+    if _BRIEFING_SHAPE.fullmatch(stripped):
+        return True
+    if not _GOAL_SHAPE.fullmatch(stripped):
+        return False
+    from divineos.core.hud_state import has_session_fresh_goal
+
+    return not has_session_fresh_goal()
+
+
 def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
     """Hard-block substantive tool use when any pre-registration is overdue.
 
@@ -1375,7 +1530,7 @@ def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
     # Looking is not the work this gate means to stop. See
     # _READONLY_PROBE_PREFIXES for the two live cases where blocking a
     # read forced a DEFERRED that had nothing to do with the evidence.
-    if _is_readonly_probe(cmd):
+    if _is_readonly_probe(cmd) or _is_a_review_prerequisite(cmd) or _is_a_shared_remedy(cmd):
         return None
 
     try:
@@ -2176,7 +2331,7 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
         _tn = input_data.get("tool_name", "") or ""
         if _tn in ("Bash", "PowerShell"):
             _cmd = (input_data.get("tool_input", {}) or {}).get("command", "") or ""
-            if _is_engagement_clearing_command(_cmd):
+            if _is_engagement_clearing_command(_cmd) or _is_doorbell_rearm(_cmd):
                 _low_friction = True
 
     # Gate 2: session-fresh goal
@@ -2184,7 +2339,9 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
         try:
             from divineos.core.hud_state import has_session_fresh_goal
 
-            if not has_session_fresh_goal():
+            # touch=True: the guard is the one caller whose pass means work is
+            # happening, so only it refreshes the goal (council-51a3676ac90b).
+            if not has_session_fresh_goal(touch=True):
                 soft_denies.append(
                     "BLOCKED: No goal set for this session. "
                     'Run: divineos goal add "what you are working on"'

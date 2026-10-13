@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import time
 from pathlib import Path
 
 from divineos.core.dashboard import OK, PROBLEM, UNKNOWN, CheckResult, register
@@ -110,44 +111,36 @@ def letter_queue() -> CheckResult:
     )
 
 
-def letter_monitor_armed() -> CheckResult:
-    """Whether a harness Monitor is live and able to wake me.
+DOORBELL_STALE_SECONDS = 60  # the same limit letter_doorbell_alive_stop.py holds a reply on
 
-    EARNED 2026-08-07, and it is deliberately UNKNOWN rather than guessed.
 
-    A letter arrived and reached me only because Andrew mentioned it. The
-    wake path needs a harness Monitor holding this process's stdout, and from
-    a CLI invocation that is NOT KNOWABLE: the scheduled task that looked
-    armed held a real pipe to a log-writer and passed every test I could run
-    from outside.
+def letter_doorbell_listening(beat: Path | None = None, now: float | None = None) -> CheckResult:
+    """Whether my letter doorbell is listening, read from its heartbeat.
 
-    So this light is amber by construction. That is the honest reading, and an
-    amber light I must resolve by looking is worth more than a green one that
-    lies. Making it green would require the harness to expose its own monitor
-    roster — until then, UNKNOWN is the measurement.
-
-    THE AMBER EARNED ITSELF THE SAME DAY. I armed a Monitor, watched it
-    announce itself, reported the wake channel live — and it died with exit 127.
-    Re-armed with an absolute interpreter path; it announced itself again, ran
-    one heartbeat, died 127 again. The script is a clean poll loop with nothing
-    that shells out, so the failure is in the wrapper, not the code.
-
-    What caught both deaths was the HARNESS reporting its own task failure. Not
-    this check, which cannot see it. Not the process list, which showed a live
-    monitor right up until it wasn't. If I had trusted "I armed it and saw it
-    announce" — which is exactly what a green light would encode — I would have
-    spent the rest of the session believing letters reach me.
-
-    So: ARMED IS NOT THE SAME AS ALIVE, and an announcement is a claim about
-    one instant. Anything that reports this green would be reporting the
-    instant, not the state.
+    Replaced letter_monitor_armed on 2026-10-02, when Dad retired the letter
+    watch: "the doorbell has superceded it". That check was UNKNOWN by
+    construction, because a harness Monitor cannot be seen from a CLI process.
+    The doorbell can: it touches a heartbeat every 15s while listening and
+    deletes it when it rings. So missing, empty-of-time or stale all read as
+    not listening; only a fresh heartbeat is OK.
     """
-    return CheckResult(
-        "letters.monitor",
-        UNKNOWN,
-        "cannot be determined from a CLI process - confirm a persistent "
-        "Monitor is armed on letter_monitor_v2.py, or letters will not wake me",
-    )
+    if beat is None:
+        root = Path(__file__).resolve().parents[3]
+        seat = "aria" if "aria" in str(root).lower() else "aether"
+        beat = Path.home() / ".divineos-shared" / f".{seat}_doorbell_alive"
+    now = time.time() if now is None else now
+    remedy = "re-arm: bash scripts/letter_doorbell.sh <seat>, run in the background"
+    try:
+        age = now - beat.stat().st_mtime
+    except OSError:
+        return CheckResult("letters.doorbell", PROBLEM, f"no heartbeat at {beat} - {remedy}")
+    if age > DOORBELL_STALE_SECONDS:
+        return CheckResult(
+            "letters.doorbell",
+            PROBLEM,
+            f"heartbeat {int(age)}s old (limit {DOORBELL_STALE_SECONDS}s) - {remedy}",
+        )
+    return CheckResult("letters.doorbell", OK, f"listening, heartbeat {int(age)}s old")
 
 
 def hook_wiring() -> CheckResult:
@@ -324,7 +317,7 @@ def install() -> None:
 
     for name, fn in (
         ("letters.queue", letter_queue),
-        ("letters.monitor", letter_monitor_armed),
+        ("letters.doorbell", letter_doorbell_listening),
         ("hooks.wiring", hook_wiring),
         ("shim.drift", shim_drift),
         ("must_read", must_read_pending),

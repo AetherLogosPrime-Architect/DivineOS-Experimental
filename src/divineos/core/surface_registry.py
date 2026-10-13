@@ -220,6 +220,36 @@ def dark_surfaces(package: str = "divineos.core") -> list[str]:
         fn = getattr(m, "format_for_briefing", None)
         if fn is None or not inspect.isfunction(fn):
             continue
-        if mod.name not in _REGISTRY:
-            dark.append(mod.name)
+        if mod.name in _REGISTRY or mod.name in _wired_elsewhere():
+            continue
+        dark.append(mod.name)
     return sorted(dark)
+
+
+def _wired_elsewhere() -> tuple[str, ...]:
+    """Surfaces the bridge deliberately leaves unregistered because another
+    live path ALREADY delivers them.
+
+    TWO MECHANISMS, TWO DEFINITIONS OF ONE WORD (2026-09-12). The bridge keeps
+    a short list of surfaces it refuses to register precisely BECAUSE they are
+    reachable -- registering them would deliver the same text twice, which is
+    the trap this registry exists to prevent. A deliberate decision, with the
+    reason written on the line beside it.
+
+    This function never knew that list existed. So it called those surfaces
+    "built and reachable by nothing" -- the exact opposite of true -- and the
+    build board's test station read the report as a defect. One false line was
+    holding ELEVEN open pull requests at that station, every one of them naming
+    the same surface, for something correctly wired the whole time.
+
+    The bridge is the authority because the bridge is where the decision was
+    made and the reason recorded. Imported at call time: the bridge imports
+    from this module, so a top-level import would be circular. A bridge that
+    cannot be read yields an empty tuple, which is the CONSERVATIVE direction
+    -- it can only make this report MORE dark, never falsely clean.
+    """
+    try:
+        from divineos.core.surface_bridge import ALREADY_LIVE
+    except Exception:  # noqa: BLE001 - an unreadable bridge must not clear the list
+        return ()
+    return tuple(ALREADY_LIVE)

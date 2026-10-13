@@ -77,7 +77,7 @@ class TestCheckGatesCoalesces:
 
     def test_three_soft_gates_coalesce_into_one_deny(self, isolate):
         # Fire all three engagement-discipline gates.
-        isolate.setattr(hud_state, "has_session_fresh_goal", lambda: False)
+        isolate.setattr(hud_state, "has_session_fresh_goal", lambda *a, **k: False)
         isolate.setattr(
             hud_handoff,
             "engagement_status",
@@ -119,7 +119,7 @@ class TestCheckGatesCoalesces:
 
     def test_single_soft_gate_message_unchanged(self, isolate):
         # Only goal fails; engagement + consultation pass.
-        isolate.setattr(hud_state, "has_session_fresh_goal", lambda: False)
+        isolate.setattr(hud_state, "has_session_fresh_goal", lambda *a, **k: False)
         isolate.setattr(hud_handoff, "engagement_status", lambda: {"engaged": True})
         isolate.setattr(
             consultation_tracker, "consultation_gate_status", lambda *a, **k: {"stale": False}

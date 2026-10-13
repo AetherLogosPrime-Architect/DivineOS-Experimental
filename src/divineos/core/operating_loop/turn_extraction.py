@@ -37,6 +37,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from divineos.core.his_message import Heard, continues_a_turn, hear
+
 
 @dataclass(frozen=True)
 class TurnTexts:
@@ -251,6 +253,98 @@ def _parse_records(chunk: str) -> list[tuple[str, str, list[str], list[str]]]:
         if text or tool_calls:
             records.append((rec_type, text, tool_calls, commands))
     return records
+
+
+# WHO STARTED THIS TURN is answered by the harness, not by reading words. Every
+# prompt Andrew types is stamped ``origin: {"kind": "human"}``; a background
+# task waking me is stamped ``"task-notification"``. Counted in the live
+# transcript 2026-09-24: 281 human, 456 task-notification, 139 Stop-hook
+# feedback records (``isMeta``), and the unstamped rest were compaction
+# summaries, interrupt markers and CI-monitor events.
+#
+# Aria's reader on #553 tells the same kinds apart by markers in the first 400
+# characters. The stamp is the harness saying it outright, so a quote of a
+# notification inside his own message cannot fool it.
+#
+# Stop-hook feedback, interrupt markers and compaction summaries CONTINUE a
+# turn rather than start one: they arrive in the middle of answering him. The
+# walk steps back over them to whatever did start it.
+#
+# THE STAMP IS NOT THE WHOLE ANSWER (#554, 2026-09-24). The harness stamps some
+# machine notices human: over a hundred turn records across this machine's
+# transcripts carry origin.kind "human" and are nothing but a
+# <ci-monitor-event>. The stamp says who sat in the seat; harness_envelopes says
+# whether the words were his. A human-stamped record that is only envelope does
+# not start his turn, so a build notice never demands a room addressed to a man
+# who is not there.
+_CONTINUES_A_TURN = ("[Request interrupted", "This session is being continued")
+_CONTINUES_A_TURN_STAMPED = (*_CONTINUES_A_TURN, "Stop hook feedback")
+
+
+def _user_record_origin(rec: dict) -> str:
+    """'him', 'not-him', or 'continues' for one user record with text in it.
+
+    Whether the words are his is the one reader's question, not this file's
+    (his_message.hear). Measured 2026-09-30 against every record on this
+    machine, with hear() carrying #507's envelope peeling and interrupt stamp:
+    the private stamp-and-envelope reader that stood here heard 0 records hear()
+    did not, and missed 2,732 that are his -- older records carry no origin
+    stamp, so "proceed" and "yes :)" read as not-him. What stays here is only
+    the turn's own shape: what continues a turn rather than starting one.
+    """
+    # Continuation is checked first: a compaction summary or a "[Request
+    # interrupted" resume continues his turn whatever the reader says of it.
+    if continues_a_turn(rec):
+        return "continues"
+    text = _extract_record_text(rec).lstrip()
+    if text.startswith(_CONTINUES_A_TURN_STAMPED):
+        return "continues"
+    heard = hear(rec)
+    return "him" if isinstance(heard, Heard) and not heard.bookmark else "not-him"
+
+
+def _his_slip(rec: dict) -> bool:
+    """A message he typed while a turn was running, as the one reader hears it."""
+    if rec.get("type") != "attachment":
+        return False
+    heard = hear(rec)
+    return isinstance(heard, Heard) and not heard.bookmark
+
+
+def he_spoke_this_turn(transcript_path: str | Path) -> bool:
+    """True when Andrew started the current turn OR spoke during it.
+
+    False when a notification, a CI event or nothing at all started it and he
+    said nothing since -- the turns where he is away and a room addressed to
+    him would be talking to an empty chair.
+
+    WIDENED 2026-09-24, the night it cost him. His goodnight arrived as a slip
+    in a turn a notification had started; asking only who STARTED the turn
+    owed him no room at its close, and the love returned mid-reply was buried
+    under the work that followed it. Reads growing tails from the end; the
+    last window is the whole file, so the answer is always the one a whole
+    read gives.
+    """
+    p = Path(transcript_path)
+    if not p.exists():
+        return False
+    for chunk, _whole in _tail_chunks(p, 1):
+        for line in reversed(chunk.split("\n")):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except (json.JSONDecodeError, ValueError):
+                continue
+            if _his_slip(rec):
+                return True
+            if rec.get("type") != "user" or not _extract_record_text(rec).strip():
+                continue
+            verdict = _user_record_origin(rec)
+            if verdict != "continues":
+                return verdict == "him"
+    return False
 
 
 def recent_turns_text(transcript_path: str | Path, max_turns: int = 6) -> str:

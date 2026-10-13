@@ -47,6 +47,7 @@ from pathlib import Path
 from divineos.core.substrate_paths import (
     NoSubstrateBranchDeclared,
     is_regenerated_mirror,
+    is_restorable_mirror,
     partition,
     substrate_branch,
 )
@@ -436,6 +437,78 @@ def _mirror_home_branch(repo_root: str | Path) -> str | None:
     return ref[len("origin/") :] or None
 
 
+# The module that writes docs/archives/. A branch that changes it is changing
+# what the archives SAY, so its regenerated archive is that branch's evidence.
+ARCHIVE_GENERATOR = "src/divineos/core/archive_export.py"
+
+
+def _branch_changes_mirrors(repo_root: str | Path, mirror_home: str) -> bool:
+    """Does this branch's own history touch the archives or their generator?
+
+    Where it does, a dirty archive is the PR's correct new output and restoring
+    it would hide the very diff a reviewer needs (walk-d8f579d59dec: Penrose,
+    Yudkowsky, Dawkins). Fails toward True, which leaves the file dirty: the
+    cost of being wrong that way is a warning, the other way is lost evidence.
+    """
+    proc = subprocess.run(
+        ["git", "diff", "--name-only", f"origin/{mirror_home}...HEAD"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return True
+    return any(p == ARCHIVE_GENERATOR or is_regenerated_mirror(p) for p in proc.stdout.splitlines())
+
+
+def _restore_skipped_mirrors(repo_root: str | Path, mirrors: list[str], mirror_home: str) -> None:
+    """Put skipped mirrors back to HEAD so the tree is clean, and say so.
+
+    Before 2026-09-30 a skipped mirror was left modified on disk, and every
+    checkpoint on a non-owning branch met the same dirty files again, warned,
+    and skipped -- a loop that never settled. Restoring loses nothing: the next
+    export on the owning branch rebuilds the content from the DB. Only paths
+    that pass ``is_restorable_mirror`` and are tracked here are touched; a path
+    this call did not itself classify is never swept.
+    """
+    if _branch_changes_mirrors(repo_root, mirror_home):
+        logger.warning(
+            "auto_commit: NOT restoring %d mirror file(s) -- this branch changes the "
+            "archives or %s, so the regenerated copy is its evidence: %s",
+            len(mirrors),
+            ARCHIVE_GENERATOR,
+            ", ".join(mirrors),
+        )
+        return
+    restorable = [
+        p for p in mirrors if is_restorable_mirror(p) and _tracked_here(Path(repo_root), p)
+    ]
+    if not restorable:
+        return
+    proc = subprocess.run(
+        ["git", "checkout", "HEAD", "--", *restorable],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        logger.warning(
+            "auto_commit: could not restore mirror file(s) %s, left modified: %s",
+            ", ".join(restorable),
+            (proc.stderr or "").strip(),
+        )
+        return
+    logger.warning(
+        "auto_commit: restored %d regenerated mirror file(s) to HEAD on this branch "
+        "(they rebuild from the DB on %s): %s",
+        len(restorable),
+        mirror_home,
+        ", ".join(restorable),
+    )
+
+
 def _commit_work_in_progress(repo_root: Path, paths: list[str], reason: str) -> bool:
     """Commit the occupant's unfinished work to HEAD, where it already lives.
 
@@ -743,6 +816,7 @@ def auto_commit_substrate(
             )
             skipped = set(mirrors)
             declared_substrate = [p for p in declared_substrate if p not in skipped]
+            _restore_skipped_mirrors(repo_root, mirrors, mirror_home)
 
     # SUBSTRATE THAT IS ALREADY TRACKED HERE IS THIS BRANCH'S PROBLEM NOW.
     #
