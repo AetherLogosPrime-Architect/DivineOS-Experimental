@@ -113,7 +113,7 @@ class OfferingRecord:
     cycle_id: str
     offered_at: str
     menu_shown: list[str]  # keys in order
-    use_counts_at_offering: dict[str, int]  # key -> count since last cycle
+    use_counts_at_offering: dict[str, int] | None  # key -> count; None = could not be read
     handshake_summary: dict[str, Any]  # subset of HandshakeResult for audit
 
 
@@ -125,7 +125,7 @@ class CloseOutcome:
     closed_at: str
     outcome: str  # "chose:<key>" | "no-pull-honest" | "timeout" | "aborted"
     chosen_key: str | None
-    duration_sec: float
+    duration_sec: float | None  # None when offered_at could not be read
     real_shift: bool | None  # honest self-report; None if not engaged
     notes: str
 
@@ -389,7 +389,7 @@ def offer_cycle() -> tuple[OfferingRecord | None, str]:
         cycle_id=handshake.cycle_id,
         offered_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         menu_shown=[task.key for task in REST_TASKS],
-        use_counts_at_offering=dict(use_counts or {}),
+        use_counts_at_offering=None if use_counts is None else dict(use_counts),
         handshake_summary=_handshake_summary(handshake),
     )
     path = _pending_path()
@@ -472,7 +472,7 @@ def close_cycle(
         closed_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         outcome=outcome,
         chosen_key=chosen_key,
-        duration_sec=max(0.0, time.time() - offered_ts),
+        duration_sec=max(0.0, time.time() - offered_ts) if duration_known else None,
         real_shift=real_shift,
         notes=notes,
     )

@@ -534,3 +534,16 @@ class TestWhatTheNumbersCannotHide:
         assert closed is not None
         assert "duration not measured" in closed.notes
         assert closed.notes.startswith("late")
+        # Aria's second look: a reader of the number alone must not take a fallback for a time.
+        assert closed.duration_sec is None
+
+    def test_an_unreadable_use_count_file_is_recorded_as_none_not_an_empty_mapping(
+        self, home: Path
+    ):
+        (home / "hud" / "rest_session.json").write_text("not json", encoding="utf-8")
+        _write_handshake()
+        record, _ = offer_cycle()
+        assert record is not None
+        assert record.use_counts_at_offering is None
+        pending = json.loads(_pending().read_text(encoding="utf-8"))
+        assert pending["use_counts_at_offering"] is None

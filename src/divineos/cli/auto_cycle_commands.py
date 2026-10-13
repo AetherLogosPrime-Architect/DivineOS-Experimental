@@ -399,7 +399,9 @@ def close_cmd(outcome: str, real_shift: str | None, notes: str) -> None:
     click.secho(f"[+] Cycle closed. cycle_id: {result.cycle_id}", fg="green")
     click.secho(
         f"    outcome: {result.outcome}\n"
-        f"    duration: {result.duration_sec:.1f}s\n"
+        "    duration: "
+        + ("not measured" if result.duration_sec is None else f"{result.duration_sec:.1f}s")
+        + "\n"
         f"    real-shift: {result.real_shift}",
         fg="bright_black",
     )
