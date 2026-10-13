@@ -40,14 +40,24 @@ old way.
    a suffix of the file is the last match in the file, so the answer is
    identical to the whole read.
 
-   **Rebased onto #553 (Aria's reader fix).** Her readers gather my whole
-   reply, walking back to his last genuine turn, instead of taking the last
-   block. The windowed versions keep her boundaries exactly: a window that
-   has not yet reached his turn may be missing the reply's opening, so it
-   widens. Only his turn, or the whole file, ends the walk. Measured on the
-   live 344 MB transcript, same answers as #553 alone, character for
-   character: `_last_assistant_text` 1.66 s → 0.05 s, `_recent_assistant_texts`
-   1.66 s → 0.04 s, `_last_user_text` 1.22 s → 0.04 s.
+   **#553 (Aria's reader fix) is folded into this one, 2026-10-13.** Her
+   readers gather my whole reply, walking back to his last genuine turn,
+   instead of taking the last block. Aletheia asked for the pairing to be
+   structural, not a note about landing order, because #553 alone makes each
+   reader hold the whole transcript in memory (measured on this session's
+   209 MB record: 1.63 s and 608 MB peak per call, against 0.82 s and 41 MB
+   for today's streaming version) and Stop already runs nine of them. So this
+   branch merges her current branch, keeping her commits and her note, and
+   its windowed readers use her record-level boundary (`_is_his_record`, which
+   asks `his_message.hear`: a message he typed while I was busy, and one
+   opening with "Caveat:", both end a reply; a harness injection does not).
+   A window that has not yet reached his turn may be missing the reply's
+   opening, so it widens. Only his turn, or the whole file, ends the walk.
+   Measured on the live 344 MB transcript, same answers as the whole read:
+   `_last_assistant_text` 1.66 s → 0.05 s, `_recent_assistant_texts` 1.66 s →
+   0.04 s, `_last_user_text` 1.22 s → 0.04 s. One addition of mine from reading
+   her diff: a line that parses as JSON but is not an object is skipped, so no
+   `.get` can run on a number or a list.
 3. Memo per (path, size, mtime, question): `_last_user_text` can need the whole
    file after a long stretch of notification-driven turns — exactly while he is
    asleep — and three surfaces ask it the same question.
