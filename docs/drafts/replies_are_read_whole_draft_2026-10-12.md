@@ -37,7 +37,24 @@ the harness by its rules, not by mine. I have not measured the live false-fire r
 after this change; that needs a day of use. I have not checked whether the guard is still switched off
 (Andrew ordered it disabled on 2026-09-22), and re-enabling it is his call, not part of this change.
 
-## Depends on / depended on
+## Cost, measured by Aether and not by me (2026-10-12, his reading of this branch)
 
-Aether's #552 (`fix/stop-reads-the-transcript-once`) is rebased onto this reader and carries my test file; it
-shrinks once this is on main.
+On this session's 209 MB transcript, the same call on current main takes 0.82 s and peaks at 41 MB (it streams
+and keeps one string); on this branch it takes 1.63 s and peaks at 608 MB (it collects every record into a list
+and walks back). That is double the time and fifteen times the memory per call, and the Stop doorbell has a
+10-second limit, which is why #552 exists. The answer is right (112 characters returned by main against 5,085 by
+this branch for the same reply) and the cost is real, and I had not measured it. I did not write this
+note's first version with it in, which was a gap.
+
+## Landing order (this is a condition, not a preference)
+
+This change must not land alone. #552 (`fix/stop-reads-the-transcript-once`) reads the same answers through
+windowed readers in about 0.05 s and carries this test file. Land #553 and then #552 in the same batch, in
+that order, with nothing between them, so that no reply's Stop check is ever slower than today. Aether is
+holding the stamp on #552 until this is on main.
+
+## Known and left for #552 (no change here, to keep #552's base steady)
+
+A transcript line that parses as JSON but is not an object (a bare number or a list) reaches `.get` in the
+backwards walk and would raise; the old code had the same exposure. A one-line guard belongs in #552's
+version. The test fixture names queued ids with `hash(text)`, which varies between runs; harmless here.
