@@ -12,6 +12,25 @@ A gate commit counts only when it is reachable from `origin/main`. Merged means 
 
 Two tests pin it, and both fail on the code before this change. One runs the REAL lookup on a real temporary repository (the fixture the other tests use swaps the lookup for a stand-in, which cannot see this): the commit does not count on a side branch and counts once it is inside `origin/main`. One reads the refusal text for the word merged.
 
+## Added after Aria's cold read (2026-10-13)
+
+She found no hold and measured three things on her own machine. Taken:
+
+- **The replay counted a message of his twice when a session was resumed** (504 turns read, 494 distinct, because a
+  resumed session copies records into its new file). Turns now carry the record id and a repeated id counts once.
+  By id and never by text: he says the same words twice on purpose, and a test pins that.
+- **The hook's wiring was the one part no test drove**, and its captured output (stderr included) became the refusal
+  reason, so a typo in the inline program would have printed a raw traceback as the reason. The program now catches
+  every error and prints one sentence naming the class (`the key could not be read or spent: JSONDecodeError`),
+  still failing CLOSED, since empty output would read as no refusal. A test cuts that exact program out of the hook
+  file and runs it against an unreadable ledger, an empty database and non-JSON input.
+- **The test that runs the folder extractor now runs this checkout's code** (it had imported another checkout's
+  copy and failed two tests after the merge of main).
+
+Not taken, named so it is not read as done: one inquiry per unrepaired spend instead of one per refused attempt (a
+retry loop writes many; it would read better on his board), and the key's fingerprint being the push command and not
+the folder it ran in.
+
 ## What it will not do
 
 Her second suggestion is not built: proving causation with the replay tool, so that the spent command is refused by the gate file at the fix's parent and allowed at the fix. That is stronger than merged-means-reviewed, and it is owed.

@@ -106,6 +106,34 @@ def test_a_directory_reads_every_transcript_and_a_file_says_what_it_left(tmp_pat
     assert "transcripts read: 1 of 2 present" in rr.render(one)
 
 
+def test_a_session_resumed_into_a_new_file_is_not_counted_twice(tmp_path) -> None:
+    """Aria 2026-10-13, measured on her own machine: 504 turns read but 494 distinct, because a
+    resumed session copies records into its new file. The same record id counts once."""
+    d = tmp_path / "project"
+    d.mkdir()
+    shared = json.dumps(_his("ship it", "2026-10-01T00:00:00Z", "same-id")) + "\n"
+    (d / "a.jsonl").write_text(shared, encoding="utf-8")
+    (d / "b.jsonl").write_text(
+        shared + json.dumps(_his("and one more", "2026-10-02T00:00:00Z", "other-id")) + "\n",
+        encoding="utf-8",
+    )
+    result = rr.replay(d, lambda t: 0, lambda t: 0)
+    assert result.turns_read == 2
+
+
+def test_the_same_words_said_twice_with_different_ids_count_twice(tmp_path) -> None:
+    """Deduplication is by record id and never by text: he says the same thing twice on purpose."""
+    d = tmp_path / "project"
+    d.mkdir()
+    (d / "a.jsonl").write_text(
+        json.dumps(_his("keep going", "2026-10-01T00:00:00Z", "id-1")) + "\n", encoding="utf-8"
+    )
+    (d / "b.jsonl").write_text(
+        json.dumps(_his("keep going", "2026-10-02T00:00:00Z", "id-2")) + "\n", encoding="utf-8"
+    )
+    assert rr.replay(d, lambda t: 0, lambda t: 0).turns_read == 2
+
+
 def test_an_empty_result_still_says_where_it_looked(tmp_path) -> None:
     empty = _write(tmp_path, [_mine("nobody spoke")])
     result = rr.replay(empty, lambda t: 1, lambda t: 2)

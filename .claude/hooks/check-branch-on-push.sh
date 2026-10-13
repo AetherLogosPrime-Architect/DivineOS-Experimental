@@ -204,16 +204,19 @@ EOF
     # of an actual root cause fix". A reason I write myself used to be enough
     # to open this gate; now the reason is the log and the key is the key.
     # core/bypass_key.py, prereg-b3e8453df633, walk-0e68ddafaa93.
+    # Fails CLOSED and says so in one line: any error here prints a sentence naming
+    # its class, so the refusal text is never a raw traceback (Aria, cold read of #597),
+    # and a crash before the print is still caught by 2>&1 below.
     KEY_REFUSAL=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -c "
 import json, sys
-from divineos.core import bypass_key as bk
-cmd = (json.loads(sys.stdin.read() or '{}').get('tool_input') or {}).get('command', '') or ''
-at = cmd.find('git push')
-seg = cmd[at:].split(';')[0].split('&&')[0].split('||')[0].split('|')[0] if at >= 0 else cmd
 try:
+    from divineos.core import bypass_key as bk
+    cmd = (json.loads(sys.stdin.read() or '{}').get('tool_input') or {}).get('command', '') or ''
+    at = cmd.find('git push')
+    seg = cmd[at:].split(';')[0].split('&&')[0].split('||')[0].split('|')[0] if at >= 0 else cmd
     bk.spend('check-branch-on-push', seg)
-except bk.KeySpent as e:
-    print(e)
+except Exception as e:
+    print(e if type(e).__name__ == 'KeySpent' else 'the key could not be read or spent: ' + type(e).__name__)
 " 2>&1)
     if [ -n "$KEY_REFUSAL" ]; then
         echo "[check-branch-on-push] NO KEY — the override did not open the gate." >&2

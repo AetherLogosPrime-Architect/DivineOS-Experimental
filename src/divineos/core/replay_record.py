@@ -40,6 +40,7 @@ class Turn:
     reply: str
     tools: tuple[str, ...]
     next_his: str = ""
+    uuid: str = ""  # the record id, so a session resumed into a new file is not counted twice
 
 
 @dataclass(frozen=True)
@@ -87,7 +88,9 @@ def turns_in(records: list[dict], since: str = "") -> list[Turn]:
             if since and got.when and got.when < since:
                 open_turns.append({"skip": True})
                 continue
-            open_turns.append({"when": got.when, "his": got.text, "reply": [], "tools": []})
+            open_turns.append(
+                {"when": got.when, "his": got.text, "uuid": got.uuid, "reply": [], "tools": []}
+            )
             continue
         if not open_turns or open_turns[-1].get("skip") or rec.get("type") != "assistant":
             continue
@@ -110,6 +113,7 @@ def turns_in(records: list[dict], since: str = "") -> list[Turn]:
                 reply="\n".join(t["reply"]),
                 tools=tuple(t["tools"]),
                 next_his=nxt,
+                uuid=t["uuid"],
             )
         )
     return turns
@@ -139,8 +143,17 @@ def replay(
     directory of them); keep the turns where they differ."""
     files, present = _transcripts(path)
     turns: list[Turn] = []
+    seen: set[str] = set()
     for f in files:
-        turns.extend(turns_in(read_records(f), since=since))
+        for turn in turns_in(read_records(f), since=since):
+            # A resumed session copies records into its new file; the same message of his
+            # would count twice (Aria measured 10 in 504 on her own machine). By record id,
+            # never by text: he does say the same words twice on purpose.
+            if turn.uuid:
+                if turn.uuid in seen:
+                    continue
+                seen.add(turn.uuid)
+            turns.append(turn)
     turns.sort(key=lambda t: t.when)
     result = Replay(
         searched=f"{path} since {since or 'the start'}",
