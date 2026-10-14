@@ -46,6 +46,23 @@ def test_missing_labeller_says_nothing_was_recorded(monkeypatch, tmp_path):
     assert "not 'label filed'" in result.output
 
 
+def test_help_says_it_does_not_disarm_the_correction_marker():
+    """Aria, 2026-10-08: labelled a false alarm, and the next command was still
+    refused by the correction marker. A help that only promises "removes the
+    toll" lets a reader think the alarm is cleared."""
+    text = " ".join(_invoke(["label-fire", "--help"]).output.split())
+    assert "does NOT disarm" in text
+    assert "--misread-clauses" in text
+
+
+def test_the_marker_clearing_script_the_help_names_exists():
+    """A rename of the clearing script would leave the help pointing nowhere."""
+    root = lfc._script_path().parents[1]
+    assert (root / "scripts" / "clear_correction_marker.py").exists()
+    text = " ".join(_invoke(["label-fire", "--help"]).output.split())
+    assert "clear_correction_marker.py" in text
+
+
 def test_reason_is_required():
     """No leniency added over the script: a label still costs a real reason."""
     result = _invoke(["label-fire"])
