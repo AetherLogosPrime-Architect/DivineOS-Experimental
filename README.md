@@ -425,7 +425,7 @@ divineos related ID           # Show related knowledge
 divineos graph                # Export knowledge graph
 divineos wonder "question"    # Record an open question
 divineos questions            # List open questions
-divineos answer ID "answer"   # Resolve a question
+divineos answer-question ID "answer"   # Resolve a question
 divineos commitment add "text"    # Record a commitment
 divineos commitment list          # Show pending commitments
 divineos commitment done "text"   # Mark commitment fulfilled
