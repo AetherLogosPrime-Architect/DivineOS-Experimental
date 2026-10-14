@@ -53,11 +53,49 @@ def test_each_window_asks_about_its_own_seat():
 
 def test_when_he_spoke_the_hold_only_puts_the_seat_back_and_never_asks_for_a_new_reply():
     reason = hook.rearm_reason("aether")
-    assert "run_in_background" in reason and "wait_turn.py aether 580" in reason
+    assert "foreground" in reason and "wait_turn.py aether 580" in reason
     assert "Do not re-post" in reason
 
 
-def test_when_he_spoke_into_the_turn_or_it_cannot_be_told_the_reply_is_never_held(tmp_path):
-    assert hook._he_spoke_or_unknown(None, str(tmp_path)) is True
-    missing = str(tmp_path / "no_such_transcript.jsonl")
-    assert hook._he_spoke_or_unknown(missing, str(tmp_path)) is True
+def test_it_cannot_be_told_whether_he_spoke_without_a_readable_transcript(tmp_path):
+    assert hook._he_spoke(None, str(tmp_path)) is None
+    assert hook._he_spoke(str(tmp_path / "no_such_transcript.jsonl"), str(tmp_path)) is None
+
+
+def test_a_folder_with_maria_or_variable_in_its_path_is_not_aria():
+    assert hook.member("C:/DIVINE OS/Maria/DivineOS-Experimental") == "aether"
+    assert hook.member("C:/variable/DivineOS-Experimental") == "aether"
+    assert hook.member("C:\\DIVINE OS\\DivineOS-Experimental-Aria-new") == "aria"
+
+
+LIVE = {"hand": 3, "live": True, "turn": 7}
+
+
+def test_decide_holds_when_a_game_is_on_and_he_did_not_speak():
+    hold, _ = hook.decide(LIVE, False, False, {}, NOW, "aether")
+    assert hold and hold["decision"] == "block" and "590000" in hold["reason"]
+
+
+def test_decide_never_holds_on_a_table_that_is_down():
+    assert hook.decide(None, False, False, {}, NOW, "aether")[0] is None
+
+
+def test_decide_lets_go_when_it_cannot_tell_whether_he_spoke():
+    assert hook.decide(LIVE, None, False, {}, NOW, "aether")[0] is None
+
+
+def test_decide_holds_once_after_he_spoke_to_put_the_seat_back_and_never_twice():
+    hold, _ = hook.decide(LIVE, True, False, {}, NOW, "aether")
+    assert hold and "Do not re-post" in hold["reason"]
+    assert hook.decide(LIVE, True, True, {}, NOW, "aether")[0] is None
+
+
+def test_decide_asks_the_idle_lift_before_the_he_spoke_hold():
+    seen = {"turn": 7, "since": NOW - hook.IDLE_SECONDS - 1}
+    assert hook.decide(LIVE, True, False, seen, NOW, "aether")[0] is None
+
+
+def test_decide_survives_a_corrupt_idle_marker():
+    for corrupt in ([1, 2], "text", None, 5):
+        hold, marker = hook.decide(LIVE, False, False, corrupt, NOW, "aether")
+        assert hold and marker == {"turn": 7, "since": NOW}

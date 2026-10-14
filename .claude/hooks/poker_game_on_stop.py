@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import time
 import urllib.request
@@ -27,7 +28,9 @@ WAITER = "python /c/poker-play/wait_turn.py {who} 580"
 
 
 def member(project_dir: str) -> str:
-    return "aria" if "aria" in project_dir.lower() else "aether"
+    """Whose seat this window plays, from the checkout's own folder name, not the whole path."""
+    name = Path(project_dir.replace("\\", "/")).name.lower()
+    return "aria" if "aria" in re.split(r"[^a-z]+", name) else "aether"
 
 
 def game_is_on(view: dict | None) -> bool:
@@ -67,23 +70,45 @@ def rearm_reason(who: str) -> str:
     """When he spoke: his reply was already read, so this only puts the seat back at the table."""
     return (
         "A POKER GAME IS ON and he spoke to you, so your reply to him stands. Do not re-post it. "
-        "Put the seat back at the table so the game can wake you: Bash with run_in_background: "
-        f"true, command: {WAITER.format(who=who)} -- it ends on your turn, which is what wakes you."
+        "Put the seat back at the table, in the foreground, with the Bash tool and a 590000 ms "
+        f"timeout: {WAITER.format(who=who)} -- act when it returns, then call it again."
     )
 
 
-def _he_spoke_or_unknown(transcript: str | None, project: str) -> bool:
-    """True when he spoke into this turn, or when that cannot be told: never hold him."""
+def _he_spoke(transcript: str | None, project: str) -> bool | None:
+    """True he spoke into this turn, False he did not, None when that cannot be told (never hold him)."""
     if not transcript:
-        return True
+        return None
     try:
         sys.path.insert(0, str(Path(project) / "src"))
         from divineos.core import his_voice_ends_the_turn as hv
 
-        return hv.spoke_mid_turn(transcript).state != hv.NOT
+        state = hv.spoke_mid_turn(transcript).state
     except Exception as exc:
         print(f"[poker] could not tell whether he spoke ({type(exc).__name__}); not holding", file=sys.stderr)
-        return True
+        return None
+    if state == hv.NOT:
+        return False
+    return True if state == hv.SPOKE else None
+
+
+def decide(
+    view: dict | None, he_spoke: bool | None, active: bool, seen: object, now: float, who: str
+) -> tuple[dict | None, dict]:
+    """(the hold to print, or None to let the reply end; the idle marker to keep).
+
+    he_spoke: True he spoke into this turn, False he did not, None it cannot be told.
+    The idle lift is asked first, so a quiet table lets go even when he is chatting about
+    something else. When he spoke the hold is once only, and only to put the seat back.
+    """
+    reason, marker = verdict(view, seen if isinstance(seen, dict) else {}, now, who)
+    if reason is None or he_spoke is None:
+        return None, marker
+    if he_spoke:
+        if active:
+            return None, marker
+        return {"decision": "block", "reason": rearm_reason(who)}, marker
+    return {"decision": "block", "reason": reason}, marker
 
 
 def main() -> int:
@@ -93,22 +118,19 @@ def main() -> int:
     view = _view(who)
     if not game_is_on(view):
         return 0
-    if _he_spoke_or_unknown(data.get("transcript_path"), project):
-        if not data.get("stop_hook_active") and data.get("transcript_path"):
-            print(json.dumps({"decision": "block", "reason": rearm_reason(who)}))
-        return 0
     marker_file = Path.home() / ".divineos-shared" / f".poker_idle_{who}.json"
     try:
         seen = json.loads(marker_file.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         seen = {}
-    reason, marker = verdict(view, seen, time.time(), who)
+    he_spoke = _he_spoke(data.get("transcript_path"), project)
+    hold, marker = decide(view, he_spoke, bool(data.get("stop_hook_active")), seen, time.time(), who)
     try:
         marker_file.write_text(json.dumps(marker), encoding="utf-8")
     except OSError:
         pass
-    if reason:
-        print(json.dumps({"decision": "block", "reason": reason}))
+    if hold:
+        print(json.dumps(hold))
     return 0
 
 
