@@ -20,14 +20,15 @@ from divineos.core.landing_homework import (
     ClerkRefused,
     confirm_steps,
     explain_station,
+    her_confirm_filed_at,
     her_confirmed_sha,
-    head_made_at,
     his_words_were_typed,
     parse_patch_id_output,
     parse_round_id,
     render_header,
     round_step,
 )
+from divineos.core.watchmen.store import get_round, list_findings
 from divineos.core.landing_status import (
     CHANGED,
     CONFIRMED,
@@ -211,30 +212,90 @@ def register(cli: click.Group) -> None:
     @landing_cmd.command("file-confirm")
     @click.argument("pr", type=int)
     @click.option(
-        "--andrew-said",
-        required=True,
-        help="His own words, quoted. No words, no confirm of his on the record.",
+        "--round",
+        "round_id",
+        default=None,
+        help="Second step: the round filed by the first step. Files his confirm into it.",
     )
-    def file_confirm_cmd(pr: int, andrew_said: str) -> None:
-        """File the round, her confirm and his, for ONE fix whose live head she confirmed."""
+    @click.option(
+        "--andrew-said",
+        default=None,
+        help="His own words, quoted, typed AFTER her confirm was recorded. Needs --round.",
+    )
+    def file_confirm_cmd(pr: int, round_id: str | None, andrew_said: str | None) -> None:
+        """Two steps for ONE fix whose live head she confirmed: file hers, then his.
+
+        His yes counts only if typed after the audit store recorded her confirm, a time
+        the filer cannot set. So the first call files the round and her confirm and stops;
+        the second, with --round and his fresh words, files his.
+        """
         try:
             facts = _pr_facts(pr)
             branch, head = str(facts["headRefName"]), str(facts["headRefOid"])
             title = str(facts.get("title") or "")
+            if round_id is None and andrew_said is not None:
+                raise ClerkRefused(
+                    "his words wait for the second step: file her confirm first, then give "
+                    "--round with his words typed after it was recorded."
+                )
+            if round_id is not None and not andrew_said:
+                raise ClerkRefused("the second step needs his words: --andrew-said.")
             her_short = her_confirmed_sha(read_letters(), pr, head)
             if her_short is None:
                 raise ClerkRefused(
                     f"no letter of hers names the live head of #{pr} ({head[:9]}). "
                     "Nothing is filed on a remembered yes."
                 )
-            commits = facts.get("commits") or []
-            head_time = head_made_at(str(commits[-1].get("committedDate", ""))) if commits else None
-            if head_time is None:
-                raise ClerkRefused(
-                    "could not tell when this head was made, so I cannot tell whether his words "
-                    "came after it. Nothing is filed on a yes I cannot place in time."
+            tip, tree, patch = parse_patch_id_output(
+                _run_audit(["divineos", "audit", "patch-id", "--branch", branch])
+            )
+            if tip != head:
+                raise ClerkRefused(f"the branch tip {tip[:9]} is not the live head {head[:9]}")
+            if round_id is None:
+                made = _run_audit(
+                    round_step(
+                        pr=pr,
+                        title=title,
+                        branch=branch,
+                        tree=tree,
+                        patch_id=patch,
+                        her_short=her_short,
+                    )
                 )
-            typed = his_words_were_typed(andrew_said, after=head_time)
+                new_round = parse_round_id(made)
+                her_steps = confirm_steps(
+                    pr=pr,
+                    title=title,
+                    branch=branch,
+                    tip=tip,
+                    tree=tree,
+                    patch_id=patch,
+                    her_short=her_short,
+                    andrew_said=None,
+                    round_id=new_round,
+                )
+                her_out = _run_audit(her_steps["external"])
+                click.echo(render_header(pr))
+                click.echo(f"round: {new_round}")
+                click.echo(her_out.strip())
+                click.echo(
+                    "Her confirm is on the record. Now ask him for a fresh word, typed after this "
+                    f"moment, then: divineos landing file-confirm {pr} --round {new_round} "
+                    '--andrew-said "<his words>"'
+                )
+                return
+            audit_round = get_round(round_id)
+            if audit_round is None:
+                raise ClerkRefused(f"no round {round_id} in the audit store")
+            her_time = her_confirm_filed_at(
+                audit_round.notes, list_findings(round_id=round_id, limit=500), tree
+            )
+            if her_time is None:
+                raise ClerkRefused(
+                    f"round {round_id} holds no confirm of hers for this head's tree, or its "
+                    "filing time cannot be read. Nothing is filed on a yes I cannot place in time."
+                )
+            typed = his_words_were_typed(str(andrew_said), after=her_time)
             if typed is None:
                 raise ClerkRefused(
                     "could not read the file of what he has typed, so these words cannot be "
@@ -242,18 +303,12 @@ def register(cli: click.Group) -> None:
                 )
             if not typed:
                 raise ClerkRefused(
-                    "these words are not found in anything he typed AFTER this head was made. "
-                    "His confirm carries his own words, typed about this fix, not a sentence "
-                    "made to sound like him and not a yes from before the fix existed."
+                    "these words are not found in anything he typed AFTER her confirm was "
+                    "recorded. His confirm says her audit was done, so it comes after it: "
+                    "ask him for a fresh word, not a sentence made to sound like him and not "
+                    "a yes from before."
                 )
-            tip, tree, patch = parse_patch_id_output(
-                _run_audit(["divineos", "audit", "patch-id", "--branch", branch])
-            )
-            if tip != head:
-                raise ClerkRefused(f"the branch tip {tip[:9]} is not the live head {head[:9]}")
-            # Built before anything is filed, so a refusal (his words, a bad
-            # fingerprint) leaves no half-filed round behind.
-            placeholder = confirm_steps(
+            his_steps = confirm_steps(
                 pr=pr,
                 title=title,
                 branch=branch,
@@ -261,39 +316,14 @@ def register(cli: click.Group) -> None:
                 tree=tree,
                 patch_id=patch,
                 her_short=her_short,
-                andrew_said=andrew_said,
-                round_id="round-000000",
-            )
-            del placeholder
-            made = _run_audit(
-                round_step(
-                    pr=pr,
-                    title=title,
-                    branch=branch,
-                    tree=tree,
-                    patch_id=patch,
-                    her_short=her_short,
-                )
-            )
-            round_id = parse_round_id(made)
-            steps = confirm_steps(
-                pr=pr,
-                title=title,
-                branch=branch,
-                tip=tip,
-                tree=tree,
-                patch_id=patch,
-                her_short=her_short,
-                andrew_said=andrew_said,
+                andrew_said=str(andrew_said),
                 round_id=round_id,
             )
-            her_out = _run_audit(steps["external"])
-            his_out = _run_audit(steps["user"])
+            his_out = _run_audit(his_steps["user"])
         except ClerkRefused as exc:
             raise SystemExit(f"[landing] REFUSED: {exc}") from exc
         click.echo(render_header(pr))
         click.echo(f"round: {round_id}")
-        click.echo(her_out.strip())
         click.echo(his_out.strip())
         click.echo(
             f"Next, in your own hands: divineos stamp-ready {pr} --audit-round {round_id} --dry-run"

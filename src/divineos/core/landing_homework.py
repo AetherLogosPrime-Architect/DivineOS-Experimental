@@ -44,13 +44,27 @@ def _as_utc(stamp: object) -> datetime | None:
     return when if when.tzinfo else when.replace(tzinfo=timezone.utc)
 
 
-def head_made_at(commit_date: str) -> datetime | None:
-    """When the live head's last commit was made; None if the date cannot be read.
+def her_confirm_filed_at(
+    round_notes: str, findings: Sequence[object], tree: str
+) -> datetime | None:
+    """When the audit store recorded her confirm for this tree; None if it cannot be told.
 
-    A head cannot be pushed before it is committed, so a message typed after this
-    moment was typed after the fix existed.
+    A commit date is set by whoever makes the commit (Aletheia, 2026-10-15: a backdated
+    head makes every yes he ever typed 'later'), so it cannot bind his yes. The audit
+    store stamps a finding itself, at filing, and his confirm exists only to say that her
+    audit was done (his words, 2026-10-15), so his yes counts only if typed after that.
+    The round must name this tree, and only her external confirm in it counts.
     """
-    return _as_utc(commit_date)
+    if f"tree-hash: {tree}" not in round_notes:
+        return None
+    stamps = [
+        getattr(f, "created_at")
+        for f in findings
+        if getattr(f, "actor", "") == "aletheia" and "external-confirm" in getattr(f, "tags", [])
+    ]
+    if not stamps:
+        return None
+    return datetime.fromtimestamp(max(stamps), tz=timezone.utc)
 
 
 def his_words_were_typed(
@@ -215,15 +229,19 @@ def confirm_steps(
     tree: str,
     patch_id: str,
     her_short: str,
-    andrew_said: str,
+    andrew_said: str | None,
     round_id: str,
 ) -> dict[str, list[str]]:
-    """Her external confirm and his confirm, built from git and his own words."""
+    """Her external confirm, and his when his words are given, built from git and his words.
+
+    His step is left out until his words exist: hers is filed first, so the store's own
+    clock can say when his yes had to be typed after.
+    """
     for name, value in (("tip", tip), ("tree", tree), ("patch-id", patch_id)):
         if not _FULL_SHA.match(value):
             raise ClerkRefused(f"the {name} is not a full fingerprint: {value[:12]!r}")
-    words = andrew_said.strip()
-    if len(words) < _MIN_WORDS_OF_HIS:
+    words = (andrew_said or "").strip()
+    if andrew_said is not None and len(words) < _MIN_WORDS_OF_HIS:
         raise ClerkRefused(
             "his confirm needs his own words quoted (at least a sentence); "
             "a bare yes is not enough to put on the record for him"
@@ -249,6 +267,8 @@ def confirm_steps(
         "--basis",
         f"CONFIRMS: #{pr} at {her_short}, Aletheia, in her own letter",
     ]
+    if andrew_said is None:
+        return {"external": external}
     user = [
         "divineos",
         "audit",

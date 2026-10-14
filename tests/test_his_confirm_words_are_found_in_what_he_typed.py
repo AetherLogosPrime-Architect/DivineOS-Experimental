@@ -9,9 +9,10 @@ one file; the quote has to be a stretch of one of them.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
-from divineos.core.landing_homework import head_made_at, his_words_were_typed
+from divineos.core.landing_homework import her_confirm_filed_at, his_words_were_typed
 
 
 def _corpus(tmp_path: Path, *messages: str) -> Path:
@@ -66,30 +67,59 @@ def _timed(tmp_path: Path, *rows: tuple[str, str]) -> Path:
     return path
 
 
-def test_a_real_yes_from_before_the_head_existed_is_not_a_yes_to_it(tmp_path: Path) -> None:
-    """Aletheia's hold on #660. His confirms are short and general, so the words cannot say
-    what they were about; the time can. Control: the same words typed after the head count."""
-    made = head_made_at("2026-10-14T20:00:00Z")
-    assert made is not None
+class _Finding:
+    def __init__(self, actor: str, tags: list[str], created_at: float) -> None:
+        self.actor, self.tags, self.created_at = actor, tags, created_at
+
+
+_TREE = "a" * 40
+_NOTES = f"tree-hash: {_TREE}; patch-id: {'b' * 40}"
+_FILED = datetime(2026, 10, 14, 22, 0, tzinfo=timezone.utc)
+
+
+def _her_confirm() -> _Finding:
+    return _Finding("aletheia", ["external-confirm", "relay-filed"], _FILED.timestamp())
+
+
+def test_her_filing_time_comes_from_the_store_for_this_tree() -> None:
+    assert her_confirm_filed_at(_NOTES, [_her_confirm()], _TREE) == _FILED
+
+
+def test_a_round_for_another_tree_gives_no_time() -> None:
+    assert her_confirm_filed_at(_NOTES, [_her_confirm()], "c" * 40) is None
+
+
+def test_only_her_external_confirm_counts_as_her_time() -> None:
+    his = _Finding("user", ["external-confirm"], _FILED.timestamp())
+    plain = _Finding("aletheia", ["note"], _FILED.timestamp())
+    assert her_confirm_filed_at(_NOTES, [his, plain], _TREE) is None
+
+
+def test_a_real_yes_before_her_confirm_was_filed_is_refused(tmp_path: Path) -> None:
+    """Aletheia's hold on #660, 2026-10-15. A head's commit date is set by whoever commits, so a
+    backdated head makes every yes 'later'. His confirm says her audit was done, so it counts only
+    when typed after the store recorded her confirm. The pin: a real yes of his, typed after the
+    head existed but BEFORE her confirm was filed, is refused; the same words after it count."""
     corpus = _timed(
         tmp_path,
-        ("2026-10-13T09:00:00.000Z", "yes i confirm both"),
-        ("2026-10-14T21:00:00.000Z", "yes i confirm this one"),
+        ("2026-10-14T21:00:00.000Z", "yes i confirm both"),
+        ("2026-10-14T23:00:00.000Z", "yes i confirm this one"),
     )
+    her_time = her_confirm_filed_at(_NOTES, [_her_confirm()], _TREE)
     assert his_words_were_typed("yes i confirm both", corpus) is True
-    assert his_words_were_typed("yes i confirm both", corpus, after=made) is False
-    assert his_words_were_typed("yes i confirm this one", corpus, after=made) is True
+    assert his_words_were_typed("yes i confirm both", corpus, after=her_time) is False
+    assert his_words_were_typed("yes i confirm this one", corpus, after=her_time) is True
 
 
-def test_a_message_with_no_readable_time_cannot_be_placed_after_the_head(tmp_path: Path) -> None:
-    made = head_made_at("2026-10-14T20:00:00Z")
+def test_a_message_with_no_readable_time_cannot_be_placed_after_her_confirm(
+    tmp_path: Path,
+) -> None:
     corpus = _timed(tmp_path, ("not a time", "yes i confirm this one"))
-    assert his_words_were_typed("yes i confirm this one", corpus, after=made) is False
+    assert his_words_were_typed("yes i confirm this one", corpus, after=_FILED) is False
 
 
-def test_an_unreadable_commit_date_is_no_date() -> None:
-    assert head_made_at("") is None
-    assert head_made_at("sometime last week") is None
+def test_no_confirm_of_hers_in_the_round_is_could_not_tell() -> None:
+    assert her_confirm_filed_at(_NOTES, [], _TREE) is None
 
 
 def test_a_damaged_line_does_not_hide_the_good_ones(tmp_path: Path) -> None:
