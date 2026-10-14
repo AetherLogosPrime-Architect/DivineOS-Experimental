@@ -577,3 +577,22 @@ class TestCannotParseIsNotPermission:
         library exists to keep open.
         """
         assert _is_remedy("divineos ask what do I know about this")
+
+
+class TestTheReviewWindowExitsAreOnTheSharedList:
+    """The overdue block prints `prereg reviewing`, and the build-flow gate asks for
+    `game-walk file` paperwork. Both were added to the python list and the build gate's
+    own tuple on 2026-10-11 and not to this list, which nineteen other gates read, so a
+    gate sourcing it still refused the exit its neighbour printed. The survey of printed
+    exits found the disagreement; these pin the two cases it found."""
+
+    def test_the_review_window_opener_passes(self):
+        assert _is_remedy("divineos prereg reviewing prereg-abc --purpose 'look at the evidence'")
+
+    def test_the_game_walk_filer_passes(self):
+        assert _is_remedy(
+            "divineos game-walk file --mechanism m --route 'r | costlier | w' --edit e"
+        )
+
+    def test_the_control_still_refuses_ordinary_work(self):
+        assert not _is_remedy(f"{_GIT} commit -qm x")
