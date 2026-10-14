@@ -58,12 +58,6 @@ def _run(wt: Path) -> subprocess.CompletedProcess:
     )
 
 
-def _junction(link: Path, target: Path) -> None:
-    subprocess.run(
-        ["cmd", "/c", "mklink", "/J", str(link), str(target)], check=True, capture_output=True
-    )
-
-
 def test_it_creates_the_link_and_python_resolves_through_it(repo_and_worktree):
     _, wt = repo_and_worktree
     result = _run(wt)
@@ -75,10 +69,15 @@ def test_it_creates_the_link_and_python_resolves_through_it(repo_and_worktree):
 def test_it_repairs_a_dangling_junction(repo_and_worktree, tmp_path):
     # The real failure: a junction that points nowhere reads as an empty directory.
     _, wt = repo_and_worktree
-    gone = tmp_path / "gone"
-    gone.mkdir()
-    _junction(wt / ".venv", gone)
-    gone.rmdir()  # the link now dangles
+    (tmp_path / "gone").mkdir()
+    # The target is spelled from tmp_path in the call itself, so the link can never reach out of
+    # the sandbox: pytest's temp cleanup walks a junction, and this repo lost a virtualenv to that.
+    subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(wt / ".venv"), str(tmp_path / "gone")],
+        check=True,
+        capture_output=True,
+    )
+    (tmp_path / "gone").rmdir()  # the link now dangles
     assert not (wt / ".venv" / "Scripts" / "python.exe").exists()
 
     result = _run(wt)
