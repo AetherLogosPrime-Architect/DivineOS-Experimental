@@ -24,6 +24,16 @@ def register(cli: click.Group) -> None:
         else:
             click.echo(format_vitals())
 
+        # The plain vitals read only total used and free, so memory held by no program
+        # (a driver leak) reads as normal. This keeps a history and judges the climb.
+        try:
+            from divineos.core.body_memory import memory_sense_report
+
+            click.echo(memory_sense_report())
+        except Exception as exc:  # noqa: BLE001 — a vitals readout must never crash the command
+            # Silence would read as "nothing to report"; a broken sense has to say so.
+            click.echo(f"\n  MEMORY SENSE [unavailable: {type(exc).__name__}: {exc}]")
+
         # Real context-window fullness (governor step 2, 2026-05-29): the
         # ground-truth fill read from the transcript's per-turn token usage,
         # complementing the proxy-based pre-erasure signal (which admits it
