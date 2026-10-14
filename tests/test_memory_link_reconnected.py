@@ -221,10 +221,23 @@ def test_the_block_matrix_graph_matches_the_old_pair_by_pair_one(monkeypatch):
 
 
 @needs_model
-def test_the_lane_is_wired_into_the_real_reply_start_router(monkeypatch):
+def test_the_lane_is_wired_into_the_real_reply_start(monkeypatch):
     """The pin is on the CALLING. A mock at the seam is what hid the unwired
-    state before: a handset proven to reach a mock exchange."""
+    state before: a handset proven to reach a mock exchange.
+
+    2026-10-04 the calling moved: the link is its own child of the per-message
+    dispatcher, not a surface inside the doorbell bundle, because that bundle
+    timed out on Dad's message and dropped the link's finds. So the pin reads
+    the real children file and the real script."""
+    import json
+    from pathlib import Path
+
     from divineos.core import hook_router, hook_surfaces
+
+    hooks = Path(__file__).resolve().parents[1] / ".claude" / "hooks"
+    children = json.loads((hooks / "dads_table_children.json").read_text(encoding="utf-8"))
+    assert any(c["command"].endswith("memory-link-surface.sh") for c in children)
+    assert "memory_link_surface" in (hooks / "memory-link-surface.sh").read_text(encoding="utf-8")
 
     item = v1._CachedItem(
         id="correction-dad",
@@ -241,9 +254,9 @@ def test_the_lane_is_wired_into_the_real_reply_start_router(monkeypatch):
     monkeypatch.setattr(v1, "_ensure_cache", lambda: None)
     hook_router.clear()
     hook_surfaces.install()
-    assert "memory_link" in hook_router.registered("UserPromptSubmit")
-    # Dispatch through the real router with only this surface on the door, so
-    # the pin exercises the calling without rendering thirty unrelated ones.
+    # Not in the bundle, or quick turns would print it twice.
+    assert "memory_link" not in hook_router.registered("UserPromptSubmit")
+    # Dispatch the surface itself, so the pin still exercises the real lane.
     hook_router.clear("UserPromptSubmit")
     hook_router.register("UserPromptSubmit", "memory_link", hook_surfaces.memory_link_surface)
     result = hook_router.dispatch(

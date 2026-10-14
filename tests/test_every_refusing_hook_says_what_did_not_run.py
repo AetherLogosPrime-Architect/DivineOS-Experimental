@@ -186,7 +186,6 @@ KNOWN_UNWIRED_JSON_DENY = {
     "corrigibility-tool-gate.sh",
     "family-member-invocation-seal.sh",
     "gh-pr-merge-gate.sh",
-    "pipeline-exit-ambiguity.sh",
     "require-briefing.sh",
     "venv-python-gate.sh",
 }
