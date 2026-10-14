@@ -196,21 +196,53 @@ def _has_unverified_git_write(tokens: list[str], depth: int = 0) -> str | None:
             gi = 0
         sub, hooks_off, sub_at = _git_subcommand(seg, gi)
         hooks_off = hooks_off or any(_env_sets_hooks_path(t) for t in seg[:gi])
-        if sub == "config" and _sets_hooks_path(seg[sub_at + 1 :]):
+        if sub == "config" and (
+            _sets_hooks_path(seg[sub_at + 1 :]) or _defines_skipping_alias(seg[sub_at + 1 :])
+        ):
             # Setting core.hooksPath persists: every later commit skips the
-            # checks without any flag to see.
+            # checks without any flag to see. An alias that carries the skip
+            # does the same under a name this gate cannot read (Aletheia, 2026-10-13).
             return sub
-        if sub not in ("commit", "push"):
+        if any(_defines_skipping_alias([t]) for t in seg[gi:sub_at]):
+            return sub  # `git -c alias.c='commit --no-verify' c`: the alias carries the skip
+        if sub not in _SKIPPABLE_SUBCOMMANDS:
             continue
         if hooks_off:
             return sub
-        # `-n` is --no-verify for COMMIT and --dry-run for PUSH. Treating them
-        # alike would deny `git push -n`, a harmless rehearsal, and an
+        # `-n` is --no-verify for COMMIT only: for PUSH it is --dry-run and for MERGE
+        # --no-stat. Treating them alike would deny a harmless rehearsal, and an
         # over-firing gate is how the reach for the escape hatch gets taught.
-        flags = _NO_VERIFY_FLAGS if sub == "commit" else ("--no-verify",)
-        if any(flag in seg[gi:] for flag in flags):
-            return sub
+        for tok in seg[gi:]:
+            if _is_no_verify_flag(tok) or (sub == "commit" and _is_short_cluster_with_n(tok)):
+                return sub
     return None
+
+
+# Every git command that runs the checks and accepts a way to skip them.
+_SKIPPABLE_SUBCOMMANDS = ("commit", "push", "merge", "am", "rebase")
+
+
+def _is_no_verify_flag(token: str) -> bool:
+    """``--no-verify`` or any prefix git would still accept (``--no-verif``, ``--no-v``).
+
+    Git takes any unambiguous prefix of a long option; ``--no-v`` is the shortest that
+    is unique. Proven on a real repo with a failing hook: ``git commit --no-verif``
+    commits with the hook skipped (Aletheia, 2026-10-13).
+    """
+    return token.startswith("--no-v") and "--no-verify".startswith(token)
+
+
+def _is_short_cluster_with_n(token: str) -> bool:
+    """``-n`` alone or joined with other short flags (``-nm``, ``-an``), but not ``--x`` words."""
+    return bool(re.fullmatch(r"-[A-Za-z]+", token)) and "n" in token[1:]
+
+
+def _defines_skipping_alias(args: list[str]) -> bool:
+    """A config write or ``-c`` value that makes an alias carry the skip."""
+    text = " ".join(args).lower()
+    return "alias." in text and (
+        "core.hookspath" in text or any(_is_no_verify_flag(w) for w in text.split())
+    )
 
 
 # Git options that sit before the subcommand and take the next token as their value.

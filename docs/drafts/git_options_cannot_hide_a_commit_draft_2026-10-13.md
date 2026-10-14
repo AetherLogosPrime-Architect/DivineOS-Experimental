@@ -29,6 +29,12 @@ Before writing the walk I tried the fix on the shapes I could think of, instead 
 - It is a gate on what I type. A person (or a script I run) can still change the setting some other way, such as editing the git config file with a write tool. That is a different door and this does not close it.
 - It does not forbid an honest skip. The same named-reason route exists and is counted, by design: *bypass is a tool, not a sin; intent decides* (truth #12). What changes is that the skip can no longer be silent.
 
+## Taken from Aletheia's hold (2026-10-13)
+
+- The skip is also stopped on `merge`, `am` and `rebase` (git `-n` stays commit-only: for merge it is `--no-stat`, for push `--dry-run`).
+- Any prefix git accepts of `--no-verify` counts (`--no-verif`, `--no-v`); she proved on a real repo with a failing hook that `git commit --no-verif` skips it. Short flags joined with `n` (`-nm`, `-an`) count for commit.
+- An alias that carries the skip is refused at the moment it is defined (`git config alias.c 'commit --no-verify'`, or `git -c alias.c=...`). Still named as not covered: an alias already sitting in a config file from before, since the gate reads the command typed and not the config.
+
 ## Taken from Aria's cold read (2026-10-13)
 
 - A path-qualified git (`/usr/bin/git`, `git.exe`) is now recognised the same as the bare word.

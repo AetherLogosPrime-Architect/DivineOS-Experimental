@@ -133,6 +133,44 @@ def test_a_shell_word_that_is_not_running_a_shell_is_not_stopped(command: str) -
     assert not _denied(command), f"the gate over-fired on: {command}"
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git merge --no-verify topic",
+        "git am --no-verify x.patch",
+        "git rebase --no-verify main",
+        "git commit --no-verif -m x",
+        "git commit --no-v -m x",
+        "git commit -nm x",
+        "git commit -an -m x",
+        "git config alias.c 'commit --no-verify'",
+        "git config alias.c 'commit --no-verif'",
+        "git -c alias.c='commit --no-verify' c",
+    ],
+)
+def test_the_other_routes_aletheia_found_are_stopped(command: str) -> None:
+    """Aletheia's hold on 656: another command that runs the checks, a shortened option
+    git still accepts (proven to skip a real hook), and an alias that carries the skip."""
+    assert _denied(command), f"the gate went silent on: {command}"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git merge -n topic",
+        "git merge topic",
+        "git commit -am x",
+        "git commit --no-edit",
+        "git commit --no-gpg-sign -m x",
+        "git config alias.st status",
+        "git config --get alias.c",
+        "git -c user.name=t status",
+    ],
+)
+def test_the_widened_gate_does_not_over_fire(command: str) -> None:
+    assert not _denied(command), f"the gate over-fired on: {command}"
+
+
 def test_control_the_plain_form_is_still_stopped() -> None:
     # If the option-stepping broke the old path, the tests above could pass for the wrong reason.
     assert _denied("git commit --no-verify -m x")
