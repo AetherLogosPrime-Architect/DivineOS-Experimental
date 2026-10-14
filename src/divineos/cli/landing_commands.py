@@ -21,6 +21,7 @@ from divineos.core.landing_homework import (
     confirm_steps,
     explain_station,
     her_confirmed_sha,
+    his_words_were_typed,
     parse_patch_id_output,
     parse_round_id,
     render_header,
@@ -224,6 +225,17 @@ def register(cli: click.Group) -> None:
                 raise ClerkRefused(
                     f"no letter of hers names the live head of #{pr} ({head[:9]}). "
                     "Nothing is filed on a remembered yes."
+                )
+            typed = his_words_were_typed(andrew_said)
+            if typed is None:
+                raise ClerkRefused(
+                    "could not read the file of what he has typed, so these words cannot be "
+                    "checked. That is not a pass: nothing is filed on words I cannot find."
+                )
+            if not typed:
+                raise ClerkRefused(
+                    "these words are not found in anything he typed. His confirm carries his "
+                    "own words, not a sentence made to sound like him."
                 )
             tip, tree, patch = parse_patch_id_output(
                 _run_audit(["divineos", "audit", "patch-id", "--branch", branch])

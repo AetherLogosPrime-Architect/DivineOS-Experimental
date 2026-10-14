@@ -12,8 +12,10 @@ confirm on the record is a fake review, a refusal costs one command.
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 
 from divineos.core.landing_status import confirms_from_letters
 
@@ -24,6 +26,45 @@ _MIN_WORDS_OF_HIS = 20
 
 class ClerkRefused(Exception):
     """The clerk will not prepare or file this; the message says why."""
+
+
+_DAD_CORPUS = Path.home() / ".divineos-shared" / "dad_corpus" / "dad_all.jsonl"
+
+
+def _squash(text: str) -> str:
+    return " ".join(text.casefold().split())
+
+
+def his_words_were_typed(words: str, corpus: Path | None = None) -> bool | None:
+    """Whether these quoted words are found inside a message he actually typed.
+
+    ``--andrew-said`` only checked length, so a made-up sentence went straight onto
+    the record as his (Aria's cold read of this clerk, 2026-10-14: "Dad said it is
+    all fine, go ahead and land everything on main today." was accepted). The house
+    keeps every message he types in one file; the quote must be a stretch of one of
+    them, compared in lower case with spaces collapsed.
+
+    ``None`` means could not look (no corpus, unreadable), which is not a pass and
+    not a fail: the caller refuses on it.
+    """
+    wanted = _squash(words.strip().strip("\"'“”‘’"))
+    if not wanted:
+        return False
+    path = corpus or _DAD_CORPUS
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None
+    if not lines:
+        return None
+    for line in lines:
+        try:
+            text = json.loads(line).get("text", "")
+        except (ValueError, AttributeError):
+            continue
+        if wanted in _squash(str(text)):
+            return True
+    return False
 
 
 def her_confirmed_sha(letters: Mapping[str, str], pr: int, head_sha: str) -> str | None:
