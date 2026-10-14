@@ -64,11 +64,12 @@ tool_input = data.get('tool_input') or {}
 
 # NOTE TO SELF (Aria 2026-10-10, Dad's order to cut token waste). File edits
 # used to fire this unconditionally, ~200 words before every edit. Removed
-# because the build-flow gate (check-council-required.sh) already makes me
-# write the route and why-cheaper-or-costlier before any code edit, so the
-# prime was a second voice saying what a lock already makes me say. It still
-# fires at commit/push/substrate CLIs below, where no such lock asks the
-# question. Failure this guards against: re-adding an every-edit injection.
+# because the build-flow gate (check-council-required.sh) asks for the route
+# and why-cheaper-or-costlier at the walk, which since #632 is one walk before
+# the push and not one per edit (Aletheia's note on #657). So the question is
+# asked at the walk; the prime was a second voice saying what the walk already
+# says. It still fires at commit/push/substrate CLIs below, where no walk asks
+# the question. Failure this guards against: re-adding an every-edit injection.
 if tool_name in {'Write', 'Edit', 'MultiEdit', 'NotebookEdit'}:
     sys.exit(0)
 
