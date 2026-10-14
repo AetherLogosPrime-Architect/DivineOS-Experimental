@@ -161,8 +161,10 @@ def explain_station(
     elif station == "8-audit":
         if her_confirmed:
             lines += [
-                "Her own letter names this exact head. The round and both confirms can be filed:",
-                f'divineos landing file-confirm {pr} --andrew-said "<his words, quoted>"',
+                "Her own letter names this exact head. File the round and her confirm first, "
+                "so the store's clock can say when his yes has to come after:",
+                f"divineos landing file-confirm {pr}",
+                "Then it prints the second step, with his fresh words typed after that.",
             ]
         else:
             lines.append(
