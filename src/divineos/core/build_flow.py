@@ -530,6 +530,12 @@ def author_of(body: str | None, branch: str, owners_dir: Path) -> str | None:
     """
     declared = declared_author(body)
     if declared is not None:
+        # A name may withhold a pass and never grant one (Aria's cold read, 2026-10-14):
+        # `Author: cloud` in a body on a branch that is not `cloud/...` would turn my own
+        # reading into an outside one, so it is not honoured. No author means the station
+        # cannot say who wrote it and refuses rather than guessing.
+        if declared.lower() == HELPER_LANE and not branch.startswith(f"{HELPER_LANE}/"):
+            return None
         return declared
     state, seat = declared_owner(branch, owners_dir)
     if state == "declared" and seat == HELPER_LANE:

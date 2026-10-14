@@ -132,6 +132,29 @@ class TestWhoWroteItComesFromADeclarationNeverAName:
         assert author_of("", SEAT_BRANCH, owners) is None
 
 
+class TestAnAuthorLineCannotMakeMyOwnReadingCountAsOutside:
+    """Aria's cold read of the helper's place (2026-10-14): `Author: cloud` in a request
+    body on a branch with no seat prefix (`fix/my-own-fix`) made my own reading satisfy
+    the station, while the same branch with `Author: aether` was MISSING."""
+
+    def test_author_cloud_on_a_non_cloud_branch_is_not_honoured(self, dirs) -> None:
+        _, owners = dirs
+        assert author_of("Author: cloud\n", "fix/my-own-fix", owners) is None
+
+    def test_author_cloud_on_a_cloud_branch_still_is(self, dirs) -> None:
+        _, owners = dirs
+        assert author_of("Author: cloud\n", CLOUD, owners) == "cloud"
+
+    def test_the_station_does_not_pass_on_the_false_declaration(self, dirs) -> None:
+        letters, owners = dirs
+        branch = "fix/my-own-fix"
+        _reading(letters, "aether", branch)
+        body = "Author: cloud\n"
+        assert author_of(body, branch, owners) is None
+        control = author_of("Author: aether\n", branch, owners)
+        assert control == "aether"
+
+
 class TestTheSecondSeatStationForTheHelper:
     def test_either_seats_reading_satisfies_a_cloud_authored_request(self, dirs) -> None:
         letters, _ = dirs
