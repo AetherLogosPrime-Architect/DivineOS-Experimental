@@ -500,6 +500,7 @@ def _is_artifact_filing(cmd: str) -> bool:
             and index + 1 < len(segments)
             and not any(t.startswith(_REDIRECT_STARTS) for t in seg)
             and not any(c in t for t in seg for c in substitution)
+            and not any('(' in t and set(t) <= set('();<>|&') for t in seg)
         )
         if carries_text_only:
             continue

@@ -180,6 +180,22 @@ def test_a_feeder_running_a_command_substitution_is_not_a_feeder(is_filing) -> N
     )
 
 
+def test_a_feeder_with_process_substitution_is_not_a_feeder(is_filing) -> None:
+    """Aletheia's hold on 662: <( ... ) carries no dollar sign and no backtick, yet the
+    shell runs what is inside it before the feeder starts."""
+    assert is_filing("cat <(rm -rf src) | divineos council walk --edit x") is False
+    assert is_filing("cat <(git push --force) | divineos council walk --edit x") is False
+    assert is_filing("echo >(git push --force) | divineos council walk --edit x") is False
+
+
+def test_parentheses_inside_quoted_prose_are_still_a_feeder(is_filing) -> None:
+    """The control: ordinary reflections have parentheses, and refusing those would
+    turn the prescribed form back into the thing it was built to allow."""
+    assert is_filing(
+        'echo "a reflection (with an aside) and more" | divineos council walk --edit x'
+    )
+
+
 def test_a_feeder_piped_into_something_else_is_refused(is_filing) -> None:
     assert is_filing("cat notes.txt | git commit -qm sneak") is False
 
