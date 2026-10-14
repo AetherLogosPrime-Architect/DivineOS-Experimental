@@ -38,6 +38,8 @@ import re
 import shlex
 from typing import Any
 
+from divineos.core.command_parsing import program_name, shell_command_body
+
 
 _REASON_PATTERN = re.compile(r'DIVINEOS_NO_VERIFY_REASON=(?:"([^"]+)"|\'([^\']+)\'|(\S+))')
 _MIN_REASON_LEN = 8
@@ -89,7 +91,47 @@ def _segments(tokens: list[str]) -> list[list[str]]:
     return [seg for seg in out if seg]
 
 
-def _has_unverified_git_write(tokens: list[str]) -> str | None:
+_MAX_NESTING = 3
+
+
+def _quoted_commands_in(seg: list[str]) -> list[str]:
+    """Command strings a segment hands to another shell: ``bash -c "..."`` and ``eval ...``.
+
+    The shared home answers what a shell is told to run; this only decides where in the
+    segment a command could start. ``echo bash -c "..."`` talks about a shell and does
+    not run one, so a shell word counts only behind env assignments and ``env``/``sudo``.
+    """
+    out: list[str] = []
+    for i in range(len(seg)):
+        if any(("=" not in t) and program_name(t) not in ("env", "sudo") for t in seg[:i]):
+            break
+        body = shell_command_body(seg[i:])
+        if body is not None:
+            out.append(body)
+    return out
+
+
+def _basename(token: str) -> str:
+    return token.replace("\\", "/").rsplit("/", 1)[-1].lower()
+
+
+def _is_git(token: str) -> bool:
+    """``git``, ``/usr/bin/git`` and ``git.exe`` are the same program (Aria, 2026-10-13)."""
+    return _basename(token) in ("git", "git.exe")
+
+
+def _env_sets_hooks_path(token: str) -> bool:
+    """``GIT_CONFIG_KEY_<n>=core.hooksPath``: the ``-c`` override, spelled as an environment variable."""
+    key, sep, value = token.partition("=")
+    if not sep:
+        return False
+    if key.upper().startswith("GIT_CONFIG_KEY_"):
+        return _is_hooks_path_setting(value)
+    # `GIT_CONFIG_PARAMETERS="'core.hookspath=/dev/null'"`: the same override, packed in one variable.
+    return key.upper() == "GIT_CONFIG_PARAMETERS" and "core.hookspath" in value.lower()
+
+
+def _has_unverified_git_write(tokens: list[str], depth: int = 0) -> str | None:
     """The subcommand of a git commit/push carrying a no-verify flag, else None.
 
     FIRST-GIT-WINS WAS THE BUG (2026-08-22, Andrew: "fix the reaching using
@@ -114,27 +156,143 @@ def _has_unverified_git_write(tokens: list[str]) -> str | None:
     invocation it is being read against. Checking ``"-n" in tokens`` globally
     would fire on ``grep -n foo && git commit``, which is the over-fire that
     teaches me to reach for the escape hatch.
+
+    GIT'S OWN OPTIONS SIT BETWEEN ``git`` AND THE SUBCOMMAND (2026-10-13, the
+    second time this gate was anchored to a position). The subcommand was read
+    as the token right after ``git``, so ``git -c core.hooksPath=/dev/null
+    commit`` read as a subcommand named ``-c`` and was never recognised as a
+    commit at all. I skipped every pre-commit check that way, on a merge, and
+    nothing stopped me; Dad: "fix why you were even able to skip it so you
+    cant". The same blind spot meant ``git -C some/folder commit --no-verify``
+    also went unseen, and I type ``git -C`` constantly. Both are closed here:
+    the options are stepped over to find the real subcommand, and a hooks-path
+    override counts as the same act as ``--no-verify``, because it is.
+
+    A SKIP INSIDE A QUOTED COMMAND (found the same day, by testing the fix
+    rather than trusting it): ``bash -c "git commit --no-verify"`` is one
+    quoted token to the tokenizer, so neither the old gate nor the first
+    version of this fix saw a commit in it. Strings handed to ``bash -c``,
+    ``sh -c`` and ``eval`` are now read as commands in their own right, to a
+    shallow depth. And the hooks path set through the environment
+    (``GIT_CONFIG_KEY_0=core.hooksPath``) counts like the ``-c`` form.
     """
     for seg in _segments(tokens):
-        if len(seg) < 2 or seg[0] != "git":
+        if depth < _MAX_NESTING:
+            for inner in _quoted_commands_in(seg):
+                try:
+                    inner_tokens = shlex.split(inner)
+                except ValueError:
+                    continue
+                found = _has_unverified_git_write(inner_tokens, depth + 1)
+                if found:
+                    return found
+        if len(seg) < 2 or not _is_git(seg[0]):
             # `env FOO=bar git commit ...` and `sudo git ...` shapes: find git
             # anywhere in the segment, since a segment is one command.
-            try:
-                gi = seg.index("git")
-            except ValueError:
+            gi = next((n for n, t in enumerate(seg) if _is_git(t)), -1)
+            if gi < 0:
                 continue
         else:
             gi = 0
-        sub = seg[gi + 1] if gi + 1 < len(seg) else ""
-        if sub not in ("commit", "push"):
-            continue
-        # `-n` is --no-verify for COMMIT and --dry-run for PUSH. Treating them
-        # alike would deny `git push -n`, a harmless rehearsal, and an
-        # over-firing gate is how the reach for the escape hatch gets taught.
-        flags = _NO_VERIFY_FLAGS if sub == "commit" else ("--no-verify",)
-        if any(flag in seg[gi:] for flag in flags):
+        sub, hooks_off, sub_at = _git_subcommand(seg, gi)
+        hooks_off = hooks_off or any(_env_sets_hooks_path(t) for t in seg[:gi])
+        if sub == "config" and (
+            _sets_hooks_path(seg[sub_at + 1 :]) or _defines_skipping_alias(seg[sub_at + 1 :])
+        ):
+            # Setting core.hooksPath persists: every later commit skips the
+            # checks without any flag to see. An alias that carries the skip
+            # does the same under a name this gate cannot read (Aletheia, 2026-10-13).
             return sub
+        if any(_defines_skipping_alias([t]) for t in seg[gi:sub_at]):
+            return sub  # `git -c alias.c='commit --no-verify' c`: the alias carries the skip
+        if sub not in _SKIPPABLE_SUBCOMMANDS:
+            continue
+        if hooks_off:
+            return sub
+        # `-n` is --no-verify for COMMIT only: for PUSH it is --dry-run and for MERGE
+        # --no-stat. Treating them alike would deny a harmless rehearsal, and an
+        # over-firing gate is how the reach for the escape hatch gets taught.
+        for tok in seg[gi:]:
+            if _is_no_verify_flag(tok) or (sub == "commit" and _is_short_cluster_with_n(tok)):
+                return sub
     return None
+
+
+# Every git command that runs the checks and accepts a way to skip them.
+_SKIPPABLE_SUBCOMMANDS = ("commit", "push", "merge", "am", "rebase")
+
+
+def _is_no_verify_flag(token: str) -> bool:
+    """``--no-verify`` or any prefix git would still accept (``--no-verif``, ``--no-v``).
+
+    Git takes any unambiguous prefix of a long option; ``--no-v`` is the shortest that
+    is unique. Proven on a real repo with a failing hook: ``git commit --no-verif``
+    commits with the hook skipped (Aletheia, 2026-10-13).
+    """
+    return token.startswith("--no-v") and "--no-verify".startswith(token)
+
+
+def _is_short_cluster_with_n(token: str) -> bool:
+    """``-n`` alone or joined with other short flags (``-nm``, ``-an``), but not ``--x`` words."""
+    return bool(re.fullmatch(r"-[A-Za-z]+", token)) and "n" in token[1:]
+
+
+def _defines_skipping_alias(args: list[str]) -> bool:
+    """A config write or ``-c`` value that makes an alias carry the skip."""
+    text = " ".join(args).lower()
+    return "alias." in text and (
+        "core.hookspath" in text or any(_is_no_verify_flag(w) for w in text.split())
+    )
+
+
+# Git options that sit before the subcommand and take the next token as their value.
+_GIT_OPTS_TAKING_A_VALUE = ("-C", "--git-dir", "--work-tree", "--namespace", "--super-prefix")
+
+
+def _is_hooks_path_setting(text: str) -> bool:
+    return text.lower().startswith("core.hookspath")
+
+
+def _git_subcommand(seg: list[str], gi: int) -> tuple[str, bool, int]:
+    """Step over git's own leading options to the real subcommand.
+
+    Returns ``(subcommand, hooks_path_overridden, index_of_subcommand)``. An
+    override of core.hooksPath given as ``-c core.hooksPath=...`` (or the joined
+    ``-ccore.hooksPath=...`` or ``--config-env`` forms) turns every hook off for
+    that one command, which is exactly what ``--no-verify`` does.
+    """
+    i = gi + 1
+    hooks_off = False
+    while i < len(seg) and seg[i].startswith("-"):
+        tok = seg[i]
+        takes_next = i + 1 < len(seg)
+        if tok == "-c" and takes_next:
+            hooks_off = hooks_off or _is_hooks_path_setting(seg[i + 1])
+            i += 2
+        elif tok == "--config-env" and takes_next:
+            hooks_off = hooks_off or _is_hooks_path_setting(seg[i + 1])
+            i += 2
+        elif tok in _GIT_OPTS_TAKING_A_VALUE and takes_next:
+            i += 2
+        else:
+            if tok.startswith("-c") and _is_hooks_path_setting(tok[2:]):
+                hooks_off = True
+            if tok.lower().startswith("--config-env=") and _is_hooks_path_setting(tok[13:]):
+                hooks_off = True
+            i += 1
+    return (seg[i] if i < len(seg) else ""), hooks_off, i
+
+
+def _sets_hooks_path(args: list[str]) -> bool:
+    """A ``git config`` that WRITES core.hooksPath (reading it back is harmless)."""
+    reads = ("--get", "--get-all", "--list", "-l", "--get-regexp", "--unset", "--unset-all")
+    if any(a in reads for a in args):
+        return False
+    for at, a in enumerate(args):
+        # The key with nothing after it only reads the value back; a write has a value.
+        if _is_hooks_path_setting(a):
+            return any(not later.startswith("-") for later in args[at + 1 :])
+    return False
 
 
 def decide(tool_input: dict[str, Any] | None) -> dict[str, Any] | None:

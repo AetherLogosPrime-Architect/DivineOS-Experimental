@@ -653,3 +653,46 @@ def unsettled() -> list[Candidate] | None:
     finally:
         conn.close()
     return [Candidate(str(r[0]), str(r[1]), str(r[2]), str(r[3]), str(r[4])) for r in rows]
+
+
+@dataclass(frozen=True)
+class DoorRow:
+    """One keeping by the door, in any state, for the door's own report."""
+
+    candidate_id: str
+    prompt_id: str
+    uuid: str | None  # the record it settled onto; None if it never did
+    his_text: str
+    said_at: str
+    state: str
+    settled_at: float | None  # epoch seconds; None while still a candidate
+
+
+def door_rows(seat: str, since: str) -> list[DoorRow] | None:
+    """Every keeping on this seat since ``since`` (ISO), oldest first. None if unreadable."""
+    try:
+        conn = _conn()
+    except (sqlite3.Error, OSError):
+        return None
+    try:
+        rows = conn.execute(
+            "SELECT candidate_id, prompt_id, uuid, his_text, said_at, state, settled_at "
+            "FROM messages WHERE seat = ? AND said_at >= ? ORDER BY said_at",
+            (seat, since),
+        ).fetchall()
+    except sqlite3.Error:
+        return None
+    finally:
+        conn.close()
+    return [
+        DoorRow(
+            str(r[0]),
+            str(r[1] or ""),
+            str(r[2]) if r[2] else None,
+            str(r[3]),
+            str(r[4]),
+            str(r[5]),
+            float(r[6]) if r[6] is not None else None,
+        )
+        for r in rows
+    ]

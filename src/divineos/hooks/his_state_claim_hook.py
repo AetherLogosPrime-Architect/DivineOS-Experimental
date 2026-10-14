@@ -132,6 +132,34 @@ def his_words(transcript_path: str) -> str | None:
     return "\n".join(said)
 
 
+def record_verdict(kind: str, sentences: list[str], transcript_name: str) -> None:
+    """Write one line for a verdict that is not "nothing asserted".
+
+    This gate kept no log of its own firings, so the 30-day review of prereg-5462592e1616
+    had to be reconstructed from hook output scattered through transcripts, with resumed
+    sessions counted once by hand. One append-only line per fired / he_raised_it /
+    could_not_read makes the next review a count. The write must never cost the turn it
+    describes, so any failure is swallowed here and nowhere else.
+    """
+    try:
+        import time
+
+        from divineos.core.paths import divineos_home
+
+        path = divineos_home() / "data" / "his_state_claim_fires.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        row = {
+            "at": time.time(),
+            "verdict": kind,
+            "sentences": sentences[:3],
+            "transcript": transcript_name,
+        }
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row) + "\n")
+    except Exception:  # noqa: BLE001 - instrumentation must never break the thing it measures
+        pass
+
+
 def run_state_check(transcript_path: str) -> dict | None:
     """Carry a finding when I told him what his body was doing. None otherwise.
 
@@ -140,7 +168,7 @@ def run_state_check(transcript_path: str) -> dict | None:
     """
     try:
         from divineos.core.operating_loop.turn_extraction import extract_turn
-        from divineos.hooks.his_state_claim import check
+        from divineos.hooks.his_state_claim import check, verdict
     except Exception:  # noqa: BLE001
         return None
 
@@ -153,7 +181,11 @@ def run_state_check(transcript_path: str) -> dict | None:
         return None
 
     try:
-        reason = check(text, his_words(transcript_path))
+        his = his_words(transcript_path)
+        kind, found = verdict(text, his)
+        if kind != "none":
+            record_verdict(kind, found, Path(transcript_path).name)
+        reason = check(text, his)
     except Exception:  # noqa: BLE001
         return None
 
