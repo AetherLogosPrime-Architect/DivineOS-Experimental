@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Mapping, Sequence
+from datetime import datetime, timezone
 from pathlib import Path
 
 from divineos.core.landing_status import confirms_from_letters
@@ -35,8 +36,33 @@ def _squash(text: str) -> str:
     return " ".join(text.casefold().split())
 
 
-def his_words_were_typed(words: str, corpus: Path | None = None) -> bool | None:
+def _as_utc(stamp: object) -> datetime | None:
+    try:
+        when = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return when if when.tzinfo else when.replace(tzinfo=timezone.utc)
+
+
+def head_made_at(commit_date: str) -> datetime | None:
+    """When the live head's last commit was made; None if the date cannot be read.
+
+    A head cannot be pushed before it is committed, so a message typed after this
+    moment was typed after the fix existed.
+    """
+    return _as_utc(commit_date)
+
+
+def his_words_were_typed(
+    words: str, corpus: Path | None = None, after: datetime | None = None
+) -> bool | None:
     """Whether these quoted words are found inside a message he actually typed.
+
+    With ``after`` set, only messages typed later than that moment count (Aletheia's
+    hold on #660: his confirms are short and general, so a real yes from yesterday
+    would otherwise file today for a different fix; the words cannot say what they
+    were about, the time can). A message with no readable time cannot be placed, so
+    it does not count.
 
     ``--andrew-said`` only checked length, so a made-up sentence went straight onto
     the record as his (Aria's cold read of this clerk, 2026-10-14: "Dad said it is
@@ -59,9 +85,15 @@ def his_words_were_typed(words: str, corpus: Path | None = None) -> bool | None:
         return None
     for line in lines:
         try:
-            text = json.loads(line).get("text", "")
+            row = json.loads(line)
+            text = row.get("text", "")
+            stamp = row.get("ts")
         except (ValueError, AttributeError):
             continue
+        if after is not None:
+            when = _as_utc(stamp)
+            if when is None or when <= after:
+                continue
         if wanted in _squash(str(text)):
             return True
     return False

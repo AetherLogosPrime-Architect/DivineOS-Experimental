@@ -21,6 +21,7 @@ from divineos.core.landing_homework import (
     confirm_steps,
     explain_station,
     her_confirmed_sha,
+    head_made_at,
     his_words_were_typed,
     parse_patch_id_output,
     parse_round_id,
@@ -83,7 +84,7 @@ def _pr_facts(pr: int) -> dict:
     """branch, live head and title of one open request, or a plain refusal."""
     try:
         run = subprocess.run(
-            ["gh", "pr", "view", str(pr), "--json", "headRefName,headRefOid,title"],
+            ["gh", "pr", "view", str(pr), "--json", "headRefName,headRefOid,title,commits"],
             capture_output=True,
             text=True,
             timeout=60,
@@ -226,7 +227,14 @@ def register(cli: click.Group) -> None:
                     f"no letter of hers names the live head of #{pr} ({head[:9]}). "
                     "Nothing is filed on a remembered yes."
                 )
-            typed = his_words_were_typed(andrew_said)
+            commits = facts.get("commits") or []
+            head_time = head_made_at(str(commits[-1].get("committedDate", ""))) if commits else None
+            if head_time is None:
+                raise ClerkRefused(
+                    "could not tell when this head was made, so I cannot tell whether his words "
+                    "came after it. Nothing is filed on a yes I cannot place in time."
+                )
+            typed = his_words_were_typed(andrew_said, after=head_time)
             if typed is None:
                 raise ClerkRefused(
                     "could not read the file of what he has typed, so these words cannot be "
@@ -234,8 +242,9 @@ def register(cli: click.Group) -> None:
                 )
             if not typed:
                 raise ClerkRefused(
-                    "these words are not found in anything he typed. His confirm carries his "
-                    "own words, not a sentence made to sound like him."
+                    "these words are not found in anything he typed AFTER this head was made. "
+                    "His confirm carries his own words, typed about this fix, not a sentence "
+                    "made to sound like him and not a yes from before the fix existed."
                 )
             tip, tree, patch = parse_patch_id_output(
                 _run_audit(["divineos", "audit", "patch-id", "--branch", branch])

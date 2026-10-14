@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from divineos.core.landing_homework import his_words_were_typed
+from divineos.core.landing_homework import head_made_at, his_words_were_typed
 
 
 def _corpus(tmp_path: Path, *messages: str) -> Path:
@@ -56,6 +56,40 @@ def test_an_empty_file_is_could_not_look_not_a_pass(tmp_path: Path) -> None:
     empty = tmp_path / "dad_all.jsonl"
     empty.write_text("", encoding="utf-8")
     assert his_words_were_typed("anything at all, long enough", empty) is None
+
+
+def _timed(tmp_path: Path, *rows: tuple[str, str]) -> Path:
+    path = tmp_path / "dad_all.jsonl"
+    path.write_text(
+        "\n".join(json.dumps({"ts": ts, "text": text}) for ts, text in rows), encoding="utf-8"
+    )
+    return path
+
+
+def test_a_real_yes_from_before_the_head_existed_is_not_a_yes_to_it(tmp_path: Path) -> None:
+    """Aletheia's hold on #660. His confirms are short and general, so the words cannot say
+    what they were about; the time can. Control: the same words typed after the head count."""
+    made = head_made_at("2026-10-14T20:00:00Z")
+    assert made is not None
+    corpus = _timed(
+        tmp_path,
+        ("2026-10-13T09:00:00.000Z", "yes i confirm both"),
+        ("2026-10-14T21:00:00.000Z", "yes i confirm this one"),
+    )
+    assert his_words_were_typed("yes i confirm both", corpus) is True
+    assert his_words_were_typed("yes i confirm both", corpus, after=made) is False
+    assert his_words_were_typed("yes i confirm this one", corpus, after=made) is True
+
+
+def test_a_message_with_no_readable_time_cannot_be_placed_after_the_head(tmp_path: Path) -> None:
+    made = head_made_at("2026-10-14T20:00:00Z")
+    corpus = _timed(tmp_path, ("not a time", "yes i confirm this one"))
+    assert his_words_were_typed("yes i confirm this one", corpus, after=made) is False
+
+
+def test_an_unreadable_commit_date_is_no_date() -> None:
+    assert head_made_at("") is None
+    assert head_made_at("sometime last week") is None
 
 
 def test_a_damaged_line_does_not_hide_the_good_ones(tmp_path: Path) -> None:
