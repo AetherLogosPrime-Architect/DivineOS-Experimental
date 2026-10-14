@@ -1,9 +1,9 @@
 """Reproductions for the pipe-guard and command-shape theme (pile round three).
 
-Each reproduction documents a problem as it exists TODAY and is marked
-``xfail(strict=True)``. It passes quietly as an expected failure now, and the
-day the guard is repaired it turns into a real failure, which forces the marker
-to be removed. Nothing here changes any guard; it only prepares the proof.
+These began as reproductions marked ``xfail(strict=True)``, each documenting a
+problem as it existed. The pipe-guard ones were repaired on 2026-10-13 (the guard
+now adds ``set -o pipefail`` itself instead of refusing or warning), so their
+marks are gone and they are regression pins for that repair.
 
 The hook reproductions run the REAL hook script
 (``.claude/hooks/pipeline-exit-ambiguity.sh``) with a hand-made payload and an
@@ -74,24 +74,8 @@ def _rewritten_with_pipefail(decision: dict) -> bool:
 @pytest.mark.parametrize(
     "command",
     [
-        pytest.param(
-            "divineos audit submit-round --help | head",
-            id="write-verb-help",
-            marks=pytest.mark.xfail(
-                raises=AssertionError,
-                strict=True,
-                reason="reproduces: the pipe guard refuses a help request because it names a write verb",
-            ),
-        ),
-        pytest.param(
-            "divineos prereg file --help | head",
-            id="file-help",
-            marks=pytest.mark.xfail(
-                raises=AssertionError,
-                strict=True,
-                reason="reproduces: the pipe guard refuses a help request because it names a write verb",
-            ),
-        ),
+        pytest.param("divineos audit submit-round --help | head", id="write-verb-help"),
+        pytest.param("divineos prereg file --help | head", id="file-help"),
     ],
 )
 def test_a_help_request_is_not_refused_as_a_mutating_pipe(tmp_path, command):
@@ -118,24 +102,8 @@ def test_a_help_request_is_not_refused_as_a_mutating_pipe(tmp_path, command):
 @pytest.mark.parametrize(
     "command",
     [
-        pytest.param(
-            "gh pr view 12 | head",
-            id="pr-view",
-            marks=pytest.mark.xfail(
-                raises=AssertionError,
-                strict=True,
-                reason="reproduces: the pipe guard refuses a read-only gh pull request view",
-            ),
-        ),
-        pytest.param(
-            "gh pr list --json number | head",
-            id="pr-list",
-            marks=pytest.mark.xfail(
-                raises=AssertionError,
-                strict=True,
-                reason="reproduces: the pipe guard refuses a read-only gh pull request view",
-            ),
-        ),
+        pytest.param("gh pr view 12 | head", id="pr-view"),
+        pytest.param("gh pr list --json number | head", id="pr-list"),
     ],
 )
 def test_a_read_only_gh_pr_view_is_not_refused_as_a_mutating_pipe(tmp_path, command):
@@ -160,24 +128,8 @@ def test_a_read_only_gh_pr_view_is_not_refused_as_a_mutating_pipe(tmp_path, comm
 @pytest.mark.parametrize(
     "command",
     [
-        pytest.param(
-            "divineos audit list | head",
-            id="audit-list",
-            marks=pytest.mark.xfail(
-                raises=AssertionError,
-                strict=True,
-                reason="reproduces: a read-only divineos pipe without pipefail is only warned about",
-            ),
-        ),
-        pytest.param(
-            "divineos prereg list | tail -5",
-            id="prereg-list",
-            marks=pytest.mark.xfail(
-                raises=AssertionError,
-                strict=True,
-                reason="reproduces: a read-only divineos pipe without pipefail is only warned about",
-            ),
-        ),
+        pytest.param("divineos audit list | head", id="audit-list"),
+        pytest.param("divineos prereg list | tail -5", id="prereg-list"),
     ],
 )
 def test_a_read_only_divineos_pipe_is_refused_or_given_pipefail(tmp_path, command):
@@ -202,11 +154,6 @@ def test_a_read_only_divineos_pipe_is_refused_or_given_pipefail(tmp_path, comman
     )
 
 
-@pytest.mark.xfail(
-    raises=AssertionError,
-    strict=True,
-    reason="reproduces: a mutating pipe is refused when the note asks for pipefail to be added instead",
-)
 def test_a_mutating_pipe_gets_pipefail_added_instead_of_being_refused(tmp_path):
     """The guard refuses ``git push ... | tail`` and tells me to retype it with
     pipefail; the note asks it to add pipefail itself.
@@ -256,20 +203,22 @@ def test_words_inside_quotes_are_not_judged_as_a_command(command):
     assert result.is_council_required is False, command
 
 
-def test_control_the_hook_refuses_a_plain_mutating_pipe(tmp_path):
-    """Control: the real hook runs here and refuses an unprotected push into a
-    pipe, so a reproduction above is not failing because the hook is silent.
+def test_control_the_hook_acts_on_a_plain_mutating_pipe(tmp_path):
+    """Control: the real hook runs here and acts on an unprotected push into a
+    pipe, so a test above is not passing because the hook is silent.
 
     Rows: psf-154547cd
     Note (psf-154547cd): "when a command that changes something comes through without pipefail, the pipeline guard should add pipefail itself instead of refusing (toy #7 on my list)."
 
-    What would make this test wrong: if the repair for the note above stops
-    refusing mutating pipes this goes red for a reason that is the repair, and
-    should be changed then. If bash or the interpreter cannot run here the
-    hook prints nothing and this fails loudly instead of letting the others
-    pass for the wrong reason.
+    This was the control that the hook REFUSED such a pipe, and it was changed
+    in the repair for the note above (2026-10-13, Andrew: "yes to both"). If
+    bash or the interpreter cannot run here the hook prints nothing and this
+    fails loudly instead of letting the others pass for the wrong reason.
     """
-    assert _denied(_hook_output("git push origin x | tail -2", tmp_path))
+    decision = _hook_output("git push origin x | tail -2", tmp_path)
+    assert decision, "the hook said nothing: it did not run, or it no longer acts"
+    assert _rewritten_with_pipefail(decision)
+    assert not _denied(decision)
 
 
 def test_control_a_protected_pipe_is_left_alone(tmp_path):
