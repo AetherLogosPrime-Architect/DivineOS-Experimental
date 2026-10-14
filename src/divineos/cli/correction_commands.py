@@ -213,13 +213,50 @@ def register(cli: click.Group) -> None:
         no_structure_reason = ""
         if _marker:
             no_structure_reason = _lower.split(_marker, 1)[1].strip()
-        habit_only = has_fix and not claims_structural_fix
+        # STRUCTURAL FIX OWED — the state that had no slot, and its absence
+        # produced a deadlock rather than a discipline.
+        #
+        # Andrew 2026-09-07 hit it live. The correction marker blocks tool use
+        # until a correction is filed; filing demands a structural fix backed
+        # by a file path; building that fix requires the tools the marker is
+        # blocking. Three correct rules composing into a wall, and the only
+        # ways through were to claim a behaviour change I did not mean or to
+        # bypass a gate that was working exactly as designed.
+        #
+        # The gap was narrow: a correction whose right fix IS structural but is
+        # not built yet had nowhere honest to sit. Claiming it done would be a
+        # lie; calling it a behaviour change would understate it; and the
+        # no-structure exit is for corrections that have no structural form at
+        # all, which is a different thing entirely.
+        #
+        # So this marker files the correction and records the fix as DEBT. It
+        # does not count as a completed fix and it is not an escape hatch: the
+        # correction files as owing, the reason has to be real, and the debt
+        # is written to the pending structural-fix list (below, where the
+        # correction is recorded) under trigger "structural fix owed" with the
+        # owed reason first, so the briefing keeps showing it until it is
+        # marked done. Andrew 2026-09-07: "its all to help you, not be a cage,
+        # none of this code is sacred, nothing is permanent, all of it can be
+        # tweaked and adjusted and altered as long as it follows the proper
+        # guidelines"
+        _FIX_OWED_MARKER = "structural fix owed:"
+        claims_fix_owed = _FIX_OWED_MARKER in _lower
+        fix_owed_reason = ""
+        if claims_fix_owed:
+            fix_owed_reason = _lower.split(_FIX_OWED_MARKER, 1)[1].strip()
+        habit_only = has_fix and not claims_structural_fix and not claims_fix_owed
 
         missing: list[str] = []
         if not has_root_cause:
             missing.append('"root cause:" (the specific prior action/reach)')
-        if not has_fix:
+        if not has_fix and not claims_fix_owed:
             missing.append('"structural fix:" or "behavior change:" (a real in-turn change)')
+        if claims_fix_owed and len(fix_owed_reason) < 40:
+            missing.append(
+                'a real description after "structural fix owed:" (>=40 chars) — name '
+                "what will be built and why it cannot be built in this turn. An "
+                "undescribed debt is the escape hatch, not the exception"
+            )
         if not has_positives:
             missing.append(
                 '"positives:" (what this fault actually yielded — a mechanism, '
@@ -249,6 +286,27 @@ def register(cli: click.Group) -> None:
                 'a real reason after "structure not yet found:" (>=40 chars) — an '
                 "unexplained exception is the escape hatch, not the exception"
             )
+        if claims_fix_owed and not missing:
+            # The debt has to be loud, or the new state becomes the soft road.
+            # It files, and it says out loud that it filed owing something.
+            click.secho(
+                "\n[!] FILED OWING A FIX — this correction is not closed.",
+                fg="yellow",
+                err=True,
+            )
+            click.secho(
+                f"    Owed: {fix_owed_reason[:200]}",
+                fg="yellow",
+                err=True,
+            )
+            click.secho(
+                '    File again with "structural fix:" and the path once it is built. '
+                "Until then this correction stands as debt rather than as answered, "
+                "and saying so is the whole point of the state.",
+                fg="bright_black",
+                err=True,
+            )
+
         if missing:
             click.secho(
                 "[-] Correction refused: root-cause+fix pairing missing.",
@@ -405,7 +463,23 @@ def register(cli: click.Group) -> None:
                 record_pending_fix,
             )
 
-            trigger = detect_structural_fix_shape(text)
+            # An owed fix is recorded as its own debt, reason first so the
+            # stored 200-char excerpt carries what is owed rather than the
+            # root-cause preamble. It replaces the generic detection, which
+            # would otherwise match "structural fix" and file a second row.
+            if claims_fix_owed:
+                psf_id = record_pending_fix(
+                    f"structural fix owed: {fix_owed_reason}",
+                    lesson_id=session_id,
+                    trigger="structural fix owed",
+                    source_kind="correction",
+                )
+                if psf_id:
+                    click.secho(
+                        f"    [!] owed fix recorded as pending obligation {psf_id}",
+                        fg="yellow",
+                    )
+            trigger = None if claims_fix_owed else detect_structural_fix_shape(text)
             if trigger:
                 psf_id = record_pending_fix(
                     text,

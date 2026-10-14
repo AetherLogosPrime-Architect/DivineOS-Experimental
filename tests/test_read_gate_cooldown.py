@@ -53,10 +53,8 @@ def isolated_gate(tmp_path, monkeypatch):
     # call time. Patching it here was how this leak hid -- these tests were
     # isolated through a seam only they knew about, while the containment
     # tests patched STATE_DIR (the documented one) and still read the LIVE
-    # cooldown. One seam now; patching STATE_DIR above covers this.
-    monkeypatch.setattr(read_gate, "CLEAR_LOG", tmp_path / "clears.jsonl")
-    monkeypatch.setattr(read_gate, "REARM_LOG", tmp_path / "rearms.jsonl")
-    monkeypatch.setattr(read_gate, "SEEN_READS", tmp_path / "seen.json")
+    # cooldown. One seam now; patching STATE_DIR above covers this, and the
+    # clears, re-arm and seen-reads logs follow it the same way (2026-10-11).
 
     # tmp_path IS pytest scratch, so require_read correctly refuses every
     # fixture built inside it -- the guard that exists because test files

@@ -2,7 +2,7 @@
 
 Stop: a reply whose circle asks Dad something opens the hold (and a question
 buried under more text is sent back once to be moved last).
-PreToolUse: building waits while it is open.
+PreToolUse: only a letter not to him waits while it is open and he is here.
 UserPromptSubmit: his next message releases it; a notice does not.
 See src/divineos/core/question_hold.py for the why.
 """
@@ -42,13 +42,21 @@ def main() -> int:
     if event == "UserPromptSubmit":
         notice = str(data.get("prompt", "")).lstrip().startswith(_NOTICE)
         if not notice:
+            qh.came_back()  # his message: he is here, whatever he said before
             told = qh.escape_to_tell_him()
             if told:
                 print(told)
+        # The shared fridge: shown, never held (Dad, 2026-10-01).
+        waiting = qh.others_waiting()
+        if waiting:
+            print("## ON THE SHARED FRIDGE (seen, not holding me)")
+            for line in waiting:
+                print(line)
+            print()
         state = qh.is_open()
         if not state:
             return 0
-        if notice:
+        if notice and not qh.is_away():
             print(
                 "## STILL WAITING FOR DAD\n"
                 f"I asked him: {state['question']}\n"
@@ -56,7 +64,9 @@ def main() -> int:
                 "his answer; I do not open it or act on it until he speaks.\n"
             )
             return 0
-        qh.release("his message")
+        from divineos.core.his_message import _his_part
+
+        qh.release("his message", his_words=_his_part(str(data.get("prompt", ""))))
         return 0
 
     if event == "Stop":

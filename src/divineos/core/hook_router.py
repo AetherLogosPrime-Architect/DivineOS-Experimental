@@ -434,6 +434,15 @@ COLLAPSE_POLICY: dict[str, CollapsePolicy] = {
             "change; an identical repeat is the same retrieval and adds nothing."
         ),
     ),
+    "memory_link": CollapsePolicy(
+        kind="info",
+        why=(
+            "What the past says about this prompt, retrieved from the prompt and "
+            "the recent turns, so it changes whenever they do. An identical "
+            "repeat is recall already read this session; collapsing it loses no "
+            "memory of him."
+        ),
+    ),
     "auto_goal": CollapsePolicy(
         kind="never",
         why=(
@@ -460,6 +469,14 @@ COLLAPSE_POLICY: dict[str, CollapsePolicy] = {
         why=(
             "Reports the live context level, which is the one thing that must "
             "never read as unchanged when it has moved toward the threshold."
+        ),
+    ),
+    "stop_runs_killed": CollapsePolicy(
+        kind="never",
+        why=(
+            "An alarm that the Stop checks are being killed before they finish, "
+            "so their silence is not a pass. A collapsed alarm about checks not "
+            "running is the same silence it exists to break."
         ),
     ),
 }

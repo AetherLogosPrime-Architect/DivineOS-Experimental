@@ -76,13 +76,6 @@ def _gravity_council_required(*_a, **_kw):
     return _GravityResult(is_council_required=True)
 
 
-def _gravity_council_required_kiln(*_a, **_kw):
-    return _GravityResult(
-        is_council_required=True,
-        fired_features=("edit-kiln-layer",),
-    )
-
-
 def _gravity_not_council_required(*_a, **_kw):
     return _GravityResult(is_council_required=False)
 
@@ -126,7 +119,7 @@ def _emit_lens_invocation_traces(lens_names: tuple[str, ...]) -> None:
         )
 
 
-def _valid_record_for(fingerprint: str, kiln: bool = False) -> CouncilRecord:
+def _valid_record_for(fingerprint: str) -> CouncilRecord:
     """Build a CouncilRecord that passes substance-binding checks for the
     three lenses in _keywords_loader(). Each finding ≥ COUNCIL_MIN_FINDING_TOKENS
     (30) with the lens's distinguishing keyword present; synthesis ≥
@@ -181,7 +174,6 @@ def _valid_record_for(fingerprint: str, kiln: bool = False) -> CouncilRecord:
             "heuristic pull, and pragmatism says the design is honest "
             "about being ready to be corrected when the evidence lands."
         ),
-        confirmed_by="external-auditor" if kiln else None,
     )
 
 

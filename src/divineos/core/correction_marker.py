@@ -30,6 +30,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from divineos.core.atomic_io import atomic_write_text
+from divineos.core.harness_envelopes import remove_envelopes
 from divineos.core.paths import marker_path as _marker_path_under_home
 
 
@@ -90,6 +91,25 @@ _RELAY_INTRODUCERS: tuple[str, ...] = (
 _BLOCKQUOTE_LINE = re.compile(r"^>.*$", re.MULTILINE)
 _FENCED_BLOCK = re.compile(r"```[\s\S]*?```")
 
+# F36 fix (Aletheia Round 5 2026-07-17, live misfire): strip_relayed was
+# catching block quotes and fenced code but MISSING inline-quoted spans.
+# An audit doc that quotes correction-pattern examples like "that's not"
+# inline (as a mention, not a use) had the inner text survive the strip
+# and false-fire the correction detector. The specific irony: docs ABOUT
+# the correction detector reliably tripped the correction detector.
+#
+# Fix: strip content inside paired quote marks — straight double, straight
+# single (only if paired count is even — apostrophes in words like don't
+# would corrupt otherwise), and curly quote pairs. Single-straight is
+# only stripped when the count is even; safest default for mixed prose.
+#
+# This is the use-vs-mention filter shape (Aria's A1) applied at
+# strip-time to inline-quoted mentions. Wire A1 itself later per Aletheia's
+# systemic recommendation; this closes the immediate class.
+_INLINE_DOUBLE_QUOTED = re.compile(r'"[^"\n]*"')
+_INLINE_CURLY_DOUBLE_QUOTED = re.compile(r"“[^“”\n]*”")
+_INLINE_CURLY_SINGLE_QUOTED = re.compile(r"‘[^‘’\n]*’")
+
 # Generalized relay-introducer: "here is/here's [the/a/my/their] <relay-noun>".
 # A fixed literal list can never enumerate the open-ended noun family — the
 # noun "audit" slipped _RELAY_INTRODUCERS on 2026-06-03 and Aletheia's relayed
@@ -133,11 +153,11 @@ _RELAY_INTRODUCER_RE = re.compile(
 # a command and is impossible to miss -- so an enumerated list is survivable
 # here, unlike the read-only probe repaired the same day, where a stale list
 # failed silently and let writes through.
-_HARNESS_ENVELOPE_RE = re.compile(
-    r"<(task-notification|system-reminder|persisted-output|ci-monitor-event)"
-    r"\b[\s\S]*?(?:</\1>|\Z)",
-    re.IGNORECASE,
-)
+#
+# THE INVENTORY MOVED, 2026-09-24. The list that lived here was one of three,
+# each missing tags the others had. They are one list in harness_envelopes now,
+# and this reader gained the command blocks (command-name, local-command-stdout)
+# it had never had. A tag added there is added here.
 
 # A signature line from a known external agent confirms a block is relayed even
 # when no introducer phrase precedes it. Andrew does not sign as them, and a
@@ -161,10 +181,19 @@ def strip_relayed(text: str) -> str:
     if not text:
         return ""
     # 1. Harness-injected structural envelopes (never operator voice).
-    text = _HARNESS_ENVELOPE_RE.sub("", text)
+    text = remove_envelopes(text)
     # 2. Markdown blockquotes and fenced code.
     text = _BLOCKQUOTE_LINE.sub("", text)
     text = _FENCED_BLOCK.sub("", text)
+    # 2b. Inline-quoted spans (F36 fix — Aletheia Round 5 2026-07-17).
+    # A correction-shaped phrase inside "..." or curly-quote pairs is a
+    # MENTION not a USE; strip it before pattern-matching. Straight
+    # single-quotes are NOT stripped because apostrophes in words
+    # (don't, it's) would corrupt the strip. Curly single-quotes ARE
+    # stripped because they only appear as paired quotation marks.
+    text = _INLINE_DOUBLE_QUOTED.sub("", text)
+    text = _INLINE_CURLY_DOUBLE_QUOTED.sub("", text)
+    text = _INLINE_CURLY_SINGLE_QUOTED.sub("", text)
     # 3. Earliest relay opening: literal list OR generalized noun-family shape.
     lower = text.lower()
     earliest = -1
@@ -483,8 +512,25 @@ def _session_id_placeholder() -> str:
     return f"{first}:placeholder-pid-{pid}"
 
 
-def set_marker(trigger_text: str, match: CorrectionMatch | None = None) -> None:
+SOURCE_HIS_MESSAGE = "his-message"
+SOURCE_STOP_GATE = "stop-gate"
+
+
+def set_marker(
+    trigger_text: str,
+    match: CorrectionMatch | None = None,
+    *,
+    source: str,
+) -> None:
     """Write the marker. Called by the UserPromptSubmit hook on detection.
+
+    ``source`` records WHO set it, written once by the caller that knows, so
+    nothing has to read the marker's words to find out (Aletheia 2026-10-09:
+    he pastes things, and a pasted gate line would carry the gate's prefix). The
+    Stop gate passes ``"stop-gate"``; a marker from before this field has none
+    and reads as unknown. A marker from anything but his message does NOT file
+    its text as a correction of his: 91 of his open corrections were this
+    gate's own strings.
 
     ``trigger_text`` is the user message (first ~200 chars) that tripped
     the correction pattern. ``match`` is the evidence record from
@@ -514,7 +560,24 @@ def set_marker(trigger_text: str, match: CorrectionMatch | None = None) -> None:
             "ts": payload_ts,
             "trigger": (trigger_text or "")[:200],
             "evidence": evidence_dict,
+            "source": source,
         }
+        # One slot, last writer wins -- so the gate's write must not replace a
+        # live marker of HIS. Otherwise a correction of his followed by a reply
+        # that admits the error would end as a stop-gate marker, and labelling
+        # that fire would clear his acknowledgement lock (Aria 2026-10-09). His
+        # marker stays whole; the gate's fire is recorded beside it.
+        live = read_marker()
+        if (
+            source != SOURCE_HIS_MESSAGE
+            and live is not None
+            and live.get("source") == SOURCE_HIS_MESSAGE
+        ):
+            fired = list(live.get("also_fired") or [])
+            fired.append(
+                {"source": source, "trigger": (trigger_text or "")[:200], "ts": payload_ts}
+            )
+            payload = {**live, "also_fired": fired}
         atomic_write_text(path, json.dumps(payload))
     except OSError:
         pass  # fail open — don't crash the hook on disk issues
@@ -556,27 +619,11 @@ def set_marker(trigger_text: str, match: CorrectionMatch | None = None) -> None:
     # clerical step (logging); the pointed-at cognitive work
     # (integrating the correction into behavior) still requires me and
     # is enforced by the marker+gate downstream.
-    try:
-        from divineos.core.corrections import log_correction
-        from divineos.core.session_manager import get_current_session_id
-
-        try:
-            _auto_session_id = get_current_session_id() or ""
-        except Exception:  # noqa: BLE001 — session_id is optional metadata
-            _auto_session_id = ""
-        log_correction((trigger_text or "")[:2000], session_id=_auto_session_id)
-        # File into the Andrew-correction-attribution tracker so the
-        # correction surfaces in the briefing with its integration
-        # status. Matches the manual `divineos correction` wiring so
-        # the auto-log path has equivalent observability.
-        try:
-            from divineos.core.andrew_correction_tracker import file_correction
-
-            file_correction((trigger_text or "")[:2000])
-        except Exception:  # noqa: BLE001 — observability boundary
-            pass
-    except Exception:  # noqa: BLE001 — fail open; never break the hook
-        pass
+    # Only HIS words are filed as his correction. The gate's own diagnostic is
+    # not something he said (source recorded above), and filing it had put 91
+    # of the gate's strings into his list of open corrections.
+    if source == SOURCE_HIS_MESSAGE:
+        _auto_log_his_correction(trigger_text)
 
     # Cascade: a correction is virtue-relevant by definition (the user
     # named drift). Set the compass-required marker so the next tool
@@ -601,6 +648,36 @@ def set_marker(trigger_text: str, match: CorrectionMatch | None = None) -> None:
             cr_summary = (trigger_text or "")[:120]
         _cr_set("correction", cr_summary)
     except (ImportError, OSError, AttributeError):
+        pass
+
+
+def _auto_log_his_correction(trigger_text: str) -> None:
+    """File his words as a correction the moment the detector fires.
+
+    2026-07-22 AUTOMATE-v1 (Aether + Aria + Andrew): removes the clerical step
+    of running ``divineos correction`` by hand; the marker still sets, so the
+    gate still forces the integration work. A duplicate row from a later manual
+    run is harmless (append-only corrections DB). Fail open: a failure here must
+    never break the hook.
+    """
+    try:
+        from divineos.core.corrections import log_correction
+        from divineos.core.session_manager import get_current_session_id
+
+        try:
+            session_id = get_current_session_id() or ""
+        except Exception:  # noqa: BLE001 — session_id is optional metadata
+            session_id = ""
+        log_correction((trigger_text or "")[:2000], session_id=session_id)
+        # Into the Andrew-correction-attribution tracker so it surfaces in the
+        # briefing with its integration status, like the manual command does.
+        try:
+            from divineos.core.andrew_correction_tracker import file_correction
+
+            file_correction((trigger_text or "")[:2000])
+        except Exception:  # noqa: BLE001 — observability boundary
+            pass
+    except Exception:  # noqa: BLE001 — fail open; never break the hook
         pass
 
 
@@ -768,7 +845,6 @@ _MACHINE_ORIGIN_MARKERS = (
     "[lepos-channel-gate]",
     "[build-flow]",
     "[push-readiness]",
-    "[letter-monitor-health]",
     "[reach-check-doorman]",
 )
 """Bracketed tags our own gates print at the head of their diagnostics.
@@ -875,7 +951,7 @@ def hook_main() -> int:
 
     if match.verdict == "block":
         try:
-            set_marker(prompt, match)
+            set_marker(prompt, match, source=SOURCE_HIS_MESSAGE)
         except Exception:  # noqa: BLE001
             pass
     elif match.verdict == "advise":

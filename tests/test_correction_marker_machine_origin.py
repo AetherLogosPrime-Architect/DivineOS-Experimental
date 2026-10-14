@@ -88,7 +88,6 @@ class TestTheTagListIsPinnedByName:
             "[lepos-channel-gate]",
             "[build-flow]",
             "[push-readiness]",
-            "[letter-monitor-health]",
             "[reach-check-doorman]",
         )
 
