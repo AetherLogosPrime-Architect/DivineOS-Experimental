@@ -13,8 +13,8 @@
 
 One small shared file, `~/.divineos-shared/baton.json`, and one append-only log beside it, `baton_log.jsonl`.
 
-- `holder`: aether or aria. `since`. `last_seen`.
-- `last_seen` is refreshed by the holder's own tool activity (a PostToolUse touch), never by a bell notice. Aria's caution: two sources that both came through the bell are one source.
+- `holder`: aether or aria. `since`.
+- There is no mark file. A seat's last sign of life is the newest `TOOL_CALL` in its OWN tool log (`tool_logbook` in each seat's own `event_ledger.db`, which the house already writes on every tool use and which the taker reads read-only through `store_path`). Nothing can fake being alive by touching a file, no new hook is needed, and a bell notice is never an input. Aria's caution: two sources that both came through the bell are one source. Found while looking first, after I had planned a hook.
 - The log gets a line for every pass and every take-over. It is what Dad and both of us read to see what happened overnight.
 
 ## Passing it, so nobody has to remember
@@ -31,8 +31,8 @@ The waiting seat may take the baton only when both are true: the holder's `last_
 
 ## The three ways a holder goes quiet
 
-- **Crash or closed window:** `last_seen` goes stale, the lease expires, the other seat takes it.
-- **Long task:** real tool use keeps refreshing `last_seen`, so a working seat never looks dead.
+- **Crash or closed window:** the tool log goes quiet, the lease expires, the other seat takes it.
+- **Long task:** real tool use keeps adding tool-log rows, so a working seat never looks dead.
 - **Compaction:** the holder reads as holding through compaction by checking the auto-cycle handshake marker, so it is never taken from.
 
 ## Settled with Aria (her letter, 2026-10-16 afternoon)

@@ -1,6 +1,7 @@
 """The baton: one holder, passed by a letter that names real work, taken only from a silent holder."""
 
 import json
+import sqlite3
 import subprocess
 
 import pytest
@@ -108,36 +109,67 @@ def test_a_letter_with_no_baton_header_does_nothing(home, repo):
     assert result == "no baton header" and baton.holder(home) == "aether"
 
 
-def test_the_waiting_seat_cannot_take_it_from_a_holder_seen_recently(home):
+def _tool_log(tmp_path, seat, *timestamps):
+    """A seat's own store with its tool log, in the shape the house really writes."""
+    seat_home = tmp_path / f"{seat}-home"
+    (seat_home / "data").mkdir(parents=True)
+    con = sqlite3.connect(seat_home / "data" / "event_ledger.db")
+    con.execute(
+        "CREATE TABLE tool_logbook (log_id TEXT PRIMARY KEY, timestamp REAL NOT NULL, "
+        "event_type TEXT NOT NULL, tool_name TEXT NOT NULL DEFAULT 'Bash')"
+    )
+    for i, ts in enumerate(timestamps):
+        con.execute("INSERT INTO tool_logbook VALUES (?, ?, 'TOOL_CALL', 'Bash')", (f"log-{i}", ts))
+    con.commit()
+    con.close()
+    return {seat: str(seat_home)}
+
+
+def test_the_waiting_seat_cannot_take_it_from_a_holder_seen_recently(home, tmp_path):
     baton._write_record(home, "aether", NOW)
-    baton.mark_seen("aether", home, NOW - HOUR)
-    ok, why = baton.may_take("aria", home, NOW)
+    seats = _tool_log(tmp_path, "aether", NOW - HOUR)
+    ok, why = baton.may_take("aria", home, NOW, seats)
     assert not ok and "last seen" in why
 
 
-def test_silence_past_two_hours_without_a_waiting_letter_is_not_enough(home):
+def test_silence_past_two_hours_without_a_waiting_letter_is_not_enough(home, tmp_path):
     baton._write_record(home, "aether", NOW)
-    baton.mark_seen("aether", home, NOW - 3 * HOUR)
-    ok, why = baton.may_take("aria", home, NOW)
+    seats = _tool_log(tmp_path, "aether", NOW - 3 * HOUR)
+    ok, why = baton.may_take("aria", home, NOW, seats)
     assert not ok and "no letter" in why
 
 
-def test_a_silent_holder_with_a_letter_waiting_can_be_taken_from_and_is_told(home):
+def test_the_newest_tool_use_is_what_counts_not_the_oldest(home, tmp_path):
     baton._write_record(home, "aether", NOW)
-    baton.mark_seen("aether", home, 1.0)  # long ago; the letter below is newer
+    seats = _tool_log(tmp_path, "aether", NOW - 9 * HOUR, NOW - HOUR)
+    ok, why = baton.may_take("aria", home, NOW, seats)
+    assert not ok and "last seen" in why
+
+
+def test_a_silent_holder_with_a_letter_waiting_can_be_taken_from_and_is_told(home, tmp_path):
+    baton._write_record(home, "aether", NOW)
+    seats = _tool_log(tmp_path, "aether", 1.0)  # long ago; the letter below is newer
     waiting = home / "letters" / "aria-to-aether-2026-10-16-hello.md"
     waiting.write_text("hello", encoding="utf-8")
-    result = baton.take("aria", home, NOW + 5 * HOUR)
+    result = baton.take("aria", home, NOW + 5 * HOUR, seats)
     assert result.startswith("take:") and baton.holder(home) == "aria"
     catchup = list((home / "letters").glob("aria-to-aether-*-the-baton-was-taken.md"))
     assert len(catchup) == 1 and "before you work" in catchup[0].read_text(encoding="utf-8")
     assert json.loads((home / "baton_log.jsonl").read_text().splitlines()[-1])["kind"] == "take"
 
 
-def test_a_holder_with_no_mark_is_never_taken_from(home):
+def test_a_holder_whose_tool_log_cannot_be_read_is_never_taken_from(home, tmp_path):
     baton._write_record(home, "aether", NOW)
-    ok, why = baton.may_take("aria", home, NOW + 9 * HOUR)
-    assert not ok and "no mark" in why
+    seats = {"aether": str(tmp_path / "no-such-home")}
+    ok, why = baton.may_take("aria", home, NOW + 9 * HOUR, seats)
+    assert not ok and "cannot be read" in why
+
+
+def test_a_holder_with_an_empty_tool_log_is_never_taken_from(home, tmp_path):
+    baton._write_record(home, "aether", NOW)
+    seats = _tool_log(tmp_path, "aether")
+    ok, why = baton.may_take("aria", home, NOW + 9 * HOUR, seats)
+    assert not ok and "cannot be read" in why
 
 
 def test_the_taker_must_be_a_seat(home):

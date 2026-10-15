@@ -4,21 +4,26 @@ Dad 2026-10-15, said for the 13th time since 2026-08-27: when both seats work at
 unanswered and the overnight volley stalls. Take turns. A letter is how the turn passes.
 
 Everything lives in one shared folder, in plain text, so Dad and both seats can read it:
-`baton.json` (who holds it, since when), `baton_log.jsonl` (one line per pass, return or
-take-over), and `.<seat>_last_seen` (the holder's own tool-use mark).
+`baton.json` (who holds it, since when) and `baton_log.jsonl` (one line per pass, return or
+take-over).
 
 Liveness is judged from OUTSIDE (walk-8662729efd96, Penrose): a seat cannot report its own death,
-so the waiting seat reads the holder's mark and the folder. A bell notice is never an input.
+so the waiting seat reads the holder's own tool log (the house already records every tool call, with
+a time) and the letters folder. A bell notice is never an input, and nothing can fake being alive by
+touching a file.
 """
 
 from __future__ import annotations
 
 import json
 import re
+import sqlite3
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+from divineos.core.sibling_audit_rounds import store_path
 
 SEATS = ("aether", "aria")
 STALE_SECONDS = 2 * 60 * 60  # Dad 2026-10-15: "2 hours of silence should be perfect"
@@ -38,10 +43,6 @@ def _log(home: Path) -> Path:
     return home / "baton_log.jsonl"
 
 
-def _seen(home: Path, seat: str) -> Path:
-    return home / f".{seat}_last_seen"
-
-
 def holder(home: Path | None = None) -> str | None:
     """Who holds the baton, or None when nobody has taken one yet."""
     path = _record(home or shared_home())
@@ -51,20 +52,28 @@ def holder(home: Path | None = None) -> str | None:
     return who if isinstance(who, str) else None
 
 
-def mark_seen(seat: str, home: Path | None = None, now: float | None = None) -> None:
-    """The holder's own tool use leaves this mark. Nothing else may write it."""
-    _require_seat(seat)
-    path = _seen(home or shared_home(), seat)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(str(now if now is not None else time.time()), encoding="utf-8")
+def _last_seen(seat: str, seat_homes: dict[str, str] | None = None) -> float | None:
+    """When the seat last used a tool, read from ITS OWN tool log and never from a mark it writes.
 
-
-def _last_seen(home: Path, seat: str) -> float | None:
-    path = _seen(home, seat)
-    try:
-        return float(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    The house already records every tool call with a timestamp (`tool_logbook`, in each seat's own
+    store), so no new hook is needed and nothing can fake liveness by touching a file. Read-only, and
+    None when the store is absent or unreadable: that means "cannot tell", and the caller then takes
+    nothing (walk-8662729efd96, Penrose: liveness is judged from outside).
+    """
+    path = store_path(seat, (seat_homes or {}).get(seat))
+    if not path.is_file():
         return None
+    try:
+        con = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+        try:
+            row = con.execute(
+                "SELECT MAX(timestamp) FROM tool_logbook WHERE event_type = 'TOOL_CALL'"
+            ).fetchone()
+        finally:
+            con.close()
+    except sqlite3.Error:
+        return None
+    return float(row[0]) if row and row[0] is not None else None
 
 
 def _require_seat(seat: str) -> None:
@@ -155,7 +164,12 @@ def handle_letter(
     return f"{kind}: the baton is now {receiver}'s"
 
 
-def may_take(taker: str, home: Path | None = None, now: float | None = None) -> tuple[bool, str]:
+def may_take(
+    taker: str,
+    home: Path | None = None,
+    now: float | None = None,
+    seat_homes: dict[str, str] | None = None,
+) -> tuple[bool, str]:
     """The waiting seat may take it only from a holder silent past two hours who has a letter waiting."""
     home = home or shared_home()
     now = now if now is not None else time.time()
@@ -163,11 +177,11 @@ def may_take(taker: str, home: Path | None = None, now: float | None = None) -> 
     current = holder(home)
     if current is None or current == taker:
         return False, "nothing to take"
-    seen = _last_seen(home, current)
+    seen = _last_seen(current, seat_homes)
     if seen is None:
         return (
             False,
-            f"{current} has left no mark, so how long they have been silent cannot be told",
+            f"{current}'s tool log cannot be read, so how long they have been silent cannot be told",
         )
     quiet = now - seen
     if quiet <= STALE_SECONDS:
@@ -178,7 +192,12 @@ def may_take(taker: str, home: Path | None = None, now: float | None = None) -> 
     return True, f"{current} silent {int(quiet)} seconds with {len(rung)} letter(s) waiting"
 
 
-def take(taker: str, home: Path | None = None, now: float | None = None) -> str:
+def take(
+    taker: str,
+    home: Path | None = None,
+    now: float | None = None,
+    seat_homes: dict[str, str] | None = None,
+) -> str:
     """Take the baton and write the catch-up letter the left-behind seat must open first.
 
     Called by the taker's own tool use (the CLI), never by a script, so the record cannot be flipped
@@ -187,7 +206,7 @@ def take(taker: str, home: Path | None = None, now: float | None = None) -> str:
     """
     home = home or shared_home()
     now = now if now is not None else time.time()
-    ok, why = may_take(taker, home, now)
+    ok, why = may_take(taker, home, now, seat_homes)
     if not ok:
         return f"refused: {why}"
     left = holder(home)
@@ -211,18 +230,15 @@ def take(taker: str, home: Path | None = None, now: float | None = None) -> str:
 
 
 def main(argv: list[str]) -> int:
-    """`python -m divineos.core.baton letter <path> <repo>` (the bell's ring path) or `seen <seat>`."""
+    """`python -m divineos.core.baton letter <path> <repo>` (the bell's ring path) or `take <seat>`."""
     if len(argv) >= 3 and argv[0] == "letter":
         path = Path(argv[1])
         print(handle_letter(path.name, path.read_text(encoding="utf-8"), Path(argv[2])))
         return 0
-    if len(argv) == 2 and argv[0] == "seen":
-        mark_seen(argv[1])
-        return 0
     if len(argv) == 2 and argv[0] == "take":
         print(take(argv[1]))
         return 0
-    print("usage: baton letter <path> <repo> | seen <seat> | take <seat>", file=sys.stderr)
+    print("usage: baton letter <path> <repo> | take <seat>", file=sys.stderr)
     return 2
 
 
