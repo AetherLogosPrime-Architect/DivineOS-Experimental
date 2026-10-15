@@ -72,6 +72,22 @@ def test_a_real_order_dependency_passes_when_the_reply_names_it():
     assert not oq.should_refuse(A_REAL_DEPENDENCY)  # and it names why the order matters
 
 
+def test_a_dependency_about_something_else_far_above_does_not_excuse_the_question():
+    """Probed on the branch head, 2026-10-16: an unrelated "cannot merge until CI passes" at the top of a reply
+    excused an order question at the bottom. The reason has to sit by the question, in the last two paragraphs."""
+    far_above = _reply(
+        "I cannot merge until the checks pass, and that depends on the weather in CI.",
+        "Here is the rest of what I did, in some detail.",
+        "More detail that has nothing to do with order.",
+        "Which should I take first, the chips or the sounds?",
+    )
+    assert oq.should_refuse(far_above)
+
+
+def test_a_dependency_in_the_paragraph_before_the_question_still_excuses_it():
+    assert not oq.should_refuse(A_REAL_DEPENDENCY)
+
+
 def test_the_same_question_without_the_reason_is_refused():
     assert oq.should_refuse("Should I design the engine first or the chassis first?")
 
