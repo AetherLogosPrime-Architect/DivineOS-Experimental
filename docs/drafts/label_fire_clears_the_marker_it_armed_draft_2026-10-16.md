@@ -16,6 +16,10 @@ The label is the dissent, recorded with its reason. It answers the exact claim t
 - B matched on `source == stop-gate` alone; this also requires the trigger to equal this fire's own text, so a stop-gate marker armed by a different fire stays.
 - B refused with printed explanations for his-message and unknown-source markers; this prints "left as it was (not armed by this fire)" for every non-match. A fuller message is a follow-up.
 
+## One case it does not tell apart, said plainly (Aria's cold read)
+
+Two different fires with the same reason and the same confidence write the same trigger text, so labelling the latest one would clear a marker an earlier identical fire armed. The claim is identical in both, so I read that as harmless, but it is a limit of matching on text.
+
 ## What it does not do
 
 It adds no new power: `clear_correction_marker.py` with quoted clauses could already do this. It does not touch the 40-character reason minimum or the append-only corpus. A seat could still label real fires as misreadings; the corpus and the audit are the check, and Aletheia asked that the count of labels per seat stay visible to Dad (owed).
