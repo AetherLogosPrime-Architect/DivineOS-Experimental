@@ -351,6 +351,44 @@ def carried_lately(within: float = 24 * 3600) -> list[dict[str, Any]]:
     ]
 
 
+# He asks for one or two questions at a time or his mind overloads (his words, 2026-06-25), so the
+# letter puts two in front of him and lists the rest as able to wait.
+FIRST_ASKED = 2
+
+
+def morning_letter_section(rows: list[dict[str, Any]] | None = None) -> str:
+    """The questions part of the morning letter, drafted from what I carried: the last step from the
+    list to him, so a question carried overnight reaches him in plain words and not only a file.
+
+    Oldest first, because an older question has waited longer; the first two are asked, the rest are
+    marked as able to wait. Empty when nothing was carried. Read-only: it does not mark anything shown.
+    """
+    rows = carried_lately() if rows is None else rows
+    if not rows:
+        return ""
+
+    def when(row: dict[str, Any]) -> str:
+        return time.strftime("%H:%M", time.localtime(float(row.get("at") or 0)))
+
+    if len(rows) == 1:
+        intro = "I carried this while you were away."
+    elif len(rows) <= FIRST_ASKED:
+        intro = "I carried these while you were away."
+    else:
+        intro = (
+            f"I carried these while you were away. The first {FIRST_ASKED} are what I would "
+            "like your answer on; the rest can wait."
+        )
+    lines = ["## Questions from the night", "", intro, ""]
+    for i, row in enumerate(rows[:FIRST_ASKED], 1):
+        lines.append(f"{i}. {row['question']} (asked {when(row)})")
+    rest = rows[FIRST_ASKED:]
+    if rest:
+        lines += ["", "Can wait, no need to answer these now:"]
+        lines += [f"- {row['question']} (asked {when(row)})" for row in rest]
+    return "\n".join(lines) + "\n"
+
+
 def _carry(question: str, why: str) -> bool:
     """Write one question to the morning list. False if it could not be written, so the caller
     can fall back to the hold rather than lose it."""

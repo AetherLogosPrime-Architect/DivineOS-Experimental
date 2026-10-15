@@ -21,10 +21,18 @@ def register(cli: click.Group) -> None:
             )
 
     @question_hold_group.command("morning")
-    def morning_cmd() -> None:
+    @click.option(
+        "--letter",
+        is_flag=True,
+        help="Print the questions section of the morning letter, drafted from the list.",
+    )
+    def morning_cmd(letter: bool) -> None:
         """What I asked him while he was away, for the morning letter (read-only, last day)."""
-        from divineos.core.question_hold import carried_lately
+        from divineos.core.question_hold import carried_lately, morning_letter_section
 
+        if letter:
+            click.echo(morning_letter_section() or "nothing was carried for him in the last day")
+            return
         rows = carried_lately()
         if not rows:
             click.echo("nothing was carried for him in the last day")

@@ -233,3 +233,43 @@ def test_the_morning_command_lists_what_was_carried(qh, tmp_path, monkeypatch):
     assert "should the night window start at ten?" in result.output
     empty = CliRunner().invoke(group, ["question-hold", "morning"])  # read-only: not consumed
     assert "should the night window start at ten?" in empty.output
+
+
+def _rows(*questions):
+    return [{"question": q, "at": 1_700_000_000.0 + i} for i, q in enumerate(questions)]
+
+
+def test_letter_section_is_empty_when_nothing_was_carried(qh):
+    assert qh.morning_letter_section([]) == ""
+
+
+def test_letter_section_with_one_question_asks_it(qh):
+    out = qh.morning_letter_section(_rows("which colour for the felt?"))
+    assert "## Questions from the night" in out
+    assert "I carried this while you were away." in out
+    assert "1. which colour for the felt?" in out
+    assert "Can wait" not in out
+
+
+def test_letter_section_with_three_asks_two_and_lets_the_rest_wait(qh):
+    out = qh.morning_letter_section(_rows("first?", "second?", "third?"))
+    assert "1. first?" in out and "2. second?" in out
+    assert "3. third?" not in out
+    assert "Can wait, no need to answer these now:" in out
+    assert "- third?" in out
+    assert out.index("1. first?") < out.index("2. second?") < out.index("- third?")
+
+
+def test_letter_section_with_two_asks_both_and_no_waiting_part(qh):
+    out = qh.morning_letter_section(_rows("first?", "second?"))
+    assert "1. first?" in out and "2. second?" in out
+    assert "Can wait" not in out
+
+
+def test_letter_section_reads_the_real_list_and_changes_nothing(qh):
+    qh.MORNING.write_text(
+        json.dumps({"kind": "carried", "question": "real one?", "at": time.time()}) + "\n"
+    )
+    before = qh.MORNING.read_text()
+    assert "real one?" in qh.morning_letter_section()
+    assert qh.MORNING.read_text() == before
