@@ -482,25 +482,37 @@ def _ampersand_is_part_of_a_redirect(text: str, index: int, current: list[str]) 
     """True when the ampersand at ``index`` belongs to a redirect, not to a separator.
 
     ``2>&1``, ``>&2`` and ``1>&2`` duplicate a file descriptor: the ampersand sits right
-    after an arrow and a digit (or ``-``) follows. Read as a separator it cut the
-    command in two and left a stray word (``1``), and a gate that judges each segment
-    then saw an unknown second command behind a prescribed remedy and refused the
-    remedy (2026-10-16: an exit typed with ``2>&1`` on the end was refused for hours,
-    while the same line with ``| tail`` passed).
+    after an arrow and the WHOLE next word is ASCII digits or a single ``-``. Read as a
+    separator it cut the command in two and left a stray word (``1``), and a gate that
+    judges each segment then saw an unknown second command behind a prescribed remedy
+    and refused the remedy (2026-10-16: an exit typed with ``2>&1`` on the end was
+    refused for hours, while the same line with ``| tail`` passed).
 
-    NARROWER THAN FIRST BUILT, and the reason is the point. The first version also
-    kept ``&>file`` and ``>& file`` whole. Those WRITE a file, and keeping them inside
-    the segment hides the write behind an inert head such as ``echo``, so a line that
-    used to be refused would pass as a remedy. Found by probing main against the
-    change after the first confirm. They keep splitting exactly as before.
+    NARROWER THAN FIRST BUILT, TWICE, and the reasons are the point. The first version
+    also kept ``&>file`` and ``>& file`` whole; those WRITE a file, and kept whole they
+    hide the write behind an inert head such as ``echo`` (found by probing main against
+    the change after the first confirm). The second looked only at the first character
+    after the ampersand, so ``>&2file`` (a file NAMED ``2file``) and ``>&²`` passed as
+    descriptor duplications; bash treats ``>&word`` as a duplication only when the whole
+    word is digits or ``-`` (Aria's cold read, 2026-10-16). Now the word must be ASCII
+    digits, or ``-``, and then end the text or meet a character that cannot continue
+    a word. Anything else keeps splitting exactly as on main.
 
     A doubled ``&&`` is never a redirect, and a trailing ``&`` after anything else
-    (``cmd 2>&1 & other``) still separates. Not covered, left visibly: a redirect to a
-    file after a duplication (``echo y 2>&1 > f``) keeps behaving like ``echo y > f``,
-    which this module already accepted.
+    (``cmd 2>&1 & other``) still separates. Left visibly: a redirect to a file after a
+    duplication (``echo y 2>&1 > f``, ``echo y >&2 > f``) behaves like ``echo y > f``,
+    which this module already accepted; ``echo y >&2 > f`` changes from refused to
+    passed, which is the same class and is said plainly in the design note.
     """
-    following = text[index + 1] if index + 1 < len(text) else ""
-    return bool(current) and current[-1] in "<>" and (following.isdigit() or following == "-")
+    if not current or current[-1] not in "<>":
+        return False
+    return _DESCRIPTOR_TARGET.match(text, index + 1) is not None
+
+
+# The whole word after a duplication ampersand: ASCII digits or a lone dash, ending the
+# text or meeting a character that cannot continue a word. ``[0-9]``, never ``\d`` or
+# ``str.isdigit``, because both accept superscript digits that are not descriptors.
+_DESCRIPTOR_TARGET = re.compile(r"(?:[0-9]+|-)(?=$|[\s;|&)])")
 
 
 def split_shell_segments(bash_command: str) -> list[str] | None:

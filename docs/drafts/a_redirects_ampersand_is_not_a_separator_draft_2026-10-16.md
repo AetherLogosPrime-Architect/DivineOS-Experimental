@@ -14,9 +14,13 @@ An ampersand right after `<` or `>` with a digit or `-` after it (`2>&1`, `>&2`,
 
 The first version also kept `&>file` and `>& file` whole. They WRITE a file, and kept whole they hide the write behind an inert head like `echo`: `divineos learn x && echo y &> f` would have passed as a clean remedy where main refuses it. I found that by probing main against the change after Aletheia's first confirm, not before. The code is now narrower (descriptor duplication only), the tests pin that file-writing forms keep splitting exactly as on main, and the head moved, so her confirm at the first head needs renewing.
 
+## And a second narrowing, from Aria's cold read
+
+The second version looked only at the first character after the ampersand, so `>&2file` (a file NAMED `2file`), `2>&1file` and `>&²` (a superscript two, which `str.isdigit` accepts) passed as descriptor duplications. Bash treats `>&word` as a duplication only when the WHOLE word is digits or `-`. The rule now requires ASCII digits, or a lone `-`, and then the end of the text or a character that cannot continue a word (whitespace, `;`, `|`, `&`, `)`). Her three inputs are tests; replacing the rule with the old one fails the first. Credit and the reproduction are hers.
+
 ## Still open, said plainly
 
-`echo y 2>&1 > f` now behaves like `echo y > f`, which this module already accepted (a redirect to a file behind an inert head is not seen as a write). That is an older gap, not made by this change, and it is worth its own look.
+`echo y 2>&1 > f` and `echo y >&2 > f` now behave like `echo y > f`, which this module already accepted (a redirect to a file behind an inert head is not seen as a write). They are lines that change from refused to passed, and they join a class main already accepts; that is an older gap, not made by this change, and it is worth its own look.
 
 ## Evidence
 

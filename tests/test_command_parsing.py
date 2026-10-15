@@ -304,6 +304,28 @@ class TestAnAmpersandInARedirectIsNotASeparator:
         ):
             assert split_shell_segments(command) == [command], command
 
+    def test_a_digit_that_starts_a_filename_is_not_a_descriptor(self):
+        """Aria's cold read: `>&word` duplicates a descriptor only when the WHOLE word is
+        digits or a dash. `>&2file` writes a file named 2file; `>&²` carries a superscript
+        digit, which `str.isdigit` accepts and bash does not treat as a descriptor. All three
+        keep splitting as on main, so the file write is not hidden behind an inert head."""
+        for command, left_over in (
+            ("divineos learn x && echo y >&2file", "2file"),
+            ("divineos learn x && echo y 2>&1file", "1file"),
+            ("divineos learn x && echo y >&²", "²"),
+        ):
+            assert acting_segments(command) == ["divineos learn x", left_over], command
+
+    def test_a_descriptor_followed_by_a_word_ending_character_still_stays_whole(self):
+        for command in (
+            "divineos ask foo 2>&1 | tail -3",
+            "divineos ask foo 2>&1; echo done",
+            "(divineos ask foo 2>&1)",
+            "divineos ask foo >&-",
+        ):
+            first = split_shell_segments(command)[0]
+            assert first.endswith(("2>&1", "2>&1)", ">&-")), command
+
     def test_a_redirect_that_writes_a_file_keeps_splitting_as_before(self):
         """`&>file` and `>& file` WRITE a file. Kept whole they would hide the write behind
         an inert head, so a line the gates refuse today would pass as a remedy. Found by
