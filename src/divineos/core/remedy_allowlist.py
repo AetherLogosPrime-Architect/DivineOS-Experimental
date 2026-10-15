@@ -63,6 +63,7 @@ gate are here.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 #: Command prefixes, as token tuples, that some gate names as its way out.
@@ -86,12 +87,39 @@ REMEDIES: tuple[tuple[str, ...], ...] = (
     # one is ordinary substrate writing and nobody's prescribed exit.
     ("divineos", "prereg", "assess"),
     ("divineos", "prereg", "overdue"),
+    # The overdue block's own third exit: it prints `prereg reviewing` as the way
+    # to go get evidence, and the build-flow gate then asked for council paperwork
+    # that the overdue block itself refused to let be filed. `game-walk file` is
+    # the other half of that paperwork. Neither edits a file.
+    ("divineos", "prereg", "reviewing"),
+    ("divineos", "game-walk", "file"),
     ("divineos", "ask"),
     ("divineos", "recall"),
     ("divineos", "context"),
     ("divineos", "decide"),
-    ("divineos", "council"),
+    # council is a GROUP: a bare ("divineos", "council") prefix also matched
+    # `authorize-bypass` and `emergency-skip`, so the fire door was a routine
+    # remedy every gate asking this list let through (Aether found it 2026-10-11
+    # and the matrix test in test_every_exit_passes_every_gate.py measures it). The
+    # emergency exits stay reachable by their own route; these are the walk's own.
+    ("divineos", "council", "log"),
+    ("divineos", "council", "walk"),
+    ("divineos", "council", "show"),
+    ("divineos", "council", "recent"),
+    ("divineos", "council", "check"),
+    # The merge path prescribes these, and filing a review round otherwise owed a
+    # fresh council walk per command. They record and edit nothing. `submit` and
+    # `file-external-confirm` carry a condition, below: a line in Dad's voice is not
+    # a remedy.
+    ("divineos", "audit", "submit-round"),
+    ("divineos", "audit", "prepare-merge"),
+    ("divineos", "audit", "submit"),
+    ("divineos", "audit", "file-external-confirm"),
     ("divineos", "psf", "mark-done"),
+    # The sort-first refusal's way out (core/sort_first.py): reading what Dad
+    # said and sorting it. The sort records a judgement; it edits nothing.
+    ("divineos", "his", "pending"),
+    ("divineos", "his", "sort"),
 )
 
 #: Verbs that must never appear here, asserted by a test rather than trusted to
@@ -101,22 +129,85 @@ FORBIDDEN_HEADS: frozenset[str] = frozenset(
     {"git", "gh", "pytest", "rm", "mv", "cp", "python", "bash", "sh", "npm", "pip"}
 )
 
+#: The actors a filing may name and still be a remedy, as a CLOSED list of
+#: literals. The first version blocked `--actor user` and let everything else
+#: through, so a spelling it missed (a capital, a variable, split quotes, no actor
+#: at all) filed in Dad's voice with no pause (Aether's hold, 2026-10-11). Now a
+#: miss fails toward the pause: anything not literally named here is not a remedy.
+#: A real new actor is added here by name, which is the only place to do it.
+_NAMED_ACTORS = frozenset({"aletheia", "aria", "aether", "grok", "gemini"})
+_CLAUDE_ACTOR = re.compile(r"claude-[a-z0-9.-]+")
+#: The commands that put words in somebody's voice. Matched as TOKENS, from the
+#: same parsed chain the remedy match reads, never as text: a regex over the raw
+#: line missed `audit "submit"` while the parser saw `submit` (Aether's second
+#: hold on this branch, 2026-10-11), two readers of one line.
+#: `submit-round` is here because a round names the real reviewer and a user-named
+#: round is what a later user confirm leans on (Aether, 2026-10-11). The list is still
+#: commands I have met, not the kind: "records who spoke" is the rule, owed as a test
+#: over every command with a required --actor option.
+_VOICED_FILINGS = (
+    ("divineos", "audit", "submit"),
+    ("divineos", "audit", "file-external-confirm"),
+    ("divineos", "audit", "submit-round"),
+)
+#: An output option (--output, --out, -o...) on the DIVINEOS command itself: it
+#: writes a file wherever it is pointed. Looked for only AFTER the program name,
+#: so a `set -o pipefail` setup link is not mistaken for it. Fails toward
+#: not-a-remedy.
+_WRITES_WHERE_TOLD = re.compile(
+    r"divineos\b[^;&|\n]*?[ \t](?:--out(?:put)?(?:[ \t=]|$)|-o(?:[ \t=]|\S|$))"
+)
+
 _LOG = Path.home() / ".divineos" / "remedy_passthrough.log"
 
 
-def _tokens(command: str) -> list[str]:
-    """The command as tokens, with wrappers and assignments already stripped."""
-    try:
-        from divineos.core.command_parsing import stripped_command
+def _no_voiced_filing_lacks_a_closed_actor(command: str) -> bool:
+    """False when some link is a filing in somebody's voice that does not name exactly
+    one actor from the closed list; True otherwise, including for a line with no such
+    link. Reads the SAME parsed chain links ``runs_only`` reads, so the question "is
+    this a filing" and the question "is this on the exit list" cannot disagree about
+    what the line says. An unreadable line returns True here because ``runs_only``
+    refuses it anyway."""
+    from divineos.core.command_parsing import _chain_links
 
-        cleaned = stripped_command(command)
-    except Exception:  # noqa: BLE001 — fail toward not-a-remedy, never toward a block
-        cleaned = command
-    return cleaned.split()
+    for link in _chain_links(command) or []:
+        if tuple(link[:3]) not in _VOICED_FILINGS:
+            continue
+        named: list[str] = []
+        for index, token in enumerate(link[3:], start=3):
+            if token == "--actor":
+                named.append(link[index + 1] if index + 1 < len(link) else "")
+            elif token.startswith("--actor="):
+                named.append(token[len("--actor=") :])
+        if len(named) != 1 or not (named[0] in _NAMED_ACTORS or _CLAUDE_ACTOR.fullmatch(named[0])):
+            return False
+    return True
+
+
+def outside_quotes(command: str) -> str:
+    """The command with quoted arguments blanked, or the text whole when that
+    cannot be done safely. A word inside a quoted lesson is data, not an option
+    and not a second goal (Aether, 2026-10-11); ``blank_quoted_spans`` already
+    refuses the shapes where blanking would hide a real write, and returns None,
+    which here means scan the text as it stands."""
+    try:
+        from divineos.core.command_parsing import blank_quoted_spans
+
+        blanked = blank_quoted_spans(command)
+    except Exception:  # noqa: BLE001 — not parseable: look at the text whole
+        blanked = None
+    return command if blanked is None else blanked
 
 
 def is_remedy(command: str) -> bool:
-    """True when this command is some gate's prescribed exit.
+    """True when this command is some gate's prescribed exit, and nothing else.
+
+    A remedy with other work chained behind it is not a remedy. Until
+    2026-09-24 this matched the FRONT of a command, so `divineos decide "x" &&
+    git commit` walked past every refusal on the router with the commit riding
+    on the recording command -- found by the adversarial pass on the sort-first
+    refusal. Setup links (a worktree cd, an assignment, `set -o pipefail`) still
+    pass; see ``command_parsing.runs_only``.
 
     Fails toward FALSE on any parsing trouble. That direction matters: a false
     negative leaves the calling gate exactly as it behaves today, while a false
@@ -124,10 +215,29 @@ def is_remedy(command: str) -> bool:
     """
     if not command or not command.strip():
         return False
-    tokens = _tokens(command)
-    if not tokens:
+    # A finding filed with --actor user is DAD's confirm, and the pause before
+    # words are put in his voice is one of the few worth keeping (Aether
+    # 2026-10-11). So an audit filing is a remedy only when it carries exactly ONE
+    # --actor and it is a literal from the closed list. Anything else (a capital, a
+    # variable, split quotes, no actor, or a second --actor that would win) is NOT
+    # a remedy, so a spelling this misses FAILS TOWARD THE PAUSE. Decided from the
+    # parsed chain links, the same ones the match below reads: a text pattern here
+    # saw `audit "submit"` as nothing while the parser saw a filing.
+    if not _no_voiced_filing_lacks_a_closed_actor(command):
         return False
-    return any(tuple(tokens[: len(prefix)]) == prefix for prefix in REMEDIES)
+    # A remedy that writes where it is told is not a remedy: `briefing --output
+    # x.md` is a file write wearing a recording command's name (Aletheia attacked
+    # this shape on 619; the shared list took any arguments, so asking it first
+    # brought the hole back, found by that PR's own closed-shape test). Looked for
+    # OUTSIDE quoted spans: a lesson that mentions `-o` is data (Aether).
+    if _WRITES_WHERE_TOLD.search(outside_quotes(command)):
+        return False
+    try:
+        from divineos.core.command_parsing import runs_only
+
+        return runs_only(command, REMEDIES)
+    except Exception:  # noqa: BLE001 — fail toward not-a-remedy, never toward a block
+        return False
 
 
 def note_pass_through(caller: str, command: str) -> None:

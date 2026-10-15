@@ -60,6 +60,11 @@ _HOOKS_DIR = _PROJECT_ROOT / ".claude" / "hooks"
 _NON_GATING_HOOKS: frozenset[str] = frozenset(
     {
         "_lib.sh",
+        # The front door keeps and settles Andrew's messages and never refuses:
+        # every path exits zero, and a failure is recorded as could-not-file.
+        # Refusing is a later, separate piece (the sort-first refusal), which
+        # will be its own hook under this rule, not this one.
+        "front-door.sh",
         # Captures a letter written into the shared channel onto the substrate
         # branch at write-time. PostToolUse and exits zero on every path: it
         # reports a failed capture, it never refuses the write.
@@ -91,6 +96,10 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         # Andrew corrected the filter shape into this one himself, so a test
         # treating it as a possible gate would be auditing the wrong thing.
         "he-is-in-the-room.sh",
+        # Carries the memory link's block to the table and nothing else: every
+        # path exits zero, and its error paths print to stderr. Split out of
+        # the doorbell bundle 2026-10-04 so a slow bundle cannot drop it.
+        "memory-link-surface.sh",
         # Writes a goal boundary at SessionStart and steps aside: every path
         # exits zero, because a hook that refuses SessionStart refuses the
         # briefing with it. The refusing it causes happens later, in the goal
@@ -212,6 +221,13 @@ _DENIAL_PATTERN = re.compile(
 # this shape has cost a red check -- the first was a hook whose refusal lived
 # in the same place. Both spellings now, because the language a refusal is
 # written in is not a fact about whether it refuses.
+#
+# THE OTHER LIVE INSTANCE, found the same day from the other side: a hook whose
+# refusal is raised inside a python block -- sys.exit(2), passed out through
+# the shell's own exit -- read as neither gating nor non-gating, which is
+# could-not-tell reported as a finding. inner-circle-stop.sh is that one, and
+# it is the one gate in this house that exists for Andrew rather than for my
+# own discipline, so the one refusal I could not see was his.
 _EXIT_CODE_DENIAL = re.compile(
     r"^\s*exit\s+2\b|sys\.exit\(\s*2\s*\)",
     re.MULTILINE,
@@ -220,7 +236,17 @@ _EXIT_CODE_DENIAL = re.compile(
 # Recovery-token lexicon. Presence of any one of these in the hook's
 # source indicates the deny path names SOME way out. This is the WEAK
 # property — we accept anything that looks like a path forward.
+#
+# A WAY OUT IS NOT ALWAYS A COMMAND, learned 2026-09-21. Every token below
+# was, until this line: run this, set that, arm the other. So a gate whose
+# remedy is a BEHAVIOUR rather than an executable read as naming no exit at
+# all. inner-circle-stop.sh ends its refusal with "RETRY SCOPE: do NOT
+# recompose. APPEND the room only" -- which is a complete and actionable way
+# forward, and there is nothing to type. The lexicon was measuring whether a
+# remedy could be pasted into a shell, not whether the reader was told what
+# to do.
 _RECOVERY_TOKENS: tuple[str, ...] = (
+    "RETRY SCOPE",
     "Run:",
     "Re-arm",
     "re-arm",
@@ -405,7 +431,6 @@ _UNCLASSIFIED_BASELINE: frozenset[str] = frozenset(
         "interior-cue-on-low-presence.sh",
         "lepos-channel-reflect.sh",
         "lepos-channel-surface.sh",
-        "letter-monitor-health-surface.sh",
         "load-aletheia-harvest-of-andrew.sh",
         "load-character-sheet.sh",
         "load-dad-ranking-clause.sh",
@@ -437,6 +462,7 @@ _UNCLASSIFIED_BASELINE: frozenset[str] = frozenset(
         "self-demotion-prime.sh",
         "self-demotion-stop.sh",
         "session-init-once.sh",
+        "session-start-behind-main.sh",
         "session-start-verify-git-hooks.sh",
         "shoggoth-gate.sh",
         "sibling-correction-surface.sh",

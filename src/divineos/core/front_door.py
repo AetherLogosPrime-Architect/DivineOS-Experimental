@@ -1,0 +1,390 @@
+"""The front door: every message he types is kept before anything else happens.
+
+Andrew, 2026-09-24: the inspector stood at the workshop door and woke on our
+hands touching a file; nothing stood where he speaks. This is what stands there.
+The record it writes is ``his_asks`` (one store, both seats). This module only
+does the two things a door does: keep what came in, and find out whether it was
+him.
+
+Two steps, because the platform forces them (measured 2026-09-24, see the design
+doc): when he hits enter the hook gets ``prompt_id`` and the words, but his
+record is not in the transcript yet. So the door keeps a CANDIDATE under an id
+minted from the prompt id, the words and the arrival time -- never the prompt id
+alone, which one evening of his messages can share. Later, ``settle`` finds the
+record that holds those words and hands the harness's own stamp to
+``his_asks.confirm``. Nothing here decides who spoke by reading the words.
+
+His record lives in one of two places, and the door looks in both:
+
+- a message that starts a turn is a ``user`` record with ``origin`` and
+  ``promptId`` at the top level;
+- a message he sends while we are mid-turn is an ``attachment`` record of type
+  ``queued_command``, with his words in ``attachment.prompt`` and the stamp in
+  ``attachment.origin``. It has no prompt id and never gets a normal record.
+  Every reader that walked only the first shape had never heard those.
+
+A failure to keep his message never costs him his reply. It is recorded as
+could-not-file, loudly, and the prompt goes through.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from dataclasses import dataclass, replace
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+from divineos.core import his_asks
+from divineos.core.harness_envelopes import nothing_of_his, strip_envelopes
+from divineos.core.his_message import arrival, may_carry_arrival
+
+# The record is written the moment he sends, so by the first tool call or the
+# end of the turn it sits near the end of the transcript. Reading only the tail
+# keeps this cheap on every tool call; a candidate whose record is not in the
+# tail stays a candidate, and an unsettled candidate is counted as could-not-file.
+_TAIL_BYTES = 4 * 1024 * 1024
+
+# A message that starts a turn is written after the door keeps it, on the same
+# clock; the slack covers the two timestamps being taken a moment apart.
+_CLOCK_SLACK = timedelta(seconds=2)
+
+# A message sent mid-turn is the other way round. Its queue slip is written the
+# moment he sends it, and the door only sees it when the running step finishes
+# and hands it over -- measured 2026-09-24 at thirteen seconds for one of his,
+# and a long step (a full test run) can hold it for minutes. So a slip may be
+# older than its keeping, up to this long. Anything older is some other day's
+# words, and the store's own record of which slips are already his keeps a new
+# "proceed" off an old one inside the window.
+_SLIP_WAIT = timedelta(minutes=30)
+
+# How long after keeping a message the door keeps looking for its record. His
+# record is written within moments of the keeping, or within _SLIP_WAIT for a
+# slip, and settle runs before every step and at every Stop, so a candidate
+# still unmatched past this never will be. Without the bound, one such candidate
+# made every tool call read further back through the transcript: measured
+# 2026-09-24 on a 388 MB transcript, about a second per day of age.
+# Past it the door gives the candidate up (his_asks.give_up): it becomes
+# UNMATCHED, is counted as a could-not-file, and pending() still shows it in his
+# words, so the refusal reads it before any work. Stopping the search must never
+# stop the reading (Aria, station four).
+_SETTLE_HORIZON = 2 * _SLIP_WAIT
+
+_GIVE_UP_REASON = (
+    "the door looked for his record for {horizon} after keeping these words and never found it"
+)
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+
+
+def _loud(message: str) -> None:
+    print(f"[front-door] {message}", file=sys.stderr)
+
+
+def keep(payload: dict, seat: str) -> str | None:
+    """Keep what arrived at the door. Returns the candidate id, or None.
+
+    Called from UserPromptSubmit with the harness payload. Never raises: the
+    prompt goes through whatever happens here. A missing prompt id does not
+    stop the keeping -- the prompt id is only a hint for finding his record.
+    """
+    prompt_id = str(payload.get("prompt_id") or "")
+    text = str(payload.get("prompt") or "")
+    if not text.strip():
+        return None
+    arrived = _now_iso()
+    try:
+        candidate_id = his_asks.mint_candidate_id(prompt_id, text, arrived)
+        his_asks.file_candidate(candidate_id, prompt_id, text, arrived, seat)
+        return candidate_id
+    except Exception as exc:  # noqa: BLE001 -- his reply must not depend on this write
+        _record_failure(prompt_id or "(no prompt id)", exc, seat)
+        return None
+
+
+def _record_failure(ref: str, exc: BaseException, seat: str) -> None:
+    error = f"{type(exc).__name__}: {exc}"
+    try:
+        his_asks.could_not_file(ref, error, seat)
+    except Exception as second:  # noqa: BLE001 -- the last resort is saying so out loud
+        _loud(f"could not keep his message ({error}) and could not record that ({second!r})")
+        return
+    _loud(f"could not keep his message: {error}")
+
+
+def _text_of(content: object) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(
+            str(b.get("text", ""))
+            for b in content
+            if isinstance(b, dict) and b.get("type") == "text"
+        )
+    return ""
+
+
+def _when(stamp: str) -> datetime | None:
+    try:
+        moment = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return None
+    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+
+
+@dataclass(frozen=True)
+class _Record:
+    """One place in the transcript where something arrived in his seat."""
+
+    uuid: str
+    at: datetime
+    prompt_id: str | None  # None for a queue slip, which carries none
+    stamp: str | None  # the harness's origin.kind; None when it gave none
+    text: str
+    # Every text of ours since the previous thing that arrived in his seat, in
+    # the transcript's own order (Lamport), tool calls and results skipped
+    # (Polya). Widened from the last block 2026-09-24 (Aria): that night his
+    # love was returned mid-reply and a work line came last, so the last block
+    # alone would have kept the work and hidden what he was answering. None
+    # when nothing of ours was said, or when the read began mid-stretch and the
+    # stretch cannot be known whole: not captured, which is not "said nothing".
+    sent_before: str | None = None
+
+
+def _as_record(rec: dict) -> _Record | None:
+    # Reading the record is his_message's job (council-9fa9d73246f0); this
+    # only parses the time and adds what the front door tracks on top.
+    got = arrival(rec)
+    if got is None:
+        return None
+    at = _when(got.when)
+    if at is None:
+        return None
+    return _Record(got.uuid, at, got.prompt_id, got.kind, got.text)
+
+
+def _records(transcript_path: Path, back_to: datetime) -> list[_Record]:
+    """Both shapes his record can take, oldest first, reading back to ``back_to``.
+
+    Starts with the tail and widens until the oldest record read is older than
+    ``back_to`` or the whole file is read. A fixed tail was the first design and
+    dogfooding broke it: a long step's output pushed a slip just past the edge,
+    and the message would have sat unsettled with its record in plain view.
+    """
+    try:
+        size = transcript_path.stat().st_size
+    except OSError:
+        return []
+    window = _TAIL_BYTES
+    while True:
+        found = _parse_tail(transcript_path, size, window)
+        whole = window >= size
+        if whole or (found and found[0].at <= back_to):
+            return found
+        window *= 4
+
+
+def _parse_tail(transcript_path: Path, size: int, window: int) -> list[_Record]:
+    try:
+        with open(transcript_path, "rb") as fh:
+            if size > window:
+                fh.seek(size - window)
+                fh.readline()  # the seek lands mid-line
+            raw = fh.read()
+    except OSError:
+        return []
+    found = []
+    ours: list[str] = []
+    # Reading from the file's start, the first stretch is whole; reading from a
+    # seek, it is known whole only once something in his seat bounds it.
+    bounded = size <= window
+    for line in raw.decode("utf-8", errors="replace").splitlines():
+        spoke = '"assistant"' in line and '"text"' in line
+        if not spoke and not may_carry_arrival(line):
+            continue
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(rec, dict):
+            continue
+        if spoke and rec.get("type") == "assistant" and not rec.get("isSidechain"):
+            said = _text_of((rec.get("message") or {}).get("content"))
+            if said.strip():
+                ours.append(said)
+            continue
+        if (record := _as_record(rec)) is not None:
+            before = "\n\n".join(ours) if bounded and ours else None
+            found.append(replace(record, sent_before=before))
+            ours, bounded = [], True
+    return found
+
+
+def _fits(candidate: his_asks.Candidate, record: _Record) -> bool:
+    kept_at = _when(candidate.said_at)
+    if kept_at is None:
+        return False
+    if record.prompt_id and candidate.prompt_id and record.prompt_id != candidate.prompt_id:
+        return False
+    # Identity beats the clock. A record carrying the same prompt id as the
+    # keeping is the same turn, whichever was written first: measured 2026-10-03,
+    # all 14 of his records that morning were written 2.5 to 10 seconds BEFORE
+    # the keep, and the two-second slack sent every one to the sort an hour late.
+    # The id alone is not the message (one id has held ten of his), so the words
+    # still have to match and the window is still bounded, at the slip wait.
+    same_turn = record.prompt_id is not None and record.prompt_id == candidate.prompt_id
+    earliest = kept_at - (_SLIP_WAIT if record.prompt_id is None or same_turn else _CLOCK_SLACK)
+    if record.at < earliest:
+        return False
+    # Equal, not contained. Containment let a bare "ok" settle onto "ok but
+    # wait, not yet" under the same id (Aether, reading 9e518b6b3). The record
+    # may carry harness envelopes beside his words, so both sides are compared
+    # with those set aside.
+    kept_words = strip_envelopes(candidate.his_text)
+    if kept_words == strip_envelopes(record.text):
+        return True
+    if not kept_words and nothing_of_his(candidate.his_text):
+        # Nothing of his was kept, only a machine wrapper (a helper's hand-back), so
+        # there are no words to compare, and the record carries the harness's own
+        # sentence beside the wrapper, so equal-words cannot match it. It fits a record
+        # of the same turn that is NOT stamped human, and settles there as the machine
+        # arrival it is. A record stamped human never fits it: one prompt id has held
+        # ten of his messages, and a machine message must not eat one of them.
+        # Measured 2026-10-09: all 38 hand-backs in 30 days across 257 transcripts are
+        # `peer`. A hand-back stamped human would stay unmatched, visibly: a named limit.
+        return same_turn and record.stamp != "human"
+    return False
+
+
+def _pair_in_order(candidates: list, records: list[_Record]) -> dict[int, _Record]:
+    """Pair messages that share their words with records, in the order he sent them.
+
+    ``candidates`` are oldest keep first and ``records`` oldest first. Among the
+    pairings that keep that order and use each record once, the one with the smallest
+    total gap between keep and record wins; a message no record fits is left out.
+
+    Why not "each takes the record nearest its keep" (the first version, and the
+    one-line variants of it): two identical quick replies, kept five seconds apart
+    with each record written eight seconds before its keep, came out SWAPPED, each
+    filed against what we had said before the other (Aether, 2026-10-08). Nearest-
+    before-the-keep still swaps them; newest-first fixes that and breaks the slips
+    written just after each keep. Only keeping the order is right in all of these,
+    and the smallest total gap still gives a lone message its nearest record, so the
+    older identical record the door never kept does not take his new "yes" (Aletheia,
+    PR 584).
+
+    ``best[i][j]`` is the least cost of placing the first ``i`` messages on the first
+    ``j`` records, each message on a later record than the one before it. A cost is
+    (messages left waiting, total gap) compared in that order, so a message is left
+    waiting only when no record fits it, never to shave a gap, however large the gap.
+    """
+    n, m = len(candidates), len(records)
+    gap = [[float("inf")] * m for _ in range(n)]
+    for i, c in enumerate(candidates):
+        kept = _when(c.said_at)
+        if kept is None:
+            continue
+        for j, r in enumerate(records):
+            if _fits(c, r):
+                gap[i][j] = abs((r.at - kept).total_seconds())
+    best = [[(0, 0.0)] * (m + 1)] + [[(i, 0.0)] + [(0, 0.0)] * m for i in range(1, n + 1)]
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            waiting, total = best[i - 1][j]
+            options = [best[i][j - 1], (waiting + 1, total)]
+            if gap[i - 1][j - 1] != float("inf"):
+                waiting, total = best[i - 1][j - 1]
+                options.append((waiting, total + gap[i - 1][j - 1]))
+            best[i][j] = min(options)
+    paired: dict[int, _Record] = {}
+    i, j = n, m
+    while i > 0 and j > 0:
+        waiting, total = best[i - 1][j]
+        if best[i][j] == best[i][j - 1]:
+            j -= 1
+        elif best[i][j] == (waiting + 1, total):
+            i -= 1
+        else:
+            paired[i - 1] = records[j - 1]
+            i, j = i - 1, j - 1
+    return paired
+
+
+def settle(transcript_path: str | Path, seat: str) -> dict[str, str] | None:
+    """Confirm or withdraw every candidate whose record is now in the transcript.
+
+    Returns ``{candidate_id: state}`` for the ones settled this call, or None
+    when the store could not be read. Candidates are taken oldest first and each
+    record goes to at most one of them, so two identical short messages ("yes",
+    "proceed") land on two records in the order he sent them. A record with no
+    stamp is never settled: that candidate stays visible as unsettled rather than
+    guessed at. Candidates from the other seat are never in this transcript and
+    are left for that seat.
+    """
+    unsettled = his_asks.unsettled()
+    if unsettled is None:
+        _loud("his record could not be read, so nothing was settled")
+        return None
+    # The same clock the keeping reads, so the two can never disagree about now.
+    now = _when(_now_iso()) or datetime.now(timezone.utc)
+    horizon = now - _SETTLE_HORIZON
+    settled: dict[str, str] = {}
+    candidates = []
+    for c in unsettled:
+        if c.seat != seat:
+            continue
+        kept = _when(c.said_at)
+        if kept is not None and kept < horizon:
+            try:
+                settled[c.candidate_id] = his_asks.give_up(
+                    c.candidate_id, _GIVE_UP_REASON.format(horizon=_SETTLE_HORIZON)
+                )
+            except Exception as exc:  # noqa: BLE001 -- one bad candidate must not stop the rest
+                _record_failure(c.candidate_id, exc, seat)
+        else:
+            candidates.append(c)
+    if not candidates:
+        return settled
+    kept_times = [t for c in candidates if (t := _when(c.said_at)) is not None]
+    back_to = (min(kept_times) if kept_times else now) - _SLIP_WAIT
+    records = _records(Path(transcript_path), back_to)
+    already = his_asks.already_kept([r.uuid for r in records])
+    if already is None:
+        _loud("could not tell which records are already his, so nothing was settled")
+        return None
+    taken: set[str] = set(already)
+    # Messages with the same words compete for the same records, so they are paired
+    # together, in the order he sent them (see _pair_in_order). Messages with other
+    # words cannot want the same records: equal words are what makes a record fit.
+    by_words: dict[str, list] = {}
+    for c in sorted(candidates, key=lambda c: _when(c.said_at) or now):
+        by_words.setdefault(strip_envelopes(c.his_text), []).append(c)
+    pairs: list[tuple] = []
+    for group in by_words.values():
+        # A resumed session copies his record under the same uuid: one record, once.
+        free: list[_Record] = []
+        for r in sorted(records, key=lambda r: r.at):
+            if r.uuid not in taken and r.stamp and all(r.uuid != f.uuid for f in free):
+                free.append(r)
+        for i, record in _pair_in_order(group, free).items():
+            taken.add(record.uuid)
+            pairs.append((group[i], record))
+    for candidate, match in pairs:
+        # The stamp says who sat in the seat, not whose words these are: the
+        # harness stamps build notices human (see harness_envelopes).
+        stamp = match.stamp or ""
+        if stamp == "human" and nothing_of_his(match.text):
+            stamp = "human, but only a harness envelope"
+        try:
+            settled[candidate.candidate_id] = his_asks.confirm(
+                candidate.candidate_id,
+                match.uuid,
+                stamp,
+                match.text,
+                sent_before=match.sent_before,
+            )
+        except Exception as exc:  # noqa: BLE001 -- one bad record must not stop the rest
+            _record_failure(candidate.candidate_id, exc, seat)
+    return settled

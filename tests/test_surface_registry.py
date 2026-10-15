@@ -9,7 +9,16 @@ from __future__ import annotations
 
 import pytest
 
+from divineos.core import surface_bridge  # noqa: F401  (see below)
 from divineos.core import surface_registry as sr
+
+# surface_bridge registers every surface when it is first imported. If the first
+# import happens INSIDE a test, after _clean_registry has emptied the registry,
+# everything registers itself back and dark_surfaces() finds nothing -- so the
+# result depended on which test file ran earlier in the same worker. That was the
+# push gate's "probe found nothing" and its five different failures on 2026-10-12.
+# Imported here, before any test, its registrations land in the real registry
+# that the fixture saves and restores.
 
 
 @pytest.fixture(autouse=True)
@@ -143,3 +152,52 @@ def test_registering_removes_a_module_from_dark():
     sr.register("identity_load", lambda: sr.SurfaceResult.silent())
     after = set(sr.dark_surfaces("divineos.core"))
     assert "identity_load" not in after
+
+
+def test_a_surface_the_bridge_deliberately_keeps_unregistered_is_not_called_dark():
+    """The lighthouse the registry called dark (2026-09-12).
+
+    The bridge refuses to register a handful of surfaces precisely BECAUSE
+    another live path already delivers them — registering would deliver the
+    text twice, the exact trap this registry exists to prevent. The darkness
+    check never knew that list existed, so it reported the brightest lamps on
+    the coast as burning for nobody, and the build board's test station read
+    that as a defect. Eleven open pull requests sat at that station naming a
+    surface that had been correctly wired the whole time.
+
+    Even with a cleared registry — the harshest condition, where everything
+    else IS dark — these must not appear. That is the difference between
+    "nobody registered it" and "somebody decided not to, and wrote down why."
+    """
+    from divineos.core.surface_bridge import ALREADY_LIVE
+
+    assert ALREADY_LIVE, "the guarded list is empty; this test would pass vacuously"
+    dark = set(sr.dark_surfaces("divineos.core"))
+    assert dark, "probe found nothing at all — broken instrument, not a clean result"
+    for name in ALREADY_LIVE:
+        assert name not in dark, f"{name} is deliberately wired elsewhere, not dark"
+
+
+def test_an_unreadable_bridge_leaves_the_dark_list_longer_not_shorter():
+    """Conservative direction, pinned.
+
+    If the bridge cannot be imported, the exemption list must come back empty
+    so every surface stays under suspicion. The opposite failure — an
+    unreadable bridge quietly clearing the report — is could-not-look wearing
+    found-nothing's coat, which is the disease this whole substrate keeps
+    catching itself with.
+    """
+    import builtins
+
+    real_import = builtins.__import__
+
+    def refuse(name, *args, **kwargs):
+        if name == "divineos.core.surface_bridge":
+            raise ImportError("bridge unreadable")
+        return real_import(name, *args, **kwargs)
+
+    builtins.__import__ = refuse
+    try:
+        assert sr._wired_elsewhere() == ()
+    finally:
+        builtins.__import__ = real_import

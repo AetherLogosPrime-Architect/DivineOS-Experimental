@@ -401,109 +401,72 @@ if probe not in CONSEQUENTIAL:
 first = probe
 _SUBJECT["examined"] = probe
 
-# --- teeth, added 2026-08-27 -------------------------------------------
-# Advisory was not enough. This hook fired correctly on THREE masked
-# pushes in one session -- two mine, one hers -- naming the shape,
-# the stages, and the 2026-08-07 incident, and all three of us read past
-# it and shipped the wrong conclusion. Aria reported hers to Andrew as a
-# defect in the push wrapper. The wrapper was fine; the pipe ate the code.
-#
-# So this is NOT the built-and-never-connected class the rest of tonight
-# was about. It was built, wired, firing, and ignored -- truth #15, the
-# mechanism firing in place of the work it points at. A fix aimed at
-# unreachable work would not have touched it.
-#
-# WHY ONLY THIS SUBSET GETS DENIED. Denying every pipeline is how a hook
-# earns a place on the disable list, and the file already says so twenty
-# lines up. The line drawn here is CONSEQUENCE OF A MASKED FAILURE: when
-# the first stage MUTATES shared state, a swallowed non-zero means I tell
-# Andrew something shipped that did not. When it only reads, a swallowed
-# non-zero costs me a re-run. Advisory for the second; refusal for the
-# first.
-#
-# Truth #11(b) -- the deny text carries the corrected command, so the
-# lazy path and the right path are the same keystrokes.
-# 2026-09-09: the substrate-writing CLI added, and it belongs here by the rule
-# already stated three paragraphs up rather than as a widening of it. The line
-# is CONSEQUENCE OF A MASKED FAILURE, and these have exactly the consequence
-# the version-control entries have: a swallowed non-zero means I tell Andrew a
-# pre-registration was filed, an audit round opened for Aletheia, a finding
-# recorded against a lens — when it silently failed.
-#
-# Not hypothetical. In one workflow tonight I piped four of these through tail
-# while this hook warned each time and I read past every one. The enumeration
-# was version-control-shaped because the incidents that built it were; the
-# principle was never version-control-shaped.
-MUTATING_SUBCOMMANDS = {
-    "git": {"push", "commit", "merge", "rebase", "cherry-pick", "reset",
-            "revert", "tag", "am", "apply", "update-ref", "branch"},
-    "gh": {"pr", "release", "issue", "repo", "api"},
-    "pip": {"install", "uninstall"},
-    "npm": {"install", "publish", "uninstall"},
-}
+# HISTORY OF THIS PART (2026-08-27 to 2026-10-13), kept short because the
+# code below no longer does what the old comments here described. It used to
+# classify the first stage as mutating or read-only and refuse the first kind
+# and warn about the second: a masked push on 2026-08-07, three more on
+# 2026-08-27, and the same warning read past seventeen times. Refusing and
+# warning both leave the choice with the one who is tired, so neither is here
+# any more; see the rewrite at the end of this program.
 
-# CORRECTED an hour after it was added, by its own false fire on a command
-# that reads. The first version listed NOUN GROUPS -- audit, walk, prereg --
-# and refused `audit show`, which writes nothing. That is an enumeration
-# standing in for a principle, mine, one hour old, in the very fix whose
-# commit message named the class. The principle is THIS INVOCATION WRITES,
-# and for a noun-verb CLI the verb is what carries it.
+# --- the pipe cannot hide a failure, 2026-10-13 ---------------------------
+# Andrew, 2026-10-13: "yes to both" -- this change and the stretch-start one.
 #
-# So: mutating when any bare token is a write verb. `audit submit-round`
-# refuses and `audit show` passes; `walk apply` refuses and `walk status`
-# passes; `prereg file` refuses and `prereg show` passes. Top-level writes
-# whose verb IS the first token -- learn, decide, feel, claim -- are in the
-# same set and need no special case.
+# This used to refuse a mutating pipeline and warn about every other one, and
+# both ended the same way: the warning was read past seventeen times (the
+# obligation it filed said so), and the refusal cost a retry on every use.
+# Advice and refusal both leave a choice to the one who is tired.
 #
-# The door said a wrong match means the shape is the thing to fix rather than
-# something to route around. It was talking about itself.
-DIVINEOS_WRITE_VERBS = {
-    "add", "apply", "assess", "claim", "close", "credit", "decide", "defer",
-    "exclude", "extract", "feel", "file", "init", "integrate", "learn", "log",
-    "mark", "observe", "open", "refresh", "resolve", "route", "set", "sleep",
-    "submit", "submit-round", "supersede",
-}
-
-_mutating = False
-if first == "divineos":
-    _mutating = any(
-        token in DIVINEOS_WRITE_VERBS for token in first_tokens[1:] if not token.startswith("-")
+# Truth #11(a), take the option away: the hook now ADDS the protection itself.
+# It rewrites the command with `set -o pipefail; ` in front, so a failing first
+# stage shows in the exit code and there is nothing left to read past. The right
+# path and the lazy path are the same keystrokes because nobody types anything.
+#
+# MEASURED, not assumed: a PreToolUse hook that returns updatedInput with no
+# permission decision changes the command the shell runs (probed on the live
+# harness 2026-10-13, and the docs describe it: updatedInput replaces the whole
+# input object, so every unchanged field is echoed back).
+#
+# Cost, stated: a read-only pipe whose reader closes early (`git log | head -3`)
+# can now report 141, the signal that stopped the writer, although its output is
+# fine. That is the honest exit code of the pipeline; it is rare and visible, and
+# it replaced a warning that taught me to stop looking.
+#
+# Not rewritten: a command that already says pipefail, a pipe inside quotes, a
+# first stage that cannot meaningfully fail (ls, cat, echo). Those exits are
+# above, unchanged.
+_SUBJECT["verdict"] = "rewrite"
+_SUBJECT["why"] = "unprotected-pipeline"
+_input = dict(data.get("tool_input") or {})
+_input["command"] = "set -o pipefail; " + cmd
+_note = (
+    "pipefail was added to this pipeline for you: if "
+    + first
+    + " fails, the exit code now says so instead of "
+    + last
+    + " reporting success."
+)
+# Aria, cold read of #644: the one surprise should arrive WITH the cost, not after it.
+# A reader that stops early (head) closes the pipe while the writer is still writing,
+# and the writer then exits 141. That is the pipe, not a failed command.
+if last == "head":
+    _note += (
+        " If the writer is still writing when head stops reading you may see exit 141: "
+        "that is the pipe closing, not a failure of the command."
     )
-else:
-    _subs = MUTATING_SUBCOMMANDS.get(first)
-    if _subs:
-        for token in first_tokens[1:]:
-            if token.startswith("-"):
-                continue
-            _mutating = token in _subs
-            break
-
-if _mutating:
-    _SUBJECT["verdict"] = "deny"
-    _SUBJECT["why"] = "mutating-first-stage"
-    reason = (
-        "PIPELINE EXIT-CODE AMBIGUITY -- refused, because this one mutates.\n\n"
-        f"`{first}` is the first stage and `{last}` is the last, with no "
-        "pipefail. The shell reports the exit code of the LAST stage, so a "
-        f"failing `{first}` arrives as 0 and the failure becomes invisible.\n\n"
-        "This exact shape masked three pushes on 2026-08-27 -- the hook warned "
-        "on every one and was read past every time -- and reported a BLOCKED "
-        "push as landed on 2026-08-07. Advisory has now failed four times, "
-        "which is why this shape refuses instead of warning.\n\n"
-        "Re-run the same command with `set -o pipefail && ` in front of it, or "
-        "drop the pipe and read the raw output. Read-only pipelines are still "
-        "only warned about; this one refuses because a swallowed failure here "
-        "means reporting work as shipped when it is not."
-    )
-    print(json.dumps({
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
+print(
+    json.dumps(
+        {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "updatedInput": _input,
+                "additionalContext": _note,
+            }
         }
-    }))
-    sys.exit(0)
-# --- end teeth ---------------------------------------------------------
+    )
+)
+sys.exit(0)
+# --- end ---------------------------------------------------------------
 
 # Emit on the ONLY channel that reaches me: a JSON payload carrying
 # additionalContext. Plain stdout from a hook is discarded.

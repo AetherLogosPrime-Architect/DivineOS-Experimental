@@ -397,6 +397,7 @@ from divineos.cli import (  # noqa: E402
     push_commands,
     push_ready_command,
     stamp_ready_command,
+    ship_command,
     audit_sync_command,
     aletheia_import_command,
     context_tokens_commands,
@@ -438,12 +439,13 @@ from divineos.cli import (  # noqa: E402
     todos_commands,
     belt_commands,
     voice_commands,
-    monitor_commands,
     search_commands,
     error_commands,
     sibling_correction_commands,
     label_fire_commands,
     must_read_commands,
+    his_commands,
+    linkage_commands,
 )
 
 actor_registry_commands.register(cli)
@@ -467,13 +469,14 @@ replant_commands.register(cli)
 sibling_correction_commands.register(cli)
 label_fire_commands.register(cli)
 must_read_commands.register(cli)
+his_commands.register(cli)
+linkage_commands.register(cli)
 automerge_commands.register(cli)
 todos_commands.register(cli)
 # Beside todos on purpose: todos shows the whole pile, the belt is the small
 # current list pulled from it (Andrew 2026-09-23).
 belt_commands.register(cli)
 voice_commands.register(cli)
-monitor_commands.register(cli)
 search_commands.register(cli)
 claim_commands.register(cli)
 audit_commands.register(cli)
@@ -512,6 +515,7 @@ letter_seen_commands.register(cli)
 push_commands.register(cli)
 push_ready_command.register(cli)
 stamp_ready_command.register(cli)
+ship_command.register(cli)
 audit_sync_command.register(cli)
 aletheia_import_command.register(cli)
 context_tokens_commands.register(cli)
@@ -533,7 +537,6 @@ prereg_commands.register(cli)
 # moment a fix is declared done (council-5bec78b85acc).
 class_fix_commands.register(cli)
 prior_art_commands.register(cli)
-psf_commands.register(cli)
 game_walk_commands.register(cli)
 operator_ask_commands.register(cli)
 reach_commands.register(cli)

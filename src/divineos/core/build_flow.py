@@ -49,6 +49,7 @@ furniture).
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -235,28 +236,81 @@ NO_READING = "none"
 
 
 def _declared_readings(text: str) -> tuple[bool, list[str]]:
-    """``(field_present, branches)`` from the one declared line.
+    """``(field_present, branches)`` from every declared line.
 
     Read literally. Everything else in the letter -- title, filename, prose,
     the ``In response to`` line -- is deliberately not consulted, because
     inference from her prose is what produced the wrong credits this replaces.
 
+    EVERY ``**Reading:**`` line counts, not the first (2026-10-11): a letter that
+    named two branches on two lines was read as naming only the first, and the
+    second showed as unread with nothing said. A line is still the whole field and
+    commas still separate branches inside it.
+
     The two return values are separate on purpose: a letter declaring ``none``
     is present-with-no-branches, and reporting that as no-declaration would
     punish exactly the discipline the field asks for.
     """
+    present = False
+    branches: list[str] = []
+    in_fence = False
     for line in text.splitlines():
         stripped = line.strip()
+        # The declaration lives in the HEADER (Aria's cold read of 628, 2026-10-11): the
+        # first `---` ends it, so a pasted copy of someone's header further down credits
+        # nothing; a fenced block and a four-space or tab-indented line are quotes.
+        if stripped == "---":
+            break
+        if stripped.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence or line.startswith(("    ", "\t")):
+            continue
         if not stripped.startswith(READING_DECLARATION):
             continue
+        present = True
         value = stripped[len(READING_DECLARATION) :]
         parts = [p.strip().strip("`").lower() for p in value.split(",")]
-        return True, [p for p in parts if p and p != NO_READING]
-    return False, []
+        branches.extend(p for p in parts if p and p != NO_READING)
+    return present, branches
+
+
+def _newer_declaration(
+    newest: tuple[float, str, list[str]] | None, letter: Path, declarations: list[str]
+) -> tuple[float, str, list[str]] | None:
+    """Keep the most recently written letter that declared any branch (by file time)."""
+    if not declarations:
+        return newest
+    stamp = letter.stat().st_mtime
+    if newest is None or stamp >= newest[0]:
+        return (stamp, letter.name, declarations)
+    return newest
+
+
+def _what_the_newest_declared(newest: tuple[float, str, list[str]] | None) -> str:
+    """A miss reads as a miss on the field, not a silent drop (Aria, 2026-10-11): name what
+    the newest letter DID declare, so a branch left off a line is visible at once."""
+    if newest is None:
+        return ""
+    _, name, branches = newest
+    return f" (the newest, {name}, declares: {', '.join(branches)})"
 
 
 OWNER_DECLARATION = "Owner:"
 SEATS = ("aether", "aria")
+
+#: The cloud helper's own declared place (Dad, 2026-10-10: "give it its own
+#: place so it can be monitored and separated from your thinking in case it
+#: messes up"). Neither seat wrote its work, so naming a seat as author would
+#: turn the other seat's reading into a pairing that never existed. The lane is
+#: honoured only on a branch whose NAME begins with ``cloud/`` -- a name may
+#: withhold a pass, never grant one -- so declaring it on a branch a seat wrote
+#: reads as cannot-check (walk-da68247868ce, Yudkowsky). The one route left open
+#: is a seat naming its own branch ``cloud/...``: nothing in the repository
+#: separates the helper's commits from a seat's, and the game-walk records it.
+HELPER_LANE = "cloud"
+HELPER_BRANCH_PREFIX = "cloud/"
+_OWNER_NAMES = (*SEATS, HELPER_LANE)
 
 # WHO OWNS A BRANCH, DECLARED RATHER THAN GUESSED (2026-09-12).
 #
@@ -314,10 +368,16 @@ def declared_owner(branch: str, owners_dir: Path) -> tuple[str, str]:
             continue
         for part in stripped[len(OWNER_DECLARATION) :].split(","):
             seat = part.strip().strip("`").lower()
-            if seat in SEATS and seat not in named:
+            if seat in _OWNER_NAMES and seat not in named:
                 named.append(seat)
     if not named:
         return ("undeclared", "")
+    if HELPER_LANE in named and not branch.startswith(HELPER_BRANCH_PREFIX):
+        return (
+            "cannot-read",
+            f"the owner file names {HELPER_LANE} but this branch name does not begin with "
+            f"{HELPER_BRANCH_PREFIX}; a name may withhold a pass, never grant one",
+        )
     if len(named) > 1:
         return ("contested", ", ".join(named))
     return ("declared", named[0])
@@ -327,11 +387,13 @@ def _reading_declared_by(reviewer: str, branch: str, letters_dir: Path) -> Stati
     """Did ``reviewer`` declare a reading of ``branch``? Shared by both seats."""
     needle = branch.lower()
     declared_anywhere = 0
+    newest: tuple[float, str, list[str]] | None = None
     for f in sorted(letters_dir.glob(f"{reviewer}-to-*.md")):
         try:
             present, declarations = _declared_readings(
                 f.read_text(encoding="utf-8", errors="replace")
             )
+            newest = _newer_declaration(newest, f, declarations)
         except OSError:
             continue
         if present:
@@ -351,7 +413,8 @@ def _reading_declared_by(reviewer: str, branch: str, letters_dir: Path) -> Stati
     return StationResult(
         "4-cold-read",
         Status.MISSING,
-        f"none of {reviewer}'s {declared_anywhere} declared reading(s) names this branch",
+        f"none of {reviewer}'s {declared_anywhere} declared reading(s) names this branch"
+        f"{_what_the_newest_declared(newest)}",
     )
 
 
@@ -409,6 +472,19 @@ def check_cold_read_station(branch: str, letters_dir: Path, owners_dir: Path) ->
         )
 
     owner = detail
+    if owner == HELPER_LANE:
+        # Written by the cloud helper: neither seat wrote it, so either seat's
+        # declared reading is a cold one.
+        for seat in SEATS:
+            result = _reading_declared_by(seat, branch, letters_dir)
+            if result.status is Status.SATISFIED:
+                return result
+        return StationResult(
+            "4-cold-read",
+            Status.MISSING,
+            "written by the cloud helper; no declared reading by Aria or Aether names "
+            "this branch yet",
+        )
     reviewer = next(s for s in SEATS if s != owner)
     return _reading_declared_by(reviewer, branch, letters_dir)
 
@@ -443,6 +519,28 @@ def declared_author(body: str | None) -> str | None:
         return None
     match = _AUTHOR_TRAILER.search(body)
     return match.group("who").lower() if match else None
+
+
+def author_of(body: str | None, branch: str, owners_dir: Path) -> str | None:
+    """Who wrote a request: its own ``Author:`` line, else the cloud helper's lane.
+
+    The body's declaration wins, as before. With none, an owner file that says
+    ``cloud`` -- honoured only on a ``cloud/`` branch (``declared_owner``) --
+    makes the author the cloud helper. Nothing is inferred from a branch name.
+    """
+    declared = declared_author(body)
+    if declared is not None:
+        # A name may withhold a pass and never grant one (Aria's cold read, 2026-10-14):
+        # `Author: cloud` in a body on a branch that is not `cloud/...` would turn my own
+        # reading into an outside one, so it is not honoured. No author means the station
+        # cannot say who wrote it and refuses rather than guessing.
+        if declared.lower() == HELPER_LANE and not branch.startswith(f"{HELPER_LANE}/"):
+            return None
+        return declared
+    state, seat = declared_owner(branch, owners_dir)
+    if state == "declared" and seat == HELPER_LANE:
+        return HELPER_LANE
+    return None
 
 
 def _reading_seat_for(author: str | None) -> tuple[str, str] | None:
@@ -570,8 +668,14 @@ def check_aria_station(branch: str, letters_dir: Path, author: str | None = None
     # otherwise would be reading an invariant out of my head. This is the same
     # could-not-look discipline the module is made of, pointed at itself.
     declared = (author or "").strip().lower()
-    reader = _reading_seat_for(declared)
-    if reader is None:
+    if declared == HELPER_LANE:
+        # The cloud helper wrote it: neither seat did, so either seat's declared
+        # reading is a cold one (walk-da68247868ce).
+        readers = [_READING_SEAT[seat] for seat in SEATS]
+    else:
+        one = _reading_seat_for(declared)
+        readers = [one] if one is not None else []
+    if not readers:
         return StationResult(
             "4-aria",
             Status.CANNOT_CHECK,
@@ -592,16 +696,20 @@ def check_aria_station(branch: str, letters_dir: Path, author: str | None = None
             f"{hint} -- these disagree, and a declaration naming the wrong author "
             "would send this station to read the very seat that wrote the branch",
         )
-    reader_name, reader_glob = reader
+    names = " or ".join(name for name, _ in readers)
 
     needle = branch.lower()
     declared_anywhere = 0
+    newest: tuple[float, str, list[str]] | None = None
     unparsed: str | None = None
-    for f in sorted(letters_dir.glob(reader_glob)):
+    unparsed_by = ""
+    files = [(name, f) for name, glob in readers for f in sorted(letters_dir.glob(glob))]
+    for reader_name, f in files:
         try:
             present, declarations = _declared_readings(
                 f.read_text(encoding="utf-8", errors="replace")
             )
+            newest = _newer_declaration(newest, f, declarations)
         except OSError:
             continue
         if present:
@@ -627,21 +735,22 @@ def check_aria_station(branch: str, letters_dir: Path, author: str | None = None
         # crediting a mention is the exact fault the literal read replaced.
         if unparsed is None and any(part.startswith(needle) for part in declarations):
             unparsed = f.name
+            unparsed_by = reader_name
     if declared_anywhere == 0:
         return StationResult(
             "4-aria",
             Status.MISSING,
-            f"no letter from {reader_name} carries a reading declaration at all -- "
-            f"this says nothing about whether {reader_name} has read this branch, "
+            f"no letter from {names} carries a reading declaration at all -- "
+            f"this says nothing about whether {names} has read this branch, "
             "only that no reading is claimed in the field the board reads",
         )
     if unparsed is not None:
         return StationResult(
             "4-aria",
             Status.CANNOT_CHECK,
-            f"{reader_name} declared a reading of this branch in {unparsed}, but the "
+            f"{unparsed_by} declared a reading of this branch in {unparsed}, but the "
             "line carries more than the name and this field is read literally -- "
-            f"that is my parser failing to read {reader_name}, not {reader_name} "
+            f"that is my parser failing to read {unparsed_by}, not {unparsed_by} "
             "failing to read the branch",
         )
     return StationResult(
@@ -661,7 +770,8 @@ def check_aria_station(branch: str, letters_dir: Path, author: str | None = None
         # guessing. A stale explanation of a removed limit is worse than none,
         # because it tells a reader that a real miss is an inapplicable
         # question and the check keeps running with nobody acting on it.
-        f"none of the {declared_anywhere} declared reading(s) by {reader_name} names this branch",
+        f"none of the {declared_anywhere} declared reading(s) by {names} names this branch"
+        f"{_what_the_newest_declared(newest)}",
     )
 
 
@@ -789,6 +899,7 @@ def check_audit_station(
     audit_refs: tuple[str, ...] | None,
     store_label: str | None = None,
     anchor: str | None = None,
+    has_external_confirm: bool | None = None,
     anchor_detail: str = "",
 ) -> StationResult:
     """Station 8 -- Aletheia. Last, and never self-serviceable.
@@ -840,6 +951,37 @@ def check_audit_station(
         named = branch
 
     if named is not None:
+        # AND A NAME MATCH IS NOT A REVIEW EITHER, which is the cheaper and
+        # commoner failure and went unnoticed while the content question was
+        # being repaired one step further on.
+        #
+        # MEASURED 2026-09-11 across ten open requests. This station reported
+        # SATISFIED on six. Reading what was actually IN those rounds: five
+        # held ZERO findings, one held only the OPERATOR's own confirm, and one
+        # held the auditor's finding of a PROBLEM rather than a clearance. Not
+        # one carried an external-AI confirm. Every green came from a container
+        # with a branch name on it, because naming is something an empty round
+        # does perfectly well.
+        #
+        # The deep content check caught it and the per-turn board did not,
+        # which is the wrong way round: the board I read every turn was the one
+        # saying the reassuring thing. Counting findings is a store read and
+        # costs nothing like the git work the anchor needs, so the cheap board
+        # can afford to ask and there was never a reason for it not to.
+        #
+        # PRESENCE AND CURRENCY STAY SEPARATE. A round filed before patch-id
+        # binding has no anchor and still carries real findings; that is
+        # deliberately allowed below and this does not touch it. An empty round
+        # carries nothing in any era.
+        if has_external_confirm is False:
+            return StationResult(
+                "8-audit",
+                Status.MISSING,
+                f"audit round names {named} but carries NO EXTERNAL-AI CONFIRM — "
+                "the round exists and nobody has signed it; this needs the "
+                "auditor, not another round",
+            )
+
         # A NAME MATCH IS NOT A CONTENT MATCH, and for most of this station's
         # life that distinction was missing entirely.
         #
@@ -927,11 +1069,40 @@ def check_audit_station(
             # means something weaker than the reader thinks is the exact
             # defect this whole change exists to remove; reproducing it here
             # to save five seconds would be self-defeating.
+            # TWO QUESTIONS, AND THIS BRANCH USED TO ANSWER ONLY ONE OF THEM
+            # WHILE SOUNDING LIKE IT ANSWERED BOTH. Caught by running the
+            # repaired board: three requests still read green here, and the
+            # wording could not distinguish "signed, currency unchecked" from
+            # "nobody could even tell whether it was signed". That is the
+            # defect this whole change removes, reproduced one branch deeper by
+            # the change that removed it.
+            if has_external_confirm is True:
+                return StationResult(
+                    "8-audit",
+                    Status.SATISFIED,
+                    f"audit round names {named} and carries an external-AI "
+                    "confirm; whether it still covers the current content was "
+                    "not checked in this view — use the board command for that",
+                )
             return StationResult(
                 "8-audit",
                 Status.SATISFIED,
-                f"audit round names {named} (name match; content check not "
-                "run in this view — use the board command for that)",
+                f"audit round names {named}, but NEITHER whether anyone signed "
+                "it NOR whether that still holds could be checked here",
+            )
+        if has_external_confirm is None:
+            # COULD-NOT-LOOK IS THE THIRD STATE and it has bitten this station
+            # twice already. A caller unable to answer the confirm question
+            # keeps the name-match pass it has always had -- refusing them
+            # would be the over-correction, and it would retroactively unmake
+            # every older review on a technicality. But the green has to say
+            # which question went unasked, or the reader takes it for a
+            # checked one, which is how six empty rounds read as audited.
+            return StationResult(
+                "8-audit",
+                Status.SATISFIED,
+                f"audit round names {named} (name match; whether anyone signed "
+                "it was NOT CHECKED here)",
             )
         return StationResult("8-audit", Status.SATISFIED, f"audit round names {named}")
     # THE ANSWER CARRIES ITS OWN SCOPE. Aria, 2026-08-28, after going to verify
@@ -969,6 +1140,178 @@ def check_audit_station(
         f"no audit round names this PR or its branch "
         f"(compared against {len(audit_refs)} round(s){where})",
     )
+
+
+def check_rough_draft_station(branch: str, changed_paths: Sequence[str]) -> StationResult:
+    """Station 1 -- the idea was drafted before the code was.
+
+    Andrew's flow opens with a draft of the IDEA, explicitly not a draft PR.
+    The artifact is any thinking-document the branch carries: an exploration
+    entry, a design note, a walk record.
+
+    Unlike station 4, this one IS satisfiable by me alone, and that is correct
+    rather than a hole. Drafting an idea is a solo act; the discipline is that
+    the thinking exists as a document rather than as a memory of having
+    thought. What it catches is the branch that went straight to code.
+    """
+    if not changed_paths:
+        return StationResult("1-draft", Status.CANNOT_CHECK, "no file list for this PR")
+    thinking = [
+        p
+        for p in changed_paths
+        if p.startswith(("exploration/", "docs/", "workbench/")) and p.endswith(".md")
+    ]
+    if thinking:
+        return StationResult("1-draft", Status.SATISFIED, f"carries {thinking[0]}")
+    return StationResult(
+        "1-draft",
+        Status.MISSING,
+        "no exploration entry, design note or workbench doc on this branch -- "
+        "the idea may have been drafted somewhere, but not where anyone can read it",
+    )
+
+
+def check_build_station(changed_paths: Sequence[str]) -> StationResult:
+    """Station 3 -- something was actually built.
+
+    The least interesting of the five and still worth having: it separates a
+    branch that changed code from one that only moved prose around, which is
+    what decides whether the remaining stations are even meaningful.
+    """
+    if not changed_paths:
+        return StationResult("3-build", Status.CANNOT_CHECK, "no file list for this PR")
+    code = [p for p in changed_paths if p.endswith((".py", ".sh", ".ps1", ".yml", ".yaml"))]
+    if code:
+        return StationResult("3-build", Status.SATISFIED, f"{len(code)} code file(s) changed")
+    return StationResult(
+        "3-build", Status.SATISFIED, "prose-only change; the code stations do not apply"
+    )
+
+
+def check_test_station(changed_paths: Sequence[str], dark: Sequence[str] | None) -> StationResult:
+    """Station 5 -- dogfooding, wiring, automation. Does it run in the real loop.
+
+    THE station, and the reason these five got written. Andrew 2026-09-07,
+    after four separate dark things surfaced in one day: the board checked
+    four of nine, and the one I fail at every single time was not among them.
+    It had been printing "NOT checked: 1-draft, 3-build, 5-test..." in its own
+    output every session while I read past it.
+
+    His definition of done has always included wiring -- station 5 is his own
+    words, written the day he dictated the flow. Nothing was missing from the
+    definition. What was missing was anyone asking.
+
+    Two artifacts, both required when code changed:
+
+    **Tests.** A code change with no test change is not tested, whatever I
+    believe about it.
+
+    **Nothing newly dark.** A module that exposes a briefing interface and is
+    registered nowhere looks exactly like a module with nothing to say --
+    which is how 22 surfaces sat in a crash-only branch for three and a half
+    months while the project described them as live. The dark list is passed
+    in rather than computed here so the caller owns the import cost and this
+    stays testable with a fixture.
+    """
+    if not changed_paths:
+        return StationResult("5-test", Status.CANNOT_CHECK, "no file list for this PR")
+
+    code = [
+        p
+        for p in changed_paths
+        if p.endswith((".py", ".sh", ".ps1")) and not p.startswith("tests/")
+    ]
+    if not code:
+        return StationResult("5-test", Status.SATISFIED, "no code changed; nothing to wire")
+
+    tests = [p for p in changed_paths if p.startswith("tests/")]
+    problems: list[str] = []
+    if not tests:
+        problems.append(f"{len(code)} code file(s) changed and no test touched")
+    if dark is None:
+        problems.append("could not read the dark-surface list, so wiring is unverified")
+    elif dark:
+        problems.append(f"{len(dark)} surface(s) built and reachable by nothing: {dark[0]}")
+
+    if not problems:
+        return StationResult(
+            "5-test",
+            Status.SATISFIED,
+            f"{len(tests)} test file(s) touched, nothing left unreachable",
+        )
+    if dark is None:
+        return StationResult("5-test", Status.CANNOT_CHECK, "; ".join(problems))
+    return StationResult("5-test", Status.MISSING, "; ".join(problems))
+
+
+def check_more_council_station(
+    branch: str,
+    lenses_walked: int | None,
+    required: int,
+    walked_after_last_build: bool | None,
+) -> StationResult:
+    """Station 6 -- loop back to the lenses if the build moved under them.
+
+    The flow says "more council walking if needed", and the honest reading of
+    NEEDED is not a mood. A walk that happened before the last substantive
+    commit reviewed something that no longer exists -- so the question this
+    station asks is whether the lenses have seen the CURRENT shape.
+
+    That is the same failure as a stale review anchor, one station earlier.
+    """
+    if required <= 0:
+        return StationResult("6-more-council", Status.SATISFIED, "gravity 0: no walk required")
+    if walked_after_last_build is None:
+        return StationResult(
+            "6-more-council", Status.CANNOT_CHECK, "commit or walk timestamps unreadable"
+        )
+    # An unknown lens count is not a count of zero. Coercing it would report
+    # "no walk happened" on evidence that says only "the walks were unreadable".
+    if lenses_walked is None:
+        return StationResult(
+            "6-more-council", Status.CANNOT_CHECK, "lens count unreadable for this branch"
+        )
+    if lenses_walked <= 0:
+        return StationResult(
+            "6-more-council", Status.MISSING, "no walk to be stale or fresh -- station 2 first"
+        )
+    if walked_after_last_build:
+        return StationResult("6-more-council", Status.SATISFIED, "the lenses saw the current shape")
+    return StationResult(
+        "6-more-council",
+        Status.MISSING,
+        "every walk predates the last build commit -- the lenses reviewed a shape "
+        "that has since changed. Close the walk from inside the work copy "
+        "(walk close --repo <work copy>); closed from the main checkout it stays "
+        "unbound and reads the weaker, clock way",
+    )
+
+
+def check_merge_station(
+    is_draft: bool | None, mergeable: str | None, stations: list[StationResult]
+) -> StationResult:
+    """Station 9 -- merge, or back to the loop.
+
+    Confirmed goes to main; not confirmed returns to the work. So this station
+    is not a separate hurdle: it reports whether the preceding ones actually
+    clear the way, which is the difference between a board that lists stations
+    and a board that adds them up.
+    """
+    blocking = [s for s in stations if s.status is Status.MISSING]
+    if blocking:
+        names = ", ".join(s.station for s in blocking)
+        return StationResult("9-merge", Status.MISSING, f"held by: {names}")
+    unknown = [s for s in stations if s.status is Status.CANNOT_CHECK]
+    if unknown:
+        names = ", ".join(s.station for s in unknown)
+        return StationResult("9-merge", Status.CANNOT_CHECK, f"cannot say -- unreadable: {names}")
+    if mergeable and mergeable.upper() == "CONFLICTING":
+        return StationResult("9-merge", Status.MISSING, "conflicts with main")
+    if is_draft:
+        return StationResult(
+            "9-merge", Status.SATISFIED, "every station proven; ready to leave draft"
+        )
+    return StationResult("9-merge", Status.SATISFIED, "every station proven")
 
 
 def judging_code_provenance(
