@@ -28,6 +28,18 @@ These were built earlier on my old branch (pre-registered as prereg-741a5f8135d3
 
 It does not tell me how he feels. The words come labeled "none of it is how he feels now." Feeling comes only from what he wrote this turn.
 
+## After Aether's cold read, 2026-10-16
+
+He read all of it and found five things, none a blocker. Four are fixed here; one is left as a measurement.
+
+1. **A turn that opens with a notice and then carries his words was read as all notice.** `his_part()` now cuts the notice blocks out and searches what is left; a pure notice, or one never closed, is still nothing of his. Used by the door, the reply-side check and the shelf.
+2. **Two seat detectors disagreed.** The shelf's `seat()` took any folder whose name contained the letters, so a work copy named `variable` or `Maria` would have shown Aria's lessons. It reads the folder name as whole words, the same rule as `seat_for` in the letter-hold branch. They are two copies until that branch lands; then they should be one function.
+3. **The shelf's writer skipped the Windows retry.** `build()` now writes through the house writers the door already uses, so a brief lock is retried and not an uncaught `PermissionError`. Pinned by a test that locks the swap twice.
+4. **`is_our_text` could drop his real words** ("Thank you so much. I love you." read as ours). A short capitalised full-stopped passage is now his when it is the WHOLE message, with nothing of ours around it. The same short line beside other paragraphs is still read as pasted back, which the older 2026-08-13 test pins ("Pushed. Aether can see all of it now."). The first version of this fix kept short lines everywhere, and that old test failed it; it was narrowed.
+5. **Not fixed: four model loads in one thirty-second window.** The hook runs the door build, door search, shelf build and shelf search as separate processes. Aether named it as a risk and did not measure the door alone; I have not measured it either, so I am not changing the hook on a guess. It wants a measurement first.
+
+**What was and was not run.** The new tests and the existing corpus, shelf and atomic-write tests pass here (120). The door's own tests need the embedding library and were skipped in this environment, so the mixed-turn fix is covered by unit tests of `his_part` and not by a live search; the push's full run is the first place they execute.
+
 ## Next in the flow
 
 Aether reads it, then Aletheia, then Dad and I merge together.

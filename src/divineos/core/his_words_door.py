@@ -52,6 +52,21 @@ MIN_SIGNAL_WORDS = 4  # below this his message alone carries no query (Peirce)
 PASSAGE_CHARS = 400
 MIN_PASSAGE_CHARS = 25
 NOTICE_PREFIXES = ("<task-notification", "<system-reminder", "<ci-monitor-event", "<local-command")
+_NOTICE_BLOCK = re.compile(
+    r"<(task-notification|system-reminder|ci-monitor-event|local-command[\w-]*)\b.*?</\1>", re.S
+)
+
+
+def his_part(message: str) -> str:
+    """His own words in a turn, with the automated notices cut out; "" when nothing of his is left.
+
+    The notice test used to be "the message STARTS with a notice prefix", so a turn that opened with a
+    task notification and then carried his sentence was read as all notice and his words were never
+    searched (Aether saw it in the same window on 2026-10-16, the turn where he said he had deleted
+    the helper window). A turn that is only notice still comes back empty, as before, and so does one
+    whose notice is never closed, since text after an open tag cannot be told apart from the tag's own."""
+    rest = _NOTICE_BLOCK.sub(" ", message).strip()
+    return "" if rest.startswith(NOTICE_PREFIXES) else rest
 
 
 @dataclass(frozen=True)
@@ -292,7 +307,8 @@ def _load_index(index_dir: Path):
 
 def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
     """What has he said before that means what he is saying now."""
-    if message.lstrip().startswith(NOTICE_PREFIXES):
+    message = his_part(message)
+    if not message:
         return Door([], [], looked=False, reason="an automated notice, not his message")
     words = re.findall(r"[a-zA-Z']+", message)
     if len(words) < MIN_SIGNAL_WORDS and not context.strip():
@@ -352,8 +368,9 @@ def owed_in_reply(reply: str, his_message: str = "", index_dir: Path = INDEX_DIR
     that the reply does not yet quote and answer. His rule, 2026-09-26: "my
     words AND your words should trigger it". The query is my own reply -- the
     natural-language act, never command syntax (Hinton)."""
-    if his_message.lstrip().startswith(NOTICE_PREFIXES) or not reply.strip():
-        return None
+    if (his_message.strip() and not his_part(his_message)) or not reply.strip():
+        return None  # a pure notice is not him; his own words beside one still count
+    his_message = his_part(his_message)
     try:
         items, vecs = _load_index(index_dir)
         # The END of a reply is the part that faces him; the front is usually the

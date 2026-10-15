@@ -23,6 +23,7 @@ from __future__ import annotations
 import re
 
 MIN_CHARS = 25
+SHORT_IS_HIS = 60  # a capitalised, full-stopped passage shorter than this is read as his typing
 _OUR_MARKS = re.compile(r"(^|\n)\s*#{1,6} |\*\*|`|^\s*[-*] \*\*", re.M)
 _HIS_I = re.compile(r"(^|\s)i(\s|'|m\b)")  # his lowercase "i", "im", "i'm"
 _SENTENCE_BREAK = re.compile(r"[a-z)][.!?] [A-Z]")
@@ -85,12 +86,23 @@ def his_passages(rows: list[dict]) -> list[dict]:
         # test or the push gate wrote was never him.
         if str(row.get("project", "")).startswith(_NOT_HIM_PROJECTS):
             continue
-        for chunk in re.split(r"\n\s*\n", row.get("text", "")):
+        chunks = [c for c in re.split(r"\n\s*\n", row.get("text", "")) if c.strip()]
+        for chunk in chunks:
             # A file he attached ('@"C:\...\letter.md" here is her message')
             # is a path, not his words: the clustering pass found these made
             # up the largest "lessons". Keep whatever he wrote around it.
             passage = _his_lead_in(_ATTACHED_FILE.sub(" ", chunk)).strip()
-            if len(passage) < MIN_CHARS or is_our_text(passage):
+            if len(passage) < MIN_CHARS:
+                continue
+            # A short capitalised, full-stopped message that is the WHOLE of what he sent is his:
+            # "Thank you so much. I love you." read as ours and his words vanished without a sound,
+            # the one failure the door cannot say aloud (Aether, 2026-10-16). Alone it has nothing
+            # of ours around it; the same short line sitting after his lead-in or beside other
+            # paragraphs is still read as pasted back ("Pushed. Aether can see all of it now.").
+            alone = (
+                len(chunks) == 1 and len(passage) < SHORT_IS_HIS and not _OUR_MARKS.search(passage)
+            )
+            if is_our_text(passage) and not alone:
                 continue
             if _NOTICE.search(passage):
                 continue
