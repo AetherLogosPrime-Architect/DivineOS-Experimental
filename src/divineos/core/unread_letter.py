@@ -30,6 +30,7 @@ know a reply is owed once the letter is read; that is a separate piece.
 
 from __future__ import annotations
 
+import re
 import time
 from pathlib import Path
 
@@ -40,8 +41,14 @@ _BELL_COMMAND = "letter_doorbell.sh"
 
 
 def seat_for(project_dir: str) -> str:
-    """Whose window this is. The same rule the doorbell watcher uses."""
-    return "aria" if "aria" in project_dir.lower() else "aether"
+    """Whose window this is, from the checkout's own folder name read as whole words.
+
+    "aria" anywhere in the path was the first rule and it is wrong for a folder such as "Maria" or
+    "variable" (Aether found the same trap reading #665): only the last folder is looked at, split on
+    anything that is not a letter, so "DivineOS-Experimental-Aria-new" is Aria and "Maria" is not.
+    """
+    folder = Path(project_dir.replace("\\", "/").rstrip("/")).name.lower()
+    return "aria" if "aria" in re.split(r"[^a-z]+", folder) else "aether"
 
 
 def _shared() -> Path:

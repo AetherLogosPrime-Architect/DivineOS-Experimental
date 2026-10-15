@@ -83,6 +83,17 @@ class TestWhichLettersCount:
         assert ul.seat_for("C:/DIVINE OS/DivineOS-Experimental-Aria-new") == "aria"
         assert ul.seat_for("C:/DIVINE OS/DivineOS-Experimental") == "aether"
 
+    def test_a_folder_that_only_contains_the_letters_aria_is_not_aria(self):
+        # The substring rule read "Maria" and "variable" as Aria; only the last folder, as whole words, counts.
+        assert ul.seat_for("C:/DIVINE OS/Maria/DivineOS-Experimental") == "aether"
+        assert ul.seat_for("C:/variable/DivineOS-Experimental") == "aether"
+        assert (
+            ul.seat_for("C:/Users/aria-home/projects/DivineOS-Experimental") == "aether"
+        )  # parent folders do not count
+        assert (
+            ul.seat_for("C:\\DIVINE OS\\DivineOS-Experimental-Aria-new\\") == "aria"
+        )  # a trailing slash is fine
+
 
 class TestTheGate:
     def test_real_work_is_held_while_a_rung_letter_is_unopened(self, shared):
