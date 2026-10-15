@@ -104,14 +104,20 @@ def unread_letter_surface(payload: dict) -> SurfaceOutcome | None:
     blocked, a Read of the letter's exact path clears it here, and re-arming the bell always
     gets through. See core/unread_letter.py for the full reasoning and what it cannot do.
     """
-    import os
-
     tool = payload.get("tool_name") or ""
     tool_input = payload.get("tool_input") or {}
     try:
         from divineos.core import unread_letter as ul
+        from divineos.core.sibling_audit_rounds import this_seat
 
-        member = ul.seat_for(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
+        member = this_seat()
+        if member is None:
+            # Cannot tell whose window this is, so whose letters to hold: say so and hold nothing.
+            return SurfaceOutcome(
+                name="unread_letter",
+                error="could not tell which seat this checkout is, so no letter is held",
+                state="could-not-run",
+            )
         if tool == "Read":
             cleared = ul.clear_on_read(member, tool_input.get("file_path") or "")
             if cleared:

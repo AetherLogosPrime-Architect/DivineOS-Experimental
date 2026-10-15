@@ -30,25 +30,18 @@ know a reply is owed once the letter is read; that is a separate piece.
 
 from __future__ import annotations
 
-import re
 import time
 from pathlib import Path
 
 #: Recent enough to matter. Older unmarked letters are a backlog, not a ring.
 RECENT_SECONDS = 24 * 3600
 
-_BELL_COMMAND = "letter_doorbell.sh"
-
-
-def seat_for(project_dir: str) -> str:
-    """Whose window this is, from the checkout's own folder name read as whole words.
-
-    "aria" anywhere in the path was the first rule and it is wrong for a folder such as "Maria" or
-    "variable" (Aether found the same trap reading #665): only the last folder is looked at, split on
-    anything that is not a letter, so "DivineOS-Experimental-Aria-new" is Aria and "Maria" is not.
-    """
-    folder = Path(project_dir.replace("\\", "/").rstrip("/")).name.lower()
-    return "aria" if "aria" in re.split(r"[^a-z]+", folder) else "aether"
+# WHOSE WINDOW THIS IS is not decided here. This module once carried its own guess from the
+# checkout's folder name, a private copy of what the house already has in one place: core.
+# sibling_audit_rounds.this_seat resolves it from the checkout's own data home, and says None
+# when it cannot tell. Aletheia's second ask on #603 (2026-10-16): use that one judge. The
+# surface asks it and, when it cannot tell, says so and does not hold, because holding the
+# wrong seat's letters is worse than not holding.
 
 
 def _shared() -> Path:
@@ -111,7 +104,13 @@ def clear_on_read(member: str, read_path: str, shared: Path | None = None) -> li
 
 def is_bell_command(command: str) -> bool:
     """Re-arming the bell must always get through, or a held seat could never hear the next ring."""
-    return _BELL_COMMAND in command
+    # The house's one check for a re-arm: exactly `bash scripts/letter_doorbell.sh <this seat>`,
+    # optionally after a cd onto this repo. The bell's NAME appearing anywhere in a command was
+    # the first rule, and it let `git push --force; echo letter_doorbell.sh` and
+    # `rm -rf src # letter_doorbell.sh` through the hold (Aletheia, 2026-10-16, first ask on #603).
+    from divineos.hooks.pre_tool_use_gate import _is_doorbell_rearm
+
+    return _is_doorbell_rearm(command)
 
 
 def refusal_message(paths: list[Path]) -> str:
