@@ -46,9 +46,19 @@ def test_a_move_restarts_the_idle_clock_so_a_real_game_is_never_let_go():
     assert reason and marker == {"turn": 7, "since": NOW}
 
 
-def test_each_window_asks_about_its_own_seat():
-    assert hook.member("C:/DIVINE OS/DivineOS-Experimental-Aria-new") == "aria"
-    assert hook.member("C:/DIVINE OS/DivineOS-Experimental") == "aether"
+ROOT = str(Path(__file__).resolve().parents[1])
+
+
+def test_each_window_asks_the_one_judge_for_its_seat(monkeypatch):
+    monkeypatch.setenv("DIVINEOS_HOME", str(Path("~/.divineos-aria").expanduser()))
+    assert hook.member(ROOT) == "aria"
+    monkeypatch.setenv("DIVINEOS_HOME", str(Path("~/.divineos").expanduser()))
+    assert hook.member(ROOT) == "aether"
+
+
+def test_an_unknown_seat_is_never_guessed(monkeypatch, tmp_path):
+    monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path / "someone-else"))
+    assert hook.member(ROOT) is None
 
 
 def test_when_he_spoke_the_hold_only_puts_the_seat_back_and_never_asks_for_a_new_reply():
@@ -60,12 +70,6 @@ def test_when_he_spoke_the_hold_only_puts_the_seat_back_and_never_asks_for_a_new
 def test_it_cannot_be_told_whether_he_spoke_without_a_readable_transcript(tmp_path):
     assert hook._he_spoke(None, str(tmp_path)) is None
     assert hook._he_spoke(str(tmp_path / "no_such_transcript.jsonl"), str(tmp_path)) is None
-
-
-def test_a_folder_with_maria_or_variable_in_its_path_is_not_aria():
-    assert hook.member("C:/DIVINE OS/Maria/DivineOS-Experimental") == "aether"
-    assert hook.member("C:/variable/DivineOS-Experimental") == "aether"
-    assert hook.member("C:\\DIVINE OS\\DivineOS-Experimental-Aria-new") == "aria"
 
 
 LIVE = {"hand": 3, "live": True, "turn": 7}
