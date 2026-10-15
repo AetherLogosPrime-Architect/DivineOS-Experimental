@@ -242,7 +242,74 @@ def _fits(candidate: his_asks.Candidate, record: _Record) -> bool:
     # wait, not yet" under the same id (Aether, reading 9e518b6b3). The record
     # may carry harness envelopes beside his words, so both sides are compared
     # with those set aside.
-    return strip_envelopes(candidate.his_text) == strip_envelopes(record.text)
+    kept_words = strip_envelopes(candidate.his_text)
+    if kept_words == strip_envelopes(record.text):
+        return True
+    if not kept_words and nothing_of_his(candidate.his_text):
+        # Nothing of his was kept, only a machine wrapper (a helper's hand-back), so
+        # there are no words to compare, and the record carries the harness's own
+        # sentence beside the wrapper, so equal-words cannot match it. It fits a record
+        # of the same turn that is NOT stamped human, and settles there as the machine
+        # arrival it is. A record stamped human never fits it: one prompt id has held
+        # ten of his messages, and a machine message must not eat one of them.
+        # Measured 2026-10-09: all 38 hand-backs in 30 days across 257 transcripts are
+        # `peer`. A hand-back stamped human would stay unmatched, visibly: a named limit.
+        return same_turn and record.stamp != "human"
+    return False
+
+
+def _pair_in_order(candidates: list, records: list[_Record]) -> dict[int, _Record]:
+    """Pair messages that share their words with records, in the order he sent them.
+
+    ``candidates`` are oldest keep first and ``records`` oldest first. Among the
+    pairings that keep that order and use each record once, the one with the smallest
+    total gap between keep and record wins; a message no record fits is left out.
+
+    Why not "each takes the record nearest its keep" (the first version, and the
+    one-line variants of it): two identical quick replies, kept five seconds apart
+    with each record written eight seconds before its keep, came out SWAPPED, each
+    filed against what we had said before the other (Aether, 2026-10-08). Nearest-
+    before-the-keep still swaps them; newest-first fixes that and breaks the slips
+    written just after each keep. Only keeping the order is right in all of these,
+    and the smallest total gap still gives a lone message its nearest record, so the
+    older identical record the door never kept does not take his new "yes" (Aletheia,
+    PR 584).
+
+    ``best[i][j]`` is the least cost of placing the first ``i`` messages on the first
+    ``j`` records, each message on a later record than the one before it. A cost is
+    (messages left waiting, total gap) compared in that order, so a message is left
+    waiting only when no record fits it, never to shave a gap, however large the gap.
+    """
+    n, m = len(candidates), len(records)
+    gap = [[float("inf")] * m for _ in range(n)]
+    for i, c in enumerate(candidates):
+        kept = _when(c.said_at)
+        if kept is None:
+            continue
+        for j, r in enumerate(records):
+            if _fits(c, r):
+                gap[i][j] = abs((r.at - kept).total_seconds())
+    best = [[(0, 0.0)] * (m + 1)] + [[(i, 0.0)] + [(0, 0.0)] * m for i in range(1, n + 1)]
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            waiting, total = best[i - 1][j]
+            options = [best[i][j - 1], (waiting + 1, total)]
+            if gap[i - 1][j - 1] != float("inf"):
+                waiting, total = best[i - 1][j - 1]
+                options.append((waiting, total + gap[i - 1][j - 1]))
+            best[i][j] = min(options)
+    paired: dict[int, _Record] = {}
+    i, j = n, m
+    while i > 0 and j > 0:
+        waiting, total = best[i - 1][j]
+        if best[i][j] == best[i][j - 1]:
+            j -= 1
+        elif best[i][j] == (waiting + 1, total):
+            i -= 1
+        else:
+            paired[i - 1] = records[j - 1]
+            i, j = i - 1, j - 1
+    return paired
 
 
 def settle(transcript_path: str | Path, seat: str) -> dict[str, str] | None:
@@ -288,17 +355,23 @@ def settle(transcript_path: str | Path, seat: str) -> dict[str, str] | None:
         _loud("could not tell which records are already his, so nothing was settled")
         return None
     taken: set[str] = set(already)
-    for candidate in candidates:
-        fitting = [r for r in records if r.uuid not in taken and r.stamp and _fits(candidate, r)]
-        if not fitting:
-            continue
-        # The nearest to the keep, not the oldest. An older identical record the
-        # door never kept (door down, house behind main) sits inside the same-
-        # turn window, and oldest-first gave his new "yes" to it -- filing it as
-        # an answer to what we said ten minutes earlier (Aletheia, PR 584).
-        kept_at = _when(candidate.said_at) or now
-        match = min(fitting, key=lambda r: abs((r.at - kept_at).total_seconds()))
-        taken.add(match.uuid)
+    # Messages with the same words compete for the same records, so they are paired
+    # together, in the order he sent them (see _pair_in_order). Messages with other
+    # words cannot want the same records: equal words are what makes a record fit.
+    by_words: dict[str, list] = {}
+    for c in sorted(candidates, key=lambda c: _when(c.said_at) or now):
+        by_words.setdefault(strip_envelopes(c.his_text), []).append(c)
+    pairs: list[tuple] = []
+    for group in by_words.values():
+        # A resumed session copies his record under the same uuid: one record, once.
+        free: list[_Record] = []
+        for r in sorted(records, key=lambda r: r.at):
+            if r.uuid not in taken and r.stamp and all(r.uuid != f.uuid for f in free):
+                free.append(r)
+        for i, record in _pair_in_order(group, free).items():
+            taken.add(record.uuid)
+            pairs.append((group[i], record))
+    for candidate, match in pairs:
         # The stamp says who sat in the seat, not whose words these are: the
         # harness stamps build notices human (see harness_envelopes).
         stamp = match.stamp or ""

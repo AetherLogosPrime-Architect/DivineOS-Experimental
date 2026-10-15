@@ -31,6 +31,7 @@ _TAGS = (
     "command-name",
     "command-message",
     "command-args",
+    "agent-message",
 )
 
 # A block the harness wraps around a turn. A message that is only envelope is
