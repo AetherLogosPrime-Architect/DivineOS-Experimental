@@ -296,14 +296,32 @@ class TestAnAmpersandInARedirectIsNotASeparator:
             "tail -3",
         ]
 
-    def test_the_other_redirect_spellings_are_not_cut(self):
+    def test_the_other_descriptor_duplications_are_not_cut(self):
         for command in (
             "divineos ask foo >&2",
             "divineos ask foo 1>&2",
-            "divineos ask foo &> out.txt",
-            "divineos ask foo &>> out.txt",
+            "divineos ask foo >&-",
         ):
             assert split_shell_segments(command) == [command], command
+
+    def test_a_redirect_that_writes_a_file_keeps_splitting_as_before(self):
+        """`&>file` and `>& file` WRITE a file. Kept whole they would hide the write behind
+        an inert head, so a line the gates refuse today would pass as a remedy. Found by
+        probing main against the first version of this change, after the first confirm."""
+        assert split_shell_segments("divineos learn x && echo y &> f") == [
+            "divineos learn x",
+            "echo y",
+            "> f",
+        ]
+        assert split_shell_segments("divineos learn x && echo y >& f") == [
+            "divineos learn x",
+            "echo y >",
+            "f",
+        ]
+
+    def test_a_file_write_behind_an_inert_head_is_still_not_a_clean_remedy(self):
+        assert acting_segments("divineos learn x && echo y &> f") == ["divineos learn x", "> f"]
+        assert acting_segments("divineos learn x && echo y >& f") == ["divineos learn x", "f"]
 
     def test_a_real_background_ampersand_still_separates(self):
         assert split_shell_segments("sleep 5 & echo done") == ["sleep 5", "echo done"]

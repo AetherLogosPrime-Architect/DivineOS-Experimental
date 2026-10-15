@@ -481,22 +481,26 @@ def shell_command_is_unplaced(tokens: list[str]) -> bool:
 def _ampersand_is_part_of_a_redirect(text: str, index: int, current: list[str]) -> bool:
     """True when the ampersand at ``index`` belongs to a redirect, not to a separator.
 
-    ``2>&1``, ``>&2`` and ``1>&2`` carry it right after the arrow; ``&>file`` and
-    ``&>>file`` carry it right before one. Read as a separator it cut the command in
-    two and left a stray word (``1``), and a gate that judges each segment then saw an
-    unknown second command behind a prescribed remedy and refused the remedy
-    (2026-10-16: an unsent exit typed with ``2>&1`` on the end was refused for hours,
+    ``2>&1``, ``>&2`` and ``1>&2`` duplicate a file descriptor: the ampersand sits right
+    after an arrow and a digit (or ``-``) follows. Read as a separator it cut the
+    command in two and left a stray word (``1``), and a gate that judges each segment
+    then saw an unknown second command behind a prescribed remedy and refused the
+    remedy (2026-10-16: an exit typed with ``2>&1`` on the end was refused for hours,
     while the same line with ``| tail`` passed).
 
-    NARROW ON PURPOSE. A doubled ``&&`` is never a redirect, and a trailing ``&``
-    that follows anything else (``cmd 2>&1 & other``) still separates. Not covered, and
-    left visibly so: here-strings and process substitution, which carry other marks
-    and are refused or unreadable already.
+    NARROWER THAN FIRST BUILT, and the reason is the point. The first version also
+    kept ``&>file`` and ``>& file`` whole. Those WRITE a file, and keeping them inside
+    the segment hides the write behind an inert head such as ``echo``, so a line that
+    used to be refused would pass as a remedy. Found by probing main against the
+    change after the first confirm. They keep splitting exactly as before.
+
+    A doubled ``&&`` is never a redirect, and a trailing ``&`` after anything else
+    (``cmd 2>&1 & other``) still separates. Not covered, left visibly: a redirect to a
+    file after a duplication (``echo y 2>&1 > f``) keeps behaving like ``echo y > f``,
+    which this module already accepted.
     """
     following = text[index + 1] if index + 1 < len(text) else ""
-    if following == "&":
-        return False
-    return (bool(current) and current[-1] in "<>") or following == ">"
+    return bool(current) and current[-1] in "<>" and (following.isdigit() or following == "-")
 
 
 def split_shell_segments(bash_command: str) -> list[str] | None:
