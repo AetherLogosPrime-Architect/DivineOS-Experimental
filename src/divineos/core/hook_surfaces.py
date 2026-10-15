@@ -28,7 +28,9 @@ Migrated so far:
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any, TypeVar, cast
 
 from divineos.core.hook_router import SurfaceOutcome, register
 
@@ -219,6 +221,36 @@ def compound_branch_change_surface(payload: dict) -> SurfaceOutcome | None:
         json_deny=True,
         state="spoke",
     )
+
+
+def full_suite_by_hand_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a hand-run of the whole test suite; that is the push's job.
+
+    Andrew, four times, latest 2026-10-03: "i have asked you repeatedly not to
+    run the full fucking suite on every goddamn change". The decision and its
+    limits live in core/full_suite_by_hand.py.
+    """
+    name = "full_suite_by_hand"
+    if (payload.get("tool_name") or "") not in ("Bash", "PowerShell"):
+        return SurfaceOutcome(name=name, state="nothing-to-say")
+    command = str((payload.get("tool_input") or {}).get("command") or "")
+    if "pytest" not in command:
+        return SurfaceOutcome(name=name, state="nothing-to-say")
+    try:
+        from pathlib import Path
+
+        from divineos.core.auto_commit import find_repo_root
+        from divineos.core.full_suite_by_hand import decide
+
+        repo = find_repo_root(Path(payload.get("cwd") or Path.cwd()))
+        reason = decide(command, repo)
+    except Exception as exc:  # noqa: BLE001 - could-not-run is said, never passed silently
+        return SurfaceOutcome(
+            name=name, error=f"{type(exc).__name__}: {exc}", state="could-not-run"
+        )
+    if reason:
+        return SurfaceOutcome(name=name, refused=True, reason=reason, state="spoke")
+    return SurfaceOutcome(name=name, state="nothing-to-say")
 
 
 def no_verify_cost_surface(payload: dict) -> SurfaceOutcome | None:
@@ -699,49 +731,212 @@ def correction_marker_surface(payload: dict) -> SurfaceOutcome | None:
 # --------------------------------------------------------------------------
 
 
+def _text_of_content(content: object) -> str:
+    """Concatenated text of one message's content, list-shaped or string."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(
+            c.get("text", "")
+            for c in content
+            if isinstance(c, dict) and c.get("type") == "text" and c.get("text")
+        )
+    return ""
+
+
+def _is_his_record(record: dict) -> bool:
+    """Is this transcript record a message he typed? The reply boundary.
+
+    Asks the one reader of him. This used to be a private marker list, and
+    Aether's reading of #553 (2026-09-30) measured two ways it disagreed with
+    divineos.core.his_message: a message he typed while I was busy arrives as
+    a queued_command attachment with no role, so the walk ran straight past it
+    and joined my reply before it to my reply after it; and a message of his
+    opening with "Caveat:" was taken for the harness. A harness injection is
+    still not a boundary -- the one reader refuses those too. A bookmark copy
+    is not a boundary: it has no place in the order of the conversation.
+    """
+    from divineos.core.his_message import Heard, hear
+
+    heard = hear(record)
+    return isinstance(heard, Heard) and not heard.bookmark
+
+
+# THE FOUR READERS BELOW EACH WANT THE LAST SOMETHING -- my latest reply, his
+# latest words, this turn's actions -- and until 2026-09-24 each one parsed the
+# whole session transcript from its first line to find it. Nine calls per Stop.
+# At 330 MB that was 18.7 s against the Stop doorbell's 10 s harness limit, so
+# every Stop check registered after the time ran out -- addressed_to_him,
+# his_standing_verdict, unspoken_to among them -- was killed without a word.
+# Aria measured her own seat independently: 78 of 80 Stop runs never finished.
+#
+# They now walk growing tails from the end (``transcript_tail.tail_windows``,
+# the reader eighteen other callers already used) and stop at the first window
+# holding their answer. The last match in a suffix of the file is the last
+# match in the file, and the final window is always the whole file, so every
+# answer is the one a whole read gives. tests/test_stop_checks_read_the_end.py
+# pins that, and fails if ANY Stop surface parses the transcript's first line.
+_STOP_TAIL_START = 2_000_000
+_STOP_TAIL_MAX = 32_000_000
+_T = TypeVar("_T")
+
+# (path, size, mtime_ns, question) -> answer. His last words can sit behind a
+# long notification-only stretch -- exactly the stretch while he is asleep --
+# and then need the whole file, and three surfaces ask that same question per
+# Stop. The file's state is in the key: a transcript that grew is a new question.
+_TRANSCRIPT_MEMO: dict[tuple, Any] = {}
+
+
+def _transcript_file(payload: dict):
+    """The transcript the harness named, as a Path, or None if there is none."""
+    from pathlib import Path
+
+    raw = payload.get("transcript_path") or payload.get("transcript") or ""
+    if not raw:
+        return None
+    path = Path(raw)
+    return path if path.is_file() else None
+
+
+def _windows(path):
+    """``(lines, is_whole_file)`` for growing tails of ``path``, smallest first.
+
+    Split on newline only, as iterating the file did. ``str.splitlines`` also
+    breaks on U+2028 and U+0085, which JSON does not escape, and would cut a
+    record carrying one of them in two.
+    """
+    from divineos.core.operating_loop.transcript_tail import tail_windows
+
+    for text, whole in tail_windows(path, start_bytes=_STOP_TAIL_START, max_bytes=_STOP_TAIL_MAX):
+        lines = text.split("\n")
+        # A file ending in a newline leaves one empty piece that splitlines()
+        # never produced; without this the action stream gained a trailing "\n"
+        # the whole-file reader did not have (Aria, station four on #552).
+        if lines and lines[-1] == "":
+            lines.pop()
+        yield lines, whole
+
+
+def _messages(lines):
+    """``(role, content)`` for every parseable message line, in file order."""
+    import json as _json
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = _json.loads(line)
+        except ValueError:
+            continue
+        msg = rec.get("message") if isinstance(rec, dict) else None
+        if isinstance(msg, dict):
+            yield msg.get("role"), msg.get("content", [])
+
+
+def _records(lines):
+    """Every parseable JSON OBJECT line, in file order.
+
+    The reply readers need the whole record, not just its role and content: a message he
+    typed while I was busy is an attachment with no role, and only the record shows it.
+    A line that parses as something other than an object (a bare number, a list) is
+    skipped, so no later ``.get`` can be called on it.
+    """
+    import json as _json
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = _json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(rec, dict):
+            yield rec
+
+
+def _assistant_text_of(rec: dict) -> str:
+    """The text of an assistant record, or "" if it is not one or has none."""
+    msg = rec.get("message")
+    if not isinstance(msg, dict) or msg.get("role") != "assistant":
+        return ""
+    return _text_of_content(msg.get("content", []))
+
+
+def _text_parts(content) -> list[str]:
+    return [c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text"]
+
+
+def _memo(path, question, compute: Callable[[], _T]) -> _T:
+    try:
+        st = path.stat()
+    except OSError:
+        return compute()
+    key = (str(path), st.st_size, st.st_mtime_ns, question)
+    if key not in _TRANSCRIPT_MEMO:
+        if len(_TRANSCRIPT_MEMO) > 64:
+            _TRANSCRIPT_MEMO.clear()
+        _TRANSCRIPT_MEMO[key] = compute()
+    return cast(_T, _TRANSCRIPT_MEMO[key])
+
+
 def _last_assistant_text(payload: dict) -> str:
-    """The text of my most recent reply, from the transcript the harness names.
+    """The WHOLE of my most recent reply, from the transcript the harness names.
 
     Returns "" when there is nothing to read. Callers must NOT treat that as a
     clean reply -- it means the same thing an unreadable transcript means, so
     a surface that finds nothing declares ``nothing-to-say`` rather than
     reporting a pass.
+
+    WHY THIS WALKS BACKWARDS, and it is the whole point of the function.
+
+    A reply is written to the transcript as SEVERAL assistant records -- one
+    per streamed block, split wherever a tool call interrupts. The prior
+    version walked forwards and overwrote ``last`` on every record, so it
+    returned the FINAL BLOCK and called it the reply.
+
+    Measured on the live transcript 2026-09-22: a 664-character reply across
+    two blocks came back as 245 characters. Thirty-seven percent, and the
+    discarded majority was the OPENING -- the part that answers him. Every
+    Stop surface in this module judges on this string, so all of them were
+    ruling on the tail of my replies:
+
+      - repeated_reply compared closing lines, which are naturally alike, and
+        false-fired until Andrew ordered it disabled that same evening
+      - the lepos reflection reported "no exact-span citation" while the
+        citation sat in block one
+      - the translate gate counted document-marks over a fragment
+
+    One defect, one repair, roughly ten consumers -- rather than a new surface
+    reading it correctly beside the broken one. Andrew, the same evening, on
+    why that matters: the house is already a maze of signs nobody takes down.
+
+    So: collect assistant text backwards until the previous message that is
+    genuinely HIS, then join in the order I said it.
     """
-    import json as _json
-
-    raw = payload.get("transcript_path") or payload.get("transcript") or ""
-    if not raw:
+    path = _transcript_file(payload)
+    if path is None:
         return ""
-    from pathlib import Path
 
-    path = Path(raw)
-    if not path.is_file():
+    def scan() -> str:
+        # A window that holds no turn of his may be missing the reply's opening
+        # blocks, so it widens. Only reaching his turn, or the whole file, ends it.
+        for lines, whole in _windows(path):
+            blocks: list[str] = []
+            reached_his_turn = False
+            for rec in reversed(list(_records(lines))):
+                if _is_his_record(rec):
+                    reached_his_turn = True
+                    break
+                text = _assistant_text_of(rec)
+                if text.strip():
+                    blocks.append(text)
+            if reached_his_turn or whole:
+                return "\n".join(reversed(blocks))
         return ""
-    last = ""
-    with path.open(encoding="utf-8", errors="replace") as handle:
-        for line in handle:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                rec = _json.loads(line)
-            except ValueError:
-                continue
-            msg = rec.get("message") or {}
-            if not isinstance(msg, dict) or msg.get("role") != "assistant":
-                continue
-            content = msg.get("content", [])
-            if isinstance(content, list):
-                parts = [
-                    c.get("text", "")
-                    for c in content
-                    if isinstance(c, dict) and c.get("type") == "text"
-                ]
-                if parts:
-                    last = "\n".join(parts)
-            elif isinstance(content, str):
-                last = content
-    return last
+
+    return _memo(path, "last_assistant_text", scan)
 
 
 def _this_turns_action_stream(payload: dict) -> str:
@@ -766,61 +961,78 @@ def _this_turns_action_stream(payload: dict) -> str:
     path = Path(raw)
     if not path.is_file():
         raise OSError(f"the named transcript is not a file: {path}")
-    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
 
-    # Walk back to his last message; everything after it is this turn.
-    start = 0
-    for index, line in enumerate(lines):
-        try:
-            rec = _json.loads(line)
-        except ValueError:
-            continue
-        msg = rec.get("message") or {}
-        if isinstance(msg, dict) and msg.get("role") == "user":
-            start = index
-    return "\n".join(lines[start:])
-
-
-def _recent_assistant_texts(payload: dict, count: int = 2) -> list[str]:
-    """My last ``count`` replies, newest first. Same reader, wider window.
-
-    Needed because a Stop surface that only ever sees the CURRENT reply cannot
-    notice that the current reply IS the previous one again.
-    """
-    import json as _json
-    from pathlib import Path
-
-    raw = payload.get("transcript_path") or payload.get("transcript") or ""
-    if not raw:
-        return []
-    path = Path(raw)
-    if not path.is_file():
-        return []
-    texts: list[str] = []
-    with path.open(encoding="utf-8", errors="replace") as handle:
-        for line in handle:
-            line = line.strip()
-            if not line:
-                continue
+    # Walk back to the last user-role record; everything after it is this turn.
+    for lines, whole in _windows(path):
+        start = None
+        for index, line in enumerate(lines):
             try:
                 rec = _json.loads(line)
             except ValueError:
                 continue
-            msg = rec.get("message") or {}
-            if not isinstance(msg, dict) or msg.get("role") != "assistant":
-                continue
-            content = msg.get("content", [])
-            if isinstance(content, list):
-                parts = [
-                    c.get("text", "")
-                    for c in content
-                    if isinstance(c, dict) and c.get("type") == "text"
-                ]
-                if parts:
-                    texts.append("\n".join(parts))
-            elif isinstance(content, str) and content.strip():
-                texts.append(content)
-    return list(reversed(texts))[:count]
+            msg = rec.get("message") if isinstance(rec, dict) else None
+            if isinstance(msg, dict) and msg.get("role") == "user":
+                start = index
+        if start is not None:
+            return "\n".join(lines[start:])
+        if whole:
+            return "\n".join(lines)
+    return ""
+
+
+def _recent_assistant_texts(payload: dict, count: int = 2) -> list[str]:
+    """My last ``count`` REPLIES, newest first. Same reader, wider window.
+
+    Needed because a Stop surface that only ever sees the CURRENT reply cannot
+    notice that the current reply IS the previous one again.
+
+    WHAT A REPLY IS HERE, because the old version got this wrong and the cost
+    landed on him.
+
+    One reply is written to the transcript as SEVERAL assistant records, split
+    wherever a tool call interrupts the stream. The prior version appended each
+    record and returned the last two, so for any reply delivered in two or more
+    pieces it handed the repeat-guard two fragments OF THE SAME REPLY. Measured
+    on the live transcript 2026-09-22: both entries it called "separate
+    replies" were substrings of the one being composed.
+
+    So the guard built to catch me saying a thing twice was holding my reply up
+    against itself. That is why it false-fired, and why Andrew ordered it
+    disabled on 2026-09-22 -- a guard whose own reader is broken teaches only
+    that guards should be switched off.
+
+    A reply boundary is a message that is genuinely HIS. Harness injections are
+    not boundaries; treating them as such would split one reply into several
+    and reintroduce the same fault under a different name.
+    """
+    path = _transcript_file(payload)
+    if path is None:
+        return []
+
+    def scan() -> list[str]:
+        # A reply counts only once his turn closes it; a window ending mid-reply
+        # widens, exactly as in _last_assistant_text.
+        for lines, whole in _windows(path):
+            replies: list[str] = []
+            current: list[str] = []
+            for rec in reversed(list(_records(lines))):
+                if _is_his_record(rec):
+                    if current:
+                        replies.append("\n".join(reversed(current)))
+                        current = []
+                        if len(replies) >= count:
+                            return replies
+                    continue
+                text = _assistant_text_of(rec)
+                if text.strip():
+                    current.append(text)
+            if whole:
+                if current:
+                    replies.append("\n".join(reversed(current)))
+                return replies[:count]
+        return []
+
+    return list(_memo(path, ("recent_assistant_texts", count), scan))
 
 
 #: (surface name, module, callable) — each takes the transcript path and does
@@ -876,55 +1088,41 @@ def _last_user_text(payload: dict) -> str:
     nothing to read, which callers must treat as could-not-look rather than as
     he-said-nothing.
     """
-    import json as _json
-    from pathlib import Path
+    path = _transcript_file(payload)
+    if path is None:
+        return ""
 
-    raw = payload.get("transcript_path") or payload.get("transcript") or ""
-    if not raw:
+    def scan() -> str:
+        for lines, whole in _windows(path):
+            last = None
+            for role, content in _messages(lines):
+                if role != "user":
+                    continue
+                if isinstance(content, list):
+                    text = "\n".join(_text_parts(content))
+                elif isinstance(content, str):
+                    text = content
+                else:
+                    text = ""
+                # Hook output and task notifications arrive shaped like user turns.
+                # They are the machine talking, not him, and counting them as him is
+                # exactly how two hours of notification-driven work read to me as a
+                # conversation.
+                # Named shapes were "<system-reminder>" and "hook success" until
+                # this surface's own refusal notices came back at it as his turns,
+                # so it demanded I quote a gate at him to satisfy it. An
+                # enumeration standing in for a principle, mine, minutes old, in
+                # the thing built to stop that. The principle: text the harness
+                # generated is not him, whatever it is wearing.
+                if _MACHINE_TEXT_RE.search(text):
+                    continue
+                if text.strip():
+                    last = text
+            if last is not None or whole:
+                return last or ""
         return ""
-    path = Path(raw)
-    if not path.is_file():
-        return ""
-    last = ""
-    with path.open(encoding="utf-8", errors="replace") as handle:
-        for line in handle:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                rec = _json.loads(line)
-            except ValueError:
-                continue
-            msg = rec.get("message") or {}
-            if not isinstance(msg, dict) or msg.get("role") != "user":
-                continue
-            content = msg.get("content", [])
-            if isinstance(content, list):
-                parts = [
-                    c.get("text", "")
-                    for c in content
-                    if isinstance(c, dict) and c.get("type") == "text"
-                ]
-                text = "\n".join(parts)
-            elif isinstance(content, str):
-                text = content
-            else:
-                text = ""
-            # Hook output and task notifications arrive shaped like user turns.
-            # They are the machine talking, not him, and counting them as him is
-            # exactly how two hours of notification-driven work read to me as a
-            # conversation.
-            # Named shapes were "<system-reminder>" and "hook success" until
-            # this surface's own refusal notices came back at it as his turns,
-            # so it demanded I quote a gate at him to satisfy it. An
-            # enumeration standing in for a principle, mine, minutes old, in
-            # the thing built to stop that. The principle: text the harness
-            # generated is not him, whatever it is wearing.
-            if _MACHINE_TEXT_RE.search(text):
-                continue
-            if text.strip():
-                last = text
-    return last
+
+    return _memo(path, "last_user_text", scan)
 
 
 _ADDRESSED_RE = re.compile(r"\b(you|your|you're|youre|you've|dad)\b", re.I)
@@ -2208,6 +2406,57 @@ def pr_create_gate_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def _hook_timing_log():
+    """Where ``_lib.sh`` writes hook start/end rows.
+
+    ``${HOME}/.divineos``, not ``divineos_home()``: the shell writes it, and the
+    shell knows only HOME. Both seats therefore share one log, which is why the
+    count below is filtered to this session.
+    """
+    from pathlib import Path
+
+    return Path.home() / ".divineos" / "hook_timing.jsonl"
+
+
+def stop_runs_killed_surface(payload: dict) -> SurfaceOutcome | None:
+    """Say so, at the next prompt, when the Stop doorbell is being killed.
+
+    Aria's addition to the 2026-09-24 repair. For a day the harness killed
+    doorbell-stop.sh at its 10 s limit on nearly every reply, and every Stop
+    check behind the time limit -- the ones that watch whether I still speak
+    to Andrew among them -- did not run. A killed door and a quiet door looked
+    identical from inside, so I read the frozen letter counter as a stuck door
+    and reset it, twice. The start-without-end rows were in the timing log the
+    whole time; ``count_unclosed_runs`` could see them when asked, and nobody
+    asked. This asks every turn. It reports; it refuses nothing.
+    """
+    try:
+        from divineos.core.hook_budget import recent_unclosed
+
+        killed, seen = recent_unclosed(
+            _hook_timing_log(), "doorbell-stop.sh", session=payload.get("session_id") or None
+        )
+    except Exception as exc:  # noqa: BLE001 - a report never takes the prompt down
+        return SurfaceOutcome(
+            name="stop_runs_killed",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    if not killed:
+        return SurfaceOutcome(name="stop_runs_killed", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="stop_runs_killed",
+        state="spoke",
+        output=(
+            f"STOP CHECKS KILLED -- {killed} of the last {seen} stop-time runs in this "
+            "session never finished. The harness kills the Stop doorbell at its time "
+            "limit, so every Stop check registered after the time ran out did not run "
+            "on those replies: silence from them is not a pass. "
+            "`divineos hook-budget` has the whole stack."
+        ),
+    )
+
+
 def _this_seat() -> str:
     # The front door files under the same fallback, so the refusal and the
     # store always agree about which seat a message of his belongs to.
@@ -2287,6 +2536,8 @@ def install() -> None:
     # migration existed to remove still running underneath it.
     if "no_verify_cost" not in registered("PreToolUse"):
         register("PreToolUse", "no_verify_cost", no_verify_cost_surface)
+    if "full_suite_by_hand" not in registered("PreToolUse"):
+        register("PreToolUse", "full_suite_by_hand", full_suite_by_hand_surface)
 
     # Registered in the SAME change that adds the surface, deliberately. The
     # note above records what happens when those two come apart; a function
@@ -2370,11 +2621,15 @@ def install() -> None:
         register("UserPromptSubmit", "pre_response_context", pre_response_context_surface)
     if "context_heartbeat" not in registered("UserPromptSubmit"):
         register("UserPromptSubmit", "context_heartbeat", context_heartbeat_surface)
+    if "stop_runs_killed" not in registered("UserPromptSubmit"):
+        register("UserPromptSubmit", "stop_runs_killed", stop_runs_killed_surface)
     # Wired 2026-09-24 in the same change that makes it cheap enough to wire:
     # item vectors read from the drawer, the prompt embedded by the light
     # embedder. The last time it was wired without that, the hook hung.
-    if "memory_link" not in registered("UserPromptSubmit"):
-        register("UserPromptSubmit", "memory_link", memory_link_surface)
+    # memory_link is NOT registered here any more (2026-10-04): it runs as its
+    # own dispatcher child, .claude/hooks/memory-link-surface.sh, because when
+    # this bundle timed out on Dad's message the link's finds were dropped with
+    # it. Registering it here as well would print it twice on quick turns.
 
     # Fourth door, 2026-09-08. Order matters here in a way it does not on the
     # other doors: summary_room REFUSES, and the router runs every surface
