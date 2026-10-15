@@ -108,8 +108,14 @@ def _is_this_message(passage: str, message: str) -> bool:
 
 
 def passages_of(text: str) -> list[str]:
-    """Cut one message to quote-size pieces on his own pauses (Bengio)."""
-    parts = re.split(r"(?<=[.!?])\s+|\.\.\s+|\n+", text)
+    """Cut one message to quote-size pieces on his own pauses (Bengio).
+
+    The cut falls AFTER his two dots and never through them: a split alternative that consumed ".."
+    turned "after all.. plus all the failures" into "after all plus all the failures", dropping his
+    marks and running two thoughts together, while the door says his words print as he wrote them
+    (probed 2026-10-16, walk-7c48d8c7f6e0). The sentence-end rule below already splits after a dot,
+    so the two dots stay on the piece they close."""
+    parts = re.split(r"(?<=[.!?])\s+|\n+", text)
     out, buf = [], ""
     for p in parts:
         if len(buf) + len(p) > PASSAGE_CHARS and buf:
