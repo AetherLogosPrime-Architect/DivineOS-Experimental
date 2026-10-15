@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import sys
 import time
 import urllib.request
@@ -27,10 +26,23 @@ TABLE = "http://127.0.0.1:8765"
 WAITER = "python /c/poker-play/wait_turn.py {who} 580"
 
 
-def member(project_dir: str) -> str:
-    """Whose seat this window plays, from the checkout's own folder name, not the whole path."""
-    name = Path(project_dir.replace("\\", "/")).name.lower()
-    return "aria" if "aria" in re.split(r"[^a-z]+", name) else "aether"
+def member(project_dir: str) -> str | None:
+    """Whose seat this window plays, asked of the house's one judge (`this_seat`), never guessed here.
+
+    None when it cannot be told: the hold then stays out of the way instead of waiting on a seat
+    that may be the wrong one.
+    """
+    try:
+        sys.path.insert(0, str(Path(project_dir) / "src"))
+        from divineos.core.sibling_audit_rounds import this_seat
+
+        return this_seat()
+    except Exception as exc:
+        print(
+            f"[poker] could not tell whose seat this is ({type(exc).__name__}); not holding",
+            file=sys.stderr,
+        )
+        return None
 
 
 def game_is_on(view: dict | None) -> bool:
@@ -85,7 +97,10 @@ def _he_spoke(transcript: str | None, project: str) -> bool | None:
 
         state = hv.spoke_mid_turn(transcript).state
     except Exception as exc:
-        print(f"[poker] could not tell whether he spoke ({type(exc).__name__}); not holding", file=sys.stderr)
+        print(
+            f"[poker] could not tell whether he spoke ({type(exc).__name__}); not holding",
+            file=sys.stderr,
+        )
         return None
     if state == hv.NOT:
         return False
@@ -124,7 +139,9 @@ def main() -> int:
     except (OSError, ValueError):
         seen = {}
     he_spoke = _he_spoke(data.get("transcript_path"), project)
-    hold, marker = decide(view, he_spoke, bool(data.get("stop_hook_active")), seen, time.time(), who)
+    hold, marker = decide(
+        view, he_spoke, bool(data.get("stop_hook_active")), seen, time.time(), who
+    )
     try:
         marker_file.write_text(json.dumps(marker), encoding="utf-8")
     except OSError:
