@@ -34,6 +34,7 @@ from divineos.core.build_flow import (
     PrFlowStatus,
     StationResult,
     Status,
+    author_of,
     check_aria_station,
     check_cold_read_station,
     check_audit_station,
@@ -46,7 +47,6 @@ from divineos.core.build_flow import (
     check_scope_station,
     check_supersession_station,
     check_test_station,
-    declared_author,
     fingerprint,
     judging_code_provenance,
     required_lens_count,
@@ -144,6 +144,16 @@ def _walk_postdates_build(branch: str, coverage: "Coverage | None" = None) -> bo
         return None  # both-empty: see above -- unreadable commit time
 
     if coverage is not None and coverage.state == "covered":
+        if coverage.bound_diff is not None:
+            # A walk bound to the diff it covered is judged by that identity, never by a
+            # clock (one walk before the push, 2026-10-12). main arriving in the branch
+            # is a commit after the walk by the clock and changes nothing about what was
+            # walked, which is why the clock rule refused clean branches on every catch-up
+            # (Aria, 621). None stays None: an unreadable ref is could-not-check, never fresh.
+            from divineos.core.council_required import push_choke
+
+            current = push_choke.diff_identity(Path.cwd(), head=branch)
+            return None if current is None else coverage.bound_diff == current
         # None stays None: a covering walk with no readable close time is
         # could-not-check, never fresh.
         return None if coverage.closed_at is None else coverage.closed_at > last_commit
@@ -878,7 +888,7 @@ def collect(
                 StationResult("2-council", Status.CANNOT_CHECK, "changed files unreadable"),
                 check_cold_read_station(branch, _LETTERS, _OWNERS),
                 check_scope_station(None, branch),
-                check_aria_station(branch, _LETTERS, declared_author(pr.get("body"))),
+                check_aria_station(branch, _LETTERS, author_of(pr.get("body"), branch, _OWNERS)),
                 check_draft_station(pr.get("isDraft")),
                 check_audit_station(
                     n,
@@ -920,7 +930,7 @@ def collect(
             check_cold_read_station(branch, _LETTERS, _OWNERS),
             check_scope_station(paths, branch),
             check_build_station(paths),
-            check_aria_station(branch, _LETTERS, declared_author(pr.get("body"))),
+            check_aria_station(branch, _LETTERS, author_of(pr.get("body"), branch, _OWNERS)),
             check_test_station(paths, _dark_surfaces_or_none()),
             check_more_council_station(
                 branch,

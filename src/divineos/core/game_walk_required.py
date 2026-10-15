@@ -338,6 +338,15 @@ def format_missing_message(missing: list[str], fingerprint: str) -> str:
             "    say what you tried and found nothing. Finding nothing is a real answer.",
             "",
         ]
+    if fingerprint.startswith("bash:divineos"):
+        lines += [
+            "  IF THIS COMMAND ONLY READS OR RECORDS: a redirect to a file (> out.txt),",
+            "  a tee, or an output flag makes it count as a write. Run it bare, without",
+            "  those. (`2>&1` and `2>/dev/null` do not count; a pipe to head/tail/grep",
+            "  does not either.) 2026-10-13: a decorated review command locked me out",
+            "  of the very exit another gate had just prescribed.",
+            "",
+        ]
     lines += [
         "  WHAT THIS CHECKED: that the artifacts exist, are bound to this edit,",
         "  and have not already been spent. It did NOT check that the thinking",

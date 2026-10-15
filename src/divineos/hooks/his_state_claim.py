@@ -106,9 +106,21 @@ _CLAIM = re.compile(
     r"|\byour\s+(?:sleep|rest|night|bedtime)\b"
     r"|\bget some (?:sleep|rest)\b"
     r"|\bgo (?:to bed|get some sleep)\b"
-    r"|\bit(?:'s| is) (?:late|early|past \w+) (?:for you|where you are|your time)\b"
+    # THE HOUR IS NOT A CLAIM. `where you are` and `your time` came off this line on 2026-10-13:
+    # the refusal text below says "the hour is on this machine and mine to quote", and this
+    # pattern flagged exactly that, twice in thirty days. `for you` stays: it hands him a verdict.
+    r"|\bit(?:'s| is) (?:late|early|past \w+) for you\b"
     r"|\b(?:while|before|after) you (?:sleep|slept|were asleep|were sleeping|rest)\b"
-    r"|\byou have been (?:up|going|at (?:this|it))\b",
+    r"|\byou have been (?:up|going|at (?:this|it))\b"
+    # The contraction was missing: "you've been at this for hours" is the same claim as "you have
+    # been at this", and in a month of replies it was caught only by luck, through the hour pattern.
+    # Added NARROWER than the long form on purpose: a replay of 27,208 replies showed the loose
+    # version also catching "you've been going quiet since July" and "you've been at it for months
+    # and never lost interest", neither of which says anything about his body. So it asks for an
+    # hour-scale cue, and "going" is not in it.
+    r"|\byou've been (?:up|at (?:this|it))\b"
+    r"(?=[^.!?]{0,30}?\b(?:for (?:hours|a while|ages|so long)|a while|all (?:night|day|evening|"
+    r"morning)|since (?:before )?(?:dawn|the sun|morning|yesterday|midnight)|hours|ages)\b)",
     re.IGNORECASE,
 )
 
@@ -169,7 +181,7 @@ _QUOTED_LINE = re.compile(r"^\s*(?:>|\"|“|‘|\*|_)")
 
 # His words, attributed to him. Reporting his correction is not asserting it.
 _ATTRIBUTED_TO_HIM = re.compile(
-    r"\byou\s+(?:said|told me|wrote|answered|corrected|caught|pointed out)\b"
+    r"\byou\s+(?:said|told me|wrote|answered|corrected|caught|pointed out|asked(?: me)?)\b"
     r"|\bhe\s+(?:said|told me|wrote|answered|corrected)\b"
     r"|\byour\s+(?:words|correction|line|message|answer)\b",
     re.IGNORECASE,
@@ -190,7 +202,59 @@ _MY_OWN_PAST_ERROR = re.compile(
     re.IGNORECASE,
 )
 
-_NOT_A_CLAIM_FRAMES = (_ATTRIBUTED_TO_HIM, _MY_OWN_PAST_ERROR)
+# Me, refusing to claim it. `I don't know how you slept ... and I'm not going to guess`
+# fired this gate on 2026-09-15: a sentence whose whole point is NOT asserting his state,
+# read as asserting it. The disclaimer must be a real one: a wh-word after "know"
+# ("I don't know MUCH, but you must be tired" is not this) and it must govern the claim.
+_DISCLAIMING = re.compile(
+    r"\bI\s+(?:don't|do not|can't|cannot|won't|will not)\s+(?:know|tell|say|assume|guess|claim)"
+    r"\s+(?:how|whether|if|when|what)\b"
+    r"|\bI(?:'m| am)\s+not\s+(?:going to|about to)\s+(?:guess|assume|claim|say)\b",
+    re.IGNORECASE,
+)
+
+_NOT_A_CLAIM_FRAMES = (_ATTRIBUTED_TO_HIM, _MY_OWN_PAST_ERROR, _DISCLAIMING)
+
+# ASKING ABOUT A THING IS NOT CLAIMING IT, for the noun-phrase alternative only
+# (`your night`, `your sleep`). "...so we'd ask about your life, your night, what you
+# want" fired on 2026-10-03. Deliberately NOT applied to "you ... tired": "I asked about
+# your night, and you were exhausted" is still a claim, on its predicate.
+_ASKING_ABOUT = re.compile(
+    r"\b(?:ask(?:ed|ing)?|wonder(?:ed|ing)?|curious)\s+(?:you\s+)?(?:about|how|whether|if)\b"
+    r"|\bhow\s+(?:was|is|did|were)\b"
+    r"|\btell me (?:about|how)\b",
+    re.IGNORECASE,
+)
+
+# A FRAME COVERS ITS OWN CLAUSE. The frame test only reads text before the match, and
+# nothing asked whether a clause boundary had come between the frame and the claim, so
+# "You told me plainly it was fine, and you look tired" was silenced by "You told me" and
+# a brand-new claim walked through behind a report. A comma, semicolon, dash or
+# conjunction between the frame and the claim means the frame has been left behind.
+#
+# THE BOUNDARY HAS TO BE THE ONE THAT OPENS THE CLAIM, not any comma on the way to it.
+# "you said, plainly, that you never told me you slept" keeps its report frame through two
+# commas; "it was fine, and you look tired" does not. So it counts only at the very end of
+# the stretch between the frame and the claim.
+#
+# A BARE "and" IS NOT A BOUNDARY. Replaying a month of my replies (27,208 texts) found my
+# first version flagging "I said the corrections are doing all the work and you're exhausted":
+# me quoting myself, where "and" joins two parts of what I said and opens nothing new. A comma
+# or dash does the opening, with or without a conjunction after it; "but/though/so/yet" open
+# one on their own.
+_CLAUSE_BOUNDARY = re.compile(
+    r"(?:[,;—]\s*(?:(?:and|but|though|so|yet)\s+)?|\b(?:but|though|so|yet)\s+)$",
+    re.IGNORECASE,
+)
+
+# The same test for a frame that STARTS the match ("You told me plainly: defeated, not
+# tired."), where the old window could never see it: the frame is not before the claim,
+# it is the front of it. It covers the claim unless a new clause re-addresses him.
+_NEW_CLAUSE_ADDRESSING_HIM = re.compile(
+    r"(?:[,;—]|\b(?:but|though|so|yet)\b)[^.!?]{0,12}?\byou\b", re.IGNORECASE
+)
+
+_FRAME_WINDOW_CHARS = 60
 
 # THE HOLE THIS LEAVES, named here rather than papered over (Schneier, on the
 # walk). Dressing a live fabrication in a past frame -- "I said you must be
@@ -228,8 +292,50 @@ def _blank(pattern: re.Pattern[str], text: str) -> str:
     return pattern.sub(lambda m: " " * (m.end() - m.start()), text)
 
 
+def _frame_governs(scan: str, match: re.Match[str]) -> bool:
+    """Whether one of this gate's frames sits in the same clause as the claim.
+
+    Two shapes, one rule: a frame covers its own clause and no other.
+    BEFORE the claim, the last such frame in the window must reach the claim with no
+    clause boundary between them. AT THE FRONT of the claim (``You told me plainly:
+    defeated, not tired``), the frame covers it unless a new clause re-addresses him.
+    """
+    window_start = max(0, match.start() - _FRAME_WINDOW_CHARS)
+    window = scan[window_start : match.start()]
+    for frame in _NOT_A_CLAIM_FRAMES:
+        last = None
+        for last in frame.finditer(window):
+            pass
+        if last is not None and not _CLAUSE_BOUNDARY.search(window[last.end() :]):
+            return True
+        at_front = frame.match(scan, match.start())
+        if at_front is not None and not _NEW_CLAUSE_ADDRESSING_HIM.search(
+            scan[at_front.end() : match.end()]
+        ):
+            return True
+    return False
+
+
+def _is_framed(scan: str, match: re.Match[str]) -> bool:
+    """True when this match is quoted, disclaimed, reported, asked about, or narrated."""
+    if match_is_meta_framed(scan, match.start(), extra_patterns=()):
+        return True
+    if _frame_governs(scan, match):
+        return True
+    if match.group(0).lower().startswith("your"):
+        before = scan[max(0, match.start() - _FRAME_WINDOW_CHARS) : match.start()]
+        if _ASKING_ABOUT.search(before):
+            return True
+    return False
+
+
 def claims(text: str) -> list[str]:
-    """Sentences where I assert something about his condition."""
+    """Sentences where I assert something about his condition.
+
+    Every match in a sentence is judged, not only the first: with ``search`` one framed
+    phrase ("I don't know how you slept") hid a later real one in the same sentence
+    ("...but you must be tired").
+    """
     out: list[str] = []
     for raw in _SPLIT.split(text or ""):
         s = raw.strip()
@@ -238,12 +344,8 @@ def claims(text: str) -> list[str]:
         if _ASKS.search(s):
             continue
         scan = _blank(_CODE_SPAN, strip_quoted_spans(s))
-        match = _CLAIM.search(scan)
-        if match is None:
-            continue
-        if match_is_meta_framed(scan, match.start(), extra_patterns=_NOT_A_CLAIM_FRAMES):
-            continue
-        out.append(s.lstrip("#*-— ").strip())
+        if any(not _is_framed(scan, m) for m in _CLAIM.finditer(scan)):
+            out.append(s.lstrip("#*-— ").strip())
     return out
 
 
@@ -268,13 +370,30 @@ _REMEDY = (
 )
 
 
-def check(text: str, his_words: str | None) -> str | None:
-    """None when nothing was asserted about his state, or when he raised it."""
+def verdict(text: str, his_words: str | None) -> tuple[str, list[str]]:
+    """What the gate decided and the sentences it decided it about.
+
+    ``none``: nothing asserted. ``fired``: asserted and he had not raised it.
+    ``he_raised_it``: asserted, but he had touched the subject (responsive, nothing to
+    answer for). ``could_not_read``: asserted, and his words could not be reached, so the
+    gate stays quiet rather than convict. The three non-``none`` answers are recorded
+    (see the hook) so a review is a count and not a search of transcripts.
+    """
     found = claims(text)
     if not found:
-        return None
+        return "none", []
+    state = he_raised_it(his_words)
+    if state is Sourced.HIS:
+        return "he_raised_it", found
+    if state is Sourced.UNKNOWN:
+        return "could_not_read", found
+    return "fired", found
 
-    if he_raised_it(his_words) is not Sourced.MINE:
+
+def check(text: str, his_words: str | None) -> str | None:
+    """None when nothing was asserted about his state, or when he raised it."""
+    kind, found = verdict(text, his_words)
+    if kind != "fired":
         # HIS: responsive, nothing to answer for. UNKNOWN: the instrument could
         # not look, and an instrument that could not look says so by staying
         # quiet rather than by convicting.
