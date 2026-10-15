@@ -274,8 +274,8 @@ def build_index(
 
     buf = BytesIO()
     np.save(buf, vecs)
-    atomic_write_bytes(vec_path, buf.getvalue())
-    atomic_write_text(meta_path, json.dumps(meta, ensure_ascii=False))
+    atomic_write_bytes(vec_path, buf.getvalue(), per_process=True)
+    atomic_write_text(meta_path, json.dumps(meta, ensure_ascii=False), per_process=True)
     return len(fresh)
 
 

@@ -6,6 +6,7 @@ and a short capitalised message of his that read as ours and vanished without a 
 """
 
 import json
+import os
 import pathlib
 from pathlib import Path
 
@@ -126,6 +127,40 @@ class TestTheShelfBuildSurvivesAWindowsLock:
 
 def _row(text):
     return {"ts": "2026-10-16T09:00:00Z", "project": "t", "text": text}
+
+
+class TestTwoWindowsBuildingAtOnceDoNotShareATemporary:
+    def test_a_per_process_write_uses_a_name_of_its_own_and_leaves_none_behind(
+        self, tmp_path, monkeypatch
+    ):
+        from divineos.core import atomic_io
+
+        seen = []
+        real_swap = atomic_io._swap
+        monkeypatch.setattr(
+            atomic_io, "_swap", lambda tmp, path: (seen.append(tmp.name), real_swap(tmp, path))
+        )
+        work = (
+            tmp_path / "w"
+        )  # a folder of its own: the shared tmp_path also holds the suite's fixtures
+        work.mkdir()
+        target = work / "vectors.npy"
+        atomic_io.atomic_write_bytes(target, b"abc", per_process=True)
+        atomic_io.atomic_write_text(work / "lessons.json", "{}", per_process=True)
+        assert all(f".{os.getpid()}." in name for name in seen), seen
+        assert target.read_bytes() == b"abc"
+        assert sorted(p.name for p in work.iterdir()) == ["lessons.json", "vectors.npy"]
+
+    def test_the_default_name_is_unchanged_for_every_other_caller(self, tmp_path, monkeypatch):
+        from divineos.core import atomic_io
+
+        seen = []
+        real_swap = atomic_io._swap
+        monkeypatch.setattr(
+            atomic_io, "_swap", lambda tmp, path: (seen.append(tmp.name), real_swap(tmp, path))
+        )
+        atomic_io.atomic_write_text(tmp_path / "marker.json", "{}")
+        assert seen == ["marker.json.tmp"]
 
 
 class TestAShortCapitalisedMessageThatIsAllOfHisIsHis:

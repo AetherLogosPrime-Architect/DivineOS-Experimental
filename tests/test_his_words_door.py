@@ -109,14 +109,22 @@ def test_one_message_is_one_quote_even_when_cut_in_two(tmp_path):
 
 def test_the_cleaner_stamp_is_the_same_for_the_same_code_in_another_process():
     # 2026-09-26: two trees with hand-typed stamps fought over the shared index.
+    import os
     import subprocess
     import sys
+    from pathlib import Path
 
+    # The other process must read the SAME source tree this one is testing. Without this it imports
+    # whichever checkout the machine's one global install points at, and the stamp then compares two
+    # different trees: it passed only while their cleaning code happened to match (found 2026-10-16,
+    # when a fix to the cleaner made them differ and the push gate refused).
+    source_root = str(Path(door.__file__).resolve().parents[2])
     other = subprocess.run(
         [sys.executable, "-c", "from divineos.core import his_words_door as d; print(d.CLEANER)"],
         capture_output=True,
         text=True,
         check=True,
+        env={**os.environ, "PYTHONPATH": source_root},
     ).stdout.strip()
     assert other == door.CLEANER and door.CLEANER.startswith("sha256:")
 

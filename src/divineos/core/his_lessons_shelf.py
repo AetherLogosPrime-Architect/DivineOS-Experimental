@@ -163,13 +163,14 @@ def build(verified: Path = VERIFIED, reread: Path = REREAD, index_dir: Path = IN
 
     buf = BytesIO()
     np.save(buf, vecs)
-    atomic_write_bytes(vec_path, buf.getvalue())
+    atomic_write_bytes(vec_path, buf.getvalue(), per_process=True)
     atomic_write_text(
         meta_path,
         json.dumps(
             {"stamp": stamp, "model": door.MODEL_NAME, "items": [les.__dict__ for les in lessons]},
             ensure_ascii=False,
         ),
+        per_process=True,
     )
     return len(lessons)
 
