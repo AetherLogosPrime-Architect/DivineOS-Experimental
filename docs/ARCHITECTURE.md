@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (508 commands across 122 modules)
+  cli/                         CLI package (513 commands across 122 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -767,6 +767,7 @@ src/divineos/
     git_hooks_drift.py         Do the installed git hooks still say what setup/setup-hooks.sh would write?
     body_memory.py             Memory sense: the body feels memory held by no program, and remembers the climb.
     checkout_behind_main.py    How far behind origin/main is the checkout the hooks run from?
+    auto_cycle_phase2.py       Auto-cycle phase 2 — invitational menu after phase 1 completes.
 
   analysis/
     _session_types.py          Session analysis type definitions
