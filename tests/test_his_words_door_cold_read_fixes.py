@@ -129,6 +129,30 @@ def _row(text):
     return {"ts": "2026-10-16T09:00:00Z", "project": "t", "text": text}
 
 
+class TestHisTwoDotPausesStayInTheQuote:
+    HIS = (
+        "yes maybe we wont have to rebuild after all.. plus all the failures and the history of "
+        "github is important so nevermind on the rebuild.. if anything we will do that to the main repo"
+    )
+
+    def test_a_quote_keeps_his_dots_and_does_not_run_two_thoughts_together(self):
+        (only,) = door.passages_of(self.HIS)
+        assert only == self.HIS
+        assert "after all.. plus" in only and "rebuild.. if" in only
+
+    def test_a_long_message_cut_into_pieces_still_ends_each_piece_on_his_dots(self):
+        long = " ".join(["this is one of his long pauses.. and he kept going"] * 12)
+        pieces = door.passages_of(long)
+        assert len(pieces) > 1
+        assert " ".join(pieces) == long  # joined back, nothing was removed or merged
+
+    def test_a_single_full_stop_still_splits_as_before(self):
+        text = (
+            "first thought here and it is long enough. second thought is also long enough to keep."
+        )
+        assert door.passages_of(text) == [text]  # short: one piece, unchanged
+
+
 class TestTwoWindowsBuildingAtOnceDoNotShareATemporary:
     def test_a_per_process_write_uses_a_name_of_its_own_and_leaves_none_behind(
         self, tmp_path, monkeypatch
