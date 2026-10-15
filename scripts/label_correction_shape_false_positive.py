@@ -103,6 +103,42 @@ def _write_fires(path: Path, records: list[dict]) -> None:
     tmp.replace(path)
 
 
+def clear_the_marker_this_fire_armed(fire: dict) -> bool:
+    """Clear the unlogged-correction marker the labelled fire armed, and only that one.
+
+    A false alarm used to cost three separate commands: the label, then the
+    marker clear, then the compass dismissal its cascade raised. Each manual clear
+    also landed in the escape log, which then read as gates being routed around.
+    Labelling a fire a misreading answers the exact claim its marker makes, so the
+    clear belongs beside the label.
+
+    NARROW ON PURPOSE. The marker goes only when its source is the stop gate AND
+    its trigger is the text that fire would have written (the hook builds it from
+    the fire's own reason and confidence, cut at 200 characters). A marker from his
+    message, one with no source, or one written by a later fire stays. Anything
+    that fails to match fails toward leaving the marker up, never toward clearing it.
+    """
+    from divineos.core.correction_marker import (
+        SOURCE_STOP_GATE,
+        clear_marker,
+        read_marker,
+    )
+
+    live = read_marker()
+    if live is None or live.get("source") != SOURCE_STOP_GATE:
+        return False  # both-empty: no marker and a marker that is not the stop gate's both mean "nothing of this fire's to clear"
+    try:
+        written = (
+            f"[correction-shape-v2 stop-gate] {fire['reason']} conf={float(fire['confidence']):.2f}"
+        )
+    except (KeyError, TypeError, ValueError):
+        return False  # both-empty: a fire record I cannot rebuild the trigger from leaves the marker up, the same safe outcome
+    if live.get("trigger") != written[:200]:
+        return False
+    clear_marker()
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=("Label the most recent correction-shape-v2 fire as a false positive.")
@@ -165,6 +201,18 @@ def main(argv: list[str] | None = None) -> int:
     print(f"    detector said : {detector_reason} (confidence {confidence})")
     print(f"    I say         : {reason}")
     print(f"    corpus        : {path}")
+    # The label is already written; a failure to clear must never undo or hide it.
+    try:
+        cleared = clear_the_marker_this_fire_armed(target)
+    except Exception as exc:  # noqa: BLE001 -- the label stands whatever happens here
+        cleared = False
+        print(f"    marker        : could not clear ({type(exc).__name__}: {exc})")
+    else:
+        print(
+            "    marker        : cleared the marker this fire armed"
+            if cleared
+            else "    marker        : left as it was (not armed by this fire)"
+        )
     print(
         "    This is a disagreement with my own detector, on the record. If "
         "the label was dishonest, it is now evidence, not an erasure."
