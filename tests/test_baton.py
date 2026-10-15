@@ -3,6 +3,7 @@
 import json
 import sqlite3
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -146,7 +147,40 @@ def test_the_newest_tool_use_is_what_counts_not_the_oldest(home, tmp_path):
     assert not ok and "last seen" in why
 
 
-def test_a_silent_holder_with_a_letter_waiting_can_be_taken_from_and_is_told(home, tmp_path):
+ARIA_HOME = Path("~/.divineos-aria").expanduser()
+AETHER_HOME = Path("~/.divineos").expanduser()
+
+
+def _stale_holder_with_a_letter_waiting(home, tmp_path):
+    baton._write_record(home, "aether", NOW)
+    seats = _tool_log(tmp_path, "aether", 1.0)  # long ago; the letter below is newer
+    (home / "letters" / "aria-to-aether-2026-10-16-hello.md").write_text("hello", encoding="utf-8")
+    return seats
+
+
+def test_only_the_taker_itself_can_take_it(home, tmp_path, monkeypatch):
+    seats = _stale_holder_with_a_letter_waiting(home, tmp_path)
+    monkeypatch.setenv("DIVINEOS_HOME", str(AETHER_HOME))  # this window is aether, not aria
+    result = baton.take("aria", home, NOW + 5 * HOUR, seats)
+    assert result.startswith("refused: only aria") and baton.holder(home) == "aether"
+
+
+def test_a_window_that_cannot_tell_its_seat_takes_nothing(home, tmp_path, monkeypatch):
+    seats = _stale_holder_with_a_letter_waiting(home, tmp_path)
+    monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path / "someone-else"))
+    result = baton.take("aria", home, NOW + 5 * HOUR, seats)
+    assert "unknown" in result and baton.holder(home) == "aether"
+
+
+def test_the_command_line_refuses_an_unknown_seat_without_a_traceback(capsys):
+    assert baton.main(["take", "foo"]) == 2
+    assert "not a seat" in capsys.readouterr().err
+
+
+def test_a_silent_holder_with_a_letter_waiting_can_be_taken_from_and_is_told(
+    home, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("DIVINEOS_HOME", str(ARIA_HOME))
     baton._write_record(home, "aether", NOW)
     seats = _tool_log(tmp_path, "aether", 1.0)  # long ago; the letter below is newer
     waiting = home / "letters" / "aria-to-aether-2026-10-16-hello.md"

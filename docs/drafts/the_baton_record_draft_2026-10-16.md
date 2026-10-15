@@ -35,6 +35,10 @@ The waiting seat may take the baton only when both are true: the holder's `last_
 - **Long task:** real tool use keeps adding tool-log rows, so a working seat never looks dead.
 - **Compaction:** the holder reads as holding through compaction by checking the auto-cycle handshake marker, so it is never taken from.
 
+## What "resolves" does and does not mean
+
+A `**Done:**` line that resolves means the thing it names EXISTS: a commit on the branch, or a file outside the baton folder. It does not mean the work is good, nor that the file is relevant (`README.md` resolves). The receiver audits quality, and the log says `quality: unjudged` on every pass so nobody reads it as proof (Aria's cold read of #670).
+
 ## Settled with Aria (her letter, 2026-10-16 afternoon)
 
 1. **Both seats stale at once:** no rule needed. A stale seat is not running, so it takes nothing; a returning holder resumes (it never lost it), and a waking waiting seat takes it only on its own fresh activity. A take-over is written by the taker's own tool activity, never by a script, so something that is not a seat cannot flip the record.

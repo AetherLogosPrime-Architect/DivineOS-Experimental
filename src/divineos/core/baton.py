@@ -23,7 +23,7 @@ import sys
 import time
 from pathlib import Path
 
-from divineos.core.sibling_audit_rounds import store_path
+from divineos.core.sibling_audit_rounds import store_path, this_seat
 
 SEATS = ("aether", "aria")
 STALE_SECONDS = 2 * 60 * 60  # Dad 2026-10-15: "2 hours of silence should be perfect"
@@ -201,17 +201,24 @@ def take(
     """Take the baton and write the catch-up letter the left-behind seat must open first.
 
     Called by the taker's own tool use (the CLI), never by a script, so the record cannot be flipped
-    by something that is not a seat. The catch-up is a letter, not a new surface: the letter hold
-    already refuses the left-behind seat's next real tool until it is opened.
+    by something that is not a seat. That sentence is enforced, not hoped: the caller is asked of the
+    house's one judge (`this_seat`), and a take for any other seat is refused (Aria's cold read of
+    #670). The catch-up is a letter, not a new surface: the letter hold already refuses the
+    left-behind seat's next real tool until it is opened.
     """
     home = home or shared_home()
     now = now if now is not None else time.time()
+    caller = this_seat()
+    if caller != taker:
+        return (
+            f"refused: only {taker} may take it for {taker} (this window is {caller or 'unknown'})"
+        )
+    left = holder(home)
     ok, why = may_take(taker, home, now, seat_homes)
     if not ok:
         return f"refused: {why}"
-    left = holder(home)
-    if left is None:
-        return "refused: nothing to take"
+    if left is None or holder(home) != left:
+        return "refused: the holder changed while this was being decided, so nothing was taken"
     _write_record(home, taker, now)
     _append_log(home, {"ts": now, "kind": "take", "from": left, "to": taker, "why": why})
     stamp = time.strftime("%Y-%m-%d", time.localtime(now))
@@ -236,6 +243,9 @@ def main(argv: list[str]) -> int:
         print(handle_letter(path.name, path.read_text(encoding="utf-8"), Path(argv[2])))
         return 0
     if len(argv) == 2 and argv[0] == "take":
+        if argv[1] not in SEATS:
+            print(f"refused: {argv[1]!r} is not a seat; the seats are {SEATS}", file=sys.stderr)
+            return 2
         print(take(argv[1]))
         return 0
     print("usage: baton letter <path> <repo> | take <seat>", file=sys.stderr)
