@@ -34,6 +34,13 @@ _ORDER_QUESTIONS = (
     re.compile(r"\bnext\b[^?\n]*\bor should\b[^?\n]*\?", re.I),
     # "In what order ...", "what order ..."
     re.compile(r"\bwhat order\b[^?\n]*\?", re.I),
+    # Three shapes Aether's cold read of #666 found going through (2026-10-16), each a choice of order:
+    # "the lock fix before the reading, or the reading before the lock fix?"
+    re.compile(r"\bbefore\b[^?\n]*\bor\b[^?\n]*\bbefore\b[^?\n]*\?", re.I),
+    # "Where would you like me to begin: the stacks or the pile?"
+    re.compile(r"\b(begin|start)\b[^?\n]*\bthe [\w -]{1,30}?\bor (the|a) [\w -]+\?", re.I),
+    # "the chips now and the slider later, or the other way round?"
+    re.compile(r"\bthe other way (round|around)\b[^?\n]*\?", re.I),
 )
 
 #: Phrases a real dependency uses. Their presence anywhere in the reply means the reply has

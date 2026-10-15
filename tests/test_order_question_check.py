@@ -25,6 +25,10 @@ ASKED_BY_ME = [
     "Is there one of these, the sticky-note checklist or your repeated asks, you'd like me to "
     "do first?",
     "In what order should I do the cleanup and the rewrite?",
+    # Found going through by Aether's cold read of #666, 2026-10-16.
+    "Do you want the lock fix before the reading, or the reading before the lock fix?",
+    "Where would you like me to begin: the stacks or the pile?",
+    "Should I do the chips now and the slider later, or the other way round?",
 ]
 
 #: Real questions of mine that were NOT about order. None may be refused.
@@ -36,6 +40,11 @@ ORDINARY = [
     "Is that a fair place to start?",
     "What's been on your mind while this bakes?",
     "Does that sit right with you?",
+    # Controls for the widened patterns: a timing or yes-or-no question that is not a choice of order.
+    "Do you want me to push now or wait until you have looked?",
+    "Should I start the tournament tonight?",
+    "Did you want it before the weekend?",
+    "How did it feel to lose the pot?",
 ]
 
 A_REAL_DEPENDENCY = (
