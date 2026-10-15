@@ -478,6 +478,27 @@ def shell_command_is_unplaced(tokens: list[str]) -> bool:
     return _scan_shell(tokens)[1]
 
 
+def _ampersand_is_part_of_a_redirect(text: str, index: int, current: list[str]) -> bool:
+    """True when the ampersand at ``index`` belongs to a redirect, not to a separator.
+
+    ``2>&1``, ``>&2`` and ``1>&2`` carry it right after the arrow; ``&>file`` and
+    ``&>>file`` carry it right before one. Read as a separator it cut the command in
+    two and left a stray word (``1``), and a gate that judges each segment then saw an
+    unknown second command behind a prescribed remedy and refused the remedy
+    (2026-10-16: an unsent exit typed with ``2>&1`` on the end was refused for hours,
+    while the same line with ``| tail`` passed).
+
+    NARROW ON PURPOSE. A doubled ``&&`` is never a redirect, and a trailing ``&``
+    that follows anything else (``cmd 2>&1 & other``) still separates. Not covered, and
+    left visibly so: here-strings and process substitution, which carry other marks
+    and are refused or unreadable already.
+    """
+    following = text[index + 1] if index + 1 < len(text) else ""
+    if following == "&":
+        return False
+    return (bool(current) and current[-1] in "<>") or following == ">"
+
+
 def split_shell_segments(bash_command: str) -> list[str] | None:
     """Split on unquoted separators, or ``None`` if it cannot be done safely.
 
@@ -511,6 +532,10 @@ def split_shell_segments(bash_command: str) -> list[str] | None:
             continue
         if ch in ("'", '"'):
             quote = ch
+            current.append(ch)
+            i += 1
+            continue
+        if ch == "&" and _ampersand_is_part_of_a_redirect(bash_command, i, current):
             current.append(ch)
             i += 1
             continue
