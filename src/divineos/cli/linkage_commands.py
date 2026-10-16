@@ -88,7 +88,7 @@ def register(cli: click.Group) -> None:
         for source in sources:
             click.echo(f"\n{source['source']}: {source['items']} items, bar {source['bar']:.2f}")
             for row in source["rows"]:  # type: ignore[attr-defined]
-                mark = "PASS" if row["passed"] else "miss"
+                mark = "SHOWN" if row["surfaced"] else ("cut " if row["passed"] else "miss")
                 click.echo(
                     f"  {mark} sim {row['similarity']:.2f}  imp {row['importance']:.2f}  "
                     f"age {row['recency_days']}d  rank {row['rank']:.2f}  "

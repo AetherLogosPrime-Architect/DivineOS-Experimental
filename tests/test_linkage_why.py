@@ -19,10 +19,15 @@ def _unit(angle_deg: float) -> np.ndarray:
     return np.array([math.cos(a), math.sin(a)], dtype=float)
 
 
-def _item(item_id: str, angle_deg: float, content: str = "a chunk about one thing") -> _CachedItem:
+def _item(
+    item_id: str,
+    angle_deg: float,
+    content: str = "a chunk about one thing",
+    source: str = "knowledge",
+) -> _CachedItem:
     return _CachedItem(
         id=item_id,
-        source="knowledge",  # type: ignore[arg-type]
+        source=source,  # type: ignore[arg-type]
         tier="topic",  # type: ignore[arg-type]
         title=f"item {item_id}",
         content=content,
@@ -59,6 +64,28 @@ def test_the_closest_items_pass_and_the_nearest_below_the_bar_are_shown(monkeypa
     assert all(m["similarity"] < entry["bar"] for m in misses)
 
 
+def test_a_pass_that_the_cap_cuts_is_marked_as_cut_not_as_arrived(monkeypatch):
+    from divineos.core.memory_linkage_retriever import TOTAL_INJECTION_CAP
+
+    sources = ("wall", "exploration", "knowledge", "letter")
+    cache = {
+        source: [_item(f"{source}{n}", n * 3, source=source) for n in range(12)]
+        for source in sources
+    }
+    v2._inject_test_cache(cache)
+    _turn_at(monkeypatch, 0)
+    entries = v2.explain_turn("words of a turn", near_misses=2)
+    rows = [row for entry in entries for row in entry["rows"]]
+    passers = [r for r in rows if r["passed"]]
+    assert len(passers) > TOTAL_INJECTION_CAP  # the cap really bites in this fixture
+    surfaced = [r for r in rows if r["surfaced"]]
+    assert len(surfaced) == TOTAL_INJECTION_CAP
+    assert all(r["passed"] for r in surfaced)
+    best = sorted(passers, key=lambda r: r["rank"], reverse=True)[:TOTAL_INJECTION_CAP]
+    assert {r["id"] for r in best} == {r["id"] for r in surfaced}
+    assert not any(r["surfaced"] for r in rows if not r["passed"])
+
+
 def test_each_row_carries_the_numbers_the_retriever_used_and_the_chunk_it_compared(monkeypatch):
     v2._inject_test_cache({"knowledge": [_item("a", 0, "first line here\nsecond line")]})
     _turn_at(monkeypatch, 0)
@@ -74,6 +101,7 @@ def test_each_row_carries_the_numbers_the_retriever_used_and_the_chunk_it_compar
         "rank",
         "chunk_chars",
         "first_line",
+        "surfaced",
     }
     assert row["first_line"] == "first line here" and row["chunk_chars"] == len(
         "first line here\nsecond line"

@@ -707,6 +707,20 @@ def explain_turn(
                 }
             )
         out.append({"source": source, "items": len(items), "bar": bar, "rows": rows})
+    # A pass is not an arrival: the live retriever keeps only the top TOTAL_INJECTION_CAP by
+    # rank ACROSS sources (Aria's read of #674: six of eleven passers never reached the turn
+    # and printed exactly like the five that did). Marked once here, without priming.
+    passed_rows = [
+        row
+        for entry in out
+        for row in entry["rows"]  # type: ignore[attr-defined]
+        if row["passed"]
+    ]
+    passed_rows.sort(key=lambda row: row["rank"], reverse=True)
+    reaching = {id(row) for row in passed_rows[:TOTAL_INJECTION_CAP]}
+    for entry in out:
+        for row in entry["rows"]:  # type: ignore[attr-defined]
+            row["surfaced"] = id(row) in reaching
     return out
 
 
