@@ -702,6 +702,22 @@ def get_recent_context(n: int = 20, meaningful_only: bool = True) -> list[dict[s
         conn.close()
 
 
+def count_events_of_type(event_type: str) -> int:
+    """How many events of this exact type the ledger holds.
+
+    The count a usage-based review reads: a pre-registration is due when this
+    number has moved by N since it was filed.
+    """
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            "SELECT COUNT(*) FROM system_events WHERE event_type = ?", (event_type,)
+        ).fetchone()
+        return int(row[0])
+    finally:
+        conn.close()
+
+
 def count_events() -> dict[str, Any]:
     """Returns event counts by type and actor."""
     conn = _get_connection()
