@@ -25,3 +25,9 @@ Knowledge only: importance = maturity base (RAW 0.3, HYPOTHESIS 0.45, TESTED 0.6
 ## Tests it must pass
 
 Two items at identical similarity and tier but different maturity change rank order; the regulatory lane's output is byte-identical before and after; a fact with an unknown maturity gets the old 0.5, not a crash.
+
+The lane test runs the lane (Aria's second read): two items identical but for importance 0.3 and 0.8 go through `retrieve_similarity_only` and their ranks must be equal. It was mutation-checked: letting the lane read the item's own importance fails it, with a control that the ordinary composite does separate them.
+
+## Did the source mix move? (Aria's question, measured 2026-10-16)
+
+Knowledge now spans 0.3 to 1.0 while corrections, letters and explorations keep 0.5, so the importance term could lift knowledge over the other sources. I measured it on eight real prompts against the live caches, recomputing the same top-five ranking with and without maturity. Seven returned results. The mix of sources across those top-fives was identical before and after (knowledge 14, corrections 14, letters 6, explorations 1). What changed is order inside the top five: six of the eight prompts reordered, with confirmed facts moving up past less settled ones. So the effect is within-set ordering, not a systematic lift of knowledge over other kinds. One prompt returned nothing on either side. Eight prompts is a small sample; the script is in the session scratchpad and can be re-run on a larger set.
