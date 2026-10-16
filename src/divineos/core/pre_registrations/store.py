@@ -98,7 +98,7 @@ def _require_external_actor(actor: str) -> str:
 def _row_to_prereg(row: tuple[Any, ...]) -> PreRegistration:
     """Convert a DB row to a PreRegistration dataclass."""
     tags = json.loads(row[14]) if row[14] else []
-    return PreRegistration(
+    prereg = PreRegistration(
         prereg_id=row[0],
         created_at=row[1],
         actor=row[2],
@@ -121,6 +121,29 @@ def _row_to_prereg(row: tuple[Any, ...]) -> PreRegistration:
         uses_of=row[17] if len(row) > 17 else None,
         uses_baseline=row[18] if len(row) > 18 else None,
     )
+    if prereg.review_after_uses is not None:
+        # Every reader sorts and prints by review_ts, and for a usage row the stored
+        # value is only a placeholder. Resolve it HERE, once, so no reader has to
+        # know there are two kinds (Aria, 2026-10-16: the briefing, the summary,
+        # the show/export and the todo ranking all read review_ts directly): the
+        # moment the Nth use happened if the review is due, otherwise a date far
+        # past any horizon. The stored value is ignored either way.
+        prereg.review_ts = _usage_review_ts(prereg)
+    return prereg
+
+
+def _usage_review_ts(prereg: PreRegistration) -> float:
+    from divineos.core.ledger import count_events_of_type, nth_event_timestamp
+
+    never = prereg.created_at + _INERT_DATE_DAYS * SECONDS_PER_DAY
+    if not prereg.uses_of or prereg.review_after_uses is None:
+        return never
+    if usage_progress(prereg, count_events_of_type) < prereg.review_after_uses:
+        return never
+    due_at = nth_event_timestamp(
+        prereg.uses_of, (prereg.uses_baseline or 0) + prereg.review_after_uses - 1
+    )
+    return due_at if due_at is not None else never
 
 
 _SELECT_ALL_COLS = (
@@ -184,6 +207,14 @@ def file_pre_registration(
         uses_of = uses_of.strip()
         from divineos.core.ledger import count_events_of_type
 
+        from divineos.core.ledger_compressor import _COMPRESSIBLE_TYPES
+
+        if uses_of in _COMPRESSIBLE_TYPES:
+            raise ValueError(
+                f"'{uses_of}' is pruned from the ledger on a conveyor belt, so its count can "
+                f"fall below the baseline and the review would silently never come due. "
+                f"Name an event type that is kept."
+            )
         baseline = count_events_of_type(uses_of)
         if baseline == 0:
             raise ValueError(

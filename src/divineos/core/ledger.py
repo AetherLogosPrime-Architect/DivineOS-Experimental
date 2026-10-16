@@ -718,6 +718,24 @@ def count_events_of_type(event_type: str) -> int:
         conn.close()
 
 
+def nth_event_timestamp(event_type: str, index: int) -> float | None:
+    """Timestamp of the event of this type at zero-based position ``index``, oldest first.
+
+    When a usage-based review became due, so every reader that sorts or prints
+    "overdue by N days" gets a real moment instead of a placeholder.
+    """
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            "SELECT timestamp FROM system_events WHERE event_type = ? "
+            "ORDER BY timestamp ASC, rowid ASC LIMIT 1 OFFSET ?",
+            (event_type, index),
+        ).fetchone()
+        return float(row[0]) if row else None
+    finally:
+        conn.close()
+
+
 def count_events() -> dict[str, Any]:
     """Returns event counts by type and actor."""
     conn = _get_connection()
