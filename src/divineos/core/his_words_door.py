@@ -107,14 +107,28 @@ def _is_this_message(passage: str, message: str) -> bool:
     return bool(p) and bool(m) and (p in m or m in p)
 
 
+# Text he pasted INTO a message is not his typing. The harness wraps it in a block, and the
+# closing tag arrives carrying the opening tag's id (`</pasted_content id="a627">`), so a pattern
+# that wants a bare `</pasted_content>` never finds the close and the block leaks. Found in the
+# walk before merging (walk-ddd1a6a0c842): the last paragraph of a DREAM of mine that he pasted
+# back to me sat in the live index dated 2026-10-16 and would have been printed as "HE HAS SAID
+# THIS BEFORE (... his words as he wrote them)". An unclosed block takes everything after it.
+_PASTED_BLOCK = re.compile(r"<pasted_content\b[^>]*>.*?(?:</pasted_content\b[^>]*>|\Z)", re.S)
+
+
 def passages_of(text: str) -> list[str]:
     """Cut one message to quote-size pieces on his own pauses (Bengio).
+
+    Text he pasted into the message is cut out first: it is someone else's words (a letter of
+    Aletheia's, a dream of mine, a web page), and this door's whole promise is that what it prints
+    is what he typed. His own words around the block stay.
 
     The cut falls AFTER his two dots and never through them: a split alternative that consumed ".."
     turned "after all.. plus all the failures" into "after all plus all the failures", dropping his
     marks and running two thoughts together, while the door says his words print as he wrote them
     (probed 2026-10-16, walk-7c48d8c7f6e0). The sentence-end rule below already splits after a dot,
     so the two dots stay on the piece they close."""
+    text = _PASTED_BLOCK.sub("\n", text)
     parts = re.split(r"(?<=[.!?])\s+|\n+", text)
     out, buf = [], ""
     for p in parts:
