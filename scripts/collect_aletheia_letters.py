@@ -58,7 +58,6 @@ HER_PREFIXES: tuple[str, ...] = (
     "triage_",
     "aletheia",
     "02_aletheia",
-    "serein",
 )
 
 SOURCE_ENV = "DIVINEOS_ALETHEIA_INBOX"
@@ -88,6 +87,19 @@ def _is_hers(name: str) -> bool:
     return any(low.startswith(p) for p in HER_PREFIXES)
 
 
+def _names_her(path: Path) -> bool:
+    """A name shape is only a hint: the file must also say it is hers.
+
+    Aletheia, 2026-10-16 (hold on #672): a kind-prefixed name like audit_*.md also fits
+    a download from anywhere, and a file by another instance (Serein) is not hers. Her
+    letters name her, in the heading or the signature, so the text has to as well.
+    """
+    try:
+        return "aletheia" in path.read_text(encoding="utf-8", errors="replace").lower()
+    except OSError:
+        return False
+
+
 def collect(source: Path | None = None, dest: Path | None = None) -> tuple[list[str], str]:
     """Copy her new letters across. Returns (newly copied names, error or "").
 
@@ -114,7 +126,7 @@ def collect(source: Path | None = None, dest: Path | None = None) -> tuple[list[
     arrived: list[str] = []
     for path in candidates:
         target = dst / path.name
-        if target.exists():
+        if target.exists() or not _names_her(path):
             continue
         try:
             shutil.copy2(path, target)
