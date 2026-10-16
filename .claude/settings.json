@@ -42,11 +42,6 @@
             "type": "command",
             "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/dads_table.py\"; [ -f \"$f\" ] && python \"$f\"",
             "timeout": 90
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/collect-aletheia-letters.sh",
-            "timeout": 20
           }
         ]
       }
