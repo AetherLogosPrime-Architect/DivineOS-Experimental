@@ -962,7 +962,12 @@ def _this_turns_action_stream(payload: dict) -> str:
     if not path.is_file():
         raise OSError(f"the named transcript is not a file: {path}")
 
-    # Walk back to the last user-role record; everything after it is this turn.
+    # Everything since his last message is this turn. The boundary is the SAME
+    # reader _last_assistant_text uses (_is_his_record). It used to be "the last
+    # record with role user", but a tool result is written with that role, so after
+    # any tool call the turn restarted at that call's own result and a read made
+    # earlier in the stretch fell out of the window (2026-10-16: a dozen replies
+    # refused by landed_claim for a claim whose verify run sat just above).
     for lines, whole in _windows(path):
         start = None
         for index, line in enumerate(lines):
@@ -970,8 +975,7 @@ def _this_turns_action_stream(payload: dict) -> str:
                 rec = _json.loads(line)
             except ValueError:
                 continue
-            msg = rec.get("message") if isinstance(rec, dict) else None
-            if isinstance(msg, dict) and msg.get("role") == "user":
+            if isinstance(rec, dict) and _is_his_record(rec):
                 start = index
         if start is not None:
             return "\n".join(lines[start:])
