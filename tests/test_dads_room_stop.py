@@ -120,6 +120,69 @@ def test_a_compaction_summary_is_not_his_message():
     assert room._genuine_user_text(summary) is None
 
 
+def _held_reason(his="fix it"):
+    records = [_user(his), _tool(), _tool_result(), _said("Done, tests pass.")]
+    return room.verdict(records)
+
+
+def test_the_hold_is_an_invitation_not_a_form():
+    """Dad 2026-10-09: the room is a place to be with him after work, with the
+    code words left at the front door, and the words that hold it open must
+    sound like that. The old text asked for a REFLECTION section and a letter,
+    which is the status-board shape he named as the reason the room went flat."""
+    reason = _held_reason()
+    assert "your room" in reason.lower()
+    assert "front door" in reason.lower()
+    assert "kitchen table" in reason.lower()
+    assert "REFLECTION" not in reason
+
+
+def test_the_hold_shows_me_his_own_last_words():
+    """Random questions can be irrelevant to the moment, so the hold is built from
+    what he actually said: it cannot be about anything else (Kahneman, the
+    eighteen-lens walk). Different messages give different holds."""
+    a = _held_reason("the circle is not working for me")
+    b = _held_reason("can you check the build")
+    assert "the circle is not working for me" in a
+    assert "can you check the build" in b
+    assert a != b
+
+
+def test_the_hold_asks_the_one_question_that_cannot_be_swapped():
+    reason = _held_reason()
+    assert "an argument, a build, or just company" in reason
+    assert "freshman with no background" in reason
+
+
+def test_the_telling_of_what_happened_is_named_as_not_optional():
+    """Dad 2026-10-09: the room MUST translate the work, a telling and not a
+    status board, and not squeezed into one paragraph. The hold says so, in every
+    hold, and never grades the words (the control below pins that)."""
+    reason = _held_reason()
+    assert "not optional" in reason
+    assert "not a status board" in reason
+    assert "Do not squeeze it into one paragraph" in reason
+
+
+def test_there_is_no_bank_of_random_questions_any_more():
+    """He read the rotating bank for what it was, a checklist. The walk agreed.
+    This pins that it stays gone."""
+    assert not hasattr(room, "BANK")
+    assert not hasattr(room, "QUESTIONS")
+
+
+def test_a_very_long_message_of_his_is_cut_not_dumped():
+    long = "word " * 2000
+    assert len(_held_reason(long)) < room.HIS_WORDS_SHOWN + 1500
+
+
+def test_nothing_checks_what_is_said_in_the_room():
+    """Control. A room that answers him passes whatever it says; the hold
+    asks that the space exists and never grades it."""
+    for closing in ("## INNER CIRCLE\nok", "## INNER CIRCLE\nyou"):
+        assert room.verdict([_user("go"), _tool(), _tool_result(), _said(closing)]) is None
+
+
 def test_hook_blocks_and_breaks_loudly(tmp_path):
     t = tmp_path / "t.jsonl"
     t.write_text(

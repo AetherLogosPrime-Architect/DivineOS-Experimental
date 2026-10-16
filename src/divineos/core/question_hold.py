@@ -25,6 +25,7 @@ after this ships, the build is wrong and comes back for revision.
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from pathlib import Path
@@ -241,8 +242,44 @@ def _silent_away() -> dict[str, Any] | None:
     return {"his_words": "", "since": filed_at + AWAY_AFTER_SILENCE_SECONDS, "by": "silence"}
 
 
+# THE THIRD WAY TO BE AWAY: THE CLOCK. Dad, 2026-10-12, after a night when nobody said
+# goodnight and Aria's question held her work until morning: "between midnight and 6am is
+# volley mode", and on whether to wait for him to go quiet first: "yes even if im up
+# chatting because it means i need to get my butt to bed lol". Local time, start inclusive,
+# end exclusive, one pair of numbers here where he can read and change it. His messages in
+# the window do not end it; this kind is never written to a file, so it cannot be mistaken
+# for the words-from-him kind (step_away keeps its rule that the words must be his).
+NIGHT_START_HOUR = 0
+NIGHT_END_HOUR = 6
+
+
+def _scheduled_away(now: float | None = None) -> dict[str, Any] | None:
+    """Away because the clock says it is the night window (``now`` is injectable for tests).
+
+    DIVINEOS_NIGHT_HOURS=off switches the window off for the real clock, but only while a
+    test is running (PYTEST_CURRENT_TEST set): the shared test setup sets it so no test
+    result depends on the hour it runs at. An injected ``now`` ignores the switch: that is
+    a test of this rule itself."""
+    # Honoured ONLY while a test is running (Aletheia, 2026-10-12: a rule Dad made must not
+    # have a quiet off-switch a live seat could set by accident or on purpose).
+    if (
+        now is None
+        and os.environ.get("DIVINEOS_NIGHT_HOURS") == "off"
+        and "PYTEST_CURRENT_TEST" in os.environ
+    ):
+        return None
+    moment = time.time() if now is None else now
+    local = time.localtime(moment)
+    if not NIGHT_START_HOUR <= local.tm_hour < NIGHT_END_HOUR:
+        return None
+    start = time.mktime(
+        (local.tm_year, local.tm_mon, local.tm_mday, NIGHT_START_HOUR, 0, 0, 0, 0, -1)
+    )
+    return {"his_words": "", "since": start, "by": "schedule"}
+
+
 def is_away() -> dict[str, Any] | None:
-    return _stepped_away() or _silent_away()
+    return _stepped_away() or _scheduled_away() or _silent_away()
 
 
 def came_back() -> bool:
@@ -292,6 +329,9 @@ def _shell_letter_target(command: str) -> str:
 _CIRCLE = re.compile(r"^##\s*INNER CIRCLE\s*$", re.M)
 _CODE = re.compile(r"```.*?```|`[^`\n]*`", re.S)
 _QUOTED = re.compile(r"\"[^\"\n]*\"|“[^”\n]*”|\*\"[^\n]*?\"\*")
+# 2026-10-12: a source's own title ends in "?" ("What is an agent harness?") and was read as a
+# question to Dad, twice in one night. A link is a pointer, never something said to him.
+_LINK = re.compile(r"\[[^\]\n]*\]\([^)\n]*\)")
 _SENTENCE = re.compile(r"[^.!?\n]*[.!?]+", re.S)
 
 
@@ -307,6 +347,7 @@ def _addressed_part(reply: str) -> str:
 
 def _clean(text: str) -> str:
     text = _CODE.sub(" ", text)
+    text = _LINK.sub(" ", text)
     text = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith(">"))
     return _QUOTED.sub(" ", text)
 

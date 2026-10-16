@@ -70,6 +70,12 @@ while true; do
     rm -f "$BEAT"  # ringing ends the watch; the Stop hook sees it at once
     echo "LETTER ARRIVED:"
     while IFS= read -r f; do printf '%s/%s\n' "$DIR" "$f"; done <<< "$new"
+    # A letter headed `**Baton:** pass` or `return` hands the turn over HERE, so the receiver does
+    # not have to remember to claim it (src/divineos/core/baton.py). Loud, never fatal to the ring.
+    REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    while IFS= read -r f; do
+      (cd "$REPO" && python -m divineos.core.baton letter "$DIR/$f" "$REPO") 2>&1 | grep -v '^no baton header$' | sed 's/^/BATON: /'
+    done <<< "$new"
     echo "$new" >> "$SEEN"
     exit 0
   fi

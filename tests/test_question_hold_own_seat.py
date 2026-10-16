@@ -53,7 +53,12 @@ def test_the_board_sits_next_door_to_the_seat_home(tmp_path, monkeypatch):
 
     monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path / ".divineos-aria"))
     assert mod._home().parent / ".divineos-shared" == tmp_path / ".divineos-shared"
-    assert mod.BOARD.parent.parent == mod._home().parent or "pytest" in str(mod.BOARD)
+    # BOARD is fixed when the module is first imported, which in a push gate can be before
+    # any test's home is set (2026-10-12: the old "or 'pytest' in BOARD" passed or failed by
+    # which worker imported first). So pin its SHAPE, not which home it was built from: the
+    # line above already proves the formula against the seat home.
+    assert mod.BOARD.name == "open_questions"
+    assert mod.BOARD.parent.name == ".divineos-shared"
 
 
 def test_the_note_is_not_written_to_the_shared_home():
