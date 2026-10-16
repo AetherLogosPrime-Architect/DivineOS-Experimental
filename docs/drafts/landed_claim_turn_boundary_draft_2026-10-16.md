@@ -24,5 +24,10 @@ It does not make the gate laxer about a claim with no read behind it: a stretch 
 - a read BEFORE his last message does not count
 - a tool result is not mistaken for a boundary
 
+## The hold Aria found, and its repair (her cold read of 681)
+Widening the window opened the original fault from the other side: a read made for an EARLIER push now sat in the stream and excused a claim about a LATER one still running. She ran it: verify branch one, push branch two in the background, claim two landed, and `assess` said not refused. The repair is hers: `assess` looks for a read only in the part of the stream that follows the last push command (`git push`, `divineos_push.sh`); a push whose own output printed the reference update lands after the push and so still counts; with no push in the stream it behaves as before. Tests: the stale-read sequence is refused, push-then-verify-then-claim is not, and removing the rule makes the first fail (mutation-checked).
+
+What the gate still does NOT do, written so the next reader does not take it for more: it has no opinion about which branch was read, so a verify of branch A after the last push can excuse a claim about branch B. That is the module's stated design, not something this change introduced.
+
 ## Falsifier
 If the gate still refuses a claim that has a verify run since his last message, or lets through a claim with none, this is wrong.

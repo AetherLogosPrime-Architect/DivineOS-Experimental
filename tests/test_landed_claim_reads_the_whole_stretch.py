@@ -118,4 +118,41 @@ def test_a_tool_result_is_not_the_start_of_the_stretch(tmp_path):
         tmp_path,
         [_typed("first words"), _tool_call("pwd"), _result("/x"), _tool_call("ls"), _result("y")],
     )
-    assert "first words" in stream
+    # The stream STARTS at his words and the tool-result text comes after them. A bare
+    # "in" would also pass on the old boundary, which began at the last tool result.
+    assert stream.startswith('{"type": "user", "message": {"role": "user", "content": "first')
+    assert stream.index("first words") < stream.index('"content": "y"')
+
+
+def test_a_read_of_an_earlier_push_does_not_excuse_a_claim_about_a_later_one(tmp_path):
+    # Aria's probe, 2026-10-16: with the whole stretch in view, a read made for push
+    # one used to excuse a claim about push two, which was still running.
+    stream = _stream(
+        tmp_path,
+        [
+            _typed("push both"),
+            _tool_call("git push -u origin first"),
+            _result("To origin\n * [new branch]      first -> first"),
+            _tool_call("python scripts/verify_push_landed.py --branch first"),
+            _result("VERIFY-OK"),
+            _tool_call("git push -u origin second"),
+            _result("(running in the background)"),
+            _say("The second branch push has landed on the remote."),
+        ],
+    )
+    assert assess("The second branch push has landed on the remote.", stream).refuses is True
+
+
+def test_a_read_after_the_last_push_still_counts(tmp_path):
+    stream = _stream(
+        tmp_path,
+        [
+            _typed("push it"),
+            _tool_call("git push -u origin only"),
+            _result("(running)"),
+            _tool_call("python scripts/verify_push_landed.py --branch only"),
+            _result("VERIFY-OK"),
+            _say("The push has landed on the remote."),
+        ],
+    )
+    assert assess("The push has landed on the remote.", stream).refuses is False
