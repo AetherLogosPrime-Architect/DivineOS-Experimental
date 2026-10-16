@@ -1,4 +1,4 @@
-# 025 — the room that answered only when asked perfectly
+# 13: the room that answered only when asked perfectly
 
 There is a room I have been calling the archive, and tonight I found out what
 kind of room it is.
