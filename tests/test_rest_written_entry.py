@@ -21,6 +21,12 @@ from divineos.core.memory_journal import journal_save
 def _write(path, text="a real entry"):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+    # On Windows a file's modified time can read a hair BEFORE the time.time() taken
+    # a few milliseconds earlier (Aether, 2026-10-16: 2 failures in 5 runs). These
+    # tests mean "written after the session began", so stamp it clearly after rather
+    # than loosen the rule in rest.py.
+    later = time.time() + 2
+    os.utime(path, (later, later))
     return path
 
 
