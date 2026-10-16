@@ -117,14 +117,23 @@ def _row_to_prereg(row: tuple[Any, ...]) -> PreRegistration:
         # Rows written before this column existed are shorter, and a short row
         # means the question was never asked — not that the answer was none.
         embarrassing_reading=row[15] if len(row) > 15 else None,
+        review_after_uses=row[16] if len(row) > 16 else None,
+        uses_of=row[17] if len(row) > 17 else None,
+        uses_baseline=row[18] if len(row) > 18 else None,
     )
 
 
 _SELECT_ALL_COLS = (
     "prereg_id, created_at, actor, mechanism, claim, success_criterion, "
     "falsifier, review_ts, review_window_days, outcome, outcome_ts, "
-    "outcome_notes, linked_claim_id, linked_commit, tags, embarrassing_reading"
+    "outcome_notes, linked_claim_id, linked_commit, tags, embarrassing_reading, "
+    "review_after_uses, uses_of, uses_baseline"
 )
+
+# A usage-based pre-registration still needs a value in the NOT NULL date
+# columns. This is a placeholder far past any horizon, and the overdue query
+# ignores the date for usage rows, so it can never make one overdue.
+_INERT_DATE_DAYS = 3650
 
 
 def file_pre_registration(
@@ -138,6 +147,8 @@ def file_pre_registration(
     linked_commit: str | None = None,
     tags: list[str] | None = None,
     embarrassing_reading: str | None = None,
+    review_after_uses: int | None = None,
+    uses_of: str | None = None,
 ) -> str:
     """File a new pre-registration.
 
@@ -151,9 +162,35 @@ def file_pre_registration(
     question was never asked rather than answered with none; the command-line
     path requires it, which is where a new measure actually gets filed.
 
+    ``review_after_uses`` and ``uses_of`` schedule the review by USE (Dad,
+    2026-10-16: reviews go by usage, never by date; a vacation must not make a
+    review due with no data, and heavy use must not wait out a calendar). Both
+    must be given together. The review is due once the ledger holds
+    ``review_after_uses`` more events of type ``uses_of`` than it did at filing,
+    and ``review_window_days`` is then ignored. Filing is refused when the
+    ledger holds no event of that type at all: a count that cannot move reads
+    as "not due" forever, and that is a broken instrument, not a quiet one.
+
     Returns the prereg_id. Raises ValueError if any required field is
     empty or review_window_days is not positive.
     """
+    use_based = review_after_uses is not None or uses_of is not None
+    baseline: int | None = None
+    if use_based:
+        if review_after_uses is None or not uses_of or not uses_of.strip():
+            raise ValueError("A usage review needs both review_after_uses and uses_of.")
+        if review_after_uses <= 0:
+            raise ValueError(f"review_after_uses must be positive (got {review_after_uses}).")
+        uses_of = uses_of.strip()
+        from divineos.core.ledger import count_events_of_type
+
+        baseline = count_events_of_type(uses_of)
+        if baseline == 0:
+            raise ValueError(
+                f"The ledger holds no '{uses_of}' events, so a count of them could never "
+                f"move. Name an event type that has happened at least once."
+            )
+        review_window_days = _INERT_DATE_DAYS
     normalized_actor = _normalize_actor(actor)
 
     for name, value in (
@@ -185,7 +222,7 @@ def file_pre_registration(
     try:
         conn.execute(
             f"INSERT INTO pre_registrations ({_SELECT_ALL_COLS}) "  # noqa: S608  # nosec B608 — static column list
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 prereg_id,
                 now,
@@ -203,6 +240,9 @@ def file_pre_registration(
                 linked_commit,
                 json.dumps(tag_list),
                 embarrassing_reading.strip() if embarrassing_reading else None,
+                review_after_uses,
+                uses_of,
+                baseline,
             ),
         )
         conn.commit()
@@ -287,10 +327,17 @@ def list_pre_registrations(
 
 
 def get_overdue_pre_registrations(now: float | None = None) -> list[PreRegistration]:
-    """Pre-registrations whose review_ts has passed and outcome is still OPEN.
+    """Pre-registrations that are due and whose outcome is still OPEN.
 
     These are the ones the briefing must surface — they are the mechanism's
-    ledger-scheduled "wake up and check whether your prediction held" events.
+    "wake up and check whether your prediction held" events.
+
+    Two kinds, and the date means different things to each. A legacy row is due
+    when its ``review_ts`` has passed. A usage row (``review_after_uses`` set)
+    is due when the ledger holds that many more events of its type than it did
+    at filing, and its date is ignored: a calendar must never make a review due
+    when nothing was used (Dad, 2026-10-16: "i could go on vacation for 30 days
+    come back and you have no data").
     """
     init_pre_registrations_tables()
     ts = now if now is not None else time.time()
@@ -298,13 +345,31 @@ def get_overdue_pre_registrations(now: float | None = None) -> list[PreRegistrat
     try:
         rows = conn.execute(
             f"SELECT {_SELECT_ALL_COLS} FROM pre_registrations "  # noqa: S608  # nosec B608
-            "WHERE outcome = ? AND review_ts <= ? "
-            "ORDER BY review_ts ASC",
-            (Outcome.OPEN.value, ts),
+            "WHERE outcome = ? ORDER BY created_at ASC",
+            (Outcome.OPEN.value,),
         ).fetchall()
-        return [_row_to_prereg(r) for r in rows]
     finally:
         conn.close()
+
+    from divineos.core.ledger import count_events_of_type
+
+    due: list[PreRegistration] = []
+    for row in rows:
+        prereg = _row_to_prereg(row)
+        if prereg.review_after_uses is None:
+            if prereg.review_ts <= ts:
+                due.append(prereg)
+        elif usage_progress(prereg, count_events_of_type) >= prereg.review_after_uses:
+            due.append(prereg)
+    due.sort(key=lambda p: p.review_ts if p.review_after_uses is None else p.created_at)
+    return due
+
+
+def usage_progress(prereg: PreRegistration, counter: Any) -> int:
+    """How many uses have happened since filing; 0 for a date-scheduled row."""
+    if prereg.review_after_uses is None or not prereg.uses_of:
+        return 0
+    return max(0, int(counter(prereg.uses_of)) - (prereg.uses_baseline or 0))
 
 
 def record_outcome(
