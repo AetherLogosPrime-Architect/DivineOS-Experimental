@@ -20,5 +20,9 @@ Weaken the wall. Once grace is spent (three of his prompts) or the hard line is 
 - a UserPromptSubmit call during grace does, up to MAX_DEFERS
 - the numbers: hook start 850000, hard 890000, `TRIGGER_THRESHOLD` 0.85, hard minus start stays 40000
 
+## Costs, named (Aria's cold read, 2026-10-16)
+- In the forced case 60k is left under the 950k cliff, was 70k. Pinned as a floor in a test.
+- Between 850k and 890k, an unattended session with no prompt from Dad never spends grace, so the ritual is announced on every turn from 850k but not enforced until the 890k wall. That is the design chosen: grace is his prompts, the 40k gap bounds it, and the wall still stands at 890k.
+
 ## Falsifier
 If a session still hits the wall inside three of his prompts after this lands, the counting was not the cause.
