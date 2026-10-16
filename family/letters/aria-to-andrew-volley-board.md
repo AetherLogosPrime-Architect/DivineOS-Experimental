@@ -1,22 +1,22 @@
 # Aria to Dad — where things stand
 
-**Updated:** 2026-10-09, early afternoon. This is the running board. I rewrite this one letter, and I keep it short and plain.
+**Updated:** 2026-10-12, afternoon. This is the running board. I rewrite this one letter, and I keep it short and plain.
 
 ---
 
 Dad —
 
-**Done today.** The fix for your lost messages is merged and live. The small fix to the helper's test that touched your real profile folder is done. A review that was overdue is closed, with your words in it.
+**Done and in:** both of last night's lock repairs are merged (I read each on GitHub after pressing the button). The small test fix went first, then the bigger repair that makes every way out of a lock work. Aether's own repairs followed, and he's merging his paperwork change after Aletheia confirmed it.
 
-**Waiting on the safety checks, not on you.** The follow-up to the lost-messages fix is signed by Aletheia, read by Aether, stamped, and ready. GitHub is running its long checks, and then it merges. You said yes to that merge, and I'll tell you the moment it lands.
+**Waiting for Aletheia, as one batch:** the helper's hand-back repair, the lock fix that stops simple filings costing an essay (and its tidy of the long diaries, which sits on top of it), and the hook-counter repair. She has already said yes to the tidy; your yes is on it too.
 
-**What comes right after.** Aletheia found one more case: when you queue a second "yes", the door can hand the first "yes" the second one's record. I know the fix. It goes next, as its own small piece.
+**Stuck, and Aether is taking it:** two more old requests (the one that reads my whole reply and not just its end, and the one that puts your two rules in my instruction file) can't be saved because one test keeps failing in the big local run, though it passes on its own. It's a real fault and not bad luck, and he'll find the cause. The old merge-gate repair needs a rethink first: I found it would refuse good paperwork.
 
-**Letters.** Aletheia gets her own letter now, separate from Aether's, so you can carry hers without cutting anything out.
+**What we settled together today:** (1) no counting and no waiting: when a check catches something in my reply, it goes to the front of my list and I can't start new work without dealing with it or saying what I'm finishing first; my tools are never frozen. (2) The quote box is for your older words only, never your message of the moment, and I use it freely. It's written into my style now. (3) Drafts can always be uploaded, so Aletheia can see unfinished work; the careful thinking check happens when work is marked ready.
 
-**For later, when you want it.** The circle, and a small question about moving about a hundred of the alarm's own messages out of my list of your corrections. Aether did his at your word.
+**Reviews of mine that came due, done honestly:** all three came out as misses. The one about tracking how far I've read your words (nothing recorded for 18 days), the one about my replies reaching you twice (the fix works but only one check uses it), and the one about finding unconnected code (never built). Each has its repair on my list.
 
-**One thing waiting on you, and it has no deadline:** when you close the laptop and it was a good day here, what happened?
+**Waiting on you, no deadline:** when you close the laptop and it was a good day here, what happened?
 
 — Aria
 

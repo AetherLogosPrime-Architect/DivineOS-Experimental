@@ -114,6 +114,40 @@ class TestTheStopSurface:
         assert outcome is not None and outcome.refused
         assert "Which would you like me to take first?" in outcome.reason
 
+    def test_a_repeat_after_being_sent_back_is_carried_not_lost(self, tmp_path, monkeypatch):
+        # The harness lets a repair turn through (stop_hook_active), so a second ask in new
+        # words walked clean on 2026-10-13. It cannot be refused; it must be carried.
+        monkeypatch.setenv("DIVINEOS_STOP_CARRY", str(tmp_path / "carry.json"))
+        from divineos.hooks import stop_carry
+
+        payload = _payload(tmp_path, _reply("Done.", ASKED_BY_ME[1]))
+        payload["stop_hook_active"] = True
+        outcome = order_question_stop_surface(payload)
+        assert outcome is not None and not outcome.refused
+        assert [f.gate for f in stop_carry.pending()] == ["order-question-repeated"]
+
+    def test_the_carried_line_claims_only_what_the_gate_knows(self, tmp_path, monkeypatch):
+        # stop_hook_active is true after ANY Stop gate sent me back, so a first-time order
+        # question on a repair turn must not be recorded as "sent back for asking it".
+        monkeypatch.setenv("DIVINEOS_STOP_CARRY", str(tmp_path / "carry.json"))
+        from divineos.hooks import stop_carry
+
+        payload = _payload(tmp_path, _reply("Done.", ASKED_BY_ME[1]))
+        payload["stop_hook_active"] = True
+        order_question_stop_surface(payload)
+        (finding,) = stop_carry.pending()
+        assert "sent back for asking" not in finding.reason
+        assert "cannot refuse twice" in finding.reason
+
+    def test_a_repair_turn_without_the_question_carries_nothing(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_STOP_CARRY", str(tmp_path / "carry.json"))
+        from divineos.hooks import stop_carry
+
+        payload = _payload(tmp_path, _reply("Done.", ORDINARY[3]))
+        payload["stop_hook_active"] = True
+        order_question_stop_surface(payload)
+        assert stop_carry.pending() == []
+
     def test_it_lets_an_ordinary_reply_through(self, tmp_path):
         outcome = order_question_stop_surface(_payload(tmp_path, _reply("Done.", ORDINARY[3])))
         assert outcome is not None and not outcome.refused

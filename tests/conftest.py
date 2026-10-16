@@ -169,6 +169,12 @@ def _isolated_db(tmp_path):
     # test_build_walk_surface_is_speaking_floor failed that way in a push gate
     # while passing alone.
     os.environ["DIVINEOS_CONTEXT_DEDUP_DIR"] = str(tmp_path / "context_dedup")
+    # The store of his messages, per test, pointed at a file that does not exist (2026-10-12).
+    # Unset, the question hold read his REAL last message, and once he had been silent two
+    # hours the away-by-silence rule ruled every one of these tests "he is away" and 23 of
+    # them failed in the push gate while passing the day before. A test that wants a message
+    # of his sets this itself; one that does not gets "could not look", which is never away.
+    os.environ["DIVINEOS_HIS_ASKS_DB"] = str(tmp_path / "no_his_messages.db")
 
     from divineos.core.ledger import init_db
 
@@ -177,8 +183,18 @@ def _isolated_db(tmp_path):
     os.environ.pop("DIVINEOS_DB", None)
     os.environ.pop("DIVINEOS_HOME", None)
     os.environ.pop("DIVINEOS_CONTEXT_DEDUP_DIR", None)
+    os.environ.pop("DIVINEOS_HIS_ASKS_DB", None)
     os.environ.pop("DIVINEOS_DISABLE_AUTO_REMEDIATE", None)
     os.environ.pop("DIVINEOS_SESSION_ID", None)
+    # monkeypatch.setattr on the ledger base module's DB_PATH reads the old value through
+    # the module's dynamic lookup and, on undo, writes it back as a REAL attribute, which
+    # then hides the dynamic lookup for every later test in this worker (2026-10-11: a full
+    # push run failed test_db_path_and_get_connection_agree_under_env_change and passed
+    # alone). This fixture tears down after monkeypatch, so the leftover is removed here
+    # for every test, present and future. See test_a_patched_db_path_does_not_outlive_its_test.
+    import divineos.core._ledger_base as _ledger_base
+
+    vars(_ledger_base).pop("DB_PATH", None)
 
 
 @pytest.fixture

@@ -262,6 +262,36 @@ def compound_branch_change_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def full_suite_by_hand_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a hand-run of the whole test suite; that is the push's job.
+
+    Andrew, four times, latest 2026-10-03: "i have asked you repeatedly not to
+    run the full fucking suite on every goddamn change". The decision and its
+    limits live in core/full_suite_by_hand.py.
+    """
+    name = "full_suite_by_hand"
+    if (payload.get("tool_name") or "") not in ("Bash", "PowerShell"):
+        return SurfaceOutcome(name=name, state="nothing-to-say")
+    command = str((payload.get("tool_input") or {}).get("command") or "")
+    if "pytest" not in command:
+        return SurfaceOutcome(name=name, state="nothing-to-say")
+    try:
+        from pathlib import Path
+
+        from divineos.core.auto_commit import find_repo_root
+        from divineos.core.full_suite_by_hand import decide
+
+        repo = find_repo_root(Path(payload.get("cwd") or Path.cwd()))
+        reason = decide(command, repo)
+    except Exception as exc:  # noqa: BLE001 - could-not-run is said, never passed silently
+        return SurfaceOutcome(
+            name=name, error=f"{type(exc).__name__}: {exc}", state="could-not-run"
+        )
+    if reason:
+        return SurfaceOutcome(name=name, refused=True, reason=reason, state="spoke")
+    return SurfaceOutcome(name=name, state="nothing-to-say")
+
+
 def no_verify_cost_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse an unverified git write that skips the hooks without paying for it.
 
@@ -1685,6 +1715,22 @@ def order_question_stop_surface(payload: dict) -> SurfaceOutcome | None:
         if not oq.should_refuse(text):
             return SurfaceOutcome(name="order_question", state="nothing-to-say")
         reason = oq.refusal_message(text)
+        if payload.get("stop_hook_active"):
+            # The repair turn: the harness will not let a Stop gate refuse twice, so a
+            # second composition could keep the question in new words and walk through
+            # (2026-10-13: asked it, was sent back, asked it again). It cannot be
+            # refused here, so the repeat is carried to the next compose instead of
+            # vanishing, where it is the first thing I read.
+            from divineos.hooks.stop_carry import carry
+
+            # Worded to what is known: stop_hook_active is true after ANY Stop gate sent
+            # me back, so this gate cannot claim it was the one that did (Aether, 2026-10-14).
+            carry(
+                "order-question-repeated",
+                "On a repair turn I asked Dad which order, and this gate cannot refuse twice: "
+                + reason,
+            )
+            return SurfaceOutcome(name="order_question", state="nothing-to-say")
     except Exception as exc:  # noqa: BLE001
         return SurfaceOutcome(
             name="order_question",
@@ -2549,6 +2595,8 @@ def install() -> None:
     # migration existed to remove still running underneath it.
     if "no_verify_cost" not in registered("PreToolUse"):
         register("PreToolUse", "no_verify_cost", no_verify_cost_surface)
+    if "full_suite_by_hand" not in registered("PreToolUse"):
+        register("PreToolUse", "full_suite_by_hand", full_suite_by_hand_surface)
 
     # Registered in the SAME change that adds the surface, deliberately. The
     # note above records what happens when those two come apart; a function

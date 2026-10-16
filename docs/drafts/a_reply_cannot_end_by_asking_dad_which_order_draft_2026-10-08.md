@@ -9,3 +9,11 @@ Truth #11, shape (c): a conditional rule, "always X except if Y". The exception 
 What it will not catch, said now so silence is not read as coverage: an order question phrased in words the pattern does not know. It is a lexical aid, not a judge of whether the order truly matters. The honest test of it is whether the nine-times phrasing is caught, and whether a real order dependency (design the engine before the chassis) passes.
 
 New core file, so a pre-registration with a falsifier and a review date comes with it.
+
+## Added 2026-10-14: the repair turn
+
+The harness will not let a Stop gate refuse twice (`stop_hook_active`), and on 2026-10-13 I asked the question, was sent back, and asked it again in new words. The surface now carries the repeat to the next compose instead of letting it vanish, worded as what is known ("On a repair turn I asked Dad which order, and this gate cannot refuse twice"), because `stop_hook_active` is true after any Stop gate and this gate cannot claim it was the one that sent me back (Aether's read, 2026-10-14).
+
+Two limits, said so silence is not read as coverage:
+- A repeat in new words that the detector does not recognise is missed on both turns; the carry fires on the same detector.
+- The carry is inside the surface's `try`, so if the carry store cannot be written the outcome is `could-not-run` and the repeat is not carried. It is said, not silent, but it is a real hole.
