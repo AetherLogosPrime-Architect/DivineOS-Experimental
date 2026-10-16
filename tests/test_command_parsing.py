@@ -268,3 +268,106 @@ class TestTheInertListIsPinnedByName:
     def test_a_forbidden_command_behind_a_viewer_is_still_forbidden(self):
         """The control. Widening the inert set must not launder an acting head."""
         assert acting_segments("tail -5 notes.txt && rm -rf /tmp/x") == ["rm -rf /tmp/x"]
+
+
+class TestAnAmpersandInARedirectIsNotASeparator:
+    """`2>&1` used to cut the command in two and leave a stray `1`.
+
+    A gate judging each segment then saw an unknown command behind a prescribed
+    remedy and refused the remedy. Reproduced on the real council hook with five
+    variants of one exit command: plain, `| tail`, `| head` passed, `2>&1` and
+    `2>&1 | tail` were refused. These cases pin both halves: the redirect stays in
+    its command, and every real separator still separates.
+    """
+
+    def test_stderr_to_stdout_stays_inside_the_command(self):
+        assert split_shell_segments("divineos compass-ops dismiss --reason x 2>&1") == [
+            "divineos compass-ops dismiss --reason x 2>&1"
+        ]
+
+    def test_it_is_still_the_remedy_the_gates_list(self):
+        assert acting_segments("divineos compass-ops dismiss --reason x 2>&1") == [
+            "divineos compass-ops dismiss --reason x 2>&1"
+        ]
+
+    def test_redirect_then_a_viewer_is_two_segments_not_three(self):
+        assert split_shell_segments("divineos ask foo 2>&1 | tail -3") == [
+            "divineos ask foo 2>&1",
+            "tail -3",
+        ]
+
+    def test_the_other_descriptor_duplications_are_not_cut(self):
+        for command in (
+            "divineos ask foo >&2",
+            "divineos ask foo 1>&2",
+            "divineos ask foo >&-",
+        ):
+            assert split_shell_segments(command) == [command], command
+
+    def test_a_digit_that_starts_a_filename_is_not_a_descriptor(self):
+        """Aria's cold read: `>&word` duplicates a descriptor only when the WHOLE word is
+        digits or a dash. `>&2file` writes a file named 2file; `>&²` carries a superscript
+        digit, which `str.isdigit` accepts and bash does not treat as a descriptor. All three
+        keep splitting as on main, so the file write is not hidden behind an inert head."""
+        for command, left_over in (
+            ("divineos learn x && echo y >&2file", "2file"),
+            ("divineos learn x && echo y 2>&1file", "1file"),
+            ("divineos learn x && echo y >&²", "²"),
+        ):
+            assert acting_segments(command) == ["divineos learn x", left_over], command
+
+    def test_a_descriptor_followed_by_a_word_ending_character_still_stays_whole(self):
+        for command in (
+            "divineos ask foo 2>&1 | tail -3",
+            "divineos ask foo 2>&1; echo done",
+            "(divineos ask foo 2>&1)",
+            "divineos ask foo >&-",
+        ):
+            first = split_shell_segments(command)[0]
+            assert first.endswith(("2>&1", "2>&1)", ">&-")), command
+
+    def test_a_redirect_that_writes_a_file_keeps_splitting_as_before(self):
+        """`&>file` and `>& file` WRITE a file. Kept whole they would hide the write behind
+        an inert head, so a line the gates refuse today would pass as a remedy. Found by
+        probing main against the first version of this change, after the first confirm."""
+        assert split_shell_segments("divineos learn x && echo y &> f") == [
+            "divineos learn x",
+            "echo y",
+            "> f",
+        ]
+        assert split_shell_segments("divineos learn x && echo y >& f") == [
+            "divineos learn x",
+            "echo y >",
+            "f",
+        ]
+
+    def test_a_file_write_behind_an_inert_head_is_still_not_a_clean_remedy(self):
+        assert acting_segments("divineos learn x && echo y &> f") == ["divineos learn x", "> f"]
+        assert acting_segments("divineos learn x && echo y >& f") == ["divineos learn x", "f"]
+
+    def test_a_real_background_ampersand_still_separates(self):
+        assert split_shell_segments("sleep 5 & echo done") == ["sleep 5", "echo done"]
+
+    def test_a_trailing_background_ampersand_after_a_redirect_still_separates(self):
+        assert split_shell_segments("divineos ask foo 2>&1 & rm -rf /tmp/x") == [
+            "divineos ask foo 2>&1",
+            "rm -rf /tmp/x",
+        ]
+
+    def test_a_doubled_ampersand_is_never_read_as_a_redirect(self):
+        assert split_shell_segments("divineos ask foo && rm -rf /tmp/x") == [
+            "divineos ask foo",
+            "rm -rf /tmp/x",
+        ]
+        assert split_shell_segments("divineos ask foo >&& rm -rf /tmp/x")[-1] == "rm -rf /tmp/x"
+
+    def test_a_forbidden_command_after_a_redirect_is_still_its_own_acting_segment(self):
+        """The control for the unsafe direction: no hidden command behind the redirect."""
+        acting = acting_segments("divineos compass-ops dismiss --reason x 2>&1 && rm -rf /tmp/x")
+        assert acting == ["divineos compass-ops dismiss --reason x 2>&1", "rm -rf /tmp/x"]
+
+    def test_a_redirect_inside_quotes_is_data_and_changes_nothing(self):
+        assert split_shell_segments('divineos ask "a 2>&1 b" & echo done') == [
+            'divineos ask "a 2>&1 b"',
+            "echo done",
+        ]
