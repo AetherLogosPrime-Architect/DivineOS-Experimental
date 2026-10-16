@@ -10,10 +10,17 @@
 #
 # Loud, never silent: if the search cannot run, the module prints why under
 # its own heading, and the table lifts that heading beside his words.
-cd "$(dirname "$0")/../.." || exit 0
+# Aletheia's hold, 2026-10-16: the three exits below used to say nothing. A door that could not
+# run is spoken under its own heading, never left looking like a search that found nothing.
+could_not_run() {
+    echo "## HE HAS SAID THIS BEFORE (found by meaning, his words as he wrote them)"
+    echo "Could not run: $1."
+    exit 0
+}
+cd "$(dirname "$0")/../.." || could_not_run "the repository folder could not be entered"
 REPO_ROOT="$(pwd)"
-source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0  # fail-soft: without the shared library there is no interpreter to trust
-PY="$(find_divineos_python)" || exit 0  # fail-soft: no usable interpreter; the table shows nothing rather than a false search
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || could_not_run "the shared hook library is missing"  # without it there is no interpreter to trust
+PY="$(find_divineos_python)" || could_not_run "no usable Python was found"  # said aloud: the table must not read this as a search that found nothing
 payload="$(cat)"
 # A failing build used to leave no trace: the search ran on a stale index and never
 # said so (Aether, 2026-10-05). Said once on stdout; the search still runs.

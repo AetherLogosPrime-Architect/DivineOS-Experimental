@@ -432,8 +432,10 @@ def surface(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> str
         lines.append(f"Not searched this turn: {door.reason}.")
         return "\n".join(lines) + "\n"
     if not door.hits:
-        lines.append("Looked through everything he has said. Nothing close to this.")
-        return "\n".join(lines) + "\n"
+        # Silent on purpose (Aletheia's hold, 2026-10-16): his rule for the lessons shelf is
+        # "nothing when nothing fits: silence is fine, wallpaper is not". A search that ran and
+        # found nothing says nothing; only a search that could not run is spoken above.
+        return ""
     if len(door.repeats) >= 2:
         first = door.repeats[0].passage
         dates = ", ".join(r.passage.day[5:] for r in door.repeats)

@@ -62,10 +62,16 @@ def test_a_short_sad_message_does_not_dig_up_old_pain(index):
     assert "Not searched this turn" in out
 
 
-def test_nothing_close_says_it_looked(index):
+def test_nothing_close_is_silent_not_wallpaper(index):
+    """Aletheia's hold: a search that ran and found nothing prints nothing, like the shelf."""
     out = door.surface("what is the boiling point of mercury in kelvin", index_dir=index)
-    assert "Looked through everything he has said" in out
-    assert "skyrim" not in out.lower()
+    assert out == ""
+
+
+def test_a_search_that_could_not_run_still_speaks(tmp_path):
+    """The other side of silence: could not look is spoken, never mistaken for nothing found."""
+    out = door.surface("then where is the circle?", index_dir=tmp_path / "no-index-here")
+    assert "Not searched this turn" in out
 
 
 def test_his_current_message_never_comes_back_as_said_before(tmp_path):
