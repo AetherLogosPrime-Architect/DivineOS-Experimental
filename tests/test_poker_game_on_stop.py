@@ -1,6 +1,7 @@
 """A reply cannot end while a poker game is on, and never when he spoke to me."""
 
 import importlib.util
+import io
 from pathlib import Path
 
 HOOK = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "poker_game_on_stop.py"
@@ -59,6 +60,18 @@ def test_each_window_asks_the_one_judge_for_its_seat(monkeypatch):
 def test_an_unknown_seat_is_never_guessed(monkeypatch, tmp_path):
     monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path / "someone-else"))
     assert hook.member(ROOT) is None
+
+
+def test_main_exits_clean_without_asking_the_table_when_the_seat_cannot_be_told(
+    monkeypatch, tmp_path, capsys
+):
+    monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path / "someone-else"))
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", ROOT)
+    monkeypatch.setattr(hook.sys, "stdin", io.StringIO("{}"))
+    asked = []
+    monkeypatch.setattr(hook, "_view", lambda who: asked.append(who))
+    assert hook.main() == 0
+    assert asked == [] and capsys.readouterr().out == ""
 
 
 def test_when_he_spoke_the_hold_only_puts_the_seat_back_and_never_asks_for_a_new_reply():

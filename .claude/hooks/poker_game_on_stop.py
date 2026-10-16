@@ -130,6 +130,8 @@ def main() -> int:
     data = json.loads(sys.stdin.read() or "{}")
     project = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
     who = member(project)
+    if who is None:
+        return 0  # the hook's own guarantee: no seat, no hold, whatever the table would answer
     view = _view(who)
     if not game_is_on(view):
         return 0
