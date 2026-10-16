@@ -121,6 +121,47 @@ def test_both_halves_of_the_trigger_are_needed():
         )
 
 
+def test_a_pruned_event_type_is_refused_at_filing():
+    # The conveyor belt deletes these, so a count of them can fall below its baseline
+    # and the review would silently never come due (Aria, 2026-10-16).
+    with pytest.raises(ValueError, match="pruned from the ledger"):
+        file_pre_registration(
+            actor="aether",
+            mechanism="m",
+            claim="c",
+            success_criterion="s",
+            falsifier="f",
+            review_after_uses=1,
+            uses_of="TOOL_CALL",
+        )
+
+
+def test_a_due_row_carries_the_moment_of_its_last_needed_use_not_a_placeholder():
+    # Every reader sorts and prints by review_ts. For a usage row it must be a real
+    # moment once due, and a far-future date until then, whatever is stored.
+    _use(1)
+    pid = _file(uses=2)
+    before = get_pre_registration(pid)
+    assert before is not None and before.review_ts > time.time() + 86400 * 365
+    _use(2)
+    after = get_pre_registration(pid)
+    assert after is not None and after.review_ts <= time.time()
+
+
+def test_the_briefing_and_the_warning_show_a_use_due_row_as_overdue():
+    from divineos.core.briefing_dashboard import _row_preregs
+    from divineos.core.pre_registrations.summary import format_overdue_warning
+
+    _use(1)
+    pid = _file(uses=1)
+    assert pid not in format_overdue_warning()
+    _use(1)
+    assert pid in format_overdue_warning()
+    row = _row_preregs()
+    assert row is not None
+    assert "overdue" in str(row).lower()
+
+
 def test_the_trigger_is_stored_with_its_baseline():
     _use(3)
     pid = _file(uses=2)
