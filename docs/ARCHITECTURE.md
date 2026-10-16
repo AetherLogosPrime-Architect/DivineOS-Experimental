@@ -762,6 +762,7 @@ src/divineos/
     channel_letter_capture.py  Give a letter written straight into the shared channel a home in the repo.
     sort_first.py              Sort his message before anything else: reading him comes first, by refusal.
     vector_drawer.py           A drawer of sentence vectors, so nothing is embedded twice.
+    state_glance.py            The state shown before a substrate change, as a glance instead of a wall.
     door_report.py             The front door's report on itself, counted from what ARRIVED.
     ship_steps.py              The checks `divineos ship` runs in order, each one a yes or a named no.
     git_hooks_drift.py         Do the installed git hooks still say what setup/setup-hooks.sh would write?
