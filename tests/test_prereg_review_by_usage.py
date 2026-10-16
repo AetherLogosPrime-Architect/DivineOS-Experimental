@@ -160,6 +160,7 @@ def test_the_briefing_and_the_warning_show_a_use_due_row_as_overdue():
     row = _row_preregs()
     assert row is not None
     assert "overdue" in str(row).lower()
+    assert row.stale_count == 1  # the field the briefing actually counts overdue reviews in
 
 
 def test_the_trigger_is_stored_with_its_baseline():
