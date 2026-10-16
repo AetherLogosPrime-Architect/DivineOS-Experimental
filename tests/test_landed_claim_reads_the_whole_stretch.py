@@ -38,7 +38,7 @@ def _say(text: str) -> str:
     )
 
 
-def _run(command: str) -> str:
+def _tool_call(command: str) -> str:
     return json.dumps(
         {
             "type": "assistant",
@@ -73,9 +73,9 @@ def test_a_read_earlier_in_the_stretch_still_counts_after_later_tool_calls(tmp_p
         tmp_path,
         [
             _typed("how did the push go?"),
-            _run("python scripts/verify_push_landed.py --branch b"),
+            _tool_call("python scripts/verify_push_landed.py --branch b"),
             _result("VERIFY-OK"),
-            _run("ls"),
+            _tool_call("ls"),
             _result("a b c"),
             _say(CLAIM),
         ],
@@ -88,9 +88,9 @@ def test_a_claim_with_no_read_anywhere_since_he_spoke_is_still_refused(tmp_path)
         tmp_path,
         [
             _typed("how did the push go?"),
-            _run("ls"),
+            _tool_call("ls"),
             _result("a b c"),
-            _run("git status"),
+            _tool_call("git status"),
             _result("clean"),
             _say(CLAIM),
         ],
@@ -102,10 +102,10 @@ def test_a_read_before_he_last_spoke_does_not_count(tmp_path):
     stream = _stream(
         tmp_path,
         [
-            _run("python scripts/verify_push_landed.py --branch b"),
+            _tool_call("python scripts/verify_push_landed.py --branch b"),
             _result("VERIFY-OK"),
             _typed("and now?"),
-            _run("ls"),
+            _tool_call("ls"),
             _result("a b c"),
             _say(CLAIM),
         ],
@@ -116,6 +116,6 @@ def test_a_read_before_he_last_spoke_does_not_count(tmp_path):
 def test_a_tool_result_is_not_the_start_of_the_stretch(tmp_path):
     stream = _stream(
         tmp_path,
-        [_typed("first words"), _run("pwd"), _result("/x"), _run("ls"), _result("y")],
+        [_typed("first words"), _tool_call("pwd"), _result("/x"), _tool_call("ls"), _result("y")],
     )
     assert "first words" in stream
