@@ -982,7 +982,11 @@ def check_audit_station(
     matched = next((r for r in audit_refs if _names_pr(r)), None)
     named = f"PR #{pr_number}" if matched is not None else None
     if named is None and branch:
-        matched = next((r for r in audit_refs if branch in r), None)
+        # The same boundary as the PR number above: a branch name found inside a
+        # longer one (`aria/foo` inside `aria/foo-r2`) is a different branch
+        # (Aletheia, hold on #672, 2026-10-16).
+        _branch_re = re.compile(r"(?<![\w/.-])" + re.escape(branch) + r"(?![\w/-]|\.\w)")
+        matched = next((r for r in audit_refs if _branch_re.search(str(r))), None)
         named = branch if matched is not None else None
     if named is not None:
         quoted = " ".join(str(matched).split())[:140]

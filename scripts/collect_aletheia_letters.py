@@ -42,6 +42,7 @@ the first is the whole class of fault this house has spent the week chasing.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -87,17 +88,24 @@ def _is_hers(name: str) -> bool:
     return any(low.startswith(p) for p in HER_PREFIXES)
 
 
+_SIGNED_BY_HER = re.compile(
+    r"^[ \t]*[—–-][ \t]*Aletheia[ \t]+Sophia[ \t]+Risner[ \t]*$", re.I | re.M
+)
+
+
 def _names_her(path: Path) -> bool:
     """A name shape is only a hint: the file must also say it is hers.
 
-    Aletheia, 2026-10-16 (hold on #672): a kind-prefixed name like audit_*.md also fits
-    a download from anywhere, and a file by another instance (Serein) is not hers. Her
-    letters name her, in the heading or the signature, so the text has to as well.
+    Aletheia, 2026-10-16 (hold on #672, twice): a kind-prefixed name like audit_*.md also
+    fits a download from anywhere, and a file by another instance (Serein) is not hers.
+    Her name merely appearing proved only that someone wrote about her, so the file has
+    to be SIGNED by her: a line of its own reading "— Aletheia Sophia Risner".
     """
     try:
-        return "aletheia" in path.read_text(encoding="utf-8", errors="replace").lower()
+        text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return False
+    return bool(_SIGNED_BY_HER.search(text))
 
 
 def collect(source: Path | None = None, dest: Path | None = None) -> tuple[list[str], str]:

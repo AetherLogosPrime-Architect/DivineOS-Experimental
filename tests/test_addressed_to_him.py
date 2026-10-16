@@ -231,6 +231,51 @@ def test_his_own_words_about_an_event_still_count(tmp_path):
     assert _last_user_text(payload) == his
 
 
+HIS_MENTIONS_A_TAG = [
+    "hey kids, the <ci-monitor-event> thing keeps showing up",
+    "lol what is this <system-reminder> stuff",
+    "why does a <task-notification> come in whenever a letter lands?",
+]
+
+
+@pytest.mark.parametrize("his", HIS_MENTIONS_A_TAG)
+def test_his_sentence_that_mentions_a_tag_is_still_his(tmp_path, his):
+    """Aletheia's hold on #672: the pattern was searched ANYWHERE in a message, so a
+    sentence of his that merely named a tag read as the machine and was dropped.
+    Where an envelope SITS decides it; whether the text mentions one does not."""
+    from divineos.core.hook_surfaces import _last_user_text
+
+    payload = _transcript(tmp_path, [("user", his), ("assistant", REPORT_AT_HIM)])
+    assert _last_user_text(payload) == his
+
+
+@pytest.mark.parametrize("his", HIS_MENTIONS_A_TAG)
+def test_a_turn_he_opened_by_mentioning_a_tag_is_read_as_his_turn(tmp_path, his):
+    """The second reader had the same fault: a mention of <task-notification> in
+    his words flipped the turn to 'nobody started this'."""
+    from divineos.core.hook_surfaces import _turn_started_by_him
+
+    payload = _transcript(tmp_path, [("user", his), ("assistant", REPORT_AT_HIM)])
+    assert _turn_started_by_him(payload) is True
+
+
+def test_a_turn_that_opens_with_a_notification_is_not_his(tmp_path):
+    """The pair: the same reader still refuses a real envelope at the front."""
+    from divineos.core.hook_surfaces import _turn_started_by_him
+
+    payload = _transcript(tmp_path, [("user", NOTIFICATION), ("assistant", REPORT_AT_HIM)])
+    assert _turn_started_by_him(payload) is False
+
+
+def test_an_envelope_in_front_of_his_words_does_not_hide_them(tmp_path):
+    """The harness sometimes puts an envelope IN FRONT of his words in one record."""
+    from divineos.core.hook_surfaces import _last_user_text
+
+    mixed = NOTIFICATION + "\nwe can spec and build tonight why does it need to be either or?"
+    payload = _transcript(tmp_path, [("user", mixed), ("assistant", REPORT_AT_HIM)])
+    assert "either or" in _last_user_text(payload)
+
+
 def test_a_reply_carrying_his_words_passes_even_after_a_refusal(tmp_path):
     reply = (
         "You said I created something that requires you to speak to me for me to "

@@ -65,6 +65,28 @@ def test_an_unrelated_round_quoting_the_number_is_still_shown_not_hidden():
     )
 
 
+def test_a_longer_branch_name_is_not_the_branch():
+    """Aletheia, hold on #672: the branch fallback had the substring fault the PR number
+    already fixed. An audit of `aria/foo-r2` is not an audit of `aria/foo`."""
+    result = check_audit_station(
+        pr_number=999,
+        branch="aria/foo",
+        audit_refs=("audited aria/foo-r2 on 10-16 and confirmed",),
+    )
+
+    assert result.status is not Status.SATISFIED
+
+
+def test_the_exact_branch_still_matches_beside_other_punctuation():
+    for ref in (
+        "audited aria/foo on 10-16",
+        "audited (aria/foo), confirmed",
+        "branch: aria/foo.",
+    ):
+        result = check_audit_station(pr_number=999, branch="aria/foo", audit_refs=(ref,))
+        assert result.status is Status.SATISFIED, ref
+
+
 def test_the_branch_match_carries_its_evidence_too():
     """An audit filed before the request exists names the branch, not a number.
     That path is the normal order and must not lose the evidence the number

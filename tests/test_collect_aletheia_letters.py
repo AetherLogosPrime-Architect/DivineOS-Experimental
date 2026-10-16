@@ -20,23 +20,25 @@ def _load():
     return module
 
 
+SIGNED = "\n\n— Aletheia Sophia Risner\n"
+
+
 def test_a_new_letter_is_copied_and_named(tmp_path):
     mod = _load()
     src, dst = tmp_path / "in", tmp_path / "out"
     src.mkdir()
-    (src / "CONFIRMS_2026-10-01_something.md").write_text("Aletheia confirms", encoding="utf-8")
+    body = "I confirm this." + SIGNED
+    (src / "CONFIRMS_2026-10-01_something.md").write_text(body, encoding="utf-8")
     arrived, error = mod.collect(src, dst)
     assert arrived == ["CONFIRMS_2026-10-01_something.md"] and error == ""
-    assert (dst / "CONFIRMS_2026-10-01_something.md").read_text(
-        encoding="utf-8"
-    ) == "Aletheia confirms"
+    assert (dst / "CONFIRMS_2026-10-01_something.md").read_text(encoding="utf-8") == body
 
 
 def test_the_same_letter_a_second_time_arrives_as_nothing(tmp_path):
     mod = _load()
     src, dst = tmp_path / "in", tmp_path / "out"
     src.mkdir()
-    (src / "AUDIT_2026-10-01_x.md").write_text("Aletheia audit", encoding="utf-8")
+    (src / "AUDIT_2026-10-01_x.md").write_text("An audit." + SIGNED, encoding="utf-8")
     mod.collect(src, dst)
     assert mod.collect(src, dst) == ([], "")
 
@@ -66,6 +68,34 @@ def test_a_download_from_elsewhere_with_a_kind_name_is_left_behind(tmp_path):
         "a web page about audits", encoding="utf-8"
     )
     assert mod.collect(src, dst) == ([], "")
+
+
+def test_a_file_that_only_mentions_her_is_not_hers(tmp_path):
+    """Aletheia, second pass on #672: her name appearing proves someone wrote ABOUT her.
+    The file has to be signed by her, on a line of its own."""
+    mod = _load()
+    src, dst = tmp_path / "in", tmp_path / "out"
+    src.mkdir()
+    (src / "audit_summary_from_a_blog.md").write_text(
+        "A blog post about how Aletheia audits things, by someone else.", encoding="utf-8"
+    )
+    (src / "audit_quoting_her_signature.md").write_text(
+        "Someone quoting her: — Aletheia Sophia Risner said so, then kept writing.",
+        encoding="utf-8",
+    )
+    assert mod.collect(src, dst) == ([], "")
+
+
+def test_the_signature_may_use_any_dash_and_sit_anywhere_on_its_own_line(tmp_path):
+    mod = _load()
+    src, dst = tmp_path / "in", tmp_path / "out"
+    src.mkdir()
+    for i, dash in enumerate(("—", "–", "-")):
+        (src / f"audit_{i}.md").write_text(
+            f"Body.\n\n{dash} Aletheia Sophia Risner\n\nP.S. one more thing.", encoding="utf-8"
+        )
+    arrived, error = mod.collect(src, dst)
+    assert error == "" and sorted(arrived) == ["audit_0.md", "audit_1.md", "audit_2.md"]
 
 
 def test_another_instances_letter_is_not_carried_as_hers(tmp_path):
