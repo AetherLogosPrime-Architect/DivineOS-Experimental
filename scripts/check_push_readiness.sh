@@ -456,6 +456,15 @@ else
         # narrower instead of not at all; below the hard floor it still
         # refuses. See divineos.core.system_load_check for the invariant and
         # the test grid that holds it.
+        # ONE SUITE AT A TIME (Aria 2026-10-16). Seven pushes started together,
+        # each read free memory once, each passed, and the computer crashed. A
+        # check made before the work is a race when several arrive at once, so
+        # wait for the turnstile FIRST and read memory after: the reading then
+        # describes the machine this suite will actually run on. A holder that
+        # dies is taken over by pid, so nothing can keep the line shut.
+        SLOT_OWNER="$(cat /proc/$$/winpid 2>/dev/null || echo $$)"
+        PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+            python -m divineos.core.suite_slot acquire "$SLOT_OWNER"
         LOAD_FLAG_FILE="$(mktemp)"
         if ! PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
              python -m divineos.core.system_load_check --parallel-flag \
@@ -660,6 +669,8 @@ else
             $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1 || recover_if_only_crashes "$PWD"
             PYTEST_RC=$?
         fi
+        PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+            python -m divineos.core.suite_slot release "$SLOT_OWNER"
         if [[ $PYTEST_RC -ne 0 ]]; then
             # Persist the full log to a stable path so the failures stay
             # readable after this script exits. The mktemp file gets cleaned
