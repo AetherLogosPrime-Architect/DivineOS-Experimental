@@ -456,19 +456,18 @@ else
         # narrower instead of not at all; below the hard floor it still
         # refuses. See divineos.core.system_load_check for the invariant and
         # the test grid that holds it.
-        # ONE SUITE AT A TIME (Aria 2026-10-16). Seven pushes started together,
-        # each read free memory once, each passed, and the computer crashed. A
-        # check made before the work is a race when several arrive at once, so
-        # wait for the turnstile FIRST and read memory after: the reading then
-        # describes the machine this suite will actually run on. A holder that
-        # dies is taken over by pid, so nothing can keep the line shut.
+        # CLAIM MEMORY, DO NOT JUST READ IT (Aria 2026-10-16, Dad's ruling: "it
+        # doesnt need to be one at a time, it just needs to be considerate of
+        # the memory thats available"). Seven pushes started together, each read
+        # free memory once, each passed, and the computer crashed. A reading made
+        # before the work is a race when several arrive at once, so this asks the
+        # suite slot instead: it subtracts what suites still ramping up have
+        # already claimed, sizes this one to what is left, and waits (saying who
+        # it waits on) when nothing fits. The hard-floor refusal is unchanged.
         SLOT_OWNER="$(cat /proc/$$/winpid 2>/dev/null || echo $$)"
-        PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
-            python -m divineos.core.suite_slot acquire "$SLOT_OWNER"
         LOAD_FLAG_FILE="$(mktemp)"
         if ! PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
-             python -m divineos.core.system_load_check --parallel-flag \
-             "pre-push pytest suite" >"$LOAD_FLAG_FILE"; then
+             python -m divineos.core.suite_slot claim "$SLOT_OWNER" >"$LOAD_FLAG_FILE"; then
             rm -f "$LOAD_FLAG_FILE"
             echo "[push-readiness] BLOCKED — system_load_check refused pytest spawn." >&2
             echo "[push-readiness] See message above. Wait for existing heavy" >&2
