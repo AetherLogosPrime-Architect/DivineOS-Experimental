@@ -252,7 +252,8 @@ def surface(
         return ""  # nothing fits: say nothing, never fill the room
     for b in brought:
         les = b.lesson
-        lines.append(f'- {les.day}: "{les.words}"')
+        mark = f"  [{door.ILLUSTRATION_NOTE}]" if door.is_illustration(les.words) else ""
+        lines.append(f'- {les.day}: "{les.words}"{mark}')
         lines.append(f"  ({les.kind}; read as: {les.line})")
     lines.append("")
     return "\n".join(lines) + "\n"
