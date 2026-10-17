@@ -66,41 +66,6 @@ _GUARDRAIL_LIST_PATH = (
 )
 
 
-def _pr_head_tree_hash(pr_number: int) -> str:
-    """The tree of THIS PR's head commit, as GitHub holds it, or "".
-
-    The trailer it feeds is `External-Review: <round-id> tree-hash:<40-hex>`,
-    which the server-side CI gate verifies (Phase 2, 2026-06-13); without a
-    hash the trailer falls back to the legacy form.
-
-    2026-10-04: the suggested trailer took its tree from the local checkout's
-    HEAD, whatever branch the guard happened to run in, so #588's suggestion
-    carried the live house's tree. The PR's own head is the state the merge
-    will land. When GitHub cannot be asked, the hash is omitted rather than
-    taken from the wrong place.
-    """
-    try:
-        sha = subprocess.run(
-            ["gh", "pr", "view", str(pr_number), "--json", "headRefOid", "--jq", ".headRefOid"],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=20,
-        ).stdout.strip()
-        if not re.fullmatch(r"[0-9a-f]{40}", sha):
-            return ""
-        tree = subprocess.run(
-            ["gh", "api", f"repos/{{owner}}/{{repo}}/commits/{sha}", "--jq", ".commit.tree.sha"],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=20,
-        ).stdout.strip()
-        return tree if re.fullmatch(r"[0-9a-f]{40}", tree) else ""
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        return ""
-
-
 def _load_guardrail_set() -> set[str]:
     if not _GUARDRAIL_LIST_PATH.exists():
         return set()
@@ -333,15 +298,15 @@ def _find_usable_audit_round(pr_number: int, recency_days: int = 14) -> tuple[st
             continue
 
         # Valid round found — compose the ready-to-paste merge body.
-        # Phase 2 (2026-06-13): include tree-hash from HEAD so the
-        # server-side CI gate can verify substance-binding. Falls back
-        # to legacy form if git is unreachable.
-        tree_hash = _pr_head_tree_hash(pr_number)
-        trailer = (
-            f"External-Review: {round_id} tree-hash:{tree_hash}"
-            if tree_hash
-            else f"External-Review: {round_id}"
-        )
+        #
+        # ROUND ONLY (2026-10-08). This used to add a tree-hash, so the body the
+        # gate handed out repeated the very defect it should prevent. A squash
+        # commit's tree is main plus the branch and cannot equal any tree known
+        # before the merge, so the post-merge audit found no trailer tree-hash
+        # matching and went red on a fully reviewed commit (#582, permanent). The
+        # tree binding belongs on the pull request body, where the head's tree
+        # exists.
+        trailer = f"External-Review: {round_id}"
         focus = getattr(rnd, "focus", "") or f"PR #{pr_number} merge under audit"
         merge_body = (
             f"{focus}\n\n"
@@ -353,6 +318,49 @@ def _find_usable_audit_round(pr_number: int, recency_days: int = 14) -> tuple[st
         return round_id, merge_body, ""
 
     return None, "", diagnosis_for_most_recent
+
+
+_TREE_HASH_AFTER_ROUND = re.compile(
+    r"External-Review:\s*(\S+)\s+tree-hash:[a-f0-9]{7,40}", re.IGNORECASE
+)
+# The one expansion the gate can read: the literal heredoc it prints itself.
+_LITERAL_HEREDOC = re.compile(
+    r"\$\(\s*cat\s+<<-?\s*'(\w+)'.*?\n[ \t]*\1[ \t]*\n?[ \t]*\)", re.DOTALL
+)
+
+
+def _expands_in_merge_statement(command: str, start: int) -> bool:
+    """True if the `gh pr merge` statement beginning at `start` hands the shell
+    something to expand (a variable, a command substitution, a backtick).
+
+    The gate reads the command's text. A body passed as "$B" is invisible to it:
+    on 2026-10-17 two merges (#603, #679) went through with a tree-hash in their
+    squash message because the gate saw `--body "$B"` and no trailer at all, and
+    main's Integrity Audit went red on both. Single quotes are literal and pass;
+    the heredoc the gate prints itself is literal and passes.
+    """
+    text = _LITERAL_HEREDOC.sub("HEREDOC", command[start:])
+    in_single = in_double = False
+    i = 0
+    while i < len(text):
+        ch = text[i]
+        if in_single:
+            if ch == "'":
+                in_single = False
+        elif ch == "\\":
+            i += 1
+        elif ch == "'" and not in_double:
+            in_single = True
+        elif ch == '"':
+            in_double = not in_double
+        elif not in_double and ch in ";&|\n":
+            return False
+        elif ch == "`":
+            return True
+        elif ch == "$" and i + 1 < len(text) and (text[i + 1] in "{(_" or text[i + 1].isalpha()):
+            return True
+        i += 1
+    return False
 
 
 def block_reason(bash_command: str) -> str | None:
@@ -386,6 +394,43 @@ def block_reason(bash_command: str) -> str | None:
         pr_number = int(match.group(1))
     except ValueError:
         return None
+    # A TREE-HASH IN THE SQUASH MESSAGE IS ALWAYS WRONG (2026-10-08, #582). The
+    # tree of a squash commit is main plus the branch and does not exist until
+    # the merge, so no value typed beforehand can match except by accident.
+    # The pull request body is the right place for a tree-hash (the head's tree
+    # exists there); the merge message carries the round only. This runs before
+    # the guardrail question on purpose: the post-merge audit applies to
+    # everything entering main now, not to a listed few.
+    stamped = _TREE_HASH_AFTER_ROUND.search(bash_command)
+    if stamped:
+        return (
+            f"BLOCKED: this merge message carries a tree-hash after the round "
+            f"'{stamped.group(1)}'.\n\n"
+            f"  A squash commit's tree is main plus the branch, and it does not exist "
+            f"until the merge happens, so a tree-hash typed into the message can never "
+            f"match it. The post-merge Integrity Audit then goes red on a reviewed "
+            f"commit, and a red badge on main is permanent (#582, 2026-10-08).\n\n"
+            f"  Use the round only:\n\n"
+            f"      External-Review: {stamped.group(1)}\n\n"
+            f"  The tree-hash belongs on the pull request body, where the head's tree "
+            f"exists, and `divineos ship {pr_number}` composes the right message for you."
+        )
+    # A BODY THE GATE CANNOT READ IS A BODY IT CANNOT CHECK (2026-10-17, #603 and
+    # #679). The check above reads the command's text; a message handed over as
+    # "$B" or $(gh pr view ...) hides a tree-hash from it, and both of those
+    # merges went red on main. Refuse what cannot be read, and name the way.
+    if _expands_in_merge_statement(bash_command, match.start()):
+        return (
+            f"BLOCKED: this merge hands the shell something to expand (a variable, "
+            f"a command substitution or a backtick), so the gate cannot read what "
+            f"the squash message will say.\n\n"
+            f"  It reads the text of the command. A message built from a variable can "
+            f"carry a tree-hash the gate would refuse if it could see it, and on "
+            f"2026-10-17 two merges (#603, #679) did, and went red on main.\n\n"
+            f"  Run `divineos ship {pr_number}` and use the merge command it prints, "
+            f"with the message written out in full. Single-quoted text is literal and "
+            f"passes."
+        )
     try:
         touches, touched_files = audit_pr_for_guardrail_touches(pr_number)
     except Exception:  # noqa: BLE001

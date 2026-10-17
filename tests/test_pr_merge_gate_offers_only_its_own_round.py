@@ -4,7 +4,7 @@
 #582's, because it took the newest round with both confirms whatever change
 it covered. Pasting it would have put a line on main saying a review covered
 a change it never saw. Aletheia ranked that the most serious fault three
-times. The tree-hash it attached came from the local checkout, not the PR.
+times. It also attached a tree-hash, which a squash message can never match.
 """
 
 from __future__ import annotations
@@ -55,7 +55,6 @@ def _block(pr: int, rounds=("round-582582582582", "round-588588588588")):
             "divineos.core.watchmen.store.list_findings",
             side_effect=lambda round_id, limit=500: _ROUNDS[round_id],
         ),
-        patch.object(pr_merge_gate, "_pr_head_tree_hash", return_value="a" * 40),
     ):
         return pr_merge_gate.block_reason(f"gh pr merge {pr} --squash")
 
@@ -73,16 +72,10 @@ def test_when_no_round_names_this_pr_it_says_so_and_offers_none():
     assert "#588" in reason
 
 
-def test_the_tree_hash_is_the_prs_own_head_not_the_local_checkout():
-    # The real local tree, not a stand-in: whatever checkout this runs in.
-    import subprocess
-
-    local = subprocess.run(
-        ["git", "rev-parse", "HEAD^{tree}"], capture_output=True, text=True, check=True
-    ).stdout.strip()
+def test_the_offered_body_carries_the_round_only():
     reason = _block(588)
-    assert f"tree-hash:{'a' * 40}" in reason
-    assert local not in reason
+    assert "External-Review: round-588588588588" in reason
+    assert "tree-hash:" not in reason
 
 
 def test_a_bare_number_inside_another_number_does_not_match():
