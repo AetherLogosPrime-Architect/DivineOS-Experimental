@@ -1,3 +1,5 @@
+# AGENT_RUNTIME — not imported by Python. Run from
+# .claude/hooks/session-start-verify-git-hooks.sh at session start.
 """Do the installed git hooks still say what setup/setup-hooks.sh would write?
 
 Both ways, per hook, and it never overwrites. 2026-10-04: Aria's install was
