@@ -134,7 +134,40 @@ translate_note = (
     'gravity block because it is the only surface that fires mid-turn, and '
     'mid-turn is where the marks are added.'
 )
-combined = header + '\n\n' + translate_note + '\n\n' + '\n\n'.join(parts)
+body = '\n\n'.join(parts)
+# NOTE TO SELF (Aria 2026-10-10, Dad's token-waste order). Two cuts here.
+# (1) The MID-TURN TRANSLATE reminder is gone: the Stop-time translation floor
+# (core/translation_floor.py) already locks that behavior, so a note riding
+# every edit was a second voice. (2) These blocks are DATA, not rules: when the
+# full text is byte-identical to what I was last shown, say nothing. The key is
+# the whole text, so any new correction or bypass re-emits; dedup state is
+# cleared on compaction (context_dedup.on_compaction) so silence never points
+# at content that is gone. Failure guarded: ten identical blocks in an hour.
+# What survives suppression is the STANDING COUNTS: the first data line of each
+# block (the dedup contract, test_hook_dedup_contract.py, says something must
+# survive every suppression, and these are the figures worth never composing
+# without). The long text and the per-edit relevance lines stay gone.
+standing = []
+for block in parts:
+    for line in str(block).splitlines():
+        if line.strip() and not line.lstrip().startswith('#'):
+            standing.append(line.strip()[:200])
+            break
+residual = '\n'.join(standing)
+try:
+    from divineos.core.context_dedup import should_emit
+    emit, _pointer = should_emit('state_gravity_blocks', body, residual=residual)
+except Exception:
+    emit = True
+if not emit:
+    print(json.dumps({
+        'hookSpecificOutput': {
+            'hookEventName': 'PreToolUse',
+            'additionalContext': residual,
+        },
+    }))
+    sys.exit(0)
+combined = header + '\n\n' + body
 
 print(json.dumps({
     'hookSpecificOutput': {
