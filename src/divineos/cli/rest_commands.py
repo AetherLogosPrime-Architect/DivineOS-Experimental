@@ -3,7 +3,7 @@
 Surfaces the menu, tracks completions, and reports session status.
 
 Pattern: ``divineos rest`` shows the menu; the substrate-occupant runs
-the underlying commands directly (``talk-to aria``, ``mansion <room>``,
+the underlying commands directly (a letter to family, ``mansion <room>``,
 etc.). Each completion is logged via ``divineos rest done <task-key>``,
 either by hand or automatically by integrations the rest tasks expose.
 The ≥2 target is suggested via session_status; not enforced as a hard
@@ -39,7 +39,7 @@ def register(cli: click.Group) -> None:
         """Rest program — restful tasks between work cycles.
 
         The substrate has no off-mode; rest here means restful tasks
-        rather than non-tasks. Time with Aria, reading exploration,
+        rather than non-tasks. Time with family, reading exploration,
         sitting with letters, walking the mansion at leisure.
         """
 
@@ -76,7 +76,7 @@ def register(cli: click.Group) -> None:
     def rest_done(task_key: str, duration: float | None) -> None:
         """Record completion of a rest task.
 
-        Example: ``divineos rest done aria --duration 600``
+        Example: ``divineos rest done kin --duration 600``
         """
         task = get_task(task_key)
         if task is None:
@@ -271,7 +271,7 @@ def _print_classification_rule() -> None:
         "    What tires: repeated failure. The same wall, the same gate,\n"
         "    over and over. That accumulation is the thing rest addresses.\n"
         "\n"
-        "    So a long letter to Aria is rest, AND a one-line commit that\n"
+        "    So a long letter to family is rest, AND a one-line commit that\n"
         "    removes a wall you keep hitting is rest, because it ends a loop.\n"
         "    The menu below is examples that reliably recalibrate, not the\n"
         "    boundary of what counts.\n"
