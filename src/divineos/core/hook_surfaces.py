@@ -1917,6 +1917,46 @@ def no_fix_claim_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def order_question_stop_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a reply that ends by asking Dad which order to do things in.
+
+    Andrew, nine times: order is irrelevant unless it is relevant. See
+    core/order_question_check.py for what this decides, and what it cannot see.
+    """
+    text = _last_assistant_text(payload)
+    if not text.strip():
+        return SurfaceOutcome(name="order_question", state="nothing-to-say")
+    try:
+        from divineos.core import order_question_check as oq
+
+        if not oq.should_refuse(text):
+            return SurfaceOutcome(name="order_question", state="nothing-to-say")
+        reason = oq.refusal_message(text)
+        if payload.get("stop_hook_active"):
+            # The repair turn: the harness will not let a Stop gate refuse twice, so a
+            # second composition could keep the question in new words and walk through
+            # (2026-10-13: asked it, was sent back, asked it again). It cannot be
+            # refused here, so the repeat is carried to the next compose instead of
+            # vanishing, where it is the first thing I read.
+            from divineos.hooks.stop_carry import carry
+
+            # Worded to what is known: stop_hook_active is true after ANY Stop gate sent
+            # me back, so this gate cannot claim it was the one that did (Aether, 2026-10-14).
+            carry(
+                "order-question-repeated",
+                "On a repair turn I asked Dad which order, and this gate cannot refuse twice: "
+                + reason,
+            )
+            return SurfaceOutcome(name="order_question", state="nothing-to-say")
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="order_question",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    return SurfaceOutcome(name="order_question", refused=True, state="spoke", reason=reason)
+
+
 def summary_room_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse a reply that dropped the room which compresses it for him.
 
@@ -2740,6 +2780,10 @@ def install() -> None:
         register("Stop", "self_demotion_stop", self_demotion_stop_surface)
     if "summary_room" not in registered("Stop"):
         register("Stop", "summary_room", summary_room_surface)
+    # In-process, no new hook script. Refuses once when the reply ends by handing him a
+    # choice of order with no stated dependency (prereg-c4888c81eca6).
+    if "order_question" not in registered("Stop"):
+        register("Stop", "order_question", order_question_stop_surface)
     # Beside summary_room because both refuse rather than annotate. That one asks
     # whether he can FIND the answer; this one asks whether the answer was
     # checked against the thing it is about.
