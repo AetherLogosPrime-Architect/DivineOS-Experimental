@@ -6,7 +6,7 @@ On 2026-10-17 two of my merges (#603 at 79b1c1560 and #679 at 499ce05f1) went re
 
 ## What this builds (one branch, on top of the open #592 work)
 
-1. **The gate refuses a merge whose body or subject it cannot read as a literal.** In the `gh pr merge` statement, a `$VAR`, `${...}`, backtick, or a `$(...)` that is not the one literal form the gate itself prints (`$(cat <<'EOF' ... EOF)`) is refused, with the remedy named: run `divineos ship N` and use the merge command it prints. Single-quoted text is literal and passes.
+1. **The gate refuses a merge whose body or subject it cannot read as a literal.** In the `gh pr merge` statement, a `$VAR`, `${...}`, backtick, or a `$(...)` that is not the one literal form the gate itself prints (`$(cat <<'EOF' ... EOF)`) is refused, with the remedy handed over: the refusal prints the complete safe command shape to fill in (`divineos ship N` prints one too, when it can). Single-quoted text is literal and passes. A redirect's `&` (`2>&1`, `>&2`, `&>file`) does not end the scan; `&&` does.
 2. **A tree-hash typed into the merge message is refused.** This code exists only on the live house branch from 2026-10-08 and never reached main; it comes along.
 3. **The body the gate offers carries the round only** (same origin). This replaces #592's choice to put the PR head's tree-hash in the offered body, which would hand out the very defect item 2 refuses.
 
