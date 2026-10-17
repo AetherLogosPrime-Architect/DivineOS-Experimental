@@ -120,8 +120,12 @@ class _Mutex:
         path = base_dir() / "decide.flock"
         path.parent.mkdir(parents=True, exist_ok=True)
         self._fh = open(path, "a+b")
-        while not _try_lock(self._fh):
-            time.sleep(0.05)
+        try:
+            while not _try_lock(self._fh):
+                time.sleep(0.05)
+        except BaseException:
+            self._fh.close()
+            raise
         return self
 
     def __exit__(self, *exc: object) -> None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import os
 import subprocess
 import sys
@@ -146,6 +147,20 @@ def test_a_holder_that_dies_frees_the_decide_lock_by_dying(tmp_path):
         time.sleep(0.05)
     probe.close()
     assert got
+
+
+def test_a_lock_failure_that_waiting_cannot_cure_surfaces_and_leaks_no_handle(monkeypatch):
+    seen = []
+
+    def cannot_be_cured(fh):
+        seen.append(fh)
+        raise PermissionError(errno.EPERM, "read-only folder")
+
+    monkeypatch.setattr(suite_slot, "_try_lock", cannot_be_cured)
+    with pytest.raises(PermissionError):
+        suite_slot._Mutex().__enter__()
+    assert len(seen) == 1, "control: the mutex did try the lock on a file it had opened"
+    assert seen[0].closed
 
 
 def test_release_frees_the_memory_for_the_next(live_pids):
