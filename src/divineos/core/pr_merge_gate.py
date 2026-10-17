@@ -329,6 +329,15 @@ _LITERAL_HEREDOC = re.compile(
 )
 
 
+def _is_redirect_ampersand(text: str, i: int) -> bool:
+    """An `&` that belongs to a redirect (`2>&1`, `>&2`, `&>file`), not to `&&` or a
+    background `&`. Aria's cold read of #688: treating every `&` as the end of the
+    statement let a redirect written before the body hide a variable behind it."""
+    before = text[i - 1] if i > 0 else ""
+    after = text[i + 1] if i + 1 < len(text) else ""
+    return before in "<>" or after == ">"
+
+
 def _message_is_unreadable(command: str, start: int) -> bool:
     """True if the `gh pr merge` statement beginning at `start` takes its
     message from somewhere the gate cannot read: something the shell would
@@ -355,6 +364,8 @@ def _message_is_unreadable(command: str, start: int) -> bool:
             in_single = True
         elif ch == '"':
             in_double = not in_double
+        elif ch == "&" and not in_double and _is_redirect_ampersand(text, i):
+            pass  # 2>&1, >&2, &>file: part of the statement, not the end of it
         elif not in_double and ch in ";&|\n":
             return False
         elif ch == "`":

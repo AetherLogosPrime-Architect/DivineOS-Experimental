@@ -71,6 +71,21 @@ def test_the_special_parameters_that_expand_to_text_are_refused():
         assert _gate(f"gh pr merge 5 --squash --body {body}") is not None, body
 
 
+def test_a_redirect_before_the_body_does_not_hide_a_variable():
+    """Aria's cold read: the redirect's ampersand was taken for the end of the
+    statement, so the variable behind it was never seen."""
+    for redirect in ("2>&1", "&>/dev/null", ">&2"):
+        command = f'gh pr merge 5 --squash {redirect} --body "$B"'
+        assert _gate(command) is not None, redirect
+    # Control: the same body with no redirect is refused, so the probe can see it.
+    assert _gate('gh pr merge 5 --squash --body "$B"') is not None
+
+
+def test_a_double_ampersand_chain_still_ends_the_statement():
+    assert _gate("gh pr merge 5 --squash --body 'fix' && echo \"$B\"") is None
+    assert _gate("gh pr merge 5 --squash --body 'fix' 2>&1 && echo \"$B\"") is None
+
+
 def test_a_chained_command_after_the_merge_is_not_judged():
     assert _gate("gh pr merge 5 --squash --body 'fix' && echo $HOME") is None
 
