@@ -916,6 +916,16 @@ def register(cli: click.Group) -> None:
             click.secho(f"[!] Could not read PR #{pr_number} via gh: {exc}", fg="red")
             raise click.exceptions.Exit(1) from exc
 
+        # A reply with no `body` key at all is could-not-look, never an empty description:
+        # reading it as empty is what let a stamp replace every description it touched.
+        if "body" not in pr:
+            click.secho(
+                f"[!] Could not read the description of PR #{pr_number}: the reply from gh has "
+                "no body field. Nothing was changed.",
+                fg="red",
+            )
+            raise click.exceptions.Exit(1)
+
         branch = pr.get("headRefName", "")
         pr_title = pr.get("title", "") or f"PR #{pr_number}"
 

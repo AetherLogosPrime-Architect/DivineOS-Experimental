@@ -18,6 +18,46 @@ STAMP = (
 )
 
 
+def _run_stamp_with_reply(monkeypatch, reply: dict):
+    import json
+    import subprocess
+
+    import click
+    from click.testing import CliRunner
+
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, *a, **k):
+        calls.append(list(cmd))
+        return subprocess.CompletedProcess(cmd, 0, stdout=json.dumps(reply), stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    group = click.Group()
+    mod.register(group)
+    result = CliRunner().invoke(group, ["stamp-ready", "5", "--audit-round", "round-x"])
+    return result, calls
+
+
+def test_a_reply_with_no_body_field_refuses_before_changing_anything(monkeypatch):
+    """Aletheia's hardening of #687: no `body` key at all is could-not-look, never an empty
+    description."""
+    result, calls = _run_stamp_with_reply(
+        monkeypatch, {"headRefName": "x/y", "title": "t", "isDraft": True}
+    )
+    assert result.exit_code == 1
+    assert "no body field" in result.output
+    assert not any(c[:3] == ["gh", "pr", "edit"] for c in calls), "nothing may be edited"
+
+
+def test_control_a_reply_with_an_empty_body_is_not_refused_for_missing_it(monkeypatch):
+    """The control for the test above: an empty string is a real answer ("there is no
+    description") and must not trip the missing-field refusal."""
+    result, _ = _run_stamp_with_reply(
+        monkeypatch, {"headRefName": "x/y", "title": "t", "isDraft": True, "body": ""}
+    )
+    assert "no body field" not in result.output
+
+
 def test_the_stamp_asks_github_for_the_body():
     assert "body" in mod.PR_FIELDS.split(",")
 
