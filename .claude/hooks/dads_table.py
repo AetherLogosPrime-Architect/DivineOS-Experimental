@@ -198,7 +198,13 @@ def main() -> int:
     # which is the one lie this hook must never tell: automation is not him.
     # Known wrappers only (Aria): matching any "<" would label a paste of his
     # as automation, erring toward "he did not speak", the wrong way to err.
-    if prompt.lstrip().startswith(("<task-notification", "<system-reminder", "<agent-message")):
+    # The desktop app's <ci-monitor-event> messages arrive the same way (Aether,
+    # 2026-10-16: printed to him as DAD SAID twice in one day, which fed two Stop
+    # gates a sentence he never wrote). His message module, harness envelopes,
+    # words door and reflection room already knew the name; this list did not.
+    if prompt.lstrip().startswith(
+        ("<task-notification", "<system-reminder", "<agent-message", "<ci-monitor-event")
+    ):
         print("## NOT FROM DAD — an automated notice arrived, he has not spoken\n")
         shown = prompt.strip()[:600]
         print(shown)
