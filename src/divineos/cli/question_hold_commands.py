@@ -20,6 +20,29 @@ def register(cli: click.Group) -> None:
                 f"he stepped away: {away['his_words']}" if away else "he is here (the default)"
             )
 
+    @question_hold_group.command("morning")
+    @click.option(
+        "--letter",
+        is_flag=True,
+        help="Print the questions section of the morning letter, drafted from the list.",
+    )
+    def morning_cmd(letter: bool) -> None:
+        """What I asked him while he was away, for the morning letter (read-only, last day)."""
+        from divineos.core.question_hold import carried_lately, morning_letter_section
+
+        if letter:
+            click.echo(morning_letter_section() or "nothing was carried for him in the last day")
+            return
+        rows = carried_lately()
+        if not rows:
+            click.echo("nothing was carried for him in the last day")
+            return
+        import time
+
+        for r in rows:
+            when = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(float(r.get("at") or 0)))
+            click.echo(f"- {when} ({r.get('why')}): {r['question']}")
+
     @question_hold_group.command("away")
     @click.option("--words", required=True, help="His words saying he is stepping away.")
     def away_cmd(words: str) -> None:

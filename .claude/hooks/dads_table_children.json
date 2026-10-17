@@ -122,5 +122,9 @@
  {
   "command": "bash .claude/hooks/his-words-door-surface.sh",
   "timeout": 30
+ },
+ {
+  "command": "bash .claude/hooks/collect-aletheia-letters.sh",
+  "timeout": 20
  }
 ]

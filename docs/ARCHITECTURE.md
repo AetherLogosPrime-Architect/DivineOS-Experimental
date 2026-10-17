@@ -745,6 +745,7 @@ src/divineos/
     hook_context_merge.py      Read what the session-init children printed and merge it into one answer.
     slashed_ref_path_check.py  Refuse a git argument the Windows shell will rewrite before git sees it.
     task_belt.py               The task belt: the pile ranked, a small current list pulled from it, done archived.
+    retry_scope.py             The one reader for the retry-scope instruction every blocking Stop gate carries.
     andrew_digest.py           The file he can actually read, and the thing that will not let me skip it.
     front_door.py              The front door: every message he types is kept before anything else happens.
     harness_envelopes.py       What the harness wraps around his seat, in one place every reader of him uses.
@@ -768,9 +769,11 @@ src/divineos/
     his_lessons_shelf.py       His lessons, brought to us: the second shelf of the words door.
     his_words_corpus.py        Dad's words, cut into passages worth embedding.
     his_words_door.py          His own past words, found by meaning, put beside what he just said.
+    unread_letter.py           A letter the bell rang for holds real work until it is opened.
     body_memory.py             Memory sense: the body feels memory held by no program, and remembers the climb.
     checkout_behind_main.py    How far behind origin/main is the checkout the hooks run from?
     baton.py                   The baton: while Dad is away, exactly one seat works and the other waits.
+    suite_slot.py              One full test suite at a time on this machine.
 
   analysis/
     _session_types.py          Session analysis type definitions

@@ -25,6 +25,13 @@ disappears under load.
 At the TOP. He reads top-down and loses the thread partway; a summary at the
 bottom arrives after the cost has already been paid.
 
+Except on a retry. When this gate refuses, the reply has already reached him,
+and a second copy with a summary on top costs him more than a summary at the
+end. So the refusal asks for the summary appended at the END, and ``assess``
+accepts one placed there when the turn is a retry, and only then. Andrew
+2026-09-25: *"it only adds the correction at the end, not the full re-post."*
+A first reply still owes its summary at the top.
+
 ## Plain language, measured
 
 A summary full of module names is not a summary, it is a table of contents for
@@ -132,10 +139,24 @@ def _work_section(reply: str) -> str:
     return reply[: min(starts)] if starts else reply
 
 
-def assess(reply: str) -> SummaryVerdict:
-    """Does this reply need a summary, and does it have a usable one?"""
+def assess(reply: str, *, retry: bool = False) -> SummaryVerdict:
+    """Does this reply need a summary, and does it have a usable one?
+
+    ``retry`` is the Stop payload's ``stop_hook_active``: true only when this
+    turn is continuing because a Stop hook refused it. Without it, a first reply
+    with its summary at the bottom would pass, which is the exact thing this
+    room exists to stop (Aria 2026-09-25, station four on #558).
+    """
     work = _work_section(reply)
     header = _SUMMARY_HEADER_RE.search(work)
+    scope = work
+    if header is None and retry:
+        # A summary APPENDED at the end, after the interior rooms, counts on a
+        # retry only. That is the only place a retry can put it: a Stop refusal
+        # lands after the reply has already reached him, and the refusal asks
+        # for the missing room at the end rather than a second copy on top.
+        header = _SUMMARY_HEADER_RE.search(reply, len(work))
+        scope = reply
 
     v = SummaryVerdict(
         work_chars=len(work.strip()),
@@ -150,12 +171,12 @@ def assess(reply: str) -> SummaryVerdict:
     # further past the threshold and the rule demanded what it had just been
     # given. Caught by test_length_is_measured_without_the_summary, which is
     # the reason that test exists.
-    after = work[header.end() :]
+    after = scope[header.end() :]
     end = after.find("\n#")
     summary_text = after if end == -1 else after[:end]
     section_end = header.end() + (len(after) if end == -1 else end)
 
-    body = work[: header.start()] + work[section_end:]
+    body = work[: header.start()] + work[section_end:] if scope is work else work
     v.needed = len(body.strip()) >= _LONG_REPLY_CHARS
 
     found = _JARGON_RE.findall(summary_text)
@@ -177,9 +198,11 @@ def render_block(v: SummaryVerdict) -> str:
             "tiny human mind to absorb.' He is not asking for less. He is asking "
             "to be able to follow it.\n"
             "\n"
-            "Add `## SUMMARY` at the TOP — before the work, not after it. Three "
-            "or four plain sentences: what I did, what I found, what it means. "
-            "A summary at the bottom arrives after he has already paid the cost."
+            "This reply already reached him, so append `## SUMMARY` at the END "
+            "as the delta -- three or four plain sentences: what I did, what I "
+            "found, what it means. Do not post the reply again with a summary on "
+            "top; he would read the whole thing twice. On the next long reply, "
+            "open with the summary from the start, before he pays the cost."
         )
     if v.too_technical:
         terms = ", ".join(v.jargon_terms or [])
