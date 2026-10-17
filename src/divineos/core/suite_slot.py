@@ -20,6 +20,7 @@ pids are dropped.
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import sys
@@ -38,6 +39,7 @@ try:
 except ImportError:  # pragma: no cover - psutil is a declared dependency
     psutil = None  # type: ignore[assignment]
 
+_BUSY_ERRNOS = {errno.EACCES, errno.EAGAIN, errno.EDEADLK}
 POLL_SECONDS = 5.0
 RAMP_SECONDS = 180.0
 # Windows reuses pids: after a killed push, an unrelated process can inherit the pid and make a
@@ -87,8 +89,12 @@ def _try_lock(fh) -> bool:
             msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
         else:
             fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
-        return False
+    except OSError as e:
+        # Only "someone else holds it" means wait. Any other failure (a read-only folder, a bad
+        # handle) will never clear by waiting, so it surfaces instead of being spun on for ever.
+        if e.errno in _BUSY_ERRNOS:
+            return False
+        raise
     return True
 
 
