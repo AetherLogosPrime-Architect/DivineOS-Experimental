@@ -193,8 +193,16 @@ class TestTheHelpersReadTheEnd:
         payload = {"transcript_path": path}
         monkeypatch.setattr(hs, "_STOP_TAIL_START", 512)
         lines = Path(path).read_text(encoding="utf-8").splitlines()
+        # His last message is a user record whose content is the text he typed. A tool
+        # result is also written with role "user" but carries a list, and it is NOT a
+        # boundary (2026-10-16: treating it as one made the landed-claim gate forget
+        # every read made earlier in the stretch).
         last_user = max(
-            i for i, line in enumerate(lines) if json.loads(line)["message"]["role"] == "user"
+            i
+            for i, line in enumerate(lines)
+            if json.loads(line)["message"]["role"] == "user"
+            and isinstance(json.loads(line)["message"]["content"], str)
+            and not json.loads(line)["message"]["content"].startswith("<task-notification")
         )
         assert hs._this_turns_action_stream(payload) == "\n".join(lines[last_user:])
 
