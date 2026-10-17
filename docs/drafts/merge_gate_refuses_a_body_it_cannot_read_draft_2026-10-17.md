@@ -12,7 +12,9 @@ On 2026-10-17 two of my merges (#603 at 79b1c1560 and #679 at 499ce05f1) went re
 
 ## What it does not do
 
-It cannot see inside a file passed with `--body-file`; that form is refused the same way, since a file's content is not the command's text. It cannot rewrite the two red marks on main; they stay as history. It protects the next merge, not the last two.
+A file passed with `--body-file` or `-F` is refused, since a file's content is not the command's text. The rule is an allowlist of what can be read, not a list of the ways to hide a message.
+
+It does not cover, and says so: a merge made through the API (`gh api .../merge`) rather than `gh pr merge`; a script or alias that runs the merge; and the default squash message GitHub builds from the commits when no body is given (a commit carrying a tree-hash would still reach main, and the gate cannot see it). It cannot rewrite the two red marks on main; they stay as history. It protects the next merge, not the last two.
 
 ## Falsifier
 

@@ -53,6 +53,28 @@ def test_the_expansion_in_an_earlier_statement_is_not_this_merges():
     assert _gate("B=1; gh pr merge 5 --squash --body 'fix'") is None
 
 
+def test_a_body_read_from_a_file_is_refused():
+    for flag in ("--body-file msg.txt", "-F msg.txt", "--body-file=msg.txt"):
+        assert _gate(f"gh pr merge 5 --squash {flag}") is not None, flag
+
+
+def test_the_word_dash_f_inside_a_quoted_body_is_not_the_flag():
+    assert _gate('gh pr merge 5 --squash --body "use -F for files"') is None
+
+
+def test_an_escaped_dollar_in_double_quotes_is_literal():
+    assert _gate('gh pr merge 5 --squash --body "costs \\$5"') is None
+
+
+def test_the_special_parameters_that_expand_to_text_are_refused():
+    for body in ('"$?"', '"$$"', '"$1"'):
+        assert _gate(f"gh pr merge 5 --squash --body {body}") is not None, body
+
+
+def test_a_chained_command_after_the_merge_is_not_judged():
+    assert _gate("gh pr merge 5 --squash --body 'fix' && echo $HOME") is None
+
+
 def test_a_plain_literal_merge_passes():
     assert _gate('gh pr merge 5 --squash --body "fix"') is None
 

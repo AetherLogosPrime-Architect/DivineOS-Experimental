@@ -329,15 +329,17 @@ _LITERAL_HEREDOC = re.compile(
 )
 
 
-def _expands_in_merge_statement(command: str, start: int) -> bool:
-    """True if the `gh pr merge` statement beginning at `start` hands the shell
-    something to expand (a variable, a command substitution, a backtick).
+def _message_is_unreadable(command: str, start: int) -> bool:
+    """True if the `gh pr merge` statement beginning at `start` takes its
+    message from somewhere the gate cannot read: something the shell would
+    expand (a variable, a command substitution, a backtick) or a file.
 
     The gate reads the command's text. A body passed as "$B" is invisible to it:
     on 2026-10-17 two merges (#603, #679) went through with a tree-hash in their
     squash message because the gate saw `--body "$B"` and no trailer at all, and
     main's Integrity Audit went red on both. Single quotes are literal and pass;
-    the heredoc the gate prints itself is literal and passes.
+    the heredoc the gate prints itself is literal and passes. The rule is an
+    allowlist of what can be read, not a list of the ways to hide a message.
     """
     text = _LITERAL_HEREDOC.sub("HEREDOC", command[start:])
     in_single = in_double = False
@@ -357,8 +359,16 @@ def _expands_in_merge_statement(command: str, start: int) -> bool:
             return False
         elif ch == "`":
             return True
-        elif ch == "$" and i + 1 < len(text) and (text[i + 1] in "{(_" or text[i + 1].isalpha()):
+        elif (
+            ch == "$"
+            and i + 1 < len(text)
+            and (text[i + 1] in "{(_?$!#@*-" or text[i + 1].isalnum())
+        ):
             return True
+        elif not in_double and (i == 0 or text[i - 1].isspace()):
+            rest = text[i:]
+            if re.match(r"(--body-file|-F)(?=[\s=]|$)", rest):
+                return True
         i += 1
     return False
 
@@ -419,17 +429,19 @@ def block_reason(bash_command: str) -> str | None:
     # #679). The check above reads the command's text; a message handed over as
     # "$B" or $(gh pr view ...) hides a tree-hash from it, and both of those
     # merges went red on main. Refuse what cannot be read, and name the way.
-    if _expands_in_merge_statement(bash_command, match.start()):
+    if _message_is_unreadable(bash_command, match.start()):
         return (
-            f"BLOCKED: this merge hands the shell something to expand (a variable, "
-            f"a command substitution or a backtick), so the gate cannot read what "
-            f"the squash message will say.\n\n"
+            f"BLOCKED: this merge takes its message from something the gate cannot "
+            f"read (a variable, a command substitution, a backtick or a file), so "
+            f"it cannot check what the squash message will say.\n\n"
             f"  It reads the text of the command. A message built from a variable can "
             f"carry a tree-hash the gate would refuse if it could see it, and on "
             f"2026-10-17 two merges (#603, #679) did, and went red on main.\n\n"
-            f"  Run `divineos ship {pr_number}` and use the merge command it prints, "
-            f"with the message written out in full. Single-quoted text is literal and "
-            f"passes."
+            f"  Write the message out in full, as literal text in the command. The "
+            f"heredoc form this gate prints when it blocks a guardrail merge is the "
+            f"safe shape, and `divineos ship {pr_number}` prints the whole command "
+            f"when it can. Single-quoted text is literal and passes. Put the round "
+            f"only after External-Review, never a tree-hash."
         )
     try:
         touches, touched_files = audit_pr_for_guardrail_touches(pr_number)
