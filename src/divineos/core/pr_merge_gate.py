@@ -349,6 +349,11 @@ def _message_is_unreadable(command: str, start: int) -> bool:
     main's Integrity Audit went red on both. Single quotes are literal and pass;
     the heredoc the gate prints itself is literal and passes. The rule is an
     allowlist of what can be read, not a list of the ways to hide a message.
+
+    The invariant it protects: every character of the message that reaches
+    GitHub appears in the command's own text. Known to be unsound at one point:
+    an ANSI-C string ($'...') ends the single-quote scan at an escaped quote
+    (Aria's cold read of #688); no realistic merge needs that form.
     """
     text = _LITERAL_HEREDOC.sub("HEREDOC", command[start:])
     in_single = in_double = False
@@ -448,11 +453,17 @@ def block_reason(bash_command: str) -> str | None:
             f"  It reads the text of the command. A message built from a variable can "
             f"carry a tree-hash the gate would refuse if it could see it, and on "
             f"2026-10-17 two merges (#603, #679) did, and went red on main.\n\n"
-            f"  Write the message out in full, as literal text in the command. The "
-            f"heredoc form this gate prints when it blocks a guardrail merge is the "
-            f"safe shape, and `divineos ship {pr_number}` prints the whole command "
-            f"when it can. Single-quoted text is literal and passes. Put the round "
-            f"only after External-Review, never a tree-hash."
+            f"  Write the message out in full, as literal text in the command. This "
+            f"shape is readable, and `divineos ship {pr_number}` prints the whole "
+            f"command when it can:\n\n"
+            f'  gh pr merge {pr_number} --squash --subject "<title> (#{pr_number})" '
+            f"--body \"$(cat <<'EOF'\n"
+            f"  <what changed and why>\n\n"
+            f"  External-Review: <round-id>\n"
+            f"  EOF\n"
+            f'  )"\n\n'
+            f"  The round only after External-Review, never a tree-hash: the "
+            f"tree-hash belongs on the pull request body, the round on the squash."
         )
     try:
         touches, touched_files = audit_pr_for_guardrail_touches(pr_number)
