@@ -69,6 +69,28 @@ def test_a_dead_holders_claim_is_dropped():
     assert me[0] == "go"
 
 
+def test_a_claim_older_than_any_suite_lasts_is_dropped_even_if_its_pid_is_alive(live_pids):
+    """Windows reuses pids: a live pid with an ancient claim is someone else's process."""
+    t0 = time.time()
+    assert suite_slot.try_claim(live_pids[0], cpus=16, available=12 * GB, now=t0)[0] == "go"
+    much_later = t0 + suite_slot.MAX_CLAIM_AGE_SECONDS + 1
+    # Control: the first claim is real and live, and still blocks inside the age limit.
+    assert suite_slot.try_claim(live_pids[1], cpus=16, available=12 * GB, now=t0 + 60)[0] == "wait"
+    verdict, flag, _ = suite_slot.try_claim(1, cpus=16, available=1 * GB, now=much_later)
+    assert (verdict, flag) == ("refuse", None)
+
+
+def test_waiting_ends_with_a_plain_refusal(live_pids, monkeypatch):
+    suite_slot.try_claim(live_pids[0], cpus=16, available=12 * GB)
+    monkeypatch.setattr(suite_slot, "MAX_WAIT_SECONDS", 0.2)
+    monkeypatch.setattr(
+        suite_slot.psutil, "virtual_memory", lambda: type("vm", (), {"available": 12 * GB})()
+    )
+    flag, reason = suite_slot.claim(live_pids[1], poll=0.05)
+    assert flag is None
+    assert "waited" in reason
+
+
 def test_release_frees_the_memory_for_the_next(live_pids):
     suite_slot.try_claim(live_pids[0], cpus=16, available=12 * GB)
     suite_slot.release(live_pids[0])

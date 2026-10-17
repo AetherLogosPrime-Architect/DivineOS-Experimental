@@ -35,11 +35,17 @@ except ImportError:  # pragma: no cover - psutil is a declared dependency
 POLL_SECONDS = 5.0
 RAMP_SECONDS = 180.0
 _MUTEX_STALE_SECONDS = 10.0
+# Windows reuses pids: after a killed push, an unrelated process can inherit the pid and make a
+# dead claim read as alive for ever. No suite runs for hours, so an older claim is not a suite.
+MAX_CLAIM_AGE_SECONDS = 7200.0
+# Waiting must end. Past this, say so plainly instead of looping with nobody told.
+MAX_WAIT_SECONDS = 1800.0
 
 
 def base_dir() -> Path:
     override = os.environ.get("DIVINEOS_SUITE_SLOT_DIR")
-    return Path(override) if override else Path.home() / ".divineos" / "suite_slot"
+    # The shared folder, because both seats must see the same ledger and it is not one seat's state.
+    return Path(override) if override else Path.home() / ".divineos-shared" / "suite_slot"
 
 
 def _claims_dir() -> Path:
@@ -50,8 +56,8 @@ def _alive(pid: int) -> bool:
     return psutil is not None and psutil.pid_exists(pid)
 
 
-def _live_claims() -> dict[int, dict]:
-    """pid -> claim, with claims of dead pids removed as they are found."""
+def _live_claims(now: float) -> dict[int, dict]:
+    """pid -> claim, with claims of dead pids, or older than any suite lasts, removed."""
     found: dict[int, dict] = {}
     d = _claims_dir()
     if not d.exists():
@@ -62,7 +68,7 @@ def _live_claims() -> dict[int, dict]:
             data = json.loads(f.read_text())
         except (ValueError, OSError):
             continue
-        if _alive(pid):
+        if _alive(pid) and now - float(data.get("at", 0)) < MAX_CLAIM_AGE_SECONDS:
             found[pid] = data
         else:
             f.unlink(missing_ok=True)
@@ -111,7 +117,7 @@ def try_claim(
         flag, reason = load.pytest_parallel_flag(job_label)
         return "go", flag, reason
     with _Mutex():
-        claims = _live_claims()
+        claims = _live_claims(now)
         claims.pop(owner_pid, None)
         ramping = {
             pid: c for pid, c in claims.items() if now - float(c.get("at", 0)) < RAMP_SECONDS
@@ -139,10 +145,16 @@ def release(owner_pid: int) -> None:
 def claim(owner_pid: int, poll: float = POLL_SECONDS) -> tuple[str | None, str]:
     """Wait until memory allows, then return the worker flag. None means refused outright."""
     said = ""
+    deadline = time.time() + MAX_WAIT_SECONDS
     while True:
         verdict, flag, reason = try_claim(owner_pid)
         if verdict != "wait":
             return flag, reason
+        if time.time() > deadline:
+            return None, (
+                f"REFUSED: waited {MAX_WAIT_SECONDS / 60:.0f} minutes for memory and it never "
+                f"freed. {reason}"
+            )
         if reason != said:
             print(f"[suite-slot] {reason}", file=sys.stderr)
             said = reason
