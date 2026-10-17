@@ -13,8 +13,9 @@ memory is really in use and the machine's own number already shows it; counting 
 only make suites wait for nothing. Two suites run together when memory allows, one waits when it
 does not, and a machine too small for even one worker is refused outright rather than queued.
 
-The deciding step runs under a short mutex (mkdir is atomic everywhere) so two arrivals cannot both
-read the same ledger and both say yes. Claims of dead pids are dropped.
+The deciding step runs under the operating system's own file lock, so two arrivals cannot both
+read the same ledger and both say yes, and a holder that dies frees it by dying. Claims of dead
+pids are dropped.
 """
 
 from __future__ import annotations
@@ -27,6 +28,11 @@ from pathlib import Path
 
 from divineos.core import system_load_check as load
 
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import fcntl
+
 try:
     import psutil
 except ImportError:  # pragma: no cover - psutil is a declared dependency
@@ -34,7 +40,6 @@ except ImportError:  # pragma: no cover - psutil is a declared dependency
 
 POLL_SECONDS = 5.0
 RAMP_SECONDS = 180.0
-_MUTEX_STALE_SECONDS = 10.0
 # Windows reuses pids: after a killed push, an unrelated process can inherit the pid and make a
 # dead claim read as alive for ever. No suite runs for hours, so an older claim is not a suite.
 MAX_CLAIM_AGE_SECONDS = 7200.0
@@ -75,32 +80,49 @@ def _live_claims(now: float) -> dict[int, dict]:
     return found
 
 
+def _try_lock(fh) -> bool:
+    try:
+        if sys.platform == "win32":
+            fh.seek(0)
+            msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return False
+    return True
+
+
+def _unlock(fh) -> None:
+    if sys.platform == "win32":
+        fh.seek(0)
+        msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+    else:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+
+
 class _Mutex:
-    """Held for milliseconds around read-decide-write. A holder that died leaves a directory
-    older than _MUTEX_STALE_SECONDS, which the next arrival clears."""
+    """Held for milliseconds around read-decide-write, by the operating system's own file lock.
+
+    No one ever judges whether a holder is dead: the system releases the lock the instant the
+    holding process ends, however it ends. That removes the whole class of stale-lock defects
+    (Aletheia's hold on #686): a waiter robbing a live holder, two waiters both clearing the same
+    stale lock, and a holder deleting the lock someone else now owns. The earlier mkdir-and-age
+    version had all three.
+    """
 
     def __enter__(self) -> "_Mutex":
-        path = base_dir() / "decide.lock"
+        path = base_dir() / "decide.flock"
         path.parent.mkdir(parents=True, exist_ok=True)
-        while True:
-            try:
-                path.mkdir()
-                self._path = path
-                return self
-            except FileExistsError:
-                try:
-                    if time.time() - path.stat().st_mtime > _MUTEX_STALE_SECONDS:
-                        path.rmdir()
-                        continue
-                except OSError:
-                    pass
-                time.sleep(0.05)
+        self._fh = open(path, "a+b")
+        while not _try_lock(self._fh):
+            time.sleep(0.05)
+        return self
 
     def __exit__(self, *exc: object) -> None:
         try:
-            self._path.rmdir()
-        except OSError:
-            pass
+            _unlock(self._fh)
+        finally:
+            self._fh.close()
 
 
 def try_claim(

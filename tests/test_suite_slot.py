@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import threading
@@ -89,6 +90,62 @@ def test_waiting_ends_with_a_plain_refusal(live_pids, monkeypatch):
     flag, reason = suite_slot.claim(live_pids[1], poll=0.05)
     assert flag is None
     assert "waited" in reason
+
+
+def test_two_never_hold_the_decide_lock_at_once_and_a_slow_holder_is_not_robbed():
+    """Aletheia's hold on #686: the old folder-and-age lock let a waiter judge a live holder dead.
+    With the operating system's lock no one judges. A holder that stays inside much longer than
+    any age rule would have allowed is never entered by another."""
+    inside = 0
+    worst = 0
+    guard = threading.Lock()
+
+    def work(stay: float) -> None:
+        nonlocal inside, worst
+        with suite_slot._Mutex():
+            with guard:
+                inside += 1
+                worst = max(worst, inside)
+            time.sleep(stay)
+            with guard:
+                inside -= 1
+
+    first = threading.Thread(target=work, args=(1.0,))
+    first.start()
+    time.sleep(0.2)  # control: the first is inside, so the others must wait on a live holder
+    others = [threading.Thread(target=work, args=(0.05,)) for _ in range(5)]
+    for t in others:
+        t.start()
+    for t in [first, *others]:
+        t.join()
+    assert worst == 1
+
+
+def test_a_holder_that_dies_frees_the_decide_lock_by_dying(tmp_path):
+    code = (
+        "import os, sys, time\n"
+        "from divineos.core import suite_slot\n"
+        "m = suite_slot._Mutex().__enter__()\n"
+        "print('held', flush=True)\n"
+        "time.sleep(60)\n"
+    )
+    src = os.path.dirname(os.path.dirname(os.path.dirname(suite_slot.__file__)))
+    env = {**os.environ, "DIVINEOS_SUITE_SLOT_DIR": str(tmp_path / "slot"), "PYTHONPATH": src}
+    holder = subprocess.Popen(
+        [sys.executable, "-c", code], env=env, stdout=subprocess.PIPE, text=True
+    )
+    assert holder.stdout.readline().strip() == "held"  # control: it really holds it now
+    probe = open(tmp_path / "slot" / "decide.flock", "a+b")
+    assert not suite_slot._try_lock(probe)
+    holder.kill()
+    holder.wait()
+    deadline = time.time() + 5
+    got = False
+    while time.time() < deadline and not got:
+        got = suite_slot._try_lock(probe)
+        time.sleep(0.05)
+    probe.close()
+    assert got
 
 
 def test_release_frees_the_memory_for_the_next(live_pids):
