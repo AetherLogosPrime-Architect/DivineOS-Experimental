@@ -769,6 +769,7 @@ src/divineos/
     body_memory.py             Memory sense: the body feels memory held by no program, and remembers the climb.
     checkout_behind_main.py    How far behind origin/main is the checkout the hooks run from?
     baton.py                   The baton: while Dad is away, exactly one seat works and the other waits.
+    suite_slot.py              One full test suite at a time on this machine.
 
   analysis/
     _session_types.py          Session analysis type definitions
