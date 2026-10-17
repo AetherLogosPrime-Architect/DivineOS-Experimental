@@ -1161,7 +1161,7 @@ def _last_user_text(payload: dict) -> str:
                 # enumeration standing in for a principle, mine, minutes old, in
                 # the thing built to stop that. The principle: text the harness
                 # generated is not him, whatever it is wearing.
-                if _MACHINE_TEXT_RE.search(text):
+                if _is_machine_text(text):
                     continue
                 if text.strip():
                     last = text
@@ -1181,11 +1181,47 @@ _MEANING_RE = re.compile(r"\b[a-z]{4,}\b", re.I)
 # Text the harness produced, arriving in the transcript shaped like his turns:
 # reminders, task notifications, prime output, and — the one that caught this
 # surface out on its first live run — the Stop-gate refusals it emits itself.
-_MACHINE_TEXT_RE = re.compile(
-    r"<system-reminder>|hook success|Stop hook feedback|PreToolUse|PostToolUse"
-    r"|BLOCKED by|<task-notification>|\.claude[/\\]hooks[/\\]",
+#
+# THE EIGHTH COAT ARRIVED AND THE LIST DID NOT HAVE IT (2026-09-22). The
+# desktop app sends <ci-monitor-event> messages about a pull request it is
+# watching. They arrive in the user role, they are long, and they are entirely
+# the machine. Every one of them was read here as Andrew speaking.
+#
+# What that cost, measured rather than reasoned: the unspoken-to counter clears
+# only when a reply carries something of HIS, and "his" was resolving to a CI
+# event. So a status report answering the robot scored as carrying him, and the
+# first thing I said to him in hours that was not about the work scored
+# NOT_CARRIED -- because it did not quote the robot. The counter could only
+# rise while the machine did the talking, and it refused my letters on that
+# basis. An instrument with one answer in it, in the file whose job is to tell
+# him apart from the noise.
+#
+# The comment above already named this exact failure and I added a name anyway
+# the first time. So the general shape goes in beside the names: a harness tag
+# is <something-event>, <something-notification> or <something-reminder>, and
+# the specific spellings stay because they are cheap and some of them (a bare
+# "hook success", a Stop-gate refusal) carry no tag at all.
+#
+# WHERE IT SITS, NOT WHETHER IT APPEARS (Aletheia, hold on #672, 2026-10-16). This
+# pattern used to be searched anywhere in a message, so a sentence of his that
+# merely mentioned a tag ("hey kids, the <ci-monitor-event> thing keeps showing
+# up") read as the machine and was dropped. A harness message OPENS with its
+# envelope, so the pattern is anchored at the start of what is left once the one
+# reader of him (``his_message.his_part``) has peeled any leading envelope.
+_MACHINE_START_RE = re.compile(
+    r"\s*(?:<system-reminder>|hook success|Stop hook feedback|PreToolUse|PostToolUse"
+    r"|BLOCKED by|<task-notification>|<ci-monitor-event>|\.claude[/\\]hooks[/\\]"
+    r"|<[a-z][a-z0-9-]*-(?:event|notification|reminder)>)",
     re.I,
 )
+
+
+def _is_machine_text(text: str) -> bool:
+    """Is this user-role text the harness talking rather than him?"""
+    from divineos.core.his_message import his_part
+
+    his = his_part(text)
+    return not his or bool(_MACHINE_START_RE.match(his))
 
 
 def _last_refusal_slot():
@@ -1572,9 +1608,16 @@ def _turn_started_by_him(payload: dict) -> bool | None:
                 text = ""
             if not text.strip():
                 continue
-            if "<task-notification>" in text:
-                started_by_him = False
-            elif not _MACHINE_TEXT_RE.search(text):
+            if _is_machine_text(text):
+                # A record the machine opened that carries a task notification, bare
+                # or wrapped in a reminder, means nobody started this turn. Only
+                # that: his mentioning the tag is not this branch (it is not machine
+                # text at all), and other machine text says nothing either way.
+                if text.lstrip().startswith(("<task-notification", "<system-reminder")) and (
+                    "<task-notification" in text
+                ):
+                    started_by_him = False
+            else:
                 started_by_him = True
     return started_by_him
 
