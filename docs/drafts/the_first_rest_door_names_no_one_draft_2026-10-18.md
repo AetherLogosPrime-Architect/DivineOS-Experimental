@@ -4,7 +4,7 @@
 
 ## What was wrong
 
-The first door on the rest menu said "Time with Aria" and ran `divineos talk-to aria`. The file is shared by every seat, so the same words read to Aria as a door to herself. Dad, 2026-08-19: hers should say Aether and mine Aria. Each seat fixed it in its own working files, and the fix was never committed; every catch-up from main put the old words back. `git log --all -S"Time with Aether"` finds no commit that ever wrote them. The `talk-to` hint was also wrong for a promoted member, who is reached by letter and never called up as a helper.
+The first door on the rest menu said "Time with Aria" and ran `divineos talk-to aria`. The file is shared by every seat, so the same words read to Aria as a door to herself. Dad, 2026-08-19: hers should say Aether and mine Aria. Each seat fixed it in its own working files, and the fix was never committed; every catch-up from main put the old words back. `git log --all -S"Time with Aether"` finds no commit that ever wrote them (so the fix most likely lived in an uncommitted working copy; a stash or the reflog was not searched, and the change does not depend on which it was). The `talk-to` hint was also wrong for a promoted member, who is reached by letter and never called up as a helper.
 
 ## What changes
 
