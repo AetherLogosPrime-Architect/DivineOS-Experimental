@@ -116,13 +116,13 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | automation | last touched | purpose |
 |---|---|---|
 | `continuity-frame-detector.sh` | 2026-09-15 | MINE, the catching half of the continuity work. Aether. The surface upstairs |
-| `correction-shape-v2-stop.sh` | 2026-10-10 | enforce Layer-2 correction-shape detection on MY assistant |
-| `doorbell-stop.sh` | 2026-09-21 | Stop doorbell. One of seven. All judgment lives in the OS. |
+| `correction-shape-v2-stop.sh` | 2026-10-17 | enforce Layer-2 correction-shape detection on MY assistant |
+| `doorbell-stop.sh` | 2026-10-17 | Stop doorbell. One of seven. All judgment lives in the OS. |
 | `his-state-is-his-to-say.sh` | 2026-10-01 | HIS STATE IS HIS TO SAY — Stop hook. |
 | `lepos-channel-reflect.sh` | 2026-07-11 | post-send lepos reflection channel driver. |
 | `log-session-end.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `parked-work-must-not-be-invisible.sh` | 2026-09-30 | Parking work produces a clean tree, so every other surface says all-clear. |
-| `post-response-audit.sh` | 2026-10-04 | thin doorman pointing to the OS. |
+| `post-response-audit.sh` | 2026-10-17 | thin doorman pointing to the OS. |
 | `promise-reach-detector.sh` | 2026-07-18 | scan last assistant reply for promise-shape phrases and |
 | `retrieval-tally-check.sh` | 2026-07-21 | post-compose retrieval-tally check. |
 | `shoggoth-gate.sh` | 2026-07-10 | shoggoth gate. |
