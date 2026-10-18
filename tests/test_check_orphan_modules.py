@@ -126,6 +126,35 @@ class TestReexportedThroughParentInit:
                 )
 
 
+class TestTheRealRuntimeModulesCarryTheirMarker:
+    """The three modules the hooks run (and no CLI command reaches) say so where the detector looks.
+
+    2026-10-16: main's orphan check failed on bypass_key, checkout_behind_main and git_hooks_drift
+    because nothing in the CLI graph calls them; hooks do. The marker is only read from the first
+    2000 characters, so a marker pushed down by a long docstring stops counting. Control: a module
+    with no marker is still reported, so the check can fail.
+    """
+
+    _MODULES = ("bypass_key", "checkout_behind_main", "git_hooks_drift")
+
+    def test_each_is_marked_where_the_detector_reads(self):
+        from pathlib import Path as _P
+
+        core = _P(__file__).resolve().parent.parent / "src" / "divineos" / "core"
+        for name in self._MODULES:
+            assert _is_intentionally_unwired(core / f"{name}.py") is True, name
+
+    def test_control_an_unmarked_module_is_not_excused(self, tmp_path):
+        f = tmp_path / "bare.py"
+        f.write_text('"""A module nothing calls and nothing says is run by a hook."""\n')
+        assert _is_intentionally_unwired(f) is False
+
+    def test_a_marker_buried_past_the_read_window_does_not_count(self, tmp_path):
+        f = tmp_path / "buried.py"
+        f.write_text('"""' + "x" * 2100 + '\n# AGENT_RUNTIME"""\n')
+        assert _is_intentionally_unwired(f) is False
+
+
 class TestSameCommitAmnesty:
     """The backlog list is for inherited debt, never for this commit's work.
 

@@ -1,3 +1,5 @@
+# AGENT_RUNTIME — not imported by Python. Spent and checked from
+# .claude/hooks/check-branch-on-push.sh when the push lock is overridden.
 """One bypass key per seat, spent on use, replaced only by a dogfooded fix.
 
 Andrew 2026-09-30, after the push-lock override I reached for with no
@@ -32,8 +34,9 @@ does not count.
 
 WHAT IT CANNOT SEE (named, not pretended): whether the commit fixed the right
 thing, and whether the gate's block case still refuses. The merge gate and
-Aletheia hold those. Edits to this file are the meta-bypass (Hofstadter), so it
-is on the guardrail list.
+Aletheia hold those. Edits to this file are the meta-bypass (Hofstadter), so a
+change here gets the same blanket review every change gets and is read as the
+gate's own door.
 """
 
 from __future__ import annotations
