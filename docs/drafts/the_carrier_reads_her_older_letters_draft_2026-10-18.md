@@ -20,6 +20,8 @@ Run over the real downloads folder: of the 99 carried files whose names the old 
 
 It does not decide a letter is hers because of what it says in the body, and it does not read non-markdown files. A letter of hers that opens some other way (no "to/from" opening, no signature) is still left behind, and so is a letter by someone else that copies her opening line verbatim. The second is not closed: nothing proves authorship, only the opening shape does.
 
+Two more the walk found (`walk-cc70a2a4a9d7`). **Duplicates are recognised by file name only**, so a re-download saved as `x(1).md` is carried again as if new; the real folder has names like that, and a content hash would close it. **Old letters can state rules the house has since retired.** They land in the audits folder, which is not a rule surface, and the announcement does not present them as current, but a reader who treats one as current serves an old rule. Neither is fixed here. The opening window of twelve lines is one data point wide (the June letter's author line is on line four).
+
 ## Falsifier
 
 If a file that is not hers is ever carried because of how it opens, or a letter of hers is carried twice, the rule is wrong. The tests pin the June letter as a passing case and four non-hers shapes (a letter to her, a quote deep in a page, a blog about her, another author's letter) as left behind.
