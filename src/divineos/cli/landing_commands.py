@@ -304,9 +304,10 @@ def register(cli: click.Group) -> None:
             if not typed:
                 raise ClerkRefused(
                     "these words are not found in anything he typed AFTER her confirm was "
-                    "recorded. His confirm says her audit was done, so it comes after it: "
-                    "ask him for a fresh word, not a sentence made to sound like him and not "
-                    "a yes from before."
+                    "recorded. Text he pasted does not count as typed, so a line of a letter "
+                    "he forwarded is not his yes. His confirm says her audit was done, so it "
+                    "comes after it: ask him for a fresh word, not a sentence made to sound "
+                    "like him and not a yes from before."
                 )
             his_steps = confirm_steps(
                 pr=pr,

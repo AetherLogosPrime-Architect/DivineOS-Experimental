@@ -158,6 +158,21 @@ def test_the_closing_tag_that_carries_the_openings_id_still_closes_the_block(
     assert his_words_were_typed(_YES, corpus) is True
 
 
+def test_a_paste_that_quotes_the_tags_itself_is_still_one_block(tmp_path: Path) -> None:
+    """Hofstadter, in the walk: Aletheia's own letter of 2026-10-17 writes both tags in its prose.
+    Pasted whole, the first closing tag INSIDE it must not end the block, or the rest of her
+    writing would pass as his typing. The block ends at the closing tag with the same id.
+    Control: his own words after the real close still count."""
+    letter = (
+        'a letter that names <pasted_content id="..."> and </pasted_content id="..."> '
+        f"and then says: {_YES}"
+    )
+    text = f'<pasted_content id="r7">\n{letter}\n</pasted_content id="r7">\nthanks, go on'
+    corpus = _corpus(tmp_path, text)
+    assert his_words_were_typed(_YES, corpus) is False
+    assert his_words_were_typed("thanks, go on", corpus) is True
+
+
 def test_a_damaged_line_does_not_hide_the_good_ones(tmp_path: Path) -> None:
     path = tmp_path / "dad_all.jsonl"
     good = json.dumps({"text": "keep going until the pile is done"})
