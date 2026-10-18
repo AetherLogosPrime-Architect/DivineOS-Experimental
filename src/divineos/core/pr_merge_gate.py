@@ -378,8 +378,10 @@ def _message_is_unreadable(command: str, start: int) -> bool:
         elif (
             ch == "$"
             and i + 1 < len(text)
-            and (text[i + 1] in "{(_?$!#@*-" or text[i + 1].isalnum())
+            and (text[i + 1] in "{(_?$!#@*-'\"" or text[i + 1].isalnum())
         ):
+            # $'...' decodes escapes (\x3a is a colon) and $"..." is translated text, so both
+            # send characters the gate never saw. Aletheia's hold on #688, 2026-10-17.
             return True
         elif not in_double and (i == 0 or text[i - 1].isspace()):
             rest = text[i:]

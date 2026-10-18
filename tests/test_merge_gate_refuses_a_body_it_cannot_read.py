@@ -81,6 +81,19 @@ def test_a_redirect_before_the_body_does_not_hide_a_variable():
     assert _gate('gh pr merge 5 --squash --body "$B"') is not None
 
 
+def test_an_ansi_c_string_that_decodes_a_tree_hash_is_refused():
+    """Aletheia's hold on #688: $'...' decodes escapes, so a colon written as \\x3a sends a
+    'tree-hash:' the gate never saw. Control: the plain single-quoted form is still literal."""
+    sneaky = (
+        "gh pr merge 5 --squash --body $'fix\\n\\nExternal-Review: round-abc tree-hash\\x3a"
+        + "f" * 40
+        + "'"
+    )
+    assert _gate(sneaky) is not None
+    assert _gate("gh pr merge 5 --squash --body 'fix'") is None
+    assert _gate('gh pr merge 5 --squash --body $"fix"') is not None
+
+
 def test_a_double_ampersand_chain_still_ends_the_statement():
     assert _gate("gh pr merge 5 --squash --body 'fix' && echo \"$B\"") is None
     assert _gate("gh pr merge 5 --squash --body 'fix' 2>&1 && echo \"$B\"") is None

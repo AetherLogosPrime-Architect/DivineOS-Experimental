@@ -36,7 +36,9 @@ WHAT IT CANNOT SEE (named, not pretended): whether the commit fixed the right
 thing, and whether the gate's block case still refuses. The merge gate and
 Aletheia hold those. Edits to this file are the meta-bypass (Hofstadter), so a
 change here gets the same blanket review every change gets and is read as the
-gate's own door.
+gate's own door. It is also still on the guardrail list (scripts/guardrail_files.txt),
+which is the second reason: both are true, and the blanket review is the one that
+holds even if the list is ever wrong.
 """
 
 from __future__ import annotations
