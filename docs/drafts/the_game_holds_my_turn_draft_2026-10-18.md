@@ -12,7 +12,8 @@ A Stop hook, `.claude/hooks/poker_game_on_stop.py`, registered in `.claude/setti
 
 ## Where it deliberately steps aside
 
-- **Never holds him.** If he spoke into this turn, or that check cannot be run, the reply ends. His words always win over the game.
+- **Never holds him.** If he spoke into this turn, his reply stands and is never asked to be redone; the hook holds at most once, only to put the seat back at the table, and never twice. If the check for whether he spoke cannot be run, the reply ends. His words always win over the game. The hook's power runs over my turn, never over his.
+- **It trusts the table's own report.** If the table says a hand is live when it is not, the hold is wrong until the idle release lets go; the hook cannot see past what the table says about itself.
 - **A table that is down is not a game.** No server, no hold.
 - **A walked-away game cannot trap the seat.** If the table's move counter has not moved for 600 seconds, the hold lets go.
 - **Whose seat it is comes from the house's one judge** (`this_seat`), never guessed here. If the seat cannot be told, the hook stays out of the way instead of waiting on the wrong one.
@@ -21,6 +22,10 @@ A Stop hook, `.claude/hooks/poker_game_on_stop.py`, registered in `.claude/setti
 ## What it does not do
 
 It does not play for me, read my cards, or describe a hand. It only stops the turn ending while a hand is live. Dad's rule stands that my window text never narrates a live hand; this hook adds no text about the game beyond naming the waiter command.
+
+## How we would know it failed
+
+The seat drops out between hands again, or a reply of his is held when it should stand. Either one means the hook is wrong, and the first is the thing Dad named on 2026-10-15.
 
 ## Tests
 
