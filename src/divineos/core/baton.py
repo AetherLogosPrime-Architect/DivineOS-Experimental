@@ -23,6 +23,7 @@ import sys
 import time
 from pathlib import Path
 
+from divineos.core.build_flow import header_lines
 from divineos.core.sibling_audit_rounds import store_path, this_seat
 
 SEATS = ("aether", "aria")
@@ -94,12 +95,14 @@ def _append_log(home: Path, entry: dict) -> None:
 
 
 def _header(letter_text: str) -> dict[str, str]:
-    """`**Key:** value` lines before the first rule, the shape the landing parser reads."""
+    """`**Key:** value` lines of the header, read through the house's one header reader.
+
+    A quoted, fenced or indented example line is never a field, so a pasted `**Baton:** pass`
+    cannot flip the baton (Aletheia's ask on #670).
+    """
     fields: dict[str, str] = {}
-    for line in letter_text.splitlines():
-        if line.strip() == "---":
-            break
-        match = re.match(r"^\*\*([A-Za-z-]+):\*\*\s*(.*)$", line.strip())
+    for line in header_lines(letter_text):
+        match = re.match(r"^\*\*([A-Za-z-]+):\*\*\s*(.*)$", line)
         if match:
             fields[match.group(1).lower()] = match.group(2).strip()
     return fields
