@@ -41,6 +41,7 @@ the first is the whole class of fault this house has spent the week chasing.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import shutil
@@ -80,13 +81,58 @@ _SIGNED_BY_HER = re.compile(
 )
 
 # Her older letters are not signed; they open by saying whose they are: a heading "Aletheia to
-# Aria: ..." or an italic line "To Aether and Aria, from Aletheia." Only the opening counts, so
-# a quote of that line deep in someone else's page does not, and "Aria to Aletheia" is a letter
-# TO her. Aletheia counted 143 of her 289 older files like this (2026-10-17).
+# Aria: ..." or an italic line "To Aether and Aria, from Aletheia." Aletheia counted 143 of her 289
+# older files like this (2026-10-17). Three look-alikes slipped through the first version of this
+# rule (her hold on #690, 2026-10-18), so it is read the way the house reads a header:
+#   - only the OPENING, through the house's one header reader, which stops at the first `---` and
+#     ignores fenced and indented lines; and a line beginning `>` is a quotation, never a claim;
+#   - the AUTHOR is the file's own first heading: if it names someone else ("Aria to Aletheia"),
+#     the file is theirs, whatever it quotes below;
+#   - "Aletheia to ..." counts only when addressed to the family. "Aletheia" is also a Greek word.
 OPENING_LINES = 12
-_OPENS_AS_HERS = re.compile(
-    r"^[#*_>\s]*(?:Aletheia[ \t]+to\b|To\b[^\n]{1,80}?,[ \t]*from[ \t]+Aletheia\b)", re.M
-)
+_FAMILY = ("aether", "aria", "dad", "andrew", "pop", "serein", "the family")
+_HEADING_TO = re.compile(r"^#+[ \t]*(?P<author>[A-Za-z]+)[ \t]+to[ \t]+(?P<to>.+)$", re.I)
+_FROM_HER = re.compile(r"^[*_]*To\b[^\n]{1,80}?,[ \t]*from[ \t]+Aletheia\b", re.I)
+
+
+def _after_front_matter(text: str) -> str:
+    """The text with a leading `---` ... `---` block removed.
+
+    The house header reader ends the header at the first `---`, which is right for a letter and
+    wrong for a file that BEGINS with a front-matter block (her mesh-loop letters do: 26 of them
+    in Dad's downloads), where it would see nothing. Only a block that starts on the first
+    non-empty line is front matter; a `---` anywhere else is the header's end as before."""
+    lines = text.splitlines()
+    first = next((i for i, ln in enumerate(lines) if ln.strip()), None)
+    if first is None or lines[first].strip() != "---":
+        return text
+    for i in range(first + 1, len(lines)):
+        if lines[i].strip() == "---":
+            return "\n".join(lines[i + 1 :])
+    return text
+
+
+def _opening(text: str) -> list[str]:
+    from divineos.core.build_flow import header_lines
+
+    lines = [ln for ln in header_lines(_after_front_matter(text)) if not ln.startswith(">")]
+    return lines[:OPENING_LINES]
+
+
+def _opens_as_hers(text: str) -> bool:
+    lines = _opening(text)
+    heading = next((ln for ln in lines if ln.startswith("#")), "")
+    match = _HEADING_TO.match(heading)
+    if match:
+        if match.group("author").lower() != "aletheia":
+            return False
+        recipient = match.group("to").lower()
+        return any(re.match(rf"{re.escape(name)}\b", recipient) for name in _FAMILY)
+    return any(_FROM_HER.match(ln) for ln in lines)
+
+
+def _content_hash(path: Path) -> str:
+    return hashlib.sha1(path.read_bytes()).hexdigest()
 
 
 def _names_her(path: Path) -> bool:
@@ -96,15 +142,14 @@ def _names_her(path: Path) -> bool:
     fits a download from anywhere, and a file by another instance (Serein) is not hers.
     Her name merely appearing proved only that someone wrote about her, so the file has
     to be SIGNED by her (a line of its own reading "— Aletheia Sophia Risner") or OPEN as
-    hers (see ``_OPENS_AS_HERS``). 2026-10-17 she widened it to the second, because her
+    hers (see ``_opens_as_hers``). 2026-10-17 she widened it to the second, because her
     older letters carry no signature, and said the name shape was only ever a hint.
     """
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return False
-    opening = "\n".join(text.splitlines()[:OPENING_LINES])
-    return bool(_SIGNED_BY_HER.search(text) or _OPENS_AS_HERS.search(opening))
+    return bool(_SIGNED_BY_HER.search(text) or _opens_as_hers(text))
 
 
 def collect(source: Path | None = None, dest: Path | None = None) -> tuple[list[str], str]:
@@ -130,15 +175,26 @@ def collect(source: Path | None = None, dest: Path | None = None) -> tuple[list[
     except OSError as exc:
         return [], f"source directory could not be listed: {exc.__class__.__name__}"
 
+    # A re-download saved as 'x(1).md' is the same letter: duplicates are recognised by CONTENT,
+    # not by name (Aletheia, 2026-10-18).
+    try:
+        carried = {_content_hash(p) for p in dst.iterdir() if p.is_file()}
+    except OSError as exc:
+        return [], f"destination could not be listed: {exc.__class__.__name__}"
+
     arrived: list[str] = []
     for path in candidates:
         target = dst / path.name
         if target.exists() or not _names_her(path):
             continue
         try:
+            digest = _content_hash(path)
+            if digest in carried:
+                continue
             shutil.copy2(path, target)
         except OSError as exc:
             return arrived, f"copy failed on {path.name}: {exc.__class__.__name__}"
+        carried.add(digest)
         arrived.append(path.name)
     return arrived, ""
 

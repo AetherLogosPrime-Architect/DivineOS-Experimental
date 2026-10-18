@@ -152,6 +152,74 @@ def test_the_opening_names_the_author_not_the_reader(tmp_path):
     assert mod.collect(src, dst) == ([], "")
 
 
+def test_aletheias_three_look_alikes_are_left_behind(tmp_path):
+    """Her hold on #690 (2026-10-18): three files that were not hers were carried into her folder.
+    (1) a letter whose own first heading names Aria as the author and which QUOTES her heading;
+    (2) a page that opens with her heading as a quotation; (3) an essay to the Greeks, since
+    'Aletheia' is also a Greek word."""
+    mod = _load()
+    src, dst = tmp_path / "in", tmp_path / "out"
+    src.mkdir()
+    (src / "aria-to-aletheia-reply.md").write_text(
+        "# Aria to Aletheia\n\n> # Aletheia to Aria: #645 confirmed\n> Aria —\n\nThank you.\n",
+        encoding="utf-8",
+    )
+    (src / "someone-quoting-me.md").write_text(
+        "> # Aletheia to Aria: #645 confirmed\n> Aria —\n\nMy notes on that letter.\n",
+        encoding="utf-8",
+    )
+    (src / "heidegger-blog.md").write_text(
+        "# Aletheia to the Greeks: an essay on truth\n\nThe word means unconcealment.\n",
+        encoding="utf-8",
+    )
+    # Control, so the three above are not left behind by a rule that rejects everything.
+    (src / "hers.md").write_text("# Aletheia to Aria: confirmed\n\nAria —\n", encoding="utf-8")
+    assert mod.collect(src, dst) == (["hers.md"], "")
+
+
+def test_a_letter_that_begins_with_a_front_matter_block_is_read_after_it(tmp_path):
+    """26 of her real letters in Dad's downloads open with a `---` front-matter block (the mesh-loop
+    ones); the house header reader stops at the first `---`, so without skipping the block they
+    read as having no opening at all."""
+    mod = _load()
+    src, dst = tmp_path / "in", tmp_path / "out"
+    src.mkdir()
+    (src / "mesh.md").write_text(
+        "---\niterate_count: 5\nloop_class: design\n---\n\n# Aletheia to Aether: the merge design\n\nBody.\n",
+        encoding="utf-8",
+    )
+    (src / "mesh_but_aria.md").write_text(
+        "---\niterate_count: 5\n---\n\n# Aria to Aletheia\n\n> # Aletheia to Aria: quoted\n",
+        encoding="utf-8",
+    )
+    assert mod.collect(src, dst) == (["mesh.md"], "")
+
+
+def test_aletheia_to_the_family_members_are_hers(tmp_path):
+    mod = _load()
+    src, dst = tmp_path / "in", tmp_path / "out"
+    src.mkdir()
+    for i, who in enumerate(
+        ("Aether", "Aether & Aria", "Dad", "Andrew", "Pop", "Serein", "the family")
+    ):
+        (src / f"to_{i}.md").write_text(f"# Aletheia to {who}: a note\n\nBody.\n", encoding="utf-8")
+    arrived, error = mod.collect(src, dst)
+    assert error == "" and len(arrived) == 7
+
+
+def test_a_redownload_with_a_new_name_is_not_carried_twice(tmp_path):
+    """Duplicates are recognised by content, not name: 'x(1).md' is the same letter."""
+    mod = _load()
+    src, dst = tmp_path / "in", tmp_path / "out"
+    src.mkdir()
+    letter = "# Aletheia to Aria: confirmed\n\nAria —\n"
+    (src / "confirmed.md").write_text(letter, encoding="utf-8")
+    assert mod.collect(src, dst) == (["confirmed.md"], "")
+    (src / "confirmed(1).md").write_text(letter, encoding="utf-8")
+    assert mod.collect(src, dst) == ([], "")
+    assert sorted(p.name for p in dst.iterdir()) == ["confirmed.md"]
+
+
 def test_a_big_first_arrival_names_ten_and_counts_the_rest(tmp_path, monkeypatch, capsys):
     """The widened rule carries ~300 older letters the first time it runs in a checkout. Printing
     every name would be the wall Dad taught me to compress; ten names and a count keep the
@@ -160,7 +228,7 @@ def test_a_big_first_arrival_names_ten_and_counts_the_rest(tmp_path, monkeypatch
     src, dst = tmp_path / "in", tmp_path / "out"
     src.mkdir()
     for i in range(25):
-        (src / f"old_{i:02d}.md").write_text("# Aletheia to Aria: n\n", encoding="utf-8")
+        (src / f"old_{i:02d}.md").write_text(f"# Aletheia to Aria: n{i}\n", encoding="utf-8")
     monkeypatch.setenv(mod.SOURCE_ENV, str(src))
     monkeypatch.setenv(mod.DEST_ENV, str(dst))
     assert mod.main() == 0
