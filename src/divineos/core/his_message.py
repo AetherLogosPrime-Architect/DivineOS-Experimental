@@ -145,6 +145,24 @@ def _his_part(text: str) -> str:
     return rest
 
 
+# Text he PASTED arrives inside <pasted_content id="..."> ... </pasted_content id="...">. It is
+# someone else's writing that he carried in, not his words, and a line of it ("CONFIRMS: #594",
+# "yes, land it") must never pass as his yes. The closing tag carries the opening tag's id, so a
+# pattern that wants a bare closing tag never finds the close and the block leaks; an unclosed
+# block runs to the end of the message. Found by Aletheia 2026-10-17 reading Aria's #594, which had
+# cut it in the words door only; this is its one home.
+_PASTED_BLOCK = re.compile(r"<pasted_content\b[^>]*>.*?(?:</pasted_content\b[^>]*>|\Z)", re.DOTALL)
+
+
+def typed_part(text: str) -> str:
+    """What in this message he actually TYPED: his part, with any pasted block cut out.
+
+    ``his_part`` answers whose message it is; this answers whose WORDS are in it. A reader that
+    needs his own sentences (a quote that must be a stretch of what he typed) reads this one.
+    """
+    return _PASTED_BLOCK.sub("\n", _his_part(text)).strip()
+
+
 def his_part(text: str) -> str:
     """The text-level question: what in this message is his?
 

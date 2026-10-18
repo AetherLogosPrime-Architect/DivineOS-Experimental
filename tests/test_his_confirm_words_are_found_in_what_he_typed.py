@@ -122,6 +122,42 @@ def test_no_confirm_of_hers_in_the_round_is_could_not_tell() -> None:
     assert her_confirm_filed_at(_NOTES, [], _TREE) is None
 
 
+_YES = "yes, land it, i confirm CONFIRMS: #594 at the new head"
+
+
+def test_a_yes_inside_a_pasted_block_is_not_his(tmp_path: Path) -> None:
+    """Aletheia, 2026-10-17: when he pastes a letter that says 'yes, land it', that line sat in
+    the stored message and passed as his typed yes. The control: the SAME words typed by him
+    outside a paste pass, so the probe can see what it should."""
+    pasted = (
+        f'here is her letter\n\n<pasted_content id="a1b2">\n{_YES}\n</pasted_content id="a1b2">'
+    )
+    typed = f"ok, {_YES}"
+    corpus = _corpus(tmp_path, pasted)
+    assert his_words_were_typed(_YES, corpus) is False
+    corpus = _corpus(tmp_path, pasted, typed)
+    assert his_words_were_typed(_YES, corpus) is True
+
+
+def test_an_unclosed_pasted_block_runs_to_the_end_and_hides_nothing_of_his(tmp_path: Path) -> None:
+    """A paste that never closes is still a paste; what he typed before it still counts."""
+    text = f'keep going until the pile is done\n<pasted_content id="zz">\n{_YES}'
+    corpus = _corpus(tmp_path, text)
+    assert his_words_were_typed(_YES, corpus) is False
+    assert his_words_were_typed("keep going until the pile is done", corpus) is True
+
+
+def test_the_closing_tag_that_carries_the_openings_id_still_closes_the_block(
+    tmp_path: Path,
+) -> None:
+    """The harness writes </pasted_content id="..."> with the id repeated; a pattern that wants a
+    bare closing tag never finds the close, and his own words after the paste would vanish."""
+    text = f'<pasted_content id="q9">\nsomeone else wrote this\n</pasted_content id="q9">\nyes go ahead with {_YES}'
+    corpus = _corpus(tmp_path, text)
+    assert his_words_were_typed("someone else wrote this", corpus) is False
+    assert his_words_were_typed(_YES, corpus) is True
+
+
 def test_a_damaged_line_does_not_hide_the_good_ones(tmp_path: Path) -> None:
     path = tmp_path / "dad_all.jsonl"
     good = json.dumps({"text": "keep going until the pile is done"})

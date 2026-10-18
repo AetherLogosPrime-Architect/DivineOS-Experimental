@@ -18,6 +18,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 
+from divineos.core.his_message import typed_part
 from divineos.core.landing_status import confirms_from_letters
 
 _MIN_SHA = 7
@@ -108,7 +109,9 @@ def his_words_were_typed(
             when = _as_utc(stamp)
             if when is None or when <= after:
                 continue
-        if wanted in _squash(str(text)):
+        # What he typed, not what he pasted: a yes-shaped line inside a pasted letter is
+        # someone else's writing and must never pass as his (Aletheia, 2026-10-17).
+        if wanted in _squash(typed_part(str(text))):
             return True
     return False
 
