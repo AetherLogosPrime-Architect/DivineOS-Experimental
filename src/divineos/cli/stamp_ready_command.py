@@ -71,6 +71,30 @@ _WITHHELD_TITLE = re.compile(
 # be absent from the claimed set, and absence here is what refuses.
 _CONFIRM_WORD = re.compile(r"\bconfirm(?:s|ed)?\b", re.IGNORECASE)
 
+# What the stamp reads about the PR. `body` is in the list because keep_the_authors_text reads it:
+# without it the field is absent, `.get("body")` answers empty, and the keep-what-the-author-wrote
+# step silently does nothing. Found 2026-10-16 when stamping #679 turned its whole description into
+# a title and a review line; the step had been dead since it was written.
+PR_FIELDS = "headRefName,title,isDraft,body"
+
+
+def keep_the_authors_text(prior_body: str | None, stamp_block: str) -> str:
+    """The author's own text, then the fresh review lines last.
+
+    Any earlier stamp of ours is dropped rather than stacked, and the title line the composed block
+    opens with is dropped once real prose sits above it. With no prior text the block stands alone.
+    """
+    prior = (prior_body or "").strip()
+    if not prior:
+        return stamp_block
+    kept = [
+        line
+        for line in prior.splitlines()
+        if not line.strip().startswith(("External-Review:", "Reviewed via audit round "))
+    ]
+    stamp = stamp_block.split("\n", 1)[1].strip() if "\n" in stamp_block else stamp_block
+    return "\n".join(kept).rstrip() + "\n\n" + stamp + "\n"
+
 
 def _claims_a_confirm(text: str) -> bool:
     """Does this finding text speak in the voice of a signature?
@@ -875,7 +899,7 @@ def register(cli: click.Group) -> None:
                     "view",
                     str(pr_number),
                     "--json",
-                    "headRefName,title,isDraft",
+                    PR_FIELDS,
                 ],
                 capture_output=True,
                 text=True,
@@ -891,6 +915,16 @@ def register(cli: click.Group) -> None:
         ) as exc:
             click.secho(f"[!] Could not read PR #{pr_number} via gh: {exc}", fg="red")
             raise click.exceptions.Exit(1) from exc
+
+        # A reply with no `body` key at all is could-not-look, never an empty description:
+        # reading it as empty is what let a stamp replace every description it touched.
+        if "body" not in pr:
+            click.secho(
+                f"[!] Could not read the description of PR #{pr_number}: the reply from gh has "
+                "no body field. Nothing was changed.",
+                fg="red",
+            )
+            raise click.exceptions.Exit(1)
 
         branch = pr.get("headRefName", "")
         pr_title = pr.get("title", "") or f"PR #{pr_number}"
@@ -1409,20 +1443,7 @@ def register(cli: click.Group) -> None:
         # is where a trailer goes and where the check looks for it. So the
         # prior text is kept, any previous stamp of ours is dropped rather
         # than stacked, and the fresh stamp is appended to the end.
-        prior = (pr.get("body") or "").strip()
-        if prior:
-            kept: list[str] = []
-            for line in prior.splitlines():
-                stripped = line.strip()
-                if stripped.startswith("External-Review:"):
-                    continue
-                if stripped.startswith("Reviewed via audit round "):
-                    continue
-                kept.append(line)
-            # Drop the title line the composed block opens with; the PR body
-            # should not repeat the PR title once real prose sits above it.
-            stamp = body.split("\n", 1)[1].strip() if "\n" in body else body
-            body = "\n".join(kept).rstrip() + "\n\n" + stamp + "\n"
+        body = keep_the_authors_text(pr.get("body"), body)
 
         if dry_run:
             click.secho("--- body that would be written (dry run) ---", fg="cyan")
