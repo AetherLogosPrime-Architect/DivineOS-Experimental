@@ -1,4 +1,8 @@
-"""A question to Dad holds the work until he answers (Aria, 2026-09-29).
+"""A question to Dad is carried until he answers (Aria 2026-09-29; Aether 2026-10-05).
+
+2026-10-05 change, in his words: "my questions should not hold you, you should
+hold my questions". Work no longer waits on an open question; only a letter not
+to him waits, while he is here (see LETTER_TOOLS below). The history follows.
 
 Dad, 2026-09-25: *"i just dont like being asked something and then left there
 in the doorway before i can answer"*. Aether's night of 2026-09-29 was the wide
@@ -21,6 +25,7 @@ after this ships, the build is wrong and comes back for revision.
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from pathlib import Path
@@ -42,6 +47,9 @@ def _home() -> Path:
 STATE = _home() / "question_hold.json"
 HOLD_LOG = _home() / "question_hold_log.jsonl"
 ESCAPED = _home() / "question_hold_escaped.json"
+# What I asked him while he was away: one line per question, append-only, this seat's own
+# home so one seat's question never lands in the other's morning letter (2026-10-16).
+MORNING = _home() / "morning_questions.jsonl"
 
 # THE SHARED FRIDGE: SEEN, NEVER HELD. Dad, 2026-10-01: "also the shared fridge
 # idea isnt bad, as seeing what the other was asked is a nice addition, it just
@@ -102,28 +110,377 @@ def others_waiting() -> list[str]:
     return lines
 
 
-BUILDING_TOOLS = {"Bash", "Edit", "Write", "NotebookEdit"}
+# I HOLD HIS QUESTIONS; HIS QUESTIONS DO NOT HOLD ME (Dad, 2026-10-05: "my
+# questions should not hold you, you should hold my questions"). The September
+# version refused every building tool while a question was open; that made
+# asking him cost my hands, the drift Foucault named in walk-206e65be56c1. What
+# stays is the one pause he asked for (2026-10-05): "if you continue to write
+# letters it literally gives me no space to even answer.. unless its volley mode
+# then yes id prefer you wait for me". So only writing a letter that is not to
+# him waits, and only while he is here. It is a fork that is HIS: he answers, or
+# says "go read it" because the letter may already carry his answer.
+# Walks council-30a5db785e3c, council-e5250a976339.
+#
+# NOT COVERED, said plainly: settling his question inside a reply or a draft
+# rather than a letter, and delivering an already-written letter by `cp`. No
+# tool layer can read that intent; the count in HOLD_LOG is the watch on it.
+LETTER_TOOLS = {"Write", "Edit", "NotebookEdit"}
 
-# Bash that is listening or talking, not building. Kept narrow on purpose:
-# a broad allowance is how a hold turns back into a suggestion.
-_PASSES = (
-    # Anchored at the end: "doorbell.sh aria; git push" must not ride through.
-    # The first version stopped at \b, and its test hid that with `or True`.
-    re.compile(r"^\s*bash\s+scripts/letter_doorbell\.sh(\s+\w+)?\s*$"),
-    # Reading a letter, with any read-only viewer (Aether's reading of #570:
-    # he reads them with sed to strip the thread footer). Never sed -i.
-    re.compile(
-        r"^\s*(cat|head|tail|sed)\b(?![^;&|]*\s-i)[^;&|]*\.divineos-shared/letters/[^;&|]*$"
-    ),
-    re.compile(
-        r"^\s*cp\s+\S*family/letters/\S+\.md\s+\S*\.divineos-shared/letters/?\S*\s*(&&\s*echo\s+\w+)?\s*$"
-    ),
-    re.compile(r"^\s*divineos\s+question-hold\b"),
+# HE IS HERE UNLESS HE SAYS HE IS STEPPING AWAY (2026-10-05): "i am always here
+# unless i tell you i am stepping away, this is what the volley mode is for".
+# Never inferred from quiet (Kahneman, council-e5250a976339), and never set in
+# words he did not say (Aria's cold read: ten characters of my own typing set
+# it): the quoted words must appear in his latest real message as the house
+# filed it, which I cannot write (Schneier, council-8486d9949ba1). Cleared by
+# his next message.
+AWAY = _home() / "dad_stepped_away.json"
+
+
+def _flat(text: str) -> str:
+    return " ".join((text or "").lower().split())
+
+
+def _his_latest() -> tuple[str, float] | None:
+    """His most recent real message and when the house filed it, or None.
+
+    The store also files notices in his seat, so envelopes are peeled with the
+    one reader of him and a notice-only record is skipped (Hoare,
+    council-8486d9949ba1). Read-only. None means could-not-look (no store, a read
+    error, or no real message at all), and every caller must treat that as
+    "refuse" or "not away", never as a pass.
+    """
+    import sqlite3
+
+    from divineos.core.his_asks import his_asks_path
+    from divineos.core.his_message import _his_part
+
+    path = his_asks_path()
+    try:
+        conn = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True, timeout=5)
+        try:
+            rows = conn.execute(
+                "SELECT his_text, filed_at FROM messages ORDER BY filed_at DESC LIMIT 50"
+            ).fetchall()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return None
+    for text, filed_at in rows:
+        words = _his_part(str(text or "")).strip()
+        if words:
+            return words, float(filed_at)
+    return None
+
+
+def _his_latest_words() -> str:
+    """His most recent real words, or "" when they cannot be read (which refuses)."""
+    latest = _his_latest()
+    return latest[0] if latest else ""
+
+
+# WHAT HE SAYS WHEN HE IS AWAY. Dad, 2026-10-06: "ok go ahead, proceed, continue,
+# etc etc, those should not be treated as permission to volley, only me saying ill
+# be gone or im going to bed, or if i directly say go into volley mode, otherwise
+# the above phrases mean i am currently here". The check below proves the words
+# are HIS; this proves they MEAN away (Aria's cold read of b4d3271df, point 4: a
+# quote of "ok go ahead" would have opened volley mode). The list is his own
+# phrases and "stepping away", which he used on 2026-10-05. A keyword list is
+# gameable, so it sits on top of the provenance check and never replaces it.
+AWAY_CUES = ("be gone", "to bed", "volley mode", "stepping away", "you two volley")
+
+
+def step_away(his_words: str) -> dict[str, Any]:
+    """He said he is stepping away: volley mode, letters flow."""
+    words = (his_words or "").strip()
+    if len(words) < 10:
+        raise ValueError("quote his words saying he is stepping away (at least 10 characters)")
+    if not any(cue in _flat(words) for cue in AWAY_CUES):
+        raise ValueError(
+            "those words do not say he is away. He means away by saying he will be gone, "
+            "that he is going to bed or stepping away, or go into volley mode. 'ok go ahead', "
+            "'proceed' and 'continue' mean he is here."
+        )
+    if _flat(words) not in _flat(_his_latest_words()):
+        raise ValueError(
+            "those words are not in his latest message. Away is set only from what he "
+            "said, copied from it; when he speaks again it clears by itself."
+        )
+    state = {"his_words": words, "since": time.time()}
+    AWAY.parent.mkdir(parents=True, exist_ok=True)
+    AWAY.write_text(json.dumps(state), encoding="utf-8")
+    _log("stepped_away", his_words=words)
+    return state
+
+
+# THE SECOND WAY TO BE AWAY: SILENCE. Dad, 2026-10-11, asked how else the house could
+# know: "i would either say im stepping away, or they could go by time elapsed with no
+# word from me". Aletheia suggested twenty minutes; he answered "20 minutes isnt much
+# time at all. id say 2 hours to be sure". One number, here, where he can read and
+# change it. Measured from his last REAL message (notices in his seat do not count).
+AWAY_AFTER_SILENCE_SECONDS = 2 * 60 * 60
+
+
+def _stepped_away() -> dict[str, Any] | None:
+    """Away because he said so: the file step_away() writes."""
+    try:
+        state = json.loads(AWAY.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return state if isinstance(state, dict) else None
+
+
+def _silent_away() -> dict[str, Any] | None:
+    """Away because two hours passed with no word from him.
+
+    Could-not-look is never away: if the time of his last real message cannot be
+    read, this says nothing, and the refusal says it could not look. Nothing here
+    is written, and his next message ends it by being the new latest one.
+    """
+    latest = _his_latest()
+    if latest is None:
+        return None
+    filed_at = latest[1]
+    if time.time() - filed_at < AWAY_AFTER_SILENCE_SECONDS:
+        return None
+    return {"his_words": "", "since": filed_at + AWAY_AFTER_SILENCE_SECONDS, "by": "silence"}
+
+
+# THE THIRD WAY TO BE AWAY: THE CLOCK. Dad, 2026-10-12, after a night when nobody said
+# goodnight and Aria's question held her work until morning: "between midnight and 6am is
+# volley mode", and on whether to wait for him to go quiet first: "yes even if im up
+# chatting because it means i need to get my butt to bed lol". Local time, start inclusive,
+# end exclusive, one pair of numbers here where he can read and change it. His messages in
+# the window do not end it; this kind is never written to a file, so it cannot be mistaken
+# for the words-from-him kind (step_away keeps its rule that the words must be his).
+NIGHT_START_HOUR = 0
+NIGHT_END_HOUR = 6
+
+
+def _scheduled_away(now: float | None = None) -> dict[str, Any] | None:
+    """Away because the clock says it is the night window (``now`` is injectable for tests).
+
+    DIVINEOS_NIGHT_HOURS=off switches the window off for the real clock, but only while a
+    test is running (PYTEST_CURRENT_TEST set): the shared test setup sets it so no test
+    result depends on the hour it runs at. An injected ``now`` ignores the switch: that is
+    a test of this rule itself."""
+    # Honoured ONLY while a test is running (Aletheia, 2026-10-12: a rule Dad made must not
+    # have a quiet off-switch a live seat could set by accident or on purpose).
+    if (
+        now is None
+        and os.environ.get("DIVINEOS_NIGHT_HOURS") == "off"
+        and "PYTEST_CURRENT_TEST" in os.environ
+    ):
+        return None
+    moment = time.time() if now is None else now
+    local = time.localtime(moment)
+    if not NIGHT_START_HOUR <= local.tm_hour < NIGHT_END_HOUR:
+        return None
+    start = time.mktime(
+        (local.tm_year, local.tm_mon, local.tm_mday, NIGHT_START_HOUR, 0, 0, 0, 0, -1)
+    )
+    return {"his_words": "", "since": start, "by": "schedule"}
+
+
+def is_away() -> dict[str, Any] | None:
+    return _stepped_away() or _scheduled_away() or _silent_away()
+
+
+# WHAT HAPPENS TO A QUESTION ASKED WHILE HE IS AWAY (Dad, 2026-10-12: while he is away
+# "no questions to him in chat; they go in the morning letter"). A hold that waits for an
+# answer nobody can give is the doorway he hates in reverse: the question sits, the card
+# sits on the board, and the seat is told it is waiting. So while he is away the question is
+# written to this seat's own morning list instead, nothing waits, and when he next speaks the
+# seat is shown the list once (morning_surface), so it can put the one or two that matter in
+# front of him (his 2026-06-25 words: ask freely, but one or two at a time).
+#
+# NOT EVERY AWAY IS AWAY. The midnight-to-six rule is the clock, and he said it counts even
+# when he is up chatting. For a letter hold that is right; for a question it would carry a
+# live question to a morning he is not waiting for. So the clock and silence kinds carry a
+# question only when his last real message is older than LIVE_CHAT_SECONDS. His own words
+# saying he is going to bed always carry it. Could-not-look is never away, as everywhere else.
+LIVE_CHAT_SECONDS = 10 * 60
+
+
+def _carry_now() -> str:
+    """Why a closing question goes to the morning list right now, or "" when it is held as usual."""
+    stepped = _stepped_away()
+    if stepped:
+        return "his words"
+    away = _scheduled_away() or _silent_away()
+    if not away:
+        return ""
+    latest = _his_latest()
+    if latest is None or time.time() - latest[1] < LIVE_CHAT_SECONDS:
+        return ""  # he is typing to me, whatever the clock says, or I could not look
+    return str(away.get("by") or "away")
+
+
+def _morning_lines() -> list[dict[str, Any]]:
+    """Every readable line of the morning file. A half-written last line (a killed process) is
+    skipped; it must never stop the reader."""
+    try:
+        text = MORNING.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    out = []
+    for line in text.splitlines():
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(row, dict):
+            out.append(row)
+    return out
+
+
+def overnight_questions() -> list[dict[str, Any]]:
+    """The questions I carried for him that I have not yet been shown, oldest first."""
+    rows = _morning_lines()
+    shown = {i for r in rows if r.get("kind") == "shown" for i in r.get("ids", [])}
+    return [r for r in rows if r.get("kind") == "carried" and r.get("id") not in shown]
+
+
+def carried_lately(within: float = 24 * 3600) -> list[dict[str, Any]]:
+    """Everything I carried for him in the last day, shown or not, oldest first: the list the
+    morning letter is written from."""
+    cutoff = time.time() - within
+    return [
+        r
+        for r in _morning_lines()
+        if r.get("kind") == "carried" and float(r.get("at") or 0) >= cutoff
+    ]
+
+
+# He asks for one or two questions at a time or his mind overloads (his words, 2026-06-25), so the
+# letter puts two in front of him and lists the rest as able to wait.
+FIRST_ASKED = 2
+
+
+def morning_letter_section(rows: list[dict[str, Any]] | None = None) -> str:
+    """The questions part of the morning letter, drafted from what I carried: the last step from the
+    list to him, so a question carried overnight reaches him in plain words and not only a file.
+
+    Oldest first, because an older question has waited longer; the first two are asked, the rest are
+    marked as able to wait. Empty when nothing was carried. Read-only: it does not mark anything shown.
+    """
+    rows = carried_lately() if rows is None else rows
+    if not rows:
+        return ""
+
+    def when(row: dict[str, Any]) -> str:
+        return time.strftime("%H:%M", time.localtime(float(row.get("at") or 0)))
+
+    if len(rows) == 1:
+        intro = "I carried this while you were away."
+    elif len(rows) <= FIRST_ASKED:
+        intro = "I carried these while you were away."
+    else:
+        intro = (
+            f"I carried these while you were away. The first {FIRST_ASKED} are what I would "
+            "like your answer on; the rest can wait."
+        )
+    lines = ["## Questions from the night", "", intro, ""]
+    for i, row in enumerate(rows[:FIRST_ASKED], 1):
+        lines.append(f"{i}. {row['question']} (asked {when(row)})")
+    rest = rows[FIRST_ASKED:]
+    if rest:
+        lines += ["", "Can wait, no need to answer these now:"]
+        lines += [f"- {row['question']} (asked {when(row)})" for row in rest]
+    return "\n".join(lines) + "\n"
+
+
+def _carry(question: str, why: str) -> bool:
+    """Write one question to the morning list. False if it could not be written, so the caller
+    can fall back to the hold rather than lose it."""
+    if any(r["question"] == question for r in overnight_questions()):
+        return True  # asked twice, carried once
+    now = time.time()
+    row = {"kind": "carried", "id": f"{now:.6f}", "at": now, "question": question, "why": why}
+    try:
+        MORNING.parent.mkdir(parents=True, exist_ok=True)
+        with MORNING.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row) + "\n")
+    except OSError:
+        return False
+    return True
+
+
+def morning_surface() -> str:
+    """At his next message: what I asked while he was away, once. Empty when there is nothing."""
+    pending = overnight_questions()
+    if not pending:
+        return ""
+    lines = [
+        "## QUESTIONS I CARRIED FOR HIM WHILE HE WAS AWAY (asked once, never waited on)",
+        "(He asks for one or two questions at a time, so put the one or two that matter in front",
+        "of him. The rest stay readable for a day with `divineos question-hold morning`, for the",
+        "letter. Oldest first.)",
+    ]
+    for r in pending:
+        when = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(float(r.get("at") or 0)))
+        lines.append(f"- {when}: {r['question']}")
+    try:
+        with MORNING.open("a", encoding="utf-8") as fh:
+            fh.write(
+                json.dumps({"kind": "shown", "at": time.time(), "ids": [r["id"] for r in pending]})
+                + "\n"
+            )
+    except OSError:
+        pass  # shown again next time is better than lost
+    _log("carried_shown", count=len(pending))
+    return "\n".join(lines) + "\n"
+
+
+def came_back() -> bool:
+    """His message: he is here again. Clears the away he set with words.
+
+    The silence kind needs no clearing: his message is now the latest one.
+    """
+    if not _stepped_away():
+        return False
+    AWAY.unlink(missing_ok=True)
+    _log("came_back")
+    return True
+
+
+# The names a letter to him goes by, read from the file's OWN name: the form is
+# "<sender>-to-<him>-...". Aria's cold read of b6d7a5c90 added the other names;
+# her read of b4d3271df found the substring test matched anywhere in the PATH, so
+# "aria-to-aether-...-what-i-owe-to-dad.md" was passed as if it were to him.
+_TO_HIM = re.compile(r"^[a-z0-9]+-to-(andrew|dad|pop)-")
+
+
+def _is_letter_not_to_him(path: str) -> bool:
+    p = (path or "").replace("\\", "/").lower()
+    return "/letters/" in p and p.endswith(".md") and not _TO_HIM.match(p.rsplit("/", 1)[-1])
+
+
+# A shell command that writes into a letter: a redirect or tee. Aria's cold read:
+# `cat > family/letters/x.md <<'EOF'` and `| tee` passed untouched, and that is how
+# she writes most letters, so the hold would not hold her. The target is a path in
+# the command and needs no reading of intent. A `2>&1` is not a target (the
+# lookbehind), and a letter named in prose or an argument is not a write.
+_SHELL_LETTER = re.compile(
+    r"""(?:(?<![0-9&])>>?|\btee\b(?:\s+-a)?)\s*["']?"""
+    r"""([^\s"'|&;<>]*?/letters/[^\s"'|&;<>]*\.md)""",
+    re.I,
 )
+
+
+def _shell_letter_target(command: str) -> str:
+    """The first letter-not-to-him this command writes into, or ""."""
+    for found in _SHELL_LETTER.finditer(command or ""):
+        if _is_letter_not_to_him(found.group(1)):
+            return found.group(1)
+    return ""
+
 
 _CIRCLE = re.compile(r"^##\s*INNER CIRCLE\s*$", re.M)
 _CODE = re.compile(r"```.*?```|`[^`\n]*`", re.S)
 _QUOTED = re.compile(r"\"[^\"\n]*\"|“[^”\n]*”|\*\"[^\n]*?\"\*")
+# 2026-10-12: a source's own title ends in "?" ("What is an agent harness?") and was read as a
+# question to Dad, twice in one night. A link is a pointer, never something said to him.
+_LINK = re.compile(r"\[[^\]\n]*\]\([^)\n]*\)")
 _SENTENCE = re.compile(r"[^.!?\n]*[.!?]+", re.S)
 
 
@@ -139,6 +496,7 @@ def _addressed_part(reply: str) -> str:
 
 def _clean(text: str) -> str:
     text = _CODE.sub(" ", text)
+    text = _LINK.sub(" ", text)
     text = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith(">"))
     return _QUOTED.sub(" ", text)
 
@@ -168,10 +526,18 @@ def _log(kind: str, **fields: Any) -> None:
 
 
 def arm(reply: str) -> dict[str, Any] | None:
-    """At Stop: a reply ending in a question to him opens the hold."""
+    """At Stop: a reply ending in a question to him opens the hold, unless he is away: then
+    the question goes to this seat's morning list and nothing waits (see _carry_now)."""
     question, _after = last_question(reply)
     if not question:
         return None
+    why = _carry_now()
+    if why:
+        if _carry(question, why):
+            _log("carried_to_morning", question=question, why=why)
+            return None
+        # Could not write the list: hold it as before, never lose it.
+        _log("carry_failed", question=question)
     from divineos.core.operator_asks import ask_andrew
 
     # The circle is already written to him, so the question IS the plain form;
@@ -194,8 +560,13 @@ def arm(reply: str) -> dict[str, Any] | None:
     return state
 
 
-def release(how: str, reason: str = "") -> bool:
-    """His next message releases it. An escape also releases it, counted."""
+def release(how: str, reason: str = "", his_words: str = "") -> bool:
+    """His next message releases it. An escape also releases it, counted.
+
+    ``his_words`` is his message, kept as the answer so the record shows what
+    he said, not only that he spoke (Aria's cold read; Norman,
+    council-8486d9949ba1).
+    """
     state = is_open()
     if not state:
         return False
@@ -208,24 +579,47 @@ def release(how: str, reason: str = "") -> bool:
         )
         # He has NOT answered: the ask stays open and keeps re-raising.
         return True
-    # HIS ANSWER CLOSES BOTH HOLDS (2026-10-01, council-5bd771ef0891). arm()
-    # files the question in operator_asks, and an-open-ask-holds-the-work.sh
-    # reads that store. Releasing only this file left the ask open, so his
-    # answer released one hold and the other held the work again -- twice that
-    # night, each cleared by hand with his words. A store failure is logged,
-    # never raised: this runs inside his own message hook.
-    ask_id = state.get("ask_id")
-    if ask_id:
-        from divineos.core.operator_asks import resolve_ask
+    # HIS ANSWER CLOSES THE ASK TOO (2026-10-01, council-5bd771ef0891). arm()
+    # files the question in operator_asks, which re-raises it. A second lock
+    # once read that store (an-open-ask-holds-the-work.sh, removed 2026-10-05,
+    # council-e5250a976339), so an ask left open held the work after he had
+    # answered. Now closing it stops him being asked again something he has
+    # already answered (council-0355bb90384c). A store failure is logged, never
+    # raised: this runs inside his own message hook.
+    #
+    # EVERY ONE THIS HOLD FILED, not only the newest (2026-10-05). arm() keeps
+    # one ask_id, so two questions in a row left the first ask open for good
+    # and the asks-store hook held the work after he had answered both. Hand-
+    # filed asks are not touched: those re-raise until he resolves them.
+    from divineos.core.operator_asks import open_asks, resolve_ask
 
+    # Verbatim, cut visibly if long (council-5017d9b5f774): a label is never
+    # heard again, and a paraphrase would turn his voice into mine.
+    words = " ".join((his_words or "").split())
+    if len(words) > 500:
+        words = words[:500] + " ..."
+    answer = f"Dad answered: {words}" if words else f"Dad answered ({how})"
+    try:
+        mine = [a["question_id"] for a in open_asks(limit=200) if _filed_here(a)]
+    except Exception as exc:  # noqa: BLE001 -- any store failure, logged below
+        _log("resolve_failed", ask_id="*", error=f"{type(exc).__name__}: {exc}")
+        mine = []
+    for ask_id in mine:
         try:
-            closed = resolve_ask(ask_id, f"Dad answered ({how})")
+            closed = resolve_ask(ask_id, answer)
         except Exception as exc:  # noqa: BLE001 -- any store failure, logged below
             _log("resolve_failed", ask_id=ask_id, error=f"{type(exc).__name__}: {exc}")
         else:
             if not closed:
                 _log("resolve_failed", ask_id=ask_id, error="resolve_ask returned False")
     return True
+
+
+def _filed_here(ask: dict[str, Any]) -> bool:
+    """An ask arm() filed, told by the context arm() writes and nothing else."""
+    return any(
+        line.strip() == "question-hold" for line in str(ask.get("context") or "").splitlines()
+    )
 
 
 def escape_to_tell_him() -> str:
@@ -296,41 +690,48 @@ def _asked_at(state: dict[str, Any]) -> str:
 
 
 def refusal(tool_name: str, tool_input: dict[str, Any], transcript_path: str = "") -> str:
-    """Why this tool call waits, or "" when it may run."""
+    """Why this tool call waits, or "" when it may run.
+
+    Only a letter that is not to him waits, only while his question is open,
+    and only while he is here. Everything else runs.
+    """
     state = is_open()
-    if not state or tool_name not in BUILDING_TOOLS:
+    if not state:
         return ""
     if tool_name == "Bash":
-        command = str(tool_input.get("command", ""))
-        if any(p.search(command) for p in _PASSES):
+        # The second door: a redirect or tee into a letter. Anything else a shell
+        # does falls straight through, so reading and the exits are never held.
+        path = _shell_letter_target(str(tool_input.get("command") or ""))
+        if not path or is_away():
             return ""
-        # A look, or another gate's prescribed way out, is not building
-        # (2026-10-01). The narrow letter patterns above held a `cat` of the
-        # doorbell's own output, and held `divineos prereg assess` while the
-        # overdue gate held the doorbell: two gates, each holding the other's
-        # only exit. Dad 2026-08-18: "no gate should ever be blocking its own
-        # remedy." Both judges are the house's shared ones, not a fourth list.
-        from divineos.core.remedy_allowlist import is_remedy
-        from divineos.hooks.pre_tool_use_gate import _is_readonly_probe
-
-        if _is_readonly_probe(command) or is_remedy(command):
+    elif tool_name in LETTER_TOOLS:
+        path = str(tool_input.get("file_path") or tool_input.get("notebook_path") or "")
+        if not _is_letter_not_to_him(path) or is_away():
             return ""
+    else:
+        return ""
     if answered_since(transcript_path, float(state.get("since") or 0)):
         release("his message, mid-turn")
         return ""
     _log("held", tool=tool_name, question=state.get("question"))
+    could_not_look = (
+        ""
+        if _his_latest() is not None
+        else "\n\n(I could not read when he last spoke, so I have not treated\nhis silence as away.)"
+    )
     return (
-        "QUESTION HOLD -- I asked Dad something and he has not answered yet:\n\n"
+        "KEEPING PACE WITH DAD -- I asked him something and he is still catching up:\n\n"
         f"  {state.get('question')}\n"
         f"  (asked {_asked_at(state)}, held in {STATE.parent})\n\n"
-        "Building waits for his reply; reading, letters and the doorbell do not.\n"
-        "If a letter or a finished job woke me, I tell him it arrived and that I\n"
-        "am waiting for him, and I do not open it or act on it until he speaks.\n\n"
-        'His words, 2026-09-25: "i just dont like being asked something and then\n'
-        'left there in the doorway before i can answer".\n\n'
-        "A real emergency (a half-landed push) has an exit, counted and shown to\n"
-        "him when he next speaks:\n"
-        '  divineos question-hold release --reason "<what cannot wait, >= 30 chars>"'
+        "Only this letter waits; all other work goes on. The choice is his: I tell\n"
+        "him a letter came, and he answers first or says go read it (it may\n"
+        "already carry his answer from the other seat). This is pace, not\n"
+        'permission: "my ok is only a go ahead saying i have read things and\n'
+        'caught up not a permission to do it" (2026-10-05).\n\n'
+        "If he has said he is stepping away, record it with his words and letters\n"
+        "flow (volley mode); or two hours with no word from him opens them by itself:\n"
+        '  divineos question-hold away --words "<his words saying he is stepping away>"'
+        f"{could_not_look}"
     )
 
 

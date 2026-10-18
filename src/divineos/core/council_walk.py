@@ -111,6 +111,24 @@ def _conn() -> sqlite3.Connection:
         conn.execute("ALTER TABLE walk_lenses ADD COLUMN changed_artifact TEXT")
     except sqlite3.OperationalError:
         pass
+    # WHAT DIFF THIS WALK COVERED (2026-10-12, one walk before the push). Bound at close:
+    # the patch-id of the branch's diff against origin/main and the commit it was read at.
+    # NULL on a walk closed before this existed, which the push check reads the older,
+    # weaker way (clock against the last authored commit) rather than as a pass.
+    # walked_head is where the walk was ORIGINALLY closed and only close writes it. An
+    # amendment moves bound_head and never this, so the amendment cap is a TOTAL measured
+    # from what was actually walked, and many small steps cannot add up to a large one
+    # (Aria's cold read of the first version, which measured from the last amendment).
+    for column in ("bound_diff TEXT", "bound_head TEXT", "walked_head TEXT"):
+        try:
+            conn.execute(f"ALTER TABLE walks ADD COLUMN {column}")
+        except sqlite3.OperationalError:
+            pass
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS walk_amendments ("
+        "walk_id TEXT NOT NULL, amended_at REAL NOT NULL, finding TEXT NOT NULL, "
+        "lines_changed INTEGER NOT NULL, from_head TEXT, to_head TEXT)"
+    )
     conn.commit()
     return conn
 
@@ -148,6 +166,15 @@ class Coverage:
     # ones nobody thought about.
     covered_paths: int = 0
     total_paths: int = 0
+    # When the covering walk closed, epoch seconds. Station 6 asks whether the
+    # lenses saw the CURRENT shape and has to read it from the walk it is
+    # judging, not from the newest lens event anywhere in the ledger.
+    closed_at: float | None = None
+    # The diff the covering walk was bound to at close (patch-id) and the commit it was
+    # read at. None on a walk closed before the binding existed, which the push check reads
+    # the older, weaker way and never as a pass.
+    bound_diff: str | None = None
+    bound_head: str | None = None
 
     def __post_init__(self) -> None:
         allowed = ("covered", "partial", "uncovered", "cannot-check")
@@ -179,12 +206,12 @@ def coverage_for(paths: tuple[str, ...] | None) -> Coverage:
         return Coverage("cannot-check", reason=f"the walk store could not be opened: {exc}")
     try:
         rows = conn.execute(
-            "SELECT id, scope FROM walks WHERE closed_at IS NOT NULL AND scope != ''"
-            " ORDER BY closed_at DESC"
+            "SELECT id, scope, closed_at, bound_diff, bound_head FROM walks"
+            " WHERE closed_at IS NOT NULL AND scope != '' ORDER BY closed_at DESC"
         ).fetchall()
         wanted = set(paths)
         best: Coverage | None = None
-        for walk_id, scope in rows:
+        for walk_id, scope, closed_at, bound_diff, bound_head in rows:
             scoped = {line.strip() for line in (scope or "").splitlines() if line.strip()}
             hit = scoped & wanted
             if not hit:
@@ -210,6 +237,9 @@ def coverage_for(paths: tuple[str, ...] | None) -> Coverage:
                     lenses=len(lenses),
                     covered_paths=len(hit),
                     total_paths=len(wanted),
+                    closed_at=closed_at,
+                    bound_diff=bound_diff,
+                    bound_head=bound_head,
                 )
             # A partial hit is kept as the best answer so far, but the search
             # continues -- a later walk may cover the branch whole, and taking
@@ -543,8 +573,55 @@ def status(walk_id: str) -> dict[str, Any]:
     }
 
 
-def close_walk(walk_id: str) -> dict[str, Any]:
-    """Refuse while any surfaced lens is unaccounted for."""
+def _scope_of(walk_id: str) -> set[str]:
+    conn = _conn()
+    try:
+        row = conn.execute("SELECT scope FROM walks WHERE id = ?", (walk_id,)).fetchone()
+    finally:
+        conn.close()
+    return {line.strip() for line in (row[0] or "").splitlines() if line.strip()} if row else set()
+
+
+def _bind_to_diff(walk_id: str, repo: Path | None) -> tuple[bool, str]:
+    """Record the diff this walk covered, so a later authored change makes it stale.
+
+    Returns ``(bound, where_it_looked)``. A walk is bound only to a repository whose branch
+    changes are a NON-EMPTY subset of the files the walk is scoped to. Anything else
+    (outside a git repository, no origin/main, or a folder whose diff is some other work)
+    leaves it unbound, which the push check reads the older, weaker way (clock against the
+    last authored commit) and the caller says out loud. Aria's cold read: bound to whatever
+    folder ``close`` happened to run in, a walk closed from the main checkout was tied to
+    that folder's unrelated diff, and the push then refused with a reason that looked like
+    a defect in the thinking.
+    """
+    from divineos.core.council_required import push_choke
+
+    where = Path(repo) if repo is not None else Path.cwd()
+    scope = _scope_of(walk_id)
+    changed = push_choke.changed_files(where)
+    diff, head = push_choke.diff_identity(where), push_choke.head_sha(where)
+    if changed is None or diff is None or head is None or not changed:
+        return False, str(where)
+    if not scope or not set(changed) <= scope:
+        return False, str(where)
+    conn = _conn()
+    try:
+        conn.execute(
+            "UPDATE walks SET bound_diff = ?, bound_head = ?, walked_head = ? WHERE id = ?",
+            (diff, head, head, walk_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return True, str(where)
+
+
+def close_walk(walk_id: str, repo: Path | None = None) -> dict[str, Any]:
+    """Refuse while any surfaced lens is unaccounted for. Binds the walk to the diff.
+
+    The returned status carries ``bound`` (did it bind to a diff) and ``bound_in`` (the
+    folder it looked in), so the caller can say plainly when it did not.
+    """
     st = status(walk_id)
     if st["closed"]:
         raise WalkRefused(f"{walk_id} is already closed")
@@ -560,7 +637,86 @@ def close_walk(walk_id: str) -> dict[str, Any]:
         conn.commit()
     finally:
         conn.close()
-    return status(walk_id)
+    bound, bound_in = _bind_to_diff(walk_id, repo)
+    result = status(walk_id)
+    result["bound"], result["bound_in"] = bound, bound_in
+    return result
+
+
+def amend_walk(walk_id: str, finding: str, repo: Path | None = None) -> dict[str, Any]:
+    """Re-bind a closed walk to a SMALL follow-up instead of walking everything again.
+
+    A review round that changes one line would otherwise make the walk stale, and a full
+    walk for one line is the silliness Dad named on 2026-10-07. The limits are written
+    where he can read them (``push_choke.AMEND_MAX_LINES``): the change since the walk's
+    bound commit is at most that many added plus removed lines, touches only files already
+    in the walk's scope, and the finding says what changed and why it is safe. It is
+    measured from the BOUND commit, never from the last amendment, so many small steps
+    cannot add up to a large unreviewed change. Every amendment is stored and counted.
+    """
+    from divineos.core.council_required import push_choke
+
+    finding = (finding or "").strip()
+    if len(finding) < push_choke.MIN_AMEND_FINDING_CHARS:
+        raise WalkRefused(
+            f"an amendment needs a finding of at least {push_choke.MIN_AMEND_FINDING_CHARS} "
+            "characters saying what changed and why it is safe"
+        )
+    st = status(walk_id)
+    if not st["closed"]:
+        raise WalkRefused(f"{walk_id} is not closed; close it, then amend")
+    conn = _conn()
+    try:
+        row = conn.execute(
+            "SELECT scope, walked_head, bound_head FROM walks WHERE id = ?", (walk_id,)
+        ).fetchone()
+    finally:
+        conn.close()
+    scope = {line.strip() for line in (row[0] or "").splitlines() if line.strip()} if row else set()
+    # Measured from where the walk was ORIGINALLY closed, which only close writes. Never from
+    # bound_head, which each amendment moves: that was the first version, and three
+    # thirty-line steps then swallowed ninety lines nobody walked. No fallback to bound_head
+    # for a walk that lacks the origin: the fallback IS the stepwise route.
+    origin = row[1] if row else None
+    bound_head = row[2] if row else None
+    if not origin:
+        raise WalkRefused(
+            f"{walk_id} was not closed against a branch diff (no walked head), so there is no "
+            "fixed origin to measure from; walk again from inside the work copy"
+        )
+    where = Path(repo) if repo is not None else Path.cwd()
+    measured = push_choke.change_between(where, origin)
+    if measured is None:
+        raise WalkRefused("could not compare the changes with the walk; walk again")
+    lines, touched = measured
+    if lines > push_choke.AMEND_MAX_LINES:
+        raise WalkRefused(
+            f"{lines} lines changed since the walk, more than the {push_choke.AMEND_MAX_LINES} "
+            "an amendment may absorb; walk everything again, in one sitting"
+        )
+    outside = sorted(touched - scope)
+    if outside:
+        raise WalkRefused(
+            f"the follow-up touches {', '.join(outside[:4])}, which the walk never covered; "
+            "walk again"
+        )
+    diff, head = push_choke.diff_identity(where), push_choke.head_sha(where)
+    if diff is None or head is None:
+        raise WalkRefused("could not read the current diff; walk again")
+    conn = _conn()
+    try:
+        conn.execute(
+            "UPDATE walks SET bound_diff = ?, bound_head = ? WHERE id = ?", (diff, head, walk_id)
+        )
+        conn.execute(
+            "INSERT INTO walk_amendments (walk_id, amended_at, finding, lines_changed, from_head,"
+            " to_head) VALUES (?, ?, ?, ?, ?, ?)",
+            (walk_id, time.time(), finding, lines, bound_head, head),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"walk_id": walk_id, "lines_changed": lines, "files": sorted(touched)}
 
 
 def is_complete(walk_id: str) -> bool:

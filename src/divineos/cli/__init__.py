@@ -397,6 +397,7 @@ from divineos.cli import (  # noqa: E402
     push_commands,
     push_ready_command,
     stamp_ready_command,
+    ship_command,
     audit_sync_command,
     aletheia_import_command,
     context_tokens_commands,
@@ -515,6 +516,7 @@ letter_seen_commands.register(cli)
 push_commands.register(cli)
 push_ready_command.register(cli)
 stamp_ready_command.register(cli)
+ship_command.register(cli)
 audit_sync_command.register(cli)
 aletheia_import_command.register(cli)
 context_tokens_commands.register(cli)
@@ -536,7 +538,6 @@ prereg_commands.register(cli)
 # moment a fix is declared done (council-5bec78b85acc).
 class_fix_commands.register(cli)
 prior_art_commands.register(cli)
-psf_commands.register(cli)
 game_walk_commands.register(cli)
 operator_ask_commands.register(cli)
 reach_commands.register(cli)

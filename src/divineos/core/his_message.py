@@ -145,6 +145,18 @@ def _his_part(text: str) -> str:
     return rest
 
 
+def his_part(text: str) -> str:
+    """The text-level question: what in this message is his?
+
+    For a reader that has only a message's text, not its record. It answers by
+    where a harness envelope SITS, never by whether the text mentions one: a
+    sentence of his that names a tag in passing ("the <ci-monitor-event> thing
+    keeps showing up") is his, and only text that opens with an envelope is
+    refused (Aletheia, hold on #672, 2026-10-16).
+    """
+    return _his_part(text)
+
+
 def continues_a_turn(record: dict) -> bool:
     """Is this record the harness continuing a turn, rather than anyone speaking?
 

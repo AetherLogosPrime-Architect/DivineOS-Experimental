@@ -53,14 +53,17 @@ class TestSessionLifecycle:
         n2 = rest.record_completion("exploration", duration_sec=300)
         assert n2 == 2
 
-    def test_target_met_after_two_completions(self, tmp_path, monkeypatch):
+    def test_two_completions_alone_do_not_meet_the_target(self, tmp_path, monkeypatch):
+        """Since 2026-10-16 the count is necessary but not sufficient: the
+        session also needs one written entry (see test_rest_written_entry)."""
         monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
         rest.start_session()
         rest.record_completion("aria")
         rest.record_completion("letters")
         status = rest.session_status()
-        assert status["met_target"] is True
+        assert status["met_target"] is False
         assert status["count"] == 2
+        assert status["written"] is False
 
     def test_record_completion_without_session_auto_starts(self, tmp_path, monkeypatch):
         """If I record a completion without `start`, the session auto-starts.

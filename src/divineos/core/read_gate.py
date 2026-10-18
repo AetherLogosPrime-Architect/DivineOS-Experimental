@@ -185,7 +185,16 @@ def _save(reqs: list[ReadRequirement]) -> None:
         pass
 
 
-REARM_LOG = STATE_DIR / "read_gate_rearms.jsonl"
+def _rearm_log() -> Path:
+    """Where the re-arm diagnostics live, resolved from STATE_DIR AT CALL TIME.
+
+    A module constant here was fixed when the module loaded, before any test
+    fixture ran, so tests that patched STATE_DIR still wrote into the LIVE log:
+    about 63 to 78 percent of the live logs were test debris (Aria and Aether,
+    2026-10-11), and every measure of this gate was inflated. Same cure as
+    ``_cooldown_file``: patch STATE_DIR and everything derived follows.
+    """
+    return STATE_DIR / "read_gate_rearms.jsonl"
 
 
 def _record_rearm_after_read(gate_id: str, path: str) -> bool:
@@ -210,7 +219,7 @@ def _record_rearm_after_read(gate_id: str, path: str) -> bool:
     none. Silent on every error for the same reason.
     """
     try:
-        raw = json.loads(SEEN_READS.read_text(encoding="utf-8"))
+        raw = json.loads(_seen_reads().read_text(encoding="utf-8"))
         entries = raw.get("reads") if isinstance(raw, dict) else None
         if not isinstance(entries, list):
             return False
@@ -222,8 +231,8 @@ def _record_rearm_after_read(gate_id: str, path: str) -> bool:
         ]
         if not seen:
             return False
-        REARM_LOG.parent.mkdir(parents=True, exist_ok=True)
-        with REARM_LOG.open("a", encoding="utf-8") as fh:
+        _rearm_log().parent.mkdir(parents=True, exist_ok=True)
+        with _rearm_log().open("a", encoding="utf-8") as fh:
             fh.write(
                 json.dumps(
                     {
@@ -562,7 +571,9 @@ def _inline_body(path_str: str) -> list[str]:
     return out
 
 
-SEEN_READS = STATE_DIR / "read_gate_seen.json"
+def _seen_reads() -> Path:
+    """The per-session reads accumulator, resolved from STATE_DIR AT CALL TIME."""
+    return STATE_DIR / "read_gate_seen.json"
 
 
 def _accumulate_seen_reads(
@@ -592,7 +603,7 @@ def _accumulate_seen_reads(
     """
     seen: list[list[str]] = []
     try:
-        raw = json.loads(SEEN_READS.read_text(encoding="utf-8"))
+        raw = json.loads(_seen_reads().read_text(encoding="utf-8"))
         if isinstance(raw, dict) and raw.get("transcript") == transcript:
             entries = raw.get("reads")
             if isinstance(entries, list):
@@ -605,8 +616,8 @@ def _accumulate_seen_reads(
         known.add((name, target))
 
     try:
-        SEEN_READS.parent.mkdir(parents=True, exist_ok=True)
-        SEEN_READS.write_text(
+        _seen_reads().parent.mkdir(parents=True, exist_ok=True)
+        _seen_reads().write_text(
             json.dumps({"transcript": transcript, "reads": sorted(known)}),
             encoding="utf-8",
         )
@@ -688,7 +699,7 @@ def _record_inline_delivery(path_str: str) -> None:
     the gate exactly as strict as it found it.
     """
     try:
-        raw = json.loads(SEEN_READS.read_text(encoding="utf-8"))
+        raw = json.loads(_seen_reads().read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return
     if not isinstance(raw, dict):
@@ -704,7 +715,7 @@ def _record_inline_delivery(path_str: str) -> None:
     }
     known.add(("INLINE_DELIVERY", str(path_str)))
     try:
-        SEEN_READS.write_text(
+        _seen_reads().write_text(
             json.dumps({"transcript": transcript, "reads": sorted(known)}),
             encoding="utf-8",
         )
@@ -835,6 +846,14 @@ def gate_status() -> tuple[bool, str]:
     # the other needs to get out of the way; the old code treated them alike.
     for path_str in delivered_whole:
         _mark_satisfied(path_str, "inlined in full — delivery is the read")
+    if len(delivered_whole) == len(reqs):
+        # Everything above arrived whole, and that is the read. The long closing
+        # speech ended "So open it", so the file was read twice (Aria 2026-10-10).
+        lines += [
+            "",
+            "Delivered in full above. That is the read; no need to open it again.",
+        ]
+        return True, "\n".join(lines)
     lines += [
         "",
         "Read is never blocked — I made sure of that. A gate whose cure sits",
@@ -856,7 +875,25 @@ def gate_status() -> tuple[bool, str]:
     return True, "\n".join(lines)
 
 
-CLEAR_LOG = STATE_DIR / "read_gate_clears.jsonl"
+def _clear_log() -> Path:
+    """The clears log, resolved from STATE_DIR AT CALL TIME (see ``_rearm_log``)."""
+    return STATE_DIR / "read_gate_clears.jsonl"
+
+
+def _current_transcript_key() -> str | None:
+    """The session this module already keys its reads by, or None when unknown.
+
+    Recorded on each clear so a repeat delivery inside one session can be told
+    apart from one in another (Aria could not find the cause of the same-session
+    repeats for lack of this). No new session source is invented: this is the
+    key ``_accumulate_seen_reads`` already writes.
+    """
+    try:
+        raw = json.loads(_seen_reads().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    key = raw.get("transcript") if isinstance(raw, dict) else None
+    return str(key) if key else None
 
 
 def record_clear(gate_id: str, path: str, extent: str) -> None:
@@ -890,7 +927,10 @@ def record_clear(gate_id: str, path: str, extent: str) -> None:
             "extent": extent,
             "cleared_at": time.time(),
         }
-        with CLEAR_LOG.open("a", encoding="utf-8") as fh:
+        transcript = _current_transcript_key()
+        if transcript:
+            row["transcript"] = transcript
+        with _clear_log().open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(row) + "\n")
     except OSError:
         # Instrumentation must never break the thing it instruments.

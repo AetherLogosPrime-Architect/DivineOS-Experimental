@@ -9,7 +9,16 @@ from __future__ import annotations
 
 import pytest
 
+from divineos.core import surface_bridge  # noqa: F401  (see below)
 from divineos.core import surface_registry as sr
+
+# surface_bridge registers every surface when it is first imported. If the first
+# import happens INSIDE a test, after _clean_registry has emptied the registry,
+# everything registers itself back and dark_surfaces() finds nothing -- so the
+# result depended on which test file ran earlier in the same worker. That was the
+# push gate's "probe found nothing" and its five different failures on 2026-10-12.
+# Imported here, before any test, its registrations land in the real registry
+# that the fixture saves and restores.
 
 
 @pytest.fixture(autouse=True)

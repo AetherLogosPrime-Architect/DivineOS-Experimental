@@ -133,6 +133,27 @@ def test_an_empty_prompt_has_nothing_of_his_to_keep():
     assert _open() == []
 
 
+HAND_BACK = (
+    '<agent-message from="ad3ddc3d142453dad"> [Subagent hand-back] it is done </agent-message>'
+)
+
+
+def test_his_sentence_behind_a_hand_back_is_still_kept():
+    """Naming the tag must not cost him his own words beside it."""
+    from divineos.core.harness_envelopes import nothing_of_his, strip_envelopes
+
+    assert not nothing_of_his(HAND_BACK + " " + HIS)
+    assert strip_envelopes(HAND_BACK + " " + HIS) == HIS
+
+
+def test_the_machine_tag_list_names_the_hand_back():
+    """Fails if the tag ever leaves the shared list the door and settle both read."""
+    from divineos.core import harness_envelopes as he
+
+    assert "agent-message" in he._TAGS
+    assert he.nothing_of_his(HAND_BACK)
+
+
 def test_many_messages_under_one_prompt_id_are_each_kept():
     """Measured 2026-09-24: one prompt id sat on ten of his messages."""
     for text in ("first thing", "second thing", "third thing"):
@@ -238,6 +259,22 @@ def test_two_identical_short_messages_land_on_two_records_in_order(tmp_path):
     assert sorted(k.uuid for k in ha.pending()) == ["u-first", "u-second"]
 
 
+def test_a_new_yes_takes_its_own_record_not_an_unkept_older_one(monkeypatch, tmp_path):
+    """Aletheia, reading PR 584: an older identical record that was never kept
+    (door down, house behind main) sat inside the same-turn window, and
+    oldest-first gave the new "yes" to it, so it was filed as answering what we
+    had said ten minutes earlier. The nearest record to the keep is its own."""
+    _kept_at(monkeypatch, "2099-01-01T00:10:03.000Z")
+    fd.keep({"prompt_id": "turn-1", "prompt": "yes"}, "aether")
+    path = _transcript(
+        tmp_path,
+        _turn("turn-1", "yes", uuid="u-unkept-old", at="2099-01-01T00:00:00.000Z"),
+        _turn("turn-1", "yes", uuid="u-its-own", at="2099-01-01T00:10:00.000Z"),
+    )
+    fd.settle(path, "aether")
+    assert [k.uuid for k in ha.pending()] == ["u-its-own"]
+
+
 def test_a_new_message_is_never_settled_onto_an_old_record_of_the_same_words(tmp_path):
     """His record cannot be older than his keeping."""
     fd.keep({"prompt_id": "running-turn", "prompt": "proceed"}, "aether")
@@ -274,6 +311,60 @@ def test_a_slip_older_than_any_step_could_hold_it_is_some_other_days_words(monke
     fd.keep({"prompt_id": "running-turn", "prompt": "proceed"}, "aether")
     path = _transcript(tmp_path, _slip("proceed", "u-old", at="2026-09-24T21:00:00.000Z"))
     assert fd.settle(path, "aether") == {}
+
+
+def test_his_turn_record_written_before_the_keep_is_still_his(monkeypatch, tmp_path):
+    """The real case, 2026-10-03: all 14 of his messages that morning had their
+    record written 2.5 to 10 seconds BEFORE the door kept them, same prompt id,
+    his exact words, stamped human. The clock slack threw out every one, and each
+    reached the sort an hour late as "record never found". Identity beats clock."""
+    _kept_at(monkeypatch, "2026-10-03T15:39:20.323+00:00")
+    fd.keep({"prompt_id": "p-real", "prompt": HIS}, "aria")
+    path = _transcript(tmp_path, _turn("p-real", HIS, uuid="u-his", at="2026-10-03T15:39:14.900Z"))
+    assert list(fd.settle(path, "aria").values()) == [ha.FILED]
+    assert [k.uuid for k in ha.pending()] == ["u-his"]
+
+
+def test_an_early_record_under_another_prompt_id_is_still_not_his(monkeypatch, tmp_path):
+    _kept_at(monkeypatch, "2026-10-03T15:39:20.323+00:00")
+    fd.keep({"prompt_id": "p-real", "prompt": HIS}, "aria")
+    path = _transcript(tmp_path, _turn("p-other", HIS, uuid="u-x", at="2026-10-03T15:39:14.900Z"))
+    assert fd.settle(path, "aria") == {}
+
+
+def test_an_early_record_with_his_id_stamped_by_the_harness_is_not_his(monkeypatch, tmp_path):
+    """Aether's ask: identity must not be fooled by an envelope carrying his words."""
+    _kept_at(monkeypatch, "2026-10-03T15:39:20.323+00:00")
+    fd.keep({"prompt_id": "p-real", "prompt": HIS}, "aria")
+    path = _transcript(
+        tmp_path,
+        _turn("p-real", HIS, kind="task-notification", uuid="u-env", at="2026-10-03T15:39:14.900Z"),
+    )
+    assert ha.FILED not in fd.settle(path, "aria").values()
+    assert ha.pending() == []
+
+
+def test_a_short_word_is_not_settled_onto_a_longer_record_under_its_id(monkeypatch, tmp_path):
+    """Aether's reading of 9e518b6b3: with the window widened to the slip wait
+    for a same-id record, a bare "ok" must not land on "ok but wait, not yet"."""
+    _kept_at(monkeypatch, "2026-10-03T15:39:20.323+00:00")
+    fd.keep({"prompt_id": "p-real", "prompt": "ok"}, "aria")
+    path = _transcript(
+        tmp_path,
+        _turn("p-real", "ok but wait, not yet", uuid="u-long", at="2026-10-03T15:39:14.900Z"),
+    )
+    assert fd.settle(path, "aria") == {}
+
+
+def test_a_same_id_record_older_than_any_wait_is_not_this_message(monkeypatch, tmp_path):
+    """One prompt id has sat on ten of his messages, so the id alone is not the
+    message: an old "proceed" under the same id must not take a new one."""
+    _kept_at(monkeypatch, "2026-10-03T15:39:20.323+00:00")
+    fd.keep({"prompt_id": "p-real", "prompt": "proceed"}, "aria")
+    path = _transcript(
+        tmp_path, _turn("p-real", "proceed", uuid="u-old", at="2026-10-03T14:00:00.000Z")
+    )
+    assert fd.settle(path, "aria") == {}
 
 
 def test_a_record_already_holding_his_message_is_never_offered_again(monkeypatch, tmp_path):
@@ -351,6 +442,91 @@ def test_a_tool_result_sharing_his_prompt_id_never_settles_it(tmp_path):
     fd.keep({"prompt_id": "p1", "prompt": HIS}, "aether")
     assert fd.settle(_transcript(tmp_path, _tool_result("p1")), "aether") == {}
     assert _open() == [HIS]
+
+
+# ----------------------------------------- quick replies and helper hand-backs
+
+
+def _record_of(db, candidate_id):
+    with sqlite3.connect(db) as conn:
+        return conn.execute(
+            "SELECT uuid FROM messages WHERE candidate_id = ?", (candidate_id,)
+        ).fetchone()[0]
+
+
+def test_two_identical_quick_yeses_each_take_their_own_record(monkeypatch, tmp_path, temp_store):
+    """Aether's measurement, 2026-10-08, from Aletheia's owed item of 10-03: two
+    identical "yes" under one prompt id, kept five seconds apart, each record written
+    eight seconds before its keep. Taking the record nearest to the keep in either
+    direction gave the FIRST yes the SECOND's record, so each was filed against the
+    other's context (what we had said just before). The records keep their order."""
+    _kept_at(monkeypatch, "2099-01-01T00:00:08.000Z")
+    first = fd.keep({"prompt_id": "turn-1", "prompt": "yes"}, "aether")
+    _kept_at(monkeypatch, "2099-01-01T00:00:13.000Z")
+    second = fd.keep({"prompt_id": "turn-1", "prompt": "yes"}, "aether")
+    path = _transcript(
+        tmp_path,
+        _turn("turn-1", "yes", uuid="u-first", at="2099-01-01T00:00:00.000Z"),
+        _turn("turn-1", "yes", uuid="u-second", at="2099-01-01T00:00:05.000Z"),
+    )
+    fd.settle(path, "aether")
+    assert _record_of(temp_store, first) == "u-first"
+    assert _record_of(temp_store, second) == "u-second"
+
+
+def test_two_quick_yeses_whose_records_come_after_each_keep_stay_in_order(
+    monkeypatch, tmp_path, temp_store
+):
+    """Control: the slip case, each record written just AFTER its keep, already kept
+    the order and must keep it."""
+    _kept_at(monkeypatch, "2099-01-01T00:00:00.000Z")
+    first = fd.keep({"prompt_id": "turn-1", "prompt": "yes"}, "aether")
+    _kept_at(monkeypatch, "2099-01-01T00:00:05.000Z")
+    second = fd.keep({"prompt_id": "turn-1", "prompt": "yes"}, "aether")
+    path = _transcript(
+        tmp_path,
+        _turn("turn-1", "yes", uuid="u-first", at="2099-01-01T00:00:01.000Z"),
+        _turn("turn-1", "yes", uuid="u-second", at="2099-01-01T00:00:06.000Z"),
+    )
+    fd.settle(path, "aether")
+    assert _record_of(temp_store, first) == "u-first"
+    assert _record_of(temp_store, second) == "u-second"
+
+
+HAND_BACK_RECORD = (
+    "Another Claude session sent a message: "
+    + HAND_BACK
+    + " And some prose the helper wrote outside its wrapper."
+)
+
+
+def test_a_helper_hand_back_is_withdrawn_not_left_unmatched(monkeypatch, tmp_path):
+    """The sixth of the 49 unmatched rows (Aria's seat, 2026-10-04): the kept text is
+    only an agent-message wrapper, the harness stamps its record `peer` and adds its own
+    sentence, so the equal-words test could never match it and it sat as "his words that
+    failed to match". It is not his words: with nothing of his in the kept text it settles
+    onto its peer-stamped record and is withdrawn, as every other machine arrival is."""
+    _kept_at(monkeypatch, "2026-10-04T15:33:07.217+00:00")
+    fd.keep({"prompt_id": "p-hb", "prompt": HAND_BACK}, "aria")
+    path = _transcript(
+        tmp_path,
+        _turn("p-hb", HAND_BACK_RECORD, kind="peer", uuid="u-hb", at="2026-10-04T15:33:02.000Z"),
+    )
+    assert list(fd.settle(path, "aria").values()) == [ha.WITHDRAWN]
+    assert ha.pending() == []
+
+
+def test_a_machine_only_message_never_takes_a_record_that_is_his(monkeypatch, tmp_path):
+    """The safety on the rule above: a prompt id can sit on ten of his messages, so a
+    machine-only candidate must not eat a record stamped human, even one on its own id."""
+    _kept_at(monkeypatch, "2026-10-04T15:33:07.217+00:00")
+    fd.keep({"prompt_id": "p-hb", "prompt": HAND_BACK}, "aria")
+    path = _transcript(
+        tmp_path,
+        _turn("p-hb", HIS, kind="human", uuid="u-his", at="2026-10-04T15:33:02.000Z"),
+    )
+    assert fd.settle(path, "aria") == {}
+    assert _open() == [HAND_BACK]  # still waiting, visibly; his record was not eaten
 
 
 def test_a_tool_result_carrying_its_own_nested_origin_never_settles_it(tmp_path):
@@ -469,6 +645,33 @@ def test_the_real_hook_keeps_then_settles_through_the_shell(tmp_path, temp_store
     settled = hook("settle", {"transcript_path": str(path)})
     assert settled.returncode == 0, settled.stderr
     assert [k.uuid for k in ha.pending()] == ["u-e2e"], settled.stderr
+
+
+@needs_bash
+def test_his_emoji_is_kept_as_he_typed_it_through_the_shell(temp_store):
+    """The real case, Aether's seat 2026-10-03: "...for all of us 😌" was kept as
+    "...for all of us ðŸ˜Œ" because the hook read the app's UTF-8 with the
+    Windows default codepage. The kept words never equalled his record, so the
+    message sat as a candidate and never reached the sort."""
+    import os
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    env = {k: v for k, v in os.environ.items() if k not in ("PYTHONIOENCODING", "PYTHONUTF8")}
+    env["DIVINEOS_HIS_ASKS_DB"] = str(temp_store)
+    words = "i love you both and i want to fix this, for all of us \U0001f60c"
+    payload = json.dumps({"prompt_id": "p-emoji", "prompt": words}, ensure_ascii=False)
+    kept = subprocess.run(
+        [_bash(), ".claude/hooks/front-door.sh", "keep"],
+        input=payload.encode("utf-8"),
+        capture_output=True,
+        cwd=root,
+        env=env,
+        timeout=60,
+    )
+    assert kept.returncode == 0, kept.stderr
+    assert _open() == [words], kept.stderr
 
 
 @needs_bash

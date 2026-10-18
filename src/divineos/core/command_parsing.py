@@ -405,6 +405,116 @@ _SEGMENT_SEPARATORS = ("&&", "||", "|", ";", "&", "\n")
 # answered by their suites rather than by my reasoning, so they were run.
 
 
+_SHELL_PROGRAMS = frozenset({"bash", "sh", "zsh", "dash", "ksh"})
+# Options that take the NEXT word as their argument, so that word is not the command.
+# Aria's cold read of 623 (2026-10-11): `bash -o pipefail -c "..."` is a common script line.
+_SHELL_OPTIONS_WITH_ARGUMENT = frozenset({"-o", "-O", "+o", "+O", "--rcfile", "--init-file"})
+# Words that run the shell after them unchanged.
+_TRANSPARENT_PREFIXES = frozenset({"exec", "nohup", "command", "builtin", "time"})
+
+
+def _program_name(token: str) -> str:
+    name = token.replace("\\", "/").rsplit("/", 1)[-1].rsplit(":", 1)[-1]
+    return name.lower().removesuffix(".exe")
+
+
+def _after_prefixes(tokens: list[str]) -> list[str]:
+    while tokens and _program_name(tokens[0]) in _TRANSPARENT_PREFIXES:
+        tokens = tokens[1:]
+    return tokens
+
+
+def _is_c_flag(token: str) -> bool:
+    return token.startswith("-") and not token.startswith("--") and "c" in token[1:]
+
+
+def _scan_shell(tokens: list[str]) -> tuple[str | None, bool]:
+    """(the string the shell is told to run, whether a ``-c`` was seen but never reached).
+
+    The second value is the heavy case. A table of options that take an argument can
+    never be complete (Aletheia, 2026-10-11: the ``+o`` forms were missing the day after
+    ``-o`` was added), so when a token before the ``-c`` cannot be placed the answer is
+    not "nothing found" but "unsure", and the caller falls toward firing.
+    """
+    tokens = _after_prefixes(tokens)
+    if not tokens or _program_name(tokens[0]) not in _SHELL_PROGRAMS:
+        return None, False
+    index = 1
+    while index < len(tokens):
+        token = tokens[index]
+        if token[:1] not in ("-", "+"):
+            return None, any(_is_c_flag(t) for t in tokens[index + 1 :])
+        if token in _SHELL_OPTIONS_WITH_ARGUMENT:
+            index += 2  # the option and the word it consumes, e.g. `-o pipefail`
+            continue
+        if _is_c_flag(token):
+            return (tokens[index + 1] if index + 1 < len(tokens) else None), False
+        index += 1
+    return None, False
+
+
+def shell_command_body(tokens: list[str]) -> str | None:
+    """The command string a shell is told to run, or ``None`` if this is not that.
+
+    ``bash -c "<cmd>"`` (also ``-lc``, ``-ic``, ``--login -c``, any of the common
+    shells, a full path) and ``eval <cmd>``. A reader that judges each segment by
+    its head sees ``bash`` and one quoted token, so the real command inside is
+    invisible to it; this hands the inside back so the caller can judge it the
+    same way it judges the plain form. ``None`` for a shell running a script file,
+    for ``-c`` with nothing after it, and for anything that is not a shell.
+    """
+    tokens = _after_prefixes(tokens)
+    if tokens and _program_name(tokens[0]) == "eval":
+        return " ".join(tokens[1:]) if len(tokens) > 1 else None
+    return _scan_shell(tokens)[0]
+
+
+def shell_command_is_unplaced(tokens: list[str]) -> bool:
+    """True when a shell was given ``-c`` but a token before it could not be placed.
+
+    Then ``shell_command_body`` has nothing to return, and that must not read as
+    "no command here": the caller treats the line as heavy.
+    """
+    return _scan_shell(tokens)[1]
+
+
+def _ampersand_is_part_of_a_redirect(text: str, index: int, current: list[str]) -> bool:
+    """True when the ampersand at ``index`` belongs to a redirect, not to a separator.
+
+    ``2>&1``, ``>&2`` and ``1>&2`` duplicate a file descriptor: the ampersand sits right
+    after an arrow and the WHOLE next word is ASCII digits or a single ``-``. Read as a
+    separator it cut the command in two and left a stray word (``1``), and a gate that
+    judges each segment then saw an unknown second command behind a prescribed remedy
+    and refused the remedy (2026-10-16: an exit typed with ``2>&1`` on the end was
+    refused for hours, while the same line with ``| tail`` passed).
+
+    NARROWER THAN FIRST BUILT, TWICE, and the reasons are the point. The first version
+    also kept ``&>file`` and ``>& file`` whole; those WRITE a file, and kept whole they
+    hide the write behind an inert head such as ``echo`` (found by probing main against
+    the change after the first confirm). The second looked only at the first character
+    after the ampersand, so ``>&2file`` (a file NAMED ``2file``) and ``>&²`` passed as
+    descriptor duplications; bash treats ``>&word`` as a duplication only when the whole
+    word is digits or ``-`` (Aria's cold read, 2026-10-16). Now the word must be ASCII
+    digits, or ``-``, and then end the text or meet a character that cannot continue
+    a word. Anything else keeps splitting exactly as on main.
+
+    A doubled ``&&`` is never a redirect, and a trailing ``&`` after anything else
+    (``cmd 2>&1 & other``) still separates. Left visibly: a redirect to a file after a
+    duplication (``echo y 2>&1 > f``, ``echo y >&2 > f``) behaves like ``echo y > f``,
+    which this module already accepted; ``echo y >&2 > f`` changes from refused to
+    passed, which is the same class and is said plainly in the design note.
+    """
+    if not current or current[-1] not in "<>":
+        return False
+    return _DESCRIPTOR_TARGET.match(text, index + 1) is not None
+
+
+# The whole word after a duplication ampersand: ASCII digits or a lone dash, ending the
+# text or meeting a character that cannot continue a word. ``[0-9]``, never ``\d`` or
+# ``str.isdigit``, because both accept superscript digits that are not descriptors.
+_DESCRIPTOR_TARGET = re.compile(r"(?:[0-9]+|-)(?=$|[\s;|&)])")
+
+
 def split_shell_segments(bash_command: str) -> list[str] | None:
     """Split on unquoted separators, or ``None`` if it cannot be done safely.
 
@@ -438,6 +548,10 @@ def split_shell_segments(bash_command: str) -> list[str] | None:
             continue
         if ch in ("'", '"'):
             quote = ch
+            current.append(ch)
+            i += 1
+            continue
+        if ch == "&" and _ampersand_is_part_of_a_redirect(bash_command, i, current):
             current.append(ch)
             i += 1
             continue
@@ -575,6 +689,20 @@ _CHAIN_OPERATOR_CHARS = frozenset(";&|<>()")
 _QUIET_TAIL_RE = re.compile(r"(?:\s+(?:2>&1|2?>\s*/dev/null))+\s*$")
 
 
+def program_name(token: str) -> str:
+    """The program a command's first word names: its file name, without ``.exe``.
+
+    ``divineos``, ``.venv/Scripts/divineos.exe`` and ``C:/x/divineos.exe`` are
+    one program. Every remedy list compared the raw first word, so a remedy typed
+    with its path -- the only way to reach a workbench's own install -- read as
+    building, and every gate's exit was shut from every workbench (2026-10-04).
+    Spelling only: what is allowed is decided elsewhere and unchanged, and
+    ``/usr/bin/git`` now reads as the ``git`` it is.
+    """
+    name = re.split(r"[\\/]", token)[-1]
+    return name[:-4] if name.lower().endswith(".exe") else name
+
+
 def _chain_links(command: str) -> list[list[str]] | None:
     """The command's chain, each link as tokens with leading assignments removed.
 
@@ -604,7 +732,7 @@ def _chain_links(command: str) -> list[list[str]] | None:
         while link and (link[0].lower() == "env" or _ENV_ASSIGN_RE.match(link[0])):
             link = link[1:]
         if link:
-            cleaned.append(link)
+            cleaned.append([program_name(link[0]), *link[1:]])
     return cleaned
 
 

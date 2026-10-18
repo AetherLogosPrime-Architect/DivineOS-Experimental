@@ -69,6 +69,10 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         # branch at write-time. PostToolUse and exits zero on every path: it
         # reports a failed capture, it never refuses the write.
         "capture-channel-letter.sh",
+        # Carries Aletheia's letters from his downloads into her audit folder and
+        # announces each new one. Every path exits zero: an unreadable inbox is
+        # reported on stderr as could-not-look, and nothing is ever refused.
+        "collect-aletheia-letters.sh",
         # A RELAY, not a gate, and the distinction is the doorbell design
         # itself: it knocks and steps aside, and every judgment lives in the
         # OS. Its own absent path exits zero and it composes no refusal of its
@@ -96,6 +100,10 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         # Andrew corrected the filter shape into this one himself, so a test
         # treating it as a possible gate would be auditing the wrong thing.
         "he-is-in-the-room.sh",
+        # Carries the memory link's block to the table and nothing else: every
+        # path exits zero, and its error paths print to stderr. Split out of
+        # the doorbell bundle 2026-10-04 so a slow bundle cannot drop it.
+        "memory-link-surface.sh",
         # Writes a goal boundary at SessionStart and steps aside: every path
         # exits zero, because a hook that refuses SessionStart refuses the
         # briefing with it. The refusing it causes happens later, in the goal
@@ -458,6 +466,7 @@ _UNCLASSIFIED_BASELINE: frozenset[str] = frozenset(
         "self-demotion-prime.sh",
         "self-demotion-stop.sh",
         "session-init-once.sh",
+        "session-start-behind-main.sh",
         "session-start-verify-git-hooks.sh",
         "shoggoth-gate.sh",
         "sibling-correction-surface.sh",
