@@ -133,9 +133,16 @@ def main() -> int:
     if who is None:
         return 0  # the hook's own guarantee: no seat, no hold, whatever the table would answer
     view = _view(who)
-    if not game_is_on(view):
-        return 0
     marker_file = Path.home() / ".divineos-shared" / f".poker_idle_{who}.json"
+    if not game_is_on(view):
+        # An ended game must not leave its idle clock for the next one: a matching counter
+        # would read a brand-new game as walked away from and let the seat drop out of it.
+        if marker_file.exists():
+            try:
+                marker_file.write_text("{}", encoding="utf-8")
+            except OSError:
+                pass
+        return 0
     try:
         seen = json.loads(marker_file.read_text(encoding="utf-8"))
     except (OSError, ValueError):
