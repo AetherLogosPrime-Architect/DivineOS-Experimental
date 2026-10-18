@@ -29,5 +29,7 @@ Widening the window opened the original fault from the other side: a read made f
 
 What the gate still does NOT do, written so the next reader does not take it for more: it has no opinion about which branch was read, so a verify of branch A after the last push can excuse a claim about branch B. That is the module's stated design, not something this change introduced.
 
+Also not covered (named by the 2026-10-18 walk): the last push is found only by the two commands the gate knows (`git push`, `divineos_push.sh`). A push made some other way, for example through a script or the API, is not seen as a push, so a read made before it could still excuse a later claim.
+
 ## Falsifier
 If the gate still refuses a claim that has a verify run since his last message, or lets through a claim with none, this is wrong.
