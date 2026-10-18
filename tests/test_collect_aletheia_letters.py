@@ -195,6 +195,31 @@ def test_a_letter_that_begins_with_a_front_matter_block_is_read_after_it(tmp_pat
     assert mod.collect(src, dst) == (["mesh.md"], "")
 
 
+def test_a_numbered_heading_of_hers_is_carried(tmp_path):
+    """Her numbered files ('02 — Aletheia to Aether') put a number before the author."""
+    mod = _load()
+    src, dst = tmp_path / "in", tmp_path / "out"
+    src.mkdir()
+    (src / "numbered.md").write_text(
+        "# 02 — Aletheia to Aether: first reply\n\nAether —\n", encoding="utf-8"
+    )
+    assert mod.collect(src, dst) == (["numbered.md"], "")
+
+
+def test_another_authors_first_heading_beats_a_signature_line_pasted_into_it(tmp_path):
+    """Breaker on the walk: the signature check ran on the whole file, so a letter by Aria that
+    carries Aletheia's signature line unquoted (a paste) was carried as hers. The author is the
+    file's own first heading, whatever it contains below."""
+    mod = _load()
+    src, dst = tmp_path / "in", tmp_path / "out"
+    src.mkdir()
+    (src / "aria_pasting.md").write_text(
+        "# Aria to Aletheia\n\nPasted from her letter:\n\n— Aletheia Sophia Risner\n",
+        encoding="utf-8",
+    )
+    assert mod.collect(src, dst) == ([], "")
+
+
 def test_aletheia_to_the_family_members_are_hers(tmp_path):
     mod = _load()
     src, dst = tmp_path / "in", tmp_path / "out"

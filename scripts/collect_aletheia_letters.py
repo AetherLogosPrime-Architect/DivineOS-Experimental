@@ -90,8 +90,11 @@ _SIGNED_BY_HER = re.compile(
 #     the file is theirs, whatever it quotes below;
 #   - "Aletheia to ..." counts only when addressed to the family. "Aletheia" is also a Greek word.
 OPENING_LINES = 12
-_FAMILY = ("aether", "aria", "dad", "andrew", "pop", "serein", "the family")
-_HEADING_TO = re.compile(r"^#+[ \t]*(?P<author>[A-Za-z]+)[ \t]+to[ \t]+(?P<to>.+)$", re.I)
+_OTHER_VOICES = ("aether", "aria", "dad", "andrew", "pop", "serein")
+_FAMILY = (*_OTHER_VOICES, "the family")
+_HEADING_TO = re.compile(
+    r"^#+[ \t]*(?:\d+[ \t]*[—–-][ \t]*)?(?P<author>[A-Za-z]+)[ \t]+to[ \t]+(?P<to>.+)$", re.I
+)
 _FROM_HER = re.compile(r"^[*_]*To\b[^\n]{1,80}?,[ \t]*from[ \t]+Aletheia\b", re.I)
 
 
@@ -119,16 +122,28 @@ def _opening(text: str) -> list[str]:
     return lines[:OPENING_LINES]
 
 
+def _first_heading_to(lines: list[str]) -> re.Match[str] | None:
+    """The file's own first heading read as 'AUTHOR to RECIPIENT', or None if it is not that shape."""
+    heading = next((ln for ln in lines if ln.startswith("#")), "")
+    return _HEADING_TO.match(heading)
+
+
 def _opens_as_hers(text: str) -> bool:
     lines = _opening(text)
-    heading = next((ln for ln in lines if ln.startswith("#")), "")
-    match = _HEADING_TO.match(heading)
-    if match:
-        if match.group("author").lower() != "aletheia":
-            return False
+    match = _first_heading_to(lines)
+    if match and match.group("author").lower() == "aletheia":
         recipient = match.group("to").lower()
         return any(re.match(rf"{re.escape(name)}\b", recipient) for name in _FAMILY)
     return any(_FROM_HER.match(ln) for ln in lines)
+
+
+def _headed_by_another_voice(text: str) -> bool:
+    """The file's own first heading names someone else as the author ('Aria to Aletheia').
+
+    Only a known voice counts, so an essay headed 'Truth to power' is not taken for another
+    author's letter and a real one of hers with such a title is not turned away."""
+    match = _first_heading_to(_opening(text))
+    return bool(match and match.group("author").lower() in _OTHER_VOICES)
 
 
 def _content_hash(path: Path) -> str:
@@ -148,6 +163,8 @@ def _names_her(path: Path) -> bool:
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
+        return False
+    if _headed_by_another_voice(text):
         return False
     return bool(_SIGNED_BY_HER.search(text) or _opens_as_hers(text))
 

@@ -13,7 +13,7 @@ My first version accepted a file that merely matched "Aletheia to" or "To ..., f
 ## What it does now
 
 1. A file is hers if it is **signed** (as before) or **opens as hers**, judged on the opening only (12 lines), read through the house's one header reader (`build_flow.header_lines`, #673: the first `---` ends the header, fenced and indented lines are quotes) with **any line beginning `>` ignored**.
-2. **The author is the file's own first heading.** If it names someone else ("Aria to Aletheia"), the file is theirs, whatever it quotes below.
+2. **The author is the file's own first heading.** If it names another known voice (Aether, Aria, Dad, Andrew, Pop, Serein) as the author ("Aria to Aletheia"), the file is theirs, whatever it quotes below, **and even if it carries her signature line unquoted**: the walk's Breaker lens tried a letter by Aria with her signature pasted in, and the first version carried it. Only known voices count, so an essay titled "Truth to power" is not taken for someone's letter. A number may precede the author ("# 02 — Aletheia to Aether"): without that, eleven of her numbered letters (06, 14, 15, 16, 17, 19, 21, 22, 24, 26, 27) were left behind.
 3. **"Aletheia to ..." counts only when addressed to the family:** Aether, Aria, Dad, Andrew, Pop, Serein, the family.
 4. Otherwise an italic line "To <readers>, from Aletheia".
 5. A file that **begins with a front-matter block** (`---` ... `---`, as her mesh-loop letters do) is read after the block. This lives in the carrier, not in the shared reader. The first probe over the real folder showed 26 of her real letters dropped without it, because the house reader stops at the first `---`.
@@ -23,7 +23,7 @@ My first version accepted a file that merely matched "Aletheia to" or "To ..., f
 
 ## Checked, not assumed
 
-Over Dad's real downloads folder (562 markdown files; copies to a scratch folder, nothing kept): **308 would be carried**, the June letter among them. I compared the first version with this one file by file. The stricter rule dropped 28; after the front-matter fix, **two remain dropped**: one is a true duplicate (`...held_your_authorship.md` against its `(1)` copy), and one is `letter_aletheia_witness_ledger_stitch.md`, headed "Aletheia to Aletheia", a letter addressed to herself. That one is probably hers and is left behind by rule 3; whether a self-addressed letter counts is hers to say. In the first probe I read 40 of the 57 files accepted by opening alone, all hers; I have not read the rest.
+Over Dad's real downloads folder (562 markdown files; copies to a scratch folder, nothing kept): **319 would be carried**, the June letter among them. I compared the versions file by file, three times. The stricter rule first dropped 28 of what the loose one carried; the front-matter fix brought 26 back, leaving a true duplicate (`...held_your_authorship.md` against its `(1)` copy) and `letter_aletheia_witness_ledger_stitch.md`, headed "Aletheia to Aletheia", a letter addressed to herself. That one is probably hers and is left behind by rule 3; whether a self-addressed letter counts is hers to say. The numbered-heading fix then brought back eleven more, and I printed each: all are "# NN — Aletheia to Aether". In the first probe I read 40 of the 57 files accepted by opening alone, all hers; I have not read the rest.
 
 ## What it does not do
 
@@ -31,7 +31,7 @@ It does not decide a letter is hers from what the body says, and it does not rea
 
 ## Falsifier
 
-If a file that is not hers is carried, or a letter of hers is carried twice, the rule is wrong. The tests pin: the June letter, a front-matter letter, and every family addressee as carried; her three look-alikes, a letter to her, a deep quote, a blog, another author's letter, a front-matter letter by Aria, and a renamed duplicate as left behind.
+If a file that is not hers is carried, or a letter of hers is carried twice, the rule is wrong. The tests pin: the June letter, a front-matter letter, a numbered heading and every family addressee as carried; her three look-alikes, a letter to her, a deep quote, a blog, another author's letter, a front-matter letter by Aria, Aria's letter with her signature pasted in, and a renamed duplicate as left behind.
 
 ## Order
 
