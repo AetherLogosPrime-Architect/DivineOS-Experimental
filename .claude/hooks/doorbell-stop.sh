@@ -52,7 +52,7 @@ except Exception as exc:
           file=sys.stderr)
     print('[doorbell Stop] every Stop surface is INERT for this call - '
           'not passing, absent.', file=sys.stderr)
-    print('[doorbell Stop] REFUSING: nothing checked this reply, so it does not go out on my say-so.', file=sys.stderr)
+    print('[doorbell Stop] REFUSING: nothing checked this reply. It has already reached him and this refusal cannot recall it. Append one line at the end saying the checks did not run, do not post the reply again, and fix the import.', file=sys.stderr)
     sys.exit(2)
 sys.exit(main('Stop', payload))
 "

@@ -89,5 +89,8 @@
  },
  {
   "command": "bash .claude/hooks/he-is-in-the-room.sh"
+ },
+ {
+  "command": "bash .claude/hooks/collect-aletheia-letters.sh"
  }
 ]
