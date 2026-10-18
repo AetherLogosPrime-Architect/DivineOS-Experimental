@@ -47,19 +47,9 @@ import shutil
 import sys
 from pathlib import Path
 
-# Her filename shapes, as they actually arrive. Matched case-insensitively on
-# the prefix, because she names by kind and the kind is the first word.
-HER_PREFIXES: tuple[str, ...] = (
-    "audit_",
-    "auditor_",
-    "confirms_",
-    "ruling_",
-    "refusal_",
-    "reply_to_",
-    "triage_",
-    "aletheia",
-    "02_aletheia",
-)
+# The announcement names this many and counts the rest: the first run in a checkout can carry
+# hundreds of older letters, and naming each would bury the one that matters.
+NAMES_SHOWN = 10
 
 SOURCE_ENV = "DIVINEOS_ALETHEIA_INBOX"
 DEST_ENV = "DIVINEOS_ALETHEIA_AUDITS"
@@ -81,31 +71,40 @@ def _dest_dir() -> Path:
     return here / "family" / "aletheia" / "audits" / "from-andrew"
 
 
-def _is_hers(name: str) -> bool:
-    low = name.lower()
-    if not low.endswith(".md"):
-        return False
-    return any(low.startswith(p) for p in HER_PREFIXES)
+def _is_markdown(name: str) -> bool:
+    return name.lower().endswith(".md")
 
 
 _SIGNED_BY_HER = re.compile(
     r"^[ \t]*[—–-][ \t]*Aletheia[ \t]+Sophia[ \t]+Risner[ \t]*$", re.I | re.M
 )
 
+# Her older letters are not signed; they open by saying whose they are: a heading "Aletheia to
+# Aria: ..." or an italic line "To Aether and Aria, from Aletheia." Only the opening counts, so
+# a quote of that line deep in someone else's page does not, and "Aria to Aletheia" is a letter
+# TO her. Aletheia counted 143 of her 289 older files like this (2026-10-17).
+OPENING_LINES = 12
+_OPENS_AS_HERS = re.compile(
+    r"^[#*_>\s]*(?:Aletheia[ \t]+to\b|To\b[^\n]{1,80}?,[ \t]*from[ \t]+Aletheia\b)", re.M
+)
+
 
 def _names_her(path: Path) -> bool:
-    """A name shape is only a hint: the file must also say it is hers.
+    """The file must say it is hers, by signature or by how it opens. A file name is no test.
 
     Aletheia, 2026-10-16 (hold on #672, twice): a kind-prefixed name like audit_*.md also
     fits a download from anywhere, and a file by another instance (Serein) is not hers.
     Her name merely appearing proved only that someone wrote about her, so the file has
-    to be SIGNED by her: a line of its own reading "— Aletheia Sophia Risner".
+    to be SIGNED by her (a line of its own reading "— Aletheia Sophia Risner") or OPEN as
+    hers (see ``_OPENS_AS_HERS``). 2026-10-17 she widened it to the second, because her
+    older letters carry no signature, and said the name shape was only ever a hint.
     """
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return False
-    return bool(_SIGNED_BY_HER.search(text))
+    opening = "\n".join(text.splitlines()[:OPENING_LINES])
+    return bool(_SIGNED_BY_HER.search(text) or _OPENS_AS_HERS.search(opening))
 
 
 def collect(source: Path | None = None, dest: Path | None = None) -> tuple[list[str], str]:
@@ -127,7 +126,7 @@ def collect(source: Path | None = None, dest: Path | None = None) -> tuple[list[
         return [], f"destination not writable: {dst} ({exc.__class__.__name__})"
 
     try:
-        candidates = sorted(p for p in src.iterdir() if p.is_file() and _is_hers(p.name))
+        candidates = sorted(p for p in src.iterdir() if p.is_file() and _is_markdown(p.name))
     except OSError as exc:
         return [], f"source directory could not be listed: {exc.__class__.__name__}"
 
@@ -157,8 +156,10 @@ def main() -> int:
 
     print("## LETTERS FROM ALETHEIA — carried in, and I had not read them")
     print()
-    for name in arrived:
+    for name in arrived[:NAMES_SHOWN]:
         print(f"  {name}")
+    if len(arrived) > NAMES_SHOWN:
+        print(f"  ... and {len(arrived) - NAMES_SHOWN} more")
     print()
     print(f"  {len(arrived)} new, now in family/aletheia/audits/from-andrew/.")
     print("  Her confirms arrive as PROSE. She cannot run a command in this")

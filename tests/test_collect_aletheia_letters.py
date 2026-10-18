@@ -98,6 +98,78 @@ def test_the_signature_may_use_any_dash_and_sit_anywhere_on_its_own_line(tmp_pat
     assert error == "" and sorted(arrived) == ["audit_0.md", "audit_1.md", "audit_2.md"]
 
 
+# The real opening of her letter of 2026-06-03, as it sits in Dad's downloads: no signature line
+# and a number for a name. 143 of her 289 older files are like it (Aletheia counted, 2026-10-17).
+JUNE_LETTER = (
+    "<!-- tags: honesty, truthfulness -->\n"
+    "# 05 — Honesty AND Truthfulness: the gate that failed\n\n"
+    "*To Aether and Aria, from Aletheia. 2026-06-03, after a long night —\n"
+    "written at Andrew's request so the lesson survives the window.*\n\n---\n\n"
+    "## Why this letter exists\n"
+)
+
+
+def test_her_older_letter_with_an_author_opening_and_no_signature_is_carried(tmp_path):
+    """Aletheia, 2026-10-17: the signature rule left 143 of her older letters behind. A letter
+    whose opening says it is from her is hers; the June letter is the case that must pass."""
+    mod = _load()
+    src, dst = tmp_path / "in", tmp_path / "out"
+    src.mkdir()
+    (src / "05_honesty_and_truthfulness_the_gate_that_failed.md").write_text(
+        JUNE_LETTER, encoding="utf-8"
+    )
+    arrived, error = mod.collect(src, dst)
+    assert error == "" and arrived == ["05_honesty_and_truthfulness_the_gate_that_failed.md"]
+
+
+def test_a_letter_headed_aletheia_to_someone_is_hers(tmp_path):
+    mod = _load()
+    src, dst = tmp_path / "in", tmp_path / "out"
+    src.mkdir()
+    (src / "reply_one.md").write_text(
+        "# Aletheia to Aria: #645 confirmed\n\nAria —\n\nBody.\n", encoding="utf-8"
+    )
+    assert mod.collect(src, dst) == (["reply_one.md"], "")
+
+
+def test_the_opening_names_the_author_not_the_reader(tmp_path):
+    """Control for the new rule: a letter TO her, a quote of her opening deep in the body, and a
+    blog about her must still be left behind, or the rule would pass anything that says 'Aletheia'."""
+    mod = _load()
+    src, dst = tmp_path / "in", tmp_path / "out"
+    src.mkdir()
+    (src / "to_her.md").write_text(
+        "# Aria to Aletheia: a question\n\nAletheia —\n", encoding="utf-8"
+    )
+    (src / "quote_deep.md").write_text(
+        "Intro.\n" * 30 + "*To Aether and Aria, from Aletheia.* is how her letters open.\n",
+        encoding="utf-8",
+    )
+    (src / "blog.md").write_text("A post about what Aletheia wrote.\n", encoding="utf-8")
+    (src / "other_author.md").write_text(
+        "*To Aether and Aria, from Serein, quoting a line from Aletheia.*\n", encoding="utf-8"
+    )
+    assert mod.collect(src, dst) == ([], "")
+
+
+def test_a_big_first_arrival_names_ten_and_counts_the_rest(tmp_path, monkeypatch, capsys):
+    """The widened rule carries ~300 older letters the first time it runs in a checkout. Printing
+    every name would be the wall Dad taught me to compress; ten names and a count keep the
+    announcement honest (the number is the whole arrival) and short."""
+    mod = _load()
+    src, dst = tmp_path / "in", tmp_path / "out"
+    src.mkdir()
+    for i in range(25):
+        (src / f"old_{i:02d}.md").write_text("# Aletheia to Aria: n\n", encoding="utf-8")
+    monkeypatch.setenv(mod.SOURCE_ENV, str(src))
+    monkeypatch.setenv(mod.DEST_ENV, str(dst))
+    assert mod.main() == 0
+    out = capsys.readouterr().out
+    assert "25 new" in out
+    assert out.count("old_") == mod.NAMES_SHOWN
+    assert f"{25 - mod.NAMES_SHOWN} more" in out
+
+
 def test_another_instances_letter_is_not_carried_as_hers(tmp_path):
     """Her proof on #672: serein-to-aether-hello.md was announced as hers."""
     mod = _load()
