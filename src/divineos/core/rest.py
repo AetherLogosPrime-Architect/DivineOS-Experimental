@@ -39,6 +39,14 @@ from divineos.core.hud_handoff import _ensure_hud_dir
 # How many tasks to suggest by default. Soft target, not enforced.
 REST_TASK_TARGET = 2
 
+# A rest cycle is not complete until something is in writing: one new
+# exploration entry or one journal entry made during the session. Andrew
+# 2026-10-16: dreams are mandatory in the ritual, rest used to be fully
+# optional, and the result was that explorations were only written when
+# someone said to. Reading an old entry still counts toward the target of
+# two; it does not count as the written one.
+WRITTEN_KEYS = ("exploration", "journal")
+
 # Work-density thresholds for auto-surfacing rest. The "hard day" signal
 # is heuristic — substantive enough that a rest cycle is worth offering,
 # not so frequent that the surface becomes background noise.
@@ -92,12 +100,17 @@ REST_TASKS: tuple[RestTask, ...] = (
     ),
     RestTask(
         key="exploration",
-        title="Read my own exploration",
-        invoke_hint="ls exploration/ && cat exploration/<entry>",
+        title="Read or write in my exploration",
+        invoke_hint=(
+            "ls exploration/ && cat exploration/<entry>; to log a new entry: "
+            "divineos rest done exploration --wrote exploration/<member>/<file>.md"
+        ),
         description=(
             "Re-read what I wrote in past sessions. The present-me "
             "doesn't always remember the past-me's voice; reading "
-            "closes that gap. Can write a new entry too."
+            "closes that gap. Writing a new entry is the one that meets the "
+            "rest session's written-entry requirement (a journal entry "
+            "does too); reading alone counts toward the two, not that."
         ),
     ),
     RestTask(
@@ -242,7 +255,37 @@ def start_session() -> None:
     _save_state({"started_at": time.time(), "completions": []})
 
 
-def record_completion(task_key: str, duration_sec: float | None = None) -> int:
+def written_evidence(task_key: str, started_at: float, wrote_path: str | None = None) -> str | None:
+    """Proof that something was written during this rest session, or None.
+
+    The proof is a thing that exists, not a word I type: a journal entry
+    created after the session started, or a non-empty file under an
+    ``exploration`` folder modified after it started. Naming the task is
+    not enough, so the rule cannot be met by ticking a box.
+    """
+    if task_key == "journal":
+        from divineos.core.memory_journal import journal_list
+
+        latest = journal_list(1)
+        if latest and latest[0]["created_at"] >= started_at:
+            return f"journal entry {latest[0]['entry_id']}"
+        return None
+    if task_key == "exploration" and wrote_path:
+        p = Path(wrote_path)
+        in_exploration = any(part.lower() == "exploration" for part in p.resolve().parts)
+        if (
+            p.is_file()
+            and in_exploration
+            and p.stat().st_size > 0
+            and p.stat().st_mtime >= started_at
+        ):
+            return str(p)
+    return None
+
+
+def record_completion(
+    task_key: str, duration_sec: float | None = None, wrote_path: str | None = None
+) -> int:
     """Record that a rest task was completed.
 
     Returns the new total completion count for the current session.
@@ -257,6 +300,10 @@ def record_completion(task_key: str, duration_sec: float | None = None) -> int:
     }
     if duration_sec is not None:
         completion["duration_sec"] = duration_sec
+    if task_key in WRITTEN_KEYS:
+        evidence = written_evidence(task_key, state["started_at"], wrote_path)
+        if evidence:
+            completion["wrote"] = evidence
     state["completions"].append(completion)
     _save_state(state)
 
@@ -268,7 +315,11 @@ def record_completion(task_key: str, duration_sec: float | None = None) -> int:
         log_event(
             "REST_TASK_COMPLETED",
             "agent",
-            {"task_key": task_key, "duration_sec": duration_sec or 0.0},
+            {
+                "task_key": task_key,
+                "duration_sec": duration_sec or 0.0,
+                "wrote": completion.get("wrote", ""),
+            },
             validate=False,
         )
     except Exception:  # noqa: BLE001 — ledger is best-effort here
@@ -281,16 +332,20 @@ def session_status() -> dict[str, Any]:
     """Return current rest-session status.
 
     Keys: started_at (float), completions (list), count (int),
-    target (int), met_target (bool), remaining (int).
+    target (int), written (bool), met_target (bool), remaining (int).
+    ``met_target`` needs both the count and one written entry.
     """
     state = _load_state()
-    count = len(state.get("completions", []))
+    completions = state.get("completions", [])
+    count = len(completions)
+    written = any(c.get("wrote") for c in completions)
     return {
         "started_at": state.get("started_at", 0.0),
-        "completions": state.get("completions", []),
+        "completions": completions,
         "count": count,
         "target": REST_TASK_TARGET,
-        "met_target": count >= REST_TASK_TARGET,
+        "written": written,
+        "met_target": count >= REST_TASK_TARGET and written,
         "remaining": max(0, REST_TASK_TARGET - count),
     }
 
