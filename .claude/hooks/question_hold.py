@@ -46,6 +46,9 @@ def main() -> int:
             told = qh.escape_to_tell_him()
             if told:
                 print(told)
+            overnight = qh.morning_surface()  # what I asked while he was away, shown once
+            if overnight:
+                print(overnight)
         # The shared fridge: shown, never held (Dad, 2026-10-01).
         waiting = qh.others_waiting()
         if waiting:
