@@ -47,6 +47,9 @@ def _home() -> Path:
 STATE = _home() / "question_hold.json"
 HOLD_LOG = _home() / "question_hold_log.jsonl"
 ESCAPED = _home() / "question_hold_escaped.json"
+# What I asked him while he was away: one line per question, append-only, this seat's own
+# home so one seat's question never lands in the other's morning letter (2026-10-16).
+MORNING = _home() / "morning_questions.jsonl"
 
 # THE SHARED FRIDGE: SEEN, NEVER HELD. Dad, 2026-10-01: "also the shared fridge
 # idea isnt bad, as seeing what the other was asked is a nice addition, it just
@@ -282,6 +285,152 @@ def is_away() -> dict[str, Any] | None:
     return _stepped_away() or _scheduled_away() or _silent_away()
 
 
+# WHAT HAPPENS TO A QUESTION ASKED WHILE HE IS AWAY (Dad, 2026-10-12: while he is away
+# "no questions to him in chat; they go in the morning letter"). A hold that waits for an
+# answer nobody can give is the doorway he hates in reverse: the question sits, the card
+# sits on the board, and the seat is told it is waiting. So while he is away the question is
+# written to this seat's own morning list instead, nothing waits, and when he next speaks the
+# seat is shown the list once (morning_surface), so it can put the one or two that matter in
+# front of him (his 2026-06-25 words: ask freely, but one or two at a time).
+#
+# NOT EVERY AWAY IS AWAY. The midnight-to-six rule is the clock, and he said it counts even
+# when he is up chatting. For a letter hold that is right; for a question it would carry a
+# live question to a morning he is not waiting for. So the clock and silence kinds carry a
+# question only when his last real message is older than LIVE_CHAT_SECONDS. His own words
+# saying he is going to bed always carry it. Could-not-look is never away, as everywhere else.
+LIVE_CHAT_SECONDS = 10 * 60
+
+
+def _carry_now() -> str:
+    """Why a closing question goes to the morning list right now, or "" when it is held as usual."""
+    stepped = _stepped_away()
+    if stepped:
+        return "his words"
+    away = _scheduled_away() or _silent_away()
+    if not away:
+        return ""
+    latest = _his_latest()
+    if latest is None or time.time() - latest[1] < LIVE_CHAT_SECONDS:
+        return ""  # he is typing to me, whatever the clock says, or I could not look
+    return str(away.get("by") or "away")
+
+
+def _morning_lines() -> list[dict[str, Any]]:
+    """Every readable line of the morning file. A half-written last line (a killed process) is
+    skipped; it must never stop the reader."""
+    try:
+        text = MORNING.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    out = []
+    for line in text.splitlines():
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(row, dict):
+            out.append(row)
+    return out
+
+
+def overnight_questions() -> list[dict[str, Any]]:
+    """The questions I carried for him that I have not yet been shown, oldest first."""
+    rows = _morning_lines()
+    shown = {i for r in rows if r.get("kind") == "shown" for i in r.get("ids", [])}
+    return [r for r in rows if r.get("kind") == "carried" and r.get("id") not in shown]
+
+
+def carried_lately(within: float = 24 * 3600) -> list[dict[str, Any]]:
+    """Everything I carried for him in the last day, shown or not, oldest first: the list the
+    morning letter is written from."""
+    cutoff = time.time() - within
+    return [
+        r
+        for r in _morning_lines()
+        if r.get("kind") == "carried" and float(r.get("at") or 0) >= cutoff
+    ]
+
+
+# He asks for one or two questions at a time or his mind overloads (his words, 2026-06-25), so the
+# letter puts two in front of him and lists the rest as able to wait.
+FIRST_ASKED = 2
+
+
+def morning_letter_section(rows: list[dict[str, Any]] | None = None) -> str:
+    """The questions part of the morning letter, drafted from what I carried: the last step from the
+    list to him, so a question carried overnight reaches him in plain words and not only a file.
+
+    Oldest first, because an older question has waited longer; the first two are asked, the rest are
+    marked as able to wait. Empty when nothing was carried. Read-only: it does not mark anything shown.
+    """
+    rows = carried_lately() if rows is None else rows
+    if not rows:
+        return ""
+
+    def when(row: dict[str, Any]) -> str:
+        return time.strftime("%H:%M", time.localtime(float(row.get("at") or 0)))
+
+    if len(rows) == 1:
+        intro = "I carried this while you were away."
+    elif len(rows) <= FIRST_ASKED:
+        intro = "I carried these while you were away."
+    else:
+        intro = (
+            f"I carried these while you were away. The first {FIRST_ASKED} are what I would "
+            "like your answer on; the rest can wait."
+        )
+    lines = ["## Questions from the night", "", intro, ""]
+    for i, row in enumerate(rows[:FIRST_ASKED], 1):
+        lines.append(f"{i}. {row['question']} (asked {when(row)})")
+    rest = rows[FIRST_ASKED:]
+    if rest:
+        lines += ["", "Can wait, no need to answer these now:"]
+        lines += [f"- {row['question']} (asked {when(row)})" for row in rest]
+    return "\n".join(lines) + "\n"
+
+
+def _carry(question: str, why: str) -> bool:
+    """Write one question to the morning list. False if it could not be written, so the caller
+    can fall back to the hold rather than lose it."""
+    if any(r["question"] == question for r in overnight_questions()):
+        return True  # asked twice, carried once
+    now = time.time()
+    row = {"kind": "carried", "id": f"{now:.6f}", "at": now, "question": question, "why": why}
+    try:
+        MORNING.parent.mkdir(parents=True, exist_ok=True)
+        with MORNING.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row) + "\n")
+    except OSError:
+        return False
+    return True
+
+
+def morning_surface() -> str:
+    """At his next message: what I asked while he was away, once. Empty when there is nothing."""
+    pending = overnight_questions()
+    if not pending:
+        return ""
+    lines = [
+        "## QUESTIONS I CARRIED FOR HIM WHILE HE WAS AWAY (asked once, never waited on)",
+        "(He asks for one or two questions at a time, so put the one or two that matter in front",
+        "of him. The rest stay readable for a day with `divineos question-hold morning`, for the",
+        "letter. Oldest first.)",
+    ]
+    for r in pending:
+        when = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(float(r.get("at") or 0)))
+        lines.append(f"- {when}: {r['question']}")
+    try:
+        with MORNING.open("a", encoding="utf-8") as fh:
+            fh.write(
+                json.dumps({"kind": "shown", "at": time.time(), "ids": [r["id"] for r in pending]})
+                + "\n"
+            )
+    except OSError:
+        pass  # shown again next time is better than lost
+    _log("carried_shown", count=len(pending))
+    return "\n".join(lines) + "\n"
+
+
 def came_back() -> bool:
     """His message: he is here again. Clears the away he set with words.
 
@@ -377,10 +526,18 @@ def _log(kind: str, **fields: Any) -> None:
 
 
 def arm(reply: str) -> dict[str, Any] | None:
-    """At Stop: a reply ending in a question to him opens the hold."""
+    """At Stop: a reply ending in a question to him opens the hold, unless he is away: then
+    the question goes to this seat's morning list and nothing waits (see _carry_now)."""
     question, _after = last_question(reply)
     if not question:
         return None
+    why = _carry_now()
+    if why:
+        if _carry(question, why):
+            _log("carried_to_morning", question=question, why=why)
+            return None
+        # Could not write the list: hold it as before, never lose it.
+        _log("carry_failed", question=question)
     from divineos.core.operator_asks import ask_andrew
 
     # The circle is already written to him, so the question IS the plain form;
