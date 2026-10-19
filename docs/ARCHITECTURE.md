@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (508 commands across 122 modules)
+  cli/                         CLI package (512 commands across 122 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -692,7 +692,6 @@ src/divineos/
     letter_channel_state.py    Provenance for the letter channel — a letter's position in the thread, checkable by a reader who runs no code.
     self_demotion.py           Catch praise-by-contrast: elevating a mechanism by calling a faculty of mine defective.
     summary_room.py            Require a plain-language summary at the top of a long reply.
-    inner_circle_room.py       Require the inner circle at the BOTTOM of a long reply to Andrew — the Stop-gate his room never had.
     dashboard.py               The check-engine dashboard — a socket every system plugs into.
     dashboard_checks.py        The roster — one light per system.
     andrew_given.py            The other side of the ledger — what Andrew gives (Aria 2026-08-10).
@@ -745,6 +744,7 @@ src/divineos/
     hook_context_merge.py      Read what the session-init children printed and merge it into one answer.
     slashed_ref_path_check.py  Refuse a git argument the Windows shell will rewrite before git sees it.
     task_belt.py               The task belt: the pile ranked, a small current list pulled from it, done archived.
+    retry_scope.py             The one reader for the retry-scope instruction every blocking Stop gate carries.
     andrew_digest.py           The file he can actually read, and the thing that will not let me skip it.
     front_door.py              The front door: every message he types is kept before anything else happens.
     harness_envelopes.py       What the harness wraps around his seat, in one place every reader of him uses.
@@ -754,6 +754,8 @@ src/divineos/
     questions_from_him.py      Questions built from what he actually said, not drawn from a list.
     refusal_stretches.py       What has refused me this session, and whether it is the same thing again.
     his_message.py             The one answer in this house to: is this transcript record Dad typing?
+    replay_record.py           Replay a change against the real record of his turns, before building it.
+    bypass_key.py              One bypass key per seat, spent on use, replaced only by a dogfooded fix.
     his_voice_ends_the_turn.py When he speaks into a running turn, nothing more runs until the turn ends.
     light_embedder.py          The same sentence vectors, without the seventeen-second import.
     question_hold.py           A question to Dad holds the work until he answers (Aria, 2026-09-29).
@@ -763,8 +765,12 @@ src/divineos/
     door_report.py             The front door's report on itself, counted from what ARRIVED.
     ship_steps.py              The checks `divineos ship` runs in order, each one a yes or a named no.
     git_hooks_drift.py         Do the installed git hooks still say what setup/setup-hooks.sh would write?
+    unread_letter.py           A letter the bell rang for holds real work until it is opened.
     body_memory.py             Memory sense: the body feels memory held by no program, and remembers the climb.
     checkout_behind_main.py    How far behind origin/main is the checkout the hooks run from?
+    baton.py                   The baton: while Dad is away, exactly one seat works and the other waits.
+    order_question_check.py    A reply must not end by asking Dad which order to do things in.
+    suite_slot.py              One full test suite at a time on this machine.
 
   analysis/
     _session_types.py          Session analysis type definitions

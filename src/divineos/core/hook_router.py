@@ -198,6 +198,13 @@ class RouterResult:
         parts: list[str] = []
         for o in self.refusals:
             parts.append(f"BLOCKED by {o.name}: {o.reason}")
+        if self.refusals and self.event == "Stop":
+            # A Stop refusal arrives after the reply already reached him, so
+            # every one carries the append-only instruction -- appended here,
+            # once, so no surface author has to remember it.
+            from divineos.core.retry_scope import with_retry_scope
+
+            parts = [with_retry_scope("\n".join(parts))]
         for o in self.errored:
             parts.append(
                 f"[router] surface {o.name} COULD NOT RUN: {o.error} "
@@ -469,6 +476,14 @@ COLLAPSE_POLICY: dict[str, CollapsePolicy] = {
         why=(
             "Reports the live context level, which is the one thing that must "
             "never read as unchanged when it has moved toward the threshold."
+        ),
+    ),
+    "stop_runs_killed": CollapsePolicy(
+        kind="never",
+        why=(
+            "An alarm that the Stop checks are being killed before they finish, "
+            "so their silence is not a pass. A collapsed alarm about checks not "
+            "running is the same silence it exists to break."
         ),
     ),
 }
