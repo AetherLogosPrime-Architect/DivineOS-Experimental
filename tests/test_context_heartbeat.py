@@ -126,15 +126,16 @@ def test_threshold_arithmetic_is_the_number_andrew_named(home, monkeypatch):
     """
     from divineos.core.auto_cycle import TRIGGER_THRESHOLD
 
-    assert ch.CONTEXT_WINDOW_TOKENS * TRIGGER_THRESHOLD == 880_000
-    _patch_snapshot(monkeypatch, FakeSnap(True, 880_000))
+    # 850_000 since 2026-10-16 (Andrew: the ritual takes longer lately). Was 880_000.
+    assert ch.CONTEXT_WINDOW_TOKENS * TRIGGER_THRESHOLD == 850_000
+    _patch_snapshot(monkeypatch, FakeSnap(True, 850_000))
     assert ch.beat().pct >= TRIGGER_THRESHOLD
 
 
 def test_just_below_threshold_does_not_reach(home, monkeypatch):
     from divineos.core.auto_cycle import TRIGGER_THRESHOLD
 
-    _patch_snapshot(monkeypatch, FakeSnap(True, 879_999))
+    _patch_snapshot(monkeypatch, FakeSnap(True, 849_999))
     assert ch.beat().pct < TRIGGER_THRESHOLD
 
 
