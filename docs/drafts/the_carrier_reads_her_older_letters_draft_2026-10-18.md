@@ -27,7 +27,7 @@ Over Dad's real downloads folder (570 markdown files at the last measurement, la
 
 ## What it does not do
 
-It does not decide a letter is hers from what the body says, and it does not read non-markdown files. A letter of hers that opens some other way is left behind. A stranger's letter that copies her opening heading and addresses the family would pass: nothing can prove authorship from text alone. Old letters may state rules the house has since retired; they land in the audits folder, which is not a rule surface, and the announcement does not present them as current, but a reader who treats one as current serves an old rule. The twelve-line window and the family list are hand-set from the cases seen.
+It does not decide a letter is hers from what the body says, and it does not read non-markdown files. A letter of hers that opens some other way is left behind. A stranger's letter that copies her opening heading and addresses the family would pass: nothing can prove authorship from text alone. **Her ruling that a letter to herself counts widens the homonym door a little:** a philosophy essay headed "Aletheia to Aletheia" (the word is Greek) would now be carried; the walk's Breaker lens named it and it is accepted, not closed. Old letters may state rules the house has since retired; they land in the audits folder, which is not a rule surface, and the announcement does not present them as current, but a reader who treats one as current serves an old rule. The twelve-line window and the family list are hand-set from the cases seen.
 
 ## Falsifier
 
