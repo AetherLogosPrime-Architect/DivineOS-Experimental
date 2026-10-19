@@ -34,7 +34,7 @@ fi
 # Each marker is a line of its own, dashes included. A letter that only TALKS about the thread (as
 # the letters about this very fault do) is not placed, and a loose substring would have skipped it.
 placed() {
-    grep -q -x -F -e "— the thread so far —" -e "— the thread could not be counted —" "$1" 2>/dev/null  # fail-soft: an unreadable file has no marker, so it counts as bare and goes to the stamper, the safe direction
+    tr -d '\r' < "$1" 2>/dev/null | grep -q -x -F -e "— the thread so far —" -e "— the thread could not be counted —"  # fail-soft: an unreadable file has no marker, so it counts as bare and goes to the stamper, the safe direction; CR stripped so a CRLF letter reads the same as an LF one
 }
 
 stamped=""

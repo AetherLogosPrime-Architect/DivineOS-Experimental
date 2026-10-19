@@ -91,7 +91,11 @@ def test_a_missing_hook_file_says_so_instead_of_vanishing(tmp_path):
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
     out = _run(_command_for("mirror-letters-to-shared.sh"), elsewhere, project)
-    assert "NOT RUNNING" in out.stdout and "mirror-letters-to-shared.sh" in out.stdout
+    # As loud as the old relative form was: a non-zero exit (127) the harness can see, and the file's
+    # name on standard error. Exit 0 with a line on standard output would have been QUIETER than the
+    # failure it replaced, since only some events show a successful hook's output at all.
+    assert out.returncode == 127, (out.returncode, out.stdout, out.stderr)
+    assert "NOT RUNNING" in out.stderr and "mirror-letters-to-shared.sh" in out.stderr
 
 
 def test_arguments_still_reach_the_hook(tmp_path):

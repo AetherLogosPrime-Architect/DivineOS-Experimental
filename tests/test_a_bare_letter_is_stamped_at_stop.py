@@ -119,12 +119,25 @@ def test_a_letter_that_only_talks_about_the_thread_is_still_stamped(tmp_path):
     """The letters about this very fault quote the marker's words in prose; a loose substring check
     would have read them as already placed and left them bare."""
     project = _project(tmp_path)
-    body = 'The footer says "the thread so far" and "the thread could not be counted".\n'
+    body = (
+        'The footer ends with the line "— the thread so far —" and sometimes '
+        '"— the thread could not be counted —" instead.\n'
+    )
     (project / "family" / "letters" / NEW).write_text(body, encoding="utf-8")
     out = _run(tmp_path, project)
     assert out.returncode == 0, out.stderr
     assert NEW in out.stdout
     assert "\n— the thread so far —\n" in _text(project, NEW)
+
+
+def test_a_letter_with_windows_line_endings_that_carries_the_block_is_left_alone(tmp_path):
+    """A CRLF letter reads as placed or bare the same way an LF letter does, on any grep."""
+    project = _project(tmp_path)
+    body = "# x\r\n\r\n— the thread so far —\r\n\r\nThis is letter 1.\r\n"
+    path = project / "family" / "letters" / NEW
+    path.write_bytes(body.encode("utf-8"))
+    out = _run(tmp_path, project)
+    assert out.stdout == "" and path.read_bytes() == body.encode("utf-8")
 
 
 def test_a_file_that_is_not_a_dated_letter_is_ignored(tmp_path):
