@@ -225,7 +225,9 @@ def _shapes_heard_in(folder: Path, files: int = 40) -> dict[str, int]:
     kinds = {"typed": 0, "queued": 0, "bookmark": 0}
     newest = sorted(folder.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)[-files:]
     for path in newest:
-        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        # A line at a time: one transcript is over a gigabyte, and read whole (decoded, split)
+        # it raised MemoryError under the push gate's parallel workers on 2026-10-17.
+        for line in path.open(encoding="utf-8", errors="replace"):
             try:
                 record = json.loads(line)
             except ValueError:

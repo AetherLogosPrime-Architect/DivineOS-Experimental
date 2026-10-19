@@ -171,9 +171,10 @@ def pr_body_trailer(pr_number: int) -> str | None:
     knows about position.
 
     Deliberately reuses _TRAILER_PATTERN rather than writing a fifth copy of
-    it. Four already exist (pr_merge_gate, push_ready, merge_review_gate,
-    check_multi_party_review) and a fifth that drifted would reintroduce the
-    class this function exists to catch.
+    it. Three already exist (pr_merge_gate, merge_review_gate,
+    check_multi_party_review; a fourth, push_ready, was retired 2026-10-07) and
+    a fourth that drifted would reintroduce the class this function exists to
+    catch.
 
     Returns None on any failure (gh missing, network, bad PR number) -- the
     caller cannot distinguish "no trailer" from "could not look", which is

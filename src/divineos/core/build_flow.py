@@ -49,7 +49,7 @@ furniture).
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -235,6 +235,29 @@ READING_DECLARATION = "**Reading:**"
 NO_READING = "none"
 
 
+def header_lines(text: str) -> Iterator[str]:
+    """The stripped lines of a letter's HEADER, under the one set of line rules the house uses.
+
+    The declaration lives in the header (Aria's cold read of 628, 2026-10-11): the first `---`
+    ends it, so a pasted copy of someone's header further down credits nothing; a fenced block
+    and a four-space or tab-indented line are quotes, not declarations. Everything that reads a
+    `**Field:**` line from a letter (the readings here, the baton's pass and return) asks this
+    function, so a quoted or example line can never act in one reader and not in another
+    (Aletheia's ask on the baton, 2026-10-16: a private copy had missed the indent and fence rules).
+    """
+    in_fence = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped == "---":
+            return
+        if stripped.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence or line.startswith(("    ", "\t")):
+            continue
+        yield stripped
+
+
 def _declared_readings(text: str) -> tuple[bool, list[str]]:
     """``(field_present, branches)`` from every declared line.
 
@@ -253,19 +276,7 @@ def _declared_readings(text: str) -> tuple[bool, list[str]]:
     """
     present = False
     branches: list[str] = []
-    in_fence = False
-    for line in text.splitlines():
-        stripped = line.strip()
-        # The declaration lives in the HEADER (Aria's cold read of 628, 2026-10-11): the
-        # first `---` ends it, so a pasted copy of someone's header further down credits
-        # nothing; a fenced block and a four-space or tab-indented line are quotes.
-        if stripped == "---":
-            break
-        if stripped.startswith("```"):
-            in_fence = not in_fence
-            continue
-        if in_fence or line.startswith(("    ", "\t")):
-            continue
+    for stripped in header_lines(text):
         if not stripped.startswith(READING_DECLARATION):
             continue
         present = True
@@ -944,11 +955,53 @@ def check_audit_station(
             Status.CANNOT_CHECK,
             "audit lookup did not complete (network or store) — cause not narrowed",
         )
-    named = None
-    if any(f"#{pr_number}" in r for r in audit_refs):
-        named = f"PR #{pr_number}"
-    elif branch and any(branch in r for r in audit_refs):
-        named = branch
+    # SAY WHICH ROUND, AND NOT ONLY THAT ONE EXISTS (2026-09-22).
+    #
+    # This said "audit round names PR #N" and never said WHICH round, which
+    # makes the claim unfalsifiable from the board -- the one place it is read.
+    # Andrew caught the cost on PR #499: the board reported that station green,
+    # I read it as the handoff having happened, and no round for that request
+    # existed at all. I filed one only after he asked whether I had written to
+    # Aletheia.
+    #
+    # What I can say for certain is the shape: a bare substring of a number
+    # matches wherever that number appears, including inside another round's
+    # prose and inside a LONGER number, so `#499` is found in `#4991`. Whether
+    # that is what happened on #499 I have not proven -- my own scan used a
+    # looser pattern than this function does, and two different probes
+    # disagreeing is not a measurement. So the boundary check below is argued
+    # from reading the code, and the quoted evidence is what makes the next
+    # instance answerable instead of arguable.
+    #
+    # The evidence travels WITH the verdict rather than being available on
+    # request, because a check nobody runs is a check that does not exist.
+    _digits = "0123456789"
+
+    def _names_pr(ref: str) -> bool:
+        token = f"#{pr_number}"
+        start = 0
+        while True:
+            at = ref.find(token, start)
+            if at < 0:
+                return False
+            after = at + len(token)
+            # Reject a longer number: #499 must not be found inside #4991.
+            if after >= len(ref) or ref[after] not in _digits:
+                return True
+            start = after
+
+    matched = next((r for r in audit_refs if _names_pr(r)), None)
+    named = f"PR #{pr_number}" if matched is not None else None
+    if named is None and branch:
+        # The same boundary as the PR number above: a branch name found inside a
+        # longer one (`aria/foo` inside `aria/foo-r2`) is a different branch
+        # (Aletheia, hold on #672, 2026-10-16).
+        _branch_re = re.compile(r"(?<![\w/.-])" + re.escape(branch) + r"(?![\w/-]|\.\w)")
+        matched = next((r for r in audit_refs if _branch_re.search(str(r))), None)
+        named = branch if matched is not None else None
+    if named is not None:
+        quoted = " ".join(str(matched).split())[:140]
+        named = f"{named} [{quoted}]" if quoted else named
 
     if named is not None:
         # AND A NAME MATCH IS NOT A REVIEW EITHER, which is the cheaper and
