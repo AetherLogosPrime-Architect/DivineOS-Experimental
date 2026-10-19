@@ -73,6 +73,29 @@ class TestSubstrateModificationFeatures:
             r = score_substrate_modification("Bash", bash_command=command)
             assert "substrate-write-cli" not in r.fired_features, command
 
+    def test_a_compass_dismissal_is_still_a_substrate_write_by_name(self):
+        """Aletheia's hold on #640 (2026-10-18): name the compass-ops subcommands, not the
+        namespace. `observe` is my own record. `dismiss` clears a pending compass advisory that a
+        gate waits on AND files the dismissal as data others read, so it is someone's evidence and
+        stays gated, by its own name. The three reads (history, summary, spectrums) are not
+        writes at all."""
+        for command in (
+            "divineos compass-ops dismiss --reason x",
+            "divineos compass-ops   dismiss --reason x",
+            "python -m divineos compass-ops dismiss --reason x",
+            "cd /tmp && divineos compass-ops dismiss --reason x",
+        ):
+            r = score_substrate_modification("Bash", bash_command=command)
+            assert "substrate-write-cli" in r.fired_features, command
+        for command in (
+            "divineos compass-ops observe initiative -p 0.1 -e x",
+            "divineos compass-ops history",
+            "divineos compass-ops summary",
+            "divineos compass-ops spectrums",
+        ):
+            r = score_substrate_modification("Bash", bash_command=command)
+            assert "substrate-write-cli" not in r.fired_features, command
+
     def test_readonly_cli_does_not_fire(self):
         r = score_substrate_modification("Bash", bash_command="divineos briefing")
         assert r.score == 0

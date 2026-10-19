@@ -20,7 +20,7 @@ proof, so for those the original reasoning holds.
 
 ## The change
 
-Remove `journal`, `feel` and `compass-ops` from the list. `audit`, `claim`, `learn`, `prereg` and `decide` stay: they file into stores other gates and other people read, or that another gate accepts as proof, so thinking first is the right toll there.
+Remove `journal`, `feel` and **`compass-ops observe`** from the list, **naming the one subcommand and not the group** (Aletheia's hold on this PR, 2026-10-18: "name the `compass-ops` subcommands, not the namespace"). The group has five subcommands: `observe` (my own record), `history`, `summary` and `spectrums` (reads), and `dismiss`. **`compass-ops dismiss` stays on the list, by its own name**: it clears a pending compass advisory that a gate waits on and files the dismissal as data others read, so it is evidence and not a diary line. The matcher now reads a two-word verb (`compass-ops dismiss`) exactly, from the segment's own tokens, and its text fallback for a command it cannot split reads the same two words. `audit`, `claim`, `learn`, `prereg` and `decide` stay too: they file into stores other gates and other people read, or that another gate accepts as proof, so thinking first is the right toll there.
 
 ## What this does not do
 
@@ -36,4 +36,4 @@ The tests that pinned the old behaviour are rewritten both ways: `journal`, `fee
 
 ## Falsifier
 
-A personal-record command (`journal`, `feel`, `compass-ops`) still owes council paperwork, or one of `audit`, `claim`, `learn`, `prereg`, `decide` stops owing it.
+A personal-record command (`journal`, `feel`, `compass-ops observe`) still owes council paperwork, or one of `audit`, `claim`, `learn`, `prereg`, `decide`, `compass-ops dismiss` stops owing it.
