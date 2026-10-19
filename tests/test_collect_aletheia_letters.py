@@ -252,7 +252,10 @@ def test_an_interpreter_that_cannot_import_the_header_reader_is_could_not_look_n
     monkeypatch.setenv(mod.SOURCE_ENV, str(src))
     monkeypatch.setenv(mod.DEST_ENV, str(dst))
     assert mod.main() == 0
-    assert "COULD NOT LOOK" in capsys.readouterr().err
+    out = capsys.readouterr()
+    # On STANDARD OUTPUT: a successful hook's stdout is what enters the turn; its stderr does not,
+    # so a could-not-look said only there would still read as silence to the one who must act.
+    assert "COULD NOT LOOK" in out.out and "NOT the same as no letters" in out.out
 
 
 def test_a_working_import_is_not_reported_as_a_failure(tmp_path):

@@ -250,8 +250,11 @@ def main() -> int:
     arrived, error = collect()
 
     if error:
-        print(f"  [aletheia-letters] COULD NOT LOOK: {error}", file=sys.stderr)
-        print("  [aletheia-letters] that is NOT the same as no letters arriving", file=sys.stderr)
+        # STANDARD OUTPUT, not stderr: the hook exits 0, and a successful hook's stdout is what
+        # enters the turn while its stderr does not. Said only on stderr, a could-not-look reads
+        # exactly like nothing arriving, to the one who has to act on it.
+        print(f"  [aletheia-letters] COULD NOT LOOK: {error}")
+        print("  [aletheia-letters] that is NOT the same as no letters arriving")
         return 0
 
     if not arrived:
