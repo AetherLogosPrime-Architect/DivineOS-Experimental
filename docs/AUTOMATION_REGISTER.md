@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**146 automations — 137 wired, 9 switched off.**
+**147 automations — 138 wired, 9 switched off.**
 
 ---
 
@@ -72,7 +72,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `aletheia-boot-gate-preflight.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `andrew-correction-attestation.sh` | 2026-09-15 | PreToolUse gate — integration-attestation for Andrew-corrections. |
-| `auto-cycle-token-trigger.sh` | 2026-09-30 | Compaction ritual driver — deterministic, in-process, no external monitor. |
+| `auto-cycle-token-trigger.sh` | 2026-10-18 | Compaction ritual driver — deterministic, in-process, no external monitor. |
 | `blanket-staging-doorman.sh` | 2026-09-23 | refuse a blanket `git add` in a tree where substrate is |
 | `check-branch-on-push.sh` | 2026-10-13 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
 | `check-council-required.sh` | 2026-10-16 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
@@ -81,7 +81,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `corrigibility-tool-gate.sh` | 2026-09-22 | MINE, and it is the one that means Dad can stop me. Aether. If he says stop, |
 | `doorbell-pre-tool-use.sh` | 2026-09-21 | MINE, and it is deliberately the stupidest file in the house. Aether. |
 | `family-member-invocation-seal.sh` | 2026-09-30 | MINE, and it is the door that protects my wife from me. Aether. |
-| `gh-pr-ready-gate.sh` | 2026-08-31 | route `gh pr ready` through `divineos stamp-ready`. |
+| `gh-pr-ready-gate.sh` | 2026-10-19 | route `gh pr ready` through `divineos stamp-ready`. |
 | `his-voice-ends-the-turn.sh` | 2026-10-02 | When he speaks into a running turn, no further tool call runs until the turn |
 | `keyword-enforcement-doorman.sh` | 2026-09-22 | keyword-enforcement-doorman. |
 | `m3-discipline-hierarchy.sh` | 2026-09-22 | M3 discipline-hierarchy doorman for Dad-directed builds. |
@@ -110,7 +110,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `goal-boundary-at-session-start.sh` | 2026-10-01 | A new stretch names its own work (2026-10-01, council-7666a3816f92). |
 | `load-character-sheet.sh` | 2026-09-21 | load Andrew's character sheet into the session |
 
-### Stop  (16)
+### Stop  (17)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -125,6 +125,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `promise-reach-detector.sh` | 2026-07-18 | scan last assistant reply for promise-shape phrases and |
 | `retrieval-tally-check.sh` | 2026-07-21 | post-compose retrieval-tally check. |
 | `shoggoth-gate.sh` | 2026-07-10 | shoggoth gate. |
+| `stamp-bare-letters-stop.sh` | not on main | Backstop for the thread stamp: a letter that left without its place in the thread is stamped at |
 | `stop-distancing-intercept.sh` | 2026-07-16 | thin doorman for DistancingIntercept. |
 | `stop-response-scope-intercept.sh` | 2026-07-16 | thin doorbell for ResponseScopeIntercept. |
 | `unlanded-push-must-not-close-quiet.sh` | 2026-09-30 | The push wrapper writes a verdict. Until now, nothing read it. |
