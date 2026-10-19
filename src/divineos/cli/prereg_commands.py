@@ -55,14 +55,24 @@ def register(cli: click.Group) -> None:
         ),
     )
     @click.option(
-        "--review-days",
+        "--review-after-uses",
         type=int,
-        default=7,
+        required=True,
         help=(
-            "Days until scheduled review (default 7). Andrew 2026-07-07: "
-            "the prior 30-day default made the falsifier too distant to "
-            "have real bite. Shorter cycle means the overdue-review gate "
-            "hits sooner and reviews stay honest."
+            "Review once this many more events of --uses-of have happened. "
+            "Reviews go by USE, never by date (Andrew 2026-10-16): a vacation "
+            "must not make one due with no data, and heavy use must not wait "
+            "out a calendar. The machinery is deterministic, so a handful of "
+            "uses is enough to tell whether it works."
+        ),
+    )
+    @click.option(
+        "--uses-of",
+        required=True,
+        help=(
+            "The ledger event type whose count drives the review, e.g. "
+            "SLEEP_CYCLE (a ritual ran) or GAME_WALK_FILED. It must have "
+            "happened at least once, or its count could never move."
         ),
     )
     @click.option("--actor", default="agent", help="Who is filing this prediction")
@@ -97,7 +107,8 @@ def register(cli: click.Group) -> None:
         success_criterion: str,
         falsifier: str,
         embarrassing: str,
-        review_days: int,
+        review_after_uses: int,
+        uses_of: str,
         actor: str,
         linked_claim: str | None,
         linked_commit: str | None,
@@ -157,14 +168,15 @@ def register(cli: click.Group) -> None:
                 claim=claim,
                 success_criterion=success_criterion,
                 falsifier=falsifier,
-                review_window_days=review_days,
+                review_after_uses=review_after_uses,
+                uses_of=uses_of,
                 linked_claim_id=linked_claim,
                 linked_commit=linked_commit,
                 tags=effective_tags if effective_tags else None,
                 embarrassing_reading=embarrassing,
             )
             click.secho(f"[+] Pre-registration filed: {prereg_id}", fg="cyan")
-            click.echo(f"    Review scheduled in {review_days} days.")
+            click.echo(f"    Review due after {review_after_uses} more {uses_of} event(s).")
             click.echo(f"    Falsifier: {falsifier[:100]}")
             if companion_prereg:
                 click.echo(f"    Upstream companion: {companion_prereg}")
