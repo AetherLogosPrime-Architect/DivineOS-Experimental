@@ -109,7 +109,11 @@ _POSITION_TAIL_RE = re.compile(COMMAND_START + r"$")
 # `bash -c '<cmd>'` and `sh -c "<cmd>"` pass CODE inside a quoted span. Quote
 # scrubbing would blank exactly the part that executes, so the span following
 # an explicit -c is kept. Everything else quoted stays data.
-_DASH_C_RE = re.compile(r"\b(?:ba|z|k|da)?sh\s+(?:-[A-Za-z]*\s+)*-c\s*(['\"])")
+#
+# The `-c` may be run together with other short flags (`bash -lc '...'`, `bash -ec '...'`), the
+# usual spelling for a login shell: found probing the merge reader for #692, where a merge typed
+# as `bash -lc "gh pr merge --squash 42"` was not seen because only a bare `-c` was recognised.
+_DASH_C_RE = re.compile(r"\b(?:ba|z|k|da)?sh\s+(?:-[A-Za-z]*\s+)*-[A-Za-z]*c\s*(['\"])")
 
 
 def _dash_c_body_spans(command: str) -> list[tuple[int, int]]:
