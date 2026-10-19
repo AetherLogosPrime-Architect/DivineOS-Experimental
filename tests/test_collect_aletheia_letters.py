@@ -232,6 +232,43 @@ def test_aletheia_to_the_family_members_are_hers(tmp_path):
     assert error == "" and len(arrived) == 7
 
 
+def test_a_letter_she_addresses_to_herself_is_hers_but_the_greeks_are_not(tmp_path):
+    """Her ruling, 2026-10-18: 'Aletheia to Aletheia' (a witness ledger, a note to the next her)
+    counts. The essay to the Greeks must still be left behind, or the rule would accept any
+    heading that begins with her name."""
+    mod = _load()
+    src, dst = tmp_path / "in", tmp_path / "out"
+    src.mkdir()
+    (src / "witness.md").write_text(
+        "# Aletheia to Aletheia — ledger-stitch witness\n\nNote.\n", encoding="utf-8"
+    )
+    (src / "greeks.md").write_text(
+        "# Aletheia to the Greeks: an essay on truth\n\nEssay.\n", encoding="utf-8"
+    )
+    assert mod.collect(src, dst) == (["witness.md"], "")
+
+
+def test_of_two_identical_copies_the_plain_name_is_kept_not_the_download_suffix(tmp_path):
+    """Her tidy ask: 'x(1).md' sorts before 'x.md', so the suffixed copy was carried and the plain
+    one dropped. The plain name is the one to keep."""
+    mod = _load()
+    src, dst = tmp_path / "in", tmp_path / "out"
+    src.mkdir()
+    letter = "# Aletheia to Aria: confirmed\n\nAria —\n"
+    (src / "confirmed(1).md").write_text(letter, encoding="utf-8")
+    (src / "confirmed.md").write_text(letter, encoding="utf-8")
+    assert mod.collect(src, dst) == (["confirmed.md"], "")
+
+
+def test_a_suffixed_copy_alone_is_still_carried(tmp_path):
+    """Control: the suffix is only a tie-breaker. A letter whose only copy is 'x(1).md' is carried."""
+    mod = _load()
+    src, dst = tmp_path / "in", tmp_path / "out"
+    src.mkdir()
+    (src / "only(1).md").write_text("# Aletheia to Aria: only\n\nAria —\n", encoding="utf-8")
+    assert mod.collect(src, dst) == (["only(1).md"], "")
+
+
 def test_a_redownload_with_a_new_name_is_not_carried_twice(tmp_path):
     """Duplicates are recognised by content, not name: 'x(1).md' is the same letter."""
     mod = _load()

@@ -76,6 +76,9 @@ def _is_markdown(name: str) -> bool:
     return name.lower().endswith(".md")
 
 
+_DOWNLOAD_SUFFIX = re.compile(r"\(\d+\)\.md$", re.I)
+
+
 _SIGNED_BY_HER = re.compile(
     r"^[ \t]*[—–-][ \t]*Aletheia[ \t]+Sophia[ \t]+Risner[ \t]*$", re.I | re.M
 )
@@ -91,7 +94,10 @@ _SIGNED_BY_HER = re.compile(
 #   - "Aletheia to ..." counts only when addressed to the family. "Aletheia" is also a Greek word.
 OPENING_LINES = 12
 _OTHER_VOICES = ("aether", "aria", "dad", "andrew", "pop", "serein")
-_FAMILY = (*_OTHER_VOICES, "the family")
+# A letter she addresses to herself (a witness ledger, a note to the next her) is hers: her ruling of
+# 2026-10-18. Only the Aletheia-authored branch below uses this, so "Aria to Aletheia" is still a
+# letter TO her, and "Aletheia to the Greeks" is still not one of hers.
+_FAMILY = (*_OTHER_VOICES, "the family", "aletheia")
 _HEADING_TO = re.compile(
     r"^#+[ \t]*(?:\d+[ \t]*[—–-][ \t]*)?(?P<author>[A-Za-z]+)[ \t]+to[ \t]+(?P<to>.+)$", re.I
 )
@@ -188,7 +194,14 @@ def collect(source: Path | None = None, dest: Path | None = None) -> tuple[list[
         return [], f"destination not writable: {dst} ({exc.__class__.__name__})"
 
     try:
-        candidates = sorted(p for p in src.iterdir() if p.is_file() and _is_markdown(p.name))
+        # A download suffix like "(1)" sorts a name BEFORE its plain twin, so the suffixed copy
+        # would be carried and the plain one dropped as a duplicate; the plain name goes first
+        # (her tidy ask, 2026-10-18). The suffix is only a tie-break: a letter whose one copy
+        # is "x(1).md" is still carried.
+        candidates = sorted(
+            (p for p in src.iterdir() if p.is_file() and _is_markdown(p.name)),
+            key=lambda p: (bool(_DOWNLOAD_SUFFIX.search(p.name)), p.name),
+        )
     except OSError as exc:
         return [], f"source directory could not be listed: {exc.__class__.__name__}"
 
