@@ -21,8 +21,12 @@ blanks quoted values (a quoted `-R "o/r"` becomes spaces). The scrubber keeps ev
 in place, so the two line up.
 
 NOT SEEN, and named so nobody reads silence as coverage: a merge typed from the web page's
-button, a merge made through the GraphQL API (`mergePullRequest`), a program whose path is
-quoted because it contains a space, and a merge typed from a folder that is not the repository.
+button, a merge made through the GraphQL API (`mergePullRequest`), the same REST call made by
+another program (`curl -X PUT .../pulls/N/merge`), a merge launched from a quoted string of
+another language (`python -c "subprocess.run(['gh','pr','merge','42'])"`), a program whose path
+is quoted because it contains a space, and a merge typed from a folder that is not the
+repository. The reader finds merges by `gh`'s own vocabulary, so a different program that talks
+to GitHub is a different door; only the ruleset's strict policy closes every one.
 """
 
 from __future__ import annotations
