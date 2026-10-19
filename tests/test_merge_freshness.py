@@ -107,6 +107,26 @@ def test_every_ordinary_way_of_naming_the_pr_is_asked_about(command, selector):
     assert run.calls[0][3] == selector, run.calls[0]
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh pr merge -R o/r 42",
+        "gh pr merge --repo o/r --squash 42",
+        "gh pr merge 42 -R o/r",
+        "gh pr merge --squash 42 --repo o/r",
+        "gh pr merge --repo=o/r 42",
+    ],
+)
+def test_a_repo_flag_names_the_repository_and_is_not_mistaken_for_the_pr(command):
+    """Aria's second read of #692: `-R o/r` was read as the pull request, `42 -R o/r` ignored it."""
+    run = _gh(VIEW, _compare(3))
+    assert mf.block_reason(command, run=run) is not None, command
+    view, compare = run.calls
+    assert view[3] == "42", view
+    assert "--repo" in view and view[view.index("--repo") + 1] == "o/r", view
+    assert "repos/o/r/compare/main...abc123" in " ".join(compare), compare
+
+
 def _queue(*answers):
     """A stand-in for `gh` that answers in order, for a command that asks about several PRs."""
     left = list(answers)
@@ -173,7 +193,7 @@ def test_prose_naming_a_merge_is_not_a_merge():
 
 
 def test_the_surface_denies_through_json_and_names_the_pr(monkeypatch):
-    monkeypatch.setattr(mf, "read_state", lambda sel, run=None: ("behind", 2, "", 42))
+    monkeypatch.setattr(mf, "read_state", lambda sel, repo="", run=None: ("behind", 2, "", 42))
     out = hs.pr_merge_freshness_surface(
         {"tool_name": "Bash", "tool_input": {"command": "gh pr merge 42 --squash"}}
     )
@@ -181,7 +201,7 @@ def test_the_surface_denies_through_json_and_names_the_pr(monkeypatch):
 
 
 def test_the_surface_is_quiet_for_other_tools_and_fresh_prs(monkeypatch):
-    monkeypatch.setattr(mf, "read_state", lambda sel, run=None: ("fresh", 0, "", 42))
+    monkeypatch.setattr(mf, "read_state", lambda sel, repo="", run=None: ("fresh", 0, "", 42))
     assert not hs.pr_merge_freshness_surface({"tool_name": "Read", "tool_input": {}}).refused
     fresh = hs.pr_merge_freshness_surface(
         {"tool_name": "Bash", "tool_input": {"command": "gh pr merge 42 --squash"}}

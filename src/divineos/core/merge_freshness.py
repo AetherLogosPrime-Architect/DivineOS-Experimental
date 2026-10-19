@@ -51,31 +51,46 @@ _VALUE_FLAGS = frozenset(
         "-A",
         "--author-email",
         "--match-head-commit",
+        "-R",
+        "--repo",
     }
 )
+_REPO_FLAGS = frozenset({"-R", "--repo"})
 
 FRESH = "fresh"
 BEHIND = "behind"
 COULD_NOT_LOOK = "could-not-look"
 
 
-def _selector_after(scrubbed: str, start: int) -> str:
-    """What follows `gh pr merge` as the pull request: a string for `gh pr view`, "" for none."""
+def _selector_after(scrubbed: str, start: int) -> tuple[str, str]:
+    """(the pull request, the repository) named after `gh pr merge`; "" for either when absent.
+
+    The pull request is a string for `gh pr view`. The whole command is read to its end, not
+    stopped at the pull request, because `-R/--repo` may come after it (Aria's second read of
+    #692: `-R o/r 42` was read as the pull request, and `42 -R o/r` ignored the repository).
+    """
     rest = _SEPARATORS.split(scrubbed[start:], maxsplit=1)[0]
     try:
         tokens = shlex.split(rest)
     except ValueError:
         tokens = rest.split()
-    skip_value = False
+    selector, repo = "", ""
+    take_repo = skip_value = False
     for token in tokens:
+        if take_repo:
+            repo, take_repo = token, False
+            continue
         if skip_value:
             skip_value = False
             continue
-        if token.startswith("-"):
-            skip_value = token in _VALUE_FLAGS
-            continue
-        return token[1:] if token.startswith("#") and token[1:].isdigit() else token
-    return ""
+        if token.startswith("--repo="):
+            repo = token.split("=", 1)[1]
+        elif token.startswith("-"):
+            take_repo = token in _REPO_FLAGS
+            skip_value = token in _VALUE_FLAGS and not take_repo
+        elif not selector:
+            selector = token[1:] if token.startswith("#") and token[1:].isdigit() else token
+    return selector, repo
 
 
 def _ask(args: list[str], run) -> tuple[dict | None, str]:
@@ -95,16 +110,25 @@ def _ask(args: list[str], run) -> tuple[dict | None, str]:
     return data, ""
 
 
-def read_state(selector: str, run=subprocess.run) -> tuple[str, int, str, int | None]:
+def read_state(
+    selector: str, repo: str = "", run=subprocess.run
+) -> tuple[str, int, str, int | None]:
     """(state, commits behind, why it could not be read, the PR's number) for ``selector``."""
-    args = ["gh", "pr", "view", *([selector] if selector else []), "--json"]
-    view, why = _ask([*args, "number,baseRefName,headRefOid"], run)
+    args = [
+        "gh",
+        "pr",
+        "view",
+        *([selector] if selector else []),
+        *(["--repo", repo] if repo else []),
+    ]
+    view, why = _ask([*args, "--json", "number,baseRefName,headRefOid"], run)
     if view is None:
         return COULD_NOT_LOOK, 0, f"reading the pull request: {why}", None
     number, base, head = view.get("number"), view.get("baseRefName"), view.get("headRefOid")
     if not isinstance(number, int) or not base or not head:
         return COULD_NOT_LOOK, 0, "the pull request names no number, base branch or head", None
-    compare, why = _ask(["gh", "api", f"repos/{{owner}}/{{repo}}/compare/{base}...{head}"], run)
+    where = repo or "{owner}/{repo}"
+    compare, why = _ask(["gh", "api", f"repos/{where}/compare/{base}...{head}"], run)
     if compare is None:
         return COULD_NOT_LOOK, 0, f"comparing it with {base}: {why}", number
     behind = compare.get("behind_by")
@@ -147,7 +171,8 @@ def block_reason(bash_command: str, run=subprocess.run) -> str | None:
     for match in _GH_PR_MERGE.finditer(scrubbed):
         if not at_command_position(scrubbed, match.start()):
             continue
-        state, behind, why, number = read_state(_selector_after(scrubbed, match.end()), run=run)
+        selector, repo = _selector_after(scrubbed, match.end())
+        state, behind, why, number = read_state(selector, repo, run=run)
         if state != FRESH:
             return _refusal(number, state, behind, why)
     return None
