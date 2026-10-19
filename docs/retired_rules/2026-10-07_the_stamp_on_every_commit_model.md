@@ -29,6 +29,6 @@ The reason it lasted: the rule changed in speech and the tool that taught the ol
 
 ## What replaced it
 
-`divineos stamp-ready <pr>` validates the round, writes the trailer into the PR body, and takes the PR out of draft. It no longer touches the branch's commits, and no longer refuses because a branch is behind main; that is GitHub's rule at merge. `divineos audit prepare-merge` prints the block for the squash-merge message.
+`divineos stamp-ready <pr>` validates the round, writes the trailer into the PR body, and takes the PR out of draft. It no longer touches the branch's commits, and no longer refuses because a branch is behind main. (Corrected 2026-10-18: this line first called that "GitHub's rule at merge". It is not: the ruleset's strict up-to-date policy is false, so nothing refuses a behind branch at merge, and a merge-gate refusal is owed.) `divineos audit prepare-merge` prints the block for the squash-merge message.
 
 The retired code is in `archive/superseded/` at its original paths, with a row in its `LEDGER.md`.
