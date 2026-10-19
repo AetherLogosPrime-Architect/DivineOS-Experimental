@@ -127,6 +127,25 @@ def test_a_repo_flag_names_the_repository_and_is_not_mistaken_for_the_pr(command
     assert "repos/o/r/compare/main...abc123" in " ".join(compare), compare
 
 
+def test_a_quoted_repository_name_is_read_not_blanked():
+    """Probing for the walk: the quote scrubber blanked `-R "o/r"` into spaces, which gh refused."""
+    run = _gh(VIEW, _compare(3))
+    assert mf.block_reason('gh pr merge -R "o/r" 42', run=run) is not None
+    assert run.calls[0][run.calls[0].index("--repo") + 1] == "o/r"
+
+
+@pytest.mark.parametrize("name", ["../x", "o/r/../../z", "o r", "o/r;ls", "$(id)/r", "o"])
+def test_a_repository_name_that_is_not_owner_slash_repo_never_reaches_gh(name):
+    reason = mf.block_reason(f"gh pr merge 42 -R '{name}'", run=_never)
+    assert reason is not None and "could not tell" in reason
+
+
+def test_a_flag_inside_a_quoted_body_is_not_a_flag():
+    run = _gh(VIEW, _compare(3))
+    assert mf.block_reason('gh pr merge --body "-R evil/repo" 42', run=run) is not None
+    assert "--repo" not in run.calls[0]
+
+
 def _queue(*answers):
     """A stand-in for `gh` that answers in order, for a command that asks about several PRs."""
     left = list(answers)

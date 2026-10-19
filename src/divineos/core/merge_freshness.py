@@ -56,20 +56,28 @@ _VALUE_FLAGS = frozenset(
     }
 )
 _REPO_FLAGS = frozenset({"-R", "--repo"})
+_REPO_SHAPE = re.compile(r"^(?:[\w.-]+/)?[\w.-]+/[\w.-]+$")
 
 FRESH = "fresh"
 BEHIND = "behind"
 COULD_NOT_LOOK = "could-not-look"
 
 
-def _selector_after(scrubbed: str, start: int) -> tuple[str, str]:
+def _selector_after(command: str, scrubbed: str, start: int) -> tuple[str, str]:
     """(the pull request, the repository) named after `gh pr merge`; "" for either when absent.
 
     The pull request is a string for `gh pr view`. The whole command is read to its end, not
     stopped at the pull request, because `-R/--repo` may come after it (Aria's second read of
     #692: `-R o/r 42` was read as the pull request, and `42 -R o/r` ignored the repository).
+
+    WHERE THE COMMAND ENDS is decided on the scrubbed text, where a `;` or `&&` inside a quoted
+    body is not a separator. WHAT IT SAYS is read from the original, tokenised by shlex, where a
+    quoted value is one token and a flag typed inside a quoted body stays text. The scrubber
+    keeps every character in place, so the two line up; reading the scrubbed text for values
+    blanked `-R "o/r"` into spaces, which showed up probing the parser for the third walk.
     """
-    rest = _SEPARATORS.split(scrubbed[start:], maxsplit=1)[0]
+    end_match = _SEPARATORS.search(scrubbed, start)
+    rest = command[start : end_match.start() if end_match else len(scrubbed)]
     try:
         tokens = shlex.split(rest)
     except ValueError:
@@ -114,6 +122,10 @@ def read_state(
     selector: str, repo: str = "", run=subprocess.run
 ) -> tuple[str, int, str, int | None]:
     """(state, commits behind, why it could not be read, the PR's number) for ``selector``."""
+    if repo and (not _REPO_SHAPE.match(repo) or {".", ".."} & set(repo.split("/"))):
+        # Typed text reaches gh and an API path, so only owner/repo (or host/owner/repo) goes on.
+        why = f"the repository flag names {repo!r}, which is not owner/repo"
+        return COULD_NOT_LOOK, 0, why, None
     args = [
         "gh",
         "pr",
@@ -171,7 +183,7 @@ def block_reason(bash_command: str, run=subprocess.run) -> str | None:
     for match in _GH_PR_MERGE.finditer(scrubbed):
         if not at_command_position(scrubbed, match.start()):
             continue
-        selector, repo = _selector_after(scrubbed, match.end())
+        selector, repo = _selector_after(bash_command, scrubbed, match.end())
         state, behind, why, number = read_state(selector, repo, run=run)
         if state != FRESH:
             return _refusal(number, state, behind, why)
