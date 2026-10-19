@@ -48,6 +48,19 @@ import shutil
 import sys
 from pathlib import Path
 
+# The house's one header reader. The hook that runs this takes whichever `python` is on PATH, which
+# may have no divineos, or a checkout whose build_flow predates header_lines (Aether's cold read of
+# #690, 2026-10-19). Imported here and not inside a function, so a failure is known before any file
+# is read, and collect() reports it as COULD NOT LOOK instead of raising out of the hook, which
+# would read as "nothing to carry".
+try:
+    from divineos.core.build_flow import header_lines as _header_lines
+
+    _HEADER_READER_ERROR = ""
+except ImportError as _exc:
+    _header_lines = None  # type: ignore[assignment]
+    _HEADER_READER_ERROR = f"{type(_exc).__name__}: {_exc}"
+
 # The announcement names this many and counts the rest: the first run in a checkout can carry
 # hundreds of older letters, and naming each would bury the one that matters.
 NAMES_SHOWN = 10
@@ -122,9 +135,7 @@ def _after_front_matter(text: str) -> str:
 
 
 def _opening(text: str) -> list[str]:
-    from divineos.core.build_flow import header_lines
-
-    lines = [ln for ln in header_lines(_after_front_matter(text)) if not ln.startswith(">")]
+    lines = [ln for ln in _header_lines(_after_front_matter(text)) if not ln.startswith(">")]
     return lines[:OPENING_LINES]
 
 
@@ -182,6 +193,12 @@ def collect(source: Path | None = None, dest: Path | None = None) -> tuple[list[
     plus empty error means looked-and-found-nothing. A non-empty error means
     could-not-look, and the caller must never print that as quiet.
     """
+    if _header_lines is None:
+        return [], (
+            "cannot read the openings of her letters: the house's header reader is not importable "
+            f"by this interpreter ({sys.executable}): {_HEADER_READER_ERROR}"
+        )
+
     src = source or _source_dir()
     dst = dest or _dest_dir()
 

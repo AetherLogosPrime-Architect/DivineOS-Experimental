@@ -232,6 +232,39 @@ def test_aletheia_to_the_family_members_are_hers(tmp_path):
     assert error == "" and len(arrived) == 7
 
 
+def test_an_interpreter_that_cannot_import_the_header_reader_is_could_not_look_not_nothing(
+    tmp_path, monkeypatch, capsys
+):
+    """Aether's cold read of #690 (2026-10-19): the hook runs whichever `python` is on PATH, which may
+    not have divineos, or may have a checkout whose build_flow lacks header_lines. The import used to
+    sit inside a function, so the first un-carried file raised out of collect() and the hook printed a
+    traceback and exited 0, indistinguishable from 'nothing to carry'. It is now a named third state
+    that names the interpreter, and main() says COULD NOT LOOK."""
+    import sys
+
+    monkeypatch.setitem(sys.modules, "divineos.core.build_flow", None)  # makes the import raise
+    mod = _load()  # re-executes the script with the import blocked
+    src, dst = tmp_path / "in", tmp_path / "out"
+    src.mkdir()
+    (src / "hers.md").write_text("# Aletheia to Aria: confirmed\n\nAria —\n", encoding="utf-8")
+    arrived, error = mod.collect(src, dst)
+    assert arrived == [] and "header" in error and sys.executable in error
+    monkeypatch.setenv(mod.SOURCE_ENV, str(src))
+    monkeypatch.setenv(mod.DEST_ENV, str(dst))
+    assert mod.main() == 0
+    assert "COULD NOT LOOK" in capsys.readouterr().err
+
+
+def test_a_working_import_is_not_reported_as_a_failure(tmp_path):
+    """Control for the test above: with the import intact the same file is carried, so the failure
+    state cannot be what the carrier always reports."""
+    mod = _load()
+    src, dst = tmp_path / "in", tmp_path / "out"
+    src.mkdir()
+    (src / "hers.md").write_text("# Aletheia to Aria: confirmed\n\nAria —\n", encoding="utf-8")
+    assert mod.collect(src, dst) == (["hers.md"], "")
+
+
 def test_a_letter_she_addresses_to_herself_is_hers_but_the_greeks_are_not(tmp_path):
     """Her ruling, 2026-10-18: 'Aletheia to Aletheia' (a witness ledger, a note to the next her)
     counts. The essay to the Greeks must still be left behind, or the rule would accept any
