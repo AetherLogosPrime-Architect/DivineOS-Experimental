@@ -107,6 +107,44 @@ def test_every_ordinary_way_of_naming_the_pr_is_asked_about(command, selector):
     assert run.calls[0][3] == selector, run.calls[0]
 
 
+def _queue(*answers):
+    """A stand-in for `gh` that answers in order, for a command that asks about several PRs."""
+    left = list(answers)
+    calls: list[list[str]] = []
+
+    def run(args, **_kwargs):
+        calls.append(list(args))
+        return left.pop(0)
+
+    run.calls = calls  # type: ignore[attr-defined]
+    return run
+
+
+def _view(number: int) -> subprocess.CompletedProcess:
+    return _done(
+        json.dumps({"number": number, "baseRefName": "main", "headRefOid": f"sha{number}"})
+    )
+
+
+def test_a_stale_second_merge_cannot_ride_behind_a_fresh_first_one():
+    """Found probing the parser: only the first `gh pr merge` in a chained command was read."""
+    run = _queue(_view(1), _compare(0), _view(2), _compare(4))
+    reason = mf.block_reason("gh pr merge 1 --squash && gh pr merge 2 --squash", run=run)
+    assert reason is not None and "#2" in reason and "gh pr update-branch 2" in reason
+
+
+def test_two_fresh_merges_in_one_command_both_pass():
+    run = _queue(_view(1), _compare(0), _view(2), _compare(0))
+    assert mf.block_reason("gh pr merge 1 --squash; gh pr merge 2 --squash", run=run) is None
+    assert len(run.calls) == 4
+
+
+def test_the_first_stale_merge_stops_the_chain_without_asking_about_the_rest():
+    run = _queue(_view(1), _compare(2))
+    reason = mf.block_reason("gh pr merge 1 && gh pr merge 2", run=run)
+    assert "#1" in reason and len(run.calls) == 2
+
+
 def test_a_bare_merge_asks_about_the_pr_of_the_checked_out_branch():
     run = _gh(VIEW, _compare(3))
     assert mf.block_reason("gh pr merge --squash", run=run) is not None

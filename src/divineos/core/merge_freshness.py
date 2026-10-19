@@ -142,13 +142,12 @@ def block_reason(bash_command: str, run=subprocess.run) -> str | None:
     if not isinstance(bash_command, str) or not bash_command.strip():
         return None
     scrubbed = strip_quoted(bash_command)
-    match = next(
-        (m for m in _GH_PR_MERGE.finditer(scrubbed) if at_command_position(scrubbed, m.start())),
-        None,
-    )
-    if not match:
-        return None
-    state, behind, why, number = read_state(_selector_after(scrubbed, match.end()), run=run)
-    if state == FRESH:
-        return None
-    return _refusal(number, state, behind, why)
+    # EVERY merge in the command is read, not the first: `gh pr merge 1 && gh pr merge 2` is
+    # an ordinary way to merge two, and a stale second one must not ride behind a fresh first.
+    for match in _GH_PR_MERGE.finditer(scrubbed):
+        if not at_command_position(scrubbed, match.start()):
+            continue
+        state, behind, why, number = read_state(_selector_after(scrubbed, match.end()), run=run)
+        if state != FRESH:
+            return _refusal(number, state, behind, why)
+    return None
