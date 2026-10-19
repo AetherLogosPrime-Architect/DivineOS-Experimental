@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**146 automations — 137 wired, 9 switched off.**
+**147 automations — 138 wired, 9 switched off.**
 
 ---
 
@@ -110,7 +110,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `goal-boundary-at-session-start.sh` | 2026-10-01 | A new stretch names its own work (2026-10-01, council-7666a3816f92). |
 | `load-character-sheet.sh` | 2026-09-21 | load Andrew's character sheet into the session |
 
-### Stop  (16)
+### Stop  (17)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -125,6 +125,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `promise-reach-detector.sh` | 2026-07-18 | scan last assistant reply for promise-shape phrases and |
 | `retrieval-tally-check.sh` | 2026-07-21 | post-compose retrieval-tally check. |
 | `shoggoth-gate.sh` | 2026-07-10 | shoggoth gate. |
+| `stamp-bare-letters-stop.sh` | not on main | Backstop for the thread stamp: a letter that left without its place in the thread is stamped at |
 | `stop-distancing-intercept.sh` | 2026-07-16 | thin doorman for DistancingIntercept. |
 | `stop-response-scope-intercept.sh` | 2026-07-16 | thin doorbell for ResponseScopeIntercept. |
 | `unlanded-push-must-not-close-quiet.sh` | 2026-09-30 | The push wrapper writes a verdict. Until now, nothing read it. |
