@@ -1,4 +1,4 @@
-"""Refuse a `gh pr merge` of a pull request that is behind main, and hand over the remedy.
+"""Refuse a merge of a pull request that is behind main, and hand over the remedy.
 
 Aletheia 2026-10-18, on the stamp retirement (#691): the stamp used to refuse a branch that
 was behind main, which was the only thing stopping a merge on checks that ran against an
@@ -16,13 +16,11 @@ Three states, kept apart on purpose: fresh (the merge may go on), behind (refuse
 named), could-not-look (refused, and says so). An unreadable check is never read as a pass:
 the merge itself needs the network, so a refusal here costs a retry and nothing else.
 
-WHICH MERGES IT SEES (Aria's cold read of #692, who tried twelve shapes). The PR is whatever
-`gh pr view` accepts: a number, `#number`, a URL, a branch name, or nothing at all, which
-`gh` reads as the pull request of the checked-out branch. Flags may come before it
-(`gh pr merge --squash 42`), and the flags that take a value are skipped with their value.
-The first version required the number straight after `merge`, so the most ordinary way of
-typing it went ungated. What is still not seen: a merge from the web page's button, which is
-outside every local gate.
+WHICH MERGES IT SEES is not decided here. ``core/merge_command.py`` reads a shell command and
+returns every merge it performs, by `gh pr merge` in any spelling or by the direct API call,
+and this module only asks GitHub about each one. Aria's cold read found flag-first, probing
+found the chained pair, and Aletheia held #692 for the API door and the program named by a
+path; those holes are closed once, in the reader, for every gate that uses it.
 
 Not here: running `update-branch` for me. That is the automation a later doorman could add;
 a gate firing is a finding, and this one names what to do.
@@ -32,73 +30,15 @@ from __future__ import annotations
 
 import json
 import re
-import shlex
 import subprocess
 
-from divineos.core.command_match import at_command_position, strip_quoted
+from divineos.core.merge_command import merge_targets
 
-_GH_PR_MERGE = re.compile(r"\bgh\s+pr\s+merge\b")
-_SEPARATORS = re.compile(r"&&|\|\||[;|\n]")
-# `gh pr merge` flags that take a value, so the value is not mistaken for the pull request.
-_VALUE_FLAGS = frozenset(
-    {
-        "-t",
-        "--subject",
-        "-b",
-        "--body",
-        "-F",
-        "--body-file",
-        "-A",
-        "--author-email",
-        "--match-head-commit",
-        "-R",
-        "--repo",
-    }
-)
-_REPO_FLAGS = frozenset({"-R", "--repo"})
 _REPO_SHAPE = re.compile(r"^(?:[\w.-]+/)?[\w.-]+/[\w.-]+$")
 
 FRESH = "fresh"
 BEHIND = "behind"
 COULD_NOT_LOOK = "could-not-look"
-
-
-def _selector_after(command: str, scrubbed: str, start: int) -> tuple[str, str]:
-    """(the pull request, the repository) named after `gh pr merge`; "" for either when absent.
-
-    The pull request is a string for `gh pr view`. The whole command is read to its end, not
-    stopped at the pull request, because `-R/--repo` may come after it (Aria's second read of
-    #692: `-R o/r 42` was read as the pull request, and `42 -R o/r` ignored the repository).
-
-    WHERE THE COMMAND ENDS is decided on the scrubbed text, where a `;` or `&&` inside a quoted
-    body is not a separator. WHAT IT SAYS is read from the original, tokenised by shlex, where a
-    quoted value is one token and a flag typed inside a quoted body stays text. The scrubber
-    keeps every character in place, so the two line up; reading the scrubbed text for values
-    blanked `-R "o/r"` into spaces, which showed up probing the parser for the third walk.
-    """
-    end_match = _SEPARATORS.search(scrubbed, start)
-    rest = command[start : end_match.start() if end_match else len(scrubbed)]
-    try:
-        tokens = shlex.split(rest)
-    except ValueError:
-        tokens = rest.split()
-    selector, repo = "", ""
-    take_repo = skip_value = False
-    for token in tokens:
-        if take_repo:
-            repo, take_repo = token, False
-            continue
-        if skip_value:
-            skip_value = False
-            continue
-        if token.startswith("--repo="):
-            repo = token.split("=", 1)[1]
-        elif token.startswith("-"):
-            take_repo = token in _REPO_FLAGS
-            skip_value = token in _VALUE_FLAGS and not take_repo
-        elif not selector:
-            selector = token[1:] if token.startswith("#") and token[1:].isdigit() else token
-    return selector, repo
 
 
 def _ask(args: list[str], run) -> tuple[dict | None, str]:
@@ -154,7 +94,7 @@ def read_state(
     return (BEHIND if behind > 0 else FRESH), behind, "", number
 
 
-def _refusal(number: int | None, state: str, behind: int, why: str) -> str:
+def _refusal(number: int | None, state: str, behind: int, why: str, repo: str = "") -> str:
     which = f"PR #{number}" if number is not None else "this pull request"
     if state == COULD_NOT_LOOK:
         return (
@@ -162,29 +102,26 @@ def _refusal(number: int | None, state: str, behind: int, why: str) -> str:
             "and an unreadable check is not a pass. Run the merge again; if it keeps failing, "
             "look by hand: gh api repos/{owner}/{repo}/compare/main...<head> and read behind_by."
         )
+    named = f" -R {repo}" if repo else ""
     return (
         f"BLOCKED: {which} is {behind} commit(s) behind main, so its required checks ran "
         "against an older main than the one this merge lands on, and GitHub will not stop it "
         "(the ruleset's strict up-to-date policy is off, measured 2026-10-18).\n\n"
         f"  Bring it up to date on GitHub, which reruns the checks there:\n"
-        f"      gh pr update-branch {number}\n"
+        f"      gh pr update-branch {number}{named}\n"
         "  Then wait for the checks to go green and merge again. Your review line and "
         "Aletheia's confirm follow the change, not the floor, so they still hold."
     )
 
 
 def block_reason(bash_command: str, run=subprocess.run) -> str | None:
-    """A refusal if ``bash_command`` merges a pull request that is behind main, else None."""
-    if not isinstance(bash_command, str) or not bash_command.strip():
-        return None
-    scrubbed = strip_quoted(bash_command)
-    # EVERY merge in the command is read, not the first: `gh pr merge 1 && gh pr merge 2` is
-    # an ordinary way to merge two, and a stale second one must not ride behind a fresh first.
-    for match in _GH_PR_MERGE.finditer(scrubbed):
-        if not at_command_position(scrubbed, match.start()):
-            continue
-        selector, repo = _selector_after(bash_command, scrubbed, match.end())
-        state, behind, why, number = read_state(selector, repo, run=run)
+    """A refusal if ``bash_command`` merges a pull request that is behind main, else None.
+
+    EVERY merge in the command is asked about, not the first: `gh pr merge 1 && gh pr merge 2`
+    is an ordinary way to merge two, and a stale second one must not ride behind a fresh first.
+    """
+    for target in merge_targets(bash_command):
+        state, behind, why, number = read_state(target.selector, target.repo, run=run)
         if state != FRESH:
-            return _refusal(number, state, behind, why)
+            return _refusal(number, state, behind, why, target.repo)
     return None

@@ -127,6 +127,24 @@ def test_a_repo_flag_names_the_repository_and_is_not_mistaken_for_the_pr(command
     assert "repos/o/r/compare/main...abc123" in " ".join(compare), compare
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh api -X PUT repos/o/r/pulls/42/merge",
+        "gh api --method PUT repos/o/r/pulls/42/merge -f merge_method=squash",
+        "gh api -XPUT /repos/o/r/pulls/42/merge",
+        "/usr/bin/gh pr merge 42",
+        "C:\\tools\\gh.exe pr merge --squash 42",
+    ],
+)
+def test_the_two_doors_aletheia_held_692_for_are_refused_when_behind(command):
+    """The API's direct merge and the program named by a path both merge without `gh pr merge`."""
+    run = _gh(VIEW, _compare(3))
+    reason = mf.block_reason(command, run=run)
+    assert reason is not None and "gh pr update-branch 42" in reason, command
+    assert run.calls[0][3] == "42", run.calls[0]
+
+
 def test_a_quoted_repository_name_is_read_not_blanked():
     """Probing for the walk: the quote scrubber blanked `-R "o/r"` into spaces, which gh refused."""
     run = _gh(VIEW, _compare(3))
