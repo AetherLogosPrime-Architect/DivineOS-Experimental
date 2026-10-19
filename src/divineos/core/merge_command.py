@@ -37,7 +37,7 @@ from divineos.core.command_match import at_command_position, strip_quoted
 _PROGRAM = r"(?:\S*[/\\])?gh(?:\.exe)?"
 _PR_MERGE = re.compile(rf"{_PROGRAM}\s+pr\s+merge\b")
 _API = re.compile(rf"{_PROGRAM}\s+api\b")
-_SEPARATORS = re.compile(r"&&|\|\||[;|\n]")
+_SEPARATORS = re.compile(r"&&|\|\||[;|)\n]")
 _MERGE_ENDPOINT = re.compile(r"^/?repos/(?P<repo>[^/\s]+/[^/\s]+)/pulls/(?P<number>\d+)/merge/?$")
 
 # `gh pr merge` flags that take a value, so the value is not mistaken for the pull request.
@@ -92,6 +92,13 @@ def _tokens(command: str, scrubbed: str, start: int) -> list[str]:
     rest = command[start : end.start() if end else len(scrubbed)]
     try:
         return shlex.split(rest)
+    except ValueError:
+        pass
+    # The closing quote of a `bash -c "..."` body is not part of the code inside it, but the
+    # command ends before it and it sticks to the last word (`.../merge"`), so try once
+    # without it before falling back to plain whitespace.
+    try:
+        return shlex.split(rest.rstrip("'\" "))
     except ValueError:
         return rest.split()
 

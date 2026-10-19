@@ -106,6 +106,31 @@ def test_commands_that_do_not_merge_are_not_merges(command):
     assert merge_targets(command) == [], command
 
 
+@pytest.mark.parametrize(
+    "command, selector, via",
+    [
+        ('bash -c "gh pr merge 692 --squash"', "692", "pr"),
+        ("sh -c 'gh pr merge 692 --squash'", "692", "pr"),
+        ('bash -c "gh pr merge --squash 692"', "692", "pr"),
+        ('bash -c "gh api -X PUT repos/o/r/pulls/692/merge"', "692", "api"),
+        (
+            "sh -c 'gh api --method PUT repos/o/r/pulls/692/merge -f merge_method=squash'",
+            "692",
+            "api",
+        ),
+        ('bash -lc "gh pr merge --squash 692"', "692", "pr"),
+        ('bash -c "gh pr merge 692" && echo done', "692", "pr"),
+        ("(gh pr merge 692)", "692", "pr"),
+        ("(cd x && gh pr merge --squash 692)", "692", "pr"),
+    ],
+)
+def test_a_merge_typed_inside_a_shell_wrapper_is_still_a_merge(command, selector, via):
+    """Probing the shared reader: the closing quote of a -c body stuck to the last word, and
+    `bash -lc` and a subshell were not recognised, so the API route hid inside `bash -c`."""
+    target = _one(command)
+    assert (target.selector, target.via) == (selector, via), command
+
+
 def test_every_merge_in_a_chained_command_is_found_in_order():
     found = merge_targets(
         "gh pr merge 1 --squash && gh api -X PUT repos/o/r/pulls/2/merge; gh pr merge 3"
