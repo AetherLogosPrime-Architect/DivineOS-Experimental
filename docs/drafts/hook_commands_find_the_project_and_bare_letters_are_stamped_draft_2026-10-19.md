@@ -20,7 +20,9 @@ The design of the stamper already says a letter it could not stamp must announce
 
 ## What it still cannot see
 
-A letter written in a work copy other than the live checkout (the hook and git are that tree's, not this one's). A letter written before it is committed by something else. A hook the harness never runs at all (a Stop hook cannot report that it was not run; only the 70-command fix and the next measurement can). The 39 old bare letters are left as they are, named here, and not renumbered.
+A letter written in a work copy other than the live checkout (the hook and git are that tree's, not this one's). A letter written before it is committed by something else. A hook the harness never runs at all (a Stop hook cannot report that it was not run; only the 70-command fix and the next measurement can). The 39 old bare letters are left as they are, named here, and not renumbered. If the project directory is unset **and** the session stands in no repository at once, every hook command now prints NOT RUNNING and does nothing; the old relative form failed in that state too, so this is not newly worse, but it is one shared dependency, and the line is only visible on events whose output reaches the reader (PreToolUse output may not).
+
+**Undo:** one revert of one commit. The six project-directory commands that existed before are untouched, and the size checker and the two front-door tests are in the same commit so they revert together.
 
 ## Falsifier
 
