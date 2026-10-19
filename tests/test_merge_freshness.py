@@ -14,6 +14,8 @@ from __future__ import annotations
 import json
 import subprocess
 
+import pytest
+
 from divineos.core import hook_surfaces as hs
 from divineos.core import merge_freshness as mf
 
@@ -35,7 +37,7 @@ def _gh(view: subprocess.CompletedProcess, compare: subprocess.CompletedProcess)
     return run
 
 
-VIEW = _done(json.dumps({"baseRefName": "main", "headRefOid": "abc123"}))
+VIEW = _done(json.dumps({"number": 42, "baseRefName": "main", "headRefOid": "abc123"}))
 
 
 def _compare(behind_by: int) -> subprocess.CompletedProcess:
@@ -83,6 +85,42 @@ def test_an_answer_without_the_count_is_not_a_pass():
     assert mf.block_reason("gh pr merge 42", run=run) is not None
 
 
+@pytest.mark.parametrize(
+    "command, selector",
+    [
+        ("gh pr merge --squash 42", "42"),
+        ("gh pr merge --admin --squash 42", "42"),
+        ("gh pr merge -s 42", "42"),
+        ("gh pr merge --subject fix 42", "42"),
+        ("gh pr merge --body-file notes.txt 42", "42"),
+        ("gh pr merge #42", "42"),
+        ("gh pr merge https://github.com/o/r/pull/42", "https://github.com/o/r/pull/42"),
+        ("gh pr merge my-branch --squash", "my-branch"),
+        ("cd x && gh pr merge --squash 42", "42"),
+        ("GH_TOKEN=x gh pr merge --squash 42", "42"),
+    ],
+)
+def test_every_ordinary_way_of_naming_the_pr_is_asked_about(command, selector):
+    """Aria's cold read of #692: `gh pr merge --squash 42` named the PR and was not asked."""
+    run = _gh(VIEW, _compare(3))
+    assert mf.block_reason(command, run=run) is not None, command
+    assert run.calls[0][3] == selector, run.calls[0]
+
+
+def test_a_bare_merge_asks_about_the_pr_of_the_checked_out_branch():
+    run = _gh(VIEW, _compare(3))
+    assert mf.block_reason("gh pr merge --squash", run=run) is not None
+    assert run.calls[0][3] == "--json", run.calls[0]  # no selector, so gh reads the current branch
+
+
+def test_the_pr_is_named_by_the_number_github_returns_not_by_the_text_typed():
+    run = _gh(
+        _done(json.dumps({"number": 7, "baseRefName": "main", "headRefOid": "abc"})), _compare(1)
+    )
+    reason = mf.block_reason("gh pr merge my-branch", run=run)
+    assert "#7" in reason and "gh pr update-branch 7" in reason
+
+
 def _never(*_a, **_k):
     raise AssertionError("gh must not be asked about a command that is not a merge")
 
@@ -97,7 +135,7 @@ def test_prose_naming_a_merge_is_not_a_merge():
 
 
 def test_the_surface_denies_through_json_and_names_the_pr(monkeypatch):
-    monkeypatch.setattr(mf, "read_state", lambda pr, run=None: ("behind", 2, ""))
+    monkeypatch.setattr(mf, "read_state", lambda sel, run=None: ("behind", 2, "", 42))
     out = hs.pr_merge_freshness_surface(
         {"tool_name": "Bash", "tool_input": {"command": "gh pr merge 42 --squash"}}
     )
@@ -105,7 +143,7 @@ def test_the_surface_denies_through_json_and_names_the_pr(monkeypatch):
 
 
 def test_the_surface_is_quiet_for_other_tools_and_fresh_prs(monkeypatch):
-    monkeypatch.setattr(mf, "read_state", lambda pr, run=None: ("fresh", 0, ""))
+    monkeypatch.setattr(mf, "read_state", lambda sel, run=None: ("fresh", 0, "", 42))
     assert not hs.pr_merge_freshness_surface({"tool_name": "Read", "tool_input": {}}).refused
     fresh = hs.pr_merge_freshness_surface(
         {"tool_name": "Bash", "tool_input": {"command": "gh pr merge 42 --squash"}}

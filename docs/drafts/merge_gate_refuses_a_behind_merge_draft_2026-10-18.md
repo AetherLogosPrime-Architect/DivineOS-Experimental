@@ -16,14 +16,22 @@ Three states, kept apart on purpose: fresh (merge may proceed), behind (refused,
 
 ## Where it lives
 
-A small new module, `core/merge_freshness.py`, holds the reading and the wording. `pr_merge_gate.block_reason` gets one call into it, placed after the command is recognised as a `gh pr merge N`, because two open branches (#688, #592) also edit that file and one line is the smallest thing to collide.
+A small new module, `core/merge_freshness.py`, holds the reading and the wording. It is a sibling surface in the router (`pr_merge_freshness_surface` in `hook_surfaces.py`, registered beside `pr_merge_gate_surface`), and `pr_merge_gate.py` is not touched at all. CORRECTED 2026-10-18 on Aria's cold read: this paragraph first said `pr_merge_gate.block_reason` gets one call into the module, which the diff never did. The only file the change shares with other open work is `hook_surfaces.py` (one new function and one registration line), and Aria checked that none of her open branches edit it.
 
 ## What it does not do
 
 It does not run `update-branch` for me (that is the automation a later doorman could add; per Dad's rule a gate-fire is a finding, not a save). It does not prove the merged result is green: after `update-branch` the checks rerun and the gate asks again at merge. And if main moves again in between, it refuses again; that costs a rerun, never a signature.
 
-It sees only `gh pr merge <number>`. A merge named by branch or by URL passes ungated, the same limit as the merge gate beside it, and a merge from the web page's button is outside every local gate. Measured against real GitHub on 2026-10-18, not just a stand-in: #691 read as 0 behind, #659 as 3 and #592 as 50, and plain `git rev-list --count` agreed on the two it could reach (3 and 0). A merge costs about 1.3 seconds for the two `gh` calls; a command that is not a merge costs nothing.
+WHICH MERGES IT SEES. Aria tried twelve shapes and found the first version asked only when the number came straight after `merge`, so `gh pr merge --squash 42`, the most ordinary way to type it, went ungated. It now reads the pull request as whatever `gh pr view` accepts: a number, `#number`, a URL, a branch name, or nothing at all (which `gh` reads as the pull request of the checked-out branch), with flags allowed before it and the flags that take a value skipped together with their value. What it still does not see is a merge from the web page's button, which is outside every local gate, and a merge made from a folder that is not the repository. The existing merge gate beside it has the old number-first pattern and so has the same hole for its review check; that is a separate finding, below. Measured against real GitHub on 2026-10-18, not just a stand-in: #691 read as 0 behind, #659 as 3 and #592 as 50, and plain `git rev-list --count` agreed on the two it could reach (3 and 0). A merge costs about 1.3 seconds for the two `gh` calls; a command that is not a merge costs nothing.
+
+## Does a review survive `update-branch`? (Aria's cold read, 2026-10-18)
+
+The remedy sentence said a stamped PR's review "still holds" after `update-branch` and nothing pinned it. What is shown, and what is not:
+
+- **From the code.** `scripts/ci_check_guardrail_trailer.sh` reads the trailer from the PR body and, on that path, blanks the tree-hash ("describes the PR, not this commit; not verified here"), so a new head does not break the required check `multi-party-review`. `scripts/ci_merge_review_check.py` (the `merge-review` job, not one of the three the ruleset requires) exits 0 for PENDING, meaning "nobody has approved the current head yet", which is the state of every freshly pushed head; its header says that making it fail was measured to make it unpassable.
+- **From real PRs today.** #673, #674, #678 and #681 each had their head moved (a merge of main) after Aletheia's confirm was given, were stamped on the later head by the content rung, and merged with all required checks green. A merge of main into the branch is exactly the commit `update-branch` makes.
+- **Not shown.** A literal `gh pr update-branch` on a stamped PR followed by its merge. The first real use will be that case, and this note names it so it is watched, not assumed: if the required checks or the merge-review job refuse a stamped PR after `update-branch`, the remedy this gate names is wrong and the gate must change.
 
 ## How we would know it failed
 
-A behind PR merges, or a fresh PR is refused. Either is a defect in the reading, and the first is the thing this exists to stop.
+A behind PR merges, or a fresh PR is refused, or a stamped PR that was brought up to date with `update-branch` is refused by a review check. The first is the thing this exists to stop; the others mean the reading or the remedy is wrong.
