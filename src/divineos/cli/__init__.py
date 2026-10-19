@@ -395,7 +395,6 @@ from divineos.cli import (  # noqa: E402
     progress_commands,
     letter_seen_commands,
     push_commands,
-    push_ready_command,
     stamp_ready_command,
     ship_command,
     audit_sync_command,
@@ -513,7 +512,6 @@ sleep_commands.register(cli)
 progress_commands.register(cli)
 letter_seen_commands.register(cli)
 push_commands.register(cli)
-push_ready_command.register(cli)
 stamp_ready_command.register(cli)
 ship_command.register(cli)
 audit_sync_command.register(cli)
