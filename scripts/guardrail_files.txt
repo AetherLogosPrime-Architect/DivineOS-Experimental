@@ -425,10 +425,6 @@ src/divineos/core/operating_loop/continuity_frame_detector.py
 src/divineos/core/keyword_enforcement_registry.py
 docs/keyword_enforcement_gates_excluded.txt
 
-# push-ready — automates the External-Review trailer + audit-round ceremony.
-# Weakening it would let the trailer-amend pathway skip round-creation or
-# self-confirm, silently degrading multi-party review.
-src/divineos/core/push_ready.py
 src/divineos/core/no_fix_gaming_validator.py
 src/divineos/core/bypass_key.py
 .claude/hooks/check-branch-on-push.sh

@@ -55,7 +55,6 @@ src/divineos/
     ship_command.py            ship: runs the merge checks in order (open and not a draft, her signed confirm at this exact head, his confirm in her round, every check passed), one line per step, and prints the merge command as a button. It never merges and never turns on auto-merge.
     aletheia_import_command.py aletheia-import: files Aletheia's delivered artifacts (CONFIRMS_/AUDIT_/FIXLIST_/REPLY_TO_*) out of ~/Downloads into family/letters. Her real delivery channel was never the one any letter mechanism watched, so a month of her audits sat unread (Andrew 2026-08-12)
     audit_sync_command.py      audit-sync: manual door to the shared-audit importer; stamp-ready calls the same sync automatically so nobody has to remember it exists
-    push_ready_command.py      push-ready: one-shot automation of trailer + audit-round + self-CONFIRMS + force-push ceremony for guardrail-touching PRs (Andrew 2026-07-28 streamlining option 2)
     automerge_commands.py      automerge: status surface across open PRs — classes (READY/ARMED/BLOCKED/DIRTY/UNKNOWN) + first failing check; closes the "auto-merge-armed ≠ merging" conflation
     todos_commands.py          todos: unified action-item list across preregs/corrections/audit/claims with --counts-only and --source filters; closes claim 2026-06-06 18:28 (OS-driven todo instrument)
     belt_commands.py           belt: the current task list pulled from the ranked pile (core/task_belt.py); `belt done <ref> --evidence` closes through the item's drawer, archives it, pulls the next (Andrew 2026-09-23)
@@ -675,7 +674,6 @@ src/divineos/
       corpus.py                Corpus loader — positives from andrew_corrections DB, negatives from cli_broken_escapes.jsonl.
     keyword_enforcement_registry.py Keyword-enforcement gate registry — derived from structure, permissive.
     keyword_enforcement_exclusion.py Keyword-enforcement exclusion-file parser (Aletheia F95 2026-07-28).
-    push_ready.py              push_ready — automate the External-Review trailer ceremony.
     no_fix_gaming_validator.py No-fix-gaming validator — close the escape-hatch in correction filings.
     no_fix_claim.py            The reply-side sibling of the validator above: an impossibility claim made to Andrew with no walk or search behind it is refused, and the container-scoped form is the way through.
     system_load_check.py       System-load pre-flight check for resource-heavy jobs.
