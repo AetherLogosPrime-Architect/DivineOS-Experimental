@@ -29,6 +29,12 @@ ASKED_BY_ME = [
     "Do you want the lock fix before the reading, or the reading before the lock fix?",
     "Where would you like me to begin: the stacks or the pile?",
     "Should I do the chips now and the slider later, or the other way round?",
+    # Mine of 2026-10-20: each went through the patterns above and cost him a message.
+    "Is there a room in the house you'd want that gate in first?",
+    "Is it all right with you if I go and build the stamp fix now, ahead of the rest of the line?",
+    "Do you want me to start on Aria's confirmed ones next, once my two are with their readers?",
+    "Would you rather I take Aria's four through the line one after another this morning, or "
+    "finish my own two first?",
 ]
 
 #: Real questions of mine that were NOT about order. None may be refused.
