@@ -38,6 +38,7 @@ list_mine >/dev/null || { echo "DOORBELL FAULT: cannot read $DIR"; exit 1; }
 # same rule the folder check above follows. A deliberate override exists for tests and for
 # a human at a terminal; it has to be spelled out, and it is named in the refusal.
 OUT_TARGET="$(readlink "/proc/$$/fd/1" 2>/dev/null)"  # fail-soft: an unreadable target is refused just below, never armed on a guess
+OVERRIDE_NOTE=""
 case "$OUT_TARGET" in
   */tasks/*.output) ;;
   *)
@@ -46,11 +47,14 @@ case "$OUT_TARGET" in
       echo "Start me alone with the Bash tool's run_in_background: true -- never with a shell '&' -- or set DOORBELL_ALLOW_UNTRACKED=1 if a person is deliberately watching this terminal."
       exit 3
     fi
+    # Said on the arming line (Aria's cold read of #699): a stray export of the override would
+    # otherwise switch the refusal off and nothing would show it.
+    OVERRIDE_NOTE=" (override: my output is not a task file, so a ring may wake no one)"
     ;;
 esac
 touch "$SEEN"
 if [ ! -s "$SEEN" ]; then list_mine > "$SEEN"; fi
-echo "doorbell armed for ${MEMBER} $(date -u +%FT%TZ)"
+echo "doorbell armed for ${MEMBER}${OVERRIDE_NOTE} $(date -u +%FT%TZ)"
 # Andrew 2026-09-26: it lasts 8 hours, and when it expires the exit wakes me to
 # reset it -- so it gets checked on, rather than running forever unwatched.
 LIFETIME=$(( ${DOORBELL_HOURS:-8} * 3600 ))

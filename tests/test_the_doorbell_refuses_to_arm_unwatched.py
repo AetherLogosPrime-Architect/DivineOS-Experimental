@@ -29,6 +29,21 @@ BASH = shutil.which("bash")
 pytestmark = pytest.mark.skipif(BASH is None, reason="no bash to run the bell with")
 
 
+def _kill_tree(proc: subprocess.Popen) -> None:
+    """Kill the wrapper and the bell under it, so no pipe stays held."""
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True, check=False
+        )
+    else:
+        import signal
+
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
 def _home(tmp_path: Path) -> dict[str, str]:
     (tmp_path / ".divineos-shared" / "letters").mkdir(parents=True)
     env = {**os.environ, "HOME": str(tmp_path)}
@@ -56,12 +71,22 @@ def _run(env: dict[str, str], out_path: Path | None, seconds: float = 5) -> tupl
         cmd = [BASH, "-c", f'bash "{BELL.as_posix()}" aether; echo "bell-exit=$?"; :']
     text = ""
     if out_path is None:
+        # Popen, not run(): if the bell ARMS (a weakened check), it keeps the pipe open, and
+        # run()'s timeout path then waits on the pipe forever and wedges the whole suite (Aria's
+        # mutation of #699). The tree is killed on timeout so a weakened bell fails the assertion.
+        proc = subprocess.Popen(
+            cmd,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            start_new_session=(os.name != "nt"),
+        )
         try:
-            done = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=seconds)
-            text = done.stdout + done.stderr
-        except subprocess.TimeoutExpired as exc:
-            out = exc.stdout or ""
-            text = out.decode() if isinstance(out, bytes) else out
+            text, _ = proc.communicate(timeout=seconds)
+        except subprocess.TimeoutExpired:
+            _kill_tree(proc)
+            text, _ = proc.communicate()
     else:
         with out_path.open("w", encoding="utf-8") as sink:
             try:
@@ -97,6 +122,7 @@ def test_a_bell_whose_output_is_a_background_task_file_arms(tmp_path):
     code, out = _run(env, task_dir / "b123abc.output")
     assert code is None, (code, out)  # still listening when time ran out
     assert "doorbell armed" in out, out
+    assert "override" not in out, out  # a watched bell does not claim an override
 
 
 def test_the_override_arms_and_is_named_in_the_refusal(tmp_path):
@@ -104,6 +130,7 @@ def test_the_override_arms_and_is_named_in_the_refusal(tmp_path):
     env["DOORBELL_ALLOW_UNTRACKED"] = "1"
     code, out = _run(env, None)
     assert code is None and "doorbell armed" in out, (code, out)
+    assert "override" in out, out  # Aria: an override that armed it must say so on the arming line
     env.pop("DOORBELL_ALLOW_UNTRACKED")
     _code, refusal = _run(env, None)
     assert "DOORBELL_ALLOW_UNTRACKED=1" in refusal
