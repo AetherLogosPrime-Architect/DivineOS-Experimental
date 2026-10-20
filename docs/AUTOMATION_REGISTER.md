@@ -125,7 +125,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `promise-reach-detector.sh` | 2026-07-18 | scan last assistant reply for promise-shape phrases and |
 | `retrieval-tally-check.sh` | 2026-07-21 | post-compose retrieval-tally check. |
 | `shoggoth-gate.sh` | 2026-07-10 | shoggoth gate. |
-| `stamp-bare-letters-stop.sh` | not on main | Backstop for the thread stamp: a letter that left without its place in the thread is stamped at |
+| `stamp-bare-letters-stop.sh` | 2026-10-19 | Backstop for the thread stamp: a letter that left without its place in the thread is stamped at |
 | `stop-distancing-intercept.sh` | 2026-07-16 | thin doorman for DistancingIntercept. |
 | `stop-response-scope-intercept.sh` | 2026-07-16 | thin doorbell for ResponseScopeIntercept. |
 | `unlanded-push-must-not-close-quiet.sh` | 2026-09-30 | The push wrapper writes a verdict. Until now, nothing read it. |

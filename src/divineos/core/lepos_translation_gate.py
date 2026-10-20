@@ -1370,8 +1370,8 @@ def _headerless_address_ok(reply: str) -> bool:
 
 _DISMISSAL_RE = re.compile(
     r"(?:"
-    r"(?:nothing|no(?:thing)?\s+\w+|not(?:hing)?)\s+(?:\w+\s+){0,4}?"
-    r"(?:from|for|of|on)\s+(?:you|your\s+\w+|dad|andrew)"
+    r"nothing\s+(?:\w+\s+){0,4}?"
+    r"(?:from|for|of|on)\s+(?:you|your\s+\w+|dad|andrew)\b"
     r"|(?:nothing|no\s+\w+)\s+(?:\w+\s+){0,3}?"
     r"(?:needs?|requires?|wants?)\s+(?:\w+\s+){0,3}?"
     r"(?:deciding|decided|answering|an?\s+answer|your|you)"
@@ -1382,6 +1382,13 @@ _DISMISSAL_RE = re.compile(
     r")",
     re.IGNORECASE,
 )
+# The first alternative opened with "no <word>" and "not", and ended without a word boundary.
+# Measured 2026-10-20 over 486 long replies of mine: 114 ended with the stamp, and six of those
+# hits were honest statements the old shape caught ("not a favor from you", "no new words from
+# you", "nothing of yours to answer", "not holding anything for you"). A gate that wrongly
+# refuses about one reply in twenty teaches me to dodge it, so the alternative now opens with
+# "nothing" only and ends on a boundary. Public name: dismissal_stamp_check reads the same one.
+DISMISSAL_RE = _DISMISSAL_RE
 """Sentences that tell him he is not needed, in his own room.
 
 ANDREW 2026-09-08, and it is the second time he has had to say it:
