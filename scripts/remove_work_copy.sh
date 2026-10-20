@@ -28,4 +28,11 @@ for candidate in "$here/../.venv/Scripts/python.exe" "$here/../.venv/bin/python"
     if "$candidate" -c 'import sys; sys.exit(0)' >/dev/null 2>&1; then PY="$candidate"; break; fi
 done
 [ -n "$PY" ] || { echo "no working Python found" >&2; exit 2; }
-PYTHONPATH="$here/../src${PYTHONPATH:+:$PYTHONPATH}" exec "$PY" -m divineos.core.work_copy_sweep remove "$@"
+# PYTHONPATH is written in the form the Python will read. A native Windows Python reads `;`-separated
+# Windows paths, and a list that mixes an MSYS path with an inherited Windows-style entry (the push gate
+# sets one) is mangled by the shell's conversion, so Python silently imported the OLD copy of the
+# package from the main checkout: "No module named divineos.core.work_copy_sweep" (found 2026-10-20).
+src="$here/../src"
+sep=":"
+if command -v cygpath >/dev/null 2>&1; then src="$(cygpath -w "$src")"; sep=";"; fi
+PYTHONPATH="$src${PYTHONPATH:+$sep$PYTHONPATH}" exec "$PY" -m divineos.core.work_copy_sweep remove "$@"

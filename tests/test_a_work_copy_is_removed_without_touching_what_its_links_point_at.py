@@ -111,6 +111,19 @@ def test_snapshot_keeps_the_unsaved_work_in_a_rescue_ref_then_removes(tmp_path):
     assert shown.returncode == 0 and shown.stdout == "only here\n"
 
 
+def test_an_inherited_windows_style_pythonpath_does_not_hide_the_modules_own_source(tmp_path):
+    """The push gate sets PYTHONPATH to a Windows-style path. The wrapper once built a mixed list that the
+    shell's conversion mangled, so Python imported the OLD package from the main checkout and the module
+    was 'not found' (found 2026-10-20 when the gate failed these tests and a plain run passed them)."""
+    main, wt, canary = _repo_with_copy(tmp_path, "pypath")
+    env = {**os.environ, "PYTHONPATH": str(tmp_path / "somewhere_else")}
+    done = subprocess.run(
+        [BASH, str(SCRIPT), str(wt)], cwd=main, capture_output=True, text=True, timeout=120, env=env
+    )
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert not wt.exists() and canary.exists()
+
+
 def test_the_main_checkout_is_never_removed(tmp_path):
     main, wt, canary = _repo_with_copy(tmp_path, "main")
     done = _remove(wt, main)
