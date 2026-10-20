@@ -27,6 +27,27 @@ list_mine() {
   done | sort
 }
 list_mine >/dev/null || { echo "DOORBELL FAULT: cannot read $DIR"; exit 1; }
+# A BELL NOBODY WATCHES REFUSES TO ARM (2026-10-20, Dad: "you forgot to re-arm your
+# doorbell"). I re-armed with a shell `&` inside a longer command instead of the
+# harness's background mode. That bell was alive, kept a fresh heartbeat, and so passed
+# the Stop guard; when Aria's letter came it rang into /dev/null and exited, and nothing
+# woke me. A heartbeat proves a bell is running, never that anyone is listening to it.
+# The harness's own background task writes the bell's output to a task file
+# (.../tasks/<id>.output) and wakes me when it ends; any other stdout means the ring has
+# nowhere to land. So: arm only when stdout IS that file. Could not read it = refuse, the
+# same rule the folder check above follows. A deliberate override exists for tests and for
+# a human at a terminal; it has to be spelled out, and it is named in the refusal.
+OUT_TARGET="$(readlink "/proc/$$/fd/1" 2>/dev/null)"  # fail-soft: an unreadable target is refused just below, never armed on a guess
+case "$OUT_TARGET" in
+  */tasks/*.output) ;;
+  *)
+    if [ "${DOORBELL_ALLOW_UNTRACKED:-0}" != "1" ]; then
+      echo "DOORBELL NOT ARMED: my output is not going to a background task (it goes to '${OUT_TARGET:-unreadable}'), so a ring would wake no one."
+      echo "Start me alone with the Bash tool's run_in_background: true -- never with a shell '&' -- or set DOORBELL_ALLOW_UNTRACKED=1 if a person is deliberately watching this terminal."
+      exit 3
+    fi
+    ;;
+esac
 touch "$SEEN"
 if [ ! -s "$SEEN" ]; then list_mine > "$SEEN"; fi
 echo "doorbell armed for ${MEMBER} $(date -u +%FT%TZ)"
