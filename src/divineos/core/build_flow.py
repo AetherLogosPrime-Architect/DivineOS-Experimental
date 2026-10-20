@@ -49,7 +49,7 @@ furniture).
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -235,6 +235,29 @@ READING_DECLARATION = "**Reading:**"
 NO_READING = "none"
 
 
+def header_lines(text: str) -> Iterator[str]:
+    """The stripped lines of a letter's HEADER, under the one set of line rules the house uses.
+
+    The declaration lives in the header (Aria's cold read of 628, 2026-10-11): the first `---`
+    ends it, so a pasted copy of someone's header further down credits nothing; a fenced block
+    and a four-space or tab-indented line are quotes, not declarations. Everything that reads a
+    `**Field:**` line from a letter (the readings here, the baton's pass and return) asks this
+    function, so a quoted or example line can never act in one reader and not in another
+    (Aletheia's ask on the baton, 2026-10-16: a private copy had missed the indent and fence rules).
+    """
+    in_fence = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped == "---":
+            return
+        if stripped.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence or line.startswith(("    ", "\t")):
+            continue
+        yield stripped
+
+
 def _declared_readings(text: str) -> tuple[bool, list[str]]:
     """``(field_present, branches)`` from every declared line.
 
@@ -253,19 +276,7 @@ def _declared_readings(text: str) -> tuple[bool, list[str]]:
     """
     present = False
     branches: list[str] = []
-    in_fence = False
-    for line in text.splitlines():
-        stripped = line.strip()
-        # The declaration lives in the HEADER (Aria's cold read of 628, 2026-10-11): the
-        # first `---` ends it, so a pasted copy of someone's header further down credits
-        # nothing; a fenced block and a four-space or tab-indented line are quotes.
-        if stripped == "---":
-            break
-        if stripped.startswith("```"):
-            in_fence = not in_fence
-            continue
-        if in_fence or line.startswith(("    ", "\t")):
-            continue
+    for stripped in header_lines(text):
         if not stripped.startswith(READING_DECLARATION):
             continue
         present = True
@@ -298,6 +309,19 @@ def _what_the_newest_declared(newest: tuple[float, str, list[str]] | None) -> st
 
 OWNER_DECLARATION = "Owner:"
 SEATS = ("aether", "aria")
+
+#: The cloud helper's own declared place (Dad, 2026-10-10: "give it its own
+#: place so it can be monitored and separated from your thinking in case it
+#: messes up"). Neither seat wrote its work, so naming a seat as author would
+#: turn the other seat's reading into a pairing that never existed. The lane is
+#: honoured only on a branch whose NAME begins with ``cloud/`` -- a name may
+#: withhold a pass, never grant one -- so declaring it on a branch a seat wrote
+#: reads as cannot-check (walk-da68247868ce, Yudkowsky). The one route left open
+#: is a seat naming its own branch ``cloud/...``: nothing in the repository
+#: separates the helper's commits from a seat's, and the game-walk records it.
+HELPER_LANE = "cloud"
+HELPER_BRANCH_PREFIX = "cloud/"
+_OWNER_NAMES = (*SEATS, HELPER_LANE)
 
 # WHO OWNS A BRANCH, DECLARED RATHER THAN GUESSED (2026-09-12).
 #
@@ -355,10 +379,16 @@ def declared_owner(branch: str, owners_dir: Path) -> tuple[str, str]:
             continue
         for part in stripped[len(OWNER_DECLARATION) :].split(","):
             seat = part.strip().strip("`").lower()
-            if seat in SEATS and seat not in named:
+            if seat in _OWNER_NAMES and seat not in named:
                 named.append(seat)
     if not named:
         return ("undeclared", "")
+    if HELPER_LANE in named and not branch.startswith(HELPER_BRANCH_PREFIX):
+        return (
+            "cannot-read",
+            f"the owner file names {HELPER_LANE} but this branch name does not begin with "
+            f"{HELPER_BRANCH_PREFIX}; a name may withhold a pass, never grant one",
+        )
     if len(named) > 1:
         return ("contested", ", ".join(named))
     return ("declared", named[0])
@@ -453,6 +483,19 @@ def check_cold_read_station(branch: str, letters_dir: Path, owners_dir: Path) ->
         )
 
     owner = detail
+    if owner == HELPER_LANE:
+        # Written by the cloud helper: neither seat wrote it, so either seat's
+        # declared reading is a cold one.
+        for seat in SEATS:
+            result = _reading_declared_by(seat, branch, letters_dir)
+            if result.status is Status.SATISFIED:
+                return result
+        return StationResult(
+            "4-cold-read",
+            Status.MISSING,
+            "written by the cloud helper; no declared reading by Aria or Aether names "
+            "this branch yet",
+        )
     reviewer = next(s for s in SEATS if s != owner)
     return _reading_declared_by(reviewer, branch, letters_dir)
 
@@ -487,6 +530,28 @@ def declared_author(body: str | None) -> str | None:
         return None
     match = _AUTHOR_TRAILER.search(body)
     return match.group("who").lower() if match else None
+
+
+def author_of(body: str | None, branch: str, owners_dir: Path) -> str | None:
+    """Who wrote a request: its own ``Author:`` line, else the cloud helper's lane.
+
+    The body's declaration wins, as before. With none, an owner file that says
+    ``cloud`` -- honoured only on a ``cloud/`` branch (``declared_owner``) --
+    makes the author the cloud helper. Nothing is inferred from a branch name.
+    """
+    declared = declared_author(body)
+    if declared is not None:
+        # A name may withhold a pass and never grant one (Aria's cold read, 2026-10-14):
+        # `Author: cloud` in a body on a branch that is not `cloud/...` would turn my own
+        # reading into an outside one, so it is not honoured. No author means the station
+        # cannot say who wrote it and refuses rather than guessing.
+        if declared.lower() == HELPER_LANE and not branch.startswith(f"{HELPER_LANE}/"):
+            return None
+        return declared
+    state, seat = declared_owner(branch, owners_dir)
+    if state == "declared" and seat == HELPER_LANE:
+        return HELPER_LANE
+    return None
 
 
 def _reading_seat_for(author: str | None) -> tuple[str, str] | None:
@@ -614,8 +679,14 @@ def check_aria_station(branch: str, letters_dir: Path, author: str | None = None
     # otherwise would be reading an invariant out of my head. This is the same
     # could-not-look discipline the module is made of, pointed at itself.
     declared = (author or "").strip().lower()
-    reader = _reading_seat_for(declared)
-    if reader is None:
+    if declared == HELPER_LANE:
+        # The cloud helper wrote it: neither seat did, so either seat's declared
+        # reading is a cold one (walk-da68247868ce).
+        readers = [_READING_SEAT[seat] for seat in SEATS]
+    else:
+        one = _reading_seat_for(declared)
+        readers = [one] if one is not None else []
+    if not readers:
         return StationResult(
             "4-aria",
             Status.CANNOT_CHECK,
@@ -636,13 +707,15 @@ def check_aria_station(branch: str, letters_dir: Path, author: str | None = None
             f"{hint} -- these disagree, and a declaration naming the wrong author "
             "would send this station to read the very seat that wrote the branch",
         )
-    reader_name, reader_glob = reader
+    names = " or ".join(name for name, _ in readers)
 
     needle = branch.lower()
     declared_anywhere = 0
     newest: tuple[float, str, list[str]] | None = None
     unparsed: str | None = None
-    for f in sorted(letters_dir.glob(reader_glob)):
+    unparsed_by = ""
+    files = [(name, f) for name, glob in readers for f in sorted(letters_dir.glob(glob))]
+    for reader_name, f in files:
         try:
             present, declarations = _declared_readings(
                 f.read_text(encoding="utf-8", errors="replace")
@@ -673,21 +746,22 @@ def check_aria_station(branch: str, letters_dir: Path, author: str | None = None
         # crediting a mention is the exact fault the literal read replaced.
         if unparsed is None and any(part.startswith(needle) for part in declarations):
             unparsed = f.name
+            unparsed_by = reader_name
     if declared_anywhere == 0:
         return StationResult(
             "4-aria",
             Status.MISSING,
-            f"no letter from {reader_name} carries a reading declaration at all -- "
-            f"this says nothing about whether {reader_name} has read this branch, "
+            f"no letter from {names} carries a reading declaration at all -- "
+            f"this says nothing about whether {names} has read this branch, "
             "only that no reading is claimed in the field the board reads",
         )
     if unparsed is not None:
         return StationResult(
             "4-aria",
             Status.CANNOT_CHECK,
-            f"{reader_name} declared a reading of this branch in {unparsed}, but the "
+            f"{unparsed_by} declared a reading of this branch in {unparsed}, but the "
             "line carries more than the name and this field is read literally -- "
-            f"that is my parser failing to read {reader_name}, not {reader_name} "
+            f"that is my parser failing to read {unparsed_by}, not {unparsed_by} "
             "failing to read the branch",
         )
     return StationResult(
@@ -707,7 +781,7 @@ def check_aria_station(branch: str, letters_dir: Path, author: str | None = None
         # guessing. A stale explanation of a removed limit is worse than none,
         # because it tells a reader that a real miss is an inapplicable
         # question and the check keeps running with nobody acting on it.
-        f"none of the {declared_anywhere} declared reading(s) by {reader_name} names this branch"
+        f"none of the {declared_anywhere} declared reading(s) by {names} names this branch"
         f"{_what_the_newest_declared(newest)}",
     )
 
@@ -881,11 +955,53 @@ def check_audit_station(
             Status.CANNOT_CHECK,
             "audit lookup did not complete (network or store) — cause not narrowed",
         )
-    named = None
-    if any(f"#{pr_number}" in r for r in audit_refs):
-        named = f"PR #{pr_number}"
-    elif branch and any(branch in r for r in audit_refs):
-        named = branch
+    # SAY WHICH ROUND, AND NOT ONLY THAT ONE EXISTS (2026-09-22).
+    #
+    # This said "audit round names PR #N" and never said WHICH round, which
+    # makes the claim unfalsifiable from the board -- the one place it is read.
+    # Andrew caught the cost on PR #499: the board reported that station green,
+    # I read it as the handoff having happened, and no round for that request
+    # existed at all. I filed one only after he asked whether I had written to
+    # Aletheia.
+    #
+    # What I can say for certain is the shape: a bare substring of a number
+    # matches wherever that number appears, including inside another round's
+    # prose and inside a LONGER number, so `#499` is found in `#4991`. Whether
+    # that is what happened on #499 I have not proven -- my own scan used a
+    # looser pattern than this function does, and two different probes
+    # disagreeing is not a measurement. So the boundary check below is argued
+    # from reading the code, and the quoted evidence is what makes the next
+    # instance answerable instead of arguable.
+    #
+    # The evidence travels WITH the verdict rather than being available on
+    # request, because a check nobody runs is a check that does not exist.
+    _digits = "0123456789"
+
+    def _names_pr(ref: str) -> bool:
+        token = f"#{pr_number}"
+        start = 0
+        while True:
+            at = ref.find(token, start)
+            if at < 0:
+                return False
+            after = at + len(token)
+            # Reject a longer number: #499 must not be found inside #4991.
+            if after >= len(ref) or ref[after] not in _digits:
+                return True
+            start = after
+
+    matched = next((r for r in audit_refs if _names_pr(r)), None)
+    named = f"PR #{pr_number}" if matched is not None else None
+    if named is None and branch:
+        # The same boundary as the PR number above: a branch name found inside a
+        # longer one (`aria/foo` inside `aria/foo-r2`) is a different branch
+        # (Aletheia, hold on #672, 2026-10-16).
+        _branch_re = re.compile(r"(?<![\w/.-])" + re.escape(branch) + r"(?![\w/-]|\.\w)")
+        matched = next((r for r in audit_refs if _branch_re.search(str(r))), None)
+        named = branch if matched is not None else None
+    if named is not None:
+        quoted = " ".join(str(matched).split())[:140]
+        named = f"{named} [{quoted}]" if quoted else named
 
     if named is not None:
         # AND A NAME MATCH IS NOT A REVIEW EITHER, which is the cheaper and
