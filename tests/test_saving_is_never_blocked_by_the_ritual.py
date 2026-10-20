@@ -50,6 +50,7 @@ def _write_attempt(tmp_path: Path, target: str) -> int:
         "AUTO_CYCLE_STATE_DIR": str(tmp_path),
         "AUTO_CYCLE_HOOK_EVENT": "PreToolUse",
         "DIVINEOS_PYTHON": sys.executable,
+        "CLAUDE_CONFIG_DIR": str(_config_dir(tmp_path)),
     }
     env.pop("AUTO_CYCLE_RITUAL_UNBLOCK", None)
     payload = json.dumps(
@@ -70,20 +71,41 @@ def _write_attempt(tmp_path: Path, target: str) -> int:
     return done.returncode
 
 
+def _config_dir(tmp_path: Path) -> Path:
+    """Stands in for the harness's .claude folder; the hook reads it from CLAUDE_CONFIG_DIR."""
+    return tmp_path / "home" / ".claude"
+
+
+def _memory(tmp_path: Path, name: str = "a.md") -> str:
+    return (_config_dir(tmp_path) / "projects" / "C--proj" / "memory" / name).as_posix()
+
+
 def test_an_ordinary_write_is_still_stopped_at_the_wall(tmp_path):
     assert _write_attempt(tmp_path, "C:/work/src/some_module.py") == 2
 
 
 def test_a_path_that_climbs_out_of_the_memory_folder_is_still_stopped(tmp_path):
-    target = "C:/Users/x/.claude/projects/C--proj/memory/../../../../work/src/a.py"
+    target = _memory(tmp_path, "../../../../../work/src/a.py")
     assert _write_attempt(tmp_path, target) == 2
 
 
 def test_a_folder_merely_named_memory_elsewhere_is_still_stopped(tmp_path):
-    assert _write_attempt(tmp_path, "C:/Users/x/.claude/projects/C--proj/src/memory/a.py") == 2
+    inside = _config_dir(tmp_path) / "projects" / "C--proj" / "src" / "memory" / "a.py"
+    assert _write_attempt(tmp_path, inside.as_posix()) == 2
     assert _write_attempt(tmp_path, "C:/work/memory/a.py") == 2
 
 
+def test_the_pattern_under_some_other_tree_is_still_stopped(tmp_path):
+    """Aletheia's tightening: .claude/projects/x/memory/ anywhere in a path used to pass."""
+    lookalike = tmp_path / "repo" / "src" / ".claude" / "projects" / "x" / "memory" / "evil.py"
+    assert _write_attempt(tmp_path, lookalike.as_posix()) == 2
+
+
+def test_the_memory_folder_itself_and_a_bare_projects_file_are_still_stopped(tmp_path):
+    base = _config_dir(tmp_path) / "projects"
+    assert _write_attempt(tmp_path, (base / "C--proj" / "memory").as_posix()) == 2
+    assert _write_attempt(tmp_path, (base / "settings.json").as_posix()) == 2
+
+
 def test_a_write_into_the_memory_folder_always_passes(tmp_path):
-    target = "C:/Users/x/.claude/projects/C--proj/memory/project_in_flight.md"
-    assert _write_attempt(tmp_path, target) == 0
+    assert _write_attempt(tmp_path, _memory(tmp_path, "project_in_flight.md")) == 0

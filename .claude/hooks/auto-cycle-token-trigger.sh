@@ -864,11 +864,20 @@ except Exception:
     sys.exit(1)
 ti = d.get("tool_input") or {}
 p = ti.get("file_path") or ti.get("notebook_path") or ""
-parts = [x for x in p.replace("\\", "/").split("/") if x]
-ok = ".." not in parts and any(
-    parts[i] == ".claude" and parts[i + 1] == "projects" and parts[i + 3] == "memory"
-    for i in range(len(parts) - 4)
-)
+if not p:
+    sys.exit(1)
+# Anchored to the harness'"'"'s real projects folder and resolved, so a lookalike path elsewhere
+# (src/.claude/projects/x/memory/...) and a symlinked memory folder pointing out both fail.
+roots = [os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")]
+def norm(x):
+    return os.path.normcase(os.path.realpath(x))
+real = norm(p)
+ok = False
+for root in roots:
+    base = norm(os.path.join(root, "projects")) + os.sep
+    if real.startswith(base):
+        rel = real[len(base):].split(os.sep)
+        ok = len(rel) >= 3 and rel[1] == "memory"
 sys.exit(0 if ok else 1)
 ' 2>/dev/null; then  # fail-soft: an unreadable payload falls through to the block
   echo "[ritual] Saving to memory is never blocked. Allowing this write." >&2
