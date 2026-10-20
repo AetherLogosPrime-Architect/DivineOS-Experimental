@@ -134,6 +134,22 @@ def test_a_memory_folder_that_is_a_link_pointing_outside_is_still_stopped(tmp_pa
     assert _write_attempt(tmp_path, (project / "memory" / "evil.py").as_posix()) == 2
 
 
+def test_a_memory_folder_that_is_a_symlink_pointing_outside_is_still_stopped(tmp_path):
+    """Aletheia's twin: the junction test above only runs on Windows, so the CI runners (Linux)
+    would pass a weakened realpath. A symlink makes the same trap on every platform; skipped only
+    where one cannot be made, so it reads as could-not-look and not as a pass.
+    """
+    project = _config_dir(tmp_path) / "projects" / "C--proj"
+    project.mkdir(parents=True)
+    (tmp_path / "outside").mkdir()
+    try:
+        os.symlink(tmp_path / "outside", project / "memory", target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"a symlink could not be made here ({exc}); could-not-look")
+    assert (project / "memory").resolve() == (tmp_path / "outside").resolve()  # control
+    assert _write_attempt(tmp_path, (project / "memory" / "evil.py").as_posix()) == 2
+
+
 def test_the_default_home_folder_is_used_when_the_config_variable_is_unset(tmp_path):
     assert _write_attempt(tmp_path, _memory(tmp_path), config_var=False) == 0
     assert _write_attempt(tmp_path, "C:/work/src/a.py", config_var=False) == 2
