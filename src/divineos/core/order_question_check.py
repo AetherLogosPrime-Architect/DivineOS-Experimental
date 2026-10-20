@@ -41,17 +41,28 @@ _ORDER_QUESTIONS = (
     re.compile(r"\b(begin|start)\b[^?\n]*\bthe [\w -]{1,30}?\bor (the|a) [\w -]+\?", re.I),
     # "the chips now and the slider later, or the other way round?"
     re.compile(r"\bthe other way (round|around)\b[^?\n]*\?", re.I),
-    # Three shapes of mine that went through on 2026-10-20, each a choice of what goes first:
+    # Three shapes of mine that went through on 2026-10-20, each a choice of what goes first. Aria's
+    # cold read of #697 showed the first version of these refused ordinary questions ("attach the
+    # first draft?", "next time", "next section"), so each now needs "first"/"next" used as an
+    # ADVERB (followed by a question mark, comma, or a joining word), never "first draft".
     # "Is there a room in the house you'd want that gate in first?" -- no "or", only "first".
     re.compile(
-        r"\b(you'?d|you would|you want|you'?d like|would you like|do you want)\b[^?\n]*\bfirst\b[^?\n]*\?",
+        r"\b(you'?d|you would|you want|you'?d like|would you like|do you want)\b[^?\n]*"
+        r"\bfirst\b(?=\s*(?:[?,;]|or\b|and\b|before\b|then\b|about\b|with\b|once\b|after\b))[^?\n]*\?",
         re.I,
     ),
-    # "...build the stamp fix now, ahead of the rest of the line?"
-    re.compile(r"\bahead of the (rest|others?|line|queue|pile|list)\b[^?\n]*\?", re.I),
+    # "...build the stamp fix now, ahead of the rest of the line?" -- only as a request from me
+    # ("if I", "should I", "want me to"), never a report or a fact about the line.
+    re.compile(
+        r"\b(?:if i|should i|shall i|can i|may i|want me to|like me to)\b[^?\n]*"
+        r"\bahead of the (?:rest|others?|line|queue|pile|list)\b[^?\n]*\?",
+        re.I,
+    ),
     # "Do you want me to start on Aria's confirmed ones next, once my two are with their readers?"
     re.compile(
-        r"\b(want|like) me to\b[^?\n]*\b(start|begin|take|tackle|move on)\b[^?\n]*\b(next|first)\b[^?\n]*\?",
+        r"\b(?:want|like) me to\b[^?\n]*\b(?:start|begin|take|tackle|move on)\b[^?\n]*"
+        r"\b(?:next|first)\b(?=\s*(?:[?,;]|or\b|and\b|before\b|then\b|about\b|with\b|once\b|after\b))"
+        r"[^?\n]*\?",
         re.I,
     ),
 )

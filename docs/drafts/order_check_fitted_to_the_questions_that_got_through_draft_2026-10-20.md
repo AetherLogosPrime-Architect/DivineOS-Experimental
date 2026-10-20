@@ -27,6 +27,12 @@ Three patterns added to the same list, each fitted to a real question of mine of
 
 The four questions are added to the test's list of real refusals. The ordinary-question list (including *"Did you want it before the weekend?"* and *"Should I start the tournament tonight?"*) is untouched and still passes, so the new patterns do not turn a timing or yes-or-no question into a refusal.
 
+## What Aria's cold read found, and the narrowing
+
+Aria ran the same sentences through main's check and mine side by side and found the first version of the three patterns refused nine ordinary questions that main passed: "Do you want me to attach the first draft?" (the adjective "first"), "Do you want me to take a screenshot next time it happens?" ("next time"), "Would you like me to move on to the next section?", "Did the stamp go ahead of the line the way you wanted?" (a report), and so on. My tests only listed sentences that must be refused, so nothing stopped the patterns from being broad. That is the same hole she found in #694 (a test that pins one case), reached from the other side.
+
+Each pattern now needs the word used as an adverb, not a noun's modifier: "first"/"next" must be followed by a question mark, comma or a joining word (or, and, before, then, about, with, once, after), and "ahead of the rest/line/..." only counts in a request from me ("if I", "should I", "want me to"), never in a report or a fact. The nine are in the ordinary-question list so they cannot be broadened silently, and her two probes that are real order questions ("What would you like to hear first about last night?", "Do you want me to run the full suite first?") are in the refusal list. 46 tests pass.
+
 ## What it still cannot see
 
 An order question in words these patterns do not know. A permission question about my own work that is not about order (*"is it all right if I ..."*) is out of scope here; Dad's complaint today was order, and widening to permission would be its own change with its own controls. Silence is still not coverage.
