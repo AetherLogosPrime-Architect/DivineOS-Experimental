@@ -41,7 +41,7 @@ pytestmark = pytest.mark.skipif(
 PAST_THE_WALL = 990_000
 
 
-def _write_attempt(tmp_path: Path, target: str) -> int:
+def _write_attempt(tmp_path: Path, target: str, *, config_var: bool = True) -> int:
     transcript = tmp_path / "session.jsonl"
     row = {"type": "assistant", "message": {"usage": {"input_tokens": PAST_THE_WALL}}}
     transcript.write_text(json.dumps(row) + "\n", encoding="utf-8")
@@ -52,6 +52,10 @@ def _write_attempt(tmp_path: Path, target: str) -> int:
         "DIVINEOS_PYTHON": sys.executable,
         "CLAUDE_CONFIG_DIR": str(_config_dir(tmp_path)),
     }
+    if not config_var:
+        # The real-life case: no CLAUDE_CONFIG_DIR, so the hook must default to <home>/.claude.
+        env.pop("CLAUDE_CONFIG_DIR")
+        env["HOME"] = env["USERPROFILE"] = str(tmp_path / "home")
     env.pop("AUTO_CYCLE_RITUAL_UNBLOCK", None)
     payload = json.dumps(
         {
@@ -105,6 +109,34 @@ def test_the_memory_folder_itself_and_a_bare_projects_file_are_still_stopped(tmp
     base = _config_dir(tmp_path) / "projects"
     assert _write_attempt(tmp_path, (base / "C--proj" / "memory").as_posix()) == 2
     assert _write_attempt(tmp_path, (base / "settings.json").as_posix()) == 2
+
+
+def test_a_memory_folder_that_is_a_link_pointing_outside_is_still_stopped(tmp_path):
+    """Aria's gap on #695: realpath is what stops this, and nothing pinned it.
+
+    A junction makes `memory` resolve outside the config tree. Skipped cleanly when a junction
+    cannot be made here, so it reads as could-not-look and not as a pass.
+    """
+    if os.name != "nt":
+        pytest.skip("needs a Windows junction; could-not-look, which is not a pass")
+    project = _config_dir(tmp_path) / "projects" / "C--proj"
+    project.mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    made = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(project / "memory"), str(outside)],
+        capture_output=True,
+        text=True,
+    )
+    if made.returncode != 0:
+        pytest.skip(f"a junction could not be made here ({made.stderr.strip()}); could-not-look")
+    assert (project / "memory").resolve() == outside.resolve()  # control: the link really leaves
+    assert _write_attempt(tmp_path, (project / "memory" / "evil.py").as_posix()) == 2
+
+
+def test_the_default_home_folder_is_used_when_the_config_variable_is_unset(tmp_path):
+    assert _write_attempt(tmp_path, _memory(tmp_path), config_var=False) == 0
+    assert _write_attempt(tmp_path, "C:/work/src/a.py", config_var=False) == 2
 
 
 def test_a_write_into_the_memory_folder_always_passes(tmp_path):
