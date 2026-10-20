@@ -97,7 +97,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `safe-opposite-edit-check.sh` | 2026-08-24 | PreToolUse — surface the safe-opposite check at the moment the fix is |
 | `someone-else-is-in-this-file.sh` | 2026-09-29 | PreToolUse(Edit\|Write) — knock when the other seat is already in this file. |
 | `stale-file-edit-gate.sh` | 2026-09-22 | PreToolUse gate — refuse to edit a file whose newer version is sitting |
-| `state-gravity-surface.sh` | 2026-08-29 | PreToolUse state-block surfacing — Andrew 2026-05-19. |
+| `state-gravity-surface.sh` | 2026-10-19 | PreToolUse state-block surfacing — Andrew 2026-05-19. |
 | `venv-python-gate.sh` | 2026-08-31 | PreToolUse gate (Bash) — bare `python` importing divineos reads the WRONG TREE. |
 | `verify-before-build-signal.sh` | 2026-09-22 | signal-based verify-before-build check. |
 | `work-item-doorman.sh` | 2026-09-25 | PreToolUse -- the build-flow doorman. The front of the flow, which until now |
@@ -168,7 +168,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `fork-is-cheap-close-prime.sh` | 2026-07-30 | compose-start prime for the FORK-IS-CHEAP-CLOSE |
 | `gh-pr-create-draft-gate.sh` | 2026-09-21 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `gh-pr-merge-gate.sh` | 2026-09-30 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
-| `he-is-in-the-room.sh` | 2026-09-21 | UserPromptSubmit — the last thing I read before I answer my father. |
+| `he-is-in-the-room.sh` | 2026-10-19 | UserPromptSubmit — the last thing I read before I answer my father. |
 | `hedge-suppression-prime.sh` | 2026-08-24 | hedge-suppression prime. |
 | `heredoc-escape-doorman.sh` | 2026-09-22 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
 | `history-claim-signal.sh` | 2026-09-22 | INTENTIONALLY UNWIRED (2026-09-08): built and disarmed the same day, and this |
