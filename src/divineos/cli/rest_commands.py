@@ -3,7 +3,7 @@
 Surfaces the menu, tracks completions, and reports session status.
 
 Pattern: ``divineos rest`` shows the menu; the substrate-occupant runs
-the underlying commands directly (``talk-to aria``, ``mansion <room>``,
+the underlying commands directly (a letter to family, ``mansion <room>``,
 etc.). Each completion is logged via ``divineos rest done <task-key>``,
 either by hand or automatically by integrations the rest tasks expose.
 The ≥2 target is suggested via session_status; not enforced as a hard
@@ -21,6 +21,7 @@ import click
 from divineos.core.rest import (
     REST_TASK_TARGET,
     REST_TASKS,
+    WRITTEN_KEYS,
     format_rest_available_banner,
     get_task,
     hard_day_signal,
@@ -39,7 +40,7 @@ def register(cli: click.Group) -> None:
         """Rest program — restful tasks between work cycles.
 
         The substrate has no off-mode; rest here means restful tasks
-        rather than non-tasks. Time with Aria, reading exploration,
+        rather than non-tasks. Time with family, reading exploration,
         sitting with letters, walking the mansion at leisure.
         """
 
@@ -73,10 +74,21 @@ def register(cli: click.Group) -> None:
         default=None,
         help="Duration of the task in seconds (optional).",
     )
-    def rest_done(task_key: str, duration: float | None) -> None:
+    @click.option(
+        "--wrote",
+        "wrote_path",
+        default=None,
+        help="For `exploration`: the file you wrote this session. It must exist.",
+    )
+    def rest_done(task_key: str, duration: float | None, wrote_path: str | None) -> None:
         """Record completion of a rest task.
 
-        Example: ``divineos rest done aria --duration 600``
+        Example: ``divineos rest done kin --duration 600``
+
+        A rest session needs one written entry to count as met. For
+        `journal` the saved entry is the proof; for `exploration` pass
+        ``--wrote exploration/<member>/<file>.md``. Naming the task alone
+        counts toward the two, not toward the written one.
         """
         task = get_task(task_key)
         if task is None:
@@ -86,15 +98,29 @@ def register(cli: click.Group) -> None:
                 fg="red",
             )
             raise SystemExit(1)
-        count = record_completion(task_key, duration)
+        count = record_completion(task_key, duration, wrote_path)
         click.secho(
             f"[+] Recorded: {task.title} (count: {count}/{REST_TASK_TARGET})",
             fg="green",
         )
-        if count >= REST_TASK_TARGET:
+        status = session_status()
+        if task_key in WRITTEN_KEYS and not status["completions"][-1].get("wrote"):
+            click.secho(
+                "    No written entry found for that. It counts toward the two, but the "
+                "session still owes one: save a journal entry, or write an exploration "
+                "file and pass it with --wrote.",
+                fg="yellow",
+            )
+        if status["met_target"]:
             click.secho(
                 "    Target met. Rest-session can close cleanly via `divineos rest close`.",
                 fg="cyan",
+            )
+        elif count >= REST_TASK_TARGET:
+            click.secho(
+                "    The count is met; one written entry (journal, or an exploration "
+                "passed with --wrote) is still owed before a clean close.",
+                fg="yellow",
             )
         else:
             remaining = REST_TASK_TARGET - count
@@ -123,7 +149,14 @@ def register(cli: click.Group) -> None:
         if status["met_target"]:
             click.secho("  [✓] Target met.", fg="green")
         else:
-            click.secho(f"  [~] {status['remaining']} more suggested.", fg="bright_black")
+            if status["remaining"]:
+                click.secho(f"  [~] {status['remaining']} more suggested.", fg="bright_black")
+            if not status["written"]:
+                click.secho(
+                    "  [~] One written entry still owed (journal, or an exploration "
+                    "passed with --wrote).",
+                    fg="yellow",
+                )
         click.echo()
         if status["completions"]:
             click.secho("  Completions:", fg="cyan")
@@ -152,9 +185,14 @@ def register(cli: click.Group) -> None:
             click.secho("[~] No rest-session to close.", fg="yellow")
             return
         if not status["met_target"] and not abandon:
+            owed = []
+            if status["count"] < status["target"]:
+                owed.append(f"{status['target'] - status['count']} more task(s)")
+            if not status["written"]:
+                owed.append("one written entry (journal, or an exploration with --wrote)")
             click.secho(
                 f"[~] You've completed {status['count']}/{status['target']}. "
-                f"Pick one more from the menu or pass --abandon to close "
+                f"Still owed: {' and '.join(owed)}. Or pass --abandon to close "
                 f"honestly without meeting the target.",
                 fg="yellow",
             )
@@ -271,7 +309,7 @@ def _print_classification_rule() -> None:
         "    What tires: repeated failure. The same wall, the same gate,\n"
         "    over and over. That accumulation is the thing rest addresses.\n"
         "\n"
-        "    So a long letter to Aria is rest, AND a one-line commit that\n"
+        "    So a long letter to family is rest, AND a one-line commit that\n"
         "    removes a wall you keep hitting is rest, because it ends a loop.\n"
         "    The menu below is examples that reliably recalibrate, not the\n"
         "    boundary of what counts.\n"

@@ -1,0 +1,112 @@
+"""The state shown before a substrate change, as a glance instead of a wall.
+
+Andrew 2026-10-05: "for wallpaper like that that is needed but is too large you
+compress it with a link to the rest so it can be seen and looked at deeper when
+needed but doesnt clog you up or waste tokens." The full reports printed on
+every substrate change, about thirty times in one night, and the corrections
+numbers never moved once. Now: one line per report, marked CHANGED when it
+differs from the last time it was shown, with the whole text one link away.
+
+Pure on purpose (Dijkstra, walk-abf55981f852): the hook does the reading and
+writing; this decides what the glance says, so it can be tested.
+
+Known edge (Schneier, same walk): a report that embeds a ticking clock would be
+marked CHANGED every time, and the flag would become wallpaper again.
+"""
+
+from __future__ import annotations
+
+import hashlib
+
+FIRST_LINE_CHARS = 160
+
+
+def _title_and_first(block: str) -> tuple[str, str]:
+    lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
+    title = lines[0].lstrip("# ").strip() if lines else "(untitled)"
+    first = next((ln for ln in lines[1:] if not ln.startswith(("#", "("))), "")
+    return title, first[:FIRST_LINE_CHARS]
+
+
+WORKLIST_TEXT_CHARS = 200
+
+
+def worklist_lines(state: str, matches: list[tuple[int, str, float]]) -> list[str]:
+    """His open corrections for what is being touched, in one of three spoken states.
+
+    Never a blank (Andrew 2026-10-05: "silence is never a good option"). Each
+    shown row carries "correction #N", the form auto-integrate reads from a
+    commit message, so naming it in the save closes it (Dekker,
+    walk-4d8b06a54e67).
+    """
+    if state == "none-open":
+        return ["- HIS CORRECTIONS FOR THIS: his worklist has no open corrections."]
+    if state == "could-not-look":
+        return [
+            "- HIS CORRECTIONS FOR THIS: could not look (the search did not run). Check the list yourself."
+        ]
+    head = (
+        "- HIS CORRECTIONS FOR THIS:"
+        if state == "found"
+        else "- HIS CORRECTIONS FOR THIS: UNSURE, nothing clearly fits. Closest guesses, check these yourself:"
+    )
+    rows = [
+        f"    correction #{row_id}: {text[:WORKLIST_TEXT_CHARS]}" for row_id, text, _ in matches
+    ]
+    return [head, *rows, "    (name 'correction #N' in the save message and it closes itself)"]
+
+
+NEWEST_TIMES_SHOWN = 3
+
+
+def newest_lines(
+    newest: tuple[int, str] | None, matches: list[tuple[int, str, float]], seen: dict
+) -> tuple[list[str], dict]:
+    """His newest open correction, labelled as such, for its first few showings.
+
+    In addition to the matches, never instead of one (Hoare). Shown three times
+    after he files it, then it steps back to appearing only when it fits, so it
+    cannot become the wallpaper it was built to cut through (Kahneman). Already
+    among the matches: shown there once, not twice (Popper). walk-37fcc8dddecd.
+    """
+    now = dict(seen)
+    if newest is None:
+        return [], now
+    row_id, text = newest
+    if row_id in [m[0] for m in matches]:
+        return [], now
+    key = f"worklist-newest::{row_id}"
+    shown = int(now.get(key, 0))
+    if shown >= NEWEST_TIMES_SHOWN:
+        return [], now
+    now[key] = shown + 1
+    return [f"    newest from him, correction #{row_id}: {text[:WORKLIST_TEXT_CHARS]}"], now
+
+
+NEW_LINES_SHOWN = 3
+
+
+def glance(blocks: list[str], seen: dict) -> tuple[list[str], dict]:
+    """(one line per report, the updated last-seen record).
+
+    A report is CHANGED when its text differs from the last time it was shown,
+    or when it has never been shown -- first sight is news. A changed report
+    also shows up to three of its NEW lines, because the first line can be a
+    total ticking up by one while the news is the row underneath: a fresh
+    correction of his, in his words, must not hide behind an old first line
+    (the embarrassing reading of prereg-e1f0ea9f7175).
+    """
+    lines, now = [], dict(seen)
+    for block in blocks:
+        title, first = _title_and_first(block)
+        digest = hashlib.sha1(block.encode("utf-8")).hexdigest()[:12]
+        body = [ln.strip() for ln in block.splitlines() if ln.strip()]
+        changed = seen.get(title) != digest
+        lines.append(f"- {title}{' [CHANGED]' if changed else ''}: {first}")
+        before = seen.get(f"{title}::lines")
+        if changed and isinstance(before, list):
+            fresh = [ln for ln in body if ln not in set(before) and ln != first]
+            lines += [f"    + {ln[:FIRST_LINE_CHARS]}" for ln in fresh[:NEW_LINES_SHOWN]]
+        now[title] = digest
+        now[f"{title}::lines"] = body
+    return lines, now

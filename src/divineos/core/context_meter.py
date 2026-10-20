@@ -83,7 +83,8 @@ COMPACTION_CEILING_TOKENS = 1_000_000
 # These two were deliberately matched in August and the reason still holds:
 # if this module's over-threshold flag and the thing that actually fires
 # disagree, the surface reports a state the pipeline is not in.
-DEFAULT_FIRE_THRESHOLD = 0.88
+# Moved to 0.85 on 2026-10-16 with the trigger (Andrew: the ritual takes longer).
+DEFAULT_FIRE_THRESHOLD = 0.85
 
 
 @dataclass
