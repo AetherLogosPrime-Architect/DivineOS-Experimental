@@ -513,6 +513,25 @@ def test_a_registration_whose_folder_is_gone_is_pruned_and_not_listed_forever(wo
     assert "pruned" in real.summary()
 
 
+def test_a_locked_registration_whose_folder_is_gone_is_listed_and_not_claimed_as_pruned(world):
+    """Aether's probe from his cold read of #698 at 4cba35717: `git worktree prune` skips a locked
+    registration, so the sweep must not report it pruned, and it must not vanish from sight either."""
+    wt, name = world.copy(commits=1, push=True)
+    _must(world.main, "worktree", "lock", str(wt), "--reason", "on a drive that is unplugged")
+    shutil.rmtree(wt)
+    report = _sweep(world)
+    claimed = [p for p in report.pruned if wt.name in p]
+    still_registered = wt.name in _must(world.main, "worktree", "list", "--porcelain")
+    assert still_registered and not claimed
+    assert any(
+        Path(e["path"]).name == wt.name and "locked" in " ".join(e["reasons"]) for e in report.shown
+    )
+    # a dry run reads only the lock, never a prune, so it must not promise one either
+    dry = _sweep(world, dry_run=True)
+    assert not [p for p in dry.pruned if wt.name in p]
+    assert any(Path(e["path"]).name == wt.name for e in dry.shown)
+
+
 def test_a_finished_copy_with_a_top_level_folder_touched_just_now_is_in_use(world):
     wt, name = world.copy(commits=1, push=True, merged_into_main=True)
     (wt / "tmp").mkdir()

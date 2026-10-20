@@ -482,9 +482,29 @@ def sweep(
     report = SweepReport(dry_run=dry_run)
     copies = list_copies(main_root)
     # A registration whose folder is already gone has nothing on disk to lose: prune, never list it forever.
-    report.pruned = [str(p) for p in copies if not p.exists()]
-    if report.pruned and not dry_run:
+    # `git worktree prune` skips a LOCKED registration (an unplugged drive is the real case), so a locked one
+    # is listed for a person instead of being claimed as pruned, and after a real prune only what actually
+    # disappeared from git's list is reported (Aether's cold read, 2026-10-20).
+    gone = [p for p in copies if not p.exists()]
+    locked_gone = [p for p in gone if _lock_reason(main_root, p) is not None]
+    to_prune = [p for p in gone if p not in locked_gone]
+    report.pruned = [str(p) for p in to_prune]
+    if to_prune and not dry_run:
         _git(main_root, "worktree", "prune")
+        still = set(list_copies(main_root))
+        report.pruned = [str(p) for p in to_prune if p not in still]
+        locked_gone += [p for p in to_prune if p in still]
+    for p in locked_gone:
+        report.shown.append(
+            {
+                "path": str(p),
+                "branch": "",
+                "head": "",
+                "reasons": [
+                    "registration whose folder is gone, but git will not prune it (locked); unlock it to prune"
+                ],
+            }
+        )
     for wt in copies:
         if not wt.exists():
             continue

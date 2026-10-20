@@ -53,6 +53,16 @@ A temp repo with a remote and several work copies in each state; every "keep" ca
 - **Its own folder** (Hofstadter). The sweeper never removes the copy it runs from, and tolerates the copy that holds its own branch.
 - **The base rate to compare against** (Kahneman). On my 55 copies this morning, 47 were removable with nothing lost; a sweeper whose removal rate is far from that on a real day is wrong in one direction or the other.
 
+## What Aether's cold reads added (his two letters on #698, 2026-10-20; his probes are in the tests)
+
+- **A scratch checkout with a stray file could never be removed, and the refusal ended the whole sweep and its record.** `assess` said REMOVE, `remove_copy` re-read status without the scratch rule and refused, and `sweep` did not catch it. Now removal takes an explicit `scratch` parameter set by the sweep from `assess` (never a name check inside the standalone remover), and any refusal at removal is recorded as SHOW "refused at removal" and the sweep goes on.
+- **A locked work copy.** git's own `worktree lock` is the native "in use". A locked copy is KEEP, and is never forced. (The push gate could lock its own scratch checkout while it runs; filed for later.)
+- **A registration whose folder is already gone** was listed as "could not read" forever, so the sweep prunes it and says so. **And a locked one cannot be pruned** (`git worktree prune` skips it, an unplugged drive is the real case): found in his second read, the sweep had claimed a prune that did not happen, every night. A locked vanished registration is now listed for a person, a dry run does not promise a prune for it, and after a real prune only what actually left git's list is reported.
+- **The in-use guard was a weak clock.** A folder's own mtime moves only when a direct child is added or removed. The newest of the top-level entries' mtimes counts too; a lock is the better signal and is honoured first.
+- **A sweep inside a test run** may not write the real home's log; it refuses unless `DIVINEOS_HOME` is isolated or a log path is given. Nothing today runs a real sweep in a test, but nothing guarded a future one.
+- **One implementation.** `scripts/remove_work_copy.sh` is a wrapper that finds a working Python and calls `remove_copy` (exit codes: 3 the main checkout, 4 unique work, 5 a snapshot that did not hold). Aether suggested the house resolver; it answered "none" for this call shape when run from the test suite, so the wrapper carries a small ordered resolver and says why in a comment. And the push gate found one more thing: it sets `PYTHONPATH` Windows-style, and a mixed MSYS/Windows list was mangled by the shell, so Python silently imported the OLD package; the wrapper now writes `PYTHONPATH` in the form the Python reads, with a regression test. Same family as #696.
+- **Binding the walk.** Aether's advice: scope the walk with every file the branch changes, including the generated `docs/ARCHITECTURE.md`. This walk was opened without it and is unbound; whether to walk again is open.
+
 ## Pre-registration
 
 Filed with a falsifier before the code (see `divineos prereg list`), review in 30 days.
