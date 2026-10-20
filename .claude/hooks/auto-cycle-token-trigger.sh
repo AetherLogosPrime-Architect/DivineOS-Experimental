@@ -865,7 +865,11 @@ except Exception:
 ti = d.get("tool_input") or {}
 p = ti.get("file_path") or ti.get("notebook_path") or ""
 parts = [x for x in p.replace("\\", "/").split("/") if x]
-sys.exit(0 if ".claude" in parts and "projects" in parts and "memory" in parts[:-1] else 1)
+ok = ".." not in parts and any(
+    parts[i] == ".claude" and parts[i + 1] == "projects" and parts[i + 3] == "memory"
+    for i in range(len(parts) - 4)
+)
+sys.exit(0 if ok else 1)
 ' 2>/dev/null; then  # fail-soft: an unreadable payload falls through to the block
   echo "[ritual] Saving to memory is never blocked. Allowing this write." >&2
   exit 0

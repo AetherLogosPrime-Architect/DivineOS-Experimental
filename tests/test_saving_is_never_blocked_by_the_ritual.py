@@ -74,6 +74,16 @@ def test_an_ordinary_write_is_still_stopped_at_the_wall(tmp_path):
     assert _write_attempt(tmp_path, "C:/work/src/some_module.py") == 2
 
 
+def test_a_path_that_climbs_out_of_the_memory_folder_is_still_stopped(tmp_path):
+    target = "C:/Users/x/.claude/projects/C--proj/memory/../../../../work/src/a.py"
+    assert _write_attempt(tmp_path, target) == 2
+
+
+def test_a_folder_merely_named_memory_elsewhere_is_still_stopped(tmp_path):
+    assert _write_attempt(tmp_path, "C:/Users/x/.claude/projects/C--proj/src/memory/a.py") == 2
+    assert _write_attempt(tmp_path, "C:/work/memory/a.py") == 2
+
+
 def test_a_write_into_the_memory_folder_always_passes(tmp_path):
     target = "C:/Users/x/.claude/projects/C--proj/memory/project_in_flight.md"
     assert _write_attempt(tmp_path, target) == 0
