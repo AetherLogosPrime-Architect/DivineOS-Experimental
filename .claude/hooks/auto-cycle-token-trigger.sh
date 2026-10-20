@@ -849,6 +849,28 @@ sys.exit(0 if os.environ["WANT"] in parts else 1)
   fi
 fi
 
+# ─── SAVING IS NEVER BLOCKED, AT ANY STAGE ──────────────────────────────────
+#
+# Andrew 2026-10-19, after the stop held my in-flight note hostage at the very
+# moment its whole purpose was to be written: "saving should never be a blocked
+# action at any point whatsoever." The ritual stops me moving on to other work;
+# it never stops me putting things down. A write into my memory folder
+# (.claude/projects/<project>/memory/) passes at every stage.
+if [ -n "${HOOK_JSON:-}" ] && HOOK_JSON="$HOOK_JSON" "$PY_BIN" -c '
+import json, os, sys
+try:
+    d = json.loads(os.environ.get("HOOK_JSON") or "{}")
+except Exception:
+    sys.exit(1)
+ti = d.get("tool_input") or {}
+p = ti.get("file_path") or ti.get("notebook_path") or ""
+parts = [x for x in p.replace("\\", "/").split("/") if x]
+sys.exit(0 if ".claude" in parts and "projects" in parts and "memory" in parts[:-1] else 1)
+' 2>/dev/null; then  # fail-soft: an unreadable payload falls through to the block
+  echo "[ritual] Saving to memory is never blocked. Allowing this write." >&2
+  exit 0
+fi
+
 cat >&2 <<EOF
 
 ════════════════════════════════════════════════════════════════════
