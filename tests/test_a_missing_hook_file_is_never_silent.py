@@ -11,8 +11,11 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
+
+import pytest
 
 from tests._bash_resolver import bash_executable
 
@@ -44,19 +47,38 @@ def test_no_hook_command_does_nothing_and_says_nothing_when_its_file_is_gone():
     )
 
 
-def test_the_question_holds_real_command_reports_a_missing_file_with_exit_127(tmp_path):
+HOOK_FILE = re.compile(r"\.claude/hooks/([^\s\"';]+)")
+
+
+def _hook_commands() -> list[str]:
+    return [c for c in _all_commands() if HOOK_FILE.search(c)]
+
+
+def test_the_scan_sees_every_hook_command_and_the_six_python_ones():
+    """Control for the parametrized test below: if the scan found nothing, every case would pass."""
+    commands = _hook_commands()
+    assert len(commands) >= 70, len(commands)
+    assert sum(1 for c in commands if 'python "$f"' in c) >= 6
+
+
+@pytest.mark.parametrize("command", _hook_commands(), ids=lambda c: HOOK_FILE.search(c).group(1))
+def test_every_hook_command_reports_a_missing_file_with_exit_127(command, tmp_path):
+    """Aria's hold on #694: the first version ran only the first question_hold command, so five of
+    the six could regress to a silent or exit-0 shape and nothing failed. Every command is run here,
+    against a project with no hooks, from another folder, and each must say so on stderr."""
     project = tmp_path / "project"
     (project / ".claude" / "hooks").mkdir(parents=True)
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
-    command = next(c for c in _all_commands() if "question_hold.py" in c)
     env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PROJECT_DIR"}
     env["CLAUDE_PROJECT_DIR"] = project.as_posix()
+    name = HOOK_FILE.search(command).group(1)
     out = subprocess.run(
         [BASH, "-c", command], cwd=elsewhere, env=env, capture_output=True, text=True, timeout=60
     )
     assert out.returncode == 127, (out.returncode, out.stdout, out.stderr)
-    assert "NOT RUNNING" in out.stderr and "question_hold.py" in out.stderr
+    assert "NOT RUNNING" in out.stderr and name in out.stderr, out.stderr
+    assert out.stdout == "", out.stdout
 
 
 def test_a_present_python_hook_still_runs_through_the_new_form(tmp_path):

@@ -16,7 +16,11 @@ The interpreter is still the bare `python` on PATH, which may not be the one wit
 
 ## Falsifier
 
-If any command in `settings.json` still does nothing when its file is gone, or if a present hook no longer runs through its command, the change is wrong. The tests pin: no command uses the silent `[ -f "$f" ] &&` form; the question hold's real command reports a missing file with exit 127 and the file's name; a present python hook still runs (the control).
+If any command in `settings.json` still does nothing when its file is gone, or if a present hook no longer runs through its command, the change is wrong. The tests pin: no command uses the silent `[ -f "$f" ] &&` form; every hook command in the file, run against a project with no hooks from another folder, exits 127 with `NOT RUNNING` and its own file name on stderr and nothing on stdout (Aria's hold: the first version ran only one of the six); a present python hook still runs (the control). The old silent shape exited 1 with no output on either stream, so it was silent in output, not in exit code.
+
+## The baseline line that left with it
+
+The `inner_circle_room.py` entry came out of `scripts/orphan_modules_baseline.txt` because that module was archived by #688 (under `archive/superseded/`), so the `src/` entry named a file that is no longer there. It is not a hook change; it rides along because the pre-commit check named it.
 
 ## Order
 
