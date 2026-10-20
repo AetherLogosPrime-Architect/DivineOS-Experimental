@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -22,6 +23,12 @@ import pytest
 from divineos.core import work_copy_sweep as ws
 
 LONG_AGO = 10 * 3600  # seconds added to "now" so a freshly made copy is not "recent"
+
+
+@pytest.fixture(autouse=True)
+def _isolated_home(tmp_path, monkeypatch):
+    """A sweep inside a test run may never write the real home's log; every test gets its own."""
+    monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path / "home"))
 
 
 def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess:
@@ -430,6 +437,96 @@ def test_a_look_alike_name_outside_the_temp_folder_or_a_different_name_is_an_ord
     other = world.root / "scratch-AbC123"
     _orphan_detached_copy(world, other)
     assert _verdict(world, other) == ws.Verdict.SHOW
+
+
+# The next tests come from Aether's cold read of #698 (his probes P1-P3, 2026-10-20), plus the cases around them.
+
+
+def _sweep(world, **kw):
+    return ws.sweep(
+        world.main,
+        pr_info=world.pr,
+        now=__import__("time").time() + LONG_AGO,
+        log_path=world.root / "log.jsonl",
+        **kw,
+    )
+
+
+def test_a_scratch_checkout_with_a_stray_file_is_actually_removed_and_does_not_end_the_sweep(
+    world, monkeypatch
+):
+    import tempfile
+
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(world.root))
+    first, name = world.copy(commits=1, push=True)
+    world.prs[name] = ("MERGED", _must(first, "rev-parse", "HEAD"))
+    scratch = world.root / "divineos-push-gate-ABC123"
+    _must(world.main, "worktree", "add", "-q", "--detach", str(scratch), "main")
+    (scratch / "left_by_a_test.txt").write_text("x\n", encoding="utf-8")
+    report = _sweep(world)
+    removed = {Path(e["path"]).name for e in report.removed}
+    assert scratch.name in removed and first.name in removed
+    assert not scratch.exists() and not first.exists()
+
+
+def test_a_locked_work_copy_is_in_use_and_never_forced(world):
+    wt, name = world.copy(commits=1, push=True)
+    world.prs[name] = ("MERGED", _must(wt, "rev-parse", "HEAD"))
+    _must(world.main, "worktree", "lock", "--reason", "a test run is using it", str(wt))
+    verdict, state, reasons = world.assess(wt)
+    assert verdict == ws.Verdict.KEEP
+    assert any("locked" in r and "a test run is using it" in r for r in reasons)
+    _sweep(world)
+    assert wt.exists()
+
+
+def test_one_removal_that_git_refuses_is_listed_and_the_sweep_goes_on_and_records(
+    world, monkeypatch
+):
+    a, a_name = world.copy(commits=1, push=True, merged_into_main=True)
+    b, b_name = world.copy(commits=1, push=True, merged_into_main=True)
+    real_remove = ws.remove_copy
+
+    def refuse_first(main_root, wt, **kw):
+        if Path(wt).name == a.name:
+            raise ws.WorkCopyRefused("git could not remove it")
+        return real_remove(main_root, wt, **kw)
+
+    monkeypatch.setattr(ws, "remove_copy", refuse_first)
+    report = _sweep(world)
+    assert any("refused at removal" in " ".join(e["reasons"]) for e in report.shown)
+    assert a.exists() and not b.exists()
+    assert (world.root / "log.jsonl").exists(), (
+        "the record is written even when a removal was refused"
+    )
+
+
+def test_a_registration_whose_folder_is_gone_is_pruned_and_not_listed_forever(world):
+    wt, name = world.copy(commits=1, push=True)
+    shutil.rmtree(wt)
+    dry = _sweep(world, dry_run=True)
+    assert any(Path(p).name == wt.name for p in dry.pruned)
+    assert wt.name in _must(world.main, "worktree", "list", "--porcelain")
+    real = _sweep(world)
+    assert not [e for e in real.shown if Path(e["path"]).name == wt.name]
+    assert wt.name not in _must(world.main, "worktree", "list", "--porcelain")
+    assert "pruned" in real.summary()
+
+
+def test_a_finished_copy_with_a_top_level_folder_touched_just_now_is_in_use(world):
+    wt, name = world.copy(commits=1, push=True, merged_into_main=True)
+    (wt / "tmp").mkdir()
+    now = __import__("time").time() + LONG_AGO
+    os.utime(
+        wt / "tmp", (now, now)
+    )  # something inside the copy moved a moment ago; the folder's own mtime did not
+    assert ws.assess(world.main, wt, pr_info=world.pr, now=now)[0] == ws.Verdict.KEEP
+
+
+def test_a_sweep_inside_a_test_run_refuses_to_touch_the_real_home_and_its_log(world, monkeypatch):
+    monkeypatch.delenv("DIVINEOS_HOME", raising=False)
+    with pytest.raises(ws.WorkCopyRefused, match="test run"):
+        ws.sweep(world.main, pr_info=world.pr)
 
 
 def test_a_sweep_that_cannot_run_says_so_and_never_reads_as_clean(monkeypatch):

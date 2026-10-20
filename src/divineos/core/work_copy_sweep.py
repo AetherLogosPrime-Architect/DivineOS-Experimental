@@ -34,6 +34,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import time
 from collections.abc import Callable
@@ -67,7 +68,15 @@ class Verdict(Enum):
 
 
 class WorkCopyRefused(RuntimeError):
-    """A refusal is the mechanism working, not an error to route around."""
+    """A refusal is the mechanism working, not an error to route around.
+
+    `code` is the exit status the command line reports: 3 for the main checkout, 4 for work that exists
+    nowhere else, 5 for a snapshot that did not hold, 2 for anything else.
+    """
+
+    def __init__(self, message: str, code: int = 2) -> None:
+        super().__init__(message)
+        self.code = code
 
 
 PrInfo = Callable[[str], "tuple[str, str] | None"]
@@ -218,10 +227,36 @@ class CopyState:
     finished_how: str = ""
     published: bool = False
     recent: bool = False
+    scratch: bool = False
+
+
+def _lock_reason(main_root: Path, wt: Path) -> str | None:
+    """git's own `worktree lock`: the native way to say a copy is in use. None if not locked."""
+    done = _git(main_root, "worktree", "list", "--porcelain")
+    if done.returncode != 0:
+        return None
+    here = False
+    for line in done.stdout.splitlines():
+        if line.startswith("worktree "):
+            here = Path(line[len("worktree ") :]).resolve() == wt
+        elif here and (line == "locked" or line.startswith("locked ")):
+            return line[len("locked ") :].strip() or "no reason given"
+    return None
 
 
 def _newest_touch(wt: Path) -> float:
+    # The folder's own mtime moves only when a direct child is added or removed, so a file changed deep
+    # inside would not show. The top-level entries' mtimes are the cheap next signal.
     stamps = [wt.stat().st_mtime]
+    try:
+        with os.scandir(wt) as it:
+            for entry in it:
+                try:
+                    stamps.append(entry.stat(follow_symlinks=False).st_mtime)
+                except OSError:
+                    pass
+    except OSError:
+        pass
     gitdir = _git(wt, "rev-parse", "--path-format=absolute", "--git-dir")
     if gitdir.returncode == 0:
         g = Path(gitdir.stdout.strip())
@@ -264,6 +299,9 @@ def _assess_copy(
     main_root: Path, wt: Path, state: CopyState, pr_info: PrInfo, now: float, recent_seconds: int
 ) -> tuple[Verdict, CopyState, list[str]]:
     reasons: list[str] = []
+    lock = _lock_reason(main_root, wt)
+    if lock is not None:
+        return Verdict.KEEP, state, [f"locked ({lock}), so in use; a lock is never forced"]
     head = _git(wt, "rev-parse", "HEAD")
     if head.returncode != 0:
         return (
@@ -278,7 +316,7 @@ def _assess_copy(
     status = _git(wt, "status", "--porcelain", "--untracked-files=normal", "--ignored")
     if status.returncode != 0:
         return Verdict.SHOW, state, [f"could not read this copy's state: {status.stderr.strip()}"]
-    scratch = _is_gate_scratch(wt)
+    scratch = state.scratch = _is_gate_scratch(wt)
     for line in status.stdout.splitlines():
         code, rel = line[:2], line[3:].strip().strip('"')
         if scratch or _regenerable(rel):
@@ -337,11 +375,16 @@ def _assess_copy(
     return Verdict.REMOVE, state, [f"finished ({state.finished_how}), nothing unique, links safe"]
 
 
-def remove_copy(main_root: Path, wt: Path, *, snapshot: bool = False) -> str:
-    """Remove one work copy: refuse unique work (or keep it in refs/rescue/<name> with snapshot), unlink, then git."""
+def remove_copy(main_root: Path, wt: Path, *, snapshot: bool = False, scratch: bool = False) -> str:
+    """Remove one work copy: refuse unique work (or keep it in refs/rescue/<name> with snapshot), unlink, then git.
+
+    `scratch` is passed by the sweep, and only for a copy `assess` has already classified as the push gate's
+    own scratch checkout. It is a parameter and not a name check in here, so the standalone remover cannot be
+    talked into skipping its refusal by what a folder is called.
+    """
     wt, main_root = wt.resolve(), main_root.resolve()
     if wt == main_root:
-        raise WorkCopyRefused(f"that is the main checkout, not a work copy: {wt}")
+        raise WorkCopyRefused(f"that is the main checkout, not a work copy: {wt}", code=3)
     state = CopyState(path=str(wt))
     state.branch = _git(wt, "branch", "--show-current").stdout.strip()
     for line in _git(
@@ -355,11 +398,14 @@ def remove_copy(main_root: Path, wt: Path, *, snapshot: bool = False) -> str:
     ).stdout.strip()
     unreached = not state.branch and not reached
     note = ""
+    if scratch:
+        state.dirty, state.ignored_unique, unreached = [], [], False
     if state.dirty or state.ignored_unique or unreached:
         if not snapshot:
             raise WorkCopyRefused(
                 f"{wt} holds work that exists nowhere else: {(state.dirty + state.ignored_unique)[:5]}"
-                f"{' and a detached HEAD no branch reaches' if unreached else ''}. Re-run with snapshot to keep it in refs/rescue."
+                f"{' and a detached HEAD no branch reaches' if unreached else ''}. Re-run with snapshot to keep it in refs/rescue.",
+                code=4,
             )
         _git(wt, "add", "-A", "--", ".", ":(exclude).venv", ":(exclude)tmp", ":(exclude).direnv")
         tree = _git(wt, "write-tree").stdout.strip()
@@ -393,6 +439,7 @@ class SweepReport:
     kept: list[dict] = field(default_factory=list)
     could_not_read: int = 0
     dry_run: bool = False
+    pruned: list[str] = field(default_factory=list)
 
     def summary(self) -> str:
         total = len(self.removed) + len(self.shown) + len(self.kept)
@@ -402,6 +449,9 @@ class SweepReport:
             f"{len(self.shown)} need your word",
             f"{len(self.kept)} in use or the main checkout",
         ]
+        if self.pruned:
+            pverb = "would be pruned" if self.dry_run else "pruned"
+            parts.append(f"{len(self.pruned)} registrations whose folder was already gone {pverb}")
         line = "; ".join(parts)
         if self.could_not_read:
             line += f"; could not read the state of {self.could_not_read} (counted as doubtful, never as finished)"
@@ -418,10 +468,26 @@ def sweep(
     log_path: Path | None = None,
 ) -> SweepReport:
     """Remove every finished work copy of this repository; list the rest. See the module docstring for the rule."""
+    if (
+        "PYTEST_CURRENT_TEST" in os.environ
+        and "DIVINEOS_HOME" not in os.environ
+        and log_path is None
+    ):
+        # A test that reached the real thing would sweep the real machine's work copies. Cheap to refuse.
+        raise WorkCopyRefused(
+            "refusing to sweep from inside a test run without an isolated DIVINEOS_HOME or a log path"
+        )
     now = time.time() if now is None else now
     main_root = main_root_of(Path(repo))
     report = SweepReport(dry_run=dry_run)
-    for wt in list_copies(main_root):
+    copies = list_copies(main_root)
+    # A registration whose folder is already gone has nothing on disk to lose: prune, never list it forever.
+    report.pruned = [str(p) for p in copies if not p.exists()]
+    if report.pruned and not dry_run:
+        _git(main_root, "worktree", "prune")
+    for wt in copies:
+        if not wt.exists():
+            continue
         verdict, state, reasons = assess(
             main_root, wt, pr_info=pr_info, now=now, self_path=self_path
         )
@@ -435,7 +501,11 @@ def sweep(
                     [f"changed between the listing and the removal: {r}" for r in reasons],
                 )
             else:
-                remove_copy(main_root, wt)
+                try:
+                    remove_copy(main_root, wt, scratch=state.scratch)
+                except WorkCopyRefused as exc:
+                    # One copy that cannot be removed must never end the sweep or skip the record.
+                    verdict, reasons = Verdict.SHOW, [f"refused at removal: {exc}"]
         entry: dict = {
             "path": str(wt),
             "branch": state.branch,
@@ -517,7 +587,13 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     here = Path(__file__).resolve().parents[3]
     if args.cmd == "remove":
-        print(remove_copy(main_root_of(Path(args.path)), Path(args.path), snapshot=args.snapshot))
+        try:
+            print(
+                remove_copy(main_root_of(Path(args.path)), Path(args.path), snapshot=args.snapshot)
+            )
+        except WorkCopyRefused as exc:
+            print(f"REFUSED: {exc}", file=sys.stderr)
+            return exc.code
         return 0
     report = sweep(here, dry_run=(args.dry_run or not args.sweep), self_path=here)
     for entry in report.removed:

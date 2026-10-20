@@ -1,64 +1,31 @@
 #!/usr/bin/env bash
-# Remove a git work copy safely: unlink its links first, refuse to destroy work that exists nowhere else.
+# Remove a git work copy safely. One implementation: src/divineos/core/work_copy_sweep.py
+# (links are unlinked first, work that exists nowhere else is refused, --snapshot keeps it in
+# refs/rescue/<name>, the main checkout is never removed). This wrapper only finds a working Python.
 #
 # 2026-10-20, Aria: `git worktree remove --force` on work copies whose .venv was a junction to the
-# main checkout's real .venv emptied that real venv. Git walks the link. Only an unlink (rmdir
-# semantics) removes a junction without touching what it points at, so the links go first.
+# main checkout's real .venv emptied that real venv. Git walks the link. Aether's cold read of #698
+# asked for one implementation, not a second copy in shell, and for the house's resolver rather than a
+# bare `python`, which on Windows can be the Microsoft Store stub; see the resolver below.
 #
 # Usage: bash scripts/remove_work_copy.sh <work-copy-dir> [--snapshot]
-#   no flag     refuse if the copy holds uncommitted files, or a detached HEAD no branch reaches
-#   --snapshot  keep that work in refs/rescue/<folder-name> inside the shared repo, then remove
-set -euo pipefail
+# Exit: 0 removed; 2 anything else; 3 the main checkout; 4 holds work that exists nowhere else; 5 snapshot failed.
+# No `set -e`: the resolver below tries candidates that are allowed to fail, and the one command that
+# matters is the last, which is exec'd, so its exit status is this script's.
 
-wt="${1:?usage: remove_work_copy.sh <work-copy-dir> [--snapshot]}"
-snapshot=0
-[ "${2:-}" = "--snapshot" ] && snapshot=1
-[ -d "$wt" ] || { echo "no such work copy: $wt" >&2; exit 2; }
-
-wt_abs="$(cd "$wt" && pwd)"
-common="$(git -C "$wt_abs" rev-parse --path-format=absolute --git-common-dir)"
-main_root="$(cd "$common/.." && pwd)"
-if [ "$wt_abs" = "$main_root" ]; then
-    echo "that is the main checkout, not a work copy: $wt_abs" >&2
-    exit 3
-fi
-name="$(basename "$wt_abs")"
-
-# What exists only in this folder: uncommitted/untracked files, or a detached HEAD no ref reaches.
-# The .venv link and the test runner's scratch folder are not work.
-dirty="$(git -C "$wt_abs" status --porcelain --untracked-files=normal | grep -v -E '\.venv|^\?\? tmp/|^\?\? \.direnv' || true)"
-branch="$(git -C "$wt_abs" branch --show-current)"
-reached="$(git -C "$wt_abs" for-each-ref --contains HEAD refs/heads refs/remotes | wc -l)"
-unreached=0
-[ -z "$branch" ] && [ "$reached" -eq 0 ] && unreached=1
-
-if [ -n "$dirty" ] || [ "$unreached" -eq 1 ]; then
-    if [ "$snapshot" -eq 0 ]; then
-        echo "REFUSED: $wt_abs holds work that exists nowhere else (uncommitted files or a detached HEAD no branch reaches):" >&2
-        [ -n "$dirty" ] && echo "$dirty" | head -8 >&2
-        echo "Re-run with --snapshot to keep it in refs/rescue/$name first." >&2
-        exit 4
-    fi
-    git -C "$wt_abs" add -A -- . ':(exclude).venv' ':(exclude)tmp' ':(exclude).direnv'
-    tree="$(git -C "$wt_abs" write-tree)"
-    sha="$(git -C "$wt_abs" commit-tree "$tree" -p HEAD -m "rescue snapshot of $wt_abs before its folder was removed: branch=${branch:-detached}")"
-    git -C "$wt_abs" update-ref "refs/rescue/$name" "$sha"
-    held="$(git -C "$wt_abs" rev-parse "refs/rescue/$name^{tree}")"
-    [ "$held" = "$tree" ] || { echo "snapshot did not hold the work; leaving $wt_abs alone" >&2; exit 5; }
-    echo "snapshot: refs/rescue/$name = ${sha:0:9}"
-fi
-
-# Links first. A link that points OUTSIDE this folder is removed as a link only; nothing it points at is touched.
-case "$(uname -s)" in
-    MINGW*|MSYS*|CYGWIN*)
-        # One line on purpose: PowerShell reading a multi-line block from stdin printed nothing and unlinked nothing here.
-        WT_WIN="$(cygpath -w "$wt_abs")" powershell.exe -NoProfile -NonInteractive -Command '$p = $env:WT_WIN; $l = @(Get-ChildItem -LiteralPath $p -Recurse -Force -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint } | Sort-Object { $_.FullName.Length } -Descending); foreach ($x in $l) { [System.IO.Directory]::Delete($x.FullName) }; "unlinked $($l.Count) link(s), their targets untouched"'
-        ;;
-    *)
-        find "$wt_abs" -type l -print -delete | sed 's/^/unlinked: /'
-        ;;
-esac
-
-git -C "$main_root" worktree remove --force "$wt_abs"
-git -C "$main_root" worktree prune
-echo "removed $wt_abs"
+here="$(cd "$(dirname "$0")" && pwd)"
+# The house resolver (find_divineos_python in .claude/hooks/_lib.sh) answered "none" for this call shape
+# when run from the test suite, so this carries the part of it that matters, in order: this repository's
+# .venv, the main checkout's .venv (a linked work copy has none of its own), then python3 and python.
+# Every candidate must run, which is what skips the Windows Store stub that exists, is executable, and is
+# not a Python.
+main_repo="$(cd "$(git -C "$here" rev-parse --path-format=absolute --git-common-dir)/.." 2>/dev/null && pwd)"
+PY=""
+for candidate in "$here/../.venv/Scripts/python.exe" "$here/../.venv/bin/python" \
+                 "$main_repo/.venv/Scripts/python.exe" "$main_repo/.venv/bin/python" \
+                 "$(command -v python3 2>/dev/null)" "$(command -v python 2>/dev/null)"; do
+    [ -n "$candidate" ] && [ -x "$candidate" ] || continue
+    if "$candidate" -c 'import sys; sys.exit(0)' >/dev/null 2>&1; then PY="$candidate"; break; fi
+done
+[ -n "$PY" ] || { echo "no working Python found" >&2; exit 2; }
+PYTHONPATH="$here/../src${PYTHONPATH:+:$PYTHONPATH}" exec "$PY" -m divineos.core.work_copy_sweep remove "$@"
