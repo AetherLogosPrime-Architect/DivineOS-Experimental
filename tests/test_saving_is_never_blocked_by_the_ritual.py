@@ -124,7 +124,7 @@ def test_a_memory_folder_that_is_a_link_pointing_outside_is_still_stopped(tmp_pa
     outside = tmp_path / "outside"
     outside.mkdir()
     made = subprocess.run(
-        ["cmd", "/c", "mklink", "/J", str(project / "memory"), str(outside)],
+        ["cmd", "/c", "mklink", "/J", str(project / "memory"), str(tmp_path / "outside")],
         capture_output=True,
         text=True,
     )
