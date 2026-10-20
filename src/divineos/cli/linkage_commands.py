@@ -54,3 +54,45 @@ def register(cli: click.Group) -> None:
         if state.get("drawer_error"):
             raise click.ClickException(f"the drawer could not be read: {state['drawer_error']}")
         click.echo(f"items with no stored vector: {state.get('missing', 0)}")
+
+    @linkage_group.command("why")
+    @click.argument("words", nargs=-1, required=True)
+    @click.option("--misses", default=4, show_default=True, help="Nearest items below the bar.")
+    def why_cmd(words: tuple[str, ...], misses: int) -> None:
+        """Show why items arrive for a turn: the scores each one was given.
+
+        Pass the words of the turn. Read-only: nothing is primed, stored or fed back,
+        so asking never changes what arrives next. It runs on exactly the words
+        given, without the hidden recent context the live link adds, and a fresh run
+        has no priming, so a match the live link reached through priming may show
+        here as a plain miss. It shows numbers and the first line of the chunk that
+        was compared, not a story about meaning.
+        """
+        from divineos.core import (
+            light_embedder,
+            memory_linkage_retriever,
+            memory_linkage_retriever_v2,
+        )
+
+        ok, why = light_embedder.available()
+        if not ok:
+            raise click.ClickException(f"cannot run: {why}")
+        memory_linkage_retriever._EMBEDDING_CACHE.clear()
+        memory_linkage_retriever._ensure_cache()
+        state = memory_linkage_retriever.lane_state()
+        if state.get("drawer_error"):
+            raise click.ClickException(f"the drawer could not be read: {state['drawer_error']}")
+        sources = memory_linkage_retriever_v2.explain_turn(" ".join(words), None, misses)
+        if not sources:
+            raise click.ClickException("nothing was scored: no words, or no searchable items")
+        for source in sources:
+            click.echo(f"\n{source['source']}: {source['items']} items, bar {source['bar']:.2f}")
+            for row in source["rows"]:  # type: ignore[attr-defined]
+                mark = "SHOWN" if row["surfaced"] else ("cut " if row["passed"] else "miss")
+                click.echo(
+                    f"  {mark} sim {row['similarity']:.2f}  imp {row['importance']:.2f}  "
+                    f"age {row['recency_days']}d  rank {row['rank']:.2f}  "
+                    f"chunk {row['chunk_chars']} chars"
+                )
+                click.echo(f"       {row['title'][:90]}")
+                click.echo(f"       > {row['first_line']}")

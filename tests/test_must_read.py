@@ -98,3 +98,14 @@ def test_multiple_pending_sorted_by_arm_time(tmp_path):
     mr.require_read("second", "b words here", "r", home=tmp_path)
     items, _ = mr.pending(home=tmp_path)
     assert [i.key for i in items] == ["first", "second"]
+
+
+def test_colon_key_gives_a_path_that_opens(tmp_path):
+    # The real key from 2026-10-01: on Windows the colon made an NTFS stream,
+    # and the path the gate named could not be opened.
+    p = mr.require_read("surface-could-not-run:Stop", "the hook failed", "r", home=tmp_path)
+    assert ":" not in p.path.name
+    assert p.path.read_text(encoding="utf-8") == "the hook failed"
+    items, _ = mr.pending(home=tmp_path)
+    assert [i.key for i in items] == ["surface-could-not-run:Stop"]
+    assert mr.mark_read(p.path, home=tmp_path) == ["surface-could-not-run:Stop"]
