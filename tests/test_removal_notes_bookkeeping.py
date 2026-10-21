@@ -45,6 +45,16 @@ def test_other_event_types_are_never_read_as_notes():
     assert _removal_notes_from_rows(rows) == {}
 
 
+def test_a_ledger_lookalike_type_is_not_a_note():
+    # Aether 2026-10-21: widening the check to any LEDGER_* type passed every other
+    # test here, because the one "other type" row used USER_INPUT.
+    rows = [
+        _row("LEDGER_SOMETHING_ELSE", {"deleted_chain_hash": "gone"}, "c1"),
+        _row("LEDGER_SOMETHING_ELSE", {"gap_tail_chain_hashes": ["gone"]}, "c2"),
+    ]
+    assert _removal_notes_from_rows(rows) == {}
+
+
 def test_a_note_with_a_broken_payload_excuses_nothing_and_does_not_crash():
     broken = ("e", "t", "LEDGER_CORRUPTION_REPAIRED", "a", "{not json", "h", "p", "c")
     assert _removal_notes_from_rows([broken]) == {}
