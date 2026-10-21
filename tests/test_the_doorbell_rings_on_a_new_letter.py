@@ -31,7 +31,10 @@ def _ring(home: Path, seconds: float = 6) -> tuple[str, bool]:
     outlives it (the trailing ':' stops bash exec-ing the child) is the starter
     the harness gives it for real.
     """
-    env = {**os.environ, "HOME": str(home)}
+    # These run the bell with its output piped to Python, which is not a watched background
+    # task, so they declare that on purpose. What the bell does when it is NOT declared is
+    # pinned in test_the_doorbell_refuses_to_arm_unwatched.py.
+    env = {**os.environ, "HOME": str(home), "DOORBELL_ALLOW_UNTRACKED": "1"}
     try:
         p = subprocess.run(
             [BASH, "-c", f'bash "{BELL.as_posix()}" aether; :'],
