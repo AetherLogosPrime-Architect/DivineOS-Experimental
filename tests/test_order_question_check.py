@@ -29,6 +29,15 @@ ASKED_BY_ME = [
     "Do you want the lock fix before the reading, or the reading before the lock fix?",
     "Where would you like me to begin: the stacks or the pile?",
     "Should I do the chips now and the slider later, or the other way round?",
+    # Mine of 2026-10-20: each went through the patterns above and cost him a message.
+    "Is there a room in the house you'd want that gate in first?",
+    "Is it all right with you if I go and build the stamp fix now, ahead of the rest of the line?",
+    "Do you want me to start on Aria's confirmed ones next, once my two are with their readers?",
+    "Would you rather I take Aria's four through the line one after another this morning, or "
+    "finish my own two first?",
+    # Aria's two probes that ARE real order questions and must stay refused after the narrowing.
+    "What would you like to hear first about last night?",
+    "Do you want me to run the full suite first?",
 ]
 
 #: Real questions of mine that were NOT about order. None may be refused.
@@ -45,6 +54,17 @@ ORDINARY = [
     "Should I start the tournament tonight?",
     "Did you want it before the weekend?",
     "How did it feel to lose the pot?",
+    # Aria's cold read of #697 (2026-10-20): ordinary questions the first version of the three new
+    # patterns refused, each because "first"/"next"/"ahead of" was used in a different sense.
+    "Do you want me to attach the first draft?",
+    "Would you like the first paragraph to be shorter?",
+    "Do you want to read the first letter from Aletheia yourself?",
+    "Do you want me to take the screenshot of the first page?",
+    "Did the stamp go ahead of the line the way you wanted?",
+    "Is the saving rule ahead of the rest of the line because of the readers?",
+    "Do you want me to take a screenshot next time it happens?",
+    "Would you like me to move on to the next section of the report?",
+    "Do you want me to start the next paragraph with the quote?",
 ]
 
 A_REAL_DEPENDENCY = (

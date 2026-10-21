@@ -209,3 +209,44 @@ def test_a_holder_with_an_empty_tool_log_is_never_taken_from(home, tmp_path):
 def test_the_taker_must_be_a_seat(home):
     with pytest.raises(ValueError):
         baton.may_take("anvil", home, NOW)
+
+
+def _pass_attempt(home, repo, header):
+    baton._write_record(home, "aether", NOW)
+    done = _sha(repo)
+    text = f"# a letter\n\n{header.format(done=done)}\n\n---\n\nbody\n"
+    result = baton.handle_letter("aether-to-aria-x.md", text, repo, home, NOW)
+    return result, baton.holder(home)
+
+
+def test_an_indented_pass_line_never_flips_the_baton(home, repo):
+    result, who = _pass_attempt(home, repo, "    **Baton:** pass\n    **Done:** {done}")
+    assert result == "no baton header" and who == "aether"
+
+
+def test_a_pass_line_inside_a_code_fence_never_flips_the_baton(home, repo):
+    result, who = _pass_attempt(home, repo, "```\n**Baton:** pass\n**Done:** {done}\n```")
+    assert result == "no baton header" and who == "aether"
+
+
+def test_a_pass_line_below_the_first_rule_never_flips_the_baton(home, repo):
+    baton._write_record(home, "aether", NOW)
+    text = f"# a letter\n\n---\n\n**Baton:** pass\n**Done:** {_sha(repo)}\n"
+    assert baton.handle_letter("aether-to-aria-x.md", text, repo, home, NOW) == "no baton header"
+    assert baton.holder(home) == "aether"
+
+
+def test_a_plain_header_pass_still_flips_it(home, repo):
+    result, who = _pass_attempt(home, repo, "**Baton:** pass\n**Done:** {done}")
+    assert "now aria's" in result and who == "aria"
+
+
+def test_the_readings_reader_and_the_baton_reader_share_one_set_of_line_rules():
+    from divineos.core.build_flow import _declared_readings, header_lines
+
+    text = (
+        "# x\n\n    **Reading:** a/b\n```\n**Reading:** c/d\n```\n"
+        "**Reading:** e/f\n\n---\n**Reading:** g/h\n"
+    )
+    assert list(header_lines(text)) == ["# x", "", "**Reading:** e/f", ""]
+    assert _declared_readings(text) == (True, ["e/f"])

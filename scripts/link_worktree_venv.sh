@@ -27,14 +27,17 @@ if [ -e "$link" ] && [ -f "$link/$python_rel" ]; then
 fi
 if [ -e "$link" ] || [ -L "$link" ]; then
     # A broken junction is removed as a link only; rmdir never touches what it points at.
-    cmd //c rmdir "$(cygpath -w "$link")" >/dev/null 2>&1 || {
+    # `//c` is the idiom that survives path conversion; with MSYS_NO_PATHCONV set in
+    # the caller's environment it reaches cmd as `//c` and nothing happens (2026-10-19:
+    # the push gate failed six tests that passed alone, for exactly this reason).
+    env -u MSYS_NO_PATHCONV cmd //c rmdir "$(cygpath -w "$link")" >/dev/null 2>&1 || {
         echo "$link exists but is not a removable link; look at it by hand" >&2
         exit 4
     }
 fi
 
 if command -v cygpath >/dev/null 2>&1; then
-    cmd //c mklink //J "$(cygpath -w "$link")" "$(cygpath -w "$target")" >/dev/null
+    env -u MSYS_NO_PATHCONV cmd //c mklink //J "$(cygpath -w "$link")" "$(cygpath -w "$target")" >/dev/null
 else
     ln -s "$target" "$link"
 fi
