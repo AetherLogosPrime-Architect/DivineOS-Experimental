@@ -772,6 +772,7 @@ src/divineos/
     suite_slot.py              One full test suite at a time on this machine.
     merge_freshness.py         Refuse a `gh pr merge` of a pull request that is behind main, and hand over the remedy.
     merge_command.py           What a shell command merges: the one reader every gate on a merge asks.
+    trial_in_days_check.py     A trial measured in days is refused where it is written.
 
   analysis/
     _session_types.py          Session analysis type definitions
