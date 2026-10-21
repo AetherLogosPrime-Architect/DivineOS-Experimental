@@ -20,7 +20,7 @@ It adds two numbered rules to the Hard Rules section of `CLAUDE.md`, nothing els
     first 2026-06-01, again 2026-07-26), and the day I heard "fix it properly now" as a clock and built two
     fixes with no council walk, which the later walks found two holes in.
 
-Eight lines added, none removed. The wording is the content of his words plus my account of the failure; I did
+Ten lines added (the two rules, the closing line, and the blank lines between them), none removed. The wording is the content of his words plus my account of the failure; I did
 not soften any rule that was already there. Aletheia's read of the first version (her letter, 2026-10-12) asked
 for two more things, both now in:
 
