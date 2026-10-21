@@ -299,6 +299,25 @@ def run_tests(
     return "errored", code, None, took
 
 
+_PASSED_COUNT = re.compile(r"(\d+) passed")
+
+
+def run_baseline(copy: Path, tests: list[str], timeout: float) -> tuple[str, int | None, float]:
+    """The untouched run. Green means exit 0 AND at least one test passed: a file of skipped tests exits 0
+    too, and every fault would then 'survive' tests that never ran (Aether, 2026-10-21)."""
+    began = time.time()
+    code, out = _run_capturing(_pytest_cmd(tests), copy, timeout)
+    took = time.time() - began
+    if code is None:
+        return "timeout", None, took
+    if code != 0:
+        return ("killed" if code == 1 else "errored"), code, took
+    m = _PASSED_COUNT.search(out)
+    if not m or int(m.group(1)) == 0:
+        return "nothing-ran", 0, took
+    return "survived", 0, took
+
+
 def confirm_kill(copy: Path, killer: str, timeout: float) -> bool:
     """A catch has to repeat, and be the same catch. A check that fails by chance on a planted fault looks
     exactly like one that caught it, so the named catcher is run ALONE once more on the same faulted copy
@@ -364,7 +383,12 @@ def run(
         make_copy(repo, include, work)
         copy_file = work / module_path
         prove_copy_is_imported(work, module_name_of(module_path))
-        outcome, code, _, base_secs = run_tests(work, tests, timeout=1800)
+        outcome, code, base_secs = run_baseline(work, tests, timeout=1800)
+        if outcome == "nothing-ran":
+            raise MutateRefused(
+                "no test passed before any fault was planted (every test skipped, or none ran); "
+                "every fault would survive tests that never ran, and that is not a finding about them."
+            )
         if outcome != "survived":
             raise MutateRefused(
                 f"the tests are not green before any fault is planted ({outcome}, exit {code}); "

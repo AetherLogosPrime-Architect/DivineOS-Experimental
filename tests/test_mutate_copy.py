@@ -114,6 +114,15 @@ def test_red_tests_before_any_fault_refuse_the_run(tmp_path):
         _run(repo)
 
 
+def test_tests_that_are_all_skipped_refuse_the_run(tmp_path):
+    """Aether, breaking #700 on 2026-10-21: a file of skipped tests exits 0, so the untouched run read as
+    green, every fault survived, and the readout said 'caught 0%' of tests that never ran."""
+    skipped = "import pytest\nimport pkg.mod  # noqa: F401\n\n\n@pytest.mark.skip\ndef test_s():\n    assert False\n"
+    repo = _project(tmp_path, tests_source=skipped)
+    with pytest.raises(mc.MutateRefused, match="no test passed"):
+        _run(repo)
+
+
 def test_nothing_to_plant_is_a_refusal_and_not_a_pass(tmp_path):
     repo = _project(
         tmp_path, mod_source='NAME = "a"\n', tests_source="def test_ok():\n    assert True\n"
