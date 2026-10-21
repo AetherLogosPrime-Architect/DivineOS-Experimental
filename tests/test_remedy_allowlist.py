@@ -86,25 +86,12 @@ class TestTheOpenQuestionPairDoesNotTrapItself:
         assert not is_remedy('divineos ask-resolve-all "x"')
         assert not is_remedy('divineos ask-resolve x "y" && git push')
 
-    def test_the_open_ask_hook_passes_the_question_holds_exit(self):
-        """The hook keeps its own exempt list in shell, so the shared list does
-        not reach it. Read the hook and require its list to carry the command."""
-        hook = (_REPO / ".claude" / "hooks" / "an-open-ask-holds-the-work.sh").read_text(
-            encoding="utf-8"
-        )
-        assert "'divineos question-hold'" in hook
-
-    def test_the_open_ask_hook_asks_the_shared_judges(self):
-        """2026-10-07. The hook kept a private list and never asked the shared
-        ones, so it refused the doorbell the Stop guard demands while a question
-        to Dad stood open. It must ask both judges, and the judges themselves
-        must pass the doorbell and refuse work chained behind it."""
+    def test_the_doorbell_judge_passes_the_bell_and_refuses_work_chained_behind_it(self):
+        """The two judges are the shared ones. The open-ask hook that used to carry the other
+        two tests of this pair was retired (archived 2026-10-16: a question to Dad while he is
+        away now goes to the morning list), so what is left to pin is the judges themselves."""
         from divineos.core.remedy_allowlist import is_doorbell
 
-        hook = (_REPO / ".claude" / "hooks" / "an-open-ask-holds-the-work.sh").read_text(
-            encoding="utf-8"
-        )
-        assert "is_doorbell(command) or is_remedy(command)" in hook
         assert is_doorbell("bash scripts/letter_doorbell.sh aria")
         assert not is_doorbell("bash scripts/letter_doorbell.sh aria && git commit -m x")
 
@@ -618,3 +605,22 @@ class TestCannotParseIsNotPermission:
         library exists to keep open.
         """
         assert _is_remedy("divineos ask what do I know about this")
+
+
+class TestTheReviewWindowExitsAreOnTheSharedList:
+    """The overdue block prints `prereg reviewing`, and the build-flow gate asks for
+    `game-walk file` paperwork. Both were added to the python list and the build gate's
+    own tuple on 2026-10-11 and not to this list, which nineteen other gates read, so a
+    gate sourcing it still refused the exit its neighbour printed. The survey of printed
+    exits found the disagreement; these pin the two cases it found."""
+
+    def test_the_review_window_opener_passes(self):
+        assert _is_remedy("divineos prereg reviewing prereg-abc --purpose 'look at the evidence'")
+
+    def test_the_game_walk_filer_passes(self):
+        assert _is_remedy(
+            "divineos game-walk file --mechanism m --route 'r | costlier | w' --edit e"
+        )
+
+    def test_the_control_still_refuses_ordinary_work(self):
+        assert not _is_remedy(f"{_GIT} commit -qm x")

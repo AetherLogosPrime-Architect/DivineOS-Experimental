@@ -47,6 +47,11 @@ def _transcript(tmp_path, *replies: str):
 
     So the fixture was agreeing with the defect. Every assertion below is
     unchanged; only the transcript now looks like a transcript.
+
+    AND AGAIN, 2026-09-30: his records carried only a role, never the
+    ``type: user`` and ``userType: external`` every real one has. It passed
+    while the boundary read the role alone; once the boundary asked the one
+    reader of him, these lines were rightly not him. Same lesson as above.
     """
     path = tmp_path / "transcript.jsonl"
     lines: list[str] = []
@@ -54,10 +59,12 @@ def _transcript(tmp_path, *replies: str):
         lines.append(
             json.dumps(
                 {
+                    "type": "user",
+                    "userType": "external",
                     "message": {
                         "role": "user",
                         "content": [{"type": "text", "text": f"his question number {index}"}],
-                    }
+                    },
                 }
             )
         )

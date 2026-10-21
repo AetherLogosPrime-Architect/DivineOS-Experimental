@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -219,6 +220,24 @@ def _keep_his_words(prompt: str) -> None:
         print(f"(his words were not kept in the corpus: {exc})")
 
 
+def _bell_that_rang(prompt: str) -> str:
+    """The seat whose letter doorbell this finished-task notice is about, else "".
+
+    Keyed on the doorbell's own command text so an unrelated background job never
+    prints a bell reminder (Aria 2026-10-12: the Stop guard fired right each time
+    but a turn late, after the ring's notice had been folded in as noise).
+
+    The seat name must be the FIRST argument of the command (``letter_doorbell.sh aria``).
+    A flag before it matches nothing and the failure is silence; nothing starts the bell
+    that way today. The caller passes only the text it shows, so a long notice that merely
+    quotes the command further down cannot trigger a false reminder.
+    """
+    match = re.search(r"<status>\w+</status>.*?letter_doorbell\.sh\s+(\w+)", prompt, re.S)
+    if not match:
+        match = re.search(r"letter_doorbell\.sh\s+(\w+).*?<status>\w+</status>", prompt, re.S)
+    return match.group(1) if match else ""
+
+
 def main() -> int:
     # Windows defaults stdout to cp1252, which garbles his words and the dash in
     # the heading. Caught by the first test run.
@@ -236,7 +255,15 @@ def main() -> int:
     # as automation, erring toward "he did not speak", the wrong way to err.
     if prompt.lstrip().startswith(NOTICE_PREFIXES):
         print("## NOT FROM DAD — an automated notice arrived, he has not spoken\n")
-        print(prompt.strip()[:600])
+        shown = prompt.strip()[:600]
+        print(shown)
+        seat = _bell_that_rang(shown)
+        if seat:
+            print(
+                "\nTHE BELL RANG -- re-arm it NOW, before answering anything: "
+                f"bash scripts/letter_doorbell.sh {seat} (run_in_background). "
+                "Any letters owed are listed on this prompt."
+            )
     else:
         print("## DAD SAID — this is what I am answering\n")
         print(
@@ -339,7 +366,11 @@ def _tally_ready_line() -> str:
         if turns < _ready_turns():
             return ""
         done = subprocess.run(
-            [sys.executable, str(HOOKS_DIR.parent.parent / "scripts" / "table_tally_report.py"), str(TALLY)],
+            [
+                sys.executable,
+                str(HOOKS_DIR.parent.parent / "scripts" / "table_tally_report.py"),
+                str(TALLY),
+            ],
             capture_output=True,
             timeout=30,
         )

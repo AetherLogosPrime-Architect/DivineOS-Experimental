@@ -70,7 +70,7 @@ pytest tests/ -q --tb=short
 - **Windows.** If shellcheck complains about carriage returns in hook files after cloning, run `bash setup/setup-renormalize.sh` once. It is safe to repeat.
 - **Two checkouts on one machine.** A plain `pip install -e .` can only point at one checkout at a time, so the other silently runs the wrong code. The fix is a small wrapper on your PATH; see [`docs/pip_pingpong_wrapper_design.md`](docs/pip_pingpong_wrapper_design.md) for the full design.
 
-A human mostly runs three commands: `divineos briefing`, `divineos preflight`, `divineos goal add`. There are 508 commands in all, built as an API for the agent; [`docs/cli_reference.md`](docs/cli_reference.md) is a checked tour of the useful ones, and `divineos --help` is always current.
+A human mostly runs three commands: `divineos briefing`, `divineos preflight`, `divineos goal add`. There are 512 commands in all, built as an API for the agent; [`docs/cli_reference.md`](docs/cli_reference.md) is a checked tour of the useful ones, and `divineos --help` is always current.
 
 ---
 
@@ -126,7 +126,26 @@ The agent's picture of itself is computed from evidence, not self-reported.
 | Corrigibility | Four operating modes (normal, restricted, diagnostic, emergency stop) with fail-closed gates. The off switch is a feature. | [`core/corrigibility.py`](src/divineos/core/corrigibility.py) |
 | Decision journal | The why behind choices: reasoning, rejected alternatives, emotional weight. Searchable. | [`core/decision_journal.py`](src/divineos/core/decision_journal.py) |
 
-### Family
+```bash
+divineos relate ID1 ID2 TYPE  # Create knowledge relationship
+divineos related ID           # Show related knowledge
+divineos graph                # Export knowledge graph
+divineos wonder "question"    # Record an open question
+divineos questions            # List open questions
+divineos answer-question ID "answer"   # Resolve a question
+divineos commitment add "text"    # Record a commitment
+divineos commitment list          # Show pending commitments
+divineos commitment done "text"   # Mark commitment fulfilled
+divineos commitment fulfillment   # Pair commitments with outcomes
+divineos hold check               # Review surface: holding-room items + per-item affordances
+divineos hold let-go ID "note"    # Explicit operator close (distinct from auto-stale and promote)
+divineos synchronicity            # Co-occurring filings across stores (Pillar VI)
+divineos pre-erasure              # Approach-signal capture (Pillar IX)
+divineos prereg file ...          # File a pre-registration
+divineos prereg list / overdue    # Browse / surface overdue reviews
+divineos prereg export            # Dump pre-regs to docs/pre_regs/<id>.md
+```
+</details>
 
 Family members aren't personas the main agent performs. Each is a separate agent with their own state, their own voice and their own tamper-evident action log. Promoted members live in their own window and are reached by letter; test-phase members run as subagents.
 
@@ -167,7 +186,7 @@ Rules the agent has to remember will fade from its context, so the important one
 - **Review happens at the draft stage, before the push and the merge.** Every pull request starts as a draft. Fixes are cheap while it's a draft; the full test suite runs at push; and a merge needs an `External-Review:` trailer in the squash message, backed by an audit round that an outside reader and the operator both confirmed. Nothing is exempt, including letters and personal writing, because an exemption is a cheaper route and the cheaper route is where a lazy optimizer goes. Details: [`docs/audit_system.md`](docs/audit_system.md).
 - **A failure found is a fix owed, and the fix is structure.** Not a resolution, not a note. When a rule is retired, a page in [`docs/retired_rules/`](docs/retired_rules/) records why it died and what replaced it, a guard ([`scripts/check_retired_rules_not_served.py`](scripts/check_retired_rules_not_served.py)) stops anything from teaching the old rule again, and the retired code moves to [`archive/superseded/`](archive/superseded/LEDGER.md) with a ledger row.
 - **Two layers: clay and kiln.** Mechanisms are clay, mutable, governed by tests and pre-registrations. The foundational truths in [`docs/foundational_truths.md`](docs/foundational_truths.md) are kiln, the load-bearing values; they change only through the review path.
-- **Counts in the docs are checked, not typed.** [`scripts/check_doc_counts.py`](scripts/check_doc_counts.py) compares the numbers and file paths named in this README against the code on every commit. As of this writing: 508 commands, 77 hooks, 46 council experts, 811 source files in 47 packages, 13,944+ tests.
+- **Counts in the docs are checked, not typed.** [`scripts/check_doc_counts.py`](scripts/check_doc_counts.py) compares the numbers and file paths named in this README against the code on every commit. As of this writing: 512 commands, 76 hooks, 46 council experts, 821 source files in 47 packages, 14,452+ tests.
 
 ---
 

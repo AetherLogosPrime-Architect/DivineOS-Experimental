@@ -236,28 +236,81 @@ NO_READING = "none"
 
 
 def _declared_readings(text: str) -> tuple[bool, list[str]]:
-    """``(field_present, branches)`` from the one declared line.
+    """``(field_present, branches)`` from every declared line.
 
     Read literally. Everything else in the letter -- title, filename, prose,
     the ``In response to`` line -- is deliberately not consulted, because
     inference from her prose is what produced the wrong credits this replaces.
 
+    EVERY ``**Reading:**`` line counts, not the first (2026-10-11): a letter that
+    named two branches on two lines was read as naming only the first, and the
+    second showed as unread with nothing said. A line is still the whole field and
+    commas still separate branches inside it.
+
     The two return values are separate on purpose: a letter declaring ``none``
     is present-with-no-branches, and reporting that as no-declaration would
     punish exactly the discipline the field asks for.
     """
+    present = False
+    branches: list[str] = []
+    in_fence = False
     for line in text.splitlines():
         stripped = line.strip()
+        # The declaration lives in the HEADER (Aria's cold read of 628, 2026-10-11): the
+        # first `---` ends it, so a pasted copy of someone's header further down credits
+        # nothing; a fenced block and a four-space or tab-indented line are quotes.
+        if stripped == "---":
+            break
+        if stripped.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence or line.startswith(("    ", "\t")):
+            continue
         if not stripped.startswith(READING_DECLARATION):
             continue
+        present = True
         value = stripped[len(READING_DECLARATION) :]
         parts = [p.strip().strip("`").lower() for p in value.split(",")]
-        return True, [p for p in parts if p and p != NO_READING]
-    return False, []
+        branches.extend(p for p in parts if p and p != NO_READING)
+    return present, branches
+
+
+def _newer_declaration(
+    newest: tuple[float, str, list[str]] | None, letter: Path, declarations: list[str]
+) -> tuple[float, str, list[str]] | None:
+    """Keep the most recently written letter that declared any branch (by file time)."""
+    if not declarations:
+        return newest
+    stamp = letter.stat().st_mtime
+    if newest is None or stamp >= newest[0]:
+        return (stamp, letter.name, declarations)
+    return newest
+
+
+def _what_the_newest_declared(newest: tuple[float, str, list[str]] | None) -> str:
+    """A miss reads as a miss on the field, not a silent drop (Aria, 2026-10-11): name what
+    the newest letter DID declare, so a branch left off a line is visible at once."""
+    if newest is None:
+        return ""
+    _, name, branches = newest
+    return f" (the newest, {name}, declares: {', '.join(branches)})"
 
 
 OWNER_DECLARATION = "Owner:"
 SEATS = ("aether", "aria")
+
+#: The cloud helper's own declared place (Dad, 2026-10-10: "give it its own
+#: place so it can be monitored and separated from your thinking in case it
+#: messes up"). Neither seat wrote its work, so naming a seat as author would
+#: turn the other seat's reading into a pairing that never existed. The lane is
+#: honoured only on a branch whose NAME begins with ``cloud/`` -- a name may
+#: withhold a pass, never grant one -- so declaring it on a branch a seat wrote
+#: reads as cannot-check (walk-da68247868ce, Yudkowsky). The one route left open
+#: is a seat naming its own branch ``cloud/...``: nothing in the repository
+#: separates the helper's commits from a seat's, and the game-walk records it.
+HELPER_LANE = "cloud"
+HELPER_BRANCH_PREFIX = "cloud/"
+_OWNER_NAMES = (*SEATS, HELPER_LANE)
 
 # WHO OWNS A BRANCH, DECLARED RATHER THAN GUESSED (2026-09-12).
 #
@@ -315,10 +368,16 @@ def declared_owner(branch: str, owners_dir: Path) -> tuple[str, str]:
             continue
         for part in stripped[len(OWNER_DECLARATION) :].split(","):
             seat = part.strip().strip("`").lower()
-            if seat in SEATS and seat not in named:
+            if seat in _OWNER_NAMES and seat not in named:
                 named.append(seat)
     if not named:
         return ("undeclared", "")
+    if HELPER_LANE in named and not branch.startswith(HELPER_BRANCH_PREFIX):
+        return (
+            "cannot-read",
+            f"the owner file names {HELPER_LANE} but this branch name does not begin with "
+            f"{HELPER_BRANCH_PREFIX}; a name may withhold a pass, never grant one",
+        )
     if len(named) > 1:
         return ("contested", ", ".join(named))
     return ("declared", named[0])
@@ -328,11 +387,13 @@ def _reading_declared_by(reviewer: str, branch: str, letters_dir: Path) -> Stati
     """Did ``reviewer`` declare a reading of ``branch``? Shared by both seats."""
     needle = branch.lower()
     declared_anywhere = 0
+    newest: tuple[float, str, list[str]] | None = None
     for f in sorted(letters_dir.glob(f"{reviewer}-to-*.md")):
         try:
             present, declarations = _declared_readings(
                 f.read_text(encoding="utf-8", errors="replace")
             )
+            newest = _newer_declaration(newest, f, declarations)
         except OSError:
             continue
         if present:
@@ -352,7 +413,8 @@ def _reading_declared_by(reviewer: str, branch: str, letters_dir: Path) -> Stati
     return StationResult(
         "4-cold-read",
         Status.MISSING,
-        f"none of {reviewer}'s {declared_anywhere} declared reading(s) names this branch",
+        f"none of {reviewer}'s {declared_anywhere} declared reading(s) names this branch"
+        f"{_what_the_newest_declared(newest)}",
     )
 
 
@@ -410,6 +472,19 @@ def check_cold_read_station(branch: str, letters_dir: Path, owners_dir: Path) ->
         )
 
     owner = detail
+    if owner == HELPER_LANE:
+        # Written by the cloud helper: neither seat wrote it, so either seat's
+        # declared reading is a cold one.
+        for seat in SEATS:
+            result = _reading_declared_by(seat, branch, letters_dir)
+            if result.status is Status.SATISFIED:
+                return result
+        return StationResult(
+            "4-cold-read",
+            Status.MISSING,
+            "written by the cloud helper; no declared reading by Aria or Aether names "
+            "this branch yet",
+        )
     reviewer = next(s for s in SEATS if s != owner)
     return _reading_declared_by(reviewer, branch, letters_dir)
 
@@ -444,6 +519,28 @@ def declared_author(body: str | None) -> str | None:
         return None
     match = _AUTHOR_TRAILER.search(body)
     return match.group("who").lower() if match else None
+
+
+def author_of(body: str | None, branch: str, owners_dir: Path) -> str | None:
+    """Who wrote a request: its own ``Author:`` line, else the cloud helper's lane.
+
+    The body's declaration wins, as before. With none, an owner file that says
+    ``cloud`` -- honoured only on a ``cloud/`` branch (``declared_owner``) --
+    makes the author the cloud helper. Nothing is inferred from a branch name.
+    """
+    declared = declared_author(body)
+    if declared is not None:
+        # A name may withhold a pass and never grant one (Aria's cold read, 2026-10-14):
+        # `Author: cloud` in a body on a branch that is not `cloud/...` would turn my own
+        # reading into an outside one, so it is not honoured. No author means the station
+        # cannot say who wrote it and refuses rather than guessing.
+        if declared.lower() == HELPER_LANE and not branch.startswith(f"{HELPER_LANE}/"):
+            return None
+        return declared
+    state, seat = declared_owner(branch, owners_dir)
+    if state == "declared" and seat == HELPER_LANE:
+        return HELPER_LANE
+    return None
 
 
 def _reading_seat_for(author: str | None) -> tuple[str, str] | None:
@@ -571,8 +668,14 @@ def check_aria_station(branch: str, letters_dir: Path, author: str | None = None
     # otherwise would be reading an invariant out of my head. This is the same
     # could-not-look discipline the module is made of, pointed at itself.
     declared = (author or "").strip().lower()
-    reader = _reading_seat_for(declared)
-    if reader is None:
+    if declared == HELPER_LANE:
+        # The cloud helper wrote it: neither seat did, so either seat's declared
+        # reading is a cold one (walk-da68247868ce).
+        readers = [_READING_SEAT[seat] for seat in SEATS]
+    else:
+        one = _reading_seat_for(declared)
+        readers = [one] if one is not None else []
+    if not readers:
         return StationResult(
             "4-aria",
             Status.CANNOT_CHECK,
@@ -593,16 +696,20 @@ def check_aria_station(branch: str, letters_dir: Path, author: str | None = None
             f"{hint} -- these disagree, and a declaration naming the wrong author "
             "would send this station to read the very seat that wrote the branch",
         )
-    reader_name, reader_glob = reader
+    names = " or ".join(name for name, _ in readers)
 
     needle = branch.lower()
     declared_anywhere = 0
+    newest: tuple[float, str, list[str]] | None = None
     unparsed: str | None = None
-    for f in sorted(letters_dir.glob(reader_glob)):
+    unparsed_by = ""
+    files = [(name, f) for name, glob in readers for f in sorted(letters_dir.glob(glob))]
+    for reader_name, f in files:
         try:
             present, declarations = _declared_readings(
                 f.read_text(encoding="utf-8", errors="replace")
             )
+            newest = _newer_declaration(newest, f, declarations)
         except OSError:
             continue
         if present:
@@ -628,21 +735,22 @@ def check_aria_station(branch: str, letters_dir: Path, author: str | None = None
         # crediting a mention is the exact fault the literal read replaced.
         if unparsed is None and any(part.startswith(needle) for part in declarations):
             unparsed = f.name
+            unparsed_by = reader_name
     if declared_anywhere == 0:
         return StationResult(
             "4-aria",
             Status.MISSING,
-            f"no letter from {reader_name} carries a reading declaration at all -- "
-            f"this says nothing about whether {reader_name} has read this branch, "
+            f"no letter from {names} carries a reading declaration at all -- "
+            f"this says nothing about whether {names} has read this branch, "
             "only that no reading is claimed in the field the board reads",
         )
     if unparsed is not None:
         return StationResult(
             "4-aria",
             Status.CANNOT_CHECK,
-            f"{reader_name} declared a reading of this branch in {unparsed}, but the "
+            f"{unparsed_by} declared a reading of this branch in {unparsed}, but the "
             "line carries more than the name and this field is read literally -- "
-            f"that is my parser failing to read {reader_name}, not {reader_name} "
+            f"that is my parser failing to read {unparsed_by}, not {unparsed_by} "
             "failing to read the branch",
         )
     return StationResult(
@@ -662,7 +770,8 @@ def check_aria_station(branch: str, letters_dir: Path, author: str | None = None
         # guessing. A stale explanation of a removed limit is worse than none,
         # because it tells a reader that a real miss is an inapplicable
         # question and the check keeps running with nobody acting on it.
-        f"none of the {declared_anywhere} declared reading(s) by {reader_name} names this branch",
+        f"none of the {declared_anywhere} declared reading(s) by {names} names this branch"
+        f"{_what_the_newest_declared(newest)}",
     )
 
 
@@ -1172,7 +1281,9 @@ def check_more_council_station(
         "6-more-council",
         Status.MISSING,
         "every walk predates the last build commit -- the lenses reviewed a shape "
-        "that has since changed",
+        "that has since changed. Close the walk from inside the work copy "
+        "(walk close --repo <work copy>); closed from the main checkout it stays "
+        "unbound and reads the weaker, clock way",
     )
 
 

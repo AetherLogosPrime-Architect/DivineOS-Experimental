@@ -57,6 +57,26 @@ def _verify_divineos_import_path(config: pytest.Config) -> None:
         )
 
 
+def _warm_the_embedding_library(config: pytest.Config) -> None:
+    """Import the embedding library here, where no test timer is running.
+
+    2026-10-12: the per-test limit kills the whole worker when it is exceeded, and the first
+    test in each worker that needed this library spent most of its budget importing it
+    (6-14s alone, over 30s under load). Importing it at worker start moves that cost to a
+    place no timer watches. Workers only: the controller process runs no tests.
+    """
+    is_controller = not hasattr(config, "workerinput") and getattr(
+        config.option, "numprocesses", None
+    )
+    if is_controller:
+        return
+    try:
+        import divineos  # noqa: F401  (sets USE_TF=0 before the library can import TensorFlow)
+        import sentence_transformers  # noqa: F401
+    except ImportError:
+        pass
+
+
 def pytest_configure(config: pytest.Config) -> None:
     """Set basetemp to a project-local directory to avoid Windows permissions issues."""
     # Cap xdist workers at 16 when xdist is loaded (Aletheia FLAG 2, 2026-07-02).
@@ -69,6 +89,7 @@ def pytest_configure(config: pytest.Config) -> None:
     # box resolved to 40 workers, each ~1.5GB, demanding 60GB on a 31GB
     # system. Andrew's call: cap at 16.
     _verify_divineos_import_path(config)
+    _warm_the_embedding_library(config)
 
     if config.pluginmanager.hasplugin("xdist"):
         current = getattr(config.option, "maxprocesses", None)
@@ -175,6 +196,9 @@ def _isolated_db(tmp_path):
     # them failed in the push gate while passing the day before. A test that wants a message
     # of his sets this itself; one that does not gets "could not look", which is never away.
     os.environ["DIVINEOS_HIS_ASKS_DB"] = str(tmp_path / "no_his_messages.db")
+    # The night window (midnight to 6am) rules "he is away" by the clock. A test that does
+    # not mean to test it must not give a different answer at 2am than at 2pm.
+    os.environ["DIVINEOS_NIGHT_HOURS"] = "off"
 
     from divineos.core.ledger import init_db
 
@@ -184,6 +208,7 @@ def _isolated_db(tmp_path):
     os.environ.pop("DIVINEOS_HOME", None)
     os.environ.pop("DIVINEOS_CONTEXT_DEDUP_DIR", None)
     os.environ.pop("DIVINEOS_HIS_ASKS_DB", None)
+    os.environ.pop("DIVINEOS_NIGHT_HOURS", None)
     os.environ.pop("DIVINEOS_DISABLE_AUTO_REMEDIATE", None)
     os.environ.pop("DIVINEOS_SESSION_ID", None)
     # monkeypatch.setattr on the ledger base module's DB_PATH reads the old value through
@@ -195,6 +220,25 @@ def _isolated_db(tmp_path):
     import divineos.core._ledger_base as _ledger_base
 
     vars(_ledger_base).pop("DB_PATH", None)
+
+
+@pytest.fixture(autouse=True)
+def _read_gate_state_is_the_tests_own(tmp_path, monkeypatch):
+    """No test can reach the live read-gate state, whether or not it remembers to patch.
+
+    The read gate resolves its state folder when its module loads, which is before
+    ``_isolated_db`` redirects DIVINEOS_HOME, so the environment change above never
+    reaches it. Tests that patched ``STATE_DIR`` themselves were safe; every other
+    test that armed or cleared the gate wrote fixture rows into the LIVE logs. Measured
+    2026-10-11: about 63 percent of Aria's seat's clears log and about 78 percent of
+    Aether's (by line) were test debris, so every measure of the gate was inflated.
+    Isolation is the default here, so a future test cannot forget it.
+    """
+    from divineos.core import read_gate
+
+    gate_state = tmp_path / "read_gate_state"
+    monkeypatch.setattr(read_gate, "STATE_DIR", gate_state)
+    monkeypatch.setattr(read_gate, "STATE_FILE", gate_state / "read_gate_pending.json")
 
 
 @pytest.fixture

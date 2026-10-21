@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (508 commands across 122 modules)
+  cli/                         CLI package (512 commands across 122 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -52,6 +52,7 @@ src/divineos/
     linkage_commands.py        linkage warm / linkage status: fill the memory link's vector drawer (batched, on the GPU when there is one) and see how full it is. The command the link names when items have no stored vector; sleep runs the same fill.
     label_fire_commands.py     label-fire: dispute a correction-shape Stop-gate fire as a false positive. Wraps the labeller as a first-class command so the remedy joins the canonical bypass list — a toll on dissent biases the corpus that trains the semantic replacement. No leniency added.
     stamp_ready_command.py     stamp-ready: writes the External-Review trailer into the PR body (where GitHub reads the squash message from) then clears the draft flag; refuses when the round lacks either CONFIRMS
+    ship_command.py            ship: runs the merge checks in order (open and not a draft, her signed confirm at this exact head, his confirm in her round, every check passed), one line per step, and prints the merge command as a button. It never merges and never turns on auto-merge.
     aletheia_import_command.py aletheia-import: files Aletheia's delivered artifacts (CONFIRMS_/AUDIT_/FIXLIST_/REPLY_TO_*) out of ~/Downloads into family/letters. Her real delivery channel was never the one any letter mechanism watched, so a month of her audits sat unread (Andrew 2026-08-12)
     audit_sync_command.py      audit-sync: manual door to the shared-audit importer; stamp-ready calls the same sync automatically so nobody has to remember it exists
     push_ready_command.py      push-ready: one-shot automation of trailer + audit-round + self-CONFIRMS + force-push ceremony for guardrail-touching PRs (Andrew 2026-07-28 streamlining option 2)
@@ -206,6 +207,7 @@ src/divineos/
       substance_binding.py     Anti-cardboard checks: lens count, finding token count, lens-specific keyword cross-reference (load-bearing protection), synthesis token count, synthesis-references-lenses, kiln-confirmed-by (tier-graduated trust)
       gate.py                  PreToolUse entry point. decide() composes gravity + store + substance-binding into a single GateDecision; decide_with_emergency_skip implements the corroborator-required emergency carve-out
       decision_walk_link.py    Opportunistic auto-attachment of council_record as evidence on overlapping pending decision-walks; conservative substring match against action-description; writes DECISION_WALK_LINKED_COUNCIL event when linked
+      push_choke.py            One council walk over all the changes, checked at the push: branch building edits are free and leave one log line, git push needs a closed walk bound to the diff (patch-id), small follow-ups are amended under a stated ceiling, main stays per-edit strict, unreadable state refuses
       abstention_telemetry.py  F39 abstention telemetry — Aletheia review-note followup (2026-07-18): records how often edit-token-overlap check ran with real tokens vs abstained on unreadable file / non-absolute path, so dark-check state is visible not silent
     council/                   Expert council sub-package
       engine.py                CouncilEngine — analyze problems through expert lenses
@@ -447,6 +449,7 @@ src/divineos/
     scaffolding_map.py         Scaffolding map — briefing surface for self-authored documents that carry load-bearing state.
     engagement_relevance.py    Engagement relevance — does this thinking command relate to current work?
     compliance_audit.py        Compliance-distribution audit — substantive testing of the compliance log.
+    full_suite_by_hand.py      Refuses a hand-run pytest over the whole tests folder (the push's job) and hands over the test files for what changed instead. Andrew, four times, latest 2026-10-03.
     failure_diagnostics.py     Shared record/read/briefing pattern for silent-fail-open events across enforcement surfaces
     substance_checks.py        Substance checks at rudder-ack file time — Item 7.
     compliance_baseline.py     Baseline calibration from clean-tagged sessions — wires PR-2 into Item 8 detectors.
@@ -755,6 +758,8 @@ src/divineos/
     questions_from_him.py      Questions built from what he actually said, not drawn from a list.
     refusal_stretches.py       What has refused me this session, and whether it is the same thing again.
     his_message.py             The one answer in this house to: is this transcript record Dad typing?
+    replay_record.py           Replay a change against the real record of his turns, before building it.
+    bypass_key.py              One bypass key per seat, spent on use, replaced only by a dogfooded fix.
     his_voice_ends_the_turn.py When he speaks into a running turn, nothing more runs until the turn ends.
     light_embedder.py          The same sentence vectors, without the seventeen-second import.
     question_hold.py           A question to Dad holds the work until he answers (Aria, 2026-09-29).
@@ -773,6 +778,13 @@ src/divineos/
     order_question_check.py    A reply must not end by asking Dad which order to do things in.
     retrieval_tally.py         Retrieval-tally: measure whether surfaced past-writing actually gets read.
     unread_letter.py           A letter the bell rang for holds real work until it is opened.
+    door_report.py             The front door's report on itself, counted from what ARRIVED.
+    ship_steps.py              The checks `divineos ship` runs in order, each one a yes or a named no.
+    git_hooks_drift.py         Do the installed git hooks still say what setup/setup-hooks.sh would write?
+    body_memory.py             Memory sense: the body feels memory held by no program, and remembers the climb.
+    checkout_behind_main.py    How far behind origin/main is the checkout the hooks run from?
+    baton.py                   The baton: while Dad is away, exactly one seat works and the other waits.
+    suite_slot.py              One full test suite at a time on this machine.
 
   analysis/
     _session_types.py          Session analysis type definitions

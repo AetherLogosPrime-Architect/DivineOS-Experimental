@@ -345,6 +345,46 @@ def _runs_divineos_verb(command: str, verbs: tuple[str, ...]) -> bool:
     return False
 
 
+def _redirect_that_writes_ends_at(text: str, at: int) -> int | None:
+    """Where a HARMLESS redirect starting at ``text[at] == '>'`` ends, or None.
+
+    Two redirects write nothing, and they are the two tacked onto nearly every
+    command I type: ``2>&1`` (merge the error stream into the output) and a
+    redirect to /dev/null or NUL (throw it away). 2026-10-13 I added ``2>&1 |
+    tail`` to the review commands the overdue block prescribes, the council gate
+    read the bare ``>`` as a file write, and the exit from one lock was shut by
+    the other -- the same deadlock the 2026-10-10 exemption was made to prevent,
+    reopened by a decoration. Anything else (a path, a pipe-clobber ``>|``, a
+    ``>&file``) is a write and returns None, which the caller keeps heavy.
+    """
+    j = at + 1
+    if j < len(text) and text[j] == ">":  # `>>` appends; same target rule applies
+        j += 1
+    if j < len(text) and text[j] == "&":
+        k = j + 1
+        if k < len(text) and (text[k].isdigit() or text[k] == "-"):
+            if text[k] == "-":
+                k += 1  # `>&-` closes the stream
+            else:
+                while k < len(text) and text[k].isdigit():
+                    k += 1  # `>&2` duplicates stream 2
+            # A duplication is only that when nothing is glued on after it: `>&2file`
+            # is a write to a file named `2file`, found by trying it.
+            if k < len(text) and text[k] not in " \t\n;&|)":
+                return None
+            return k
+        return None  # `>&file` writes a file
+    while j < len(text) and text[j] in " \t":
+        j += 1
+    k = j
+    while k < len(text) and text[k] not in " \t;&|)":
+        k += 1
+    target = text[j:k].strip("'\"").lower()
+    if target in ("/dev/null", "nul"):
+        return max(k - 1, at)
+    return None
+
+
 def _writes_through_the_shell(segment: str, segments: list) -> bool:
     """True when the shell around a look writes: an UNQUOTED redirect, or a tee.
 
@@ -362,15 +402,22 @@ def _writes_through_the_shell(segment: str, segments: list) -> bool:
     """
     from divineos.core.command_parsing import strip_command_prefixes
 
+    text = str(segment)
     quote = ""
-    for ch in str(segment):
+    i = 0
+    while i < len(text):
+        ch = text[i]
         if quote:
             if ch == quote:
                 quote = ""
         elif ch in ("'", '"'):
             quote = ch
         elif ch == ">":
-            return True
+            end = _redirect_that_writes_ends_at(text, i)
+            if end is None:
+                return True
+            i = end
+        i += 1
     for other in segments:
         head = strip_command_prefixes(other)[:1]
         if head and head[0].replace("\\", "/").rsplit("/", 1)[-1].lower() == "tee":

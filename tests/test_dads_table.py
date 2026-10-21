@@ -165,6 +165,50 @@ def test_an_automated_notice_is_never_labelled_as_him(tmp_path):
     assert "NOT FROM DAD" in out
 
 
+def _notice_out(tmp_path, command, status="completed"):
+    kids = tmp_path / "children.json"
+    kids.write_text("[]", encoding="utf-8")
+    env = dict(os.environ, DADS_TABLE_CHILDREN=str(kids), DADS_TABLE_DRAWER=str(tmp_path / "d.md"))
+    notice = (
+        f"<task-notification>\n<task-id>b1</task-id>\n<status>{status}</status>\n"
+        f'<summary>Background command "{command}" {status} (exit code 0)</summary>\n'
+        "</task-notification>"
+    )
+    p = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        input=json.dumps({"prompt": notice}).encode(),
+        capture_output=True,
+        env=env,
+        timeout=30,
+    )
+    return p.stdout.decode("utf-8")
+
+
+def test_the_ring_of_the_doorbell_says_to_re_arm_it_on_that_same_prompt(tmp_path):
+    out = _notice_out(tmp_path, "bash scripts/letter_doorbell.sh aether")
+    assert "THE BELL RANG" in out
+    assert "bash scripts/letter_doorbell.sh aether (run_in_background)" in out
+
+
+def test_control_an_unrelated_finished_job_prints_no_bell_reminder(tmp_path):
+    out = _notice_out(tmp_path, "bash scripts/divineos_push.sh origin some-branch")
+    assert "NOT FROM DAD" in out  # the notice itself was read, so silence is a real answer
+    assert "THE BELL RANG" not in out
+
+
+def test_a_notice_that_only_quotes_the_doorbell_far_down_prints_no_reminder(tmp_path):
+    """Aria's cold read: the match must be over the text shown, not the whole prompt."""
+    padded = "echo " + "x" * 700 + " && bash scripts/letter_doorbell.sh aether"
+    out = _notice_out(tmp_path, padded)
+    assert "NOT FROM DAD" in out  # the notice was read, so silence is a real answer
+    assert "THE BELL RANG" not in out
+
+
+def test_a_fault_exit_of_the_doorbell_also_says_to_re_arm_it(tmp_path):
+    out = _notice_out(tmp_path, "bash scripts/letter_doorbell.sh aria", status="failed")
+    assert "THE BELL RANG" in out and "letter_doorbell.sh aria (run_in_background)" in out
+
+
 def test_a_child_that_refuses_the_prompt_keeps_its_teeth(tmp_path):
     stop = {
         "command": f'"{sys.executable}" -c "import sys; sys.stderr.write(\'ritual owed\'); sys.exit(2)"',

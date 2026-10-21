@@ -21,6 +21,12 @@ from pathlib import Path
 
 import pytest
 
+# The module fixture below runs a real sweep: a child pytest per test file, two at a time. Alone
+# it takes about ten seconds; inside a long serial run on a busy machine it passed the house's
+# 30-second per-test limit twice (2026-10-16, both times in a merge commit's check), though it
+# passes alone. The limit is for a test that hangs; this one is slow only when the machine is.
+pytestmark = pytest.mark.timeout(180)
+
 # CUTAWAY_UNDER_TEST points the whole file at a mutated copy of the tool, which is how these
 # tests are themselves checked (change the tool one line at a time; the tests must go red).
 _SCRIPT = Path(

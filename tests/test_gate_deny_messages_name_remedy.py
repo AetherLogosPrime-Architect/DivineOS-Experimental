@@ -480,6 +480,7 @@ _UNCLASSIFIED_BASELINE: frozenset[str] = frozenset(
         "self-demotion-prime.sh",
         "self-demotion-stop.sh",
         "session-init-once.sh",
+        "session-start-behind-main.sh",
         "session-start-verify-git-hooks.sh",
         "shoggoth-gate.sh",
         "sibling-correction-surface.sh",
