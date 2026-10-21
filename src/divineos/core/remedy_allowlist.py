@@ -120,6 +120,19 @@ REMEDIES: tuple[tuple[str, ...], ...] = (
     # said and sorting it. The sort records a judgement; it edits nothing.
     ("divineos", "his", "pending"),
     ("divineos", "his", "sort"),
+    # SAVING AND SLEEP ARE NEVER BLOCKED (Dad, 2026-10-19 and 2026-10-21: "NOTHING should ever block sleep or
+    # extraction", "saving should never be a blocked action at any point whatsoever", and journal entries and other
+    # personal writing must not owe council paperwork). The compaction ritual prints these as its own steps, so
+    # they are somebody's prescribed way out, which is this list's entry bar. Each records into my own stores and
+    # edits no code. The shell list in .claude/hooks/lib/remedy_allowlist.sh must carry the same verbs; a test
+    # holds the two together.
+    ("divineos", "extract"),
+    ("divineos", "sleep"),
+    ("divineos", "journal", "save"),
+    ("divineos", "rest"),
+    ("divineos", "dream"),
+    ("divineos", "savor", "save"),
+    ("divineos", "feel"),
 )
 
 #: Verbs that must never appear here, asserted by a test rather than trusted to
