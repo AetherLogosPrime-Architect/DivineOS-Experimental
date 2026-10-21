@@ -21,9 +21,12 @@ WHAT PASSES, so it stays a door and not a nag:
 THE WORD "WINDOW" IS NOT A TRIAL WORD. Found by searching the real drafts first (the council's Holmes lens):
 "recency window (45 days)" is a setting, not a trial.
 
-LIMITS, said so silence is not read as coverage: it cannot list the language ("a fortnight" is listed;
-"by Friday" is not); a deadline for a review ("review within two days") is refused and costs one rewording;
-and only `docs/drafts/` is looked at, because the pre-registration command already guards the filing.
+LIMITS, said so silence is not read as coverage: it cannot list the language (abbreviations, "a quarter",
+"until Friday" and "the end of the month" are listed now; "by the next release" is not); a deadline for a
+review ("review within two days") is refused and costs one rewording; a quoted duration passes, so the
+explanation of the rule can quote one; and only a Write or an Edit into `docs/drafts/` is looked at, so a draft
+written through a shell heredoc is never seen (Aether, 2026-10-21; named, not closed). The pre-registration
+command guards the filing itself.
 """
 
 from __future__ import annotations
@@ -36,32 +39,56 @@ _NUMBER_WORDS = (
     "forty|sixty|ninety|a|several|few"
 )
 
-#: A length of time in days, weeks or months: "30 days", "30-day", "fourteen days", "two weeks",
-#: "a fortnight", "next month", "weekly".
-_DURATION = re.compile(
-    rf"\b(?:(?:\d+|{_NUMBER_WORDS})(?:\s*(?:-|to|or)\s*(?:\d+|\w+))?[\s-]+(?:calendar\s+)?(?:day|week|month)s?"
-    r"|fortnights?|(?:next|every|each)\s+(?:day|week|month)|daily|weekly|monthly|fortnightly)\b",
+#: A length of time that is plainly a span: "30 days", "30-day", "fourteen days", "two weeks", "3 months",
+#: "a fortnight", the abbreviations "30d" "4w" "3mo", "for a quarter", "by the end of the month",
+#: "until Friday".
+_DURATION_STRONG = re.compile(
+    rf"\b(?:(?:\d+|{_NUMBER_WORDS})(?:\s*(?:-|to|or)\s*(?:\d+|\w+))?[\s-]+(?:calendar\s+)?(?:day|week|month|year)s?"
+    r"|\d+(?:d|w|wk|wks|mo|mos)"
+    r"|fortnights?"
+    r"|(?:for|over|within|next|every|each|this)\s+(?:a\s+|one\s+|the\s+)?quarter"
+    r"|end\s+of\s+(?:the\s+)?(?:day|week|month|quarter|year)"
+    r"|(?:until|till|by)\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b",
     re.IGNORECASE,
 )
 
-#: What makes a stretch of text a trial. "window" is deliberately absent.
+#: A bare rhythm word. These are everywhere in ordinary prose ("the daily letter"), so one counts only when a
+#: trial word sits right beside it, not anywhere in the paragraph.
+_DURATION_LOOSE = re.compile(
+    r"\b(?:(?:next|every|each)\s+(?:day|week|month)|daily|weekly|monthly|fortnightly)\b",
+    re.IGNORECASE,
+)
+
+#: What makes a stretch of text a trial. "window" is deliberately absent. "review" counts only when a timing word
+#: follows it directly ("review after", "review every"): as a bare word it is an ordinary verb ("the weekly review
+#: meeting"). "try it for 3 weeks", "a pilot" and "the test period" are trials by another name.
 _TRIAL_WORD = re.compile(
-    r"\b(?:trials?|falsifiers?|success(?:\s+(?:criteri\w+|test))?|pre-?reg\w*|experiments?|reviews?)\b",
+    r"\b(?:trials?|falsifiers?|success(?:\s+(?:criteri\w+|test))?|pre-?reg\w*|experiments?|pilots?|test\s+period"
+    r"|tr(?:y|ies|ying)\s+(?:it|this|that|them)|(?:fails?|succeeds?|falsified|passes)\s+if"
+    r"|reviews?(?=\s+(?:it\s+|this\s+|that\s+)?(?:after|in|every|each|within|at|by)\b))\b",
     re.IGNORECASE,
 )
 
 #: A duration that looks back is a measurement of what happened, not a trial. "falsification" is the
 #: science idea and is not a trial word; "falsifier" is the thing Dad asks us to set.
-_LOOKING_BACK = re.compile(
+_LOOKING_BACK_BEFORE = re.compile(
     r"\b(?:last|past|previous|since|ago|elapsed|post-|later|late)\b|post-", re.IGNORECASE
+)
+#: After the duration it counts only as the very next word. Fourteen characters of reach let "since the start
+#: of the build" excuse "The trial runs for 30 days, since the start..." (Aether, 2026-10-21).
+_LOOKING_BACK_AFTER = re.compile(
+    r"^\s*(?:ago|later|earlier|late|old|post-)\b|^\s*post-", re.IGNORECASE
 )
 
 #: A first-person account of what I did is a mention of a past trial, not the setting of one.
 _I_DID = re.compile(r"\bI\s+(?:wrote|filed|counted|ran|built)\b")
 
-#: The rule itself, or a trial already counted in uses.
+#: The rule itself, or a trial already counted in uses. It excuses only the SENTENCE it is in. As a paragraph-wide
+#: excuse, "We never lose time on this." hid a real trial in the next sentence (Aether, 2026-10-21), so "never
+#: ... time" is now "never use/set/measure/count ... time/days/date".
 _THE_RULE = re.compile(
-    r"\bnever\b[^.\n]{0,50}\b(?:days?|time|date)\b|\bnot\s+(?:in|by)\s+(?:days|date|time)\b"
+    r"\bnever\s+(?:use|measure|set|count|judge|go\s+by)\b[^.\n]{0,40}\b(?:days?|time|dates?|calendar)\b"
+    r"|\bnot\s+(?:in|by)\s+(?:days|date|time)\b"
     r"|\bcounted\s+in\s+uses\b|\bby\s+(?:uses?|events?)\b|\bnever\s+in\s+days\b",
     re.IGNORECASE,
 )
@@ -111,22 +138,42 @@ def _inside_quotes(paragraph: str, start: int, end: int) -> bool:
     return any(q.start() <= start and end <= q.end() for q in _QUOTED.finditer(paragraph))
 
 
+def _sentence_around(paragraph: str, start: int, end: int) -> str:
+    """The sentence holding paragraph[start:end], so a rule in a neighbouring sentence excuses nothing."""
+    first = _same_sentence_before(paragraph, start)
+    nxt = _SENTENCE_END.search(paragraph, end)
+    tail = paragraph[end : nxt.start() + 1] if nxt else paragraph[end:]
+    return first + paragraph[start:end] + tail
+
+
+#: How close a trial word must sit to a bare rhythm word ("weekly") for it to count.
+_NEAR_LOOSE = 30
+
+
+def _durations(paragraph: str):
+    """Every duration in the paragraph, each with how far a trial word may sit from it."""
+    for m in _DURATION_STRONG.finditer(paragraph):
+        yield m, _NEAR
+    for m in _DURATION_LOOSE.finditer(paragraph):
+        yield m, _NEAR_LOOSE
+
+
 def trials_in_days(text: str) -> list[Hit]:
     """Every place where a trial is measured in days, weeks or months. Never raises."""
     hits: list[Hit] = []
     for paragraph in _paragraphs(text or ""):
-        if _THE_RULE.search(paragraph):
-            continue
-        for m in _DURATION.finditer(paragraph):
+        for m, reach in _durations(paragraph):
             if _inside_quotes(paragraph, m.start(), m.end()):
+                continue
+            if _THE_RULE.search(_sentence_around(paragraph, m.start(), m.end())):
                 continue
             before = paragraph[max(0, m.start() - 25) : m.start()]
             after = paragraph[m.end() : m.end() + 14]
-            if _LOOKING_BACK.search(before) or _LOOKING_BACK.search(after):
+            if _LOOKING_BACK_BEFORE.search(before) or _LOOKING_BACK_AFTER.search(after):
                 continue
             if _I_DID.search(_same_sentence_before(paragraph, m.start())):
                 continue  # "I wrote a 30-day trial": an account of what I did, not the setting of one
-            near = paragraph[max(0, m.start() - _NEAR) : m.end() + _NEAR]
+            near = paragraph[max(0, m.start() - reach) : m.end() + reach]
             word = _TRIAL_WORD.search(near)
             if word is None:
                 continue

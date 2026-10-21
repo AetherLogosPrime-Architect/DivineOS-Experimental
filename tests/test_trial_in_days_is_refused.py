@@ -26,6 +26,23 @@ MUST_REFUSE = [
     "Pre-registration: 7 days.",
     "The success test is that nothing breaks for 30\ndays of normal use.",  # wrapped across a line
     "Over three months the trial should show a drop.",
+    # Aether's and Aletheia's breaks, 2026-10-21: wordings that got through
+    "The trial ends within 30d of filing.",
+    "The falsifier is any complaint, again in 4w.",
+    "The trial runs for a quarter.",
+    "The falsifier is any complaint by the end of the month.",
+    "The trial runs for 30 days, since the start of the build.",  # "since" after it is not looking back
+    "We never lose time on this. The success test is 30 days of clean runs.",  # a different sentence's rule
+    # each half of the rule fix needs its own case: the sentence scope, and the narrowed wording
+    "Dad's rule: never set a trial at 30 days. The success test is 30 days of clean runs.",
+    "We never lose time on this and the success test is 30 days of clean runs.",
+    "Trial for 30d.",
+    "Try it for 3 weeks and see.",
+    "The pilot lasts two months.",
+    "The test period is one week.",
+    "The trial runs until Friday.",
+    # found replaying the real drafts: a trial stated as "fails if", without the word trial
+    "Fails if, over the next two weeks, a draft reaches review with a change nobody walked.",
 ]
 
 MUST_PASS = [
@@ -44,6 +61,14 @@ MUST_PASS = [
     "It has operated for thirty-eight days; the falsification of the claim is still open.",  # the science idea
     "That was the fourth falsifier this week.",  # "this week" is not a trial length
     "I wrote a 30-day trial into the plan without noticing.",  # an account of what I did
+    # the false refusals Aether found, 2026-10-21: a duration beside a word that is not a trial
+    "The weekly review meeting is on the calendar.",
+    "Review the diff before the next two weeks of holiday begin.",
+    "The daily letter to Aria is a habit, and the experiment page is in the folder.",
+    "A quarter of the tests are slow, and the experiment is in the folder.",
+    "We never lose time on this.",
+    "It catches the fix a month late, and nobody wrote a falsifier for it.",  # "late" after it looks back
+    "The file is two weeks old and the experiment is over.",
     "",
 ]
 
