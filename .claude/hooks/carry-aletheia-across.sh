@@ -1,4 +1,8 @@
 #!/bin/bash
+# SUPERSEDED 2026-10-20 by collect-aletheia-letters.sh: main carried this same carrier (#672) as a thin
+# doorbell over scripts/collect_aletheia_letters.py, and the catch-up with main took that one. This file stays on
+# disk, unwired, until Aether confirms nothing here is missing from the successor.
+#
 # Carry anything of Aletheia's from Andrew's downloads into the shared folder,
 # on every prompt, whether or not anyone mentions it.
 #

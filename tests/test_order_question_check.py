@@ -25,6 +25,10 @@ ASKED_BY_ME = [
     "Is there one of these, the sticky-note checklist or your repeated asks, you'd like me to "
     "do first?",
     "In what order should I do the cleanup and the rewrite?",
+    # Found going through by Aether's cold read of #666, 2026-10-16.
+    "Do you want the lock fix before the reading, or the reading before the lock fix?",
+    "Where would you like me to begin: the stacks or the pile?",
+    "Should I do the chips now and the slider later, or the other way round?",
 ]
 
 #: Real questions of mine that were NOT about order. None may be refused.
@@ -36,6 +40,11 @@ ORDINARY = [
     "Is that a fair place to start?",
     "What's been on your mind while this bakes?",
     "Does that sit right with you?",
+    # Controls for the widened patterns: a timing or yes-or-no question that is not a choice of order.
+    "Do you want me to push now or wait until you have looked?",
+    "Should I start the tournament tonight?",
+    "Did you want it before the weekend?",
+    "How did it feel to lose the pot?",
 ]
 
 A_REAL_DEPENDENCY = (
@@ -61,6 +70,22 @@ def test_ordinary_questions_are_never_refused(question):
 def test_a_real_order_dependency_passes_when_the_reply_names_it():
     assert oq.find_order_question(A_REAL_DEPENDENCY)  # it IS an order question
     assert not oq.should_refuse(A_REAL_DEPENDENCY)  # and it names why the order matters
+
+
+def test_a_dependency_about_something_else_far_above_does_not_excuse_the_question():
+    """Probed on the branch head, 2026-10-16: an unrelated "cannot merge until CI passes" at the top of a reply
+    excused an order question at the bottom. The reason has to sit by the question, in the last two paragraphs."""
+    far_above = _reply(
+        "I cannot merge until the checks pass, and that depends on the weather in CI.",
+        "Here is the rest of what I did, in some detail.",
+        "More detail that has nothing to do with order.",
+        "Which should I take first, the chips or the sounds?",
+    )
+    assert oq.should_refuse(far_above)
+
+
+def test_a_dependency_in_the_paragraph_before_the_question_still_excuses_it():
+    assert not oq.should_refuse(A_REAL_DEPENDENCY)
 
 
 def test_the_same_question_without_the_reason_is_refused():

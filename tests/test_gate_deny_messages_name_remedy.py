@@ -72,6 +72,10 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         # branch at write-time. PostToolUse and exits zero on every path: it
         # reports a failed capture, it never refuses the write.
         "capture-channel-letter.sh",
+        # Carries Aletheia's letters from his downloads into her audit folder and
+        # announces each new one. Every path exits zero: an unreadable inbox is
+        # reported on stderr as could-not-look, and nothing is ever refused.
+        "collect-aletheia-letters.sh",
         # A RELAY, not a gate, and the distinction is the doorbell design
         # itself: it knocks and steps aside, and every judgment lives in the
         # OS. Its own absent path exits zero and it composes no refusal of its

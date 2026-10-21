@@ -1,3 +1,6 @@
+# AGENT_RUNTIME — not imported by Python. Run by file path from
+# .claude/hooks/session-start-behind-main.sh at session start (it is standard
+# library only for exactly that reason).
 """How far behind origin/main is the checkout the hooks run from?
 
 Found 2026-10-12: Aria's live checkout was 23 commits behind main and mine was 11,

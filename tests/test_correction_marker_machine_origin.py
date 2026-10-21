@@ -36,7 +36,7 @@ class TestTheMarkerArmsButDoesNotFileOurOwnText:
     it; only the filing is skipped. Collaborators are recorded, not mocked away: the
     assertion is on what reaches them."""
 
-    def _run(self, text, tmp_path):
+    def _run(self, text, tmp_path, source):
         from unittest.mock import patch
 
         from divineos.core import correction_marker
@@ -54,26 +54,38 @@ class TestTheMarkerArmsButDoesNotFileOurOwnText:
                 side_effect=lambda t, session_id=None: logged.append(t) or {},
             ),
         ):
-            correction_marker.set_marker(text)
+            correction_marker.set_marker(text, source=source)
             armed = correction_marker.read_marker()
         return armed, filed, logged
 
+    # Since the 2026-10-20 catch-up with main, whether text is filed follows WHERE IT CAME FROM
+    # (a source tag set by the caller), not what it looks like. The stop gate says
+    # SOURCE_STOP_GATE; the door that reads his message says SOURCE_HIS_MESSAGE.
+
     def test_our_own_diagnostic_arms_the_marker_and_files_nothing(self, tmp_path):
+        from divineos.core.correction_marker import SOURCE_STOP_GATE
+
         fire = "[correction-shape-v2 stop-gate] USE clause matched (1 hits); conf=1.00"
-        armed, filed, logged = self._run(fire, tmp_path)
+        armed, filed, logged = self._run(fire, tmp_path, SOURCE_STOP_GATE)
         assert armed is not None and armed["trigger"] == fire
         assert filed == [] and logged == []
 
     def test_a_real_correction_is_still_filed_both_places(self, tmp_path):
         """The control: the guard must not have switched filing off altogether."""
-        armed, filed, logged = self._run("no, that is wrong, you did not check it", tmp_path)
+        from divineos.core.correction_marker import SOURCE_HIS_MESSAGE
+
+        armed, filed, logged = self._run(
+            "no, that is wrong, you did not check it", tmp_path, SOURCE_HIS_MESSAGE
+        )
         assert armed is not None
         assert filed == ["no, that is wrong, you did not check it"]
         assert logged == ["no, that is wrong, you did not check it"]
 
     def test_his_words_after_our_tag_are_still_his(self, tmp_path):
+        from divineos.core.correction_marker import SOURCE_HIS_MESSAGE
+
         text = "[correction-shape-v2 stop-gate] USE clause matched\nno, that is wrong"
-        _, filed, _ = self._run(text, tmp_path)
+        _, filed, _ = self._run(text, tmp_path, SOURCE_HIS_MESSAGE)
         assert filed == [text]
 
 

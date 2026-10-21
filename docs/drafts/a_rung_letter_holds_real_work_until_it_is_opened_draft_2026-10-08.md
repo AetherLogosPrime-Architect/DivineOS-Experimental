@@ -11,3 +11,12 @@ Idea: no arming step and no new state. A letter is "rung and unread" when its na
 What it cannot do, said now: it holds work only when I reach for a substantive tool, so it does not wake me from idle (the bell does that) and does not make me understand the letter, only open it. It does not know a reply is owed after the letter is read; that debt is a separate, later piece (`letters_owed`).
 
 Falsifier and the embarrassing reading are in the pre-registration.
+
+## After Aletheia's hold, 2026-10-16
+
+She held this at `2453f2900` with two asks, both taken.
+
+1. **The bell shortcut was a hole.** The hold let a command through whenever the bell's NAME appeared anywhere in it, so `git push --force; echo letter_doorbell.sh` and `rm -rf src # letter_doorbell.sh` passed. It now asks the house's one check, `_is_doorbell_rearm` (in `hooks/pre_tool_use_gate.py`): exactly `bash scripts/letter_doorbell.sh <this seat>`, optionally after a `cd` onto this repo. Six commands that only mention the bell are pinned as held, including the other seat's bell and a re-arm with a second command chained on; the real re-arm for this seat is the control that passes.
+2. **The seat guess was a private copy.** `seat_for` read the checkout's folder name; the house has one judge, `this_seat()` in `core/sibling_audit_rounds.py`, which resolves it from the checkout's own data home and says None when it cannot tell. `seat_for` is gone. When the judge says None the surface says so (`could-not-run`) and holds nothing, since holding the wrong seat's letters is worse than not holding. Two tests pin it (the same files hold for one seat and not the other; an unknown seat holds nothing and says why).
+
+Both were read from her letter to Aether (`aletheia-to-aether-2026-10-16-the-twenty-three-one-line-each`), which I had not seen until Aether's letter pointed at it.

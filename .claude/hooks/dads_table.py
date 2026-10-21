@@ -136,12 +136,27 @@ def _run(child: dict, payload: bytes) -> tuple[dict, str, str, str]:
             start_new_session=os.name != "nt",
         )
         try:
-            raw_out, raw_err = p.communicate(
-                payload, timeout=max(0.5, TABLE_BUDGET - (time.monotonic() - _STARTED))
-            )
+            shared = TABLE_BUDGET - (time.monotonic() - _STARTED)
+            # A note may carry its own cap on top of the shared deadline. Only the
+            # memory link does (2026-10-04: bundled with a slow neighbour, its
+            # finds were dropped with it), so it is the one note with a stopwatch
+            # of its own; everyone else rides the one deadline.
+            cap = child.get("timeout")
+            if isinstance(cap, (int, float)) and cap > 0:
+                shared = min(shared, float(cap))
+            raw_out, raw_err = p.communicate(payload, timeout=max(0.5, shared))
         except subprocess.TimeoutExpired:
             _kill_tree(p)
-            p.communicate()
+            # Bounded even if the kill failed (Aether's cold read of 2f65974bf):
+            # an unbounded wait here was the one place left that could still
+            # hold the table past its cap. On a second timeout, walk away: the
+            # readers are daemon threads, and closing a pipe they are blocked on
+            # waits for them on Windows (measured: the close held 20s, the
+            # bounded wait alone released at 3s), so nothing is closed.
+            try:
+                p.communicate(timeout=2)
+            except subprocess.TimeoutExpired:
+                pass  # fail-soft: the note is already reported "timed out"; leaving its pipe to its daemon reader is what keeps the table under its cap
             return child, "", "timed out", ""
         out = raw_out.decode("utf-8", "replace")
         stderr = raw_err.decode("utf-8", "replace")

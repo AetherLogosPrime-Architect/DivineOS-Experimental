@@ -30,7 +30,9 @@ def shared(tmp_path, monkeypatch):
     monkeypatch.setattr(
         ul, "_save_seen", lambda member, names: store.__setitem__("seen", set(names))
     )
-    monkeypatch.setenv("CLAUDE_PROJECT_DIR", "C:/work/DivineOS-Experimental-Aria-new")
+    # Whose window this is comes from the house's one judge, which the tests control.
+    store["seat"] = "aria"
+    monkeypatch.setattr("divineos.core.sibling_audit_rounds.this_seat", lambda: store["seat"])
 
     def ring(name: str = LETTER, age_seconds: float = 60.0, write_file: bool = True) -> Path:
         path = root / "letters" / name
@@ -79,9 +81,47 @@ class TestWhichLettersCount:
         shared.ring()
         assert len(ul.unread_rung("aria")) == 1
 
-    def test_which_seat_is_this(self):
-        assert ul.seat_for("C:/DIVINE OS/DivineOS-Experimental-Aria-new") == "aria"
-        assert ul.seat_for("C:/DIVINE OS/DivineOS-Experimental") == "aether"
+    def test_this_module_no_longer_guesses_the_seat_from_a_folder_name(self):
+        """Aletheia's second ask on #603: one judge of whose window this is, and it is not here."""
+        assert not hasattr(ul, "seat_for")
+
+
+class TestTheSeatIsTheHousesOwnJudge:
+    def test_the_seat_comes_from_this_seat_and_only_that_seats_letters_hold(self, shared):
+        shared.ring()  # announced to aria
+        assert unread_letter_surface(_bash()).refused  # this window is aria: held
+        shared.store["seat"] = "aether"
+        assert unread_letter_surface(_bash()) is None  # the same files, another window: not held
+
+    def test_a_seat_it_cannot_tell_says_so_and_holds_nothing(self, shared):
+        shared.ring()
+        shared.store["seat"] = None
+        outcome = unread_letter_surface(_bash())
+        assert outcome is not None and not outcome.refused
+        assert outcome.state == "could-not-run" and "which seat" in outcome.error
+
+
+class TestOnlyARealReArmGetsThrough:
+    """The bell's name anywhere in a command used to pass the hold (Aletheia, first ask on #603)."""
+
+    HOLDS = [
+        "git push --force; echo letter_doorbell.sh",
+        "rm -rf src # letter_doorbell.sh",
+        "echo letter_doorbell.sh",
+        "bash scripts/letter_doorbell.sh aria && rm -rf src",
+        "bash scripts/letter_doorbell.sh aether",  # the OTHER seat's bell is not mine to re-arm
+        "cat scripts/letter_doorbell.sh",
+    ]
+
+    @pytest.mark.parametrize("command", HOLDS)
+    def test_a_command_that_only_mentions_the_bell_is_held(self, shared, command):
+        shared.ring()
+        outcome = unread_letter_surface(_bash(command))
+        assert outcome is not None and outcome.refused, command
+
+    def test_the_real_re_arm_for_this_seat_gets_through(self, shared):
+        shared.ring()  # the control: the hold lets the one thing it must let through
+        assert unread_letter_surface(_bash("bash scripts/letter_doorbell.sh aria")) is None
 
 
 class TestTheGate:

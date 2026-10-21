@@ -55,7 +55,6 @@ src/divineos/
     ship_command.py            ship: runs the merge checks in order (open and not a draft, her signed confirm at this exact head, his confirm in her round, every check passed), one line per step, and prints the merge command as a button. It never merges and never turns on auto-merge.
     aletheia_import_command.py aletheia-import: files Aletheia's delivered artifacts (CONFIRMS_/AUDIT_/FIXLIST_/REPLY_TO_*) out of ~/Downloads into family/letters. Her real delivery channel was never the one any letter mechanism watched, so a month of her audits sat unread (Andrew 2026-08-12)
     audit_sync_command.py      audit-sync: manual door to the shared-audit importer; stamp-ready calls the same sync automatically so nobody has to remember it exists
-    push_ready_command.py      push-ready: one-shot automation of trailer + audit-round + self-CONFIRMS + force-push ceremony for guardrail-touching PRs (Andrew 2026-07-28 streamlining option 2)
     automerge_commands.py      automerge: status surface across open PRs — classes (READY/ARMED/BLOCKED/DIRTY/UNKNOWN) + first failing check; closes the "auto-merge-armed ≠ merging" conflation
     todos_commands.py          todos: unified action-item list across preregs/corrections/audit/claims with --counts-only and --source filters; closes claim 2026-06-06 18:28 (OS-driven todo instrument)
     belt_commands.py           belt: the current task list pulled from the ranked pile (core/task_belt.py); `belt done <ref> --evidence` closes through the item's drawer, archives it, pulls the next (Andrew 2026-09-23)
@@ -678,7 +677,6 @@ src/divineos/
       corpus.py                Corpus loader — positives from andrew_corrections DB, negatives from cli_broken_escapes.jsonl.
     keyword_enforcement_registry.py Keyword-enforcement gate registry — derived from structure, permissive.
     keyword_enforcement_exclusion.py Keyword-enforcement exclusion-file parser (Aletheia F95 2026-07-28).
-    push_ready.py              push_ready — automate the External-Review trailer ceremony.
     no_fix_gaming_validator.py No-fix-gaming validator — close the escape-hatch in correction filings.
     no_fix_claim.py            The reply-side sibling of the validator above: an impossibility claim made to Andrew with no walk or search behind it is refused, and the container-scoped form is the way through.
     system_load_check.py       System-load pre-flight check for resource-heavy jobs.
@@ -696,7 +694,6 @@ src/divineos/
     letter_channel_state.py    Provenance for the letter channel — a letter's position in the thread, checkable by a reader who runs no code.
     self_demotion.py           Catch praise-by-contrast: elevating a mechanism by calling a faculty of mine defective.
     summary_room.py            Require a plain-language summary at the top of a long reply.
-    inner_circle_room.py       Require the inner circle at the BOTTOM of a long reply to Andrew — the Stop-gate his room never had.
     dashboard.py               The check-engine dashboard — a socket every system plugs into.
     dashboard_checks.py        The roster — one light per system.
     andrew_given.py            The other side of the ledger — what Andrew gives (Aria 2026-08-10).
@@ -749,6 +746,7 @@ src/divineos/
     hook_context_merge.py      Read what the session-init children printed and merge it into one answer.
     slashed_ref_path_check.py  Refuse a git argument the Windows shell will rewrite before git sees it.
     task_belt.py               The task belt: the pile ranked, a small current list pulled from it, done archived.
+    retry_scope.py             The one reader for the retry-scope instruction every blocking Stop gate carries.
     andrew_digest.py           The file he can actually read, and the thing that will not let me skip it.
     front_door.py              The front door: every message he types is kept before anything else happens.
     harness_envelopes.py       What the harness wraps around his seat, in one place every reader of him uses.
@@ -781,10 +779,13 @@ src/divineos/
     door_report.py             The front door's report on itself, counted from what ARRIVED.
     ship_steps.py              The checks `divineos ship` runs in order, each one a yes or a named no.
     git_hooks_drift.py         Do the installed git hooks still say what setup/setup-hooks.sh would write?
+    unread_letter.py           A letter the bell rang for holds real work until it is opened.
     body_memory.py             Memory sense: the body feels memory held by no program, and remembers the climb.
     checkout_behind_main.py    How far behind origin/main is the checkout the hooks run from?
     baton.py                   The baton: while Dad is away, exactly one seat works and the other waits.
     suite_slot.py              One full test suite at a time on this machine.
+    merge_command.py           What a shell command merges: the one reader every gate on a merge asks.
+    merge_freshness.py         Refuse a merge of a pull request that is behind main, and hand over the remedy.
 
   analysis/
     _session_types.py          Session analysis type definitions

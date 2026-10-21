@@ -126,8 +126,7 @@ def test_threshold_arithmetic_is_the_number_andrew_named(home, monkeypatch):
     """
     from divineos.core.auto_cycle import TRIGGER_THRESHOLD
 
-    # 850k since 2026-10-04, Andrew: start at 85% so the ritual has room to
-    # file the memory drawer before compaction at 970k.
+    # 850_000 since 2026-10-16 (Andrew: the ritual takes longer lately). Was 880_000.
     assert ch.CONTEXT_WINDOW_TOKENS * TRIGGER_THRESHOLD == 850_000
     _patch_snapshot(monkeypatch, FakeSnap(True, 850_000))
     assert ch.beat().pct >= TRIGGER_THRESHOLD

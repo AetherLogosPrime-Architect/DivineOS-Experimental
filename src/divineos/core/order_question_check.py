@@ -34,6 +34,13 @@ _ORDER_QUESTIONS = (
     re.compile(r"\bnext\b[^?\n]*\bor should\b[^?\n]*\?", re.I),
     # "In what order ...", "what order ..."
     re.compile(r"\bwhat order\b[^?\n]*\?", re.I),
+    # Three shapes Aether's cold read of #666 found going through (2026-10-16), each a choice of order:
+    # "the lock fix before the reading, or the reading before the lock fix?"
+    re.compile(r"\bbefore\b[^?\n]*\bor\b[^?\n]*\bbefore\b[^?\n]*\?", re.I),
+    # "Where would you like me to begin: the stacks or the pile?"
+    re.compile(r"\b(begin|start)\b[^?\n]*\bthe [\w -]{1,30}?\bor (the|a) [\w -]+\?", re.I),
+    # "the chips now and the slider later, or the other way round?"
+    re.compile(r"\bthe other way (round|around)\b[^?\n]*\?", re.I),
 )
 
 #: Phrases a real dependency uses. Their presence anywhere in the reply means the reply has
@@ -67,8 +74,18 @@ def find_order_question(text: str) -> str:
     return last if any(pattern.search(last) for pattern in _ORDER_QUESTIONS) else ""
 
 
+def _closing_two(text: str) -> str:
+    """The last two paragraphs: the question and the sentence right before it, where a real reason sits.
+
+    The reason was first looked for anywhere in the reply, so an unrelated "I cannot merge until CI passes"
+    far above the question excused it (probed on the branch head, 2026-10-16, walk-4194e082876e)."""
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text.strip()) if p.strip()]
+    return "\n\n".join(paragraphs[-2:])
+
+
 def names_why_order_matters(text: str) -> bool:
-    return any(pattern.search(text) for pattern in _ORDER_MATTERS)
+    nearby = _closing_two(text)
+    return any(pattern.search(nearby) for pattern in _ORDER_MATTERS)
 
 
 def should_refuse(text: str) -> bool:

@@ -63,13 +63,10 @@ set -uo pipefail
 # down still explain WHY there are two lines — the near one is where the
 # ritual begins so it is never interrupted mid-step, and the gap between them
 # IS the buffer. Only the numbers changed; the design did not.
-#
-# MOVED 2026-10-04, Andrew: start at 85% so the ritual has room for the memory
-# filing; compaction now lands at 970k. One home for both lines is
-# divineos.core.context_meter; tests/test_context_governor.py fails if these
-# defaults ever disagree with it.
+# 2026-10-16, Andrew: the ritual takes longer lately, start at 850k. The forty
+# thousand gap to the hard line is kept; the cliff stays at 950k.
 FIRE_TOKENS="${AUTO_CYCLE_FIRE_TOKENS:-850000}"
-HARD_TOKENS="${AUTO_CYCLE_HARD_TOKENS:-920000}"
+HARD_TOKENS="${AUTO_CYCLE_HARD_TOKENS:-890000}"
 
 # --mech-terminator is the ONLY argument this hook takes, and it exists so the
 # line that closes a detached run can be exercised by a test instead of only in
@@ -753,7 +750,7 @@ esac
 #     period, so the ritual is something I finish INTO, not a wall I hit.
 if [ "$TOKENS" -lt "$HARD_TOKENS" ] 2>/dev/null; then  # fail-soft: TOKENS validated numeric above; past the hard line this is skipped and the block stands
   GRACE="$(
-    STATE_FILE="$STATE_FILE" "$PY_BIN" - <<'PY' 2>/dev/null  # fail-soft: unreadable state prints 'block' below, so the failure falls toward the discipline rather than around it
+    STATE_FILE="$STATE_FILE" HOOK_EVENT="${AUTO_CYCLE_HOOK_EVENT:-UserPromptSubmit}" "$PY_BIN" - <<'PY' 2>/dev/null  # fail-soft: unreadable state prints 'block' below, so the failure falls toward the discipline rather than around it
 import json, os
 try:
     from divineos.core.auto_cycle import MAX_DEFERS
@@ -766,9 +763,15 @@ except Exception:
     st = {}
 used = int(st.get("defers_used") or 0)
 if used < MAX_DEFERS:
-    st["defers_used"] = used + 1
-    json.dump(st, open(p, "w", encoding="utf-8"))
-    print(f"defer {used + 1} {MAX_DEFERS}")
+    # The buffer is MAX_DEFERS of HIS prompts. This script also runs on every
+    # tool call of mine (PreToolUse), and counting those spent all three in
+    # three calls, so the wall landed mid-task on 2026-10-16. Only his prompt
+    # spends one; a tool call passes through while any are left.
+    if os.environ.get("HOOK_EVENT") == "UserPromptSubmit":
+        used += 1
+        st["defers_used"] = used
+        json.dump(st, open(p, "w", encoding="utf-8"))
+    print(f"defer {used} {MAX_DEFERS}")
 else:
     print(f"block {used} {MAX_DEFERS}")
 PY

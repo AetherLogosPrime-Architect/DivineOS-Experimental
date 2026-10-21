@@ -6,7 +6,8 @@
   "command": "bash .claude/hooks/doorbell-user-prompt-submit.sh"
  },
  {
-  "command": "bash .claude/hooks/memory-link-surface.sh"
+  "command": "bash .claude/hooks/memory-link-surface.sh",
+  "timeout": 15
  },
  {
   "command": "bash .claude/hooks/detect-andrew-build-request.sh"
@@ -21,7 +22,7 @@
   "command": "bash .claude/hooks/dedup-wrap.sh ear bash .claude/hooks/ear-surface.sh"
  },
  {
-  "command": "bash .claude/hooks/carry-aletheia-across.sh"
+  "command": "bash .claude/hooks/collect-aletheia-letters.sh"
  },
  {
   "command": "bash .claude/hooks/interior-cue-on-low-presence.sh"

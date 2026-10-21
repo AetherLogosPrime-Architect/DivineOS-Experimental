@@ -143,14 +143,16 @@ COMPACTION_CEILING = _read_ceiling_override() or 970_000
 # 880k against 950k restores 70k, wider than the 49k this design ran on before,
 # because the close has grown: a compass walk, commit, extract, sleep, dream.
 #
-# MOVED OFF THE START LINE, 2026-10-04. Extract and sleep now run LAST in the
-# ritual, so a write-block at the start line would stop the walk and the memory
-# filing before the close ever reached extract. The block now sits where the
-# ritual forces the mechanical close, and reads that line from its one home.
-from divineos.core.context_meter import RITUAL_FORCE_TOKENS  # noqa: E402
-
-CONSOLIDATION_THRESHOLD = RITUAL_FORCE_TOKENS  # hard line (also the default for consolidation_due)
-HARD_THRESHOLD = RITUAL_FORCE_TOKENS
+# MOVED APART 2026-10-16, Andrew: the hard line is a BUFFER, not a wall --
+# "finish your current task then hold it and run the ritual" -- and the ritual
+# takes longer lately, so it starts at 850k. The two lines used to be equal, which
+# meant this governor gated substrate writes at the exact moment the ritual
+# began, with no room to finish what was in flight. That was the mid-flow stop
+# of the morning of 2026-10-16. Now the ritual starts at CONSOLIDATION_THRESHOLD
+# and writes are gated forty thousand tokens later, at HARD_THRESHOLD. The gap is
+# the auto-cycle hook's own (FIRE 850k, HARD 890k); a test ties the three.
+CONSOLIDATION_THRESHOLD = 850_000  # where the ritual starts (default for consolidation_due)
+HARD_THRESHOLD = 890_000  # where substrate writes are gated until extract has run
 _MARKER_NAME = "context_consolidated.json"
 
 

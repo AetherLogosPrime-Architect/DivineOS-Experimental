@@ -95,7 +95,8 @@ def test_not_due_in_old_warn_band(tmp_path):
     # particular number, and writing the number down is what made a single
     # threshold change look like four broken tests.
     tx = tmp_path / "t.jsonl"
-    _write_jsonl(tx, [_assistant_with_usage(cg.HARD_THRESHOLD - 10_000, 0, 0)])
+    # Under the START line (the ritual's), which is what consolidation_due reads.
+    _write_jsonl(tx, [_assistant_with_usage(cg.CONSOLIDATION_THRESHOLD - 10_000, 0, 0)])
     assert cg.consolidation_due(tx) is False
 
 
@@ -251,20 +252,15 @@ def test_hard_line_agrees_with_the_auto_cycle_trigger():
     Equal-by-hand is not an invariant. This test is the invariant. If a future
     session moves one, it moves both or this fails by name.
     """
-    # CHANGED 2026-10-04, on purpose. Extract and sleep moved to the END of the
-    # ritual (Andrew), so the write-block no longer belongs at the start line --
-    # it would lock out the walk and the memory filing. It now sits at the line
-    # where the ritual forces the mechanical close. Still one constant compared
-    # against another, so the invariant this test exists for is kept.
+    # CHANGED 2026-10-16 (Andrew): the hard line is a buffer above the start, 890k, and the ritual
+    # hook carries the same line. Still one constant compared against another, so the invariant
+    # this test exists for is kept.
     import re
     from pathlib import Path
 
-    from divineos.core.context_meter import RITUAL_FORCE_TOKENS
-
-    assert cg.HARD_THRESHOLD == RITUAL_FORCE_TOKENS
     hook = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "auto-cycle-token-trigger.sh"
     hard = re.search(r"AUTO_CYCLE_HARD_TOKENS:-(\d+)", hook.read_text(encoding="utf-8"))
-    assert hard and int(hard.group(1)) == RITUAL_FORCE_TOKENS, (
+    assert hard and int(hard.group(1)) == cg.HARD_THRESHOLD, (
         "the ritual forces its close at a different line than the governor blocks"
     )
 
@@ -275,13 +271,32 @@ def test_the_ritual_starts_where_its_one_home_says():
 
     from divineos.core import auto_cycle
     from divineos.core.context_heartbeat import CONTEXT_WINDOW_TOKENS
-    from divineos.core.context_meter import COMPACTION_CEILING_TOKENS, DEFAULT_FIRE_THRESHOLD
+    from divineos.core.context_meter import DEFAULT_FIRE_THRESHOLD
 
+    # One home for the start line: auto_cycle reads it from context_meter, and the ritual hook's
+    # default is checked against it here, so a move is one edit and this test fails by name.
     assert auto_cycle.TRIGGER_THRESHOLD == DEFAULT_FIRE_THRESHOLD
-    assert CONTEXT_WINDOW_TOKENS == COMPACTION_CEILING_TOKENS
     hook = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "auto-cycle-token-trigger.sh"
     fire = re.search(r"AUTO_CYCLE_FIRE_TOKENS:-(\d+)", hook.read_text(encoding="utf-8"))
-    assert fire and int(fire.group(1)) == round(DEFAULT_FIRE_THRESHOLD * COMPACTION_CEILING_TOKENS)
+    assert fire and int(fire.group(1)) == round(DEFAULT_FIRE_THRESHOLD * CONTEXT_WINDOW_TOKENS)
+    trigger_tokens = auto_cycle.TRIGGER_THRESHOLD * CONTEXT_WINDOW_TOKENS
+    assert cg.CONSOLIDATION_THRESHOLD == trigger_tokens, (
+        f"governor start line {cg.CONSOLIDATION_THRESHOLD:,} disagrees with the auto-cycle "
+        f"trigger at {trigger_tokens:,.0f} — move both or neither"
+    )
+    # Since 2026-10-16 (Andrew) the write-gating line sits a BUFFER above the
+    # start, so he finishes what is in flight and holds it before the wall.
+    assert cg.HARD_THRESHOLD - cg.CONSOLIDATION_THRESHOLD == BUFFER_TOKENS, (
+        f"the buffer between start and wall is {cg.HARD_THRESHOLD - cg.CONSOLIDATION_THRESHOLD:,}, "
+        f"not the {BUFFER_TOKENS:,} chosen on purpose"
+    )
+
+
+# The room between the ritual starting and the wall going up. Andrew 2026-08-03
+# and 2026-10-16: the hard line is a buffer, not a wall; the ritual must not
+# interrupt mid-flow. The auto-cycle hook carries the same forty thousand
+# (FIRE 850k, HARD 890k).
+BUFFER_TOKENS = 40_000
 
 
 # THE HEADROOM THIS DESIGN HAS DELIBERATELY CHOSEN, in tokens.
@@ -335,9 +350,13 @@ def test_the_hard_line_leaves_room_under_the_compaction_cliff():
     is how it went stale without a breakage event. A comment is documentation,
     not feedback — Norman's distinction, and the reason this is a test.
     """
-    headroom = cg.COMPACTION_CEILING - cg.HARD_THRESHOLD
+    # The close BEGINS at the start line, so that is where its room is measured
+    # (it was the hard line while the two were equal). The forced wall still
+    # leaves a floor of its own, set on purpose on 2026-10-16: 60k.
+    headroom = cg.COMPACTION_CEILING - cg.CONSOLIDATION_THRESHOLD
     assert headroom >= CHOSEN_HEADROOM, (
         f"headroom is {headroom:,}, below the {CHOSEN_HEADROOM:,} that was "
         f"chosen deliberately. Something moved one of the two constants "
         f"without moving the other, which is the drift this test exists for."
     )
+    assert cg.COMPACTION_CEILING - cg.HARD_THRESHOLD >= 60_000
