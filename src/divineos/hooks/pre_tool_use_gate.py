@@ -1535,12 +1535,13 @@ def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
 
     try:
         from divineos.core.pre_registrations.store import (
-            get_overdue_pre_registrations,
+            get_blocking_pre_registrations,
         )
     except ImportError:
         return None
     try:
-        overdue = get_overdue_pre_registrations()
+        # Only a review that reached its count of USES blocks. A date alone never does (Dad, 2026-10-21).
+        overdue = get_blocking_pre_registrations()
     except Exception:  # noqa: BLE001 — fail-open if the store errors
         return None
     if not overdue:
@@ -1615,7 +1616,7 @@ def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
     more = f" (and {len(overdue) - 5} more)" if len(overdue) > 5 else ""
     return _make_deny(
         "OVERDUE PRE-REGISTRATIONS block substantive tool use.\n\n"
-        f"{len(overdue)} pre-registration(s) past review date: "
+        f"{len(overdue)} pre-registration(s) that reached their count of uses: "
         f"{ids_preview}{more}\n\n"
         "For each overdue pre-registration, record the outcome or defer:\n"
         "  divineos prereg assess <id> --outcome SUCCESS|FAILED|INCONCLUSIVE "

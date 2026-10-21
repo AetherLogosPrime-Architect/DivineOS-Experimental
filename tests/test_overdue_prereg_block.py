@@ -10,11 +10,10 @@ week.
 
 from __future__ import annotations
 
-import time
+from _prereg_helpers import make_due_by_use
 
 from divineos.core.pre_registrations.store import (
     Outcome,
-    _get_connection,
     file_pre_registration,
     init_pre_registrations_tables,
     record_outcome,
@@ -23,23 +22,13 @@ from divineos.hooks.pre_tool_use_gate import _check_overdue_prereg_block
 
 
 def _backdate_review(prereg_id: str, days_ago: float) -> None:
-    """Move a pre-reg's review_ts into the past to simulate overdue.
+    """Make a pre-reg an overdue review that BLOCKS: one that reached its count of uses.
 
-    file_pre_registration always calls time.time() so we can't create an
-    already-overdue row directly through the public API. This helper
-    backdates in the DB — test-only, matches the pattern used by other
-    time-sensitive tests in the suite.
+    Named for the old date-backdating it replaced, so the tests below read unchanged. Since 2026-10-21 a date
+    alone never blocks (Dad), so a blocking fixture has to be due by use; ``days_ago`` is kept only so the
+    call sites stay the same and means nothing now. The date case has its own tests at the end of the file.
     """
-    ts = time.time() - days_ago * 24 * 3600
-    conn = _get_connection()
-    try:
-        conn.execute(
-            "UPDATE pre_registrations SET review_ts = ? WHERE prereg_id = ?",
-            (ts, prereg_id),
-        )
-        conn.commit()
-    finally:
-        conn.close()
+    make_due_by_use(prereg_id)
 
 
 def test_no_preregs_no_block():
