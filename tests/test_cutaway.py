@@ -195,6 +195,30 @@ class TestKindsAreKeptApart:
         assert res["why"]
 
 
+class TestOneBrokenFileDoesNotEndTheSweep:
+    """Aether, 2026-10-21: a test file that does not parse crashed the whole run."""
+
+    def test_a_file_that_does_not_parse_is_one_unmeasured_file_and_the_rest_are_still_measured(
+        self, project
+    ):
+        broken = project.repo / "tests" / "test_syntax_error_zz.py"
+        broken.write_text("def test_x(:\n    pass\n", encoding="utf-8")
+        try:
+            files = [broken, project.repo / "tests" / "test_honest.py"]
+            got = cutaway.sweep(files, 2, project)
+        finally:
+            broken.unlink()
+        assert got["tests/test_syntax_error_zz.py"]["status"] == "could-not-measure"
+        assert "SyntaxError" in got["tests/test_syntax_error_zz.py"]["why"]
+        assert got["tests/test_honest.py"]["counts"] == {"CONNECTED": 3}
+
+    def test_a_file_that_does_not_exist_is_one_unmeasured_file(self, project):
+        missing = project.repo / "tests" / "test_not_there_zz.py"
+        got = cutaway.sweep([missing], 1, project)
+        assert got["tests/test_not_there_zz.py"]["status"] == "could-not-measure"
+        assert "could not read" in got["tests/test_not_there_zz.py"]["why"]
+
+
 class TestClassifyIsPure:
     def _report(self, **tests):
         return {"results": {k: {"outcome": o, "hits": h} for k, (o, h) in tests.items()}}

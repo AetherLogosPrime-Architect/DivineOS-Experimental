@@ -191,7 +191,14 @@ def classify(base: dict, cut: dict) -> dict[str, str]:
 
 def analyze_file(test_file: Path, project: Project = DIVINEOS) -> dict:
     """Run a test file untouched and cut; return counts and verdicts, or why it could not."""
-    names = imported_names(test_file, project)
+    try:
+        names = imported_names(test_file, project)
+    except (OSError, SyntaxError, ValueError) as exc:
+        # A file that does not parse or does not exist is one unmeasured file, not the end of
+        # the sweep: left to raise, one broken file in --all aborted every other file's
+        # measurement, and --check exited 1 where it documents "could not measure" as 2.
+        why = f"could not read the test file: {type(exc).__name__}: {exc}"
+        return {"status": "could-not-measure", "why": why, "counts": {}, "verdicts": {}}
     base = run_pytest(test_file, [], False, project)
     if not base.get("results"):
         why = base.get("error", "collected no tests")
