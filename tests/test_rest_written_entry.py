@@ -124,7 +124,9 @@ class TestTheCommandLineSaysWhatIsOwed:
     def test_close_names_the_written_entry_when_that_is_the_gap(self):
         runner = CliRunner()
         runner.invoke(cli, ["rest", "start"])
-        runner.invoke(cli, ["rest", "done", "aria"])
+        # "kin" is the menu key for what was once named for one person (#645); the command
+        # checks the key against the menu, so a retired key would record nothing here.
+        runner.invoke(cli, ["rest", "done", "kin"])
         runner.invoke(cli, ["rest", "done", "letters"])
         result = runner.invoke(cli, ["rest", "close"])
         assert "one written entry" in result.output

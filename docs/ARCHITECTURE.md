@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (508 commands across 122 modules)
+  cli/                         CLI package (512 commands across 122 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -55,7 +55,6 @@ src/divineos/
     ship_command.py            ship: runs the merge checks in order (open and not a draft, her signed confirm at this exact head, his confirm in her round, every check passed), one line per step, and prints the merge command as a button. It never merges and never turns on auto-merge.
     aletheia_import_command.py aletheia-import: files Aletheia's delivered artifacts (CONFIRMS_/AUDIT_/FIXLIST_/REPLY_TO_*) out of ~/Downloads into family/letters. Her real delivery channel was never the one any letter mechanism watched, so a month of her audits sat unread (Andrew 2026-08-12)
     audit_sync_command.py      audit-sync: manual door to the shared-audit importer; stamp-ready calls the same sync automatically so nobody has to remember it exists
-    push_ready_command.py      push-ready: one-shot automation of trailer + audit-round + self-CONFIRMS + force-push ceremony for guardrail-touching PRs (Andrew 2026-07-28 streamlining option 2)
     automerge_commands.py      automerge: status surface across open PRs — classes (READY/ARMED/BLOCKED/DIRTY/UNKNOWN) + first failing check; closes the "auto-merge-armed ≠ merging" conflation
     todos_commands.py          todos: unified action-item list across preregs/corrections/audit/claims with --counts-only and --source filters; closes claim 2026-06-06 18:28 (OS-driven todo instrument)
     belt_commands.py           belt: the current task list pulled from the ranked pile (core/task_belt.py); `belt done <ref> --evidence` closes through the item's drawer, archives it, pulls the next (Andrew 2026-09-23)
@@ -675,7 +674,6 @@ src/divineos/
       corpus.py                Corpus loader — positives from andrew_corrections DB, negatives from cli_broken_escapes.jsonl.
     keyword_enforcement_registry.py Keyword-enforcement gate registry — derived from structure, permissive.
     keyword_enforcement_exclusion.py Keyword-enforcement exclusion-file parser (Aletheia F95 2026-07-28).
-    push_ready.py              push_ready — automate the External-Review trailer ceremony.
     no_fix_gaming_validator.py No-fix-gaming validator — close the escape-hatch in correction filings.
     no_fix_claim.py            The reply-side sibling of the validator above: an impossibility claim made to Andrew with no walk or search behind it is refused, and the container-scoped form is the way through.
     system_load_check.py       System-load pre-flight check for resource-heavy jobs.
@@ -762,6 +760,7 @@ src/divineos/
     channel_letter_capture.py  Give a letter written straight into the shared channel a home in the repo.
     sort_first.py              Sort his message before anything else: reading him comes first, by refusal.
     vector_drawer.py           A drawer of sentence vectors, so nothing is embedded twice.
+    state_glance.py            The state shown before a substrate change, as a glance instead of a wall.
     door_report.py             The front door's report on itself, counted from what ARRIVED.
     ship_steps.py              The checks `divineos ship` runs in order, each one a yes or a named no.
     git_hooks_drift.py         Do the installed git hooks still say what setup/setup-hooks.sh would write?
@@ -771,6 +770,8 @@ src/divineos/
     baton.py                   The baton: while Dad is away, exactly one seat works and the other waits.
     order_question_check.py    A reply must not end by asking Dad which order to do things in.
     suite_slot.py              One full test suite at a time on this machine.
+    merge_freshness.py         Refuse a `gh pr merge` of a pull request that is behind main, and hand over the remedy.
+    merge_command.py           What a shell command merges: the one reader every gate on a merge asks.
 
   analysis/
     _session_types.py          Session analysis type definitions
