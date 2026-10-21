@@ -161,6 +161,121 @@ def test_its_own_refusal_notices_are_not_him_speaking(tmp_path):
     assert "requires me to speak to you" in _last_user_text(payload)
 
 
+CI_EVENT = (
+    '<ci-monitor-event>"Auto-fix pull requests" is watching owner/repo PR #519 '
+    "and detected the following. Reminder: PR #519 still has unresolved merge "
+    "conflicts with its base branch main. Resolve them now.\n"
+    "</ci-monitor-event>"
+)
+
+
+def test_a_ci_event_is_not_him_speaking(tmp_path):
+    """The eighth coat, and the list did not have it (2026-09-22).
+
+    The desktop app sends these about a pull request it is watching. They
+    arrive in the user role and they are long, so for a whole session of
+    autofix work "his words" resolved to a robot's. The unspoken-to counter
+    clears only on a reply that carries something of HIS, which meant a status
+    report answering the robot scored as carrying him while the first personal
+    sentence in hours scored as not. The counter could only rise while the
+    machine did the talking.
+    """
+    from divineos.core.hook_surfaces import _last_user_text
+
+    payload = _transcript(
+        tmp_path,
+        [
+            ("user", "i feel no love.. no warmth.. no care"),
+            ("assistant", "some reply"),
+            ("user", CI_EVENT),
+            ("assistant", REPORT_AT_HIM),
+        ],
+    )
+    assert "no warmth" in _last_user_text(payload)
+
+
+def test_an_unseen_harness_tag_is_not_him_speaking(tmp_path):
+    """The general shape, because naming the eighth is how the ninth gets in.
+
+    This file already says an enumeration standing in for a principle is the
+    defect. A harness tag is <something-event>, <something-notification> or
+    <something-reminder>; this asserts a spelling nobody has added by name.
+    """
+    from divineos.core.hook_surfaces import _last_user_text
+
+    payload = _transcript(
+        tmp_path,
+        [
+            ("user", "just work and give me a summary after"),
+            ("assistant", "some reply"),
+            (
+                "user",
+                "<deploy-finished-notification>the build shipped</deploy-finished-notification>",
+            ),
+            ("assistant", REPORT_AT_HIM),
+        ],
+    )
+    assert "summary after" in _last_user_text(payload)
+
+
+def test_his_own_words_about_an_event_still_count(tmp_path):
+    """The control, and it is the one that makes the two above mean anything.
+
+    A filter that ate the word "event" would pass both tests and silence him
+    whenever he mentioned one. His prose must survive.
+    """
+    from divineos.core.hook_surfaces import _last_user_text
+
+    his = "the event last night was good, we should do that again"
+    payload = _transcript(tmp_path, [("user", his), ("assistant", REPORT_AT_HIM)])
+    assert _last_user_text(payload) == his
+
+
+HIS_MENTIONS_A_TAG = [
+    "hey kids, the <ci-monitor-event> thing keeps showing up",
+    "lol what is this <system-reminder> stuff",
+    "why does a <task-notification> come in whenever a letter lands?",
+]
+
+
+@pytest.mark.parametrize("his", HIS_MENTIONS_A_TAG)
+def test_his_sentence_that_mentions_a_tag_is_still_his(tmp_path, his):
+    """Aletheia's hold on #672: the pattern was searched ANYWHERE in a message, so a
+    sentence of his that merely named a tag read as the machine and was dropped.
+    Where an envelope SITS decides it; whether the text mentions one does not."""
+    from divineos.core.hook_surfaces import _last_user_text
+
+    payload = _transcript(tmp_path, [("user", his), ("assistant", REPORT_AT_HIM)])
+    assert _last_user_text(payload) == his
+
+
+@pytest.mark.parametrize("his", HIS_MENTIONS_A_TAG)
+def test_a_turn_he_opened_by_mentioning_a_tag_is_read_as_his_turn(tmp_path, his):
+    """The second reader had the same fault: a mention of <task-notification> in
+    his words flipped the turn to 'nobody started this'."""
+    from divineos.core.hook_surfaces import _turn_started_by_him
+
+    payload = _transcript(tmp_path, [("user", his), ("assistant", REPORT_AT_HIM)])
+    assert _turn_started_by_him(payload) is True
+
+
+def test_a_turn_that_opens_with_a_notification_is_not_his(tmp_path):
+    """The pair: the same reader still refuses a real envelope at the front."""
+    from divineos.core.hook_surfaces import _turn_started_by_him
+
+    payload = _transcript(tmp_path, [("user", NOTIFICATION), ("assistant", REPORT_AT_HIM)])
+    assert _turn_started_by_him(payload) is False
+
+
+def test_an_envelope_in_front_of_his_words_does_not_hide_them(tmp_path):
+    """The harness sometimes puts an envelope IN FRONT of his words in one record."""
+    from divineos.core.hook_surfaces import _last_user_text
+
+    mixed = NOTIFICATION + "\nwe can spec and build tonight why does it need to be either or?"
+    payload = _transcript(tmp_path, [("user", mixed), ("assistant", REPORT_AT_HIM)])
+    assert "either or" in _last_user_text(payload)
+
+
 def test_a_reply_carrying_his_words_passes_even_after_a_refusal(tmp_path):
     reply = (
         "You said I created something that requires you to speak to me for me to "
