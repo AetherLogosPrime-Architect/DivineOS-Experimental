@@ -247,6 +247,16 @@ def _pytest_cmd(tests: list[str]) -> list[str]:
     return [sys.executable, "-m", "pytest", "-x", "-q", "--tb=no", "-p", "no:cacheprovider", "-rf", *tests]
 
 
+#: The test a run named as failed. The id runs to the end of the line, or to the " - message" that pytest
+#: appends, so a parametrized id with a space in it is read whole.
+_FAILED_LINE = re.compile(r"^FAILED (.+?)(?: - .*)?$", re.MULTILINE)
+
+
+def _failed_test(output: str) -> str | None:
+    m = _FAILED_LINE.search(output)
+    return m.group(1).strip() if m else None
+
+
 def _run_capturing(cmd: list[str], copy: Path, timeout: float) -> tuple[int | None, str]:
     """Run to completion or to the timeout; on timeout the whole process tree is ended."""
     proc = subprocess.Popen(
@@ -279,17 +289,24 @@ def run_tests(
     if code == 0:
         return "survived", 0, None, took
     if code == 1:
-        m = re.search(r"^FAILED (\S+)", out, re.MULTILINE)
-        return "killed", 1, m.group(1) if m else None, took
+        named = _failed_test(out)
+        if named is None:
+            # Exit 1 and no failed test named: the process died, or a fixture raised before any assertion
+            # (an ERROR line, not a FAILED one). That is a crash, not a test noticing the fault (Aletheia,
+            # holding #700, 2026-10-21: os._exit(1) in a test counted as caught).
+            return "errored", 1, None, took
+        return "killed", 1, named, took
     return "errored", code, None, took
 
 
-def confirm_kill(copy: Path, tests: list[str], killer: str | None, timeout: float) -> bool:
-    """A catch has to repeat. A check that fails by chance on a planted fault looks exactly like
-    one that caught it, so the named catcher is run alone once more on the same faulted copy; if
-    it does not fail again the outcome is 'flaky' and is not counted as caught."""
-    code, _ = _run_capturing(_pytest_cmd([killer] if killer else tests), copy, timeout)
-    return code == 1
+def confirm_kill(copy: Path, killer: str, timeout: float) -> bool:
+    """A catch has to repeat, and be the same catch. A check that fails by chance on a planted fault looks
+    exactly like one that caught it, so the named catcher is run ALONE once more on the same faulted copy
+    and must fail again BY NAME. Rerunning the whole suite instead (what this did when no catcher was
+    named) lets a crash repeat as a crash and pass for a confirmation. If it does not fail again the
+    outcome is 'flaky' and is not counted as caught."""
+    code, out = _run_capturing(_pytest_cmd([killer]), copy, timeout)
+    return code == 1 and _failed_test(out) == killer
 
 
 def run(
@@ -363,7 +380,7 @@ def run(
                 live_bytes[: m.start] + m.replacement.encode() + live_bytes[m.end :]
             )
             outcome, code, killer, secs = run_tests(work, tests, per_mutant_timeout)
-            if outcome == "killed" and not confirm_kill(work, tests, killer, per_mutant_timeout):
+            if outcome == "killed" and not confirm_kill(work, killer, per_mutant_timeout):
                 outcome = "flaky"
             row = {**asdict(m), "outcome": outcome, "killer": killer, "seconds": round(secs, 2)}
             results.append(row)

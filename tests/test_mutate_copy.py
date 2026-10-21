@@ -274,6 +274,84 @@ def test_the_listed_kinds_are_exactly_the_kinds_the_tool_plants():
     assert {m.kind for m in mc.find_mutants(source)} == set(mc.PLANTED_KINDS)
 
 
+TOY_MODULE = "def f():\n    return 1\n"
+TEST_THAT_DIES = "import os\nimport pkg.mod  # noqa: F401\n\n\ndef test_dies():\n    os._exit(1)\n"
+TEST_WHOSE_FIXTURE_RAISES = (
+    "import pytest\nimport pkg.mod  # noqa: F401\n\n\n"
+    "@pytest.fixture\ndef boom():\n    raise RuntimeError('setup failed')\n\n\n"
+    "def test_uses_boom(boom):\n    assert True\n"
+)
+TEST_WITH_A_FAILED_ASSERT = (
+    "import pkg.mod  # noqa: F401\n\n\ndef test_fails():\n    assert False\n"
+)
+
+
+def _toy(tmp_path, tests_source):
+    return _project(tmp_path / "proj", mod_source=TOY_MODULE, tests_source=tests_source)
+
+
+def test_a_process_that_dies_is_errored_and_not_caught(tmp_path):
+    """Aletheia, #700 hold: os._exit(1) in a test exits 1 with no failed test named. That is a crash, not
+    a test noticing the fault, and the repeat check could not tell them apart."""
+    repo = _toy(tmp_path, TEST_THAT_DIES)
+    outcome, code, killer, _ = mc.run_tests(repo, ["tests/test_mod.py"], timeout=120)
+    assert (outcome, killer) == ("errored", None), (outcome, code, killer)
+
+
+def test_a_fixture_that_raises_is_errored_and_not_caught(tmp_path):
+    """Aletheia, #700 hold: a fixture raising before any assertion is an ERROR line, not a failed test."""
+    repo = _toy(tmp_path, TEST_WHOSE_FIXTURE_RAISES)
+    outcome, code, killer, _ = mc.run_tests(repo, ["tests/test_mod.py"], timeout=120)
+    assert (outcome, killer) == ("errored", None), (outcome, code, killer)
+
+
+def test_a_real_failed_assert_is_caught_and_the_catcher_is_named(tmp_path):
+    repo = _toy(tmp_path, TEST_WITH_A_FAILED_ASSERT)
+    outcome, code, killer, _ = mc.run_tests(repo, ["tests/test_mod.py"], timeout=120)
+    assert outcome == "killed" and killer and killer.endswith("::test_fails")
+
+
+def test_a_catch_is_confirmed_only_by_the_named_test_failing_alone(tmp_path):
+    repo = _toy(tmp_path, TEST_WITH_A_FAILED_ASSERT)
+    assert mc.confirm_kill(repo, "tests/test_mod.py::test_fails", timeout=120)
+    # a name that does not fail on its own (here a test that does not exist) is not a confirmation
+    assert not mc.confirm_kill(repo, "tests/test_mod.py::test_absent", timeout=120)
+    # a name that is a whole file runs everything, and something else fails BY ITS OWN NAME: not the same catch
+    assert not mc.confirm_kill(repo, "tests/test_mod.py", timeout=120)
+
+
+def test_the_repeat_runs_the_named_test_alone_not_everything(tmp_path):
+    """Two tests both fail. Run together the first one is named; the catcher was the second. Confirming the
+    second means running IT alone: a rerun of everything would name the first and refuse a true catch."""
+    two = (
+        "import pkg.mod  # noqa: F401\n\n\n"
+        "def test_a_fails_first():\n    assert False\n\n\n"
+        "def test_b_is_the_catcher():\n    assert False\n"
+    )
+    repo = _toy(tmp_path, two)
+    assert mc.confirm_kill(repo, "tests/test_mod.py::test_b_is_the_catcher", timeout=120)
+
+
+def test_a_crash_never_reaches_the_repeat_check_so_it_cannot_be_confirmed(tmp_path):
+    """On the planted-fault path a test that kills the process, or whose fixture raises, is errored in the
+    report. Neither is ever counted as caught or sent to be confirmed."""
+    for name, source in (("dies", TEST_THAT_DIES), ("fixture", TEST_WHOSE_FIXTURE_RAISES)):
+        repo = _project(tmp_path / name, mod_source=TOY_MODULE, tests_source=source)
+        outcome, _, killer, _ = mc.run_tests(repo, ["tests/test_mod.py"], 120)
+        assert outcome == "errored" and killer is None, name
+
+
+def test_a_catcher_name_with_a_space_in_it_is_read_whole(tmp_path):
+    source = (
+        "import pytest\nimport pkg.mod  # noqa: F401\n\n\n"
+        "@pytest.mark.parametrize('x', ['a b'])\ndef test_p(x):\n    assert False\n"
+    )
+    repo = _toy(tmp_path, source)
+    outcome, code, killer, _ = mc.run_tests(repo, ["tests/test_mod.py"], timeout=120)
+    assert outcome == "killed" and killer == "tests/test_mod.py::test_p[a b]", killer
+    assert mc.confirm_kill(repo, killer, timeout=120)
+
+
 def test_timeouts_and_errors_are_not_counted_as_caught():
     row = {
         "line": 1,
