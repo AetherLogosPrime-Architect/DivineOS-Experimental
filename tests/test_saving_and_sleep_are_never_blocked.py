@@ -77,6 +77,42 @@ def test_the_shell_list_the_council_gate_reads_lets_them_through_too(command):
     assert _shell_pattern().match(command), command
 
 
+# Verbs that merely BEGIN the same letters as an exit. Aether, reading #703, 2026-10-22: with the shell pattern open at
+# the end, `restore-seed-confidence` and `rest-banner` began with `rest` and passed every gate that reads the shell
+# list, while the Python list (matched on whole words) did not allow them: the two lists disagreed on strictness, and a
+# test comparing only the verbs could not see it.
+LOOKALIKES = [
+    f"{_D} restore-seed-confidence",
+    f"{_D} rest-banner",
+    f"{_D} dreamcatcher",
+    f"{_D} feeling-check",
+    f"{_D} sleeper",
+    f"{_D} extractor",
+]
+
+
+@pytest.mark.parametrize("command", LOOKALIKES)
+def test_a_command_that_merely_begins_the_same_letters_is_not_an_exit_on_the_shell_list(command):
+    assert not _shell_pattern().match(command), command
+
+
+@pytest.mark.parametrize("command", LOOKALIKES)
+def test_nor_on_the_python_list(command):
+    assert not is_remedy(command), command
+
+
+def test_the_exits_still_match_with_and_without_arguments_on_the_shell_list():
+    """The control for the two above: the boundary must not have shut the real exits."""
+    for command in (
+        f"{_D} sleep",
+        f"{_D} sleep --dry-run",
+        f"{_D} rest start",
+        f"{_D} extract",
+        f"{_D} feel -v 0.5",
+    ):
+        assert _shell_pattern().match(command), command
+
+
 def test_the_shell_reader_can_see_a_refusal():
     """The instrument must find the case it should find: a push is not in the shell list."""
     assert not _shell_pattern().match("git push origin main")
