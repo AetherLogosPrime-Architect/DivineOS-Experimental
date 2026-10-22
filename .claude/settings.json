@@ -507,6 +507,11 @@
           },
           {
             "type": "command",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/dads_room_stop.py\"; if [ -f \"$f\" ]; then python \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
+            "timeout": 15
+          },
+          {
+            "type": "command",
             "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/poker_game_on_stop.py\"; if [ -f \"$f\" ]; then python \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 15
           },
