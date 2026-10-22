@@ -383,19 +383,25 @@ _drafts_only_push() {
 #                    run the WHOLE suite and say why. Not knowing never passes as nothing to run.
 # Sets PYTEST_TARGETS (default tests/) and DRAFT_SKIP (default 0).
 _pick_draft_tests() {
-    local changed="$1" sha="" lref lsha rref rsha out rc
+    local changed="$1" sha="" lref lsha rref rsha out rc=0 branches=0
+    # COUNT the branches, do not just take the first: the selector reads ONE commit, so a push of two branches
+    # would choose tests from the first branch's changes and never look at the second's (Aether, attacking #704,
+    # 2026-10-22). More than one is not narrowed.
     while read -r lref lsha rref rsha; do
         if [[ -n "${lsha:-}" && ! "${lsha:-}" =~ ^0+$ && "${rref:-}" != refs/tags/* ]]; then
-            sha="$lsha"
-            break
+            branches=$((branches + 1))
+            [[ -z "$sha" ]] && sha="$lsha"
         fi
     done <<< "$HOOK_STDIN"
+    if [[ "$branches" -gt 1 ]]; then
+        echo "[push-readiness] draft path: this push carries $branches branches and the selector reads one commit, so I cannot narrow the tests; running the suite." >&2
+        return 0
+    fi
     if [[ -z "$sha" ]] || [[ ! -f "$REPO_ROOT/scripts/draft_test_selection.py" ]]; then
         echo "[push-readiness] draft path: no commit or no selector to read, so I cannot narrow the tests; running the suite." >&2
         return 0
     fi
-    out="$(printf '%s\n' "$changed" | python "$REPO_ROOT/scripts/draft_test_selection.py" --repo "$REPO_ROOT" --ref "$sha")"
-    rc=$?
+    out="$(printf '%s\n' "$changed" | python "$REPO_ROOT/scripts/draft_test_selection.py" --repo "$REPO_ROOT" --ref "$sha")" || rc=$?
     if [[ "$rc" -ne 0 ]]; then
         echo "[push-readiness] draft path: the selector said it cannot narrow this change (exit $rc); running the whole suite." >&2
         return 0

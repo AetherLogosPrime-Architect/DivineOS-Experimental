@@ -19,6 +19,8 @@ WHAT IT CAN SEE, said so silence is not read as coverage. It finds tests by read
 that reaches a module by a name built at run time, by a multi-line `from x import (a, b)` that puts the module name
 on a different line, or only through another module is not found. A change that breaks a test which does not name it
 is met at ready-for-review, when the whole suite runs. That is the accepted cost, counted in pushes, not guessed.
+The gate hands the chosen files to pytest through a space-separated list, so a test path with a space in it would
+break; none exist, and that is a named limit, not a handled case.
 """
 
 from __future__ import annotations

@@ -108,9 +108,14 @@ def fake_bin(tmp_path: Path) -> Path:
     return bin_dir
 
 
-def _push(repo: Path, fake_bin: Path, *, pr: str = "true\\n") -> subprocess.CompletedProcess[str]:
-    """Run the real gate for `refs/heads/work` at the repo's current commit. `pr` is what the fake gh says."""
+def _push(
+    repo: Path, fake_bin: Path, *, pr: str = "true\\n", branches: int = 1
+) -> subprocess.CompletedProcess[str]:
+    """Run the real gate for `refs/heads/work` at the repo's current commit. `pr` is what the fake gh says.
+    `branches` > 1 adds more branch refs to the same push."""
     sha = _git(repo, "rev-parse", "HEAD")
+    names = ["work"] + [f"other{i}" for i in range(1, branches)]
+    stdin = "".join(f"refs/heads/{n} {sha} refs/heads/{n} {_ZERO}\n" for n in names)
     # No PYTHONPATH either: inside the real gate it is the pushed copy's src, and the toy gate would join its own
     # onto it with a colon that a Windows drive letter breaks, hiding the toy project's code (found 2026-10-22,
     # only ever inside the real gate, never from a desk).
@@ -128,7 +133,7 @@ def _push(repo: Path, fake_bin: Path, *, pr: str = "true\\n") -> subprocess.Comp
     env["DIVINEOS_ALLOW_EMPTY_PUSH"] = "1"
     return subprocess.run(
         [_BASH, str(repo / "scripts" / "check_push_readiness.sh")],
-        input=f"refs/heads/work {sha} refs/heads/work {_ZERO}\n",
+        input=stdin,
         capture_output=True,
         text=True,
         timeout=280,
@@ -184,6 +189,15 @@ def test_a_shared_setup_file_runs_the_whole_suite_even_on_a_draft(repo, fake_bin
     result = _push(repo, fake_bin)
     assert result.returncode == 10, _said(result)[-2500:]
     assert "cannot narrow" in _said(result)
+
+
+def test_a_draft_push_of_two_branches_is_not_narrowed(repo, fake_bin):
+    """Aether's attack on #704: the selector reads ONE commit, so a push of two branches must not be narrowed from
+    the first. The same change as the single-branch case that does NOT trip over the always-failing test."""
+    _commit(repo, "src/pkg/mod.py", "def value():\n    return 1  # reworded\n")
+    result = _push(repo, fake_bin, branches=2)
+    assert result.returncode == 10, _said(result)[-2500:]
+    assert "carries 2 branches" in _said(result)
 
 
 def test_a_missing_selector_runs_the_whole_suite_and_says_why(repo, fake_bin):
