@@ -131,8 +131,12 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 3
+    # Raw bytes with a bare newline. print() in text mode ends every line with CR+LF on Windows, and the shell
+    # that reads this keeps the CR on each file name, so pytest was asked for files that do not exist and "ran no
+    # tests" (found by the first real draft push of this change, 2026-10-22).
     for path in sorted(chosen):
-        print(path)
+        sys.stdout.buffer.write((path + "\n").encode("utf-8"))
+    sys.stdout.flush()
     print(f"[draft-tests] {len(changed)} changed file(s), {len(chosen)} test file(s) selected.", file=sys.stderr)
     for path in untouched:
         print(f"[draft-tests] NO TEST NAMES {path}: nothing is verified for it until the full run.", file=sys.stderr)

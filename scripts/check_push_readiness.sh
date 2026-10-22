@@ -403,7 +403,7 @@ _pick_draft_tests() {
     if [[ -z "$out" ]]; then
         DRAFT_SKIP=1
     else
-        PYTEST_TARGETS="$(printf '%s' "$out" | tr '\n' ' ')"
+        PYTEST_TARGETS="$(printf '%s' "$out" | tr -d '\r' | tr '\n' ' ')"
     fi
 }
 

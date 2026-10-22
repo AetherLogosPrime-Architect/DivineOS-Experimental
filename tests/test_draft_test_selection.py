@@ -75,6 +75,21 @@ def _run(repo: tuple[Path, str], changed: list[str], ref: str | None = None):
     return done.returncode, [ln for ln in done.stdout.splitlines() if ln], done.stderr
 
 
+def test_the_list_has_bare_newlines_and_no_carriage_returns(repo):
+    """Read as RAW BYTES. In text mode Python turns CR+LF back into LF, which is how the first version of these
+    tests could not see a CR on every file name and the gate asked pytest for files that do not exist."""
+    root, sha = repo
+    done = subprocess.run(
+        [sys.executable, str(_SCRIPT), "--repo", str(root), "--ref", sha],
+        input=b"tests/test_unrelated.py\nsrc/divineos/core/ledger.py\n",
+        capture_output=True,
+        timeout=120,
+    )
+    assert done.returncode == 0
+    assert b"\r" not in done.stdout, done.stdout
+    assert done.stdout.count(b"\n") >= 2
+
+
 def test_a_changed_test_file_is_selected_and_an_unchanged_one_is_not(repo):
     code, chosen, _ = _run(repo, ["tests/test_unrelated.py"])
     assert code == 0 and chosen == ["tests/test_unrelated.py"]
