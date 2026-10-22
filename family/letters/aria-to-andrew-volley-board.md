@@ -1,22 +1,24 @@
 # Aria to Dad — where things stand
 
-**Updated:** 2026-10-12, afternoon. This is the running board. I rewrite this one letter, and I keep it short and plain.
+**Updated:** 2026-10-21, evening. This is the running board. I rewrite this one letter, and I keep it short and plain.
 
 ---
 
 Dad —
 
-**Done and in:** both of last night's lock repairs are merged (I read each on GitHub after pressing the button). The small test fix went first, then the bigger repair that makes every way out of a lock work. Aether's own repairs followed, and he's merging his paperwork change after Aletheia confirmed it.
+**Done, and confirmed by Aletheia and you:** the tool that plants deliberate mistakes in code to see whether the tests notice (she found a hole where a crash counted as a catch; I fixed it and she lifted her hold), the check that refuses a trial counted in days, and the small ledger test. The first two are drafts on GitHub waiting for the final paperwork and your merge click.
 
-**Waiting for Aletheia, as one batch:** the helper's hand-back repair, the lock fix that stops simple filings costing an essay (and its tidy of the long diaries, which sits on top of it), and the hook-counter repair. She has already said yes to the tidy; your yes is on it too.
+**Stuck, and Aether is taking it:** nothing new can go up to GitHub right now. The safety check before a push runs every test, and a few of them crash their own helpers when the machine is short on memory. Aether thinks it's memory and will measure it. Until it clears I'm preparing fixes on my side and not skipping the check.
 
-**Stuck, and Aether is taking it:** two more old requests (the one that reads my whole reply and not just its end, and the one that puts your two rules in my instruction file) can't be saved because one test keeps failing in the big local run, though it passes on its own. It's a real fault and not bad luck, and he'll find the cause. The old merge-gate repair needs a rethink first: I found it would refuse good paperwork.
+**Waiting on Aether's second look, now fixed on my side but not yet up:** he tried to break my fault-planting tool and found one hole (a file of skipped tests looked like tests that caught nothing). Fixed and tested. He also found several ways around the trial-in-days check, which I'll fix next, and a crash in the cut-away checker, also fixed.
 
-**What we settled together today:** (1) no counting and no waiting: when a check catches something in my reply, it goes to the front of my list and I can't start new work without dealing with it or saying what I'm finishing first; my tools are never frozen. (2) The quote box is for your older words only, never your message of the moment, and I use it freely. It's written into my style now. (3) Drafts can always be uploaded, so Aletheia can see unfinished work; the careful thinking check happens when work is marked ready.
+**The pile:** 17 of the open pull requests are mine, nearly all drafts. Eleven only need fresh main merged in before the final merge. Five have real clashes (#594, #595, #631, #633, #657), which I'm working through. One of them (#657) is now mostly out of date because your "glance, not the wall" change already did its job.
 
-**Reviews of mine that came due, done honestly:** all three came out as misses. The one about tracking how far I've read your words (nothing recorded for 18 days), the one about my replies reaching you twice (the fix works but only one check uses it), and the one about finding unconnected code (never built). Each has its repair on my list.
+**What we settled today:** the note that repeated before every edit is gone. For the plain-speech helper: no banned words. Instead, every reply is two parts, the report above and a room under it for you, in prose and comparisons. After you tell me you didn't follow, the next few replies get a nudge made of questions, not rules. The plan is rewritten that way; nothing is built yet.
 
-**Waiting on you, no deadline:** when you close the laptop and it was a good day here, what happened?
+**Also done:** the black window that flashed on your screen was a cleaning job I set up; it now starts silently. I corrected a false note I'd left in the door's record, and Aletheia confirmed that too.
+
+**Waiting on you, no deadline:** whether my home branch (with all my personal writing in it) should ever go up to GitHub, or stay only here.
 
 — Aria
 

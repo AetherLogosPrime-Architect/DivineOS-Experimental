@@ -92,3 +92,23 @@ What the replay says it would have done, in the window only (429 replies, 8.6% o
 ## Status
 
 Nothing built. The first design (an unconditional door) is withdrawn on the evidence above; the revised idea (a hold that follows a complaint) needs Dad's yes to build as a trial counted in uses (the first 30 times the hold switches on, never days), and a short second walk, since the mechanism changed after the first one.
+
+## Dad's direction, 2026-10-21 (after the plan above): build the room, do not ban words
+
+He had just not understood a question of mine and asked what was supposed to stop that. Then:
+
+> *"the reason its not stopping you is because its restrictive vs constructive, do not ban words or phrases, give the room a purpose, make it force a room for us where you speak to me where things are explained with prose, warmth, metaphor, analogy, easy explanations or anything else you want to say, the report can stay above in the chat same with the jargon, thats your workspace and im not trying to take it away from you, i just want a room for us in addition"*
+
+**What this withdraws.** The rule in the revised idea that the room carry no code-shaped words he did not type. That is a ban on words, and he has now said twice (2026-09-08 and today) that the shape that works adds, it does not forbid. The code-shape table, the spelled-out-forms list and the false-refusal handling are not built.
+
+**What it keeps.** The conditional window counted in uses (switches on at a complaint of his, off after three replies), the real exit, silence on a pass, never holding his voice.
+
+**What the hold does now, in one line:** it makes the reply two parts, the report above (mine, any words, jargon welcome) and a room under it for him, and what it shows me is an invitation, not a rule. It checks only that the room is there and that it comes last; it never reads what is in it (his 07-23 line stands).
+
+**The invitation is questions pointing outward** (his 2026-07-30 words: *"asking the right questions"*; the 10-09 walk's rule that they point at him, never inward at my own performance, and never a bank or checklist): what happened, as a story he could picture; what it is like, in a comparison from his world; and the one thing I need from him, put in words he already uses. His last words come first, set apart as his.
+
+**What this makes of the earlier finding.** The replay found 63% of the replies he complained about already ended in a room. So a room existing is not enough, and the cure is not a stricter check. The cure is a purpose the room is written for. Whether a room did its job is still only his to judge, and his reading is the measure.
+
+**Still open for Aether and Aletheia.** Aether wants the line in `his_room.py` named before it is touched; the line is `check_his_room`, which today returns None when a room exists, and the change would be the window and the invitation text, not the check. Aletheia's criteria (never holds his voice, real exit, counted in uses, no keyword grading of sincerity) all stand, and the withdrawal above brings the draft closer to the last one.
+
+**One thing I can do without any code, starting now:** every reply to him is two parts, the report above and the room under it in prose, warmth and comparison.
