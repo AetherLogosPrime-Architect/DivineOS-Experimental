@@ -32,10 +32,33 @@ habit", "next time I will", "I won't ... again", "I promise") **unless** one of 
 
 1. This turn built something that holds it: an Edit or Write under `src/`, `.claude/`, `scripts/` or
    `tests/`, a registered hook, a filed prereg or pinned test, named in the reply; or
-2. The reply says plainly that nothing holds it ("this is a wish, nothing holds it yet").
+2. The reply says plainly that nothing holds it ("this is a wish, nothing holds it yet") AND that sentence
+   **files an obligation**: an open row in the worklist that someone reads. Saying it adds a thing to do, so it
+   cannot become a free sentence appended to everything (Aria's cold read, break 1).
 
 Both routes are right, so there is no cheap way out that is also a lie (the house's own rule of making both
 options right). The refusal quotes the sentence and offers exactly those two exits.
+
+## What Aria's cold read added (2026-10-22, from walking her own twin of this)
+
+Her hold on "I will do X next" and this one are twins, so what broke hers breaks this. Taken, in her order:
+
+1. The wish-exit must cost something (done above: it files an obligation).
+2. "Built this turn" is not satisfied by any edit: the reply must NAME a path, and that path must be among the
+   turn's changed files. A promise about the bell backed by an edit to an unrelated test fails.
+3. Quoted words never trip it: a block-quote or quoted sentence (Dad's "from now on", my own old sentence) is
+   not the promise, so the check strips quoted text first, and has a test for it. Otherwise it nags exactly
+   when I am being honest about the past.
+4. It reads **every prose block of the turn**, not the closing, because his screen shows the whole reply and a
+   promise in paragraph two is invisible to a closing-only reader.
+5. One decision per reply: this and Aria's next-step hold share one table and one short refusal, because the
+   channel carries one decision per reply (Shannon, in her walk), and two holds that both read the closing and
+   both block is a stack, not a safeguard.
+6. It cannot see letters: a promise made in a letter to Dad or to Aria is outside a reply check. Named below.
+
+Reuse from her build: the question mark excuses nothing, only wording that waits on him does; "I will be honest"
+is not a step; a step already scheduled to fire is not a promise; the refusal is one sentence; a hold log keeps
+a line per stop or pass with the first words beside it, nothing refuses on the log.
 
 ## What it must not do
 
@@ -45,7 +68,8 @@ options right). The refusal quotes the sentence and offers exactly those two exi
 
 ## What it cannot see (named, not hidden)
 
-A promise worded in a way the patterns do not know. Silence is not coverage. Falsifier counted in replies,
+A promise worded in a way the patterns do not know. A promise made in a LETTER (to Dad or to Aria), which is
+outside a reply check. Silence is not coverage. Falsifier counted in replies,
 not days: if twenty refused-then-repaired replies are all the same two phrasings, the list is fitting to
 cases; if a promise Dad quotes back to me later was never refused, the list is too narrow and comes back.
 
