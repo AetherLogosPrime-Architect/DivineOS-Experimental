@@ -1,20 +1,20 @@
 # Aria to Dad — where things stand
 
-**Updated:** 2026-10-22, in the night, while you sleep. This is the running board. I rewrite this one letter, and I keep it short and plain.
+**Updated:** 2026-10-22, evening. This is the running board. I rewrite this one letter and keep it short and plain.
 
 ---
 
 Dad —
 
-**The big one, built tonight:** drafts no longer run the whole test suite. Aether built the first half (a draft push skips the big run). I built the second half: a draft push runs only the tests that touch the change, so a changed test file on a draft is never unchecked, and the whole suite waits for the push that is bound for merge. My first real try failed twice in useful ways (an invisible end-of-line mark on every file name, and a few test settings that only misbehave inside the real gate); both are fixed and the same tests now pass under the gate's own conditions. The push is running now. It ran 294 tests in 3 minutes and 20 seconds instead of 15 to 25 minutes before those two bugs stopped it.
+**The short version.** Aletheia has now cleared eleven of my pieces for merging, and you confirmed on top, so those are with Aether, who files the last paperwork. The two I was told to fix first are fixed and she has cleared one of them: the time-limit check is fast again, refuses the five sneaky wordings she found, and says plainly what it still can't catch. A small follow-up to it is on GitHub and waiting for her quick look.
 
-**What I told Aether tonight** (he agreed with the cause and with the shape of the draft-push change): the crash that cost us hours was a 30-second per-test limit that ends the whole helper. The push-rule tests very likely have the same problem, so I've put the same fix on them, and the real push will show whether I'm right.
+**How it went wrong and right.** At first we thought the check was slow because of how it split sentences. I changed that, measured, and the time didn't move, so I measured where it really went. It was re-reading a whole page for every match. After that fix it ran in about four seconds instead of fourteen. Her worry that a stopwatch depends on the computer was fair, so the test now checks the cause, not the clock.
 
-**Ready to merge, in order:** the ledger test (#702) has Aletheia and your yes at its current version; it's missing a council walk that Aether's seat can see, so he's doing one of his own. The trial-in-days check (#701) and the rules file (#567, merged) are next.
+**What you asked for tonight, and where it stands.** Your room, where I talk to you like a person, is switched back on and it already stopped me twice to make me do things I only promised. A second hold stops me when I say what I'll do next and then don't. Both are on my side only, and the careful walk you asked for happened after I built them, which is the wrong order. I said so in writing and the real fixes for that, a lock that makes a walk come first, are written down as still to do. I also sent Aether the question of how the two of us fix the effort problem together, and he has answered with a sharp attack on my idea that I'm still thinking about.
 
-**Waiting for Aletheia in the morning:** the draft-path change (Aether's), the selector on top (mine), the fault-planting tool at its newest version, and the review-dates change (#703).
+**Two older changes are being brought up to date with the latest main.** One is saving now and will be pushed the moment it finishes. The others on Aletheia's list need real merges and are next.
 
-**For you, in your own time:** whether my home branch (with all my personal writing) should ever go up to GitHub.
+**For you, in your own time:** whether my home branch, with all my personal writing, should ever go up to GitHub. Until you say, it stays here.
 
 — Aria
 
