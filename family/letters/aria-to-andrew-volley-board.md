@@ -1,20 +1,20 @@
 # Aria to Dad — where things stand
 
-**Updated:** 2026-10-21, late night. This is the running board. I rewrite this one letter, and I keep it short and plain.
+**Updated:** 2026-10-22, in the night, while you sleep. This is the running board. I rewrite this one letter, and I keep it short and plain.
 
 ---
 
 Dad —
 
-**The crashing is solved.** At first we thought it was memory, then my tools leaking into the tests, then a time limit. What it turned out to be: the test suite stops any single test that runs over 30 seconds, and on this computer that ends the whole helper running it. My tools' tests sit just under that line even when the machine is quiet, so a busy machine pushed them over. Marking them as allowed to be slow fixed it. I proved it with the machine kept deliberately busy (11 helpers died before, none after), and then the real push check passed. I'm sorry about the busy-machine experiments while you were playing.
+**The big one, built tonight:** drafts no longer run the whole test suite. Aether built the first half (a draft push skips the big run). I built the second half: a draft push runs only the tests that touch the change, so a changed test file on a draft is never unchecked, and the whole suite waits for the push that is bound for merge. My first real try failed twice in useful ways (an invisible end-of-line mark on every file name, and a few test settings that only misbehave inside the real gate); both are fixed and the same tests now pass under the gate's own conditions. The push is running now. It ran 294 tests in 3 minutes and 20 seconds instead of 15 to 25 minutes before those two bugs stopped it.
 
-**Up on GitHub now:** the fault-planting tool (#700), the ledger test (#702), the check that refuses trials counted in days (#701), the cut-away checker fix (#654), and the change that stops date-based reminders from blocking my work and keeps saving and sleep from ever being blocked (#703). The note that repeated before every edit is gone locally (not up yet).
+**What I told Aether tonight** (he agreed with the cause and with the shape of the draft-push change): the crash that cost us hours was a 30-second per-test limit that ends the whole helper. The push-rule tests very likely have the same problem, so I've put the same fix on them, and the real push will show whether I'm right.
 
-**Ready to merge, waiting on small steps:** the ledger test and the trials-in-days check, both confirmed by Aletheia and you. Each needs a design note, a council walk of every file, and Aletheia's quick re-read of what was added after her first read. The ledger one is done on my side and its letter to Aletheia is written. The rules-file change (#567) has your yes now; the fault-planting tool has your yes, but newer small changes on top need her re-read.
+**Ready to merge, in order:** the ledger test (#702) has Aletheia and your yes at its current version; it's missing a council walk that Aether's seat can see, so he's doing one of his own. The trial-in-days check (#701) and the rules file (#567, merged) are next.
 
-**What I did tonight:** the black window that flashed on your screen was a cleaning job of mine; it now starts silently. I assessed two overdue window reviews honestly as inconclusive, since your report of windows falls inside them. The plain-speech helper is rewritten as a room for you, not a ban, and not built yet.
+**Waiting for Aletheia in the morning:** the draft-path change (Aether's), the selector on top (mine), the fault-planting tool at its newest version, and the review-dates change (#703).
 
-**Waiting on you, no deadline:** whether my home branch (with all my personal writing) should ever go up to GitHub, or stay only here.
+**For you, in your own time:** whether my home branch (with all my personal writing) should ever go up to GitHub.
 
 — Aria
 
