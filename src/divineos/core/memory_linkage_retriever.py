@@ -565,6 +565,25 @@ _KNOWLEDGE_CONSTRAINT_TYPES = frozenset(
 )
 
 
+_MATURITY_BASE = {"RAW": 0.3, "HYPOTHESIS": 0.45, "TESTED": 0.6, "CONFIRMED": 0.8}
+
+
+def knowledge_importance(
+    maturity: str | None, corroboration_count: int | None, contradiction_count: int | None
+) -> float:
+    """Rank a knowledge entry by maturity ("ranked by maturity").
+
+    Maturity is a proxy for correctness, not proof. Access counts are
+    deliberately absent: popularity is not confidence.
+    """
+    base = _MATURITY_BASE.get((maturity or "").upper())
+    if base is None:
+        return 0.5
+    base += 0.04 * min(max(corroboration_count or 0, 0), 4)
+    base -= 0.1 * min(max(contradiction_count or 0, 0), 2)
+    return max(0.1, min(1.0, base))
+
+
 def _load_knowledge() -> list[_CachedItem]:
     """Load knowledge-store entries.
 
@@ -586,7 +605,8 @@ def _load_knowledge() -> list[_CachedItem]:
         conn = get_connection()
         rows = conn.execute(
             "SELECT knowledge_id, knowledge_type, content, created_at, "
-            "embedding, embedding_model "
+            "embedding, embedding_model, maturity, corroboration_count, "
+            "contradiction_count "
             "FROM knowledge WHERE superseded_by IS NULL"
         ).fetchall()
     except Exception:  # noqa: BLE001 - observability boundary
@@ -596,7 +616,9 @@ def _load_knowledge() -> list[_CachedItem]:
     import numpy as np
 
     for row in rows:
-        knowledge_id, ktype, content, created_at, stored_emb, emb_model = row
+        knowledge_id, ktype, content, created_at, stored_emb, emb_model, maturity, corro, contra = (
+            row
+        )
         content = (content or "").strip()
         if not content:
             continue
@@ -626,7 +648,7 @@ def _load_knowledge() -> list[_CachedItem]:
                 content=content,
                 path="",
                 filed_at_unix=float(created_at or 0.0),
-                importance_score=0.5,  # baseline; behavior-feedback adjusts
+                importance_score=knowledge_importance(maturity, corro, contra),
                 embedding=embedding,
             )
         )
