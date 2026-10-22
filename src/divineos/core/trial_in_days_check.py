@@ -21,8 +21,19 @@ WHAT PASSES, so it stays a door and not a nag:
 THE WORD "WINDOW" IS NOT A TRIAL WORD. Found by searching the real drafts first (the council's Holmes lens):
 "recency window (45 days)" is a setting, not a trial.
 
+THE SPECIFICATION IT CANNOT MEET, said first because it decides how to read the rest (walk-ae5d988275e5,
+Lamport): Dad's rule is logical time. A trial ends when a counted event happens, never when a wall clock says
+so. "Wall-clock time" is not a finite list of words, so no list here is complete. This door is a net for the
+prose stage, the later and weaker of two defenses; the filing command, which cannot be given a date, is the
+other. Twelve wordings tried on 2026-10-22 that this does NOT catch, so the open list is real: "two sprints",
+"until the next release", "through Q4", "a couple of cycles", "by the holidays", "overnight", "a few hours",
+"this afternoon", "till tomorrow", "the rest of the year", "until the 15th", "again in a bit". Each wording a
+reviewer finds becomes a row and a test; the refusal event records what matched so the list grows from real
+misses.
+
 LIMITS, said so silence is not read as coverage: it cannot list the language (abbreviations, "a quarter",
-"until Friday" and "the end of the month" are listed now; "by the next release" is not); a deadline for a
+"until Friday", "the end of the month", "48 hours", "the weekend" and a named month as an end point are listed
+now; "by the next release" is not); a deadline for a
 review ("review within two days") is refused and costs one rewording; a quoted duration passes, so the
 explanation of the rule can quote one; and only a Write or an Edit into `docs/drafts/` is looked at, so a draft
 written through a shell heredoc is never seen (Aether, 2026-10-21; named, not closed). The pre-registration
@@ -32,11 +43,16 @@ command guards the filing itself.
 from __future__ import annotations
 
 import re
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 
 _NUMBER_WORDS = (
     "one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fourteen|fifteen|twenty|thirty|"
     "forty|sixty|ninety|a|several|few"
+)
+
+_MONTH_NAMES = (
+    r"(?:january|february|march|april|may|june|july|august|september|october|november|december)"
 )
 
 #: A length of time that is plainly a span: "30 days", "30-day", "fourteen days", "two weeks", "3 months",
@@ -48,14 +64,22 @@ _DURATION_STRONG = re.compile(
     r"|fortnights?"
     r"|(?:for|over|within|next|every|each|this)\s+(?:a\s+|one\s+|the\s+)?quarter"
     r"|end\s+of\s+(?:the\s+)?(?:day|week|month|quarter|year)"
-    r"|(?:until|till|by)\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b",
+    r"|(?:until|till|by)\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)"
+    # Aletheia, 2026-10-22: a DEADLINE is a duration in days even when no length is stated. One family, not five
+    # patches: hours, a named month as the end point, "the weekend", and a weekday as the date to come back.
+    r"|\d+\s*hours?"
+    r"|(?:through|until|till|by|to|during)\s+(?:the\s+)?(?:end\s+of\s+)?"
+    + _MONTH_NAMES
+    + r"|(?:over|through|by|this|next)\s+(?:the\s+)?weekend"
+    r"|(?:on|next)\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b",
     re.IGNORECASE,
 )
 
 #: A bare rhythm word. These are everywhere in ordinary prose ("the daily letter"), so one counts only when a
 #: trial word sits right beside it, not anywhere in the paragraph.
 _DURATION_LOOSE = re.compile(
-    r"\b(?:(?:next|every|each)\s+(?:day|week|month)|daily|weekly|monthly|fortnightly)\b",
+    r"\b(?:(?:next|every|each)\s+(?:day|week|month)|daily|weekly|monthly|fortnightly"
+    r"|(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)s?)\b",
     re.IGNORECASE,
 )
 
@@ -65,6 +89,7 @@ _DURATION_LOOSE = re.compile(
 _TRIAL_WORD = re.compile(
     r"\b(?:trials?|falsifiers?|success(?:\s+(?:criteri\w+|test))?|pre-?reg\w*|experiments?|pilots?|test\s+period"
     r"|tr(?:y|ies|ying)\s+(?:it|this|that|them)|(?:fails?|succeeds?|falsified|passes)\s+if"
+    r"|give\s+(?:it|this|that|them)\s+(?:a|an|one)\b|see\s+if\s+(?:it|this|that)\s+(?:holds|works|sticks)"
     r"|reviews?(?=\s+(?:it\s+|this\s+|that\s+)?(?:after|in|every|each|within|at|by)\b))\b",
     re.IGNORECASE,
 )
@@ -72,7 +97,8 @@ _TRIAL_WORD = re.compile(
 #: A duration that looks back is a measurement of what happened, not a trial. "falsification" is the
 #: science idea and is not a trial word; "falsifier" is the thing Dad asks us to set.
 _LOOKING_BACK_BEFORE = re.compile(
-    r"\b(?:last|past|previous|since|ago|elapsed|post-|later|late)\b|post-", re.IGNORECASE
+    r"\b(?:last|past|previous|since|ago|elapsed|post-|later|late|ran|ended|finished|completed|began|started)\b|post-",
+    re.IGNORECASE,
 )
 #: After the duration it counts only as the very next word. Fourteen characters of reach let "since the start
 #: of the build" excuse "The trial runs for 30 days, since the start..." (Aether, 2026-10-21).
@@ -125,25 +151,47 @@ def _paragraphs(text: str) -> list[str]:
 
 _SENTENCE_END = re.compile(r"[.;!?]\s")
 
-
-def _same_sentence_before(paragraph: str, start: int) -> str:
-    """The text before ``start`` back to the last sentence end, so a neighbour's words do not leak in."""
-    last_end = 0
-    for m in _SENTENCE_END.finditer(paragraph, 0, start):
-        last_end = m.end()
-    return paragraph[last_end:start]
+#: Most of a sentence read on each side of a duration. Bounds the cost of one hit.
+_SENTENCE_REACH = 300
 
 
-def _inside_quotes(paragraph: str, start: int, end: int) -> bool:
-    return any(q.start() <= start and end <= q.end() for q in _QUOTED.finditer(paragraph))
+class _Marks:
+    """Where the sentence ends and the quoted stretches are in ONE paragraph, found once.
 
+    Aletheia, 2026-10-22: the check was 3x slower on trial-dense text (14.3 s against 4.7 s on 1.1 MB). Each
+    hit rescanned the whole paragraph for sentence ends and for quotes, so cost grew with hits times length.
+    Found once per paragraph, each hit costs a binary search.
+    """
 
-def _sentence_around(paragraph: str, start: int, end: int) -> str:
-    """The sentence holding paragraph[start:end], so a rule in a neighbouring sentence excuses nothing."""
-    first = _same_sentence_before(paragraph, start)
-    nxt = _SENTENCE_END.search(paragraph, end)
-    tail = paragraph[end : nxt.start() + 1] if nxt else paragraph[end:]
-    return first + paragraph[start:end] + tail
+    def __init__(self, paragraph: str) -> None:
+        self.paragraph = paragraph
+        ends = list(_SENTENCE_END.finditer(paragraph))
+        self.end_starts = [m.start() for m in ends]  # where each terminator sits
+        self.end_afters = [m.end() for m in ends]  # where the next sentence begins
+        self.quotes = [(q.start(), q.end()) for q in _QUOTED.finditer(paragraph)]
+
+    def same_sentence_before(self, start: int) -> str:
+        """The text before ``start`` back to the last sentence end, so a neighbour's words do not leak in."""
+        i = bisect_right(self.end_afters, start) - 1
+        last_end = self.end_afters[i] if i >= 0 else 0
+        return self.paragraph[last_end:start]
+
+    def inside_quotes(self, start: int, end: int) -> bool:
+        return any(s <= start and end <= e for s, e in self.quotes)
+
+    def sentence_around(self, start: int, end: int) -> str:
+        """The sentence holding paragraph[start:end], so a rule in a neighbouring sentence excuses nothing."""
+        i = bisect_left(self.end_starts, end)
+        tail = (
+            self.paragraph[end : self.end_starts[i] + 1]
+            if i < len(self.end_starts)
+            else self.paragraph[end:]
+        )
+        # Measured, not guessed: a paragraph with no sentence end is ONE sentence, so every hit handed the whole
+        # 4000 characters to the rule pattern. That, not the bookkeeping above, was the 14 s. A rule further than
+        # _SENTENCE_REACH from the duration is not the same thought as it.
+        before = self.same_sentence_before(start)[-_SENTENCE_REACH:]
+        return before + self.paragraph[start:end] + tail[:_SENTENCE_REACH]
 
 
 #: How close a trial word must sit to a bare rhythm word ("weekly") for it to count.
@@ -162,16 +210,17 @@ def trials_in_days(text: str) -> list[Hit]:
     """Every place where a trial is measured in days, weeks or months. Never raises."""
     hits: list[Hit] = []
     for paragraph in _paragraphs(text or ""):
+        marks = _Marks(paragraph)
         for m, reach in _durations(paragraph):
-            if _inside_quotes(paragraph, m.start(), m.end()):
+            if marks.inside_quotes(m.start(), m.end()):
                 continue
-            if _THE_RULE.search(_sentence_around(paragraph, m.start(), m.end())):
+            if _THE_RULE.search(marks.sentence_around(m.start(), m.end())):
                 continue
             before = paragraph[max(0, m.start() - 25) : m.start()]
             after = paragraph[m.end() : m.end() + 14]
             if _LOOKING_BACK_BEFORE.search(before) or _LOOKING_BACK_AFTER.search(after):
                 continue
-            if _I_DID.search(_same_sentence_before(paragraph, m.start())):
+            if _I_DID.search(marks.same_sentence_before(m.start())):
                 continue  # "I wrote a 30-day trial": an account of what I did, not the setting of one
             near = paragraph[max(0, m.start() - reach) : m.end() + reach]
             word = _TRIAL_WORD.search(near)
