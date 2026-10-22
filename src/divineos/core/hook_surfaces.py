@@ -1009,7 +1009,12 @@ def _this_turns_action_stream(payload: dict) -> str:
     if not path.is_file():
         raise OSError(f"the named transcript is not a file: {path}")
 
-    # Walk back to the last user-role record; everything after it is this turn.
+    # Everything since his last message is this turn. The boundary is the SAME
+    # reader _last_assistant_text uses (_is_his_record). It used to be "the last
+    # record with role user", but a tool result is written with that role, so after
+    # any tool call the turn restarted at that call's own result and a read made
+    # earlier in the stretch fell out of the window (2026-10-16: a dozen replies
+    # refused by landed_claim for a claim whose verify run sat just above).
     for lines, whole in _windows(path):
         start = None
         for index, line in enumerate(lines):
@@ -1017,8 +1022,7 @@ def _this_turns_action_stream(payload: dict) -> str:
                 rec = _json.loads(line)
             except ValueError:
                 continue
-            msg = rec.get("message") if isinstance(rec, dict) else None
-            if isinstance(msg, dict) and msg.get("role") == "user":
+            if isinstance(rec, dict) and _is_his_record(rec):
                 start = index
         if start is not None:
             return "\n".join(lines[start:])
@@ -2497,6 +2501,39 @@ def pr_merge_gate_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def pr_merge_freshness_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a merge of a pull request that is behind main (core/merge_freshness.py).
+
+    A sibling of the merge gate above, not a clause inside it: that gate decides on review,
+    this one on freshness, and they ask different questions of different data. Same JSON
+    deny protocol, so the two land the same way.
+    """
+    if (payload.get("tool_name") or "") != "Bash":
+        return SurfaceOutcome(name="pr_merge_freshness", state="nothing-to-say")
+    command = (payload.get("tool_input") or {}).get("command") or ""
+    if not command.strip():
+        return SurfaceOutcome(name="pr_merge_freshness", state="nothing-to-say")
+    try:
+        from divineos.core.merge_freshness import block_reason
+
+        reason = block_reason(command)
+    except Exception as exc:  # noqa: BLE001 - a gate never crashes the call
+        return SurfaceOutcome(
+            name="pr_merge_freshness",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    if not reason:
+        return SurfaceOutcome(name="pr_merge_freshness", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="pr_merge_freshness",
+        refused=True,
+        reason=reason,
+        json_deny=True,
+        state="spoke",
+    )
+
+
 def pr_create_gate_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse opening a pull request that is not ready to be opened.
 
@@ -2705,6 +2742,8 @@ def install() -> None:
     # decision, one through exit 2 -- because that is how each landed before.
     if "pr_merge_gate" not in registered("PreToolUse"):
         register("PreToolUse", "pr_merge_gate", pr_merge_gate_surface)
+    if "pr_merge_freshness" not in registered("PreToolUse"):
+        register("PreToolUse", "pr_merge_freshness", pr_merge_freshness_surface)
     if "pr_create_gate" not in registered("PreToolUse"):
         register("PreToolUse", "pr_create_gate", pr_create_gate_surface)
 

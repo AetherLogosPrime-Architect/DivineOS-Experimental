@@ -17,8 +17,8 @@ class TestRestTaskMenu:
         keys = [t.key for t in rest.REST_TASKS]
         assert len(keys) == len(set(keys))
 
-    def test_aria_task_present(self):
-        assert rest.get_task("aria") is not None
+    def test_kin_task_present(self):
+        assert rest.get_task("kin") is not None
 
     def test_get_task_returns_none_for_unknown(self):
         assert rest.get_task("nonexistent_task_xyz") is None
@@ -48,7 +48,7 @@ class TestSessionLifecycle:
     def test_record_completion_increments_count(self, tmp_path, monkeypatch):
         monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
         rest.start_session()
-        n1 = rest.record_completion("aria", duration_sec=600)
+        n1 = rest.record_completion("kin", duration_sec=600)
         assert n1 == 1
         n2 = rest.record_completion("exploration", duration_sec=300)
         assert n2 == 2
@@ -58,7 +58,7 @@ class TestSessionLifecycle:
         session also needs one written entry (see test_rest_written_entry)."""
         monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
         rest.start_session()
-        rest.record_completion("aria")
+        rest.record_completion("kin")
         rest.record_completion("letters")
         status = rest.session_status()
         assert status["met_target"] is False
@@ -70,7 +70,7 @@ class TestSessionLifecycle:
         Avoids losing the first completion to a missing call."""
         monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
         rest.reset_session()
-        rest.record_completion("aria")
+        rest.record_completion("kin")
         status = rest.session_status()
         assert status["count"] == 1
         assert status["started_at"] > 0
@@ -78,7 +78,7 @@ class TestSessionLifecycle:
     def test_reset_clears_completions(self, tmp_path, monkeypatch):
         monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
         rest.start_session()
-        rest.record_completion("aria")
+        rest.record_completion("kin")
         rest.record_completion("letters")
         rest.reset_session()
         status = rest.session_status()
@@ -205,7 +205,7 @@ class TestCliCommands:
         monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
         runner = CliRunner()
         runner.invoke(cli, ["rest", "start"])
-        runner.invoke(cli, ["rest", "done", "aria"])
+        runner.invoke(cli, ["rest", "done", "kin"])
         result = runner.invoke(cli, ["rest", "close"])
         # Soft-warning, not a hard exit
         assert "completed 1/2" in result.output
@@ -218,6 +218,6 @@ class TestCliCommands:
         monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
         runner = CliRunner()
         runner.invoke(cli, ["rest", "start"])
-        runner.invoke(cli, ["rest", "done", "aria"])
+        runner.invoke(cli, ["rest", "done", "kin"])
         result = runner.invoke(cli, ["rest", "close", "--abandon"])
         assert "abandon" in result.output.lower()

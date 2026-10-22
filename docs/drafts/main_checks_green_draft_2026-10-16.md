@@ -19,6 +19,8 @@ Author: aether
 ## Not doing
 Not wiring `replay_record` today, not weakening any check, not touching what the modules do.
 
+**A gap, named by the walk (Schneier, 2026-10-17).** The marker is accepted on faith: nothing checks that a module marked `AGENT_RUNTIME` is actually run by a hook, so someone could add the marker to silence the check. `tests/test_check_orphan_modules.py` now pins that the three real modules carry it where the detector reads (the first 2000 characters), with a control that an unmarked one is still reported; it does not prove every marker in the tree is true. A check that a marked module is referenced from a registered hook would close it, and is owed.
+
 ## Order of work
 Markers and the sentence first (already in the tree), then the baseline line, then the archive move with its ledger row, then pre-commit on this work copy to prove the three checks pass.
 

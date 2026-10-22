@@ -395,7 +395,6 @@ from divineos.cli import (  # noqa: E402
     progress_commands,
     letter_seen_commands,
     push_commands,
-    push_ready_command,
     stamp_ready_command,
     ship_command,
     audit_sync_command,
@@ -434,6 +433,7 @@ from divineos.cli import (  # noqa: E402
     backlog_commands,
     wiring_commands,
     prs_commands,
+    landing_commands,
     replant_commands,
     automerge_commands,
     todos_commands,
@@ -513,7 +513,6 @@ sleep_commands.register(cli)
 progress_commands.register(cli)
 letter_seen_commands.register(cli)
 push_commands.register(cli)
-push_ready_command.register(cli)
 stamp_ready_command.register(cli)
 ship_command.register(cli)
 audit_sync_command.register(cli)
@@ -538,6 +537,7 @@ prereg_commands.register(cli)
 class_fix_commands.register(cli)
 prior_art_commands.register(cli)
 game_walk_commands.register(cli)
+landing_commands.register(cli)
 operator_ask_commands.register(cli)
 reach_commands.register(cli)
 synchronicity_commands.register(cli)

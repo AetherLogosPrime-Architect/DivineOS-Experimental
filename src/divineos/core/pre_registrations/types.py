@@ -75,3 +75,11 @@ class PreRegistration:
     # None means the question was never asked of this pre-registration, which
     # is not the same as an answer of none. See file_pre_registration.
     embarrassing_reading: str | None = None
+    # Review by USE, not by date (Dad, 2026-10-16). When set, the pre-registration
+    # is due once the ledger has recorded ``review_after_uses`` more events of
+    # type ``uses_of`` than it held at filing (``uses_baseline``). ``review_ts``
+    # is then inert: a calendar must never make a usage-based review overdue.
+    # None on all three means a legacy, date-scheduled row.
+    review_after_uses: int | None = None
+    uses_of: str | None = None
+    uses_baseline: int | None = None

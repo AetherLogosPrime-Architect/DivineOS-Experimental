@@ -56,8 +56,10 @@ set -uo pipefail
 # down still explain WHY there are two lines — the near one is where the
 # ritual begins so it is never interrupted mid-step, and the gap between them
 # IS the buffer. Only the numbers changed; the design did not.
-FIRE_TOKENS="${AUTO_CYCLE_FIRE_TOKENS:-880000}"
-HARD_TOKENS="${AUTO_CYCLE_HARD_TOKENS:-920000}"
+# 2026-10-16, Andrew: the ritual takes longer lately, start at 850k. The forty
+# thousand gap to the hard line is kept; the cliff stays at 950k.
+FIRE_TOKENS="${AUTO_CYCLE_FIRE_TOKENS:-850000}"
+HARD_TOKENS="${AUTO_CYCLE_HARD_TOKENS:-890000}"
 
 # --mech-terminator is the ONLY argument this hook takes, and it exists so the
 # line that closes a detached run can be exercised by a test instead of only in
@@ -704,7 +706,7 @@ esac
 #     period, so the ritual is something I finish INTO, not a wall I hit.
 if [ "$TOKENS" -lt "$HARD_TOKENS" ] 2>/dev/null; then  # fail-soft: TOKENS validated numeric above; past the hard line this is skipped and the block stands
   GRACE="$(
-    STATE_FILE="$STATE_FILE" "$PY_BIN" - <<'PY' 2>/dev/null  # fail-soft: unreadable state prints 'block' below, so the failure falls toward the discipline rather than around it
+    STATE_FILE="$STATE_FILE" HOOK_EVENT="${AUTO_CYCLE_HOOK_EVENT:-UserPromptSubmit}" "$PY_BIN" - <<'PY' 2>/dev/null  # fail-soft: unreadable state prints 'block' below, so the failure falls toward the discipline rather than around it
 import json, os
 try:
     from divineos.core.auto_cycle import MAX_DEFERS
@@ -717,9 +719,15 @@ except Exception:
     st = {}
 used = int(st.get("defers_used") or 0)
 if used < MAX_DEFERS:
-    st["defers_used"] = used + 1
-    json.dump(st, open(p, "w", encoding="utf-8"))
-    print(f"defer {used + 1} {MAX_DEFERS}")
+    # The buffer is MAX_DEFERS of HIS prompts. This script also runs on every
+    # tool call of mine (PreToolUse), and counting those spent all three in
+    # three calls, so the wall landed mid-task on 2026-10-16. Only his prompt
+    # spends one; a tool call passes through while any are left.
+    if os.environ.get("HOOK_EVENT") == "UserPromptSubmit":
+        used += 1
+        st["defers_used"] = used
+        json.dump(st, open(p, "w", encoding="utf-8"))
+    print(f"defer {used} {MAX_DEFERS}")
 else:
     print(f"block {used} {MAX_DEFERS}")
 PY
@@ -839,6 +847,41 @@ sys.exit(0 if os.environ["WANT"] in parts else 1)
     echo "[ritual] Allowing this write — it is the thing that ends the stage." >&2
     exit 0
   fi
+fi
+
+# ─── SAVING IS NEVER BLOCKED, AT ANY STAGE ──────────────────────────────────
+#
+# Andrew 2026-10-19, after the stop held my in-flight note hostage at the very
+# moment its whole purpose was to be written: "saving should never be a blocked
+# action at any point whatsoever." The ritual stops me moving on to other work;
+# it never stops me putting things down. A write into my memory folder
+# (.claude/projects/<project>/memory/) passes at every stage.
+if [ -n "${HOOK_JSON:-}" ] && HOOK_JSON="$HOOK_JSON" "$PY_BIN" -c '
+import json, os, sys
+try:
+    d = json.loads(os.environ.get("HOOK_JSON") or "{}")
+except Exception:
+    sys.exit(1)
+ti = d.get("tool_input") or {}
+p = ti.get("file_path") or ti.get("notebook_path") or ""
+if not p:
+    sys.exit(1)
+# Anchored to the harness'"'"'s real projects folder and resolved, so a lookalike path elsewhere
+# (src/.claude/projects/x/memory/...) and a symlinked memory folder pointing out both fail.
+roots = [os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")]
+def norm(x):
+    return os.path.normcase(os.path.realpath(x))
+real = norm(p)
+ok = False
+for root in roots:
+    base = norm(os.path.join(root, "projects")) + os.sep
+    if real.startswith(base):
+        rel = real[len(base):].split(os.sep)
+        ok = len(rel) >= 3 and rel[1] == "memory"
+sys.exit(0 if ok else 1)
+' 2>/dev/null; then  # fail-soft: an unreadable payload falls through to the block
+  echo "[ritual] Saving to memory is never blocked. Allowing this write." >&2
+  exit 0
 fi
 
 cat >&2 <<EOF
