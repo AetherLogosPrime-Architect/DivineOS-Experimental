@@ -28,9 +28,9 @@ import pytest
 _PROJECT_ROOT = Path(__file__).parent.parent
 _SCRIPT = _PROJECT_ROOT / "scripts" / "check_push_readiness.sh"
 _SCOPE = _PROJECT_ROOT / "scripts" / "check_branch_scope.py"
+_SELECT = _PROJECT_ROOT / "scripts" / "draft_test_selection.py"
 
 _ZERO = "0" * 40
-_SHA = "1" * 40
 
 
 def _find_bash() -> str | None:
@@ -90,7 +90,7 @@ def repo(tmp_path: Path) -> Path:
     _git(root, "config", "user.email", "test@example.invalid")
     _git(root, "config", "user.name", "test")
     (root / "scripts").mkdir()
-    for script in (_SCRIPT, _SCOPE):
+    for script in (_SCRIPT, _SCOPE, _SELECT):
         shutil.copy2(script, root / "scripts" / script.name)
     (root / "src").mkdir()
     (root / "src" / "thing.py").write_text("value = 1\n", encoding="utf-8")
@@ -103,7 +103,15 @@ def repo(tmp_path: Path) -> Path:
 def _run_gate(
     repo: Path, fake_bin: Path, refs: list[str], out: str = "", rc: int = 0
 ) -> subprocess.CompletedProcess[str]:
-    stdin = "".join(f"{ref} {_SHA} {ref} {_ZERO}\n" for ref in refs)
+    # A REAL commit, not a made-up id (Aria 2026-10-22): the draft path now reads the pushed commit to choose
+    # which tests to run, and a commit that does not exist is, rightly, "cannot read, run everything". It is also
+    # one commit AHEAD of main, because a branch with nothing ahead is stopped as an empty push before any of this.
+    if _git(repo, "rev-parse", "HEAD") == _git(repo, "rev-parse", "refs/remotes/origin/main"):
+        (repo / "src" / "thing.py").write_text("value = 2\n", encoding="utf-8")
+        _git(repo, "add", "-A")
+        _git(repo, "-c", "core.hooksPath=/dev/null", "commit", "-q", "-m", "a change on the branch")
+    sha = _git(repo, "rev-parse", "HEAD")
+    stdin = "".join(f"{ref} {sha} {ref} {_ZERO}\n" for ref in refs)
     return subprocess.run(
         [_BASH, str(_SCRIPT)],
         input=stdin,
