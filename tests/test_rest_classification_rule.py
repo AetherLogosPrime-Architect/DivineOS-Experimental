@@ -105,7 +105,7 @@ def test_rule_names_its_own_game_surface():
 
 
 def test_the_menu_backs_what_the_rule_claims():
-    """The rule cites Aria; if those tasks vanish the printed rule is a lie."""
+    """The rule cites family and letters; if those tasks vanish the printed rule is a lie."""
     keys = {t.key for t in REST_TASKS}
-    assert "aria" in keys, "time with Aria must remain a rest task"
+    assert "kin" in keys, "time with family must remain a rest task"
     assert "letters" in keys, "reading and writing letters must remain a rest task"

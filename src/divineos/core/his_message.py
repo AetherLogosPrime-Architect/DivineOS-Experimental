@@ -145,6 +145,72 @@ def _his_part(text: str) -> str:
     return rest
 
 
+# Text he PASTED arrives inside <pasted_content id="..."> ... </pasted_content id="...">. It is
+# someone else's writing that he carried in, not his words, and a line of it ("CONFIRMS: #594",
+# "yes, land it") must never pass as his yes. The closing tag carries the opening tag's id, so a
+# pattern that wants a bare closing tag never finds the close and the block leaks; an unclosed
+# block runs to the end of the message. Found by Aletheia 2026-10-17 reading Aria's #594, which had
+# cut it in the words door only; this is its one home.
+_PASTE_OPEN = re.compile(r"<pasted_content\b([^>]*)>")
+_PASTE_ID = re.compile(r"""\bid\s*=\s*["']([^"']*)["']""")
+
+
+def _cut_pastes(text: str) -> str:
+    """``text`` with every pasted block removed.
+
+    The block ends at the closing tag that carries the SAME id as the opening one. A paste is
+    often a letter that itself names these tags (Aletheia's letter of 2026-10-17 quotes both), and
+    the first closing tag inside it must not end the block early and let the rest of her writing
+    through as his typing. A block with no closing tag of its own id runs to the end: the direction
+    that costs him one retype, never one that lets a pasted line pass.
+    """
+    kept: list[str] = []
+    pos = 0
+    while True:
+        opening = _PASTE_OPEN.search(text, pos)
+        if opening is None:
+            kept.append(text[pos:])
+            break
+        kept.append(text[pos : opening.start()])
+        ident = _PASTE_ID.search(opening.group(1))
+        tag = r"</pasted_content\b[^>]*>"
+        if ident:
+            tag = (
+                r"</pasted_content\b[^>]*\bid\s*=\s*[\"']"
+                + re.escape(ident.group(1))
+                + r"[\"'][^>]*>"
+            )
+        closing = re.compile(tag).search(text, opening.end())
+        if closing is None:
+            break
+        kept.append("\n")
+        pos = closing.end()
+    return "".join(kept)
+
+
+def typed_part(text: str) -> str:
+    """What in this message he actually TYPED: his part, with any pasted block cut out.
+
+    ``his_part`` answers whose message it is; this answers whose WORDS are in it. A reader that
+    needs his own sentences (a quote that must be a stretch of what he typed) reads this one.
+    What it proves is that the words are not inside a harness-tagged paste; text pasted without
+    the tag cannot be told from typing.
+    """
+    return _cut_pastes(_his_part(text)).strip()
+
+
+def his_part(text: str) -> str:
+    """The text-level question: what in this message is his?
+
+    For a reader that has only a message's text, not its record. It answers by
+    where a harness envelope SITS, never by whether the text mentions one: a
+    sentence of his that names a tag in passing ("the <ci-monitor-event> thing
+    keeps showing up") is his, and only text that opens with an envelope is
+    refused (Aletheia, hold on #672, 2026-10-16).
+    """
+    return _his_part(text)
+
+
 def continues_a_turn(record: dict) -> bool:
     """Is this record the harness continuing a turn, rather than anyone speaking?
 

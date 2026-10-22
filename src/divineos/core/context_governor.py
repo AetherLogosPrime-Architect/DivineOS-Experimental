@@ -141,8 +141,17 @@ COMPACTION_CEILING = _read_ceiling_override() or 950_000
 #
 # 880k against 950k restores 70k, wider than the 49k this design ran on before,
 # because the close has grown: a compass walk, commit, extract, sleep, dream.
-CONSOLIDATION_THRESHOLD = 880_000  # hard line (also the default for consolidation_due)
-HARD_THRESHOLD = 880_000
+#
+# MOVED APART 2026-10-16, Andrew: the hard line is a BUFFER, not a wall --
+# "finish your current task then hold it and run the ritual" -- and the ritual
+# takes longer lately, so it starts at 850k. The two lines used to be equal, which
+# meant this governor gated substrate writes at the exact moment the ritual
+# began, with no room to finish what was in flight. That was the mid-flow stop
+# of the morning of 2026-10-16. Now the ritual starts at CONSOLIDATION_THRESHOLD
+# and writes are gated forty thousand tokens later, at HARD_THRESHOLD. The gap is
+# the auto-cycle hook's own (FIRE 850k, HARD 890k); a test ties the three.
+CONSOLIDATION_THRESHOLD = 850_000  # where the ritual starts (default for consolidation_due)
+HARD_THRESHOLD = 890_000  # where substrate writes are gated until extract has run
 _MARKER_NAME = "context_consolidated.json"
 
 
