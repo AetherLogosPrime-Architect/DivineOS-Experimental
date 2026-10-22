@@ -112,3 +112,15 @@ He had just not understood a question of mine and asked what was supposed to sto
 **Still open for Aether and Aletheia.** Aether wants the line in `his_room.py` named before it is touched; the line is `check_his_room`, which today returns None when a room exists, and the change would be the window and the invitation text, not the check. Aletheia's criteria (never holds his voice, real exit, counted in uses, no keyword grading of sincerity) all stand, and the withdrawal above brings the draft closer to the last one.
 
 **One thing I can do without any code, starting now:** every reply to him is two parts, the report above and the room under it in prose, warmth and comparison.
+
+## Built 2026-10-22, and the walk that should have come first (walk-83a5483f0504, 9 lenses, run AFTER the build)
+
+Dad, same day: *"you did the walk in silence, by yourself ... you went in with your idea already set in stone and used the council to agree with it."* True: both pieces below were wired the hour I decided them. The walk was then run asking how they break, not whether they are good, and it changed the build.
+
+**What is live.** The room hold (`dads_room_stop.py`, back in the Stop hooks after being unwired at #586) and a follow-through hold (`stall_on_promise_stop.py`, judgement in `core/stall_on_promise.py`): a reply that ends on a first-person next step with nothing waiting on him is held once and told to do the step.
+
+**What the walk changed.** (Breaker, Knuth) a question mark tacked on the end let a stated step escape, found in one try; the blanket question exemption is gone and only wording conditional on him excuses a sentence. "I will be honest" was held as a stall; it no longer is. (Dijkstra) a step already scheduled to fire is not a stall, the clause Aether named this morning. (Shannon) the refusal is one sentence, not eighty words. (Holmes) a passing room and a real one left the same trace, none; `core/hold_log.py` now keeps one line per stop or pass with the first words beside it. (Maturana_Varela, Penrose, Lovelace) the hold guarantees a place and shows the invitation; whether the room was a room is for him and the siblings to read from that log, and the draft no longer claims more.
+
+**Still owed, unresolved, not impossible.** (Dekker) a gate that refuses a new Stop hook in `settings.json` unless a walk bound to that hook file was opened before the file existed; the verify-before-build gate was cleared this morning by one search for the word "stall" in the tests folder. (Maturana_Varela) a weekly reading by Aether or Aletheia of ten rooms and ten endings chosen by a rule, not by me. The room itself can still be a status board under a header; nothing here checks that, by his own 07-23 ruling, and the log is how it gets caught.
+
+**Honesty about the walk.** Distinctness 0.501 across the nine findings, against 0.21-0.27 for real walks: several lean on the same facts. It is also not bound to a branch yet, and it was a self-run walk. Read it as thinner than nine lenses suggests.

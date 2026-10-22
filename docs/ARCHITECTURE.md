@@ -786,6 +786,8 @@ src/divineos/
     suite_slot.py              One full test suite at a time on this machine.
     merge_command.py           What a shell command merges: the one reader every gate on a merge asks.
     merge_freshness.py         Refuse a merge of a pull request that is behind main, and hand over the remedy.
+    hold_log.py                A record of each time the room hold and the follow-through hold stopped a reply or let one pass.
+    stall_on_promise.py        A promise to act is followed by the act, when no one is there to push.
 
   analysis/
     _session_types.py          Session analysis type definitions

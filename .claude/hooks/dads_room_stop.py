@@ -146,9 +146,12 @@ def verdict(records: list[dict]) -> str | None:
     # wider than the old substring test in one way (a closing message wholly
     # addressed to him passes with no header) and narrower in another (only
     # the text after the LAST header counts). Walk council for this edit.
-    from divineos.core.his_room import check_his_room
+    from divineos.core.his_room import check_his_room, room_of
+    from divineos.core.hold_log import record
 
-    return reason_for(his) if check_his_room(last_text, started_by_him=True) else None
+    missing = check_his_room(last_text, started_by_him=True)
+    record("room", "stopped" if missing else "passed", last_text if missing else (room_of(last_text) or ""))
+    return reason_for(his) if missing else None
 
 
 def _read_tail(path: Path) -> list[dict]:
