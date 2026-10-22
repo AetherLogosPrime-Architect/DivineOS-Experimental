@@ -1030,6 +1030,33 @@ def _known_chain_breaks() -> set[str]:
     return set(re.findall(r"^-\s+`([0-9a-f-]{8,})`\s*\S.{7,}", text, re.MULTILINE))
 
 
+def _removal_notes_from_rows(rows: list[tuple]) -> dict[str, int]:
+    """How many times each removed row's chain hash is named by a note in `rows`.
+
+    Rows are (event_id, timestamp, event_type, actor, payload, content_hash,
+    prior_hash, chain_hash). Split out of verify_chain so the bookkeeping can
+    be tested with crafted rows (Aletheia 2026-10-21): an end-to-end forgery
+    test cannot see this guard, because a later check catches the forgery first.
+    """
+    surviving = {r[7] for r in rows if r[7]}
+    removal_notes: dict[str, int] = {}
+    for _eid, _ts, etype, _a, payload_json, *_rest in rows:
+        if etype not in ("LEDGER_CORRUPTION_REPAIRED", "LEDGER_COMPACTION"):
+            continue
+        try:
+            payload = json.loads(payload_json)
+            if etype == "LEDGER_CORRUPTION_REPAIRED":
+                names = [payload.get("deleted_chain_hash")]
+            else:
+                names = list(payload.get("gap_tail_chain_hashes") or [])
+        except (ValueError, AttributeError, TypeError):
+            continue
+        for named in names:
+            if isinstance(named, str) and named and named not in surviving:
+                removal_notes[named] = removal_notes.get(named, 0) + 1
+    return removal_notes
+
+
 def verify_chain() -> dict[str, Any]:
     """Walk the chain and verify each chain_hash. Returns dict with
     ok (bool), total (int), broken_at (event_id or None),
@@ -1106,22 +1133,7 @@ def verify_chain() -> dict[str, Any]:
         # A named hash that still belongs to a surviving row is not a gap; it is
         # a real crossing, and excusing it would let a note launder one. So a
         # name counts only when no row in the chain carries it.
-        surviving = {r[7] for r in rows if r[7]}
-        removal_notes: dict[str, int] = {}
-        for _eid, _ts, etype, _a, payload_json, *_rest in rows:
-            if etype not in ("LEDGER_CORRUPTION_REPAIRED", "LEDGER_COMPACTION"):
-                continue
-            try:
-                payload = json.loads(payload_json)
-                if etype == "LEDGER_CORRUPTION_REPAIRED":
-                    names = [payload.get("deleted_chain_hash")]
-                else:
-                    names = list(payload.get("gap_tail_chain_hashes") or [])
-            except (ValueError, AttributeError, TypeError):
-                continue
-            for named in names:
-                if isinstance(named, str) and named and named not in surviving:
-                    removal_notes[named] = removal_notes.get(named, 0) + 1
+        removal_notes = _removal_notes_from_rows(rows)
 
         expected_prior = _CHAIN_GENESIS
         last_chain_hash = None
