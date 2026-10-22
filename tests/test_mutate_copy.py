@@ -15,6 +15,14 @@ from pathlib import Path
 
 import pytest
 
+# EVERY TEST HERE RUNS A TEST RUN INSIDE ITSELF, so each takes tens of seconds on a quiet machine (one measured
+# at 26s alone). The suite's default limit is 30s per test, and when it trips on this machine it does not just
+# fail the test: it ends the whole worker ("node down: Not properly terminated"), taking the other tests queued
+# on that worker with it. Under load these crossed 30s and the push check crashed workers (found 2026-10-21 by
+# running these tests beside a deliberate CPU load: 7 to 11 workers died; cause named by the serial run's
+# "Timeout" banner). A real hang is still caught, at 600s.
+pytestmark = pytest.mark.timeout(600)
+
 _SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "mutate_copy.py"
 _spec = importlib.util.spec_from_file_location("mutate_copy", _SCRIPT)
 mc = importlib.util.module_from_spec(_spec)
