@@ -56,10 +56,15 @@ def register(cli: click.Group) -> None:
     def label_fire(reason: str) -> None:
         """Label the latest correction-shape Stop-gate fire a false positive.
 
+        Records that the alarm was wrong. It does NOT disarm anything: if the
+        correction marker was set, the next command is still refused until
+        you run `python scripts/clear_correction_marker.py --misread-clauses
+        ... --reason ...`. Measured 2026-10-08: one false alarm costs both.
+
         Thin wrapper over the labeller script so the remedy is reachable
         through the same bypass channel as every other gate remedy. All of
         the script's honesty constraints still apply — this adds no leniency,
-        it only removes the toll.
+        it only removes the toll of proving engagement before disputing.
         """
         script = _script_path()
         if not script.exists():

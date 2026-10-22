@@ -37,7 +37,6 @@ _ENFORCEMENT_ERRORS = (
 
 # Global state for signal handling
 _signal_handlers_setup = False
-_session_initialized = False
 
 
 def setup_cli_enforcement() -> None:
@@ -59,22 +58,22 @@ def setup_cli_enforcement() -> None:
         - Requirement 5.6: Setup signal handlers
         - Requirement 10.1-10.6: Handle errors gracefully
     """
-    global _signal_handlers_setup, _session_initialized
+    global _signal_handlers_setup
 
     with mark_internal_operation():
         try:
             logger.debug("Setting up CLI enforcement")
 
-            # Initialize session (only once)
-            if not _session_initialized:
-                try:
-                    session_id = initialize_session()
-                    logger.debug(f"Initialized session: {session_id}")
-                    _session_initialized = True
-                except _ENFORCEMENT_ERRORS as e:
-                    logger.error(f"Failed to initialize session: {e}")
-                    logger.warning("Continuing without session initialization")
-                    # Continue execution even if session init fails
+            # Every call, not once per process: initialize_session() is idempotent (it reuses the
+            # session from the environment or file), and a once-per-process flag outlives a
+            # cleared session, so a later command found an empty desk it believed was set up.
+            try:
+                session_id = initialize_session()
+                logger.debug(f"Initialized session: {session_id}")
+            except _ENFORCEMENT_ERRORS as e:
+                logger.error(f"Failed to initialize session: {e}")
+                logger.warning("Continuing without session initialization")
+                # Continue execution even if session init fails
 
             # Setup signal handlers (only once, and only if not in test environment)
             if not _signal_handlers_setup and not _is_test_environment():

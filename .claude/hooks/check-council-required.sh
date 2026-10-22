@@ -282,6 +282,16 @@ _SHELL_WRAPPERS = ('cd', 'set', 'export', 'env', 'source', '.', 'exec', 'sudo', 
 
 _SEGMENT_SEPARATORS = ('&&', '||', ';', '|', '&', '\n')
 
+# A plain text FEEDER carries text into the next segment and has no act of its
+# own, PROVIDED it writes nothing, runs nothing, and is piped (not chained)
+# straight into that next segment. The walk command reads its reflection from
+# stdin and its own help prescribes echo piped into it; without this the gate
+# refused the form its own help prescribes (psf-05479077, ten repeats). Three
+# named words and not a pattern: growth has to arrive as a visible edit, like
+# the list of filing commands above.
+_PIPE_FEEDERS = ('cat', 'echo', 'printf')
+_REDIRECT_STARTS = ('>', '1>', '2>', '&>')
+
 
 def _strip_heredoc_bodies(cmd: str) -> str:
     # THE DELIMITERS BELOW ARE SINGLE QUOTES ON PURPOSE. A triple DOUBLE quote
@@ -448,34 +458,62 @@ def _is_artifact_filing(cmd: str) -> bool:
         return False
 
     segments = []
+    enders = []
     current = []
     for token in tokens:
         if token in _SEGMENT_SEPARATORS:
             if current:
                 segments.append(current)
+                enders.append(token)
             current = []
         else:
             current.append(token)
     if current:
         segments.append(current)
+        enders.append('')
 
     # Each segment's program is read by name, through the one shared reader:
     # a leading NAME=value is an assignment, and divineos typed with its path
     # is still divineos. Without this every remedy run from a workbench, where
     # the path is the only way to reach that workbench's install, read as
     # building (2026-10-04, walk-dd11edf05260). Spelling only; the list below
-    # and the every-segment rule are unchanged.
+    # and the every-segment rule are unchanged. The separator that ended each
+    # segment is kept in step, because the feeder rule below reads it.
     from divineos.core.command_parsing import program_name
 
     named = []
-    for seg in segments:
+    named_enders = []
+    for seg, ender in zip(segments, enders):
         while seg and '=' in seg[0] and seg[0].split('=', 1)[0].isidentifier():
             seg = seg[1:]
         if seg:
             named.append([program_name(seg[0]), *seg[1:]])
+            named_enders.append(ender)
     segments = named
+    enders = named_enders
 
-    acts = [seg for seg in segments if seg and seg[0] not in _SHELL_WRAPPERS]
+    # A feeder segment is skipped ONLY when all of these hold: it is one of the
+    # three named words, it is piped (not chained) into a segment that follows,
+    # it has no redirect token, and no token carries a substitution character.
+    # The characters are built with chr() because this program sits inside a
+    # double-quoted shell argument. Anything else stays an act and must itself
+    # be a filing command, so a feeder can carry text and nothing more.
+    substitution = (chr(36), chr(96))
+    acts = []
+    for index, seg in enumerate(segments):
+        if seg[0] in _SHELL_WRAPPERS:
+            continue
+        carries_text_only = (
+            seg[0] in _PIPE_FEEDERS
+            and enders[index] == '|'
+            and index + 1 < len(segments)
+            and not any(t.startswith(_REDIRECT_STARTS) for t in seg)
+            and not any(c in t for t in seg for c in substitution)
+            and not any('(' in t and set(t) <= set('();<>|&') for t in seg)
+        )
+        if carries_text_only:
+            continue
+        acts.append(seg)
     # No act at all is not a filing. all() of an empty list is True, and that
     # vacuous pass is the failing-in-the-permitting-direction shape again.
     if not acts:
@@ -506,6 +544,40 @@ try:
 except Exception as e:
     sys.stderr.write(f'[council-required] gravity scorer raised, gate disabled: {e}\n')
     sys.exit(0)
+
+# BRANCH WORK IS FREE, THE PUSH IS THE CHOKE (2026-10-12, Dad's third ask: one council
+# walk over everything before the push, not one per edit). The rule and its proof live in
+# council_required/push_choke.py, so this stays thin glue. The call is placed here, after
+# the features are known and before the game-walk requirement, so no free pass can occur
+# before the features that justify it are known. It reads the TARGET folder from the call,
+# because this hook runs from the session checkout and not from the work copy being edited.
+# Its own try on purpose, like the comment-only check below: if anything here raises, this
+# gate stays exactly as strict as it was, and it cannot go permissive through an error.
+try:
+    import os as _os
+    from pathlib import Path as _Path
+    from divineos.core.council_required import push_choke as _push_choke
+    _target = _push_choke.target_dir(file_paths, bash_command, _Path(_os.getcwd()))
+    if _target is None:
+        _rule = None
+    else:
+        _rule = _push_choke.branch_rule(
+            _target,
+            tool_name,
+            bash_command,
+            tuple(getattr(gravity, 'fired_features', ()) or ()),
+            _primary_fingerprint(),
+        )
+except Exception as e:
+    _rule = None
+    sys.stderr.write(f'[council-required] branch rule raised, gate stays strict: {e}\n')
+if _rule is not None and _rule.handled:
+    # The branch rule never refuses: it frees a building edit or does not handle the call.
+    # (A draft push is never refused here either, Dad 2026-10-12: Aletheia must be able to
+    # see unfinished work. The covering check lives at the stamp.)
+    if _rule.message:
+        sys.stderr.write(_rule.message + '\n')
+    sys.exit(_rule.exit_code)
 
 # ONE ASSESSMENT, TWO ARTIFACTS (2026-09-16, council-f579d35396ba).
 # is_game_walk_required reads the same is_council_required flag rather than
