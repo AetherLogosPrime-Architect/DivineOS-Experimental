@@ -38,6 +38,10 @@ ASKED_BY_ME = [
     # Aria's two probes that ARE real order questions and must stay refused after the narrowing.
     "What would you like to hear first about last night?",
     "Do you want me to run the full suite first?",
+    # Aletheia's note on #697 (2026-10-21): the before-X form with no "or" got through.
+    "Do you want the doorbell done before the lock?",
+    "Would you like the stamp fix landed before the reading?",
+    "Should I get the clerk merged before the register?",
 ]
 
 #: Real questions of mine that were NOT about order. None may be refused.
@@ -65,6 +69,13 @@ ORDINARY = [
     "Do you want me to take a screenshot next time it happens?",
     "Would you like me to move on to the next section of the report?",
     "Do you want me to start the next paragraph with the quote?",
+    # Aletheia's note on #697 (2026-10-21): a choice between versions of one thing, "first" as an
+    # adjective, was refused. And its cousins.
+    "Want the first draft or the final one?",
+    "Would you rather have the draft or the first version?",
+    "Do you want the first letter or the second one sent to Aletheia?",
+    "Should I check before the push goes out?",
+    "Do you want me to look at the next page or the previous one?",
 ]
 
 A_REAL_DEPENDENCY = (
