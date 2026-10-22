@@ -31,6 +31,10 @@ other. Twelve wordings tried on 2026-10-22 that this does NOT catch, so the open
 reviewer finds becomes a row and a test; the refusal event records what matched so the list grows from real
 misses.
 
+A trial word and a duration more than 300 characters apart inside ONE long sentence no longer connect, and a
+rule more than 300 characters from the duration does not excuse it (the price of bounding the cost per hit;
+Aletheia asked for this to be named, 2026-10-22).
+
 LIMITS, said so silence is not read as coverage: it cannot list the language (abbreviations, "a quarter",
 "until Friday", "the end of the month", "48 hours", "the weekend" and a named month as an end point are listed
 now; "by the next release" is not); a deadline for a

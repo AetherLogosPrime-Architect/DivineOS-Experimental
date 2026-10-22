@@ -121,9 +121,29 @@ def test_none_and_junk_never_raise_and_are_quick():
     trials_in_days(junk)
     trials_in_days(long_repeat)
     trials_in_days("a" * 1_000_000)
-    # 10 s let the slow version through on a fast machine (9.5 s here, 14.3 s on Aletheia's, 2026-10-22) and fail on
-    # hers. Measured: the fix runs in about 3 s here. 6 s fails the slow version everywhere and passes the fix with margin.
-    assert time.time() - started < 6, "a slow pattern on long text would hang a draft write"
+    # Only a hang guard now. Aletheia, 2026-10-22: a fixed seconds line measures the machine as much as the code (the
+    # same check took 3.2 s here and 4.7 s on hers, so a 6 s line sat right on her machine). The cause of the slowdown
+    # is pinned by test_a_long_sentenceless_paragraph_hands_the_rule_a_bounded_slice below, not by the clock.
+    assert time.time() - started < 30, "a slow pattern on long text would hang a draft write"
+
+
+def test_a_long_sentenceless_paragraph_hands_the_rule_a_bounded_slice(monkeypatch):
+    """The cause, not the clock: a 4000-character paragraph with no sentence end is ONE sentence, and handing all of
+    it to the rule pattern on every hit was the 14 s. No hit may hand the rule pattern more than ~600 characters."""
+    from divineos.core import trial_in_days_check as module
+
+    seen: list[int] = []
+    real = module._THE_RULE
+
+    class Recording:
+        def search(self, text, *args):
+            seen.append(len(text))
+            return real.search(text, *args)
+
+    monkeypatch.setattr(module, "_THE_RULE", Recording())
+    trials_in_days("trial 30 days " * 400)  # one 5600-character paragraph, no sentence end
+    assert seen, "the rule pattern was never consulted: this probe is blind, not the code clean"
+    assert max(seen) <= 700, f"the rule pattern was handed {max(seen)} characters in one hit"
 
 
 @pytest.mark.parametrize(
@@ -135,7 +155,9 @@ def test_other_dense_shapes_are_quick_too(shape):
     """walk-ae5d988275e5 (Dijkstra): the bound was pinned for the one shape she sent. Measured 3.2 s, 0.7 s, 0.2 s."""
     started = time.time()
     trials_in_days(shape)
-    assert time.time() - started < 6
+    assert (
+        time.time() - started < 30
+    )  # hang guard only; the bound itself is pinned by the slice test above
 
 
 def test_the_hit_names_what_it_found_and_what_it_paired_it_with():
