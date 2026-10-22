@@ -111,7 +111,14 @@ def fake_bin(tmp_path: Path) -> Path:
 def _push(repo: Path, fake_bin: Path, *, pr: str = "true\\n") -> subprocess.CompletedProcess[str]:
     """Run the real gate for `refs/heads/work` at the repo's current commit. `pr` is what the fake gh says."""
     sha = _git(repo, "rev-parse", "HEAD")
-    env = {k: v for k, v in os.environ.items() if not k.startswith(("DIVINEOS_", "GIT_"))}
+    # No PYTHONPATH either: inside the real gate it is the pushed copy's src, and the toy gate would join its own
+    # onto it with a colon that a Windows drive letter breaks, hiding the toy project's code (found 2026-10-22,
+    # only ever inside the real gate, never from a desk).
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if not k.startswith(("DIVINEOS_", "GIT_")) and k != "PYTHONPATH"
+    }
     env["PATH"] = os.pathsep.join(
         [str(fake_bin), str(Path(sys.executable).parent), env.get("PATH", "")]
     )
