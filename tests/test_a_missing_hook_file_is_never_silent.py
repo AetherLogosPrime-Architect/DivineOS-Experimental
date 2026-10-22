@@ -54,11 +54,14 @@ def _hook_commands() -> list[str]:
     return [c for c in _all_commands() if HOOK_FILE.search(c)]
 
 
-def test_the_scan_sees_every_hook_command_and_the_six_python_ones():
-    """Control for the parametrized test below: if the scan found nothing, every case would pass."""
+def test_the_scan_sees_every_hook_command_and_the_five_python_ones():
+    """Control for the parametrized test below: if the scan found nothing, every case would pass.
+
+    Five, not six, since 2026-10-22: the question hold's PreToolUse registration was removed (Dad:
+    nothing waits on a question), leaving it on UserPromptSubmit and Stop."""
     commands = _hook_commands()
     assert len(commands) >= 70, len(commands)
-    assert sum(1 for c in commands if 'python "$f"' in c) >= 6
+    assert sum(1 for c in commands if 'python "$f"' in c) >= 5
 
 
 @pytest.mark.parametrize("command", _hook_commands(), ids=lambda c: HOOK_FILE.search(c).group(1))
