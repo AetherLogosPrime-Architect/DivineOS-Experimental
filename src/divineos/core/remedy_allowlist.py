@@ -122,6 +122,17 @@ REMEDIES: tuple[tuple[str, ...], ...] = (
     ("divineos", "his", "sort"),
 )
 
+#: The letter doorbell's re-arm. A held re-arm leaves the bell unlistening, which is
+#: the failure the shell list's entry exists to stop (Aria found the two lists
+#: disagreeing, 2026-10-22). Kept apart from REMEDIES because `bash` is a forbidden
+#: head there: this is one named script with one named seat, never `bash` in general.
+SCRIPT_REMEDIES: tuple[tuple[str, ...], ...] = (
+    ("bash", "scripts/letter_doorbell.sh", "aether"),
+    ("bash", "scripts/letter_doorbell.sh", "aria"),
+    ("bash", "./scripts/letter_doorbell.sh", "aether"),
+    ("bash", "./scripts/letter_doorbell.sh", "aria"),
+)
+
 #: Verbs that must never appear here, asserted by a test rather than trusted to
 #: my memory. If one of these ever matches, this list has stopped being an
 #: anti-deadlock measure and become a way around the gates.
@@ -235,7 +246,7 @@ def is_remedy(command: str) -> bool:
     try:
         from divineos.core.command_parsing import runs_only
 
-        return runs_only(command, REMEDIES)
+        return runs_only(command, REMEDIES + SCRIPT_REMEDIES)
     except Exception:  # noqa: BLE001 — fail toward not-a-remedy, never toward a block
         return False
 
