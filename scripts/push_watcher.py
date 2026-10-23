@@ -1,0 +1,405 @@
+"""Watch one push, and say in plain words why it failed when the machine itself was the cause.
+
+Dad, 2026-10-22: "this watcher should be mandatory and automatic on any and all pushes.. so if anything fails you
+know exactly what and why". 99 push-gate crash recoveries in 17 days, nearly all the same six tests, and the gate's
+record named WHICH test a worker was running when it died, never WHAT ended it.
+
+THE SHAPE (walk-193e1c70464f, nine lenses; the design note is docs/drafts/every_push_is_watched_and_a_failure_says_why_
+draft_2026-10-22.md). Three simple recorders append to ONE raw log and know nothing of each other: a process sampler,
+a config reader (the repository config's `bare` line), and the push's own verdict. A separate assembler builds the
+report afterward, so a wrong assembler can be fixed without losing the evidence.
+
+THE FOUR OUTCOMES, never merged (a count of "could not" only means something if these stay apart):
+  NAMED          the watcher saw a test worker end while its parent run was still going, or the config change
+  NOTHING_SEEN   the watcher ran, took looks, and saw neither; it prints what it cannot see
+  WATCHER_FAILED zero looks were taken, so it cannot say anything (never printed as NOTHING_SEEN)
+  NOT_MINE       an ordinary failure (a test assertion, a gate refusal, a remote reject): its own output is the answer
+
+ORDER IS BY SAMPLE NUMBER, not seconds: the sampler, the test runner and the file clock disagree by up to a tick, so
+"before" means an earlier sample and the same sample is CONCURRENT.
+
+WHAT IT CANNOT SEE, printed with every NOTHING_SEEN: anything that lives under one sampling interval (the MEASURED
+mean, not the 0.25 s asked for; the first version really looked once per 2 s), a kill
+that leaves no entry in the process list, a failure inside a single process. A named process ending near a death is a
+CANDIDATE, never a proven cause: on a busy machine some process always ends in any three seconds.
+
+THE INVARIANT: this watcher's own exit status can never reach the push hook's exit status. It is started in the
+background and never waited on for a status; every call from the hook ends in `|| true`.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+SIGNATURE = "exec(eval(sys.stdin.readline()))"
+INTERVAL = 0.25
+SETTLE = (
+    8  # samples (2 s) after a worker ends in which its parent and a sibling must still be alive
+)
+AROUND = 12  # samples either side of a death in which other processes are reported as candidates
+HEARTBEAT_EVERY = 20
+RETAIN = 200
+MAX_RAW_LINES = 200_000
+#: Only these processes are logged besides workers: the ones a push or a test starts and ends.
+_MAY_BE_WORKER = frozenset({"python.exe", "python", "pythonw.exe"})
+LOGGED_NAMES = frozenset(
+    {
+        "git.exe",
+        "bash.exe",
+        "sh.exe",
+        "python.exe",
+        "pytest.exe",
+        "cmd.exe",
+        "git",
+        "bash",
+        "sh",
+        "python",
+    }
+)
+
+NAMED, NOTHING_SEEN, WATCHER_FAILED, NOT_MINE = (
+    "NAMED",
+    "NOTHING_SEEN",
+    "WATCHER_FAILED",
+    "NOT_MINE",
+)
+
+#: Words in a push's own output that mark an ordinary failure. Checked in this order.
+_ORDINARY = (
+    ("gate_refusal", re.compile(r"\bBLOCKED\b|refus", re.I)),
+    ("remote_rejected", re.compile(r"remote rejected|\[rejected\]|failed to push", re.I)),
+    ("tests_failed", re.compile(r"\bFAILED\b|\d+ failed", re.I)),
+)
+_INFRA_WORDS = re.compile(r"node down|not properly terminated|worker crashed|crash recover", re.I)
+_FAMILY_WORDS = {
+    "gate_refusal": "a check refused it",
+    "remote_rejected": "the remote end turned it away",
+    "tests_failed": "a test failed",
+}
+
+
+# ---------------------------------------------------------------- the assembler: pure, tested without a machine
+
+
+def read_raw(path: Path) -> list[dict]:
+    out: list[dict] = []
+    if not path.is_file():
+        return out
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        try:
+            out.append(json.loads(line))
+        except ValueError:
+            continue
+    return out
+
+
+def samples_taken(events: list[dict]) -> int:
+    """The heartbeat: the highest sample number any line carries. Zero means the watcher never looked."""
+    return max((int(e.get("n", 0)) for e in events), default=0)
+
+
+def mean_interval(events: list[dict]) -> float:
+    """Seconds between looks, MEASURED from the log's own timestamps. The blind spot we print is this number, not the
+    interval we asked for: the asked-for 0.25 s was really about 2 s until the planted-fault test showed it."""
+    times = [float(e["t"]) for e in events if "t" in e]
+    n = samples_taken(events)
+    return (max(times) - min(times)) / n if n and len(times) > 1 else 0.0
+
+
+def real_deaths(events: list[dict], settle: int = SETTLE) -> list[dict]:
+    """Workers that ended while their parent run kept going.
+
+    At the normal end of a run the workers and the parent leave together, which the first version of this counted as
+    deaths. A real death is a worker gone while its parent AND a sibling worker are still present `settle` samples on.
+    """
+    last = samples_taken(events)
+    ended_at: dict[int, int] = {}
+    workers: dict[int, dict] = {}
+    for e in events:
+        if e.get("k") in ("present", "started") and e.get("worker"):
+            workers[int(e["pid"])] = e
+        if e.get("k") == "ended":
+            ended_at[int(e["pid"])] = int(e["n"])
+            if e.get("worker"):
+                workers[int(e["pid"])] = e
+
+    def alive_at(pid: int, n: int) -> bool:
+        gone = ended_at.get(pid)
+        return gone is None or gone > n
+
+    deaths = []
+    for pid, n in sorted(ended_at.items(), key=lambda kv: kv[1]):
+        info = workers.get(pid)
+        if not info or not info.get("worker"):
+            continue
+        check = min(n + settle, last)
+        parent = int(info.get("ppid", 0))
+        siblings = [p for p, w in workers.items() if p != pid and int(w.get("ppid", -1)) == parent]
+        if alive_at(parent, check) and any(alive_at(s, check) for s in siblings):
+            deaths.append({"sample": n, "pid": pid, "ppid": parent})
+    return deaths
+
+
+def around(events: list[dict], sample: int, window: int = AROUND) -> list[dict]:
+    """Other processes that started or ended near a sample, each marked before / concurrent / after BY SAMPLE NUMBER."""
+    found = []
+    for e in events:
+        if e.get("k") not in ("started", "ended") or e.get("worker"):
+            continue
+        n = int(e["n"])
+        if abs(n - sample) > window:
+            continue
+        order = "concurrent" if n == sample else ("before" if n < sample else "after")
+        found.append({"order": order, "what": e["k"], "name": e.get("name", ""), "sample": n})
+    return found
+
+
+def config_changes(events: list[dict]) -> list[dict]:
+    return [e for e in events if e.get("k") == "cfg"]
+
+
+def classify(exit_code: int, output_tail: str) -> str:
+    """The family of a failed push, from its own exit code and words. 'passed' for exit 0."""
+    if exit_code == 0:
+        return "passed"
+    for family, pattern in _ORDINARY:
+        if pattern.search(output_tail or ""):
+            return family
+    if _INFRA_WORDS.search(output_tail or ""):
+        return "infrastructure"
+    return "unknown"
+
+
+def assemble(events: list[dict], exit_code: int, output_tail: str) -> dict:
+    n = samples_taken(events)
+    family = classify(exit_code, output_tail)
+    deaths = real_deaths(events)
+    cfg = config_changes(events)
+    if family == "passed":
+        outcome = "PASSED"
+    elif deaths or cfg:
+        outcome = NAMED
+    elif n == 0:
+        outcome = WATCHER_FAILED
+    elif family in _FAMILY_WORDS:
+        outcome = NOT_MINE
+    else:
+        outcome = NOTHING_SEEN
+    return {
+        "outcome": outcome,
+        "family": family,
+        "exit": exit_code,
+        "samples": n,
+        "mean_interval_s": round(mean_interval(events), 2),
+        "deaths": [dict(d, around=around(events, d["sample"])) for d in deaths],
+        "config_changes": cfg,
+        "truncated": any(e.get("k") == "truncated" for e in events),
+        "order_relation": "sample number (earlier sample = before; same sample = concurrent)",
+    }
+
+
+def final_line(report: dict, report_path: str = "") -> str:
+    """The one sentence Dad reads at the end of a failed push. Plain words: no process ids, no file names but the path."""
+    outcome = report["outcome"]
+    where = f" Details for me and Aether: {report_path}" if report_path else ""
+    if outcome == "PASSED":
+        return ""
+    if outcome == WATCHER_FAILED:
+        return (
+            "The push failed and the watcher never got a look at the machine, so I cannot say what happened."
+            + where
+        )
+    if outcome == NOT_MINE:
+        return (
+            f"This push failed the ordinary way ({_FAMILY_WORDS[report['family']]}); the machine itself showed "
+            "nothing wrong, so the push's own messages above are the answer." + where
+        )
+    if outcome == NAMED:
+        parts = []
+        if report["deaths"]:
+            k = len(report["deaths"])
+            parts.append(
+                f"{k} test helper{'s' if k != 1 else ''} stopped while the test run was still going"
+            )
+        if report["config_changes"]:
+            parts.append("the project's settings file changed during the push")
+        near = sum(len(d["around"]) for d in report["deaths"])
+        tail = (
+            f", and {near} other programs started or ended right around then (possible causes, not proven)"
+            if near
+            else ""
+        )
+        return (
+            f"This push was disturbed by the machine itself: {' and '.join(parts)}{tail}." + where
+        )
+    gap = report.get("mean_interval_s") or 0.0
+    blind = (
+        f"anything shorter than about {gap:.1f} seconds"
+        if gap
+        else "anything that lives only a moment"
+    )
+    return (
+        f"I could not tell why this push failed. The watcher looked {report['samples']} times and saw no helper die "
+        f"and no settings change, but it cannot see {blind}." + where
+    )
+
+
+def trim_reports(directory: Path, keep: int = RETAIN) -> int:
+    """The watcher must not become the thing that fills the disk: drop the oldest reports past `keep`."""
+    files = sorted(directory.glob("push-*.json"), key=lambda p: p.stat().st_mtime)
+    stale = files[: max(0, len(files) - keep)]
+    for path in stale:
+        path.unlink(missing_ok=True)
+        path.with_suffix(".raw.jsonl").unlink(missing_ok=True)
+    return len(stale)
+
+
+# ---------------------------------------------------------------- the recorders: thin, touch the machine
+
+
+def _alive(pid: int) -> bool:
+    import psutil
+
+    return psutil.pid_exists(pid)
+
+
+def _snapshot(known: dict) -> dict[int, dict]:
+    """Who is running now. Names are cheap (0.01 s for 330 processes); reading each command line costs about 6 ms and
+    made ONE look take 2 s on this machine, so the 'quarter second' sampler was really one look every two seconds
+    (found by the planted-fault test, 2026-10-23). A command line is therefore read once per new python process and
+    remembered by (pid, start time); everything else is judged by name."""
+    import psutil
+
+    out: dict[int, dict] = {}
+    for p in psutil.process_iter(["pid", "ppid", "name", "create_time"]):
+        try:
+            info = p.info
+            name = (info["name"] or "").lower()
+            key = (info["pid"], info["create_time"])
+            kind = known.get(key)
+            if kind is None:
+                worker = False
+                if name in _MAY_BE_WORKER:
+                    worker = SIGNATURE in " ".join(p.cmdline() or []).replace(" ", "")
+                kind = (worker, name in LOGGED_NAMES)
+                known[key] = kind
+            worker, logged = kind
+            if worker or logged:
+                out[info["pid"]] = {"ppid": info["ppid"], "name": name, "worker": worker}
+        except (psutil.Error, OSError):
+            continue
+    return out
+
+
+def _bare_line(config: Path) -> str:
+    try:
+        for line in config.read_text(encoding="utf-8", errors="replace").splitlines():
+            if line.strip().startswith("bare"):
+                return line.strip()
+        return "bare: absent"
+    except OSError:
+        return ""
+
+
+def run(parent_pid: int, raw_path: Path, git_config: Path | None = None) -> None:
+    """Sample until the parent (the push hook) is gone. Writes only changes, plus a heartbeat every few samples."""
+    raw_path.parent.mkdir(parents=True, exist_ok=True)
+    lines = 0
+    with raw_path.open("a", encoding="utf-8") as handle:
+
+        def write(obj: dict) -> None:
+            nonlocal lines
+            lines += 1
+            if lines > MAX_RAW_LINES:
+                return
+            if lines == MAX_RAW_LINES:
+                obj = {"k": "truncated", "n": obj.get("n", 0)}
+            handle.write(json.dumps(obj) + "\n")
+            handle.flush()
+
+        n = 0
+        known: dict = {}
+        previous = _snapshot(known)
+        for pid, info in previous.items():
+            write({"k": "present", "n": 0, "t": round(time.time(), 2), "pid": pid, **info})
+        bare = _bare_line(git_config) if git_config else ""
+        while _alive(parent_pid):
+            time.sleep(INTERVAL)
+            n += 1
+            current = _snapshot(known)
+            for pid, info in current.items():
+                if pid not in previous:
+                    write({"k": "started", "n": n, "t": round(time.time(), 2), "pid": pid, **info})
+            for pid, info in previous.items():
+                if pid not in current:
+                    write({"k": "ended", "n": n, "t": round(time.time(), 2), "pid": pid, **info})
+            if git_config:
+                now_bare = _bare_line(git_config)
+                if now_bare != bare:
+                    write(
+                        {
+                            "k": "cfg",
+                            "n": n,
+                            "t": round(time.time(), 2),
+                            "before": bare,
+                            "after": now_bare,
+                        }
+                    )
+                    bare = now_bare
+            if n % HEARTBEAT_EVERY == 0:
+                write({"k": "tick", "n": n, "t": round(time.time(), 2)})
+            previous = current
+        write({"k": "tick", "n": n, "t": round(time.time(), 2)})
+
+
+def finish(raw_path: Path, exit_code: int, output_tail: str, out_dir: Path) -> str:
+    """Build the report from the raw log, write it, trim old ones, return the sentence for the end of the push."""
+    report = assemble(read_raw(raw_path), exit_code, output_tail)
+    if report["outcome"] == "PASSED":
+        return ""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    path = out_dir / f"push-{stamp}.json"
+    path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    if raw_path.is_file():
+        path.with_suffix(".raw.jsonl").write_bytes(raw_path.read_bytes())
+    trim_reports(out_dir)
+    return final_line(report, str(path))
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    start = sub.add_parser("start")
+    start.add_argument("--parent", type=int, required=True)
+    start.add_argument("--raw", required=True)
+    start.add_argument("--git-config")
+    done = sub.add_parser("finish")
+    done.add_argument("--raw", required=True)
+    done.add_argument("--exit", type=int, required=True)
+    done.add_argument("--out-dir", required=True)
+    done.add_argument("--tail-file")
+    args = parser.parse_args(argv)
+    if args.cmd == "start":
+        run(args.parent, Path(args.raw), Path(args.git_config) if args.git_config else None)
+        return 0
+    tail = (
+        Path(args.tail_file).read_text(encoding="utf-8", errors="replace")[-4000:]
+        if args.tail_file and Path(args.tail_file).is_file()
+        else ""
+    )
+    sentence = finish(Path(args.raw), args.exit, tail, Path(args.out_dir))
+    if sentence:
+        print(sentence, file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
