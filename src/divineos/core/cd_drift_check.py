@@ -24,6 +24,9 @@ homes are a named superset. A script that `cd`s inside itself cannot move the ap
 is out of scope; `source script.sh` whose body does is invisible here, and so is
 `eval "cd x"` (text the parser never reads as a command) and a shell function that is DEFINED
 with a `cd` and then called (the definition runs nothing, so it is not refused; the call moves).
+A `cd` inside an `if`, `while` or `for` body is refused even when the body might never run
+(`while false; do cd x; done`): whether a body runs is not decidable from the text, and refusing
+is the safe side. That is a stated limit, not a bug (Aria, 2026-10-23).
 Aria read the first version against real bash on 2026-10-22 and found four misses and three
 over-holds; the assignment prefix, `command -p`, pipelines, background `&`, function
 definitions and the arithmetic `<<` are handled and pinned in the tests.
@@ -88,6 +91,21 @@ def _normalise(path: str, root: str, home: str) -> str | None:
 def _strictly_inside(child: str, parent: str) -> bool:
     parent = posixpath.normpath(parent.replace("\\", "/")).casefold()
     return child.startswith(parent.rstrip("/") + "/")
+
+
+def _list_is_backgrounded(tokens: list[str], start: int) -> bool:
+    """True when the and/or list that began before `start` ends in `&`.
+
+    Bash backgrounds the WHOLE `a && b &` list in a subshell, so a `cd` anywhere in it cannot
+    move the shell (Aria ran it, 2026-10-23). A `;` ends the list first, so `cd x; ls &` leaves
+    the cd in this shell.
+    """
+    for token in tokens[start:]:
+        if token in (";", ";;"):
+            return False
+        if token == "&":
+            return True
+    return False
 
 
 def _targets(command: str) -> list[str]:
@@ -162,7 +180,9 @@ def _targets(command: str) -> list[str]:
                 if k < len(tokens) and tokens[k] not in _SEGMENT_STARTS and tokens[k] not in "()":
                     # a trailing `|` or `&` makes this element a subshell too
                     nxt = tokens[k + 1] if k + 1 < len(tokens) else ""
-                    target_ends_in_background = nxt in _PIPE_OR_BACKGROUND
+                    target_ends_in_background = nxt in _PIPE_OR_BACKGROUND or _list_is_backgrounded(
+                        tokens, k + 1
+                    )
                     if not target_ends_in_background:
                         found.append(tokens[k])
         at_start = False

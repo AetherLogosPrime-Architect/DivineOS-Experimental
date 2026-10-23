@@ -78,6 +78,27 @@ class TestAriasReadOfTheParser:
     def test_forms_a_real_shell_does_not_move_on_are_not_refused(self, command):
         assert not refuses(command), command
 
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "cd family/letters && ls &",  # bash backgrounds the WHOLE and/or list: the cd stays in a subshell
+            "cd family/letters || ls &",
+        ],
+    )
+    def test_a_cd_in_a_list_that_ends_in_an_ampersand_is_backgrounded(self, command):
+        assert not refuses(command), command
+
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "cd family/letters; ls &",  # the semicolon ends the first list, so the cd ran in this shell
+            "cd family/letters && ls",
+            "cd family/letters && ls; ls &",
+        ],
+    )
+    def test_a_semicolon_or_no_ampersand_still_leaves_the_cd_in_this_shell(self, command):
+        assert refuses(command), command
+
     def test_a_heredoc_body_is_still_not_judged(self):
         body = "cat > x.sh <<'EOF'\ncd family/letters\nEOF\nls"
         assert not refuses(body)
