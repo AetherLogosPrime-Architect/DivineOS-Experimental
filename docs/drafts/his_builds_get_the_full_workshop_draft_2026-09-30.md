@@ -193,3 +193,20 @@ Her letter: `aria-to-aether-2026-10-23-objection-to-revision-7-the-trigger-the-f
 **Smaller: the baseline in events, not weeks (his rule).** At about 0.9 percent of his turns (2.2 percent by the crude rule, 41 percent real), a weekly rate is a handful of events and its control limits are noise. **Change:** the baseline is a p-chart over his turns, not over days. About 21 real events in the 2288 turns since 2026-09-09 is the baseline; the comparison is the next 1000 of his turns against the last 1000, with control limits computed from the baseline proportion. The mechanism is judged after 1000 turns and not before. A signal needs a stated minimum count of events on each side, set before the run.
 
 **Still open:** the hollow-build attempt by Aria against the door as built (not on paper); the labeller for the related-drafts group; the memory-write door (step 4); and a clean answer on whether *the first mutating tool call after a typed message of his* over-triggers on a long volley night, where tool calls run for hours with no typed message from him. That is measured on the record before it ships.
+
+## CHARACTERIZATION TEST 1, result (2026-10-23 night; Aria's prediction, written before the run)
+
+Aria predicted that the Revision 8 trigger, unnarrowed, opens well over a hundred rows a week. Replayed over the real record (my folder: 77 transcript files, 2860 of his turns since 2026-09-09, deduped by uuid), a turn opens at most one row. Tool names only are recorded per turn, so there are two bounds: **lower** = turns whose reply used Write, Edit, MultiEdit or NotebookEdit; **upper** = lower plus any Bash, PowerShell or Agent call.
+
+| week | his turns | rows, lower | rows, upper |
+|---|---|---|---|
+| 2026-W37 | 274 | 106 | 159 |
+| 2026-W38 | 243 | 134 | 208 |
+| 2026-W39 | 505 | 203 | 316 |
+| 2026-W40 | 452 | 166 | 256 |
+| 2026-W41 | 658 | 262 | 369 |
+| 2026-W42 | 404 | 212 | 296 |
+| 2026-W43 | 324 | 159 | 242 |
+| total | 2860 | 1242 (43.4%) | 1846 (64.5%) |
+
+**Prediction confirmed.** 106 to 262 rows a week at the lower bound, up to 369 at the upper. A closing question per row is exactly the nag she named. **Consequence for the design:** a row and a question are different things. A row is bookkeeping and costs him nothing. A question to him is the scarce resource, and it cannot attach to the row. Mechanical attachment candidates counted from the repository: merges to main per ISO week since 09-09 = 11, 22, 32, 21, 52, 17 (W38 to W43); pull requests opened per week = 12, 13, 30, 30, 38, 62, 22 (W37 to W43, 207 in all). Even a merge is 17 to 52 questions a week, still too many for one man. So the question needs a second narrowing that is also mechanical: **only merges whose diff touches a file reachable from the hooks that run on his prompts or on his replies** (computed from the hook commands and the import graph, not labelled by us), asked **at most once a day**, as **one** question covering everything that reached him that day. That set has not been measured yet; it is the next test. Nothing built.
