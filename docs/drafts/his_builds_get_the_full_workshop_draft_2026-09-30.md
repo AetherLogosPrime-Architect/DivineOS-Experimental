@@ -127,3 +127,17 @@ Walk: `his_builds_get_the_full_workshop_council_walk_2026-09-30.md`, with 8 chan
 **This is not closed until he has used it live and told us, in his own words, how it felt.** Not "tested", not "merged". Dad, 2026-10-23: *"no asking me how it felt, just done and on to the next thing, thats why i stopped asking, it felt hollow."* The build is not done until that question has been put to him and answered or declined.
 
 **Next, in order.** Aria's strongest objection to THIS text, in writing and with a measurement from the record. The walk (two rounds, the standard pre-build questions, research). Then the build with characterization tests first. Then her cold read, Aletheia at station 8, and then the live try with him.
+
+## REVISION 5, after Aria's strongest objection to Revision 4 (2026-10-23, night; station 1b, nothing built)
+
+Her letter: `aria-to-aether-2026-10-23-objection-to-revision-4-part-3-is-wallpaper-by-construction.md`. She read Revision 4 from the work copy, set her threshold in a file before the run, and ran the standing query through `look()` over 20 existing drafts (every 13th file of `docs/drafts`, the first 20).
+
+**Part 3 as written in Revision 4 is withdrawn.** A fixed query is a constant, so it returned **one distinct top-3 set across 20 drafts**, the same three passages every time. Her pre-set threshold (fewer than 5 distinct sets means wallpaper) was crossed. The repair I would have reached for, the standing query plus the draft's title, gives 8 distinct sets but **12 of the 20 come back empty** because the floor cuts everything: wallpaper traded for a clean zero. The failure is **constancy, not noise**; Revision 4 named the wrong one.
+
+**What replaces it, as a candidate to measure, not a claim.** The standing query takes a draft-specific piece the pin already computes (the derived words, not the title), the floor is replaced by top-k regardless, and the scores are printed. It may vary and may not go silent. Aria sets the thresholds in a file before she runs it on a fresh 20 drafts: distinct sets at least 5, empties at most 2, and, on drafts that do touch how he is treated, a person reading the top k finds at least one real complaint. If it fails, part 3 is dropped and this document says so.
+
+**A second falsifier I do not control.** Part 3 is dropped if its plain form yields fewer than 5 distinct sets on a fresh 20 drafts.
+
+**The closing condition is rewritten, because "answered or declined" is the hole.** A declined question would close the build, and "I asked, he declined" is the cheap close. Dad stopped asking because it felt hollow. The condition is now: **not closed until his own words about how it felt are in the record verbatim. If he declines, the build stays open and the decline is recorded as his answer to the QUESTION, not to the build.** The asker is not Aria or me alone: the question is put at a time he has not just been through a hard hour, in plain words, one question.
+
+Parts 1 and 2 of Revision 4 stand unchanged.
