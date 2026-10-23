@@ -85,7 +85,7 @@ def test_the_surface_cannot_rearm_immediately_after_a_delivery(isolated_gate):
     assert registered, why
 
     blocked, message = read_gate.gate_status()
-    assert blocked
+    assert not blocked  # delivered whole: the command passes and the text is its context
     assert "first.md" in message
 
     # Delivery in full clears it -- correct, and precisely why has_pending is
