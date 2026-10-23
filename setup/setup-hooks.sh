@@ -316,6 +316,16 @@ fi
 if [[ -f "$REPO_ROOT/scripts/check_merge_resolution_tested.sh" ]]; then
     bash "$REPO_ROOT/scripts/check_merge_resolution_tested.sh" || exit 1
 fi
+# Its sister, added 2026-10-04: a merge that settled a two-sided file by copying
+# one side whole, dropping the other side's work. Tests or no tests.
+#
+# CARRIED INTO THE INSTALLER 2026-10-23 (Aria). These lines lived ONLY in the installed hook of one checkout, so the
+# drift check said "5 lines the install has that setup lacks" and a reinstall would have erased the check without
+# a word. Guarded by the script's existence: a checkout that does not carry the script simply skips it, as the
+# sister check above does.
+if [[ -f "$REPO_ROOT/scripts/check_merge_kept_both_sides.py" ]]; then
+    python "$REPO_ROOT/scripts/check_merge_kept_both_sides.py" || exit 1
+fi
 
 # 4. Wiring-claim gate — SOFT WARNING. Surfaces "wire X to Y" /
 # "bridge", "integrate", "connect", "end-to-end", "close the gap"
