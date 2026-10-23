@@ -85,7 +85,35 @@ _ORDINARY = (
     ("remote_rejected", re.compile(r"remote rejected|\[rejected\]|failed to push", re.I)),
     ("tests_failed", re.compile(r"\bFAILED\b|\d+ failed", re.I)),
 )
-_INFRA_WORDS = re.compile(r"node down|not properly terminated|worker crashed|crash recover", re.I)
+#: The MACHINE, not the code, ended or starved the run. Checked BEFORE the ordinary patterns, and in this order: a run
+#: that ran out of memory also prints "1 failed", and an ordinary line must never outrank the crash that explains it
+#: (Aletheia, 2026-10-23: out-of-memory runs were filed as ordinary test failures, the class that cost Dad his machine).
+#: Accepted cost, said so: a real test ABOUT these words that fails for its own reason is called infrastructure too, and
+#: lands in "could not tell", which counts against the ceiling: the honest side to be wrong on.
+_INFRA_KINDS = (
+    (
+        "ran out of memory",
+        re.compile(r"MemoryError|out of memory|\bOOM\b|Cannot allocate memory", re.I),
+    ),
+    ("was killed from outside", re.compile(r"^Killed\b|\bSIGKILL\b|^Terminated\s*$", re.I | re.M)),
+    ("timed out", re.compile(r"\+{2,} Timeout \+{2,}|Failed: Timeout >|pytest-timeout", re.I)),
+    ("ran out of disk space", re.compile(r"No space left on device|\[Errno 28\]", re.I)),
+    (
+        "crashed",
+        re.compile(
+            r"Segmentation fault|Fatal Python error|node down|not properly terminated|worker crashed|crash recover",
+            re.I,
+        ),
+    ),
+    (
+        "lost the network",
+        re.compile(
+            r"Could not resolve host|Connection (?:refused|reset by peer|timed out)|"
+            r"Temporary failure in name resolution",
+            re.I,
+        ),
+    ),
+)
 _FAMILY_WORDS = {
     "gate_refusal": "a check refused it",
     "remote_rejected": "the remote end turned it away",
@@ -249,12 +277,20 @@ def classify(exit_code: int, output_tail: str, tests_ran: bool = True) -> str:
     """
     if exit_code == 0:
         return "passed"
+    if infra_kind(output_tail):
+        return "infrastructure"  # first, so an ordinary FAILED line cannot hide the crash that caused it
     for family, pattern in _ORDINARY:
         if pattern.search(output_tail or ""):
             return family
-    if _INFRA_WORDS.search(output_tail or ""):
-        return "infrastructure"
     return "unknown" if tests_ran else "stopped_before_tests"
+
+
+def infra_kind(output_tail: str) -> str:
+    """Plain words for what the machine did, from the push's own output; '' when it names nothing."""
+    for words, pattern in _INFRA_KINDS:
+        if pattern.search(output_tail or ""):
+            return words
+    return ""
 
 
 def fresh_tail(tail_file: Path | None, events: list[dict]) -> tuple[str, bool]:
@@ -291,6 +327,7 @@ def assemble(events: list[dict], exit_code: int, output_tail: str, tests_ran: bo
     return {
         "outcome": outcome,
         "family": family,
+        "infra_kind": infra_kind(output_tail),
         "exit": exit_code,
         "samples": n,
         "mean_interval_s": round(mean_interval(events), 2),
@@ -349,9 +386,16 @@ def final_line(report: dict, report_path: str = "") -> str:
         if gap
         else "anything that lives only a moment"
     )
+    named = report.get("infra_kind") or ""
+    lead = (
+        f"The push's own output says the machine {named}, not the code, but the watcher did not catch which process "
+        "ended."
+        if named
+        else "I could not tell why this push failed."
+    )
     return (
-        f"I could not tell why this push failed. The watcher looked {report['samples']} times and saw no helper die "
-        f"and no settings change, but it cannot see {blind}." + where
+        f"{lead} The watcher looked {report['samples']} times and saw no helper die "
+        f"and no settings change, and it cannot see {blind}." + where
     )
 
 

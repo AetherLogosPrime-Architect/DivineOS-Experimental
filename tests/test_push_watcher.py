@@ -121,6 +121,55 @@ def test_the_family_comes_from_the_push_own_words(tail, family):
     assert pw.classify(1, tail) == family
 
 
+# -- Aletheia's hole (2026-10-23): a machine-level crash must OUTRANK the ordinary failed-test line that it causes.
+
+
+@pytest.mark.parametrize(
+    "tail,kind",
+    [
+        ("Traceback ...\nMemoryError\n=== 1 failed in 4.1s ===", "ran out of memory"),
+        ("FAILED tests/test_x.py::test_y - AssertionError\nMemoryError", "ran out of memory"),
+        ("tests/test_a.py ..\nKilled\n", "was killed from outside"),
+        ("+++++++ Timeout +++++++\nFAILED tests/test_slow.py::test_hang", "timed out"),
+        ("OSError: [Errno 28] No space left on device\n3 failed", "ran out of disk space"),
+        ("Segmentation fault (core dumped)\n1 failed", "crashed"),
+        ("Fatal Python error: Aborted\n2 failed", "crashed"),
+        ("fatal: unable to access: Could not resolve host: github.com", "lost the network"),
+    ],
+)
+def test_a_machine_crash_outranks_the_ordinary_failed_line_it_causes(tail, kind):
+    assert pw.classify(1, tail) == "infrastructure", tail
+    assert pw.infra_kind(tail) == kind
+
+
+@pytest.mark.parametrize(
+    "tail,family",
+    [
+        (
+            "FAILED tests/test_x.py::test_y - AssertionError: 1 != 2\n=== 1 failed in 2s ===",
+            "tests_failed",
+        ),
+        ("[push-readiness] BLOCKED - lint failures", "gate_refusal"),
+        ("! [remote rejected] main -> main (protected)", "remote_rejected"),
+    ],
+)
+def test_control_ordinary_failures_are_still_ordinary(tail, family):
+    """The instrument must still file a plain failure as plain, or 'infrastructure first' is just 'everything is'."""
+    assert pw.classify(1, tail) == family
+    assert pw.infra_kind(tail) == ""
+
+
+def test_an_out_of_memory_run_says_so_in_plain_words_and_is_not_the_ordinary_bucket():
+    report = pw.assemble([_parent(), _tick(40)], 1, "MemoryError\n=== 1 failed in 4s ===")
+    assert report["outcome"] == pw.NOTHING_SEEN and report["family"] == "infrastructure"
+    line = pw.final_line(report)
+    assert (
+        "the machine ran out of memory, not the code" in line
+        and "did not catch which process" in line
+    )
+    assert not re.search(r"\b[0-9a-f]{7,}\b", line)
+
+
 def test_exit_zero_is_passed_and_says_nothing():
     report = pw.assemble([_parent(), _tick(10)], 0, "")
     assert report["outcome"] == "PASSED" and pw.final_line(report) == ""
