@@ -81,9 +81,51 @@ def test_the_honest_waiting_sentence_is_never_refused() -> None:
     """
     for sentence in (
         "The push is running and I will say when it lands.",
-        "It has not landed yet.",
         "Once it lands I will tell you.",
         "The push is still running.",
+    ):
+        assert claim_spans(sentence) == (), sentence
+
+
+NOT_LANDED_SENTENCES = (
+    "It has not landed yet.",
+    "It hasn't landed.",
+    "It hasn’t arrived on GitHub.",
+    "The fix is not on GitHub yet.",
+    "GitHub still shows the old version.",
+    "The branch is still at the old head.",
+    "Neither has reached the remote.",
+)
+
+
+def test_a_not_landed_claim_written_from_an_old_reading_is_refused() -> None:
+    """The mirror fault, 2026-10-22 (correction 397): twice in one evening I told Dad a push had NOT reached GitHub
+    from a log read minutes earlier, with the push finished since. This test used to list "It has not landed
+    yet." as never refused. That was right about the running push and wrong about the remote, and the pinned
+    sentence is what let the stale negative through.
+    """
+    for sentence in NOT_LANDED_SENTENCES:
+        assert claim_spans(sentence) != (), f"not counted as a claim about the remote: {sentence!r}"
+        assert assess(sentence, RECEIPT_ONLY).refuses, sentence
+
+
+def test_a_not_landed_claim_after_reading_the_remote_is_free() -> None:
+    for sentence in NOT_LANDED_SENTENCES:
+        assert not assess(sentence, READ_THE_REMOTE).refuses, sentence
+
+
+def test_the_refusal_says_which_way_the_claim_faced() -> None:
+    block = render_block(assess("It has not landed yet.", RECEIPT_ONLY))
+    assert "has NOT reached the shared copy" in block
+    assert "reached the shared copy" in render_block(assess("It landed.", RECEIPT_ONLY))
+    assert "NOT" not in render_block(assess("It landed.", RECEIPT_ONLY))
+
+
+def test_a_future_or_running_sentence_that_mentions_not_landing_stays_free() -> None:
+    for sentence in (
+        "It has not landed yet, and I will read GitHub when the push ends.",
+        "It has not landed because the push is still running.",
+        "Once it lands I will say so; until then it has not arrived.",
     ):
         assert claim_spans(sentence) == (), sentence
 
