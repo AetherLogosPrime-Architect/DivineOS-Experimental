@@ -145,6 +145,36 @@ def test_a_process_number_handed_to_someone_else_is_not_my_hook():
 
 
 @pytest.mark.skipif(
+    sys.platform == "win32", reason="a program run under another name needs a Unix symlink"
+)
+@pytest.mark.parametrize("alias", ["python3", "python3.12", "python"])
+def test_a_worker_is_seen_whatever_the_interpreter_is_called(tmp_path, alias):
+    """Aletheia, 2026-10-23: the watcher listed Python as python / python.exe only, so on a machine where it runs as
+    python3 it never saw a worker and said 'nothing seen' while blind. A real child, started through a link NAMED
+    `alias`, must be recognised. The premise (what name the system reports) is asserted, and 'python' is the control that
+    the old list also passed."""
+    link = tmp_path / alias
+    # link-target-outside-tmp: the link points at the interpreter FILE, never a folder, so cleanup can only remove the link; it is also removed below
+    link.symlink_to(sys.executable)
+    child = subprocess.Popen(
+        [str(link), "-c", _SLEEP], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
+    try:
+        time.sleep(1.0)
+        assert psutil.Process(child.pid).name() == alias, (
+            "the premise: the system reports the link's name"
+        )
+        seen = pw._snapshot({}, None)
+        assert child.pid in seen and seen[child.pid]["worker"], (
+            f"a worker under the name {alias!r} was not recognised"
+        )
+    finally:
+        child.kill()
+        child.wait()
+        link.unlink()  # remove the link itself, which is all this does: it never touches the file it points at
+
+
+@pytest.mark.skipif(
     sys.platform == "win32", reason="a zombie (killed, not yet collected) only exists on Unix"
 )
 def test_a_killed_process_nobody_has_collected_counts_as_gone():

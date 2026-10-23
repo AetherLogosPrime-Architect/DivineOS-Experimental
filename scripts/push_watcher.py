@@ -55,19 +55,29 @@ HEARTBEAT_EVERY = (
 RETAIN = 200
 MAX_RAW_LINES = 200_000
 #: Only these processes are logged besides workers: the ones a push or a test starts and ends.
-_MAY_BE_WORKER = frozenset({"python.exe", "python", "pythonw.exe"})
+#: A Python interpreter is recognised by the SHAPE of its name, not by a fixed list (Aletheia, 2026-10-23): on many Linux
+#: systems it runs as python3 or python3.12, and a list of {python, python.exe, pythonw.exe} meant the watcher never
+#: recognised its test workers there and reported "nothing seen" while blind. Reproduced here under a python3-named
+#: interpreter before it was fixed. Anchored whole-name, so "ipython", "python-config" and "pythonic" do not match.
+_PYTHON_NAME = re.compile(r"python(?:w)?(?:\d+(?:\.\d+)*)?(?:\.exe)?", re.I)
+
+
+def is_python_name(name: str) -> bool:
+    return bool(_PYTHON_NAME.fullmatch(name or ""))
+
+
 LOGGED_NAMES = frozenset(
     {
         "git.exe",
         "bash.exe",
         "sh.exe",
-        "python.exe",
         "pytest.exe",
         "cmd.exe",
         "git",
         "bash",
         "sh",
-        "python",
+        "dash",
+        "pytest",
     }
 )
 
@@ -487,9 +497,9 @@ def _snapshot(known: dict, root: int | None = None) -> dict[int, dict]:
             kind = known.get(key)
             if kind is None:
                 worker = False
-                if name in _MAY_BE_WORKER:
+                if is_python_name(name):
                     worker = SIGNATURE in " ".join(p.cmdline() or []).replace(" ", "")
-                kind = (worker, name in LOGGED_NAMES)
+                kind = (worker, name in LOGGED_NAMES or is_python_name(name))
                 known[key] = kind
             worker, logged = kind
             if worker and not under_root(info["pid"]):

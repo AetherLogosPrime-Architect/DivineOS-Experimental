@@ -121,6 +121,50 @@ def test_the_family_comes_from_the_push_own_words(tail, family):
     assert pw.classify(1, tail) == family
 
 
+# -- Aletheia's third hole (2026-10-23): the watcher recognised Python only by a fixed list of names, so under python3
+# (the name on many Linux systems) it never saw its workers and reported "nothing seen" while blind.
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "python",
+        "python.exe",
+        "pythonw.exe",
+        "python3",
+        "python3.12",
+        "python3.12.exe",
+        "Python3.EXE",
+        "python2.7",
+    ],
+)
+def test_python_is_recognised_by_the_shape_of_its_name(name):
+    assert pw.is_python_name(name), name
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "ipython",
+        "python-config",
+        "pythonic",
+        "notpython",
+        "python3x",
+        "python3.",
+        "python.exe.exe",
+        "pythonw.exe.bak",
+        "",
+    ],
+)
+def test_lookalikes_are_not_python(name):
+    """The shape match must not be 'anything with python in it', or every editor helper counts as a test worker."""
+    assert not pw.is_python_name(name), name
+
+
+def test_the_test_runner_and_dash_are_logged_without_an_exe_suffix():
+    assert {"pytest", "dash", "bash", "sh", "git"} <= set(pw.LOGGED_NAMES)
+
+
 # -- Aletheia's hole (2026-10-23): a machine-level crash must OUTRANK the ordinary failed-test line that it causes.
 
 
