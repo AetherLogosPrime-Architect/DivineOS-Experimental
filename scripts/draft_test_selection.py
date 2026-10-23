@@ -86,19 +86,32 @@ def mentions(repo: Path, ref: str, name: str, whole_word: bool = False) -> set[s
     return _paths_from_grep(_git(repo, "grep", *flags, "-e", name, ref, "--", "tests"), ref)
 
 
-def select(repo: Path, ref: str, changed: list[str]) -> tuple[set[str], list[str], bool]:
-    """(tests to run, changed files nothing touches, can-it-be-narrowed-at-all)."""
+def select(repo: Path, ref: str, changed: list[str]) -> tuple[set[str], list[str], bool, list[str]]:
+    """(tests to run, changed files nothing touches, can-it-be-narrowed-at-all, prose no test names).
+
+    The code answers "which tests MENTION this file", which is a smaller question than "which tests could break".
+    The merge-bound full run is the audit for the difference (walk-d2b9a7bf4cd0, Beer and Kahneman).
+    """
     if any(c in RUN_EVERYTHING for c in changed):
-        return set(), [], False
+        return set(), [], False, []
     universe = tests_at(repo, ref)
     chosen: set[str] = set()
     untouched: list[str] = []
+    prose_set_aside: list[str] = []
     for path in changed:
         if path.startswith("tests/") and Path(path).name.startswith("test_") and path in universe:
             chosen.add(path)
             continue
         if path.startswith(("docs/", "family/", "exploration/", "dreams/")) or path.endswith((".md", ".txt")):
-            continue  # prose cannot change a test outcome; the push check's fast path says the same
+            # Prose rarely changes a test outcome, but a test that READS a document does (Aether, 2026-10-22: 26 test
+            # files name AUTOMATION_REGISTER.md, CLAUDE.md or ARCHITECTURE.md). So prose is looked up by file name like a
+            # script; if no test names it, it is skipped silently and is not reported as untested.
+            named = mentions(repo, ref, Path(path).name) & universe
+            if named:
+                chosen |= named
+            else:
+                prose_set_aside.append(path)
+            continue
         found: set[str] = set()
         dotted = dotted_name(path)
         if dotted:
@@ -113,7 +126,7 @@ def select(repo: Path, ref: str, changed: list[str]) -> tuple[set[str], list[str
             chosen |= found
         elif not (path.startswith("tests/") and path not in universe):
             untouched.append(path)
-    return chosen, untouched, True
+    return chosen, untouched, True, prose_set_aside
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -123,7 +136,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     changed = [line.strip().replace("\\", "/") for line in sys.stdin.read().splitlines() if line.strip()]
     try:
-        chosen, untouched, narrowable = select(Path(args.repo), args.ref, changed)
+        chosen, untouched, narrowable, prose_set_aside = select(Path(args.repo), args.ref, changed)
     except (RuntimeError, OSError) as exc:
         print(f"[draft-tests] could not read the repository: {exc}", file=sys.stderr)
         return 2
@@ -142,6 +155,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"[draft-tests] {len(changed)} changed file(s), {len(chosen)} test file(s) selected.", file=sys.stderr)
     for path in untouched:
         print(f"[draft-tests] NO TEST NAMES {path}: nothing is verified for it until the full run.", file=sys.stderr)
+    if prose_set_aside:
+        # One quiet line, apart from the code warning on purpose: prose no test names is usually just prose.
+        print(f"[draft-tests] {len(prose_set_aside)} prose file(s) named by no test, set aside.", file=sys.stderr)
     return 0
 
 

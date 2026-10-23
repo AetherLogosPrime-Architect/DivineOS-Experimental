@@ -45,6 +45,10 @@ FILES = {
     "tests/test_uses_the_package.py": "import divineos.core.pkg\n\n\ndef test_g():\n    assert True\n",
     "tests/_archive/test_old_ledger.py": "import divineos.core.ledger\n",
     "docs/note.md": "words\n",
+    # Aether's cold read of #704, 2026-10-22: prose a TEST READS is not inert. 26 test files on main name
+    # AUTOMATION_REGISTER.md, CLAUDE.md or ARCHITECTURE.md, so a draft that changes only one used to select nothing.
+    "docs/the_register.md": "generated\n",
+    "tests/test_reads_the_register.py": "TEXT = open('docs/the_register.md').read()\n\n\ndef test_h():\n    assert TEXT\n",
 }
 
 
@@ -146,6 +150,42 @@ def test_a_change_nothing_names_is_said_out_loud_not_silently_passed(repo):
 def test_prose_only_changes_select_nothing_and_flag_nothing(repo):
     code, chosen, err = _run(repo, ["docs/note.md"])
     assert code == 0 and chosen == [] and "NO TEST NAMES" not in err
+
+
+def test_prose_that_a_test_reads_selects_that_test(repo):
+    """The pair to the one above: the same kind of path, a different answer, decided by whether a test names it."""
+    code, chosen, err = _run(repo, ["docs/the_register.md"])
+    assert (
+        code == 0 and chosen == ["tests/test_reads_the_register.py"] and "NO TEST NAMES" not in err
+    )
+
+
+def test_an_unnamed_prose_file_beside_a_named_one_selects_only_what_the_named_one_does(repo):
+    _, chosen, _ = _run(repo, ["docs/note.md", "docs/the_register.md"])
+    assert chosen == ["tests/test_reads_the_register.py"]
+
+
+def test_prose_no_test_names_is_counted_in_one_quiet_line_not_dropped_silently(repo):
+    """walk-d2b9a7bf4cd0 (Taleb, Dijkstra, Tannen): a path is selected or counted, never dropped without a trace, and
+    the line is not the code warning, which would teach the reader to ignore warnings."""
+    _, _, err = _run(repo, ["docs/note.md"])
+    assert "1 prose file(s) named by no test, set aside." in err
+    assert "NO TEST NAMES" not in err
+
+
+def test_the_quiet_line_is_absent_when_the_prose_was_named(repo):
+    _, _, err = _run(repo, ["docs/the_register.md"])
+    assert "prose file(s)" not in err
+
+
+def test_the_selection_is_the_union_over_the_changed_files(repo):
+    """walk-d2b9a7bf4cd0 (Lamport): adding a file to a push never removes a test from the run. By construction today;
+    this fails a future rewrite that stops at the first prose or first unnamed file."""
+    _, for_register, _ = _run(repo, ["docs/the_register.md"])
+    _, for_ledger, _ = _run(repo, ["src/divineos/core/ledger.py"])
+    _, for_both, _ = _run(repo, ["docs/the_register.md", "src/divineos/core/ledger.py"])
+    assert for_both == sorted(set(for_register) | set(for_ledger))
+    assert for_register and for_ledger, "a union of empty selections proves nothing"
 
 
 def test_a_deleted_test_file_is_ignored_and_is_not_called_untested(repo):
