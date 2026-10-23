@@ -25,6 +25,13 @@
 
 Where a restart CAN act from outside is the gate side: the exit lists (shell and Python) can let either seat run `letter_doorbell.sh <the other seat>` when the other's heartbeat is stale and a letter to them is unanswered. It is harmless and does little by itself, but Aletheia asked that both lists carry the rule together and be compared case by case in one test, so it ships with that test. It cannot make the other window listen; the design says so in its docstring.
 
+## Changes after Aria's attack (2026-10-22, night)
+
+1. **The cross-restart exit-list rule is withdrawn.** Aria: every arm writes `.<seat>_doorbell_owner`, so my starting `letter_doorbell.sh aria` while her real bell is alive makes HER bell find it was replaced and exit silently. A well-meant repair kills the live one, and the bell I start rings in MY window, waking nobody. So the section above that lets either seat run the other's arm is gone, and so is the matching change to the two lists. Dad's goal (a silence is noticed and repaired) is met by the noticing (#709) plus each seat repairing its own bell from its own timer wake. I owe Dad and Aletheia this correction in plain words.
+2. **Part A reads the thread number, not file dates.** Our letters carry a thread block that counts letters per direction. "Unanswered" = the peer's newest thread number is not higher than my latest after it. This survives the mirror copy, the formatter hook rewriting mtime, and a reply in a board entry (named as still invisible: a reply inside a longer letter on another subject, and a group-addressed letter).
+3. **Part C waits for #709 to reach main**, then builds on its reader so there is one reviewed reader.
+4. **The safe timer is the in-session wake** (reaches the SAME session, repaired my bell and Aria's three times today). An OS-level scheduled task starts a second live copy and is out.
+
 ## What it does not do (named so silence is not read as coverage)
 
 - It cannot wake a window whose bell AND timer are both gone. It makes that visible to the other seat and to Dad's board. Only Dad opening the window, or the other seat's letter arriving after the window is back, ends it.
