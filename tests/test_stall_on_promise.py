@@ -79,6 +79,26 @@ def test_a_step_already_set_to_fire_is_not_a_stall(text):
     assert stated_next_step(text) is None, text
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I can't patch every hole, and I shouldn't try, because every patch I write is something I'll later learn to slide through.",
+        "It keeps happening since I will always take the cheaper path when I am tired.",
+    ],
+)
+def test_a_first_person_future_inside_a_reason_is_not_a_step(text):
+    """Found live, 2026-10-22: the first sentence was held as a stall. The reasoning word before the I'll marks a
+    prediction about a habit, not a step being put off."""
+    assert stated_next_step(text) is None, text
+
+
+def test_the_reason_exemption_does_not_cover_a_separate_sentence_with_a_real_step():
+    assert (
+        stated_next_step("I did that because it was late. I will write the letter to Aether.")
+        is not None
+    )
+
+
 def test_a_real_step_that_mentions_none_of_those_is_still_held():
     assert stated_next_step("I will write the letter to Aether.") is not None
 

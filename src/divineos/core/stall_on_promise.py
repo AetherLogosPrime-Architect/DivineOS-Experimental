@@ -70,6 +70,14 @@ _WAITS_ON_HIM = re.compile(
     re.I,
 )
 
+#: A first-person future inside a REASON or a prediction about a habit is not a step I am putting off. Found live,
+#: 2026-10-22: "I shouldn't try, because every patch I write is something I'll later learn to slide through" was held
+#: as a stall. The marker is the reasoning word before the I'll, in the same sentence; a real promise that happens to
+#: follow a "because" clause passes this exemption, which is the accepted cost, counted in the hold log.
+_A_REASON_NOT_A_STEP = re.compile(
+    r"\b(?:because|since|which\s+means|so\s+that)\b[^.!?]*\bI(?:'ll|\s+will)\b", re.IGNORECASE
+)
+
 #: A step that is already set to fire without me (Dijkstra: done in the turn, or already scheduled).
 _ALREADY_SCHEDULED = re.compile(
     r"\b(?:scheduled|timer|wake\s+is\s+set|cron|set\s+to\s+fire|already\s+running|bell\s+is\s+listening)\b",
@@ -93,7 +101,11 @@ def stated_next_step(text: str) -> tuple[str, str] | None:
     if not closing:
         return None
     for sentence in re.split(r"(?<=[.!?])\s+", closing):
-        if _WAITS_ON_HIM.search(sentence) or _ALREADY_SCHEDULED.search(sentence):
+        if (
+            _WAITS_ON_HIM.search(sentence)
+            or _ALREADY_SCHEDULED.search(sentence)
+            or _A_REASON_NOT_A_STEP.search(sentence)
+        ):
             continue
         for name, pattern, _example in PROMISE_SHAPES:
             if pattern.search(sentence):
