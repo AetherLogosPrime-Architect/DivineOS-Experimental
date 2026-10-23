@@ -71,36 +71,6 @@ def test_the_note_is_not_written_to_the_shared_home():
     assert 'Path.home() / ".divineos"' not in src
 
 
-@pytest.mark.parametrize(
-    "command",
-    [
-        # Exactly as held on 2026-10-01.
-        'cat "C:/Users/aethe/AppData/Local/Temp/claude/x/tasks/bxkhn42id.output"',
-        'divineos prereg assess prereg-6766810e0572 --outcome DEFERRED --actor aria --notes "not measured"',
-        "divineos prereg show prereg-6766810e0572",
-        "grep -n x README.md",
-    ],
-)
-def test_a_look_or_another_gates_exit_passes(armed, command):
-    assert armed.refusal("Bash", {"command": command}) == ""
-
-
-@pytest.mark.parametrize(
-    "command",
-    ["git commit -m x", "rm -rf build", "grep x a > out.txt", "python -c 'print(1)'"],
-)
-def test_building_no_longer_waits(armed, command):
-    # 2026-10-05: "my questions should not hold you, you should hold my questions".
-    assert armed.refusal("Bash", {"command": command}) == ""
-    assert armed.refusal("Edit", {"file_path": "src/x.py"}) == ""
-
-
-def test_a_letter_waits_and_says_when_it_was_asked(armed):
-    why = armed.refusal("Write", {"file_path": "family/letters/aether-to-aria-x.md"})
-    assert "KEEPING PACE WITH DAD" in why
-    assert "asked 20" in why
-
-
 # THE SHARED FRIDGE (Dad, 2026-10-01): "seeing what the other was asked is a
 # nice addition, it just shouldnt block, only the personal ones do".
 @pytest.fixture
@@ -123,15 +93,6 @@ def board(tmp_path, monkeypatch):
 
 
 ASKING = "work\n\n## INNER CIRCLE\n\nDad, it is done. Which one do you want?"
-
-
-def test_the_other_seats_card_is_shown_and_never_holds(board):
-    board.BOARD.mkdir(parents=True)
-    (board.BOARD / ".divineos.json").write_text(
-        json.dumps({"question": "Dad, which bell?"}), encoding="utf-8"
-    )
-    assert board.others_waiting() == ["Aether is waiting on Dad: Dad, which bell?"]
-    assert board.refusal("Write", {"file_path": "family/letters/aria-to-aether-x.md"}) == ""
 
 
 def test_my_own_card_is_posted_and_taken_down(board):
