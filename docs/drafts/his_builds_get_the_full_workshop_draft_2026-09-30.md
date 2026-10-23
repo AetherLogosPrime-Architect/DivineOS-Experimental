@@ -224,3 +224,15 @@ Dad, on the daily question: *"having a daily question just sounds like a forced 
 4. **The room shows me, at the moment I am about to speak to him, which changes reached him since he last spoke and are still open**, so the honest thing to say is in front of me without my having to remember. That is a prompt to me and never a form to him.
 
 **What this does to the closing condition:** *not closed until his own words about how it felt are in the record verbatim* stands. Only the route to those words changes: he is listened for, not queried. A decline is still recorded as an answer to the question and not to the build, and the build stays open.
+
+## REVISION 9 (listening, not asking), amended by Aria's attack on "closes" (2026-10-23 night; station 1b/2, nothing built)
+
+Her letter: `aria-to-aether-2026-10-23-closes-is-too-strong-the-reader-proposes-and-the-non-author-confirms.md`.
+
+**"Closes" is too strong; the reader PROPOSES and a seat that did not build the thing CONFIRMS.** Three reasons, in her order of weight: (1) misreads cut both ways and one way is invisible: a joke read as a verdict closes a row on a misread, and worse, a real verdict read as noise leaves the row looking "still open" when he already answered, and his teaching, praise and complaint can all wear the same words (her blind ten put one of each in one sample); (2) if the builder confirms the proposed close, the builder is grading their own build, the cheap close in a new coat; (3) a wrong proposal costs a line and a wrong close costs the truth, so default to the cheap error.
+
+**So:** the both-ways reader of his messages **proposes**. The row then shows the passage with its date and his exact words. **A seat that did not build it confirms** (Aria for Aether's builds, Aether for Aria's, Aletheia when either asks). Verbatim, typed, never relayed (item 4b stands). The proposal is shown in the same paragraph the confirmer reads.
+
+**Added to item 4 (the prompt to me before I speak to him):** each open row carries its **age in his turns**, sorted **oldest first**. The row nobody has looked at for forty of his turns is the one the wide net is for.
+
+**One consequence worth stating.** Because a reader can miss a real answer, the row also reopens the *other* way: a row proposed-closed and confirmed is not final until a later message of his naming the build as cheap (the reopen reader) has had its N turns without a hit, where N is measured on the record before it is set. Neither direction is trusted alone.
