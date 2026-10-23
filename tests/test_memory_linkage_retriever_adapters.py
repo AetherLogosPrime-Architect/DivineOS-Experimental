@@ -154,11 +154,13 @@ def _make_fake_knowledge_conn(rows):
         "CREATE TABLE knowledge ("
         "knowledge_id TEXT, knowledge_type TEXT, content TEXT, "
         "created_at REAL, embedding BLOB, embedding_model TEXT, "
-        "superseded_by TEXT)"
+        "superseded_by TEXT, maturity TEXT DEFAULT 'RAW', "
+        "corroboration_count INTEGER DEFAULT 0, contradiction_count INTEGER DEFAULT 0)"
     )
     for row in rows:
         conn.execute(
-            "INSERT INTO knowledge VALUES (?, ?, ?, ?, ?, ?, NULL)",
+            "INSERT INTO knowledge (knowledge_id, knowledge_type, content, created_at, "
+            "embedding, embedding_model) VALUES (?, ?, ?, ?, ?, ?)",
             row,
         )
     conn.commit()
