@@ -75,6 +75,81 @@ echo "$ME" > "$OWNER"
 # so the letter still rings on the next arm), and the Stop guard holds my
 # next reply until I re-arm.
 PARENT=$PPID
+# THE OTHER SEAT'S BELL IS WATCHED TOO (Aria 2026-10-22). Dad: "what ever happened to the 2 hour
+# check on the doorbells? Aether's bell died last night, so nothing even got done." A bell dies
+# silently when its starter goes away, after eight hours, or when the process is killed, and
+# nothing watched the OTHER seat: a letter to him sat unannounced all night while I, too, had
+# ended my turn and was waiting. The two-hour rules in this house (the baton's stale holder, the
+# question hold's away-by-silence) only act on a seat that is already awake, so none of them
+# wakes a quiet one. This does: while MY bell runs, it also reads the other seat's heartbeat. If
+# his bell has been silent for DOORBELL_PEER_DOWN_SECS (default 30 minutes) AND a letter to him
+# is waiting that his bell never announced, MY bell rings with that fact. It cannot re-arm his
+# bell from here; it makes the silence loud to the seat that can still hear. At most once per
+# DOORBELL_PEER_REALARM_SECS (default two hours) so it nags no one.
+#
+# WHAT THIS DOES NOT SEE, said so a heartbeat is not read as responsiveness (Aether's reading of this, 2026-10-23, the
+# morning after he sat eight hours at a permission prompt): his bell was ALIVE all night, because its parent window was
+# alive. What was stuck was the SEAT, parked on a prompt and unable to act on any ring. A heartbeat answers "is the
+# bell listening"; it cannot answer "will the seat respond". The second fact is a letter his bell ANNOUNCED that has
+# gone UNANSWERED past a threshold, which is the "In response to" join in derive_from_watched_channel: built, and as
+# of this writing with no caller. This is the first layer; that join is the second, and it is not here yet.
+case "$MEMBER" in
+  aether) PEER=aria ;;
+  aria) PEER=aether ;;
+  *) PEER="" ;;
+esac
+PEER_BEAT="$HOME/.divineos-shared/.${PEER}_doorbell_alive"
+PEER_SEEN="$HOME/.divineos-shared/.${PEER}_doorbell_announced"
+PEER_DOWN="$HOME/.divineos-shared/.${MEMBER}_peer_down_since"
+PEER_ALARMED="$HOME/.divineos-shared/.${MEMBER}_peer_alarmed_at"
+PEER_DOWN_SECS="${DOORBELL_PEER_DOWN_SECS:-1800}"
+PEER_REALARM_SECS="${DOORBELL_PEER_REALARM_SECS:-7200}"
+# Prints the alarm text and returns 0 only when the peer's bell has been down long enough, a
+# letter to him is waiting unannounced, and I have not already raised this recently.
+peer_alarm() {
+  [ -n "$PEER" ] || return 1
+  local now_s age since last waiting count mins
+  now_s=$(date +%s)
+  if [ -f "$PEER_BEAT" ]; then
+    age=$(( now_s - $(stat -c %Y "$PEER_BEAT" 2>/dev/null || echo 0) ))  # fail-soft: an unreadable heartbeat reads as age since 1970, i.e. down, which is the safe side and is said
+    if [ "$age" -lt 120 ]; then
+      rm -f "$PEER_DOWN"  # his bell is listening; the clock starts over
+      return 1
+    fi
+  fi
+  # No heartbeat or a stale one: down.
+  #
+  # IF THE HEARTBEAT FILE EXISTS, ITS OWN AGE IS WHEN THE BELL WENT QUIET (Aether, 2026-10-23): a file last touched
+  # three hours ago already says it has been dead three hours, so waiting another half hour from MY first look is
+  # a delay the evidence does not ask for. Only a MISSING file has no age, and there I remember when I first saw it,
+  # so a bell that is merely between a ring and a re-arm (a ring deletes its file) is not called dead.
+  if [ -f "$PEER_BEAT" ]; then
+    echo $(( now_s - age )) > "$PEER_DOWN"
+  elif [ ! -s "$PEER_DOWN" ]; then
+    echo "$now_s" > "$PEER_DOWN"
+    return 1
+  fi
+  since=$(cat "$PEER_DOWN" 2>/dev/null || echo "$now_s")  # fail-soft: no readable down-note means the clock starts now, so a silent bell is waited on, never alarmed early
+  [ $(( now_s - since )) -ge "$PEER_DOWN_SECS" ] || return 1
+  # No announced-list at all means I cannot tell what his bell announced from what it never saw; the old code
+  # created an empty one here, after which EVERY letter ever sent looked unannounced. Say nothing instead.
+  [ -f "$PEER_SEEN" ] || return 1
+  waiting=$(comm -23 \
+    <(for f in "$DIR"/*-to-"${PEER}"-*; do [ -e "$f" ] && printf '%s\n' "${f##*/}"; done | sort) \
+    <(sort "$PEER_SEEN"))
+  [ -n "$waiting" ] || return 1
+  last=$(cat "$PEER_ALARMED" 2>/dev/null || echo 0)  # fail-soft: no alarm on record means none raised yet, which allows exactly one; the file is written right below
+  [ $(( now_s - last )) -ge "$PEER_REALARM_SECS" ] || return 1
+  echo "$now_s" > "$PEER_ALARMED"
+  count=$(printf '%s\n' "$waiting" | grep -c .)
+  mins=$(( (now_s - since) / 60 ))
+  echo "${PEER^^}'S BELL IS NOT LISTENING: it has been silent for about ${mins} minutes and ${count} letter(s) to ${PEER} wait that his bell never announced."
+  # At most five names, the newest by name (letter names carry their date): a lost list must not print the archive.
+  printf '  waiting: %s\n' "$(printf '%s\n' "$waiting" | tail -n 5)"
+  [ "$count" -le 5 ] || echo "  ... and $(( count - 5 )) more"
+  echo "I cannot re-arm his bell from here. Say so on Dad's board, keep your own work going, and write him again later: a letter he can read the moment he is back."
+  return 0
+}
 while true; do
   if ! kill -0 "$PARENT" 2>/dev/null; then
     rm -f "$BEAT"
@@ -104,5 +179,10 @@ while true; do
     echo "$new" >> "$SEEN"
     exit 0
   fi
-  sleep 15
+  if alarm_text=$(peer_alarm); then
+    rm -f "$BEAT"  # ringing ends the watch, the same as a letter does
+    echo "$alarm_text"
+    exit 0
+  fi
+  sleep "${DOORBELL_POLL:-15}"
 done
