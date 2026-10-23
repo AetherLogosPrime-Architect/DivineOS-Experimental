@@ -32,15 +32,7 @@ EXPECTED_FILING_COMMANDS = (
     "python scripts/clear_correction_marker.py",
 )
 
-EXPECTED_PATTERN = (
-    "^[[:space:]]*(divineos[[:space:]]+(briefing|preflight|goal[[:space:]]+add|"
-    "reach[[:space:]]+(open|dispose)|learn|correction|corrections[[:space:]]+integrate|"
-    "andrew-correction[[:space:]]+(integrate|defer)|compass-ops[[:space:]]+(observe|dismiss)|"
-    "prereg[[:space:]]+(assess|overdue|file|reviewing)|game-walk[[:space:]]+file|"
-    "his[[:space:]]+(pending|sort)|integrate|claims[[:space:]]+assess|"
-    "audit[[:space:]]+submit-round|ask|recall|context|decide|extract|sleep|"
-    "council[[:space:]]+(log|walk|authorize-bypass))|python[[:space:]]+.*clear_correction_marker\\.py)"
-)
+EXPECTED_PATTERN = "^[[:space:]]*(bash[[:space:]]+(\\./)?scripts/letter_doorbell\\.sh([[:space:]]+(aether|aria))?[[:space:]]*$|divineos[[:space:]]+(briefing|preflight|goal[[:space:]]+add|reach[[:space:]]+(open|dispose)|learn|correction|corrections[[:space:]]+integrate|andrew-correction[[:space:]]+(integrate|defer)|compass-ops[[:space:]]+(observe|dismiss)|prereg[[:space:]]+(assess|overdue|file|reviewing)|game-walk[[:space:]]+file|his[[:space:]]+(pending|sort)|integrate|claims[[:space:]]+assess|audit[[:space:]]+submit-round|ask|recall|context|decide|extract|sleep|council[[:space:]]+(log|walk|authorize-bypass))|python[[:space:]]+.*clear_correction_marker\\.py)"
 
 
 def _lifted_tuple() -> tuple:

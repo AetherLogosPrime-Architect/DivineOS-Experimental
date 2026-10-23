@@ -28,8 +28,27 @@ _ORDER_QUESTIONS = (
     # "Which would you like me to take first / next?"
     re.compile(r"\bwhich\b[^?\n]*\b(first|next|before|order)\b[^?\n]*\?", re.I),
     # A choice between two things with an ordering word in it, either side of the "or".
-    re.compile(r"\b(first|next|start with|begin with)\b[^?\n]*\bor\b[^?\n]*\?", re.I),
-    re.compile(r"\bor\b[^?\n]*\b(first|next|start there|start with|begin with)\b[^?\n]*\?", re.I),
+    # "first"/"next" count only as an ADVERB ("do it first, or ...", "first or second"), never as an adjective
+    # in "the first draft or the final one" (Aletheia, #697 confirm, 2026-10-21: a choice between versions of
+    # one thing is not an order question).
+    re.compile(
+        r"\b(?:(?:first|next)\b(?=\s*(?:[?,;:]|or\b|and\b|before\b|then\b|about\b|with\b|once\b|after\b))"
+        r"|start with\b|begin with\b)[^?\n]*\bor\b[^?\n]*\?",
+        re.I,
+    ),
+    re.compile(
+        r"\bor\b[^?\n]*\b(?:(?:first|next)\b(?=\s*(?:[?,;:]|or\b|and\b|before\b|then\b|about\b|with\b|once\b|after\b))"
+        r"|start there\b|start with\b|begin with\b)[^?\n]*\?",
+        re.I,
+    ),
+    # "Do you want the doorbell done before the lock?" -- one work item put ahead of another, no "or"
+    # (Aletheia, #697 confirm, 2026-10-21). Narrow on purpose: a past-participle of finishing work, then
+    # "before the", so "Should I check before the push goes out?" is left alone.
+    re.compile(
+        r"\b(?:do you want|would you like|should i|shall i|want me to|like me to|is it)\b[^?\n]*"
+        r"\b(?:done|built|landed|merged|fixed|finished|started|taken)\s+before\s+the\b[^?\n]*\?",
+        re.I,
+    ),
     # "Do you want that to be the next big thing, or should it wait?"
     re.compile(r"\bnext\b[^?\n]*\bor should\b[^?\n]*\?", re.I),
     # "In what order ...", "what order ..."

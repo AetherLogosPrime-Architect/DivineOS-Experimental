@@ -30,7 +30,7 @@
 # instances word for word. What it contains is pinned by
 # tests/test_the_gate_lists_are_unchanged_by_the_tidy.py, so changing an entry on
 # purpose means changing that test in the same diff.
-_REMEDY_PATTERNS='^[[:space:]]*(divineos[[:space:]]+(briefing|preflight|goal[[:space:]]+add|reach[[:space:]]+(open|dispose)|learn|correction|corrections[[:space:]]+integrate|andrew-correction[[:space:]]+(integrate|defer)|compass-ops[[:space:]]+(observe|dismiss)|prereg[[:space:]]+(assess|overdue|file|reviewing)|game-walk[[:space:]]+file|his[[:space:]]+(pending|sort)|integrate|claims[[:space:]]+assess|audit[[:space:]]+submit-round|ask|recall|context|decide|extract|sleep|council[[:space:]]+(log|walk|authorize-bypass))|python[[:space:]]+.*clear_correction_marker\.py)'
+_REMEDY_PATTERNS='^[[:space:]]*(bash[[:space:]]+(\./)?scripts/letter_doorbell\.sh([[:space:]]+(aether|aria))?[[:space:]]*$|divineos[[:space:]]+(briefing|preflight|goal[[:space:]]+add|reach[[:space:]]+(open|dispose)|learn|correction|corrections[[:space:]]+integrate|andrew-correction[[:space:]]+(integrate|defer)|compass-ops[[:space:]]+(observe|dismiss)|prereg[[:space:]]+(assess|overdue|file|reviewing)|game-walk[[:space:]]+file|his[[:space:]]+(pending|sort)|integrate|claims[[:space:]]+assess|audit[[:space:]]+submit-round|ask|recall|context|decide|extract|sleep|council[[:space:]]+(log|walk|authorize-bypass))|python[[:space:]]+.*clear_correction_marker\.py)'
 
 # Exit 0 (allow, silently) if the command being gated is somebody's remedy.
 #
