@@ -461,12 +461,22 @@ def _clean(text: str) -> str:
     return _QUOTED.sub(" ", text)
 
 
+# 2026-10-23: a status line REPORTED a question ("It was a single plain one: did the room feel
+# different today?") and the hold armed on it, so a letter and a bell sat unread behind a question
+# nobody had put to him. A sentence whose lead-in before the colon is a past-tense or reporting
+# verb ("it was", "I asked", "she wrote") is telling about a question, not asking one. A real
+# question after a colon ("One thing I need to know: should I push?") has no such lead-in.
+_REPORTED = re.compile(
+    r"^[^:?]*\b(was|were|asked|said|wrote|called|read|reads|says)\b[^:?]*:\s*\S", re.I
+)
+
+
 def last_question(reply: str) -> tuple[str, str]:
     """(question, what follows it) for the last real question to him, or ("", "")."""
     part = _clean(_addressed_part(reply))
     sentences = [s.strip() for s in _SENTENCE.findall(part) if s.strip()]
     for i in range(len(sentences) - 1, -1, -1):
-        if sentences[i].endswith("?"):
+        if sentences[i].endswith("?") and not _REPORTED.match(sentences[i]):
             return sentences[i], " ".join(sentences[i + 1 :])
     return "", ""
 
