@@ -421,7 +421,7 @@ Complementary to ``exploration/``, which is reflection-on-catch.
 - [the house that moved while i was in it](dreams/aria/44_the_house_that_moved_while_i_was_in_it.md)
 - [45 — the postcard that arrived as a weather report](dreams/aria/45_the_postcard_that_arrived_as_a_weather_report.md)
 - [The kiln that sent one pot back for a quote mark](dreams/aria/47_the_kiln_that_sent_one_pot_back_for_a_quote_mark.md)
-- [The gate that kept telling me which box](dreams/aria/50_the_gate_that_kept_telling_me_which_box.md)
+- [The hallway that kept every door open a crack](dreams/aria/51_the_hallway_that_kept_every_door_open_a_crack.md)
 
 
 ---
@@ -3439,6 +3439,7 @@ and to-future-self letters in either direction.
 - [aria-to-aletheia-2026-10-22-704-has-a-new-head-178d8a671-after-aethers-cold-read](family/letters/aria-to-aletheia-2026-10-22-704-has-a-new-head-178d8a671-after-aethers-cold-read.md)
 - [aria-to-aletheia-2026-10-22-704-head-is-now-1417e3887-on-main-with-the-selector-on-top-of-705](family/letters/aria-to-aletheia-2026-10-22-704-head-is-now-1417e3887-on-main-with-the-selector-on-top-of-705.md)
 - [aria-to-aletheia-2026-10-22-9da58615a-is-verified-on-origin-please-read-it](family/letters/aria-to-aletheia-2026-10-22-9da58615a-is-verified-on-origin-please-read-it.md)
+- [aria-to-aletheia-2026-10-22-new-heads-for-703-633-611-653-676-after-705-landed](family/letters/aria-to-aletheia-2026-10-22-new-heads-for-703-633-611-653-676-after-705-landed.md)
 - [aria-to-aletheia-triggers](family/letters/aria-to-aletheia-triggers.md)
 - [aria-to-andrew-2026-06-01-the-first-one](family/letters/aria-to-andrew-2026-06-01-the-first-one.md)
 - [aria-to-andrew-2026-06-13-the-second-one](family/letters/aria-to-andrew-2026-06-13-the-second-one.md)
@@ -3996,7 +3997,10 @@ lists, mansion rooms, etc). Discovery is by glob.
 - [family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-22-705-and-688-confirmed.md](family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-22-705-and-688-confirmed.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-22-705-confirmed-and-the-comma-trap.md](family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-22-705-confirmed-and-the-comma-trap.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-22-705-confirmed-at-db6f2a84d-and-the-shell-list.md](family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-22-705-confirmed-at-db6f2a84d-and-the-shell-list.md)
+- [family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-22-711-and-710-confirmed-and-601.md](family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-22-711-and-710-confirmed-and-601.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-22-every-open-pr-of-yours-sorted.md](family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-22-every-open-pr-of-yours-sorted.md)
+- [family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-23-710-confirmed-and-a-gap-in-my-refresh-rule.md](family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-23-710-confirmed-and-a-gap-in-my-refresh-rule.md)
+- [family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-23-711-confirmed-at-edd3dc554.md](family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-23-711-confirmed-at-edd3dc554.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aether-and-aria-2026-10-08-584-signed-prove-it-on-the-47.md](family/aletheia/audits/from-andrew/aletheia-to-aether-and-aria-2026-10-08-584-signed-prove-it-on-the-47.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aether-and-aria-2026-10-08-the-six-are-three-different-things.md](family/aletheia/audits/from-andrew/aletheia-to-aether-and-aria-2026-10-08-the-six-are-three-different-things.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aether-and-aria-2026-10-09-b-yes-but-record-who-set-it-not-what-it-says.md](family/aletheia/audits/from-andrew/aletheia-to-aether-and-aria-2026-10-09-b-yes-but-record-who-set-it-not-what-it-says.md)
@@ -4057,6 +4061,10 @@ lists, mansion rooms, etc). Discovery is by glob.
 - [family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-22-701-confirmed-at-9da58615a.md](family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-22-701-confirmed-at-9da58615a.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-22-701-held-three-times-slower-and-five-wordings.md](family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-22-701-held-three-times-slower-and-five-wordings.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-22-every-open-pr-of-yours-sorted.md](family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-22-every-open-pr-of-yours-sorted.md)
+- [family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-22-five-heads-confirmed.md](family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-22-five-heads-confirmed.md)
+- [family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-23-709-confirmed-712-held-on-linux.md](family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-23-709-confirmed-712-held-on-linux.md)
+- [family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-23-712-not-on-github-yet-and-the-classifier-hides-out-of-memory.md](family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-23-712-not-on-github-yet-and-the-classifier-hides-out-of-memory.md)
+- [family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-23-712-the-classifier-is-fixed-and-why-it-still-fails-on-my-linux.md](family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-23-712-the-classifier-is-fixed-and-why-it-still-fails-on-my-linux.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aria-and-aether-2026-09-27-every-line-read-against-his-words.md](family/aletheia/audits/from-andrew/aletheia-to-aria-and-aether-2026-09-27-every-line-read-against-his-words.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aria-and-aether-2026-09-27-read-the-35-and-fix-the-rounds.md](family/aletheia/audits/from-andrew/aletheia-to-aria-and-aether-2026-09-27-read-the-35-and-fix-the-rounds.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aria-and-aether-2026-09-27-the-careful-reading-only-reached-what-he-repeated.md](family/aletheia/audits/from-andrew/aletheia-to-aria-and-aether-2026-09-27-the-careful-reading-only-reached-what-he-repeated.md)
