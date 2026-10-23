@@ -1,9 +1,11 @@
-"""The real sampler, against a real killed worker and against its absence.
+"""The real sampler, against a real killed worker, against its absence, and against someone else's worker.
 
 Turing's finding (walk-193e1c70464f): a watcher that works and one that merely runs return the same value on a quiet
 push, so the only proof is to plant the fault AND its absence. The first test kills a helper on purpose while its
 parent and its sibling keep running and asserts the report names it. The second runs the identical setup with no kill
-and asserts the report names nothing. If either passes while the watcher is blind, the other fails.
+and asserts the report names nothing. The third kills a helper that belongs to ANOTHER push running at the same time
+and asserts the report still names nothing: found when three copies of this file ran at once and each watcher blamed
+the others' deaths on its own push, which is exactly Dad and Aether pushing together.
 
 The stand-in "workers" carry the signature in their command line, which is all the sampler keys on. They are real
 processes; nothing here imitates a process table.
@@ -31,6 +33,21 @@ _spec.loader.exec_module(pw)
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 _SLEEP = "import time; time.sleep(60)  # " + pw.SIGNATURE
 
+# A test run: starts two workers, prints their pids, then idles. It outlives a dead worker, as a real run does.
+_PARENT_RUN = (
+    "import subprocess, sys, time\n"
+    f"kids = [subprocess.Popen([sys.executable, '-c', {_SLEEP!r}]) for _ in range(2)]\n"
+    "print(' '.join(str(k.pid) for k in kids), flush=True)\n"
+    "time.sleep(60)\n"
+)
+# The push hook stand-in: starts a test run as its child, passes the worker pids on, then idles.
+_HOOK = (
+    "import subprocess, sys, time\n"
+    f"run = subprocess.Popen([sys.executable, '-c', {_PARENT_RUN!r}], stdout=subprocess.PIPE, text=True)\n"
+    "print(run.stdout.readline().strip(), flush=True)\n"
+    "time.sleep(60)\n"
+)
+
 
 def _spawn(*argv):
     return subprocess.Popen(
@@ -38,60 +55,82 @@ def _spawn(*argv):
     )
 
 
-def _run_scenario(tmp_path, kill_one):
+def _start_run(code):
+    proc = subprocess.Popen(
+        [sys.executable, "-c", code], stdout=subprocess.PIPE, creationflags=_NO_WINDOW, text=True
+    )
+    return proc, [int(x) for x in proc.stdout.readline().split()]
+
+
+def _wait_until_seen(raw, pids, timeout=30.0):
+    """Block until the watcher's log shows every stand-in worker as present: the plant waits for the instrument.
+
+    This test once failed one run in five because it killed the helper after a fixed 1.5 s, before a loaded machine
+    let the watcher finish its first look. A kill before the baseline is not a missed death, it is an unplanted fault.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        seen = {
+            int(e["pid"]) for e in pw.read_raw(raw) if e.get("k") == "present" and e.get("worker")
+        }
+        if set(pids) <= seen:
+            return
+        time.sleep(0.2)
+    raise AssertionError(
+        f"the watcher never recorded the workers {pids} as present within {timeout}s"
+    )
+
+
+def _run_scenario(tmp_path, kill_own=False, kill_decoy=False):
     raw = tmp_path / "raw.jsonl"
-    hook = _spawn(sys.executable, "-c", "import time; time.sleep(60)")
-    # The parent run: starts two workers, then idles. It outlives the scenario, as a real run outlives a dead worker.
-    parent_code = (
-        "import subprocess, sys, time\n"
-        f"kids = [subprocess.Popen([sys.executable, '-c', {_SLEEP!r}]) for _ in range(2)]\n"
-        "print(' '.join(str(k.pid) for k in kids), flush=True)\n"
-        "time.sleep(60)\n"
-    )
-    parent = subprocess.Popen(
-        [sys.executable, "-c", parent_code],
-        stdout=subprocess.PIPE,
-        creationflags=_NO_WINDOW,
-        text=True,
-    )
-    pids = [int(x) for x in parent.stdout.readline().split()]
+    hook, own = _start_run(_HOOK)  # the watched push: hook -> test run -> two workers
+    decoy, others = _start_run(_PARENT_RUN)  # ANOTHER push's run, not under the hook
     watcher = _spawn(
         sys.executable, str(_PATH), "start", "--parent", str(hook.pid), "--raw", str(raw)
     )
     try:
-        time.sleep(1.5)  # the watcher takes its baseline of who is present
-        if kill_one:
-            psutil.Process(pids[0]).kill()
+        _wait_until_seen(raw, own)
+        if kill_own:
+            psutil.Process(own[0]).kill()
+        if kill_decoy:
+            psutil.Process(others[0]).kill()
         time.sleep(
             4.0
         )  # longer than the settle window, so the parent and sibling are seen still alive
         hook.kill()  # the push is over: the watcher must notice its parent is gone and stop on its own
         watcher.wait(timeout=20)
     finally:
-        for proc in (hook, parent, watcher):
+        for proc in (hook, decoy, watcher):
             if proc.poll() is None:
                 proc.kill()
-        for pid in pids:
+        for pid in own + others:
             try:
                 psutil.Process(pid).kill()
             except psutil.Error:
                 pass
-    return pids, pw.assemble(pw.read_raw(raw), 1, "odd failure")
+    return own, pw.assemble(pw.read_raw(raw), 1, "odd failure")
 
 
 def test_planted_fault_the_killed_helper_is_named(tmp_path):
-    pids, report = _run_scenario(tmp_path, kill_one=True)
+    own, report = _run_scenario(tmp_path, kill_own=True)
     assert report["outcome"] == pw.NAMED, report
-    assert [d["pid"] for d in report["deaths"]] == [pids[0]]
+    assert [d["pid"] for d in report["deaths"]] == [own[0]]
     assert report["samples"] > 0
 
 
 def test_planted_absence_nothing_is_named_when_nothing_died(tmp_path):
-    _, report = _run_scenario(tmp_path, kill_one=False)
+    _, report = _run_scenario(tmp_path)
     assert report["outcome"] == pw.NOTHING_SEEN, report
     assert report["deaths"] == [] and report["samples"] > 0
 
 
+def test_another_pushes_dead_helper_is_not_this_pushes_death(tmp_path):
+    """Concurrent pushes: a worker that is not under the watched hook ending is none of this watcher's business."""
+    _, report = _run_scenario(tmp_path, kill_decoy=True)
+    assert report["deaths"] == [], report
+    assert report["outcome"] == pw.NOTHING_SEEN, report
+
+
 def test_the_watcher_stops_by_itself_when_its_parent_is_gone(tmp_path):
     """Exits-when-parent-gone: a killed push cannot leave a stale watcher. _run_scenario would time out otherwise."""
-    _run_scenario(tmp_path, kill_one=False)
+    _run_scenario(tmp_path)

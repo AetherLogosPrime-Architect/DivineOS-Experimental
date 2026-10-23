@@ -19,7 +19,9 @@ ORDER IS BY SAMPLE NUMBER, not seconds: the sampler, the test runner and the fil
 "before" means an earlier sample and the same sample is CONCURRENT.
 
 WHAT IT CANNOT SEE, printed with every NOTHING_SEEN: anything that lives under one sampling interval (the MEASURED
-mean, not the 0.25 s asked for; the first version really looked once per 2 s), a kill
+mean, not the 0.25 s asked for; the first version really looked once per 2 s), anything that ends before the first
+look finishes (about 1 s; a push starts its test workers minutes later, so this is a start-up blind spot, not a
+mid-run one), a kill
 that leaves no entry in the process list, a failure inside a single process. A named process ending near a death is a
 CANDIDATE, never a proven cause: on a busy machine some process always ends in any three seconds.
 
@@ -31,9 +33,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -270,17 +270,36 @@ def _alive(pid: int) -> bool:
     return psutil.pid_exists(pid)
 
 
-def _snapshot(known: dict) -> dict[int, dict]:
+def _snapshot(known: dict, root: int | None = None) -> dict[int, dict]:
     """Who is running now. Names are cheap (0.01 s for 330 processes); reading each command line costs about 6 ms and
     made ONE look take 2 s on this machine, so the 'quarter second' sampler was really one look every two seconds
     (found by the planted-fault test, 2026-10-23). A command line is therefore read once per new python process and
     remembered by (pid, start time); everything else is judged by name."""
     import psutil
 
-    out: dict[int, dict] = {}
+    procs = []
     for p in psutil.process_iter(["pid", "ppid", "name", "create_time"]):
         try:
-            info = p.info
+            procs.append((p, p.info))
+        except (psutil.Error, OSError):
+            continue
+    parent_of = {info["pid"]: info["ppid"] for _, info in procs}
+
+    def under_root(pid: int) -> bool:
+        """Is this process a descendant of the watched push? Another push's workers are not this push's deaths."""
+        if root is None:
+            return True
+        for _ in range(64):
+            if pid == root:
+                return True
+            pid = parent_of.get(pid, 0)
+            if not pid:
+                return False
+        return False
+
+    out: dict[int, dict] = {}
+    for p, info in procs:
+        try:
             name = (info["name"] or "").lower()
             key = (info["pid"], info["create_time"])
             kind = known.get(key)
@@ -291,6 +310,8 @@ def _snapshot(known: dict) -> dict[int, dict]:
                 kind = (worker, name in LOGGED_NAMES)
                 known[key] = kind
             worker, logged = kind
+            if worker and not under_root(info["pid"]):
+                continue
             if worker or logged:
                 out[info["pid"]] = {"ppid": info["ppid"], "name": name, "worker": worker}
         except (psutil.Error, OSError):
@@ -326,14 +347,14 @@ def run(parent_pid: int, raw_path: Path, git_config: Path | None = None) -> None
 
         n = 0
         known: dict = {}
-        previous = _snapshot(known)
+        previous = _snapshot(known, parent_pid)
         for pid, info in previous.items():
             write({"k": "present", "n": 0, "t": round(time.time(), 2), "pid": pid, **info})
         bare = _bare_line(git_config) if git_config else ""
         while _alive(parent_pid):
             time.sleep(INTERVAL)
             n += 1
-            current = _snapshot(known)
+            current = _snapshot(known, parent_pid)
             for pid, info in current.items():
                 if pid not in previous:
                     write({"k": "started", "n": n, "t": round(time.time(), 2), "pid": pid, **info})
