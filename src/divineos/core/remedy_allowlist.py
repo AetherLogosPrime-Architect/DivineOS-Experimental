@@ -210,6 +210,20 @@ def outside_quotes(command: str) -> str:
     return command if blanked is None else blanked
 
 
+def _own_seat_script_remedies() -> tuple[tuple[str, ...], ...]:
+    """The script exits for the seat this checkout is, and none when it cannot be told.
+    The other seat's bell is not this seat's exit (the overdue-review block already
+    held that line, pinned in test_a_remedy_is_not_a_write.py), and an unreadable seat
+    fails toward the pause."""
+    try:
+        from divineos.core.sibling_audit_rounds import this_seat
+
+        seat = this_seat()
+    except Exception:  # noqa: BLE001 — cannot tell the seat: no script exit
+        return ()
+    return tuple(prefix for prefix in SCRIPT_REMEDIES if prefix[-1] == seat)
+
+
 def is_remedy(command: str) -> bool:
     """True when this command is some gate's prescribed exit, and nothing else.
 
@@ -246,7 +260,7 @@ def is_remedy(command: str) -> bool:
     try:
         from divineos.core.command_parsing import runs_only
 
-        return runs_only(command, REMEDIES + SCRIPT_REMEDIES)
+        return runs_only(command, REMEDIES + _own_seat_script_remedies())
     except Exception:  # noqa: BLE001 — fail toward not-a-remedy, never toward a block
         return False
 

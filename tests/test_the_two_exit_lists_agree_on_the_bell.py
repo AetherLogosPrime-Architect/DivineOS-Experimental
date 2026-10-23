@@ -1,16 +1,25 @@
-"""The doorbell re-arm is an exit on BOTH remedy lists, not only the shell one.
+"""The doorbell re-arm is an exit on BOTH remedy lists, for the seat that is running.
 
 Aria found it 2026-10-22 reading #705: the shell list carried the entry and the
 Python list (`core/remedy_allowlist.py`, read by the gates through `is_remedy`) did
 not, so a gate reading the Python list could still hold the bare re-arm and leave
 the bell unlistening. Same shape as the two-lists-disagree finding on #703.
+
+CI then showed the first version was too wide: the overdue-review block already held
+that only THIS seat's own bell is an exit, and the Python list let either seat's
+through. The Python side now follows the running seat.
 """
 
 from __future__ import annotations
 
 import pytest
 
+from divineos.core import sibling_audit_rounds
 from divineos.core.remedy_allowlist import FORBIDDEN_HEADS, REMEDIES, SCRIPT_REMEDIES, is_remedy
+
+
+def _seat(monkeypatch, name):
+    monkeypatch.setattr(sibling_audit_rounds, "this_seat", lambda: name)
 
 
 def test_control_a_listed_exit_is_a_remedy():
@@ -25,13 +34,26 @@ def test_control_ordinary_work_is_not_a_remedy():
     "command",
     [
         "bash scripts/letter_doorbell.sh aether",
-        "bash scripts/letter_doorbell.sh aria",
         "bash ./scripts/letter_doorbell.sh aether",
         'cd "/c/DIVINE OS/DivineOS-Experimental" && bash scripts/letter_doorbell.sh aether',
     ],
 )
-def test_the_bell_rearm_is_a_remedy(command):
+def test_the_running_seats_own_rearm_is_a_remedy(command, monkeypatch):
+    _seat(monkeypatch, "aether")
     assert is_remedy(command)
+
+
+def test_the_other_seats_bell_is_not_this_seats_exit(monkeypatch):
+    _seat(monkeypatch, "aether")
+    assert not is_remedy("bash scripts/letter_doorbell.sh aria")
+    _seat(monkeypatch, "aria")
+    assert is_remedy("bash scripts/letter_doorbell.sh aria")
+    assert not is_remedy("bash scripts/letter_doorbell.sh aether")
+
+
+def test_a_seat_that_cannot_be_told_has_no_script_exit(monkeypatch):
+    _seat(monkeypatch, None)
+    assert not is_remedy("bash scripts/letter_doorbell.sh aether")
 
 
 @pytest.mark.parametrize(
@@ -44,7 +66,8 @@ def test_the_bell_rearm_is_a_remedy(command):
         "bash -c 'git push'",
     ],
 )
-def test_nothing_else_rides_on_the_rearm(command):
+def test_nothing_else_rides_on_the_rearm(command, monkeypatch):
+    _seat(monkeypatch, "aether")
     assert not is_remedy(command)
 
 
