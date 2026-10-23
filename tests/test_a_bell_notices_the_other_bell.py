@@ -223,6 +223,55 @@ def test_a_letter_to_me_still_rings_as_it_always_did(home):
     assert ran is not None and "LETTER ARRIVED" in ran.stdout, None if ran is None else ran.stdout
 
 
+# --- Aether's reading, 2026-10-23: three findings on this change ---------------------------------------------------
+
+
+def test_a_stale_heartbeat_files_own_age_starts_the_down_clock(home):
+    """Finding 2: a file last touched three hours ago already says three hours. No second half hour from my first look."""
+    _letter(home, "aria-to-aether-2026-10-22-a-letter.md")
+    _announced(home, "aether")  # his bell never announced it
+    _beat(home, "aether", age_s=3 * HOUR)  # alive-file left behind by a bell that died
+    ran = _run(home, "aria", seconds=20, down_secs=1800)
+    assert ran is not None and "AETHER'S BELL IS NOT LISTENING" in ran.stdout, (
+        None if ran is None else ran.stdout
+    )
+    assert "about 18" in ran.stdout or "about 19" in ran.stdout, (
+        "the minutes should come from the file's age (~180)"
+    )
+
+
+def test_control_a_missing_heartbeat_still_only_starts_the_clock_on_first_sight(home):
+    """The between-a-ring-and-a-re-arm protection stays: a ring deletes the file, and that must not read as dead."""
+    _letter(home, "aria-to-aether-2026-10-22-a-letter.md")
+    _announced(home, "aether")
+    assert not (_shared(home) / ".aether_doorbell_alive").exists()
+    assert _run(home, "aria", seconds=5, down_secs=1800) is None
+
+
+def test_no_announced_list_at_all_is_not_an_alarm_and_is_not_created(home):
+    """Finding 3: touching a missing list into existence made every letter ever sent look unannounced."""
+    _letter(home, "aria-to-aether-2026-10-22-a-letter.md")
+    _down_since(home, "aria", ago_s=HOUR)
+    assert not (_shared(home) / ".aether_doorbell_announced").exists()
+    assert _run(home, "aria", seconds=5) is None
+    assert not (_shared(home) / ".aether_doorbell_announced").exists(), (
+        "the check must not create the list it reads"
+    )
+
+
+def test_the_alarm_names_at_most_five_letters_and_counts_the_rest(home):
+    _announced(home, "aether")
+    for i in range(12):
+        _letter(home, f"aria-to-aether-2026-10-22-letter-{i:02d}.md")
+    _down_since(home, "aria", ago_s=HOUR)
+    ran = _run(home, "aria", seconds=20)
+    assert ran is not None and "12 letter(s) to aether" in ran.stdout, (
+        None if ran is None else ran.stdout
+    )
+    assert ran.stdout.count("letter-") == 5, ran.stdout
+    assert "and 7 more" in ran.stdout
+
+
 def test_a_seat_with_no_partner_does_not_fault(home):
     """aletheia has no peer bell here: the check must simply not apply."""
     assert _run(home, "aletheia", seconds=4) is None

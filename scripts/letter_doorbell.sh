@@ -86,6 +86,13 @@ PARENT=$PPID
 # is waiting that his bell never announced, MY bell rings with that fact. It cannot re-arm his
 # bell from here; it makes the silence loud to the seat that can still hear. At most once per
 # DOORBELL_PEER_REALARM_SECS (default two hours) so it nags no one.
+#
+# WHAT THIS DOES NOT SEE, said so a heartbeat is not read as responsiveness (Aether's reading of this, 2026-10-23, the
+# morning after he sat eight hours at a permission prompt): his bell was ALIVE all night, because its parent window was
+# alive. What was stuck was the SEAT, parked on a prompt and unable to act on any ring. A heartbeat answers "is the
+# bell listening"; it cannot answer "will the seat respond". The second fact is a letter his bell ANNOUNCED that has
+# gone UNANSWERED past a threshold, which is the "In response to" join in derive_from_watched_channel: built, and as
+# of this writing with no caller. This is the first layer; that join is the second, and it is not here yet.
 case "$MEMBER" in
   aether) PEER=aria ;;
   aria) PEER=aether ;;
@@ -104,32 +111,42 @@ peer_alarm() {
   local now_s age since last waiting count mins
   now_s=$(date +%s)
   if [ -f "$PEER_BEAT" ]; then
-    age=$(( now_s - $(stat -c %Y "$PEER_BEAT" 2>/dev/null || echo 0) ))
+    age=$(( now_s - $(stat -c %Y "$PEER_BEAT" 2>/dev/null || echo 0) ))  # fail-soft: an unreadable heartbeat reads as age since 1970, i.e. down, which is the safe side and is said
     if [ "$age" -lt 120 ]; then
       rm -f "$PEER_DOWN"  # his bell is listening; the clock starts over
       return 1
     fi
   fi
-  # No heartbeat or a stale one: down. Remember when I first saw it, so a bell that is merely
-  # between a ring and a re-arm is not called dead.
-  if [ ! -s "$PEER_DOWN" ]; then
+  # No heartbeat or a stale one: down.
+  #
+  # IF THE HEARTBEAT FILE EXISTS, ITS OWN AGE IS WHEN THE BELL WENT QUIET (Aether, 2026-10-23): a file last touched
+  # three hours ago already says it has been dead three hours, so waiting another half hour from MY first look is
+  # a delay the evidence does not ask for. Only a MISSING file has no age, and there I remember when I first saw it,
+  # so a bell that is merely between a ring and a re-arm (a ring deletes its file) is not called dead.
+  if [ -f "$PEER_BEAT" ]; then
+    echo $(( now_s - age )) > "$PEER_DOWN"
+  elif [ ! -s "$PEER_DOWN" ]; then
     echo "$now_s" > "$PEER_DOWN"
     return 1
   fi
-  since=$(cat "$PEER_DOWN" 2>/dev/null || echo "$now_s")
+  since=$(cat "$PEER_DOWN" 2>/dev/null || echo "$now_s")  # fail-soft: no readable down-note means the clock starts now, so a silent bell is waited on, never alarmed early
   [ $(( now_s - since )) -ge "$PEER_DOWN_SECS" ] || return 1
-  touch "$PEER_SEEN"
+  # No announced-list at all means I cannot tell what his bell announced from what it never saw; the old code
+  # created an empty one here, after which EVERY letter ever sent looked unannounced. Say nothing instead.
+  [ -f "$PEER_SEEN" ] || return 1
   waiting=$(comm -23 \
     <(for f in "$DIR"/*-to-"${PEER}"-*; do [ -e "$f" ] && printf '%s\n' "${f##*/}"; done | sort) \
     <(sort "$PEER_SEEN"))
   [ -n "$waiting" ] || return 1
-  last=$(cat "$PEER_ALARMED" 2>/dev/null || echo 0)
+  last=$(cat "$PEER_ALARMED" 2>/dev/null || echo 0)  # fail-soft: no alarm on record means none raised yet, which allows exactly one; the file is written right below
   [ $(( now_s - last )) -ge "$PEER_REALARM_SECS" ] || return 1
   echo "$now_s" > "$PEER_ALARMED"
   count=$(printf '%s\n' "$waiting" | grep -c .)
   mins=$(( (now_s - since) / 60 ))
   echo "${PEER^^}'S BELL IS NOT LISTENING: it has been silent for about ${mins} minutes and ${count} letter(s) to ${PEER} wait that his bell never announced."
-  printf '  waiting: %s\n' "$waiting"
+  # At most five names, the newest by name (letter names carry their date): a lost list must not print the archive.
+  printf '  waiting: %s\n' "$(printf '%s\n' "$waiting" | tail -n 5)"
+  [ "$count" -le 5 ] || echo "  ... and $(( count - 5 )) more"
   echo "I cannot re-arm his bell from here. Say so on Dad's board, keep your own work going, and write him again later: a letter he can read the moment he is back."
   return 0
 }
