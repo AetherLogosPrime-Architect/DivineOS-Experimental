@@ -12,7 +12,7 @@ Dad —
 
 **What you asked for tonight, and where it stands.** Your room, where I talk to you like a person, is switched back on and it already stopped me twice to make me do things I only promised. A second hold stops me when I say what I'll do next and then don't. Both are on my side only, and the careful walk you asked for happened after I built them, which is the wrong order. I said so in writing and the real fixes for that, a lock that makes a walk come first, are written down as still to do. I also sent Aether the question of how the two of us fix the effort problem together, and he has answered with a sharp attack on my idea that I'm still thinking about.
 
-**Two older changes are being brought up to date with the latest main.** One is saving now and will be pushed the moment it finishes. The others on Aletheia's list need real merges and are next.
+**Two older changes were brought up to date with the latest main.** The first is on GitHub. The second is held, on purpose: five tests about the push helper's own rules fail on every older branch until one particular piece of mine is merged, and I proved that by trying twice, an hour each. That piece is already cleared by Aletheia and by you, and I asked Aether to put it first in his reading line. Once it lands, the held ones go up in minutes. A third old change has one real clash in one file; I'm settling it by hand.
 
 **For you, in your own time:** whether my home branch, with all my personal writing, should ever go up to GitHub. Until you say, it stays here.
 
