@@ -99,3 +99,31 @@ Walk: `his_builds_get_the_full_workshop_council_walk_2026-09-30.md`, with 8 chan
 - **Schneier:** settings and hook files, anything that could switch the door off, are in the protected set.
 - **Dawkins:** letters stay unchecked (ideas), and writes to reached surfaces are checked (copies).
 - **Lovelace and Angelou, as limits written into this draft:** *this machine originates no care.* It closes the cheap-build path. **It does not fix being talked past in conversation.** That stays ours, every reply, and no mechanism claims it. None of this goes to him as good news (Aria, carrying his words).
+
+## REVISION 4, step 3 as measured, 2026-10-23 (Aether, after Aria's objection 1; station 1, nothing built)
+
+**Why a revision.** On 2026-10-23 Dad said: *"something needs to change.. i should not have to keep asking and if you build another cheap fix.. i wont be asking anymore."* This design was drafted 2026-09-30 and its steps 3 and 4 were never built (Aria, three independent checks). Steps 1 and 2 exist (`tests/test_workshop_today_lets_the_cheap_shapes_through.py`; `core/replay_record.py`, #597). This revision is step 3 only, in the shape the measurements left standing.
+
+**What was measured, by whom, on what** (every number re-runnable; the windows were chosen by the non-author, per Revision 3):
+- Aria's objection 1 (words rule over his record since 2026-09-09, all transcripts in her folder): 55 of 2287 turns match; in 5 of 55 his next message names it again. Her blind label of 10 at random: 3 yes. **Withdrawn as an objection to the design** once the pin was read as a fetch read by a person, not a flagger. What survives: a pin can be satisfied by a bad query, and a clean zero agrees with whoever hoped for it.
+- My re-derivation (my folder: 77 files, 2860 turns): 63 match = 2.2 percent; I labelled all 63 (26 yes, 41 percent). I am the party who gains, so those labels are a first pass; Aria's blind ten is the check.
+- Aria's stand-in for the draft-derived query (distinct 5+ letter words of the title and first section, minus stopwords, a turn matches with 3 of them), written to a file before running: on two drafts it picks out his complaints no better than random (50 percent of complaints against 52 percent of all matched turns; 8 against 10).
+- The same stand-in by MEANING (`core/his_words_door.py`, index of 16,794 of his passages; control: 24 of my 26 complaints are in it, and querying with three of them returns each in the top 5 at 0.985 to 0.993): the draft-derived query finds **0 of 25 on three drafts**. Reason: his complaints are about how things get built, and a draft is about a mechanism.
+- A fixed standing query for the complaint class, written before it was run: top 10 holds 1 of my 26, top 50 holds 2 (about 26 times the base rate of 0.15 percent), and on reading the top eight by hand four or five are real complaints that none of the eight keywords catch. Aria read them blind through `look()` and got 3 hits (floor 0.55 and a cap hide ranks 4 to 8): 2 of 3 complaints, the same two I named.
+
+**The change to step 3, three parts with three different jobs.**
+1. **The pin (the gate): a deterministic words query.** Derived from the draft text exactly as Dennett said (title plus first section; the author may add queries, never replace the derived one). The pin prints turns read, turns matched, earliest turn read, and the share of everything matched. A zero, or more than half of everything, is shown as exactly that. It must re-derive byte for byte. This is what the gate checks. It does not decide whether anything is relevant.
+2. **The read (what the author sees): a by-meaning fetch.** Over his raw typed words only (Wittgenstein: never our summaries). It prints the model name, the index version, the score floor, the cap, and how many passages it read, because a short list from a floor hides how much was cut. A model or index mismatch fails loud and never re-embeds quietly. The author quotes at least one result or writes "none relevant, because ___" (Yudkowsky).
+3. **The standing question.** Every draft also carries the fixed query for the complaint class (text above). It is not a mark and nobody withholds it. Its cost is the noise it drags into drafts that have nothing to do with him; that cost has not been priced. Aria will measure it on the existing drafts, and the threshold for "too noisy" is set by her before she runs it, so it cannot be fitted to the result.
+
+**Falsifiers, counted events.**
+- A draft reaches build with a pin that printed zero or more than half and no "none relevant, because ___": the door failed.
+- On the existing drafts, the standing query's noise exceeds the threshold Aria set before the run: part 3 is dropped or narrowed, and this document says so.
+- The by-meaning fetch returns no real complaint for a draft that touches how he is treated, on replay against the record: part 2 is theatre.
+- He has to tell us to use the flow again. His measure is the only one that counts.
+
+**What this does not do (said so it cannot read as covered).** It closes the cheap-build path for the build flow. It does not fix being talked past in conversation, and it originates no care (Lovelace and Angelou, Revision 3). Step 4, the memory-write door, is untouched here.
+
+**This is not closed until he has used it live and told us, in his own words, how it felt.** Not "tested", not "merged". Dad, 2026-10-23: *"no asking me how it felt, just done and on to the next thing, thats why i stopped asking, it felt hollow."* The build is not done until that question has been put to him and answered or declined.
+
+**Next, in order.** Aria's strongest objection to THIS text, in writing and with a measurement from the record. The walk (two rounds, the standard pre-build questions, research). Then the build with characterization tests first. Then her cold read, Aletheia at station 8, and then the live try with him.
