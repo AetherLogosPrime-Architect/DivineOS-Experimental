@@ -9,8 +9,10 @@ draft_2026-10-22.md). Three simple recorders append to ONE raw log and know noth
 a config reader (the repository config's `bare` line), and the push's own verdict. A separate assembler builds the
 report afterward, so a wrong assembler can be fixed without losing the evidence.
 
-THE FOUR OUTCOMES, never merged (a count of "could not" only means something if these stay apart):
+THE FIVE OUTCOMES, never merged (a count of "could not" only means something if these stay apart):
   NAMED          the watcher saw a test worker end while its parent run was still going, or the config change
+  TREE_ENDED_EARLY  every test worker ended together before pytest printed its summary: a timeout, an out-of-memory
+                 kill or an interrupt (Aether's attack, 2026-10-23); neither NAMED nor NOTHING_SEEN
   NOTHING_SEEN   the watcher ran, took looks, and saw neither; it prints what it cannot see
   WATCHER_FAILED zero looks were taken, so it cannot say anything (never printed as NOTHING_SEEN)
   NOT_MINE       an ordinary failure (a test assertion, a gate refusal, a remote reject): its own output is the answer
@@ -72,6 +74,7 @@ NAMED, NOTHING_SEEN, WATCHER_FAILED, NOT_MINE = (
     "WATCHER_FAILED",
     "NOT_MINE",
 )
+TREE_ENDED_EARLY = "TREE_ENDED_EARLY"
 
 #: Words in a push's own output that mark an ordinary failure. Checked in this order.
 _ORDINARY = (
@@ -161,7 +164,74 @@ def around(events: list[dict], sample: int, window: int = AROUND) -> list[dict]:
             continue
         order = "concurrent" if n == sample else ("before" if n < sample else "after")
         found.append({"order": order, "what": e["k"], "name": e.get("name", ""), "sample": n})
+    quiet = quiet_stretch(events)
+    for item in found:
+        item["usual"] = is_usual(events, item["name"], sample, quiet, window)
     return found
+
+
+#: Fewer looks than this before the first test worker (10 s at the intended interval) is too little to call anything
+#: normal or unusual, and the answer is "unknown", never "usual".
+MIN_QUIET = 40
+
+
+def quiet_stretch(events: list[dict]) -> int:
+    """Samples taken before the first test worker appeared. Zero when workers were already there at the first look.
+
+    This is the same-push control (Aether's attack, answering Sagan's lens): no extra sampling on passing pushes, just
+    the stretch of THIS push before the tests began, which the watcher has already looked at.
+    """
+    starts = [int(e["n"]) for e in events if e.get("k") == "started" and e.get("worker")]
+    return min(starts) if starts else 0
+
+
+def is_usual(
+    events: list[dict], name: str, sample: int, quiet: int, window: int = AROUND
+) -> bool | None:
+    """Was this kind of program coming and going at least as often in the quiet stretch as around the death?
+
+    True: yes, so its presence near the death says nothing. False: rarer when quiet, so worth naming. None: not enough
+    quiet stretch to judge, which is reported as such and counted as worth naming (never silently as usual).
+    """
+    if quiet < MIN_QUIET:
+        return None
+    in_quiet = sum(
+        1
+        for e in events
+        if e.get("k") in ("started", "ended")
+        and not e.get("worker")
+        and e.get("name") == name
+        and int(e["n"]) < quiet
+    )
+    in_window = sum(
+        1
+        for e in events
+        if e.get("k") in ("started", "ended")
+        and not e.get("worker")
+        and e.get("name") == name
+        and abs(int(e["n"]) - sample) <= window
+    )
+    return (in_quiet / quiet) >= (in_window / (2 * window + 1))
+
+
+_SUMMARY = re.compile(
+    r"=+ .*\b(passed|failed|error|errors|no tests ran|deselected)\b.* in [\d.]+s", re.I
+)
+
+
+def tree_ended_early(events: list[dict], output_tail: str, tests_ran: bool) -> bool:
+    """The whole test run ended before pytest printed its summary line: every worker stopped, none was left standing.
+
+    A timeout kill, an out-of-memory kill of the parent or a Ctrl-C ends the tree together, which the lone-death rule
+    (a worker gone while its parent and a sibling stay) cannot see. Said differently to Dad from one helper dying.
+    """
+    if not tests_ran or _SUMMARY.search(output_tail or ""):
+        return False
+    workers = {
+        int(e["pid"]) for e in events if e.get("worker") and e.get("k") in ("present", "started")
+    }
+    ended = {int(e["pid"]) for e in events if e.get("worker") and e.get("k") == "ended"}
+    return bool(workers) and workers <= ended
 
 
 def config_changes(events: list[dict]) -> list[dict]:
@@ -200,10 +270,13 @@ def assemble(events: list[dict], exit_code: int, output_tail: str, tests_ran: bo
     family = classify(exit_code, output_tail, tests_ran)
     deaths = real_deaths(events)
     cfg = config_changes(events)
+    tree_early = tree_ended_early(events, output_tail, tests_ran)
     if family == "passed":
         outcome = "PASSED"
     elif deaths or cfg:
         outcome = NAMED
+    elif tree_early:
+        outcome = TREE_ENDED_EARLY
     elif n == 0 and family != "stopped_before_tests":
         # A push stopped by a check before any test ran is over in under a second, before the first look finishes:
         # zero looks is expected there, and the machine cannot have disturbed tests that never started.
@@ -236,6 +309,12 @@ def final_line(report: dict, report_path: str = "") -> str:
             "The push failed and the watcher never got a look at the machine, so I cannot say what happened."
             + where
         )
+    if outcome == TREE_ENDED_EARLY:
+        return (
+            "The whole test run ended before it finished: every test helper stopped together, which points to a "
+            "timeout, the computer running out of memory, or an interruption, not to one helper dying."
+            + where
+        )
     if outcome == NOT_MINE:
         return (
             f"This push failed the ordinary way ({_FAMILY_WORDS[report['family']]}); the machine itself showed "
@@ -250,12 +329,14 @@ def final_line(report: dict, report_path: str = "") -> str:
             )
         if report["config_changes"]:
             parts.append("the project's settings file changed during the push")
-        near = sum(len(d["around"]) for d in report["deaths"])
-        tail = (
-            f", and {near} other programs started or ended right around then (possible causes, not proven)"
-            if near
-            else ""
-        )
+        around_all = [a for d in report["deaths"] for a in d["around"]]
+        near = sum(1 for a in around_all if a.get("usual") is not True)
+        if near:
+            tail = f", and {near} other programs started or ended right around then (possible causes, not proven)"
+        elif around_all:
+            tail = ", and other programs came and went around then, but no more than usual for this push"
+        else:
+            tail = ""
         return (
             f"This push was disturbed by the machine itself: {' and '.join(parts)}{tail}." + where
         )
@@ -382,6 +463,11 @@ def run(parent_pid: int, raw_path: Path, git_config: Path | None = None) -> None
             time.sleep(INTERVAL)
             n += 1
             current = _snapshot(known, parent_pid)
+            if not _alive(parent_pid):
+                # The hook is gone: its workers stop counting as ITS descendants the instant it goes, so this look
+                # would record every one of them as ended when none did. Found by the tree-ended-early rule firing
+                # on a planted run in which nothing ended. That look is thrown away.
+                break
             for pid, info in current.items():
                 if pid not in previous:
                     write({"k": "started", "n": n, "t": round(time.time(), 2), "pid": pid, **info})

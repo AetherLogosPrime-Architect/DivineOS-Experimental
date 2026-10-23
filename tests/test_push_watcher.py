@@ -270,6 +270,84 @@ def test_the_stopped_before_tests_sentence_is_plain():
     assert "a check stopped it before the tests ran" in line
 
 
+_SUMMARY_LINE = "=== 3 failed, 40 passed in 12.5s ==="
+
+
+def test_the_whole_tree_ending_before_the_summary_is_its_own_outcome():
+    """Aether's attack: a timeout, an out-of-memory kill or Ctrl-C ends every worker together, which the lone-death rule
+    (a worker gone while its parent and a sibling stay) cannot see."""
+    log = [_parent(), _w(11), _w(12), _end(11, 30), _end(12, 30), _end(100, 30), _tick(40)]
+    report = pw.assemble(log, 1, "tests/test_x.py ....", tests_ran=True)
+    assert report["outcome"] == pw.TREE_ENDED_EARLY
+    line = pw.final_line(report)
+    assert "ended before it finished" in line and "not to one helper dying" in line
+
+
+def test_a_tree_that_ended_after_its_summary_is_not_early():
+    log = [_parent(), _w(11), _w(12), _end(11, 30), _end(12, 30), _end(100, 30), _tick(40)]
+    report = pw.assemble(log, 1, _SUMMARY_LINE, tests_ran=True)
+    assert report["outcome"] != pw.TREE_ENDED_EARLY
+
+
+def test_a_lone_death_is_still_named_not_a_tree_ending():
+    assert pw.assemble(_real_death_log(), 1, "tests ....", tests_ran=True)["outcome"] == pw.NAMED
+
+
+def test_no_workers_at_all_is_never_a_tree_ending():
+    assert not pw.tree_ended_early([_parent(), _tick(40)], "tests ....", True)
+
+
+def _busy_quiet_then_death():
+    """60 quiet samples in which git comes and goes often, then workers start, then one dies at sample 100."""
+    events = [_parent()]
+    for n in range(2, 60, 2):
+        events.append(
+            {"k": "started", "n": n, "pid": 500 + n, "ppid": 1, "name": "git.exe", "worker": False}
+        )
+    events += [
+        dict(_w(11, n=60, k="started")),
+        dict(_w(12, n=60, k="started")),
+        _end(11, 100),
+        _tick(130),
+    ]
+    events.append(
+        {"k": "started", "n": 99, "pid": 900, "ppid": 1, "name": "git.exe", "worker": False}
+    )
+    events.append(
+        {"k": "ended", "n": 99, "pid": 901, "ppid": 1, "name": "curl.exe", "worker": False}
+    )
+    return events
+
+
+def test_activity_that_was_normal_in_the_quiet_stretch_is_not_blamed():
+    """Aether answering Sagan: the control is the quiet minutes BEFORE the tests in the same push, at no extra cost."""
+    events = _busy_quiet_then_death()
+    by_name = {a["name"]: a["usual"] for a in pw.around(events, 100)}
+    assert by_name["git.exe"] is True, (
+        "git was busy before the tests too, so it says nothing about the death"
+    )
+    assert by_name["curl.exe"] is False, (
+        "curl never ran in the quiet stretch, so it is worth naming"
+    )
+
+
+def test_too_little_quiet_stretch_is_unknown_and_counted_not_ignored():
+    events = [_parent(), _w(11), _w(12), _end(11, 20), _tick(50)]
+    events.append({"k": "ended", "n": 19, "pid": 9, "ppid": 1, "name": "git.exe", "worker": False})
+    only = pw.around(events, 20)
+    assert only[0]["usual"] is None
+    assert "possible causes, not proven" in pw.final_line(pw.assemble(events, 1, ""))
+
+
+def test_all_usual_activity_is_reported_as_normal_not_as_a_cause():
+    events = _busy_quiet_then_death()[:-2]  # drop the two events around the death except git below
+    events.append(
+        {"k": "ended", "n": 99, "pid": 901, "ppid": 1, "name": "git.exe", "worker": False}
+    )
+    line = pw.final_line(pw.assemble(events, 1, ""))
+    assert "no more than usual for this push" in line and "possible causes" not in line
+
+
 def test_a_passing_push_writes_no_report(tmp_path):
     raw = tmp_path / "raw.jsonl"
     raw.write_text("")

@@ -391,13 +391,17 @@ WATCH_DIR="$HOME/.divineos/push_reports"
 WATCH_RAW="$WATCH_DIR/raw-$$.jsonl"
 PUSH_WATCHER="$REPO_ROOT/scripts/push_watcher.py"
 WATCH_PID=""
+# Which python runs the watcher is ASKED of the house's own resolver (it refuses the Microsoft Store stub and checks
+# each candidate runs), in a subshell so sourcing it cannot change this hook's environment for the gates below.
+WATCH_PY="$( ( source "$REPO_ROOT/.claude/hooks/_lib.sh" >/dev/null 2>&1; find_divineos_python ) 2>/dev/null )"  # fail-soft: no resolver or no python means no watcher, and that is said on the next line
 _watch_stop() {
     local rc=$?
     trap - EXIT
     if [ -n "$WATCH_PID" ]; then
         if [ "$rc" -ne 0 ]; then
             # A report that cannot be built is said, not swallowed: the push already failed and its reader is owed that.
-            python "$PUSH_WATCHER" finish --raw "$WATCH_RAW" --exit "$rc" --out-dir "$WATCH_DIR" \
+            # Three seconds at most: a hung report must never hold a failed push open.
+            timeout 3 "$WATCH_PY" "$PUSH_WATCHER" finish --raw "$WATCH_RAW" --exit "$rc" --out-dir "$WATCH_DIR" \
                 --tail-file "$HOME/.divineos/last_pre_push_pytest.log" >&2 \
                 || echo "[push-watcher] could not build the report for this failed push" >&2
         fi
@@ -406,11 +410,18 @@ _watch_stop() {
     exit "$rc"
 }
 mkdir -p "$WATCH_DIR" 2>/dev/null || true  # fail-soft: a read-only home must never stop a push; the missing-folder case is said below
-if [ -f "$PUSH_WATCHER" ]; then
+if [ -f "$PUSH_WATCHER" ] && [ -z "$WATCH_PY" ]; then
+    echo "[push-watcher] watcher python missing: this push is not being watched" >&2
+    echo "$(date +%Y-%m-%dT%H:%M:%S) pushed WITHOUT the watcher: no python found for it" \
+        >> "$WATCH_DIR/without_watcher.log" 2>/dev/null || true  # fail-soft: the line above already said it aloud; this copy is the record
+elif [ -f "$PUSH_WATCHER" ]; then
     WATCH_WINPID="$(cat "/proc/$$/winpid" 2>/dev/null || echo "$$")"  # fail-soft: there is no winpid off Windows, where $$ is already the right number
-    python "$PUSH_WATCHER" start --parent "$WATCH_WINPID" --raw "$WATCH_RAW" \
+    "$WATCH_PY" "$PUSH_WATCHER" start --parent "$WATCH_WINPID" --raw "$WATCH_RAW" \
         --git-config "$(git rev-parse --git-common-dir 2>/dev/null)/config" >/dev/null 2>&1 &  # fail-soft: the watcher is a courtesy; a push must never wait on or fail for it
     WATCH_PID=$!
+    # Ctrl-C and a plain kill must run the EXIT trap too; in some shells they skip it.
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
     trap _watch_stop EXIT
 else
     echo "$(date +%Y-%m-%dT%H:%M:%S) pushed WITHOUT the watcher: $PUSH_WATCHER not found" \

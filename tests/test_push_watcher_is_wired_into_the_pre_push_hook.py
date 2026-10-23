@@ -68,6 +68,21 @@ def scratch():
         _git(["config", *cfg], work, env)
     _git(["remote", "add", "origin", str(bare)], work, env)
     (work / "scripts").mkdir()
+    (work / ".claude" / "hooks").mkdir(parents=True)
+    shutil.copy(
+        REPO / ".claude" / "hooks" / "_lib.sh", work / ".claude" / "hooks" / "_lib.sh"
+    )  # the python resolver the hook asks
+    # A real checkout has its own .venv, which the resolver accepts first. Without one it asks whether the divineos an
+    # interpreter can see lives under THIS repository and (rightly) refuses a different checkout's. A stand-in launcher
+    # keeps the resolver honest and avoids a junction, whose cleanup could follow it into the real environment.
+    (work / ".venv" / "bin").mkdir(parents=True)
+    launcher = work / ".venv" / "bin" / "python"
+    launcher.write_text(
+        f'#!/bin/bash\nexec "{Path(sys.executable).as_posix()}" "$@"\n',
+        encoding="utf-8",
+        newline="\n",
+    )
+    launcher.chmod(0o755)
     (work / "a.txt").write_text("a")
     _git(["add", "a.txt"], work, env)
     _git(["commit", "-q", "-m", "one"], work, env)
@@ -133,6 +148,33 @@ def test_a_missing_watcher_does_not_stop_the_push_and_says_so(scratch):
     assert done.returncode == 0, done.stderr
     log = (home / ".divineos" / "push_reports" / "without_watcher.log").read_text()
     assert "pushed WITHOUT the watcher" in log
+
+
+def test_no_python_for_the_watcher_is_said_once_and_the_push_goes_on(scratch):
+    """Aether's sixth attack: the hook cannot assume which python runs. With no resolver it says so in one line."""
+    work, home, env = scratch
+    shutil.copy(WATCHER, work / "scripts" / "push_watcher.py")
+    (work / ".claude" / "hooks" / "_lib.sh").unlink()
+    _stub_readiness(work, 0)
+    done = _push(work, env)
+    assert done.returncode == 0, done.stderr
+    assert done.stderr.count("watcher python missing") == 1, done.stderr
+
+
+def test_a_report_that_hangs_cannot_hold_a_failed_push_open(scratch):
+    """Aether's fifth attack: the finish call runs under a hard three-second limit."""
+    import time
+
+    work, home, env = scratch
+    (work / "scripts" / "push_watcher.py").write_text(
+        "import sys, time\nif sys.argv[1] == 'finish':\n    time.sleep(60)\n", encoding="utf-8"
+    )
+    _stub_readiness(work, 7)
+    began = time.time()
+    done = _push(work, env)
+    assert done.returncode != 0
+    assert time.time() - began < 30, "a hung report held the failed push open"
+    assert "could not build the report" in done.stderr
 
 
 def test_a_broken_watcher_cannot_change_the_verdict(scratch):
