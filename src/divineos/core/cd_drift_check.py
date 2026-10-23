@@ -21,7 +21,12 @@ the same work and cannot move the shell, so the refusal text names them.
 WHAT IT CANNOT SEE. The trigger is a fit to six measured rows, not a reading of the app (see the
 table in the design note). A hook cannot read the app's list of working directories, so the shared
 homes are a named superset. A script that `cd`s inside itself cannot move the app's folder and
-is out of scope; `source script.sh` whose body does is invisible here.
+is out of scope; `source script.sh` whose body does is invisible here, and so is
+`eval "cd x"` (text the parser never reads as a command) and a shell function that is DEFINED
+with a `cd` and then called (the definition runs nothing, so it is not refused; the call moves).
+Aria read the first version against real bash on 2026-10-22 and found four misses and three
+over-holds; the assignment prefix, `command -p`, pipelines, background `&`, function
+definitions and the arithmetic `<<` are handled and pinned in the tests.
 """
 
 from __future__ import annotations
@@ -29,6 +34,8 @@ from __future__ import annotations
 import posixpath
 import re
 import shlex
+
+from divineos.core.command_parsing import _ENV_ASSIGN_RE
 
 #: Words after which a following token starts a new simple command in the SAME shell.
 _SEGMENT_STARTS = frozenset(
@@ -52,7 +59,14 @@ _SEGMENT_STARTS = frozenset(
 )
 _CD_HEADS = frozenset({"cd", "pushd"})
 _SHARED_HOMES = (".divineos-shared", ".divineos", ".claude")
-_HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1[^\n]*\n.*?\n[ \t]*\2[ \t]*(?=\n|$)", re.DOTALL)
+# The delimiter must start with a letter or underscore and the `<<` must not be a shift inside
+# `$(( ... ))`: Aria 2026-10-22, `x=$((1 << 3))` followed by a line that is only `3` deleted a real cd.
+_HEREDOC = re.compile(
+    r"(?<![<(])<<-?[ \t]*(['\"]?)([A-Za-z_]\w*)\1[^\n]*\n.*?\n[ \t]*\2[ \t]*(?=\n|$)", re.DOTALL
+)
+# One definition of "NAME=value before a command is assignment syntax": the shared home's.
+_ASSIGNMENT = _ENV_ASSIGN_RE
+_PIPE_OR_BACKGROUND = frozenset({"|", "&"})
 _DRIVE = re.compile(r"^/([A-Za-z])(/|$)")
 
 
@@ -88,38 +102,71 @@ def _targets(command: str) -> list[str]:
     found: list[str] = []
     depth = 0
     at_start = True
+    after_pipe = False  # the previous boundary was `|`: this element is a subshell
+    defs: list[bool] = []  # open `{` groups; True when the group is a function body
     i = 0
     while i < len(tokens):
         token = tokens[i]
-        if token == "(":
-            depth += 1
+        if token and set(token) <= {"(", ")"}:
+            # shlex groups runs of brackets into one token: `()`, `((`, `))`
+            if token == "()" and i + 1 < len(tokens) and tokens[i + 1] == "{":
+                # `name() {`: a definition. Its body runs nothing until it is called.
+                defs.append(True)
+                i += 2
+                at_start = True
+                continue
+            depth = max(0, depth + token.count("(") - token.count(")"))
+            at_start = token.endswith("(")
+            i += 1
+            continue
+        if token == "{":
+            defs.append(False)
             at_start = True
             i += 1
             continue
-        if token == ")":
-            depth = max(0, depth - 1)
+        if token == "}":
+            if defs:
+                defs.pop()
             at_start = False
             i += 1
             continue
         if token in _SEGMENT_STARTS:
+            after_pipe = token == "|"
             at_start = True
             i += 1
             continue
-        if at_start and depth == 0:
-            head = token
+        if at_start and depth == 0 and not any(defs) and not after_pipe:
             j = i
-            if head in ("builtin", "command") and j + 1 < len(tokens):
+            while j < len(tokens) and _ASSIGNMENT.match(tokens[j]):
+                j += 1  # `FOO=1 cd x` still runs cd in this shell
+            if j < len(tokens) and tokens[j] == "function":
+                # `function f { ... }` is a definition, so skip to its opening brace
+                while i < len(tokens) and tokens[i] != "{":
+                    i += 1
+                if i < len(tokens):
+                    defs.append(True)
+                    i += 1
+                at_start = True
+                continue
+            while j < len(tokens) and tokens[j] in ("builtin", "command"):
                 j += 1
-                head = tokens[j]
-            if head in _CD_HEADS:
+                while j < len(tokens) and tokens[j] in ("-p", "-v", "-V", "--"):
+                    j += 1
+            if j < len(tokens) and tokens[j] in _CD_HEADS:
                 k = j + 1
                 while k < len(tokens) and tokens[k].startswith("-") and tokens[k] != "-":
                     k += 1
                     if tokens[k - 1] == "--":
                         break
+                target_ends_in_background = False
                 if k < len(tokens) and tokens[k] not in _SEGMENT_STARTS and tokens[k] not in "()":
-                    found.append(tokens[k])
+                    # a trailing `|` or `&` makes this element a subshell too
+                    nxt = tokens[k + 1] if k + 1 < len(tokens) else ""
+                    target_ends_in_background = nxt in _PIPE_OR_BACKGROUND
+                    if not target_ends_in_background:
+                        found.append(tokens[k])
         at_start = False
+        after_pipe = False
         i += 1
     return found
 

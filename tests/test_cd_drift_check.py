@@ -49,6 +49,47 @@ class TestWhatItRefuses:
         assert refuses(command), command
 
 
+class TestAriasReadOfTheParser:
+    """Aria ran the module on 2026-10-22, with real bash deciding what moves. Misses, then over-holds."""
+
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "FOO=1 cd family/letters",
+            "A=1 B=2 cd family/letters && ls",
+            "command -p cd family/letters",
+            "builtin cd -- family/letters",
+            "x=$((1 << 3))\ncd family/letters\n3",  # a `<<` that is not a heredoc must not eat the cd
+        ],
+    )
+    def test_forms_a_real_shell_moves_on_are_refused(self, command):
+        assert refuses(command), command
+
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "cd family/letters | cat",  # every pipeline element is a subshell
+            "ls | cd family/letters",
+            "cd family/letters &",  # backgrounded, a subshell
+            "f() { cd family/letters; }",  # a definition runs nothing
+            "function f { cd family/letters; }",
+        ],
+    )
+    def test_forms_a_real_shell_does_not_move_on_are_not_refused(self, command):
+        assert not refuses(command), command
+
+    def test_a_heredoc_body_is_still_not_judged(self):
+        body = "cat > x.sh <<'EOF'\ncd family/letters\nEOF\nls"
+        assert not refuses(body)
+
+    @pytest.mark.parametrize("command", ['eval "cd family/letters"', "source ./go.sh"])
+    def test_named_limits_pinned_as_they_are(self, command):
+        """Not caught, and said so in the module: eval runs text this parser never reads as a command,
+        and a sourced script's body is not on the line. If this ever starts failing the door got
+        better; move the case up."""
+        assert not refuses(command), command
+
+
 class TestWhatItMustLetThrough:
     @pytest.mark.parametrize(
         "command",
