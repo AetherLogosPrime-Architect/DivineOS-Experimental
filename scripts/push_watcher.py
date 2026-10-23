@@ -46,6 +46,9 @@ SETTLE = (
     8  # samples (2 s) after a worker ends in which its parent and a sibling must still be alive
 )
 AROUND = 12  # samples either side of a death in which other processes are reported as candidates
+MAX_WATCH_SECONDS = (
+    4 * 3600
+)  # no push runs this long; past it the watcher ends itself whatever it can or cannot see
 HEARTBEAT_EVERY = (
     4  # one second: the sample count read at the end of a push is at most a second behind
 )
@@ -365,10 +368,39 @@ def trim_reports(directory: Path, keep: int = RETAIN) -> int:
 # ---------------------------------------------------------------- the recorders: thin, touch the machine
 
 
-def _alive(pid: int) -> bool:
+def _alive(pid: int, created: float | None = None) -> bool:
+    """Is the process I was told to follow still THAT process, and running?
+
+    `pid_exists` alone is wrong in two ways, both found on Linux by Aletheia (2026-10-23, the four real-process tests
+    timing out) and reproduced here: a killed process nobody has collected yet is a ZOMBIE, which `pid_exists` still
+    calls alive (status "zombie"), so the watcher never noticed its hook was gone and would run for ever; and a process
+    number can be handed to an unrelated process after the first one ends, so "someone has this number" is not "my
+    hook is alive". The start time pins the process I meant; a zombie counts as gone.
+    """
     import psutil
 
-    return psutil.pid_exists(pid)
+    try:
+        proc = psutil.Process(pid)
+        if proc.status() == psutil.STATUS_ZOMBIE:
+            return False  # both-empty: a zombie, a recycled number and an empty slot all mean the hook is gone
+        if created is not None and abs(proc.create_time() - created) > 1.0:
+            return False  # both-empty: a recycled number is a different process, so the one I followed is gone
+        return True
+    except (psutil.NoSuchProcess, psutil.ZombieProcess):
+        return False  # both-empty: nothing holds that number, which is the same answer as a zombie or a recycled one
+    except psutil.Error:
+        # COULD NOT LOOK (access denied and the like) is not evidence the hook is gone, and ending the watch on it
+        # would silently drop a watched push. The lifetime cap in run() is what stops a watcher that can never tell.
+        return True
+
+
+def _created(pid: int) -> float | None:
+    import psutil
+
+    try:
+        return psutil.Process(pid).create_time()
+    except psutil.Error:
+        return None
 
 
 def _snapshot(known: dict, root: int | None = None) -> dict[int, dict]:
@@ -379,8 +411,13 @@ def _snapshot(known: dict, root: int | None = None) -> dict[int, dict]:
     import psutil
 
     procs = []
-    for p in psutil.process_iter(["pid", "ppid", "name", "create_time"]):
+    for p in psutil.process_iter(["pid", "ppid", "name", "create_time", "status"]):
         try:
+            # A zombie is a process that has ended and has not yet been collected by its parent. On Linux it stays
+            # in the list, so a killed worker would never be seen to END (found by the planted-fault test there,
+            # 2026-10-23). It is gone for this purpose.
+            if p.info.get("status") == psutil.STATUS_ZOMBIE:
+                continue
             procs.append((p, p.info))
         except (psutil.Error, OSError):
             continue
@@ -459,11 +496,16 @@ def run(parent_pid: int, raw_path: Path, git_config: Path | None = None) -> None
         for pid, info in previous.items():
             write({"k": "present", "n": 0, "t": round(time.time(), 2), "pid": pid, **info})
         bare = _bare_line(git_config) if git_config else ""
-        while _alive(parent_pid):
+        # Pins WHICH process I follow, so a recycled number cannot keep me alive.
+        parent_created = _created(parent_pid)
+        began_run = time.time()
+        # The cap is the backstop for a watcher that can never tell whether its hook is gone: no push lasts this long,
+        # and a courtesy process must never outlive its usefulness (Aletheia's worry, 2026-10-23: a leak nobody sees).
+        while _alive(parent_pid, parent_created) and time.time() - began_run < MAX_WATCH_SECONDS:
             time.sleep(INTERVAL)
             n += 1
             current = _snapshot(known, parent_pid)
-            if not _alive(parent_pid):
+            if not _alive(parent_pid, parent_created):
                 # The hook is gone: its workers stop counting as ITS descendants the instant it goes, so this look
                 # would record every one of them as ended when none did. Found by the tree-ended-early rule firing
                 # on a planted run in which nothing ended. That look is thrown away.

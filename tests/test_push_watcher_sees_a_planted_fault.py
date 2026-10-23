@@ -131,6 +131,38 @@ def test_another_pushes_dead_helper_is_not_this_pushes_death(tmp_path):
     assert report["outcome"] == pw.NOTHING_SEEN, report
 
 
+def test_a_process_number_handed_to_someone_else_is_not_my_hook():
+    """Aletheia, 2026-10-23: 'is my parent alive?' must mean THAT parent. The start time pins it."""
+    me = psutil.Process()
+    assert pw._alive(me.pid), "control: the running test process is alive"
+    assert pw._alive(me.pid, created=me.create_time()), (
+        "control: the same process, correctly pinned, is alive"
+    )
+    assert not pw._alive(me.pid, created=0.0), (
+        "a number held by a process that started at another time is not it"
+    )
+    assert not pw._alive(2**22 + 12345), "a number nobody holds is gone"
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="a zombie (killed, not yet collected) only exists on Unix"
+)
+def test_a_killed_process_nobody_has_collected_counts_as_gone():
+    """The Linux leak: pid_exists calls a zombie alive, so the watcher never noticed its hook was gone and ran on for ever.
+
+    The control is the same call on the same child while it is alive, which must say alive."""
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    try:
+        time.sleep(0.5)
+        assert pw._alive(child.pid), "control: a live child is alive"
+        child.kill()
+        time.sleep(0.5)  # killed, and nobody has called wait(): it is now a zombie
+        assert psutil.pid_exists(child.pid), "the premise: pid_exists still says yes for it"
+        assert not pw._alive(child.pid), "a zombie is a hook that has exited"
+    finally:
+        child.wait()
+
+
 def test_the_watcher_stops_by_itself_when_its_parent_is_gone(tmp_path):
     """Exits-when-parent-gone: a killed push cannot leave a stale watcher. _run_scenario would time out otherwise."""
     _run_scenario(tmp_path)
