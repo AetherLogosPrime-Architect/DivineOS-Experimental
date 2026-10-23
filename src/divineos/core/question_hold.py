@@ -466,8 +466,15 @@ def _clean(text: str) -> str:
 # nobody had put to him. A sentence whose lead-in before the colon is a past-tense or reporting
 # verb ("it was", "I asked", "she wrote") is telling about a question, not asking one. A real
 # question after a colon ("One thing I need to know: should I push?") has no such lead-in.
+# Aether, cold-reading this: the first pattern took ANY of those words ANYWHERE before the colon, so
+# six real questions ("Here is what was left: should I push?", "Before we go on, read this: ...")
+# were skipped. The lead-in must now START with a subject and the verb right after it, and stay
+# short, which is what a reported question looks like and what those six do not. Once the hold
+# becomes a carry a skipped real question is lost, not harmless, so this errs toward finding.
 _REPORTED = re.compile(
-    r"^[^:?]*\b(was|were|asked|said|wrote|called|read|reads|says)\b[^:?]*:\s*\S", re.I
+    r"^(?:it|that|this|the question|the answer|i|he|she|they|we|you|dad|aria|aether|aletheia)\s+"
+    r"(?:\w+\s+){0,2}?(?:was|were|asked|said|wrote|called|read|reads|says)\b[^:?]{0,30}:\s*\S",
+    re.I,
 )
 
 

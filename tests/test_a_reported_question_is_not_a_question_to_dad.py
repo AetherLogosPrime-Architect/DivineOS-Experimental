@@ -29,6 +29,13 @@ REAL_LINES = [
     "One thing I need to know: should I push the work copy?",
     "Here is what is open: do you want the bell first?",
     "Dad, it is done. Do you want me to look into the bell?",
+    # Aether's six, found by running the first pattern: a reporting word inside the lead-in is not a report.
+    "Here is what was left: should I push the work copy?",
+    "Quick check on what I read: do you want the bell first?",
+    "The one thing that says what to do next: which order do you want?",
+    "What I asked Aria and what she said does not change this: do you want the bell?",
+    "Before we go on, read this: should I push?",
+    "Two things were open: which one first?",
 ]
 
 
