@@ -377,6 +377,46 @@ PUSH_READINESS="$REPO_ROOT/scripts/check_push_readiness.sh"
 # Capture stdin once — every gate that reads ref-update lines uses it.
 HOOK_STDIN=$(cat)
 
+# 0. The push watcher (Aria 2026-10-23; Dad 2026-10-22: "mandatory and automatic on any and all pushes.. so if
+# anything fails you know exactly what and why"). It watches this push from the inside, so a failure leaves a plain
+# sentence at the end and a report, instead of "something died".
+#
+# THE INVARIANT: the watcher's own exit status can never reach this hook's. It is started in the background, never
+# waited on, and every call below ends in `|| true`. If it cannot start, the push still runs and says so.
+#
+# TWO TRAPS THIS LINE DODGES. (1) Under git-bash, $$ is the MSYS process number, not the one Windows (and so the
+# watcher) knows, so it is translated through /proc/$$/winpid. (2) The watcher is told to look at a PROCESS TREE, not
+# a name, so another push running at the same time cannot be blamed for this one.
+WATCH_DIR="$HOME/.divineos/push_reports"
+WATCH_RAW="$WATCH_DIR/raw-$$.jsonl"
+PUSH_WATCHER="$REPO_ROOT/scripts/push_watcher.py"
+WATCH_PID=""
+_watch_stop() {
+    local rc=$?
+    trap - EXIT
+    if [ -n "$WATCH_PID" ]; then
+        if [ "$rc" -ne 0 ]; then
+            # A report that cannot be built is said, not swallowed: the push already failed and its reader is owed that.
+            python "$PUSH_WATCHER" finish --raw "$WATCH_RAW" --exit "$rc" --out-dir "$WATCH_DIR" \
+                --tail-file "$HOME/.divineos/last_pre_push_pytest.log" >&2 \
+                || echo "[push-watcher] could not build the report for this failed push" >&2
+        fi
+        kill "$WATCH_PID" 2>/dev/null || true  # fail-soft: the watcher may already be gone; ending a gone process cannot matter
+    fi
+    exit "$rc"
+}
+mkdir -p "$WATCH_DIR" 2>/dev/null || true  # fail-soft: a read-only home must never stop a push; the missing-folder case is said below
+if [ -f "$PUSH_WATCHER" ]; then
+    WATCH_WINPID="$(cat "/proc/$$/winpid" 2>/dev/null || echo "$$")"  # fail-soft: there is no winpid off Windows, where $$ is already the right number
+    python "$PUSH_WATCHER" start --parent "$WATCH_WINPID" --raw "$WATCH_RAW" \
+        --git-config "$(git rev-parse --git-common-dir 2>/dev/null)/config" >/dev/null 2>&1 &  # fail-soft: the watcher is a courtesy; a push must never wait on or fail for it
+    WATCH_PID=$!
+    trap _watch_stop EXIT
+else
+    echo "$(date +%Y-%m-%dT%H:%M:%S) pushed WITHOUT the watcher: $PUSH_WATCHER not found" \
+        >> "$WATCH_DIR/without_watcher.log" 2>/dev/null || true  # fail-soft: this line IS the loud path; if even it cannot be written the push still goes
+fi
+
 # Is every ref in this push a tag? Computed here because step 1 below needs
 # it and the freshness script cannot know: it is called WITHOUT stdin and
 # resolves the CHECKED-OUT branch instead of the ref being pushed.

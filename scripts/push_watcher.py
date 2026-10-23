@@ -44,7 +44,9 @@ SETTLE = (
     8  # samples (2 s) after a worker ends in which its parent and a sibling must still be alive
 )
 AROUND = 12  # samples either side of a death in which other processes are reported as candidates
-HEARTBEAT_EVERY = 20
+HEARTBEAT_EVERY = (
+    4  # one second: the sample count read at the end of a push is at most a second behind
+)
 RETAIN = 200
 MAX_RAW_LINES = 200_000
 #: Only these processes are logged besides workers: the ones a push or a test starts and ends.
@@ -82,6 +84,7 @@ _FAMILY_WORDS = {
     "gate_refusal": "a check refused it",
     "remote_rejected": "the remote end turned it away",
     "tests_failed": "a test failed",
+    "stopped_before_tests": "a check stopped it before the tests ran",
 }
 
 
@@ -165,8 +168,12 @@ def config_changes(events: list[dict]) -> list[dict]:
     return [e for e in events if e.get("k") == "cfg"]
 
 
-def classify(exit_code: int, output_tail: str) -> str:
-    """The family of a failed push, from its own exit code and words. 'passed' for exit 0."""
+def classify(exit_code: int, output_tail: str, tests_ran: bool = True) -> str:
+    """The family of a failed push, from its own exit code and words. 'passed' for exit 0.
+
+    `tests_ran` is False when the push gate's test log is older than this push: a check stopped the push before the
+    tests, and an old log must never be read as this push's words.
+    """
     if exit_code == 0:
         return "passed"
     for family, pattern in _ORDINARY:
@@ -174,19 +181,32 @@ def classify(exit_code: int, output_tail: str) -> str:
             return family
     if _INFRA_WORDS.search(output_tail or ""):
         return "infrastructure"
-    return "unknown"
+    return "unknown" if tests_ran else "stopped_before_tests"
 
 
-def assemble(events: list[dict], exit_code: int, output_tail: str) -> dict:
+def fresh_tail(tail_file: Path | None, events: list[dict]) -> tuple[str, bool]:
+    """(the test log's tail, whether the tests ran in THIS push). The gate writes one log file that survives pushes, so
+    a log not modified since the watcher started belongs to an earlier push and is ignored."""
+    starts = [float(e["t"]) for e in events if "t" in e]
+    if not tail_file or not tail_file.is_file() or not starts:
+        return "", False
+    if tail_file.stat().st_mtime < min(starts):
+        return "", False
+    return tail_file.read_text(encoding="utf-8", errors="replace")[-4000:], True
+
+
+def assemble(events: list[dict], exit_code: int, output_tail: str, tests_ran: bool = True) -> dict:
     n = samples_taken(events)
-    family = classify(exit_code, output_tail)
+    family = classify(exit_code, output_tail, tests_ran)
     deaths = real_deaths(events)
     cfg = config_changes(events)
     if family == "passed":
         outcome = "PASSED"
     elif deaths or cfg:
         outcome = NAMED
-    elif n == 0:
+    elif n == 0 and family != "stopped_before_tests":
+        # A push stopped by a check before any test ran is over in under a second, before the first look finishes:
+        # zero looks is expected there, and the machine cannot have disturbed tests that never started.
         outcome = WATCHER_FAILED
     elif family in _FAMILY_WORDS:
         outcome = NOT_MINE
@@ -332,6 +352,13 @@ def _bare_line(config: Path) -> str:
 def run(parent_pid: int, raw_path: Path, git_config: Path | None = None) -> None:
     """Sample until the parent (the push hook) is gone. Writes only changes, plus a heartbeat every few samples."""
     raw_path.parent.mkdir(parents=True, exist_ok=True)
+    # A passing push finishes nothing, so its raw log stays; sweep the ones older than a day so they cannot pile up.
+    for old in raw_path.parent.glob("raw-*.jsonl"):
+        try:
+            if old != raw_path and time.time() - old.stat().st_mtime > 86400:
+                old.unlink()
+        except OSError:
+            pass
     lines = 0
     with raw_path.open("a", encoding="utf-8") as handle:
 
@@ -380,9 +407,11 @@ def run(parent_pid: int, raw_path: Path, git_config: Path | None = None) -> None
         write({"k": "tick", "n": n, "t": round(time.time(), 2)})
 
 
-def finish(raw_path: Path, exit_code: int, output_tail: str, out_dir: Path) -> str:
+def finish(
+    raw_path: Path, exit_code: int, output_tail: str, out_dir: Path, tests_ran: bool = True
+) -> str:
     """Build the report from the raw log, write it, trim old ones, return the sentence for the end of the push."""
-    report = assemble(read_raw(raw_path), exit_code, output_tail)
+    report = assemble(read_raw(raw_path), exit_code, output_tail, tests_ran)
     if report["outcome"] == "PASSED":
         return ""
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -411,12 +440,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "start":
         run(args.parent, Path(args.raw), Path(args.git_config) if args.git_config else None)
         return 0
-    tail = (
-        Path(args.tail_file).read_text(encoding="utf-8", errors="replace")[-4000:]
-        if args.tail_file and Path(args.tail_file).is_file()
-        else ""
+    tail, tests_ran = fresh_tail(
+        Path(args.tail_file) if args.tail_file else None, read_raw(Path(args.raw))
     )
-    sentence = finish(Path(args.raw), args.exit, tail, Path(args.out_dir))
+    sentence = finish(Path(args.raw), args.exit, tail, Path(args.out_dir), tests_ran)
     if sentence:
         print(sentence, file=sys.stderr)
     return 0

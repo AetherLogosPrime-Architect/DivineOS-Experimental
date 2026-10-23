@@ -217,6 +217,59 @@ def test_finish_writes_a_report_and_returns_the_sentence(tmp_path):
     assert len(list((tmp_path / "reports").glob("push-*.json"))) == 1
 
 
+def _begun(t):
+    return {
+        "k": "present",
+        "n": 0,
+        "t": t,
+        "pid": 100,
+        "ppid": 1,
+        "name": "python.exe",
+        "worker": False,
+    }
+
+
+def test_an_old_test_log_is_never_read_as_this_pushs_words(tmp_path):
+    """The gate keeps ONE log across pushes. A log older than the watcher belongs to an earlier push."""
+    import os
+
+    log = tmp_path / "last.log"
+    log.write_text("FAILED tests/test_old.py")
+    os.utime(log, (900.0, 900.0))
+    tail, ran = pw.fresh_tail(log, [_begun(1000.0)])
+    assert (tail, ran) == ("", False)
+
+
+def test_a_log_written_since_the_watcher_started_is_read(tmp_path):
+    import os
+
+    log = tmp_path / "last.log"
+    log.write_text("FAILED tests/test_new.py")
+    os.utime(log, (1100.0, 1100.0))
+    tail, ran = pw.fresh_tail(log, [_begun(1000.0)])
+    assert ran and "test_new" in tail
+
+
+def test_a_missing_log_means_the_tests_did_not_run(tmp_path):
+    assert pw.fresh_tail(tmp_path / "nope.log", [_begun(1000.0)]) == ("", False)
+    assert pw.fresh_tail(None, [_begun(1000.0)]) == ("", False)
+
+
+def test_a_push_stopped_before_the_tests_is_not_mine_even_with_zero_looks():
+    """A check refused it in under a second, before the first look finished. Zero looks is expected there, and it must
+    not read as the watcher having failed; but ordinary test failures with zero looks still must."""
+    report = pw.assemble([], exit_code=1, output_tail="", tests_ran=False)
+    assert report["outcome"] == pw.NOT_MINE and report["family"] == "stopped_before_tests"
+    assert (
+        pw.assemble([], 1, "FAILED tests/test_x.py", tests_ran=True)["outcome"] == pw.WATCHER_FAILED
+    )
+
+
+def test_the_stopped_before_tests_sentence_is_plain():
+    line = pw.final_line(pw.assemble([_begun(1000.0), _tick(4)], 1, "", tests_ran=False))
+    assert "a check stopped it before the tests ran" in line
+
+
 def test_a_passing_push_writes_no_report(tmp_path):
     raw = tmp_path / "raw.jsonl"
     raw.write_text("")
