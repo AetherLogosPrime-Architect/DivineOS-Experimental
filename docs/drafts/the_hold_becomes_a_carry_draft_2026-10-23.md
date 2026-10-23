@@ -29,6 +29,9 @@ Read by hand, of the 34 distinct questions refused: about 27 are design, order o
 3. **The gates say what they wait for, in his language,** so a pause is not invisible to him (to check: read each gate's refusal text for the four).
 4. **His answer closes the row, in passing or in form.** A by-meaning reader proposes, a seat that did not build the carry confirms, verbatim and typed, never relayed (same shape as Revision 9 in the workshop draft).
 
+5. **No question is dropped by a pattern.** (Aether's cold read of #713, 2026-10-23: six real questions were skipped by a reported-question regex. Under the hold a skip was harmless; under the carry it is the question lost.) A sentence the detector is unsure about is carried with a flag, "might be a question", never skipped.
+6. **The carry is split by kind** (Aether's count of his 52 distinct refusals: 31 conversation, 16 design/order/lookup, 2 at an action, 2 about him, 1 unclear; mine: about 27 / 4 / 3). Conversation questions, the heart questions he has said are welcome, ride along and expire when his next message overtakes them; they never accrue an age and never show as an open item. Only questions tied to a build or a decision accrue an age. How the kind is told apart is not yet designed, and it must not be a label I write: it is to be derived (for example, whether the reply that asked it also made a tool call that changed something). How many conversation questions he actually answers is being counted from the record (Aether).
+
 ## How it can fail, written first
 
 - **The carry becomes the shelf.** A question that blocks nothing can wait for ever. Counter: age in his turns, oldest first, shown to me every time; a reply that does the thing the question was about while the question is open is shown to me beside the open question.
