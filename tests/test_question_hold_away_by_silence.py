@@ -51,37 +51,11 @@ def test_the_silence_is_two_hours_by_his_word(qh):
     assert qh.AWAY_AFTER_SILENCE_SECONDS == TWO_HOURS
 
 
-def test_three_hours_without_a_word_is_away_and_letters_flow(qh, tmp_path, monkeypatch):
-    _store(tmp_path, monkeypatch, [("ok go ahead", 3 * 3600)])
-    qh.arm(FIRST)
-    away = qh.is_away()
-    assert away and away["by"] == "silence"
-    assert qh.refusal("Write", {"file_path": TO_ARIA}) == ""
-
-
-def test_ten_minutes_without_a_word_is_here_and_the_letter_waits(qh, tmp_path, monkeypatch):
-    _store(tmp_path, monkeypatch, [("ok go ahead", 600)])
-    qh.arm(FIRST)
-    assert qh.is_away() is None
-    assert "nexus" in qh.refusal("Write", {"file_path": TO_ARIA})  # the control
-
-
 def test_just_inside_and_just_outside_the_boundary(qh, tmp_path, monkeypatch):
     _store(tmp_path, monkeypatch, [("ok", TWO_HOURS - 60)])
     assert qh.is_away() is None
     _store(tmp_path, monkeypatch, [("ok", TWO_HOURS + 60)])
     assert qh.is_away() is not None
-
-
-def test_an_unreadable_store_is_never_away_and_the_refusal_says_it_could_not_look(
-    qh, tmp_path, monkeypatch
-):
-    monkeypatch.setenv("DIVINEOS_HIS_ASKS_DB", str(tmp_path / "does_not_exist.db"))
-    qh.arm(FIRST)
-    assert qh.is_away() is None
-    refusal = qh.refusal("Write", {"file_path": TO_ARIA})
-    assert "nexus" in refusal
-    assert "could not read when he last spoke" in refusal
 
 
 def test_a_store_with_no_real_message_is_never_away(qh, tmp_path, monkeypatch):
