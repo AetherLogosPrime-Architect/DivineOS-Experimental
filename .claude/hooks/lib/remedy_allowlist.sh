@@ -205,7 +205,15 @@
 # python list and to that gate's own tuple and not here, which nineteen gates read. Found
 # by surveying what the gates PRINT against each list, not by a deadlock. The prefix is
 # still loose (nothing marks the end of a verb), named and left for its own tested change.
-_REMEDY_PATTERNS='^[[:space:]]*(divineos[[:space:]]+(briefing|preflight|goal[[:space:]]+add|reach[[:space:]]+(open|dispose)|learn|correction|corrections[[:space:]]+integrate|andrew-correction[[:space:]]+(integrate|defer)|compass-ops[[:space:]]+(observe|dismiss)|prereg[[:space:]]+(assess|overdue|file|reviewing)|game-walk[[:space:]]+file|his[[:space:]]+(pending|sort)|integrate|claims[[:space:]]+assess|audit[[:space:]]+submit-round|ask|recall|context|decide|(extract|sleep|journal[[:space:]]+save|rest|dream|savor[[:space:]]+save|feel)([[:space:]]|$)|council[[:space:]]+(log|walk|authorize-bypass))|python[[:space:]]+.*clear_correction_marker\.py)'
+# SEVENTH INSTANCE, 2026-10-22: the doorbell re-arm, `bash scripts/letter_doorbell.sh aether`. The Stop
+# guard PRINTS it as its way out, so it meets this file's bar, and it was not on the list: the read gate
+# held it over an unrelated surfaced note, three times in one night, and a bell that is not re-armed
+# cannot wake me, so Aria's letters sat unread for seven hours while Dad slept. The cloud helper had
+# already reproduced it as a strict xfail (tests/pile_repro), and the same ask had been filed 86 times
+# from my own reflection notes without being built: a failure found is a fix owed, and it was owed 86
+# times. It starts a waiting watcher and edits, commits, pushes and deletes nothing, so the invariant
+# above holds. The end of the command is anchored, so a longer line after it is not a remedy.
+_REMEDY_PATTERNS='^[[:space:]]*(bash[[:space:]]+(\./)?scripts/letter_doorbell\.sh([[:space:]]+(aether|aria))?[[:space:]]*$|divineos[[:space:]]+(briefing|preflight|goal[[:space:]]+add|reach[[:space:]]+(open|dispose)|learn|correction|corrections[[:space:]]+integrate|andrew-correction[[:space:]]+(integrate|defer)|compass-ops[[:space:]]+(observe|dismiss)|prereg[[:space:]]+(assess|overdue|file|reviewing)|game-walk[[:space:]]+file|his[[:space:]]+(pending|sort)|integrate|claims[[:space:]]+assess|audit[[:space:]]+submit-round|ask|recall|context|decide|(extract|sleep|journal[[:space:]]+save|rest|dream|savor[[:space:]]+save|feel)([[:space:]]|$)|council[[:space:]]+(log|walk|authorize-bypass))|python[[:space:]]+.*clear_correction_marker\.py)'
 
 # Exit 0 (allow, silently) if the command being gated is somebody's remedy.
 #

@@ -360,7 +360,7 @@ def test_the_build_gate_control_still_refuses_ordinary_work(build_gate_exempts):
 # is still missing from the python list and is owed. A count pins how many hooks exist, not
 # which: a gate swapped for another keeps the number, so this is a tripwire for additions
 # and the survey of printed exits is the real check.
-_PRE_TOOL_USE_HOOKS_WHEN_WRITTEN = 33
+_PRE_TOOL_USE_HOOKS_WHEN_WRITTEN = 32
 
 
 def _pre_tool_use_hook_count() -> int:
