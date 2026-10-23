@@ -37,3 +37,32 @@ A report counts only if it contains a dated process-exit or config-change event 
 ## Not built yet
 
 Everything but the hand-run watcher at `~/.divineos/worker_death_watch.py`. This note goes to Aether and Aletheia before a line of code, and the walk asks how it breaks, not whether it is good.
+
+## The falsifier, with a number (Aether, 2026-10-23)
+
+"Every failed push has a report that names a cause, or says it could not" can never fail: a watcher that always prints "could not" satisfies it. So: over the next 20 failed pushes, at least 15 reports name a dated process-exit or config-change event inside the failing test's time window (read from the junit file). More than 5 reports saying "could not" is itself a FAIL, and the design is withdrawn or rewritten. Both halves stay: the floor on named events and the ceiling on honest confessions.
+
+## The walk (walk-193e1c70464f, 9 lenses, 2026-10-23) and what it changed
+
+Distinctness 0.513 mean, 0.718 max (Aristotle/Hoare): at the thin end of the house's own scale (real walks 0.21-0.27, nine restatements 0.44). The nine findings share one small vocabulary (report, falsifier, watcher, named event) because they all look at the same two outputs; I record the number as it printed. The walk also closed unbound to a branch, since it was closed before the work copy had changes; the push check will read it the weaker way. Each finding below altered a line of the design anyway.
+
+1. **Wired, and visible where he looks (Breaker).** A test renders the generated pre-push text and runs it in a scratch repo, proving the watcher starts. The session-start stale-hook check learns the new marker line. A failed push prints the report path and a one-line cause at the END of its output.
+2. **Order is by sample number, not seconds (Lamport).** Observations carry a sample number; "before the death" means an earlier sample; the same sample is CONCURRENT. The test-time window uses a one-sample margin.
+3. **Three outcomes, never merged (Hoare).** NAMED, NOTHING-SEEN, WATCHER-FAILED. Invariant: the watcher's exit status cannot reach the hook's. Background, never waited on, every call ends in `|| true`; tested by killing the watcher mid-push.
+4. **Classify the failure first (Aristotle). THIS CHANGES THE FALSIFIER.** Ordinary failures (assertion, gate refusal, remote reject) are cause-named by their own output. The 15-of-20 floor and the 5-of-20 ceiling count only the infrastructure family (worker death, config change). Going back to Aether as a change.
+5. **Plant the fault and its absence (Turing).** A test kills a worker on purpose and asserts the report names it; a control run with no kill asserts no death. Every report prints its sample count; zero samples is WATCHER-FAILED, never NOTHING-SEEN.
+6. **Three agents, raw log, separate assembler (Minsky).** Sampler, config reader, verdict recorder each append to one append-only log; a separate assembler writes the report afterward. Disagreements print side by side.
+7. **Correlation, not cause (Sagan).** The report says "events in the window", never "caused by". Control windows from passing pushes give a base rate, and a named event counts toward the falsifier only if that event kind is rarer in clean windows. The config fingerprint is the one independent confirmation.
+8. **The last line is for Dad (Angelou).** One plain sentence, no process names or hex ids, either what ended the push or the true "I could not tell why", plus what it cannot see. Tested: the printed line contains no hex ids and no file name beyond the one report path.
+9. **Attenuate, do not amplify (Beer).** Only the two families it can see. Writes to its own folder, independent of the push gate's logging. Watched itself by the heartbeat. Retention capped at 200 reports.
+
+## Aether's six attacks, taken (2026-10-23, morning) and where each stands
+
+1. **A clock on the falsifier.** No verdict until at least 8 infrastructure-family failures have been classified; until then the watcher stays off by default and Dad keeps the 5-with-5-without result as the stated reason. The classifier is itself an instrument that can file a hard case as "ordinary", so every ordinary-bucket report must name its own cause from its own output (a test name or a gate refusal), and one that cannot counts as "could not" against the ceiling. **Not built:** the audit and the minimum are process, not code yet.
+2. **Control from the same push, not extra sampling.** The quiet stretch before the first worker is the control; a named kind counts only if it is rarer there. **Built** (`quiet_stretch`, `is_usual`; "unknown" when under 40 looks and still counted).
+3. **Keep the split; no third piece.** Kept.
+4. **TREE_ENDED_EARLY.** Every worker gone before the summary line. **Built**, with the finding that the last look after the hook exits must be thrown away or it fakes this outcome.
+5. **The exit trap.** INT and TERM run it, a hard 3-second limit on the report, gates are children not sourced (read, not assumed). **Built and tested** (removing the limit makes the hang test fail).
+6. **Which python.** The house resolver, and one line "watcher python missing" when none. **Built and tested.** The resolver rightly refuses an interpreter whose divineos belongs to another checkout, so a worktree with no venv of its own gets the "missing" line, honestly.
+
+Also: the five `commit-msg` lines the drift check showed are MINE (my installed hook, my unpushed script), not Aether's. Correction sent.
