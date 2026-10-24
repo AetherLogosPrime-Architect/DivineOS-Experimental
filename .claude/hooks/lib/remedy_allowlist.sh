@@ -364,5 +364,16 @@ except Exception:
       >> "$HOME/.divineos/remedy_passthrough.log" 2>/dev/null  # fail-soft: an unwritable audit log must not turn a permitted remedy into a block; losing one trace line is strictly better than deadlocking the gate it exists to unblock
     exit 0
   fi
+  # A NEAR MISS SAYS WHICH PIECE MISSED (Dad 2026-10-24: "the root cause of the issue needs investigated and
+  # fixed"). An exit with a filter on the end that is not on the harmless list falls through here, and the
+  # gate that refuses next names itself and never the filter, so I spent a long stretch blaming two gates for
+  # a `| grep` of my own. Only when an exit IS present and something else disqualified it: ordinary work
+  # with no exit in it gets no message. (This block is plain shell, outside the quoted program above, so the
+  # single-quote rule for that program does not apply here.)
+  if [ "$matched" -gt 0 ] && [ "$total" -gt "$matched" ]; then
+    local stray
+    stray=$(printf '%s\n' "$cmd" | grep -vE "$_REMEDY_PATTERNS" | head -1)
+    echo "remedy-allowlist: this line contains an exit the gates allow, but this piece is not on the list of harmless ones, so the whole line was treated as ordinary work: ${stray:0:120}. If it only filters output, end the line with | tail -N or | head -N instead." >&2
+  fi
   return 1
 }

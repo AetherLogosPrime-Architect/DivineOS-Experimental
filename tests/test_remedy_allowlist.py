@@ -461,6 +461,83 @@ class TestFailsTowardNotARemedy:
         assert _is_remedy('env divineos correction "x"')
 
 
+class TestAGrepFilterDoesNotDisarmAnExit:
+    """2026-10-24 — the lock I closed myself.
+
+    I ended nearly every command with `2>&1 | grep -v "embedding\\|Loading" | tail -3`. head and tail
+    were harmless viewers on the list; grep was not, so a recording command with that filter stopped
+    being a recognised exit. The correction marker named `compass-ops observe`, the council-paperwork
+    gate refused it, and the paperwork commands were blocked by the marker. Dad: the root cause needs
+    fixing. These run the REAL library on a real payload; the controls refuse what must stay refused.
+    """
+
+    NOISE = '"embedding\\|Loading weights\\|Could not reach"'
+
+    def test_a_recording_exit_behind_a_grep_filter_passes(self):
+        assert _is_remedy(f"divineos learn x 2>&1 | grep -v {self.NOISE} | tail -3")
+
+    def test_the_compass_observe_the_marker_names_passes_behind_a_grep(self):
+        assert _is_remedy(
+            f'divineos compass-ops observe PRESENCE -p -0.3 -e "e" 2>&1 | grep -v {self.NOISE} | tail -3'
+        )
+
+    def test_a_correction_behind_a_grep_passes(self):
+        assert _is_remedy(f'divineos correction "x" 2>&1 | grep -v {self.NOISE} | tail -5')
+
+    def test_the_control_a_viewer_filter_still_passes(self):
+        """The pre-existing behaviour this must not disturb."""
+        assert _is_remedy('divineos learn "x" 2>&1 | tail -3')
+
+    def test_the_control_ordinary_work_still_refuses(self):
+        assert not _is_remedy(f"{_GIT} commit -qm x")
+
+    def test_when_a_stray_piece_disqualifies_an_exit_the_refusal_names_that_piece(self):
+        """The cost was never the refusal, it was that it named a gate and never the pipe.
+
+        An exit with a filter that is not on the list falls through. The library now says which piece
+        did it, so whoever meets it is pointed at the filter and not at the wrong gate.
+        """
+        script = (
+            "HOOK_NAME=selftest\n"
+            f'. "{_ALLOWLIST.as_posix()}"\n'
+            'remedy_pass_through "$(cat)"\n'
+            "echo NO_MATCH\n"
+        )
+        proc = subprocess.run(
+            [_bash(), "-c", script],
+            input=json.dumps({"tool_input": {"command": 'divineos learn "x" 2>&1 | cut -c1-5'}}),
+            capture_output=True,
+            text=True,
+            cwd=str(_REPO),
+        )
+        assert "NO_MATCH" in proc.stdout
+        assert "cut -c1-5" in proc.stderr
+        assert "tail" in proc.stderr
+
+    def test_ordinary_work_with_no_exit_in_it_gets_no_such_message(self):
+        """The control: the message is for a near-miss, not for every refusal."""
+        script = (
+            "HOOK_NAME=selftest\n"
+            f'. "{_ALLOWLIST.as_posix()}"\n'
+            'remedy_pass_through "$(cat)"\n'
+            "echo NO_MATCH\n"
+        )
+        proc = subprocess.run(
+            [_bash(), "-c", script],
+            input=json.dumps({"tool_input": {"command": f"{_GIT} commit -qm x | cut -c1-5"}}),
+            capture_output=True,
+            text=True,
+            cwd=str(_REPO),
+        )
+        assert "NO_MATCH" in proc.stdout
+        assert "cut -c1-5" not in proc.stderr
+
+    def test_the_control_a_grep_does_not_launder_what_comes_after_it(self):
+        assert not _is_remedy(f"divineos learn x | grep y && {_GIT} {_PUSH}")
+        assert not _is_remedy(f"grep -r x . && {_GIT} {_PUSH}")
+        assert not _is_remedy("divineos learn x | grep y && rm -rf /tmp/z")
+
+
 class TestTheQuestionIsWhatTheCommandDoes:
     """2026-09-17 — three refusals in one stretch, only one of them a prefix.
 

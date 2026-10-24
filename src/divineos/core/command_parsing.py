@@ -350,6 +350,16 @@ _INERT_HEADS = frozenset(
         "column",
         "less",
         "more",
+        # GREP, added 2026-10-24 (Dad: "the root cause of the issue needs investigated and fixed").
+        # I ended nearly every divineos command with `| grep -v "embedding\|Loading"` to hide
+        # model-loading noise, and a recording command with that on the end stopped being a
+        # recognised exit. The correction marker named `compass-ops observe` as its remedy, the
+        # council-paperwork gate refused that observe as an edit because of my grep, and the
+        # paperwork commands were blocked by the marker: a lock I closed myself. It meets the bar
+        # above: grep consumes input, emits text and has no option that writes a file (unlike sed
+        # and awk). `grep -r x . && git push` still refuses, because git push is an acting segment;
+        # a `> file` redirect on the grep is still caught as a write.
+        "grep",
         # SHELL OPTIONS, added 2026-09-18 (council-de235c61e79d), because two
         # guards were composing into a block that neither contained.
         #
