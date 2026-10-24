@@ -99,7 +99,7 @@ def glance(blocks: list[str], seen: dict) -> tuple[list[str], dict]:
     lines, now = [], dict(seen)
     for block in blocks:
         title, first = _title_and_first(block)
-        digest = hashlib.sha1(block.encode("utf-8")).hexdigest()[:12]
+        digest = hashlib.sha1(block.encode("utf-8"), usedforsecurity=False).hexdigest()[:12]
         body = [ln.strip() for ln in block.splitlines() if ln.strip()]
         changed = seen.get(title) != digest
         lines.append(f"- {title}{' [CHANGED]' if changed else ''}: {first}")
