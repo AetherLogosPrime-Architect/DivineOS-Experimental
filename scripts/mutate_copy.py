@@ -56,15 +56,7 @@ DEFAULT_INCLUDE = ("pyproject.toml", "src", "tests", "scripts")
 SKIP_MARK = "pragma: no mutate"
 # Every "kind" find_mutants can produce. The readout prints this list so a clean number is never
 # read as a clean bill (the walk's Godel lens): a fault of another shape is not planted at all.
-PLANTED_KINDS = (
-    "compare",
-    "and-or",
-    "bool",
-    "number",
-    "negate-condition",
-    "return-none",
-    "plus-minus",
-)
+PLANTED_KINDS = ("compare", "and-or", "bool", "number", "negate-condition", "return-none", "plus-minus")
 
 _CMP_TOKEN = {
     ast.Eq: ("==", r"==", ["!="]),
@@ -252,18 +244,7 @@ def _kill_tree(proc: subprocess.Popen) -> None:
 
 
 def _pytest_cmd(tests: list[str]) -> list[str]:
-    return [
-        sys.executable,
-        "-m",
-        "pytest",
-        "-x",
-        "-q",
-        "--tb=no",
-        "-p",
-        "no:cacheprovider",
-        "-rf",
-        *tests,
-    ]
+    return [sys.executable, "-m", "pytest", "-x", "-q", "--tb=no", "-p", "no:cacheprovider", "-rf", *tests]
 
 
 #: The test a run named as failed. The id runs to the end of the line, or to the " - message" that pytest
@@ -394,9 +375,7 @@ def run(
     out.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")
     # mkstemp makes the name unique: two runs in the same second must not share one readout file.
-    fd, jsonl_name = tempfile.mkstemp(
-        prefix=f"{module_path.stem}-{stamp}-", suffix=".jsonl", dir=out
-    )
+    fd, jsonl_name = tempfile.mkstemp(prefix=f"{module_path.stem}-{stamp}-", suffix=".jsonl", dir=out)
     os.close(fd)
     jsonl = Path(jsonl_name)
     results: list[dict] = []

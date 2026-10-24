@@ -27,9 +27,11 @@ so. "Wall-clock time" is not a finite list of words, so no list here is complete
 prose stage, the later and weaker of two defenses; the filing command, which cannot be given a date, is the
 other. Twelve wordings tried on 2026-10-22 that this does NOT catch, so the open list is real: "two sprints",
 "until the next release", "through Q4", "a couple of cycles", "by the holidays", "overnight", "a few hours",
-"this afternoon", "till tomorrow", "the rest of the year", "until the 15th", "again in a bit". Each wording a
-reviewer finds becomes a row and a test; the refusal event records what matched so the list grows from real
-misses.
+"this afternoon", "till tomorrow", "the rest of the year", "until the 15th", "again in a bit". Aether's cold read
+(2026-10-24) found three more that pass today, each a real trial in days with no trial word within reach:
+"Run it for 30 days and see how it goes", "The plan is to watch it for a month", "Review it again in four weeks".
+Each wording a reviewer finds becomes a row and a test; the refusal event records what matched so the list
+grows from real misses.
 
 A trial word and a duration more than 300 characters apart inside ONE long sentence no longer connect, and a
 rule more than 300 characters from the duration does not excuse it (the price of bounding the cost per hit;
