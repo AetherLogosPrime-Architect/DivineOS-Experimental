@@ -382,6 +382,40 @@ def test_a_tree_that_ended_after_its_summary_is_not_early():
     assert report["outcome"] != pw.TREE_ENDED_EARLY
 
 
+@pytest.mark.parametrize(
+    "tail",
+    [
+        "tests/test_x.py F.\n\n1 failed, 1 passed in 0.32s",
+        "40 passed in 12.50s",
+        "3 failed, 40 passed, 2 skipped in 12.5s",
+        "1 error in 0.40s",
+        "no tests ran in 0.01s",
+        "=== 3 failed, 40 passed in 12.5s ===",
+    ],
+)
+def test_the_end_of_a_run_is_recognised_with_the_bar_and_without_it(tail):
+    """Aether, cold-reading #712: the push gate runs pytest with -q, which draws NO bar, and the first pattern required
+    one. Every ordinary failure with workers then read as the whole tree ending early. Each shape pytest prints must
+    count as a finished run."""
+    log = [_parent(), _w(11), _w(12), _end(11, 30), _end(12, 30), _end(100, 30), _tick(40)]
+    assert pw.assemble(log, 1, tail, tests_ran=True)["outcome"] != pw.TREE_ENDED_EARLY
+
+
+@pytest.mark.parametrize(
+    "tail",
+    [
+        "tests/test_x.py ....",
+        "a test printed: failed in 2s and went on",
+        "Traceback ...\nMemoryError",
+        "",
+    ],
+)
+def test_control_a_run_that_never_printed_its_end_is_still_early(tail):
+    """The other direction: lines that merely look like a result, or no result at all, are not a finished run."""
+    log = [_parent(), _w(11), _w(12), _end(11, 30), _end(12, 30), _end(100, 30), _tick(40)]
+    assert pw.assemble(log, 1, tail, tests_ran=True)["outcome"] == pw.TREE_ENDED_EARLY
+
+
 def test_a_lone_death_is_still_named_not_a_tree_ending():
     assert pw.assemble(_real_death_log(), 1, "tests ....", tests_ran=True)["outcome"] == pw.NAMED
 

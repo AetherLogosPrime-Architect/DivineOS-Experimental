@@ -255,8 +255,17 @@ def is_usual(
     return (in_quiet / quiet) >= (in_window / (2 * window + 1))
 
 
+# Two shapes of pytest's last line. The default draws a bar ("=== 1 failed, 1 passed in 0.3s ==="); under -q,
+# which is how the push gate runs it, pytest draws NO bar and the line is bare ("1 failed, 1 passed in 0.3s").
+# The first version of this pattern required the bar, so every ordinary failure under the gate read as the
+# whole tree ending early (Aether, cold-reading #712, 2026-10-23, reproduced against pytest itself).
+# The bare shape is anchored to a line of nothing but counts, so a test that prints "failed in 2s" mid-output
+# does not pass for a finished run.
 _SUMMARY = re.compile(
-    r"=+ .*\b(passed|failed|error|errors|no tests ran|deselected)\b.* in [\d.]+s", re.I
+    r"^=+ .*\b(passed|failed|error|errors|no tests ran|deselected)\b.* in [\d.]+s"
+    r"|^(?:\d+ (?:passed|failed|errors?|skipped|deselected|xfailed|xpassed|warnings?)(?:, )?)+ in [\d.]+s"
+    r"|^no tests ran in [\d.]+s",
+    re.I | re.M,
 )
 
 
