@@ -296,6 +296,75 @@ def _row_detector_errors() -> DashboardRow | None:
         return None
 
 
+#: How many times the reply-audit hook may START after its last completed run before the briefing calls it dark.
+#: By usage, not by the clock: after a night off the heartbeat is always old, and a row that cried wolf each morning
+#: would be read through. Chosen before the replay (the 2026-10-04 break showed 302 starts in the retained log).
+DARK_START_THRESHOLD = 20
+_AUDIT_HOOK = "post-response-audit.sh"
+
+
+def _row_reply_audit_dark() -> DashboardRow | None:
+    """The reply audit starts on every Stop and completes none of them: say so where I already look.
+
+    The 2026-10-04 break (a quote mark inside a comment cut the hook's program in half, the error was thrown away,
+    the script exited 0) ran twenty days. The house already had a "Detector Chain -- DARK" slot for this, in the full
+    HUD, a room I never open at session start. This is the same fact in the briefing. The signal is the hook's own
+    start rows in hook_timing.jsonl (written by _lib.sh before anything can fail), counted after the last heartbeat.
+    A failure to READ the evidence is itself shown, never swallowed: a check for darkness that goes dark quietly is the
+    bug it exists for.
+    """
+    import json
+
+    from divineos.core.paths import divineos_home, marker_path
+
+    try:
+        timing = divineos_home() / "hook_timing.jsonl"
+        if not timing.exists():
+            return None
+        try:
+            hb_ts = float(
+                json.loads(
+                    marker_path("detector_chain_heartbeat.json").read_text(encoding="utf-8")
+                ).get("ts", 0.0)
+            )
+        except (OSError, ValueError, TypeError):
+            hb_ts = 0.0  # no readable heartbeat: every start counts
+        starts = 0
+        for line in timing.read_text(encoding="utf-8", errors="replace").splitlines():
+            if _AUDIT_HOOK not in line:
+                continue
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            if (
+                row.get("hook") == _AUDIT_HOOK
+                and row.get("phase") == "start"
+                and row.get("ts_ms", 0) / 1000.0 > hb_ts
+            ):
+                starts += 1
+        if starts < DARK_START_THRESHOLD:
+            return None
+        return DashboardRow(
+            area="Reply audit (DARK: started but never finished)",
+            count=starts,
+            stale_count=starts,
+            drill_down="divineos hud  (see Detector Chain), then run the hook with bash -x",
+            detail=(
+                f"the hook started {starts} times (at least; the log is rotated) since it last completed. "
+                "Every reply check in it has been off. 'No refusals' is NOT the all-clear."
+            ),
+        )
+    except _ERRORS as exc:
+        return DashboardRow(
+            area="Reply audit (could not check)",
+            count=0,
+            stale_count=1,
+            drill_down="divineos hud  (see Detector Chain)",
+            detail=f"could not read the evidence for whether the reply audit is running: {type(exc).__name__}",
+        )
+
+
 def _row_open_prs() -> DashboardRow | None:
     """Task tonight (Andrew 2026-06-09): surface open-PR merge-readiness
     so auto-merge-armed state becomes loud-in-experience.
@@ -1386,6 +1455,7 @@ _ROW_FNS = [
     _row_audit_findings,
     _row_audit_surprises,
     _row_detector_errors,
+    _row_reply_audit_dark,
     _row_open_prs,
     _row_landing,
     _row_preregs,
