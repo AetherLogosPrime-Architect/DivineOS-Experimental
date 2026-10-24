@@ -404,6 +404,14 @@ WATCH_PID=""
 # Which python runs the watcher is ASKED of the house's own resolver (it refuses the Microsoft Store stub and checks
 # each candidate runs), in a subshell so sourcing it cannot change this hook's environment for the gates below.
 WATCH_PY="$( ( source "$REPO_ROOT/.claude/hooks/_lib.sh" >/dev/null 2>&1; find_divineos_python ) 2>/dev/null )"  # fail-soft: no resolver or no python means no watcher, and that is said on the next line
+# Where the gate wrote its log is ASKED of the same resolver the gate asks (Aether, cold-reading #712: this line
+# first spelled "$HOME/.divineos/", which is his home and not mine, so a push of mine would have read HIS log).
+# Empty when the resolver cannot answer: a tail file that names nothing is read as nothing, never as someone else's.
+WATCH_HOME="$( ( source "$REPO_ROOT/.claude/hooks/_lib.sh" >/dev/null 2>&1; source "$REPO_ROOT/.claude/hooks/lib/member_home.sh" >/dev/null 2>&1; member_home "${DIVINEOS_MEMBER:-aether}" ) 2>/dev/null )"  # fail-soft: no resolver means no tail file, and the report says it had no gate output to read
+WATCH_TAIL=""
+if [ -n "$WATCH_HOME" ]; then
+    WATCH_TAIL="$WATCH_HOME/last_pre_push_pytest.log"
+fi
 _watch_stop() {
     local rc=$?
     trap - EXIT
@@ -412,7 +420,7 @@ _watch_stop() {
             # A report that cannot be built is said, not swallowed: the push already failed and its reader is owed that.
             # Three seconds at most: a hung report must never hold a failed push open.
             timeout 3 "$WATCH_PY" "$PUSH_WATCHER" finish --raw "$WATCH_RAW" --exit "$rc" --out-dir "$WATCH_DIR" \
-                --tail-file "$HOME/.divineos/last_pre_push_pytest.log" >&2 \
+                --tail-file "$WATCH_TAIL" >&2 \
                 || echo "[push-watcher] could not build the report for this failed push" >&2
         fi
         kill "$WATCH_PID" 2>/dev/null || true  # fail-soft: the watcher may already be gone; ending a gone process cannot matter

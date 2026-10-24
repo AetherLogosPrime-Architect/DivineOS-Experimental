@@ -177,6 +177,63 @@ def test_a_report_that_hangs_cannot_hold_a_failed_push_open(scratch):
     assert "could not build the report" in done.stderr
 
 
+_RECORD_ARGV = (
+    "import sys, pathlib\n"
+    "if sys.argv[1] == 'finish':\n"
+    "    pathlib.Path(sys.argv[0]).with_name('finish_argv.txt').write_text(' '.join(sys.argv[2:]), encoding='utf-8')\n"
+)
+
+
+def _tail_file_the_hook_passed(work: Path) -> str:
+    argv = (work / "scripts" / "finish_argv.txt").read_text(encoding="utf-8").split()
+    return argv[argv.index("--tail-file") + 1].replace("\\", "/")
+
+
+@pytest.mark.parametrize("member", ["aria", None])
+def test_the_hook_reads_the_log_of_the_member_who_pushed_not_a_hand_built_path(scratch, member):
+    """Aether, cold-reading #712: the hook spelled "$HOME/.divineos/..." for the tail file while the gate asks the
+    resolver, so a push of Aria's would have read Aether's log. Run as each member and see which path it names. The
+    default (no member set) is the control: it must still land in .divineos."""
+    work, home, env = scratch
+    (work / ".claude" / "hooks" / "lib").mkdir(parents=True)
+    shutil.copy(
+        REPO / ".claude" / "hooks" / "lib" / "member_home.sh",
+        work / ".claude" / "hooks" / "lib" / "member_home.sh",
+    )
+    (work / "scripts" / "push_watcher.py").write_text(_RECORD_ARGV, encoding="utf-8")
+    _stub_readiness(work, 7)
+    # The REAL resolver, not its fallback: the scratch repo has no divineos of its own, so without this the shell
+    # resolver falls back to "$HOME/.divineos-<member>" and the test would only be measuring the fallback. Python
+    # finds the home through USERPROFILE on Windows and HOME elsewhere, so both name the scratch home.
+    env["PYTHONPATH"] = str(REPO / "src")
+    env["USERPROFILE"] = str(home)
+    if member:
+        env["DIVINEOS_MEMBER"] = member
+    else:
+        env.pop("DIVINEOS_MEMBER", None)
+    done = _push(work, env)
+    assert done.returncode != 0
+    assert "resolver unreachable" not in done.stderr, done.stderr
+    asked = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            f"from divineos.core.paths import member_home; print(member_home({member or 'aether'!r}))",
+        ],
+        env=env,
+        cwd=work,  # the resolver reads markers from the checkout it is asked in, so ask where the hook asks
+        capture_output=True,
+        text=True,
+        timeout=60,
+        creationflags=_NO_WINDOW,
+    )
+    assert asked.returncode == 0, asked.stderr
+    expected = (Path(asked.stdout.strip()) / "last_pre_push_pytest.log").as_posix()
+    assert _tail_file_the_hook_passed(work).lower() == expected.lower()
+    if member == "aria":
+        assert ".divineos-aria" in expected, expected
+
+
 def test_a_broken_watcher_cannot_change_the_verdict(scratch):
     """The invariant: the watcher's own failure never reaches the hook's exit status, in either direction."""
     work, home, env = scratch
