@@ -324,12 +324,13 @@ def fresh_tail(tail_file: Path | None, events: list[dict]) -> tuple[str, bool | 
     a log not modified since the watcher started belongs to an earlier push and is ignored.
 
     The second value has THREE states: True (a fresh log: the tests ran), False (the log is older than this push: a check
-    stopped it first) and None (there is no path or no such file: the watcher could not look, which says nothing about
-    whether the tests ran)."""
+    stopped it first) and None (no path was given: the watcher could not look, which says nothing about whether the tests
+    ran). A path that names no file is False, not None: the gate writes that log when its tests fail, so a failed push
+    with no log at a KNOWN path is a push stopped before the tests (the merge gate's own test pinned exactly this)."""
     starts = [float(e["t"]) for e in events if "t" in e]
-    if not tail_file or not tail_file.is_file():
+    if not tail_file:
         return "", None
-    if not starts:
+    if not tail_file.is_file() or not starts:
         return "", False
     if tail_file.stat().st_mtime < min(starts):
         return "", False

@@ -344,8 +344,9 @@ def test_a_log_written_since_the_watcher_started_is_read(tmp_path):
 
 
 def test_a_missing_log_means_the_tests_did_not_run(tmp_path):
-    # No path, or no such file, is "could not look" (None), NOT "the tests did not run" (False): Aether, reading fd34d0c49.
-    assert pw.fresh_tail(tmp_path / "nope.log", [_begun(1000.0)]) == ("", None)
+    # A KNOWN path with no file is a push stopped before the tests (False). No path at all is "could not look" (None),
+    # NOT "the tests did not run": Aether, reading fd34d0c49.
+    assert pw.fresh_tail(tmp_path / "nope.log", [_begun(1000.0)]) == ("", False)
     assert pw.fresh_tail(None, [_begun(1000.0)]) == ("", None)
 
 
