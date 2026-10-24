@@ -328,9 +328,12 @@ def fresh_tail(tail_file: Path | None, events: list[dict]) -> tuple[str, bool | 
     ran). A path that names no file is False, not None: the gate writes that log when its tests fail, so a failed push
     with no log at a KNOWN path is a push stopped before the tests (the merge gate's own test pinned exactly this)."""
     starts = [float(e["t"]) for e in events if "t" in e]
-    if not tail_file:
+    if not tail_file or not starts:
+        # No timestamp from the watcher means there is nothing to compare the log's age against: freshness cannot be
+        # established, so the log is neither trusted nor dismissed (Aether, reading 9f507f0bd: the watcher's own empty
+        # log was being spoken as "the tests did not run" for a push whose gate log showed them running).
         return "", None
-    if not tail_file.is_file() or not starts:
+    if not tail_file.is_file():
         return "", False
     if tail_file.stat().st_mtime < min(starts):
         return "", False
@@ -349,12 +352,13 @@ def assemble(events: list[dict], exit_code: int, output_tail: str, tests_ran: bo
         outcome = NAMED
     elif tree_early:
         outcome = TREE_ENDED_EARLY
-    elif family == COULD_NOT_READ_FAMILY:
-        outcome = COULD_NOT_LOOK
     elif n == 0 and family != "stopped_before_tests":
         # A push stopped by a check before any test ran is over in under a second, before the first look finishes:
         # zero looks is expected there, and the machine cannot have disturbed tests that never started.
+        # This is also where a watcher that wrote nothing lands, even when the log could not be read as well.
         outcome = WATCHER_FAILED
+    elif family == COULD_NOT_READ_FAMILY:
+        outcome = COULD_NOT_LOOK
     elif family in _FAMILY_WORDS:
         outcome = NOT_MINE
     else:

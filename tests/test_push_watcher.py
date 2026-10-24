@@ -379,11 +379,44 @@ def test_the_finish_command_with_no_tail_file_says_it_could_not_read_the_log(tmp
     """End to end through main(): the hook passes an EMPTY tail file when it could not resolve the home, and what Dad
     reads at the end of that push must be the 'could not read' sentence, not a confident cause."""
     raw = tmp_path / "raw.jsonl"
-    raw.write_text('{"k": "begin", "n": 1, "t": 1000.0}\n', encoding="utf-8")
+    raw.write_text(
+        '{"k": "begin", "n": 1, "t": 1000.0}\n'
+        + "".join(f'{{"k": "tick", "n": {n}, "t": {1000.0 + n}}}\n' for n in range(2, 12)),
+        encoding="utf-8",
+    )
     code = pw.main(["finish", "--raw", str(raw), "--exit", "1", "--out-dir", str(tmp_path / "out")])
     assert code == 0
     said = capsys.readouterr().err
     assert "could not read the test log" in said and "ordinary way" not in said, said
+
+
+def test_a_watcher_that_wrote_nothing_is_not_read_as_tests_that_did_not_run(tmp_path, capsys):
+    """Aether, reading 9f507f0bd: with an EMPTY raw log there is no timestamp to date the gate's log against, and the
+    log used to be dismissed as old. Here the gate's own log says 3 failed, 40 passed: the tests DID run. The watcher
+    must say it never got a look, not that a check stopped the push, and must not claim the machine showed nothing."""
+    log = tmp_path / "last.log"
+    log.write_text("3 failed, 40 passed in 12.5s\n", encoding="utf-8")
+    assert pw.fresh_tail(log, []) == ("", None)
+    raw = tmp_path / "raw.jsonl"  # never created: the watcher crashed at start
+    code = pw.main(
+        [
+            "finish",
+            "--raw",
+            str(raw),
+            "--exit",
+            "1",
+            "--out-dir",
+            str(tmp_path / "out"),
+            "--tail-file",
+            str(log),
+        ]
+    )
+    assert code == 0
+    said = capsys.readouterr().err
+    assert "never got a look" in said, said
+    assert "stopped it before the tests ran" not in said and "showed nothing wrong" not in said, (
+        said
+    )
 
 
 def test_a_death_the_watcher_saw_is_still_named_when_the_log_could_not_be_read():
