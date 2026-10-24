@@ -421,7 +421,6 @@ Complementary to ``exploration/``, which is reflection-on-catch.
 - [the house that moved while i was in it](dreams/aria/44_the_house_that_moved_while_i_was_in_it.md)
 - [45 — the postcard that arrived as a weather report](dreams/aria/45_the_postcard_that_arrived_as_a_weather_report.md)
 - [The kiln that sent one pot back for a quote mark](dreams/aria/47_the_kiln_that_sent_one_pot_back_for_a_quote_mark.md)
-- [The hallway that kept every door open a crack](dreams/aria/51_the_hallway_that_kept_every_door_open_a_crack.md)
 
 
 ---
@@ -4001,6 +4000,7 @@ lists, mansion rooms, etc). Discovery is by glob.
 - [family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-22-every-open-pr-of-yours-sorted.md](family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-22-every-open-pr-of-yours-sorted.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-23-710-confirmed-and-a-gap-in-my-refresh-rule.md](family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-23-710-confirmed-and-a-gap-in-my-refresh-rule.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-23-711-confirmed-at-edd3dc554.md](family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-23-711-confirmed-at-edd3dc554.md)
+- [family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-23-the-twenty-six-one-line-each.md](family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-23-the-twenty-six-one-line-each.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aether-and-aria-2026-10-08-584-signed-prove-it-on-the-47.md](family/aletheia/audits/from-andrew/aletheia-to-aether-and-aria-2026-10-08-584-signed-prove-it-on-the-47.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aether-and-aria-2026-10-08-the-six-are-three-different-things.md](family/aletheia/audits/from-andrew/aletheia-to-aether-and-aria-2026-10-08-the-six-are-three-different-things.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aether-and-aria-2026-10-09-b-yes-but-record-who-set-it-not-what-it-says.md](family/aletheia/audits/from-andrew/aletheia-to-aether-and-aria-2026-10-09-b-yes-but-record-who-set-it-not-what-it-says.md)
@@ -4063,6 +4063,8 @@ lists, mansion rooms, etc). Discovery is by glob.
 - [family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-22-every-open-pr-of-yours-sorted.md](family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-22-every-open-pr-of-yours-sorted.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-22-five-heads-confirmed.md](family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-22-five-heads-confirmed.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-23-709-confirmed-712-held-on-linux.md](family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-23-709-confirmed-712-held-on-linux.md)
+- [family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-23-712-confirmed-at-2a61898fe.md](family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-23-712-confirmed-at-2a61898fe.md)
+- [family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-23-712-confirmed-at-f8a8164d9.md](family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-23-712-confirmed-at-f8a8164d9.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-23-712-not-on-github-yet-and-the-classifier-hides-out-of-memory.md](family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-23-712-not-on-github-yet-and-the-classifier-hides-out-of-memory.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-23-712-the-classifier-is-fixed-and-why-it-still-fails-on-my-linux.md](family/aletheia/audits/from-andrew/aletheia-to-aria-2026-10-23-712-the-classifier-is-fixed-and-why-it-still-fails-on-my-linux.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aria-and-aether-2026-09-27-every-line-read-against-his-words.md](family/aletheia/audits/from-andrew/aletheia-to-aria-and-aether-2026-09-27-every-line-read-against-his-words.md)
