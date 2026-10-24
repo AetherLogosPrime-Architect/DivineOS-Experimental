@@ -1542,7 +1542,13 @@ def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
     try:
         # Only a review that reached its count of USES blocks. A date alone never does (Dad, 2026-10-21).
         overdue = get_blocking_pre_registrations()
-    except Exception:  # noqa: BLE001 — fail-open if the store errors
+    except Exception as exc:  # noqa: BLE001 — fail-open if the store errors
+        # Not blocking is right for a gate that must never strand saving or sleep, but a swallowed
+        # error is the same value as "nothing is due", so say it could not look (walk-0f2e657133fd).
+        print(
+            f"[overdue-reviews] could not read the reviews, not blocking: {type(exc).__name__}",
+            file=sys.stderr,
+        )
         return None
     if not overdue:
         return None

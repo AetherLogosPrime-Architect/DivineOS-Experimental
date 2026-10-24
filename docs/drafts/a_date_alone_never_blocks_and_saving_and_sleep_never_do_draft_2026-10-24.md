@@ -19,6 +19,17 @@ Every review that was set by date fell due at the same moment, and the gate that
 
 `journal save`, `savor save` and `feel` are not printed by any gate as the way out of a hold; they are on the list on Dad's word that personal writing is never blocked, and the comment in the code says so. A review set by date is no longer enforced anywhere: it can be read in the briefing, and nothing makes anyone act on it. That is the price of the ruling, said here and not hidden.
 
+## What the eight-lens walk found (walk-0f2e657133fd, 2026-10-24)
+
+Built from it: when the store of reviews cannot be read, the gate still does not block (right for a gate that must never strand saving) but now prints one line saying it could not look, so a broken store is not read as an all-clear (test, red first).
+
+Said plainly, not built:
+- **This guards a class that can no longer be created and is empty today.** The filing command already requires a count of uses, so no new date-only review can be made, and none is overdue now. It does not repair a live fault; it stops an old row or a loosened filing rule from bringing the fault back.
+- **"Saving is never blocked" is proven for the overdue gate only.** Other hooks can also stop work (the council gate on substrate writes, the compaction hard stop, the engagement gates). The seven commands were run through the real check and pass; a test that walks every PreToolUse hook against each command is the real closure and is owed.
+- **Visibility of what is now informational.** A date-only review is enforced nowhere. The briefing should show them as one line with a count and the age of the oldest, with any use-counted one printed first. I did not read the briefing code to see whether it does; owed before the stamp.
+- **Two concerns in one branch**, by cost: Aletheia and Dad confirmed this exact tree, and a split would need two new confirmations for the same code. The files are disjoint apart from one shared test helper, so either half reverts cleanly.
+- **The remedy list is kept in two forms** (a Python list and a shell pattern). A test pins that they agree; one source would be cleaner but the shell side cannot import Python without starting it on every command.
+
 ## Falsifier, counted in uses
 
 Of the next 10 times a hold opens, if any one stops `extract`, `sleep` or a save, the change is wrong. If a review that reached its count of uses does not stop work, the other half is wrong; the paired test shows a use-counted row blocking, so the gate cannot pass by never blocking at all.

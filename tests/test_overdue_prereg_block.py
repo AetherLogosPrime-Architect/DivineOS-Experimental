@@ -37,6 +37,26 @@ def test_no_preregs_no_block():
     assert _check_overdue_prereg_block() is None
 
 
+def test_a_store_that_cannot_be_read_does_not_block_and_says_it_could_not_look(monkeypatch, capsys):
+    """walk-0f2e657133fd (Hoare): fail-open is the right direction for a gate that must not strand saving or sleep,
+    but a swallowed error is the same value as 'nothing is due', so a broken store read as an all-clear. It still
+    does not block, and now one line says it could not look."""
+    import divineos.core.pre_registrations.store as store
+
+    def _boom(now=None):
+        raise RuntimeError("the store is jammed")
+
+    monkeypatch.setattr(store, "get_blocking_pre_registrations", _boom)
+    assert _check_overdue_prereg_block() is None
+    assert "could not read the reviews" in capsys.readouterr().err
+
+
+def test_control_a_store_that_can_be_read_prints_nothing_extra(capsys):
+    init_pre_registrations_tables()
+    assert _check_overdue_prereg_block() is None
+    assert "could not read the reviews" not in capsys.readouterr().err
+
+
 def test_open_prereg_not_yet_overdue_does_not_block():
     """Future review date, OPEN outcome — no block."""
     init_pre_registrations_tables()
