@@ -91,7 +91,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `pre-tool-context.sh` | 2026-08-22 | thin doorman pointing to the OS. |
 | `push-message-carries-the-destination.sh` | 2026-09-23 | PreToolUse(Bash) — a background push must use the wrapper, because the |
 | `reach-check-doorman.sh` | 2026-09-22 | reach-check doorman on substrate-store and research writes. |
-| `read-gate-doorman.sh` | 2026-10-02 | the read-gate. A prime that is a gate, not just loud. |
+| `read-gate-doorman.sh` | 2026-10-23 | the read-gate. A prime that is a gate, not just loud. |
 | `rederivation-detector.sh` | 2026-08-23 | PreToolUse(Bash) — when I run the SAME command a third distinct way, say so, |
 | `require-goal.sh` | 2026-09-15 | PreToolUse gate — consolidated into a single Python invocation. |
 | `safe-opposite-edit-check.sh` | 2026-08-24 | PreToolUse — surface the safe-opposite check at the moment the fix is |
