@@ -72,7 +72,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `aletheia-boot-gate-preflight.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `andrew-correction-attestation.sh` | 2026-09-15 | PreToolUse gate — integration-attestation for Andrew-corrections. |
-| `auto-cycle-token-trigger.sh` | 2026-10-18 | Compaction ritual driver — deterministic, in-process, no external monitor. |
+| `auto-cycle-token-trigger.sh` | 2026-10-21 | Compaction ritual driver — deterministic, in-process, no external monitor. |
 | `blanket-staging-doorman.sh` | 2026-09-23 | refuse a blanket `git add` in a tree where substrate is |
 | `check-branch-on-push.sh` | 2026-10-13 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
 | `check-council-required.sh` | 2026-10-16 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
@@ -91,7 +91,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `pre-tool-context.sh` | 2026-08-22 | thin doorman pointing to the OS. |
 | `push-message-carries-the-destination.sh` | 2026-09-23 | PreToolUse(Bash) — a background push must use the wrapper, because the |
 | `reach-check-doorman.sh` | 2026-09-22 | reach-check doorman on substrate-store and research writes. |
-| `read-gate-doorman.sh` | 2026-10-02 | the read-gate. A prime that is a gate, not just loud. |
+| `read-gate-doorman.sh` | 2026-10-23 | the read-gate. A prime that is a gate, not just loud. |
 | `rederivation-detector.sh` | 2026-08-23 | PreToolUse(Bash) — when I run the SAME command a third distinct way, say so, |
 | `require-goal.sh` | 2026-09-15 | PreToolUse gate — consolidated into a single Python invocation. |
 | `safe-opposite-edit-check.sh` | 2026-08-24 | PreToolUse — surface the safe-opposite check at the moment the fix is |
@@ -125,7 +125,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `promise-reach-detector.sh` | 2026-07-18 | scan last assistant reply for promise-shape phrases and |
 | `retrieval-tally-check.sh` | 2026-07-21 | post-compose retrieval-tally check. |
 | `shoggoth-gate.sh` | 2026-07-10 | shoggoth gate. |
-| `stamp-bare-letters-stop.sh` | not on main | Backstop for the thread stamp: a letter that left without its place in the thread is stamped at |
+| `stamp-bare-letters-stop.sh` | 2026-10-19 | Backstop for the thread stamp: a letter that left without its place in the thread is stamped at |
 | `stop-distancing-intercept.sh` | 2026-07-16 | thin doorman for DistancingIntercept. |
 | `stop-response-scope-intercept.sh` | 2026-07-16 | thin doorbell for ResponseScopeIntercept. |
 | `unlanded-push-must-not-close-quiet.sh` | 2026-09-30 | The push wrapper writes a verdict. Until now, nothing read it. |

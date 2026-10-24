@@ -109,6 +109,7 @@ src/divineos/
     class_fix_commands.py      class-fix declarations: a repair claiming a class must have its population measured by running a search
     prior_art_commands.py      already-built — station 0: does this exist before I build it
     game_walk_commands.py      `divineos game-walk file` — enumerate the routes around a mechanism and cost each one. Required on every council-tier edit since 2026-09-16; prints the walk back so a thin one is visibly thin at filing time rather than discovered later.
+    landing_commands.py        `divineos landing` — where each waiting fix stands toward the external auditor (NEVER TOLD, NO ANSWER, CHANGED, CONFIRMED, READY), worked out from the letters and live heads; `--request` prints the confirm-only letter. Read-only.
     operator_ask_commands.py   `divineos ask-andrew` / `asks` / `ask-resolve` — the reachable surface for core/operator_asks.py, which had a store and no command from 2026-08-19 until 2026-09-16 and so sat empty, indistinguishable from nothing needing him. An open ask now HOLDS new substrate work (.claude/hooks/an-open-ask-holds-the-work.sh), which is the half of his correction the re-raise never covered: *"when you ask me something, and never wait for my reply.. why bother asking?"*
     psf_commands.py            pending structural-fix obligations (list, mark-done)
     question_hold_commands.py  question-hold / release: see or escape the wait a question to Dad opens
@@ -764,6 +765,8 @@ src/divineos/
     door_report.py             The front door's report on itself, counted from what ARRIVED.
     ship_steps.py              The checks `divineos ship` runs in order, each one a yes or a named no.
     git_hooks_drift.py         Do the installed git hooks still say what setup/setup-hooks.sh would write?
+    landing_status.py          Where each waiting fix stands toward the external auditor, from the real facts.
+    landing_homework.py        A clerk for the author's side of landing a fix.
     unread_letter.py           A letter the bell rang for holds real work until it is opened.
     body_memory.py             Memory sense: the body feels memory held by no program, and remembers the climb.
     checkout_behind_main.py    How far behind origin/main is the checkout the hooks run from?
@@ -772,6 +775,7 @@ src/divineos/
     suite_slot.py              One full test suite at a time on this machine.
     merge_freshness.py         Refuse a `gh pr merge` of a pull request that is behind main, and hand over the remedy.
     merge_command.py           What a shell command merges: the one reader every gate on a merge asks.
+    cd_drift_check.py          Refuse a top-level `cd` that moves the app's idea of home.
     work_copy_sweep.py         Work copies clean themselves up: finished ones are removed, doubtful ones are listed, nothing is ...
 
   analysis/
