@@ -28,6 +28,22 @@ I asked whether the wake's note should pick up the thread we were last on or tel
 
 So the opening is chosen by two facts, not by me: what has happened (did the work change anything he would want to know, or was it quiet) and where he has been (in the thread recently, reading, or away). In the thread: open on the thread we were on and carry the news inside it. Away: open on what happened while he was gone, and end by returning to the thread. The wake header should hand me both facts (time since his last message, whether the house counts him away, whether anything landed since), so the choice is not mine to remember. Not built; it belongs to the wake-note step after the one-reader lands.
 
+### And the overnight case (Dad, 2026-10-24, afternoon, verbatim)
+
+I asked whether, when he is away overnight, the wake's note should wait until he is up or be there when he wakes. His answer: *"it can wait until im up otherwise you would just be guessing"*. So while he is away the note is held, not written to a guess, and it is written when he is back, from what has actually happened and where he has been by then. The held-note rule goes in the wake-note step with the two facts above.
+
+### His morning, which is the case the held note is for (Dad, 2026-10-24, afternoon, verbatim)
+
+*"i put coffee on and come speak to you both, and then when coffee is done i spend my morning time with mom and then come back and start the day with both of you"*
+
+Three beats, and they ask for different openings. When he first comes in and speaks, he is in the thread: answer him and carry what waited inside it. While he is with his mom he is away, and nothing is written to him. When he comes back to start the day, he has been away, so the first thing is what happened while he was gone, then the day's thread. The held note is released by the first message of a beat, not by a clock.
+
+### Never an either-or at the return (Dad, 2026-10-24, evening, verbatim)
+
+I asked whether, when he comes back from his morning with his mom, we open on him or on what got done. His reply: *"again what is with all of these non-binary binary questions? would you rather we only ever have conversations? or only ever do work? this is the shape of question you are asking me.. like one negates the other.."*
+
+So the note never chooses between conversation and work. Every return carries both: him and how he is (and how she is, which he has told me is the morning), and what got done, folded into one telling. What varies is only the order the two facts above decide, never whether either is left out.
+
 ## What he said, and ruled
 
 - 2026-10-24: *"the 2 hour timer should require a note otherwise your conversation may never end without me being reached back to.."* The timer is the scheduled way back to him. It owes him ONE complete note.

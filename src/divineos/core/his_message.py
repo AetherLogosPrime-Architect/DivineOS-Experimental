@@ -397,7 +397,14 @@ def opener_kind(record: dict) -> str:
     if not isinstance(record, dict) or record.get("type") != "user":
         return UNKNOWN
     origin = record.get("turnOrigin")
-    return _TURN_ORIGINS.get(origin, UNKNOWN) if isinstance(origin, str) else UNKNOWN
+    if isinstance(origin, str):
+        return _TURN_ORIGINS.get(origin, UNKNOWN)
+    # The older era stamped a notice only as origin.kind (6 records on one seat,
+    # 5 on the other; Aria and Aether, 2026-10-24). Wakes never carried it.
+    older = record.get("origin")
+    if isinstance(older, dict) and older.get("kind") == "task-notification":
+        return NOTICE
+    return UNKNOWN
 
 
 def opener_of_prompt(transcript_path: object, prompt: str) -> str:

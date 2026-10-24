@@ -99,6 +99,19 @@ def test_a_record_with_no_stamps_or_an_unknown_stamp_is_unknown_never_a_guess():
     assert opener_kind({}) == UNKNOWN
 
 
+def test_the_older_notice_stamp_is_a_notice_and_a_wake_never_wears_it():
+    """Records with only origin.kind task-notification (no turnOrigin) exist on both seats."""
+    older = user(NOTE, origin={"kind": "task-notification"})
+    assert opener_kind(older) == NOTICE
+    # an origin.kind of any other sort is not read as anything
+    assert opener_kind(user("x", origin={"kind": "human"})) == UNKNOWN
+    # turnOrigin wins when both are present
+    assert (
+        opener_kind(user(WAKE, turnOrigin="scheduled", origin={"kind": "task-notification"}))
+        == SCHEDULED
+    )
+
+
 def test_the_text_is_never_what_decides():
     """A typed message that merely quotes the wake is his; a wake that merely sounds like him is the timer."""
     assert opener_kind(typed(WAKE)) == HIM
