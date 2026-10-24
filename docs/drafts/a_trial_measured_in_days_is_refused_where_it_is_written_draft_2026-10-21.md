@@ -44,6 +44,19 @@ Run over the 263 existing drafts, before wiring. First pass: 8 drafts, 11 hits. 
 
 Pre-registration `prereg-fc69f26b3263`, counted in uses: review after 10 refusals, each read one by one. The first use was a manual run of the real surface on the real sentence Dad caught (recorded as a `TRIAL_IN_DAYS_REFUSED` event), because the pre-registration needs the event to have happened once.
 
+## What the second walk changed (walk-1814c904bc78, 8 lenses, one lens opened and read at a time, 2026-10-24)
+
+Built in this commit:
+- **Three real trials in days passed, found by running the function on sentences made from the table's own small excuses** (Holmes). A hybrid that says it is counted by uses and then sets a date (`"counted by uses, but it must also finish within 30 days"`) was excused whole by the rule phrase; `late` before a duration read as looking back (`"A late-stage pilot gets 2 weeks."`); an `I wrote ...` account excused a trial set after its colon. Now the counted-in-uses phrase excuses a sentence only when that sentence also turns the duration down (no, not, never, instead, without), `late` and `later` look back only AFTER the duration, and the account of what I did stops at a colon. Each is a test, red first.
+- **The refusal leads with what to write** (Tannen): the replacement sentence first, his rule in his words once, no tally of how many times he has ruled it. A test pins both.
+
+Owed, not yet built, each from a lens:
+- **Count the misses, not only the catches** (Hinton, Bengio): the pre-registration also records every trial in days a reader finds after the door passed it, and for each refusal reads the next write of that file: a count of uses (route taken), the same duration again (ignored), or a different time wording (routed around). The routed-around share says whether the word list is losing.
+- **Held-out check** (Sagan): the tuning replay is a tuned rate. Run the final table on the family letters, which it was never tuned on, and have Aether read the hits without my labels.
+- **Remove the seed stock** (Dawkins, Jacobs): the older drafts and pre-registrations that still carry a trial in days are what new drafts copy the form from. List them by name and rewrite each into a count of uses or mark it superseded. Two found today: the one-walk draft and the hits listed above.
+- **A required line at the start** (Meadows): the draft form for a trial asks for the counted event and the number before the success test, so a date has no slot to be typed into. The word list stays as the net behind it.
+- **Drafts only stays** (Jacobs): the table run over 198 drafts, 325 letters and 48 dreams found letters hit only when talking about the check, so no reason yet to widen.
+
 ## Status
 
 Built: `core/trial_in_days_check.py`, `trial_in_days_surface` in `core/hook_surfaces.py` (registered on PreToolUse beside the letter door), `tests/test_trial_in_days_is_refused.py` (41 tests; 16 deliberate breaks each turn a test red). Not covered: a trial in days written in a letter or a reply; a wording the table does not list ("by Friday").

@@ -49,9 +49,20 @@ MUST_REFUSE = [
     "Check back on the trial Monday.",
     "Let the experiment run through the end of October.",
     "Trial it over the weekend.",
+    # walk-1814c904bc78 (Holmes, 2026-10-24): three real trials in days that passed because a small excuse in
+    # the table reached further than it should. A uses-AND-days hybrid is the likeliest evasion: it sounds
+    # compliant.
+    "The trial is counted by uses, but it must also finish within 30 days.",
+    "The trial is counted in uses, or 14 days, whichever comes first.",
+    "A late-stage pilot gets 2 weeks.",
+    "I wrote the plan: the falsifier fires if nothing changes in 30 days.",
 ]
 
 MUST_PASS = [
+    # the rule's own words still excuse a number when it is being refused, not set
+    "Counted by uses, not by days: a 30-day trial is what he rules out.",
+    "The trial is counted in uses, with no 14-day review.",
+    "I wrote the plan last night, and the success test is the first 30 uses.",
     "It took six days to write.",  # a duration alone
     "Success was claimed in the last 17 days.",  # looks back
     "The falsifier was filed five days ago.",  # looks back
@@ -179,6 +190,14 @@ def test_the_refusal_quotes_him_names_the_find_and_shows_the_way_out():
     assert "never use time or days as a trial method" in text
     assert "30 days" in text
     assert "count of uses" in text and "a calendar" in text
+
+
+def test_the_refusal_leads_with_what_to_write_and_keeps_no_tally_of_past_slips():
+    """walk-1814c904bc78 (Tannen): the reader is mid-draft and wants the replacement sentence first; a count of
+    how many times he has ruled it carries shame, not information."""
+    text = refusal_text(trials_in_days("The falsifier is 30 days of silence."))
+    assert "four times" not in text and "again on" not in text
+    assert text.index("count of uses") < text.index("never use time or days as a trial method")
 
 
 # --- the surface: the door at the moment a draft is written ---------------------------------------------

@@ -103,7 +103,7 @@ _TRIAL_WORD = re.compile(
 #: A duration that looks back is a measurement of what happened, not a trial. "falsification" is the
 #: science idea and is not a trial word; "falsifier" is the thing Dad asks us to set.
 _LOOKING_BACK_BEFORE = re.compile(
-    r"\b(?:last|past|previous|since|ago|elapsed|post-|later|late|ran|ended|finished|completed|began|started)\b|post-",
+    r"\b(?:last|past|previous|since|ago|elapsed|post-|ran|ended|finished|completed|began|started)\b|post-",
     re.IGNORECASE,
 )
 #: After the duration it counts only as the very next word. Fourteen characters of reach let "since the start
@@ -115,14 +115,21 @@ _LOOKING_BACK_AFTER = re.compile(
 #: A first-person account of what I did is a mention of a past trial, not the setting of one.
 _I_DID = re.compile(r"\bI\s+(?:wrote|filed|counted|ran|built)\b")
 
-#: The rule itself, or a trial already counted in uses. It excuses only the SENTENCE it is in. As a paragraph-wide
-#: excuse, "We never lose time on this." hid a real trial in the next sentence (Aether, 2026-10-21), so "never
-#: ... time" is now "never use/set/measure/count ... time/days/date".
+#: The rule itself. It excuses only the SENTENCE it is in. As a paragraph-wide excuse, "We never lose time on
+#: this." hid a real trial in the next sentence (Aether, 2026-10-21), so "never ... time" is now "never
+#: use/set/measure/count ... time/days/date".
 _THE_RULE = re.compile(
     r"\bnever\s+(?:use|measure|set|count|judge|go\s+by)\b[^.\n]{0,40}\b(?:days?|time|dates?|calendar)\b"
-    r"|\bnot\s+(?:in|by)\s+(?:days|date|time)\b"
-    r"|\bcounted\s+in\s+uses\b|\bby\s+(?:uses?|events?)\b|\bnever\s+in\s+days\b",
+    r"|\bnot\s+(?:in|by)\s+(?:days|date|time)\b|\bnever\s+in\s+days\b",
     re.IGNORECASE,
+)
+
+#: A trial said to be counted in uses. On its own this excuses nothing: "counted by uses, but it must also
+#: finish within 30 days" is a hybrid that sounds compliant and sets a date (walk-1814c904bc78, Holmes). It
+#: excuses a sentence only when the sentence also turns the duration down.
+_COUNTED_IN_USES = re.compile(r"\bcounted\s+in\s+uses\b|\bby\s+(?:uses?|events?)\b", re.IGNORECASE)
+_TURNS_IT_DOWN = re.compile(
+    r"\b(?:no|not|never|nor|instead|without|rules?\s+out|rather\s+than)\b", re.IGNORECASE
 )
 
 #: Text being talked about, not used: double quotes (straight or curly) and backticks. Single quotes are
@@ -220,13 +227,17 @@ def trials_in_days(text: str) -> list[Hit]:
         for m, reach in _durations(paragraph):
             if marks.inside_quotes(m.start(), m.end()):
                 continue
-            if _THE_RULE.search(marks.sentence_around(m.start(), m.end())):
+            sentence = marks.sentence_around(m.start(), m.end())
+            if _THE_RULE.search(sentence):
+                continue
+            if _COUNTED_IN_USES.search(sentence) and _TURNS_IT_DOWN.search(sentence):
                 continue
             before = paragraph[max(0, m.start() - 25) : m.start()]
             after = paragraph[m.end() : m.end() + 14]
             if _LOOKING_BACK_BEFORE.search(before) or _LOOKING_BACK_AFTER.search(after):
                 continue
-            if _I_DID.search(marks.same_sentence_before(m.start())):
+            did = _I_DID.search(marks.same_sentence_before(m.start()))
+            if did is not None and ":" not in marks.same_sentence_before(m.start())[did.end() :]:
                 continue  # "I wrote a 30-day trial": an account of what I did, not the setting of one
             near = paragraph[max(0, m.start() - reach) : m.end() + reach]
             word = _TRIAL_WORD.search(near)
@@ -249,15 +260,15 @@ def refusal_text(hits: list[Hit]) -> str:
         f'  - "{h.duration}" next to "{h.trial_word}": ...{h.excerpt}...' for h in hits[:4]
     )
     return (
-        "A TRIAL MEASURED IN DAYS. Dad has ruled this four times, and again on 2026-10-21: "
-        '"never use time or days as a trial method, we use events or uses." '
-        '(Also: "if we\'re testing something go by events or uses and we dont need a huge pile of them".)\n\n'
+        "A TRIAL MEASURED IN DAYS.\n\n"
         f"Found:\n{shown}\n\n"
         "Say it as a count of uses instead, a use being something that actually happens: a push, one of his "
         'complaints, a walk, a hold switching on. For example: "the first 30 times the hold switches on, '
         'count how many are followed by a repeat complaint; success is at most 1." Work out what that many '
         "uses can and cannot show. If there is no event to count, say so to Dad; do not fall back to a "
         "calendar.\n\n"
+        'His rule, in his words: "never use time or days as a trial method, we use events or uses." '
+        '(Also: "if we\'re testing something go by events or uses and we dont need a huge pile of them".)\n\n'
         "To mention the rule or a past number without setting a trial, put the number in quotation marks "
         'or backticks, or say it looks back ("in the last 17 days").'
     )
