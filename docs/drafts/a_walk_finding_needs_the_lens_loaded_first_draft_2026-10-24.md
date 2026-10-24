@@ -34,6 +34,10 @@ She is right that a refusal which names a command to run teaches the one-line lo
 - **Drift to watch** (Dekker, Wayne): excluded-with-a-reason is a second door. `walk status` shows applied versus excluded per walk so the gaming cannot move there unseen.
 - **The first walk run under the new rule is the walk of this fix.** (Hofstadter.)
 
+## Correction from walking the build (walk-3ec0183cdc63, Breaker)
+
+I called the displayed seconds-since-delivery a tell. Measured on my own walk of this build, where I read each lens before writing, the recorded gaps are 18 to 28 seconds. A gamed walk shows the same, because writing a long finding takes seconds. **The clock cannot tell honest from gamed and is not evidence.** It stays displayed (it is true and costs nothing) but the real tell is the question number paired with the finding text: a run of identical question numbers beside findings that do not engage those questions is visible to a reader in seconds. The design is detection by a reader who is not me, not prevention. A whole-roster test (46 lenses: delivered, then found by the lookup) pins Popper's worst case, a lens seated under one name and delivered under another, which would refuse forever.
+
 ## The fix
 
 1. **`apply_lens` refuses unless a `COUNCIL_LENS_LOADED` event for that lens exists at or after the time the walk was opened** (revised above: the first refusal delivers the lens and the retry is accepted). A fact, not a judgment of the text: no keyword list, no similarity score deciding whether I may speak.

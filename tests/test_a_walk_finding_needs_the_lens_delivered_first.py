@@ -120,3 +120,16 @@ def test_exclusion_is_still_possible_and_is_counted_in_the_status_summary():
     )
     summary = cw.status(w["walk_id"])
     assert any(r["lens"] == lens and r["state"] == "EXCLUDED" for r in summary["lenses"])
+
+
+def test_every_lens_on_the_roster_is_found_by_the_receipt_it_was_just_delivered_under():
+    """Popper's severest case: a lens whose delivered name differs from the name a walk seats it under
+    would refuse forever. Delivery writes the engine's name; the walk looks it up by the seated name."""
+    engine = get_council_engine()
+    before = time.time() - 1
+    unmatched = []
+    for name in engine.list_experts():
+        cw.deliver_lens(name)
+        if cw._delivery_time(name, before) is None:
+            unmatched.append(name)
+    assert unmatched == []
