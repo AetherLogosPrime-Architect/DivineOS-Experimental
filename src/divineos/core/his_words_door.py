@@ -41,6 +41,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from divineos.core.his_message import typed_part
+
 MODEL_NAME = "all-MiniLM-L6-v2"
 CORPUS = Path.home() / ".divineos-shared" / "dad_corpus" / "dad_all.jsonl"
 INDEX_DIR = Path.home() / ".divineos-shared" / "dad_corpus" / "index"
@@ -107,13 +109,10 @@ def _is_this_message(passage: str, message: str) -> bool:
     return bool(p) and bool(m) and (p in m or m in p)
 
 
-# Text he pasted INTO a message is not his typing. The harness wraps it in a block, and the
-# closing tag arrives carrying the opening tag's id (`</pasted_content id="a627">`), so a pattern
-# that wants a bare `</pasted_content>` never finds the close and the block leaks. Found in the
-# walk before merging (walk-ddd1a6a0c842): the last paragraph of a DREAM of mine that he pasted
-# back to me sat in the live index dated 2026-10-16 and would have been printed as "HE HAS SAID
-# THIS BEFORE (... his words as he wrote them)". An unclosed block takes everything after it.
-_PASTED_BLOCK = re.compile(r"<pasted_content\b[^>]*>.*?(?:</pasted_content\b[^>]*>|\Z)", re.S)
+# Text he pasted INTO a message is not his typing, and the cut lives in his_message.typed_part, its one home:
+# it ends a paste at the closing tag carrying the SAME id, so a pasted letter that itself quotes these tags
+# cannot let its remainder through as his typing (Aletheia's condition on this PR, 2026-10-17; the first
+# cutter here ended at the first closing tag).
 
 
 def passages_of(text: str) -> list[str]:
@@ -128,7 +127,7 @@ def passages_of(text: str) -> list[str]:
     marks and running two thoughts together, while the door says his words print as he wrote them
     (probed 2026-10-16, walk-7c48d8c7f6e0). The sentence-end rule below already splits after a dot,
     so the two dots stay on the piece they close."""
-    text = _PASTED_BLOCK.sub("\n", text)
+    text = typed_part(text)
     parts = re.split(r"(?<=[.!?])\s+|\n+", text)
     out, buf = [], ""
     for p in parts:
