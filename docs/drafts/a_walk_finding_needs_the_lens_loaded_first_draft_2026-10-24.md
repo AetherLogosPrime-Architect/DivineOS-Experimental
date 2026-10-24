@@ -38,6 +38,13 @@ She is right that a refusal which names a command to run teaches the one-line lo
 
 I called the displayed seconds-since-delivery a tell. Measured on my own walk of this build, where I read each lens before writing, the recorded gaps are 18 to 28 seconds. A gamed walk shows the same, because writing a long finding takes seconds. **The clock cannot tell honest from gamed and is not evidence.** It stays displayed (it is true and costs nothing) but the real tell is the question number paired with the finding text: a run of identical question numbers beside findings that do not engage those questions is visible to a reader in seconds. The design is detection by a reader who is not me, not prevention. A whole-roster test (46 lenses: delivered, then found by the lookup) pins Popper's worst case, a lens seated under one name and delivered under another, which would refuse forever.
 
+## Changes after Aria's reading of #716 (2026-10-24), all four taken
+
+1. **Exclusion costs the same as applying.** `exclude_lens` now needs the lens delivered for the walk and the question number it checked, through the same shared check as `apply_lens` (one function, so neither door is cheaper; truth #11b). Her baseline from her seat, before #716: 223 closed walks, median excluded share 0, 27 walks (12 percent) closed with half or more lenses excluded, 3 with every lens excluded and nothing applied. **A walk with zero applied findings no longer closes** (a count, not a judgment of words).
+2. **The question spread is counted.** `walk status` and `walk close` print "N findings, M excluded, K distinct lens questions answered". Eight findings on one question is the free move; the count shows it in one glance.
+3. **A delivery is tied to its walk.** The receipt now carries the walk id and the lookup matches on it. A bare `mansion council --show` load (no walk id) is no longer a walk delivery at all, which closes the loop of loading everything at the top and applying from memory. Cost: one extra print per lens when I had already loaded it by hand. The older `council log` gate still reads the same event type and is unaffected.
+4. **Checked, not assumed:** `_settle` is reached with APPLIED only through `apply_lens`; `amend` rebinds a walk to a diff and writes no lens rows; the retry text names the range of valid question numbers, and the delivered lens prints them numbered.
+
 ## The fix
 
 1. **`apply_lens` refuses unless a `COUNCIL_LENS_LOADED` event for that lens exists at or after the time the walk was opened** (revised above: the first refusal delivers the lens and the retry is accepted). A fact, not a judgment of the text: no keyword list, no similarity score deciding whether I may speak.

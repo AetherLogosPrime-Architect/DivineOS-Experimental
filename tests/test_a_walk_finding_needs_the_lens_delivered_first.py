@@ -58,7 +58,7 @@ def test_the_retry_after_the_delivery_is_accepted_and_names_its_question():
     assert row["state"] == "APPLIED"
     question_text = lens_questions(get_council_engine().get_expert(lens))[1]
     assert f"[answers Q2: {question_text}]" in row["content"]
-    assert "[lens delivered" in row["content"] and "before this finding]" in row["content"]
+    assert "[lens delivered" in row["content"] and "before this]" in row["content"]
     assert FINDING in row["content"]
 
 
@@ -66,7 +66,7 @@ def test_a_receipt_from_before_the_walk_opened_does_not_count():
     """The one-line loop at the top of a session must not cover a walk opened later."""
     probe = cw.open_walk(PROBLEM)
     lens = probe["lenses"][0]
-    cw.deliver_lens(lens)  # loaded now, in the past of the walk opened next
+    cw.deliver_lens(lens, probe["walk_id"])  # loaded now, in the past of the walk opened next
     time.sleep(0.02)
     w = cw.open_walk(PROBLEM)
     if lens not in w["lenses"]:
@@ -78,7 +78,7 @@ def test_a_receipt_from_before_the_walk_opened_does_not_count():
 def test_a_receipt_for_one_lens_does_not_cover_another():
     w = cw.open_walk(PROBLEM)
     first, second = w["lenses"][0], w["lenses"][1]
-    cw.deliver_lens(first)
+    cw.deliver_lens(first, w["walk_id"])
     cw.apply_lens(w["walk_id"], first, FINDING, question=1)
     with pytest.raises(cw.WalkRefused):
         cw.apply_lens(w["walk_id"], second, FINDING, question=1)
@@ -87,7 +87,7 @@ def test_a_receipt_for_one_lens_does_not_cover_another():
 def test_a_question_number_is_required_and_must_exist():
     w = cw.open_walk(PROBLEM)
     lens = w["lenses"][0]
-    cw.deliver_lens(lens)
+    cw.deliver_lens(lens, w["walk_id"])
     with pytest.raises(cw.WalkRefused, match="question"):
         cw.apply_lens(w["walk_id"], lens, FINDING)
     count = len(lens_questions(get_council_engine().get_expert(lens)))
@@ -107,19 +107,62 @@ def test_a_lens_not_on_the_walk_keeps_its_old_refusal_and_delivers_nothing():
 def test_the_finding_itself_still_needs_substance():
     w = cw.open_walk(PROBLEM)
     lens = w["lenses"][0]
-    cw.deliver_lens(lens)
+    cw.deliver_lens(lens, w["walk_id"])
     with pytest.raises(cw.WalkRefused, match="substance"):
         cw.apply_lens(w["walk_id"], lens, "too short", question=1)
 
 
-def test_exclusion_is_still_possible_and_is_counted_in_the_status_summary():
+REASON = "this lens has nothing to say about a receipt lookup, and here is why in full"
+
+
+def test_exclusion_costs_the_same_as_applying_it_delivers_the_lens_and_names_a_question():
+    """Aria's attack: raise one path's cost and the optimizer moves to the free one (truth #11)."""
     w = cw.open_walk(PROBLEM)
     lens = w["lenses"][0]
-    cw.exclude_lens(
-        w["walk_id"], lens, "this lens has nothing to say about a receipt lookup, and here is why"
-    )
-    summary = cw.status(w["walk_id"])
-    assert any(r["lens"] == lens and r["state"] == "EXCLUDED" for r in summary["lenses"])
+    with pytest.raises(cw.WalkRefused) as refused:
+        cw.exclude_lens(w["walk_id"], lens, REASON, question=1)
+    assert lens_plain(get_council_engine().get_expert(lens)) in str(refused.value)
+    with pytest.raises(cw.WalkRefused, match="question"):
+        cw.exclude_lens(w["walk_id"], lens, REASON)
+    cw.exclude_lens(w["walk_id"], lens, REASON, question=3)
+    row = next(r for r in cw.status(w["walk_id"])["lenses"] if r["lens"] == lens)
+    assert row["state"] == "EXCLUDED"
+    assert "[does not apply to Q3:" in row["content"] and REASON in row["content"]
+
+
+def test_a_delivery_is_tied_to_its_own_walk():
+    """The event carries the walk id: a lens delivered for one walk does not satisfy another, and the
+    show command's load (no walk id) is not a walk delivery at all."""
+    w = cw.open_walk(PROBLEM)
+    lens = w["lenses"][0]
+    cw.deliver_lens(lens, "walk-some-other-walk")
+    with pytest.raises(cw.WalkRefused):
+        cw.apply_lens(w["walk_id"], lens, FINDING, question=1)
+    other = w["lenses"][1]
+    cw.deliver_lens(other)  # as `mansion council --show` records it: no walk id
+    with pytest.raises(cw.WalkRefused):
+        cw.apply_lens(w["walk_id"], other, FINDING, question=1)
+
+
+def test_a_walk_that_applied_nothing_does_not_close():
+    """Three of Aria's 223 closed walks had every lens excluded and nothing applied."""
+    w = cw.open_walk(PROBLEM)
+    for lens in w["lenses"]:
+        cw.deliver_lens(lens, w["walk_id"])
+        cw.exclude_lens(w["walk_id"], lens, REASON, question=1)
+    with pytest.raises(cw.WalkRefused, match="nothing"):
+        cw.close_walk(w["walk_id"])
+
+
+def test_the_spread_of_questions_is_counted_not_judged():
+    """Eight findings on question 1 is the free move; the count is readable in one glance."""
+    w = cw.open_walk(PROBLEM)
+    for i, lens in enumerate(w["lenses"]):
+        cw.deliver_lens(lens, w["walk_id"])
+        cw.apply_lens(w["walk_id"], lens, FINDING, question=1 if i < 2 else 2)
+    st = cw.status(w["walk_id"])
+    assert st["findings"] == len(w["lenses"])
+    assert st["distinct_questions"] == 2
 
 
 def test_every_lens_on_the_roster_is_found_by_the_receipt_it_was_just_delivered_under():
@@ -129,7 +172,7 @@ def test_every_lens_on_the_roster_is_found_by_the_receipt_it_was_just_delivered_
     before = time.time() - 1
     unmatched = []
     for name in engine.list_experts():
-        cw.deliver_lens(name)
-        if cw._delivery_time(name, before) is None:
+        cw.deliver_lens(name, "walk-roster")
+        if cw._delivery_time(name, before, "walk-roster") is None:
             unmatched.append(name)
     assert unmatched == []

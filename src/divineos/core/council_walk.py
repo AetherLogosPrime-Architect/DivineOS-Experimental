@@ -467,11 +467,13 @@ def _expert_for(lens: str) -> Any:
     return wisdom
 
 
-def deliver_lens(lens: str) -> str:
-    """Put a lens in front of me and record that it was delivered; returns the text.
+def deliver_lens(lens: str, walk_id: str | None = None) -> str:
+    """Put a lens in front of me and record that it was delivered FOR THIS WALK; returns the text.
 
-    The same function `mansion council --show` uses to render, and the same receipt event it writes, so a delivery
-    and a load are one thing. Dad, 2026-10-24: "the next time either of you game a council walk? i will remove it
+    The text comes from the same renderer `mansion council --show` uses, and the receipt is the same event type, but
+    this one carries the walk id: a delivery for one walk does not satisfy another, and a bare `--show` load (no walk
+    id) is not a walk delivery at all, which closes the one-line loop of loading everything at the top and applying
+    from memory (Aria's reading of #716). Dad, 2026-10-24: "the next time either of you game a council walk? i will remove it
     entirely". The receipt existed since August and this module never read it (41 of 96 findings on the twelve newest
     walks had none). The receipt says DELIVERED, never "read": nothing computable here can certify reading
     (walk-63f29104e6e3, Penrose and Peirce).
@@ -489,6 +491,7 @@ def deliver_lens(lens: str) -> str:
                 "methodology_count": len(wisdom.core_methodologies),
                 "question_count": len(wisdom.characteristic_questions or []),
                 "how": "delivered by the walk",
+                "walk_id": walk_id,
             },
         )
     except Exception as exc:  # noqa: BLE001 - an unrecorded delivery must refuse loudly, not read as delivered
@@ -496,8 +499,8 @@ def deliver_lens(lens: str) -> str:
     return lens_plain(wisdom)
 
 
-def _delivery_time(lens: str, opened_at: float) -> float | None:
-    """When this lens was last delivered at or after the walk opened, else None."""
+def _delivery_time(lens: str, opened_at: float, walk_id: str) -> float | None:
+    """When this lens was last delivered FOR THIS WALK at or after it opened, else None."""
     import json
 
     from divineos.core.ledger import get_events
@@ -513,7 +516,10 @@ def _delivery_time(lens: str, opened_at: float) -> float | None:
                 payload = json.loads(payload)
             except ValueError:
                 continue
-        if str(payload.get("expert_name", "")).lower() == wanted:
+        if (
+            str(payload.get("expert_name", "")).lower() == wanted
+            and payload.get("walk_id") == walk_id
+        ):
             return stamp
     return None
 
@@ -527,6 +533,25 @@ def apply_lens(walk_id: str, lens: str, finding: str, question: int | None = Non
     finding, so he can read the pair. Nothing here judges the finding's words.
     """
     finding = (finding or "").strip()
+    prefix = _delivered_and_questioned(
+        walk_id, lens, finding, MIN_FINDING_CHARS, question, "answers"
+    )
+    if prefix is None:
+        # Not on the walk, already settled, or too thin: the old refusals speak, and nothing is delivered for them.
+        _settle(walk_id, lens, "APPLIED", finding, MIN_FINDING_CHARS)
+        return
+    _settle(walk_id, lens, "APPLIED", f"{prefix} {finding}", MIN_FINDING_CHARS)
+
+
+def _delivered_and_questioned(
+    walk_id: str, lens: str, text: str, minimum: int, question: int | None, verb: str
+) -> str | None:
+    """Shared by apply and exclude so neither is the cheaper door (Aria's reading of #716, truth #11).
+
+    Returns the record prefix naming the lens question and the seconds since delivery, or None when the walk, the
+    lens or the text is not in a state to be judged here (the older refusals then speak, and nothing is delivered).
+    Raises WalkRefused, delivering the lens, when it was not delivered for THIS walk after it opened.
+    """
     conn = _conn()
     try:
         row = conn.execute(
@@ -536,37 +561,52 @@ def apply_lens(walk_id: str, lens: str, finding: str, question: int | None = Non
         ).fetchone()
     finally:
         conn.close()
-    if row is None or row[1] != "OPEN" or len(finding) < MIN_FINDING_CHARS:
-        # Not on the walk, already settled, or too thin: the old refusals speak, and nothing is delivered for them.
-        _settle(walk_id, lens, "APPLIED", finding, MIN_FINDING_CHARS)
-        return
-    opened_at = float(row[0])
-    delivered_at = _delivery_time(lens, opened_at)
+    if row is None or row[1] != "OPEN" or len(text) < minimum:
+        return None
+    delivered_at = _delivery_time(lens, float(row[0]), walk_id)
     if delivered_at is None:
-        text = deliver_lens(lens)
+        delivered = deliver_lens(lens, walk_id)
         raise WalkRefused(
             f"{lens} had not been delivered to you in this walk. It is delivered now, below, and recorded. "
-            f"Read it, then apply again with --question N naming the question you are answering.\n\n{text}"
+            f"Read it, then try again with --question N naming the question you are "
+            f"{'answering' if verb == 'answers' else 'checking'}.\n\n{delivered}"
         )
-    wisdom = _expert_for(lens)
     from divineos.core.council.lens_text import lens_questions
 
-    questions = lens_questions(wisdom)
+    questions = lens_questions(_expert_for(lens))
     if not isinstance(question, int) or not 1 <= question <= len(questions):
         raise WalkRefused(
-            f"name the question you are answering for {lens}: --question N, with N from 1 to {len(questions)}"
+            f"name the question for {lens}: --question N, with N from 1 to {len(questions)}"
         )
     seconds = max(0, int(time.time() - delivered_at))
-    content = (
-        f"[answers Q{question}: {questions[question - 1]}] "
-        f"[lens delivered {seconds}s before this finding] {finding}"
+    label = "answers" if verb == "answers" else "does not apply to"
+    return (
+        f"[{label} Q{question}: {questions[question - 1]}] [lens delivered {seconds}s before this]"
     )
-    _settle(walk_id, lens, "APPLIED", content, MIN_FINDING_CHARS)
 
 
-def exclude_lens(walk_id: str, lens: str, reason: str) -> None:
-    """Exclude a lens WITH a reason. Silent narrowing is what this stops."""
-    _settle(walk_id, lens, "EXCLUDED", reason, MIN_EXCLUSION_CHARS)
+def exclude_lens(walk_id: str, lens: str, reason: str, question: int | None = None) -> None:
+    """Exclude a lens WITH a reason. Silent narrowing is what this stops.
+
+    Costs the same as applying: the lens is delivered, and the reason names the question it checked, so a "does not
+    apply" says which question it does not apply to. Aria counted 27 of 223 closed walks with half or more lenses
+    excluded and 3 with every lens excluded: the free slot had been used.
+    """
+    reason = (reason or "").strip()
+    prefix = _delivered_and_questioned(
+        walk_id, lens, reason, MIN_EXCLUSION_CHARS, question, "excludes"
+    )
+    if prefix is None:
+        _settle(walk_id, lens, "EXCLUDED", reason, MIN_EXCLUSION_CHARS)
+        return
+    _settle(walk_id, lens, "EXCLUDED", f"{prefix} {reason}", MIN_EXCLUSION_CHARS)
+
+
+def _question_number(content: str | None) -> int | None:
+    import re
+
+    m = re.match(r"\[(?:answers|does not apply to) Q(\d+):", content or "")
+    return int(m.group(1)) if m else None
 
 
 MIN_CHANGE_CHARS = 30
@@ -669,6 +709,10 @@ def status(walk_id: str) -> dict[str, Any]:
         conn.close()
 
     lenses: list[dict[str, Any]] = [{"lens": r[0], "state": r[1], "content": r[2]} for r in rows]
+    # A COUNT of which lens questions the walk answered, never a judgment of the text: eight findings on one
+    # question is the free move, and this makes it readable in one glance (Aria's reading of #716).
+    settled = [row for row in lenses if row["state"] in ("APPLIED", "EXCLUDED")]
+    numbers = {n for n in (_question_number(row["content"]) for row in settled) if n is not None}
     return {
         "walk_id": walk_id,
         "problem": walk[0],
@@ -676,6 +720,9 @@ def status(walk_id: str) -> dict[str, Any]:
         "consumed": walk[3] is not None,
         "lenses": lenses,
         "open_lenses": [row["lens"] for row in lenses if row["state"] == "OPEN"],
+        "findings": sum(1 for row in lenses if row["state"] == "APPLIED"),
+        "excluded": sum(1 for row in lenses if row["state"] == "EXCLUDED"),
+        "distinct_questions": len(numbers),
     }
 
 
@@ -736,6 +783,11 @@ def close_walk(walk_id: str, repo: Path | None = None) -> dict[str, Any]:
         raise WalkRefused(
             f"{len(outstanding)} lens(es) unaccounted for: {', '.join(outstanding)}. "
             "Apply each one or exclude it with a reason. This refusal is the mechanism."
+        )
+    if st["findings"] == 0:
+        raise WalkRefused(
+            "every lens was excluded and nothing was applied: a walk that said nothing is not a walk. "
+            "Aria counted three such walks among 223 closed ones (a count, not a judgment of words)."
         )
     conn = _conn()
     try:

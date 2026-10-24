@@ -9,5 +9,5 @@ from __future__ import annotations
 
 
 def apply_delivered(cw, walk_id: str, lens: str, finding: str) -> None:
-    cw.deliver_lens(lens)
+    cw.deliver_lens(lens, walk_id)
     cw.apply_lens(walk_id, lens, finding, question=1)
