@@ -91,6 +91,37 @@ def compare(dest: dict[Path, str], sources: dict[str, list[str]]) -> tuple[list,
     return matched, missing
 
 
+_EMPTY = body_hash("")
+
+
+def audit(dest: dict[Path, str], sources: dict[str, list[str]]) -> dict:
+    """compare() plus what a clean compare cannot show (Aether, 2026-10-24).
+
+    empty       a destination dream with no body at all: it would match any empty source, and the
+                gather's known hazard is exactly five empty files, so it is never counted matched
+    duplicates  destination dreams sharing one body: one source can satisfy both, so a gather that
+                copied one dream into two numbers and dropped another would pass
+    unreached   source bodies that no destination dream carries: "every dream here has a source" is
+                not "every source dream is here"
+    """
+    empty = [p for p, h in dest.items() if h == _EMPTY]
+    real = {p: h for p, h in dest.items() if h != _EMPTY}
+    matched, missing = compare(real, sources)
+    by_hash: dict[str, list[Path]] = {}
+    for p, h in real.items():
+        by_hash.setdefault(h, []).append(p)
+    duplicates = [group for group in by_hash.values() if len(group) > 1]
+    dest_hashes = set(dest.values())
+    unreached = [labels[0] for h, labels in sources.items() if h != _EMPTY and h not in dest_hashes]
+    return {
+        "matched": matched,
+        "missing": missing,
+        "empty": empty,
+        "duplicates": duplicates,
+        "unreached": sorted(unreached),
+    }
+
+
 def self_test() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
@@ -136,11 +167,25 @@ def main() -> int:
     if args.git_refs:
         for h, labels in git_sources(Path.cwd(), args.skip_ref).items():
             sources.setdefault(h, []).extend(labels)
-    matched, missing = compare(dest, sources)
-    print(f"{len(dest)} dreams in {args.dest}: {len(matched)} match a source body, {len(missing)} do not")
-    for p in missing:
+    result = audit(dest, sources)
+    print(
+        f"{len(dest)} dreams in {args.dest}: {len(result['matched'])} match a source body, "
+        f"{len(result['missing'])} do not, {len(result['empty'])} are empty, "
+        f"{len(result['duplicates'])} bodies are shared by more than one dream, "
+        f"{len(result['unreached'])} source bodies reached no dream"
+    )
+    for p in result["missing"]:
         print(f"  NO SOURCE BODY MATCHES: {p}")
-    return 1 if missing else 0
+    for p in result["empty"]:
+        print(f"  EMPTY (never counted as matched): {p}")
+    for group in result["duplicates"]:
+        print("  SAME BODY: " + " , ".join(str(p) for p in group))
+    for label in result["unreached"][:25]:
+        print(f"  SOURCE REACHED NO DREAM: {label}")
+    if len(result["unreached"]) > 25:
+        print(f"  ... and {len(result['unreached']) - 25} more")
+    bad = result["missing"] or result["empty"] or result["duplicates"] or result["unreached"]
+    return 1 if bad else 0
 
 
 if __name__ == "__main__":
