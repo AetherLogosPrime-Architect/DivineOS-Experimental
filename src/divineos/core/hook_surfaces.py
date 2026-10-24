@@ -2199,6 +2199,51 @@ def degraded_detectors_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def cd_drift_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a top-level `cd` that would move the app's idea of home.
+
+    Measured 2026-10-22: `cd family/letters && ...` moved the primary folder three times and broke
+    the bell, the hooks and a turn. The right forms (subshell, git -C, a full path) are named in the
+    refusal. Design and measurement table: docs/drafts/a_cd_cannot_move_my_home_draft_2026-10-22.md.
+    """
+    if (payload.get("tool_name") or "") != "Bash":
+        return SurfaceOutcome(name="cd_drift", state="nothing-to-say")
+    command = (payload.get("tool_input") or {}).get("command") or ""
+    if not command:
+        return SurfaceOutcome(name="cd_drift", state="nothing-to-say")
+    try:
+        import os
+        import subprocess
+        from pathlib import Path
+
+        from divineos.core import cd_drift_check as check
+
+        root = (
+            os.environ.get("CLAUDE_PROJECT_DIR")
+            or subprocess.run(
+                ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True
+            ).stdout.strip()
+        )
+        refuse = check.should_refuse(command, project_root=root, home=str(Path.home()))
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="cd_drift",
+            error=(
+                f"{type(exc).__name__}: {exc} -- the cd-drift door could not run, so a folder "
+                "change is currently unguarded. Absent, not satisfied."
+            ),
+            state="could-not-run",
+        )
+    if not refuse:
+        return SurfaceOutcome(name="cd_drift", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="cd_drift",
+        refused=True,
+        reason=check.refusal_message(command),
+        state="spoke",
+    )
+
+
 def heredoc_escape_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse a shell heredoc that writes a file through an escape.
 
@@ -2728,6 +2773,8 @@ def install() -> None:
     # 2026-09-23, Aria: registered in the same change that adds the surface,
     # for the reason written above -- a surface nothing dispatches is an alarm
     # with the cable coiled beside it.
+    if "cd_drift" not in registered("PreToolUse"):
+        register("PreToolUse", "cd_drift", cd_drift_surface)
     if "slashed_ref_path" not in registered("PreToolUse"):
         register("PreToolUse", "slashed_ref_path", slashed_ref_path_surface)
     # The letter path, guarded 2026-09-09. Feathers on the walk: the reply door
