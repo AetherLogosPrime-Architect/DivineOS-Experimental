@@ -147,7 +147,7 @@ peer_alarm() {
   # At most five names, the newest by name (letter names carry their date): a lost list must not print the archive.
   printf '  waiting: %s\n' "$(printf '%s\n' "$waiting" | tail -n 5)"
   [ "$count" -le 5 ] || echo "  ... and $(( count - 5 )) more"
-  echo "I cannot re-arm his bell from here. Say so on Dad's board, keep your own work going, and write him again later: a letter he can read the moment he is back."
+  echo "I cannot re-arm his bell from here. Keep your own work going, and tell Dad plainly in your next message to him that this bell is silent. Write ${PEER} again later: a letter he can read the moment he is back."
   return 0
 }
 while true; do
