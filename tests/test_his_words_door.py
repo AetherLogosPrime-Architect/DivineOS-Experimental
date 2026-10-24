@@ -141,6 +141,20 @@ def test_the_cleaner_stamp_moves_when_the_cleaning_changes(monkeypatch):
     assert door._cleaner_stamp() != before
 
 
+def test_the_cleaner_stamp_moves_when_the_paste_cutter_it_calls_changes(monkeypatch):
+    # passages_of only calls typed_part; an edit to the cutter (here its opening-tag pattern) must still
+    # retire an index built under the old rule.
+    import re
+
+    from divineos.core import his_message
+
+    before = door._cleaner_stamp()
+    monkeypatch.setattr(
+        his_message, "_PASTE_OPEN", re.compile(r"<pasted_content\b([^>]*)>|<other_tag>")
+    )
+    assert door._cleaner_stamp() != before
+
+
 def test_an_unreadable_index_says_so_and_does_not_go_quiet(tmp_path):
     out = door.surface("then where is the circle, i keep asking", index_dir=tmp_path / "missing")
     assert "could not be searched" in out

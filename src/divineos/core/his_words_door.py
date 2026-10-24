@@ -151,11 +151,19 @@ def _cleaner_stamp() -> str:
     """
     import inspect
 
-    from divineos.core import his_words_corpus
+    from divineos.core import his_message, his_words_corpus
 
+    # passages_of only CALLS typed_part, so the paste cutter and the "whose message" cut it stands on are hashed
+    # too: an edit to either (a new tag form, a new closing rule) must retire an index cut by the old rule
+    # (Aether, reading this PR, 2026-10-24).
     parts = [
         inspect.getsource(his_words_corpus),
         inspect.getsource(passages_of),
+        inspect.getsource(his_message.typed_part),
+        inspect.getsource(his_message._cut_pastes),
+        inspect.getsource(his_message._his_part),
+        his_message._PASTE_OPEN.pattern,
+        his_message._PASTE_ID.pattern,
         f"{PASSAGE_CHARS}|{MIN_PASSAGE_CHARS}|{MODEL_NAME}",
     ]
     digest = hashlib.sha256("\n".join(parts).replace("\r\n", "\n").encode("utf-8")).hexdigest()
