@@ -400,6 +400,12 @@ HOOK_STDIN=$(cat)
 WATCH_DIR="$HOME/.divineos/push_reports"
 WATCH_RAW="$WATCH_DIR/raw-$$.jsonl"
 PUSH_WATCHER="$REPO_ROOT/scripts/push_watcher.py"
+# The branch being pushed usually does not carry the watcher (until it is merged, every branch cut from main lacks it),
+# which meant "pushed WITHOUT the watcher" five times in one afternoon. The installer keeps one copy beside the reports;
+# a branch that has its own is still preferred, so a change to the watcher is tried by the push that carries it.
+if [ ! -f "$PUSH_WATCHER" ]; then
+    PUSH_WATCHER="$HOME/.divineos/push_watcher.py"
+fi
 WATCH_PID=""
 # Which python runs the watcher is ASKED of the house's own resolver (it refuses the Microsoft Store stub and checks
 # each candidate runs), in a subshell so sourcing it cannot change this hook's environment for the gates below.
@@ -609,6 +615,9 @@ exit 0
 EOF
 
 chmod +x "$HOOKS_DIR/pre-push"
+# The one copy of the watcher the hook falls back to, so every push is watched whatever branch it comes from.
+mkdir -p "$HOME/.divineos"
+cp "$(git rev-parse --show-toplevel)/scripts/push_watcher.py" "$HOME/.divineos/push_watcher.py"
 echo "Created pre-push hook at $HOOKS_DIR/pre-push"
 
 # Install post-commit hook — delegates to every post-commit-*.sh script
