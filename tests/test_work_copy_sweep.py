@@ -439,6 +439,35 @@ def test_a_look_alike_name_outside_the_temp_folder_or_a_different_name_is_an_ord
     assert _verdict(world, other) == ws.Verdict.SHOW
 
 
+def test_a_branch_checkout_with_the_gates_scratch_name_is_still_an_ordinary_copy(
+    world, monkeypatch
+):
+    """Aether's walk on #698 (walk-bda6e4140421): the scratch class is decided by NAME, so a real work copy that
+    happened to carry the name in the temp folder would have been removed with its files. The gate makes its
+    scratch checkouts DETACHED (`worktree add --detach` at the pushed commit); a copy on a branch is somebody's
+    work whatever it is called."""
+    import tempfile
+
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(world.root))
+    real = world.root / "divineos-push-gate-RealWork"
+    _must(
+        world.main, "worktree", "add", "-q", "-b", "aria/real-work-with-the-name", str(real), "main"
+    )
+    (real / "my_notes.txt").write_text("not scratch\n", encoding="utf-8")
+    assert _verdict(world, real) == ws.Verdict.SHOW
+
+
+def test_control_the_detached_scratch_checkout_is_still_removable(world, monkeypatch):
+    """The control for the one above: the narrowing must not break the real scratch class."""
+    import tempfile
+
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(world.root))
+    scratch = world.root / "divineos-push-gate-Detached1"
+    _must(world.main, "worktree", "add", "-q", "--detach", str(scratch), "main")
+    (scratch / "left_by_a_test.txt").write_text("x\n", encoding="utf-8")
+    assert _verdict(world, scratch) == ws.Verdict.REMOVE
+
+
 # The next tests come from Aether's cold read of #698 (his probes P1-P3, 2026-10-20), plus the cases around them.
 
 

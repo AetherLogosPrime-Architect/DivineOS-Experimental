@@ -316,7 +316,9 @@ def _assess_copy(
     status = _git(wt, "status", "--porcelain", "--untracked-files=normal", "--ignored")
     if status.returncode != 0:
         return Verdict.SHOW, state, [f"could not read this copy's state: {status.stderr.strip()}"]
-    scratch = state.scratch = _is_gate_scratch(wt)
+    # The gate makes its scratch checkouts DETACHED; a copy on a branch is somebody's work whatever it is called
+    # (Aether's walk on #698: the class is decided by name, so the name alone must not be enough).
+    scratch = state.scratch = _is_gate_scratch(wt) and state.detached
     for line in status.stdout.splitlines():
         code, rel = line[:2], line[3:].strip().strip('"')
         if scratch or _regenerable(rel):
