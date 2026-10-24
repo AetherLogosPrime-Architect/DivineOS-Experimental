@@ -126,6 +126,23 @@ def test_a_doorbell_spelled_with_quotes_or_no_space_is_still_a_doorbell(tmp_path
     assert hl.inventory(root).detached_files == 1
 
 
+def test_a_commit_message_or_grep_flag_that_says_divineos_is_not_a_doorbell(tmp_path):
+    """The flag has to belong to an interpreter. A bare `-m divineos` also matched `git commit -m "divineos fix"`,
+    so a script that only commits was counted as attached to the OS."""
+    root = _tree(
+        tmp_path,
+        {"Stop": ["commits.sh", "greps.sh", "bell.sh", "var.sh"]},
+        {
+            "commits.sh": '#!/bin/bash\ngit commit -m "divineos: tidy"\n',
+            "greps.sh": "#!/bin/bash\ngrep -m1 divineos\n",
+            "bell.sh": "#!/bin/bash\npython3 -u -m divineos.hooks.x\n",
+            "var.sh": '#!/bin/bash\nexec "$HOOKPY" -m divineos.hooks.y\n',
+        },
+    )
+    # Two detached (commit, grep), two attached (a python with a flag before -m, and a quoted variable).
+    assert hl.inventory(root).detached_files == 2
+
+
 def test_a_comment_that_names_the_os_does_not_attach_a_script(tmp_path):
     """Five scripts on main were 'attached' only because a comment said
     `divineos <word>`; two of them make no OS call at all."""

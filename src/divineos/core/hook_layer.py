@@ -64,7 +64,12 @@ _SCRIPT_RE = re.compile(r"([A-Za-z0-9_\-]+\.(?:sh|py))")
 # (2026-10-08) were exactly the thing the migration wants.
 # The module name may be quoted and the flag may touch it (`-m "divineos.x"`, `-mdivineos.x`);
 # `grep -m 1 divineos` must stay unmatched, so a number between the flag and the name still fails.
-_OS_IMPORT_RE = re.compile(r"""from divineos|import divineos|\s-m\s*["']?divineos\b""")
+# The flag must belong to an interpreter (a python, or a shell variable holding one, the form the hooks
+# use): a bare `\s-m` also matched `git commit -m "divineos fix"`, a commit message counted as the OS.
+_INTERPRETER = r"""(?:python[\w.\-]*|"?\$\{?\w+\}?"?)"""
+_OS_IMPORT_RE = re.compile(
+    rf"""from divineos|import divineos|{_INTERPRETER}\s+(?:-\S+\s+)*-m\s*["']?divineos\b"""
+)
 _OS_CLI_RE = re.compile(r"\bdivineos [a-z]")
 _INLINE_PY_RE = re.compile(r"python3?\s+-\s*<<|python3?\s+-c\s|<<'PY'|<<PY")
 
