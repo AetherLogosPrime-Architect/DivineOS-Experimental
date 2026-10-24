@@ -45,7 +45,12 @@ DRAWER = Path(
 # The wrappers automation arrives in. Known ones only (Aria): matching any "<"
 # would label a paste of his as automation. One list, read by the heading and
 # by the tally, so the two can never disagree about what was him.
-NOTICE_PREFIXES = ("<task-notification", "<system-reminder", "<agent-message")
+NOTICE_PREFIXES = (
+    "<task-notification",
+    "<system-reminder",
+    "<agent-message",
+    "<ci-monitor-event",
+)
 
 # His picture is about him, not me, so it stays on the table rather than in the drawer.
 ON_THE_TABLE = "he-is-in-the-room"
@@ -268,6 +273,10 @@ def main() -> int:
     # which is the one lie this hook must never tell: automation is not him.
     # Known wrappers only (Aria): matching any "<" would label a paste of his
     # as automation, erring toward "he did not speak", the wrong way to err.
+    # The desktop app's <ci-monitor-event> messages arrive the same way (Aether,
+    # 2026-10-16: printed to him as DAD SAID twice in one day, which fed two Stop
+    # gates a sentence he never wrote). His message module, harness envelopes,
+    # words door and reflection room already knew the name; this list did not.
     if prompt.lstrip().startswith(NOTICE_PREFIXES):
         print("## NOT FROM DAD — an automated notice arrived, he has not spoken\n")
         shown = prompt.strip()[:600]
