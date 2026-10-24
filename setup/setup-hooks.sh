@@ -399,6 +399,10 @@ HOOK_STDIN=$(cat)
 # a name, so another push running at the same time cannot be blamed for this one.
 WATCH_DIR="$HOME/.divineos/push_reports"
 WATCH_RAW="$WATCH_DIR/raw-$$.jsonl"
+# When THIS hook began, in seconds. A push refused by a check is over in under a second, before the watcher has written
+# anything, and without a start time there is nothing to date the gate's log against (Aria, after the freshness gate
+# refused a push of hers and the watcher said it "never got a look" for what was an ordinary fast refusal).
+WATCH_STARTED="$(date +%s)"
 PUSH_WATCHER="$REPO_ROOT/scripts/push_watcher.py"
 # The branch being pushed usually does not carry the watcher (until it is merged, every branch cut from main lacks it),
 # which meant "pushed WITHOUT the watcher" five times in one afternoon. The installer keeps one copy beside the reports;
@@ -431,7 +435,7 @@ _watch_stop() {
         if [ "$rc" -ne 0 ]; then
             # A report that cannot be built is said, not swallowed: the push already failed and its reader is owed that.
             # Three seconds at most: a hung report must never hold a failed push open.
-            timeout 3 "$WATCH_PY" "$PUSH_WATCHER" finish --raw "$WATCH_RAW" --exit "$rc" --out-dir "$WATCH_DIR" \
+            timeout 3 "$WATCH_PY" "$PUSH_WATCHER" finish --raw "$WATCH_RAW" --exit "$rc" --out-dir "$WATCH_DIR" --started "$WATCH_STARTED" \
                 --tail-file "$WATCH_TAIL" >&2 \
                 || echo "[push-watcher] could not build the report for this failed push" >&2
         fi

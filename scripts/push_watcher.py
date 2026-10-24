@@ -319,7 +319,9 @@ def infra_kind(output_tail: str) -> str:
     return ""
 
 
-def fresh_tail(tail_file: Path | None, events: list[dict]) -> tuple[str, bool | None]:
+def fresh_tail(
+    tail_file: Path | None, events: list[dict], hook_started: float | None = None
+) -> tuple[str, bool | None]:
     """(the test log's tail, whether the tests ran in THIS push). The gate writes one log file that survives pushes, so
     a log not modified since the watcher started belongs to an earlier push and is ignored.
 
@@ -328,10 +330,14 @@ def fresh_tail(tail_file: Path | None, events: list[dict]) -> tuple[str, bool | 
     ran). A path that names no file is False, not None: the gate writes that log when its tests fail, so a failed push
     with no log at a KNOWN path is a push stopped before the tests (the merge gate's own test pinned exactly this)."""
     starts = [float(e["t"]) for e in events if "t" in e]
+    if not starts and hook_started is not None:
+        # The watcher wrote nothing, which is ordinary for a push refused in under a second. The hook knows when IT
+        # began, and that dates the gate's log just as well.
+        starts = [float(hook_started)]
     if not tail_file or not starts:
-        # No timestamp from the watcher means there is nothing to compare the log's age against: freshness cannot be
-        # established, so the log is neither trusted nor dismissed (Aether, reading 9f507f0bd: the watcher's own empty
-        # log was being spoken as "the tests did not run" for a push whose gate log showed them running).
+        # Nothing to compare the log's age against: freshness cannot be established, so the log is neither trusted nor
+        # dismissed (Aether, reading 9f507f0bd: the watcher's own empty log was being spoken as "the tests did not run"
+        # for a push whose gate log showed them running).
         return "", None
     if not tail_file.is_file():
         return "", False
@@ -652,12 +658,15 @@ def main(argv: list[str] | None = None) -> int:
     done.add_argument("--exit", type=int, required=True)
     done.add_argument("--out-dir", required=True)
     done.add_argument("--tail-file")
+    done.add_argument(
+        "--started", type=float, help="when the hook began (epoch seconds), to date the gate's log"
+    )
     args = parser.parse_args(argv)
     if args.cmd == "start":
         run(args.parent, Path(args.raw), Path(args.git_config) if args.git_config else None)
         return 0
     tail, tests_ran = fresh_tail(
-        Path(args.tail_file) if args.tail_file else None, read_raw(Path(args.raw))
+        Path(args.tail_file) if args.tail_file else None, read_raw(Path(args.raw)), args.started
     )
     sentence = finish(Path(args.raw), args.exit, tail, Path(args.out_dir), tests_ran)
     if sentence:

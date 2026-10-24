@@ -390,6 +390,49 @@ def test_the_finish_command_with_no_tail_file_says_it_could_not_read_the_log(tmp
     assert "could not read the test log" in said and "ordinary way" not in said, said
 
 
+def test_a_fast_refusal_with_an_empty_watcher_log_is_still_an_ordinary_stop(tmp_path, capsys):
+    """Found live (2026-10-23): the freshness gate refused a push in under a second, before the watcher wrote anything,
+    and the watcher said it 'never got a look' for what was an ordinary refusal. The hook now passes when IT began, which
+    dates the gate's log when the watcher's own log cannot: an OLD gate log with a known start is a check that stopped
+    the push, not a watcher that failed."""
+    import os
+
+    log = tmp_path / "last.log"
+    log.write_text("1 failed in 0.3s\n", encoding="utf-8")
+    os.utime(log, (1000.0, 1000.0))  # written long before this push began
+    assert pw.fresh_tail(log, [], hook_started=5000.0) == ("", False)
+    raw = tmp_path / "raw.jsonl"  # the watcher had not written anything yet
+    pw.main(
+        [
+            "finish",
+            "--raw",
+            str(raw),
+            "--exit",
+            "1",
+            "--out-dir",
+            str(tmp_path / "out"),
+            "--tail-file",
+            str(log),
+            "--started",
+            "5000",
+        ]
+    )
+    said = capsys.readouterr().err
+    assert "a check stopped it before the tests ran" in said and "never got a look" not in said, (
+        said
+    )
+
+
+def test_a_fresh_gate_log_dated_by_the_hook_start_means_the_tests_ran(tmp_path):
+    import os
+
+    log = tmp_path / "last.log"
+    log.write_text("3 failed, 40 passed in 12.5s\n", encoding="utf-8")
+    os.utime(log, (9000.0, 9000.0))
+    tail, ran = pw.fresh_tail(log, [], hook_started=5000.0)
+    assert ran is True and "40 passed" in tail
+
+
 def test_a_watcher_that_wrote_nothing_is_not_read_as_tests_that_did_not_run(tmp_path, capsys):
     """Aether, reading 9f507f0bd: with an EMPTY raw log there is no timestamp to date the gate's log against, and the
     log used to be dismissed as old. Here the gate's own log says 3 failed, 40 passed: the tests DID run. The watcher
