@@ -28,6 +28,14 @@ Put the alarm where I already look, and make it say the true thing.
 
 Claim: on the next 30 briefings, the row appears only when the audit hook has started 20 or more times since its heartbeat, and it appears on a replay of the 2026-10-04 to 2026-10-24 window. Falsifier: one briefing where it is silent while the hook started 20+ times with no heartbeat since, or two where it fires and the hook was in fact completing. Embarrassing outcome: a row that reads as healthy while the program is cut, which is what the old slot did by living in the wrong room.
 
+## Revision after Aria's reading of #715 (2026-10-24)
+
+- **Blocking finding, fixed.** The first version read the timing log from `divineos_home()`, which on a member seat is `~/.divineos-aria`, where no timing file exists; the hook writes to `${HOME}/.divineos/hook_timing.jsonl`. The row returned "nothing wrong" on her seat while the audit was dead. My replay had run on the default seat, where both paths are one folder. Now: the log is read from `${HOME}/.divineos`, the heartbeat from the seat's home. Proof as a pair, real, not constructed: the OLD code on her seat printed `None`; the new code printed the DARK row (39 starts since her last heartbeat). Every test keeps the two files in different folders.
+- **A missing log is no longer health.** If a heartbeat exists and the timing log does not, the row says it could not check. Only a machine with neither file is silent.
+- **A heartbeat from a run that executed no detectors does not count** (anyone calling `run_audit` writes one; she wrote one from a test this morning). Not done, owed: a `caller` field on the heartbeat so a hook-written one can be told from any other.
+- **Seats share the timing file.** It is one file for both seats, so a seat's count includes the other's starts. The error runs toward over-counting, and the heartbeat is per seat, so a live seat clears itself. A per-seat file is the clean cut and a one-line change in `_lib.sh`; left for after the batch, not hidden.
+- **Rotation.** `log_rotation.py` keeps the newest rows (tail) and folds the rest into a roster file; the retained window at current volume covers hundreds of audit starts, so a long break fires. The row says "at least".
+
 ## Steps
 
 Test red first on a synthetic timing log (starts without a heartbeat), with controls proven live: the same log with a fresh heartbeat is silent; a log with too few starts is silent; the real replay window fires. Walk. Aria's reading. Aletheia. It is a pure addition to the briefing.

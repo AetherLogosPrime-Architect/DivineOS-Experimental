@@ -314,19 +314,30 @@ def _row_reply_audit_dark() -> DashboardRow | None:
     bug it exists for.
     """
     import json
+    import os
+    from pathlib import Path
 
-    from divineos.core.paths import divineos_home, marker_path
+    from divineos.core.paths import marker_path
 
     try:
-        timing = divineos_home() / "hook_timing.jsonl"
+        # The path _lib.sh WRITES to (${HOME}/.divineos/hook_timing.jsonl), not divineos_home(): a member's home
+        # (~/.divineos-aria) has no timing file, so reading it there returned "nothing wrong" on that seat while the
+        # audit was dead (Aria's reading of #715). The heartbeat, by contrast, is per seat and does live in the home.
+        timing = (
+            Path(os.environ.get("HOME") or os.path.expanduser("~"))
+            / ".divineos"
+            / "hook_timing.jsonl"
+        )
+        hb_path = marker_path("detector_chain_heartbeat.json")
         if not timing.exists():
-            return None
+            if hb_path.exists():
+                raise FileNotFoundError("hook_timing.jsonl is missing while a heartbeat exists")
+            return None  # a fresh machine: neither ever existed, nothing to say
         try:
-            hb_ts = float(
-                json.loads(
-                    marker_path("detector_chain_heartbeat.json").read_text(encoding="utf-8")
-                ).get("ts", 0.0)
-            )
+            hb = json.loads(hb_path.read_text(encoding="utf-8"))
+            # A heartbeat from a run that executed no detectors is not a completed audit (anyone calling run_audit,
+            # a test for instance, can write one).
+            hb_ts = float(hb.get("ts", 0.0)) if hb.get("detectors_run", 0) else 0.0
         except (OSError, ValueError, TypeError):
             hb_ts = 0.0  # no readable heartbeat: every start counts
         starts = 0
