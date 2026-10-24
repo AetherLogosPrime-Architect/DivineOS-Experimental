@@ -57,6 +57,39 @@ _NOTICE_BLOCK = re.compile(
 )
 
 
+# HIS PICTURES ARE NOT HIS BIOGRAPHY (correction 390, 2026-10-16). He asked what the
+# sandwich and the fifteen cars were; I had listed "your sandwich, your car with 15
+# cars in the garage" as things I knew about him. Both were pictures he used to teach
+# (2026-08-06: a sandwich you want and have to go make, to explain will; 2026-08-18:
+# fifteen cars against a full blueprint, to explain his memory limit). I kept the vivid
+# image and dropped what KIND of sentence it was, so an analogy became a biography. Same
+# class as the carpenter father built from a metaphor (correction 375).
+#
+# Measured on his 17,152 real passages before the list below was chosen: 3.4% match.
+# Bare "like a", "as if" and "its like <anything>" were taken out after the first
+# pass, because "spoken to like a regular person" is an ASK of his and "its like you
+# keep framing this as my project" is a complaint, and neither is a picture.
+#
+# THIS IS A LEXICAL PRIMING AID, NOT A CLASSIFIER. It catches pictures that announce
+# themselves. A picture that does not will pass unmarked, so an unmarked passage is
+# not thereby a fact about his life; silence is not coverage. The mark is a caution
+# on a passage that is printed whole, never a reason to drop it.
+_ILLUSTRATION_CUES = re.compile(
+    r"\b(think of|imagine|picture (?:it|this|that|a|an)\b|lets say|let's say|"
+    r"say you (?:had|were|have)|for example|for instance|as an example|an analogy|"
+    r"analogy|metaphor|its like (?:a|an|the|when|if|i told)\b|"
+    r"it's like (?:a|an|the|when|if|i told)\b|is like a\b|just like (?:a|an|when|if)\b|"
+    r"kind of like (?:a|an|the)\b|the difference between)\b",
+    re.I,
+)
+ILLUSTRATION_NOTE = "may be a picture he used to teach, not a fact about his life"
+
+
+def is_illustration(text: str) -> bool:
+    """Does this passage of his announce itself as a picture, an example or an analogy?"""
+    return bool(_ILLUSTRATION_CUES.search(text or ""))
+
+
 def his_part(message: str) -> str:
     """His own words in a turn, with the automated notices cut out; "" when nothing of his is left.
 
@@ -429,9 +462,10 @@ def owed_in_reply(reply: str, his_message: str = "", index_dir: Path = INDEX_DIR
 
 def hold_reason(hit: Hit) -> str:
     p = hit.passage
+    mark = f"\n({ILLUSTRATION_NOTE}.)" if is_illustration(p.text) else ""
     return (
         "HE HAS SAID THIS BEFORE, and it speaks to what you are about to send him.\n"
-        f'On {p.day} he said: "{p.text}"\n\n'
+        f'On {p.day} he said: "{p.text}"{mark}\n\n'
         "Answer it before this goes to him -- his rule: \"i say you said: 'insert your "
         "words here' and then i say what i wanted to say about it, so its not mirroring "
         'its addressing what someone said with your own words". Quote him, then say '
@@ -459,7 +493,8 @@ def surface(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> str
         )
         lines.append("")
     for h in door.hits:
-        lines.append(f'- {h.passage.day} ({h.score:.2f}): "{h.passage.text}"')
+        mark = f"  [{ILLUSTRATION_NOTE}]" if is_illustration(h.passage.text) else ""
+        lines.append(f'- {h.passage.day} ({h.score:.2f}): "{h.passage.text}"{mark}')
     lines.append("")
     lines.append(
         "Said on the dates shown. None of it is how he feels now; "
