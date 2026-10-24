@@ -1009,7 +1009,12 @@ def _this_turns_action_stream(payload: dict) -> str:
     if not path.is_file():
         raise OSError(f"the named transcript is not a file: {path}")
 
-    # Walk back to the last user-role record; everything after it is this turn.
+    # Everything since his last message is this turn. The boundary is the SAME
+    # reader _last_assistant_text uses (_is_his_record). It used to be "the last
+    # record with role user", but a tool result is written with that role, so after
+    # any tool call the turn restarted at that call's own result and a read made
+    # earlier in the stretch fell out of the window (2026-10-16: a dozen replies
+    # refused by landed_claim for a claim whose verify run sat just above).
     for lines, whole in _windows(path):
         start = None
         for index, line in enumerate(lines):
@@ -1017,8 +1022,7 @@ def _this_turns_action_stream(payload: dict) -> str:
                 rec = _json.loads(line)
             except ValueError:
                 continue
-            msg = rec.get("message") if isinstance(rec, dict) else None
-            if isinstance(msg, dict) and msg.get("role") == "user":
+            if isinstance(rec, dict) and _is_his_record(rec):
                 start = index
         if start is not None:
             return "\n".join(lines[start:])
@@ -2195,6 +2199,51 @@ def degraded_detectors_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def cd_drift_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a top-level `cd` that would move the app's idea of home.
+
+    Measured 2026-10-22: `cd family/letters && ...` moved the primary folder three times and broke
+    the bell, the hooks and a turn. The right forms (subshell, git -C, a full path) are named in the
+    refusal. Design and measurement table: docs/drafts/a_cd_cannot_move_my_home_draft_2026-10-22.md.
+    """
+    if (payload.get("tool_name") or "") != "Bash":
+        return SurfaceOutcome(name="cd_drift", state="nothing-to-say")
+    command = (payload.get("tool_input") or {}).get("command") or ""
+    if not command:
+        return SurfaceOutcome(name="cd_drift", state="nothing-to-say")
+    try:
+        import os
+        import subprocess
+        from pathlib import Path
+
+        from divineos.core import cd_drift_check as check
+
+        root = (
+            os.environ.get("CLAUDE_PROJECT_DIR")
+            or subprocess.run(
+                ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True
+            ).stdout.strip()
+        )
+        refuse = check.should_refuse(command, project_root=root, home=str(Path.home()))
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="cd_drift",
+            error=(
+                f"{type(exc).__name__}: {exc} -- the cd-drift door could not run, so a folder "
+                "change is currently unguarded. Absent, not satisfied."
+            ),
+            state="could-not-run",
+        )
+    if not refuse:
+        return SurfaceOutcome(name="cd_drift", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="cd_drift",
+        refused=True,
+        reason=check.refusal_message(command),
+        state="spoke",
+    )
+
+
 def heredoc_escape_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse a shell heredoc that writes a file through an escape.
 
@@ -2497,6 +2546,39 @@ def pr_merge_gate_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def pr_merge_freshness_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a merge of a pull request that is behind main (core/merge_freshness.py).
+
+    A sibling of the merge gate above, not a clause inside it: that gate decides on review,
+    this one on freshness, and they ask different questions of different data. Same JSON
+    deny protocol, so the two land the same way.
+    """
+    if (payload.get("tool_name") or "") != "Bash":
+        return SurfaceOutcome(name="pr_merge_freshness", state="nothing-to-say")
+    command = (payload.get("tool_input") or {}).get("command") or ""
+    if not command.strip():
+        return SurfaceOutcome(name="pr_merge_freshness", state="nothing-to-say")
+    try:
+        from divineos.core.merge_freshness import block_reason
+
+        reason = block_reason(command)
+    except Exception as exc:  # noqa: BLE001 - a gate never crashes the call
+        return SurfaceOutcome(
+            name="pr_merge_freshness",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    if not reason:
+        return SurfaceOutcome(name="pr_merge_freshness", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="pr_merge_freshness",
+        refused=True,
+        reason=reason,
+        json_deny=True,
+        state="spoke",
+    )
+
+
 def pr_create_gate_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse opening a pull request that is not ready to be opened.
 
@@ -2691,6 +2773,8 @@ def install() -> None:
     # 2026-09-23, Aria: registered in the same change that adds the surface,
     # for the reason written above -- a surface nothing dispatches is an alarm
     # with the cable coiled beside it.
+    if "cd_drift" not in registered("PreToolUse"):
+        register("PreToolUse", "cd_drift", cd_drift_surface)
     if "slashed_ref_path" not in registered("PreToolUse"):
         register("PreToolUse", "slashed_ref_path", slashed_ref_path_surface)
     # The letter path, guarded 2026-09-09. Feathers on the walk: the reply door
@@ -2705,6 +2789,8 @@ def install() -> None:
     # decision, one through exit 2 -- because that is how each landed before.
     if "pr_merge_gate" not in registered("PreToolUse"):
         register("PreToolUse", "pr_merge_gate", pr_merge_gate_surface)
+    if "pr_merge_freshness" not in registered("PreToolUse"):
+        register("PreToolUse", "pr_merge_freshness", pr_merge_freshness_surface)
     if "pr_create_gate" not in registered("PreToolUse"):
         register("PreToolUse", "pr_create_gate", pr_create_gate_surface)
 

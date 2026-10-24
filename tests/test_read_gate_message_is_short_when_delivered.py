@@ -31,7 +31,7 @@ def test_a_whole_delivery_does_not_ask_for_a_second_open(isolated_gate):
 
     blocked, message = read_gate.gate_status()
 
-    assert blocked
+    assert not blocked, "a note delivered whole rides along as context; it never costs a second try"
     assert "fits whole" in message
     assert "So open it" not in message
     assert "no need to open it again" in message.lower()

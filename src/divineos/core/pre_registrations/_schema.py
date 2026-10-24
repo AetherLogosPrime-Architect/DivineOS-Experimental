@@ -37,6 +37,17 @@ def init_pre_registrations_tables() -> None:
             conn.execute("ALTER TABLE pre_registrations ADD COLUMN embarrassing_reading TEXT")
         except sqlite3.OperationalError:
             pass
+        # Review by use rather than by date (Dad, 2026-10-16). Nullable: NULL on
+        # an older row means it is still date-scheduled.
+        for column in (
+            "review_after_uses INTEGER",
+            "uses_of TEXT",
+            "uses_baseline INTEGER",
+        ):
+            try:
+                conn.execute(f"ALTER TABLE pre_registrations ADD COLUMN {column}")
+            except sqlite3.OperationalError:
+                pass
         conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_prereg_review
             ON pre_registrations(review_ts, outcome)

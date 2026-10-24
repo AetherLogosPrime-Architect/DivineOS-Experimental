@@ -119,6 +119,23 @@ _READ_THE_REMOTE = (
 )
 
 
+# A push command. A read of the remote only speaks for a push that came BEFORE it,
+# so the evidence is searched only in what follows the last push in the stretch.
+# Added 2026-10-16 (Aria's cold read of the turn-boundary repair): once the stream
+# spans everything since he last spoke, a read of an EARLIER push would otherwise
+# excuse a claim about a LATER one still running, which is the original fault.
+_A_PUSH = (
+    re.compile(r"\bgit\s+push\b"),
+    re.compile(r"divineos_push\.sh"),
+)
+
+
+def _after_the_last_push(action_stream: str) -> str:
+    """The part of the stream that follows the last push command; the whole stream if none."""
+    ends = [m.end() for rx in _A_PUSH for m in rx.finditer(action_stream)]
+    return action_stream[max(ends) :] if ends else action_stream
+
+
 @dataclass(frozen=True)
 class Verdict:
     claimed: tuple[str, ...]
@@ -153,7 +170,8 @@ def assess(reply_text: str, action_stream: str | None) -> Verdict:
                 " was checked is unknown — which is not a clean turn"
             ),
         )
-    read = any(rx.search(action_stream) for rx in _READ_THE_REMOTE)
+    evidence = _after_the_last_push(action_stream)
+    read = any(rx.search(evidence) for rx in _READ_THE_REMOTE)
     return Verdict(claimed=claimed, read_the_remote=read)
 
 
