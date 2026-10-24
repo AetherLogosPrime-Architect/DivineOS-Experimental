@@ -176,3 +176,31 @@ def test_every_lens_on_the_roster_is_found_by_the_receipt_it_was_just_delivered_
         if cw._delivery_time(name, before, "walk-roster") is None:
             unmatched.append(name)
     assert unmatched == []
+
+
+def test_an_added_lens_goes_through_the_same_delivery_path():
+    w = cw.open_walk(PROBLEM)
+    extra = next(n for n in get_council_engine().list_experts() if n not in w["lenses"])
+    cw.add_lens(
+        w["walk_id"], extra, "a lens the manager did not surface that bears on a receipt lookup"
+    )
+    with pytest.raises(cw.WalkRefused):
+        cw.apply_lens(w["walk_id"], extra, FINDING, question=1)
+    cw.apply_lens(w["walk_id"], extra, FINDING, question=1)
+    row = next(r for r in cw.status(w["walk_id"])["lenses"] if r["lens"] == extra)
+    assert row["state"] == "APPLIED"
+
+
+def test_the_command_line_refuses_then_accepts_and_shows_the_lens():
+    from click.testing import CliRunner
+
+    from divineos.cli import cli
+
+    w = cw.open_walk(PROBLEM)
+    lens = w["lenses"][0]
+    args = ["walk", "apply", w["walk_id"], lens, "--finding", FINDING, "--question", "1"]
+    first = CliRunner().invoke(cli, args)
+    assert first.exit_code != 0
+    assert lens_questions(get_council_engine().get_expert(lens))[0] in first.output
+    second = CliRunner().invoke(cli, args)
+    assert second.exit_code == 0, second.output
