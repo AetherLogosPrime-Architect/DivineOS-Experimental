@@ -56,10 +56,9 @@ class TestBlockReason:
             cmd = 'gh pr merge 99 --squash --body "fix\n\nExternal-Review: round-abc123"'
             assert pr_merge_gate.block_reason(cmd) is None
 
-    def test_guardrail_pr_with_tree_hash_trailer_passes(self) -> None:
-        """Phase 2 (2026-06-13): the trailer can carry an optional
-        tree-hash suffix for substance-binding. The local gate accepts
-        it; substance verification happens at the CI layer."""
+    def test_guardrail_pr_with_tree_hash_trailer_is_refused(self) -> None:
+        """A tree-hash in the squash message can never match: the squash
+        commit's tree does not exist until the merge (#582, 2026-10-08)."""
         with patch.object(
             pr_merge_gate,
             "audit_pr_for_guardrail_touches",
@@ -67,7 +66,9 @@ class TestBlockReason:
         ):
             tree_hash = "a" * 40
             cmd = f'gh pr merge 99 --squash --body "fix\n\nExternal-Review: round-abc123 tree-hash:{tree_hash}"'
-            assert pr_merge_gate.block_reason(cmd) is None
+            reason = pr_merge_gate.block_reason(cmd)
+            assert reason is not None
+            assert "tree-hash" in reason
 
     def test_gh_module_failure_fails_open(self) -> None:
         with patch.object(
@@ -166,10 +167,10 @@ class TestEmbeddedAuditBody:
             # The body should appear inline as a paste-ready snippet.
             assert "gh pr merge 99 --squash --body" in reason
 
-    def test_emitted_body_includes_tree_hash_when_git_available(self) -> None:
-        """Phase 2 (2026-06-13): the gate's embedded merge body now carries
-        tree-hash binding when git can resolve HEAD's tree. The server-side
-        CI gate verifies the binding at merge time."""
+    def test_emitted_body_never_includes_a_tree_hash(self) -> None:
+        """The gate's embedded merge body is the round only. A tree-hash in a
+        squash message cannot match the squash commit's tree, so following the
+        gate's own suggestion would put a red audit on main (#582)."""
         from dataclasses import dataclass
 
         @dataclass
@@ -182,6 +183,7 @@ class TestEmbeddedAuditBody:
         class _F:
             actor: str = "user"
             review_stance: object = None
+            title: str = "CONFIRMS: #99 at abc."
 
         fake_tree = "f" * 40
         import time as _t
@@ -200,50 +202,12 @@ class TestEmbeddedAuditBody:
                 "divineos.core.watchmen.store.list_findings",
                 return_value=[_F(actor="user"), _F(actor="aletheia")],
             ),
-            patch.object(pr_merge_gate, "_current_head_tree_hash", return_value=fake_tree),
-        ):
-            reason = pr_merge_gate.block_reason("gh pr merge 99 --squash")
-            assert reason is not None
-            assert f"External-Review: round-abc123 tree-hash:{fake_tree}" in reason
-
-    def test_emitted_body_falls_back_to_legacy_when_git_unreachable(self) -> None:
-        """If _current_head_tree_hash returns empty (git unavailable), the
-        emitted trailer drops to legacy form."""
-        from dataclasses import dataclass
-
-        @dataclass
-        class _R:
-            round_id: str = "round-abc123"
-            focus: str = "test PR"
-            created_at: float = 0.0
-
-        @dataclass
-        class _F:
-            actor: str = "user"
-            review_stance: object = None
-
-        import time as _t
-
-        with (
-            patch.object(
-                pr_merge_gate,
-                "audit_pr_for_guardrail_touches",
-                return_value=(True, ["src/divineos/core/moral_compass.py"]),
-            ),
-            patch(
-                "divineos.core.watchmen.store.list_rounds",
-                return_value=[_R(created_at=_t.time() - 3600)],
-            ),
-            patch(
-                "divineos.core.watchmen.store.list_findings",
-                return_value=[_F(actor="user"), _F(actor="aletheia")],
-            ),
-            patch.object(pr_merge_gate, "_current_head_tree_hash", return_value=""),
         ):
             reason = pr_merge_gate.block_reason("gh pr merge 99 --squash")
             assert reason is not None
             assert "External-Review: round-abc123" in reason
             assert "tree-hash:" not in reason
+            assert fake_tree not in reason
 
     def test_embeds_diagnosis_when_round_missing_user_confirm(self) -> None:
         """An invalid recent round → block message names the SPECIFIC
