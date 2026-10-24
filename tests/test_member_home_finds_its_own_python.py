@@ -44,6 +44,9 @@ def _ask(tmp_path: Path, member: str, *, stub: bool) -> str:
         + env.get("PATH", "")
     )
     env.pop("DIVINEOS_MEMBER", None)
+    env.pop(
+        "DIVINEOS_HOME", None
+    )  # the suite sets a scratch home for every test; the question here is the real default
     script = f'. "{(REPO / ".claude/hooks/lib/member_home.sh").as_posix()}"; member_home {member}'
     done = subprocess.run(
         [BASH, "-c", script], cwd=REPO, env=env, capture_output=True, text=True, timeout=120
@@ -64,3 +67,24 @@ def test_the_answer_is_the_residents_home_not_the_hand_built_twin_when_python3_i
 def test_control_without_the_stub_the_answer_is_the_same(tmp_path):
     assert _ask(tmp_path, "aether", stub=False) == _ask(tmp_path, "aether", stub=True)
     assert _ask(tmp_path, "aria", stub=False) == _ask(tmp_path, "aria", stub=True)
+
+
+def test_asking_for_a_home_does_not_replace_the_callers_exit_trap(tmp_path):
+    """Sourcing _lib.sh installs an EXIT trap; member_home must do that in a subshell so the caller's own trap survives."""
+    home = tmp_path / "home"
+    home.mkdir(exist_ok=True)
+    env = dict(os.environ, HOME=str(home), USERPROFILE=str(home), PYTHONPATH=str(REPO / "src"))
+    env["PATH"] = str(Path(sys.executable).parent) + os.pathsep + env.get("PATH", "")
+    env.pop("DIVINEOS_MEMBER", None)
+    env.pop(
+        "DIVINEOS_HOME", None
+    )  # the suite sets a scratch home for every test; the question here is the real default
+    lib = (REPO / ".claude/hooks/lib/member_home.sh").as_posix()
+    script = (
+        f"trap 'echo mine' EXIT; . \"{lib}\"; "
+        "member_home aether >/dev/null 2>&1; member_home aria >/dev/null 2>&1; trap -p EXIT"
+    )
+    done = subprocess.run(
+        [BASH, "-c", script], cwd=REPO, env=env, capture_output=True, text=True, timeout=120
+    )
+    assert "echo mine" in done.stdout, done.stdout
