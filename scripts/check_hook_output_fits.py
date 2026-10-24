@@ -35,6 +35,7 @@ is what we write.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from contextlib import contextmanager
@@ -111,8 +112,12 @@ def compose_start_hooks() -> list[str]:
         for group in settings.get("hooks", {}).get(event, []):
             for hook in group.get("hooks", []):
                 command = hook.get("command", "")
-                if ".claude/hooks/" in command:
-                    scripts.append(f"{event}:{command.split('.claude/hooks/')[-1].strip()}")
+                # The script's own name, however the command reaches it: `bash .claude/hooks/x.sh`,
+                # or the project-directory form `f="${...}/.claude/hooks/x.sh"; ...`. Taking
+                # everything after the directory read the second form as a file that does not exist.
+                named = re.search(r"\.claude/hooks/([^\s\"';]+)", command)
+                if named:
+                    scripts.append(f"{event}:{named.group(1)}")
     return scripts
 
 

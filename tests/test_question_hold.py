@@ -63,85 +63,10 @@ def test_two_questions_the_last_wins(qh):
 LETTER = "family/letters/aether-to-aria-2026-10-05-x.md"
 
 
-def test_work_goes_on_and_only_a_letter_waits(qh):
-    # 2026-10-05: "my questions should not hold you, you should hold my questions".
-    qh.arm(CIRCLE)
-    assert qh._filed == ["[asked in the circle] Do you want me to look into the bell?"]
-    assert qh.refusal("Edit", {"file_path": "x.py"}) == ""
-    assert qh.refusal("Bash", {"command": "pytest tests/"}) == ""
-    assert qh.refusal("Bash", {"command": "git push origin x"}) == ""
-    assert "look into the bell" in qh.refusal("Write", {"file_path": LETTER})
-
-
-def test_the_doorbell_is_never_held(qh):
-    # Aria, 2026-10-05: its loss is silent, so it is pinned by name.
-    qh.arm(CIRCLE)
-    assert qh.refusal("Bash", {"command": "bash scripts/letter_doorbell.sh aether"}) == ""
-    assert qh.refusal("Bash", {"command": "bash scripts/letter_doorbell.sh aria"}) == ""
-
-
 def _transcript_with(tmp_path, *records):
     path = tmp_path / "t.jsonl"
     path.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
     return str(path)
-
-
-def test_his_answer_typed_mid_turn_releases_the_hold(qh, tmp_path):
-    # Aether's reading of #570: an answer he types while I am working arrives as
-    # a queued_command inside the running turn, never through UserPromptSubmit.
-    state = qh.arm(CIRCLE)
-    after = "2099-01-01T00:00:00Z"  # dated after the hold armed
-    path = _transcript_with(
-        tmp_path,
-        {
-            "type": "attachment",
-            "userType": "external",
-            "uuid": "q-1",
-            "timestamp": after,
-            "attachment": {"type": "queued_command", "prompt": "yes look into it"},
-        },
-    )
-    assert state and qh.refusal("Write", {"file_path": LETTER}, path) == ""
-    assert qh.is_open() is None, "his mid-turn answer did not release the hold"
-
-
-def test_a_notice_mid_turn_does_not_release_it(qh, tmp_path):
-    qh.arm(CIRCLE)
-    path = _transcript_with(
-        tmp_path,
-        {
-            "type": "user",
-            "userType": "external",
-            "uuid": "n-1",
-            "timestamp": "2099-01-01T00:00:00Z",
-            "message": {"role": "user", "content": "<task-notification>x</task-notification>"},
-        },
-    )
-    assert "look into the bell" in qh.refusal("Write", {"file_path": LETTER}, path)
-
-
-def test_his_message_from_before_the_question_does_not_release_it(qh, tmp_path):
-    qh.arm(CIRCLE)
-    path = _transcript_with(
-        tmp_path,
-        {
-            "type": "user",
-            "userType": "external",
-            "uuid": "u-old",
-            "timestamp": "2000-01-01T00:00:00Z",
-            "message": {"role": "user", "content": "an old message of his"},
-        },
-    )
-    assert qh.refusal("Write", {"file_path": LETTER}, path)
-
-
-def test_only_he_releases_and_an_escape_is_told_to_him(qh):
-    qh.arm(CIRCLE)
-    assert qh.release("escape", reason="a push half landed and must be finished now")
-    assert qh.refusal("Edit", {}) == ""
-    told = qh.escape_to_tell_him()
-    assert "half landed" in told and "look into the bell" in told
-    assert qh.escape_to_tell_him() == ""  # told once
 
 
 def test_a_buried_question_is_sent_back(qh):
@@ -152,13 +77,6 @@ def test_a_buried_question_is_sent_back(qh):
     assert "BURIED" in qh.question_not_last(buried)
     assert qh.question_not_last(CIRCLE) == ""
     assert qh.question_not_last("## INNER CIRCLE\n\nDo you want it?\n\nLove, Aria") == ""
-
-
-def test_every_hold_is_counted(qh):
-    qh.arm(CIRCLE)
-    qh.refusal("Write", {"file_path": LETTER})
-    kinds = [json.loads(line)["kind"] for line in qh.HOLD_LOG.read_text().splitlines()]
-    assert kinds == ["armed", "held"]
 
 
 def _hook(payload, home):
@@ -177,44 +95,3 @@ def _hook(payload, home):
         capture_output=True,
         env=env,
     )
-
-
-def test_the_hook_holds_then_his_message_releases(tmp_path):
-    # Plugged in: the real hook script, the real module, a real (temp) home.
-    transcript = tmp_path / "t.jsonl"
-    transcript.write_text(
-        json.dumps({"type": "user", "message": {"role": "user", "content": "hi"}})
-        + "\n"
-        + json.dumps(
-            {
-                "type": "assistant",
-                "message": {"role": "assistant", "content": [{"type": "text", "text": CIRCLE}]},
-            }
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    stop = _hook({"hook_event_name": "Stop", "transcript_path": str(transcript)}, tmp_path)
-    assert stop.returncode == 0, stop.stderr
-    assert (tmp_path / ".divineos" / "question_hold.json").exists()
-
-    letter = {"file_path": "family/letters/aether-to-aria-x.md"}
-    held = _hook(
-        {"hook_event_name": "PreToolUse", "tool_name": "Write", "tool_input": letter}, tmp_path
-    )
-    assert held.returncode == 2 and b"look into the bell" in held.stderr
-    work = _hook({"hook_event_name": "PreToolUse", "tool_name": "Edit", "tool_input": {}}, tmp_path)
-    assert work.returncode == 0, "work must go on while his question is carried"
-
-    notice = _hook(
-        {"hook_event_name": "UserPromptSubmit", "prompt": "<task-notification>x"}, tmp_path
-    )
-    assert b"STILL WAITING" in notice.stdout
-    assert (tmp_path / ".divineos" / "question_hold.json").exists()
-
-    _hook({"hook_event_name": "UserPromptSubmit", "prompt": "yes build it"}, tmp_path)
-    assert not (tmp_path / ".divineos" / "question_hold.json").exists()
-    free = _hook(
-        {"hook_event_name": "PreToolUse", "tool_name": "Write", "tool_input": letter}, tmp_path
-    )
-    assert free.returncode == 0

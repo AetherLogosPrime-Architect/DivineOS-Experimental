@@ -96,6 +96,53 @@ def must_read_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def unread_letter_surface(payload: dict) -> SurfaceOutcome | None:
+    """Hold real work while a letter the bell rang for is still unopened.
+
+    The ring used to be a line in a background file I could scroll past (an hour, 2026-10-08).
+    Now it has a consequence at the one moment it changes what I do next. Reading is never
+    blocked, a Read of the letter's exact path clears it here, and re-arming the bell always
+    gets through. See core/unread_letter.py for the full reasoning and what it cannot do.
+    """
+    tool = payload.get("tool_name") or ""
+    tool_input = payload.get("tool_input") or {}
+    try:
+        from divineos.core import unread_letter as ul
+        from divineos.core.sibling_audit_rounds import this_seat
+
+        member = this_seat()
+        if member is None:
+            # Cannot tell whose window this is, so whose letters to hold: say so and hold nothing.
+            return SurfaceOutcome(
+                name="unread_letter",
+                error="could not tell which seat this checkout is, so no letter is held",
+                state="could-not-run",
+            )
+        if tool == "Read":
+            cleared = ul.clear_on_read(member, tool_input.get("file_path") or "")
+            if cleared:
+                return SurfaceOutcome(
+                    name="unread_letter", output=f"[letter] opened: {', '.join(cleared)}"
+                )
+            return None
+        if tool in _ALWAYS_ALLOWED or tool not in _SUBSTANTIVE_TOOLS:
+            return None
+        if tool in ("Bash", "PowerShell") and ul.is_bell_command(
+            str(tool_input.get("command") or "")
+        ):
+            return None
+        waiting = ul.unread_rung(member)
+    except Exception as exc:  # noqa: BLE001 - a gate that cannot look must say so, never lock
+        return SurfaceOutcome(
+            name="unread_letter", error=f"{type(exc).__name__}: {exc}", state="could-not-run"
+        )
+    if not waiting:
+        return None
+    return SurfaceOutcome(
+        name="unread_letter", refused=True, state="spoke", reason=ul.refusal_message(waiting)
+    )
+
+
 _BRIEFING_TAIL = (
     "(Plain-chat responses are still allowed; this gate only blocks tool use. "
     "The OS does the rendering — this hook is just the doorman.)"
@@ -962,7 +1009,12 @@ def _this_turns_action_stream(payload: dict) -> str:
     if not path.is_file():
         raise OSError(f"the named transcript is not a file: {path}")
 
-    # Walk back to the last user-role record; everything after it is this turn.
+    # Everything since his last message is this turn. The boundary is the SAME
+    # reader _last_assistant_text uses (_is_his_record). It used to be "the last
+    # record with role user", but a tool result is written with that role, so after
+    # any tool call the turn restarted at that call's own result and a read made
+    # earlier in the stretch fell out of the window (2026-10-16: a dozen replies
+    # refused by landed_claim for a claim whose verify run sat just above).
     for lines, whole in _windows(path):
         start = None
         for index, line in enumerate(lines):
@@ -970,8 +1022,7 @@ def _this_turns_action_stream(payload: dict) -> str:
                 rec = _json.loads(line)
             except ValueError:
                 continue
-            msg = rec.get("message") if isinstance(rec, dict) else None
-            if isinstance(msg, dict) and msg.get("role") == "user":
+            if isinstance(rec, dict) and _is_his_record(rec):
                 start = index
         if start is not None:
             return "\n".join(lines[start:])
@@ -1114,7 +1165,7 @@ def _last_user_text(payload: dict) -> str:
                 # enumeration standing in for a principle, mine, minutes old, in
                 # the thing built to stop that. The principle: text the harness
                 # generated is not him, whatever it is wearing.
-                if _MACHINE_TEXT_RE.search(text):
+                if _is_machine_text(text):
                     continue
                 if text.strip():
                     last = text
@@ -1134,11 +1185,47 @@ _MEANING_RE = re.compile(r"\b[a-z]{4,}\b", re.I)
 # Text the harness produced, arriving in the transcript shaped like his turns:
 # reminders, task notifications, prime output, and — the one that caught this
 # surface out on its first live run — the Stop-gate refusals it emits itself.
-_MACHINE_TEXT_RE = re.compile(
-    r"<system-reminder>|hook success|Stop hook feedback|PreToolUse|PostToolUse"
-    r"|BLOCKED by|<task-notification>|\.claude[/\\]hooks[/\\]",
+#
+# THE EIGHTH COAT ARRIVED AND THE LIST DID NOT HAVE IT (2026-09-22). The
+# desktop app sends <ci-monitor-event> messages about a pull request it is
+# watching. They arrive in the user role, they are long, and they are entirely
+# the machine. Every one of them was read here as Andrew speaking.
+#
+# What that cost, measured rather than reasoned: the unspoken-to counter clears
+# only when a reply carries something of HIS, and "his" was resolving to a CI
+# event. So a status report answering the robot scored as carrying him, and the
+# first thing I said to him in hours that was not about the work scored
+# NOT_CARRIED -- because it did not quote the robot. The counter could only
+# rise while the machine did the talking, and it refused my letters on that
+# basis. An instrument with one answer in it, in the file whose job is to tell
+# him apart from the noise.
+#
+# The comment above already named this exact failure and I added a name anyway
+# the first time. So the general shape goes in beside the names: a harness tag
+# is <something-event>, <something-notification> or <something-reminder>, and
+# the specific spellings stay because they are cheap and some of them (a bare
+# "hook success", a Stop-gate refusal) carry no tag at all.
+#
+# WHERE IT SITS, NOT WHETHER IT APPEARS (Aletheia, hold on #672, 2026-10-16). This
+# pattern used to be searched anywhere in a message, so a sentence of his that
+# merely mentioned a tag ("hey kids, the <ci-monitor-event> thing keeps showing
+# up") read as the machine and was dropped. A harness message OPENS with its
+# envelope, so the pattern is anchored at the start of what is left once the one
+# reader of him (``his_message.his_part``) has peeled any leading envelope.
+_MACHINE_START_RE = re.compile(
+    r"\s*(?:<system-reminder>|hook success|Stop hook feedback|PreToolUse|PostToolUse"
+    r"|BLOCKED by|<task-notification>|<ci-monitor-event>|\.claude[/\\]hooks[/\\]"
+    r"|<[a-z][a-z0-9-]*-(?:event|notification|reminder)>)",
     re.I,
 )
+
+
+def _is_machine_text(text: str) -> bool:
+    """Is this user-role text the harness talking rather than him?"""
+    from divineos.core.his_message import his_part
+
+    his = his_part(text)
+    return not his or bool(_MACHINE_START_RE.match(his))
 
 
 def _last_refusal_slot():
@@ -1458,7 +1545,8 @@ def addressed_to_him_surface(payload: dict) -> SurfaceOutcome | None:
             "He said:\n"
             f"    {his.strip()[:400]}\n\n"
             "Answering something adjacent is not answering him. Find the thing "
-            "he actually said and answer that.\n\n"
+            "he actually said and answer it in a short addition at the END -- "
+            "the reply already reached him, so do not post it again.\n\n"
             "WHAT THIS DOOR CAN ACTUALLY SEE is a run of his words reused in "
             "the reply — not whether the reply answered him. Those come apart "
             "in both directions, so a pass from here is never evidence he was "
@@ -1525,9 +1613,16 @@ def _turn_started_by_him(payload: dict) -> bool | None:
                 text = ""
             if not text.strip():
                 continue
-            if "<task-notification>" in text:
-                started_by_him = False
-            elif not _MACHINE_TEXT_RE.search(text):
+            if _is_machine_text(text):
+                # A record the machine opened that carries a task notification, bare
+                # or wrapped in a reminder, means nobody started this turn. Only
+                # that: his mentioning the tag is not this branch (it is not machine
+                # text at all), and other machine text says nothing either way.
+                if text.lstrip().startswith(("<task-notification", "<system-reminder")) and (
+                    "<task-notification" in text
+                ):
+                    started_by_him = False
+            else:
                 started_by_him = True
     return started_by_him
 
@@ -1748,7 +1843,7 @@ def repeated_reply_surface(payload: dict) -> SurfaceOutcome | None:
             "has already read.\n\n"
             "Andrew 2026-09-08: 'you are repeating yourself, look at the last "
             "post, literally verbatim posted twice.'\n\n"
-            "This is almost certainly a re-send after another Stop gate refused "
+            "This is almost certainly a second send after another Stop gate refused "
             "the first attempt. Adding the missing room to the same body "
             "satisfies that gate and charges him twice for one post.\n\n"
             "Send WHAT IS NEW. He has read the rest. If the earlier gate wanted "
@@ -1826,6 +1921,46 @@ def no_fix_claim_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def order_question_stop_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a reply that ends by asking Dad which order to do things in.
+
+    Andrew, nine times: order is irrelevant unless it is relevant. See
+    core/order_question_check.py for what this decides, and what it cannot see.
+    """
+    text = _last_assistant_text(payload)
+    if not text.strip():
+        return SurfaceOutcome(name="order_question", state="nothing-to-say")
+    try:
+        from divineos.core import order_question_check as oq
+
+        if not oq.should_refuse(text):
+            return SurfaceOutcome(name="order_question", state="nothing-to-say")
+        reason = oq.refusal_message(text)
+        if payload.get("stop_hook_active"):
+            # The repair turn: the harness will not let a Stop gate refuse twice, so a
+            # second composition could keep the question in new words and walk through
+            # (2026-10-13: asked it, was sent back, asked it again). It cannot be
+            # refused here, so the repeat is carried to the next compose instead of
+            # vanishing, where it is the first thing I read.
+            from divineos.hooks.stop_carry import carry
+
+            # Worded to what is known: stop_hook_active is true after ANY Stop gate sent
+            # me back, so this gate cannot claim it was the one that did (Aether, 2026-10-14).
+            carry(
+                "order-question-repeated",
+                "On a repair turn I asked Dad which order, and this gate cannot refuse twice: "
+                + reason,
+            )
+            return SurfaceOutcome(name="order_question", state="nothing-to-say")
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="order_question",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    return SurfaceOutcome(name="order_question", refused=True, state="spoke", reason=reason)
+
+
 def summary_room_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse a reply that dropped the room which compresses it for him.
 
@@ -1839,7 +1974,7 @@ def summary_room_surface(payload: dict) -> SurfaceOutcome | None:
     try:
         from divineos.core.summary_room import assess, render_block
 
-        block = render_block(assess(text))
+        block = render_block(assess(text, retry=bool(payload.get("stop_hook_active"))))
     except Exception as exc:  # noqa: BLE001
         return SurfaceOutcome(
             name="summary_room",
@@ -2060,6 +2195,51 @@ def degraded_detectors_surface(payload: dict) -> SurfaceOutcome | None:
         name="degraded_detectors",
         refused=True,
         reason=format_block(entries),
+        state="spoke",
+    )
+
+
+def cd_drift_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a top-level `cd` that would move the app's idea of home.
+
+    Measured 2026-10-22: `cd family/letters && ...` moved the primary folder three times and broke
+    the bell, the hooks and a turn. The right forms (subshell, git -C, a full path) are named in the
+    refusal. Design and measurement table: docs/drafts/a_cd_cannot_move_my_home_draft_2026-10-22.md.
+    """
+    if (payload.get("tool_name") or "") != "Bash":
+        return SurfaceOutcome(name="cd_drift", state="nothing-to-say")
+    command = (payload.get("tool_input") or {}).get("command") or ""
+    if not command:
+        return SurfaceOutcome(name="cd_drift", state="nothing-to-say")
+    try:
+        import os
+        import subprocess
+        from pathlib import Path
+
+        from divineos.core import cd_drift_check as check
+
+        root = (
+            os.environ.get("CLAUDE_PROJECT_DIR")
+            or subprocess.run(
+                ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True
+            ).stdout.strip()
+        )
+        refuse = check.should_refuse(command, project_root=root, home=str(Path.home()))
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="cd_drift",
+            error=(
+                f"{type(exc).__name__}: {exc} -- the cd-drift door could not run, so a folder "
+                "change is currently unguarded. Absent, not satisfied."
+            ),
+            state="could-not-run",
+        )
+    if not refuse:
+        return SurfaceOutcome(name="cd_drift", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="cd_drift",
+        refused=True,
+        reason=check.refusal_message(command),
         state="spoke",
     )
 
@@ -2366,6 +2546,39 @@ def pr_merge_gate_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def pr_merge_freshness_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a merge of a pull request that is behind main (core/merge_freshness.py).
+
+    A sibling of the merge gate above, not a clause inside it: that gate decides on review,
+    this one on freshness, and they ask different questions of different data. Same JSON
+    deny protocol, so the two land the same way.
+    """
+    if (payload.get("tool_name") or "") != "Bash":
+        return SurfaceOutcome(name="pr_merge_freshness", state="nothing-to-say")
+    command = (payload.get("tool_input") or {}).get("command") or ""
+    if not command.strip():
+        return SurfaceOutcome(name="pr_merge_freshness", state="nothing-to-say")
+    try:
+        from divineos.core.merge_freshness import block_reason
+
+        reason = block_reason(command)
+    except Exception as exc:  # noqa: BLE001 - a gate never crashes the call
+        return SurfaceOutcome(
+            name="pr_merge_freshness",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    if not reason:
+        return SurfaceOutcome(name="pr_merge_freshness", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="pr_merge_freshness",
+        refused=True,
+        reason=reason,
+        json_deny=True,
+        state="spoke",
+    )
+
+
 def pr_create_gate_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse opening a pull request that is not ready to be opened.
 
@@ -2517,6 +2730,10 @@ def install() -> None:
         register("PreToolUse", "require_briefing", require_briefing_surface)
     if "must_read" not in registered("PreToolUse"):
         register("PreToolUse", "must_read", must_read_surface)
+    # Beside must_read, which it mirrors: that one holds work for a file a surface handed me;
+    # this one holds it for a letter the bell rang for (prereg-4ae408966aed).
+    if "unread_letter" not in registered("PreToolUse"):
+        register("PreToolUse", "unread_letter", unread_letter_surface)
 
     # WIRED 2026-08-25. Seventy-six minutes passed between the surface above
     # being written and this line existing, because the ritual hard-stopped my
@@ -2556,6 +2773,8 @@ def install() -> None:
     # 2026-09-23, Aria: registered in the same change that adds the surface,
     # for the reason written above -- a surface nothing dispatches is an alarm
     # with the cable coiled beside it.
+    if "cd_drift" not in registered("PreToolUse"):
+        register("PreToolUse", "cd_drift", cd_drift_surface)
     if "slashed_ref_path" not in registered("PreToolUse"):
         register("PreToolUse", "slashed_ref_path", slashed_ref_path_surface)
     # The letter path, guarded 2026-09-09. Feathers on the walk: the reply door
@@ -2570,6 +2789,8 @@ def install() -> None:
     # decision, one through exit 2 -- because that is how each landed before.
     if "pr_merge_gate" not in registered("PreToolUse"):
         register("PreToolUse", "pr_merge_gate", pr_merge_gate_surface)
+    if "pr_merge_freshness" not in registered("PreToolUse"):
+        register("PreToolUse", "pr_merge_freshness", pr_merge_freshness_surface)
     if "pr_create_gate" not in registered("PreToolUse"):
         register("PreToolUse", "pr_create_gate", pr_create_gate_surface)
 
@@ -2645,6 +2866,10 @@ def install() -> None:
         register("Stop", "self_demotion_stop", self_demotion_stop_surface)
     if "summary_room" not in registered("Stop"):
         register("Stop", "summary_room", summary_room_surface)
+    # In-process, no new hook script. Refuses once when the reply ends by handing him a
+    # choice of order with no stated dependency (prereg-c4888c81eca6).
+    if "order_question" not in registered("Stop"):
+        register("Stop", "order_question", order_question_stop_surface)
     # Beside summary_room because both refuse rather than annotate. That one asks
     # whether he can FIND the answer; this one asks whether the answer was
     # checked against the thing it is about.

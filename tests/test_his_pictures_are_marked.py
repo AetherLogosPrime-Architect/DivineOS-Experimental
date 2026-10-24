@@ -74,17 +74,6 @@ def test_his_words_are_still_printed_whole_beside_the_mark(monkeypatch):
     assert f'"{SANDWICH}"' in door.surface("what do you know about me")
 
 
-def test_the_hold_reason_carries_the_mark_too():
-    marked = door.hold_reason(
-        door.Hit(door.Passage(ts="2026-08-18T10:00:00Z", text=CARS, day="2026-08-18"), 0.7)
-    )
-    plain = door.hold_reason(
-        door.Hit(door.Passage(ts="2026-09-30T10:00:00Z", text=AN_ASK, day="2026-09-30"), 0.7)
-    )
-    assert door.ILLUSTRATION_NOTE in marked
-    assert door.ILLUSTRATION_NOTE not in plain
-
-
 def test_the_lessons_shelf_marks_a_picture_it_brings():
     from divineos.core import his_lessons_shelf as shelf
 

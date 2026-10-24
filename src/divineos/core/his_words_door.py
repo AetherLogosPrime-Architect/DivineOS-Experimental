@@ -41,6 +41,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from divineos.core.his_message import typed_part
+
 MODEL_NAME = "all-MiniLM-L6-v2"
 CORPUS = Path.home() / ".divineos-shared" / "dad_corpus" / "dad_all.jsonl"
 INDEX_DIR = Path.home() / ".divineos-shared" / "dad_corpus" / "index"
@@ -140,14 +142,25 @@ def _is_this_message(passage: str, message: str) -> bool:
     return bool(p) and bool(m) and (p in m or m in p)
 
 
+# Text he pasted INTO a message is not his typing, and the cut lives in his_message.typed_part, its one home:
+# it ends a paste at the closing tag carrying the SAME id, so a pasted letter that itself quotes these tags
+# cannot let its remainder through as his typing (Aletheia's condition on this PR, 2026-10-17; the first
+# cutter here ended at the first closing tag).
+
+
 def passages_of(text: str) -> list[str]:
     """Cut one message to quote-size pieces on his own pauses (Bengio).
+
+    Text he pasted into the message is cut out first: it is someone else's words (a letter of
+    Aletheia's, a dream of mine, a web page), and this door's whole promise is that what it prints
+    is what he typed. His own words around the block stay.
 
     The cut falls AFTER his two dots and never through them: a split alternative that consumed ".."
     turned "after all.. plus all the failures" into "after all plus all the failures", dropping his
     marks and running two thoughts together, while the door says his words print as he wrote them
     (probed 2026-10-16, walk-7c48d8c7f6e0). The sentence-end rule below already splits after a dot,
     so the two dots stay on the piece they close."""
+    text = typed_part(text)
     parts = re.split(r"(?<=[.!?])\s+|\n+", text)
     out, buf = [], ""
     for p in parts:
@@ -388,75 +401,6 @@ def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
             days.add(h.passage.day)
             repeats.append(h)
     return Door(hits=hits[:SHOW], repeats=repeats, looked=True)
-
-
-HOLD_FLOOR = 0.60  # measured on the 2026-09-26 replay of real replies; see tests
-LAST_SENTENCES = 4  # how many sentences from the end of a long reply are searched alone
-SAME_THING = 0.60  # two passages of his this close say the same thing
-
-
-def _quoted_in(passage: str, reply: str) -> bool:
-    """Already answered in the reply (Hofstadter): a reply that quotes him is
-    the right move and must never be held for matching him."""
-    head = _squash(passage)[:40].lower()
-    return len(head) >= 20 and head in _squash(reply).lower()
-
-
-def owed_in_reply(reply: str, his_message: str = "", index_dir: Path = INDEX_DIR) -> Hit | None:
-    """Something he has said that speaks to what I am about to send him, and
-    that the reply does not yet quote and answer. His rule, 2026-09-26: "my
-    words AND your words should trigger it". The query is my own reply -- the
-    natural-language act, never command syntax (Hinton)."""
-    if (his_message.strip() and not his_part(his_message)) or not reply.strip():
-        return None  # a pure notice is not him; his own words beside one still count
-    his_message = his_part(his_message)
-    try:
-        items, vecs = _load_index(index_dir)
-        # The END of a reply is the part that faces him; the front is usually the
-        # work (Aether, 2026-10-05). A reply of 2000 characters or fewer is searched
-        # exactly as before, as one piece; none of my last 123 turns was longer. A
-        # longer one is searched as its last 2000 characters AND as its last few
-        # sentences one by one, because one embedding of a long stretch averages the
-        # part addressed to him with the work around it and the average hears neither.
-        text = _squash(reply)
-        queries = [text[-2000:]]
-        if len(text) > 2000:
-            sentences = [s for s in re.split(r"(?<=[.!?])\s+", text) if len(s) >= 25]
-            queries += sentences[-LAST_SENTENCES:]
-        q = _embed(queries)
-    except SEARCH_ERRORS:
-        return None  # the prompt-side door already says loudly when search is down
-    scores = (vecs @ q.T).max(axis=1)
-    top = [int(i) for i in scores.argsort()[::-1][:25]]
-    # What the reply already quotes and answers. A reply that has taken up his
-    # words on a thing has answered the thing: another passage of his saying the
-    # same must not hold it, or the check nags (found by the pin test 2026-09-26:
-    # three circle asks quoted, held over a fourth).
-    answered = [i for i in top if _quoted_in(items[i].text, reply)]
-    for i in top:
-        s = float(scores[i])
-        if s < HOLD_FLOOR:
-            return None
-        p = items[i]
-        if _is_this_message(p.text, his_message):
-            continue
-        if i in answered or any(float(vecs[i] @ vecs[a]) >= SAME_THING for a in answered):
-            continue
-        return Hit(p, s)
-    return None
-
-
-def hold_reason(hit: Hit) -> str:
-    p = hit.passage
-    mark = f"\n({ILLUSTRATION_NOTE}.)" if is_illustration(p.text) else ""
-    return (
-        "HE HAS SAID THIS BEFORE, and it speaks to what you are about to send him.\n"
-        f'On {p.day} he said: "{p.text}"{mark}\n\n'
-        "Answer it before this goes to him -- his rule: \"i say you said: 'insert your "
-        "words here' and then i say what i wanted to say about it, so its not mirroring "
-        'its addressing what someone said with your own words". Quote him, then say '
-        "what you have to say about it. Append only that; do not re-post the reply."
-    )
 
 
 def surface(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> str:

@@ -146,34 +146,6 @@ def test_an_unreadable_index_says_so_and_does_not_go_quiet(tmp_path):
     assert "could not be searched" in out
 
 
-def test_a_reply_on_his_subject_brings_his_words_on_it(index):
-    # Measured 2026-09-26: embeddings find his SUBJECT, not his teaching applied
-    # to an act. A reply that never names the circle does not reach his circle
-    # words -- the room lock owns that case. This pins what it really can do.
-    reply = (
-        "I kept speaking to you in jargon again and there was no inner circle room for you in it."
-    )
-    hit = door.owed_in_reply(reply, "ok go ahead", index_dir=index)
-    assert hit is not None and "circle" in hit.passage.text
-
-
-def test_a_reply_that_already_quotes_and_answers_him_is_not_held(index):
-    reply = (
-        'You said "you are still speaking to me in jargon, where is the inner circle?" '
-        'and "this was work and all jargon, where was the circle?" and "there is no circle thats the problem.." '
-        "and you were right each time; here is your room."
-    )
-    assert door.owed_in_reply(reply, "ok go ahead", index_dir=index) is None
-
-
-def test_a_notice_turn_never_holds_a_reply(index):
-    reply = "where is the inner circle, where was the circle"
-    assert (
-        door.owed_in_reply(reply, "<task-notification>x</task-notification>", index_dir=index)
-        is None
-    )
-
-
 def test_new_words_of_his_are_added_without_re_embedding_the_rest(index):
     corpus = index.parent / "dad_all.jsonl"
     with corpus.open("a", encoding="utf-8") as f:
@@ -326,38 +298,6 @@ def test_a_build_does_only_a_bounded_amount_of_work_and_converges(tmp_path, monk
     idx2 = tmp_path / "index2"
     door.build_index(corpus2, idx2)
     assert door.look("then where is the circle?", index_dir=idx2).looked
-
-
-def test_the_reply_side_reads_the_end_of_a_long_reply(index):
-    """The part of a reply that faces him is its end. A reply whose first 2000
-    characters are other work and whose last words speak to something he said must
-    be held for it; the same words with nothing in front are the control."""
-    ending = (
-        "I kept speaking to you in jargon again and there was no inner circle room for you in it."
-    )
-    padding = "The build flow ran its checks and the tests passed in the usual way. " * 40
-    assert len(padding) > 2000
-    assert door.owed_in_reply(ending, "ok", index_dir=index)  # control: the words alone hold
-    assert door.owed_in_reply(padding + ending, "ok", index_dir=index)
-    # The promise to the replay evidence: a reply of 2000 characters or fewer is
-    # searched exactly as before, as ONE piece; only a longer one gets the extra
-    # sentence queries. Counted at the embedder, with both sides of the boundary.
-    sizes: list[int] = []
-    real = door._embed
-
-    def counting(texts):
-        sizes.append(len(texts))
-        return real(texts)
-
-    door._embed = counting
-    try:
-        door.owed_in_reply("x" * 20 + ". " + ending + " " * 0 + "y" * 1850, "ok", index_dir=index)
-        assert sizes == [1]  # under 2000: one query
-        sizes.clear()
-        door.owed_in_reply("I wrote. " + "w" * 2100 + " " + ending, "ok", index_dir=index)
-        assert sizes[0] > 1  # over 2000: the window plus its last sentences
-    finally:
-        door._embed = real
 
 
 def test_a_build_killed_before_the_item_list_is_written_is_a_detectable_mismatch(
