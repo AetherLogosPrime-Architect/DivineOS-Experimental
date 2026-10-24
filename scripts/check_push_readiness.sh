@@ -273,7 +273,10 @@ _collect_changed_files() {
             base="$rsha"
         fi
         if [[ -n "$base" ]]; then
-            git diff --name-only "$base..$lsha" 2>/dev/null
+            # --no-renames: git's default rename detection lists only the NEW path of a moved file, so
+            # the old name never reached the selector and the test that imports it was never chosen
+            # (Aether's walk on #704, walk-ed434ad6c15f). With it a move lists both paths.
+            git diff --name-only --no-renames "$base..$lsha" 2>/dev/null
         else
             # Couldn't resolve a base; emit "" so caller falls back to full.
             echo ""

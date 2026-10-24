@@ -209,6 +209,64 @@ def test_a_missing_selector_runs_the_whole_suite_and_says_why(repo, fake_bin):
     assert "cannot narrow the tests" in _said(result)
 
 
+def test_a_renamed_module_still_runs_the_test_that_imported_its_old_name(repo, fake_bin):
+    """Aether's walk on #704 (walk-ed434ad6c15f): git's default rename detection prints only the NEW path, so a
+    moved module reached the selector as a name no test imports, and the draft ran NOTHING while the test that
+    still imports the old name was broken. `--no-renames` lists the old path too."""
+    _git(repo, "mv", "src/pkg/mod.py", "src/pkg/mod_moved.py")
+    _git(repo, "commit", "-q", "-m", "move mod")
+    result = _push(repo, fake_bin)
+    assert result.returncode == 10, _said(result)[-2500:]
+    assert "tests/test_mod.py" in _said(result)
+
+
+def test_a_plain_edit_still_selects_only_its_tests_after_the_rename_fix(repo, fake_bin):
+    """Control for the one above: the flag must not turn every draft into the whole suite."""
+    _commit(repo, "src/pkg/mod.py", "def value():\n    return 1  # reworded\n")
+    said = _said(_push(repo, fake_bin))
+    assert "only the tests that touch the change run" in said, said[-2500:]
+    assert "tests failing" not in said
+
+
+def test_an_empty_change_list_cannot_be_narrowed(repo):
+    """Aether's walk on #704: with no base to diff against the gate hands the selector an empty list, which used to
+    exit 0 with no tests, and the gate read that as 'nothing names the change' and skipped everything. An empty list
+    is 'could not tell', and could-not-tell exits 3 so the whole suite runs."""
+    done = subprocess.run(
+        [
+            sys.executable,
+            str(repo / "scripts" / "draft_test_selection.py"),
+            "--repo",
+            str(repo),
+            "--ref",
+            "HEAD",
+        ],
+        input="",
+        capture_output=True,
+        text=True,
+    )
+    assert done.returncode == 3, done.stderr
+
+
+def test_a_nonempty_list_still_exits_zero_with_a_selector_that_can_read_the_repo(repo):
+    """Control: the same call with a real change must not exit 3."""
+    done = subprocess.run(
+        [
+            sys.executable,
+            str(repo / "scripts" / "draft_test_selection.py"),
+            "--repo",
+            str(repo),
+            "--ref",
+            "HEAD",
+        ],
+        input="src/pkg/mod.py\n",
+        capture_output=True,
+        text=True,
+    )
+    assert done.returncode == 0, done.stderr
+    assert "tests/test_mod.py" in done.stdout
+
+
 def test_a_push_bound_for_merge_still_runs_everything(repo, fake_bin):
     """The control for all of the above: a ready pull request is the merge-bound push, and it runs the whole suite."""
     _commit(repo, "src/pkg/mod.py", "def value():\n    return 1  # reworded\n")

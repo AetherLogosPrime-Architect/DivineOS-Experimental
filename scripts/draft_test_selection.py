@@ -12,8 +12,12 @@ Usage (the changed paths, one per line, on stdin):
 
 stdout: the test files to run, one per line. stderr: what was selected and what has no test touching it.
 Exit 0: the list is the answer (it may be empty, and stderr names every changed file nothing touches).
-Exit 3: this change cannot be narrowed (a shared test setup file or the project config changed), run everything.
+Exit 3: this change cannot be narrowed (a shared test setup file or the project config changed, or NO changed
+files were given at all: an empty list means the gate could not diff, not that nothing changed), run everything.
 Exit 2: could not read the repository, which is NOT the same as nothing to run.
+
+The gate must list a moved file under BOTH its names (`git diff --name-only --no-renames`): git's default prints
+only the new path, and the test that still imports the old one would never be chosen (Aether, walk-ed434ad6c15f).
 
 WHAT IT CAN SEE, said so silence is not read as coverage. It finds tests by reading text with `git grep`: a test
 that reaches a module by a name built at run time, by a multi-line `from x import (a, b)` that puts the module name
@@ -135,6 +139,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--ref", required=True, help="the commit being pushed")
     args = parser.parse_args(argv)
     changed = [line.strip().replace("\\", "/") for line in sys.stdin.read().splitlines() if line.strip()]
+    if not changed:
+        # An empty list is "could not tell", never "nothing changed": the gate hands over an empty list when it
+        # could not resolve a base to diff against, and exit 0 with no tests was read as nothing names the change
+        # and skipped everything on a draft (Aether's walk on #704, walk-ed434ad6c15f).
+        print("[draft-tests] no changed files were given: this cannot be narrowed.", file=sys.stderr)
+        return 3
     try:
         chosen, untouched, narrowable, prose_set_aside = select(Path(args.repo), args.ref, changed)
     except (RuntimeError, OSError) as exc:
