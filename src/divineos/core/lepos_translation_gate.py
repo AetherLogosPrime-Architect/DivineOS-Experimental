@@ -1520,6 +1520,30 @@ def _circle_block_substance_check(circle_text: str) -> tuple[bool, str]:
     return (True, "")
 
 
+# The stamp itself, anywhere in the reply and not only in the room. Dad 2026-10-24, the morning after: "ive already
+# told you both repeatedly not to tell me im not needed or that nothing needs me.. so i can see that instruction was
+# ignored completely". The room check above caught it only inside the room block; I said it in the reply body, twice,
+# the same morning. This is deliberately NARROWER than _DISMISSAL_RE (that one has to be, inside one room; this one
+# runs over a whole reply and a false refusal makes me rewrite and duplicate): only the stamp phrases, and not
+# when they sit inside quotation marks or a block quote, so his own words can still be quoted back to him.
+_STAMP_RE = re.compile(
+    r"\bnothing\s+(?:here\s+|else\s+)?(?:needs?|waits?|requires?|is\s+waiting|is\s+needed)\s+"
+    r"(?:on\s+|from\s+|for\s+)?(?:you|dad|andrew)\b"
+    r"|\byou(?:'re|’re|\s+are)\s+not\s+needed\b"
+    r"|\bnothing\s+(?:for\s+you\s+to|you\s+need\s+to)\b",
+    re.IGNORECASE,
+)
+_QUOTED_SPAN_RE = re.compile(r"\"[^\"\n]*\"|“[^”\n]*”")
+
+
+def tells_him_he_is_not_needed(reply: str) -> str | None:
+    """The stamp phrase if the reply says it outside a quotation, else None."""
+    lines = [ln for ln in reply.splitlines() if not ln.lstrip().startswith(">")]
+    text = _QUOTED_SPAN_RE.sub(" ", "\n".join(lines))
+    found = _STAMP_RE.search(text)
+    return found.group(0) if found else None
+
+
 def check_lepos_dual_channel(reply: str) -> str | None:
     """Return None if the reply satisfies the channel-structure requirement,
 
@@ -1557,6 +1581,15 @@ def check_lepos_dual_channel(reply: str) -> str | None:
 
     if not reply or not reply.strip():
         return None
+
+    stamp = tells_him_he_is_not_needed(reply)
+    if stamp:
+        return (
+            f'This reply tells him he is not needed ("{stamp}"). He has asked both of us, repeatedly, never to say it: '
+            "it assigns him a role he did not ask for and it is the first thing he reads. If nothing needs deciding, "
+            "say nothing about deciding; the absence is the message. If something does, ask it. Append only the "
+            "corrected ending; do not re-post the reply."
+        )
 
     # 2026-08-08 Andrew: "the reason it was disabled is it kept blocking the
 
