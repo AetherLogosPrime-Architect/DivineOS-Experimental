@@ -433,6 +433,7 @@ from divineos.cli import (  # noqa: E402
     backlog_commands,
     wiring_commands,
     prs_commands,
+    landing_commands,
     replant_commands,
     automerge_commands,
     todos_commands,
@@ -536,6 +537,7 @@ prereg_commands.register(cli)
 class_fix_commands.register(cli)
 prior_art_commands.register(cli)
 game_walk_commands.register(cli)
+landing_commands.register(cli)
 operator_ask_commands.register(cli)
 reach_commands.register(cli)
 synchronicity_commands.register(cli)

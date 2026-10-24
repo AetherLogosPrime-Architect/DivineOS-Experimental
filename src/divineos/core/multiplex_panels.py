@@ -1285,6 +1285,40 @@ def _owed_fixes_panel_content() -> str:
     return " ".join(parts)
 
 
+def _waiting_on_aletheia_panel_content() -> str | None:
+    """The pile of fixes waiting on the external auditor, in the live voice.
+
+    The dashboard row for this was written first and tested through its own
+    helper, and it never reached the default briefing: the dashboard rows render
+    only behind ``--legacy``. Found 2026-10-10 by running the real briefing and
+    reading it. Same hole, same remedy as ``_owed_fixes_panel_content``: reuse
+    the row (one source) and change only the voice. Returns None only when
+    nothing is open; an unreadable list speaks, because it is not an empty one.
+    """
+    try:
+        from divineos.core.briefing_dashboard import _row_landing
+
+        row = _row_landing()
+    except Exception:  # noqa: BLE001 - a dark panel must never break the briefing
+        return (
+            "I could not read the list of fixes waiting on Aletheia. That is not "
+            "the same as having none; the count is unknown right now."
+        )
+    if row is None:
+        return None
+    if row.count == 0:
+        return (
+            "I could not read the open fix list from GitHub, so I do not know how "
+            "many wait on Aletheia. That is not the same as none waiting."
+        )
+    noun = "fix" if row.count == 1 else "fixes"
+    return (
+        f"I have {row.count} {noun} waiting on Aletheia. Right now that is {row.detail}. "
+        "When I am ready to ask her, divineos landing --request drafts the "
+        "one-line-each letter."
+    )
+
+
 def _sometimes_essential_for_context(context: str) -> list[Panel]:
     all_sometimes = [
         Panel(
@@ -1309,4 +1343,15 @@ def _sometimes_essential_for_context(context: str) -> list[Panel]:
             territories=("designing", "implementing", "audit"),
         ),
     ]
+    landing = _waiting_on_aletheia_panel_content()
+    if landing:
+        all_sometimes.append(
+            Panel(
+                name="waiting_on_aletheia",
+                tier=Tier.SOMETIMES,
+                content=landing,
+                drill_down="divineos landing --request",
+                territories=KNOWN_CONTEXTS,
+            )
+        )
     return [p for p in all_sometimes if context in p.territories]

@@ -23,6 +23,14 @@ What it does NOT do: judge. A fault that survives may be a weak test, an
 equivalent change (the code behaves the same), or dead code. The readout is a
 list to READ.
 
+What it does NOT tell you: which tests are solid. It tells you whether any of
+the tests you handed it went red when one planted fault was in the code. A test
+that catches nothing may simply be about something else. The test named as the
+catcher is the first red one in run order. It plants seven kinds of fault only
+(PLANTED_KINDS); nothing is said about any other shape. A catch is counted only if
+the named catcher fails again when run alone on the same faulted copy, and a timed-out
+run has its whole process tree ended.
+
 Usage:
     python scripts/mutate_copy.py src/divineos/core/ledger.py --tests tests/test_ledger.py
     python scripts/mutate_copy.py PATH --tests T1 T2 --limit 80 --seed 1 --out DIR
@@ -46,6 +54,9 @@ from pathlib import Path
 
 DEFAULT_INCLUDE = ("pyproject.toml", "src", "tests", "scripts")
 SKIP_MARK = "pragma: no mutate"
+# Every "kind" find_mutants can produce. The readout prints this list so a clean number is never
+# read as a clean bill (the walk's Godel lens): a fault of another shape is not planted at all.
+PLANTED_KINDS = ("compare", "and-or", "bool", "number", "negate-condition", "return-none", "plus-minus")
 
 _CMP_TOKEN = {
     ast.Eq: ("==", r"==", ["!="]),
@@ -211,35 +222,110 @@ def prove_copy_is_imported(copy: Path, module: str) -> None:
         )
 
 
+def _kill_tree(proc: subprocess.Popen) -> None:
+    """End the child AND everything it started. A timeout that ends only the direct child leaves a
+    test's own subprocess running after the verdict, and a fault that makes code loop would leak one
+    per planted fault (the walk's Turing lens, 2026-10-20)."""
+    import psutil
+
+    try:
+        parent = psutil.Process(proc.pid)
+    except psutil.NoSuchProcess:
+        return
+    for child in parent.children(recursive=True):
+        try:
+            child.kill()
+        except psutil.NoSuchProcess:
+            pass
+    try:
+        parent.kill()
+    except psutil.NoSuchProcess:
+        pass
+
+
+def _pytest_cmd(tests: list[str]) -> list[str]:
+    return [sys.executable, "-m", "pytest", "-x", "-q", "--tb=no", "-p", "no:cacheprovider", "-rf", *tests]
+
+
+#: The test a run named as failed. The id runs to the end of the line, or to the " - message" that pytest
+#: appends, so a parametrized id with a space in it is read whole.
+_FAILED_LINE = re.compile(r"^FAILED (.+?)(?: - .*)?$", re.MULTILINE)
+
+
+def _failed_test(output: str) -> str | None:
+    m = _FAILED_LINE.search(output)
+    return m.group(1).strip() if m else None
+
+
+def _run_capturing(cmd: list[str], copy: Path, timeout: float) -> tuple[int | None, str]:
+    """Run to completion or to the timeout; on timeout the whole process tree is ended."""
+    proc = subprocess.Popen(
+        cmd,
+        cwd=copy,
+        env=_env(copy),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",  # a test that prints a symbol must not crash the reader
+    )
+    try:
+        out, _ = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_tree(proc)
+        proc.communicate(timeout=10)
+        return None, ""
+    return proc.returncode, out
+
+
 def run_tests(
     copy: Path, tests: list[str], timeout: float
 ) -> tuple[str, int | None, str | None, float]:
-    cmd = [
-        sys.executable,
-        "-m",
-        "pytest",
-        "-x",
-        "-q",
-        "--tb=no",
-        "-p",
-        "no:cacheprovider",
-        "-rf",
-        *tests,
-    ]
     began = time.time()
-    try:
-        proc = subprocess.run(
-            cmd, cwd=copy, env=_env(copy), capture_output=True, text=True, timeout=timeout
-        )
-    except subprocess.TimeoutExpired:
-        return "timeout", None, None, time.time() - began
+    code, out = _run_capturing(_pytest_cmd(tests), copy, timeout)
     took = time.time() - began
-    if proc.returncode == 0:
+    if code is None:
+        return "timeout", None, None, took
+    if code == 0:
         return "survived", 0, None, took
-    if proc.returncode == 1:
-        m = re.search(r"^FAILED (\S+)", proc.stdout, re.MULTILINE)
-        return "killed", 1, m.group(1) if m else None, took
-    return "errored", proc.returncode, None, took
+    if code == 1:
+        named = _failed_test(out)
+        if named is None:
+            # Exit 1 and no failed test named: the process died, or a fixture raised before any assertion
+            # (an ERROR line, not a FAILED one). That is a crash, not a test noticing the fault (Aletheia,
+            # holding #700, 2026-10-21: os._exit(1) in a test counted as caught).
+            return "errored", 1, None, took
+        return "killed", 1, named, took
+    return "errored", code, None, took
+
+
+_PASSED_COUNT = re.compile(r"(\d+) passed")
+
+
+def run_baseline(copy: Path, tests: list[str], timeout: float) -> tuple[str, int | None, float]:
+    """The untouched run. Green means exit 0 AND at least one test passed: a file of skipped tests exits 0
+    too, and every fault would then 'survive' tests that never ran (Aether, 2026-10-21)."""
+    began = time.time()
+    code, out = _run_capturing(_pytest_cmd(tests), copy, timeout)
+    took = time.time() - began
+    if code is None:
+        return "timeout", None, took
+    if code != 0:
+        return ("killed" if code == 1 else "errored"), code, took
+    m = _PASSED_COUNT.search(out)
+    if not m or int(m.group(1)) == 0:
+        return "nothing-ran", 0, took
+    return "survived", 0, took
+
+
+def confirm_kill(copy: Path, killer: str, timeout: float) -> bool:
+    """A catch has to repeat, and be the same catch. A check that fails by chance on a planted fault looks
+    exactly like one that caught it, so the named catcher is run ALONE once more on the same faulted copy
+    and must fail again BY NAME. Rerunning the whole suite instead (what this did when no catcher was
+    named) lets a crash repeat as a crash and pass for a confirmation. If it does not fail again the
+    outcome is 'flaky' and is not counted as caught."""
+    code, out = _run_capturing(_pytest_cmd([killer]), copy, timeout)
+    return code == 1 and _failed_test(out) == killer
 
 
 def run(
@@ -260,7 +346,13 @@ def run(
     if not live_file.is_file():
         raise MutateRefused(f"{module_rel} is not a file under {repo}")
     live_bytes = live_file.read_bytes()
-    mutants = find_mutants(live_bytes)
+    try:
+        mutants = find_mutants(live_bytes)
+    except (SyntaxError, UnicodeDecodeError, ValueError) as exc:
+        raise MutateRefused(
+            f"{module_rel} could not be read as Python source ({type(exc).__name__}: {exc}); "
+            "nothing was planted. That is NOT a pass."
+        ) from exc
     if not mutants:
         raise MutateRefused(
             f"no faults could be planted in {module_rel}. That is NOT a pass: "
@@ -282,13 +374,21 @@ def run(
     out = out or Path(tempfile.gettempdir()) / "mutate-readouts"
     out.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    jsonl = out / f"{module_path.stem}-{stamp}.jsonl"
+    # mkstemp makes the name unique: two runs in the same second must not share one readout file.
+    fd, jsonl_name = tempfile.mkstemp(prefix=f"{module_path.stem}-{stamp}-", suffix=".jsonl", dir=out)
+    os.close(fd)
+    jsonl = Path(jsonl_name)
     results: list[dict] = []
     try:
         make_copy(repo, include, work)
         copy_file = work / module_path
         prove_copy_is_imported(work, module_name_of(module_path))
-        outcome, code, _, base_secs = run_tests(work, tests, timeout=1800)
+        outcome, code, base_secs = run_baseline(work, tests, timeout=1800)
+        if outcome == "nothing-ran":
+            raise MutateRefused(
+                "no test passed before any fault was planted (every test skipped, or none ran); "
+                "every fault would survive tests that never ran, and that is not a finding about them."
+            )
         if outcome != "survived":
             raise MutateRefused(
                 f"the tests are not green before any fault is planted ({outcome}, exit {code}); "
@@ -304,6 +404,8 @@ def run(
                 live_bytes[: m.start] + m.replacement.encode() + live_bytes[m.end :]
             )
             outcome, code, killer, secs = run_tests(work, tests, per_mutant_timeout)
+            if outcome == "killed" and not confirm_kill(work, killer, per_mutant_timeout):
+                outcome = "flaky"
             row = {**asdict(m), "outcome": outcome, "killer": killer, "seconds": round(secs, 2)}
             results.append(row)
             with jsonl.open("a", encoding="utf-8") as fh:
@@ -358,7 +460,11 @@ def summarize(report: dict) -> str:
     lines = [
         f"{report['module']}: {report['planted']} of {report['found']} possible faults planted",
         f"  caught {len(killed)}, missed {len(survived)}, timed out {len(by('timeout'))}, "
-        f"errored {len(by('errored'))} (timeouts and errors are not counted as caught)",
+        f"errored {len(by('errored'))}, flaky {len(by('flaky'))} "
+        "(timeouts, errors and a catch that did not repeat are not counted as caught)",
+        f"  faults planted are of these kinds only: {', '.join(PLANTED_KINDS)}. A fault of any other "
+        "shape (a dropped statement, a swapped argument order) is not planted, so 100% here means "
+        "100% of these kinds.",
     ]
     if judged:
         lines.append(f"  caught {len(killed) / judged:.0%} of the faults that gave a clear answer")
@@ -372,7 +478,9 @@ def summarize(report: dict) -> str:
     for r in killed:
         tally[r["killer"] or "(unnamed)"] = tally.get(r["killer"] or "(unnamed)", 0) + 1
     if tally:
-        lines.append("  Tests that were first to catch a fault:")
+        lines.append(
+            "  Tests that were first in run order to catch a fault (a later test may have caught it too):"
+        )
         lines += [f"    {c:3}  {t}" for t, c in sorted(tally.items(), key=lambda kv: -kv[1])[:15]]
     unrun = report.get("unrun_importers") or []
     if unrun:

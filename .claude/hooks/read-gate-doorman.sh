@@ -137,7 +137,18 @@ except Exception as exc:
 
 if blocked:
     print(message)
+elif message:
+    # Delivered whole: the command goes through and the note rides along as context.
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": message}}))
 ')
+
+# A note delivered whole is context on an ALLOWED command, never a refusal.
+case "$BLOCK_MSG" in
+    '{"hookSpecificOutput"'*)
+        printf "%s\n" "$BLOCK_MSG"
+        exit 0
+        ;;
+esac
 
 if [ -n "$BLOCK_MSG" ]; then
     echo "$BLOCK_MSG" >&2
