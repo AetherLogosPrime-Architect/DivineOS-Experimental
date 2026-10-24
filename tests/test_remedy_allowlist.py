@@ -511,7 +511,9 @@ class TestAGrepFilterDoesNotDisarmAnExit:
             cwd=str(_REPO),
         )
         assert "NO_MATCH" in proc.stdout
-        assert "cut -c1-5" in proc.stderr
+        assert "'cut'" in proc.stderr
+        # Only the program's name is printed, never the rest of the piece: a command line can carry a token.
+        assert "-c1-5" not in proc.stderr
         assert "tail" in proc.stderr
 
     def test_ordinary_work_with_no_exit_in_it_gets_no_such_message(self):
