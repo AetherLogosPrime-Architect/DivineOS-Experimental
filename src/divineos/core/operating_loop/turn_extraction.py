@@ -37,7 +37,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from divineos.core.his_message import Heard, continues_a_turn, hear
+from divineos.core.his_message import SCHEDULED, Heard, continues_a_turn, hear, opener_kind
 
 
 @dataclass(frozen=True)
@@ -325,6 +325,12 @@ def he_spoke_this_turn(transcript_path: str | Path) -> bool:
                 return True
             if rec.get("type") != "user" or not _extract_record_text(rec).strip():
                 continue
+            # A timer wake is a continuation to hear(), so stepping over it landed
+            # on whatever opened the turn before and the note it exists to get was
+            # owed only by luck. The harness stamp decides, never the words
+            # (Dad 2026-10-24: the two-hour timer must require a note).
+            if opener_kind(rec) == SCHEDULED:
+                return True
             verdict = _user_record_origin(rec)
             if verdict != "continues":
                 return verdict == "him"
