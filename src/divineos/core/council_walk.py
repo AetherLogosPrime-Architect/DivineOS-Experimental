@@ -453,9 +453,115 @@ def add_lens(walk_id: str, lens: str, why: str) -> None:
         conn.close()
 
 
-def apply_lens(walk_id: str, lens: str, finding: str) -> None:
-    """Record what this lens actually produced when walked."""
-    _settle(walk_id, lens, "APPLIED", finding, MIN_FINDING_CHARS)
+def _expert_for(lens: str) -> Any:
+    from divineos.core.council.engine import get_council_engine
+
+    engine = get_council_engine()
+    wanted = (lens or "").strip().lower()
+    match = next((n for n in engine.list_experts() if n.lower() == wanted), None)
+    wisdom = engine.get_expert(match) if match else None
+    if wisdom is None:
+        raise WalkRefused(
+            f"{lens!r} could not be loaded from the council roster, so it cannot be delivered"
+        )
+    return wisdom
+
+
+def deliver_lens(lens: str) -> str:
+    """Put a lens in front of me and record that it was delivered; returns the text.
+
+    The same function `mansion council --show` uses to render, and the same receipt event it writes, so a delivery
+    and a load are one thing. Dad, 2026-10-24: "the next time either of you game a council walk? i will remove it
+    entirely". The receipt existed since August and this module never read it (41 of 96 findings on the twelve newest
+    walks had none). The receipt says DELIVERED, never "read": nothing computable here can certify reading
+    (walk-63f29104e6e3, Penrose and Peirce).
+    """
+    from divineos.core.council.lens_text import lens_plain
+    from divineos.core.ledger import log_event
+
+    wisdom = _expert_for(lens)
+    try:
+        log_event(
+            "COUNCIL_LENS_LOADED",
+            "aether",
+            {
+                "expert_name": wisdom.expert_name.lower(),
+                "methodology_count": len(wisdom.core_methodologies),
+                "question_count": len(wisdom.characteristic_questions or []),
+                "how": "delivered by the walk",
+            },
+        )
+    except Exception as exc:  # noqa: BLE001 - an unrecorded delivery must refuse loudly, not read as delivered
+        raise WalkRefused(f"the delivery of {lens} could not be recorded: {exc}") from exc
+    return lens_plain(wisdom)
+
+
+def _delivery_time(lens: str, opened_at: float) -> float | None:
+    """When this lens was last delivered at or after the walk opened, else None."""
+    import json
+
+    from divineos.core.ledger import get_events
+
+    wanted = lens.strip().lower()
+    for ev in get_events(limit=500, order="desc", event_type="COUNCIL_LENS_LOADED"):
+        stamp = float(ev.get("timestamp") or 0)
+        if stamp < opened_at:
+            return None
+        payload = ev.get("payload") or {}
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except ValueError:
+                continue
+        if str(payload.get("expert_name", "")).lower() == wanted:
+            return stamp
+    return None
+
+
+def apply_lens(walk_id: str, lens: str, finding: str, question: int | None = None) -> None:
+    """Record what this lens actually produced when walked.
+
+    Refused unless the lens was delivered after this walk opened; the first refusal DELIVERS it (a refusal that only
+    named a command would teach the one-line loop: load eight, ignore them, apply from memory). The retry must name
+    the lens question it answers, and the record keeps that question and the seconds since delivery beside the
+    finding, so he can read the pair. Nothing here judges the finding's words.
+    """
+    finding = (finding or "").strip()
+    conn = _conn()
+    try:
+        row = conn.execute(
+            "SELECT w.opened_at, l.state FROM walks w JOIN walk_lenses l ON l.walk_id = w.id "
+            "WHERE w.id = ? AND l.lens = ?",
+            (walk_id, lens),
+        ).fetchone()
+    finally:
+        conn.close()
+    if row is None or row[1] != "OPEN" or len(finding) < MIN_FINDING_CHARS:
+        # Not on the walk, already settled, or too thin: the old refusals speak, and nothing is delivered for them.
+        _settle(walk_id, lens, "APPLIED", finding, MIN_FINDING_CHARS)
+        return
+    opened_at = float(row[0])
+    delivered_at = _delivery_time(lens, opened_at)
+    if delivered_at is None:
+        text = deliver_lens(lens)
+        raise WalkRefused(
+            f"{lens} had not been delivered to you in this walk. It is delivered now, below, and recorded. "
+            f"Read it, then apply again with --question N naming the question you are answering.\n\n{text}"
+        )
+    wisdom = _expert_for(lens)
+    from divineos.core.council.lens_text import lens_questions
+
+    questions = lens_questions(wisdom)
+    if not isinstance(question, int) or not 1 <= question <= len(questions):
+        raise WalkRefused(
+            f"name the question you are answering for {lens}: --question N, with N from 1 to {len(questions)}"
+        )
+    seconds = max(0, int(time.time() - delivered_at))
+    content = (
+        f"[answers Q{question}: {questions[question - 1]}] "
+        f"[lens delivered {seconds}s before this finding] {finding}"
+    )
+    _settle(walk_id, lens, "APPLIED", content, MIN_FINDING_CHARS)
 
 
 def exclude_lens(walk_id: str, lens: str, reason: str) -> None:
