@@ -238,6 +238,15 @@ _ARTIFACT_FILING_COMMANDS = (
     # that the overdue block refused to let me file -- the key locked inside the
     # door again. Entry bar met: another gate prints it as its exit.
     'divineos prereg reviewing',
+    # FOURTH WIDENING, 2026-10-12. The merge path prints audit submit-round, audit submit
+    # (the operator CONFIRMS) and audit file-external-confirm as its own steps, and this
+    # gate asked for a full council walk plus a game-walk for each filing: six of them in
+    # one night, to record what other people had already said. Entry bar met: other gates
+    # print them as the way forward. The submit prefix also covers submit-round. The
+    # closed list of actors is enforced on the python list, not here: this list only
+    # decides whether council paperwork is owed first.
+    'divineos audit submit',
+    'divineos audit file-external-confirm',
     # SECOND WIDENING, same day, and THAT is the finding rather than the fix.
     # The correction gate prints these three as its own prescribed remedies and
     # this gate refused all three, so a caught mistake could not be written
