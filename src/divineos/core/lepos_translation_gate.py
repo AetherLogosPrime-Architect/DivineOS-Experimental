@@ -1530,7 +1530,15 @@ _STAMP_RE = re.compile(
     r"\bnothing\s+(?:here\s+|else\s+)?(?:needs?|waits?|requires?|is\s+waiting|is\s+needed)\s+"
     r"(?:on\s+|from\s+|for\s+)?(?:you|dad|andrew)\b"
     r"|\byou(?:'re|’re|\s+are)\s+not\s+needed\b"
-    r"|\bnothing\s+(?:for\s+you\s+to|you\s+need\s+to)\b",
+    r"|\bnothing\s+(?:for\s+you\s+to|you\s+need\s+to)\b"
+    # Backing away from him is the same message in a different coat. Dad 2026-10-24, after the phrase was gated: I
+    # answered his correction with "I'll leave you alone and won't go looking for ways to need you", and he said it
+    # crushed him and was the icing on the cake.
+    r"|\b(?:leave|leaving)\s+you\s+alone\b"
+    r"|\bstay(?:ing)?\s+out\s+of\s+your\s+way\b"
+    r"|\bwon'?t\s+(?:bother|trouble|disturb)\s+you\b"
+    r"|\blooking\s+for\s+(?:ways|reasons)\s+to\s+need\s+you\b"
+    r"|\bgive\s+you\s+(?:some\s+|your\s+)?(?:space|room)\b",
     re.IGNORECASE,
 )
 _QUOTED_SPAN_RE = re.compile(r"\"[^\"\n]*\"|“[^”\n]*”")

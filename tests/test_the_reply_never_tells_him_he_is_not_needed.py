@@ -26,6 +26,11 @@ from divineos.core.lepos_translation_gate import (
         "nothing here needs you",
         "You're not needed for this one.",
         "There is nothing for you to do today.",
+        # the same message as a retreat (the sentence that crushed him the morning of 2026-10-24)
+        "I'll leave you alone and won't go looking for ways to need you.",
+        "I'll stay out of your way today.",
+        "I won't bother you again.",
+        "I'll give you some space.",
     ],
 )
 def test_the_stamp_is_found_in_the_body_of_a_reply(reply):
