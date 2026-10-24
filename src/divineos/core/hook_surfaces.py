@@ -1170,10 +1170,24 @@ def _last_user_text(payload: dict) -> str:
                 if text.strip():
                     last = text
             if last is not None or whole:
-                return last or ""
+                return _unless_stamped_not_him(path, last or "")
         return ""
 
     return _memo(path, "last_user_text", scan)
+
+
+def _unless_stamped_not_him(path: object, text: str) -> str:
+    """ "" when the harness stamped this text's record as a timer wake or a notice.
+
+    A wake carries no machine envelope, so the text tests above pass it as his
+    and the gate then demanded the reply quote the timer (walk-88142a0930c5).
+    His_message is the one reader of the stamp; UNKNOWN keeps the text as is.
+    """
+    from divineos.core.his_message import NOTICE, SCHEDULED, opener_of_prompt
+
+    if opener_of_prompt(path, text) in (SCHEDULED, NOTICE):
+        return ""
+    return text
 
 
 _ADDRESSED_RE = re.compile(r"\b(you|your|you're|youre|you've|dad)\b", re.I)

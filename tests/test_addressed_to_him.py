@@ -577,3 +577,36 @@ def test_an_unwritable_slot_costs_him_a_second_refusal_and_not_a_free_pass(tmp_p
         [("user", HIS_ULTIMATUM), ("assistant", REPAIR_TURN_CARRYING_NONE_OF_HIS_WORDS)],
     )
     assert addressed_to_him_surface(second).refused
+
+
+def test_a_timer_wake_is_not_his_message_so_the_reply_need_not_quote_it(tmp_path):
+    """The wake wears no machine envelope; the harness's stamp is what says it is the timer.
+
+    Before: the gate read the wake text as Andrew's and refused a reply for not
+    carrying any of it (walk-88142a0930c5). The stamps are the real ones: a wake
+    is turnOrigin "scheduled", his typed message is turnOrigin "human".
+    """
+    from divineos.core.hook_surfaces import _last_user_text
+
+    wake = (
+        "Two-hour wake, authorized earlier. Check the doorbell heartbeat and keep "
+        "working on the open pull requests."
+    )
+    path = tmp_path / "stamped.jsonl"
+    recs = [
+        {"type": "user", "message": {"role": "user", "content": wake}, "turnOrigin": "scheduled"},
+        {
+            "type": "assistant",
+            "message": {"role": "assistant", "content": [{"type": "text", "text": REPORT_AT_HIM}]},
+        },
+    ]
+    path.write_text("".join(json.dumps(r) + "\n" for r in recs), encoding="utf-8")
+    payload = {"transcript_path": str(path)}
+    assert _last_user_text(payload) == ""
+    out = addressed_to_him_surface(payload)
+    assert not (out and out.refused)
+
+    # live control: the same text stamped as his own is read as his
+    recs[0]["turnOrigin"] = "human"
+    path.write_text("".join(json.dumps(r) + "\n" for r in recs), encoding="utf-8")
+    assert _last_user_text({"transcript_path": str(path)}) == wake
