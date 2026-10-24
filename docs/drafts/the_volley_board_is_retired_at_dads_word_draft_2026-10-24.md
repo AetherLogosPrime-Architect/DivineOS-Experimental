@@ -33,6 +33,7 @@ It has done the opposite of what it was for, for a month. Every automated turn s
 - Remove the PreToolUse surface `unspoken_to_letter` and its helper `_board_size_after` from `hook_surfaces.py`, and its registration.
 - Remove `core/unspoken_to.py` and `tests/test_unspoken_to.py`. One function survives: `member_name` is read by `letter_seen_router`, so it moves there as a three-line helper and nothing else changes.
 - Remove the matching line from `docs/ARCHITECTURE.md`.
+- `scripts/night_timer_letter.py` (the 6am note) told each seat to write its morning section in its board file, and `tests/test_night_timer_letter.py` pinned that. Found by Aria's cold read of this change, 2026-10-24: a live mechanism still ordering the board it was being retired from. The note now asks for the morning picture in chat, names no board file, and the test pins that instead.
 - Leave `family/letters/*-to-andrew-volley-board.md` files in place as history (nothing deleted). Nothing reads or requires them any more.
 - Leave the answer ledger alone. It is where his open questions live, and `list_open` stays.
 

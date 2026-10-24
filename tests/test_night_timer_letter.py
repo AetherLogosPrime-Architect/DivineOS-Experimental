@@ -55,17 +55,16 @@ def test_the_next_day_gets_its_own_note(tmp_path):
     assert len(list(letters.iterdir())) == 2
 
 
-def test_each_seat_is_told_to_write_its_own_board_not_the_others(tmp_path):
-    """Aria's hold: the board path was fixed to aether's, so her note told her to write mine."""
+def test_the_note_names_no_board_file_and_asks_for_chat(tmp_path):
+    """Dad, 2026-10-24: the volley board is retired. The note used to name each seat's board file
+    (Aria's hold had pinned that each seat got its OWN); now it must name none and ask for chat."""
     timer = _timer()
-    aria = timer.write_note("aria", DAY, tmp_path / "letters").read_text(encoding="utf-8")
-    aether = timer.write_note("aether", DAY, tmp_path / "letters").read_text(encoding="utf-8")
-    assert "aria-to-andrew-volley-board.md" in aria
-    assert "aether-to-andrew-volley-board.md" not in aria
-    assert "aether-to-andrew-volley-board.md" in aether
-    assert "aria-to-andrew-volley-board.md" not in aether
+    for seat in ("aria", "aether"):
+        text = timer.write_note(seat, DAY, tmp_path / seat).read_text(encoding="utf-8")
+        assert "volley-board" not in text, seat
+        assert "in chat" in text and f"you, {seat}:" in text, seat
 
 
 def test_the_note_says_what_it_is_and_what_it_asks(tmp_path):
     text = _timer().write_note("aether", DAY, tmp_path).read_text(encoding="utf-8")
-    assert "not a person" in text and "morning section" in text and "doorbell" in text
+    assert "not a person" in text and "morning picture" in text and "doorbell" in text
