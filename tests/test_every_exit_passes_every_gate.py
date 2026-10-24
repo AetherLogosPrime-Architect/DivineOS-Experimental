@@ -33,14 +33,13 @@ below makes adding a hook a decision, not a drift.
 
 import json
 import re
-import time
 from pathlib import Path
 
 import click
 import pytest
+from _prereg_helpers import make_due_by_use
 
 from divineos.core.pre_registrations.store import (
-    _get_connection,
     file_pre_registration,
     init_pre_registrations_tables,
 )
@@ -65,15 +64,9 @@ def _overdue_review() -> None:
         review_window_days=7,
         actor="aria",
     )
-    conn = _get_connection()
-    try:
-        conn.execute(
-            "UPDATE pre_registrations SET review_ts = ? WHERE prereg_id = ?",
-            (time.time() - 3 * 24 * 3600, prereg_id),
-        )
-        conn.commit()
-    finally:
-        conn.close()
+    make_due_by_use(
+        prereg_id
+    )  # a date alone no longer blocks (Dad, 2026-10-21); a reached count does
 
 
 def _typed(entry: tuple[str, ...]) -> str:
