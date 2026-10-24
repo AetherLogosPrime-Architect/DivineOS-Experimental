@@ -63,6 +63,14 @@ MUST_REFUSE = [
     "The trial never needs a person, counted by uses, but stops at 30 days regardless.",
     "The pilot is not quick and is counted by uses, yet we review in 4 weeks.",
     "Instead of waiting, the experiment is counted in uses and checked every 2 weeks.",
+    # Aether's eight further attempts on eabedca47, 2026-10-24 (seven refuse, one passes below)
+    "The pilot is counted in uses, no, a 30 day check as well.",
+    "The trial is counted in uses, not in 30 days, but also reviewed after 4 weeks.",
+    "The experiment is counted by uses and not reviewed for 30 days.",
+    "The pilot is counted in uses, no more than 30 days.",
+    "The trial is counted in uses, and it is not a surprise that it stops in 30 days.",
+    "The pilot is counted in uses, never in 5 days; it ends in a month.",
+    "Counted in uses, nor was it long, the trial ends after 30 days.",
 ]
 
 MUST_PASS = [
@@ -71,6 +79,7 @@ MUST_PASS = [
     "The trial is counted in uses, with no 14-day review.",
     "The trial is counted in uses, never in 30 days.",  # the negation governs the duration
     "The trial is counted by uses and not over a 30-day span.",
+    "The pilot is counted in uses, not in 30 days and not in 4 weeks.",  # each duration has its own negation
     "I wrote the plan last night, and the success test is the first 30 uses.",
     "It took six days to write.",  # a duration alone
     "Success was claimed in the last 17 days.",  # looks back
