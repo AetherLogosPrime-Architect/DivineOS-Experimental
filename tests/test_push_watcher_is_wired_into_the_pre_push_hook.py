@@ -178,14 +178,16 @@ def test_a_report_that_hangs_cannot_hold_a_failed_push_open(scratch):
 
 
 _RECORD_ARGV = (
-    "import sys, pathlib\n"
+    "import sys, pathlib, json\n"
     "if sys.argv[1] == 'finish':\n"
-    "    pathlib.Path(sys.argv[0]).with_name('finish_argv.txt').write_text(' '.join(sys.argv[2:]), encoding='utf-8')\n"
+    "    pathlib.Path(sys.argv[0]).with_name('finish_argv.json').write_text(json.dumps(sys.argv[2:]), encoding='utf-8')\n"
 )
 
 
 def _tail_file_the_hook_passed(work: Path) -> str:
-    argv = (work / "scripts" / "finish_argv.txt").read_text(encoding="utf-8").split()
+    import json
+
+    argv = json.loads((work / "scripts" / "finish_argv.json").read_text(encoding="utf-8"))
     return argv[argv.index("--tail-file") + 1].replace("\\", "/")
 
 
@@ -232,6 +234,39 @@ def test_the_hook_reads_the_log_of_the_member_who_pushed_not_a_hand_built_path(s
     assert _tail_file_the_hook_passed(work).lower() == expected.lower()
     if member == "aria":
         assert ".divineos-aria" in expected, expected
+
+
+def test_when_the_resolver_cannot_answer_the_hook_names_no_log_at_all(scratch):
+    """Aether, reading 6a1c90780: the shell resolver does not fail when no python answers, it RETURNS a hand-built
+    "$HOME/.divineos-<member>" with exit 0, which for Aether is the stale twin nothing reads. So an unreachable resolver
+    must leave the tail file EMPTY, never a path that looks right. Here no divineos can be imported at all."""
+    work, home, env = scratch
+    (work / ".claude" / "hooks" / "lib").mkdir(parents=True)
+    shutil.copy(
+        REPO / ".claude" / "hooks" / "lib" / "member_home.sh",
+        work / ".claude" / "hooks" / "lib" / "member_home.sh",
+    )
+    (work / "scripts" / "push_watcher.py").write_text(_RECORD_ARGV, encoding="utf-8")
+    _stub_readiness(work, 7)
+    # A python that runs everything the resolver-finder asks of it but cannot answer the home question, the way an
+    # unimportable divineos would. (Hiding divineos from a real interpreter is not reliable: editable installs find it.)
+    launcher = work / ".venv" / "bin" / "python"
+    launcher.write_text(
+        f'#!/bin/bash\ncase "$*" in *member_home*) exit 1;; esac\nexec "{Path(sys.executable).as_posix()}" "$@"\n',
+        encoding="utf-8",
+        newline="\n",
+    )
+    env.pop("PYTHONPATH", None)
+    env["USERPROFILE"] = str(home)
+    for member in ("aria", None):
+        if member:
+            env["DIVINEOS_MEMBER"] = member
+        else:
+            env.pop("DIVINEOS_MEMBER", None)
+        assert _push(work, env).returncode != 0
+        assert _tail_file_the_hook_passed(work) == "", (
+            f"{member}: named a log it could not have resolved"
+        )
 
 
 def test_a_broken_watcher_cannot_change_the_verdict(scratch):

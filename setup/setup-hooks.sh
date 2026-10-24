@@ -407,7 +407,13 @@ WATCH_PY="$( ( source "$REPO_ROOT/.claude/hooks/_lib.sh" >/dev/null 2>&1; find_d
 # Where the gate wrote its log is ASKED of the same resolver the gate asks (Aether, cold-reading #712: this line
 # first spelled "$HOME/.divineos/", which is his home and not mine, so a push of mine would have read HIS log).
 # Empty when the resolver cannot answer: a tail file that names nothing is read as nothing, never as someone else's.
-WATCH_HOME="$( ( source "$REPO_ROOT/.claude/hooks/_lib.sh" >/dev/null 2>&1; source "$REPO_ROOT/.claude/hooks/lib/member_home.sh" >/dev/null 2>&1; member_home "${DIVINEOS_MEMBER:-aether}" ) 2>/dev/null )"  # fail-soft: no resolver means no tail file, and the report says it had no gate output to read
+# NOT through the shell resolver: when no python answers it prints a warning (swallowed here) and RETURNS a hand-built
+# "$HOME/.divineos-<member>" with exit 0, which for Aether is the stale twin the resolver's own header calls a home
+# nothing reads (Aether, reading 6a1c90780). Ask the python the hook already trusts, and let any failure be empty.
+WATCH_HOME=""
+if [ -n "$WATCH_PY" ]; then
+    WATCH_HOME="$("$WATCH_PY" -c 'import sys; from divineos.core.paths import member_home; print(member_home(sys.argv[1]))' "${DIVINEOS_MEMBER:-aether}" 2>/dev/null || true)"  # fail-soft: an unimportable divineos leaves the home empty, and an empty home means no tail file, never another member's
+fi
 WATCH_TAIL=""
 if [ -n "$WATCH_HOME" ]; then
     WATCH_TAIL="$WATCH_HOME/last_pre_push_pytest.log"
