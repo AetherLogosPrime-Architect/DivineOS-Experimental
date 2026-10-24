@@ -126,10 +126,15 @@ _THE_RULE = re.compile(
 
 #: A trial said to be counted in uses. On its own this excuses nothing: "counted by uses, but it must also
 #: finish within 30 days" is a hybrid that sounds compliant and sets a date (walk-1814c904bc78, Holmes). It
-#: excuses a sentence only when the sentence also turns the duration down.
+#: excuses a sentence only when the turning down governs the DURATION itself: the negation word sits directly
+#: before it, with at most small connecting words between ("never in 30 days", "with no 14-day review", "not
+#: over a 30-day span"). A "no" or "not" anywhere else turns down something else ("no regression for 30 days",
+#: "not optional: it ends after 30 days"), which Aether showed excuses a real trial (2026-10-24).
 _COUNTED_IN_USES = re.compile(r"\bcounted\s+in\s+uses\b|\bby\s+(?:uses?|events?)\b", re.IGNORECASE)
-_TURNS_IT_DOWN = re.compile(
-    r"\b(?:no|not|never|nor|instead|without|rules?\s+out|rather\s+than)\b", re.IGNORECASE
+_TURNS_IT_DOWN_DURATION = re.compile(
+    r"\b(?:no|not|never|nor|without|rather\s+than|instead\s+of|rules?\s+out)\s+"
+    r"(?:(?:in|by|at|for|after|within|over|a|an|the|any)\s+)*$",
+    re.IGNORECASE,
 )
 
 #: Text being talked about, not used: double quotes (straight or curly) and backticks. Single quotes are
@@ -230,7 +235,9 @@ def trials_in_days(text: str) -> list[Hit]:
             sentence = marks.sentence_around(m.start(), m.end())
             if _THE_RULE.search(sentence):
                 continue
-            if _COUNTED_IN_USES.search(sentence) and _TURNS_IT_DOWN.search(sentence):
+            if _COUNTED_IN_USES.search(sentence) and _TURNS_IT_DOWN_DURATION.search(
+                paragraph[max(0, m.start() - 40) : m.start()]
+            ):
                 continue
             before = paragraph[max(0, m.start() - 25) : m.start()]
             after = paragraph[m.end() : m.end() + 14]

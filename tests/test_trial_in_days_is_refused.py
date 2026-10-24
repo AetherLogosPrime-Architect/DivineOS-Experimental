@@ -56,12 +56,21 @@ MUST_REFUSE = [
     "The trial is counted in uses, or 14 days, whichever comes first.",
     "A late-stage pilot gets 2 weeks.",
     "I wrote the plan: the falsifier fires if nothing changes in 30 days.",
+    # Aether's five breaks of the "turns it down" word, 2026-10-24: a negation anywhere in the sentence is not a
+    # negation OF THE DURATION. The word must govern the duration directly.
+    "The trial is counted in uses, not optional: it also ends after 30 days.",
+    "Success test: no regression for 30 days, counted in uses elsewhere.",
+    "The trial never needs a person, counted by uses, but stops at 30 days regardless.",
+    "The pilot is not quick and is counted by uses, yet we review in 4 weeks.",
+    "Instead of waiting, the experiment is counted in uses and checked every 2 weeks.",
 ]
 
 MUST_PASS = [
     # the rule's own words still excuse a number when it is being refused, not set
     "Counted by uses, not by days: a 30-day trial is what he rules out.",
     "The trial is counted in uses, with no 14-day review.",
+    "The trial is counted in uses, never in 30 days.",  # the negation governs the duration
+    "The trial is counted by uses and not over a 30-day span.",
     "I wrote the plan last night, and the success test is the first 30 uses.",
     "It took six days to write.",  # a duration alone
     "Success was claimed in the last 17 days.",  # looks back
