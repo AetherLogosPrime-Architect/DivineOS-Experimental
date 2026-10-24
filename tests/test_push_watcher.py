@@ -344,8 +344,9 @@ def test_a_log_written_since_the_watcher_started_is_read(tmp_path):
 
 
 def test_a_missing_log_means_the_tests_did_not_run(tmp_path):
-    assert pw.fresh_tail(tmp_path / "nope.log", [_begun(1000.0)]) == ("", False)
-    assert pw.fresh_tail(None, [_begun(1000.0)]) == ("", False)
+    # No path, or no such file, is "could not look" (None), NOT "the tests did not run" (False): Aether, reading fd34d0c49.
+    assert pw.fresh_tail(tmp_path / "nope.log", [_begun(1000.0)]) == ("", None)
+    assert pw.fresh_tail(None, [_begun(1000.0)]) == ("", None)
 
 
 def test_a_push_stopped_before_the_tests_is_not_mine_even_with_zero_looks():
@@ -356,6 +357,38 @@ def test_a_push_stopped_before_the_tests_is_not_mine_even_with_zero_looks():
     assert (
         pw.assemble([], 1, "FAILED tests/test_x.py", tests_ran=True)["outcome"] == pw.WATCHER_FAILED
     )
+
+
+def test_a_log_the_watcher_could_not_read_is_its_own_outcome_and_sentence():
+    """Hoare's three states: the tests ran and left a log, the tests never ran (the log is old), and I could not look.
+    The third used to be spoken as the second, with a confident cause for a push whose log was simply unreadable."""
+    report = pw.assemble([_begun(1000.0), _tick(40)], 1, "", tests_ran=None)
+    assert report["outcome"] == pw.COULD_NOT_LOOK and report["family"] == pw.COULD_NOT_READ_FAMILY
+    line = pw.final_line(report)
+    assert "could not read the test log" in line
+    assert "ordinary way" not in line and "stopped it before the tests ran" not in line
+
+
+def test_control_an_old_log_is_still_a_check_that_stopped_the_push():
+    report = pw.assemble([_begun(1000.0), _tick(40)], 1, "", tests_ran=False)
+    assert report["outcome"] == pw.NOT_MINE and report["family"] == "stopped_before_tests"
+
+
+def test_the_finish_command_with_no_tail_file_says_it_could_not_read_the_log(tmp_path, capsys):
+    """End to end through main(): the hook passes an EMPTY tail file when it could not resolve the home, and what Dad
+    reads at the end of that push must be the 'could not read' sentence, not a confident cause."""
+    raw = tmp_path / "raw.jsonl"
+    raw.write_text('{"k": "begin", "n": 1, "t": 1000.0}\n', encoding="utf-8")
+    code = pw.main(["finish", "--raw", str(raw), "--exit", "1", "--out-dir", str(tmp_path / "out")])
+    assert code == 0
+    said = capsys.readouterr().err
+    assert "could not read the test log" in said and "ordinary way" not in said, said
+
+
+def test_a_death_the_watcher_saw_is_still_named_when_the_log_could_not_be_read():
+    """The log is one source and the process table another: not being able to read the first must not hide the second."""
+    report = pw.assemble(_real_death_log(), 1, "", tests_ran=None)
+    assert report["outcome"] == pw.NAMED
 
 
 def test_the_stopped_before_tests_sentence_is_plain():

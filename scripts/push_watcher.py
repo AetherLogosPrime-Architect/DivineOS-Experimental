@@ -88,6 +88,11 @@ NAMED, NOTHING_SEEN, WATCHER_FAILED, NOT_MINE = (
     "NOT_MINE",
 )
 TREE_ENDED_EARLY = "TREE_ENDED_EARLY"
+#: The watcher could not read the gate's test log at all (no path, or no such file), which is not the same as the log
+#: being old. "Tests ran and left no log", "tests never ran" and "I could not look" are three different facts; the
+#: third used to be spoken as the second (Aether, reading fd34d0c49: Hoare's three states, again).
+COULD_NOT_LOOK = "COULD_NOT_LOOK"
+COULD_NOT_READ_FAMILY = "could_not_read_gate_output"
 
 #: Words in a push's own output that mark an ordinary failure. Checked in this order.
 _ORDINARY = (
@@ -301,6 +306,8 @@ def classify(exit_code: int, output_tail: str, tests_ran: bool = True) -> str:
     for family, pattern in _ORDINARY:
         if pattern.search(output_tail or ""):
             return family
+    if tests_ran is None:
+        return COULD_NOT_READ_FAMILY
     return "unknown" if tests_ran else "stopped_before_tests"
 
 
@@ -312,11 +319,17 @@ def infra_kind(output_tail: str) -> str:
     return ""
 
 
-def fresh_tail(tail_file: Path | None, events: list[dict]) -> tuple[str, bool]:
+def fresh_tail(tail_file: Path | None, events: list[dict]) -> tuple[str, bool | None]:
     """(the test log's tail, whether the tests ran in THIS push). The gate writes one log file that survives pushes, so
-    a log not modified since the watcher started belongs to an earlier push and is ignored."""
+    a log not modified since the watcher started belongs to an earlier push and is ignored.
+
+    The second value has THREE states: True (a fresh log: the tests ran), False (the log is older than this push: a check
+    stopped it first) and None (there is no path or no such file: the watcher could not look, which says nothing about
+    whether the tests ran)."""
     starts = [float(e["t"]) for e in events if "t" in e]
-    if not tail_file or not tail_file.is_file() or not starts:
+    if not tail_file or not tail_file.is_file():
+        return "", None
+    if not starts:
         return "", False
     if tail_file.stat().st_mtime < min(starts):
         return "", False
@@ -335,6 +348,8 @@ def assemble(events: list[dict], exit_code: int, output_tail: str, tests_ran: bo
         outcome = NAMED
     elif tree_early:
         outcome = TREE_ENDED_EARLY
+    elif family == COULD_NOT_READ_FAMILY:
+        outcome = COULD_NOT_LOOK
     elif n == 0 and family != "stopped_before_tests":
         # A push stopped by a check before any test ran is over in under a second, before the first look finishes:
         # zero looks is expected there, and the machine cannot have disturbed tests that never started.
@@ -373,6 +388,11 @@ def final_line(report: dict, report_path: str = "") -> str:
             "The whole test run ended before it finished: every test helper stopped together, which points to a "
             "timeout, the computer running out of memory, or an interruption, not to one helper dying."
             + where
+        )
+    if outcome == COULD_NOT_LOOK:
+        return (
+            "I could not read the test log for this push, so I cannot say whether the tests ran or why it failed; "
+            "the push's own messages above are all there is." + where
         )
     if outcome == NOT_MINE:
         return (
