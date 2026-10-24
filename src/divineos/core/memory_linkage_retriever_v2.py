@@ -110,6 +110,16 @@ from divineos.core.memory_linkage_retriever import (
 # Constants — every value here has a §-reference into the design spec
 # --------------------------------------------------------------------
 
+REGULATORY_IMPORTANCE = 0.5
+"""The importance the regulatory (flood-triggered) lane scores every item with.
+
+Importance for knowledge now follows maturity and corroboration, and corroboration is a
+count someone can raise by repeating a learn. This lane was split off (Aletheia 2026-07-09)
+so that nothing an adversary could inflate shapes what surfaces during a flood, so it never
+reads an item's own importance: it scores every item with this constant, which is exactly
+what flat importance gave it before. Aria's read of #674, 2026-10-16.
+"""
+
 KNN_K = 8
 """Neighbors per item in the precomputed k-NN graph (§10.2).
 
@@ -599,7 +609,7 @@ def retrieve_similarity_only(prompt: str) -> list[MemoryLinkagePayload]:
                 similarity=similarity,
                 tier=item.tier,
                 recency_days=recency_days,
-                importance_score=item.importance_score,
+                importance_score=REGULATORY_IMPORTANCE,
             )
             content_kind, content, path_or_ref = _shape_content(
                 item.source, item.content, item.path
@@ -611,7 +621,7 @@ def retrieve_similarity_only(prompt: str) -> list[MemoryLinkagePayload]:
                     tier=item.tier,
                     similarity=similarity,
                     recency_days=recency_days,
-                    importance_score=item.importance_score,
+                    importance_score=REGULATORY_IMPORTANCE,
                     composite_rank=base_rank,  # NO priming boost
                     title=item.title,
                     content=content,
