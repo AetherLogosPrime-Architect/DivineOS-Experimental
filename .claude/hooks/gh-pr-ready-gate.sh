@@ -3,12 +3,13 @@
 #
 # Root cause (Andrew 2026-08-12): PR #409 was taken out of draft and
 # reported ready, then failed the External-Review trailer check when he
-# pulled it. The trailer machinery all existed — push-ready amends
-# trailers onto branch commits, prepare-merge validates a round and
-# prints a paste-able body, gh-pr-merge-gate refuses an untrailered
-# merge — but nothing watched the draft->ready transition, and GitHub
-# builds the squash message from the PR body, not from branch commits.
-# So a branch could be green and the merge still untrailered.
+# pulled it. The trailer machinery all existed — prepare-merge validates
+# a round and prints a paste-able body, gh-pr-merge-gate refuses an
+# untrailered merge (and push-ready, since retired 2026-10-07, amended
+# trailers onto branch commits) — but nothing watched the draft->ready
+# transition, and GitHub builds the squash message from the PR body, not
+# from branch commits. So a branch could be green and the merge still
+# untrailered.
 #
 # `divineos stamp-ready <pr>` does the transition as one act: validate
 # the round, write the trailer into the PR body, then clear the draft

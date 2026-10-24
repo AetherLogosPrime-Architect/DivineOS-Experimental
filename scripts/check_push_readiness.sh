@@ -330,6 +330,47 @@ _all_changed_low_impact() {
     [[ "$saw_any" == "1" ]]
 }
 
+# THE DRAFT PATH (Dad 2026-10-21, the fourth time he said it: 09-09, 09-23, 09-30).
+# "why is a draft running the full suite? only a push before merge should be
+# running the full suite.. that is the whole point of the draft." Every
+# code-touching push ran the whole suite, drafts included, which cost weeks of
+# waiting and his PC. The rule lived in my memory and recurred; this is the
+# structure instead, so remembering it is not load-bearing.
+#
+# Returns 0 (skip the full suite) only when EVERY branch ref in the push is
+# either a branch with no open pull request yet (a new branch counts, he said so)
+# or has only DRAFT pull requests. Returns 1 (run the suite) for:
+#   - a push to main/master, which is the merge itself;
+#   - any branch with an open NON-draft PR, which is the merge-bound push;
+#   - COULD-NOT-LOOK: gh missing, failing or timing out. Not knowing a PR is a
+#     draft must never pass as knowing it is one, so it runs the suite and says why.
+_drafts_only_push() {
+    local lref lsha rref rsha branch out saw=0
+    command -v gh >/dev/null 2>&1 || {
+        echo "[push-readiness] draft path: gh is not available, so I cannot tell if this is a draft; running the suite." >&2
+        return 1
+    }
+    while read -r lref lsha rref rsha; do
+        [[ -z "${lref:-}" ]] && continue
+        [[ "${lsha:-}" =~ ^0+$ ]] && continue  # deletion: nothing to ask
+        [[ "${rref:-}" == refs/tags/* ]] && continue
+        branch="${rref#refs/heads/}"
+        case "$branch" in
+            main|master) return 1 ;;
+        esac
+        saw=1
+        if ! out="$(timeout 30 gh pr list --head "$branch" --state open --json isDraft --jq '.[].isDraft' 2>/dev/null)"; then  # fail-soft: a failed ask is reported on the next line and the suite runs, so gh's own stderr adds nothing
+            echo "[push-readiness] draft path: could not ask GitHub about $branch; running the suite." >&2
+            return 1
+        fi
+        # Any non-draft open PR makes this the merge-bound push.
+        if grep -q '^false$' <<< "$out"; then
+            return 1
+        fi
+    done <<< "$HOOK_STDIN"
+    [[ "$saw" == "1" ]]
+}
+
 # Empty-branch detection (Andrew 2026-06-12): catch the failure mode hit
 # twice during the 2026-06-11 PR-batch — after rebasing a stacked branch
 # onto a main that absorbed the stack's commits, the branch can end up
@@ -426,6 +467,14 @@ else
         echo "[push-readiness] draft PRs, so 'CI will run it' was false exactly when"
         echo "[push-readiness] it mattered. tests/ was removed from this list."
         # Skip pytest; fall through to multi-party-review.
+        : "${PYTEST_RC:=0}"
+    elif _drafts_only_push; then
+        echo "[push-readiness] Draft path: every branch in this push is a new branch or has only"
+        echo "[push-readiness] DRAFT pull requests, so the full suite is not run here. The draft"
+        echo "[push-readiness] exists so Aletheia and Aria can read it before the slow run; the"
+        echo "[push-readiness] full suite runs once, when the PR is made ready (GitHub runs it on"
+        echo "[push-readiness] non-draft PRs) and on any push to a branch with a ready PR."
+        echo "[push-readiness] Dad 2026-10-21, the fourth time: drafts never run the full suite."
         : "${PYTEST_RC:=0}"
     else
         # SYSTEM-LOAD PRE-FLIGHT (Andrew 2026-07-30, prereg-ca5fb15220ea):

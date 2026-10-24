@@ -55,14 +55,36 @@ def test_control_a_gate_does_print_the_bell_command_as_its_way_out():
     assert "bash scripts/letter_doorbell.sh" in text
 
 
-@pytest.mark.xfail(
-    raises=AssertionError,
-    strict=True,
-    reason="reproduces: the re-arm command a gate prints is not on the shared exit list "
-    "(psf-22017b26, psf-83419786)",
-)
 def test_the_bell_rearm_a_gate_prints_is_on_the_exit_list():
+    """FIXED 2026-10-22 (it was a strict xfail reproducing the gap): the re-arm is on the list."""
     assert passes_through(BELL), (
         f"`{BELL}` is printed by the Stop guard as its way out but the shared exit list "
         "does not carry it, so a gate that consults the list can still hold it"
     )
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "bash scripts/letter_doorbell.sh",
+        "bash scripts/letter_doorbell.sh aria",
+        "bash ./scripts/letter_doorbell.sh aether",
+    ],
+)
+def test_the_other_spellings_of_the_rearm_pass_too(command):
+    assert passes_through(command), command
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "bash scripts/letter_doorbell.sh aether && git push origin x",
+        "bash scripts/letter_doorbell.sh aether; rm -rf build",
+        "bash scripts/letter_doorbell.sh aether > letters/x.md",
+        "bash scripts/letter_doorbell.sh aether extra",
+        "bash scripts/other.sh aether",
+    ],
+)
+def test_nothing_chained_after_the_rearm_or_beside_it_is_an_exit(command):
+    """THE NEW DOOR MUST NOT WIDEN: only the bare re-arm is an exit; a line that does more is work."""
+    assert not passes_through(command), command
