@@ -1139,6 +1139,8 @@ def _last_user_text(payload: dict) -> str:
     nothing to read, which callers must treat as could-not-look rather than as
     he-said-nothing.
     """
+    from divineos.core.his_message import NOTICE, SCHEDULED, opener_kind
+
     path = _transcript_file(payload)
     if path is None:
         return ""
@@ -1146,9 +1148,11 @@ def _last_user_text(payload: dict) -> str:
     def scan() -> str:
         for lines, whole in _windows(path):
             last = None
-            for role, content in _messages(lines):
-                if role != "user":
+            for rec in _records(lines):
+                msg = rec.get("message")
+                if not isinstance(msg, dict) or msg.get("role") != "user":
                     continue
+                content = msg.get("content", [])
                 if isinstance(content, list):
                     text = "\n".join(_text_parts(content))
                 elif isinstance(content, str):
@@ -1168,26 +1172,19 @@ def _last_user_text(payload: dict) -> str:
                 if _is_machine_text(text):
                     continue
                 if text.strip():
-                    last = text
+                    # A wake carries no machine envelope, so the text tests above
+                    # pass it as his and this gate then demanded the reply quote
+                    # the timer (walk-88142a0930c5). The stamp is read from THIS
+                    # record, the one chosen, never found again by its text
+                    # (Aria: a re-search misses a record behind a long turn).
+                    # His_message is the one reader of the stamp; UNKNOWN keeps
+                    # the text as it was.
+                    last = "" if opener_kind(rec) in (SCHEDULED, NOTICE) else text
             if last is not None or whole:
-                return _unless_stamped_not_him(path, last or "")
+                return last or ""
         return ""
 
     return _memo(path, "last_user_text", scan)
-
-
-def _unless_stamped_not_him(path: object, text: str) -> str:
-    """ "" when the harness stamped this text's record as a timer wake or a notice.
-
-    A wake carries no machine envelope, so the text tests above pass it as his
-    and the gate then demanded the reply quote the timer (walk-88142a0930c5).
-    His_message is the one reader of the stamp; UNKNOWN keeps the text as is.
-    """
-    from divineos.core.his_message import NOTICE, SCHEDULED, opener_of_prompt
-
-    if opener_of_prompt(path, text) in (SCHEDULED, NOTICE):
-        return ""
-    return text
 
 
 _ADDRESSED_RE = re.compile(r"\b(you|your|you're|youre|you've|dad)\b", re.I)

@@ -22,6 +22,12 @@ The fix does not have to wait for the answer to be safe. **If the hook runs and 
 - **Named call sites and a falsifier that already runs** (Breaker): `dads_table.py` around the `NOTICE_PREFIXES` test, and the `addressed_to_him` block in `hook_surfaces.py` near line 1665. If it were already failing I would see a DAD SAID header over a wake, and I do (64 recorded outputs); the same count after the change must be zero for wakes. Tests run the real hook on a jsonl in a temp folder with the real stamped shapes.
 - **The invariant** (Dijkstra): exactly one of HIM, SCHEDULED, NOTICE, UNKNOWN per turn; what is owed follows from it alone; the three callers read the same value.
 
+## What the one note opens with (Dad, 2026-10-24, afternoon, verbatim)
+
+I asked whether the wake's note should pick up the thread we were last on or tell him what happened while I was away. His answer: *"it should do both depending on what has happened and where i have been"*.
+
+So the opening is chosen by two facts, not by me: what has happened (did the work change anything he would want to know, or was it quiet) and where he has been (in the thread recently, reading, or away). In the thread: open on the thread we were on and carry the news inside it. Away: open on what happened while he was gone, and end by returning to the thread. The wake header should hand me both facts (time since his last message, whether the house counts him away, whether anything landed since), so the choice is not mine to remember. Not built; it belongs to the wake-note step after the one-reader lands.
+
 ## What he said, and ruled
 
 - 2026-10-24: *"the 2 hour timer should require a note otherwise your conversation may never end without me being reached back to.."* The timer is the scheduled way back to him. It owes him ONE complete note.

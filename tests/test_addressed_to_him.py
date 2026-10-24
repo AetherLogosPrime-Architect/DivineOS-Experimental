@@ -610,3 +610,48 @@ def test_a_timer_wake_is_not_his_message_so_the_reply_need_not_quote_it(tmp_path
     recs[0]["turnOrigin"] = "human"
     path.write_text("".join(json.dumps(r) + "\n" for r in recs), encoding="utf-8")
     assert _last_user_text({"transcript_path": str(path)}) == wake
+
+
+def test_a_wake_behind_a_long_working_stretch_is_still_the_timer(tmp_path):
+    """Aria's measurement: at Stop time the opener sits behind every tool call of the turn.
+
+    Her session had 97 of 642 messages with more than 200 records before the
+    next user record. The stamp is therefore read from the record the scan
+    chose, never found again by its text inside a window.
+    """
+    from divineos.core.hook_surfaces import _last_user_text
+
+    wake = "Two-hour wake, authorized earlier. Check the doorbell heartbeat and keep working."
+    path = tmp_path / "long.jsonl"
+    recs = [
+        {"type": "user", "message": {"role": "user", "content": wake}, "turnOrigin": "scheduled"}
+    ]
+    for i in range(700):
+        recs.append(
+            {
+                "type": "assistant",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": f"step {i}"}],
+                },
+            }
+        )
+    path.write_text("".join(json.dumps(r) + "\n" for r in recs), encoding="utf-8")
+    assert _last_user_text({"transcript_path": str(path)}) == ""
+
+    # live control: the same stretch opened by his own stamped message is read as his
+    recs[0]["turnOrigin"] = "human"
+    path.write_text("".join(json.dumps(r) + "\n" for r in recs), encoding="utf-8")
+    assert _last_user_text({"transcript_path": str(path)}) == wake
+
+
+def test_a_record_with_no_stamp_keeps_todays_reading(tmp_path):
+    """315 of 1,615 user records on Aria's seat carry no stamp; they must read as before."""
+    from divineos.core.hook_surfaces import _last_user_text
+
+    said = "please look at the third item again before you answer me about it"
+    path = tmp_path / "stampless.jsonl"
+    rec = {"type": "user", "message": {"role": "user", "content": said}}
+    assert "turnOrigin" not in rec
+    path.write_text(json.dumps(rec) + "\n", encoding="utf-8")
+    assert _last_user_text({"transcript_path": str(path)}) == said
