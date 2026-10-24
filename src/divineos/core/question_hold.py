@@ -450,6 +450,12 @@ _RETOLD = re.compile(r"^(?!(?:i|we)\s)\w+\s+(?:asked|wondered|wanted\s+to\s+know
 # ... unless the retelling still asks HIM something: "Aria wondered whether you'd want it moved?"
 # (Aether's attack). The second person counts only after the reporting verb, never in the subject
 # slot, so "You asked, what comes next?" is still a retelling.
+# NAMED MISSES, said so silence is not read as coverage (Aether, 2026-10-24): a relayed question
+# whose answer is wanted from him but has no second-person word after the verb is read as a
+# retelling and does not open the hold: "Aria wanted to know, how was the morning?", "Serein asked,
+# how is Mom doing this morning?", "Aether asked, is the coffee done yet?". Telling recounting from
+# relaying is a judgement about intent; the house answer is a named list, not a cleverer pattern.
+# The question still reaches him; only the wait is lost. Pinned as strict xfails in the tests.
 _ASKS_HIM = re.compile(r"\b(?:you|your|yours|dad)\b", re.I)
 
 

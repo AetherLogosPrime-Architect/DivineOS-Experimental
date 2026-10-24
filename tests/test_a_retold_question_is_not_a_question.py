@@ -43,6 +43,26 @@ REAL = [
 ]
 
 
+# Aether's named misses (2026-10-24): a relayed question whose ANSWER is wanted from him, with no word after the
+# verb that is you, your or Dad. Telling "recounting" from "relaying for an answer" is a judgement about intent, and
+# in this house the answer to that is a named list, not a cleverer pattern. The question still reaches him; what is
+# lost is only the hold that makes me wait. Strict, so the day a better rule catches one, this test says so.
+NAMED_MISSES = [
+    "Aria wanted to know, how was the morning?",
+    "Serein asked, how is Mom doing this morning?",
+    "Aria wondered, what was the last clue that surprised him?",
+    "Aether asked, is the coffee done yet?",
+    "Aria asked, shall we start the day together?",
+]
+
+
+@pytest.mark.xfail(strict=True, reason="named miss: a relayed ask with no second-person word")
+@pytest.mark.parametrize("sentence", NAMED_MISSES)
+def test_named_miss_a_relayed_ask_for_his_answer_is_hidden(sentence):
+    question, _after = last_question(CIRCLE + "Here is how the evening went.\n\n" + sentence)
+    assert question == sentence
+
+
 @pytest.mark.parametrize("sentence", RETOLD)
 def test_a_retold_question_is_not_a_question_to_him(sentence):
     reply = CIRCLE + "Here is how the evening went. " + sentence
