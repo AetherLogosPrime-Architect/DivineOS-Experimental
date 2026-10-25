@@ -2031,6 +2031,33 @@ def landed_claim_surface(payload: dict) -> SurfaceOutcome | None:
     return SurfaceOutcome(name="landed_claim", refused=True, reason=block, state="spoke")
 
 
+def waiting_claim_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a reply that says a fix waits on Aletheia when no letter to her names it at its live head.
+
+    Dad, 2026-10-25: "you continue to say 'Waits for Aletheia' without sending her a letter". Registered beside
+    landed_claim: both pair a sentence I wrote with the evidence the sentence needs. See core/waiting_claim.py.
+    """
+    name = "waiting_claim"
+    text = _last_assistant_text(payload)
+    if not text.strip():
+        return SurfaceOutcome(name=name, state="nothing-to-say")
+    try:
+        from divineos.core import landing_status
+        from divineos.core.waiting_claim import assess, real_head_of, render_block
+
+        verdict = assess(text, landing_status.read_letters(), real_head_of)
+        block = render_block(verdict)
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name=name, error=f"{type(exc).__name__}: {exc}", state="could-not-run"
+        )
+    if block:
+        return SurfaceOutcome(name=name, refused=True, reason=block, state="spoke")
+    if verdict.could_not_check:
+        return SurfaceOutcome(name=name, error=verdict.could_not_check, state="could-not-run")
+    return SurfaceOutcome(name=name, state="nothing-to-say")
+
+
 def translation_floor_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse a substantive reply that fails Andrew's own Translation Floor.
 
@@ -2886,6 +2913,8 @@ def install() -> None:
     # checked against the thing it is about.
     if "landed_claim" not in registered("Stop"):
         register("Stop", "landed_claim", landed_claim_surface)
+    if "waiting_claim" not in registered("Stop"):
+        register("Stop", "waiting_claim", waiting_claim_surface)
     # His Floor, connected 2026-09-09 after two months in which its only caller
     # was its own test file. Placed beside summary_room because they guard the
     # same door from opposite sides: that one asks whether he can FIND the
