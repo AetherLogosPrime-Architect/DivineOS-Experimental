@@ -55,6 +55,26 @@ def register(cli: click.Group) -> None:
             raise click.ClickException(f"the drawer could not be read: {state['drawer_error']}")
         click.echo(f"items with no stored vector: {state.get('missing', 0)}")
 
+    @linkage_group.command("mark-moment")
+    @click.argument("moment_id")
+    def mark_moment_cmd(moment_id: str) -> None:
+        """Let the memory link bring a saved moment back (runs the grief guards once, here)."""
+        from divineos.core import memory_linkage_retriever
+
+        out = memory_linkage_retriever.mark_moment(moment_id)
+        if not out.ok:
+            raise click.ClickException(f"not marked: {out.reason}")
+        click.secho(f"[+] {moment_id} marked", fg="green")
+
+    @linkage_group.command("unmark-moment")
+    @click.argument("moment_id")
+    def unmark_moment_cmd(moment_id: str) -> None:
+        """Stop the memory link bringing a moment back, at once."""
+        from divineos.core import memory_linkage_retriever
+
+        memory_linkage_retriever.unmark_moment(moment_id)
+        click.secho(f"[+] {moment_id} unmarked", fg="green")
+
     @linkage_group.command("why")
     @click.argument("words", nargs=-1, required=True)
     @click.option("--misses", default=4, show_default=True, help="Nearest items below the bar.")

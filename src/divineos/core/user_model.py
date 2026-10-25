@@ -146,6 +146,13 @@ def init_user_model_table() -> None:
             CREATE INDEX IF NOT EXISTS idx_shared_history_user
             ON shared_history(user_id, occurred_at DESC)
         """)
+        # Opt-in to being brought back (Aletheia 2026-10-25): a moment is read by the memory link
+        # only when this is 1, set on purpose at filing or by marking. Every row that existed
+        # before the column starts at 0, hidden. Added by migration because CREATE TABLE IF NOT
+        # EXISTS never touches a table that already exists; the PRAGMA check makes it run once.
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(shared_history)")]
+        if "surface" not in cols:
+            conn.execute("ALTER TABLE shared_history ADD COLUMN surface INTEGER NOT NULL DEFAULT 0")
 
         conn.commit()
     finally:
@@ -428,12 +435,17 @@ def record_moment(
     user_name: str = "default",
     session_id: str | None = None,
     occurred_at: float | None = None,
+    surface: bool = False,
 ) -> str:
     """Record a moment that changed the relationship.
 
     Not every interaction. Only the ones that mattered.
     Examples: a shift in how you understand each other. A first time
     something was spoken aloud. A milestone built together.
+
+    ``surface`` is the opt-in to being brought back by the memory link: off by default, and a
+    moment filed without it is never read by that lane whatever it says (Aletheia, 2026-10-25).
+    Marking later goes through ``memory_linkage_retriever.mark_moment``, which runs the guards.
     """
     init_user_model_table()
     user = get_or_create_user(user_name)
@@ -444,9 +456,17 @@ def record_moment(
     try:
         conn.execute(
             "INSERT INTO shared_history "
-            "(moment_id, user_id, description, significance, session_id, occurred_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (moment_id, user["user_id"], description, significance, session_id, when),
+            "(moment_id, user_id, description, significance, session_id, occurred_at, surface) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                moment_id,
+                user["user_id"],
+                description,
+                significance,
+                session_id,
+                when,
+                1 if surface else 0,
+            ),
         )
         conn.commit()
         return moment_id

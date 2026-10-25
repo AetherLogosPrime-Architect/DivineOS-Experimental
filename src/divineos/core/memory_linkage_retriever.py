@@ -470,13 +470,15 @@ def _load_worklist() -> list[_CachedItem]:
 
 
 def _load_moments() -> list[_CachedItem]:
-    """Moments that changed the relationship, and notes about who he is (2026-10-25).
+    """Moments I MARKED, on purpose, as ones to bring back (2026-10-25).
 
-    ``shared_history`` (written by ``divineos user-moment``) and ``relationship_notes`` sat
-    in the store with no lane reading them, so nothing in them could come back on its own.
-    The users table is keyed by NAME and a real machine has several ("default", "Andrew",
-    "andrew"), so this reads every row of both tables and never filters by user; asking one
-    name would silently miss what was filed under another.
+    ``shared_history`` (written by ``divineos user-moment``) sat in the store with no lane
+    reading it. The lane reads only rows with ``surface = 1``: opt-in at filing or by marking,
+    never every row minus what a word net catches (Aletheia, 2026-10-25: the net guarded 3 of
+    14 ordinary ways of speaking about loss, so the guard was a promise about filing, kept by
+    minds that slip). ``relationship_notes`` are not moments and are not read here; the
+    lessons shelf already finds his words by meaning. The users table is keyed by NAME and a
+    real machine has several, so rows are never filtered by user.
     """
     try:
         from divineos.core import user_model
@@ -485,19 +487,15 @@ def _load_moments() -> list[_CachedItem]:
         conn = user_model._get_connection()
         try:
             moments = conn.execute(
-                "SELECT moment_id, description, significance, occurred_at FROM shared_history"
-            ).fetchall()
-            notes = conn.execute(
-                "SELECT note_id, category, content, recorded_at FROM relationship_notes"
+                "SELECT moment_id, description, significance, occurred_at FROM shared_history "
+                "WHERE surface = 1"
             ).fetchall()
         finally:
             conn.close()
     except Exception:  # noqa: BLE001 - observability boundary, as the loaders above
         return []
     items: list[_CachedItem] = []
-    rows = [(mid, f"{desc} {sig}".strip(), ts) for mid, desc, sig, ts in moments] + [
-        (nid, f"{cat}: {content}".strip(), ts) for nid, cat, content, ts in notes
-    ]
+    rows = [(mid, f"{desc} {sig}".strip(), ts) for mid, desc, sig, ts in moments]
     try:
         held = _held_grief()
     except Exception:  # noqa: BLE001 - an unreadable shelf is not a clear shelf: this lane stays silent
@@ -535,9 +533,21 @@ def _load_moments() -> list[_CachedItem]:
 # moment costs one reminder and a surfaced grief costs him the one place it was safe
 # (Aether, #719). The words are a lexical net, not a classifier; the real guarantee is that
 # grief is filed on its own shelf and not in these tables.
+# Widened 2026-10-25 toward the twelve ways Aletheia's test found it missing (funeral, passed,
+# anniversary of losing, hospice, buried, "she's gone", lost a friend, cancer took, voicemail to
+# hear her, rest in peace, still miss her) and depression. This is the SECOND line, at marking
+# time; the first is that nothing unmarked is ever read.
 _GRIEF = re.compile(
-    r"\b(grie[fv]\w*|mourn\w*|bereave\w*|bereft|lost (?:a|my|his) (?:child|son|daughter|children)|"
-    r"stop(?:ped)? dying|children (?:to )?stop dying|died|death of)\b",
+    r"\b(grie[fv]\w*|mourn\w*|bereave\w*|bereft|funeral\w*|hospice|buried|burial|cemetery|"
+    r"passed (?:away|on)|since (?:he|she|they|\w+) passed|passing of|"
+    r"anniversary of (?:losing|his|her|their)|rest in peace|\brip\b|"
+    r"(?:he|she|they|\w+)'?s gone|is gone and|(?:lost|losing) (?:a|my|his|her|our|the)\b[^.]{0,30}"
+    r"(?:child|son|daughter|children|friend|mother|father|mom|dad|wife|husband|brother|sister|"
+    r"him|her|them)|"
+    r"(?:the )?(?:cancer|illness|accident|overdose) (?:took|killed)|"
+    r"(?:still )?miss(?:ing)? (?:her|him|them)\b|"
+    r"voicemail just to hear|"
+    r"stop(?:ped)? dying|children (?:to )?stop dying|died|death of|depress\w*|suicid\w*)\b",
     re.I,
 )
 
@@ -573,6 +583,71 @@ def moment_chunks(text: str) -> list[str]:
     above 0.25. The item carries the whole moment as its content, only the key is a chunk."""
     parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", text.strip()) if p.strip()]
     return parts or ([text.strip()] if text.strip() else [])
+
+
+@dataclass(frozen=True)
+class MarkResult:
+    ok: bool
+    reason: str = ""
+
+
+def mark_moment(moment_id: str) -> MarkResult:
+    """Mark a moment as one to bring back: the one deliberate act that lets the lane read it.
+
+    Aletheia's turned-round guard: the lane reads only marked rows, and the old guards run ONCE,
+    here, at the moment of intent. Refused, with the reason, when the text trips the grief net,
+    sits on or near his HELD shelf, or the shelf cannot be read (an unreadable shelf is not a
+    clear one)."""
+    from divineos.core import user_model
+
+    user_model.init_user_model_table()
+    conn = user_model._get_connection()
+    try:
+        row = conn.execute(
+            "SELECT description, significance FROM shared_history WHERE moment_id = ?",
+            (moment_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        return MarkResult(False, f"no such moment: {moment_id}")
+    text = f"{row[0]} {row[1]}".strip()
+    if _is_his_grief(text):
+        return MarkResult(
+            False, "it reads as grief or loss, which is kept on his shelf and never surfaced"
+        )
+    try:
+        held = _held_grief()
+    except Exception:  # noqa: BLE001 - an unreadable shelf is not a clear shelf
+        return MarkResult(False, "his grief shelf could not be read, so nothing is marked")
+    floor = _SOURCE_THRESHOLDS["moment"]["floor"]
+    if any(h in text or text in h for h, _v in held):
+        return MarkResult(False, "it is the same as a row on his held shelf")
+    probe = _embed_text_impl(text)
+    if probe is not None and any(_cosine(probe, hv) >= floor for _h, hv in held):
+        return MarkResult(False, "it sits near a row on his held shelf")
+    _set_surface(moment_id, 1)
+    return MarkResult(True)
+
+
+def unmark_moment(moment_id: str) -> None:
+    """Take a moment out of the lane at once. Surfacing is reversible: whoever filed a hard day
+    can change their mind about it."""
+    _set_surface(moment_id, 0)
+
+
+def _set_surface(moment_id: str, value: int) -> None:
+    from divineos.core import user_model
+
+    user_model.init_user_model_table()
+    conn = user_model._get_connection()
+    try:
+        conn.execute(
+            "UPDATE shared_history SET surface = ? WHERE moment_id = ?", (value, moment_id)
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def newest_in_worklist() -> tuple[int, str] | None:
