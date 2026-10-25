@@ -19,8 +19,16 @@ import datetime as dt
 from pathlib import Path
 
 CODE = {
-    "src", "tests", "scripts", "setup", "data", "sandbox", "benchmark",
-    "node_modules", "build", "dist",
+    "src",
+    "tests",
+    "scripts",
+    "setup",
+    "data",
+    "sandbox",
+    "benchmark",
+    "node_modules",
+    "build",
+    "dist",
 }
 # Rooms whose sub-rooms are the real rooms (one folder per seat, per song...).
 DEEP = {"family", "exploration", "dreams", "music", "letters", "consent", "songs", "workbench"}
@@ -45,7 +53,11 @@ def last_changed(room: Path) -> str:
 def rooms(root: Path, skip_code: bool) -> list[tuple[str, Path]]:
     found = []
     for room in sorted(root.iterdir()):
-        if not room.is_dir() or room.name.startswith((".", "__")) or room.name.startswith("graphify-out"):
+        if (
+            not room.is_dir()
+            or room.name.startswith((".", "__"))
+            or room.name.startswith("graphify-out")
+        ):
             continue
         if skip_code and room.name in CODE:
             continue
@@ -61,7 +73,9 @@ def section(title: str, root: Path, skip_code: bool) -> list[str]:
     lines = [f"## {title}", f"`{root}`", ""]
     for name, room in rooms(root, skip_code):
         count = sum(1 for _ in room.iterdir())
-        lines.append(f"- **{name}/**: {front_page(room)} ({count} items, last changed {last_changed(room)})")
+        lines.append(
+            f"- **{name}/**: {front_page(room)} ({count} items, last changed {last_changed(room)})"
+        )
     lines.append("")
     return lines
 
