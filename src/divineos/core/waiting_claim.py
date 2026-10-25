@@ -29,15 +29,27 @@ import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 
-_MY_LETTER = "aether-to-aletheia-"
 _PR = re.compile(r"#(\d{2,5})(?!\d)")
 _HER = re.compile(r"\baletheia\b", re.IGNORECASE)
 # Something waits. "waited" is a past report ("waited and merged") and is dropped below by the merged check, not here.
+# The second and third lines are how the other seat says it (Aria, 2026-10-25, ten of her own sentences): needs her
+# read, her confirm, sends her a fix, she reads the batch.
 _WAIT = re.compile(
-    r"\b(wait(?:s|ing|ed)?|ready\s+for\s+her|for\s+her\s+(?:read|confirm)|with\s+aletheia)\b",
+    r"\b(wait(?:s|ing|ed)?|ready\s+for\s+her|for\s+her\s+(?:read|confirm)|with\s+aletheia"
+    r"|needs?\s+(?:her|aletheia(?:'s)?)\b|(?:her|aletheia(?:'s)?)\s+(?:read|confirm|yes|audit)\b"
+    r"|send(?:s|ing)?\s+(?:her|aletheia)\b|reads?\s+the\b)",
+    re.IGNORECASE,
+)
+# A denial of the waiting is not a claim of it. Direct negations only: a broader "not" would hide a real claim
+# ("not yet confirmed, waiting on Aletheia").
+_DENIED = re.compile(
+    r"\b(not\s+waiting|no\s+longer\s+(?:waiting|needs?)|isn't\s+waiting|stopped\s+waiting"
+    r"|nothing\s+is\s+waiting|never\s+waited)\b",
     re.IGNORECASE,
 )
 _SENTENCE = re.compile(r"(?<=[.!?])\s+|\n+")
+# How near the number and the head must sit in a letter for the letter to be about THIS head.
+_NEAR = 80
 
 HeadOf = Callable[[int], "tuple[str, str] | None"]
 
@@ -58,26 +70,33 @@ def _claimed(text: str) -> list[int]:
     """Pull request numbers named in a sentence that also names her and says something waits."""
     found: list[int] = []
     for sentence in _SENTENCE.split(text):
-        if _HER.search(sentence) and _WAIT.search(sentence):
+        if _HER.search(sentence) and _WAIT.search(sentence) and not _DENIED.search(sentence):
             for n in _PR.findall(sentence):
                 if int(n) not in found:
                     found.append(int(n))
     return found
 
 
-def _told(letters: Mapping[str, str], pr: int, head: str) -> bool:
+def _told(letters: Mapping[str, str], pr: int, head: str, me: str) -> bool:
+    """A letter from MY seat to her names the number and, within a short distance of it, the live head.
+
+    The prefix is the seat's own (Aria, 2026-10-25: with the other seat's prefix her claims could never be cleared,
+    and with no prefix at all my letter would clear hers). The distance keeps a pasted list of unrelated heads from
+    satisfying it by accident.
+    """
     short = head[:7].lower()
+    prefix = f"{me}-to-aletheia-"
     for name, body in letters.items():
-        if (
-            name.startswith(_MY_LETTER)
-            and re.search(rf"#{pr}(?!\d)", body)
-            and short in body.lower()
-        ):
-            return True
+        if not name.startswith(prefix):
+            continue
+        low = body.lower()
+        for m in re.finditer(rf"#{pr}(?!\d)", low):
+            if short in low[max(0, m.start() - _NEAR) : m.end() + _NEAR]:
+                return True
     return False
 
 
-def assess(text: str, letters: Mapping[str, str], head_of: HeadOf) -> Verdict:
+def assess(text: str, letters: Mapping[str, str], head_of: HeadOf, me: str = "aether") -> Verdict:
     missing: list[Missing] = []
     unreadable: list[int] = []
     for pr in _claimed(text):
@@ -88,7 +107,7 @@ def assess(text: str, letters: Mapping[str, str], head_of: HeadOf) -> Verdict:
         state, head = looked
         if state != "OPEN" or not head:
             continue
-        if not _told(letters, pr, head):
+        if not _told(letters, pr, head, me):
             missing.append(Missing(pr, head))
     note = (
         f"could not read the live head of {', '.join('#' + str(p) for p in unreadable)}"

@@ -114,3 +114,46 @@ def test_the_real_surface_refuses_a_waiting_claim_and_passes_a_told_one(monkeypa
     told = {"aether-to-aletheia-2026-10-25-x.md": "#722 at 5b7be7f1c is ready for you."}
     monkeypatch.setattr(landing_status, "read_letters", lambda: told)
     assert not hs.waiting_claim_surface({}).refused
+
+
+# ---- Aria's attack on #724 (2026-10-25): the seat prefix, the words she says, negations, proximity ------------------
+
+
+def test_a_letter_from_the_other_seat_does_not_clear_my_claim_and_my_own_does():
+    mine = {"aria-to-aletheia-2026-10-25-x.md": "#722 at 5b7be7f1c is ready for your read."}
+    theirs = {"aether-to-aletheia-2026-10-25-x.md": "#722 at 5b7be7f1c is ready for your read."}
+    assert assess("#722 waits on Aletheia.", mine, heads(OPEN), me="aria").missing == []
+    assert [
+        m.pr for m in assess("#722 waits on Aletheia.", theirs, heads(OPEN), me="aria").missing
+    ] == [722]
+    assert [
+        m.pr for m in assess("#722 waits on Aletheia.", mine, heads(OPEN), me="aether").missing
+    ] == [722]
+
+
+def test_the_ways_the_other_seat_says_it_are_caught():
+    for text in (
+        "#722 still needs Aletheia's read.",
+        "#722 needs Aletheia's confirm before it can merge.",
+        "Aletheia reads the batch once it lands (#722).",
+        "I will send Aletheia #722 once the checks pass.",
+        "#722 is ready for her read, and Aletheia has the batch.",
+    ):
+        assert [m.pr for m in assess(text, {}, heads(OPEN)).missing] == [722], text
+
+
+def test_a_negation_of_the_waiting_is_not_a_waiting_claim():
+    for text in (
+        "Aletheia is not waiting on #722, she confirmed it.",
+        "#722 is no longer waiting on Aletheia.",
+        "Nothing is waiting on Aletheia (#722 merged).",
+    ):
+        assert assess(text, {}, heads(OPEN)).missing == [], text
+
+
+def test_the_number_and_the_head_must_sit_near_each_other_in_the_letter():
+    far = "#722 is ready.\n" + ("x" * 200) + "\nan unrelated list: 5b7be7f1c, aaaaaaa"
+    letters = {"aether-to-aletheia-2026-10-25-x.md": far}
+    assert [m.pr for m in assess("#722 waits on Aletheia.", letters, heads(OPEN)).missing] == [722]
+    near = {"aether-to-aletheia-2026-10-25-x.md": "#722 at 5b7be7f1c is ready."}
+    assert assess("#722 waits on Aletheia.", near, heads(OPEN)).missing == []

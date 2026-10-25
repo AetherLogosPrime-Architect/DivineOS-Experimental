@@ -2045,7 +2045,11 @@ def waiting_claim_surface(payload: dict) -> SurfaceOutcome | None:
         from divineos.core import landing_status
         from divineos.core.waiting_claim import assess, real_head_of, render_block
 
-        verdict = assess(text, landing_status.read_letters(), real_head_of)
+        from pathlib import Path
+
+        from divineos.core.his_lessons_shelf import seat
+
+        verdict = assess(text, landing_status.read_letters(), real_head_of, me=seat(Path.cwd()))
         block = render_block(verdict)
     except Exception as exc:  # noqa: BLE001
         return SurfaceOutcome(
