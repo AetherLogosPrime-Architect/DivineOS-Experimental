@@ -213,6 +213,7 @@ src/divineos/
       engine.py                CouncilEngine — analyze problems through expert lenses
       framework.py             ExpertWisdom dataclasses (7 components)
       manager.py               Dynamic council manager (classify → select 5-8 experts). Still the scorer; no longer the seating authority for walks — see draw.py
+      lens_text.py             One rendering of a council lens, shared by `mansion council --show` and the walk refusal that delivers it
       draw.py                  Seats a walk's council by lot from the whole roster, with a scored remainder. Replaces fit-selection at open_walk after two blind probes showed a problem stated without the scorer's own vocabulary seats almost nobody who scores, filling the bench alphabetically. Every seat records its origin so the drawn/scored split can be moved on applied-rate evidence rather than preference
       consultation_log.py      Always-on consultation logging + opt-in audit promotion (Mode 1.5)
       lab_evidence.py          Attach science-lab slice output to council results when problem matches triggers
@@ -776,6 +777,7 @@ src/divineos/
     merge_freshness.py         Refuse a `gh pr merge` of a pull request that is behind main, and hand over the remedy.
     merge_command.py           What a shell command merges: the one reader every gate on a merge asks.
     cd_drift_check.py          Refuse a top-level `cd` that moves the app's idea of home.
+    work_copy_sweep.py         Work copies clean themselves up: finished ones are removed, doubtful ones are listed, nothing is ...
 
   analysis/
     _session_types.py          Session analysis type definitions
