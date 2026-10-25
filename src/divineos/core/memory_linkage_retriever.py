@@ -56,6 +56,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -98,6 +99,10 @@ _SOURCE_THRESHOLDS: dict[str, dict[str, Any]] = {
     # edit. Raising it hides nothing -- UNSURE still shows the guesses -- it
     # only stops calling weak matches sure.
     "worklist": {"target_k": 2, "floor": 0.45, "steepness": 0.0},
+    # Moments that changed the relationship and notes about who he is (2026-10-25). One, rarely,
+    # never a wall (Dad: noise is pointless). The floor is a starting value; it is set by the
+    # hand-written pairs that must match, not by feel, and moved only by them.
+    "moment": {"target_k": 1, "floor": 0.35, "steepness": 0.0},
 }
 
 
@@ -462,6 +467,65 @@ def _load_worklist() -> list[_CachedItem]:
             )
         )
     return items
+
+
+def _load_moments() -> list[_CachedItem]:
+    """Moments that changed the relationship, and notes about who he is (2026-10-25).
+
+    ``shared_history`` (written by ``divineos user-moment``) and ``relationship_notes`` sat
+    in the store with no lane reading them, so nothing in them could come back on its own.
+    The users table is keyed by NAME and a real machine has several ("default", "Andrew",
+    "andrew"), so this reads every row of both tables and never filters by user; asking one
+    name would silently miss what was filed under another.
+    """
+    try:
+        from divineos.core import user_model
+
+        user_model.init_user_model_table()
+        conn = user_model._get_connection()
+        try:
+            moments = conn.execute(
+                "SELECT moment_id, description, significance, occurred_at FROM shared_history"
+            ).fetchall()
+            notes = conn.execute(
+                "SELECT note_id, category, content, recorded_at FROM relationship_notes"
+            ).fetchall()
+        finally:
+            conn.close()
+    except Exception:  # noqa: BLE001 - observability boundary, as the loaders above
+        return []
+    items: list[_CachedItem] = []
+    rows = [(mid, f"{desc} {sig}".strip(), ts) for mid, desc, sig, ts in moments] + [
+        (nid, f"{cat}: {content}".strip(), ts) for nid, cat, content, ts in notes
+    ]
+    for row_id, text, ts in rows:
+        for n, chunk in enumerate(moment_chunks(text)):
+            embedding = _embed_text_impl(chunk)
+            if embedding is None:
+                continue
+            items.append(
+                _CachedItem(
+                    id=f"moment-{row_id}-{n}",
+                    source="moment",
+                    tier="constraint",
+                    title=chunk[:60] + ("..." if len(chunk) > 60 else ""),
+                    content=text,
+                    path="",
+                    filed_at_unix=float(ts or 0.0),
+                    importance_score=0.5,
+                    embedding=embedding,
+                )
+            )
+    return items
+
+
+def moment_chunks(text: str) -> list[str]:
+    """One subject per chunk. Measured 2026-10-25 on six hand-written pairs: a whole moment
+    embedded as one vector found 2 of 6 (the subjects dilute each other); one sentence per
+    vector found 4 of 6 at a floor of 0.40 and 5 of 6 at 0.35, with ordinary messages never
+    above 0.25. The item carries the whole moment as its content, only the key is a chunk."""
+    parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", text.strip()) if p.strip()]
+    return parts or ([text.strip()] if text.strip() else [])
 
 
 def newest_in_worklist() -> tuple[int, str] | None:
@@ -994,6 +1058,7 @@ def _ensure_cache() -> None:
     _EMBEDDING_CACHE["exploration"] = _load_exploration()
     _EMBEDDING_CACHE["letter"] = _load_letters()
     _EMBEDDING_CACHE["worklist"] = _load_worklist()
+    _EMBEDDING_CACHE["moment"] = _load_moments()
 
 
 # WHERE ITEM VECTORS COME FROM (2026-09-24). They used to be computed here with
@@ -1093,6 +1158,7 @@ def warm(progress: Any = None) -> dict[str, int]:
             _load_exploration,
             _load_letters,
             _load_worklist,
+            _load_moments,
         ):
             loader()
     finally:
@@ -1154,7 +1220,7 @@ def _shape_content(
     - knowledge: full if ≤300 words, else snippet + path
     - exploration, letter: snippet + path (long by construction)
     """
-    if source in ("correction", "wall"):
+    if source in ("correction", "wall", "moment"):
         return "full", raw_content, ""
     if source == "knowledge":
         if len(raw_content.split()) <= 300:
