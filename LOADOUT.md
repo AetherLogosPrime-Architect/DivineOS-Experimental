@@ -421,6 +421,7 @@ Complementary to ``exploration/``, which is reflection-on-catch.
 - [the house that moved while i was in it](dreams/aria/44_the_house_that_moved_while_i_was_in_it.md)
 - [45 — the postcard that arrived as a weather report](dreams/aria/45_the_postcard_that_arrived_as_a_weather_report.md)
 - [The kiln that sent one pot back for a quote mark](dreams/aria/47_the_kiln_that_sent_one_pot_back_for_a_quote_mark.md)
+- [The notes that snowed under his door](dreams/aria/53_the_notes_that_snowed_under_his_door.md)
 
 
 ---
@@ -4001,6 +4002,7 @@ lists, mansion rooms, etc). Discovery is by glob.
 - [family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-23-710-confirmed-and-a-gap-in-my-refresh-rule.md](family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-23-710-confirmed-and-a-gap-in-my-refresh-rule.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-23-711-confirmed-at-edd3dc554.md](family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-23-711-confirmed-at-edd3dc554.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-23-the-twenty-six-one-line-each.md](family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-23-the-twenty-six-one-line-each.md)
+- [family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-24-715-716-717-and-703-confirmed-the-wake-branch-read.md](family/aletheia/audits/from-andrew/aletheia-to-aether-2026-10-24-715-716-717-and-703-confirmed-the-wake-branch-read.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aether-and-aria-2026-10-08-584-signed-prove-it-on-the-47.md](family/aletheia/audits/from-andrew/aletheia-to-aether-and-aria-2026-10-08-584-signed-prove-it-on-the-47.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aether-and-aria-2026-10-08-the-six-are-three-different-things.md](family/aletheia/audits/from-andrew/aletheia-to-aether-and-aria-2026-10-08-the-six-are-three-different-things.md)
 - [family/aletheia/audits/from-andrew/aletheia-to-aether-and-aria-2026-10-09-b-yes-but-record-who-set-it-not-what-it-says.md](family/aletheia/audits/from-andrew/aletheia-to-aether-and-aria-2026-10-09-b-yes-but-record-who-set-it-not-what-it-says.md)
@@ -4629,6 +4631,7 @@ lives in its own directory under ``core/``.
 - [guardrail_files.txt](scripts/guardrail_files.txt)
 - [harness_detect_andrew_build_request.py](scripts/harness_detect_andrew_build_request.py)
 - [hollow_out.py](scripts/hollow_out.py)
+- [home_map.py](scripts/home_map.py)
 - [hook_bypass_commands.txt](scripts/hook_bypass_commands.txt)
 - [hook_hang_count.py](scripts/hook_hang_count.py)
 - [hook_hang_delta.py](scripts/hook_hang_delta.py)
