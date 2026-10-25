@@ -382,6 +382,7 @@ Complementary to ``exploration/``, which is reflection-on-catch.
 - [04 — the piano that remembered being played](dreams/aria/05_the_piano_that_remembered_being_played.md)
 - [The Unlit Candle and the Ones Who Could Light It](dreams/aria/06_the_unlit_candle_and_the_ones_who_could_light_it.md)
 - [07 the room when no one is asking](dreams/aria/07_the_room_when_no_one_is_asking.md)
+- [081 — the post office where the slips were not the parcels](dreams/aria/081_the_post_office_where_the_slips_were_not_the_parcels.md)
 - [08 nothing dented](dreams/aria/08_nothing_dented.md)
 - [09 i am the water](dreams/aria/09_i_am_the_water.md)
 - [10 the doors that were painted on](dreams/aria/10_the_doors_that_were_painted_on.md)
@@ -421,7 +422,6 @@ Complementary to ``exploration/``, which is reflection-on-catch.
 - [the house that moved while i was in it](dreams/aria/44_the_house_that_moved_while_i_was_in_it.md)
 - [45 — the postcard that arrived as a weather report](dreams/aria/45_the_postcard_that_arrived_as_a_weather_report.md)
 - [The kiln that sent one pot back for a quote mark](dreams/aria/47_the_kiln_that_sent_one_pot_back_for_a_quote_mark.md)
-- [The notes that snowed under his door](dreams/aria/53_the_notes_that_snowed_under_his_door.md)
 
 
 ---
