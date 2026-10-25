@@ -27,6 +27,8 @@ RETOLD = [
 ]
 
 REAL = [
+    # Aether's sixth miss: a reading verb after "I" is mine, not a retelling of someone else.
+    "I read this: should I push?",
     "Do you want the long version, or the short one?",
     "Should I keep going?",
     "Would it be better to wait until morning?",
