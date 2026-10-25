@@ -139,7 +139,10 @@ def test_the_floor_surfaces_the_right_moment_and_stays_quiet_on_an_ordinary_day(
 
     ok, why = light_embedder.available()
     if not ok:
-        pytest.skip(f"embedder cannot run here: {why}")
+        pytest.skip(
+            f"embedder cannot run here ({why}): NOT CHECKED is whether the floor finds the right "
+            "moment and stays quiet on ordinary messages; a pass elsewhere says nothing about it here"
+        )
     floor = mlr._SOURCE_THRESHOLDS["moment"]["floor"]
     keys = {k: [_vec(c) for c in v] for k, v in CHUNKS.items()}
 
@@ -147,6 +150,8 @@ def test_the_floor_surfaces_the_right_moment_and_stays_quiet_on_an_ordinary_day(
         q = _vec(message)
         return max(float(q @ c) for k in kinds for c in keys[k])
 
+    # The pairs below share wording with the moments (they echo them); see PARAPHRASES for the
+    # limit this does not cover.
     hits = [kind for kind, msg in SHOULD_SURFACE if best(msg, [kind]) >= floor]
     assert len(hits) == len(SHOULD_SURFACE), "a pair that should surface did not"
     loud = [m for m in SHOULD_STAY_QUIET if best(m, list(keys)) >= floor]

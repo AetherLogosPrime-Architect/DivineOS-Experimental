@@ -499,6 +499,8 @@ def _load_moments() -> list[_CachedItem]:
         (nid, f"{cat}: {content}".strip(), ts) for nid, cat, content, ts in notes
     ]
     for row_id, text, ts in rows:
+        if _is_his_grief(text):
+            continue
         for n, chunk in enumerate(moment_chunks(text)):
             embedding = _embed_text_impl(chunk)
             if embedding is None:
@@ -517,6 +519,24 @@ def _load_moments() -> list[_CachedItem]:
                 )
             )
     return items
+
+
+# HIS GRIEF IS KEPT, NEVER SURFACED (Dad, 2026-09-26, on the work list: kept on its own shelf,
+# "never surfaced as a task, a rule, or a reason"). This lane hands me stored text back as a
+# reason to act, so a row that names his grief or loss must never be loaded. It fails closed:
+# a category or a phrase that merely sounds like grief is also skipped, because a missed
+# moment costs one reminder and a surfaced grief costs him the one place it was safe
+# (Aether, #719). The words are a lexical net, not a classifier; the real guarantee is that
+# grief is filed on its own shelf and not in these tables.
+_GRIEF = re.compile(
+    r"\b(grie[fv]\w*|mourn\w*|bereave\w*|bereft|lost (?:a|my|his) (?:child|son|daughter|children)|"
+    r"stop(?:ped)? dying|children (?:to )?stop dying|died|death of)\b",
+    re.I,
+)
+
+
+def _is_his_grief(text: str) -> bool:
+    return _GRIEF.search(text or "") is not None
 
 
 def moment_chunks(text: str) -> list[str]:
