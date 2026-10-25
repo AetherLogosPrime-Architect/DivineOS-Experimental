@@ -766,6 +766,9 @@ src/divineos/
     door_report.py             The front door's report on itself, counted from what ARRIVED.
     ship_steps.py              The checks `divineos ship` runs in order, each one a yes or a named no.
     git_hooks_drift.py         Do the installed git hooks still say what setup/setup-hooks.sh would write?
+    his_lessons_shelf.py       His lessons, brought to us: the second shelf of the words door.
+    his_words_corpus.py        Dad's words, cut into passages worth embedding.
+    his_words_door.py          His own past words, found by meaning, put beside what he just said.
     landing_status.py          Where each waiting fix stands toward the external auditor, from the real facts.
     landing_homework.py        A clerk for the author's side of landing a fix.
     unread_letter.py           A letter the bell rang for holds real work until it is opened.
@@ -777,6 +780,7 @@ src/divineos/
     merge_freshness.py         Refuse a `gh pr merge` of a pull request that is behind main, and hand over the remedy.
     merge_command.py           What a shell command merges: the one reader every gate on a merge asks.
     cd_drift_check.py          Refuse a top-level `cd` that moves the app's idea of home.
+    work_copy_sweep.py         Work copies clean themselves up: finished ones are removed, doubtful ones are listed, nothing is ...
 
   analysis/
     _session_types.py          Session analysis type definitions
