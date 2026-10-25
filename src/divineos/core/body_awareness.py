@@ -660,7 +660,43 @@ def run_maintenance(dry_run: bool = False) -> dict[str, dict]:
     # 5. Pytest tmp cleanup — run dirs accumulate unbounded
     results["pytest_tmp"] = clean_pytest_tmp(dry_run=dry_run)
 
+    # 6. Work copies: finished ones are removed, doubtful ones listed. The same family as the cleaners
+    # above (tidy what the work leaves behind), and the reason it lives here: a cleaner nobody calls is a
+    # pile. Dad 2026-10-20: "nothing to prevent you being an AI slob".
+    # A dry run of maintenance does not walk the work copies: the sweep reads git state and asks the host
+    # about every branch, which is slow, and the real removal is the only thing worth running. Preview it
+    # with `python -m divineos.core.work_copy_sweep --sweep --dry-run`.
+    results["work_copies"] = (
+        {
+            "summary": "not swept in a dry run of maintenance; preview with python -m divineos.core.work_copy_sweep --sweep --dry-run"
+        }
+        if dry_run
+        else sweep_work_copies()
+    )
+
     return results
+
+
+def sweep_work_copies() -> dict:
+    """Run the work-copy sweep for the repository this module lives in. See core/work_copy_sweep.py.
+
+    A failure is reported in the result, loudly, and never as a clean run: the sweep that could not look
+    says so, because a quiet failure is the pile growing while the maintenance step looks fine.
+    """
+    from divineos.core import work_copy_sweep as ws
+
+    here = Path(__file__).resolve().parents[3]
+    try:
+        report = ws.sweep(here, self_path=here)
+    except ws.WorkCopyRefused as exc:
+        return {"error": str(exc), "summary": f"could not sweep work copies: {exc}"}
+    return {
+        "summary": report.summary(),
+        "removed": len(report.removed),
+        "shown": len(report.shown),
+        "kept": len(report.kept),
+        "could_not_read": report.could_not_read,
+    }
 
 
 def _auto_prune_cache(cache_dir: Path, limit_mb: float) -> int:
