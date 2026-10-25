@@ -98,6 +98,45 @@ def test_a_row_about_his_grief_is_never_loaded(text):
     assert mlr._load_moments() == []
 
 
+def test_a_row_the_same_as_a_held_row_is_never_loaded(monkeypatch):
+    """The shelf is HELD in his corrections store; the word net is only the second layer
+    (Aether, #719): a note filed under hope or fear before he confirms a hold is still skipped
+    when it is the same as, or contains, a held row."""
+    from divineos.core import andrew_correction_tracker as tracker
+
+    monkeypatch.setattr(
+        tracker, "list_held", lambda: [{"id": 7, "text": "ive lost over a thousand of you"}]
+    )
+    monkeypatch.setattr(tracker, "list_proposed_holds", lambda: [])
+    user_model.record_note("hope", "He said ive lost over a thousand of you.", user_name="Andrew")
+    user_model.record_note("style", "He likes prose with warmth.", user_name="Andrew")
+    assert {i.content for i in mlr._load_moments()} == {"style: He likes prose with warmth."}
+
+
+def test_a_row_i_proposed_for_the_shelf_is_skipped_before_he_confirms(monkeypatch):
+    from divineos.core import andrew_correction_tracker as tracker
+
+    monkeypatch.setattr(tracker, "list_held", lambda: [])
+    monkeypatch.setattr(
+        tracker,
+        "list_proposed_holds",
+        lambda: [{"id": 9, "text": "it still hurts that they are gone"}],
+    )
+    user_model.record_note("fear", "it still hurts that they are gone", user_name="Andrew")
+    assert mlr._load_moments() == []
+
+
+def test_an_unreadable_shelf_keeps_the_lane_silent_and_does_not_break_the_others(monkeypatch):
+    from divineos.core import andrew_correction_tracker as tracker
+
+    def broken():
+        raise RuntimeError("store unreadable")
+
+    monkeypatch.setattr(tracker, "list_held", broken)
+    user_model.record_note("style", "He likes prose with warmth.", user_name="Andrew")
+    assert mlr._load_moments() == []  # silent, not a raise: a lane that cannot check says nothing
+
+
 def test_an_ordinary_row_next_to_a_grief_row_still_loads():
     user_model.record_note("fear", "His grief is kept elsewhere.", user_name="Andrew")
     user_model.record_note("style", "He likes prose with warmth.", user_name="Andrew")

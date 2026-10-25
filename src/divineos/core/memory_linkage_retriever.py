@@ -498,12 +498,19 @@ def _load_moments() -> list[_CachedItem]:
     rows = [(mid, f"{desc} {sig}".strip(), ts) for mid, desc, sig, ts in moments] + [
         (nid, f"{cat}: {content}".strip(), ts) for nid, cat, content, ts in notes
     ]
+    try:
+        held = _held_grief()
+    except Exception:  # noqa: BLE001 - an unreadable shelf is not a clear shelf: this lane stays silent
+        return []
+    floor = _SOURCE_THRESHOLDS["moment"]["floor"]
     for row_id, text, ts in rows:
-        if _is_his_grief(text):
+        if _is_his_grief(text) or any(h in text or text in h for h, _v in held):
             continue
         for n, chunk in enumerate(moment_chunks(text)):
             embedding = _embed_text_impl(chunk)
             if embedding is None:
+                continue
+            if any(_cosine(embedding, hv) >= floor for _h, hv in held):
                 continue
             items.append(
                 _CachedItem(
@@ -537,6 +544,26 @@ _GRIEF = re.compile(
 
 def _is_his_grief(text: str) -> bool:
     return _GRIEF.search(text or "") is not None
+
+
+def _held_grief() -> list[tuple[str, Any]]:
+    """(text, vector) for every row on his grief shelf: HELD in his corrections store, and the
+    rows I have proposed for it that await his word (Aether, #719). A moment or note that is
+    the same as, or within this lane's own floor of, one of them is never loaded. Skipping too
+    much only makes the lane quieter; missing one hands his grief back to him as a reason. A
+    shelf that cannot be read is not a clear shelf, so an unreadable one raises here and the
+    caller keeps THIS lane silent (the other lanes are unaffected)."""
+    from divineos.core import andrew_correction_tracker as tracker
+
+    out: list[tuple[str, Any]] = []
+    for row in tracker.list_held() + tracker.list_proposed_holds():
+        text = str(row.get("text") or "").strip()
+        if not text:
+            continue
+        vec = _embed_text_impl(text)
+        if vec is not None:
+            out.append((text, vec))
+    return out
 
 
 def moment_chunks(text: str) -> list[str]:
