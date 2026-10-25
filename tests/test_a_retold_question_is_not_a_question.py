@@ -27,8 +27,6 @@ RETOLD = [
 ]
 
 REAL = [
-    # Aether's sixth miss: a reading verb after "I" is mine, not a retelling of someone else.
-    "I read this: should I push?",
     "Do you want the long version, or the short one?",
     "Should I keep going?",
     "Would it be better to wait until morning?",
@@ -55,6 +53,8 @@ NAMED_MISSES = [
     "Aria wondered, what was the last clue that surprised him?",
     "Aether asked, is the coffee done yet?",
     "Aria asked, shall we start the day together?",
+    # Aether's sixth: skipped by the older colon rule ("I ... read ... :"), not by the retelling rule.
+    "I read this: should I push?",
 ]
 
 
