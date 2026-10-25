@@ -518,6 +518,30 @@ def _is_artifact_filing(cmd: str) -> bool:
     # vacuous pass is the failing-in-the-permitting-direction shape again.
     if not acts:
         return False
+
+    # A CONFIRMS FILED IN HIS NAME STILL OWES THE PAPERWORK (Aether's question on this
+    # change, 2026-10-24). Filing a finding records what someone said; filing a CONFIRMS
+    # with --actor user puts words in Dad's voice, and the walk that used to come first was
+    # the only deliberate pause on that path. The one check that his quoted words were
+    # really typed by him sits in file-confirm --andrew-said, not in audit submit, so
+    # until audit submit runs it too this pause stays. Actor and title are matched
+    # TOGETHER: the title alone is easy to phrase around, the actor alone would stop
+    # freeing his plain findings. No double quotes in here: the program is a quoted arg.
+    def _is_confirms_in_his_name(seg):
+        if seg[:3] != ['divineos', 'audit', 'submit']:
+            return False
+        who = ''
+        for position, token in enumerate(seg):
+            if token == '--actor' and position + 1 < len(seg):
+                who = seg[position + 1]
+            elif token.startswith('--actor='):
+                who = token.split('=', 1)[1]
+        if who != 'user':
+            return False
+        return any(token.strip().lower().startswith('confirms') for token in seg[3:])
+
+    if any(_is_confirms_in_his_name(seg) for seg in acts):
+        return False
     return all(' '.join(seg).startswith(_ARTIFACT_FILING_COMMANDS) for seg in acts)
 
 

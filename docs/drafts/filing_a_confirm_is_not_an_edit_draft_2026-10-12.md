@@ -22,6 +22,12 @@ The shared shell list that nineteen gates read already carries `audit submit-rou
 
 A test that lifts the build gate's real list and asserts each of the three filing commands is on it, with a control that an ordinary substrate edit command is not.
 
+## The narrowing (2026-10-24, from Aether's question while reading this change)
+
+A CONFIRMS filed with `--actor user` puts words in Dad's voice, and the council paperwork that used to come first was the only deliberate pause on that path. The check that his quoted words were really typed by him lives in `divineos file-confirm --andrew-said` (`his_words_were_typed`), not in `audit submit`; I grepped the audit command and its store for a corpus or typed-words check and found none, and I did not read the merge gate or CI. So this change no longer frees that one shape: a title that starts with CONFIRMS filed with actor `user` still owes the paperwork. Actor and title are matched together, because a title alone is easy to phrase around and an actor alone would stop freeing his plain findings. A relayed Aletheia confirm, and a plain finding by `user`, stay freed. Tests, red first: four spellings of a user-actor CONFIRMS must still owe it; controls that a relayed confirm and his plain findings do not.
+
+**Owed, named here so it is not forgotten:** make `audit submit` with actor `user` and a CONFIRMS title run `his_words_were_typed` and refuse unless the words match something he typed. That is the real lock; the narrowing only keeps the old pause until it exists. It is its own piece.
+
 ## Falsifier
 
-A filing command in the merge path prints "build-flow BLOCKED" again, or the new entries let a command through that is not one of these three.
+A filing command in the merge path prints "build-flow BLOCKED" again, or the new entries let a command through that is not one of these three, or a CONFIRMS in his name passes without the paperwork.
