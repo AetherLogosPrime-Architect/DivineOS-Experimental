@@ -58,6 +58,11 @@ BRING = frozenset(
 FLOOR = 0.48
 LOG = LESSONS_DIR / "lesson_shelf_log.jsonl"  # every fire, for the review (Beer)
 SHOW = 2
+# What he taught one of us the other may use (Dad 2026-10-25: "there is no lesson taught to Aether
+# that you cannot use"). Keyed on the two family names, never on "anything not mine", so a value
+# added later stays out until someone chooses it; Aletheia's lessons and anything relayed never
+# cross (Aether counted the index: aether 4,349, aria 2,649, both 1,450, aletheia 5, all relayed).
+FAMILY = frozenset({"aria", "aether"})
 
 
 @dataclass(frozen=True)
@@ -127,6 +132,14 @@ def load_lessons(verified: Path = VERIFIED, reread: Path = REREAD) -> list[Lesso
             seen.add(key)
             unique.append(les)
     return unique
+
+
+def meant_for(les: Lesson, me: str) -> bool:
+    """May this seat be brought this lesson. Relayed never; own seat or both always; the other
+    family seat's lessons too, because they were taught to the same house."""
+    if les.relayed:
+        return False
+    return les.for_ in (me, "both") or (me in FAMILY and les.for_ in FAMILY)
 
 
 def _stamp(verified: Path, reread: Path) -> str:
@@ -204,8 +217,9 @@ def bring(
         if s < FLOOR:
             break
         les = items[int(i)]
-        # Only his lessons for this seat, and never one he wrote to someone else.
-        if les.for_ not in (me, "both") or les.relayed:
+        # His lessons for this seat or for both, and the other family seat's too; never one he
+        # wrote to someone else, and never one relayed.
+        if not meant_for(les, me):
             continue
         if door._is_this_message(les.words, message) or les.line in shown:
             continue
@@ -225,7 +239,12 @@ def _log(message: str, me: str, brought: list[Brought], why: str, log: Path) -> 
         "message": door._squash(message)[:200],
         "why_not": why,
         "brought": [
-            {"score": round(b.score, 3), "day": b.lesson.day, "line": b.lesson.line}
+            {
+                "score": round(b.score, 3),
+                "day": b.lesson.day,
+                "line": b.lesson.line,
+                "for": b.lesson.for_,  # so a review can count lessons taught to the other seat
+            }
             for b in brought
         ],
     }
@@ -253,7 +272,10 @@ def surface(
     for b in brought:
         les = b.lesson
         lines.append(f'- {les.day}: "{les.words}"')
-        lines.append(f"  ({les.kind}; read as: {les.line})")
+        # His passage is never edited. Only the label says whom it was taught to, so a sentence
+        # he wrote to the other seat cannot be mistaken for one he wrote to this one (Aether).
+        taught = "" if les.for_ in (me, "both") else f"taught to {les.for_}, yours to use; "
+        lines.append(f"  ({taught}{les.kind}; read as: {les.line})")
     lines.append("")
     return "\n".join(lines) + "\n"
 
