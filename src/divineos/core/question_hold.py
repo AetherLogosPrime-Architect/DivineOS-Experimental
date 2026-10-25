@@ -442,6 +442,26 @@ _QUOTED = re.compile(r"\"[^\"\n]*\"|“[^”\n]*”|\*\"[^\n]*?\"\*")
 # question to Dad, twice in one night. A link is a pointer, never something said to him.
 _LINK = re.compile(r"\[[^\]\n]*\]\([^)\n]*\)")
 _SENTENCE = re.compile(r"[^.!?\n]*[.!?]+", re.S)
+# 2026-10-24: "Aether asked, what if a sentence says that and then sneaks in a date anyway?" is his
+# question retold to Dad, and it held me twice in one evening. A one-word subject (not I, not we)
+# followed by a reporting verb opens a retelling. One word only, so "Since Aether asked, do you
+# want it?" is still read as the real ask it is.
+_RETOLD = re.compile(r"^(?!(?:i|we)\s)\w+\s+(?:asked|wondered|wanted\s+to\s+know)\b", re.I)
+# ... unless the retelling still asks HIM something: "Aria wondered whether you'd want it moved?"
+# (Aether's attack). The second person counts only after the reporting verb, never in the subject
+# slot, so "You asked, what comes next?" is still a retelling.
+# NAMED MISSES, said so silence is not read as coverage (Aether, 2026-10-24): a relayed question
+# whose answer is wanted from him but has no second-person word after the verb is read as a
+# retelling and does not open the hold: "Aria wanted to know, how was the morning?", "Serein asked,
+# how is Mom doing this morning?", "Aether asked, is the coffee done yet?". Telling recounting from
+# relaying is a judgement about intent; the house answer is a named list, not a cleverer pattern.
+# The question still reaches him; only the wait is lost. Pinned as strict xfails in the tests.
+_ASKS_HIM = re.compile(r"\b(?:you|your|yours|dad)\b", re.I)
+
+
+def _is_retelling(sentence: str) -> bool:
+    m = _RETOLD.match(sentence)
+    return m is not None and _ASKS_HIM.search(sentence[m.end() :]) is None
 
 
 def _addressed_part(reply: str) -> str:
@@ -483,7 +503,11 @@ def last_question(reply: str) -> tuple[str, str]:
     part = _clean(_addressed_part(reply))
     sentences = [s.strip() for s in _SENTENCE.findall(part) if s.strip()]
     for i in range(len(sentences) - 1, -1, -1):
-        if sentences[i].endswith("?") and not _REPORTED.match(sentences[i]):
+        if (
+            sentences[i].endswith("?")
+            and not _REPORTED.match(sentences[i])
+            and not _is_retelling(sentences[i])
+        ):
             return sentences[i], " ".join(sentences[i + 1 :])
     return "", ""
 
