@@ -40,3 +40,56 @@ def test_grep_joins_the_viewers_and_the_write_capable_filters_stay_out():
     assert "grep" in _INERT_HEADS
     assert "sed" not in _INERT_HEADS
     assert "awk" not in _INERT_HEADS
+
+
+# Aletheia's hold on #718 (2026-10-24): a viewer is inert only while it writes nothing. Before this
+# change `| grep x > out.txt` (and `echo x > src/...`) was dropped WHOLE, redirect included, so the
+# write was invisible to every gate; adding grep to the viewers opened it wider for exactly the
+# commands that end in a filter. A redirect to anywhere but /dev/null makes the segment act.
+
+
+def test_a_viewer_with_a_redirect_to_a_file_is_an_acting_segment():
+    assert acting_segments("divineos briefing | grep x > out.txt") == [
+        "divineos briefing",
+        "grep x > out.txt",
+    ]
+    assert acting_segments("divineos briefing | grep x >> out.txt") == [
+        "divineos briefing",
+        "grep x >> out.txt",
+    ]
+
+
+def test_a_redirect_over_source_is_never_hidden_behind_an_inert_head():
+    assert acting_segments("divineos briefing | grep x > src/divineos/core/ledger.py") == [
+        "divineos briefing",
+        "grep x > src/divineos/core/ledger.py",
+    ]
+    assert acting_segments("echo x > .claude/settings.json && divineos briefing") == [
+        "echo x > .claude/settings.json",
+        "divineos briefing",
+    ]
+    assert acting_segments("divineos briefing | cat > notes.txt") == [
+        "divineos briefing",
+        "cat > notes.txt",
+    ]
+
+
+def test_every_spelling_of_a_write_redirect_counts():
+    # `&>` is split on its ampersand by the segment reader, so what must hold is that the write target
+    # shows in some acting segment, not that the segment is spelled one way.
+    for spelling in ("&> out.txt", ">| out.txt", "2> err.txt", "&>> out.txt"):
+        got = acting_segments(f"divineos briefing | grep x {spelling}")
+        assert got is not None and any(t in seg for seg in got for t in ("out.txt", "err.txt")), (
+            spelling
+        )
+
+
+def test_control_a_redirect_to_dev_null_leaves_the_filter_inert():
+    assert acting_segments("divineos briefing 2>&1 | grep -v noise 2>/dev/null") == [
+        "divineos briefing 2>&1"
+    ]
+    assert acting_segments("divineos briefing | grep x > /dev/null") == ["divineos briefing"]
+
+
+def test_control_a_filter_with_no_redirect_stays_inert():
+    assert acting_segments("divineos briefing | grep x | head -5") == ["divineos briefing"]

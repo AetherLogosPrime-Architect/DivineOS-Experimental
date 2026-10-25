@@ -491,6 +491,18 @@ class TestAGrepFilterDoesNotDisarmAnExit:
     def test_the_control_ordinary_work_still_refuses(self):
         assert not _is_remedy(f"{_GIT} commit -qm x")
 
+    def test_a_filter_that_writes_a_file_does_not_make_an_exit_pass(self):
+        """Aletheia's hold on #718: grep as an inert head must not open a write past every gate."""
+        assert not _is_remedy('divineos learn "x" | grep y > out.txt')
+        assert not _is_remedy('divineos learn "x" | grep y >> out.txt')
+        assert not _is_remedy('divineos learn "x" | grep y > src/divineos/core/ledger.py')
+        assert not _is_remedy('divineos learn "x" | cat > notes.txt')
+        assert not _is_remedy('echo x > .claude/settings.json && divineos learn "x"')
+
+    def test_the_control_a_filter_that_writes_nowhere_still_passes(self):
+        assert _is_remedy('divineos learn "x" 2>&1 | grep -v noise 2>/dev/null | tail -3')
+        assert _is_remedy('divineos learn "x" | grep y > /dev/null')
+
     def test_when_a_stray_piece_disqualifies_an_exit_the_refusal_names_that_piece(self):
         """The cost was never the refusal, it was that it named a gate and never the pipe.
 

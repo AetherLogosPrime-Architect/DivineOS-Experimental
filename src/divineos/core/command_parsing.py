@@ -603,10 +603,22 @@ def acting_segments(bash_command: str) -> list[str] | None:
             # Nothing but assignments or prefixes: it sets up, it does not act.
             continue
         head = stripped.split()[0].lower()
-        if head in _INERT_HEADS:
+        if head in _INERT_HEADS and not _writes_a_file(stripped):
             continue
         acting.append(stripped)
     return acting
+
+
+def _writes_a_file(segment: str) -> bool:
+    """True when the segment redirects output to anything but /dev/null.
+
+    An inert head stays inert only while it writes nothing. Before this check the whole segment was
+    dropped, redirect included, so `| grep x > src/...` and `echo x > .claude/settings.json` were
+    invisible to every gate (Aletheia's hold on #718, 2026-10-24). Not knowing is not a pass: a
+    target built from a variable is a write this cannot read, and that is the same limit
+    shell_write_targets already states.
+    """
+    return any(t != "/dev/null" for t in shell_write_targets(segment))
 
 
 # A segment that could execute something nobody inspected before the remedy

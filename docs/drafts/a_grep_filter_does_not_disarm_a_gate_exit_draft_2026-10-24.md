@@ -30,3 +30,11 @@ Tests: `TestAGrepFilterDoesNotDisarmAnExit` in `tests/test_remedy_allowlist.py` 
 ## Falsifier, counted in uses
 
 If, over the next 30 times a recording command ends in a grep filter, one is refused as ordinary work by the council gate, this did not fix it.
+
+## Aletheia's hold, and what closed it (2026-10-24, evening)
+
+She ran the real remedy check and found that `divineos briefing | grep x > out.txt` passed as an exit, and so would `> src/divineos/core/ledger.py`. Before this PR any `| grep` made the whole line unrecognisable, so that write was gated; adding grep to the viewers is what opened it. A fix must not open a door even for a while.
+
+The cause was one level lower than grep: `acting_segments` dropped an inert segment WHOLE, redirect included, so `echo x > .claude/settings.json && divineos briefing` also showed the gates only `divineos briefing`. Now an inert head stays inert only while it writes nothing: a redirect to anywhere but `/dev/null` makes the segment act (`_writes_a_file`, reading the same write-target list the rest of the file already uses). Red tests first (a file, `>>`, source path, `cat >`, `echo >`, every spelling), controls that `2>/dev/null`, `> /dev/null` and a plain filter still pass; the shell library is driven on real payloads too.
+
+Still open, named: a path-typed filter (`/usr/bin/grep`) is an ordinary command and so refuses an exit, the cautious side, left as she asked; a redirect target built from a variable cannot be read, the same limit `shell_write_targets` states.
