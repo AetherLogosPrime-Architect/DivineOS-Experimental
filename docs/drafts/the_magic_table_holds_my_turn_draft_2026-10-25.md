@@ -44,6 +44,7 @@ It does not play for me. Whether to switch off the house's building-work checks 
 
 - `uv run` start-up cost when the hook calls the bridge is unmeasured; it needs a live game (start the table: server, the Momir client, then both bridges, in that order). Fallback if slow: call `mcp_call.py` with the venv python directly.
 - Idle lift is 300 s per the config; whether that is what kicks a seat is not proven.
+- **What the log cursor counts is unknown.** Aria's recorded reply (`tests/fixtures/magic_bridge_replies.json`, branch `aria/magic-bridge-recorded-replies`) shows `total_length` 544 is characters, but `cursor: 30` is neither the 544 characters nor the 16 lines. The helper must not build "lines since my stored cursor" on a guess. It needs one real call in a live game (read the log, make one move, read it again, see what the cursor did) before part 2 is designed.
 
 ## How we would know it failed
 
