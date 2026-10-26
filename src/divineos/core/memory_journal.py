@@ -112,7 +112,7 @@ def journal_save(
         page = _write_page(entry_id, content, created)
     try:
         _insert_row(entry_id, content, created, context, tags, linked_knowledge_id)
-    except Exception:
+    except Exception:  # noqa: BLE001 - any failure must remove the page, and is re-raised below
         if page is not None:
             page.unlink(missing_ok=True)
         raise
