@@ -12,8 +12,9 @@ He sends a message, a timer counts up, and "thinking" appears after 17-20 second
 - `settings.json` registers three prompt hooks, run one after another: `front-door.sh keep`, `question_hold.py`, `dads_table.py`.
 - `dads_table.py` runs 33 child helpers in parallel and waits for the slowest (shared budget 80s). Sum of all children run alone: 46s.
 - Slowest: `his-words-door-surface.sh` ~11.9s, `memory-link-surface.sh` ~3.3s, `ear-surface` 1.5s, `doorbell` 1.2s. About 20 more print nothing on most turns and cost 0.55-0.9s each, which is bash plus Python starting.
-- The 11.9s is not the searching. Importing `sentence_transformers` is 18-20s on a busy machine (10.7s with TensorFlow switched off by `USE_TF=0 TRANSFORMERS_NO_TF=1 USE_FLAX=0 TRANSFORMERS_NO_FLAX=1`; `tf_loaded` was True without them and False with them, and TensorFlow is never used). Loading the weights is 0.25s; the first encode 0.35s; the second encode 0.003s.
-- The helper starts Python four times (index build, words search, lessons build, lessons search) and the two searches each import the library again.
+- **CORRECTED the same morning (my own wrong-subject error, found by the catalogue pass above):** my first probe imported `sentence_transformers` directly, without importing the `divineos` package. The package's `__init__.py` already sets `USE_TF=0` before anything can import it (put there 2026-10-12, with `tests/test_stop_loading_tensorflow_by_accident.py`), so the real helpers never load TensorFlow. The "10.7 vs 18-20s, TensorFlow off" finding is true of my probe and false of the helpers; I told Dad otherwise and have corrected it with him. Slice 1 is already on main and is dropped.
+- What the real helpers cost, run through the real module path: index build 10.6s (a new passage of his was waiting to be embedded), words search 8.3s, lessons build 0.33s (nothing to embed, no model), lessons search 8.4s. About 8s of each is importing the library (torch); loading the weights is 0.25s, the first encode 0.35s, the second encode 0.003s. Three of those four steps start a fresh Python and pay the import: roughly 26s in a row on a message with a new passage.
+- **The measure from his seat, found in the app's own record (2026-10-26):** every hook's duration is in the session transcript (`attachment` records of type `hook_success`, field `durationMs`). Over the 23 prompts of this window `dads_table.py` took a median of 34.7s, max 50.2s (775s in total). That is his wait, and it is the table, as he felt it (17-20 usual, up to 50). The 33 children running at once make it larger than my solo sum of the slowest ones. `question_hold.py` is 0.4s. Other taxes found in the same record, on my tool calls, not his wait: `andrew-correction-attestation.sh` before Bash median 2.1s x 57, `doorbell-post-tool-use.sh` 1.2s x 63, `doorbell-stop.sh` 2.9s x 18, `unlanded-push-must-not-close-quiet.sh` 1.5s x 32; two Stop hooks and two PreToolUse hooks were cancelled at their time limits.
 - `his-words-door-surface.sh` appears twice in the LIVE copy's `dads_table_children.json` (the second with `"timeout": 60`) and once on main. The live copy got it from my catch-up commit `c0b7b9299`; main is right. Catching live up with main removes it. Mine to own, not "pre-existing".
 - NOT measured: the whole wait from his seat (his send to my first token), including the two sequential hooks before the table and the app's own time. Until that is measured the sentence "this is your wait" is wider than the instrument.
 
@@ -79,9 +80,9 @@ I see a timer that tells Dad nothing about why. He cannot tell "the house is slo
 ## Order of work (each slice: red tests first, then measured)
 
 0. Instrument: per-child seconds into the tally; a script that reads the transcript for send-to-first-token. Baseline recorded before any change.
-1. Switch TensorFlow and Flax off for every helper that imports the library.
-2. Build the index off the critical path.
-3. One Python process for the lookups: words, lessons, memory link share one import.
+1. (Dropped: TensorFlow is already off for the real helpers, see the correction above.)
+2. Build the index off the critical path (his current message is excluded from its own results, so it need not be embedded before this turn's search).
+3. One Python process for the lookups: index build, words search, lessons build and search, and the memory link share ONE library import (3 imports down to 1; about 26s down to about 8s solo). This is now the biggest lever.
 4. Fold ONLY the pure, fast, interruptible quiet helpers (narrowed by walk 2); the slow ones stay in the parallel table; failure-payload and order-swap equality tests.
 5. A resident service ONLY if 0-4 leave the wait above target.
 
