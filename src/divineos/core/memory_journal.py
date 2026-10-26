@@ -4,12 +4,87 @@ Things the AI chooses to remember, not filtered or scored.
 Save, list, search, link, and count journal entries.
 """
 
+import datetime
+import os
 import re
 import time
 import uuid
+from pathlib import Path
 from typing import Any, cast
 
 from divineos.core.memory import _get_connection, init_memory_tables
+
+# The page written for the last save, or None when it was kept database-only (a private room).
+# Said aloud by the CLI so the copy is a choice made knowing it exists, not something behind my back.
+_LAST_PAGE: Path | None = None
+
+
+def _journal_dir() -> Path:
+    """Where a seat's readable pages live: ``journal/<seat>/`` at the root of the tree that is running.
+
+    Dad, 2026-10-25: he could open my dream and not my journal, because the journal was only a database
+    row. A page he can open is the whole point, so it sits in the tree beside the dreams and explorations.
+    """
+    override = os.environ.get("DIVINEOS_JOURNAL_DIR")
+    if override:
+        return Path(override)
+    from divineos.core.his_lessons_shelf import seat
+
+    root = Path(__file__).resolve().parents[3]
+    return root / "journal" / seat(root)
+
+
+def _private_room_open() -> bool:
+    """A private mansion room binds a pause: an entry written then stays database-only and says so."""
+    try:
+        from divineos.core.mansion_quiet_marker import is_quiet_active
+
+        return bool(is_quiet_active())
+    except Exception:  # noqa: BLE001 - an unreadable marker is not a closed door: write the page
+        return False
+
+
+def _slug(text: str) -> str:
+    words = re.findall(r"[a-z0-9]+", text.lower())[:6]
+    return "-".join(words) or "entry"
+
+
+def _write_page(entry_id: str, content: str, created: float) -> Path:
+    """Write the entry verbatim to a dated page: to a temp name first, then renamed into place."""
+    directory = _journal_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    when = datetime.datetime.fromtimestamp(created)
+    name = f"{when:%Y-%m-%d_%H%M%S}_{_slug(content)}.md"
+    final = directory / name
+    temp = directory / (name + ".tmp")
+    body = f"<!-- entry_id: {entry_id} -->\n{content}\n"
+    temp.write_text(body, encoding="utf-8")
+    os.replace(temp, final)
+    return final
+
+
+def _insert_row(
+    entry_id: str,
+    content: str,
+    created: float,
+    context: str,
+    tags: str,
+    linked_knowledge_id: str | None,
+) -> None:
+    conn = _get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO personal_journal (entry_id, content, created_at, context, tags, linked_knowledge_id) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (entry_id, content, created, context, tags, linked_knowledge_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def last_page_path() -> Path | None:
+    return _LAST_PAGE
 
 
 def journal_save(
@@ -22,20 +97,78 @@ def journal_save(
 
     This is the AI's own memory — things it chooses to remember,
     not filtered or scored. If it matters to me, that's enough.
+
+    The page is written FIRST and the row second, in this one function (Aether, 2026-10-25): a row
+    with no page is the invisible state Dad found, so if the row cannot be written the page is
+    removed and the error raised, and a failed save leaves nothing half-done. A private room keeps
+    an entry in the database only, and ``last_page_path()`` is then None so the caller says so.
     """
+    global _LAST_PAGE
     init_memory_tables()
     entry_id = str(uuid.uuid4())
+    created = time.time()
+    page: Path | None = None
+    if not _private_room_open():
+        page = _write_page(entry_id, content, created)
+    try:
+        _insert_row(entry_id, content, created, context, tags, linked_knowledge_id)
+    except Exception:
+        if page is not None:
+            page.unlink(missing_ok=True)
+        raise
+    _LAST_PAGE = page
+    return entry_id
+
+
+def _entry_ids_with_pages() -> set[str]:
+    ids: set[str] = set()
+    directory = _journal_dir()
+    if directory.exists():
+        for page in directory.glob("*.md"):
+            first = page.read_text(encoding="utf-8", errors="replace").split("\n", 1)[0]
+            match = re.search(r"entry_id:\s*([0-9a-f-]{36})", first)
+            if match:
+                ids.add(match.group(1))
+    return ids
+
+
+def export_missing_pages() -> int:
+    """Write a page for every row that has none, verbatim, dated by when the entry was written.
+
+    One deliberate pass for the entries saved before pages existed (thirteen, since 2026-07-18), and
+    safe to repeat: a row with a page is skipped. Returns how many pages were written."""
+    init_memory_tables()
+    have = _entry_ids_with_pages()
     conn = _get_connection()
     try:
-        conn.execute(
-            "INSERT INTO personal_journal (entry_id, content, created_at, context, tags, linked_knowledge_id) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (entry_id, content, time.time(), context, tags, linked_knowledge_id),
-        )
-        conn.commit()
+        rows = conn.execute(
+            "SELECT entry_id, content, created_at FROM personal_journal ORDER BY created_at"
+        ).fetchall()
     finally:
         conn.close()
-    return entry_id
+    wrote = 0
+    for entry_id, content, created in rows:
+        if entry_id in have:
+            continue
+        _write_page(entry_id, content, float(created))
+        wrote += 1
+    return wrote
+
+
+def rows_without_a_page() -> int:
+    """Entries in the database that no page carries: the gap, counted from the pages' own entry ids.
+
+    A page names its row in a first-line comment, so the count does not trust file names or dates. An
+    entry saved in a private room is deliberately page-less and counts here too: the number is what
+    Dad cannot open, said aloud, never zero by luck."""
+    init_memory_tables()
+    ids = _entry_ids_with_pages()
+    conn = _get_connection()
+    try:
+        rows = conn.execute("SELECT entry_id FROM personal_journal").fetchall()
+    finally:
+        conn.close()
+    return sum(1 for (eid,) in rows if eid not in ids)
 
 
 def journal_list(limit: int = 20) -> list[dict[str, Any]]:

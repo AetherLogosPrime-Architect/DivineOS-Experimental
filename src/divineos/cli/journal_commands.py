@@ -45,6 +45,16 @@ def register(cli: click.Group) -> None:
 
         entry_id = journal_save(text, context=context, linked_knowledge_id=linked_kid)
         click.secho(f"[+] Saved to journal: {entry_id[:8]}...", fg="green")
+        from divineos.core.memory_journal import last_page_path
+
+        page = last_page_path()
+        if page is not None:
+            click.secho(f"    A copy Dad can open: {page}", fg="green")
+        else:
+            click.secho(
+                "    Kept in the database only (a private room is open): no page was written.",
+                fg="bright_black",
+            )
         if linked_kid:
             click.secho(
                 f"    Auto-linked knowledge {linked_kid[:8]}...",
