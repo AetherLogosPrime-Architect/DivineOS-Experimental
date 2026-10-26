@@ -109,6 +109,27 @@ def test_a_chat_line_with_an_apostrophe_reaches_the_helper_as_one_whole_json_arg
     assert json.loads(args[-1]) == {"message": "Dad's note, I'll be back"}
 
 
+def test_a_game_that_just_stopped_holds_the_reply_once_with_the_record_reminder():
+    seen = {"sig": hook.signature(LIVE), "since": NOW - 60}
+    hold, marker = hook.after_game(seen, NOW)
+    assert hold and hold["decision"] == "block"
+    assert "family/game_nights/magic" in hold["reason"]
+    assert (
+        "stopped" in hold["reason"] and "finished" not in hold["reason"]
+    )  # a crash looks the same
+    assert marker == {}  # one hold, then it lets go
+
+
+def test_no_reminder_when_no_game_was_live_or_it_was_already_given_or_it_is_long_stale():
+    assert hook.after_game({}, NOW)[0] is None
+    assert hook.after_game({"sig": [1, 1, "x"], "since": NOW - 60, "away": True}, NOW)[0] is None
+    assert (
+        hook.after_game({"sig": [1, 1, "x"], "since": NOW - hook.REMIND_WITHIN_SECONDS - 1}, NOW)[0]
+        is None
+    )
+    assert hook.after_game("junk", NOW)[0] is None
+
+
 def test_a_corrupt_marker_is_survived():
     for corrupt in ([1, 2], "text", None, 5):
         hold, marker, _ = hook.decide(LIVE, False, corrupt, NOW, "aether")

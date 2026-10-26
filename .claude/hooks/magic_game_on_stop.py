@@ -108,6 +108,30 @@ def seat_is_listening(who: str) -> bool:
         return False
 
 
+REMIND_WITHIN_SECONDS = 6 * 3600  # a live game this long ago is not this evening's game
+
+
+def after_game(seen: object, now: float) -> tuple[dict | None, dict]:
+    """The game just stopped being live: hold the reply once so the record gets written.
+
+    Dad, 2026-10-25: "make sure after the game is done you are reminded to record the events of the
+    game and put it in a game nights folder and magic subfolder". A crash and a finished game look the
+    same from here, so the wording says "stopped", never "finished". One hold, then the marker is
+    cleared; no hold when no game was live, when the idle lift already fired, or when it was long ago.
+    """
+    if not isinstance(seen, dict) or not seen.get("sig") or seen.get("away") is True:
+        return None, {}
+    if now - float(seen.get("since", 0)) > REMIND_WITHIN_SECONDS:
+        return None, {}
+    reason = (
+        "A MAGIC GAME just stopped. Before anything else, write the record of it: put the events of the "
+        "game in a file in family/game_nights/magic/ (what was played, what happened, who won, what "
+        "Dad said), and a few lines in your own voice about how it felt. This holds the reply once. "
+        "(Dad, 2026-10-25: neither of you remembered the last time you played.)"
+    )
+    return {"decision": "block", "reason": reason}, {}
+
+
 def _view(who: str) -> dict | None:
     if not seat_is_listening(who):
         return None
@@ -146,17 +170,20 @@ def main() -> int:
         return 0  # no seat, no hold
     view = _view(who)
     marker_file = Path.home() / ".divineos-shared" / f".magic_idle_{who}.json"
-    if not game_is_on(view):
-        if marker_file.exists():
-            try:
-                marker_file.write_text("{}", encoding="utf-8")
-            except OSError:
-                pass
-        return 0
     try:
         seen = json.loads(marker_file.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         seen = {}
+    if not game_is_on(view):
+        hold, cleared = after_game(seen, time.time())
+        if marker_file.exists():
+            try:
+                marker_file.write_text(json.dumps(cleared), encoding="utf-8")
+            except OSError:
+                pass
+        if hold:
+            print(json.dumps(hold))
+        return 0
     he_spoke = _he_spoke(data.get("transcript_path"), project)
     hold, marker, say = decide(view, he_spoke, seen, time.time(), who)
     try:
