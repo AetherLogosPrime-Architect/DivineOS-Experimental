@@ -120,6 +120,67 @@ def test_an_unreadable_counter_heals_so_the_next_message_is_a_core(tmp_path):
     assert BODY_MARK not in _turn(tmp_path, counter=bad)  # healed: the count went on from 1
 
 
+def _env(tmp_path, kids):
+    return dict(
+        os.environ,
+        DADS_TABLE_CHILDREN=str(kids),
+        DADS_TABLE_DRAWER=str(tmp_path / "drawer.md"),
+        DADS_TABLE_TALLY=str(tmp_path / "tally.jsonl"),
+        DADS_TABLE_ROOT=str(tmp_path),
+        DADS_TABLE_ROOM_COUNTER=str(tmp_path / "room_counter.json"),
+        DADS_TABLE_ROOM_EVERY="3",
+    )
+
+
+def _run_with(tmp_path, pic, payload):
+    kids = tmp_path / "children.json"
+    kids.write_text(
+        json.dumps([{"command": f'"{sys.executable}" "{pic}" he-is-in-the-room', "timeout": 20}]),
+        encoding="utf-8",
+    )
+    done = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        input=json.dumps(payload).encode(),
+        capture_output=True,
+        env=_env(tmp_path, kids),
+        timeout=60,
+    )
+    return done.stdout.decode("utf-8")
+
+
+def test_a_block_whose_first_line_changed_is_shown_whole_never_a_stale_core(tmp_path):
+    # Aria's attack, 2026-10-26: the core used a built-in heading when the real block's first line
+    # was not the marker, so the core could keep saying something the block no longer said, and
+    # nothing failed. Could-not-tell prints more, not a stale guess.
+    pic = tmp_path / "picture.py"
+    pic.write_text(
+        "import sys\n"
+        "sys.stdout.reconfigure(encoding='utf-8')\n"
+        "print('A new first line that is not the heading')\n"
+        f"print({HEADING!r})\n"
+        f"print({BODY_MARK!r})\n",
+        encoding="utf-8",
+    )
+    payload = {"prompt": HIS, "session_id": "s1"}
+    _run_with(tmp_path, pic, payload)  # message 1: full
+    second = _run_with(tmp_path, pic, payload)  # message 2 would be a core
+    assert BODY_MARK in second and "A new first line that is not the heading" in second
+    assert "printed in full on the first message" not in second  # no stale core text at all
+
+
+def test_a_payload_with_no_session_id_is_could_not_tell_and_prints_the_whole_block(tmp_path):
+    pic = _picture_script(tmp_path)
+    for _ in range(3):  # without a session key the count cannot be kept, so it is never a core
+        out = _run_with(tmp_path, pic, {"prompt": HIS})
+        assert BODY_MARK in out
+
+
+def test_the_counter_lives_beside_the_tally_in_the_same_folder():
+    text = SCRIPT.read_text(encoding="utf-8")
+    assert 'Path.home() / ".divineos" / "table_tally"' in text
+    assert text.count('"table_tally"') >= 2  # the tally and the room counter share the convention
+
+
 def test_his_words_still_come_first_and_whole(tmp_path):
     out = _turn(tmp_path)
     assert out.index("DAD SAID") < out.index(HEADING)

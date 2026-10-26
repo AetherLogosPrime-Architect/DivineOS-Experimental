@@ -436,7 +436,6 @@ def _tally_ready_line() -> str:
 # What this cannot show: that I follow the block better when it arrives rarely. That is a bet,
 # reviewed by his messages, and his verdict stands above it.
 _HIS_TURN = True
-_ROOM_HEADING = "## HE IS IN THE ROOM — Andrew is my father, reading this as I write it."
 _ROOM_COUNTER = Path(
     os.environ.get(
         "DADS_TABLE_ROOM_COUNTER",
@@ -482,14 +481,21 @@ def _room_is_full_this_turn(session: str) -> bool:
 
 
 def _room_for_this_turn(picture: str, payload: bytes) -> str:
+    # Could-not-tell prints MORE, never a stale guess (Aria's attack, 2026-10-26): a payload with
+    # no session id cannot keep a count, and a block whose first line is not the heading cannot
+    # honestly be shrunk to a core that quotes a heading it no longer has.
     try:
-        session = str(json.loads(payload or b"{}").get("session_id") or "unknown")
+        session = str(json.loads(payload or b"{}").get("session_id") or "")
     except ValueError:
-        session = "unknown"
+        session = ""
+    if not session:
+        return picture
+    first = next((ln for ln in picture.splitlines() if ln.strip()), "")
+    if not first.startswith("## HE IS IN THE ROOM"):
+        return picture
     if _room_is_full_this_turn(session):
         return picture
-    first = next((ln for ln in picture.splitlines() if ln.strip()), _ROOM_HEADING)
-    heading = first if first.startswith("## HE IS IN THE ROOM") else _ROOM_HEADING
+    heading = first
     return (
         f"{heading}\n"
         "Plain words, answer first; his words are printed above. Whole page: "
