@@ -613,27 +613,64 @@ def mark_moment(moment_id: str) -> MarkResult:
         return MarkResult(False, f"no such moment: {moment_id}")
     text = f"{row[0]} {row[1]}".strip()
     if _is_his_grief(text):
-        return MarkResult(
-            False, "it reads as grief or loss, which is kept on his shelf and never surfaced"
+        return _refuse(
+            moment_id,
+            "grief-net",
+            "it reads as grief or loss, which is kept on his shelf and never surfaced",
         )
     try:
         held = _held_grief()
     except Exception:  # noqa: BLE001 - an unreadable shelf is not a clear shelf
-        return MarkResult(False, "his grief shelf could not be read, so nothing is marked")
+        return _refuse(
+            moment_id, "shelf-unreadable", "his grief shelf could not be read, so nothing is marked"
+        )
     floor = _SOURCE_THRESHOLDS["moment"]["floor"]
     if any(h in text or text in h for h, _v in held):
-        return MarkResult(False, "it is the same as a row on his held shelf")
+        return _refuse(moment_id, "held-shelf-same", "it is the same as a row on his held shelf")
     probe = _embed_text_impl(text)
     if probe is not None and any(_cosine(probe, hv) >= floor for _h, hv in held):
-        return MarkResult(False, "it sits near a row on his held shelf")
+        return _refuse(moment_id, "held-shelf-near", "it sits near a row on his held shelf")
+    # The trail is written BEFORE the mark, so if it cannot be written nothing is marked: the
+    # safe direction. The flag changes in place, so the ledger is where its history lives.
+    _trail("MOMENT_LANE_MARKED", moment_id)
     _set_surface(moment_id, 1)
     return MarkResult(True)
 
 
 def unmark_moment(moment_id: str) -> None:
     """Take a moment out of the lane at once. Surfacing is reversible: whoever filed a hard day
-    can change their mind about it."""
+    can change their mind about it. The unmark is done first and the trail written after, so a
+    trail that cannot be written never stops a moment coming out of the lane."""
     _set_surface(moment_id, 0)
+    _trail("MOMENT_LANE_UNMARKED", moment_id)
+
+
+_REFUSED = "MOMENT_LANE_MARK_REFUSED"
+
+
+def _trail(kind: str, moment_id: str, why: str = "") -> None:
+    """One ledger event per mark, unmark and refusal: the id and the KIND of reason, never the
+    moment's words. Echoing a row's text into a log is surfacing it (walk-5fa33c17ed13, Watts)."""
+    from divineos.core.ledger import log_event
+
+    payload = {"moment_id": moment_id}
+    if why:
+        payload["kind"] = why
+    log_event(kind, "system", payload)
+
+
+def _refuse(moment_id: str, kind: str, message: str) -> MarkResult:
+    _trail(_REFUSED, moment_id, kind)
+    return MarkResult(False, message)
+
+
+def second_line_refusals() -> int:
+    """How many times the second line has refused a mark. A count that is always zero cannot be
+    told from a net that never fires, so this is shown beside the drawer's state (Beer, walk-
+    5fa33c17ed13); a nonzero count means somebody tried to mark something that reads as loss."""
+    from divineos.core.ledger import get_events
+
+    return len(get_events(limit=10000, event_type=_REFUSED))
 
 
 def _set_surface(moment_id: str, value: int) -> None:

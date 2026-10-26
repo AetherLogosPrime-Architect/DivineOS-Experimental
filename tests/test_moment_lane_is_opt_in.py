@@ -157,3 +157,75 @@ def test_unmarking_takes_the_moment_out_of_the_lane_at_once():
 def test_a_moment_that_does_not_exist_cannot_be_marked():
     out = mlr.mark_moment("moment-nope")
     assert not out.ok and "no such moment" in out.reason
+
+
+# --- the trail and the pain signal (walk-5fa33c17ed13: Lamport, Watts, Beer) -----------------
+#
+# The flag is changed in place, so history lives in the ledger: one event for each mark, unmark
+# and refusal, carrying the moment's id and the KIND of reason and never its words. Echoing a
+# row's text into a log is surfacing it. And the second line counts what it refuses, so a count
+# that is always zero can be told from a net that never fires: the test seeds a row it must refuse.
+
+
+def _events(kind):
+    from divineos.core.ledger import get_events
+
+    return get_events(limit=50, order="desc", event_type=kind)
+
+
+def test_marking_leaves_a_trail_with_the_id_and_no_words():
+    mid = user_model.record_moment(
+        "A good Sunday with the drawing.", "It made him smile.", user_name="Andrew"
+    )
+    assert mlr.mark_moment(mid).ok
+    mine = [e for e in _events("MOMENT_LANE_MARKED") if mid in str(e["payload"])]
+    assert mine, "marking a moment left no event"
+    assert "drawing" not in str(mine[0]["payload"]) and "smile" not in str(mine[0]["payload"])
+
+
+def test_unmarking_leaves_a_trail_too():
+    mid = user_model.record_moment("A good Sunday.", "fine", user_name="Andrew")
+    assert mlr.mark_moment(mid).ok
+    mlr.unmark_moment(mid)
+    assert [e for e in _events("MOMENT_LANE_UNMARKED") if mid in str(e["payload"])]
+
+
+@pytest.mark.parametrize("phrase", MISSED[:3])
+def test_a_refusal_is_counted_and_its_trail_never_holds_the_words(phrase):
+    before = mlr.second_line_refusals()
+    mid = user_model.record_moment(phrase, "a hard one", user_name="Andrew")
+    assert not mlr.mark_moment(mid).ok
+    assert mlr.second_line_refusals() == before + 1, "the net refused and nothing counted it"
+    trail = " ".join(str(e["payload"]) for e in _events("MOMENT_LANE_MARK_REFUSED"))
+    for word in phrase.split():
+        if len(word) > 4:
+            assert word not in trail, f"the refusal trail holds his words: {word!r}"
+
+
+def test_a_refusal_prints_the_kind_of_reason_and_never_the_row(tmp_path):
+    from click.testing import CliRunner
+
+    from divineos.cli import cli
+
+    mid = user_model.record_moment(
+        "the funeral was the worst day of my life", "a hard one", user_name="Andrew"
+    )
+    out = CliRunner().invoke(cli, ["linkage", "mark-moment", mid])
+    assert out.exit_code != 0
+    assert "funeral" not in out.output and "worst day" not in out.output
+    assert "grief" in out.output
+
+
+def test_a_moment_marked_while_harmless_is_dropped_when_it_later_sits_on_his_shelf(monkeypatch):
+    """The second line also runs when the lane loads, so a hold added after marking takes effect."""
+    from divineos.core import andrew_correction_tracker as tracker
+
+    mid = user_model.record_moment(
+        "A good Sunday with the drawing.", "It made him smile.", user_name="Andrew"
+    )
+    assert mlr.mark_moment(mid).ok
+    assert mlr._load_moments()
+    monkeypatch.setattr(tracker, "list_held", lambda: [{"id": 9, "text": "A good Sunday with"}])
+    monkeypatch.setattr(tracker, "list_proposed_holds", lambda: [])
+    mlr._EMBEDDING_CACHE.clear()
+    assert mlr._load_moments() == []

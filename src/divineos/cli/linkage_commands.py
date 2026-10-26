@@ -54,6 +54,11 @@ def register(cli: click.Group) -> None:
         if state.get("drawer_error"):
             raise click.ClickException(f"the drawer could not be read: {state['drawer_error']}")
         click.echo(f"items with no stored vector: {state.get('missing', 0)}")
+        # The second line's pain signal: nonzero means somebody tried to mark something that reads
+        # as loss. Never the words, only the count (walk-5fa33c17ed13).
+        click.echo(
+            f"moment marks refused by the grief guard: {memory_linkage_retriever.second_line_refusals()}"
+        )
 
     @linkage_group.command("mark-moment")
     @click.argument("moment_id")
