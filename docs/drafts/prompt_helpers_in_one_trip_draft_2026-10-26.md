@@ -82,8 +82,20 @@ I see a timer that tells Dad nothing about why. He cannot tell "the house is slo
 1. Switch TensorFlow and Flax off for every helper that imports the library.
 2. Build the index off the critical path.
 3. One Python process for the lookups: words, lessons, memory link share one import.
-4. Fold the quiet helpers (needs its own walk: how many are bash wrappers around one Python call).
+4. Fold ONLY the pure, fast, interruptible quiet helpers (narrowed by walk 2); the slow ones stay in the parallel table; failure-payload and order-swap equality tests.
 5. A resident service ONLY if 0-4 leave the wait above target.
 
+## Walk 2: the plan attacked (Aria's letter, 2026-10-26, plus the lenses turned on my own synthesis)
+
+**Through Hoare and Dijkstra, now with Aria's three edges.** My synthesis said "one process, each surface in its own guarded call" keeps each failure its own. It does not. A try/except keeps an *exception* its own. It cannot interrupt a helper stuck on a file or a subprocess (a hang), it cannot survive an out-of-memory or interpreter fault (a hard crash, which silences every surface at once), and it shares working directory, environment, `sys.path`, module caches and stdout between surfaces (leaked state an equality test on one payload cannot see). Today's 33 processes give all three for free, and the timeout path is real: the table already prints "Could not run: his-words-door-surface (timed out)". To get a hang-proof fold I would have to rebuild process isolation with extra steps.
+
+**Through Taleb:** the fold trades a tail risk (total silence) for about 0.55s per quiet helper. Via negativa again: do not fold what can hang.
+
+**Through Shannon, narrowing:** the saving I wanted is the process start of helpers that are pure Python and sub-100ms. Slow ones (doorbell ~1.2s, anything shelling out) would become serial inside one process, losing today's parallelism.
+
+**Decision (changes slice 4):** fold only helpers that are pure, fast, and enforced by something that can actually interrupt them (a per-surface deadline from a child or a thread, not a try/except). Slow helpers stay in the parallel table untouched. The equality test must include failure payloads (a helper that errors, one that times out, a missing file) and an order-swap, not only the happy path.
+
+**What Aria said does not change:** slices 0 to 3 stand. Slice 3 (one import shared by the words, lessons and memory-link lookups) is a fold too, but of one import, not of isolation: the lookups are already one family and one failure signature, and the deadline stays on the whole helper.
+
 ## Still to do before building
-Walk 2 (the same lenses attacking this synthesis, and the dissenting pair on the fold-vs-isolation hinge). Letter to Aria. Aletheia reads before main.
+Letter to Aria with the narrowed fold. Aletheia reads before main.

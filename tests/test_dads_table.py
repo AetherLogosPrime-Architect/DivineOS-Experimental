@@ -481,6 +481,19 @@ def test_the_tally_records_who_spoke_and_where_it_went(tmp_path):
     assert "Tally" not in out.split("The drawer")[0]  # it prints nothing in front of me
 
 
+def test_the_tally_records_how_long_each_helper_took(tmp_path):
+    # Dad 2026-10-26: the minute before "thinking" was nobody's ledger. Council walk 1
+    # (Meadows): the tally kept characters, never seconds, so the cost had no owner.
+    slow = {"command": f'"{sys.executable}" -c "import time; time.sleep(1.5)"', "timeout": 20}
+    quiet = {"command": f'"{sys.executable}" -c "pass"', "timeout": 20}
+    out, tally = _run_tallied(tmp_path, [slow, quiet])
+    row = json.loads(tally.read_text(encoding="utf-8").splitlines()[-1])
+    secs = [n["secs"] for n in row["notes"]]
+    assert all(isinstance(x, float) for x in secs)
+    assert max(secs) >= 1.4 and min(secs) < max(secs)
+    assert row["table_secs"] >= max(secs)  # the table waits for its slowest, so it is at least that
+
+
 def test_a_notice_is_tallied_as_a_notice(tmp_path):
     _, tally = _run_tallied(
         tmp_path, [_echo("x")], prompt="<task-notification>x</task-notification>"

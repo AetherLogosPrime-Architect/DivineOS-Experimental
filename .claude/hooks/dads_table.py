@@ -339,7 +339,7 @@ TALLY = Path(
 TALLY_CEILING_BYTES = 4_000_000
 
 
-def _note(name: str, out: str, problem: str, went: list[str]) -> dict:
+def _note(name: str, out: str, problem: str, went: list[str], secs: float) -> dict:
     import hashlib
 
     said = out.strip()
@@ -349,10 +349,12 @@ def _note(name: str, out: str, problem: str, went: list[str]) -> dict:
         "print": hashlib.sha1(said.encode("utf-8")).hexdigest()[:10] if said else "",
         "went": went,
         "problem": problem,
+        # Dad 2026-10-26: the wait before "thinking" had no owner. The seconds are the meter.
+        "secs": round(secs, 2),
     }
 
 
-def _keep_tally(payload: bytes, notes: list[dict]) -> str:
+def _keep_tally(payload: bytes, notes: list[dict], table_secs: float) -> str:
     """Append this turn's row. Returns "" when kept, else the reason it was not."""
     # Same isolation as his words: under pytest the real tally is never written.
     if os.environ.get("PYTEST_CURRENT_TEST") and "DADS_TABLE_TALLY" not in os.environ:
@@ -366,6 +368,7 @@ def _keep_tally(payload: bytes, notes: list[dict]) -> str:
             "ts": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "session": str(data.get("session_id") or "unknown"),
             "kind": "notice" if prompt.lstrip().startswith(NOTICE_PREFIXES) else "his",
+            "table_secs": round(table_secs, 2),
             "notes": notes,
         }
         TALLY.parent.mkdir(parents=True, exist_ok=True)
@@ -423,16 +426,22 @@ def _tally_ready_line() -> str:
 def _the_rest(payload: bytes) -> int:
     children = json.loads(CHILDREN_FILE.read_text(encoding="utf-8"))
 
+    def _timed(child: dict) -> tuple[tuple, float]:
+        began = time.monotonic()
+        return _run(child, payload), time.monotonic() - began
+
+    table_began = time.monotonic()
     with ThreadPoolExecutor(max_workers=len(children) or 1) as pool:
-        results = list(pool.map(lambda c: _run(c, payload), children))
+        timed = list(pool.map(_timed, children))
+    table_secs = time.monotonic() - table_began
 
     picture, his, drawer, broken, blocks = "", [], [], [], []
     notes = []
-    for child, out, problem, block in results:
+    for (child, out, problem, block), secs in timed:
         name = Path(child["command"].split()[-1]).stem
         if name == ON_THE_TABLE:
             picture = out
-            notes.append(_note(name, out, problem, ["visible"] if out.strip() else []))
+            notes.append(_note(name, out, problem, ["visible"] if out.strip() else [], secs))
             continue
         if problem:
             broken.append(f"{name} ({problem})")
@@ -446,8 +455,8 @@ def _the_rest(payload: bytes) -> int:
         if rest.strip():
             drawer.append(f"<!-- {name} -->\n{rest.rstrip()}\n")
             went.append("drawer")
-        notes.append(_note(name, out, problem, went))
-    tally_trouble = _keep_tally(payload, notes)
+        notes.append(_note(name, out, problem, went, secs))
+    tally_trouble = _keep_tally(payload, notes, table_secs)
 
     try:
         DRAWER.parent.mkdir(parents=True, exist_ok=True)
