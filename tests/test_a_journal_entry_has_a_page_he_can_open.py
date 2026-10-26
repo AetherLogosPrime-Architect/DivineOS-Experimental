@@ -72,18 +72,18 @@ def test_a_failed_page_write_raises_before_any_row_is_written(pages, monkeypatch
 
 
 def test_the_save_names_the_page_so_the_copy_is_a_choice_not_something_behind_my_back(pages):
-    mj.journal_save("I know this has a copy.")
-    assert mj.last_page_path() is not None
-    assert str(mj.last_page_path()).endswith(".md")
+    _entry_id, page = mj.journal_save_with_page("I know this has a copy.")
+    assert page is not None
+    assert str(page).endswith(".md")
 
 
 def test_an_entry_saved_in_a_private_room_is_stored_in_the_database_only_and_says_so(
     pages, monkeypatch
 ):
     monkeypatch.setattr(mj, "_private_room_open", lambda: True)
-    mj.journal_save("This one is for me to sit with, unread.")
+    _entry_id, page = mj.journal_save_with_page("This one is for me to sit with, unread.")
     assert list(pages.glob("*.md")) == []
-    assert mj.last_page_path() is None
+    assert page is None
 
 
 def test_entries_saved_before_this_change_get_their_pages_verbatim_with_their_own_dates(pages):

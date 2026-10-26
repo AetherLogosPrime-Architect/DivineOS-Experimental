@@ -14,10 +14,6 @@ from typing import Any, cast
 
 from divineos.core.memory import _get_connection, init_memory_tables
 
-# The page written for the last save, or None when it was kept database-only (a private room).
-# Said aloud by the CLI so the copy is a choice made knowing it exists, not something behind my back.
-_LAST_PAGE: Path | None = None
-
 
 def _journal_dir() -> Path:
     """Where a seat's readable pages live: ``journal/<seat>/`` at the root of the tree that is running.
@@ -85,17 +81,23 @@ def _insert_row(
         conn.close()
 
 
-def last_page_path() -> Path | None:
-    return _LAST_PAGE
-
-
 def journal_save(
     content: str,
     context: str = "",
     tags: str = "",
     linked_knowledge_id: str | None = None,
 ) -> str:
-    """Save a personal journal entry. Returns the entry ID.
+    """Save a personal journal entry. Returns the entry ID. See ``journal_save_with_page``."""
+    return journal_save_with_page(content, context, tags, linked_knowledge_id)[0]
+
+
+def journal_save_with_page(
+    content: str,
+    context: str = "",
+    tags: str = "",
+    linked_knowledge_id: str | None = None,
+) -> tuple[str, Path | None]:
+    """Save a personal journal entry. Returns (entry ID, the page written or None).
 
     This is the AI's own memory — things it chooses to remember,
     not filtered or scored. If it matters to me, that's enough.
@@ -103,9 +105,10 @@ def journal_save(
     The page is written FIRST and the row second, in this one function (Aether, 2026-10-25): a row
     with no page is the invisible state Dad found, so if the row cannot be written the page is
     removed and the error raised, and a failed save leaves nothing half-done. A private room keeps
-    an entry in the database only, and ``last_page_path()`` is then None so the caller says so.
+    an entry in the database only, and the page is then None so the caller says so. The page is
+    handed back, never kept in a module variable (Aether, 2026-10-26): state that outlives the call
+    could name a previous entry's page for a caller that had not just saved.
     """
-    global _LAST_PAGE
     init_memory_tables()
     entry_id = str(uuid.uuid4())
     created = time.time()
@@ -118,8 +121,7 @@ def journal_save(
         if page is not None:
             page.unlink(missing_ok=True)
         raise
-    _LAST_PAGE = page
-    return entry_id
+    return entry_id, page
 
 
 def _entry_ids_with_pages() -> set[str]:

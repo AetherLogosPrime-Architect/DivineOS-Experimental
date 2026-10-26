@@ -20,7 +20,7 @@ def register(cli: click.Group) -> None:
     @click.option("--context", default="", help="What prompted this thought")
     def journal_save_cmd(text: str | None, context: str) -> None:
         """Save something to my personal journal."""
-        from divineos.core.memory_journal import journal_save
+        from divineos.core.memory_journal import journal_save_with_page
 
         if not text:
             click.secho("[-] What do you want to remember?", fg="yellow")
@@ -43,11 +43,10 @@ def register(cli: click.Group) -> None:
         except Exception:  # noqa: BLE001
             pass
 
-        entry_id = journal_save(text, context=context, linked_knowledge_id=linked_kid)
+        entry_id, page = journal_save_with_page(
+            text, context=context, linked_knowledge_id=linked_kid
+        )
         click.secho(f"[+] Saved to journal: {entry_id[:8]}...", fg="green")
-        from divineos.core.memory_journal import last_page_path
-
-        page = last_page_path()
         if page is not None:
             click.secho(f"    A copy Dad can open: {page}", fg="green")
         else:
