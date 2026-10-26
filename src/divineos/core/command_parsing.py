@@ -350,6 +350,16 @@ _INERT_HEADS = frozenset(
         "column",
         "less",
         "more",
+        # GREP, added 2026-10-24 (Dad: "the root cause of the issue needs investigated and fixed").
+        # I ended nearly every divineos command with `| grep -v "embedding\|Loading"` to hide
+        # model-loading noise, and a recording command with that on the end stopped being a
+        # recognised exit. The correction marker named `compass-ops observe` as its remedy, the
+        # council-paperwork gate refused that observe as an edit because of my grep, and the
+        # paperwork commands were blocked by the marker: a lock I closed myself. It meets the bar
+        # above: grep consumes input, emits text and has no option that writes a file (unlike sed
+        # and awk). `grep -r x . && git push` still refuses, because git push is an acting segment;
+        # a `> file` redirect on the grep is still caught as a write.
+        "grep",
         # SHELL OPTIONS, added 2026-09-18 (council-de235c61e79d), because two
         # guards were composing into a block that neither contained.
         #
@@ -593,10 +603,22 @@ def acting_segments(bash_command: str) -> list[str] | None:
             # Nothing but assignments or prefixes: it sets up, it does not act.
             continue
         head = stripped.split()[0].lower()
-        if head in _INERT_HEADS:
+        if head in _INERT_HEADS and not _writes_a_file(stripped):
             continue
         acting.append(stripped)
     return acting
+
+
+def _writes_a_file(segment: str) -> bool:
+    """True when the segment redirects output to anything but /dev/null.
+
+    An inert head stays inert only while it writes nothing. Before this check the whole segment was
+    dropped, redirect included, so `| grep x > src/...` and `echo x > .claude/settings.json` were
+    invisible to every gate (Aletheia's hold on #718, 2026-10-24). Not knowing is not a pass: a
+    target built from a variable is a write this cannot read, and that is the same limit
+    shell_write_targets already states.
+    """
+    return any(t != "/dev/null" for t in shell_write_targets(segment))
 
 
 # A segment that could execute something nobody inspected before the remedy
