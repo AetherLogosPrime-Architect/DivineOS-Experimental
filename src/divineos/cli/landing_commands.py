@@ -37,6 +37,7 @@ from divineos.core.landing_status import (
     READY,
     UNKNOWN,
     classify_pile,
+    letters_read_line,
     open_prs,
     read_letters,
     render_request,
@@ -149,13 +150,17 @@ def register(cli: click.Group) -> None:
         held = _held_by_pr()
         # A board that could not be read holds everything (classify_pile): could
         # not look is not a pass, so READY is impossible without it.
-        rows = classify_pile(prs, read_letters(), today(), held)
+        letters = read_letters()
+        rows = classify_pile(prs, letters, today(), held)
 
         counts = {label: sum(1 for _, s in rows if s.label == label) for label in _ORDER}
         click.secho(
             "  ".join(f"{label} {counts[label]}" for label in _ORDER if counts[label]),
             bold=True,
         )
+        # Says what it looked at, so a count of none is "looked and found none" and a blind board
+        # cannot pass for a clean one (walk-29a4e57b49ce, Angelou).
+        click.secho(letters_read_line(letters), dim=True)
         for label in _ORDER:
             group = [(pr, s) for pr, s in rows if s.label == label]
             if not group:
@@ -178,7 +183,9 @@ def register(cli: click.Group) -> None:
                 for pr, status in rows
                 if status.label in _NEEDS_HER and pr.get("headRefOid")
             ]
-            text = render_request(waiting)
+            from divineos.core.sibling_audit_rounds import this_seat
+
+            text = render_request(waiting, signed_by=(this_seat() or "aether").title())
             click.echo("")
             click.echo(text or "(nothing needs her confirm right now)")
 
