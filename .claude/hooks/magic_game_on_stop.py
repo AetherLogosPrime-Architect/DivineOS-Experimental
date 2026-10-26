@@ -49,7 +49,9 @@ def game_is_on(view: dict | None) -> bool:
 def signature(view: dict | None) -> list:
     """What changes when the game moves; the idle clock is keyed on it."""
     v = view or {}
-    return [v.get("snapshot_id"), v.get("turn"), v.get("priority_player")]
+    # game_seq looks like a move counter (Aria, from a real reply); an empty priority_player is a real
+    # value, kept as is and never read as missing.
+    return [v.get("snapshot_id"), v.get("turn"), v.get("priority_player"), v.get("game_seq")]
 
 
 def verdict(view: dict | None, seen: dict, now: float, who: str) -> tuple[str | None, dict]:

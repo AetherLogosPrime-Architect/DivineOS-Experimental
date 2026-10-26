@@ -130,6 +130,15 @@ def test_no_reminder_when_no_game_was_live_or_it_was_already_given_or_it_is_long
     assert hook.after_game("junk", NOW)[0] is None
 
 
+def test_a_move_counter_alone_restarts_the_clock_and_an_empty_priority_is_kept():
+    quiet = dict(LIVE, priority_player="", game_seq=3)
+    moved = dict(quiet, game_seq=4)
+    seen = {"sig": hook.signature(quiet), "since": NOW - 5000}
+    reason, marker = hook.verdict(moved, seen, NOW, "aether")
+    assert reason and marker["since"] == NOW
+    assert hook.signature(quiet)[2] == ""
+
+
 def test_a_corrupt_marker_is_survived():
     for corrupt in ([1, 2], "text", None, 5):
         hold, marker, _ = hook.decide(LIVE, False, corrupt, NOW, "aether")
