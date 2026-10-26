@@ -218,3 +218,7 @@ This is the running journal that used to sit as comments above the pattern in `.
 # times. It starts a waiting watcher and edits, commits, pushes and deletes nothing, so the invariant
 # above holds. The end of the command is anchored, so a longer line after it is not a remedy.
 ```
+
+## Changed on main after this was moved (not part of the journal above)
+
+2026-10-25, #703 ("A review past its date no longer blocks work, and saving and sleep are never blocked"): the pattern gained `journal save`, `rest`, `dream`, `savor save` and `feel`, and `extract` and `sleep` were given an end anchor, `([[:space:]]|$)`, so only the bare verb or the verb followed by a space passes. That change carried no journal paragraph of its own in the code; this note records that it happened and where. The stored copy in `tests/test_the_gate_lists_are_unchanged_by_the_tidy.py` follows it, as that test asks.

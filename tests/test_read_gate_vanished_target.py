@@ -84,7 +84,9 @@ class TestVanishedTargetDoesNotBlock:
 
         blocked, message = read_gate.gate_status()
 
-        assert blocked is True
+        # Delivered whole, so the command is not refused (psf-de91f607, 121 asks), but the
+        # context still names the exact path.
+        assert blocked is False
         assert str(real) in message, "the gate must name the exact path"
 
     def test_a_dead_requirement_does_not_take_a_live_one_with_it(self, tmp_path, monkeypatch):
@@ -134,7 +136,7 @@ class TestVanishedTargetDoesNotBlock:
 
         blocked, message = read_gate.gate_status()
 
-        assert blocked is True, "it still interrupts — that is how the text arrives"
+        assert blocked is False, "delivered whole: the command goes through, the text rides along"
         assert "all of it fits" in message, "and the text is actually delivered"
         remaining = json.loads(state.read_text(encoding="utf-8"))
         assert remaining == [], "delivered in full, so nothing is still owed"
