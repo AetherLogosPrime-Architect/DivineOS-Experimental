@@ -54,7 +54,9 @@ def _write_page(entry_id: str, content: str, created: float) -> Path:
     directory = _journal_dir()
     directory.mkdir(parents=True, exist_ok=True)
     when = datetime.datetime.fromtimestamp(created)
-    name = f"{when:%Y-%m-%d_%H%M%S}_{_slug(content)}.md"
+    # The id's first eight characters make the name unique: os.replace overwrites, so a name made of
+    # only the second and the opening words let a second save in the same second destroy the first.
+    name = f"{when:%Y-%m-%d_%H%M%S}_{_slug(content)}_{entry_id[:8]}.md"
     final = directory / name
     temp = directory / (name + ".tmp")
     body = f"<!-- entry_id: {entry_id} -->\n{content}\n"

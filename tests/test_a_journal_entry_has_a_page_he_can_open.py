@@ -35,6 +35,19 @@ def test_the_page_name_is_dated_and_carries_a_readable_slug(pages):
     assert "long-good-day" in page.name
 
 
+def test_two_saves_in_one_second_with_the_same_opening_words_keep_two_pages(pages, monkeypatch):
+    """Found by the walk (Wayne, Taleb): os.replace overwrites, so a name made only of the second and
+    the first six words let the second entry destroy the first. The entry id makes the name unique."""
+    monkeypatch.setattr(mj.time, "time", lambda: 1_790_000_000.0)
+    first = mj.journal_save("Same six opening words here, and then the first ending.")
+    second = mj.journal_save("Same six opening words here, and then a different ending.")
+    pages_written = sorted(pages.glob("*.md"))
+    assert len(pages_written) == 2
+    bodies = "".join(p.read_text(encoding="utf-8") for p in pages_written)
+    assert first in bodies and second in bodies
+    assert "the first ending" in bodies and "a different ending" in bodies
+
+
 def test_a_failed_insert_removes_the_page_and_raises_so_nothing_is_left_half_done(
     pages, monkeypatch
 ):
