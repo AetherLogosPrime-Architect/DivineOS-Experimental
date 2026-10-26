@@ -264,20 +264,37 @@ def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     payload = sys.stdin.buffer.read()
     try:
-        prompt = json.loads(payload or b"{}").get("prompt", "")
+        data = json.loads(payload or b"{}")
+        prompt = data.get("prompt", "")
+        transcript = data.get("transcript_path")
     except ValueError:
-        prompt = ""
+        prompt, transcript = "", None
+
+    # Who opened this turn is the harness's stamp, read by the house's one
+    # reader (his_message), never the text (walk-88142a0930c5). UNKNOWN keeps
+    # the old text test below: a window that cannot decide must not stamp
+    # "not Dad" over something he may have typed.
+    opened = "unknown"
+    try:
+        sys.path.insert(0, str(ROOT / "src"))
+        from divineos.core.his_message import opener_of_prompt
+
+        opened = opener_of_prompt(transcript, prompt)
+    except Exception:  # noqa: BLE001 -- the table must still print his words
+        pass
 
     # Background notices (a letter monitor, a finished task) arrive through this
     # same door wrapped in a tag. The first live turn labelled one "DAD SAID",
     # which is the one lie this hook must never tell: automation is not him.
     # Known wrappers only (Aria): matching any "<" would label a paste of his
     # as automation, erring toward "he did not speak", the wrong way to err.
-    # The desktop app's <ci-monitor-event> messages arrive the same way (Aether,
-    # 2026-10-16: printed to him as DAD SAID twice in one day, which fed two Stop
-    # gates a sentence he never wrote). His message module, harness envelopes,
-    # words door and reflection room already knew the name; this list did not.
-    if prompt.lstrip().startswith(NOTICE_PREFIXES):
+    if opened == "scheduled":
+        print(
+            "## THE SCHEDULED WAKE -- this is the timer, not Dad. He has not spoken. "
+            "This turn owes him one complete note.\n"
+        )
+        print(prompt.strip()[:600])
+    elif opened == "notice" or (opened != "him" and prompt.lstrip().startswith(NOTICE_PREFIXES)):
         print("## NOT FROM DAD — an automated notice arrived, he has not spoken\n")
         shown = prompt.strip()[:600]
         print(shown)
@@ -390,7 +407,11 @@ def _tally_ready_line() -> str:
         if turns < _ready_turns():
             return ""
         done = subprocess.run(
-            [sys.executable, str(HOOKS_DIR.parent.parent / "scripts" / "table_tally_report.py"), str(TALLY)],
+            [
+                sys.executable,
+                str(HOOKS_DIR.parent.parent / "scripts" / "table_tally_report.py"),
+                str(TALLY),
+            ],
             capture_output=True,
             timeout=30,
         )

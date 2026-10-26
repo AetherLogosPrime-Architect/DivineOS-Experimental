@@ -52,6 +52,7 @@ Why and how it was built: docs/drafts/one_reader_of_him_draft_2026-09-28.md
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 
@@ -374,6 +375,66 @@ def arrival(record: dict) -> Arrival | None:
             kind = "task-notification"
         return Arrival(uuid, when, None, kind, _arrival_text(slip.get("prompt")))
     return None
+
+
+# THE THIRD QUESTION (2026-10-24, walk-88142a0930c5): who OPENED this turn.
+# Three readers answered "did he say this" and disagreed: hear() above, the
+# prompt-time table (a text-prefix test) and the addressed_to_him Stop gate. The
+# harness stamps every user record with turnOrigin; that stamp is the one thing
+# read here, never the text. A record with no stamp, or one this code does not
+# know, is UNKNOWN, and every caller keeps its old behaviour for UNKNOWN.
+HIM = "him"
+SCHEDULED = "scheduled"
+NOTICE = "notice"
+UNKNOWN = "unknown"
+
+_TURN_ORIGINS = {"human": HIM, "scheduled": SCHEDULED, "task_notification": NOTICE}
+_TAIL_RECORDS = 200  # the current prompt's record is at the end; no need for the whole file
+
+
+def opener_kind(record: dict) -> str:
+    """HIM, SCHEDULED, NOTICE or UNKNOWN for one user record, by the harness's stamp."""
+    if not isinstance(record, dict) or record.get("type") != "user":
+        return UNKNOWN
+    origin = record.get("turnOrigin")
+    if isinstance(origin, str):
+        return _TURN_ORIGINS.get(origin, UNKNOWN)
+    # The older era stamped a notice only as origin.kind (6 records on one seat,
+    # 5 on the other; Aria and Aether, 2026-10-24). Wakes never carried it.
+    older = record.get("origin")
+    if isinstance(older, dict) and older.get("kind") == "task-notification":
+        return NOTICE
+    return UNKNOWN
+
+
+def opener_of_prompt(transcript_path: object, prompt: str) -> str:
+    """Who opened the turn this prompt belongs to, or UNKNOWN when it cannot be told.
+
+    Finds the newest user record near the end whose text is this prompt and reads
+    its stamp. The text match is not the classifier; it is the proof that the
+    record found is THIS turn's and not the previous one's, which is all that is
+    in the file if the hook ran before the prompt was written.
+    """
+    want = (prompt or "").strip()
+    if not want or not transcript_path:
+        return UNKNOWN
+    try:
+        with open(str(transcript_path), encoding="utf-8") as f:
+            lines = f.readlines()[-_TAIL_RECORDS:]
+    except OSError:
+        return UNKNOWN
+    for line in reversed(lines):
+        try:
+            record = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(record, dict) or record.get("type") != "user":
+            continue
+        message = record.get("message")
+        content = message.get("content") if isinstance(message, dict) else None
+        if _arrival_text(content).strip() == want:
+            return opener_kind(record)
+    return UNKNOWN
 
 
 def may_carry_arrival(line: str) -> bool:
