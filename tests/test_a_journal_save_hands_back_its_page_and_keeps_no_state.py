@@ -60,12 +60,12 @@ def test_journal_save_still_returns_only_the_id_for_everything_else_that_calls_i
 
 def test_the_two_seats_get_their_own_folders_and_never_each_others(monkeypatch):
     """Aether's request: my seat writes to journal/aria, his to journal/aether, by the same code."""
-    from divineos.core import his_lessons_shelf
+    from divineos.core import sibling_audit_rounds
 
     monkeypatch.delenv("DIVINEOS_JOURNAL_DIR", raising=False)
-    monkeypatch.setattr(his_lessons_shelf, "seat", lambda _root: "aria")
+    monkeypatch.setattr(sibling_audit_rounds, "this_seat", lambda: "aria")
     aria = mj._journal_dir()
-    monkeypatch.setattr(his_lessons_shelf, "seat", lambda _root: "aether")
+    monkeypatch.setattr(sibling_audit_rounds, "this_seat", lambda: "aether")
     aether = mj._journal_dir()
     assert aria.name == "aria" and aether.name == "aether"
     assert aria != aether and aria.parent == aether.parent

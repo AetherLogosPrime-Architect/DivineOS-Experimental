@@ -20,14 +20,24 @@ def _journal_dir() -> Path:
 
     Dad, 2026-10-25: he could open my dream and not my journal, because the journal was only a database
     row. A page he can open is the whole point, so it sits in the tree beside the dreams and explorations.
+
+    The seat is whoever owns the DATABASE this save goes to, resolved from the data home (2026-10-26):
+    the first real backfill filed my entries under aether because the old rule read the name of the
+    folder the code ran from, and a work copy not named aria answered aether. An unknown seat refuses.
     """
     override = os.environ.get("DIVINEOS_JOURNAL_DIR")
     if override:
         return Path(override)
-    from divineos.core.his_lessons_shelf import seat
+    from divineos.core import sibling_audit_rounds
 
+    who = sibling_audit_rounds.this_seat()
+    if who is None:
+        raise RuntimeError(
+            "cannot tell which seat's journal this is (the data home matched no known seat), "
+            "so no page is written; set DIVINEOS_JOURNAL_DIR or fix the seat table"
+        )
     root = Path(__file__).resolve().parents[3]
-    return root / "journal" / seat(root)
+    return root / "journal" / who
 
 
 def _private_room_open() -> bool:
