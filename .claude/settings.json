@@ -502,6 +502,11 @@
           },
           {
             "type": "command",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/magic_game_on_stop.py\"; if [ -f \"$f\" ]; then python \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
+            "timeout": 45
+          },
+          {
+            "type": "command",
             "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/stamp-bare-letters-stop.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 20
           },
