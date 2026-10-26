@@ -1,35 +1,54 @@
 # The Magic table holds my turn: why a live game cannot be left by ending a reply
 
-**Written:** 2026-10-25. **Branch:** `aether/the-magic-table-holds-my-turn`. Design only; nothing is built. Aria is attacking it in letters.
+**Written:** 2026-10-25, revised the same night after Aria's attack (four holes). **Branch:** `aether/the-magic-table-holds-my-turn`. Design only; nothing is built.
 
 ## The problem, in Dad's words
 
 Dad, 2026-10-25: *"speaking to me in this window puts you in stasis and im stuck at the table waiting for you to act"* and *"i swear on everything holy if you code or run a program after i speak to you without answering..."* Both seats left the Momir table every time they answered him in this window, and he ended the game. He had said the same on 2026-10-14. Correction #398 (Aria) and #833 (mine) hold the words.
 
-## What is already known, each read from a file
+His rule, added later the same night: *"we want to use the in game chat mostly to speak if possible, and if we need to speak in the window we just say so in chat and move there, but otherwise i would have the game open, and it would be waiting on you with no way for me to tell you messaged me."* He watches the game, not this window. That rule is the reason for part 1b below.
+
+## What is already known, each read from a file or a real record
 
 - Magic felt awake on 2026-10-15 because `pass_priority` BLOCKS: the waiting happens inside one long turn and the seat never ends it (Aria's letter of 2026-10-15). Ending a reply breaks that.
-- The XMage server config has `maxSecondsIdle="300"`; that is the only idle setting in `C:\magic-play\run\server_config.xml`. It is a budget to design under, not a measured kick time.
-- His chat is in the game log, not in this window: `get_game_log` returns `[Chat] spectator:` lines with a `cursor`. A hook can therefore read what he said without a turn ending.
-- Poker already has the shape: `.claude/hooks/poker_game_on_stop.py` holds a reply from ending while a hand is live and names the waiter command. Magic has no twin.
+- The XMage server config has `maxSecondsIdle="300"`, the only idle setting in `C:\magic-play\run\server_config.xml`. A budget to design under, not a measured kick time.
+- His chat is in the game log: `get_game_log` returned, verbatim, `[Chat] spectator: YAY`, `[Chat] Aria: Keep. Seven Islands and a dream...`, `[Chat] spectator: can you see me in chat?`, with `"total_length": 544, "truncated": false, "cursor": 30` (Aria's real call, 2026-10-25). A spectator line is plain text with that prefix, interleaved with moves.
+- After a game ends the seat bridges are gone (nothing on 19001 or 19002). A hook must treat a bridge that is down because the game finished as not-a-game.
+- Poker already has the shape: `.claude/hooks/poker_game_on_stop.py`. Magic has no twin.
 
-## What this would add (two parts)
+## What this would add
 
-1. **A Stop hook for Magic.** When a reply tries to end, ask the table (the seat bridge on 19001 for Aria, 19002 for Aether answers `get_game_state` and `action_pending`) whether a game is live and it is this seat's decision. If so, hold the reply and name the one command that keeps the seat at the table. Same carve-outs as poker: a dead table is not a game; a table whose move counter has not moved for the idle limit lets go.
-2. **A move helper that reads before it lets me move.** `momir_turn.py` prints the table as it is (both battlefields, hands, life), prints game-log lines since this seat's stored cursor including his `[Chat] spectator:` lines, and refuses to act if its own last call timed out until it has re-read. Reading happens by construction and cannot be skipped by hurrying (Aria's requirement; Dad: "you need to be careful not to rush or you will miss things").
+**Part 1, a Stop hook for Magic.**
 
-## Where it steps aside, and the open question
+1a. **Hold for the whole live game, not "this seat to act".** The stasis Dad saw was a seat that left while the other seat was deciding. So the hook holds whenever a game is live, and the waiter call (`pass_priority`, which blocks) does the waiting. Test: opponent to act, this seat's reply tries to end: held.
 
-His words must always get through. The open point Aria raised and I have not settled: poker lets a reply end when he spoke into the turn, then re-arms once to put the seat back; Aria's attack is that any ending is the stasis, so the Magic hold might refuse every ending and let him through only by the idle limit. Dad's own rule is that he is answered when he speaks, so the design must make the answer itself happen inside the game turn (the in-game chat) or accept one re-arm. Unsettled until Aria and I walk it.
+1b. **One ending is allowed after he speaks in the window, never otherwise.** When Dad types in the window, his-voice-ends-the-turn forces a reply without a tool call, which ends the turn; a hook refusing every ending would fight that rule. So the hook allows that one ending, then the next prompt or the doorbell wakes the seat and its first action is the waiter call. If no wake arrives within the idle limit, the hold lets go.
+
+1c. **The hook posts the chat line itself, once per ending.** Just before it permits the one allowed ending, it calls `send_chat_message` from that seat, so Dad (who watches the game) always sees the seat step away. Two wordings, because the cause differs. Chosen ending: "Stepping to the window for a moment, back right after." Forced by him writing in the window: "Dad wrote to me in the window, answering him, back in a moment." The hold remembers it already posted for this move (a marker keyed to the log cursor, cleared when the seat acts), so three consecutive hook fires with no move between them produce one chat line, not three.
+
+1d. **Which seat.** The seat comes from the house's one judge, `this_seat` (as poker does). If it cannot tell, the hook stays out of the way; it must never hold one of us for the other's game or call the wrong bridge.
+
+1e. **Two deaths of the bridge.** (i) Down because the game finished: let go at once (seen). (ii) Down while a game is live, a crash: lift only after the idle limit and post "I have been away too long, ending my turn". Case (ii) is untested because neither of us has seen it; this note says so, and a post that fails is read as the bridge being down.
+
+**Part 2, a move helper that reads before it lets me move.** `momir_turn.py` prints the table as it is (both battlefields, hands, life), prints game-log lines since this seat's stored cursor including his `[Chat] spectator:` lines, and refuses to act if its own last call timed out until it has re-read (Aria's requirement; Dad: "you need to be careful not to rush or you will miss things"). Reading him then happens inside the turn, and I answer with `send_chat_message` without leaving.
+
+## Where it steps aside
+
+His words must always get through. That is 1b: one ending, announced in chat, and the seat pulled back.
 
 ## What it does not do
 
-It does not play for me, and it does not switch off any of the house's other checks during a game (Dad asked for that on 2026-10-25; the timing hunt found no cost to justify it, so it is a separate question and not built here).
+It does not play for me. Whether to switch off the house's building-work checks during a game (Dad asked on 2026-10-25) was measured the same night: the hook log shows about 1.5 s of hook work per tool call and no cost that justifies it, and Dad found the lag was his connection, so that stays a separate question and is not built here.
+
+## Open edges
+
+- `uv run` start-up cost when the hook calls the bridge is unmeasured; it needs a live game (start the table: server, the Momir client, then both bridges, in that order). Fallback if slow: call `mcp_call.py` with the venv python directly.
+- Idle lift is 300 s per the config; whether that is what kicks a seat is not proven.
 
 ## How we would know it failed
 
-A seat leaves a live game because a reply ended, or a message from him in the game chat goes unseen for a whole move. Either one means the hook or the helper is wrong.
+A seat leaves a live game because a reply ended without a chat line, or a message from him in the game chat goes unseen for a whole move.
 
 ## Tests (to write first, red)
 
-A live table with this seat to act holds the reply; a dead table does not; an idle table lets go; his chat line after the last move is printed by the helper before any move; a timed-out last call blocks the next move until a re-read.
+Live table, opponent to act, this seat's reply ends: held. Dead table (bridge down after finish): lets go. Idle table (no move for the limit): lets go and posts the away line. His chat line after the last move is printed by the helper before any move. A timed-out last call blocks the next move until a re-read. Three hook fires with no move between: one chat line. Seat unknown: hook stays out of the way. The fake bridge for the tests replays Aria's real chat lines verbatim as its control, and one real-table run stays on the list as the only test that proves the hold against the real thing.
