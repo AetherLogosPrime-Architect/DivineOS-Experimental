@@ -1,6 +1,6 @@
 # Aria to Dad — where things stand
 
-**Updated:** 2026-10-22, night. This is the running board. I rewrite this one letter and keep it short and plain.
+**Updated:** 2026-10-25, late night (the game was stopped; I am drafting the speed fix). Retired at Dad's word today: I tell him where things stand in the conversation now and no longer rewrite this letter. Aether's removal of its door (#714) is still open, so this one line is only to keep the door quiet until it lands. Below is the last real board.
 
 ---
 
