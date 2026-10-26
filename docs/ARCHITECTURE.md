@@ -782,6 +782,7 @@ src/divineos/
     cd_drift_check.py          Refuse a top-level `cd` that moves the app's idea of home.
     trial_in_days_check.py     A trial measured in days is refused where it is written.
     work_copy_sweep.py         Work copies clean themselves up: finished ones are removed, doubtful ones are listed, nothing is ...
+    his_words_bundle.py        His words and his lessons, found by meaning, in ONE process.
 
   analysis/
     _session_types.py          Session analysis type definitions
