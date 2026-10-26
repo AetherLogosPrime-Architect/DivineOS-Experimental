@@ -26,7 +26,9 @@ from pathlib import Path
 
 IDLE_SECONDS = 300  # maxSecondsIdle in C:\magic-play\run\server_config.xml: a budget, not a measured kick
 PLAY = "bash /c/magic-play/play.sh {who} {tool}"
-WAITER = PLAY.format(who="{who}", tool="pass_priority")
+# get_action_choices is READ-ONLY (Aria, 2026-10-25, from real calls); pass_priority is a MOVE when a
+# decision is due, so it must never be named as the thing that waits.
+WAITER = PLAY.format(who="{who}", tool="get_action_choices")
 FORCED_LINE = "Dad wrote to me in the window, answering him, back in a moment."
 AWAY_LINE = "I have been away too long, ending my turn."
 
@@ -61,8 +63,9 @@ def verdict(view: dict | None, seen: dict, now: float, who: str) -> tuple[str | 
     reason = (
         "A MAGIC GAME IS ON at the table, so this reply cannot end: ending it is how the seat falls "
         "out of the game (Dad, 2026-10-25). Stay in this turn. Call, in the foreground with the Bash "
-        f"tool and a 590000 ms timeout: {WAITER.format(who=who)} -- act when it returns, then keep "
-        "going. Talk to him in the game chat (send_chat_message), not in this window."
+        f"tool and a 590000 ms timeout, poll: {WAITER.format(who=who)} -- it only reads, so repeat it "
+        "until action_pending is true, then act. Talk to him in the game chat (send_chat_message), "
+        "not in this window."
     )
     return reason, marker
 
@@ -124,9 +127,9 @@ def _view(who: str) -> dict | None:
 
 def _say(who: str, line: str) -> None:
     try:
+        # A list, not a shell string: a line with an apostrophe must not end a quote early (Aria).
         subprocess.run(
-            PLAY.format(who=who, tool="send_chat_message") + " " + json.dumps(json.dumps({"message": line})),
-            shell=True,
+            ["bash", "/c/magic-play/play.sh", who, "send_chat_message", json.dumps({"message": line})],
             capture_output=True,
             text=True,
             timeout=20,

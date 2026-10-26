@@ -6,6 +6,7 @@ with a players list); a bridge that is down answers None, which is not a game.
 """
 
 import importlib.util
+import json
 from pathlib import Path
 
 HOOK = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "magic_game_on_stop.py"
@@ -91,6 +92,21 @@ def test_a_closed_seat_port_means_no_game_without_starting_the_play_helper(monke
 
 def test_an_unknown_seat_is_never_listening():
     assert hook.seat_is_listening("someone-else") is False
+
+
+def test_the_hold_never_names_pass_priority_because_that_is_a_move_not_a_wait():
+    reason, _ = hook.verdict(LIVE, {}, NOW, "aether")
+    assert "pass_priority" not in reason
+    assert "get_action_choices" in reason
+
+
+def test_a_chat_line_with_an_apostrophe_reaches_the_helper_as_one_whole_json_argument(monkeypatch):
+    seen = []
+    monkeypatch.setattr(hook.subprocess, "run", lambda args, **k: seen.append(args))
+    hook._say("aether", "Dad's note, I'll be back")
+    (args,) = seen
+    assert isinstance(args, list)  # no shell string, so no quote can end early
+    assert json.loads(args[-1]) == {"message": "Dad's note, I'll be back"}
 
 
 def test_a_corrupt_marker_is_survived():
