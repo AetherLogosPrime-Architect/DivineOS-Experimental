@@ -79,6 +79,20 @@
 # cheaper path that can be silently wrong is worse than the spawn -- that is
 # the defect class this whole session has been about.
 _LIB_REPO_ROOT_CACHE=""
+# A folder in the style the PYTHON on this machine reads. Git Bash writes C:\DIVINE OS as /c/DIVINE OS;
+# Windows Python reads that as C:\c\DIVINE OS, a folder that does not exist, so a comparison made in
+# the shell's style never matches Python's own (2026-10-26: the check below rejected the one right
+# interpreter every turn and Dad's words stopped reaching me). Done in plain bash, not with cygpath:
+# cygpath is not on the PATH a hook is launched with (the first version of this used it and the test
+# run from outside Git Bash proved it). Only /<drive-letter>/... is rewritten; anything else, including
+# every path on Linux or macOS, comes back as it went in.
+_lib_native_path() {
+  if [[ "$1" =~ ^/([a-zA-Z])/(.*)$ ]]; then
+    printf '%s:/%s' "${BASH_REMATCH[1]^^}" "${BASH_REMATCH[2]}"
+  else
+    printf '%s' "$1"
+  fi
+}
 _lib_repo_root() {
   if [ -z "$_LIB_REPO_ROOT_CACHE" ]; then
     local _self="${BASH_SOURCE[0]:-}"
@@ -450,7 +464,7 @@ try:
 except Exception:
     sys.exit(0)          # no package visible: fine, stdlib-only hooks still run
 import os.path
-want = os.path.realpath(os.path.join(r'''$repo_root''', 'src'))
+want = os.path.realpath(os.path.join(r'''$(_lib_native_path "$repo_root")''', 'src'))
 got = os.path.realpath(os.path.dirname(os.path.dirname(divineos.__file__)))
 sys.exit(0 if got == want else 3)
 " >/dev/null 2>&1; then
