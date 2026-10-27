@@ -54,6 +54,12 @@ def register(cli: click.Group) -> None:
         if state.get("drawer_error"):
             raise click.ClickException(f"the drawer could not be read: {state['drawer_error']}")
         click.echo(f"items with no stored vector: {state.get('missing', 0)}")
+        # Nonzero means a row on his grief shelf has no stored vector, so the moment lane checks
+        # it for the same words but cannot check it for nearness until `linkage warm` is run.
+        click.echo(
+            f"grief-shelf rows with no stored vector (nearness not checked at load): "
+            f"{state.get('held_unvectored', 0)}"
+        )
         # The second line's pain signal: nonzero means somebody tried to mark something that reads
         # as loss. Never the words, only the count (walk-5fa33c17ed13).
         click.echo(
@@ -77,7 +83,8 @@ def register(cli: click.Group) -> None:
         """Stop the memory link bringing a moment back, at once."""
         from divineos.core import memory_linkage_retriever
 
-        memory_linkage_retriever.unmark_moment(moment_id)
+        if not memory_linkage_retriever.unmark_moment(moment_id):
+            raise click.ClickException(f"no such moment: {moment_id}")
         click.secho(f"[+] {moment_id} unmarked", fg="green")
 
     @linkage_group.command("why")

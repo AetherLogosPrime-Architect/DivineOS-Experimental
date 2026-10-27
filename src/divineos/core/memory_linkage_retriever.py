@@ -501,14 +501,25 @@ def _load_moments() -> list[_CachedItem]:
     except Exception:  # noqa: BLE001 - an unreadable shelf is not a clear shelf: this lane stays silent
         return []
     floor = _SOURCE_THRESHOLDS["moment"]["floor"]
+    # Held rows with no stored vector still get the same-text check below; only nearness cannot
+    # be checked for them here, and the compose hook may not compute. The count is written where
+    # `linkage status` shows it, so a shelf that has outgrown the drawer is loud (Kahneman, walk).
+    _LANE_STATE["held_unvectored"] = sum(1 for _h, hv in held if hv is None)
     for row_id, text, ts in rows:
         if _is_his_grief(text) or any(h in text or text in h for h, _v in held):
             continue
-        for n, chunk in enumerate(moment_chunks(text)):
-            embedding = _embed_text_impl(chunk)
+        chunk_list = moment_chunks(text)
+        embedded = [(chunk, _embed_text_impl(chunk)) for chunk in chunk_list]
+        # ONE grief-near sentence takes the whole moment out: every item below carries the whole
+        # moment as its content, so keeping the other sentences would hand the near one back.
+        if any(
+            emb is not None and hv is not None and _cosine(emb, hv) >= floor
+            for _chunk, emb in embedded
+            for _h, hv in held
+        ):
+            continue
+        for n, (chunk, embedding) in enumerate(embedded):
             if embedding is None:
-                continue
-            if any(_cosine(embedding, hv) >= floor for _h, hv in held):
                 continue
             items.append(
                 _CachedItem(
@@ -546,6 +557,13 @@ _GRIEF = re.compile(
     r"him|her|them)|"
     r"(?:the )?(?:cancer|illness|accident|overdose) (?:took|killed)|"
     r"(?:still )?miss(?:ing)? (?:her|him|them)\b|"
+    # Aether's sample sentences that slipped through the first net (#719): "we lost her in March",
+    # "I miss my dad", "when grandma passed". A relation word with miss/passed, and lost + a pronoun.
+    r"(?:lost|losing) (?:her|him|them)\b|"
+    r"(?:still )?miss(?:ing)? (?:my|his|her|our|their) (?:mom|dad|mother|father|grand\w+|brother|"
+    r"sister|wife|husband|son|daughter|friend|uncle|aunt)\b|"
+    r"(?:mom|dad|mother|father|grand\w+|brother|sister|wife|husband|son|daughter|friend|uncle|"
+    r"aunt) passed\b|"
     r"voicemail just to hear|"
     r"stop(?:ped)? dying|children (?:to )?stop dying|died|death of|depress\w*|suicid\w*)\b",
     re.I,
@@ -562,7 +580,12 @@ def _held_grief() -> list[tuple[str, Any]]:
     the same as, or within this lane's own floor of, one of them is never loaded. Skipping too
     much only makes the lane quieter; missing one hands his grief back to him as a reason. A
     shelf that cannot be read is not a clear shelf, so an unreadable one raises here and the
-    caller keeps THIS lane silent (the other lanes are unaffected)."""
+    caller keeps THIS lane silent (the other lanes are unaffected).
+
+    A row with no stored vector is KEPT with ``None`` for its vector (Aether, #719): it used to
+    be dropped here, which silently took it out of the same-text check too. The callers still
+    run the same-text check on it and skip only the nearness check they cannot do without a
+    vector; ``mark_moment`` computes the vector itself and refuses when it cannot."""
     from divineos.core import andrew_correction_tracker as tracker
 
     out: list[tuple[str, Any]] = []
@@ -570,9 +593,7 @@ def _held_grief() -> list[tuple[str, Any]]:
         text = str(row.get("text") or "").strip()
         if not text:
             continue
-        vec = _embed_text_impl(text)
-        if vec is not None:
-            out.append((text, vec))
+        out.append((text, _embed_text_impl(text)))
     return out
 
 
@@ -627,9 +648,32 @@ def mark_moment(moment_id: str) -> MarkResult:
     floor = _SOURCE_THRESHOLDS["moment"]["floor"]
     if any(h in text or text in h for h, _v in held):
         return _refuse(moment_id, "held-shelf-same", "it is the same as a row on his held shelf")
-    probe = _embed_text_impl(text)
-    if probe is not None and any(_cosine(probe, hv) >= floor for _h, hv in held):
-        return _refuse(moment_id, "held-shelf-near", "it sits near a row on his held shelf")
+    if held:
+        # The nearness check COMPUTES its vectors here. Marking is a deliberate act at a command
+        # line, not the compose hook, so it can afford to; the drawer lookup used before returned
+        # None for a moment filed a minute ago and the check was skipped while the mark went
+        # through (Aether, #719). If a comparison cannot be made, nothing is marked.
+        from divineos.core import light_embedder
+
+        try:
+            # Sentence by sentence, as the lane itself reads it: one vector for a whole
+            # multi-sentence moment dilutes a single grief-near sentence (measured 2026-10-25:
+            # whole moments found 2 of 6, sentences 4 of 6), and the lane hands back the WHOLE
+            # moment through any one clean sentence.
+            held_vecs = [light_embedder.encode(h) for h, _v in held]
+            near = any(
+                _cosine(light_embedder.encode(chunk), hv) >= floor
+                for chunk in moment_chunks(text)
+                for hv in held_vecs
+            )
+        except Exception:  # noqa: BLE001 - a comparison that could not be made is not a clear one
+            return _refuse(
+                moment_id,
+                "shelf-not-compared",
+                "it could not be compared with his grief shelf (the embedder did not run), so nothing is marked",
+            )
+        if near:
+            return _refuse(moment_id, "held-shelf-near", "it sits near a row on his held shelf")
     # The trail is written BEFORE the mark, so if it cannot be written nothing is marked: the
     # safe direction. The flag changes in place, so the ledger is where its history lives.
     _trail("MOMENT_LANE_MARKED", moment_id)
@@ -637,12 +681,15 @@ def mark_moment(moment_id: str) -> MarkResult:
     return MarkResult(True)
 
 
-def unmark_moment(moment_id: str) -> None:
+def unmark_moment(moment_id: str) -> bool:
     """Take a moment out of the lane at once. Surfacing is reversible: whoever filed a hard day
     can change their mind about it. The unmark is done first and the trail written after, so a
-    trail that cannot be written never stops a moment coming out of the lane."""
-    _set_surface(moment_id, 0)
+    trail that cannot be written never stops a moment coming out of the lane. False, with no
+    trail written, when there is no such moment (Aether, #719: a typo'd id was told it worked)."""
+    if not _set_surface(moment_id, 0):
+        return False
     _trail("MOMENT_LANE_UNMARKED", moment_id)
+    return True
 
 
 _REFUSED = "MOMENT_LANE_MARK_REFUSED"
@@ -673,18 +720,20 @@ def second_line_refusals() -> int:
     return len(get_events(limit=10000, event_type=_REFUSED))
 
 
-def _set_surface(moment_id: str, value: int) -> None:
+def _set_surface(moment_id: str, value: int) -> int:
+    """Set the mark; returns how many rows changed, so a typo'd id is not told it worked."""
     from divineos.core import user_model
 
     user_model.init_user_model_table()
     conn = user_model._get_connection()
     try:
-        conn.execute(
+        changed = conn.execute(
             "UPDATE shared_history SET surface = ? WHERE moment_id = ?", (value, moment_id)
-        )
+        ).rowcount
         conn.commit()
     finally:
         conn.close()
+    return changed
 
 
 def newest_in_worklist() -> tuple[int, str] | None:
@@ -1232,7 +1281,7 @@ def _ensure_cache() -> None:
 # run as usual, and each text they ask about is recorded instead of looked up.
 _MODE = "drawer"
 _COLLECTED: list[str] = []
-_LANE_STATE: dict[str, Any] = {"missing": 0, "drawer_error": None}
+_LANE_STATE: dict[str, Any] = {"missing": 0, "drawer_error": None, "held_unvectored": 0}
 _COLLECT_PLACEHOLDER: Any = None
 
 

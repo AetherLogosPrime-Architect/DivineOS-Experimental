@@ -435,7 +435,7 @@ def record_moment(
     user_name: str = "default",
     session_id: str | None = None,
     occurred_at: float | None = None,
-    surface: bool = False,
+    _mark_without_guards: bool = False,
 ) -> str:
     """Record a moment that changed the relationship.
 
@@ -443,9 +443,11 @@ def record_moment(
     Examples: a shift in how you understand each other. A first time
     something was spoken aloud. A milestone built together.
 
-    ``surface`` is the opt-in to being brought back by the memory link: off by default, and a
-    moment filed without it is never read by that lane whatever it says (Aletheia, 2026-10-25).
-    Marking later goes through ``memory_linkage_retriever.mark_moment``, which runs the guards.
+    A moment filed here is never read by the memory link, whatever it says (Aletheia,
+    2026-10-25). Marking it goes through ``memory_linkage_retriever.mark_moment``, which runs the
+    grief guards. ``_mark_without_guards`` writes the mark with NO guards and exists only so tests
+    can file a row the guards would have refused and check the load-time defence; its name is
+    loud on purpose (Aether, #719), and a test pins that nothing under ``src/`` passes it.
     """
     init_user_model_table()
     user = get_or_create_user(user_name)
@@ -465,7 +467,7 @@ def record_moment(
                 significance,
                 session_id,
                 when,
-                1 if surface else 0,
+                1 if _mark_without_guards else 0,
             ),
         )
         conn.commit()

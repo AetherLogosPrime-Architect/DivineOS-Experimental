@@ -22,6 +22,20 @@ Most of this was built on 2026-10-25 in the window before the reset, committed (
 - **The pain signal.** `second_line_refusals()` counts refusals and `divineos linkage status` shows the count. A nonzero count means somebody tried to mark something that reads as loss. The tests seed rows the net must refuse, so a count that is always zero can be told from a net that never fires.
 - Tests that the refusal trail and the command output never hold his words, and that a moment marked while harmless is dropped at load if it later comes to sit on his shelf.
 
+## After Aether's cold read of `fea1bd7a0` (2026-10-27), and a second walk (walk-023791c8e467)
+
+Aether read the whole diff and found holes; reading them against the code, all were real. What changed:
+
+- **The nearness check at marking was skipped for a moment filed a minute ago.** It read a stored vector, and a fresh moment has none. It now computes its own vectors (marking is a deliberate command, not the compose hook), and when it cannot compare, nothing is marked: the refusal reason is `shelf-not-compared`. A held-shelf row with no stored vector is no longer dropped from the shelf; it still blocks the same text, and `linkage status` shows how many shelf rows have no vector, so a shelf that outgrew the drawer is loud.
+- **Found by the walk, not by Aether: one vector per whole moment dilutes a single grief-near sentence.** Measured with the real embedder on a four-sentence moment, one sentence of which carries the meaning of a shelf row: whole moment 0.323 (under the 0.35 floor, so it would have been marked), that sentence 0.702. The check is now per sentence. And at load, one near sentence takes the **whole** moment out, because every item the lane builds carries the whole moment as content, so dropping only the near sentence handed it back through a clean neighbour.
+- **`record_moment`'s `surface` argument** is renamed `_mark_without_guards`: it writes the mark with no guards and exists only so tests can file a row the guards would have refused. A test pins that nothing under `src/` passes it. This is less than removing it, because the load-time defence needs rows the guards would refuse, in order to be tested.
+- **`unmark-moment` on an id that does not exist** now says "no such moment" and writes no trail.
+- **The word net** gained `lost her/him/them`, `miss my <relation>`, and `<relation> passed`, for three of Aether's sample sentences, with a test that ordinary sentences stay unflagged. **It still misses "I still think about him every day"**, and I have not widened it further: that is a low-leverage loop. The high-leverage guard is the opt-in, where a person decides each moment.
+
+Tests: put the old retriever back and eight of the first batch of new cases fail, including the real-embedder one, which proves the old nearness check really was skipped. The two added after the walk (one near sentence takes the whole moment; per-sentence comparison) and the status line were added afterwards and were not run against the old code.
+
+**What this does not do, said so silence is not read as coverage.** The 0.35 is the lane's retrieval floor reused as a grief-nearness floor; nobody has calibrated it as one. There is no list of what is marked, so he cannot read his own exposure without asking me; that would be a next piece. A moment of one or two characters is refused by plain substring against any shelf row (the safe direction, an odd message).
+
 ## Where the walk and the build disagree, and who is right
 
 The walk (Jacobs, Meadows) proposed that `user-moment` mark by default, so the safe path is also the lazy one. The existing build does the opposite: default off, an explicit flag. After reading the code I think the build is right. Aletheia asked for *positively marked, at filing, by intent*; a default is not an intent, and a default-on moment filed carelessly would reopen the exact hole. The cost is that the lane starts quiet and stays quiet until I mark moments on purpose. I accept that cost, and the walk finding is recorded as superseded by the build, with this reason.
