@@ -72,7 +72,9 @@ def _moment(text=MOMENT, surface=True):
     """Filed MARKED by default, so the tests that are about links and about his grief run the
     second line on its own. The first line (nothing unmarked is ever read) has its own tests at
     the end of this file (walk-5fa33c17ed13, Aletheia's hold of 2026-10-25)."""
-    return user_model.record_moment(text, "it mattered", user_name="Andrew", surface=surface)
+    return user_model.record_moment(
+        text, "it mattered", user_name="Andrew", _mark_without_guards=surface
+    )
 
 
 def test_a_moment_near_a_lesson_gets_that_lesson_proposed_and_an_unrelated_one_gets_none(tmp_path):
