@@ -185,7 +185,17 @@ def register(cli: click.Group) -> None:
             ]
             from divineos.core.sibling_audit_rounds import this_seat
 
-            text = render_request(waiting, signed_by=(this_seat() or "aether").title())
+            # A letter to her signed by the wrong seat is worse than no letter (she answers
+            # whoever signs), so an unknown seat refuses rather than defaulting to Aether.
+            seat = this_seat()
+            if waiting and seat is None:
+                click.secho(
+                    "[!] Cannot sign the request: this checkout's data home matches no known "
+                    "seat (set DIVINEOS_HOME to your seat's home). Nothing printed.",
+                    fg="red",
+                )
+                raise SystemExit(2)
+            text = render_request(waiting, signed_by=(seat or "").title())
             click.echo("")
             click.echo(text or "(nothing needs her confirm right now)")
 

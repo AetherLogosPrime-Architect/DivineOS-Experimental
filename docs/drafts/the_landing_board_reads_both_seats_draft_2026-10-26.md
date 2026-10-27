@@ -30,3 +30,7 @@ All fourteen pieces in Aletheia's letter of today show as confirmed at their cur
 - The forged-confirm exposure: the board and the filing step trust a letter by its name and content. That already existed for the first seat's names; widening to the second adds no new class and does not close it. The live head must still match the sha, and the filing step has its own two-step with Dad's words after hers.
 - A third seat must be added to `SEATS` on purpose. `test_the_two_seats_are_the_whole_roster` fails the day the roster changes.
 - I closed the walk from the wrong folder, so it is not bound to this branch. Closed from inside the work copy next time.
+
+## Added 2026-10-28 (Aether's read of this change)
+
+`divineos landing --request` signed the letter `this_seat() or "aether"`, so a checkout whose seat could not be told sent Aletheia a request signed as Aether, and she answers whoever signs. It now refuses with the remedy named (set `DIVINEOS_HOME` to the seat's home) and prints no letter. Nothing waiting needs no signature, so the zero case still prints "nothing needs her confirm" and exits 0 (found in the walk, pinned by a test). The command had no test; `tests/test_the_landing_request_is_signed_by_the_seat_it_comes_from.py` runs it with the PR list, letters and seat stubbed at the names it reads, and the unknown-seat case fails against the old line.
