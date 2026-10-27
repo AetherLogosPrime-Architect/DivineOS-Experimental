@@ -323,7 +323,7 @@ def test_a_second_actor_a_capital_a_missing_actor_or_a_continuation_keeps_the_pa
 
 _HOOK = _REPO / ".claude" / "hooks" / "check-council-required.sh"
 _NL = chr(10)
-_END = "return all(' '.join(seg).startswith(_ARTIFACT_FILING_COMMANDS) for seg in acts)"
+_END = "return all(_is_freed(seg) for seg in acts)"
 
 
 @pytest.fixture(scope="module")

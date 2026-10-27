@@ -28,6 +28,20 @@ A CONFIRMS filed with `--actor user` puts words in Dad's voice, and the council 
 
 **Owed, named here so it is not forgotten:** make `audit submit` with actor `user` and a CONFIRMS title run `his_words_were_typed` and refuse unless the words match something he typed. That is the real lock; the narrowing only keeps the old pause until it exists. It is its own piece.
 
+## The fifth widening (2026-10-27, walk-969a822af7fd, after Aether's letter of that night)
+
+Aether paid five council walks to land two fixes. The commands that cost them were the three the merge path prints as its next step: `divineos audit patch-id`, `divineos audit prepare-merge` and `divineos audit list`. I checked the entry bar against the code, not on trust: `prepare-merge` is printed as "Now run" and "Proceed" by `file-external-confirm` and the stamp path; `patch-id` is named by a confirm refusal as the check to run; `audit list` is the stale-engagement gate's remedy for audit findings (the briefing dashboard also names it, but a dashboard is not a gate and I did not count it). All three only print.
+
+**The walk found a hole the list already has, and these three do not widen it.** The exemption is a prefix match on the joined segment, so a redirect on a freed command rides along: `divineos learn x > some/file` is freed and writes a file with no paperwork, and `prepare-merge` is even prescribed with `> body.md`. The three new commands live in their own tuple (`_READ_ONLY_FILING_COMMANDS`) and are freed only when their segment carries no redirect token. The older entries are not retrofitted here: that is its own change, with its own risk of locking a prescribed form out, and it is named so it is not forgotten. The cost of the choice is that `prepare-merge ... > body.md`, the form `prs_commands.py` prints, owes the paperwork; the bare command prints to the screen and costs nothing.
+
+Also named, not hidden: `audit list` is a prefix, so it frees `audit list-clean`, which only reads. `prepare-merge` and `patch-id` have no neighbours that start with them (`prepare-artifact` does not).
+
+**A correction to my own walk record.** One finding says the list was "11 entries and is 14". It was 13 and is 13 plus the separate tuple of three; the walk record is append-only, so the correction is here.
+
+**Four tests pin the same last line of the function.** The three older test files that lift the real function anchor on its exact final `return` line, so changing that line broke thirty of their tests until each anchor was updated. That is four copies of one lifter, and they should share one. Not done here; named.
+
+Tests: 18 new cases. Five redirect cases fail with the redirect check removed; the three freed commands, the neighbours that must not be freed, and the chained-behind cases pass and refuse as they should. 523 pass across the six files that read this hook.
+
 ## Falsifier
 
-A filing command in the merge path prints "build-flow BLOCKED" again, or the new entries let a command through that is not one of these three, or a CONFIRMS in his name passes without the paperwork.
+A filing command in the merge path prints "build-flow BLOCKED" again, or the new entries let a command through that is not one of these three, or a CONFIRMS in his name passes without the paperwork, or a redirect on one of the three writes a file without the paperwork.

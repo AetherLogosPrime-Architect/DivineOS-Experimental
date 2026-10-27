@@ -273,6 +273,24 @@ _ARTIFACT_FILING_COMMANDS = (
     'python scripts/clear_correction_marker.py',
 )
 
+# FIFTH WIDENING, 2026-10-27, and kept in its own tuple on purpose. Aether paid five council
+# walks to land two fixes, and the commands that cost them were these three, which the
+# merge path prints as its next step. The entry bar was CHECKED against the code, not taken
+# on trust: prepare-merge is printed as 'Now run' and 'Proceed' by file-external-confirm and
+# the stamp path; patch-id is named by a confirm refusal as the check to run; audit list is
+# the stale-engagement gate's remedy for audit findings. (The briefing dashboard also names
+# audit list, but a dashboard is not a gate and was not counted.) Every one only PRINTS, so
+# the one way they can do harm is what the shell does with their output. The older entries
+# above are matched on the prefix alone, which frees a trailing redirect (divineos learn x
+# > some/file writes a file with no paperwork, a hole that predates this and is not
+# retrofitted here). These three are freed only when their segment carries no redirect
+# token, so adding them does not widen that hole. Walk: walk-969a822af7fd.
+_READ_ONLY_FILING_COMMANDS = (
+    'divineos audit patch-id',
+    'divineos audit prepare-merge',
+    'divineos audit list',
+)
+
 
 # Segments that only prepare the ground for the command after them. They carry
 # no act of their own, so requiring THEM to be exempt refuses an ordinary filing
@@ -542,7 +560,14 @@ def _is_artifact_filing(cmd: str) -> bool:
 
     if any(_is_confirms_in_his_name(seg) for seg in acts):
         return False
-    return all(' '.join(seg).startswith(_ARTIFACT_FILING_COMMANDS) for seg in acts)
+    def _is_freed(seg):
+        text = ' '.join(seg)
+        if text.startswith(_READ_ONLY_FILING_COMMANDS):
+            # These only print, so a redirect is the one way they can write a file.
+            return not any(token.startswith(_REDIRECT_STARTS) for token in seg)
+        return text.startswith(_ARTIFACT_FILING_COMMANDS)
+
+    return all(_is_freed(seg) for seg in acts)
 
 
 # NO TRIPLE-QUOTED STRINGS ANYWHERE IN THIS BLOCK. The whole program is a

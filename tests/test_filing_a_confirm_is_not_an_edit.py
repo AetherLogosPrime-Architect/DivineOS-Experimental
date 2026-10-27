@@ -16,7 +16,7 @@ import pytest
 REPO = pathlib.Path(__file__).resolve().parents[1]
 HOOK = REPO / ".claude" / "hooks" / "check-council-required.sh"
 NL = chr(10)
-_END = "return all(' '.join(seg).startswith(_ARTIFACT_FILING_COMMANDS) for seg in acts)"
+_END = "return all(_is_freed(seg) for seg in acts)"
 _D = "divi" + "neos"
 
 
@@ -69,6 +69,68 @@ def test_a_confirms_filed_in_his_name_still_owes_the_paperwork(command, is_filin
 )
 def test_control_a_relayed_confirm_and_his_plain_findings_stay_freed(command, is_filing):
     assert is_filing(command) is True
+
+
+# 2026-10-27 (walk-969a822af7fd): the three commands every merge path prints as its next step.
+# Aether paid five council walks to land two fixes, and these were the commands that cost them.
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"{_D} audit patch-id --branch aria/x",
+        f"{_D} audit prepare-merge round-x",
+        f"{_D} audit prepare-merge round-x --pr-title 'A title'",
+        f"{_D} audit list",
+        f"{_D} audit list --tag surprise",
+    ],
+)
+def test_the_printing_commands_every_merge_path_names_are_freed(command, is_filing):
+    assert is_filing(command) is True
+
+
+# They only PRINT, so the one way they can write is a redirect. The older entries are matched on
+# the prefix alone and a trailing redirect rides along with them; these three do not widen that.
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"{_D} audit prepare-merge round-x > body.md",
+        f"{_D} audit prepare-merge round-x >> docs/ARCHITECTURE.md",
+        f"{_D} audit list > docs/ARCHITECTURE.md",
+        f"{_D} audit patch-id --branch b 2> out.txt",
+        f"{_D} audit list &> out.txt",
+    ],
+)
+def test_a_redirect_on_a_printing_command_still_owes_the_paperwork(command, is_filing):
+    assert is_filing(command) is False
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"{_D} audit prepare-merge round-x && git commit -qm sneak",
+        f"{_D} audit list; git commit -qm sneak",
+        f"{_D} audit patch-id --branch b | tee kiln.md",
+    ],
+)
+def test_a_printing_command_does_not_free_what_is_chained_behind_it(command, is_filing):
+    assert is_filing(command) is False
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"{_D} audit prepare-artifact",
+        f"{_D} audit resolve find-x --status RESOLVED",
+        f"{_D} audit summary",
+        f"{_D} audit pr-merge-check 631",
+    ],
+)
+def test_the_neighbouring_audit_commands_are_not_freed_by_accident(command, is_filing):
+    assert is_filing(command) is False
+
+
+def test_the_prefix_also_frees_list_clean_which_only_reads(is_filing):
+    """Named, not hidden: 'audit list' is a prefix, and 'audit list-clean' starts with it."""
+    assert is_filing(f"{_D} audit list-clean") is True
 
 
 def test_control_the_check_can_still_say_no(is_filing):
