@@ -78,6 +78,37 @@ def test_an_undated_letter_cannot_be_ordered_so_the_hold_still_stands() -> None:
     assert classify_pile(pile, letters, date(2026, 10, 27), {549: ()})[0][1].label == HELD
 
 
+def test_a_confirm_after_the_hold_in_the_same_letter_is_her_last_word() -> None:
+    # Aria's attack, 2026-10-27: the file name has a day and no time, so one letter that lifts a
+    # hold and confirms must be ordered by where the two sit in it.
+    letter = (
+        "- HOLD: #549 at 9037bd072: needs the picture marks.\n"
+        "- CONFIRMS: #549 at 9037bd072. — Aletheia\n"
+    )
+    pile = [{"number": 549, "headRefName": "fix/x", "headRefOid": HEAD_549}]
+    label = classify_pile(pile, {NAME: letter}, date(2026, 10, 27), {549: ()})[0][1].label
+    assert label == READY
+
+
+def test_a_confirm_before_the_hold_in_the_same_letter_does_not_lift_it() -> None:
+    letter = (
+        "- CONFIRMS: #549 at 9037bd072. — Aletheia\n"
+        "- HOLD: #549 at 9037bd072: on second thought, needs the picture marks.\n"
+    )
+    pile = [{"number": 549, "headRefName": "fix/x", "headRefOid": HEAD_549}]
+    label = classify_pile(pile, {NAME: letter}, date(2026, 10, 27), {549: ()})[0][1].label
+    assert label == HELD
+
+
+def test_two_letters_on_one_day_say_they_cannot_be_ordered() -> None:
+    confirm = "- CONFIRMS: #549 at 9037bd072. — Aletheia\n"
+    letters = {NAME: HER_HOLD, "aletheia-to-aria-2026-10-23-later.md": confirm}
+    pile = [{"number": 549, "headRefName": "fix/x", "headRefOid": HEAD_549}]
+    status = classify_pile(pile, letters, date(2026, 10, 27), {549: ()})[0][1]
+    assert status.label == HELD
+    assert "cannot order" in status.detail
+
+
 def test_with_no_hold_the_old_labels_are_unchanged() -> None:
     status = classify(
         pr=1,

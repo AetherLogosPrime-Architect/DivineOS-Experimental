@@ -186,13 +186,24 @@ def holds_from_letters(letters: Mapping[str, str]) -> dict[int, tuple[date | Non
         if not name.startswith(_HER_LETTERS):
             continue
         day = _letter_day(name)
-        for line in _HOLD_LINE.findall(text):
+        for hold in _HOLD_LINE.finditer(text):
+            line = hold.group(0)
             pairs = list(_HOLD_PR.finditer(line))
             if not pairs:
                 continue
             reason = line[pairs[-1].end() :].lstrip(" :.,-").strip()
+            # The file name carries a day and no time, so two verdicts in ONE letter can only be
+            # ordered by where they sit in it. A confirm of the same fix at the same head further
+            # down is her last word and lifts the hold (Aria's attack on #735, 2026-10-27).
+            lifted_later = {(int(n), s.lower()) for n, s in _CONFIRM.findall(text[hold.end() :])}
             for pair in pairs:
                 number = int(pair.group(1))
+                if any(
+                    n == number
+                    and (s.startswith(pair.group(2).lower()) or pair.group(2).lower().startswith(s))
+                    for n, s in lifted_later
+                ):
+                    continue
                 old = found.get(number)
                 if old is None or (day is not None and (old[0] is None or day >= old[0])):
                     found[number] = (day, pair.group(2).lower(), reason)
@@ -275,9 +286,19 @@ def classify(
         )
         if not newer_confirm:
             when = hold_day.isoformat() if hold_day else "an undated letter"
+            same_day = any(
+                _at_head([sha], head_sha) and day is not None and day == hold_day
+                for day, sha in (confirm_days or {}).get(pr, [])
+            )
+            cannot_order = (
+                "; she also confirmed this head that same day and the file names carry no time, "
+                "so the board cannot order the two: read her letters"
+                if same_day
+                else ""
+            )
             return Status(
                 HELD,
-                f"she held this head ({when}): {her_hold[2] or 'no reason on the line'}",
+                f"she held this head ({when}): {her_hold[2] or 'no reason on the line'}{cannot_order}",
                 "do what her letter asks, then send the new head; this is an answer, not silence",
             )
     if not head_sha:
