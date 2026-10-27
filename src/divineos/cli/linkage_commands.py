@@ -87,6 +87,69 @@ def register(cli: click.Group) -> None:
             raise click.ClickException(f"no such moment: {moment_id}")
         click.secho(f"[+] {moment_id} unmarked", fg="green")
 
+    @linkage_group.group("moment-links")
+    def moment_links_group() -> None:
+        """Link a saved moment to the lessons of his it belongs to (per seat)."""
+
+    def _seat() -> str:
+        from pathlib import Path
+
+        from divineos.core import his_lessons_shelf
+
+        return his_lessons_shelf.seat(Path.cwd())
+
+    @moment_links_group.command("propose")
+    @click.argument("moment_id")
+    def propose_cmd(moment_id: str) -> None:
+        """Lessons of his this moment is near (top three at the shelf's floor), to confirm or drop."""
+        from divineos.core import moment_links
+
+        if not moment_links.is_marked(moment_id):
+            click.echo(
+                "this moment is not marked for the memory link (or does not exist), so nothing "
+                f"was read or proposed. To bring it in on purpose: divineos linkage mark-moment {moment_id}"
+            )
+            return
+        out = moment_links.propose(moment_id, _seat())
+        if not out.proposed:
+            click.echo(
+                "no lesson of his reaches the shelf's floor for this moment: stored unlinked."
+            )
+        for p in out.proposed:
+            click.echo(f"{p.link_id}  {p.score:.2f}  [{p.lesson.kind}] {p.lesson.words[:140]}")
+        for s in out.skipped:
+            click.echo(f"  skipped ({s.reason}) {s.score:.2f}  {s.line[:100]}")
+        if out.proposed:
+            click.echo("confirm or drop each: moment-links confirm <id> / decline <id>")
+
+    @moment_links_group.command("confirm")
+    @click.argument("link_id")
+    def confirm_cmd(link_id: str) -> None:
+        """Make a proposed link live: only a confirmed link is ever read."""
+        from divineos.core import moment_links
+
+        moment_links.confirm(link_id)
+        click.echo(f"[+] {link_id} confirmed")
+
+    @moment_links_group.command("decline")
+    @click.argument("link_id")
+    def decline_cmd(link_id: str) -> None:
+        """Drop a proposed link; it is kept, and never offered again."""
+        from divineos.core import moment_links
+
+        moment_links.decline(link_id)
+        click.echo(f"[+] {link_id} declined")
+
+    @moment_links_group.command("orphans")
+    def orphans_cmd() -> None:
+        """Confirmed links whose lesson no longer resolves."""
+        from divineos.core import moment_links
+
+        n = moment_links.orphan_count(_seat())
+        click.echo(
+            f"{n} confirmed link(s) resolve to no lesson" + (" -- look at these" if n else "")
+        )
+
     @linkage_group.command("why")
     @click.argument("words", nargs=-1, required=True)
     @click.option("--misses", default=4, show_default=True, help="Nearest items below the bar.")
