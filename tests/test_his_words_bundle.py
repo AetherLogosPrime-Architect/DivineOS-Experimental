@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -90,39 +91,107 @@ def test_the_bundle_says_what_the_two_commands_said(tmp_path):
 def test_an_automated_notice_says_the_same_in_the_bundle(tmp_path):
     world = _world(tmp_path)
     note = "<task-notification>a job finished</task-notification>"
-    assert bundle.run(note, "aether", **world) == _expected(world, note)
+    want = _expected(world, note)  # first: the indexes must be current before the bundle looks
+    assert bundle.run(note, "aether", **world) == want
 
 
-def test_the_embedding_library_is_loaded_once_for_the_search_the_shelf_and_the_build(
-    tmp_path, monkeypatch
-):
-    import sentence_transformers
+def _light_or_skip():
+    from divineos.core import light_embedder
 
+    ok, why = light_embedder.available()
+    if not ok:
+        pytest.skip(f"the light embedder cannot run here ({why}): NOT CHECKED is the search path")
+
+
+def test_the_search_never_loads_the_heavy_toolkit(tmp_path, monkeypatch):
+    """Dad 2026-10-28: the wait before I think was this door importing the heavy toolkit on every message.
+    With the toolkit made unimportable, the search and the shelf still answer, by the light embedder."""
+    _light_or_skip()
     world = _world(tmp_path)
-    _expected(world, ASK)  # both indexes current, so the search and the shelf both need the model
-    with world["corpus"].open(
-        "a", encoding="utf-8"
-    ) as f:  # and a new passage, so the build does too
-        f.write(
-            json.dumps(
-                {"ts": "2026-10-26T09:00:00Z", "project": "t", "text": "a new thing he said"}
-            )
-            + "\n"
-        )
-    loads: list[int] = []
-    real = sentence_transformers.SentenceTransformer
-
-    class Counting(real):  # type: ignore[misc, valid-type]
-        def __init__(self, *a, **k):
-            loads.append(1)
-            super().__init__(*a, **k)
-
-    monkeypatch.setattr(sentence_transformers, "SentenceTransformer", Counting)
+    want = _expected(world, ASK)  # the indexes are built with the heavy model, once, here
+    monkeypatch.setitem(sys.modules, "sentence_transformers", None)  # any import now raises
     monkeypatch.setattr(door, "_MODEL", None)
     out = bundle.run(ASK, "aether", **world)
-    assert len(loads) == 1, f"the model was loaded {len(loads)} times in one process"
-    assert "WHAT HE HAS TAUGHT" in out and "found by meaning" in out  # the searches really ran
-    assert door.unindexed(world["corpus"], world["door_index"]) == 0  # and the build really ran
+    assert "found by meaning" in out and "WHAT HE HAS TAUGHT" in out  # the searches really ran
+    assert out == want  # and the light vector found the same passages the heavy one would
+
+
+def test_a_failed_light_load_is_said_aloud_and_never_falls_back_to_the_heavy_toolkit(
+    tmp_path, monkeypatch
+):
+    from divineos.core import light_embedder
+
+    world = _world(tmp_path)
+    _expected(world, ASK)
+
+    def cannot(_text):
+        raise light_embedder.EmbedderUnavailable("the cached weights are missing")
+
+    monkeypatch.setattr(light_embedder, "encode", cannot)
+    monkeypatch.setitem(sys.modules, "sentence_transformers", None)  # a fall-back would raise
+    out = bundle.run(ASK, "aether", **world)
+    assert "could not be searched" in out and "the cached weights are missing" in out
+
+
+def test_an_index_that_is_behind_starts_a_background_build_and_never_builds_in_the_hook(
+    tmp_path,
+):
+    world = _world(tmp_path)  # nothing indexed: four passages and the lessons are behind
+    calls: list[tuple] = []
+
+    def spawn(*paths):
+        calls.append(paths)
+        return True
+
+    out = bundle.run(ASK, "aether", spawn=spawn, **world)
+    assert out.startswith("## HIS WORDS INDEX IS NOT FULLY UP TO DATE THIS TURN")
+    assert "4 of his passages are not indexed yet" in out
+    assert len(calls) == 1
+    assert calls[0] == (
+        world["corpus"],
+        world["door_index"],
+        world["verified"],
+        world["reread"],
+        world["shelf_index"],
+    )
+    assert door.unindexed(world["corpus"], world["door_index"]) == 4  # the hook added none
+
+
+def test_a_build_already_running_is_said_so_and_not_started_again(tmp_path, monkeypatch):
+    import subprocess
+    import time
+
+    world = _world(tmp_path)
+    starts: list[list] = []
+    monkeypatch.setattr(subprocess, "Popen", lambda cmd, **k: starts.append(cmd))
+    paths = (
+        world["corpus"],
+        world["door_index"],
+        world["verified"],
+        world["reread"],
+        world["shelf_index"],
+    )
+    assert bundle.start_background_build(*paths) is True
+    assert bundle.start_background_build(*paths) is False  # the lock is fresh
+    assert len(starts) == 1 and starts[0][-5:] == [
+        str(p) for p in paths
+    ]  # the child gets our paths
+    lock = world["door_index"] / ".build.lock"
+    lock.write_text(str(time.time() - bundle.BUILD_LOCK_SECONDS - 1), encoding="utf-8")
+    assert bundle.start_background_build(*paths) is True  # a dead build's lock expires
+
+
+def test_the_background_build_brings_both_indexes_up_to_date_and_removes_its_lock(tmp_path):
+    world = _world(tmp_path)
+    lock = world["door_index"] / ".build.lock"
+    world["door_index"].mkdir(parents=True)
+    lock.write_text("0", encoding="utf-8")
+    bundle._build_main(
+        [str(world[k]) for k in ("corpus", "door_index", "verified", "reread", "shelf_index")]
+    )
+    assert door.unindexed(world["corpus"], world["door_index"]) == 0
+    assert shelf.is_current(world["verified"], world["reread"], world["shelf_index"])
+    assert not lock.exists()
 
 
 def test_a_step_that_breaks_is_spoken_and_does_not_take_the_others_down(tmp_path, monkeypatch):
@@ -151,11 +220,14 @@ def test_a_lesson_step_that_breaks_leaves_the_words_door_speaking(tmp_path, monk
     assert "the lesson shelf itself failed to start" in out
 
 
-def test_an_index_that_is_still_catching_up_says_so_first(tmp_path, monkeypatch):
+def test_a_step_that_counts_what_is_behind_and_breaks_says_so_first(tmp_path, monkeypatch):
     world = _world(tmp_path)
-    monkeypatch.setattr(
-        door, "MAX_EMBED_PER_RUN", 1
-    )  # four passages, one per run: behind after this run
+    _expected(world, ASK)
+
+    def boom(*a, **k):
+        raise RuntimeError("the corpus could not be read")
+
+    monkeypatch.setattr(door, "unindexed", boom)
     out = bundle.run(ASK, "aether", **world)
     assert out.startswith("## HIS WORDS INDEX IS NOT FULLY UP TO DATE THIS TURN")
 

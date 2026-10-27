@@ -98,5 +98,19 @@ I see a timer that tells Dad nothing about why. He cannot tell "the house is slo
 
 **What Aria said does not change:** slices 0 to 3 stand. Slice 3 (one import shared by the words, lessons and memory-link lookups) is a fold too, but of one import, not of isolation: the lookups are already one family and one failure signature, and the deadline stays on the whole helper.
 
+## 2026-10-28: the cure the one-trip fold left undone (Dad: "the fix to keep you from freezing has reverted")
+
+**What was found.** The one-trip fold removed two of three library loads and left the third. Timed on 2026-10-28 with a bare payload, the words helper still took 11.5 s alone and the memory-link helper 4.5 s; the thirty prompt helpers together took 35.5 s, so a busy machine hit the table's 80 s cap, and the same slowness made six tests that start the table fail inside the push check's parallel run (they pass alone, in 141 s). The cause: `his_words_door._model()` imports the heavy sentence toolkit in every fresh process, while `light_embedder.py` (Aria, 2026-09-24: same model, 0.05 s to load) already existed and the memory retriever already used it. This door and the lessons shelf never moved over. Aria's reading: never reached, not decided against; I did not read history for a deliberate reason.
+
+**What changed.**
+- `his_words_door._embed_query` embeds the one searched sentence with `light_embedder.encode`. `look` and `his_lessons_shelf.bring` use it. If the light embedder cannot run, `EmbedderUnavailable` (a `RuntimeError`) is said aloud under the existing "could not be searched" heading. There is no fall-back to the heavy toolkit, because that fall-back is the wait.
+- The bundle no longer builds in the hook. It counts what is behind, starts a detached background build (`his_words_bundle build`, a lock file with the start time, fifteen minutes to expire), and says the count aloud every turn until it is zero. The child is handed the same five paths the hook was given, so a test world never builds the real index. `his_lessons_shelf.is_current` lets the hook ask whether the lesson index is current without paying for the library.
+
+**Measured, not argued (2026-10-28).** 40 of his real passages from the 17,532 indexed: heavy and light vectors agree to six places (minimum 1.0). 12 real queries against the stored heavy-built index: top-5 identical on all 12, top-1 identical on 12 of 12. The longest passage in the sample was 378 characters; I have not shown it on the very longest, which both models cut at 256 tokens. Light costs 31.5 ms a passage one at a time (about 25 s for the 800 a hook run used to build), which is why the build leaves the hook. End to end on a real message against the real index: 2.0 s, from about 11.5 s.
+
+**What it does not do.** The memory-link helper (4.5 s) is untouched. The build uses the heavy embedder in the background, so a machine that is busy at that moment is busier; it is one process at a time by the lock. A build killed mid-way leaves a lock that expires on its own and an index the existing heal handles. `moment_links` still uses the heavy path for its own embedding calls.
+
+**Pins.** The search answers identically with the heavy toolkit made unimportable; a failed light load is said aloud and does not import the toolkit; an index that is behind starts a background build with the paths it was given and adds nothing in the hook; a running build is not started twice and an expired lock is; the background build brings both indexes up to date and removes its lock.
+
 ## Still to do before building
 Letter to Aria with the narrowed fold. Aletheia reads before main.
