@@ -18,6 +18,7 @@ index change searching a stale or partial index, which is said aloud, for one tu
 
 from __future__ import annotations
 
+import errno
 import json
 import sys
 from collections.abc import Callable
@@ -25,6 +26,11 @@ from pathlib import Path
 
 from divineos.core import his_lessons_shelf as shelf
 from divineos.core import his_words_door as door
+
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import fcntl
 
 NOT_STARTED_DOOR = (
     "## HE HAS SAID THIS BEFORE (found by meaning, his words as he wrote them)\n"
@@ -39,7 +45,38 @@ INDEX_BEHIND = (
     "It is still catching up, or the update failed. The search below ran on what is indexed so far, "
     "so some of his words may be missing.\n"
 )
-BUILD_LOCK_SECONDS = 15 * 60  # a build older than this is presumed dead and may be started again
+_BUILD_LOCK_NAME = ".build.lock"
+_BUSY_ERRNOS = {errno.EACCES, errno.EAGAIN, errno.EDEADLK}
+
+
+def _try_lock(fh) -> bool:
+    """Take the operating system's own lock on the file, without waiting. False if someone holds it.
+
+    The same call suite_slot.py makes, for the same reason (Aletheia's hold on #686 and again on #736,
+    2026-10-28): nobody ever judges whether a holder is dead or slow. The system releases the lock the
+    instant the holding process ends, however it ends, and a build that is merely slow keeps it. A
+    lock file with an age had both defects: a check and then a write with a gap between them, and a
+    slow build presumed dead and run twice beside itself."""
+    try:
+        if sys.platform == "win32":
+            fh.seek(0)
+            msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError as exc:
+        # Only "someone else holds it" means busy; a read-only folder or a bad handle never clears.
+        if exc.errno in _BUSY_ERRNOS:
+            return False
+        raise
+    return True
+
+
+def _unlock(fh) -> None:
+    if sys.platform == "win32":
+        fh.seek(0)
+        msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+    else:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
 
 
 def _step(job: Callable[[], str], when_it_fails: str) -> str:
@@ -71,22 +108,20 @@ def start_background_build(
 
     The build embeds many passages at once and needs the heavy embedder (about eight seconds just to
     start; the light one takes 31 ms a passage, one at a time), which is why it never runs inside the
-    prompt: Dad 2026-10-28, the wait before I think. A lock file keeps a message every few seconds
-    from starting a build each time. It is a plain file with the start time, because the only thing to
-    settle is "is one running now", and a build killed mid-way leaves a lock that expires on its own.
+    prompt: Dad 2026-10-28, the wait before I think. Whether one is running is answered by the
+    operating system's lock, which the build itself holds for its whole life: this takes it without
+    waiting only to ask, and lets it go again before starting the child. Two prompts close together can
+    both start a child; the child takes the lock first thing and the second one leaves at once, so
+    two builds never run at the same time, and the guard that matters is the child's, not this one.
     The child is handed the same five paths this process was given, so a test world builds a test
     world and never the real index."""
     import subprocess
-    import time
 
     door_index.mkdir(parents=True, exist_ok=True)
-    lock = door_index / ".build.lock"
-    try:
-        if time.time() - float(lock.read_text(encoding="utf-8")) < BUILD_LOCK_SECONDS:
+    with open(door_index / _BUILD_LOCK_NAME, "a+b") as fh:
+        if not _try_lock(fh):
             return False
-    except (OSError, ValueError):
-        pass
-    lock.write_text(str(time.time()), encoding="utf-8")
+        _unlock(fh)
     flags = 0
     if sys.platform == "win32":
         flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
@@ -149,13 +184,19 @@ def run(
     return behind + words + taught
 
 
-def _build_main(args: list[str]) -> None:
-    """The background build: runs to the end, then removes its lock, even when it fails."""
+def _build_main(args: list[str]) -> bool:
+    """The background build: takes the lock first thing and keeps it until it ends, however it ends.
+
+    Returns False without building when another build already holds the lock. The lock file is never
+    deleted: the system lets go of the lock when this process ends, and deleting a file someone else
+    may now hold is the defect the earlier version had."""
     corpus, door_index, verified, reread, shelf_index = (Path(a) for a in args)
-    try:
+    door_index.mkdir(parents=True, exist_ok=True)
+    with open(door_index / _BUILD_LOCK_NAME, "a+b") as fh:
+        if not _try_lock(fh):
+            return False
         build_everything(corpus, door_index, verified, reread, shelf_index)
-    finally:
-        (door_index / ".build.lock").unlink(missing_ok=True)
+        return True
 
 
 if __name__ == "__main__" and sys.argv[1:2] == ["build"]:

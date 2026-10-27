@@ -157,41 +157,96 @@ def test_an_index_that_is_behind_starts_a_background_build_and_never_builds_in_t
     assert door.unindexed(world["corpus"], world["door_index"]) == 4  # the hook added none
 
 
-def test_a_build_already_running_is_said_so_and_not_started_again(tmp_path, monkeypatch):
-    import subprocess
-    import time
-
-    world = _world(tmp_path)
-    starts: list[list] = []
-    monkeypatch.setattr(subprocess, "Popen", lambda cmd, **k: starts.append(cmd))
-    paths = (
+def _paths(world):
+    return (
         world["corpus"],
         world["door_index"],
         world["verified"],
         world["reread"],
         world["shelf_index"],
     )
-    assert bundle.start_background_build(*paths) is True
-    assert bundle.start_background_build(*paths) is False  # the lock is fresh
-    assert len(starts) == 1 and starts[0][-5:] == [
-        str(p) for p in paths
-    ]  # the child gets our paths
-    lock = world["door_index"] / ".build.lock"
-    lock.write_text(str(time.time() - bundle.BUILD_LOCK_SECONDS - 1), encoding="utf-8")
-    assert bundle.start_background_build(*paths) is True  # a dead build's lock expires
 
 
-def test_the_background_build_brings_both_indexes_up_to_date_and_removes_its_lock(tmp_path):
+def test_a_free_lock_starts_one_child_with_our_paths_and_is_let_go_again(tmp_path, monkeypatch):
+    import subprocess
+
     world = _world(tmp_path)
-    lock = world["door_index"] / ".build.lock"
+    starts: list[list] = []
+    monkeypatch.setattr(subprocess, "Popen", lambda cmd, **k: starts.append(cmd))
+    assert bundle.start_background_build(*_paths(world)) is True
+    assert len(starts) == 1 and starts[0][-5:] == [str(p) for p in _paths(world)]
+    with open(world["door_index"] / ".build.lock", "a+b") as fh:
+        assert bundle._try_lock(fh)  # asking took the lock only to ask: it is free again
+
+
+def test_a_build_that_holds_the_lock_is_never_robbed_however_slow(tmp_path, monkeypatch):
+    """Aletheia's hold on #736: an age-based lock called a slow build dead and ran a second beside it."""
+    import os
+    import subprocess
+
+    world = _world(tmp_path)
     world["door_index"].mkdir(parents=True)
-    lock.write_text("0", encoding="utf-8")
-    bundle._build_main(
-        [str(world[k]) for k in ("corpus", "door_index", "verified", "reread", "shelf_index")]
-    )
+    lock = world["door_index"] / ".build.lock"
+    starts: list[list] = []
+    monkeypatch.setattr(subprocess, "Popen", lambda cmd, **k: starts.append(cmd))
+    with open(lock, "a+b") as holder:
+        assert bundle._try_lock(holder)  # a build that has been running for a very long time
+        os.utime(lock, (0, 0))  # whose lock file looks a lifetime old
+        assert bundle.start_background_build(*_paths(world)) is False
+        out = bundle.run(ASK, "aether", **world)
+    assert starts == []  # no second build was started beside it
+    assert "A build is already running in the background" in out
+
+
+def test_two_children_started_close_together_run_one_build(tmp_path, monkeypatch):
+    """Aletheia's hold on #736: two prompts close together could both start a heavy build."""
+    import threading
+    import time
+
+    world = _world(tmp_path)
+    running = 0
+    peak = 0
+    builds = 0
+    guard = threading.Lock()
+
+    def slow_build(*_paths):
+        nonlocal running, peak, builds
+        with guard:
+            running += 1
+            builds += 1
+            peak = max(peak, running)
+        time.sleep(0.4)
+        with guard:
+            running -= 1
+        return 0
+
+    monkeypatch.setattr(bundle, "build_everything", slow_build)
+    args = [str(p) for p in _paths(world)]
+    results: list[bool] = []
+
+    def child():
+        results.append(bundle._build_main(args))
+
+    first = threading.Thread(target=child)
+    second = threading.Thread(target=child)
+    first.start()
+    time.sleep(0.1)  # the second arrives while the first is mid-build
+    second.start()
+    first.join()
+    second.join()
+    assert sorted(results) == [False, True]  # one built, the other left at once
+    assert peak == 1 and builds == 1
+
+
+def test_the_background_build_brings_both_indexes_up_to_date_and_leaves_its_lock_takeable(
+    tmp_path,
+):
+    world = _world(tmp_path)
+    assert bundle._build_main([str(p) for p in _paths(world)]) is True
     assert door.unindexed(world["corpus"], world["door_index"]) == 0
     assert shelf.is_current(world["verified"], world["reread"], world["shelf_index"])
-    assert not lock.exists()
+    with open(world["door_index"] / ".build.lock", "a+b") as fh:
+        assert bundle._try_lock(fh)  # the file stays; the system let go when the build ended
 
 
 def test_a_step_that_breaks_is_spoken_and_does_not_take_the_others_down(tmp_path, monkeypatch):
