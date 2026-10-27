@@ -31,6 +31,12 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
+  # The merge queue (Dad, 2026-10-28: yes, and yes again to this change) asks for the
+  # required checks on the combined result. The trailer and its tree binding are verified
+  # when the pull request enters the queue (the check is required there), and the push
+  # check below still runs on what lands on main, so the queue run only has to answer.
+  merge_group:
+    types: [checks_requested]
 
 jobs:
   guardrail-trailer-check:
@@ -57,7 +63,7 @@ jobs:
     #
     # The `push` clause keeps the vault covered: what lands on main is still
     # checked unconditionally. Identical shape to tests.yml line 21.
-    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.draft == false
     # Push-to-main only (Andrew 2026-08-13): "not every commit just every
     # merge to main, committing is allowed in your own workspace without any
     # audit, the github is the main vault/backup."
@@ -90,12 +96,18 @@ jobs:
     # editable and fetched live. The original justification no longer holds,
     # so the restriction should not outlive it.
     steps:
+      - name: Merge queue run - the trailer was verified when this entered the queue
+        if: github.event_name == 'merge_group'
+        run: echo "merge_group - the External-Review trailer was checked on the pull request before it could be queued; the push check still runs on main."
+
       - name: Check out PR with full history
+        if: github.event_name != 'merge_group'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Verify guardrail-modifying commits carry External-Review trailer
+        if: github.event_name != 'merge_group'
         shell: bash
         # Token so the script can read the trailer off the PR body when the
         # squash-merge message snapshot missed it. Read-only use; without it

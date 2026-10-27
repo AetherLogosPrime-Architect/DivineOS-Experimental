@@ -9,6 +9,11 @@ on:
     # promoted out of draft state. Default activity types
     # (opened/synchronize/reopened) skip the draft→ready transition.
     types: [opened, synchronize, reopened, ready_for_review]
+  # The merge queue (Dad, 2026-10-28: yes) asks for these same checks on the combined result
+  # before a piece lands. Without this trigger the queue would wait for checks that never
+  # start, and nothing would merge at all.
+  merge_group:
+    types: [checks_requested]
 
 jobs:
   test:
@@ -18,7 +23,7 @@ jobs:
     # and on the ready_for_review transition (when the audit clears and the
     # PR is promoted out of draft). See integrity-audit.yml for the matching
     # discipline on the audit gate.
-    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.draft == false
     strategy:
       matrix:
         # Bumped 2026-06-22 from ["3.10","3.11","3.12"] to ["3.12"]: the

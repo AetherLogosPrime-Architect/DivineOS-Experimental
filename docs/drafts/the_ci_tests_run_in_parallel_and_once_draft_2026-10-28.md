@@ -31,3 +31,18 @@ It cannot fix the merge line itself: GitHub still takes one branch at a time onc
 ## Falsifier, counted in uses
 
 If the next five CI runs after this lands are not at least 30 percent faster than the median of the five before it, the change did not do what it says and is revisited.
+
+## Added the same day: the checks answer the merge queue
+
+Dad, 2026-10-28, asked for the merge queue and, when it was put to him a second time, said yes to the review-check change below in so many words. The rule on main (`main protection`, ruleset 17092080) requires every pull request to be exactly up to date (`strict_required_status_checks_policy: true`). That is why each landing makes every other branch BEHIND and sends it back for a fresh 30 to 45 minute run: eight finished pieces were landing one an hour.
+
+A merge queue keeps that safety (the combined result is tested) and removes the reset, but it asks for the same required checks on the combined result, and a check whose workflow does not listen for the queue's event never starts, so the queue would wait forever and nothing would merge. This change makes the three required checks answer:
+
+- `tests.yml`: a `merge_group` trigger, and the test job runs on it. The full suite runs on the combined result.
+- `integrity-audit.yml`: a `merge_group` trigger, and the required `multi-party-review` job runs on it but, on that event only, prints that the trailer was verified when the pull request entered the queue and skips its own range check (its checkout and verify steps are skipped on `merge_group`). The check is unchanged on `pull_request` and on `push` to main, so a piece still cannot be queued without it and main is still checked after it lands.
+
+**The thing to read hardest.** This is the one place the review gate is not re-run on the combined result. The reasoning is that the trailer is bound to the pull request's own tree, which does not change when main is folded in; the push-to-main run catches a missing trailer after the fact. If that reasoning is wrong, the cost is a bad trailer noticed after merge instead of before it on that one path.
+
+**Not in this change, and why it is separate.** The ruleset itself (adding the `merge_queue` rule) is turned on only after this change is on main. Turning it on first would freeze every merge. It is an API call, not a file, and it can be switched off the same way.
+
+**Falsifier, counted in uses.** If a queued piece is held for more than two hours by a check that never reports, or lands without a trailer the pull-request run would have refused, the queue is switched off and this section is revisited.
