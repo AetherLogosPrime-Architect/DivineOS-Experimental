@@ -54,6 +54,31 @@ def register(cli: click.Group) -> None:
         if state.get("drawer_error"):
             raise click.ClickException(f"the drawer could not be read: {state['drawer_error']}")
         click.echo(f"items with no stored vector: {state.get('missing', 0)}")
+        # The second line's pain signal: nonzero means somebody tried to mark something that reads
+        # as loss. Never the words, only the count (walk-5fa33c17ed13).
+        click.echo(
+            f"moment marks refused by the grief guard: {memory_linkage_retriever.second_line_refusals()}"
+        )
+
+    @linkage_group.command("mark-moment")
+    @click.argument("moment_id")
+    def mark_moment_cmd(moment_id: str) -> None:
+        """Let the memory link bring a saved moment back (runs the grief guards once, here)."""
+        from divineos.core import memory_linkage_retriever
+
+        out = memory_linkage_retriever.mark_moment(moment_id)
+        if not out.ok:
+            raise click.ClickException(f"not marked: {out.reason}")
+        click.secho(f"[+] {moment_id} marked", fg="green")
+
+    @linkage_group.command("unmark-moment")
+    @click.argument("moment_id")
+    def unmark_moment_cmd(moment_id: str) -> None:
+        """Stop the memory link bringing a moment back, at once."""
+        from divineos.core import memory_linkage_retriever
+
+        memory_linkage_retriever.unmark_moment(moment_id)
+        click.secho(f"[+] {moment_id} unmarked", fg="green")
 
     @linkage_group.group("moment-links")
     def moment_links_group() -> None:
@@ -72,6 +97,12 @@ def register(cli: click.Group) -> None:
         """Lessons of his this moment is near (top three at the shelf's floor), to confirm or drop."""
         from divineos.core import moment_links
 
+        if not moment_links.is_marked(moment_id):
+            click.echo(
+                "this moment is not marked for the memory link (or does not exist), so nothing "
+                f"was read or proposed. To bring it in on purpose: divineos linkage mark-moment {moment_id}"
+            )
+            return
         out = moment_links.propose(moment_id, _seat())
         if not out.proposed:
             click.echo(

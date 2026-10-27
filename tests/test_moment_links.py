@@ -68,8 +68,11 @@ def _index(tmp_path, rows, name="idx"):
     return v, r, d
 
 
-def _moment(text=MOMENT):
-    return user_model.record_moment(text, "it mattered", user_name="Andrew")
+def _moment(text=MOMENT, surface=True):
+    """Filed MARKED by default, so the tests that are about links and about his grief run the
+    second line on its own. The first line (nothing unmarked is ever read) has its own tests at
+    the end of this file (walk-5fa33c17ed13, Aletheia's hold of 2026-10-25)."""
+    return user_model.record_moment(text, "it mattered", user_name="Andrew", surface=surface)
 
 
 def test_a_moment_near_a_lesson_gets_that_lesson_proposed_and_an_unrelated_one_gets_none(tmp_path):
@@ -168,4 +171,59 @@ def test_his_grief_is_never_proposed_and_never_shown(tmp_path, monkeypatch):
     ml.record_link(other, "aria", grief, "both", 0.9, ml.CONFIRMED)
     assert "a moment this belongs to" not in ml.surface_with_moments(
         "ive lost over a thousand of you", "aria", index_dir=d, log=None
+    )
+
+
+# --- the first line: nothing unmarked is ever read (Aletheia, 2026-10-25) ----------------------
+#
+# #719 turned the lane round so that it reads only moments marked on purpose. This piece reads
+# shared_history by id in two places, to propose a link and to bring a moment back, and so must
+# require the same mark, or it would be the hole the lane just closed.
+
+
+def test_an_unmarked_moment_is_never_proposed_even_when_it_is_near_a_lesson(tmp_path):
+    _v, _r, d = _index(tmp_path, [_row(TRUST)])
+    mid = _moment(surface=False)
+    assert ml.propose(mid, "aria", index_dir=d).proposed == []
+
+
+def test_the_command_says_not_marked_and_not_that_no_lesson_is_near():
+    from click.testing import CliRunner
+
+    from divineos.cli import cli
+
+    mid = _moment(surface=False)
+    assert not ml.is_marked(mid)
+    out = CliRunner().invoke(cli, ["linkage", "moment-links", "propose", mid])
+    assert "not marked" in out.output and "mark-moment" in out.output
+    assert "stored unlinked" not in out.output, (
+        "it claimed to have looked at a moment it never read"
+    )
+    assert ml.is_marked(_moment(surface=True))
+
+
+def test_a_moment_marked_later_can_then_be_proposed(tmp_path):
+    from divineos.core import memory_linkage_retriever as mlr
+
+    _v, _r, d = _index(tmp_path, [_row(TRUST)])
+    mid = _moment(surface=False)
+    assert ml.propose(mid, "aria", index_dir=d).proposed == []
+    assert mlr.mark_moment(mid).ok
+    assert [p.lesson.words[:20] for p in ml.propose(mid, "aria", index_dir=d).proposed] == [
+        TRUST[:20]
+    ]
+
+
+def test_a_confirmed_link_stops_bringing_the_moment_back_the_instant_it_is_unmarked(tmp_path):
+    from divineos.core import memory_linkage_retriever as mlr
+
+    _v, _r, d = _index(tmp_path, [_row(TRUST)])
+    mid = _moment()
+    ml.confirm(ml.propose(mid, "aria", index_dir=d).proposed[0].link_id)
+    assert "a moment this belongs to" in ml.surface_with_moments(
+        SAYS, "aria", index_dir=d, log=None
+    )
+    mlr.unmark_moment(mid)
+    assert "a moment this belongs to" not in ml.surface_with_moments(
+        SAYS, "aria", index_dir=d, log=None
     )

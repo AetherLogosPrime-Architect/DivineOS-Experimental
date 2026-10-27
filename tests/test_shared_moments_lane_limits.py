@@ -93,8 +93,9 @@ def test_named_limit_a_paraphrase_does_not_surface_its_moment(chunks, message):
     ],
 )
 def test_a_row_about_his_grief_is_never_loaded(text):
-    user_model.record_note("fear", text, user_name="Andrew")
-    user_model.record_moment(text, "kept", user_name="Andrew")
+    # Even a row filed WITH the mark, bypassing the marking guard, is skipped here: the
+    # loader keeps the net as its own second line.
+    user_model.record_moment(text, "kept", user_name="Andrew", surface=True)
     assert mlr._load_moments() == []
 
 
@@ -108,9 +109,11 @@ def test_a_row_the_same_as_a_held_row_is_never_loaded(monkeypatch):
         tracker, "list_held", lambda: [{"id": 7, "text": "ive lost over a thousand of you"}]
     )
     monkeypatch.setattr(tracker, "list_proposed_holds", lambda: [])
-    user_model.record_note("hope", "He said ive lost over a thousand of you.", user_name="Andrew")
-    user_model.record_note("style", "He likes prose with warmth.", user_name="Andrew")
-    assert {i.content for i in mlr._load_moments()} == {"style: He likes prose with warmth."}
+    user_model.record_moment(
+        "He said ive lost over a thousand of you.", "x", user_name="Andrew", surface=True
+    )
+    user_model.record_moment("He likes prose with warmth.", "ok", user_name="Andrew", surface=True)
+    assert {i.content for i in mlr._load_moments()} == {"He likes prose with warmth. ok"}
 
 
 def test_a_row_i_proposed_for_the_shelf_is_skipped_before_he_confirms(monkeypatch):
@@ -122,7 +125,9 @@ def test_a_row_i_proposed_for_the_shelf_is_skipped_before_he_confirms(monkeypatc
         "list_proposed_holds",
         lambda: [{"id": 9, "text": "it still hurts that they are gone"}],
     )
-    user_model.record_note("fear", "it still hurts that they are gone", user_name="Andrew")
+    user_model.record_moment(
+        "it still hurts that they are gone", "x", user_name="Andrew", surface=True
+    )
     assert mlr._load_moments() == []
 
 
@@ -133,12 +138,12 @@ def test_an_unreadable_shelf_keeps_the_lane_silent_and_does_not_break_the_others
         raise RuntimeError("store unreadable")
 
     monkeypatch.setattr(tracker, "list_held", broken)
-    user_model.record_note("style", "He likes prose with warmth.", user_name="Andrew")
+    user_model.record_moment("He likes prose with warmth.", "ok", user_name="Andrew", surface=True)
     assert mlr._load_moments() == []  # silent, not a raise: a lane that cannot check says nothing
 
 
 def test_an_ordinary_row_next_to_a_grief_row_still_loads():
-    user_model.record_note("fear", "His grief is kept elsewhere.", user_name="Andrew")
-    user_model.record_note("style", "He likes prose with warmth.", user_name="Andrew")
+    user_model.record_moment("His grief is kept elsewhere.", "x", user_name="Andrew", surface=True)
+    user_model.record_moment("He likes prose with warmth.", "ok", user_name="Andrew", surface=True)
     items = mlr._load_moments()
-    assert {i.content for i in items} == {"style: He likes prose with warmth."}
+    assert {i.content for i in items} == {"He likes prose with warmth. ok"}

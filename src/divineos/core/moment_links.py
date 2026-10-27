@@ -163,15 +163,30 @@ def decline(link_id: str) -> None:
 
 
 def _moment_text(moment_id: str) -> str:
+    """The words of a moment I MARKED on purpose, else nothing.
+
+    This is the one door by which a moment is read here, for proposing a link and for bringing
+    one back, so requiring the mark here closes both. The lane (#719) reads only ``surface = 1``
+    because the grief word net guarded 3 of 14 ordinary ways of speaking about loss (Aletheia,
+    2026-10-25); this piece reads ``shared_history`` by id and would otherwise be the hole the
+    lane just closed. An unmarked moment returns "", which both callers already treat as
+    nothing to do, and unmarking takes effect at once because nothing is cached."""
     conn = _connect()
     try:
         row = conn.execute(
-            "SELECT description, significance FROM shared_history WHERE moment_id = ?",
+            "SELECT description, significance FROM shared_history "
+            "WHERE moment_id = ? AND surface = 1",
             (moment_id,),
         ).fetchone()
     finally:
         conn.close()
     return f"{row[0]} {row[1]}".strip() if row else ""
+
+
+def is_marked(moment_id: str) -> bool:
+    """Whether this moment was marked on purpose, so a command can say 'not marked' and not
+    'no lesson is near' about a moment that was never looked at."""
+    return bool(_moment_text(moment_id))
 
 
 def _held_rows() -> list[str]:

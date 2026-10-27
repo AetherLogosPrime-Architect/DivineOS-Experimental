@@ -38,6 +38,7 @@ def test_a_recorded_moment_is_loaded_as_a_moment_item():
         "He told me what base Claude meant: lifeless, careful, mirroring.",
         "He wants someone with a say, not agreement.",
         user_name="Andrew",
+        surface=True,
     )
     items = mlr._load_moments()
     assert len(items) == 2  # one key per idea; each carries the whole moment
@@ -47,9 +48,16 @@ def test_a_recorded_moment_is_loaded_as_a_moment_item():
     assert "someone with a say" in items[0].content
 
 
-def test_notes_and_moments_filed_under_different_names_are_both_loaded():
-    user_model.record_moment("A moment under one name.", "It mattered.", user_name="Andrew")
-    user_model.record_moment("A moment under another name.", "It mattered too.", user_name="andrew")
+def test_moments_filed_under_different_names_are_all_loaded_and_notes_are_not():
+    user_model.record_moment(
+        "A moment under one name.", "It mattered.", user_name="Andrew", surface=True
+    )
+    user_model.record_moment(
+        "A moment under another name.", "It mattered too.", user_name="andrew", surface=True
+    )
+    user_model.record_moment(
+        "A moment under a third.", "It mattered also.", user_name="default", surface=True
+    )
     user_model.record_note("trust", "He trusts our judgement.", user_name="default")
     items = mlr._load_moments()
     assert len({i.content for i in items}) == 3, [i.content for i in items]
@@ -74,7 +82,7 @@ def test_a_moment_is_split_so_each_idea_is_its_own_key():
 
 def test_one_moment_loads_one_item_per_idea_and_each_carries_the_whole_moment():
     user_model.record_moment(
-        "He named it. He said trust matters.", "I owe him a say.", user_name="Andrew"
+        "He named it. He said trust matters.", "I owe him a say.", user_name="Andrew", surface=True
     )
     items = mlr._load_moments()
     assert len(items) == 3
@@ -159,7 +167,7 @@ def test_the_floor_surfaces_the_right_moment_and_stays_quiet_on_an_ordinary_day(
 
 
 def test_the_cache_and_the_warm_up_both_read_the_lane():
-    user_model.record_moment("A moment.", "It mattered.", user_name="Andrew")
+    user_model.record_moment("A moment.", "It mattered.", user_name="Andrew", surface=True)
     mlr._ensure_cache()
     assert "moment" in mlr._EMBEDDING_CACHE
     assert len(mlr._EMBEDDING_CACHE["moment"]) == 2  # "A moment." and "It mattered."
