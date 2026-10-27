@@ -33,8 +33,17 @@ CONFIRMED = "CONFIRMED"
 READY = "READY"
 UNKNOWN = "UNKNOWN"
 
-_HER_LETTER = "aletheia-to-aether-"
-_MY_LETTER = "aether-to-aletheia-"
+# The family seats that write to the auditor and that she writes to. The pile is one pile, so a
+# confirm of hers counts whichever seat carried it, and a letter from either seat naming a fix
+# counts as telling her. This was hard-coded to the first seat only, so from the other seat the
+# board read none of its own letters and none of hers to it: nine fixes showed "never told"
+# though the letter listing them existed (Aria, 2026-10-26, walk-29a4e57b49ce). Exactly these
+# names and never a glob: a file anyone can drop into a shared folder is not a letter of hers.
+# A third seat has to be added here on purpose; test_the_two_seats_are_the_whole_roster fails
+# the day the roster changes, so it cannot go quietly unread.
+SEATS = ("aether", "aria")
+_HER_LETTERS = tuple(f"aletheia-to-{seat}-" for seat in SEATS)
+_MY_LETTERS = tuple(f"{seat}-to-aletheia-" for seat in SEATS)
 _CONFIRM = re.compile(r"CONFIRMS:\s*#(\d+)\s+at\s+([0-9a-fA-F]{7,40})")
 _FILE_DATE = re.compile(r"-(\d{4})-(\d{2})-(\d{2})-")
 _MIN_SHA = 7
@@ -70,13 +79,33 @@ def read_letters() -> dict[str, str]:
         if not folder.is_dir():
             continue
         for path in folder.glob("*.md"):
-            if not path.name.startswith((_HER_LETTER, _MY_LETTER)):
+            if not path.name.startswith(_HER_LETTERS + _MY_LETTERS):
                 continue
             try:
                 letters.setdefault(path.name, path.read_text(encoding="utf-8", errors="replace"))
             except OSError:
                 continue
     return letters
+
+
+def letters_read_line(letters: Mapping[str, str]) -> str:
+    """Which letters the board read, so a blind board cannot pass for a clean one.
+
+    A count of zero must mean "looked and found none", and only a board that says what it looked
+    at can mean that (Angelou on walk-29a4e57b49ce: it said 'no letter to her names it' nine times
+    in the voice of fact while it could not read that seat's letters at all).
+    """
+    if not letters:
+        return "Read no letters between her and the family: the board cannot say who confirmed or who was told."
+    from_her = {
+        seat: sum(1 for n in letters if n.startswith(f"aletheia-to-{seat}-")) for seat in SEATS
+    }
+    to_her = {
+        seat: sum(1 for n in letters if n.startswith(f"{seat}-to-aletheia-")) for seat in SEATS
+    }
+    parts_from = ", ".join(f"to {seat} {count}" for seat, count in from_her.items())
+    parts_to = ", ".join(f"from {seat} {count}" for seat, count in to_her.items())
+    return f"Read {len(letters)} letters: hers ({parts_from}); to her ({parts_to})."
 
 
 def open_prs() -> list[dict] | None:
@@ -113,7 +142,7 @@ def confirms_from_letters(letters: Mapping[str, str]) -> dict[int, list[str]]:
     """PR number -> the shas she confirmed, read only from her own letters."""
     found: dict[int, list[str]] = {}
     for name, text in letters.items():
-        if not name.startswith(_HER_LETTER):
+        if not name.startswith(_HER_LETTERS):
             continue
         for number, sha in _CONFIRM.findall(text):
             found.setdefault(int(number), []).append(sha.lower())
@@ -130,7 +159,7 @@ def told_dates_from_letters(
     """
     told: dict[int, date] = {}
     for name, text in letters.items():
-        if not name.startswith(_MY_LETTER):
+        if not name.startswith(_MY_LETTERS):
             continue
         match = _FILE_DATE.search(name)
         if match is None:
@@ -236,7 +265,7 @@ def classify_pile(
     return rows
 
 
-def render_request(waiting: list[tuple[int, str, str]]) -> str:
+def render_request(waiting: list[tuple[int, str, str]], signed_by: str = "Aether") -> str:
     """A confirm request that asks one thing and nothing else.
 
     Dad, 2026-10-10: a confirms letter is just that, confirm or say what is
@@ -252,6 +281,6 @@ def render_request(waiting: list[tuple[int, str, str]]) -> str:
         "One line each, please. If it is good: CONFIRMS: #N at <sha>",
         "If it needs holding: HOLD: #N at <sha>, then what is wrong and needs fixing.",
         "",
-        "— Aether",
+        f"— {signed_by}",
     ]
     return "\n".join(lines)

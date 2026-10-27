@@ -45,7 +45,12 @@ DRAWER = Path(
 # The wrappers automation arrives in. Known ones only (Aria): matching any "<"
 # would label a paste of his as automation. One list, read by the heading and
 # by the tally, so the two can never disagree about what was him.
-NOTICE_PREFIXES = ("<task-notification", "<system-reminder", "<agent-message")
+NOTICE_PREFIXES = (
+    "<task-notification",
+    "<system-reminder",
+    "<agent-message",
+    "<ci-monitor-event",
+)
 
 # His picture is about him, not me, so it stays on the table rather than in the drawer.
 ON_THE_TABLE = "he-is-in-the-room"
