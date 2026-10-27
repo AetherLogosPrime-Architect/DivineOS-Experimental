@@ -208,6 +208,15 @@ def _records_a_note(tool_name: str, tool_input: dict, transcript_path: str | Non
     notes cannot be named by accident, and with no transcript path there is no
     folder to find: refused, never guessed. The extension is checked on the name
     as given and on the resolved one, so `x.md:stream` and `x.md.` are not notes.
+
+    Two things this lets through that are worth saying aloud (Aether, 2026-10-28).
+    `MEMORY.md`, the index that loads into every later session, sits in this folder
+    and passes the same door: it is the one note whose edit changes what every
+    session reads, and it passes because a pointer to a note is a record too, not
+    because it is harmless. And an Edit of an EXISTING note works only because Read
+    is let through below: the harness refuses an Edit of a file not read first, so
+    the two exemptions are one door, and removing the Read exemption would quietly
+    turn this one into "new notes only".
     """
     if tool_name not in ("Edit", "Write") or not transcript_path:
         return False  # both-empty: the caller asks one question, let through or not; a bad path says so on stderr below, an ordinary no stays quiet

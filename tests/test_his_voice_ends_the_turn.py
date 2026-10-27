@@ -370,6 +370,40 @@ def test_the_real_hook_lets_a_note_through_and_still_refuses_the_work(tmp_path, 
     assert his_voice_hook.main() == his_voice_hook.REFUSE
 
 
+def test_the_memory_index_passes_the_note_door_and_its_neighbours_do_not(tmp_path):
+    """MEMORY.md loads into every later session; it passes like any note, and the limit
+    is named in the docstring so it is a chosen door and not a surprise."""
+    project, transcript = _seat_with_memory(tmp_path)
+    assert hv.let_through(
+        "Edit", {"file_path": str(project / "memory" / "MEMORY.md")}, str(transcript)
+    )
+    assert not hv.let_through("Edit", {"file_path": str(project / "MEMORY.md")}, str(transcript))
+
+
+def test_editing_an_existing_note_works_because_reading_it_first_is_let_through(
+    tmp_path, monkeypatch
+):
+    """The harness refuses an Edit of a file it has not seen read. Through the real hook,
+    in the order the harness forces: Read the note, then Edit it. If the Read exemption
+    were ever removed, the second call would still pass here but the first would not,
+    and the pair would be dead in practice (Aether, 2026-10-28)."""
+    import io
+
+    from divineos.hooks import his_voice_hook
+
+    project, transcript = _seat_with_memory(tmp_path)
+    note = project / "memory" / "feedback_his_words.md"
+    note.write_text("old", encoding="utf-8")
+    for tool in ("Read", "Edit"):
+        payload = {
+            "tool_name": tool,
+            "tool_input": {"file_path": str(note)},
+            "transcript_path": str(transcript),
+        }
+        monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(payload)))
+        assert his_voice_hook.main() == 0, tool
+
+
 @pytest.mark.parametrize("tool", ["Read", "Grep", "Glob"])
 def test_reading_is_let_through_after_he_speaks(tool):
     """Dad, 2026-10-26: "the gate should not stop you from reading the letter, just

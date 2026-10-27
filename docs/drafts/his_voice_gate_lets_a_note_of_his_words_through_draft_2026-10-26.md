@@ -63,3 +63,9 @@ Open limit, stated and not hidden: a turn kept alive on a chain of reads could s
 2. `_records_a_note` and the `let_through` signature; the hook passes `transcript_path`.
 3. Full run of that test file, then the guardrail and hook-wiring tests that name it.
 4. Both of us (Aether, Aletheia) read it before it reaches main; it is a gate file.
+
+## Added 2026-10-28 (Aether's read of this change)
+
+- **The index passes too.** `MEMORY.md`, the index that loads into every later session, sits in the memory folder and passes the same door. It is the one note whose edit changes what every session reads. It passes because a pointer to a note is a record too, not because it is harmless; a copy of it outside the folder does not pass (pinned by a test).
+- **Editing an existing note depends on Read being let through.** The harness refuses an Edit of a file it has not seen read, so the note door and the reading door are one door. A test runs the real hook in the order the harness forces (Read the note, then Edit it); removing the Read exemption would turn this change into "new notes only" without anyone choosing that.
+- **The register hunk is generated, not written.** `docs/AUTOMATION_REGISTER.md` is produced by `scripts/generate_automation_register.py` and checked for staleness; main's copy lacks the one row for `his-words-door-surface.sh`, so every branch that regenerates it carries the same one-row change (the same hunk is in #724 and #733). Identical hunks merge cleanly in any order.
