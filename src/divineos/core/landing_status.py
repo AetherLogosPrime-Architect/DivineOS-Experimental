@@ -28,6 +28,7 @@ from pathlib import Path
 
 NEVER_TOLD = "NEVER TOLD"
 NO_ANSWER = "NO ANSWER"
+HELD = "HELD BY HER"
 CHANGED = "CHANGED"
 CONFIRMED = "CONFIRMED"
 READY = "READY"
@@ -45,6 +46,8 @@ SEATS = ("aether", "aria")
 _HER_LETTERS = tuple(f"aletheia-to-{seat}-" for seat in SEATS)
 _MY_LETTERS = tuple(f"{seat}-to-aletheia-" for seat in SEATS)
 _CONFIRM = re.compile(r"CONFIRMS:\s*#(\d+)\s+at\s+([0-9a-fA-F]{7,40})")
+_HOLD_LINE = re.compile(r"HOLD:[^\n]*")
+_HOLD_PR = re.compile(r"#(\d+)\s+at\s+([0-9a-fA-F]{7,40})")
 _FILE_DATE = re.compile(r"-(\d{4})-(\d{2})-(\d{2})-")
 _MIN_SHA = 7
 
@@ -64,12 +67,24 @@ def today() -> date:
 def _letter_dirs() -> list[Path]:
     # Letters live in several places and the shared one is only the crossing
     # point (dashboard_checks.letter_queue learned this the hard way).
+    # 2026-10-27: her letters are saved under family/aletheia/audits/from-andrew and arrive
+    # first in Dad's Downloads folder, and this list named neither (the family/aletheia glob
+    # below was one level deep). The board read 644 letters where 798 existed, so it called
+    # fixes she had held or confirmed "no answer", and Dad had to say "she already answered
+    # on all of these". Downloads is his own folder and the name prefix still gates what counts.
     repo = Path(__file__).resolve().parents[3]
     return [
         Path.home() / ".divineos-shared" / "letters",
         repo / "family" / "letters",
         repo / "family" / "aletheia",
+        Path.home() / "Downloads",
     ]
+
+
+# Only her own folder holds letters under sub-folders (audits/from-andrew). The others stay one
+# level deep: Downloads in particular is far too large to walk.
+def _is_nested(folder: Path) -> bool:
+    return folder.name == "aletheia"
 
 
 def read_letters() -> dict[str, str]:
@@ -78,7 +93,7 @@ def read_letters() -> dict[str, str]:
     for folder in _letter_dirs():
         if not folder.is_dir():
             continue
-        for path in folder.glob("*.md"):
+        for path in folder.rglob("*.md") if _is_nested(folder) else folder.glob("*.md"):
             if not path.name.startswith(_HER_LETTERS + _MY_LETTERS):
                 continue
             try:
@@ -149,6 +164,55 @@ def confirms_from_letters(letters: Mapping[str, str]) -> dict[int, list[str]]:
     return found
 
 
+def _letter_day(name: str) -> date | None:
+    match = _FILE_DATE.search(name)
+    if match is None:
+        return None
+    return date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+
+
+def holds_from_letters(letters: Mapping[str, str]) -> dict[int, tuple[date | None, str, str]]:
+    """PR number -> (day of her letter, sha, her reason) for her newest HOLD on it.
+
+    A HOLD is an answer. Until this existed the board read only CONFIRMS, so a
+    fix she had held on 2026-10-23 read NO ANSWER on 2026-10-26, I asked her
+    again for something she had already answered, and Dad had to point me at his
+    Downloads folder to see it. A line may hold several fixes
+    ("HOLD: #551 at X and #549 at Y: reason"); the words after the last sha are
+    her reason for all of them. A letter whose day cannot be read carries None.
+    """
+    found: dict[int, tuple[date | None, str, str]] = {}
+    for name, text in letters.items():
+        if not name.startswith(_HER_LETTERS):
+            continue
+        day = _letter_day(name)
+        for line in _HOLD_LINE.findall(text):
+            pairs = list(_HOLD_PR.finditer(line))
+            if not pairs:
+                continue
+            reason = line[pairs[-1].end() :].lstrip(" :.,-").strip()
+            for pair in pairs:
+                number = int(pair.group(1))
+                old = found.get(number)
+                if old is None or (day is not None and (old[0] is None or day >= old[0])):
+                    found[number] = (day, pair.group(2).lower(), reason)
+    return found
+
+
+def confirm_days_from_letters(
+    letters: Mapping[str, str],
+) -> dict[int, list[tuple[date | None, str]]]:
+    """PR number -> (day of her letter, sha) for every confirm, so a hold can be ordered against it."""
+    found: dict[int, list[tuple[date | None, str]]] = {}
+    for name, text in letters.items():
+        if not name.startswith(_HER_LETTERS):
+            continue
+        day = _letter_day(name)
+        for number, sha in _CONFIRM.findall(text):
+            found.setdefault(int(number), []).append((day, sha.lower()))
+    return found
+
+
 def told_dates_from_letters(
     letters: Mapping[str, str], branches: Mapping[int, str]
 ) -> dict[int, date]:
@@ -187,6 +251,8 @@ def classify(
     told_dates: Mapping[int, date],
     held_stations: Iterable[str],
     today: date,
+    her_hold: tuple[date | None, str, str] | None = None,
+    confirm_days: Mapping[int, list[tuple[date | None, str]]] | None = None,
 ) -> Status:
     """The one label for a fix, and the one next step.
 
@@ -196,6 +262,24 @@ def classify(
     held = tuple(held_stations)
     shas = confirms.get(pr, [])
 
+    if head_sha and her_hold is not None and _at_head([her_hold[1]], head_sha):
+        hold_day = her_hold[0]
+        # A confirm at this head counts over her hold only when it is provably newer;
+        # an undated letter cannot be ordered, and could-not-tell reads as still held.
+        newer_confirm = any(
+            _at_head([sha], head_sha)
+            and day is not None
+            and hold_day is not None
+            and day > hold_day
+            for day, sha in (confirm_days or {}).get(pr, [])
+        )
+        if not newer_confirm:
+            when = hold_day.isoformat() if hold_day else "an undated letter"
+            return Status(
+                HELD,
+                f"she held this head ({when}): {her_hold[2] or 'no reason on the line'}",
+                "do what her letter asks, then send the new head; this is an answer, not silence",
+            )
     if not head_sha:
         return Status(
             UNKNOWN,
@@ -243,6 +327,8 @@ def classify_pile(
     """
     branches = {int(p["number"]): str(p.get("headRefName") or "") for p in prs}
     confirms = confirms_from_letters(letters)
+    holds = holds_from_letters(letters)
+    confirm_days = confirm_days_from_letters(letters)
     told = told_dates_from_letters(letters, branches)
     rows: list[tuple[dict, Status]] = []
     for pr in prs:
@@ -259,6 +345,8 @@ def classify_pile(
                     told_dates=told,
                     held_stations=stations,
                     today=on,
+                    her_hold=holds.get(number),
+                    confirm_days=confirm_days,
                 ),
             )
         )
