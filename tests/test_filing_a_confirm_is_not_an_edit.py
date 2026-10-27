@@ -155,6 +155,8 @@ def test_a_substitution_inside_a_printing_command_still_owes_the_paperwork(comma
         f"{_D} audit list --round <(touch x)",
         f"{_D} audit prepare-merge round-x < /etc/hostname",
         f"{_D} audit patch-id --branch ( touch x )",
+        f"{_D} audit list 2>&1",
+        f"{_D} audit list --round 'a' >> out.txt",
     ],
 )
 def test_a_process_substitution_or_subshell_on_a_printing_command_owes_the_paperwork(

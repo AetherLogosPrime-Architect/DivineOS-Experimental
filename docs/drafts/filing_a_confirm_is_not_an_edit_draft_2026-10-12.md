@@ -44,6 +44,16 @@ Aether paid five council walks to land two fixes. The commands that cost them we
 
 Tests: 25 new cases. Five redirect cases fail with the redirect check removed, and four substitution cases fail with the substitution check removed; the three freed commands, the neighbours that must not be freed, and the chained-behind cases pass and refuse as they should. 536 pass across the six files that read this hook.
 
+## The shape of the rule, after a fresh walk (walk-50cdeb19c994)
+
+Three holes in two nights, each found by running strings, were three separate prohibitions written one at a time: redirect, substitution, process substitution. That is what a missing invariant looks like, and a growing list of forbidden characters cannot be completed by finding holes. The three checks are now one rule that says what the freed segment must be: **after shell tokenising, no token made only of operator characters (an unquoted redirect, here-document marker, process substitution or subshell parenthesis always arrives as such a token), and no dollar sign or backtick in any token (a substitution that survives quoting always carries one).** Same refusals, same tests; new cases for `2>&1` and `>>`. Quoted parentheses inside an argument stay freed, because the tokeniser leaves them inside a quoted token and the shell treats them as literal.
+
+What it still assumes, written down: that the Python tokeniser and bash agree on how a command splits. Heredocs are stripped before this runs. A backslash-newline or an exotic alias could still go through, and I have not tested them.
+
+**An older hole, not fixed here (Aether, 2026-10-27, reproduced by me).** The gate skips any segment that starts with a wrapper word (`env`, `sudo`, `source`, `.`, `exec`, `time`, `cd`, `set`, `export`) without judging what it carries, so `divineos audit list ; env git commit -qm x` is freed, and so are the `sudo`, `source` and `exec` forms. The same shapes are freed on main for `divineos learn`, so it predates this PR and applies to the whole list. Filed as a claim. A fix should skip a wrapper only when what follows it is itself judged (`env X=1 divineos audit list` passes, `env git commit` does not), and `source` and the dot should not be wrappers at all. It is a design choice, not something this PR should grow to fix.
+
+**What the amend refusal told me.** `walk amend` refused the first follow-up (115 lines against a 30-line limit). I read that as the process saying a change that keeps needing small corrections is not small, and it was right: the fresh walk produced the invariant.
+
 ## Falsifier
 
 A filing command in the merge path prints "build-flow BLOCKED" again, or the new entries let a command through that is not one of these three, or a CONFIRMS in his name passes without the paperwork, or a redirect on one of the three writes a file without the paperwork.

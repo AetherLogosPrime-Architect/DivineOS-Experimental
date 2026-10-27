@@ -569,14 +569,16 @@ def _is_artifact_filing(cmd: str) -> bool:
             # These only print, so what the SHELL does around them is the one way they can do
             # harm: a redirect writes a file, and a substitution (dollar-paren or backticks)
             # runs another command before they start (Aether ran both strings, 2026-10-27).
+            # ONE rule, after three separate prohibitions each found as a hole (walk-50cdeb19c994):
+            # the tokeniser splits every UNQUOTED shell operator out as a token made only of
+            # operator characters (a redirect, a here-document marker, a process substitution,
+            # a subshell parenthesis), so such a token means the shell would act on something
+            # besides the command; and a substitution that survives quoting always carries a
+            # dollar sign or a backtick.
+            operator_chars = set('();<>|&')
+            if any(token and all(c in operator_chars for c in token) for token in seg):
+                return False
             substitution = (chr(36), chr(96))
-            if any(token.startswith(_REDIRECT_STARTS) for token in seg):
-                return False
-            # A less-than sign opens an input redirect or a process substitution, and a lone
-            # parenthesis opens a subshell or the body of one: the tokeniser splits them out,
-            # and a printing command carrying any of them can run another command.
-            if any(token.startswith(chr(60)) or token in ('(', ')') for token in seg):
-                return False
             return not any(c in token for token in seg for c in substitution)
         return text.startswith(_ARTIFACT_FILING_COMMANDS)
 
