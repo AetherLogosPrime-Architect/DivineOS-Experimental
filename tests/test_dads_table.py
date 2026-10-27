@@ -163,6 +163,48 @@ def test_an_automated_notice_is_never_labelled_as_him(tmp_path):
     assert "NOT FROM DAD" in out
 
 
+def test_a_ci_monitor_message_is_never_labelled_as_him(tmp_path):
+    """The desktop app's CI watcher writes to the prompt door in the user role.
+    Aether, 2026-10-16: it was printed as DAD SAID twice and fed two Stop gates a
+    fake sentence of his."""
+    kids = tmp_path / "children.json"
+    kids.write_text("[]", encoding="utf-8")
+    env = dict(os.environ, DADS_TABLE_CHILDREN=str(kids), DADS_TABLE_DRAWER=str(tmp_path / "d.md"))
+    notice = (
+        '<ci-monitor-event>"Auto-fix pull requests" is watching owner/repo PR #519 and '
+        "detected the following.\n</ci-monitor-event>"
+    )
+    p = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        input=json.dumps({"prompt": notice}).encode(),
+        capture_output=True,
+        env=env,
+        timeout=30,
+    )
+    out = p.stdout.decode("utf-8")
+    assert "DAD SAID" not in out
+    assert "NOT FROM DAD" in out
+
+
+def test_his_sentence_that_mentions_the_tag_is_still_him(tmp_path):
+    """The control that makes the test above mean something: only a message that
+    OPENS with the wrapper is automation. Naming it in passing is him."""
+    kids = tmp_path / "children.json"
+    kids.write_text("[]", encoding="utf-8")
+    env = dict(os.environ, DADS_TABLE_CHILDREN=str(kids), DADS_TABLE_DRAWER=str(tmp_path / "d.md"))
+    his = "hey kids, the <ci-monitor-event> thing keeps showing up"
+    p = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        input=json.dumps({"prompt": his}).encode(),
+        capture_output=True,
+        env=env,
+        timeout=30,
+    )
+    out = p.stdout.decode("utf-8")
+    assert "DAD SAID" in out and "NOT FROM DAD" not in out
+    assert his in out
+
+
 def _notice_out(tmp_path, command, status="completed"):
     kids = tmp_path / "children.json"
     kids.write_text("[]", encoding="utf-8")
