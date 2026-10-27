@@ -572,6 +572,11 @@ def _is_artifact_filing(cmd: str) -> bool:
             substitution = (chr(36), chr(96))
             if any(token.startswith(_REDIRECT_STARTS) for token in seg):
                 return False
+            # A less-than sign opens an input redirect or a process substitution, and a lone
+            # parenthesis opens a subshell or the body of one: the tokeniser splits them out,
+            # and a printing command carrying any of them can run another command.
+            if any(token.startswith(chr(60)) or token in ('(', ')') for token in seg):
+                return False
             return not any(c in token for token in seg for c in substitution)
         return text.startswith(_ARTIFACT_FILING_COMMANDS)
 

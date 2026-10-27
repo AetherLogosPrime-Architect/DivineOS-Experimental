@@ -151,6 +151,24 @@ def test_a_substitution_inside_a_printing_command_still_owes_the_paperwork(comma
 @pytest.mark.parametrize(
     "command",
     [
+        f"{_D} audit list <(touch made_by_procsub)",
+        f"{_D} audit list --round <(touch x)",
+        f"{_D} audit prepare-merge round-x < /etc/hostname",
+        f"{_D} audit patch-id --branch ( touch x )",
+    ],
+)
+def test_a_process_substitution_or_subshell_on_a_printing_command_owes_the_paperwork(
+    command, is_filing
+):
+    """Found by me running shapes through the real function before the walk, not by reading it:
+    Aether tested the output form (a greater-than parenthesis) and it was refused, but the
+    input form came back freed, and it runs the command inside the parentheses."""
+    assert is_filing(command) is False
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
         f"{_D} audit patch-idx --branch b",
         f"{_D} audit list-clean",
         f"{_D} audit prepare-merges round-x",
