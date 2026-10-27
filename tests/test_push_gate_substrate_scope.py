@@ -49,7 +49,13 @@ def _find_bash() -> str | None:
 
 _BASH = _find_bash()
 
-pytestmark = pytest.mark.skipif(_BASH is None, reason="bash not available")
+# Each test runs the real push gate in a throwaway repo, so each is slow, and the suite's 30s default ends the whole
+# worker when it trips ("node down: Not properly terminated"); the gate's own log named these as repeat crashers.
+# Same mechanism and same remedy as test_mutate_copy.py (2026-10-22). A real hang still fails, at 600s.
+pytestmark = [
+    pytest.mark.timeout(600),
+    pytest.mark.skipif(_BASH is None, reason="bash not available"),
+]
 
 
 def _git(repo: Path, *args: str) -> str:
