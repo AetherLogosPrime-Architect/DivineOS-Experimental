@@ -23,7 +23,18 @@ from divineos.core.landing_status import confirms_from_letters
 
 _MIN_SHA = 7
 _FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
-_MIN_WORDS_OF_HIS = 20
+# The floor is on CHARACTERS (it was named _MIN_WORDS_OF_HIS). It exists because his words are
+# then looked for inside what he typed (`his_words_were_typed`), and a bare "yes" would match
+# nearly anything. A line that names the piece it confirms is just as distinctive and is what the
+# gate is actually asking for, so naming the piece also passes (2026-10-27: "yes i confirm #719",
+# 18 characters, was refused while the vaguer "yes im good with the five going in", 34, passed).
+_MIN_CHARS_OF_HIS = 20
+_PIECE_REF = re.compile(r"(?:#|\bPR\s*)(\d+)", re.I)
+
+
+def _pieces_named(words: str) -> set[int]:
+    """The fix numbers his words name, as '#719' or 'PR 719'."""
+    return {int(n) for n in _PIECE_REF.findall(words)}
 
 
 class ClerkRefused(Exception):
@@ -246,11 +257,24 @@ def confirm_steps(
         if not _FULL_SHA.match(value):
             raise ClerkRefused(f"the {name} is not a full fingerprint: {value[:12]!r}")
     words = (andrew_said or "").strip()
-    if andrew_said is not None and len(words) < _MIN_WORDS_OF_HIS:
-        raise ClerkRefused(
-            "his confirm needs his own words quoted (at least a sentence); "
-            "a bare yes is not enough to put on the record for him"
-        )
+    named = _pieces_named(words)
+    if andrew_said is not None:
+        if named and pr not in named:
+            raise ClerkRefused(
+                f"his words name {', '.join('#' + str(n) for n in sorted(named))} but this is "
+                f"#{pr}. A line about another piece is not his yes to this one."
+            )
+        if named and len(words.split()) < 2:
+            raise ClerkRefused(
+                f"'{words}' names #{pr} but says nothing about it: quote what he typed, "
+                f"for example 'i confirm #{pr}'"
+            )
+        if not named and len(words) < _MIN_CHARS_OF_HIS:
+            raise ClerkRefused(
+                "his words name no piece and are too short to find reliably among what he "
+                f"typed. Quote what he typed with the piece in it (for example 'i confirm #{pr}'), "
+                "or a longer sentence; a bare yes would match almost anything"
+            )
     external = [
         "divineos",
         "audit",
@@ -288,8 +312,13 @@ def confirm_steps(
         "--category",
         "integrity",
         "-d",
-        f"Andrew said, in chat: {words} (his standing confirm attests that external "
-        f"review happened). tree-hash: {tree}",
+        f"Andrew said, in chat: {words} "
+        + (
+            f"(his words name #{pr}) "
+            if named
+            else "(his words name no piece; accepted on length alone) "
+        )
+        + f"(his standing confirm attests that external review happened). tree-hash: {tree}",
     ]
     return {"external": external, "user": user}
 

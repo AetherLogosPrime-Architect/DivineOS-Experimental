@@ -113,6 +113,52 @@ class TestTheFilingStepsAreBuiltFromGitAndHisWords:
         with pytest.raises(ClerkRefused):
             self._steps(words="yes")
 
+    # The fixtures are his own lines, copied from what he typed, not remembered: 2026-10-25
+    # "i confirm #718, #709, #701 and #703", 2026-10-27 "yes i confirm #719" (18 characters,
+    # refused by the old length floor of 20) and "yes im good with the five going in" (34
+    # characters, accepted though it names no piece).
+    def _file(self, words: str, pr: int = 719):
+        return confirm_steps(
+            pr=pr,
+            title="t",
+            branch="b",
+            tip=HEAD,
+            tree=TREE,
+            patch_id=PATCH,
+            her_short="e72d4341b",
+            andrew_said=words,
+            round_id="round-abc",
+        )
+
+    def test_a_short_line_that_names_the_piece_is_his_confirm(self) -> None:
+        argv = self._file("yes i confirm #719")["user"]
+        text = " ".join(argv)
+        assert "yes i confirm #719" in text and "his words name #719" in text
+
+    def test_his_line_naming_several_pieces_counts_for_each_of_them(self) -> None:
+        words = "i confirm #718, #709, #701 and #703"
+        for pr in (718, 709, 701, 703):
+            assert "user" in self._file(words, pr=pr)
+
+    def test_a_line_naming_a_different_piece_is_not_his_yes_to_this_one(self) -> None:
+        with pytest.raises(ClerkRefused, match="#718.*#719"):
+            self._file("yes i confirm #718 and thank you for the careful work", pr=719)
+        with pytest.raises(ClerkRefused):
+            self._file("i confirm #718, #709, #701 and #703", pr=719)
+
+    def test_a_line_with_no_piece_still_passes_when_it_is_long_enough(self) -> None:
+        argv = self._file("yes im good with the five going in")["user"]
+        assert "name no piece; accepted on length alone" in " ".join(argv)
+
+    @pytest.mark.parametrize("words", ["yes", "ok go ahead", "i confirm", "#719", " "])
+    def test_a_bare_yes_or_a_bare_number_is_still_refused(self, words: str) -> None:
+        with pytest.raises(ClerkRefused):
+            self._file(words)
+
+    def test_the_refusal_says_what_would_pass(self) -> None:
+        with pytest.raises(ClerkRefused, match=r"i confirm #719"):
+            self._file("ok go ahead")
+
     def test_a_short_tip_is_refused(self) -> None:
         with pytest.raises(ClerkRefused):
             confirm_steps(
