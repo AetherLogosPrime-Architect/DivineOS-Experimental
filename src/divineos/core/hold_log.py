@@ -9,6 +9,7 @@ nothing reads the log to decide anything: it is a record, not a gate.
 from __future__ import annotations
 
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -30,10 +31,18 @@ def record(hold: str, outcome: str, checked_text: str) -> None:
         "outcome": outcome,
         "first_words": " ".join(checked_text.split())[:_FIRST_WORDS],
     }
-    path = _log_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(line, ensure_ascii=False) + "\n")
+    # A record, not a gate (docstring above): a log that cannot be written must not change or cancel the hold
+    # decision the hook is in the middle of making (Aether on #738: a write failure inside the Stop hook could
+    # break the turn). It says so on stderr, so the failure is loud and the hold still holds.
+    try:
+        path = _log_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(line, ensure_ascii=False) + "\n")
+    except OSError as exc:
+        print(
+            f"[hold_log] could not write the record ({type(exc).__name__}: {exc})", file=sys.stderr
+        )
 
 
 def read_all() -> list[dict]:

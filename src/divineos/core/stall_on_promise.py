@@ -38,7 +38,7 @@ PROMISE_SHAPES: tuple[tuple[str, re.Pattern[str], str], ...] = (
         # Walk finding (Knuth): "I will be honest" is a feeling, not a step. Not an action: be, say, admit, mean...
         re.compile(
             r"\b(?:next,?\s+)?I(?:'m| am)\s+going\s+to\b"
-            r"|\bI(?:'ll| will)\s+(?!(?:be|say|admit|mean|stay|not|never|always|just|try\s+to\s+be)\b)",
+            r"|\bI(?:'ll| will)\s+(?!(?:just\s+)?(?:be|say|admit|mean|stay|not|never|always|try\s+to\s+be)\b)",
             re.I,
         ),
         "Next I'm going to start the read of the bundle.",
@@ -65,16 +65,36 @@ PROMISE_SHAPES: tuple[tuple[str, re.Pattern[str], str], ...] = (
 #: A step that is conditional on something HE says or does: the wait is his, so it is not a stall of mine.
 #: This is the ONLY excuse. A question mark at the end of the reply is not one: walk-83a5483f0504 (Knuth) found
 #: "I am writing Aether now. Okay?" escaped the hold, so a question tacked on was the cheapest way out.
-_WAITS_ON_HIM = re.compile(
-    r"\b(?:tell\s+me\b|let\s+me\s+know|say\s+[\"“']?(?:go|yes|the\s+word|so)\b|just\s+say|if\s+you|once\s+you|"
-    r"when\s+you|after\s+you|until\s+you|unless\s+you)\b",
+#:
+#: Two kinds, kept apart because they excuse differently (Aether on #738, 2026-10-27, found by running it):
+#: an INVITATION to him ("tell me", "let me know", "say go") makes the sentence his to answer wherever it sits;
+#: a CONDITION on him ("if you", "when you", "once you") excuses a step only when it comes BEFORE the step. A
+#: condition trailing the action ("I'm writing Aether now, if you want") does not make the action conditional,
+#: and excusing it reopened the question-tacked-on hole by one phrase.
+_INVITATION_TO_HIM = re.compile(
+    r"\b(?:tell\s+me\b|let\s+me\s+know|say\s+[\"“']?(?:go|yes|the\s+word|so)\b|just\s+say)",
+    re.I,
+)
+_CONDITION_ON_HIM = re.compile(
+    r"\b(?:if\s+you|once\s+you|when\s+you|after\s+you|until\s+you|unless\s+you)\b", re.I
+)
+
+#: A step that is already set to fire without me (Dijkstra: done in the turn, or already scheduled). Anchored to
+#: a clause about the step itself: the bare nouns "scheduled", "timer" and "cron" excused any sentence that merely
+#: named them, including one that promised to work on them ("I'm going to fix the timer next"; Aether, #738).
+_ALREADY_SCHEDULED = re.compile(
+    r"\b(?:(?:already|is|are|was)\s+scheduled|(?:in|at|on|during|by)\s+the\s+scheduled|"
+    r"timer\s+(?:will|is\s+set|fires?)|wake\s+is\s+set|"
+    r"cron\s+(?:job\s+)?(?:will|is\s+set)|set\s+to\s+fire|already\s+running|bell\s+is\s+listening)\b",
     re.I,
 )
 
-#: A step that is already set to fire without me (Dijkstra: done in the turn, or already scheduled).
-_ALREADY_SCHEDULED = re.compile(
-    r"\b(?:scheduled|timer|wake\s+is\s+set|cron|set\s+to\s+fire|already\s+running|bell\s+is\s+listening)\b",
-    re.I,
+#: A first-person future inside a REASON or a prediction about a habit is not a step I am putting off. Found live,
+#: 2026-10-22: "I shouldn't try, because every patch I write is something I'll later learn to slide through" was held
+#: as a stall. The marker is the reasoning word before the I'll, in the same sentence; a real promise that happens to
+#: follow a "because" clause passes this exemption, which is the accepted cost, counted in the hold log.
+_A_REASON_NOT_A_STEP = re.compile(
+    r"\b(?:because|since|which\s+means|so\s+that)\b[^.!?]*\bI(?:'ll|\s+will)\b", re.IGNORECASE
 )
 
 _CLOSING_CHARS = 700
@@ -94,11 +114,26 @@ def stated_next_step(text: str) -> tuple[str, str] | None:
     if not closing:
         return None
     for sentence in re.split(r"(?<=[.!?])\s+", closing):
-        if _WAITS_ON_HIM.search(sentence) or _ALREADY_SCHEDULED.search(sentence):
+        if (
+            _INVITATION_TO_HIM.search(sentence)
+            or _ALREADY_SCHEDULED.search(sentence)
+            or _A_REASON_NOT_A_STEP.search(sentence)
+        ):
             continue
+        condition = _CONDITION_ON_HIM.search(sentence)
         for name, pattern, _example in PROMISE_SHAPES:
-            if pattern.search(sentence):
-                return name, sentence.strip()
+            found = pattern.search(sentence)
+            if not found:
+                continue
+            # A condition on him excuses a step that is still ahead of me wherever it stands ("I'll build it once
+            # you say"); but a step I say I am doing NOW is happening, so only a condition standing before it
+            # counts ("If you want, I'm writing Aether now"), never one trailing it ("I'm writing Aether now, if
+            # you want"; Aether on #738).
+            if condition is not None and (
+                name != "in_progress_now" or condition.start() < found.start()
+            ):
+                continue
+            return name, sentence.strip()
     return None
 
 

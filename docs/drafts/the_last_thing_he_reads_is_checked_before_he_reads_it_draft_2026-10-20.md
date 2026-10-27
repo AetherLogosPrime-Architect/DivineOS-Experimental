@@ -138,3 +138,13 @@ Dad, 2026-10-27, after a day of waiting: *"work we did again has sat shelved, ne
 **Owed, not in this change.** Recording a promise inside the room to the promise ledger so a broken one is countable (Aether's point 3); a gate that refuses a new Stop hook registration without a walk bound to it (Dekker, above).
 
 **Falsifier, counted in uses.** Of the next twenty replies with a room, if the hold fires on a sentence that plainly waits on him, the list is still too narrow; if a promise of mine in the body or room goes unflagged, it was too wide.
+
+## 2026-10-27 evening: Aether ran the detector and found three escapes; Aletheia confirmed the earlier head
+
+Aether read #738 and ran seven sentences through `stated_next_step`. The care sentence and the opposite pair held. Three sentences that should be held escaped, each confirmed by running it:
+
+1. **"I'm writing Aether now, if you want."** A condition trailing a step I say I am doing now does not make it conditional; excusing it reopened the question-tacked-on hole walk-83a5483f0504 closed. The conditions on him are now split from the invitations to him: an invitation ("tell me", "let me know", "say go", "just say") makes the sentence his to answer wherever it sits; a condition ("if you", "when you", "once you") excuses a step still ahead of me wherever it stands ("I'll build it once you say", an existing test), but a step I say I am doing NOW is excused only by a condition standing before it ("If you want, I'm writing Aether now").
+2. **"I'll just push it now."** `just` was in the list beside `be`, so "just push" was read as a feeling. It is out; "I'll just be honest" is still a feeling because the lookahead now reads `just be`.
+3. **"I'm going to fix the scheduled task next."** The bare nouns `scheduled`, `timer`, `cron` excused any sentence that named them, including one promising to work on them. They are now anchored to a clause about the step itself ("is scheduled", "in the scheduled wake", "the timer will fire it", "the cron job will run it").
+
+Also from his reading: the hold log is a record, not a gate, so a failed write must not break or cancel the hold. `hold_log.record` now catches the write error, says so on stderr, and returns. And the check I ported from commit fc584eee8 pre-dated a fix found live on 2026-10-22 (a first-person future inside a reason: "because every patch I write is something I'll later learn to slide through" is a reason, not a step); that exemption is restored, with a test. Aletheia's confirm at `6e590654a` is for the head before these changes; she will need to read the new one.

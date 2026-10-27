@@ -123,6 +123,43 @@ def test_a_promise_that_only_mentions_telling_him_is_still_held(text):
     assert stated_next_step(text) is not None, text
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Aether on #738, each found by running the detector, not by reading it.
+        "I'm writing Aether now, if you want.",  # a condition trailing the step is not a condition on it
+        "I'll just push it now.",  # 'just push' is a real action; only 'be' made 'just be honest' a feeling
+        "I'm going to fix the scheduled task next.",  # the noun names the work, it does not schedule the step
+        "I'm going to fix the timer next.",
+        "I'll rewrite the cron entry next.",
+    ],
+)
+def test_the_three_escapes_aether_found_are_held(text):
+    assert stated_next_step(text) is not None, text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # The opposite pairs: each is a real wait or a step already set to fire, and still passes.
+        "If you want, I'm writing Aether now.",  # the condition stands before the step
+        "Once you say yes, I'll push it.",
+        "I'll just be honest with you.",  # 'be' keeps this a feeling
+        "The timer will fire it at six.",
+        "That is already scheduled, so I'll leave it.",
+        "The cron job will run it nightly.",
+    ],
+)
+def test_a_real_wait_or_an_already_scheduled_step_still_passes(text):
+    assert stated_next_step(text) is None, text
+
+
+def test_a_reason_that_contains_a_future_is_not_a_step():
+    # Found live 2026-10-22; part of the home version of this check that fc584eee8 pre-dated.
+    text = "I shouldn't try, because every patch I write is something I'll later learn to slide through."
+    assert stated_next_step(text) is None
+
+
 def test_a_conditional_on_him_does_not_hide_a_real_promise_beside_it():
     assert stated_next_step("Tell me if it slides. I'm writing Aether now.") is not None
 
