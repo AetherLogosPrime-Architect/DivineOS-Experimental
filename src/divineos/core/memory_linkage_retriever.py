@@ -717,7 +717,7 @@ def second_line_refusals() -> int:
     5fa33c17ed13); a nonzero count means somebody tried to mark something that reads as loss."""
     from divineos.core.ledger import get_events
 
-    return len(get_events(limit=10000, event_type=_REFUSED))
+    return len(get_events(limit=10000, event_type=_REFUSED, order="desc"))
 
 
 def _set_surface(moment_id: str, value: int) -> int:
