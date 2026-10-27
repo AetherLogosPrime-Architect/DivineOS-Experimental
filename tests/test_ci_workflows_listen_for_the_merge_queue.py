@@ -88,6 +88,15 @@ def test_the_pull_request_number_is_read_from_the_queue_ref_by_the_real_line():
         assert out == want, (ref, out)
 
 
+def test_the_coverage_measurement_stays_ungated():
+    """Aether's hold on #737: moving --cov into the main test command would let pyproject's
+    fail_under (75) fail every required test job. The measurement must not become a gate
+    before anyone has measured it."""
+    steps = _load("tests.yml")["jobs"]["test"]["steps"]
+    main = next(s for s in steps if "--cov=" in s.get("run", ""))
+    assert "--cov-fail-under=0" in main["run"]
+
+
 def test_the_review_check_still_runs_on_pull_requests_and_pushes():
     triggers = _triggers(_load("integrity-audit.yml"))
     assert "pull_request" in triggers and "push" in triggers

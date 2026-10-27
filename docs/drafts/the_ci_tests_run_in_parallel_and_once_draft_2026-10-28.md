@@ -32,6 +32,10 @@ It cannot fix the merge line itself: GitHub still takes one branch at a time onc
 
 If the next five CI runs after this lands are not at least 30 percent faster than the median of the five before it, the change did not do what it says and is revisited.
 
+## Aether's hold, taken (2026-10-28 evening)
+
+Moving `--cov` into the main test command would have let `pyproject.toml`'s `fail_under = 75` fail every required test job, because pytest-cov enforces that floor itself when `--cov-fail-under` is absent. The old separate step could never fail (`|| true`, `continue-on-error`); the new one must not either. The command now carries `--cov-fail-under=0` with a comment, and a test pins it. One limit he also named: the review check's `pull_request` trigger does not include `edited`, so a trailer written into a body after the last run is seen only by the next push or the push check on main; that was already true and is not new.
+
 ## Added the same day: the checks answer the merge queue
 
 Dad, 2026-10-28, asked for the merge queue and, when it was put to him a second time, said yes to the review-check change below in so many words. The rule on main (`main protection`, ruleset 17092080) requires every pull request to be exactly up to date (`strict_required_status_checks_policy: true`). That is why each landing makes every other branch BEHIND and sends it back for a fresh 30 to 45 minute run: eight finished pieces were landing one an hour.

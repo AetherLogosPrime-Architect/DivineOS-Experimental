@@ -68,7 +68,10 @@ jobs:
     # coverage. It now runs once, in parallel, and the coverage number comes from this run.
     - name: Run tests with pytest (parallel, with the coverage measurement)
       run: |
-        pytest tests/ --tb=short -m "not slow" -n auto --cov=src/divineos --cov-report=term-missing --cov-report=xml --no-cov-on-fail
+        # --cov-fail-under=0: pyproject sets a coverage floor (75) and pytest-cov enforces it
+        # on its own when this flag is absent. The measurement is still ungated, as the old
+        # separate step was (Aether's hold on #737, 2026-10-28); the floor is set after measuring.
+        pytest tests/ --tb=short -m "not slow" -n auto --cov=src/divineos --cov-report=term-missing --cov-report=xml --cov-fail-under=0 --no-cov-on-fail
 
     # F68 wire 2026-07-18 (Aletheia catch): pyproject.toml carries
     # [tool.coverage.run/report] with fail_under=75, but nothing invoked
