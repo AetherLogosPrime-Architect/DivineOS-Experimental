@@ -87,9 +87,16 @@ def reading_seat() -> str:
     a letter he had never seen.
     """
     from divineos.core.paths import divineos_home
-    from divineos.core.unspoken_to import member_name
 
-    return member_name(divineos_home())
+    # ``~/.divineos`` is Aether's home and ``~/.divineos-<name>`` everyone else's. Anything
+    # unrecognised says so rather than guessing a name. (This read used to come from the
+    # volley-board module, retired at Dad's word 2026-10-24; this was its only other caller.)
+    name = divineos_home().name
+    if name.startswith(".divineos-") and len(name) > len(".divineos-"):
+        return name[len(".divineos-") :]
+    if name == ".divineos":
+        return "aether"
+    return "<you>"
 
 
 @dataclass
