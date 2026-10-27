@@ -149,6 +149,8 @@ EXECUTE_SHAPES = [
     ("eval {v}", "eval"),
     ("bash -c '{v}'", "bash -c, single quotes"),
     ('sh -c "{v}"', "sh -c, double quotes"),
+    ('bash -lc "{v}"', "bash -lc, a login shell with the flags run together"),
+    ("bash -ec '{v}'", "bash -ec, flags run together"),
     ("xargs {v} <<< x", "xargs"),
     ("sudo {v}", "sudo"),
     ("timeout 5 {v}", "timeout with a numeric operand"),

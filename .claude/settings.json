@@ -10,12 +10,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/load-character-sheet.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/load-character-sheet.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 15
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/goal-boundary-at-session-start.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/goal-boundary-at-session-start.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 5
           }
         ]
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/front-door.sh keep",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/front-door.sh\"; if [ -f \"$f\" ]; then bash \"$f\" keep; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -35,12 +35,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/question_hold.py\"; [ -f \"$f\" ] && python \"$f\"",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/question_hold.py\"; if [ -f \"$f\" ]; then python \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 30
           },
           {
             "type": "command",
-            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/dads_table.py\"; [ -f \"$f\" ] && python \"$f\"",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/dads_table.py\"; if [ -f \"$f\" ]; then python \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 90
           }
         ]
@@ -51,7 +51,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/pre-compact.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/pre-compact.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 300
           }
         ]
@@ -62,7 +62,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/post-compact.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/post-compact.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -74,18 +74,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/his-voice-ends-the-turn.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/his-voice-ends-the-turn.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write|Bash|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/question_hold.py\"; [ -f \"$f\" ] && python \"$f\"",
-            "timeout": 30
           }
         ]
       },
@@ -94,12 +84,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/m3-discipline-hierarchy.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/m3-discipline-hierarchy.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 15
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/someone-else-is-in-this-file.sh"
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/someone-else-is-in-this-file.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi"
           }
         ]
       },
@@ -108,7 +98,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/require-goal.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/require-goal.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -118,7 +108,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/wwnd-tool-prime.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/wwnd-tool-prime.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 5
           }
         ]
@@ -128,7 +118,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/push-message-carries-the-destination.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/push-message-carries-the-destination.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -138,25 +128,25 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/check-pending-obligations.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/check-pending-obligations.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/pipeline-exit-ambiguity.sh"
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/pipeline-exit-ambiguity.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi"
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/venv-python-gate.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/venv-python-gate.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/blanket-staging-doorman.sh"
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/blanket-staging-doorman.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi"
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/merge-question-wrong-instrument.sh"
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/merge-question-wrong-instrument.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi"
           }
         ]
       },
@@ -165,7 +155,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/check-branch-on-push.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/check-branch-on-push.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -175,7 +165,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/andrew-correction-attestation.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/andrew-correction-attestation.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -185,7 +175,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/state-gravity-surface.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/state-gravity-surface.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 8
           }
         ]
@@ -195,7 +185,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/check-council-required.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/check-council-required.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 8
           }
         ]
@@ -205,7 +195,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/pre-tool-bypass-rate-scan.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/pre-tool-bypass-rate-scan.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -215,7 +205,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/corrigibility-tool-gate.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/corrigibility-tool-gate.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -225,7 +215,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/pre-tool-context.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/pre-tool-context.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -235,7 +225,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/verify-before-build-signal.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/verify-before-build-signal.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -245,7 +235,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/keyword-enforcement-doorman.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/keyword-enforcement-doorman.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -255,12 +245,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/family-member-invocation-seal.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/family-member-invocation-seal.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/compass-check.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/compass-check.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -270,12 +260,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/gh-pr-ready-gate.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/gh-pr-ready-gate.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 20
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/rederivation-detector.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/rederivation-detector.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 15
           }
         ]
@@ -285,7 +275,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/stale-file-edit-gate.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/stale-file-edit-gate.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -295,7 +285,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/safe-opposite-edit-check.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/safe-opposite-edit-check.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -305,7 +295,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/aletheia-boot-gate-preflight.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/aletheia-boot-gate-preflight.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -315,7 +305,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/doorbell-pre-tool-use.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/doorbell-pre-tool-use.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -325,7 +315,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/reach-check-doorman.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/reach-check-doorman.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 20
           }
         ]
@@ -335,7 +325,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/read-gate-doorman.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/read-gate-doorman.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 15
           }
         ]
@@ -345,7 +335,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "AUTO_CYCLE_HOOK_EVENT=PreToolUse bash .claude/hooks/auto-cycle-token-trigger.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/auto-cycle-token-trigger.sh\"; if [ -f \"$f\" ]; then AUTO_CYCLE_HOOK_EVENT=PreToolUse bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 30
           }
         ]
@@ -355,7 +345,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/work-item-doorman.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/work-item-doorman.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 20
           }
         ]
@@ -367,12 +357,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/post-tool-use-emit-to-logbook.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/post-tool-use-emit-to-logbook.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/doorbell-post-tool-use.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/doorbell-post-tool-use.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 20
           }
         ]
@@ -382,27 +372,27 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/verify-push-landed.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/verify-push-landed.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/post-commit-auto-close.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/post-commit-auto-close.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/post-commit-auto-verify-findings.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/post-commit-auto-verify-findings.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 15
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/auto-push-finished-work.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/auto-push-finished-work.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 20
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/ambiguous-verification-detector.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/ambiguous-verification-detector.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -412,27 +402,27 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/run-tests.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/run-tests.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/mirror-letters-to-shared.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/mirror-letters-to-shared.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/auto-push-letter.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/auto-push-letter.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/post-write-mirror-letter.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/post-write-mirror-letter.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/capture-channel-letter.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/capture-channel-letter.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -442,7 +432,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/session-checkpoint.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/session-checkpoint.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -452,12 +442,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/record-wisdom-read.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/record-wisdom-read.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/file-aletheia-artifact-on-arrival.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/file-aletheia-artifact-on-arrival.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 15
           }
         ]
@@ -467,7 +457,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/post-read-mark-letter-seen.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/post-read-mark-letter-seen.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -477,7 +467,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/build-flow-pause.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/build-flow-pause.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 120
           }
         ]
@@ -488,7 +478,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/front-door.sh settle",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/front-door.sh\"; if [ -f \"$f\" ]; then bash \"$f\" settle; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]
@@ -497,92 +487,102 @@
         "hooks": [
           {
             "type": "command",
-            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/question_hold.py\"; [ -f \"$f\" ] && python \"$f\"",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/question_hold.py\"; if [ -f \"$f\" ]; then python \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 30
           },
           {
             "type": "command",
-            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/letter_doorbell_alive_stop.py\"; [ -f \"$f\" ] && python \"$f\"",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/letter_doorbell_alive_stop.py\"; if [ -f \"$f\" ]; then python \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 15
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/log-session-end.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/poker_game_on_stop.py\"; if [ -f \"$f\" ]; then python \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/stamp-bare-letters-stop.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
+            "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/log-session-end.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/retrieval-tally-check.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/retrieval-tally-check.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/doorbell-stop.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/doorbell-stop.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/stop-distancing-intercept.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/stop-distancing-intercept.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/stop-response-scope-intercept.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/stop-response-scope-intercept.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/unlanded-push-must-not-close-quiet.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/unlanded-push-must-not-close-quiet.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/unsaved-personal-writing-must-not-close-quiet.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/unsaved-personal-writing-must-not-close-quiet.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/parked-work-must-not-be-invisible.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/parked-work-must-not-be-invisible.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/post-response-audit.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/post-response-audit.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/unmeasured-quantity-stop.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/unmeasured-quantity-stop.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/correction-shape-v2-stop.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/correction-shape-v2-stop.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/shoggoth-gate.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/shoggoth-gate.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/lepos-channel-reflect.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/lepos-channel-reflect.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/promise-reach-detector.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/promise-reach-detector.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/continuity-frame-detector.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/continuity-frame-detector.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/his-state-is-his-to-say.sh",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/his-state-is-his-to-say.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
           }
         ]

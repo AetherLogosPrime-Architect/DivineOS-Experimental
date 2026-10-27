@@ -211,6 +211,8 @@ class TestTheInertListIsPinnedByName:
                 "column",
                 "less",
                 "more",
+                # Grep, 2026-10-24. A grep filter on a recording command had disarmed its exit.
+                "grep",
                 # Shell options, 2026-09-18. See the module for the bar.
                 "set",
                 "shopt",

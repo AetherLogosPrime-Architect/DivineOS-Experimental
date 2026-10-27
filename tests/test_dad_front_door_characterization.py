@@ -71,7 +71,9 @@ def test_every_message_he_sends_is_kept_at_the_door():
     linkage and the door itself before this commit -- were a thing built and
     never called, so the pin is on the calling, not the behaviour.
     """
-    assert "bash .claude/hooks/front-door.sh keep" in _commands("UserPromptSubmit")
+    assert any(
+        "front-door.sh" in c and 'bash "$f" keep' in c for c in _commands("UserPromptSubmit")
+    )
 
 
 def test_what_the_door_kept_is_settled_at_the_end_of_a_reply():
@@ -80,7 +82,7 @@ def test_what_the_door_kept_is_settled_at_the_end_of_a_reply():
     still runs, so every word is still kept without anything waiting on it."""
     from divineos.core import hook_router, hook_surfaces
 
-    assert "bash .claude/hooks/front-door.sh settle" in _commands("Stop")
+    assert any("front-door.sh" in c and 'bash "$f" settle' in c for c in _commands("Stop"))
     hook_router.clear()
     hook_surfaces.install()
     assert "sort_first" not in hook_router.registered("PreToolUse")

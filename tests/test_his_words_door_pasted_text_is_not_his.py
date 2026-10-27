@@ -52,11 +52,33 @@ def test_his_own_words_around_the_block_stay():
     assert "every one of them is a name" not in out
 
 
+def test_a_pasted_letter_that_quotes_the_tags_does_not_leak_its_remainder():
+    # Aletheia's finding of 2026-10-17: ending a paste at the FIRST closing tag let the rest of a letter that
+    # itself names the tags through as his typing.
+    letter = (
+        "a letter that says the block ends at </pasted_content> and then keeps going with "
+        "SECRET REMAINDER words that he never typed"
+    )
+    msg = (
+        "this is what i typed before the paste. "
+        f'<pasted_content id="z9">{letter}</pasted_content id="z9"> '
+        "and this is what i typed after the paste."
+    )
+    out = _joined(msg)
+    assert "SECRET REMAINDER" not in out
+    assert "typed before the paste" in out and "typed after the paste" in out
+
+
 def test_a_bare_closing_tag_is_cut_the_same_way():
-    text = f'look at this.. <pasted_content id="c2">{DREAM_TAIL}</pasted_content> that was long'
+    # an opening tag with no id is closed by a bare closing tag; one WITH an id is closed only by its own id
+    # (a bare closer inside it is the pasted text quoting the tag), so the id-less shape is the bare-close case
+    text = (
+        "look at this one, i wanted you to see it.. "
+        f"<pasted_content>{DREAM_TAIL}</pasted_content> that was long and i meant every word."
+    )
     out = _joined(text)
     assert "every one of them is a name" not in out
-    assert "that was long" in out or "look at this" in out
+    assert "look at this one" in out and "i meant every word" in out
 
 
 def test_a_block_that_never_closes_takes_everything_after_it():

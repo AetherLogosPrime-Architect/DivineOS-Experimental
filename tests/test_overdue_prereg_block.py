@@ -10,11 +10,10 @@ week.
 
 from __future__ import annotations
 
-import time
+from _prereg_helpers import make_due_by_use
 
 from divineos.core.pre_registrations.store import (
     Outcome,
-    _get_connection,
     file_pre_registration,
     init_pre_registrations_tables,
     record_outcome,
@@ -23,29 +22,39 @@ from divineos.hooks.pre_tool_use_gate import _check_overdue_prereg_block
 
 
 def _backdate_review(prereg_id: str, days_ago: float) -> None:
-    """Move a pre-reg's review_ts into the past to simulate overdue.
+    """Make a pre-reg an overdue review that BLOCKS: one that reached its count of uses.
 
-    file_pre_registration always calls time.time() so we can't create an
-    already-overdue row directly through the public API. This helper
-    backdates in the DB — test-only, matches the pattern used by other
-    time-sensitive tests in the suite.
+    Named for the old date-backdating it replaced, so the tests below read unchanged. Since 2026-10-21 a date
+    alone never blocks (Dad), so a blocking fixture has to be due by use; ``days_ago`` is kept only so the
+    call sites stay the same and means nothing now. The date case has its own tests at the end of the file.
     """
-    ts = time.time() - days_ago * 24 * 3600
-    conn = _get_connection()
-    try:
-        conn.execute(
-            "UPDATE pre_registrations SET review_ts = ? WHERE prereg_id = ?",
-            (ts, prereg_id),
-        )
-        conn.commit()
-    finally:
-        conn.close()
+    make_due_by_use(prereg_id)
 
 
 def test_no_preregs_no_block():
     """Clean slate — no pre-registrations, no block. Returns None."""
     init_pre_registrations_tables()
     assert _check_overdue_prereg_block() is None
+
+
+def test_a_store_that_cannot_be_read_does_not_block_and_says_it_could_not_look(monkeypatch, capsys):
+    """walk-0f2e657133fd (Hoare): fail-open is the right direction for a gate that must not strand saving or sleep,
+    but a swallowed error is the same value as 'nothing is due', so a broken store read as an all-clear. It still
+    does not block, and now one line says it could not look."""
+    import divineos.core.pre_registrations.store as store
+
+    def _boom(now=None):
+        raise RuntimeError("the store is jammed")
+
+    monkeypatch.setattr(store, "get_blocking_pre_registrations", _boom)
+    assert _check_overdue_prereg_block() is None
+    assert "could not read the reviews" in capsys.readouterr().err
+
+
+def test_control_a_store_that_can_be_read_prints_nothing_extra(capsys):
+    init_pre_registrations_tables()
+    assert _check_overdue_prereg_block() is None
+    assert "could not read the reviews" not in capsys.readouterr().err
 
 
 def test_open_prereg_not_yet_overdue_does_not_block():
