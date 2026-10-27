@@ -236,8 +236,22 @@ def _records_a_note(tool_name: str, tool_input: dict, transcript_path: str | Non
     )
 
 
+# The tools that only look. They change nothing and send nothing, so they cannot bury
+# his answer; writing back can. Dad, 2026-10-26: "the gate should not stop you from
+# reading the letter, just writing back until i respond". The unread-letter gate
+# refuses every tool until a waiting letter is read, tells me to open it with the Read
+# tool, and says reading is never blocked, so refusing Read here made that gate's only
+# exit lead into this gate's wall (walk-f744751f09d5). Web tools reach outward and a
+# shell command can be anything, so neither is in this class; a tool added later is
+# held until someone decides.
+_READ_TOOLS = frozenset({"Read", "Grep", "Glob"})
+
+
 def let_through(tool_name: str, tool_input: dict, transcript_path: str | None = None) -> bool:
-    """The remedies, a note of his words, and nothing that could do more."""
+    """What reads him, records him, or settles the house's own gates, and nothing that
+    could do more: the looking tools, a note of his words, and the listed remedies."""
+    if tool_name in _READ_TOOLS:
+        return True
     if _records_a_note(tool_name, tool_input, transcript_path):
         return True
     if tool_name != "Bash":
@@ -260,6 +274,9 @@ def refusal(his_words: str) -> str:
         "letter through your doorbell, so make sure it is listening before you stop: "
         "bash scripts/letter_doorbell.sh <seat>, started with the tool's "
         "run_in_background setting, never with a shell '&' (that form is refused)\n\n"
+        "Reading is allowed (Read, Grep, Glob), so a waiting letter can be opened "
+        "while he is mid-sentence; writing back, building and pushing wait until you "
+        "have answered him.\n\n"
         "Also allowed: Edit or Write of a .md note in your own memory folder, to "
         "record what he said as he said it. Do that FIRST, with no answer text "
         "beside it (an answer written beside a tool call is the one that gets "

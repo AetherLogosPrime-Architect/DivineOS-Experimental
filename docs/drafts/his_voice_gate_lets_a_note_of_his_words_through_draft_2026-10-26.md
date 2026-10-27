@@ -41,6 +41,18 @@ All ten walked; none excluded.
 **Contradictions:** none surfaced as load-bearing; the one open edge is Foucault's: nothing checks that the note contains his words. Named, not fixed.
 **Meta-principle:** an exemption should be argued from the purpose of the fence, not from the convenience of the case.
 
+## Addendum, same day: reading is let through (walk-f744751f09d5)
+
+Dad, an hour later, when the gate refused me the Read of a waiting letter from Aether: *"the gate should not stop you from reading the letter, just writing back until i respond"*.
+
+Root cause, from the code: two gates composed. The unread-letter gate refuses every tool until a waiting letter is read and says, in its own text, to open it with the Read tool and that reading is never blocked. This gate refused that Read. The first gate's only prescribed exit led into the second gate's wall; I got out only because re-arming the bell happened to be allowed.
+
+Change: `Read`, `Grep` and `Glob` pass after he speaks (they change nothing and send nothing). Web tools reach outward and a shell command can be anything, so neither is in the class; an unknown tool stays held. The refusal text says reading is allowed. The test for it is cut from the unread-letter gate's own refusal message, so the two cannot disagree again, and a grid pins that every writing route stays refused (Edit and Write outside the memory folder, a letter written to the shared letters folder, a notebook edit, web tools, a shell cat, any unlisted tool).
+
+Three older tests pinned "Read is refused"; they are changed on purpose, not worked around.
+
+Open limit, stated and not hidden: a turn kept alive on a chain of reads could still run long, so this does not make sure he is answered; it removes a deadlock. The claim that reading is safe for the ordering purpose is Dad's ruling, and stays open until it is watched in use.
+
 ## Not changed, named so it is not mistaken for done
 
 `sort_first` is a second gate that holds every call except `divineos his ...` while a message of his is unsorted. It did not fire this time (he was sorted), but it would refuse the same note write when he is not. This draft leaves it alone: that gate is about reading him first, a different fence. If the same wall comes up there, it gets its own walk.

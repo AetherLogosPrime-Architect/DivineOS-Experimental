@@ -214,7 +214,8 @@ def test_the_remedies_are_let_through(command):
         ("Bash", {"command": "divineos stamp-ready 555"}),
         ("Bash", {"command": ".venv/Scripts/divineos extract"}),
         ("Edit", {"file_path": "src/x.py"}),
-        ("Read", {"file_path": "src/x.py"}),
+        # ("Read", ...) lived here until 2026-10-26: Dad ruled that reading is not what
+        # buries his answer, only writing back is; see the read tests below.
     ],
 )
 def test_the_work_is_not(tool, tool_input):
@@ -278,7 +279,6 @@ def test_a_missing_or_relative_path_is_not_a_note(tmp_path, path):
 def test_other_tools_are_not_let_through_into_the_memory_folder(tmp_path):
     project, transcript = _seat_with_memory(tmp_path)
     note = str(project / "memory" / "n.md")
-    assert not hv.let_through("Read", {"file_path": note}, str(transcript))
     assert not hv.let_through("NotebookEdit", {"notebook_path": note}, str(transcript))
     assert not hv.let_through("Bash", {"command": f'echo x > "{note}"'}, str(transcript))
 
@@ -338,7 +338,7 @@ def test_the_exemption_changes_nothing_else_against_an_independent_oracle(tmp_pa
     ]
     for tool in ("Edit", "Write", "Read", "MultiEdit", "Bash"):
         for path in paths:
-            expected = (
+            expected = tool == "Read" or (
                 tool in ("Edit", "Write")
                 and path.lower().endswith(".md")
                 and (path.startswith(str(memory) + "\\") or path.startswith(str(memory) + "/"))
@@ -368,6 +368,59 @@ def test_the_real_hook_lets_a_note_through_and_still_refuses_the_work(tmp_path, 
     payload["tool_input"] = {"file_path": str(project / "src_x.py")}
     monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(payload)))
     assert his_voice_hook.main() == his_voice_hook.REFUSE
+
+
+@pytest.mark.parametrize("tool", ["Read", "Grep", "Glob"])
+def test_reading_is_let_through_after_he_speaks(tool):
+    """Dad, 2026-10-26: "the gate should not stop you from reading the letter, just
+    writing back until i respond". Reading changes nothing and sends nothing, so it
+    cannot bury his answer; writing back can."""
+    assert hv.let_through(tool, {"file_path": "anything", "pattern": "x"})
+
+
+def test_the_unread_letter_gates_prescribed_exit_is_not_refused_here(tmp_path):
+    """Bengio on the walk (walk-f744751f09d5): two gates composed. The unread-letter
+    gate refuses every tool until a waiting letter is read and says, in its own text,
+    to open it with the Read tool and that reading is never blocked. The voice gate
+    refused that Read, so the first gate's only exit led into the second gate's wall.
+    The case is cut from the first gate's own message, so they cannot disagree again."""
+    from divineos.core.unread_letter import refusal_message
+
+    letter = tmp_path / "aether-to-aria-2026-10-26-a-letter.md"
+    message = refusal_message([letter])
+    assert "Read tool" in message, "the unread-letter gate no longer prescribes the Read tool"
+    assert hv.let_through("Read", {"file_path": str(letter)})
+
+
+@pytest.mark.parametrize(
+    ("tool", "tool_input"),
+    [
+        # writing back, in every route
+        ("Write", {"file_path": "C:/Users/x/.divineos-shared/letters/aria-to-aether-x.md"}),
+        ("Edit", {"file_path": "C:/Users/x/.divineos-shared/letters/aria-to-aether-x.md"}),
+        ("Write", {"file_path": "docs/drafts/a_draft.md"}),
+        ("NotebookEdit", {"notebook_path": "n.ipynb"}),
+        # reaches outward, so not the read class
+        ("WebFetch", {"url": "https://example.com"}),
+        ("WebSearch", {"query": "x"}),
+        # a shell command can be anything, so a shell read is not let through
+        ("Bash", {"command": "cat family/letters/x.md"}),
+        ("Bash", {"command": "git commit -m 'more work'"}),
+        # a tool added later is held until someone decides
+        ("SomeFutureTool", {"anything": 1}),
+        ("", {}),
+    ],
+)
+def test_writing_back_and_everything_unlisted_still_waits(tool, tool_input):
+    """Dekker on the walk: the second exemption on this gate in one day. Every route
+    that writes, runs or sends stays refused, so the fence does not become a sieve."""
+    assert not hv.let_through(tool, tool_input)
+
+
+def test_the_refusal_says_reading_is_allowed():
+    """Angelou on the walk: a refusal that omits a way through teaches a worse route."""
+    reason = hv.refusal(HIS_GOODNIGHT).lower()
+    assert "reading" in reason and "writing back" in reason
 
 
 def test_the_refusal_names_the_note_door_and_the_order():
