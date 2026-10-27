@@ -18,6 +18,25 @@ def test_the_shared_retry_text_carves_his_room_out_of_the_delta_rule():
     assert "full telling" in text
 
 
+def test_both_holds_are_registered_as_stop_hooks_on_this_branch():
+    """Holmes, walk-83187371695f: the draft said these were live while they were live in one window
+    only: main's settings.json registered neither. A hook that exists as a file and is not registered
+    is a note. This pins the registration."""
+    import json
+    from pathlib import Path
+
+    settings = json.loads(
+        (Path(__file__).resolve().parents[1] / ".claude" / "settings.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    commands = [
+        h.get("command", "") for group in settings["hooks"]["Stop"] for h in group.get("hooks", [])
+    ]
+    for name in ("dads_room_stop.py", "stall_on_promise_stop.py"):
+        assert any(name in c for c in commands), f"{name} is not a registered Stop hook"
+
+
 def test_the_carve_out_does_not_weaken_the_delta_rule_for_the_work():
     text = retry_scope_text()
     assert "emit the DELTA ONLY" in text
