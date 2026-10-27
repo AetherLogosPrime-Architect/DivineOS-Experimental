@@ -35,19 +35,57 @@ def test_the_test_job_runs_on_the_queue():
     assert "merge_group" in job["if"]
 
 
-def test_the_review_job_runs_on_the_queue_and_only_answers_there():
+def test_the_review_job_runs_in_full_on_the_queue_too():
+    """Aletheia, 2026-10-28: the queue must not be the one path where the review line goes
+    unchecked at merge time. No step of the job may be skipped on the queue's run, and the
+    verify step must take the range and the pull request from the merge group."""
     job = _load("integrity-audit.yml")["jobs"]["guardrail-trailer-check"]
     assert job["name"] == "multi-party-review"
     assert "merge_group" in job["if"]
-    steps = job["steps"]
-    answer = [s for s in steps if s.get("if") == "github.event_name == 'merge_group'"]
-    assert len(answer) == 1, "exactly one step answers on the queue's run"
-    real = [s for s in steps if s not in answer]
-    assert real, "the real checking steps must still exist"
-    for step in real:
-        assert step.get("if") == "github.event_name != 'merge_group'", (
-            f"step {step.get('name')!r} would run, or be skipped, on the queue by accident"
+    for step in job["steps"]:
+        assert "merge_group" not in str(step.get("if", "")), (
+            f"step {step.get('name')!r} is conditioned on the queue; the check must run in full"
         )
+    verify = next(s for s in job["steps"] if "Verify" in s.get("name", ""))
+    script = verify["run"]
+    for needle in (
+        "merge_group.base_sha",
+        "merge_group.head_sha",
+        "MERGE_GROUP_HEAD_REF",
+        "scripts/ci_check_guardrail_trailer.sh",
+    ):
+        assert needle in script or needle in str(verify.get("env", "")), needle
+
+
+def test_the_pull_request_number_is_read_from_the_queue_ref_by_the_real_line():
+    """Runs the workflow's own extraction line on real-shaped queue refs, so a change to the
+    line or to GitHub's ref shape fails here and not on the first queued piece."""
+    import subprocess
+
+    from tests.test_a_merge_cannot_commit_past_its_own_tests import BASH
+
+    if BASH is None:
+        import pytest
+
+        pytest.skip("no working bash on this machine")
+    verify = next(
+        s
+        for s in _load("integrity-audit.yml")["jobs"]["guardrail-trailer-check"]["steps"]
+        if "Verify" in s.get("name", "")
+    )
+    line = next(ln for ln in verify["run"].splitlines() if "PR_NUMBER=$(echo" in ln).strip()
+    for ref, want in (
+        ("gh-readonly-queue/main/pr-737-77d28c7aa5e00b2b64a9c28fde3e6264fd7667c6", "737"),
+        ("gh-readonly-queue/main/pr-5-abc", "5"),
+        ("gh-readonly-queue/main/nothing", ""),
+    ):
+        out = subprocess.run(
+            [BASH, "-c", f'MERGE_GROUP_HEAD_REF="{ref}"\n{line}\necho "$PR_NUMBER"'],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        assert out == want, (ref, out)
 
 
 def test_the_review_check_still_runs_on_pull_requests_and_pushes():

@@ -96,18 +96,12 @@ jobs:
     # editable and fetched live. The original justification no longer holds,
     # so the restriction should not outlive it.
     steps:
-      - name: Merge queue run - the trailer was verified when this entered the queue
-        if: github.event_name == 'merge_group'
-        run: echo "merge_group - the External-Review trailer was checked on the pull request before it could be queued; the push check still runs on main."
-
       - name: Check out PR with full history
-        if: github.event_name != 'merge_group'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Verify guardrail-modifying commits carry External-Review trailer
-        if: github.event_name != 'merge_group'
         shell: bash
         # Token so the script can read the trailer off the PR body when the
         # squash-merge message snapshot missed it. Read-only use; without it
@@ -115,6 +109,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          MERGE_GROUP_HEAD_REF: ${{ github.event.merge_group.head_ref }}
         run: |
           set -e
 
@@ -122,6 +117,20 @@ jobs:
           if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
             BASE_SHA="${{ github.event.pull_request.base.sha }}"
             HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          elif [ "${GITHUB_EVENT_NAME}" = "merge_group" ]; then
+            # The merge queue's own run (Aletheia, 2026-10-28: run the full check here
+            # too, so the queue is not the one path where the review line goes unchecked
+            # at merge time). The group's head_ref is gh-readonly-queue/<base>/pr-<N>-<sha>,
+            # which names the pull request, and so its body; base_sha and head_sha bound
+            # the entry's own commit.
+            BASE_SHA="${{ github.event.merge_group.base_sha }}"
+            HEAD_SHA="${{ github.event.merge_group.head_sha }}"
+            PR_NUMBER=$(echo "$MERGE_GROUP_HEAD_REF" | sed -n 's#.*/pr-\([0-9][0-9]*\)-.*#\1#p')
+            if [ -z "$PR_NUMBER" ]; then
+              echo "merge_group head_ref carries no pull request number: $MERGE_GROUP_HEAD_REF"
+              exit 1
+            fi
+            export PR_NUMBER
           else
             BASE_SHA="${{ github.event.before }}"
             HEAD_SHA="${{ github.sha }}"
