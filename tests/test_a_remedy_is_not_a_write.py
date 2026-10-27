@@ -23,13 +23,11 @@ Two repairs, one per ring link that is a rule and not a word-match bug:
 The controls matter more than the positives: a write must still be a write.
 """
 
-import time
-
 import pytest
+from _prereg_helpers import make_due_by_use
 
 from divineos.core.gravity_classifier import score_substrate_modification
 from divineos.core.pre_registrations.store import (
-    _get_connection,
     file_pre_registration,
     init_pre_registrations_tables,
 )
@@ -159,15 +157,9 @@ def _one_overdue_review():
         review_window_days=7,
         actor="aria",
     )
-    conn = _get_connection()
-    try:
-        conn.execute(
-            "UPDATE pre_registrations SET review_ts = ? WHERE prereg_id = ?",
-            (time.time() - 3 * 24 * 3600, prereg_id),
-        )
-        conn.commit()
-    finally:
-        conn.close()
+    make_due_by_use(
+        prereg_id
+    )  # a date alone no longer blocks (Dad, 2026-10-21); a reached count does
     return prereg_id
 
 
