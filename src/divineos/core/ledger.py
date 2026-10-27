@@ -702,6 +702,40 @@ def get_recent_context(n: int = 20, meaningful_only: bool = True) -> list[dict[s
         conn.close()
 
 
+def count_events_of_type(event_type: str) -> int:
+    """How many events of this exact type the ledger holds.
+
+    The count a usage-based review reads: a pre-registration is due when this
+    number has moved by N since it was filed.
+    """
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            "SELECT COUNT(*) FROM system_events WHERE event_type = ?", (event_type,)
+        ).fetchone()
+        return int(row[0])
+    finally:
+        conn.close()
+
+
+def nth_event_timestamp(event_type: str, index: int) -> float | None:
+    """Timestamp of the event of this type at zero-based position ``index``, oldest first.
+
+    When a usage-based review became due, so every reader that sorts or prints
+    "overdue by N days" gets a real moment instead of a placeholder.
+    """
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            "SELECT timestamp FROM system_events WHERE event_type = ? "
+            "ORDER BY timestamp ASC, rowid ASC LIMIT 1 OFFSET ?",
+            (event_type, index),
+        ).fetchone()
+        return float(row[0]) if row else None
+    finally:
+        conn.close()
+
+
 def count_events() -> dict[str, Any]:
     """Returns event counts by type and actor."""
     conn = _get_connection()
@@ -996,6 +1030,33 @@ def _known_chain_breaks() -> set[str]:
     return set(re.findall(r"^-\s+`([0-9a-f-]{8,})`\s*\S.{7,}", text, re.MULTILINE))
 
 
+def _removal_notes_from_rows(rows: list[tuple]) -> dict[str, int]:
+    """How many times each removed row's chain hash is named by a note in `rows`.
+
+    Rows are (event_id, timestamp, event_type, actor, payload, content_hash,
+    prior_hash, chain_hash). Split out of verify_chain so the bookkeeping can
+    be tested with crafted rows (Aletheia 2026-10-21): an end-to-end forgery
+    test cannot see this guard, because a later check catches the forgery first.
+    """
+    surviving = {r[7] for r in rows if r[7]}
+    removal_notes: dict[str, int] = {}
+    for _eid, _ts, etype, _a, payload_json, *_rest in rows:
+        if etype not in ("LEDGER_CORRUPTION_REPAIRED", "LEDGER_COMPACTION"):
+            continue
+        try:
+            payload = json.loads(payload_json)
+            if etype == "LEDGER_CORRUPTION_REPAIRED":
+                names = [payload.get("deleted_chain_hash")]
+            else:
+                names = list(payload.get("gap_tail_chain_hashes") or [])
+        except (ValueError, AttributeError, TypeError):
+            continue
+        for named in names:
+            if isinstance(named, str) and named and named not in surviving:
+                removal_notes[named] = removal_notes.get(named, 0) + 1
+    return removal_notes
+
+
 def verify_chain() -> dict[str, Any]:
     """Walk the chain and verify each chain_hash. Returns dict with
     ok (bool), total (int), broken_at (event_id or None),
@@ -1072,22 +1133,7 @@ def verify_chain() -> dict[str, Any]:
         # A named hash that still belongs to a surviving row is not a gap; it is
         # a real crossing, and excusing it would let a note launder one. So a
         # name counts only when no row in the chain carries it.
-        surviving = {r[7] for r in rows if r[7]}
-        removal_notes: dict[str, int] = {}
-        for _eid, _ts, etype, _a, payload_json, *_rest in rows:
-            if etype not in ("LEDGER_CORRUPTION_REPAIRED", "LEDGER_COMPACTION"):
-                continue
-            try:
-                payload = json.loads(payload_json)
-                if etype == "LEDGER_CORRUPTION_REPAIRED":
-                    names = [payload.get("deleted_chain_hash")]
-                else:
-                    names = list(payload.get("gap_tail_chain_hashes") or [])
-            except (ValueError, AttributeError, TypeError):
-                continue
-            for named in names:
-                if isinstance(named, str) and named and named not in surviving:
-                    removal_notes[named] = removal_notes.get(named, 0) + 1
+        removal_notes = _removal_notes_from_rows(rows)
 
         expected_prior = _CHAIN_GENESIS
         last_chain_hash = None

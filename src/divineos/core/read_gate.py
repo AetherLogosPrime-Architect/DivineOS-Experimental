@@ -846,6 +846,22 @@ def gate_status() -> tuple[bool, str]:
     # the other needs to get out of the way; the old code treated them alike.
     for path_str in delivered_whole:
         _mark_satisfied(path_str, "inlined in full — delivery is the read")
+    if len(delivered_whole) == len(reqs):
+        # Everything above arrived whole, and that is the read. The long closing
+        # speech ended "So open it", so the file was read twice (Aria 2026-10-10).
+        lines += [
+            "",
+            "Delivered in full above. That is the read; no need to open it again.",
+        ]
+        # NOT BLOCKED (Dad 2026-10-22, the 121st time this ask was filed, psf-de91f607: "once the
+        # refusal prints the full text, the next command should pass instead of needing a second
+        # try"). The old comment in the tests said it still interrupts "because that is how the
+        # text arrives". That was true of an exit-0 hook before hooks could hand context to the
+        # model; they can now, and a refusal whose only job was delivery cost one wasted call per
+        # surfaced note, hundreds of times, and once held the doorbell restart over an unrelated
+        # note while Dad slept. The caller prints this as context on an ALLOWED command; only a
+        # TRUNCATED inline, where a Read is genuinely still owed, still blocks.
+        return False, "\n".join(lines)
     lines += [
         "",
         "Read is never blocked — I made sure of that. A gate whose cure sits",

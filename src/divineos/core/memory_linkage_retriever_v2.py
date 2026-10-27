@@ -110,6 +110,16 @@ from divineos.core.memory_linkage_retriever import (
 # Constants — every value here has a §-reference into the design spec
 # --------------------------------------------------------------------
 
+REGULATORY_IMPORTANCE = 0.5
+"""The importance the regulatory (flood-triggered) lane scores every item with.
+
+Importance for knowledge now follows maturity and corroboration, and corroboration is a
+count someone can raise by repeating a learn. This lane was split off (Aletheia 2026-07-09)
+so that nothing an adversary could inflate shapes what surfaces during a flood, so it never
+reads an item's own importance: it scores every item with this constant, which is exactly
+what flat importance gave it before. Aria's read of #674, 2026-10-16.
+"""
+
 KNN_K = 8
 """Neighbors per item in the precomputed k-NN graph (§10.2).
 
@@ -599,7 +609,7 @@ def retrieve_similarity_only(prompt: str) -> list[MemoryLinkagePayload]:
                 similarity=similarity,
                 tier=item.tier,
                 recency_days=recency_days,
-                importance_score=item.importance_score,
+                importance_score=REGULATORY_IMPORTANCE,
             )
             content_kind, content, path_or_ref = _shape_content(
                 item.source, item.content, item.path
@@ -611,7 +621,7 @@ def retrieve_similarity_only(prompt: str) -> list[MemoryLinkagePayload]:
                     tier=item.tier,
                     similarity=similarity,
                     recency_days=recency_days,
-                    importance_score=item.importance_score,
+                    importance_score=REGULATORY_IMPORTANCE,
                     composite_rank=base_rank,  # NO priming boost
                     title=item.title,
                     content=content,
@@ -639,6 +649,89 @@ def install() -> None:
     C1-stateless test case.
     """
     set_retriever(retrieve_v2)
+
+
+# --------------------------------------------------------------------
+# A window onto one turn's scoring (Dad 2026-10-16: a wonky match is to be
+# looked into, not ignored)
+# --------------------------------------------------------------------
+
+
+def explain_turn(
+    prompt: str, recent_context: str | None = None, near_misses: int = 4
+) -> list[dict[str, object]]:
+    """Score ``prompt`` the way a turn is scored and say, per source, what passed the bar.
+
+    READ-ONLY, and that is the point (walk-d7bf0e9ab402, Hofstadter): asking why a
+    memory arrived must not change what arrives next, so this never updates the
+    priming state, never writes the drawer and never feeds importance back. It
+    shows the NUMBERS the retriever used (similarity, the bar, importance, freshness,
+    rank) and the real chunk it compared; it does not tell a story about meaning.
+
+    One entry per source: ``{source, items, bar, rows}``. Each row is ``{id, title,
+    similarity, passed, importance, recency_days, rank, chunk_chars, first_line}``,
+    the passers first and then the ``near_misses`` closest below the bar, so a wonky
+    hit is judged against what should have won. Priming is per process and a
+    standalone run starts with none, so a hit that live priming carried over the bar
+    shows here as a plain similarity pass or not at all; the caller says so.
+    """
+    if not prompt:
+        return []
+    _ensure_v2_state()
+    topic_vec = _embed_topic(synthesize_topic(prompt, recent_context))
+    if topic_vec is None:
+        # could-not-look must not read as nothing-matched (walk-d7bf0e9ab402, Hoare)
+        raise RuntimeError(
+            "the turn's words could not be turned into a vector, so nothing was scored"
+        )
+    out: list[dict[str, object]] = []
+    for source, items in _EMBEDDING_CACHE.items():
+        if not items:
+            continue
+        sims = [_cosine(topic_vec, item.embedding) for item in items]
+        bar = threshold_for_target_k(sims, source, len(items))
+        scored = sorted(zip(sims, items, strict=True), key=lambda pair: pair[0], reverse=True)
+        passers = [pair for pair in scored if pair[0] >= bar]
+        misses = [pair for pair in scored if pair[0] < bar][:near_misses]
+        rows: list[dict[str, object]] = []
+        for similarity, item in passers + misses:
+            recency_days = _days_since(item.filed_at_unix)
+            rows.append(
+                {
+                    "id": item.id,
+                    "title": item.title,
+                    "similarity": similarity,
+                    "passed": similarity >= bar,
+                    "importance": item.importance_score,
+                    "recency_days": recency_days,
+                    "rank": composite_score(
+                        similarity=similarity,
+                        tier=item.tier,
+                        recency_days=recency_days,
+                        importance_score=item.importance_score,
+                    ),
+                    "chunk_chars": len(item.content),
+                    "first_line": item.content.strip().splitlines()[0][:160]
+                    if item.content.strip()
+                    else "",
+                }
+            )
+        out.append({"source": source, "items": len(items), "bar": bar, "rows": rows})
+    # A pass is not an arrival: the live retriever keeps only the top TOTAL_INJECTION_CAP by
+    # rank ACROSS sources (Aria's read of #674: six of eleven passers never reached the turn
+    # and printed exactly like the five that did). Marked once here, without priming.
+    passed_rows = [
+        row
+        for entry in out
+        for row in entry["rows"]  # type: ignore[attr-defined]
+        if row["passed"]
+    ]
+    passed_rows.sort(key=lambda row: row["rank"], reverse=True)
+    reaching = {id(row) for row in passed_rows[:TOTAL_INJECTION_CAP]}
+    for entry in out:
+        for row in entry["rows"]:  # type: ignore[attr-defined]
+            row["surfaced"] = id(row) in reaching
+    return out
 
 
 # --------------------------------------------------------------------

@@ -70,7 +70,12 @@ def test_the_second_identical_block_is_silent_and_the_translate_note_is_gone():
         # Something must survive suppression (test_hook_dedup_contract.py): the
         # standing counts. But it is a small fraction of the full block.
         assert second, "nothing survived the suppression, which the dedup contract forbids"
-        assert len(second) * 3 < len(first), "an unchanged block spoke in full: the waste is back"
+        # Measured on what is suppressed, not on a size ratio: main's glance made the first block short
+        # (642 characters on a fresh home), so "a third of the size" tipped over at 2.8 while the heading and
+        # the pointer to the whole text were plainly gone. A ratio is a proxy; the parts are the claim.
+        assert "one line each" not in second, "the heading rode again: the waste is back"
+        assert "Whole text" not in second, "the pointer to the whole text rode again"
+        assert len(second) * 2 < len(first), "an unchanged block spoke in full: the waste is back"
 
 
 def test_a_changed_block_speaks_again():

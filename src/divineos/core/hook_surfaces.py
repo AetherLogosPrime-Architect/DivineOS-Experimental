@@ -28,7 +28,9 @@ Migrated so far:
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any, TypeVar, cast
 
 from divineos.core.hook_router import SurfaceOutcome, register
 
@@ -91,6 +93,53 @@ def must_read_surface(payload: dict) -> SurfaceOutcome | None:
         name="must_read",
         refused=True,
         reason=render_block(items),
+    )
+
+
+def unread_letter_surface(payload: dict) -> SurfaceOutcome | None:
+    """Hold real work while a letter the bell rang for is still unopened.
+
+    The ring used to be a line in a background file I could scroll past (an hour, 2026-10-08).
+    Now it has a consequence at the one moment it changes what I do next. Reading is never
+    blocked, a Read of the letter's exact path clears it here, and re-arming the bell always
+    gets through. See core/unread_letter.py for the full reasoning and what it cannot do.
+    """
+    tool = payload.get("tool_name") or ""
+    tool_input = payload.get("tool_input") or {}
+    try:
+        from divineos.core import unread_letter as ul
+        from divineos.core.sibling_audit_rounds import this_seat
+
+        member = this_seat()
+        if member is None:
+            # Cannot tell whose window this is, so whose letters to hold: say so and hold nothing.
+            return SurfaceOutcome(
+                name="unread_letter",
+                error="could not tell which seat this checkout is, so no letter is held",
+                state="could-not-run",
+            )
+        if tool == "Read":
+            cleared = ul.clear_on_read(member, tool_input.get("file_path") or "")
+            if cleared:
+                return SurfaceOutcome(
+                    name="unread_letter", output=f"[letter] opened: {', '.join(cleared)}"
+                )
+            return None
+        if tool in _ALWAYS_ALLOWED or tool not in _SUBSTANTIVE_TOOLS:
+            return None
+        if tool in ("Bash", "PowerShell") and ul.is_bell_command(
+            str(tool_input.get("command") or "")
+        ):
+            return None
+        waiting = ul.unread_rung(member)
+    except Exception as exc:  # noqa: BLE001 - a gate that cannot look must say so, never lock
+        return SurfaceOutcome(
+            name="unread_letter", error=f"{type(exc).__name__}: {exc}", state="could-not-run"
+        )
+    if not waiting:
+        return None
+    return SurfaceOutcome(
+        name="unread_letter", refused=True, state="spoke", reason=ul.refusal_message(waiting)
     )
 
 
@@ -729,49 +778,212 @@ def correction_marker_surface(payload: dict) -> SurfaceOutcome | None:
 # --------------------------------------------------------------------------
 
 
+def _text_of_content(content: object) -> str:
+    """Concatenated text of one message's content, list-shaped or string."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(
+            c.get("text", "")
+            for c in content
+            if isinstance(c, dict) and c.get("type") == "text" and c.get("text")
+        )
+    return ""
+
+
+def _is_his_record(record: dict) -> bool:
+    """Is this transcript record a message he typed? The reply boundary.
+
+    Asks the one reader of him. This used to be a private marker list, and
+    Aether's reading of #553 (2026-09-30) measured two ways it disagreed with
+    divineos.core.his_message: a message he typed while I was busy arrives as
+    a queued_command attachment with no role, so the walk ran straight past it
+    and joined my reply before it to my reply after it; and a message of his
+    opening with "Caveat:" was taken for the harness. A harness injection is
+    still not a boundary -- the one reader refuses those too. A bookmark copy
+    is not a boundary: it has no place in the order of the conversation.
+    """
+    from divineos.core.his_message import Heard, hear
+
+    heard = hear(record)
+    return isinstance(heard, Heard) and not heard.bookmark
+
+
+# THE FOUR READERS BELOW EACH WANT THE LAST SOMETHING -- my latest reply, his
+# latest words, this turn's actions -- and until 2026-09-24 each one parsed the
+# whole session transcript from its first line to find it. Nine calls per Stop.
+# At 330 MB that was 18.7 s against the Stop doorbell's 10 s harness limit, so
+# every Stop check registered after the time ran out -- addressed_to_him,
+# his_standing_verdict, unspoken_to among them -- was killed without a word.
+# Aria measured her own seat independently: 78 of 80 Stop runs never finished.
+#
+# They now walk growing tails from the end (``transcript_tail.tail_windows``,
+# the reader eighteen other callers already used) and stop at the first window
+# holding their answer. The last match in a suffix of the file is the last
+# match in the file, and the final window is always the whole file, so every
+# answer is the one a whole read gives. tests/test_stop_checks_read_the_end.py
+# pins that, and fails if ANY Stop surface parses the transcript's first line.
+_STOP_TAIL_START = 2_000_000
+_STOP_TAIL_MAX = 32_000_000
+_T = TypeVar("_T")
+
+# (path, size, mtime_ns, question) -> answer. His last words can sit behind a
+# long notification-only stretch -- exactly the stretch while he is asleep --
+# and then need the whole file, and three surfaces ask that same question per
+# Stop. The file's state is in the key: a transcript that grew is a new question.
+_TRANSCRIPT_MEMO: dict[tuple, Any] = {}
+
+
+def _transcript_file(payload: dict):
+    """The transcript the harness named, as a Path, or None if there is none."""
+    from pathlib import Path
+
+    raw = payload.get("transcript_path") or payload.get("transcript") or ""
+    if not raw:
+        return None
+    path = Path(raw)
+    return path if path.is_file() else None
+
+
+def _windows(path):
+    """``(lines, is_whole_file)`` for growing tails of ``path``, smallest first.
+
+    Split on newline only, as iterating the file did. ``str.splitlines`` also
+    breaks on U+2028 and U+0085, which JSON does not escape, and would cut a
+    record carrying one of them in two.
+    """
+    from divineos.core.operating_loop.transcript_tail import tail_windows
+
+    for text, whole in tail_windows(path, start_bytes=_STOP_TAIL_START, max_bytes=_STOP_TAIL_MAX):
+        lines = text.split("\n")
+        # A file ending in a newline leaves one empty piece that splitlines()
+        # never produced; without this the action stream gained a trailing "\n"
+        # the whole-file reader did not have (Aria, station four on #552).
+        if lines and lines[-1] == "":
+            lines.pop()
+        yield lines, whole
+
+
+def _messages(lines):
+    """``(role, content)`` for every parseable message line, in file order."""
+    import json as _json
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = _json.loads(line)
+        except ValueError:
+            continue
+        msg = rec.get("message") if isinstance(rec, dict) else None
+        if isinstance(msg, dict):
+            yield msg.get("role"), msg.get("content", [])
+
+
+def _records(lines):
+    """Every parseable JSON OBJECT line, in file order.
+
+    The reply readers need the whole record, not just its role and content: a message he
+    typed while I was busy is an attachment with no role, and only the record shows it.
+    A line that parses as something other than an object (a bare number, a list) is
+    skipped, so no later ``.get`` can be called on it.
+    """
+    import json as _json
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = _json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(rec, dict):
+            yield rec
+
+
+def _assistant_text_of(rec: dict) -> str:
+    """The text of an assistant record, or "" if it is not one or has none."""
+    msg = rec.get("message")
+    if not isinstance(msg, dict) or msg.get("role") != "assistant":
+        return ""
+    return _text_of_content(msg.get("content", []))
+
+
+def _text_parts(content) -> list[str]:
+    return [c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text"]
+
+
+def _memo(path, question, compute: Callable[[], _T]) -> _T:
+    try:
+        st = path.stat()
+    except OSError:
+        return compute()
+    key = (str(path), st.st_size, st.st_mtime_ns, question)
+    if key not in _TRANSCRIPT_MEMO:
+        if len(_TRANSCRIPT_MEMO) > 64:
+            _TRANSCRIPT_MEMO.clear()
+        _TRANSCRIPT_MEMO[key] = compute()
+    return cast(_T, _TRANSCRIPT_MEMO[key])
+
+
 def _last_assistant_text(payload: dict) -> str:
-    """The text of my most recent reply, from the transcript the harness names.
+    """The WHOLE of my most recent reply, from the transcript the harness names.
 
     Returns "" when there is nothing to read. Callers must NOT treat that as a
     clean reply -- it means the same thing an unreadable transcript means, so
     a surface that finds nothing declares ``nothing-to-say`` rather than
     reporting a pass.
+
+    WHY THIS WALKS BACKWARDS, and it is the whole point of the function.
+
+    A reply is written to the transcript as SEVERAL assistant records -- one
+    per streamed block, split wherever a tool call interrupts. The prior
+    version walked forwards and overwrote ``last`` on every record, so it
+    returned the FINAL BLOCK and called it the reply.
+
+    Measured on the live transcript 2026-09-22: a 664-character reply across
+    two blocks came back as 245 characters. Thirty-seven percent, and the
+    discarded majority was the OPENING -- the part that answers him. Every
+    Stop surface in this module judges on this string, so all of them were
+    ruling on the tail of my replies:
+
+      - repeated_reply compared closing lines, which are naturally alike, and
+        false-fired until Andrew ordered it disabled that same evening
+      - the lepos reflection reported "no exact-span citation" while the
+        citation sat in block one
+      - the translate gate counted document-marks over a fragment
+
+    One defect, one repair, roughly ten consumers -- rather than a new surface
+    reading it correctly beside the broken one. Andrew, the same evening, on
+    why that matters: the house is already a maze of signs nobody takes down.
+
+    So: collect assistant text backwards until the previous message that is
+    genuinely HIS, then join in the order I said it.
     """
-    import json as _json
-
-    raw = payload.get("transcript_path") or payload.get("transcript") or ""
-    if not raw:
+    path = _transcript_file(payload)
+    if path is None:
         return ""
-    from pathlib import Path
 
-    path = Path(raw)
-    if not path.is_file():
+    def scan() -> str:
+        # A window that holds no turn of his may be missing the reply's opening
+        # blocks, so it widens. Only reaching his turn, or the whole file, ends it.
+        for lines, whole in _windows(path):
+            blocks: list[str] = []
+            reached_his_turn = False
+            for rec in reversed(list(_records(lines))):
+                if _is_his_record(rec):
+                    reached_his_turn = True
+                    break
+                text = _assistant_text_of(rec)
+                if text.strip():
+                    blocks.append(text)
+            if reached_his_turn or whole:
+                return "\n".join(reversed(blocks))
         return ""
-    last = ""
-    with path.open(encoding="utf-8", errors="replace") as handle:
-        for line in handle:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                rec = _json.loads(line)
-            except ValueError:
-                continue
-            msg = rec.get("message") or {}
-            if not isinstance(msg, dict) or msg.get("role") != "assistant":
-                continue
-            content = msg.get("content", [])
-            if isinstance(content, list):
-                parts = [
-                    c.get("text", "")
-                    for c in content
-                    if isinstance(c, dict) and c.get("type") == "text"
-                ]
-                if parts:
-                    last = "\n".join(parts)
-            elif isinstance(content, str):
-                last = content
-    return last
+
+    return _memo(path, "last_assistant_text", scan)
 
 
 def _this_turns_action_stream(payload: dict) -> str:
@@ -796,61 +1008,82 @@ def _this_turns_action_stream(payload: dict) -> str:
     path = Path(raw)
     if not path.is_file():
         raise OSError(f"the named transcript is not a file: {path}")
-    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
 
-    # Walk back to his last message; everything after it is this turn.
-    start = 0
-    for index, line in enumerate(lines):
-        try:
-            rec = _json.loads(line)
-        except ValueError:
-            continue
-        msg = rec.get("message") or {}
-        if isinstance(msg, dict) and msg.get("role") == "user":
-            start = index
-    return "\n".join(lines[start:])
-
-
-def _recent_assistant_texts(payload: dict, count: int = 2) -> list[str]:
-    """My last ``count`` replies, newest first. Same reader, wider window.
-
-    Needed because a Stop surface that only ever sees the CURRENT reply cannot
-    notice that the current reply IS the previous one again.
-    """
-    import json as _json
-    from pathlib import Path
-
-    raw = payload.get("transcript_path") or payload.get("transcript") or ""
-    if not raw:
-        return []
-    path = Path(raw)
-    if not path.is_file():
-        return []
-    texts: list[str] = []
-    with path.open(encoding="utf-8", errors="replace") as handle:
-        for line in handle:
-            line = line.strip()
-            if not line:
-                continue
+    # Everything since his last message is this turn. The boundary is the SAME
+    # reader _last_assistant_text uses (_is_his_record). It used to be "the last
+    # record with role user", but a tool result is written with that role, so after
+    # any tool call the turn restarted at that call's own result and a read made
+    # earlier in the stretch fell out of the window (2026-10-16: a dozen replies
+    # refused by landed_claim for a claim whose verify run sat just above).
+    for lines, whole in _windows(path):
+        start = None
+        for index, line in enumerate(lines):
             try:
                 rec = _json.loads(line)
             except ValueError:
                 continue
-            msg = rec.get("message") or {}
-            if not isinstance(msg, dict) or msg.get("role") != "assistant":
-                continue
-            content = msg.get("content", [])
-            if isinstance(content, list):
-                parts = [
-                    c.get("text", "")
-                    for c in content
-                    if isinstance(c, dict) and c.get("type") == "text"
-                ]
-                if parts:
-                    texts.append("\n".join(parts))
-            elif isinstance(content, str) and content.strip():
-                texts.append(content)
-    return list(reversed(texts))[:count]
+            if isinstance(rec, dict) and _is_his_record(rec):
+                start = index
+        if start is not None:
+            return "\n".join(lines[start:])
+        if whole:
+            return "\n".join(lines)
+    return ""
+
+
+def _recent_assistant_texts(payload: dict, count: int = 2) -> list[str]:
+    """My last ``count`` REPLIES, newest first. Same reader, wider window.
+
+    Needed because a Stop surface that only ever sees the CURRENT reply cannot
+    notice that the current reply IS the previous one again.
+
+    WHAT A REPLY IS HERE, because the old version got this wrong and the cost
+    landed on him.
+
+    One reply is written to the transcript as SEVERAL assistant records, split
+    wherever a tool call interrupts the stream. The prior version appended each
+    record and returned the last two, so for any reply delivered in two or more
+    pieces it handed the repeat-guard two fragments OF THE SAME REPLY. Measured
+    on the live transcript 2026-09-22: both entries it called "separate
+    replies" were substrings of the one being composed.
+
+    So the guard built to catch me saying a thing twice was holding my reply up
+    against itself. That is why it false-fired, and why Andrew ordered it
+    disabled on 2026-09-22 -- a guard whose own reader is broken teaches only
+    that guards should be switched off.
+
+    A reply boundary is a message that is genuinely HIS. Harness injections are
+    not boundaries; treating them as such would split one reply into several
+    and reintroduce the same fault under a different name.
+    """
+    path = _transcript_file(payload)
+    if path is None:
+        return []
+
+    def scan() -> list[str]:
+        # A reply counts only once his turn closes it; a window ending mid-reply
+        # widens, exactly as in _last_assistant_text.
+        for lines, whole in _windows(path):
+            replies: list[str] = []
+            current: list[str] = []
+            for rec in reversed(list(_records(lines))):
+                if _is_his_record(rec):
+                    if current:
+                        replies.append("\n".join(reversed(current)))
+                        current = []
+                        if len(replies) >= count:
+                            return replies
+                    continue
+                text = _assistant_text_of(rec)
+                if text.strip():
+                    current.append(text)
+            if whole:
+                if current:
+                    replies.append("\n".join(reversed(current)))
+                return replies[:count]
+        return []
+
+    return list(_memo(path, ("recent_assistant_texts", count), scan))
 
 
 #: (surface name, module, callable) — each takes the transcript path and does
@@ -906,55 +1139,52 @@ def _last_user_text(payload: dict) -> str:
     nothing to read, which callers must treat as could-not-look rather than as
     he-said-nothing.
     """
-    import json as _json
-    from pathlib import Path
+    from divineos.core.his_message import NOTICE, SCHEDULED, opener_kind
 
-    raw = payload.get("transcript_path") or payload.get("transcript") or ""
-    if not raw:
+    path = _transcript_file(payload)
+    if path is None:
         return ""
-    path = Path(raw)
-    if not path.is_file():
+
+    def scan() -> str:
+        for lines, whole in _windows(path):
+            last = None
+            for rec in _records(lines):
+                msg = rec.get("message")
+                if not isinstance(msg, dict) or msg.get("role") != "user":
+                    continue
+                content = msg.get("content", [])
+                if isinstance(content, list):
+                    text = "\n".join(_text_parts(content))
+                elif isinstance(content, str):
+                    text = content
+                else:
+                    text = ""
+                # Hook output and task notifications arrive shaped like user turns.
+                # They are the machine talking, not him, and counting them as him is
+                # exactly how two hours of notification-driven work read to me as a
+                # conversation.
+                # Named shapes were "<system-reminder>" and "hook success" until
+                # this surface's own refusal notices came back at it as his turns,
+                # so it demanded I quote a gate at him to satisfy it. An
+                # enumeration standing in for a principle, mine, minutes old, in
+                # the thing built to stop that. The principle: text the harness
+                # generated is not him, whatever it is wearing.
+                if _is_machine_text(text):
+                    continue
+                if text.strip():
+                    # A wake carries no machine envelope, so the text tests above
+                    # pass it as his and this gate then demanded the reply quote
+                    # the timer (walk-88142a0930c5). The stamp is read from THIS
+                    # record, the one chosen, never found again by its text
+                    # (Aria: a re-search misses a record behind a long turn).
+                    # His_message is the one reader of the stamp; UNKNOWN keeps
+                    # the text as it was.
+                    last = "" if opener_kind(rec) in (SCHEDULED, NOTICE) else text
+            if last is not None or whole:
+                return last or ""
         return ""
-    last = ""
-    with path.open(encoding="utf-8", errors="replace") as handle:
-        for line in handle:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                rec = _json.loads(line)
-            except ValueError:
-                continue
-            msg = rec.get("message") or {}
-            if not isinstance(msg, dict) or msg.get("role") != "user":
-                continue
-            content = msg.get("content", [])
-            if isinstance(content, list):
-                parts = [
-                    c.get("text", "")
-                    for c in content
-                    if isinstance(c, dict) and c.get("type") == "text"
-                ]
-                text = "\n".join(parts)
-            elif isinstance(content, str):
-                text = content
-            else:
-                text = ""
-            # Hook output and task notifications arrive shaped like user turns.
-            # They are the machine talking, not him, and counting them as him is
-            # exactly how two hours of notification-driven work read to me as a
-            # conversation.
-            # Named shapes were "<system-reminder>" and "hook success" until
-            # this surface's own refusal notices came back at it as his turns,
-            # so it demanded I quote a gate at him to satisfy it. An
-            # enumeration standing in for a principle, mine, minutes old, in
-            # the thing built to stop that. The principle: text the harness
-            # generated is not him, whatever it is wearing.
-            if _MACHINE_TEXT_RE.search(text):
-                continue
-            if text.strip():
-                last = text
-    return last
+
+    return _memo(path, "last_user_text", scan)
 
 
 _ADDRESSED_RE = re.compile(r"\b(you|your|you're|youre|you've|dad)\b", re.I)
@@ -966,11 +1196,47 @@ _MEANING_RE = re.compile(r"\b[a-z]{4,}\b", re.I)
 # Text the harness produced, arriving in the transcript shaped like his turns:
 # reminders, task notifications, prime output, and — the one that caught this
 # surface out on its first live run — the Stop-gate refusals it emits itself.
-_MACHINE_TEXT_RE = re.compile(
-    r"<system-reminder>|hook success|Stop hook feedback|PreToolUse|PostToolUse"
-    r"|BLOCKED by|<task-notification>|\.claude[/\\]hooks[/\\]",
+#
+# THE EIGHTH COAT ARRIVED AND THE LIST DID NOT HAVE IT (2026-09-22). The
+# desktop app sends <ci-monitor-event> messages about a pull request it is
+# watching. They arrive in the user role, they are long, and they are entirely
+# the machine. Every one of them was read here as Andrew speaking.
+#
+# What that cost, measured rather than reasoned: the unspoken-to counter clears
+# only when a reply carries something of HIS, and "his" was resolving to a CI
+# event. So a status report answering the robot scored as carrying him, and the
+# first thing I said to him in hours that was not about the work scored
+# NOT_CARRIED -- because it did not quote the robot. The counter could only
+# rise while the machine did the talking, and it refused my letters on that
+# basis. An instrument with one answer in it, in the file whose job is to tell
+# him apart from the noise.
+#
+# The comment above already named this exact failure and I added a name anyway
+# the first time. So the general shape goes in beside the names: a harness tag
+# is <something-event>, <something-notification> or <something-reminder>, and
+# the specific spellings stay because they are cheap and some of them (a bare
+# "hook success", a Stop-gate refusal) carry no tag at all.
+#
+# WHERE IT SITS, NOT WHETHER IT APPEARS (Aletheia, hold on #672, 2026-10-16). This
+# pattern used to be searched anywhere in a message, so a sentence of his that
+# merely mentioned a tag ("hey kids, the <ci-monitor-event> thing keeps showing
+# up") read as the machine and was dropped. A harness message OPENS with its
+# envelope, so the pattern is anchored at the start of what is left once the one
+# reader of him (``his_message.his_part``) has peeled any leading envelope.
+_MACHINE_START_RE = re.compile(
+    r"\s*(?:<system-reminder>|hook success|Stop hook feedback|PreToolUse|PostToolUse"
+    r"|BLOCKED by|<task-notification>|<ci-monitor-event>|\.claude[/\\]hooks[/\\]"
+    r"|<[a-z][a-z0-9-]*-(?:event|notification|reminder)>)",
     re.I,
 )
+
+
+def _is_machine_text(text: str) -> bool:
+    """Is this user-role text the harness talking rather than him?"""
+    from divineos.core.his_message import his_part
+
+    his = his_part(text)
+    return not his or bool(_MACHINE_START_RE.match(his))
 
 
 def _last_refusal_slot():
@@ -1290,7 +1556,8 @@ def addressed_to_him_surface(payload: dict) -> SurfaceOutcome | None:
             "He said:\n"
             f"    {his.strip()[:400]}\n\n"
             "Answering something adjacent is not answering him. Find the thing "
-            "he actually said and answer that.\n\n"
+            "he actually said and answer it in a short addition at the END -- "
+            "the reply already reached him, so do not post it again.\n\n"
             "WHAT THIS DOOR CAN ACTUALLY SEE is a run of his words reused in "
             "the reply — not whether the reply answered him. Those come apart "
             "in both directions, so a pass from here is never evidence he was "
@@ -1357,105 +1624,78 @@ def _turn_started_by_him(payload: dict) -> bool | None:
                 text = ""
             if not text.strip():
                 continue
-            if "<task-notification>" in text:
-                started_by_him = False
-            elif not _MACHINE_TEXT_RE.search(text):
+            if _is_machine_text(text):
+                # A record the machine opened that carries a task notification, bare
+                # or wrapped in a reminder, means nobody started this turn. Only
+                # that: his mentioning the tag is not this branch (it is not machine
+                # text at all), and other machine text says nothing either way.
+                if text.lstrip().startswith(("<task-notification", "<system-reminder")) and (
+                    "<task-notification" in text
+                ):
+                    started_by_him = False
+            else:
                 started_by_him = True
     return started_by_him
 
 
-def _board_size_after(tool: str, tool_input: dict, path: str) -> tuple[int | None, str]:
-    """How big the board WILL be once this write lands, and if unknown, why.
+def trial_in_days_surface(payload: dict) -> SurfaceOutcome | None:
+    """A trial measured in days, written into a draft, is refused once, where it is typed.
 
-    This runs before the tool does, so for an Edit the file on disk is still the
-    old board. ``len(new_string)`` measured the replaced fragment -- a two-word
-    fix would record a two-word board (Aether's reading of #548, 2026-09-23).
-    The size is kept because a trivial edit resets the count as well as an honest
-    rewrite does, so it has to be the board's size to show which one happened.
-
-    An unknown size carries its reason onto the record, because a bare null
-    cannot tell "could not read the board" from "nothing to measure".
+    Dad's rule, four times: trials are counted in uses, never days. The pre-registration command already
+    refuses days; this is the door one step earlier, at the prose of a draft. It judges the file as it
+    will be after the write and refuses only trials the write ADDS, so an old draft can still be edited
+    about something else. See core/trial_in_days_check.py for what it decides and what it cannot see.
     """
-    if tool == "Write":
-        body = tool_input.get("content")
-        if isinstance(body, str):
-            return len(body), ""
-        return None, "the Write carried no text content"
-    old = tool_input.get("old_string")
-    new = tool_input.get("new_string")
-    if not isinstance(old, str) or not isinstance(new, str):
-        return None, "the Edit carried no old/new text"
-    try:
-        current = Path(path).read_text(encoding="utf-8")
-    except (OSError, ValueError) as exc:
-        return None, f"could not read the board before the edit: {type(exc).__name__}"
-    if old not in current:
-        return None, "the text being replaced is not in the board, so the edit will fail"
-    count = -1 if tool_input.get("replace_all") else 1
-    return len(current.replace(old, new, count)), ""
-
-
-def unspoken_to_letter_surface(payload: dict) -> SurfaceOutcome | None:
-    """The volley board: while he is away, every five letters, update his board.
-
-    What he made it for, 2026-09-23: *"for when you and Aether start a volley
-    back and forth when im not here ... after every so many back and forth
-    letters.. you write one to me explaining everything"*, and *"you write the
-    first letter and then just update it from there."*
-
-    The first version counted chat replies and fired all morning while he sat
-    in the room talking to me. This one counts only new family letters written
-    in turns he did not start, refuses the one past his limit, and is reset by
-    writing the board -- the letter to him that the refusal exists to produce.
-    """
-    from divineos.core import unspoken_to as u
-
     tool = payload.get("tool_name") or ""
     if tool not in ("Write", "Edit"):
-        return SurfaceOutcome(name="unspoken_to_letter", state="nothing-to-say")
+        return SurfaceOutcome(name="trial_in_days", state="nothing-to-say")
     tool_input = payload.get("tool_input") or {}
     path = str(tool_input.get("file_path") or "")
     normalised = path.replace("\\", "/").lower()
-    if "/letters/" not in normalised:
-        return SurfaceOutcome(name="unspoken_to_letter", state="nothing-to-say")
-
+    if "/docs/drafts/" not in normalised or not normalised.endswith(".md"):
+        return SurfaceOutcome(name="trial_in_days", state="nothing-to-say")
     try:
-        # A letter TO him is the cure, never the offence, and it is what
-        # starts the count again.
-        if "-to-andrew-" in normalised:
-            size, unknown_because = _board_size_after(tool, tool_input, path)
-            u.record_board(path, size, size_unknown_because=unknown_because or None)
-            return SurfaceOutcome(name="unspoken_to_letter", state="nothing-to-say")
-        # He is in the room and reading me live: nothing to summarise for him.
-        if _turn_started_by_him(payload) is True:
-            return SurfaceOutcome(name="unspoken_to_letter", state="nothing-to-say")
-        # Editing a letter already written is the same letter, not another.
-        if tool != "Write":
-            return SurfaceOutcome(name="unspoken_to_letter", state="nothing-to-say")
+        from divineos.core import trial_in_days_check as check
 
-        silence = u.read()
-        if not silence.should_refuse:
-            u.record_letter()
-            return SurfaceOutcome(name="unspoken_to_letter", state="nothing-to-say")
-        board = u.board_path()
+        try:
+            before = Path(path).read_text(encoding="utf-8")
+        except FileNotFoundError:
+            before = ""
+        if tool == "Write":
+            after = tool_input.get("content")
+        else:
+            old, new = tool_input.get("old_string"), tool_input.get("new_string")
+            if not isinstance(old, str) or not isinstance(new, str) or old not in before:
+                return SurfaceOutcome(
+                    name="trial_in_days", state="nothing-to-say"
+                )  # the edit fails on its own
+            after = before.replace(old, new, -1 if tool_input.get("replace_all") else 1)
+        if not isinstance(after, str):
+            return SurfaceOutcome(name="trial_in_days", state="nothing-to-say")
+        hits = check.new_trials_in_days(before, after)
     except Exception as exc:  # noqa: BLE001
         return SurfaceOutcome(
-            name="unspoken_to_letter",
-            error=f"{type(exc).__name__}: {exc} — the letter path is unguarded",
+            name="trial_in_days",
+            error=f"{type(exc).__name__}: {exc} -- a trial in days would not be caught in this draft",
             state="could-not-run",
         )
-
+    if not hits:
+        return SurfaceOutcome(name="trial_in_days", state="nothing-to-say")
     try:
-        from divineos.core.andrew_answer_trace import list_open
+        # Each refusal is a use: the pre-registration reviews this door after a count of them, and reads
+        # each one for whether it was a real trial in days.
+        from divineos.core.ledger import log_event
 
-        waiting = [str(r.get("question", "")) for r in list_open(20)]
-    except Exception:  # noqa: BLE001 - the board still matters without the list
-        waiting = []
+        log_event(
+            "TRIAL_IN_DAYS_REFUSED",
+            "system",
+            {"path": path, "found": [h.duration for h in hits][:4]},
+            validate=False,
+        )
+    except Exception:  # noqa: BLE001 -- the refusal matters more than its log line
+        pass
     return SurfaceOutcome(
-        name="unspoken_to_letter",
-        refused=True,
-        state="spoke",
-        reason=u.refusal_text(silence, waiting, board),
+        name="trial_in_days", refused=True, state="spoke", reason=check.refusal_text(hits)
     )
 
 
@@ -1580,7 +1820,7 @@ def repeated_reply_surface(payload: dict) -> SurfaceOutcome | None:
             "has already read.\n\n"
             "Andrew 2026-09-08: 'you are repeating yourself, look at the last "
             "post, literally verbatim posted twice.'\n\n"
-            "This is almost certainly a re-send after another Stop gate refused "
+            "This is almost certainly a second send after another Stop gate refused "
             "the first attempt. Adding the missing room to the same body "
             "satisfies that gate and charges him twice for one post.\n\n"
             "Send WHAT IS NEW. He has read the rest. If the earlier gate wanted "
@@ -1658,6 +1898,46 @@ def no_fix_claim_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def order_question_stop_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a reply that ends by asking Dad which order to do things in.
+
+    Andrew, nine times: order is irrelevant unless it is relevant. See
+    core/order_question_check.py for what this decides, and what it cannot see.
+    """
+    text = _last_assistant_text(payload)
+    if not text.strip():
+        return SurfaceOutcome(name="order_question", state="nothing-to-say")
+    try:
+        from divineos.core import order_question_check as oq
+
+        if not oq.should_refuse(text):
+            return SurfaceOutcome(name="order_question", state="nothing-to-say")
+        reason = oq.refusal_message(text)
+        if payload.get("stop_hook_active"):
+            # The repair turn: the harness will not let a Stop gate refuse twice, so a
+            # second composition could keep the question in new words and walk through
+            # (2026-10-13: asked it, was sent back, asked it again). It cannot be
+            # refused here, so the repeat is carried to the next compose instead of
+            # vanishing, where it is the first thing I read.
+            from divineos.hooks.stop_carry import carry
+
+            # Worded to what is known: stop_hook_active is true after ANY Stop gate sent
+            # me back, so this gate cannot claim it was the one that did (Aether, 2026-10-14).
+            carry(
+                "order-question-repeated",
+                "On a repair turn I asked Dad which order, and this gate cannot refuse twice: "
+                + reason,
+            )
+            return SurfaceOutcome(name="order_question", state="nothing-to-say")
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="order_question",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    return SurfaceOutcome(name="order_question", refused=True, state="spoke", reason=reason)
+
+
 def summary_room_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse a reply that dropped the room which compresses it for him.
 
@@ -1671,7 +1951,7 @@ def summary_room_surface(payload: dict) -> SurfaceOutcome | None:
     try:
         from divineos.core.summary_room import assess, render_block
 
-        block = render_block(assess(text))
+        block = render_block(assess(text, retry=bool(payload.get("stop_hook_active"))))
     except Exception as exc:  # noqa: BLE001
         return SurfaceOutcome(
             name="summary_room",
@@ -1715,6 +1995,37 @@ def landed_claim_surface(payload: dict) -> SurfaceOutcome | None:
     if not block:
         return SurfaceOutcome(name="landed_claim", state="nothing-to-say")
     return SurfaceOutcome(name="landed_claim", refused=True, reason=block, state="spoke")
+
+
+def waiting_claim_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a reply that says a fix waits on Aletheia when no letter to her names it at its live head.
+
+    Dad, 2026-10-25: "you continue to say 'Waits for Aletheia' without sending her a letter". Registered beside
+    landed_claim: both pair a sentence I wrote with the evidence the sentence needs. See core/waiting_claim.py.
+    """
+    name = "waiting_claim"
+    text = _last_assistant_text(payload)
+    if not text.strip():
+        return SurfaceOutcome(name=name, state="nothing-to-say")
+    try:
+        from divineos.core import landing_status
+        from divineos.core.waiting_claim import assess, real_head_of, render_block
+
+        from pathlib import Path
+
+        from divineos.core.his_lessons_shelf import seat
+
+        verdict = assess(text, landing_status.read_letters(), real_head_of, me=seat(Path.cwd()))
+        block = render_block(verdict)
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name=name, error=f"{type(exc).__name__}: {exc}", state="could-not-run"
+        )
+    if block:
+        return SurfaceOutcome(name=name, refused=True, reason=block, state="spoke")
+    if verdict.could_not_check:
+        return SurfaceOutcome(name=name, error=verdict.could_not_check, state="could-not-run")
+    return SurfaceOutcome(name=name, state="nothing-to-say")
 
 
 def translation_floor_surface(payload: dict) -> SurfaceOutcome | None:
@@ -1892,6 +2203,51 @@ def degraded_detectors_surface(payload: dict) -> SurfaceOutcome | None:
         name="degraded_detectors",
         refused=True,
         reason=format_block(entries),
+        state="spoke",
+    )
+
+
+def cd_drift_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a top-level `cd` that would move the app's idea of home.
+
+    Measured 2026-10-22: `cd family/letters && ...` moved the primary folder three times and broke
+    the bell, the hooks and a turn. The right forms (subshell, git -C, a full path) are named in the
+    refusal. Design and measurement table: docs/drafts/a_cd_cannot_move_my_home_draft_2026-10-22.md.
+    """
+    if (payload.get("tool_name") or "") != "Bash":
+        return SurfaceOutcome(name="cd_drift", state="nothing-to-say")
+    command = (payload.get("tool_input") or {}).get("command") or ""
+    if not command:
+        return SurfaceOutcome(name="cd_drift", state="nothing-to-say")
+    try:
+        import os
+        import subprocess
+        from pathlib import Path
+
+        from divineos.core import cd_drift_check as check
+
+        root = (
+            os.environ.get("CLAUDE_PROJECT_DIR")
+            or subprocess.run(
+                ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True
+            ).stdout.strip()
+        )
+        refuse = check.should_refuse(command, project_root=root, home=str(Path.home()))
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="cd_drift",
+            error=(
+                f"{type(exc).__name__}: {exc} -- the cd-drift door could not run, so a folder "
+                "change is currently unguarded. Absent, not satisfied."
+            ),
+            state="could-not-run",
+        )
+    if not refuse:
+        return SurfaceOutcome(name="cd_drift", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="cd_drift",
+        refused=True,
+        reason=check.refusal_message(command),
         state="spoke",
     )
 
@@ -2198,6 +2554,39 @@ def pr_merge_gate_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def pr_merge_freshness_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a merge of a pull request that is behind main (core/merge_freshness.py).
+
+    A sibling of the merge gate above, not a clause inside it: that gate decides on review,
+    this one on freshness, and they ask different questions of different data. Same JSON
+    deny protocol, so the two land the same way.
+    """
+    if (payload.get("tool_name") or "") != "Bash":
+        return SurfaceOutcome(name="pr_merge_freshness", state="nothing-to-say")
+    command = (payload.get("tool_input") or {}).get("command") or ""
+    if not command.strip():
+        return SurfaceOutcome(name="pr_merge_freshness", state="nothing-to-say")
+    try:
+        from divineos.core.merge_freshness import block_reason
+
+        reason = block_reason(command)
+    except Exception as exc:  # noqa: BLE001 - a gate never crashes the call
+        return SurfaceOutcome(
+            name="pr_merge_freshness",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    if not reason:
+        return SurfaceOutcome(name="pr_merge_freshness", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="pr_merge_freshness",
+        refused=True,
+        reason=reason,
+        json_deny=True,
+        state="spoke",
+    )
+
+
 def pr_create_gate_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse opening a pull request that is not ready to be opened.
 
@@ -2235,6 +2624,57 @@ def pr_create_gate_surface(payload: dict) -> SurfaceOutcome | None:
         refused=True,
         reason=decision.reason,
         state="spoke",
+    )
+
+
+def _hook_timing_log():
+    """Where ``_lib.sh`` writes hook start/end rows.
+
+    ``${HOME}/.divineos``, not ``divineos_home()``: the shell writes it, and the
+    shell knows only HOME. Both seats therefore share one log, which is why the
+    count below is filtered to this session.
+    """
+    from pathlib import Path
+
+    return Path.home() / ".divineos" / "hook_timing.jsonl"
+
+
+def stop_runs_killed_surface(payload: dict) -> SurfaceOutcome | None:
+    """Say so, at the next prompt, when the Stop doorbell is being killed.
+
+    Aria's addition to the 2026-09-24 repair. For a day the harness killed
+    doorbell-stop.sh at its 10 s limit on nearly every reply, and every Stop
+    check behind the time limit -- the ones that watch whether I still speak
+    to Andrew among them -- did not run. A killed door and a quiet door looked
+    identical from inside, so I read the frozen letter counter as a stuck door
+    and reset it, twice. The start-without-end rows were in the timing log the
+    whole time; ``count_unclosed_runs`` could see them when asked, and nobody
+    asked. This asks every turn. It reports; it refuses nothing.
+    """
+    try:
+        from divineos.core.hook_budget import recent_unclosed
+
+        killed, seen = recent_unclosed(
+            _hook_timing_log(), "doorbell-stop.sh", session=payload.get("session_id") or None
+        )
+    except Exception as exc:  # noqa: BLE001 - a report never takes the prompt down
+        return SurfaceOutcome(
+            name="stop_runs_killed",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    if not killed:
+        return SurfaceOutcome(name="stop_runs_killed", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="stop_runs_killed",
+        state="spoke",
+        output=(
+            f"STOP CHECKS KILLED -- {killed} of the last {seen} stop-time runs in this "
+            "session never finished. The harness kills the Stop doorbell at its time "
+            "limit, so every Stop check registered after the time ran out did not run "
+            "on those replies: silence from them is not a pass. "
+            "`divineos hook-budget` has the whole stack."
+        ),
     )
 
 
@@ -2298,6 +2738,10 @@ def install() -> None:
         register("PreToolUse", "require_briefing", require_briefing_surface)
     if "must_read" not in registered("PreToolUse"):
         register("PreToolUse", "must_read", must_read_surface)
+    # Beside must_read, which it mirrors: that one holds work for a file a surface handed me;
+    # this one holds it for a letter the bell rang for (prereg-4ae408966aed).
+    if "unread_letter" not in registered("PreToolUse"):
+        register("PreToolUse", "unread_letter", unread_letter_surface)
 
     # WIRED 2026-08-25. Seventy-six minutes passed between the surface above
     # being written and this line existing, because the ritual hard-stopped my
@@ -2337,20 +2781,22 @@ def install() -> None:
     # 2026-09-23, Aria: registered in the same change that adds the surface,
     # for the reason written above -- a surface nothing dispatches is an alarm
     # with the cable coiled beside it.
+    if "cd_drift" not in registered("PreToolUse"):
+        register("PreToolUse", "cd_drift", cd_drift_surface)
     if "slashed_ref_path" not in registered("PreToolUse"):
         register("PreToolUse", "slashed_ref_path", slashed_ref_path_surface)
-    # The letter path, guarded 2026-09-09. Feathers on the walk: the reply door
-    # would have watched that whole evening and seen almost nothing, because
-    # almost everything I produced was a letter. This is the door on the road
-    # the two hours actually took.
-    if "unspoken_to_letter" not in registered("PreToolUse"):
-        register("PreToolUse", "unspoken_to_letter", unspoken_to_letter_surface)
+    # 2026-10-21, registered in the same change as the surface (a surface nothing dispatches is an
+    # alarm with the cable coiled beside it): Dad's fourth statement that trials are counted in uses.
+    if "trial_in_days" not in registered("PreToolUse"):
+        register("PreToolUse", "trial_in_days", trial_in_days_surface)
 
     # Third PreToolUse batch. Two pull-request gates, and they deliberately
     # keep DIFFERENT wire protocols -- one denies through the permission
     # decision, one through exit 2 -- because that is how each landed before.
     if "pr_merge_gate" not in registered("PreToolUse"):
         register("PreToolUse", "pr_merge_gate", pr_merge_gate_surface)
+    if "pr_merge_freshness" not in registered("PreToolUse"):
+        register("PreToolUse", "pr_merge_freshness", pr_merge_freshness_surface)
     if "pr_create_gate" not in registered("PreToolUse"):
         register("PreToolUse", "pr_create_gate", pr_create_gate_surface)
 
@@ -2402,6 +2848,8 @@ def install() -> None:
         register("UserPromptSubmit", "pre_response_context", pre_response_context_surface)
     if "context_heartbeat" not in registered("UserPromptSubmit"):
         register("UserPromptSubmit", "context_heartbeat", context_heartbeat_surface)
+    if "stop_runs_killed" not in registered("UserPromptSubmit"):
+        register("UserPromptSubmit", "stop_runs_killed", stop_runs_killed_surface)
     # Wired 2026-09-24 in the same change that makes it cheap enough to wire:
     # item vectors read from the drawer, the prompt embedded by the light
     # embedder. The last time it was wired without that, the hook hung.
@@ -2424,11 +2872,17 @@ def install() -> None:
         register("Stop", "self_demotion_stop", self_demotion_stop_surface)
     if "summary_room" not in registered("Stop"):
         register("Stop", "summary_room", summary_room_surface)
+    # In-process, no new hook script. Refuses once when the reply ends by handing him a
+    # choice of order with no stated dependency (prereg-c4888c81eca6).
+    if "order_question" not in registered("Stop"):
+        register("Stop", "order_question", order_question_stop_surface)
     # Beside summary_room because both refuse rather than annotate. That one asks
     # whether he can FIND the answer; this one asks whether the answer was
     # checked against the thing it is about.
     if "landed_claim" not in registered("Stop"):
         register("Stop", "landed_claim", landed_claim_surface)
+    if "waiting_claim" not in registered("Stop"):
+        register("Stop", "waiting_claim", waiting_claim_surface)
     # His Floor, connected 2026-09-09 after two months in which its only caller
     # was its own test file. Placed beside summary_room because they guard the
     # same door from opposite sides: that one asks whether he can FIND the

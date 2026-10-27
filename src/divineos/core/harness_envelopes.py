@@ -31,7 +31,24 @@ _TAGS = (
     "command-name",
     "command-message",
     "command-args",
+    "agent-message",
 )
+
+# The tags that mean the harness started a turn, or wrote into one, and nobody sat in the seat.
+# A SUBSET of _TAGS on purpose: a slash command arrives as <command-name>, and that IS him
+# typing. This is the one list the gates that ask "was that message him?" read (the question hold,
+# the room gate, the table). They each kept their own copy until 2026-10-27, and the copies drifted:
+# two Stop gates did not know <ci-monitor-event>, so a CI notice read to them as him coming back
+# (Aether, #683).
+_NOTICE_TAGS = ("task-notification", "system-reminder", "ci-monitor-event", "agent-message")
+NOTICE_OPENERS = tuple("<" + tag for tag in _NOTICE_TAGS)
+
+
+def opens_with_notice(text: str) -> bool:
+    """Whether a message OPENS with one of the harness's notices. At the start only: he can
+    mention the tag in a sentence of his own and still be him."""
+    return (text or "").lstrip().startswith(NOTICE_OPENERS)
+
 
 # A block the harness wraps around a turn. A message that is only envelope is
 # not him speaking -- it is the machine using his seat. An envelope with no

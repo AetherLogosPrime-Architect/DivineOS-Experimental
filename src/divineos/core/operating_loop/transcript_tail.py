@@ -73,6 +73,49 @@ DEFAULT_TAIL_BYTES = 4 * 1024 * 1024
 _READ_ERRORS = (OSError, ValueError, UnicodeDecodeError)
 
 
+def tail_windows(path: str | Path, *, start_bytes: int, max_bytes: int):
+    """Yield ``(text, is_whole_file)`` windows of a transcript, smallest first.
+
+    For a caller that wants the LAST something. Small files yield once,
+    whole. Large files yield a tail that grows fourfold until ``max_bytes``,
+    and the final yield is always the entire file -- so a caller that stops at
+    the first window holding its answer gets the same answer a whole read
+    would, and one that never finds it still ends on the whole read. It only
+    skips bytes nobody needed.
+
+    Moved here from ``turn_extraction._tail_chunks`` (2026-09-24) when four
+    Stop helpers in ``hook_surfaces`` turned out to still read the whole file,
+    written after that module learned not to. One loop, one place.
+    """
+    path = Path(path)
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return
+    if size <= start_bytes:
+        yield path.read_text(encoding="utf-8", errors="replace"), True
+        return
+    window = start_bytes
+    # ``max_bytes`` is the last window, not an exclusive ceiling: with ``<`` a
+    # 2 MB start never reached 32 MB and jumped from 8 MB straight to the whole
+    # file (Aria, station four on #552, inherited from _tail_chunks).
+    while window < size and window <= max_bytes:
+        with open(path, "rb") as fh:
+            fh.seek(size - window)
+            raw = fh.read()
+        # The seek lands mid-line; that first fragment is not valid JSON.
+        # Dropping it is correct, not lossy -- the full line is still
+        # present in any wider window.
+        _, _, rest = raw.partition(b"\n")
+        # read_text below translates newlines; a byte window does not. Without
+        # the same translation here a CRLF file answers differently depending on
+        # which window found the answer -- caught by the equivalence test.
+        text = rest.decode("utf-8", errors="replace").replace("\r\n", "\n").replace("\r", "\n")
+        yield text, False
+        window *= 4
+    yield path.read_text(encoding="utf-8", errors="replace"), True
+
+
 def read_tail_records(
     transcript_path: str | Path,
     *,

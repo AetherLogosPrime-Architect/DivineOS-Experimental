@@ -399,7 +399,7 @@ def format_block_message(obligations: dict[str, Any]) -> str:
     lines.append("      the usual one. Emits KNOWLEDGE_INTEGRATION_CHANGED.")
     lines.append(
         '  divineos prereg file "<mechanism>" --claim ... --success ... '
-        "--falsifier ... --embarrassing ..."
+        "--falsifier ... --embarrassing ... --review-after-uses N --uses-of EVENT_TYPE"
     )
     lines.append("      correct when the backing IS a new detector or threshold.")
     lines.append("  divineos claims assess <id> ... | divineos audit submit-round ...")

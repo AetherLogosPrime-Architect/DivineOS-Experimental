@@ -78,10 +78,20 @@ def register(cli: click.Group) -> None:
     @click.argument("walk_id")
     @click.argument("lens")
     @click.option("--finding", required=True, help="What this lens actually produced.")
-    def apply_cmd(walk_id: str, lens: str, finding: str) -> None:
-        """Record what a lens produced when walked."""
+    @click.option(
+        "--question",
+        "question",
+        type=int,
+        default=None,
+        help="The number of the lens question this finding answers (the lens is delivered with them numbered).",
+    )
+    def apply_cmd(walk_id: str, lens: str, finding: str, question: int | None) -> None:
+        """Record what a lens produced when walked.
+
+        Refused unless the lens was delivered after the walk opened; the first refusal delivers it.
+        """
         try:
-            apply_lens(walk_id, lens, finding)
+            apply_lens(walk_id, lens, finding, question=question)
         except WalkRefused as exc:
             raise click.ClickException(str(exc)) from exc
         click.secho(f"[+] {lens} applied.", fg="green")
@@ -111,10 +121,17 @@ def register(cli: click.Group) -> None:
     @click.argument("walk_id")
     @click.argument("lens")
     @click.option("--reason", required=True, help="Why excluding helps more than including.")
-    def exclude_cmd(walk_id: str, lens: str, reason: str) -> None:
-        """Exclude a lens WITH a reason. Silent narrowing is what this stops."""
+    @click.option(
+        "--question",
+        "question",
+        type=int,
+        default=None,
+        help="The number of the lens question you checked and found does not apply.",
+    )
+    def exclude_cmd(walk_id: str, lens: str, reason: str, question: int | None) -> None:
+        """Exclude a lens WITH a reason. Costs the same as applying: the lens is delivered first."""
         try:
-            exclude_lens(walk_id, lens, reason)
+            exclude_lens(walk_id, lens, reason, question=question)
         except WalkRefused as exc:
             raise click.ClickException(str(exc)) from exc
         click.secho(f"[+] {lens} excluded with reason.", fg="yellow")
@@ -133,6 +150,15 @@ def register(cli: click.Group) -> None:
         for row in st["lenses"]:
             colour = {"APPLIED": "green", "EXCLUDED": "yellow"}.get(str(row["state"]), "red")
             click.secho(f"  [{row['state']:<8}] {row['lens']}", fg=colour)
+            # What was recorded, readable by him and not only by me (he asked to be shown the walk, 2026-10-24).
+            content = str(row.get("content") or "").strip()
+            if content and row["state"] in ("APPLIED", "EXCLUDED"):
+                click.echo(f"      {content[:320]}{'...' if len(content) > 320 else ''}")
+        click.echo(
+            f"\n  {st['findings']} findings, {st['excluded']} excluded, "
+            f"{st['distinct_questions']} distinct lens questions answered "
+            "(eight findings on one question is the free move; a walk that moves its lenses to excluded has moved the gaming)"
+        )
         if st["open_lenses"]:
             click.echo(f"\n{len(st['open_lenses'])} still unaccounted for.")
 
@@ -186,6 +212,10 @@ def register(cli: click.Group) -> None:
         except WalkRefused as exc:
             raise click.ClickException(str(exc)) from exc
         click.secho(f"[+] {walk_id} closed — {len(st['lenses'])} lenses accounted for.", fg="green")
+        click.echo(
+            f"    {st['findings']} findings, {st['excluded']} excluded, "
+            f"{st['distinct_questions']} distinct lens questions answered"
+        )
         if st.get("bound"):
             click.echo(f"    bound to the branch changes in {st['bound_in']}")
         else:
