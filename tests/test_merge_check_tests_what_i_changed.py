@@ -61,9 +61,11 @@ def _test_naming(name, body=PASSING):
     return f'NAMES = "divineos.core.mod_{name}"\n\n{body}'
 
 
-def _repo_with_merge(tmp_path, mine, theirs):
+def _repo_with_merge(tmp_path, mine, theirs, into_main=False):
     """base has modules a, b, c each with a test naming it; `mine` and `theirs` are
-    {path: text} edits made on each side. Leaves the merge open (--no-commit)."""
+    {path: text} edits made on each side, and `theirs` is also origin/main. Leaves the
+    merge open (--no-commit). With into_main, the merge is made the wrong way round:
+    standing on main and merging the branch in."""
     repo = tmp_path / "repo"
     repo.mkdir()
     _git(repo, "init", "-q", "-b", "main")
@@ -80,12 +82,18 @@ def _repo_with_merge(tmp_path, mine, theirs):
         _write(repo, rel, text)
     _git(repo, "add", "-A")
     _git(repo, "commit", "-q", "-m", "theirs")
+    _git(repo, "update-ref", "refs/remotes/origin/main", "theirs")
     _git(repo, "checkout", "-q", "main")
     for rel, text in mine.items():
         _write(repo, rel, text)
     _git(repo, "add", "-A")
     _git(repo, "commit", "-q", "-m", "mine")
-    merged = _git(repo, "merge", "--no-commit", "--no-ff", "theirs")
+    if into_main:
+        _git(repo, "branch", "-q", "branch-mine")
+        _git(repo, "checkout", "-q", "theirs")
+        merged = _git(repo, "merge", "--no-commit", "--no-ff", "branch-mine")
+    else:
+        merged = _git(repo, "merge", "--no-commit", "--no-ff", "theirs")
     assert merged.returncode == 0, merged.stdout + merged.stderr
     return repo
 
@@ -156,6 +164,49 @@ def test_when_it_cannot_narrow_it_falls_back_to_the_wide_set_and_says_so(tmp_pat
     out = _run_check(repo)
     text = out.stdout + out.stderr
     assert "the narrow set was unavailable" in text, text
+
+
+def test_the_pass_line_says_how_many_of_the_changed_files_had_no_test(tmp_path):
+    """Aether's attack: 'tests covering the 3 files pass' when one of the three had no test."""
+    repo = _repo_with_merge(
+        tmp_path,
+        mine={
+            "src/divineos/core/mod_a.py": "VALUE = 2\n",
+            "src/divineos/core/mod_orphan.py": "VALUE = 9\n",
+        },
+        theirs={"src/divineos/core/mod_c.py": "VALUE = 3\n"},
+    )
+    out = _run_check(repo)
+    text = out.stdout + out.stderr
+    assert out.returncode == 0, text
+    assert "1 of those file(s) had NO test naming them" in text, text
+
+
+def test_merging_the_branch_into_main_measures_the_branch_not_main(tmp_path):
+    """Aether's attack: standing on main, HEAD is main and MERGE_HEAD is the branch. Measured from
+    HEAD it would test what main changed (mod_c) and miss the branch's change (mod_a)."""
+    repo = _repo_with_merge(
+        tmp_path,
+        mine={
+            "src/divineos/core/mod_a.py": "VALUE = 2\n",
+            "tests/test_a.py": _test_naming("a", FAILING),
+        },
+        theirs={"src/divineos/core/mod_c.py": "VALUE = 3\n"},
+        into_main=True,
+    )
+    out = _run_check(repo)
+    assert out.returncode == 1, out.stdout + out.stderr  # the branch's failing test must be run
+
+
+def test_without_an_origin_main_it_cannot_say_which_side_is_the_branch_and_goes_wide(tmp_path):
+    repo = _repo_with_merge(
+        tmp_path,
+        mine={"src/divineos/core/mod_a.py": "VALUE = 2\n"},
+        theirs={"src/divineos/core/mod_c.py": "VALUE = 3\n"},
+    )
+    _git(repo, "update-ref", "-d", "refs/remotes/origin/main")
+    out = _run_check(repo)
+    assert "the narrow set was unavailable" in out.stdout + out.stderr
 
 
 def test_the_tests_are_handed_to_pytest_in_sorted_order():

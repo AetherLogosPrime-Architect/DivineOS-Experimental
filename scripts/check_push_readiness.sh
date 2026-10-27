@@ -261,7 +261,7 @@ fi
 # lists the files touched by commits being pushed. New branches (all-zero
 # remote-sha) fall back to diff against the default base (origin/main).
 _collect_changed_files() {
-    local lref lsha rref rsha base
+    local lref lsha rref rsha base transferred mbase mine narrowed
     while read -r lref lsha rref rsha; do
         [[ -z "${lref:-}" ]] && continue
         # Deletion: no files to scan.
@@ -276,7 +276,27 @@ _collect_changed_files() {
             # --no-renames: git's default rename detection lists only the NEW path of a moved file, so
             # the old name never reached the selector and the test that imports it was never chosen
             # (Aether's walk on #704, walk-ed434ad6c15f). With it a move lists both paths.
-            git diff --name-only --no-renames "$base..$lsha" 2>/dev/null
+            transferred="$(git diff --name-only --no-renames "$base..$lsha" 2>/dev/null)"  # fail-soft: an empty result falls through to the wide list below, never to "nothing changed"
+            # 2026-10-27, Dad: "every push fails three times and takes 30 mins per push." For a branch
+            # already on GitHub the base is the old remote tip, so folding main in made every file main
+            # changed look pushed: measured 78 files transferred, 3 the branch's own, 1 new to GitHub.
+            # A file counts as changed only if it is new to the remote AND differs from main (walk-3f02de0406e9).
+            # Tip-to-tip diffs, not a commit log: a merge commit lists no files in a log, so the files
+            # resolved by hand in a fold would vanish from it, and those are where merges go wrong.
+            # Order of fallback is always toward MORE tests: A and B, else B, else A.
+            if [[ "$base" == "${rsha:-}" ]]; then
+                mbase="$(git merge-base "$lsha" origin/main 2>/dev/null || echo "")"  # fail-soft: an unknown merge base keeps the full transferred list
+                if [[ -n "$mbase" ]]; then
+                    mine="$(git diff --name-only --no-renames "$mbase..$lsha" 2>/dev/null)"  # fail-soft: empty means B is unusable and the transferred list is kept
+                    narrowed="$(comm -12 <(sort <<< "$transferred") <(sort <<< "$mine") | sed '/^$/d')"
+                    [[ -z "$narrowed" ]] && narrowed="$(sed '/^$/d' <<< "$mine")"
+                    if [[ -n "$narrowed" ]]; then
+                        echo "[push-readiness] $(grep -c . <<< "$transferred") file(s) in this push, $(grep -c . <<< "$narrowed") this branch's own after main's are taken out." >&2
+                        transferred="$narrowed"
+                    fi
+                fi
+            fi
+            [[ -n "$transferred" ]] && printf '%s\n' "$transferred"
         else
             # Couldn't resolve a base; emit "" so caller falls back to full.
             echo ""

@@ -34,8 +34,21 @@ Four of the five new tests fail against the old check (the fifth, a failing test
 
 The selector reads text. A test that reaches a module without naming it is not found, and a file only main changed is not vouched for here. A break between my file and a main-only file that no test of mine names is met at the push, which runs the whole suite. That is the accepted cost, and it is now stated in the pass line instead of implied.
 
+## The same mistake, found in the push check (second walk, walk-3f02de0406e9)
+
+Timing the push showed the other half. For a branch already on GitHub, `_collect_changed_files` in `scripts/check_push_readiness.sh` diffs the OLD remote tip against the new head. Folding main in made every file main changed look pushed. Measured on the real stopped push (old remote tip `80cf05987`, new head `630eaf2ac`): **78 files transferred, 3 the branch's own against main, 1 new to GitHub** (the other two were already byte-identical to what GitHub held). The draft picker did not fail to narrow on the wide list (no shared setup file in it); it narrowed to test files for all 78. So the long run was breadth, not a fall-back to the whole suite, and I am not claiming otherwise. This builds on `drafts_skip_the_full_suite_draft_2026-10-22.md`, whose picker it uses.
+
+A file now counts as pushed only if it is new to the remote AND differs from main (tip-to-tip diffs intersected). Order of fallback is always toward more tests: both, else the branch's own against main, else the transferred list as before. A new branch is unchanged. Tip diffs rather than a commit log, because a merge commit lists no files in a log and the files resolved by hand in a fold are where merges go wrong. The push prints `N file(s) in this push, M this branch's own after main's are taken out`, so a slow push explains itself on screen.
+
+Tests: `tests/test_push_check_counts_only_the_branchs_own_files.py`, a real repository with a real bare remote and the real function cut out of the real script; the two that matter (a fold does not make main's files look pushed; a pure fold falls back to the branch's own files) fail against the old script.
+
+## Aether's attack on the merge check (letter of 2026-10-27), both taken
+
+- **Which side is the branch.** HEAD is the branch when a branch folds main in. Standing on main and merging a branch in, HEAD is main, and the check would test what main changed while printing "this branch changed". Now: if HEAD already sits on `origin/main` the branch is MERGE_HEAD; if `origin/main` cannot be found, nothing can be said and it goes wide. A test that stands on main fails with the detection removed.
+- **The pass line overstated.** The selector prints `NO TEST NAMES <path>` for every changed code file nothing names, and the pass line said the tests covering all of them passed. It now counts them: "N of those file(s) had NO test naming them".
+
 ## Not built
 
-The push's own whole-suite run is a separate timing. This change makes the commit stage cheap; whether the push stage also needs the same look is the next measurement, not a claim.
+A file only main changed that none of my tests name is not checked before the merge-bound push, by design: the whole suite runs there.
 
-Walk: walk-de225b7a4b12 (nine lenses, all credited).
+Walks: walk-de225b7a4b12 (the merge check) and walk-3f02de0406e9 (the push check), nine lenses each, all credited.

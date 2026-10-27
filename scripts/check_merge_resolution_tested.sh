@@ -70,12 +70,29 @@ declare -A TESTS=()
 SCOPE=""
 BASE="$(git merge-base HEAD MERGE_HEAD 2>/dev/null)"  # fail-soft: an empty base is caught by the test below and sends this to the wide fallback, which is the safe direction
 TREE="$(git write-tree 2>/dev/null)"  # fail-soft: same, an empty tree id sends this to the wide fallback
-if [[ -n "$BASE" && -n "$TREE" && -f "$REPO_ROOT/scripts/draft_test_selection.py" ]]; then
-    mapfile -t MINE < <(git diff --name-only --no-renames "$BASE" HEAD 2>/dev/null)  # fail-soft: an empty result is handled on the next line as not narrowable
+# WHICH SIDE IS THE BRANCH (Aether's attack, 2026-10-27). HEAD is the branch in the flow
+# the house uses, a branch folding main in. If someone merges a branch INTO main locally,
+# HEAD is main and MERGE_HEAD is the branch, and measuring from HEAD would test what main
+# changed and still print "this branch changed". So: if HEAD already sits on origin/main,
+# the branch is MERGE_HEAD. If origin/main cannot be found nothing can be said about which
+# side is which, and that goes to the wide fallback.
+SIDE="HEAD"
+SIDE_KNOWN=1
+if ! git rev-parse --verify --quiet origin/main >/dev/null 2>&1; then  # fail-soft: a missing origin/main is the answer here, not an error: it sends this to the wide fallback
+    SIDE_KNOWN=0
+elif git merge-base --is-ancestor HEAD origin/main 2>/dev/null; then  # fail-soft: exit 1 means "HEAD is not on main", the ordinary case
+    SIDE="MERGE_HEAD"
+fi
+if [[ -n "$BASE" && -n "$TREE" && "$SIDE_KNOWN" -eq 1 && -f "$REPO_ROOT/scripts/draft_test_selection.py" ]]; then
+    mapfile -t MINE < <(git diff --name-only --no-renames "$BASE" "$SIDE" 2>/dev/null)  # fail-soft: an empty result is handled on the next line as not narrowable
     if [[ "${#MINE[@]}" -gt 0 ]]; then
+        SELERR="$(mktemp)"
         SELECTED="$(printf '%s\n' "${MINE[@]}" | env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
-            "$PY" "$REPO_ROOT/scripts/draft_test_selection.py" --repo "$REPO_ROOT" --ref "$TREE")"
+            "$PY" "$REPO_ROOT/scripts/draft_test_selection.py" --repo "$REPO_ROOT" --ref "$TREE" 2>"$SELERR")"
         sel_rc=$?
+        cat "$SELERR" >&2
+        UNCOVERED="$(grep -c 'NO TEST NAMES' "$SELERR" 2>/dev/null)"  # fail-soft: grep -c exits 1 on zero matches, and zero is a real answer
+        rm -f "$SELERR"
         if [[ $sel_rc -eq 0 ]]; then
             SCOPE="the ${#MINE[@]} file(s) this branch changed since the merge base"
             while IFS= read -r hit; do
@@ -173,5 +190,8 @@ if [[ $rc -ne 0 ]]; then
 fi
 
 echo "[merge-test] tests covering $SCOPE pass (coverage is lexical, not proof of a correct resolution)" >&2
+if [[ "${UNCOVERED:-0}" -gt 0 ]]; then
+    echo "[merge-test] But ${UNCOVERED} of those file(s) had NO test naming them (listed above): nothing was verified for those." >&2
+fi
 echo "[merge-test] This is NOT a whole-tree pass: the whole suite is the push's job." >&2
 exit 0
