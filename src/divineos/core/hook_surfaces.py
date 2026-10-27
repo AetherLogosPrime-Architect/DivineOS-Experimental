@@ -1669,6 +1669,67 @@ def _board_size_after(tool: str, tool_input: dict, path: str) -> tuple[int | Non
     return len(current.replace(old, new, count)), ""
 
 
+def trial_in_days_surface(payload: dict) -> SurfaceOutcome | None:
+    """A trial measured in days, written into a draft, is refused once, where it is typed.
+
+    Dad's rule, four times: trials are counted in uses, never days. The pre-registration command already
+    refuses days; this is the door one step earlier, at the prose of a draft. It judges the file as it
+    will be after the write and refuses only trials the write ADDS, so an old draft can still be edited
+    about something else. See core/trial_in_days_check.py for what it decides and what it cannot see.
+    """
+    tool = payload.get("tool_name") or ""
+    if tool not in ("Write", "Edit"):
+        return SurfaceOutcome(name="trial_in_days", state="nothing-to-say")
+    tool_input = payload.get("tool_input") or {}
+    path = str(tool_input.get("file_path") or "")
+    normalised = path.replace("\\", "/").lower()
+    if "/docs/drafts/" not in normalised or not normalised.endswith(".md"):
+        return SurfaceOutcome(name="trial_in_days", state="nothing-to-say")
+    try:
+        from divineos.core import trial_in_days_check as check
+
+        try:
+            before = Path(path).read_text(encoding="utf-8")
+        except FileNotFoundError:
+            before = ""
+        if tool == "Write":
+            after = tool_input.get("content")
+        else:
+            old, new = tool_input.get("old_string"), tool_input.get("new_string")
+            if not isinstance(old, str) or not isinstance(new, str) or old not in before:
+                return SurfaceOutcome(
+                    name="trial_in_days", state="nothing-to-say"
+                )  # the edit fails on its own
+            after = before.replace(old, new, -1 if tool_input.get("replace_all") else 1)
+        if not isinstance(after, str):
+            return SurfaceOutcome(name="trial_in_days", state="nothing-to-say")
+        hits = check.new_trials_in_days(before, after)
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="trial_in_days",
+            error=f"{type(exc).__name__}: {exc} -- a trial in days would not be caught in this draft",
+            state="could-not-run",
+        )
+    if not hits:
+        return SurfaceOutcome(name="trial_in_days", state="nothing-to-say")
+    try:
+        # Each refusal is a use: the pre-registration reviews this door after a count of them, and reads
+        # each one for whether it was a real trial in days.
+        from divineos.core.ledger import log_event
+
+        log_event(
+            "TRIAL_IN_DAYS_REFUSED",
+            "system",
+            {"path": path, "found": [h.duration for h in hits][:4]},
+            validate=False,
+        )
+    except Exception:  # noqa: BLE001 -- the refusal matters more than its log line
+        pass
+    return SurfaceOutcome(
+        name="trial_in_days", refused=True, state="spoke", reason=check.refusal_text(hits)
+    )
+
+
 def unspoken_to_letter_surface(payload: dict) -> SurfaceOutcome | None:
     """The volley board: while he is away, every five letters, update his board.
 
@@ -2794,6 +2855,10 @@ def install() -> None:
     # the two hours actually took.
     if "unspoken_to_letter" not in registered("PreToolUse"):
         register("PreToolUse", "unspoken_to_letter", unspoken_to_letter_surface)
+    # 2026-10-21, registered in the same change as the surface (a surface nothing dispatches is an
+    # alarm with the cable coiled beside it): Dad's fourth statement that trials are counted in uses.
+    if "trial_in_days" not in registered("PreToolUse"):
+        register("PreToolUse", "trial_in_days", trial_in_days_surface)
 
     # Third PreToolUse batch. Two pull-request gates, and they deliberately
     # keep DIFFERENT wire protocols -- one denies through the permission
