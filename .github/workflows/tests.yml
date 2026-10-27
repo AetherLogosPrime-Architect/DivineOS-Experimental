@@ -58,9 +58,12 @@ jobs:
       run: |
         mypy src/divineos --ignore-missing-imports
     
-    - name: Run tests with pytest
+    # 2026-10-28 (Dad: eight finished pieces waiting an hour each): the suite ran on one
+    # core although pytest-xdist is installed, and ran a second time below only to measure
+    # coverage. It now runs once, in parallel, and the coverage number comes from this run.
+    - name: Run tests with pytest (parallel, with the coverage measurement)
       run: |
-        pytest tests/ -v --tb=short -m "not slow"
+        pytest tests/ --tb=short -m "not slow" -n auto --cov=src/divineos --cov-report=term-missing --cov-report=xml --no-cov-on-fail
 
     # F68 wire 2026-07-18 (Aletheia catch): pyproject.toml carries
     # [tool.coverage.run/report] with fail_under=75, but nothing invoked
@@ -79,10 +82,8 @@ jobs:
     #     coverage IS before deciding where to set the floor.
     #   - Once measured, the follow-on PR sets --cov-fail-under at (or
     #     just below) the actual number and ratchets upward from there.
-    - name: Measure test coverage (no hard gate on first run)
-      run: |
-        pytest tests/ --cov=src/divineos --cov-report=term-missing --cov-report=xml -m "not slow" --no-cov-on-fail || true
-      continue-on-error: true
+    # (2026-10-28: the measurement is now taken by the main test step above, from the same run,
+    # still with no hard gate. This step used to run every test a second time to produce it.)
 
     - name: Upload coverage report
       if: always()
@@ -100,7 +101,7 @@ jobs:
     # construction. continue-on-error: false — they must pass too.
     - name: Run slow tests with pytest
       run: |
-        pytest tests/ -v --tb=short -m "slow" --timeout=120
+        pytest tests/ --tb=short -m "slow" --timeout=120 -n auto
 
   # ---------------------------------------------------------------------
   # draft-suite — the measurement that was missing while everything sat
@@ -173,7 +174,7 @@ jobs:
       id: suite
       run: |
         set +e
-        pytest tests/ --tb=short -m "not slow" > suite.log 2>&1
+        pytest tests/ --tb=short -m "not slow" -n auto > suite.log 2>&1
         echo "code=$?" >> "$GITHUB_OUTPUT"
         set -e
 
