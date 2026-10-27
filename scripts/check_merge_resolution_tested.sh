@@ -37,37 +37,85 @@ if [[ ! -f "$REPO_ROOT/.git/MERGE_HEAD" ]] && [[ ! -f "$(git rev-parse --git-dir
     exit 0
 fi
 
-# The conflicted set, from the merge itself rather than from memory. Files that
-# conflicted are staged by the time a commit is attempted, so the unmerged list
-# is empty here -- the record of WHICH files conflicted lives in the rerere
-# index and in the merge's own output, neither of which is reliable at this
-# point. So the set used is every path the merge touched, which is wider than
-# the conflicted set and wrong in the safe direction.
-mapfile -t CHANGED < <(git diff --name-only HEAD MERGE_HEAD 2>/dev/null)  # fail-soft: the empty result is caught on the very next line and announced as could-not-read rather than as a clean pass, which is the whole point of this check
-if [[ "${#CHANGED[@]}" -eq 0 ]]; then
-    echo "[merge-test] could not read the merge's changed paths -- NOT a clean pass" >&2
-    exit 1
+# The project's own interpreter is preferred: a bare `python` can be one with
+# none of the house's packages, which also fails without running anything.
+PY="python"
+for cand in "$REPO_ROOT/.venv/Scripts/python.exe" "$REPO_ROOT/.venv/bin/python"; do
+    [[ -x "$cand" ]] && { PY="$cand"; break; }
+done
+
+# WHICH FILES THIS TESTS, and why it is no longer "every path main changed".
+# 2026-10-27: the old set was every path that differs between the two tips. A
+# branch that was behind main by a day put 282 files in front of it, which named
+# nearly every test in the house: 13,500 tests, 28 minutes, serial, and a refusal
+# whenever any unrelated test had a bad moment. Dad: "every push fails three
+# times and takes 30 mins per push." The comment that stood here called the wide
+# set "wrong in the safe direction", and never priced it. Priced, it is the UNSAFE
+# direction: a check nobody can afford to run gets walked around.
+#
+# What a merge can get wrong is measured from the MERGE BASE, not from two tips:
+# my side's changes, meeting main's new code. So the set is every path I changed
+# since the base, and the tests that name them are run against the merged tree.
+# Files only main changed are main's own run's job. The whole suite is the push's
+# job, so a green here is NOT a whole-tree pass and says so below.
+#
+# The mapping from changed path to tests is the draft push's own selector
+# (scripts/draft_test_selection.py), so the house has one idea of "which tests
+# cover this" and not two that drift apart.
+#
+# If the base cannot be found, or the selector says the change cannot be narrowed
+# (conftest or project config changed), this falls back to the OLD wide set, so a
+# failure of the narrowing is wide, never narrow and never a silent pass.
+declare -A TESTS=()
+SCOPE=""
+BASE="$(git merge-base HEAD MERGE_HEAD 2>/dev/null)"  # fail-soft: an empty base is caught by the test below and sends this to the wide fallback, which is the safe direction
+TREE="$(git write-tree 2>/dev/null)"  # fail-soft: same, an empty tree id sends this to the wide fallback
+if [[ -n "$BASE" && -n "$TREE" && -f "$REPO_ROOT/scripts/draft_test_selection.py" ]]; then
+    mapfile -t MINE < <(git diff --name-only --no-renames "$BASE" HEAD 2>/dev/null)  # fail-soft: an empty result is handled on the next line as not narrowable
+    if [[ "${#MINE[@]}" -gt 0 ]]; then
+        SELECTED="$(printf '%s\n' "${MINE[@]}" | env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
+            "$PY" "$REPO_ROOT/scripts/draft_test_selection.py" --repo "$REPO_ROOT" --ref "$TREE")"
+        sel_rc=$?
+        if [[ $sel_rc -eq 0 ]]; then
+            SCOPE="the ${#MINE[@]} file(s) this branch changed since the merge base"
+            while IFS= read -r hit; do
+                hit="${hit%$'\r'}"
+                [[ -n "$hit" && -f "$REPO_ROOT/$hit" ]] && TESTS["$hit"]=1
+            done <<< "$SELECTED"
+        elif [[ $sel_rc -eq 2 ]]; then
+            echo "[merge-test] REFUSED: the test selector could not read the repository (exit 2)." >&2
+            echo "[merge-test] That is not a pass and not an empty selection. Fix it first." >&2
+            exit 1
+        fi
+    fi
 fi
 
-# Map each changed source path to test files that name it. Lexical, and that is
-# a real limit: a test exercising a module without naming it is invisible here.
-# Reported in the output rather than assumed away.
-declare -A TESTS=()
-for path in "${CHANGED[@]}"; do
-    case "$path" in
-        tests/_archive/*) continue ;;  # retired tests; collecting them clashes with the live conftest
-        tests/*) [[ -f "$REPO_ROOT/$path" ]] && TESTS["$path"]=1 ; continue ;;  # a moved or deleted test is not run
-        *.py|*.sh) ;;
-        *) continue ;;
-    esac
-    base="$(basename "$path")"
-    base="${base%.*}"
-    [[ -z "$base" ]] && continue
-    while IFS= read -r hit; do
-        [[ "$hit" == */tests/_archive/* ]] && continue
-        [[ -n "$hit" ]] && TESTS["$hit"]=1
-    done < <(grep -rl --include='test_*.py' -F "$base" "$REPO_ROOT/tests" 2>/dev/null)  # fail-soft: this search exits non-zero simply by matching nothing, which is the ordinary case for most changed paths and is not an error worth printing
-done
+if [[ -z "$SCOPE" ]]; then
+    # The old wide set: every path the merge touched, from the difference of the tips.
+    mapfile -t CHANGED < <(git diff --name-only HEAD MERGE_HEAD 2>/dev/null)  # fail-soft: the empty result is caught on the very next line and announced as could-not-read rather than as a clean pass, which is the whole point of this check
+    if [[ "${#CHANGED[@]}" -eq 0 ]]; then
+        echo "[merge-test] could not read the merge's changed paths -- NOT a clean pass" >&2
+        exit 1
+    fi
+    SCOPE="every path the merge touched (${#CHANGED[@]}): the narrow set was unavailable"
+    # Map each changed source path to test files that name it. Lexical, and that is
+    # a real limit: a test exercising a module without naming it is invisible here.
+    for path in "${CHANGED[@]}"; do
+        case "$path" in
+            tests/_archive/*) continue ;;  # retired tests; collecting them clashes with the live conftest
+            tests/*) [[ -f "$REPO_ROOT/$path" ]] && TESTS["$path"]=1 ; continue ;;  # a moved or deleted test is not run
+            *.py|*.sh) ;;
+            *) continue ;;
+        esac
+        base="$(basename "$path")"
+        base="${base%.*}"
+        [[ -z "$base" ]] && continue
+        while IFS= read -r hit; do
+            [[ "$hit" == */tests/_archive/* ]] && continue
+            [[ -n "$hit" ]] && TESTS["$hit"]=1
+        done < <(grep -rl --include='test_*.py' -F "$base" "$REPO_ROOT/tests" 2>/dev/null)  # fail-soft: this search exits non-zero simply by matching nothing, which is the ordinary case for most changed paths and is not an error worth printing
+    done
+fi
 
 if [[ "${#TESTS[@]}" -eq 0 ]]; then
     echo "[merge-test] no test names any file this merge touched." >&2
@@ -76,19 +124,17 @@ if [[ "${#TESTS[@]}" -eq 0 ]]; then
     exit 0
 fi
 
-echo "[merge-test] running ${#TESTS[@]} test file(s) covering this merge's paths" >&2
+echo "[merge-test] running ${#TESTS[@]} test file(s) covering $SCOPE" >&2
 # 2026-10-04: the paths go through a pytest argument file. Passed as words, a
 # merge touching a thousand tests exceeded the Windows command-line limit, and
 # that could-not-run was reported below as "a test fails" -- the first time
 # this check ever ran in Aria's house, because her installed hooks were stale.
-# The project's own interpreter is preferred: a bare `python` can be one with
-# none of the house's packages, which also fails without running anything.
-PY="python"
-for cand in "$REPO_ROOT/.venv/Scripts/python.exe" "$REPO_ROOT/.venv/bin/python"; do
-    [[ -x "$cand" ]] && { PY="$cand"; break; }
-done
 ARGFILE="$(mktemp)"
-printf '%s\n' "${!TESTS[@]}" > "$ARGFILE"
+# SORTED, because an associative array hands its keys back in hash order. In that
+# order a test that reloads the ledger module (test_log_level_config) ran before
+# the test that holds the old Ledger class (2026-10-27: the same test refused two
+# merges in a row, though it passes alone and in the suite's own order).
+printf '%s\n' "${!TESTS[@]}" | sort > "$ARGFILE"
 # 2026-10-19: handed to a native Windows python as a POSIX path (/tmp/...), the
 # argument file is found only while the shell happens to be converting paths. With
 # MSYS_NO_PATHCONV set in the caller's environment it was not, and the run died
@@ -126,5 +172,6 @@ if [[ $rc -ne 0 ]]; then
     exit 1
 fi
 
-echo "[merge-test] tests covering this merge's paths pass (coverage is lexical, not proof of a correct resolution)" >&2
+echo "[merge-test] tests covering $SCOPE pass (coverage is lexical, not proof of a correct resolution)" >&2
+echo "[merge-test] This is NOT a whole-tree pass: the whole suite is the push's job." >&2
 exit 0

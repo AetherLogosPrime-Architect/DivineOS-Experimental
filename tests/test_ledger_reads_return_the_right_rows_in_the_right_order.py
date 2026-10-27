@@ -103,6 +103,12 @@ def test_stored_facts_come_back_filtered_by_type_and_key(tmp_path, monkeypatch):
 
 
 def test_the_shared_ledger_object_is_a_real_ledger_and_is_one_object():
+    import divineos.core.ledger as ledger_module
+
     first = get_ledger()
-    assert isinstance(first, Ledger)  # two Nones would also be "the same object"
+    # Asked of the module as it is NOW, not of the class imported at the top of this file:
+    # test_log_level_config reloads the module, which makes a new Ledger class, and the
+    # name imported at collection time then points at the old one (2026-10-27: this test
+    # failed two merge checks whenever that file ran first).
+    assert isinstance(first, ledger_module.Ledger)  # two Nones would also be "the same object"
     assert get_ledger() is first
