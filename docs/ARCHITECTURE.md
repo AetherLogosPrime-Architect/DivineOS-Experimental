@@ -783,6 +783,8 @@ src/divineos/
     work_copy_sweep.py         Work copies clean themselves up: finished ones are removed, doubtful ones are listed, nothing is ...
     moment_links.py            A moment is linked to the lessons of his it belongs to, and comes back when one of them does.
     waiting_claim.py           A reply may not say a fix waits on Aletheia until a letter to her names it at its live head.
+    hold_log.py                A record of each time the room hold and the follow-through hold stopped a reply or let one pass.
+    stall_on_promise.py        A promise to act is followed by the act, when no one is there to push.
 
   analysis/
     _session_types.py          Session analysis type definitions
