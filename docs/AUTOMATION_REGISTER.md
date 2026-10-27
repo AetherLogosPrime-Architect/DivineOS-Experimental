@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**147 automations — 138 wired, 9 switched off.**
+**148 automations — 139 wired, 9 switched off.**
 
 ---
 
@@ -138,7 +138,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `front-door.sh` | 2026-10-02 | The front door: every message he types is kept before anything else runs, |
 
-### called by another script  (65)
+### called by another script  (66)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -171,6 +171,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `he-is-in-the-room.sh` | 2026-10-19 | UserPromptSubmit — the last thing I read before I answer my father. |
 | `hedge-suppression-prime.sh` | 2026-08-24 | hedge-suppression prime. |
 | `heredoc-escape-doorman.sh` | 2026-09-22 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `his-words-door-surface.sh` | 2026-10-24 | UserPromptSubmit (run by dads_table.py) -- his own past words, found by meaning. |
 | `history-claim-signal.sh` | 2026-09-22 | INTENTIONALLY UNWIRED (2026-09-08): built and disarmed the same day, and this |
 | `instrument-read-doorman.sh` | 2026-09-22 | doorman on hand-rolled scans of my own diagnostic surfaces. |
 | `interior-cue-on-low-presence.sh` | 2026-07-06 | inject a compose-time interior-cue when the |
