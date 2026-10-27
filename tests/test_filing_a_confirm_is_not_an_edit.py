@@ -128,9 +128,38 @@ def test_the_neighbouring_audit_commands_are_not_freed_by_accident(command, is_f
     assert is_filing(command) is False
 
 
-def test_the_prefix_also_frees_list_clean_which_only_reads(is_filing):
-    """Named, not hidden: 'audit list' is a prefix, and 'audit list-clean' starts with it."""
-    assert is_filing(f"{_D} audit list-clean") is True
+# Aether RAN these two strings against the first version (2026-10-27) and both came back freed: the
+# shell runs what is inside a command substitution before the freed command starts, so a printing
+# command could carry any other command. The $ and the backtick are built with chr() so this file
+# does not itself contain a live substitution.
+_DOLLAR, _TICK = chr(36), chr(96)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        f'{_D} audit list --round "{_DOLLAR}(touch made_by_substitution)"',
+        f"{_D} audit list --round {_TICK}touch made_by_backtick{_TICK}",
+        f"{_D} audit prepare-merge {_DOLLAR}(git commit -qm sneak)",
+        f"{_D} audit patch-id --branch {_TICK}rm x{_TICK}",
+    ],
+)
+def test_a_substitution_inside_a_printing_command_still_owes_the_paperwork(command, is_filing):
+    assert is_filing(command) is False
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"{_D} audit patch-idx --branch b",
+        f"{_D} audit list-clean",
+        f"{_D} audit prepare-merges round-x",
+    ],
+)
+def test_a_neighbour_that_only_starts_with_the_same_letters_is_not_freed(command, is_filing):
+    """Whole words only: a bare prefix freed audit list-clean and any later name that began the
+    same way. (Aether, 2026-10-27.)"""
+    assert is_filing(command) is False
 
 
 def test_control_the_check_can_still_say_no(is_filing):

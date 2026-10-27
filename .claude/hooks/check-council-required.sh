@@ -280,11 +280,13 @@ _ARTIFACT_FILING_COMMANDS = (
 # the stamp path; patch-id is named by a confirm refusal as the check to run; audit list is
 # the stale-engagement gate's remedy for audit findings. (The briefing dashboard also names
 # audit list, but a dashboard is not a gate and was not counted.) Every one only PRINTS, so
-# the one way they can do harm is what the shell does with their output. The older entries
-# above are matched on the prefix alone, which frees a trailing redirect (divineos learn x
-# > some/file writes a file with no paperwork, a hole that predates this and is not
-# retrofitted here). These three are freed only when their segment carries no redirect
-# token, so adding them does not widen that hole. Walk: walk-969a822af7fd.
+# the ways they can do harm are what the shell does AROUND them: a redirect writes a file,
+# and a substitution runs another command before they start (Aether ran both strings, the
+# second against my first version). The older entries above are matched on the prefix alone,
+# which frees both (divineos learn x > some/file writes a file with no paperwork, a hole
+# that predates this and is not retrofitted here). These three are freed only as whole words
+# and only when their segment carries no redirect token and no substitution character, so
+# adding them does not widen that hole. Walk: walk-969a822af7fd.
 _READ_ONLY_FILING_COMMANDS = (
     'divineos audit patch-id',
     'divineos audit prepare-merge',
@@ -562,9 +564,15 @@ def _is_artifact_filing(cmd: str) -> bool:
         return False
     def _is_freed(seg):
         text = ' '.join(seg)
-        if text.startswith(_READ_ONLY_FILING_COMMANDS):
-            # These only print, so a redirect is the one way they can write a file.
-            return not any(token.startswith(_REDIRECT_STARTS) for token in seg)
+        # Whole words only for the printers: a bare prefix would also free patch-idx.
+        if any(text == entry or text.startswith(entry + ' ') for entry in _READ_ONLY_FILING_COMMANDS):
+            # These only print, so what the SHELL does around them is the one way they can do
+            # harm: a redirect writes a file, and a substitution (dollar-paren or backticks)
+            # runs another command before they start (Aether ran both strings, 2026-10-27).
+            substitution = (chr(36), chr(96))
+            if any(token.startswith(_REDIRECT_STARTS) for token in seg):
+                return False
+            return not any(c in token for token in seg for c in substitution)
         return text.startswith(_ARTIFACT_FILING_COMMANDS)
 
     return all(_is_freed(seg) for seg in acts)

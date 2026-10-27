@@ -34,13 +34,13 @@ Aether paid five council walks to land two fixes. The commands that cost them we
 
 **The walk found a hole the list already has, and these three do not widen it.** The exemption is a prefix match on the joined segment, so a redirect on a freed command rides along: `divineos learn x > some/file` is freed and writes a file with no paperwork, and `prepare-merge` is even prescribed with `> body.md`. The three new commands live in their own tuple (`_READ_ONLY_FILING_COMMANDS`) and are freed only when their segment carries no redirect token. The older entries are not retrofitted here: that is its own change, with its own risk of locking a prescribed form out, and it is named so it is not forgotten. The cost of the choice is that `prepare-merge ... > body.md`, the form `prs_commands.py` prints, owes the paperwork; the bare command prints to the screen and costs nothing.
 
-Also named, not hidden: `audit list` is a prefix, so it frees `audit list-clean`, which only reads. `prepare-merge` and `patch-id` have no neighbours that start with them (`prepare-artifact` does not).
+**Aether ran my first version and found its sibling hole (letter of 2026-10-27, night).** A command substitution (dollar-paren or backticks) inside a freed command is run by the shell before the command starts, so `divineos audit list --round "$(touch made_by_substitution)"` and the backtick form came back freed: the three printers could carry any other command. The older entries share it, as they share the redirect. The three are now freed only when no token carries a dollar sign or a backtick, and the redirect check is kept. His smaller point is also taken: the match was a bare prefix, so it also freed `audit patch-idx` and `audit list-clean`; the three now match as whole words (the command alone, or followed by a space), so `list-clean` is no longer freed. (I had written that as a named side effect; it was a gap.) His four rows and both substitution strings are tests, and four of them fail with the substitution check removed.
 
 **A correction to my own walk record.** One finding says the list was "11 entries and is 14". It was 13 and is 13 plus the separate tuple of three; the walk record is append-only, so the correction is here.
 
 **Four tests pin the same last line of the function.** The three older test files that lift the real function anchor on its exact final `return` line, so changing that line broke thirty of their tests until each anchor was updated. That is four copies of one lifter, and they should share one. Not done here; named.
 
-Tests: 18 new cases. Five redirect cases fail with the redirect check removed; the three freed commands, the neighbours that must not be freed, and the chained-behind cases pass and refuse as they should. 523 pass across the six files that read this hook.
+Tests: 25 new cases. Five redirect cases fail with the redirect check removed, and four substitution cases fail with the substitution check removed; the three freed commands, the neighbours that must not be freed, and the chained-behind cases pass and refuse as they should. 536 pass across the six files that read this hook.
 
 ## Falsifier
 
