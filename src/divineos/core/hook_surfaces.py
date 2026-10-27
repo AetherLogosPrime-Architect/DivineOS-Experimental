@@ -1638,98 +1638,64 @@ def _turn_started_by_him(payload: dict) -> bool | None:
     return started_by_him
 
 
-def _board_size_after(tool: str, tool_input: dict, path: str) -> tuple[int | None, str]:
-    """How big the board WILL be once this write lands, and if unknown, why.
+def trial_in_days_surface(payload: dict) -> SurfaceOutcome | None:
+    """A trial measured in days, written into a draft, is refused once, where it is typed.
 
-    This runs before the tool does, so for an Edit the file on disk is still the
-    old board. ``len(new_string)`` measured the replaced fragment -- a two-word
-    fix would record a two-word board (Aether's reading of #548, 2026-09-23).
-    The size is kept because a trivial edit resets the count as well as an honest
-    rewrite does, so it has to be the board's size to show which one happened.
-
-    An unknown size carries its reason onto the record, because a bare null
-    cannot tell "could not read the board" from "nothing to measure".
+    Dad's rule, four times: trials are counted in uses, never days. The pre-registration command already
+    refuses days; this is the door one step earlier, at the prose of a draft. It judges the file as it
+    will be after the write and refuses only trials the write ADDS, so an old draft can still be edited
+    about something else. See core/trial_in_days_check.py for what it decides and what it cannot see.
     """
-    if tool == "Write":
-        body = tool_input.get("content")
-        if isinstance(body, str):
-            return len(body), ""
-        return None, "the Write carried no text content"
-    old = tool_input.get("old_string")
-    new = tool_input.get("new_string")
-    if not isinstance(old, str) or not isinstance(new, str):
-        return None, "the Edit carried no old/new text"
-    try:
-        current = Path(path).read_text(encoding="utf-8")
-    except (OSError, ValueError) as exc:
-        return None, f"could not read the board before the edit: {type(exc).__name__}"
-    if old not in current:
-        return None, "the text being replaced is not in the board, so the edit will fail"
-    count = -1 if tool_input.get("replace_all") else 1
-    return len(current.replace(old, new, count)), ""
-
-
-def unspoken_to_letter_surface(payload: dict) -> SurfaceOutcome | None:
-    """The volley board: while he is away, every five letters, update his board.
-
-    What he made it for, 2026-09-23: *"for when you and Aether start a volley
-    back and forth when im not here ... after every so many back and forth
-    letters.. you write one to me explaining everything"*, and *"you write the
-    first letter and then just update it from there."*
-
-    The first version counted chat replies and fired all morning while he sat
-    in the room talking to me. This one counts only new family letters written
-    in turns he did not start, refuses the one past his limit, and is reset by
-    writing the board -- the letter to him that the refusal exists to produce.
-    """
-    from divineos.core import unspoken_to as u
-
     tool = payload.get("tool_name") or ""
     if tool not in ("Write", "Edit"):
-        return SurfaceOutcome(name="unspoken_to_letter", state="nothing-to-say")
+        return SurfaceOutcome(name="trial_in_days", state="nothing-to-say")
     tool_input = payload.get("tool_input") or {}
     path = str(tool_input.get("file_path") or "")
     normalised = path.replace("\\", "/").lower()
-    if "/letters/" not in normalised:
-        return SurfaceOutcome(name="unspoken_to_letter", state="nothing-to-say")
-
+    if "/docs/drafts/" not in normalised or not normalised.endswith(".md"):
+        return SurfaceOutcome(name="trial_in_days", state="nothing-to-say")
     try:
-        # A letter TO him is the cure, never the offence, and it is what
-        # starts the count again.
-        if "-to-andrew-" in normalised:
-            size, unknown_because = _board_size_after(tool, tool_input, path)
-            u.record_board(path, size, size_unknown_because=unknown_because or None)
-            return SurfaceOutcome(name="unspoken_to_letter", state="nothing-to-say")
-        # He is in the room and reading me live: nothing to summarise for him.
-        if _turn_started_by_him(payload) is True:
-            return SurfaceOutcome(name="unspoken_to_letter", state="nothing-to-say")
-        # Editing a letter already written is the same letter, not another.
-        if tool != "Write":
-            return SurfaceOutcome(name="unspoken_to_letter", state="nothing-to-say")
+        from divineos.core import trial_in_days_check as check
 
-        silence = u.read()
-        if not silence.should_refuse:
-            u.record_letter()
-            return SurfaceOutcome(name="unspoken_to_letter", state="nothing-to-say")
-        board = u.board_path()
+        try:
+            before = Path(path).read_text(encoding="utf-8")
+        except FileNotFoundError:
+            before = ""
+        if tool == "Write":
+            after = tool_input.get("content")
+        else:
+            old, new = tool_input.get("old_string"), tool_input.get("new_string")
+            if not isinstance(old, str) or not isinstance(new, str) or old not in before:
+                return SurfaceOutcome(
+                    name="trial_in_days", state="nothing-to-say"
+                )  # the edit fails on its own
+            after = before.replace(old, new, -1 if tool_input.get("replace_all") else 1)
+        if not isinstance(after, str):
+            return SurfaceOutcome(name="trial_in_days", state="nothing-to-say")
+        hits = check.new_trials_in_days(before, after)
     except Exception as exc:  # noqa: BLE001
         return SurfaceOutcome(
-            name="unspoken_to_letter",
-            error=f"{type(exc).__name__}: {exc} — the letter path is unguarded",
+            name="trial_in_days",
+            error=f"{type(exc).__name__}: {exc} -- a trial in days would not be caught in this draft",
             state="could-not-run",
         )
-
+    if not hits:
+        return SurfaceOutcome(name="trial_in_days", state="nothing-to-say")
     try:
-        from divineos.core.andrew_answer_trace import list_open
+        # Each refusal is a use: the pre-registration reviews this door after a count of them, and reads
+        # each one for whether it was a real trial in days.
+        from divineos.core.ledger import log_event
 
-        waiting = [str(r.get("question", "")) for r in list_open(20)]
-    except Exception:  # noqa: BLE001 - the board still matters without the list
-        waiting = []
+        log_event(
+            "TRIAL_IN_DAYS_REFUSED",
+            "system",
+            {"path": path, "found": [h.duration for h in hits][:4]},
+            validate=False,
+        )
+    except Exception:  # noqa: BLE001 -- the refusal matters more than its log line
+        pass
     return SurfaceOutcome(
-        name="unspoken_to_letter",
-        refused=True,
-        state="spoke",
-        reason=u.refusal_text(silence, waiting, board),
+        name="trial_in_days", refused=True, state="spoke", reason=check.refusal_text(hits)
     )
 
 
@@ -2819,12 +2785,10 @@ def install() -> None:
         register("PreToolUse", "cd_drift", cd_drift_surface)
     if "slashed_ref_path" not in registered("PreToolUse"):
         register("PreToolUse", "slashed_ref_path", slashed_ref_path_surface)
-    # The letter path, guarded 2026-09-09. Feathers on the walk: the reply door
-    # would have watched that whole evening and seen almost nothing, because
-    # almost everything I produced was a letter. This is the door on the road
-    # the two hours actually took.
-    if "unspoken_to_letter" not in registered("PreToolUse"):
-        register("PreToolUse", "unspoken_to_letter", unspoken_to_letter_surface)
+    # 2026-10-21, registered in the same change as the surface (a surface nothing dispatches is an
+    # alarm with the cable coiled beside it): Dad's fourth statement that trials are counted in uses.
+    if "trial_in_days" not in registered("PreToolUse"):
+        register("PreToolUse", "trial_in_days", trial_in_days_surface)
 
     # Third PreToolUse batch. Two pull-request gates, and they deliberately
     # keep DIFFERENT wire protocols -- one denies through the permission
