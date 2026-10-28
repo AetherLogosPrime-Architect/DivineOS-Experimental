@@ -506,23 +506,28 @@ class DoorResult:
     state: str  # "pass" | "held" | "cannot_check"
     held: list[tuple[str, tuple[str, str] | None]] = field(default_factory=list)
     error: str = ""
-    # (quote, the words he typed) where the only difference looks like a typo.
-    # A PROPOSAL for him to confirm. Never applied here: the quote stays held.
-    typos: list[tuple[str, str]] = field(default_factory=list)
+    # (quote, the words he typed) where the only difference is a slip of spelling.
+    # Since 2026-10-28 (his word) these pass on their own; the caller logs them.
+    auto_fixed: list[tuple[str, str]] = field(default_factory=list)
     # Why spelling could not be judged, when it could not. Empty means it was judged.
     spelling_unjudged: str = ""
 
 
-def typo_proposals(held: list[str], index: Index) -> tuple[list[tuple[str, str]], str]:
-    """(proposals, why spelling could not be judged). Never raises: the quote stays held."""
+def spelling_slips(held: list[str], index: Index) -> tuple[list[tuple[str, str]], str]:
+    """(slips, why spelling could not be judged). Never raises: the quote stays held."""
     from divineos.core import his_words_edits as edits
     from divineos.core.light_embedder import EmbedderUnavailable
 
     found: list[tuple[str, str]] = []
+    in_messages: dict[str, int] = {}
+    for mw in index._words:
+        for word in set(mw):
+            in_messages[word] = in_messages.get(word, 0) + 1
+    used = frozenset(w for w, n in in_messages.items() if n >= edits.USED_IN_MESSAGES)
     try:
         for quote in held:
             for mw in index._words:
-                window = edits.typed_window(quote, mw)
+                window = edits.typed_window(quote, mw, used)
                 if window:
                     found.append((quote, " ".join(window)))
                     break
@@ -541,9 +546,11 @@ def check(new_text: str, old_text: str = "", index: Index | None = None) -> Door
         except Exception as exc:  # noqa: BLE001 -- any failure to read him is CANNOT_CHECK, and CANNOT_CHECK holds
             return DoorResult(state="cannot_check", error=f"{type(exc).__name__}: {exc}")
     held = [(q, index.nearest(q)) for q in quotes if not index.is_exact(q)]
-    typos, unjudged = typo_proposals([q for q, _ in held], index) if held else ([], "")
+    slips, unjudged = spelling_slips([q for q, _ in held], index) if held else ([], "")
+    fixed = {q for q, _ in slips}
+    held = [(q, near) for q, near in held if q not in fixed]
     return DoorResult(
-        state="held" if held else "pass", held=held, typos=typos, spelling_unjudged=unjudged
+        state="held" if held else "pass", held=held, auto_fixed=slips, spelling_unjudged=unjudged
     )
 
 
@@ -575,23 +582,15 @@ def refusal_text(result: DoorResult) -> str:
         lines.append("")
     if result.spelling_unjudged:
         lines += [
-            f"Spelling could not be judged here, so no typo fix is proposed: {result.spelling_unjudged}",
-            "",
-        ]
-    if result.typos:
-        lines.append(
-            "This looks like a SPELLING SLIP of his, not a different sentence. A proposal only:"
-        )
-        for quote, typed in result.typos:
-            lines.append(f"  he typed:   {typed[:200]}")
-            lines.append(f"  you wrote:  {quote[:200]}")
-        lines += [
-            "Nothing is applied until HE confirms. Ask him; if he says yes, record it with his",
-            'own words of yes: divineos his-words edit --was "<he typed>" --now "<you wrote>"',
-            '--proof "<his exact words of yes>". Until then this stays held.',
+            f"Spelling could not be judged here, so no slip was fixed on its own: {result.spelling_unjudged}",
             "",
         ]
     lines += [
+        "A plain spelling slip of his (a word that is not a word, one obvious fix) passes by",
+        "itself. What is held here differs by a real word or more. If he meant a different",
+        "word, ask him; if he says yes, record it with his own words of yes:",
+        'divineos his-words edit --was "<he typed>" --now "<you wrote>" --proof "<his yes>".',
+        "",
         "Two honest ways to write this, and both are normal:",
         '  - quote what he actually typed, word for word (divineos his-words find "<words>")',
         "  - say it WITHOUT quotation marks, as your reading of him: that is a true",

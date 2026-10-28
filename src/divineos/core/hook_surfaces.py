@@ -2301,6 +2301,12 @@ def his_words_surface(payload: dict) -> SurfaceOutcome | None:
     if texts is None:
         return SurfaceOutcome(name="his_words", state="nothing-to-say")
     result = hw.check(*texts)
+    if result.auto_fixed:
+        from datetime import date
+
+        from divineos.core import his_words_edits
+
+        his_words_edits.log_auto_fixes(result.auto_fixed, date.today().isoformat())
     if result.state == "pass":
         return SurfaceOutcome(name="his_words", state="nothing-to-say")
     # CANNOT_CHECK refuses too: a quote of him nobody could verify must not

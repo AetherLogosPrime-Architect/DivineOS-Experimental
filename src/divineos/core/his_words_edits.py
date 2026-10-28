@@ -9,19 +9,27 @@ and earlier, on the same rule: his words "are editable by me or if there are
 obvious spelling errors or typos that they are corrected as well, the editing of
 them can be logged but they cannot be made uneditable".
 
-So the door may PROPOSE a fix and may never apply one alone. A proposal waits
-for him. When he says yes, the edit goes into an append-only log with his own
-words of yes beside it, and the corrected wording is added to the index BESIDE
-the original: what he typed still passes, and nothing he typed is ever removed.
+That was the rule until 2026-10-28, when he added the other half, in his words:
+"for any simple spelling errors or typos? they can be corrected automatically.. its
+only for whole word typos that need my correction" (he typed "sky is blu" as the
+slip to fix quietly and "sky is red" for "blue" as the one to ask about). So now:
+
+  - a SLIP (his word is not a whole word, the quoted one is, one obvious fix) passes
+    on its own, and every such pass is logged beside the edits so he can look later;
+  - a REAL WORD in place of another real word is held and asked about, as before.
+    When he says yes, the edit goes into an append-only log with his own words of
+    yes beside it, and the corrected wording is added to the index BESIDE the
+    original: what he typed still passes, and nothing he typed is ever removed.
 
 WHAT THIS CAN AND CANNOT SEE, so a quiet is never read as a check:
-a typo is proposed only when his word is not a whole vocabulary word and the
-quoted word is, they share a first letter, differ by at most one letter of
-length, and are alike enough (ratio 0.8). Words under five letters are never
-proposed: his slang (dont, thats, cant) splits in the vocabulary and would read
-as typos. A real word swapped for another real word is never proposed either,
-which is the safe direction. Only quotes of a single run of words are proposed;
-a quote cut with "..." is held as before.
+a slip needs his word to not be a whole vocabulary word and the quoted word to be,
+sharing a first letter, differing by at most one letter of length, and alike enough
+(ratio 0.8). Words under five letters count only as the last letter forgotten
+("blu"), never otherwise, and his contractions without the apostrophe (dont, thats,
+cant) are never slips. A real word swapped for another real word is never a slip,
+which is the safe direction. Only quotes of a single run of words are judged; a
+quote cut with "..." is held as before. Where this guesses wrong, he sees the
+quote later and corrects it.
 """
 
 from __future__ import annotations
@@ -34,28 +42,48 @@ from divineos.core import light_embedder
 from divineos.core.his_words import MARKS_DIR, words
 
 EDITS_PATH = MARKS_DIR / "edits_log.jsonl"
+AUTO_FIXES_PATH = MARKS_DIR / "auto_fixes_log.jsonl"
 MIN_TYPO_LEN = 5
+MIN_DROPPED_LETTER_LEN = 3
+USED_IN_MESSAGES = 3
 MAX_FIXES = 2
 _MIN_RATIO = 0.8
+# His contractions without the apostrophe: how he writes, never a slip.
+_CONTRACTIONS = frozenset(
+    "dont cant wont isnt arent wasnt werent didnt doesnt hasnt havent hadnt couldnt "
+    "shouldnt wouldnt im ive ill youre theyre whats thats".split()
+)
 
 
-def is_typo_of(typed: str, meant: str) -> bool:
-    """Whether ``typed`` looks like a slip for ``meant``, by the rules in the docstring."""
-    if typed == meant or len(typed) < MIN_TYPO_LEN:
+def is_typo_of(typed: str, meant: str, used: frozenset[str] = frozenset()) -> bool:
+    """Whether ``typed`` looks like a slip for ``meant``, by the rules in the docstring.
+
+    ``used`` is the words he writes in many messages: a forgotten last letter that
+    is one of those ("car" for "care") is a real word of his, so it is asked about.
+    The vocabulary alone cannot decide it, because it holds fragments like "blu".
+    """
+    if typed == meant or typed in _CONTRACTIONS:
         return False
     if typed[0] != meant[0] or abs(len(typed) - len(meant)) > 1:
         return False
+    # The last letter forgotten ("blu" for "blue") is the one short slip he named.
+    dropped_last = len(meant) == len(typed) + 1 and meant.startswith(typed)
+    if len(typed) < (MIN_DROPPED_LETTER_LEN if dropped_last else MIN_TYPO_LEN):
+        return False
     # "thats" is "that" plus a letter, which is how he writes a contraction, not a slip.
-    if typed.startswith(meant) or meant.startswith(typed):
+    if (typed.startswith(meant) or meant.startswith(typed)) and not dropped_last:
         return False
     if difflib.SequenceMatcher(None, typed, meant).ratio() < _MIN_RATIO:
         return False
-    return (
-        light_embedder.is_whole_word(typed) is False and light_embedder.is_whole_word(meant) is True
-    )
+    meant_is_word = light_embedder.is_whole_word(meant) is True
+    if dropped_last:
+        return meant_is_word and typed not in used
+    return light_embedder.is_whole_word(typed) is False and meant_is_word
 
 
-def typed_window(quote: str, message_words: list[str]) -> list[str] | None:
+def typed_window(
+    quote: str, message_words: list[str], used: frozenset[str] = frozenset()
+) -> list[str] | None:
     """The words he typed where ``quote`` means them, if every difference is a slip."""
     qw = words(quote)
     n = len(qw)
@@ -69,7 +97,7 @@ def typed_window(quote: str, message_words: list[str]) -> list[str] | None:
             continue
         if len(wanted & set(window)) < n - MAX_FIXES:
             continue
-        if all(is_typo_of(a, b) for a, b in misses):
+        if all(is_typo_of(a, b, used) for a, b in misses):
             return window
     return None
 
@@ -97,6 +125,14 @@ def append_edit(was: str, now: str, proof: str, when: str, path: Path = EDITS_PA
     with path.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(row) + "\n")
     return row
+
+
+def log_auto_fixes(fixes: list[tuple[str, str]], when: str, path: Path = AUTO_FIXES_PATH) -> None:
+    """Record each slip the door passed on its own, so he can look later. Append only."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fh:
+        for quote, typed in fixes:
+            fh.write(json.dumps({"when": when, "quote": quote, "he_typed": typed}) + "\n")
 
 
 def _contains(joined: list[str], phrase: str) -> bool:
