@@ -88,7 +88,13 @@ from dataclasses import dataclass
 _CLAIM = re.compile(
     r"\b("
     r"(?:is|are|has|have|had|was|were)\s+(?:now\s+)?(?:pushed|landed|live)"
+    # "landed as 'ew'", "landed with me", "landed on me" is how something HIT me, not where work
+    # arrived (Dad 2026-10-26, after a talk about taste). "landed as expected/planned" still
+    # describes a result of the work, so it stays a claim.
     r"|(?:it|they|both|everything|all\s+of\s+it)\s+landed"
+    r"(?!\s+(?:with\s+(?:me|him|you|us|them)\b"
+    r"|on\s+(?:me|him|you|us|them)\b"
+    r"|as\s+(?!(?:expected|planned|intended|designed|hoped|promised)\b)))"
     r"|landed\s+on\s+(?:origin|the\s+remote|the\s+shared\s+copy)"
     r"|pushed\s+(?:to|up\s+to)\s+(?:origin|the\s+remote)"
     r"|reached\s+the\s+(?:remote|shared\s+copy)"
