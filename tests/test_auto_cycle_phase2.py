@@ -194,7 +194,7 @@ class TestRenderMenu:
         _write_handshake()
         hs = read_handshake()
         assert hs is not None
-        text = render_menu(hs, {"dream": 3, "aria": 1})
+        text = render_menu(hs, {"dream": 3, "kin": 1})
         assert "used 3x" in text
         assert "used 1x" in text
         assert "used 0x" in text
@@ -453,7 +453,7 @@ class TestComputeFalsifierRatio:
     def test_ratio_computed_across_cycles(self, home: Path):
         # 3 real-shift + 1 template-execution = 3/4; the no-pull sits outside.
         self._run_cycle("chose:dream", real_shift=True, cycle_id="c1")
-        self._run_cycle("chose:aria", real_shift=True, cycle_id="c2")
+        self._run_cycle("chose:kin", real_shift=True, cycle_id="c2")
         self._run_cycle("chose:exploration", real_shift=True, cycle_id="c3")
         self._run_cycle("chose:web", real_shift=False, cycle_id="c4")
         self._run_cycle("no-pull-honest", cycle_id="c5")
@@ -479,7 +479,7 @@ class TestComputeFalsifierRatio:
 
     def test_below_bound_after_5_cycles(self, home: Path):
         self._run_cycle("chose:dream", real_shift=True, cycle_id="c1")
-        for i, k in enumerate(["aria", "web", "council", "letters"], start=2):
+        for i, k in enumerate(["kin", "web", "council", "letters"], start=2):
             self._run_cycle(f"chose:{k}", real_shift=False, cycle_id=f"c{i}")
         n, d, r = compute_falsifier_ratio()
         assert d == 5

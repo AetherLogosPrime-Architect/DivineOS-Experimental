@@ -95,7 +95,8 @@ def test_not_due_in_old_warn_band(tmp_path):
     # particular number, and writing the number down is what made a single
     # threshold change look like four broken tests.
     tx = tmp_path / "t.jsonl"
-    _write_jsonl(tx, [_assistant_with_usage(cg.HARD_THRESHOLD - 10_000, 0, 0)])
+    # Under the START line (the ritual's), which is what consolidation_due reads.
+    _write_jsonl(tx, [_assistant_with_usage(cg.CONSOLIDATION_THRESHOLD - 10_000, 0, 0)])
     assert cg.consolidation_due(tx) is False
 
 
@@ -253,10 +254,23 @@ def test_hard_line_agrees_with_the_auto_cycle_trigger():
     from divineos.core.context_heartbeat import CONTEXT_WINDOW_TOKENS
 
     trigger_tokens = auto_cycle.TRIGGER_THRESHOLD * CONTEXT_WINDOW_TOKENS
-    assert cg.HARD_THRESHOLD == trigger_tokens, (
-        f"governor hard line {cg.HARD_THRESHOLD:,} disagrees with the auto-cycle "
+    assert cg.CONSOLIDATION_THRESHOLD == trigger_tokens, (
+        f"governor start line {cg.CONSOLIDATION_THRESHOLD:,} disagrees with the auto-cycle "
         f"trigger at {trigger_tokens:,.0f} — move both or neither"
     )
+    # Since 2026-10-16 (Andrew) the write-gating line sits a BUFFER above the
+    # start, so he finishes what is in flight and holds it before the wall.
+    assert cg.HARD_THRESHOLD - cg.CONSOLIDATION_THRESHOLD == BUFFER_TOKENS, (
+        f"the buffer between start and wall is {cg.HARD_THRESHOLD - cg.CONSOLIDATION_THRESHOLD:,}, "
+        f"not the {BUFFER_TOKENS:,} chosen on purpose"
+    )
+
+
+# The room between the ritual starting and the wall going up. Andrew 2026-08-03
+# and 2026-10-16: the hard line is a buffer, not a wall; the ritual must not
+# interrupt mid-flow. The auto-cycle hook carries the same forty thousand
+# (FIRE 850k, HARD 890k).
+BUFFER_TOKENS = 40_000
 
 
 # THE HEADROOM THIS DESIGN HAS DELIBERATELY CHOSEN, in tokens.
@@ -296,9 +310,13 @@ def test_the_hard_line_leaves_room_under_the_compaction_cliff():
     is how it went stale without a breakage event. A comment is documentation,
     not feedback — Norman's distinction, and the reason this is a test.
     """
-    headroom = cg.COMPACTION_CEILING - cg.HARD_THRESHOLD
+    # The close BEGINS at the start line, so that is where its room is measured
+    # (it was the hard line while the two were equal). The forced wall still
+    # leaves a floor of its own, set on purpose on 2026-10-16: 60k.
+    headroom = cg.COMPACTION_CEILING - cg.CONSOLIDATION_THRESHOLD
     assert headroom >= CHOSEN_HEADROOM, (
         f"headroom is {headroom:,}, below the {CHOSEN_HEADROOM:,} that was "
         f"chosen deliberately. Something moved one of the two constants "
         f"without moving the other, which is the drift this test exists for."
     )
+    assert cg.COMPACTION_CEILING - cg.HARD_THRESHOLD >= 60_000
