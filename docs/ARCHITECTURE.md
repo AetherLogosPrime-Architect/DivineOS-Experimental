@@ -784,6 +784,8 @@ src/divineos/
     his_words_bundle.py        His words and his lessons, found by meaning, in ONE process.
     moment_links.py            A moment is linked to the lessons of his it belongs to, and comes back when one of them does.
     waiting_claim.py           A reply may not say a fix waits on Aletheia until a letter to her names it at its live head.
+    hold_log.py                A record of each time the room hold and the follow-through hold stopped a reply or let one pass.
+    stall_on_promise.py        A promise to act is followed by the act, when no one is there to push.
     memory_linkage_own_words.py The memory link, read through what I said last turn, apart from what he said.
 
   analysis/
