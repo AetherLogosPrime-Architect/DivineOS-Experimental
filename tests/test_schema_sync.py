@@ -361,6 +361,13 @@ class TestSchemaSync:
             # store with one column, and a shadow with none at all. Padding
             # them to production width would remove the condition under test.
             "test_shadow_ledger_sweep.py",
+            # The migration test builds the OLD shape of shared_history, the table as it was
+            # before the `surface` column, on purpose: its whole subject is that a database made
+            # before the opt-in is migrated by the first call, with every old row starting hidden.
+            # Padding it to production width would remove the condition under test. The other
+            # tests in that file use the real, migrated table. Declared in the same commit as the
+            # fixture, as the entries above learned to (Aria, 2026-10-26).
+            "test_moment_lane_is_opt_in.py",
         }
 
         warnings: list[str] = []
