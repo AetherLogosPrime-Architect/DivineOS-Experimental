@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (512 commands across 122 modules)
+  cli/                         CLI package (517 commands across 122 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -647,7 +647,6 @@ src/divineos/
     vad_capture.py             VAD write-time capture — attach current felt-state to every write.
     vad_stamp_store.py         VAD write-stamp store — a side-table pairing record_id → VAD snapshot.
     findings_ledger.py         Findings ledger — a single living record of every past-and-present audit finding.
-    unspoken_to.py             The volley board. Counts family letters written while my father is away (a turn a notification started, not his words), and refuses the one past his limit of five until the one running board letter to him is updated: where things stand now, compressed, with his open questions from the answer ledger. Writing the board resets it; while he is in the room it does nothing. Counts, never minutes; an unreadable count owes him the board. Rebuilt 2026-09-23 on his words, after the first version counted chat replies and refused letters all morning while he sat talking to me.
     finding_backlog.py         Unfixed findings block work at the place or the moment they name. Built 2026-09-09 against the measurement that of the twenty blocking doors in the house, none reads the findings store — so filing a diagnosis costs nothing and ignoring one costs nothing. NOTE: not yet wired to a door; it is the scheduler role, and until it has a caller it is a module rather than a mechanism.
     foundational_truths_surface.py Foundational-truths surface — surfaces relevant kiln principles by trigger match.
     auto_cycle.py              Auto-cycle phase 1 — mechanical pipeline before compaction.
@@ -766,6 +765,9 @@ src/divineos/
     door_report.py             The front door's report on itself, counted from what ARRIVED.
     ship_steps.py              The checks `divineos ship` runs in order, each one a yes or a named no.
     git_hooks_drift.py         Do the installed git hooks still say what setup/setup-hooks.sh would write?
+    his_lessons_shelf.py       His lessons, brought to us: the second shelf of the words door.
+    his_words_corpus.py        Dad's words, cut into passages worth embedding.
+    his_words_door.py          His own past words, found by meaning, put beside what he just said.
     landing_status.py          Where each waiting fix stands toward the external auditor, from the real facts.
     landing_homework.py        A clerk for the author's side of landing a fix.
     unread_letter.py           A letter the bell rang for holds real work until it is opened.
@@ -777,6 +779,11 @@ src/divineos/
     merge_freshness.py         Refuse a `gh pr merge` of a pull request that is behind main, and hand over the remedy.
     merge_command.py           What a shell command merges: the one reader every gate on a merge asks.
     cd_drift_check.py          Refuse a top-level `cd` that moves the app's idea of home.
+    trial_in_days_check.py     A trial measured in days is refused where it is written.
+    work_copy_sweep.py         Work copies clean themselves up: finished ones are removed, doubtful ones are listed, nothing is ...
+    his_words_bundle.py        His words and his lessons, found by meaning, in ONE process.
+    moment_links.py            A moment is linked to the lessons of his it belongs to, and comes back when one of them does.
+    waiting_claim.py           A reply may not say a fix waits on Aletheia until a letter to her names it at its live head.
 
   analysis/
     _session_types.py          Session analysis type definitions

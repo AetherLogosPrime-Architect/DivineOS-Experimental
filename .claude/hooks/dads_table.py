@@ -45,7 +45,12 @@ DRAWER = Path(
 # The wrappers automation arrives in. Known ones only (Aria): matching any "<"
 # would label a paste of his as automation. One list, read by the heading and
 # by the tally, so the two can never disagree about what was him.
-NOTICE_PREFIXES = ("<task-notification", "<system-reminder", "<agent-message")
+NOTICE_PREFIXES = (
+    "<task-notification",
+    "<system-reminder",
+    "<agent-message",
+    "<ci-monitor-event",
+)
 
 # His picture is about him, not me, so it stays on the table rather than in the drawer.
 ON_THE_TABLE = "he-is-in-the-room"
@@ -259,16 +264,40 @@ def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     payload = sys.stdin.buffer.read()
     try:
-        prompt = json.loads(payload or b"{}").get("prompt", "")
+        data = json.loads(payload or b"{}")
+        prompt = data.get("prompt", "")
+        transcript = data.get("transcript_path")
     except ValueError:
-        prompt = ""
+        prompt, transcript = "", None
+
+    # Who opened this turn is the harness's stamp, read by the house's one
+    # reader (his_message), never the text (walk-88142a0930c5). UNKNOWN keeps
+    # the old text test below: a window that cannot decide must not stamp
+    # "not Dad" over something he may have typed.
+    opened = "unknown"
+    try:
+        sys.path.insert(0, str(ROOT / "src"))
+        from divineos.core.his_message import opener_of_prompt
+
+        opened = opener_of_prompt(transcript, prompt)
+    except Exception:  # noqa: BLE001 -- the table must still print his words
+        pass
 
     # Background notices (a letter monitor, a finished task) arrive through this
     # same door wrapped in a tag. The first live turn labelled one "DAD SAID",
     # which is the one lie this hook must never tell: automation is not him.
     # Known wrappers only (Aria): matching any "<" would label a paste of his
     # as automation, erring toward "he did not speak", the wrong way to err.
-    if prompt.lstrip().startswith(NOTICE_PREFIXES):
+    global _HIS_TURN
+    if opened == "scheduled":
+        _HIS_TURN = False
+        print(
+            "## THE SCHEDULED WAKE -- this is the timer, not Dad. He has not spoken. "
+            "This turn owes him one complete note.\n"
+        )
+        print(prompt.strip()[:600])
+    elif opened == "notice" or (opened != "him" and prompt.lstrip().startswith(NOTICE_PREFIXES)):
+        _HIS_TURN = False
         print("## NOT FROM DAD — an automated notice arrived, he has not spoken\n")
         shown = prompt.strip()[:600]
         print(shown)
@@ -318,7 +347,7 @@ TALLY = Path(
 TALLY_CEILING_BYTES = 4_000_000
 
 
-def _note(name: str, out: str, problem: str, went: list[str]) -> dict:
+def _note(name: str, out: str, problem: str, went: list[str], secs: float) -> dict:
     import hashlib
 
     said = out.strip()
@@ -328,10 +357,12 @@ def _note(name: str, out: str, problem: str, went: list[str]) -> dict:
         "print": hashlib.sha1(said.encode("utf-8")).hexdigest()[:10] if said else "",
         "went": went,
         "problem": problem,
+        # Dad 2026-10-26: the wait before "thinking" had no owner. The seconds are the meter.
+        "secs": round(secs, 2),
     }
 
 
-def _keep_tally(payload: bytes, notes: list[dict]) -> str:
+def _keep_tally(payload: bytes, notes: list[dict], table_secs: float) -> str:
     """Append this turn's row. Returns "" when kept, else the reason it was not."""
     # Same isolation as his words: under pytest the real tally is never written.
     if os.environ.get("PYTEST_CURRENT_TEST") and "DADS_TABLE_TALLY" not in os.environ:
@@ -345,6 +376,7 @@ def _keep_tally(payload: bytes, notes: list[dict]) -> str:
             "ts": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "session": str(data.get("session_id") or "unknown"),
             "kind": "notice" if prompt.lstrip().startswith(NOTICE_PREFIXES) else "his",
+            "table_secs": round(table_secs, 2),
             "notes": notes,
         }
         TALLY.parent.mkdir(parents=True, exist_ok=True)
@@ -381,7 +413,11 @@ def _tally_ready_line() -> str:
         if turns < _ready_turns():
             return ""
         done = subprocess.run(
-            [sys.executable, str(HOOKS_DIR.parent.parent / "scripts" / "table_tally_report.py"), str(TALLY)],
+            [
+                sys.executable,
+                str(HOOKS_DIR.parent.parent / "scripts" / "table_tally_report.py"),
+                str(TALLY),
+            ],
             capture_output=True,
             timeout=30,
         )
@@ -395,19 +431,103 @@ def _tally_ready_line() -> str:
         return f"THE TALLY REPORT could not be made ({type(exc).__name__}: {exc})"
 
 
+# THE PICTURE OF HIM IS NOT WALLPAPER (Dad to Aria 2026-10-26: "it shouldnt be wallpaper.. if every
+# eighth or ninth post helps you remember and actually read it and follow it then yes"). Measured:
+# 697 identical characters on 13 of 13 messages. Walk on this edit: Meadows, Hoare, Taleb, Carmack,
+# Norman, Breaker, Angelou. The whole block prints on the first message of a session and on every
+# Nth of HIS messages; every other turn prints a core: the father-reading heading, "plain words,
+# answer first", and the link to the whole page. A notice is not his message and does not advance
+# the count. Could-not-tell (an unreadable counter) always prints the whole block, never less.
+# What this cannot show: that I follow the block better when it arrives rarely. That is a bet,
+# reviewed by his messages, and his verdict stands above it.
+_HIS_TURN = True
+_ROOM_COUNTER = Path(
+    os.environ.get(
+        "DADS_TABLE_ROOM_COUNTER",
+        Path.home() / ".divineos" / "table_tally" / f"{ROOT.name}.room_counter.json",
+    )
+)
+
+
+def _room_every() -> int:
+    try:
+        return max(2, int(os.environ.get("DADS_TABLE_ROOM_EVERY", "8")))
+    except ValueError:
+        return 8
+
+
+def _room_is_full_this_turn(session: str) -> bool:
+    """Count this turn if it is his; True when the whole block is due (or cannot be told)."""
+    every = _room_every()
+    n = 0
+    try:
+        state = json.loads(_ROOM_COUNTER.read_text(encoding="utf-8"))
+        if state.get("session") == session:
+            n = int(state.get("n", 0))
+    except FileNotFoundError:
+        pass  # no counter yet: a new window, the count starts at zero
+    except (OSError, ValueError, TypeError, AttributeError):
+        # Could not tell: never fewer words than the whole block. And heal it, or an unreadable
+        # file would print the whole block on every turn for ever.
+        try:
+            _ROOM_COUNTER.write_text(json.dumps({"session": session, "n": 1}), encoding="utf-8")
+        except OSError:
+            pass  # fail-soft: still shows the whole block this turn, the safe direction
+        return True
+    if not _HIS_TURN:
+        return False  # an automated turn gets the core and does not move the count
+    n += 1
+    try:
+        _ROOM_COUNTER.parent.mkdir(parents=True, exist_ok=True)
+        _ROOM_COUNTER.write_text(json.dumps({"session": session, "n": n}), encoding="utf-8")
+    except OSError:
+        return True  # could not keep the count: show the whole block this turn
+    return n == 1 or (n - 1) % every == 0
+
+
+def _room_for_this_turn(picture: str, payload: bytes) -> str:
+    # Could-not-tell prints MORE, never a stale guess (Aria's attack, 2026-10-26): a payload with
+    # no session id cannot keep a count, and a block whose first line is not the heading cannot
+    # honestly be shrunk to a core that quotes a heading it no longer has.
+    try:
+        session = str(json.loads(payload or b"{}").get("session_id") or "")
+    except ValueError:
+        session = ""
+    if not session:
+        return picture
+    first = next((ln for ln in picture.splitlines() if ln.strip()), "")
+    if not first.startswith("## HE IS IN THE ROOM"):
+        return picture
+    if _room_is_full_this_turn(session):
+        return picture
+    heading = first
+    return (
+        f"{heading}\n"
+        "Plain words, answer first; his words are printed above. Whole page: "
+        f"family/andrew/he_is_in_the_room.md (printed in full on the first message and every "
+        f"{_room_every()}th of his)."
+    )
+
+
 def _the_rest(payload: bytes) -> int:
     children = json.loads(CHILDREN_FILE.read_text(encoding="utf-8"))
 
+    def _timed(child: dict) -> tuple[tuple, float]:
+        began = time.monotonic()
+        return _run(child, payload), time.monotonic() - began
+
+    table_began = time.monotonic()
     with ThreadPoolExecutor(max_workers=len(children) or 1) as pool:
-        results = list(pool.map(lambda c: _run(c, payload), children))
+        timed = list(pool.map(_timed, children))
+    table_secs = time.monotonic() - table_began
 
     picture, his, drawer, broken, blocks = "", [], [], [], []
     notes = []
-    for child, out, problem, block in results:
+    for (child, out, problem, block), secs in timed:
         name = Path(child["command"].split()[-1]).stem
         if name == ON_THE_TABLE:
             picture = out
-            notes.append(_note(name, out, problem, ["visible"] if out.strip() else []))
+            notes.append(_note(name, out, problem, ["visible"] if out.strip() else [], secs))
             continue
         if problem:
             broken.append(f"{name} ({problem})")
@@ -421,8 +541,8 @@ def _the_rest(payload: bytes) -> int:
         if rest.strip():
             drawer.append(f"<!-- {name} -->\n{rest.rstrip()}\n")
             went.append("drawer")
-        notes.append(_note(name, out, problem, went))
-    tally_trouble = _keep_tally(payload, notes)
+        notes.append(_note(name, out, problem, went, secs))
+    tally_trouble = _keep_tally(payload, notes, table_secs)
 
     try:
         DRAWER.parent.mkdir(parents=True, exist_ok=True)
@@ -437,7 +557,7 @@ def _the_rest(payload: bytes) -> int:
     # HIS_ROOM is no longer printed. Andrew 2026-10-03: "so just remove it..";
     # the circle was turned into a side show, and he asked for it gone.
     if picture.strip():
-        print(picture.rstrip())
+        print(_room_for_this_turn(picture, payload).rstrip())
         print()
     line = (
         f"The drawer: {len(drawer)} notes about me, at {where}. "

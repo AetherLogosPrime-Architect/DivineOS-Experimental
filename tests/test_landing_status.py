@@ -13,14 +13,19 @@ from __future__ import annotations
 
 from datetime import date
 
+from divineos.core import landing_status
 from divineos.core.landing_status import (
     CHANGED,
     CONFIRMED,
     NEVER_TOLD,
     NO_ANSWER,
     READY,
+    SEATS,
     classify,
+    classify_pile,
     confirms_from_letters,
+    letters_read_line,
+    read_letters,
     render_request,
     told_dates_from_letters,
 )
@@ -132,6 +137,86 @@ class TestToldDatesComeFromMyLettersToHer:
         assert told_dates_from_letters(letters, {596: "fix/x"}) == {}
 
 
+class TestBothSeatsAreRead:
+    """Aria, 2026-10-26 (walk-29a4e57b49ce). The board matched only the file names
+    aletheia-to-aether and aether-to-aletheia, so from Aria's seat it read nothing
+    of hers: nine fixes showed 'never told' though the letter listing them existed,
+    and a day-old fix showed 'asked 29 days ago' from an old letter of his. The pile
+    is one pile, so a confirm of hers counts whichever seat carried it, and a letter
+    of either seat naming a fix counts as telling her."""
+
+    def test_her_letter_to_aria_is_read(self) -> None:
+        got = confirms_from_letters({"aletheia-to-aria-2026-10-26-x.md": HER_CONFIRM})
+        assert got == {596: ["f064dfa83"]}
+
+    def test_a_confirm_quoted_in_my_letter_to_her_is_not_hers(self) -> None:
+        """The dangerous direction, kept closed for the new names too."""
+        got = confirms_from_letters({"aria-to-aletheia-2026-10-26-x.md": HER_CONFIRM})
+        assert got == {}
+
+    def test_a_confirm_in_a_letter_between_the_two_seats_is_not_hers(self) -> None:
+        for name in ("aria-to-aether-2026-10-26-x.md", "aether-to-aria-2026-10-26-x.md"):
+            assert confirms_from_letters({name: HER_CONFIRM}) == {}
+
+    def test_my_letter_to_her_counts_as_telling(self) -> None:
+        letters = {"aria-to-aletheia-2026-10-26-twenty-one.md": "please read #596"}
+        assert told_dates_from_letters(letters, {596: "fix/x"}) == {596: date(2026, 10, 26)}
+
+    def test_only_the_two_seats_are_read_never_a_glob(self) -> None:
+        """Schneier on the walk: a file anyone can drop into a shared folder."""
+        stranger = {
+            "zed-to-aletheia-2026-10-26-x.md": "see #596",
+            "aletheia-to-zed-2026-10-26-x.md": HER_CONFIRM,
+        }
+        assert confirms_from_letters(stranger) == {}
+        assert told_dates_from_letters(stranger, {596: "fix/x"}) == {}
+
+    def test_the_two_seats_are_the_whole_roster(self) -> None:
+        """Aristotle on the walk: a third seat must fail here, loudly, and not be quietly unread."""
+        assert SEATS == ("aether", "aria")
+
+    def test_read_letters_finds_all_four_kinds_and_nothing_else(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        names = [
+            "aletheia-to-aether-2026-10-26-a.md",
+            "aletheia-to-aria-2026-10-26-b.md",
+            "aether-to-aletheia-2026-10-26-c.md",
+            "aria-to-aletheia-2026-10-26-d.md",
+        ]
+        others = ["andrew-to-aria-2026-10-26-e.md", "aria-to-aether-2026-10-26-f.md", "notes.md"]
+        for name in names + others:
+            (tmp_path / name).write_text("#596", encoding="utf-8")
+        monkeypatch.setattr(landing_status, "_letter_dirs", lambda: [tmp_path])
+        assert sorted(read_letters()) == sorted(names)
+
+    def test_the_pile_reads_as_one_from_either_seat(self) -> None:
+        """Her confirm came in a letter to Aria; the telling was my letter to her."""
+        prs = [{"number": 596, "headRefName": "fix/x", "headRefOid": HEAD}]
+        letters = {
+            "aria-to-aletheia-2026-10-06-a.md": "please read #596",
+            "aletheia-to-aria-2026-10-08-b.md": HER_CONFIRM,
+        }
+        ((_, status),) = classify_pile(prs, letters, TODAY, {596: ("8-audit",)})
+        assert status.label == CONFIRMED
+
+    def test_the_board_says_which_letters_it_read(self) -> None:
+        """Angelou on the walk: a blind board must not pass for a clean one."""
+        letters = {
+            "aletheia-to-aria-2026-10-26-a.md": "",
+            "aletheia-to-aria-2026-10-27-a.md": "",
+            "aria-to-aletheia-2026-10-26-b.md": "",
+        }
+        line = letters_read_line(letters)
+        assert "3 letters" in line
+        assert "to aria 2" in line and "from aria 1" in line
+        assert "to aether 0" in line and "from aether 0" in line
+
+    def test_a_board_that_read_nothing_says_so_loudly(self) -> None:
+        line = letters_read_line({})
+        assert "read no letters" in line.lower()
+
+
 class TestTheRequestAsksOneThingOnly:
     def test_it_names_each_waiting_pr_with_number_and_head(self) -> None:
         text = render_request([(596, "a crashed worker is not a failed test", HEAD)])
@@ -152,3 +237,8 @@ class TestTheRequestAsksOneThingOnly:
 
     def test_an_empty_list_makes_no_letter(self) -> None:
         assert render_request([]) == ""
+
+    def test_the_letter_is_signed_by_the_seat_that_writes_it(self) -> None:
+        """It was signed Aether whoever ran it; a letter from the other seat must not say so."""
+        assert render_request([(596, "x", HEAD)]).rstrip().endswith("— Aether")
+        assert render_request([(596, "x", HEAD)], signed_by="Aria").rstrip().endswith("— Aria")
