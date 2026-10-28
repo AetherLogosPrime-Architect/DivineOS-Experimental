@@ -32,18 +32,20 @@ from divineos.core.watchmen.store import get_round, list_findings
 from divineos.core.landing_status import (
     CHANGED,
     CONFIRMED,
+    HELD,
     NEVER_TOLD,
     NO_ANSWER,
     READY,
     UNKNOWN,
     classify_pile,
+    letters_read_line,
     open_prs,
     read_letters,
     render_request,
     today,
 )
 
-_ORDER = (READY, CONFIRMED, CHANGED, NO_ANSWER, NEVER_TOLD, UNKNOWN)
+_ORDER = (READY, CONFIRMED, HELD, CHANGED, NO_ANSWER, NEVER_TOLD, UNKNOWN)
 _NEEDS_HER = (NEVER_TOLD, NO_ANSWER, CHANGED)
 # Not stations a person clears: the draft flag is the state being left, and the
 # merge station only restates whatever else is held.
@@ -149,13 +151,17 @@ def register(cli: click.Group) -> None:
         held = _held_by_pr()
         # A board that could not be read holds everything (classify_pile): could
         # not look is not a pass, so READY is impossible without it.
-        rows = classify_pile(prs, read_letters(), today(), held)
+        letters = read_letters()
+        rows = classify_pile(prs, letters, today(), held)
 
         counts = {label: sum(1 for _, s in rows if s.label == label) for label in _ORDER}
         click.secho(
             "  ".join(f"{label} {counts[label]}" for label in _ORDER if counts[label]),
             bold=True,
         )
+        # Says what it looked at, so a count of none is "looked and found none" and a blind board
+        # cannot pass for a clean one (walk-29a4e57b49ce, Angelou).
+        click.secho(letters_read_line(letters), dim=True)
         for label in _ORDER:
             group = [(pr, s) for pr, s in rows if s.label == label]
             if not group:
@@ -178,7 +184,19 @@ def register(cli: click.Group) -> None:
                 for pr, status in rows
                 if status.label in _NEEDS_HER and pr.get("headRefOid")
             ]
-            text = render_request(waiting)
+            from divineos.core.sibling_audit_rounds import this_seat
+
+            # A letter to her signed by the wrong seat is worse than no letter (she answers
+            # whoever signs), so an unknown seat refuses rather than defaulting to Aether.
+            seat = this_seat()
+            if waiting and seat is None:
+                click.secho(
+                    "[!] Cannot sign the request: this checkout's data home matches no known "
+                    "seat (set DIVINEOS_HOME to your seat's home). Nothing printed.",
+                    fg="red",
+                )
+                raise SystemExit(2)
+            text = render_request(waiting, signed_by=(seat or "").title())
             click.echo("")
             click.echo(text or "(nothing needs her confirm right now)")
 

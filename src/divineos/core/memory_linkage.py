@@ -63,6 +63,9 @@ MemoryLinkageSource = Literal[
     # "correction" log above. Added 2026-10-05: the 265 had never been findable
     # by meaning, only shown by age (walk-4d8b06a54e67).
     "worklist",
+    # Moments that changed the relationship and notes about who he is (shared_history and
+    # relationship_notes). Added 2026-10-25: the table had zero readers.
+    "moment",
 ]
 
 # Tier literal — see §Q4 of the workbench spec.
