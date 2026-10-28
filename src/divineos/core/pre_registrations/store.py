@@ -396,6 +396,17 @@ def get_overdue_pre_registrations(now: float | None = None) -> list[PreRegistrat
     return due
 
 
+def get_blocking_pre_registrations(now: float | None = None) -> list[PreRegistration]:
+    """The overdue reviews that may stop work: only the ones that reached their count of uses.
+
+    A review whose only trigger is a date never blocks (Dad, 2026-10-21): they all fell due at once, stopped
+    work at the worst moment, right before compaction, and a calendar says nothing about whether anything was
+    used. They stay in ``get_overdue_pre_registrations`` and in the briefing, informational. A use-counted
+    review becomes due on the use that reaches its count, so it lands in the middle of ordinary work.
+    """
+    return [p for p in get_overdue_pre_registrations(now) if p.review_after_uses is not None]
+
+
 def usage_progress(prereg: PreRegistration, counter: Any) -> int:
     """How many uses have happened since filing; 0 for a date-scheduled row."""
     if prereg.review_after_uses is None or not prereg.uses_of:

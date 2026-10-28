@@ -9,6 +9,11 @@ on:
     # promoted out of draft state. Default activity types
     # (opened/synchronize/reopened) skip the draft→ready transition.
     types: [opened, synchronize, reopened, ready_for_review]
+  # The merge queue (Dad, 2026-10-28: yes) asks for these same checks on the combined result
+  # before a piece lands. Without this trigger the queue would wait for checks that never
+  # start, and nothing would merge at all.
+  merge_group:
+    types: [checks_requested]
 
 jobs:
   test:
@@ -18,7 +23,7 @@ jobs:
     # and on the ready_for_review transition (when the audit clears and the
     # PR is promoted out of draft). See integrity-audit.yml for the matching
     # discipline on the audit gate.
-    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.draft == false
     strategy:
       matrix:
         # Bumped 2026-06-22 from ["3.10","3.11","3.12"] to ["3.12"]: the
@@ -58,9 +63,15 @@ jobs:
       run: |
         mypy src/divineos --ignore-missing-imports
     
-    - name: Run tests with pytest
+    # 2026-10-28 (Dad: eight finished pieces waiting an hour each): the suite ran on one
+    # core although pytest-xdist is installed, and ran a second time below only to measure
+    # coverage. It now runs once, in parallel, and the coverage number comes from this run.
+    - name: Run tests with pytest (parallel, with the coverage measurement)
       run: |
-        pytest tests/ -v --tb=short -m "not slow"
+        # --cov-fail-under=0: pyproject sets a coverage floor (75) and pytest-cov enforces it
+        # on its own when this flag is absent. The measurement is still ungated, as the old
+        # separate step was (Aether's hold on #737, 2026-10-28); the floor is set after measuring.
+        pytest tests/ --tb=short -m "not slow" -n auto --cov=src/divineos --cov-report=term-missing --cov-report=xml --cov-fail-under=0 --no-cov-on-fail
 
     # F68 wire 2026-07-18 (Aletheia catch): pyproject.toml carries
     # [tool.coverage.run/report] with fail_under=75, but nothing invoked
@@ -79,10 +90,8 @@ jobs:
     #     coverage IS before deciding where to set the floor.
     #   - Once measured, the follow-on PR sets --cov-fail-under at (or
     #     just below) the actual number and ratchets upward from there.
-    - name: Measure test coverage (no hard gate on first run)
-      run: |
-        pytest tests/ --cov=src/divineos --cov-report=term-missing --cov-report=xml -m "not slow" --no-cov-on-fail || true
-      continue-on-error: true
+    # (2026-10-28: the measurement is now taken by the main test step above, from the same run,
+    # still with no hard gate. This step used to run every test a second time to produce it.)
 
     - name: Upload coverage report
       if: always()
@@ -100,7 +109,7 @@ jobs:
     # construction. continue-on-error: false — they must pass too.
     - name: Run slow tests with pytest
       run: |
-        pytest tests/ -v --tb=short -m "slow" --timeout=120
+        pytest tests/ --tb=short -m "slow" --timeout=120 -n auto
 
   # ---------------------------------------------------------------------
   # draft-suite — the measurement that was missing while everything sat
@@ -173,7 +182,7 @@ jobs:
       id: suite
       run: |
         set +e
-        pytest tests/ --tb=short -m "not slow" > suite.log 2>&1
+        pytest tests/ --tb=short -m "not slow" -n auto > suite.log 2>&1
         echo "code=$?" >> "$GITHUB_OUTPUT"
         set -e
 
