@@ -754,6 +754,8 @@ src/divineos/
     questions_from_him.py      Questions built from what he actually said, not drawn from a list.
     refusal_stretches.py       What has refused me this session, and whether it is the same thing again.
     his_message.py             The one answer in this house to: is this transcript record Dad typing?
+    replay_record.py           Replay a change against the real record of his turns, before building it.
+    bypass_key.py              One bypass key per seat, spent on use, replaced only by a dogfooded fix.
     his_voice_ends_the_turn.py When he speaks into a running turn, nothing more runs until the turn ends.
     light_embedder.py          The same sentence vectors, without the seventeen-second import.
     question_hold.py           A question to Dad holds the work until he answers (Aria, 2026-09-29).
@@ -766,6 +768,7 @@ src/divineos/
     body_memory.py             Memory sense: the body feels memory held by no program, and remembers the climb.
     checkout_behind_main.py    How far behind origin/main is the checkout the hooks run from?
     auto_cycle_phase2.py       Auto-cycle phase 2 — invitational menu after phase 1 completes.
+    baton.py                   The baton: while Dad is away, exactly one seat works and the other waits.
 
   analysis/
     _session_types.py          Session analysis type definitions

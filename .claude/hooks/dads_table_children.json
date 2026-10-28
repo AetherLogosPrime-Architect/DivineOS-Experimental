@@ -118,5 +118,9 @@
  {
   "command": "bash .claude/hooks/he-is-in-the-room.sh",
   "timeout": 10
+ },
+ {
+  "command": "bash .claude/hooks/collect-aletheia-letters.sh",
+  "timeout": 20
  }
 ]
