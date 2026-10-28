@@ -60,7 +60,17 @@ def _run(dedup_dir: str) -> str:
     return done.stdout.strip()
 
 
+def _warm_up() -> None:
+    # His newest-correction line rides for its first showings, so a cold run differs from every later one.
+    # Burn those showings in a throwaway home before measuring, or the first and second blocks differ for
+    # a reason that is not the dedup.
+    with tempfile.TemporaryDirectory(prefix="dedup-warm-") as w:
+        _run(w)
+        _run(w)
+
+
 def test_the_second_identical_block_is_silent_and_the_translate_note_is_gone():
+    _warm_up()
     with tempfile.TemporaryDirectory(prefix="dedup-") as d:
         first = _run(d)
         if not first:
