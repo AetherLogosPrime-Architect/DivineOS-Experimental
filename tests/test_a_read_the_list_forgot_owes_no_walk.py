@@ -32,12 +32,11 @@ def test_a_command_that_only_reads_owes_nothing(command):
 @pytest.mark.parametrize(
     "command",
     [
-        "divineos compass-ops observe truthfulness -p 0.1 -e x",
+        # `compass-ops observe` and `journal save|link` were pinned here before main made record-only commands
+        # exempt (they are my own record, not data others read); that exemption is main's, so they are not pinned.
         "divineos compass-ops dismiss --reason x",
         "divineos claim statement --tier 3",
         "divineos decide x --why y",
-        "divineos journal save hello",
-        "divineos journal link a b",
         "divineos audit submit-round focus --actor user",
         "divineos audit resolve f1 --status RESOLVED",
         "divineos audit tag-clean s1",
@@ -48,4 +47,6 @@ def test_a_command_that_writes_is_still_charged(command):
 
 
 def test_a_read_that_redirects_into_a_file_is_still_a_write():
-    assert "substrate-write-cli" in _fired("divineos compass-ops spectrums > out.txt")
+    # Under the verbs main charges, a look that is redirected into a file is a write; `compass-ops` is not one of
+    # those verbs any more, so the pin is on an audit look.
+    assert "substrate-write-cli" in _fired("divineos audit list-clean > out.txt")
