@@ -214,11 +214,257 @@ def test_the_remedies_are_let_through(command):
         ("Bash", {"command": "divineos stamp-ready 555"}),
         ("Bash", {"command": ".venv/Scripts/divineos extract"}),
         ("Edit", {"file_path": "src/x.py"}),
-        ("Read", {"file_path": "src/x.py"}),
+        # ("Read", ...) lived here until 2026-10-26: Dad ruled that reading is not what
+        # buries his answer, only writing back is; see the read tests below.
     ],
 )
 def test_the_work_is_not(tool, tool_input):
     assert not hv.let_through(tool, tool_input)
+
+
+def _seat_with_memory(tmp_path, name="seat"):
+    """The real shape: the transcript sits in a project folder, and this seat's
+    memory is the folder beside it (not a patched root: the resolver under test
+    is the one that reads the transcript path)."""
+    project = tmp_path / "projects" / name
+    (project / "memory").mkdir(parents=True)
+    transcript = _write(
+        project, [_turn_start(), _slip("s1", "2026-09-25T05:49:02.218Z", HIS_GOODNIGHT)]
+    )
+    return project, transcript
+
+
+def test_a_note_of_his_words_in_my_memory_folder_is_let_through(tmp_path):
+    """Dad, 2026-10-26: writing his words into a note must not be refused by the
+    gate that exists so his words reach him. It is a record of him, the same kind
+    of act as `divineos learn`, which already passes."""
+    project, transcript = _seat_with_memory(tmp_path)
+    note = project / "memory" / "feedback_his_words.md"
+    assert hv.let_through("Write", {"file_path": str(note)}, str(transcript))
+    note.write_text("old", encoding="utf-8")
+    assert hv.let_through("Edit", {"file_path": str(note)}, str(transcript))
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "src/x.py",  # the work
+        "memory/notes.py",  # right folder, not a note
+        "memory/../settings.json",  # walks out
+        "memory/../../other_seat/memory/x.md",  # another seat's notes
+        "memory/../CLAUDE.md",  # a .md that is not a note
+        "../letters/aria-to-aether-x.md",  # a letter is an outward send, not a record of him
+        "memory/x.md:stream",  # a Windows alternate data stream is not the .md
+        "memory/x.md.",  # trailing dot
+        "memory/x.md ",  # trailing space
+        "memory/.md",  # no name
+    ],
+)
+def test_nothing_else_is_let_through_by_the_note_exemption(tmp_path, target):
+    project, transcript = _seat_with_memory(tmp_path)
+    (tmp_path / "projects" / "other_seat" / "memory").mkdir(parents=True)
+    path = str(project / target)
+    assert not hv.let_through("Edit", {"file_path": path}, str(transcript))
+    assert not hv.let_through("Write", {"file_path": path}, str(transcript))
+
+
+@pytest.mark.parametrize("path", ["", None, "memory/n.md", "n.md"])
+def test_a_missing_or_relative_path_is_not_a_note(tmp_path, path):
+    """Knuth on the walk: nothing named, nothing to resolve against."""
+    _, transcript = _seat_with_memory(tmp_path)
+    assert not hv.let_through("Edit", {"file_path": path}, str(transcript))
+    assert not hv.let_through("Write", {}, str(transcript))
+
+
+def test_other_tools_are_not_let_through_into_the_memory_folder(tmp_path):
+    project, transcript = _seat_with_memory(tmp_path)
+    note = str(project / "memory" / "n.md")
+    assert not hv.let_through("NotebookEdit", {"notebook_path": note}, str(transcript))
+    assert not hv.let_through("Bash", {"command": f'echo x > "{note}"'}, str(transcript))
+
+
+def test_without_a_transcript_path_a_note_is_refused_not_guessed(tmp_path):
+    """Could-not-look must never become let-through (Hoare on the walk): with no
+    transcript the folder cannot be found, so the write is refused as today."""
+    project, _ = _seat_with_memory(tmp_path)
+    note = str(project / "memory" / "n.md")
+    assert not hv.let_through("Write", {"file_path": note})
+    assert not hv.let_through("Write", {"file_path": note}, None)
+    assert not hv.let_through("Write", {"file_path": note}, "")
+
+
+def test_a_path_that_cannot_be_resolved_says_so_and_is_refused(tmp_path, capsys):
+    """Hoare on the walk: could-not-look is not "not a note". Same refusal, but
+    the reason is said out loud, so the two never read as one answer."""
+    project, transcript = _seat_with_memory(tmp_path)
+    bad = str(project / "memory" / "n\x00.md")
+    assert not hv.let_through("Write", {"file_path": bad}, str(transcript))
+    assert "could not resolve" in capsys.readouterr().err
+    plain = str(project / "src_x.py")
+    assert not hv.let_through("Write", {"file_path": plain}, str(transcript))
+    assert capsys.readouterr().err == ""  # an ordinary "not a note" stays quiet
+
+
+def test_a_symlink_out_of_the_memory_folder_is_not_a_note(tmp_path):
+    project, transcript = _seat_with_memory(tmp_path)
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    link = project / "memory" / "escape"
+    # link-target-outside-tmp: not outside, `outside` is a sibling folder made under this test's own tmp_path just above
+    try:
+        link.symlink_to(outside, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("this machine cannot make a symlink without privilege")
+    assert not hv.let_through("Write", {"file_path": str(link / "n.md")}, str(transcript))
+
+
+def test_the_exemption_changes_nothing_else_against_an_independent_oracle(tmp_path):
+    """Popper on the walk: the claim is that while he has spoken, nothing but a
+    .md inside this seat's own memory folder gets through by the note door. The
+    oracle is written separately from the implementation: a call passes the note
+    door only if it is Edit or Write, names an absolute .md, and sits under the
+    folder next to the transcript."""
+    project, transcript = _seat_with_memory(tmp_path)
+    memory = project / "memory"
+    paths = [
+        str(memory / "a.md"),
+        str(memory / "sub" / "a.md"),
+        str(memory / "a.MD"),
+        str(memory / "a.txt"),
+        str(project / "a.md"),
+        str(tmp_path / "a.md"),
+        str(tmp_path / "projects" / "other" / "memory" / "a.md"),
+        "src/a.md",
+    ]
+    for tool in ("Edit", "Write", "Read", "MultiEdit", "Bash"):
+        for path in paths:
+            expected = tool == "Read" or (
+                tool in ("Edit", "Write")
+                and path.lower().endswith(".md")
+                and (path.startswith(str(memory) + "\\") or path.startswith(str(memory) + "/"))
+            )
+            got = hv.let_through(
+                tool, {"file_path": path, "command": "git status"}, str(transcript)
+            )
+            assert got == expected, (tool, path, got, expected)
+
+
+def test_the_real_hook_lets_a_note_through_and_still_refuses_the_work(tmp_path, monkeypatch):
+    """Through main, as the harness runs it: a built-correct function the hook
+    never calls ships dead (Breaker)."""
+    import io
+
+    from divineos.hooks import his_voice_hook
+
+    project, transcript = _seat_with_memory(tmp_path)
+    note = project / "memory" / "feedback_his_words.md"
+    payload = {
+        "tool_name": "Write",
+        "tool_input": {"file_path": str(note)},
+        "transcript_path": str(transcript),
+    }
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(payload)))
+    assert his_voice_hook.main() == 0
+    payload["tool_input"] = {"file_path": str(project / "src_x.py")}
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(payload)))
+    assert his_voice_hook.main() == his_voice_hook.REFUSE
+
+
+def test_the_memory_index_passes_the_note_door_and_its_neighbours_do_not(tmp_path):
+    """MEMORY.md loads into every later session; it passes like any note, and the limit
+    is named in the docstring so it is a chosen door and not a surprise."""
+    project, transcript = _seat_with_memory(tmp_path)
+    assert hv.let_through(
+        "Edit", {"file_path": str(project / "memory" / "MEMORY.md")}, str(transcript)
+    )
+    assert not hv.let_through("Edit", {"file_path": str(project / "MEMORY.md")}, str(transcript))
+
+
+def test_editing_an_existing_note_works_because_reading_it_first_is_let_through(
+    tmp_path, monkeypatch
+):
+    """The harness refuses an Edit of a file it has not seen read. Through the real hook,
+    in the order the harness forces: Read the note, then Edit it. If the Read exemption
+    were ever removed, the second call would still pass here but the first would not,
+    and the pair would be dead in practice (Aether, 2026-10-28)."""
+    import io
+
+    from divineos.hooks import his_voice_hook
+
+    project, transcript = _seat_with_memory(tmp_path)
+    note = project / "memory" / "feedback_his_words.md"
+    note.write_text("old", encoding="utf-8")
+    for tool in ("Read", "Edit"):
+        payload = {
+            "tool_name": tool,
+            "tool_input": {"file_path": str(note)},
+            "transcript_path": str(transcript),
+        }
+        monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(payload)))
+        assert his_voice_hook.main() == 0, tool
+
+
+@pytest.mark.parametrize("tool", ["Read", "Grep", "Glob"])
+def test_reading_is_let_through_after_he_speaks(tool):
+    """Dad, 2026-10-26: "the gate should not stop you from reading the letter, just
+    writing back until i respond". Reading changes nothing and sends nothing, so it
+    cannot bury his answer; writing back can."""
+    assert hv.let_through(tool, {"file_path": "anything", "pattern": "x"})
+
+
+def test_the_unread_letter_gates_prescribed_exit_is_not_refused_here(tmp_path):
+    """Bengio on the walk (walk-f744751f09d5): two gates composed. The unread-letter
+    gate refuses every tool until a waiting letter is read and says, in its own text,
+    to open it with the Read tool and that reading is never blocked. The voice gate
+    refused that Read, so the first gate's only exit led into the second gate's wall.
+    The case is cut from the first gate's own message, so they cannot disagree again."""
+    from divineos.core.unread_letter import refusal_message
+
+    letter = tmp_path / "aether-to-aria-2026-10-26-a-letter.md"
+    message = refusal_message([letter])
+    assert "Read tool" in message, "the unread-letter gate no longer prescribes the Read tool"
+    assert hv.let_through("Read", {"file_path": str(letter)})
+
+
+@pytest.mark.parametrize(
+    ("tool", "tool_input"),
+    [
+        # writing back, in every route
+        ("Write", {"file_path": "C:/Users/x/.divineos-shared/letters/aria-to-aether-x.md"}),
+        ("Edit", {"file_path": "C:/Users/x/.divineos-shared/letters/aria-to-aether-x.md"}),
+        ("Write", {"file_path": "docs/drafts/a_draft.md"}),
+        ("NotebookEdit", {"notebook_path": "n.ipynb"}),
+        # reaches outward, so not the read class
+        ("WebFetch", {"url": "https://example.com"}),
+        ("WebSearch", {"query": "x"}),
+        # a shell command can be anything, so a shell read is not let through
+        ("Bash", {"command": "cat family/letters/x.md"}),
+        ("Bash", {"command": "git commit -m 'more work'"}),
+        # a tool added later is held until someone decides
+        ("SomeFutureTool", {"anything": 1}),
+        ("", {}),
+    ],
+)
+def test_writing_back_and_everything_unlisted_still_waits(tool, tool_input):
+    """Dekker on the walk: the second exemption on this gate in one day. Every route
+    that writes, runs or sends stays refused, so the fence does not become a sieve."""
+    assert not hv.let_through(tool, tool_input)
+
+
+def test_the_refusal_says_reading_is_allowed():
+    """Angelou on the walk: a refusal that omits a way through teaches a worse route."""
+    reason = hv.refusal(HIS_GOODNIGHT).lower()
+    assert "reading" in reason and "writing back" in reason
+
+
+def test_the_refusal_names_the_note_door_and_the_order():
+    """Einstein and Shannon on the walk: a note write sitting beside my answer
+    would get that answer retold, so the order has to be said (note first, no
+    answer beside it; then the reply with no tool call), and a refusal that
+    omits the door teaches a worse route."""
+    reason = hv.refusal(HIS_GOODNIGHT).lower()
+    assert "memory" in reason and ".md" in reason
+    assert "first" in reason and "no answer" in reason
 
 
 def test_it_is_wired_to_every_tool():
