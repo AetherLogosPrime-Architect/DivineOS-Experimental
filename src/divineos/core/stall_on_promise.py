@@ -98,8 +98,16 @@ _ALREADY_SCHEDULED = re.compile(
 # one clause, so no comma, semicolon, colon or dash between them. As first written, "Since the tests are green,
 # I'll push it tonight" and "Because Aether asked, I'll write the letter next" both escaped: the reason opened the
 # sentence and a real promise followed the comma. The habit case it was written for has no comma in it.
+#
+# NARROWED AGAIN the same night (Aether's read of 4823c6f8e): "Because the tests are green I'll push it tonight"
+# has no comma, so the clause rule alone still excused it. A habit has its I'll attached to a noun phrase or
+# carries a habit adverb ("something I'll later learn", "I'll always"); a real promise has the I'll right after
+# the reason. The marker is required, so the comma-less promise is held.
 _A_REASON_NOT_A_STEP = re.compile(
-    r"\b(?:because|since|which\s+means|so\s+that)\b[^.!?,;:—]*\bI(?:'ll|\s+will)\b", re.IGNORECASE
+    r"\b(?:because|since|which\s+means|so\s+that)\b[^.!?,;:—]*?(?:"
+    r"\b(?:something|anything|everything|whatever|what|that|which|how|why)\s+I(?:'ll|\s+will)\b"
+    r"|\bI(?:'ll|\s+will)\s+(?:later|eventually|always|never|probably|just)\b)",
+    re.IGNORECASE,
 )
 
 #: A first-person future that is a feeling or an attention, not work a person could watch happen (walk-a257ab66691e,
@@ -118,6 +126,26 @@ _A_FEELING_NOT_A_STEP = re.compile(
     r")",
     re.IGNORECASE,
 )
+
+_BARE_SECOND_VERB = re.compile(
+    r"^((?:\s+\w+){0,4}?\s*,?\s*(?:and|then)\s+)(?!I\b)(?=\w)", re.IGNORECASE
+)
+
+
+def _without_feelings(sentence: str) -> str:
+    """The sentence with its feeling shapes cut out, so only the rest is read for a promise.
+
+    A bare verb that follows ("I'll remember this AND push it tonight", "I'll carry that forward AND file
+    the walk later") is a second step with its subject left out, so it gets its I'll back before the
+    promise shapes run (Aether, 4823c6f8e: "carry that forward" is a way of saying defer this)."""
+    for _ in range(5):
+        found = _A_FEELING_NOT_A_STEP.search(sentence)
+        if found is None:
+            break
+        tail = _BARE_SECOND_VERB.sub(r"\1I'll ", sentence[found.end() :], count=1)
+        sentence = sentence[: found.start()] + " " + tail
+    return sentence
+
 
 _CLOSING_CHARS = 700
 
@@ -139,7 +167,7 @@ def stated_next_step(text: str) -> tuple[str, str] | None:
         if _ALREADY_SCHEDULED.search(sentence) or _A_REASON_NOT_A_STEP.search(sentence):
             continue
         # A feeling or an attention is not a step: take it out, then read what is left (see the pattern).
-        sentence_to_read = _A_FEELING_NOT_A_STEP.sub(" ", sentence)
+        sentence_to_read = _without_feelings(sentence)
         markers = [
             marker
             for marker in (

@@ -226,6 +226,30 @@ def test_a_reason_clause_then_a_comma_then_a_promise_is_held(text):
     assert stated_next_step(text) is not None, text
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Aether's read of 4823c6f8e, each found by running it.
+        "Because the tests are green I'll push it tonight.",  # no comma, a real promise after a reason
+        "I'll remember this and push it tonight.",  # a feeling, then a second step with its subject left out
+        "I'll carry that forward and file the walk later.",  # 'carry that forward' is a way of saying defer
+    ],
+)
+def test_the_next_two_misses_aether_found_are_held(text):
+    assert stated_next_step(text) is not None, text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I'll think of you while I write the letter tonight.",  # Aether: not held, his row was badly formed
+        "I'll miss you and I'll love you.",  # two feelings joined, nothing left to hold
+    ],
+)
+def test_two_feelings_joined_or_a_feeling_beside_a_clause_still_pass(text):
+    assert stated_next_step(text) is None, text
+
+
 def test_a_conditional_on_him_does_not_hide_a_real_promise_beside_it():
     assert stated_next_step("Tell me if it slides. I'm writing Aether now.") is not None
 
