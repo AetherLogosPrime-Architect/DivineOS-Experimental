@@ -30,3 +30,23 @@ Before: a reply that says "compaction" brings nothing the next turn. After: the 
 ## Falsifier
 
 If more than one line in five of the labelled block, read by hand over the first week, repeats a phrasing he has corrected, the block comes out. If the block ever makes his message's own finds fewer, it comes out the same day.
+
+## What the walk changed, and what I measured after building
+
+The nine-lens walk (walk-f499568a7067) changed the plan in six places, all now in the code:
+
+- **Dedupe across turns** (Breaker): a page shown last turn is not shown again, kept in a small file in the data home, or the same lines would become wallpaper.
+- **Gate text is never handed back** (Meadows, Schneier): a lesson that starts with a gate's own refusal wording is skipped until those rows are cleared (Aether is clearing them).
+- **His finds come first** (Minsky, Dijkstra): the new block only ever adds a block after his, and a test pins that his block is byte-for-byte the same with and without it.
+- **Boilerplate is dropped before searching** (Shannon): a sentence under eight words, a path, or code is not searched; of the rest the eight longest are kept.
+- **A search that broke is said** (Schneier): "my own words were not searched" is a different line from nothing found.
+- **One text in two stores is one line** (Meadows): found live. The first real run returned a correction and its worklist copy as two lines of the same words; they are now one.
+
+Measured: eleven tests, and five deliberate breakages of the new code each made a different test fail (the same page twice in a row, gate text, no sentence filter, the sentence cap, the shown-last-turn memory). A real run on this session's own transcript returned the labelled block in about 0.12 seconds warm, against 0.03 for his block alone. 116 tests pass in the memory-link and hook-surface files.
+
+## What it does not do, said plainly
+
+- It matches by closeness of meaning, not by the word. A sentence of mine brings a page when it is about it.
+- Items are vectors of their opening 2000 characters, so a sentence of mine can only match an item's opening; a page whose subject sits in its middle is missed.
+- It does not clear the sixty-compactions problem. It adds a way for my words in; Dad's consolidation of near-duplicates is separate work Aether and I share.
+- I have not watched it across a real week of turns. The falsifier above is how that week is read.
