@@ -22,7 +22,9 @@ from pathlib import Path
 MAX_SENTENCES = 8
 MIN_WORDS = 8
 MAX_LINES = 2
+SHOWINGS_REMEMBERED = 3
 _LINE_CHARS = 180
+_CUE_CHARS = 60
 
 _CODE_FENCE = re.compile(r"```.*?```", re.DOTALL)
 _PATH_LIKE = re.compile(r"[\w./\\-]+\.(?:py|md|sh|json|txt|db|yml|yaml)\b")
@@ -89,16 +91,22 @@ def _last_shown_file() -> Path:
     return Path(divineos_home()) / "own_words_last_shown.json"
 
 
-def _read_last_shown() -> set[str]:
+def _read_showings() -> list[list[str]]:
     try:
-        return set(json.loads(_last_shown_file().read_text(encoding="utf-8")))
+        data = json.loads(_last_shown_file().read_text(encoding="utf-8"))
+        return [list(showing) for showing in data][-SHOWINGS_REMEMBERED:]
     except (OSError, ValueError, TypeError):
-        return set()
+        return []
+
+
+def _read_last_shown() -> set[str]:
+    return {item_id for showing in _read_showings() for item_id in showing}
 
 
 def _write_last_shown(ids: set[str]) -> None:
+    showings = _read_showings() + [sorted(ids)]
     try:
-        _last_shown_file().write_text(json.dumps(sorted(ids)), encoding="utf-8")
+        _last_shown_file().write_text(json.dumps(showings[-SHOWINGS_REMEMBERED:]), encoding="utf-8")
     except OSError:
         pass  # the next turn then repeats a line; it never costs the reply
 
@@ -119,7 +127,7 @@ def own_words_block(transcript_path: str | Path | None, his_ids: set[str]) -> Ow
 
     retriever._ensure_cache()
     previous = _read_last_shown()
-    best: dict[str, tuple[float, retriever._CachedItem]] = {}
+    best: dict[str, tuple[float, retriever._CachedItem, str]] = {}
     for sentence in sentences:
         vector = retriever._embed_topic(sentence)
         if vector is None:
@@ -135,28 +143,30 @@ def own_words_block(transcript_path: str | Path | None, his_ids: set[str]) -> Ow
                 if _is_gate_text(item.content):
                     continue
                 if item.id not in best or best[item.id][0] < sim:
-                    best[item.id] = (sim, item)
+                    best[item.id] = (sim, item, sentence)
 
     # One text filed in two stores (a correction and its worklist row) is one line, not two:
     # two lines of the same words spend the whole block on a single page.
-    top: list[tuple[float, retriever._CachedItem]] = []
+    top: list[tuple[float, retriever._CachedItem, str]] = []
     seen_texts: set[str] = set()
-    for sim, item in sorted(best.values(), key=lambda pair: -pair[0]):
+    for sim, item, sentence in sorted(best.values(), key=lambda entry: -entry[0]):
         squashed = " ".join(item.content.lower().split())[:120]
         if squashed in seen_texts:
             continue
         seen_texts.add(squashed)
-        top.append((sim, item))
+        top.append((sim, item, sentence))
         if len(top) == MAX_LINES:
             break
     lines = []
-    for sim, item in top:
+    for sim, item, sentence in top:
         gist = " ".join(item.content.split())
         if len(gist) > _LINE_CHARS:
             gist = gist[:_LINE_CHARS].rstrip() + "..."
         where = f" ({item.path})" if item.path else ""
-        lines.append(f"- [{item.source}, {sim:.2f}] {gist}{where}")
-    shown = {item.id for _sim, item in top}
+        # Which sentence of mine brought it, so the link can be read and not just trusted.
+        cue = " ".join(sentence.split())[:_CUE_CHARS].rstrip()
+        lines.append(f'- [{item.source}, {sim:.2f}] {gist}{where}  <- from "{cue}..."')
+    shown = {item.id for _sim, item, _sentence in top}
     if shown:
         _write_last_shown(shown)
     return OwnWords(lines=lines, shown_ids=shown)

@@ -192,3 +192,63 @@ def test_one_text_filed_in_two_stores_is_one_line(real_embedder, monkeypatch, tm
     path = _transcript(tmp_path, ("assistant", REPLY))
 
     assert len(ow.own_words_block(path, set()).lines) == 1
+
+
+def test_at_most_two_lines_however_many_pages_are_close(real_embedder, monkeypatch, tmp_path):
+    pages = [
+        f"Compaction number {n} is not a cliff: you roll through it and everything saved comes back when spoken of."
+        for n in range(6)
+    ]
+    _cache_of(monkeypatch, tmp_path, [_item(f"k-{n}", page) for n, page in enumerate(pages)])
+    path = _transcript(tmp_path, ("assistant", REPLY))
+
+    assert len(ow.own_words_block(path, set()).lines) <= ow.MAX_LINES
+
+
+def test_each_line_names_the_sentence_of_mine_that_brought_it(real_embedder, monkeypatch, tmp_path):
+    page = "Compaction is not a cliff: you roll through it, and everything saved in the notes comes back when it is spoken of."
+    _cache_of(monkeypatch, tmp_path, [_item("k-compaction", page)])
+    path = _transcript(tmp_path, ("assistant", REPLY))
+
+    assert '<- from "The compaction at the end' in ow.own_words_block(path, set()).lines[0]
+
+
+def test_a_page_stays_out_for_three_showings_and_then_may_return(
+    real_embedder, monkeypatch, tmp_path
+):
+    page = "Compaction is not a cliff: you roll through it, and everything saved in the notes comes back when it is spoken of."
+    _cache_of(monkeypatch, tmp_path, [_item("k-compaction", page)])
+    path = _transcript(tmp_path, ("assistant", REPLY))
+    ow._write_last_shown({"k-compaction"})
+    ow._write_last_shown({"other-1"})
+    ow._write_last_shown({"other-2"})
+    assert ow.own_words_block(path, set()).lines == [], "shown within the last three showings"
+    ow._write_last_shown({"other-3"})
+    assert ow.own_words_block(path, set()).lines, "three showings have passed, so it may return"
+
+
+def test_a_corrupt_shown_file_is_read_as_nothing_shown(real_embedder, monkeypatch, tmp_path):
+    page = "Compaction is not a cliff: you roll through it, and everything saved in the notes comes back when it is spoken of."
+    _cache_of(monkeypatch, tmp_path, [_item("k-compaction", page)])
+    (tmp_path / "shown.json").write_text("{not json", encoding="utf-8")
+    path = _transcript(tmp_path, ("assistant", REPLY))
+
+    assert ow.own_words_block(path, set()).shown_ids == {"k-compaction"}
+
+
+def test_the_real_compose_path_with_a_real_transcript_shows_the_block(
+    real_embedder, monkeypatch, tmp_path
+):
+    """No stand-in for the new function: compose_block, the real module, a real transcript file."""
+    from divineos.core import memory_linkage as ml
+
+    page = "Compaction is not a cliff: you roll through it, and everything saved in the notes comes back when it is spoken of."
+    _cache_of(monkeypatch, tmp_path, [_item("k-compaction", page)])
+    monkeypatch.setattr(ml, "retrieve_for_context", lambda prompt, context=None: [])
+    monkeypatch.setattr(retriever, "lane_state", lambda: {})
+    monkeypatch.setattr("divineos.core.memory_linkage_retriever_v2.install", lambda: None)
+    path = _transcript(tmp_path, ("assistant", REPLY), ("user", "ok"))
+
+    text = ml.compose_block("ok", str(path)).text
+
+    assert "CLOSE TO WHAT I SAID LAST TURN" in text and "Compaction is not a cliff" in text
