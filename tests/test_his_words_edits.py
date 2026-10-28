@@ -64,9 +64,13 @@ def test_the_sky_is_blu_passes_and_the_sky_is_red_for_blue_is_asked_about(tmp_pa
     assert result.auto_fixed == []
 
 
-def test_a_short_word_he_writes_often_is_a_word_of_his_not_a_slip():
+def test_a_word_he_writes_often_is_a_word_of_his_not_a_slip():
+    # The short word ("car" for "care") and his names ("serein" for "serene") both
+    # look like slips to a spelling check; his own use of them is what says they are not.
     assert edits.is_typo_of("car", "care")
     assert not edits.is_typo_of("car", "care", frozenset({"car"}))
+    assert edits.is_typo_of("serein", "serene")
+    assert not edits.is_typo_of("serein", "serene", frozenset({"serein"}))
 
 
 def test_a_real_word_swapped_for_a_real_word_is_never_a_slip(tmp_path):

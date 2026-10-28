@@ -26,7 +26,9 @@ a slip needs his word to not be a whole vocabulary word and the quoted word to b
 sharing a first letter, differing by at most one letter of length, and alike enough
 (ratio 0.8). Words under five letters count only as the last letter forgotten
 ("blu"), never otherwise, and his contractions without the apostrophe (dont, thats,
-cant) are never slips. A real word swapped for another real word is never a slip,
+cant) are never slips. Neither is any word he writes in three or more messages: his
+names (Serein, Forbestown) and his habits (lol, alot) are his own words, and a
+habitual misspelling of his is judged by me instead of fixed on its own. A real word swapped for another real word is never a slip,
 which is the safe direction. Only quotes of a single run of words are judged; a
 quote cut with "..." is held as before. Where this guesses wrong, he sees the
 quote later and corrects it.
@@ -58,11 +60,12 @@ _CONTRACTIONS = frozenset(
 def is_typo_of(typed: str, meant: str, used: frozenset[str] = frozenset()) -> bool:
     """Whether ``typed`` looks like a slip for ``meant``, by the rules in the docstring.
 
-    ``used`` is the words he writes in many messages: a forgotten last letter that
-    is one of those ("car" for "care") is a real word of his, so it is asked about.
-    The vocabulary alone cannot decide it, because it holds fragments like "blu".
+    ``used`` is the words he writes in many messages. Any word in it is his own
+    (a name like "serein", a short word like "car"), never a slip, so it is asked
+    about. The vocabulary alone cannot decide it: it holds fragments like "blu" and
+    does not hold his names.
     """
-    if typed == meant or typed in _CONTRACTIONS:
+    if typed == meant or typed in _CONTRACTIONS or typed in used:
         return False
     if typed[0] != meant[0] or abs(len(typed) - len(meant)) > 1:
         return False
@@ -77,7 +80,7 @@ def is_typo_of(typed: str, meant: str, used: frozenset[str] = frozenset()) -> bo
         return False
     meant_is_word = light_embedder.is_whole_word(meant) is True
     if dropped_last:
-        return meant_is_word and typed not in used
+        return meant_is_word
     return light_embedder.is_whole_word(typed) is False and meant_is_word
 
 
