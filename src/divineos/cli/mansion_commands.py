@@ -363,23 +363,18 @@ def register_mansion_commands(cli: click.Group) -> None:
                 )
             except Exception:  # noqa: BLE001 - printing the lens must never fail on bookkeeping
                 pass
-            click.secho(f"\n=== {w.expert_name} — {w.domain} ===\n", fg="cyan", bold=True)
-            for m in w.core_methodologies:
-                click.secho(f"  [{m.name}]", fg="yellow")
-                click.echo(f"      {m.description}")
-                for s in getattr(m, "steps", []) or []:
-                    click.echo(f"        - {s}")
-                click.echo()
-            if w.characteristic_questions:
-                click.secho("  Questions this lens asks:", fg="yellow")
-                for q in w.characteristic_questions:
-                    click.echo(f"      ? {q}")
-                click.echo()
-            click.secho(
-                "  Read the methodology, then walk the PROBLEM through it.\n"
-                "  Printing a template is not walking a lens (truth #7).\n",
-                fg="bright_black",
-            )
+            # ONE renderer, shared with the walk's refusal, so what a refused finding delivers is exactly
+            # what loading prints (walk-63f29104e6e3, Dijkstra and Wayne).
+            from divineos.core.council.lens_text import lens_lines
+
+            colour = {"title": "cyan", "method": "yellow", "dim": "bright_black"}
+            click.echo()
+            for kind, text in lens_lines(w):
+                if kind == "body":
+                    click.echo(text)
+                else:
+                    click.secho(text, fg=colour[kind], bold=(kind == "title"))
+            click.echo()
 
             # THE LOAD NOW LEAVES A TRACE, so a walk can require it.
             #

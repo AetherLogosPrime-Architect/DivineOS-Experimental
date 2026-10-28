@@ -138,7 +138,9 @@ def test_every_test_run_line_in_the_push_gate_is_followed_by_the_recovery():
     # check_push_readiness.sh has three pytest call sites, and its own header warns
     # about a flag added to the paths someone was looking at and a sibling left behind.
     lines = PUSH_GATE.read_text(encoding="utf-8").splitlines()
-    runs = [ln for ln in lines if re.search(r"python -m pytest tests/ -q", ln)]
+    # `$PYTEST_TARGETS` is `tests/` for a full run and a short list for a draft push (2026-10-22); both are the same
+    # call site, so both shapes are counted, and a draft's narrower run is followed by the recovery like any other.
+    runs = [ln for ln in lines if re.search(r"python -m pytest (?:tests/|\$PYTEST_TARGETS) -q", ln)]
     assert len(runs) == 3, f"the gate's pytest call sites changed: {len(runs)}"
     missing = [ln.strip()[:70] for ln in runs if "recover_if_only_crashes" not in ln]
     assert not missing, f"call sites without the crash recovery: {missing}"

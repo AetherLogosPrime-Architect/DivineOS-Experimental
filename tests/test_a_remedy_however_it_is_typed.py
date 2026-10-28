@@ -19,7 +19,7 @@ from divineos.core.remedy_allowlist import is_remedy
 REPO = pathlib.Path(__file__).resolve().parents[1]
 HOOK = REPO / ".claude" / "hooks" / "check-council-required.sh"
 NL = chr(10)
-_END = "return all(' '.join(seg).startswith(_ARTIFACT_FILING_COMMANDS) for seg in acts)"
+_END = "return all(_is_freed(seg) for seg in acts)"
 EXE = '"C:/DIVINE OS/DivineOS-Experimental/.venv/Scripts/divineos.exe"'
 
 
