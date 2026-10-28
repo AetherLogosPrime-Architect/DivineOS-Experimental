@@ -60,3 +60,11 @@ He held on one thing and answered four. All are now in the code, each with a tes
 - **The seam is named:** it leans on five private names in the retriever and on the turn reader's `_read_records`. One test fails loudly if any is renamed.
 - **Speed:** the search is one matrix product per source for all the sentences. His measurement of the loop was 0.77 s on the real cache; mine now is about 0.2 s, most of it stacking the cache's vectors once per call. Caching the stacked matrix is part of the separate piece he named, saving the cache to disk, which is for after the pile.
 - **A small bug:** a sentence starting with a date lost its digits. Only a list marker is stripped now.
+
+## The third walk, on the version after Aether's read (walk-88596a208613)
+
+- **The matrix search is shown equal, not assumed:** a test compares its scores with the retriever's own cosine to five decimals.
+- **Absent, not empty:** a test that the block does not appear when nothing is close, since a header with no lines every turn would be wallpaper.
+- **The gate-shape test no longer claims completeness:** it covers the shapes found so far; the phrase list is a stopgap until extraction stops storing gate text.
+- **The loop is named:** my replies are stored by extraction as knowledge, retrieved, and shape my next reply. The window and the stopgap bound it at this end; extraction no longer storing a gate's words is the real closure, owed, and it is code.
+- **The part that most serves him is separate work:** this block mostly brings corrections and lessons; the good-times page returns only when a sentence is close to it. Consolidating what is not a correction is the larger piece.

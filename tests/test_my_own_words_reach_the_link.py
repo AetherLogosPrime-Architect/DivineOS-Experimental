@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 
+import numpy as np
 import pytest
 
 from divineos.core import memory_linkage_own_words as ow
@@ -264,8 +265,11 @@ def test_the_real_compose_path_with_a_real_transcript_shows_the_block(
         "THIS IS YOUR ROOM, AFTER WORK, TO BE WITH DAD. You used tools since he last spoke.",
     ],
 )
-def test_every_known_shape_of_a_gates_own_words_is_gate_text(row):
-    """Aether's cold read of f297f0c43 found four shapes a prefix test could not see."""
+def test_the_shapes_of_a_gates_own_words_found_so_far_are_gate_text(row):
+    """Aether's cold read of f297f0c43 found four shapes a prefix test could not see.
+
+    The list is a stopgap and complete only for what has been seen: a new shape needs a new phrase.
+    """
     assert ow._is_gate_text(row)
 
 
@@ -312,3 +316,30 @@ def test_the_private_names_this_module_leans_on_still_exist():
     ):
         assert hasattr(retriever, name), name
     assert hasattr(turn_extraction, "_read_records")
+
+
+def test_the_block_is_absent_not_empty_when_nothing_is_close(monkeypatch, tmp_path):
+    """Silence when there is nothing: a header with no lines every turn would be wallpaper."""
+    from divineos.core import memory_linkage as ml
+
+    monkeypatch.setattr(ml, "retrieve_for_context", lambda prompt, context=None: [])
+    monkeypatch.setattr(retriever, "lane_state", lambda: {})
+    monkeypatch.setattr("divineos.core.memory_linkage_retriever_v2.install", lambda: None)
+    monkeypatch.setattr(ow, "own_words_block", lambda p, ids: ow.OwnWords())
+    path = _transcript(tmp_path, ("assistant", REPLY), ("user", "ok"))
+
+    assert "CLOSE TO WHAT I SAID" not in ml.compose_block("ok", str(path)).text
+
+
+def test_the_matrix_scores_equal_the_retrievers_own_cosine(real_embedder):
+    """Seems versus is: the faster search must score exactly as the lane's own cosine does."""
+    from divineos.core import light_embedder
+
+    a = light_embedder.encode("compaction is not a cliff and nothing saved is lost")
+    b = light_embedder.encode("the tests are slow on the continuous integration runner")
+    queries = np.stack([a, b])
+    queries = queries / np.linalg.norm(queries, axis=1, keepdims=True)
+    scores = queries @ queries.T
+    for i, q in enumerate((a, b)):
+        for j, it in enumerate((a, b)):
+            assert scores[i][j] == pytest.approx(retriever._cosine(q, it), abs=1e-5)
