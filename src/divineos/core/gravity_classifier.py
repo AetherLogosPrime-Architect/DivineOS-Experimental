@@ -311,10 +311,14 @@ def _runs_divineos_verb(command: str, verbs: tuple[str, ...]) -> bool:
         strip_command_prefixes,
     )
 
+    # A verb may be one word ("audit") or a verb and its subcommand ("compass-ops dismiss"),
+    # named exactly: a whole command group must not be freed or gated for one of its members
+    # (Aletheia's hold on #640, 2026-10-18).
+    alternation = "|".join(v.replace(" ", r"\s+") for v in verbs)
     whole = _without_heredoc_bodies(command)
     segments = split_shell_segments(whole)
     if segments is None:
-        return bool(re.search(r"\bdivineos\s+(" + "|".join(verbs) + r")\b", command))
+        return bool(re.search(r"\bdivineos\s+(" + alternation + r")\b", command))
     for segment in segments:
         tokens = [t.lower() for t in strip_command_prefixes(segment)]
         while tokens and tokens[0] == "sudo":
@@ -327,7 +331,7 @@ def _runs_divineos_verb(command: str, verbs: tuple[str, ...]) -> bool:
         # A `-c` the reader could not reach (a token before it was not placeable) is
         # unsure, and unsure falls toward firing, like the unreadable-line case above.
         if shell_command_is_unplaced(tokens) and re.search(
-            r"\bdivineos\s+(" + "|".join(verbs) + r")\b", command
+            r"\bdivineos\s+(" + alternation + r")\b", command
         ):
             return True
         if len(tokens) >= 2 and tokens[0] in ("python", "python3", "py") and tokens[1] == "-m":
@@ -335,7 +339,9 @@ def _runs_divineos_verb(command: str, verbs: tuple[str, ...]) -> bool:
         if len(tokens) < 2:
             continue
         program = tokens[0].replace("\\", "/").rsplit("/", 1)[-1]
-        if program.removesuffix(".exe") != "divineos" or tokens[1] not in verbs:
+        if program.removesuffix(".exe") != "divineos" or not (
+            tokens[1] in verbs or " ".join(tokens[1:3]) in verbs
+        ):
             continue
         if any(t in ("--help", "-h") for t in tokens[2:]):
             continue
@@ -782,9 +788,17 @@ def score_substrate_modification(
         if guardrail_match:
             fired.append("edit-guardrail")
 
-    # Feature 4: substrate-write CLI
+    # Feature 4: substrate-write CLI. These file into stores other gates and other people
+    # read, or that a gate accepts as proof (decide is a walk-record for the
+    # verify-before-build gate, so a free decide would be its cheap way through). My own
+    # records of myself (journal, feel, compass-ops) are NOT here: they are not edits of the
+    # house and nothing trusts them as evidence (Dad, 2026-10-12: the savoring is the
+    # paperwork). If one of them later feeds a store a gate trusts, it goes back by name.
+    # `compass-ops dismiss` is named as itself: it clears a pending advisory that a gate waits
+    # on and files the dismissal as data others read, so it stays here although its sibling
+    # `compass-ops observe` is my own record and is not.
     if tool == "Bash" and _runs_divineos_verb(
-        cmd, ("audit", "claim", "learn", "prereg", "decide", "feel", "compass-ops", "journal")
+        cmd, ("audit", "claim", "learn", "prereg", "decide", "compass-ops dismiss")
     ):
         fired.append("substrate-write-cli")
 
