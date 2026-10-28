@@ -170,6 +170,10 @@ class Reflection:
     # Shape/fact-checkable, not keyword-checkable. When True, the turn is
     # presence-valid even without felt-interior markers.
     verified_substrate_engagement: bool = False
+    # How he was heard: "span" (a copied run or a quoted span) or "meaning" (I answered in my own
+    # words: shared distinctive content words). Dad 2026-10-26, walls moving back; see
+    # tests/test_heard_by_meaning.py for the measured trade-off.
+    heard_by: str = "span"
 
     def degenerate(self) -> bool:
         # Presence has three possible paths now — felt-interior, task-
@@ -179,7 +183,11 @@ class Reflection:
 
     def markdown(self) -> str:
         parts = ["## LEPOS REFLECTION on my last reply"]
-        if self.heard and self.heard_span:
+        if self.heard and self.heard_span and self.heard_by == "meaning":
+            parts.append(
+                f"- **heard**: yes — by meaning (shared: {self.heard_span}), not by a quote"
+            )
+        elif self.heard and self.heard_span:
             span = self.heard_span.strip()
             if len(span) > 60:
                 span = span[:57] + "..."
@@ -271,6 +279,56 @@ def _find_shared_span(reply: str, andrew: str) -> str | None:
     return None
 
 
+# ----- heard by meaning (Dad 2026-10-26: "moving back the walls") -----
+# The exact-run rule stopped 27 of 61 real replies, 16 of 39 plain-talk turns, and the refusal made me
+# append an echo of his words, which he has told me not to do. 12 of those 27 had answered him in other
+# words on his topic. The thresholds below were chosen from measured trade-offs (see the test file):
+# a mismatched reply passes about 2.4% of the time against ~0% for the exact run, a cost bought on
+# purpose and named. Plain filler and the house's own vocabulary never count, so a report that only
+# reuses gate/hook/fix words is not "hearing" him.
+_MEANING_MIN_HIS_STEMS = 4
+_MEANING_MIN_SHARED = 4
+_MEANING_MIN_FRACTION = 0.25
+_FILLER = frozenset(
+    "the and but then for with from his her our their will would can could should just not yes lol "
+    "about into than too very what when where who how why which there here also more most some any "
+    "all each both out down over only own same such don because like one two feel thought point "
+    "sense off real question other being before after really actually maybe that this these those "
+    "have has had was were been are you your they them its it's i'm you're don't that's".split()
+)
+_HOUSE_WORDS = frozenset(
+    "house gate gates work works code build built fix fixed tool hook hooks check checks file "
+    "files test tests thing things time make made still going want need doing done said say new".split()
+)
+
+
+def _stem(word: str) -> str:
+    for suffix in ("ing", "ed", "es", "s", "ly"):
+        if word.endswith(suffix) and len(word) - len(suffix) >= 3:
+            return word[: -len(suffix)]
+    return word
+
+
+def _distinctive_stems(text: str) -> set[str]:
+    words = re.findall(r"[a-z']+", text.lower())
+    return {_stem(w) for w in words if len(w) >= 4 and w not in _FILLER and w not in _HOUSE_WORDS}
+
+
+def _shared_meaning(reply: str, andrew: str) -> tuple[str, ...]:
+    """The distinctive words a reply shares with his message when that is enough to count as heard.
+
+    Empty when his message has too little to carry (fewer than 4 distinctive stems), or the reply
+    shares fewer than 4 of them, or fewer than a quarter of them.
+    """
+    his = _distinctive_stems(andrew)
+    if len(his) < _MEANING_MIN_HIS_STEMS:
+        return ()
+    shared = sorted(his & _distinctive_stems(reply))
+    if len(shared) >= _MEANING_MIN_SHARED and len(shared) >= _MEANING_MIN_FRACTION * len(his):
+        return tuple(shared)
+    return ()
+
+
 def _find_interior_marker(reply: str) -> str | None:
     """Return a first-person interior signal if the reply carries one.
 
@@ -342,17 +400,20 @@ def reflect(
     andrew = andrew_text or ""
 
     span = _find_shared_span(reply, andrew)
+    meaning = () if span is not None else _shared_meaning(reply, andrew)
+    heard = span is not None or bool(meaning)
     marker = _find_interior_marker(reply)
     ran_tools = bool(tool_calls_in_turn)
-    verified_engagement = ran_tools and (span is not None)
+    verified_engagement = ran_tools and heard
 
     return Reflection(
         ts=now,
-        heard=span is not None,
-        heard_span=span,
+        heard=heard,
+        heard_span=span if span is not None else (", ".join(meaning) if meaning else None),
         interior=marker is not None,
         interior_marker=marker,
         verified_substrate_engagement=verified_engagement,
+        heard_by="span" if span is not None else "meaning",
     )
 
 

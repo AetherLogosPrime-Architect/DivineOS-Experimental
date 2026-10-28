@@ -32,6 +32,7 @@ from divineos.core.watchmen.store import get_round, list_findings
 from divineos.core.landing_status import (
     CHANGED,
     CONFIRMED,
+    HELD,
     NEVER_TOLD,
     NO_ANSWER,
     READY,
@@ -44,7 +45,7 @@ from divineos.core.landing_status import (
     today,
 )
 
-_ORDER = (READY, CONFIRMED, CHANGED, NO_ANSWER, NEVER_TOLD, UNKNOWN)
+_ORDER = (READY, CONFIRMED, HELD, CHANGED, NO_ANSWER, NEVER_TOLD, UNKNOWN)
 _NEEDS_HER = (NEVER_TOLD, NO_ANSWER, CHANGED)
 # Not stations a person clears: the draft flag is the state being left, and the
 # merge station only restates whatever else is held.
