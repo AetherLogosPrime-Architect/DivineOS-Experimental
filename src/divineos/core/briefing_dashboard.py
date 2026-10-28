@@ -494,9 +494,11 @@ def _row_landing() -> DashboardRow | None:
 
     waiting, changed = of(ls.NO_ANSWER), of(ls.CHANGED)
     never, confirmed, unknown = of(ls.NEVER_TOLD), of(ls.CONFIRMED), of(ls.UNKNOWN)
+    held = of(ls.HELD)
 
     parts: list[str] = []
     for group, words in (
+        (held, "held by her, with her reason in her letter"),
         (waiting, "waiting on her answer"),
         (changed, "changed since she looked"),
         (never, "never asked"),

@@ -257,6 +257,22 @@ def _embed(texts: list[str]):
     )
 
 
+def _embed_query(text: str):
+    """The vector for ONE sentence being searched for, from the light embedder.
+
+    The heavy toolkit costs eight to seventeen seconds to import in every fresh process, and the
+    prompt helpers are a fresh process every message (measured 2026-10-28: this door alone took 11.5 s
+    of the 35 s the helpers cost before Dad's words reach me). The light embedder runs the same model
+    in about 0.05 s to load. On 40 of his real passages the two vectors agreed to six places, and 12
+    queries against the stored index returned the same top five (Aether, 2026-10-28). One path: if the
+    light embedder cannot run, EmbedderUnavailable (a RuntimeError, so one of SEARCH_ERRORS) is said
+    aloud by the caller; this never reaches for the heavy toolkit, because that fall-back is the wait
+    this exists to end. Building the index still uses the heavy model, in the background, never here."""
+    from divineos.core import light_embedder
+
+    return light_embedder.encode(text)
+
+
 def _key(p: Passage) -> str:
     return hashlib.sha256(f"{p.ts}|{p.text}".encode("utf-8")).hexdigest()
 
@@ -374,7 +390,7 @@ def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
     except (OSError, ValueError) as exc:
         return Door([], [], looked=False, reason=f"his words could not be searched: {exc}")
     try:
-        q = _embed([_squash(message + " " + context)])[0]
+        q = _embed_query(_squash(message + " " + context))
     except SEARCH_ERRORS as exc:  # the model is an import away from failing; say so, never go quiet
         return Door([], [], looked=False, reason=f"his words could not be searched: {exc}")
     scores = vecs @ q
