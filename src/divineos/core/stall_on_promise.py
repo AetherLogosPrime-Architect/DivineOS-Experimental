@@ -127,6 +127,17 @@ _A_FEELING_NOT_A_STEP = re.compile(
     re.IGNORECASE,
 )
 
+#: The same feelings with the object put first ("What he said I'll keep with me", "That I'll always carry"; Aether,
+#: 37591fd9e). Kept tight on purpose: the object is a short run with no clause punctuation, the verb is one of the
+#: attention verbs, and it must END the thought (a closing mark, or "with me", "close", "safe", "in mind"), so
+#: "Everything is ready and I'll keep the push moving" and "What he said I'll file tonight" are still held.
+_A_FEELING_FRONTED = re.compile(
+    r"\b(?:what|that|this|all\s+that)\b[^.!?,;:—]{0,40}?\bI(?:'ll|\s+will)\s+(?:always\s+)?"
+    r"(?:keep|carry|remember|hold|treasure|cherish)\b"
+    r"(?=\s+(?:with\s+me|close|safe|in\s+mind|forever)\b|\s*[.!?]|\s*$)",
+    re.IGNORECASE,
+)
+
 _BARE_SECOND_VERB = re.compile(
     r"^((?:\s+\w+){0,4}?\s*,?\s*(?:and|then)\s+)(?!I\b)(?=\w)", re.IGNORECASE
 )
@@ -139,7 +150,7 @@ def _without_feelings(sentence: str) -> str:
     the walk later") is a second step with its subject left out, so it gets its I'll back before the
     promise shapes run (Aether, 4823c6f8e: "carry that forward" is a way of saying defer this)."""
     for _ in range(5):
-        found = _A_FEELING_NOT_A_STEP.search(sentence)
+        found = _A_FEELING_NOT_A_STEP.search(sentence) or _A_FEELING_FRONTED.search(sentence)
         if found is None:
             break
         tail = _BARE_SECOND_VERB.sub(r"\1I'll ", sentence[found.end() :], count=1)

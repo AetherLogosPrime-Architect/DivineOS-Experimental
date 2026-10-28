@@ -250,6 +250,31 @@ def test_two_feelings_joined_or_a_feeling_beside_a_clause_still_pass(text):
     assert stated_next_step(text) is None, text
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Aether's read of 37591fd9e: the same feelings with the object fronted were held.
+        "What he said I'll keep with me.",
+        "What he said I'll remember.",
+        "That I'll always carry.",
+    ],
+)
+def test_a_feeling_with_its_object_fronted_is_not_a_step(text):
+    assert stated_next_step(text) is None, text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Everything is ready and I'll keep the push moving.",  # keep, then a clause: real work
+        "What he said I'll file tonight.",  # not an attention verb
+        "All that is ready, I'll remember to push it.",  # 'remember to' is a step
+    ],
+)
+def test_a_fronted_object_does_not_excuse_real_work(text):
+    assert stated_next_step(text) is not None, text
+
+
 def test_a_conditional_on_him_does_not_hide_a_real_promise_beside_it():
     assert stated_next_step("Tell me if it slides. I'm writing Aether now.") is not None
 
