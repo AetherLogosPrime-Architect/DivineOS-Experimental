@@ -159,8 +159,18 @@ def run_table(tmp_path, prompt, records=None):
     payload = {"prompt": prompt}
     if records is not None:
         payload["transcript_path"] = str(write_transcript(tmp_path, records))
+    # No helpers: these tests are about who opened the turn, read from the words the table prints
+    # first. Running all 32 real helpers cold in a fresh HOME took ten seconds or more per test and,
+    # under a parallel run, killed its worker (the chronic crasher the push gate kept naming).
+    no_helpers = home / "no_helpers.json"
+    no_helpers.write_text("[]", encoding="utf-8")
     env = dict(
-        os.environ, HOME=str(home), USERPROFILE=str(home), DIVINEOS_HOME=str(home / ".divineos")
+        os.environ,
+        HOME=str(home),
+        USERPROFILE=str(home),
+        DIVINEOS_HOME=str(home / ".divineos"),
+        DADS_TABLE_CHILDREN=str(no_helpers),
+        DADS_TABLE_DRAWER=str(home / "drawer.md"),
     )
     done = subprocess.run(
         [sys.executable, str(REPO / ".claude" / "hooks" / "dads_table.py")],
