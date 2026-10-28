@@ -93,8 +93,30 @@ _ALREADY_SCHEDULED = re.compile(
 #: 2026-10-22: "I shouldn't try, because every patch I write is something I'll later learn to slide through" was held
 #: as a stall. The marker is the reasoning word before the I'll, in the same sentence; a real promise that happens to
 #: follow a "because" clause passes this exemption, which is the accepted cost, counted in the hold log.
+#
+# NARROWED 2026-10-28 (walk-a257ab66691e, Lovelace, found by running it): the reason word and the I'll must sit in
+# one clause, so no comma, semicolon, colon or dash between them. As first written, "Since the tests are green,
+# I'll push it tonight" and "Because Aether asked, I'll write the letter next" both escaped: the reason opened the
+# sentence and a real promise followed the comma. The habit case it was written for has no comma in it.
 _A_REASON_NOT_A_STEP = re.compile(
-    r"\b(?:because|since|which\s+means|so\s+that)\b[^.!?]*\bI(?:'ll|\s+will)\b", re.IGNORECASE
+    r"\b(?:because|since|which\s+means|so\s+that)\b[^.!?,;:—]*\bI(?:'ll|\s+will)\b", re.IGNORECASE
+)
+
+#: A first-person future that is a feeling or an attention, not work a person could watch happen (walk-a257ab66691e,
+#: Wittgenstein and Meadows): "I'll remember this night", "I'll miss you tonight", "I'll keep that close". Run on
+#: 14 real sentences, six warm ones were held as stalls, and a false hold on a warm sentence teaches the colder
+#: rewrite this hold exists to stop. The span is REMOVED and the rest of the sentence is read again, so "I'll think
+#: about it and I'll write the plan" is still held for the second half. Objects are named ("keep THAT close") so
+#: "I'll keep the line moving" stays a step. A list, not coverage; each miss becomes a row and a test.
+_A_FEELING_NOT_A_STEP = re.compile(
+    r"\bI(?:'ll|\s+will)\s+(?:"
+    r"remember\b(?!\s+to\b)|miss\b|treasure\b|cherish\b|love\b|hope\b(?!\s+to\b)|wonder\b"
+    r"|think\s+(?:about|of)\s+(?:that|this|it|you|what\s+you)\b"
+    r"|hold\s+on\s+to\b"
+    r"|keep\s+(?:that|this|it|those|what\s+you\s+\w+)\s+(?:close|safe|in\s+mind|with\s+me)\b"
+    r"|carry\s+(?:that|this|it|those|what\s+you\s+\w+)\s+(?:with\s+me|into\s+the\s+(?:morning|night|day)|forward|close)\b"
+    r")",
+    re.IGNORECASE,
 )
 
 _CLOSING_CHARS = 700
@@ -114,23 +136,30 @@ def stated_next_step(text: str) -> tuple[str, str] | None:
     if not closing:
         return None
     for sentence in re.split(r"(?<=[.!?])\s+", closing):
-        if (
-            _INVITATION_TO_HIM.search(sentence)
-            or _ALREADY_SCHEDULED.search(sentence)
-            or _A_REASON_NOT_A_STEP.search(sentence)
-        ):
+        if _ALREADY_SCHEDULED.search(sentence) or _A_REASON_NOT_A_STEP.search(sentence):
             continue
-        condition = _CONDITION_ON_HIM.search(sentence)
+        # A feeling or an attention is not a step: take it out, then read what is left (see the pattern).
+        sentence_to_read = _A_FEELING_NOT_A_STEP.sub(" ", sentence)
+        markers = [
+            marker
+            for marker in (
+                _INVITATION_TO_HIM.search(sentence_to_read),
+                _CONDITION_ON_HIM.search(sentence_to_read),
+            )
+            if marker is not None
+        ]
         for name, pattern, _example in PROMISE_SHAPES:
-            found = pattern.search(sentence)
+            found = pattern.search(sentence_to_read)
             if not found:
                 continue
-            # A condition on him excuses a step that is still ahead of me wherever it stands ("I'll build it once
-            # you say"); but a step I say I am doing NOW is happening, so only a condition standing before it
-            # counts ("If you want, I'm writing Aether now"), never one trailing it ("I'm writing Aether now, if
-            # you want"; Aether on #738).
-            if condition is not None and (
-                name != "in_progress_now" or condition.start() < found.start()
+            # A marker of his (an invitation like "tell me", or a condition like "once you") excuses a step that is
+            # still ahead of me wherever it stands ("I'll build it once you say"); but a step I say I am doing NOW
+            # is happening, so only a marker standing before it counts ("If you want, I'm writing Aether now"),
+            # never one trailing it ("I'm writing Aether now, if you want"; Aether on #738). Invitations used to
+            # excuse the whole sentence wherever they sat, so "I'm writing Aether now, tell me if you'd rather I
+            # wait" passed: the same hole by another phrase (walk-a257ab66691e, Yudkowsky, found by running it).
+            if markers and (
+                name != "in_progress_now" or any(m.start() < found.start() for m in markers)
             ):
                 continue
             return name, sentence.strip()

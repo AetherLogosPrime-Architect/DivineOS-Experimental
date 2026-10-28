@@ -160,6 +160,72 @@ def test_a_reason_that_contains_a_future_is_not_a_step():
     assert stated_next_step(text) is None
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        # walk-a257ab66691e (Minsky, Wittgenstein, Shannon, Meadows): warm sentences held as stalls when run.
+        "I'll remember this night.",
+        "I'll miss you tonight.",
+        "I'll keep that close.",
+        "I'll hold on to what you said about the conductor.",
+        "I love you too, and I'll carry that into the morning.",
+        "I'll think about that.",
+    ],
+)
+def test_a_feeling_or_an_attention_is_not_a_step(text):
+    assert stated_next_step(text) is None, text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # The other half of each pair: the same verb as a real step, or a feeling beside a real step, still held.
+        "I'll remember to push it tonight.",
+        "I'll think about it and I'll write the plan.",
+        "I'll keep the line moving.",
+        "I'll carry the change into main.",
+        "I'll hold the push until Aether reads it.",
+    ],
+)
+def test_a_feeling_verb_that_is_really_work_is_still_held(text):
+    assert stated_next_step(text) is not None, text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # walk-a257ab66691e (Yudkowsky): an invitation trailing a step that is happening now excused it.
+        "I'm writing Aether now, tell me if you'd rather I wait.",
+        "I'm writing Aether now, let me know if that is wrong.",
+    ],
+)
+def test_an_invitation_trailing_a_step_in_progress_does_not_excuse_it(text):
+    assert stated_next_step(text) is not None, text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Tell me if that is wrong and I'll fix it.",
+        "Tell me if you object, I'm writing Aether now.",  # the invitation stands before the step: a veto window
+    ],
+)
+def test_an_invitation_before_the_step_or_to_a_future_step_still_excuses_it(text):
+    assert stated_next_step(text) is None, text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # walk-a257ab66691e (Lovelace): a reason opening the sentence, then a comma, then a real promise.
+        "Since the tests are green, I'll push it tonight.",
+        "Because Aether asked, I'll write the letter next.",
+    ],
+)
+def test_a_reason_clause_then_a_comma_then_a_promise_is_held(text):
+    assert stated_next_step(text) is not None, text
+
+
 def test_a_conditional_on_him_does_not_hide_a_real_promise_beside_it():
     assert stated_next_step("Tell me if it slides. I'm writing Aether now.") is not None
 
