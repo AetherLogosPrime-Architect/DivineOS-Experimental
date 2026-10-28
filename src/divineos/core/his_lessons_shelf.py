@@ -139,6 +139,18 @@ def _stamp(verified: Path, reread: Path) -> str:
     return f"sha256:{h.hexdigest()[:16]}"
 
 
+def is_current(
+    verified: Path = VERIFIED, reread: Path = REREAD, index_dir: Path = INDEX_DIR
+) -> bool:
+    """Whether the lesson index was built from the sources as they are now (the check ``build`` makes
+    first, on its own, so a caller can ask without paying for the embedding library)."""
+    meta_path, vec_path = index_dir / "lessons.json", index_dir / "vectors.npy"
+    if not (meta_path.exists() and vec_path.exists()):
+        return False
+    stamp = json.loads(meta_path.read_text(encoding="utf-8")).get("stamp")
+    return bool(stamp == _stamp(verified, reread))
+
+
 def build(verified: Path = VERIFIED, reread: Path = REREAD, index_dir: Path = INDEX_DIR) -> int:
     """Embed every lesson when the sources change. Returns how many, 0 if current."""
     import numpy as np
@@ -193,7 +205,7 @@ def bring(
         return [], "an automated notice, not his message"
     try:
         items, vecs = _load(index_dir)
-        q = door._embed([door._squash(f"{message} {context}")[:2000]])[0]
+        q = door._embed_query(door._squash(f"{message} {context}")[:2000])
     except door.SEARCH_ERRORS as exc:  # say so, never go quiet
         return [], f"his lessons could not be searched: {exc}"
     scores = vecs @ q  # type: ignore[operator]
@@ -252,7 +264,8 @@ def surface(
         return ""  # nothing fits: say nothing, never fill the room
     for b in brought:
         les = b.lesson
-        lines.append(f'- {les.day}: "{les.words}"')
+        mark = f"  [{door.ILLUSTRATION_NOTE}]" if door.is_illustration(les.words) else ""
+        lines.append(f'- {les.day}: "{les.words}"{mark}')
         lines.append(f"  ({les.kind}; read as: {les.line})")
     lines.append("")
     return "\n".join(lines) + "\n"
