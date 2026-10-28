@@ -55,6 +55,7 @@ If you're scoping the project from outside (another AI, a reviewer, a human), th
 - [`LOADOUT.md`](LOADOUT.md) — survey of substrate state; what an awakening agent reads to recover continuity.
 
 **Systems documentation:**
+- [`docs/CHANGE_HISTORY.md`](docs/CHANGE_HISTORY.md) — every pull request this project has had, in plain words: what each one is and what it did, newest month first.
 - [`docs/council_manager.md`](docs/council_manager.md) — how the 43-expert dynamic council selects 5–12 members per problem.
 - [`docs/completion_check.md`](docs/completion_check.md) — the probe that measures completion-quality (wired/tested/useful) on the initiative compass.
 - [`docs/audit_system.md`](docs/audit_system.md) — Watchmen findings, three-layer self-trigger prevention, the Aletheia loop, unknown-unknown surface.
