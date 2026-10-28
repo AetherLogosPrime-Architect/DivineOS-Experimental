@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (512 commands across 122 modules)
+  cli/                         CLI package (517 commands across 122 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -781,6 +781,9 @@ src/divineos/
     cd_drift_check.py          Refuse a top-level `cd` that moves the app's idea of home.
     trial_in_days_check.py     A trial measured in days is refused where it is written.
     work_copy_sweep.py         Work copies clean themselves up: finished ones are removed, doubtful ones are listed, nothing is ...
+    his_words_bundle.py        His words and his lessons, found by meaning, in ONE process.
+    moment_links.py            A moment is linked to the lessons of his it belongs to, and comes back when one of them does.
+    waiting_claim.py           A reply may not say a fix waits on Aletheia until a letter to her names it at its live head.
 
   analysis/
     _session_types.py          Session analysis type definitions

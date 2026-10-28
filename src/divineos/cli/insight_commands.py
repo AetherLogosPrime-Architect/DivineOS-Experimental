@@ -151,12 +151,31 @@ def register(cli: click.Group) -> None:
     @click.argument("description")
     @click.argument("significance")
     @click.option("--user", default="default", help="User name")
-    def user_moment_cmd(description: str, significance: str, user: str) -> None:
-        """Record a moment that changed the relationship."""
+    @click.option(
+        "--surface",
+        is_flag=True,
+        help="Also mark it to be brought back by the memory link (runs the grief guards once).",
+    )
+    def user_moment_cmd(description: str, significance: str, user: str, surface: bool) -> None:
+        """Record a moment that changed the relationship.
+
+        Hidden from the memory link unless marked: pass --surface now, or run
+        `divineos linkage mark-moment <id>` later.
+        """
         from divineos.core.user_model import record_moment
 
         mid = record_moment(description, significance, user_name=user)
         _safe_echo(click.style(f"[+] Moment recorded: {mid}", fg="green"))
+        if surface:
+            from divineos.core import memory_linkage_retriever
+
+            out = memory_linkage_retriever.mark_moment(mid)
+            if out.ok:
+                _safe_echo(
+                    click.style("[+] Marked: the memory link may bring it back.", fg="green")
+                )
+            else:
+                _safe_echo(click.style(f"[-] Not marked: {out.reason}", fg="yellow"))
 
     # ─── Communication Calibration ────────────────────────────────
 

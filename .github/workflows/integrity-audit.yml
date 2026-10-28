@@ -31,6 +31,12 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
+  # The merge queue (Dad, 2026-10-28: yes, and yes again to this change) asks for the
+  # required checks on the combined result. The trailer and its tree binding are verified
+  # when the pull request enters the queue (the check is required there), and the push
+  # check below still runs on what lands on main, so the queue run only has to answer.
+  merge_group:
+    types: [checks_requested]
 
 jobs:
   guardrail-trailer-check:
@@ -57,7 +63,7 @@ jobs:
     #
     # The `push` clause keeps the vault covered: what lands on main is still
     # checked unconditionally. Identical shape to tests.yml line 21.
-    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.draft == false
     # Push-to-main only (Andrew 2026-08-13): "not every commit just every
     # merge to main, committing is allowed in your own workspace without any
     # audit, the github is the main vault/backup."
@@ -103,6 +109,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          MERGE_GROUP_HEAD_REF: ${{ github.event.merge_group.head_ref }}
         run: |
           set -e
 
@@ -110,6 +117,20 @@ jobs:
           if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
             BASE_SHA="${{ github.event.pull_request.base.sha }}"
             HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          elif [ "${GITHUB_EVENT_NAME}" = "merge_group" ]; then
+            # The merge queue's own run (Aletheia, 2026-10-28: run the full check here
+            # too, so the queue is not the one path where the review line goes unchecked
+            # at merge time). The group's head_ref is gh-readonly-queue/<base>/pr-<N>-<sha>,
+            # which names the pull request, and so its body; base_sha and head_sha bound
+            # the entry's own commit.
+            BASE_SHA="${{ github.event.merge_group.base_sha }}"
+            HEAD_SHA="${{ github.event.merge_group.head_sha }}"
+            PR_NUMBER=$(echo "$MERGE_GROUP_HEAD_REF" | sed -n 's#.*/pr-\([0-9][0-9]*\)-.*#\1#p')
+            if [ -z "$PR_NUMBER" ]; then
+              echo "merge_group head_ref carries no pull request number: $MERGE_GROUP_HEAD_REF"
+              exit 1
+            fi
+            export PR_NUMBER
           else
             BASE_SHA="${{ github.event.before }}"
             HEAD_SHA="${{ github.sha }}"
