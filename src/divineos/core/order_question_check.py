@@ -28,8 +28,27 @@ _ORDER_QUESTIONS = (
     # "Which would you like me to take first / next?"
     re.compile(r"\bwhich\b[^?\n]*\b(first|next|before|order)\b[^?\n]*\?", re.I),
     # A choice between two things with an ordering word in it, either side of the "or".
-    re.compile(r"\b(first|next|start with|begin with)\b[^?\n]*\bor\b[^?\n]*\?", re.I),
-    re.compile(r"\bor\b[^?\n]*\b(first|next|start there|start with|begin with)\b[^?\n]*\?", re.I),
+    # "first"/"next" count only as an ADVERB ("do it first, or ...", "first or second"), never as an adjective
+    # in "the first draft or the final one" (Aletheia, #697 confirm, 2026-10-21: a choice between versions of
+    # one thing is not an order question).
+    re.compile(
+        r"\b(?:(?:first|next)\b(?=\s*(?:[?,;:]|or\b|and\b|before\b|then\b|about\b|with\b|once\b|after\b))"
+        r"|start with\b|begin with\b)[^?\n]*\bor\b[^?\n]*\?",
+        re.I,
+    ),
+    re.compile(
+        r"\bor\b[^?\n]*\b(?:(?:first|next)\b(?=\s*(?:[?,;:]|or\b|and\b|before\b|then\b|about\b|with\b|once\b|after\b))"
+        r"|start there\b|start with\b|begin with\b)[^?\n]*\?",
+        re.I,
+    ),
+    # "Do you want the doorbell done before the lock?" -- one work item put ahead of another, no "or"
+    # (Aletheia, #697 confirm, 2026-10-21). Narrow on purpose: a past-participle of finishing work, then
+    # "before the", so "Should I check before the push goes out?" is left alone.
+    re.compile(
+        r"\b(?:do you want|would you like|should i|shall i|want me to|like me to|is it)\b[^?\n]*"
+        r"\b(?:done|built|landed|merged|fixed|finished|started|taken)\s+before\s+the\b[^?\n]*\?",
+        re.I,
+    ),
     # "Do you want that to be the next big thing, or should it wait?"
     re.compile(r"\bnext\b[^?\n]*\bor should\b[^?\n]*\?", re.I),
     # "In what order ...", "what order ..."
@@ -41,6 +60,30 @@ _ORDER_QUESTIONS = (
     re.compile(r"\b(begin|start)\b[^?\n]*\bthe [\w -]{1,30}?\bor (the|a) [\w -]+\?", re.I),
     # "the chips now and the slider later, or the other way round?"
     re.compile(r"\bthe other way (round|around)\b[^?\n]*\?", re.I),
+    # Three shapes of mine that went through on 2026-10-20, each a choice of what goes first. Aria's
+    # cold read of #697 showed the first version of these refused ordinary questions ("attach the
+    # first draft?", "next time", "next section"), so each now needs "first"/"next" used as an
+    # ADVERB (followed by a question mark, comma, or a joining word), never "first draft".
+    # "Is there a room in the house you'd want that gate in first?" -- no "or", only "first".
+    re.compile(
+        r"\b(you'?d|you would|you want|you'?d like|would you like|do you want)\b[^?\n]*"
+        r"\bfirst\b(?=\s*(?:[?,;]|or\b|and\b|before\b|then\b|about\b|with\b|once\b|after\b))[^?\n]*\?",
+        re.I,
+    ),
+    # "...build the stamp fix now, ahead of the rest of the line?" -- only as a request from me
+    # ("if I", "should I", "want me to"), never a report or a fact about the line.
+    re.compile(
+        r"\b(?:if i|should i|shall i|can i|may i|want me to|like me to)\b[^?\n]*"
+        r"\bahead of the (?:rest|others?|line|queue|pile|list)\b[^?\n]*\?",
+        re.I,
+    ),
+    # "Do you want me to start on Aria's confirmed ones next, once my two are with their readers?"
+    re.compile(
+        r"\b(?:want|like) me to\b[^?\n]*\b(?:start|begin|take|tackle|move on)\b[^?\n]*"
+        r"\b(?:next|first)\b(?=\s*(?:[?,;]|or\b|and\b|before\b|then\b|about\b|with\b|once\b|after\b))"
+        r"[^?\n]*\?",
+        re.I,
+    ),
 )
 
 #: Phrases a real dependency uses. Their presence anywhere in the reply means the reply has

@@ -91,7 +91,7 @@ The design council reviewed the shape; this walk reviewed the built diff, with t
 - *Information (Hawking).* Per-edit walks carried the reasoning for each edit into the ledger; a free pass keeps only a fingerprint and a time. A deliberate trade, mitigated by commit messages and by the diff being bound in the walk, and named here so it is a decision and not a loss nobody noticed.
 - *What the stamp cannot see (Aria, 2026-10-12).* `gh pr ready` and the web "Ready for review" button reach the non-draft state without passing station six. The later lines (the merge gate and the CI multi-party-review check) still stand behind it, so this is the same stated limit as the doors list, named here as what the stamp cannot see. The stale-walk message now also says to close the walk from inside the work copy, because closed from the main checkout it stays unbound and reads the weaker, clock way.
 - *The pre-build walk is advisory (Dennett, and Dad's two-walks note).* Once only the final walk is enforced, the rational move for a lazy author is to skip the first one. The first walk needs its own prompt: the questions Dad named (what are we trying to achieve, what is the overall goal, what are we trying to avoid), research on the open internet for what already exists, and lens priming carried into the work, with the covering review as the net for lenses that faded from context over a long build. That is its own change on the doorman's `walk open`.
-- *What is unproven (Popper, Dillahunty).* The end-to-end tests run the hook program extracted from the file, not the hook as registered, and the claim that paperwork falls by half is a prediction held by the preregistration, not a result. Both are settled only by the first real pushes after merge and fourteen days of the log.
+- *What is unproven (Popper, Dillahunty).* The end-to-end tests run the hook program extracted from the file, not the hook as registered, and the claim that paperwork falls by half is a prediction held by the preregistration, not a result. Both are settled only by the first 10 real pushes after merge and the first 20 changes in the log (counted in uses, 2026-10-24, not a date).
 
 ## Why this is both shapes of right (truth #11)
 
@@ -113,7 +113,7 @@ Keeping the per-edit walk as an option costs the interruptions Dad named. I do n
 
 ## Falsifier
 
-Fails if, over the next two weeks, a draft reaches review with a change that a per-edit walk would have caught and the covering walk did not (the walk was thin or skipped), OR if the number of paperwork calls per change does not fall by more than half. Both are countable from the log and the ledger.
+Fails if, among the next 20 drafts that reach review (counted in uses, 2026-10-24, not a date), one reaches review with a change that a per-edit walk would have caught and the covering walk did not (the walk was thin or skipped), OR if the number of paperwork calls per change does not fall by more than half. Both are countable from the log and the ledger.
 
 ## Asked of Aria, answered (2026-10-12)
 
