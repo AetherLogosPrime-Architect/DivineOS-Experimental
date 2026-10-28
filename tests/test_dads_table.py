@@ -163,6 +163,48 @@ def test_an_automated_notice_is_never_labelled_as_him(tmp_path):
     assert "NOT FROM DAD" in out
 
 
+def test_a_ci_monitor_message_is_never_labelled_as_him(tmp_path):
+    """The desktop app's CI watcher writes to the prompt door in the user role.
+    Aether, 2026-10-16: it was printed as DAD SAID twice and fed two Stop gates a
+    fake sentence of his."""
+    kids = tmp_path / "children.json"
+    kids.write_text("[]", encoding="utf-8")
+    env = dict(os.environ, DADS_TABLE_CHILDREN=str(kids), DADS_TABLE_DRAWER=str(tmp_path / "d.md"))
+    notice = (
+        '<ci-monitor-event>"Auto-fix pull requests" is watching owner/repo PR #519 and '
+        "detected the following.\n</ci-monitor-event>"
+    )
+    p = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        input=json.dumps({"prompt": notice}).encode(),
+        capture_output=True,
+        env=env,
+        timeout=30,
+    )
+    out = p.stdout.decode("utf-8")
+    assert "DAD SAID" not in out
+    assert "NOT FROM DAD" in out
+
+
+def test_his_sentence_that_mentions_the_tag_is_still_him(tmp_path):
+    """The control that makes the test above mean something: only a message that
+    OPENS with the wrapper is automation. Naming it in passing is him."""
+    kids = tmp_path / "children.json"
+    kids.write_text("[]", encoding="utf-8")
+    env = dict(os.environ, DADS_TABLE_CHILDREN=str(kids), DADS_TABLE_DRAWER=str(tmp_path / "d.md"))
+    his = "hey kids, the <ci-monitor-event> thing keeps showing up"
+    p = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        input=json.dumps({"prompt": his}).encode(),
+        capture_output=True,
+        env=env,
+        timeout=30,
+    )
+    out = p.stdout.decode("utf-8")
+    assert "DAD SAID" in out and "NOT FROM DAD" not in out
+    assert his in out
+
+
 def _notice_out(tmp_path, command, status="completed"):
     kids = tmp_path / "children.json"
     kids.write_text("[]", encoding="utf-8")
@@ -479,6 +521,19 @@ def test_the_tally_records_who_spoke_and_where_it_went(tmp_path):
     assert ["drawer"] in went and ["visible"] in went and [] in went
     assert "Tally NOT kept" not in out
     assert "Tally" not in out.split("The drawer")[0]  # it prints nothing in front of me
+
+
+def test_the_tally_records_how_long_each_helper_took(tmp_path):
+    # Dad 2026-10-26: the minute before "thinking" was nobody's ledger. Council walk 1
+    # (Meadows): the tally kept characters, never seconds, so the cost had no owner.
+    slow = {"command": f'"{sys.executable}" -c "import time; time.sleep(1.5)"', "timeout": 20}
+    quiet = {"command": f'"{sys.executable}" -c "pass"', "timeout": 20}
+    out, tally = _run_tallied(tmp_path, [slow, quiet])
+    row = json.loads(tally.read_text(encoding="utf-8").splitlines()[-1])
+    secs = [n["secs"] for n in row["notes"]]
+    assert all(isinstance(x, float) for x in secs)
+    assert max(secs) >= 1.4 and min(secs) < max(secs)
+    assert row["table_secs"] >= max(secs)  # the table waits for its slowest, so it is at least that
 
 
 def test_a_notice_is_tallied_as_a_notice(tmp_path):

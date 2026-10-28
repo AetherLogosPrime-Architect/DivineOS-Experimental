@@ -238,6 +238,15 @@ _ARTIFACT_FILING_COMMANDS = (
     # that the overdue block refused to let me file -- the key locked inside the
     # door again. Entry bar met: another gate prints it as its exit.
     'divineos prereg reviewing',
+    # FOURTH WIDENING, 2026-10-12. The merge path prints audit submit-round, audit submit
+    # (the operator CONFIRMS) and audit file-external-confirm as its own steps, and this
+    # gate asked for a full council walk plus a game-walk for each filing: six of them in
+    # one night, to record what other people had already said. Entry bar met: other gates
+    # print them as the way forward. The submit prefix also covers submit-round. The
+    # closed list of actors is enforced on the python list, not here: this list only
+    # decides whether council paperwork is owed first.
+    'divineos audit submit',
+    'divineos audit file-external-confirm',
     # SECOND WIDENING, same day, and THAT is the finding rather than the fix.
     # The correction gate prints these three as its own prescribed remedies and
     # this gate refused all three, so a caught mistake could not be written
@@ -262,6 +271,26 @@ _ARTIFACT_FILING_COMMANDS = (
     'divineos learn',
     'divineos correction',
     'python scripts/clear_correction_marker.py',
+)
+
+# FIFTH WIDENING, 2026-10-27, and kept in its own tuple on purpose. Aether paid five council
+# walks to land two fixes, and the commands that cost them were these three, which the
+# merge path prints as its next step. The entry bar was CHECKED against the code, not taken
+# on trust: prepare-merge is printed as 'Now run' and 'Proceed' by file-external-confirm and
+# the stamp path; patch-id is named by a confirm refusal as the check to run; audit list is
+# the stale-engagement gate's remedy for audit findings. (The briefing dashboard also names
+# audit list, but a dashboard is not a gate and was not counted.) Every one only PRINTS, so
+# the ways they can do harm are what the shell does AROUND them: a redirect writes a file,
+# and a substitution runs another command before they start (Aether ran both strings, the
+# second against my first version). The older entries above are matched on the prefix alone,
+# which frees both (divineos learn x > some/file writes a file with no paperwork, a hole
+# that predates this and is not retrofitted here). These three are freed only as whole words
+# and only when their segment carries no redirect token and no substitution character, so
+# adding them does not widen that hole. Walk: walk-969a822af7fd.
+_READ_ONLY_FILING_COMMANDS = (
+    'divineos audit patch-id',
+    'divineos audit prepare-merge',
+    'divineos audit list',
 )
 
 
@@ -509,7 +538,51 @@ def _is_artifact_filing(cmd: str) -> bool:
     # vacuous pass is the failing-in-the-permitting-direction shape again.
     if not acts:
         return False
-    return all(' '.join(seg).startswith(_ARTIFACT_FILING_COMMANDS) for seg in acts)
+
+    # A CONFIRMS FILED IN HIS NAME STILL OWES THE PAPERWORK (Aether's question on this
+    # change, 2026-10-24). Filing a finding records what someone said; filing a CONFIRMS
+    # with --actor user puts words in Dad's voice, and the walk that used to come first was
+    # the only deliberate pause on that path. The one check that his quoted words were
+    # really typed by him sits in file-confirm --andrew-said, not in audit submit, so
+    # until audit submit runs it too this pause stays. Actor and title are matched
+    # TOGETHER: the title alone is easy to phrase around, the actor alone would stop
+    # freeing his plain findings. No double quotes in here: the program is a quoted arg.
+    def _is_confirms_in_his_name(seg):
+        if seg[:3] != ['divineos', 'audit', 'submit']:
+            return False
+        who = ''
+        for position, token in enumerate(seg):
+            if token == '--actor' and position + 1 < len(seg):
+                who = seg[position + 1]
+            elif token.startswith('--actor='):
+                who = token.split('=', 1)[1]
+        if who != 'user':
+            return False
+        return any(token.strip().lower().startswith('confirms') for token in seg[3:])
+
+    if any(_is_confirms_in_his_name(seg) for seg in acts):
+        return False
+    def _is_freed(seg):
+        text = ' '.join(seg)
+        # Whole words only for the printers: a bare prefix would also free patch-idx.
+        if any(text == entry or text.startswith(entry + ' ') for entry in _READ_ONLY_FILING_COMMANDS):
+            # These only print, so what the SHELL does around them is the one way they can do
+            # harm: a redirect writes a file, and a substitution (dollar-paren or backticks)
+            # runs another command before they start (Aether ran both strings, 2026-10-27).
+            # ONE rule, after three separate prohibitions each found as a hole (walk-50cdeb19c994):
+            # the tokeniser splits every UNQUOTED shell operator out as a token made only of
+            # operator characters (a redirect, a here-document marker, a process substitution,
+            # a subshell parenthesis), so such a token means the shell would act on something
+            # besides the command; and a substitution that survives quoting always carries a
+            # dollar sign or a backtick.
+            operator_chars = set('();<>|&')
+            if any(token and all(c in operator_chars for c in token) for token in seg):
+                return False
+            substitution = (chr(36), chr(96))
+            return not any(c in token for token in seg for c in substitution)
+        return text.startswith(_ARTIFACT_FILING_COMMANDS)
+
+    return all(_is_freed(seg) for seg in acts)
 
 
 # NO TRIPLE-QUOTED STRINGS ANYWHERE IN THIS BLOCK. The whole program is a
