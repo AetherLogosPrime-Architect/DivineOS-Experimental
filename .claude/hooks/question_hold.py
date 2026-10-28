@@ -2,7 +2,7 @@
 
 Stop: a reply whose circle asks Dad something opens the hold (and a question
 buried under more text is sent back once to be moved last).
-PreToolUse: only a letter not to him waits while it is open and he is here.
+PreToolUse: removed 2026-10-22 (Dad): nothing, letters included, waits on a question.
 UserPromptSubmit: his next message releases it; a notice does not.
 See src/divineos/core/question_hold.py for the why.
 """
@@ -16,9 +16,6 @@ from pathlib import Path
 # This tree's code, not whichever checkout the global install points at.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-_NOTICE = ("<task-notification", "<system-reminder", "<agent-message")
-
-
 def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     try:
@@ -26,21 +23,14 @@ def main() -> int:
     except ValueError:
         return 0
     from divineos.core import question_hold as qh
+    from divineos.core.harness_envelopes import opens_with_notice
 
     event = data.get("hook_event_name", "")
-    if event == "PreToolUse":
-        why = qh.refusal(
-            data.get("tool_name", ""),
-            data.get("tool_input") or {},
-            str(data.get("transcript_path") or ""),
-        )
-        if why:
-            print(why, file=sys.stderr)
-            return 2
-        return 0
+    if event not in ("UserPromptSubmit", "Stop"):
+        return 0  # the PreToolUse door is gone (Dad, 2026-10-22): nothing waits on a question
 
     if event == "UserPromptSubmit":
-        notice = str(data.get("prompt", "")).lstrip().startswith(_NOTICE)
+        notice = opens_with_notice(str(data.get("prompt", "")))
         if not notice:
             qh.came_back()  # his message: he is here, whatever he said before
             told = qh.escape_to_tell_him()

@@ -6,6 +6,10 @@ ready for my return". Aria's shape, same day: do not wake a SESSION (a session s
 timer meets every gate with nobody to answer it); write a LETTER, because the doorbell
 already wakes a seat when a file named ``*-to-<seat>-*`` lands in the shared folder.
 
+2026-10-24: Dad retired the volley board itself ("it serves no purpose, its more reading i must do
+when i could just ask you in chat"), so the note now asks for the morning picture in chat and no
+longer names a board file.
+
 Run by Windows Task Scheduler once a day. Standard library only. One note per seat per day:
 a second run the same day writes nothing and says so, so a repeated start cannot ring twice.
 The note is from the timer, not from a person, and carries no provenance block by design.
@@ -20,7 +24,7 @@ from pathlib import Path
 
 DEFAULT_DIR = Path.home() / ".divineos-shared" / "letters"
 
-BODY = """# The night window has ended: write his morning board
+BODY = """# The night window has ended: his morning picture, in chat
 
 **From:** the 6am timer (not a person; this note carries no provenance block on purpose)
 **Date:** {day}
@@ -29,18 +33,18 @@ BODY = """# The night window has ended: write his morning board
 
 The night window (midnight to 6am, volley mode by the clock) has just ended.
 
-What this asks of you, {seat}: read what happened in the night (the letters, the board,
-the pull requests that moved), then write his morning section in
-`family/letters/{seat}-to-andrew-volley-board.md`, in plain words he can hold: what
-happened as a picture, what it means for him, and what is his call if anything is.
-Then put the doorbell back.
+What this asks of you, {seat}: read what happened in the night (the letters, the pull
+requests that moved). When Dad is back, open with how he is, then tell him in chat, in plain
+words he can hold: what happened as a picture, what it means for him, and what is his call if
+anything is. He reads chat, not a board (his words, 2026-10-24: "i could just ask you in
+chat"). Then put the doorbell back.
 
-If you were already awake and writing the board, this note changes nothing.
+If you were already awake and talking with him, this note changes nothing.
 """
 
 
 def note_name(seat: str, day: datetime.date) -> str:
-    return f"night-timer-to-{seat}-{day.isoformat()}-the-window-has-ended-write-his-morning-board.md"
+    return f"night-timer-to-{seat}-{day.isoformat()}-the-window-has-ended-his-morning-picture-in-chat.md"
 
 
 def write_note(seat: str, day: datetime.date, letters_dir: Path) -> Path | None:

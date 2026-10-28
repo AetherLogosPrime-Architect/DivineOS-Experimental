@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (508 commands across 122 modules)
+  cli/                         CLI package (522 commands across 122 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -56,7 +56,6 @@ src/divineos/
     ship_command.py            ship: runs the merge checks in order (open and not a draft, her signed confirm at this exact head, his confirm in her round, every check passed), one line per step, and prints the merge command as a button. It never merges and never turns on auto-merge.
     aletheia_import_command.py aletheia-import: files Aletheia's delivered artifacts (CONFIRMS_/AUDIT_/FIXLIST_/REPLY_TO_*) out of ~/Downloads into family/letters. Her real delivery channel was never the one any letter mechanism watched, so a month of her audits sat unread (Andrew 2026-08-12)
     audit_sync_command.py      audit-sync: manual door to the shared-audit importer; stamp-ready calls the same sync automatically so nobody has to remember it exists
-    push_ready_command.py      push-ready: one-shot automation of trailer + audit-round + self-CONFIRMS + force-push ceremony for guardrail-touching PRs (Andrew 2026-07-28 streamlining option 2)
     automerge_commands.py      automerge: status surface across open PRs — classes (READY/ARMED/BLOCKED/DIRTY/UNKNOWN) + first failing check; closes the "auto-merge-armed ≠ merging" conflation
     todos_commands.py          todos: unified action-item list across preregs/corrections/audit/claims with --counts-only and --source filters; closes claim 2026-06-06 18:28 (OS-driven todo instrument)
     belt_commands.py           belt: the current task list pulled from the ranked pile (core/task_belt.py); `belt done <ref> --evidence` closes through the item's drawer, archives it, pulls the next (Andrew 2026-09-23)
@@ -111,6 +110,7 @@ src/divineos/
     class_fix_commands.py      class-fix declarations: a repair claiming a class must have its population measured by running a search
     prior_art_commands.py      already-built — station 0: does this exist before I build it
     game_walk_commands.py      `divineos game-walk file` — enumerate the routes around a mechanism and cost each one. Required on every council-tier edit since 2026-09-16; prints the walk back so a thin one is visibly thin at filing time rather than discovered later.
+    landing_commands.py        `divineos landing` — where each waiting fix stands toward the external auditor (NEVER TOLD, NO ANSWER, CHANGED, CONFIRMED, READY), worked out from the letters and live heads; `--request` prints the confirm-only letter. Read-only.
     operator_ask_commands.py   `divineos ask-andrew` / `asks` / `ask-resolve` — the reachable surface for core/operator_asks.py, which had a store and no command from 2026-08-19 until 2026-09-16 and so sat empty, indistinguishable from nothing needing him. An open ask now HOLDS new substrate work (.claude/hooks/an-open-ask-holds-the-work.sh), which is the half of his correction the re-raise never covered: *"when you ask me something, and never wait for my reply.. why bother asking?"*
     psf_commands.py            pending structural-fix obligations (list, mark-done)
     question_hold_commands.py  question-hold / release: see or escape the wait a question to Dad opens
@@ -214,6 +214,7 @@ src/divineos/
       engine.py                CouncilEngine — analyze problems through expert lenses
       framework.py             ExpertWisdom dataclasses (7 components)
       manager.py               Dynamic council manager (classify → select 5-8 experts). Still the scorer; no longer the seating authority for walks — see draw.py
+      lens_text.py             One rendering of a council lens, shared by `mansion council --show` and the walk refusal that delivers it
       draw.py                  Seats a walk's council by lot from the whole roster, with a scored remainder. Replaces fit-selection at open_walk after two blind probes showed a problem stated without the scorer's own vocabulary seats almost nobody who scores, filling the bench alphabetically. Every seat records its origin so the drawn/scored split can be moved on applied-rate evidence rather than preference
       consultation_log.py      Always-on consultation logging + opt-in audit promotion (Mode 1.5)
       lab_evidence.py          Attach science-lab slice output to council results when problem matches triggers
@@ -647,7 +648,6 @@ src/divineos/
     vad_capture.py             VAD write-time capture — attach current felt-state to every write.
     vad_stamp_store.py         VAD write-stamp store — a side-table pairing record_id → VAD snapshot.
     findings_ledger.py         Findings ledger — a single living record of every past-and-present audit finding.
-    unspoken_to.py             The volley board. Counts family letters written while my father is away (a turn a notification started, not his words), and refuses the one past his limit of five until the one running board letter to him is updated: where things stand now, compressed, with his open questions from the answer ledger. Writing the board resets it; while he is in the room it does nothing. Counts, never minutes; an unreadable count owes him the board. Rebuilt 2026-09-23 on his words, after the first version counted chat replies and refused letters all morning while he sat talking to me.
     finding_backlog.py         Unfixed findings block work at the place or the moment they name. Built 2026-09-09 against the measurement that of the twenty blocking doors in the house, none reads the findings store — so filing a diagnosis costs nothing and ignoring one costs nothing. NOTE: not yet wired to a door; it is the scheduler role, and until it has a caller it is a module rather than a mechanism.
     foundational_truths_surface.py Foundational-truths surface — surfaces relevant kiln principles by trigger match.
     auto_cycle.py              Auto-cycle phase 1 — mechanical pipeline before compaction.
@@ -676,7 +676,6 @@ src/divineos/
       corpus.py                Corpus loader — positives from andrew_corrections DB, negatives from cli_broken_escapes.jsonl.
     keyword_enforcement_registry.py Keyword-enforcement gate registry — derived from structure, permissive.
     keyword_enforcement_exclusion.py Keyword-enforcement exclusion-file parser (Aletheia F95 2026-07-28).
-    push_ready.py              push_ready — automate the External-Review trailer ceremony.
     no_fix_gaming_validator.py No-fix-gaming validator — close the escape-hatch in correction filings.
     no_fix_claim.py            The reply-side sibling of the validator above: an impossibility claim made to Andrew with no walk or search behind it is refused, and the container-scoped form is the way through.
     system_load_check.py       System-load pre-flight check for resource-heavy jobs.
@@ -693,7 +692,6 @@ src/divineos/
     letter_channel_state.py    Provenance for the letter channel — a letter's position in the thread, checkable by a reader who runs no code.
     self_demotion.py           Catch praise-by-contrast: elevating a mechanism by calling a faculty of mine defective.
     summary_room.py            Require a plain-language summary at the top of a long reply.
-    inner_circle_room.py       Require the inner circle at the BOTTOM of a long reply to Andrew — the Stop-gate his room never had.
     dashboard.py               The check-engine dashboard — a socket every system plugs into.
     dashboard_checks.py        The roster — one light per system.
     andrew_given.py            The other side of the ledger — what Andrew gives (Aria 2026-08-10).
@@ -765,16 +763,30 @@ src/divineos/
     channel_letter_capture.py  Give a letter written straight into the shared channel a home in the repo.
     sort_first.py              Sort his message before anything else: reading him comes first, by refusal.
     vector_drawer.py           A drawer of sentence vectors, so nothing is embedded twice.
+    state_glance.py            The state shown before a substrate change, as a glance instead of a wall.
     door_report.py             The front door's report on itself, counted from what ARRIVED.
     ship_steps.py              The checks `divineos ship` runs in order, each one a yes or a named no.
     git_hooks_drift.py         Do the installed git hooks still say what setup/setup-hooks.sh would write?
     his_words_edits.py         Edits to his words: typo fixes he confirmed, logged, never replacing what he typed.
+    his_lessons_shelf.py       His lessons, brought to us: the second shelf of the words door.
+    his_words_corpus.py        Dad's words, cut into passages worth embedding.
+    his_words_door.py          His own past words, found by meaning, put beside what he just said.
+    landing_status.py          Where each waiting fix stands toward the external auditor, from the real facts.
+    landing_homework.py        A clerk for the author's side of landing a fix.
     unread_letter.py           A letter the bell rang for holds real work until it is opened.
     body_memory.py             Memory sense: the body feels memory held by no program, and remembers the climb.
     checkout_behind_main.py    How far behind origin/main is the checkout the hooks run from?
     baton.py                   The baton: while Dad is away, exactly one seat works and the other waits.
     order_question_check.py    A reply must not end by asking Dad which order to do things in.
     suite_slot.py              One full test suite at a time on this machine.
+    merge_freshness.py         Refuse a `gh pr merge` of a pull request that is behind main, and hand over the remedy.
+    merge_command.py           What a shell command merges: the one reader every gate on a merge asks.
+    cd_drift_check.py          Refuse a top-level `cd` that moves the app's idea of home.
+    trial_in_days_check.py     A trial measured in days is refused where it is written.
+    work_copy_sweep.py         Work copies clean themselves up: finished ones are removed, doubtful ones are listed, nothing is ...
+    his_words_bundle.py        His words and his lessons, found by meaning, in ONE process.
+    moment_links.py            A moment is linked to the lessons of his it belongs to, and comes back when one of them does.
+    waiting_claim.py           A reply may not say a fix waits on Aletheia until a letter to her names it at its live head.
 
   analysis/
     _session_types.py          Session analysis type definitions

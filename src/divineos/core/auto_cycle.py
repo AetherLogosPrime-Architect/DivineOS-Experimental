@@ -179,7 +179,11 @@ from divineos.core.paths import divineos_home
 # 950k. Twice the platform moved and said nothing, and both times every number
 # in this house stayed where it was. That is the thing to notice about this
 # literal — it is not tuned, it is *reported*, and nothing reports it but him.
-TRIGGER_THRESHOLD = 0.88
+#
+# 2026-10-16, Andrew: the ritual takes longer lately, so it starts at 850k (0.85).
+# The governor's write-gating line and the hook's hard line moved with it, to
+# 890k, so the buffer between start and wall stays forty thousand tokens.
+TRIGGER_THRESHOLD = 0.85
 
 # Defer discipline. When a session-fresh goal is actively being worked, the
 # fire defers by ``DEFER_STEP`` tokens and re-checks. Cap defers so the

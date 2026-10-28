@@ -49,7 +49,7 @@ furniture).
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -127,6 +127,7 @@ def score_pr_gravity(changed_paths: tuple[str, ...]) -> tuple[int, tuple[str, ..
 # two lists of what counts as substrate would drift, which is the defect the
 # sweep repair exists to end.
 _UNGRIPPABLE_PREFIXES = ("family/letters/", "exploration/", "dreams/", "docs/archives/")
+_DRAFT_NOTE_PREFIX = "docs/drafts/"
 
 
 def check_scope_station(
@@ -163,8 +164,18 @@ def check_scope_station(
         return StationResult(
             "3-scope", Status.CANNOT_CHECK, "changed files unreadable -- scope unknown, not clean"
         )
-    substrate = [p for p in changed_paths if p.startswith(_UNGRIPPABLE_PREFIXES)]
-    code = [p for p in changed_paths if not p.startswith(_UNGRIPPABLE_PREFIXES)]
+    # The draft note every change must carry belongs to neither side: it rides on
+    # code without making it mixed (every code change has one) and on a letter
+    # without making the letter code. 2026-10-26: Serein's letter plus its required
+    # note read MIXED, because the note counted as code, and I stamped it despite
+    # the board. Neutral cannot hide code, since the code check is on the other files.
+    judged = [p for p in changed_paths if not p.startswith(_DRAFT_NOTE_PREFIX)]
+    substrate = [p for p in judged if p.startswith(_UNGRIPPABLE_PREFIXES)]
+    code = [p for p in judged if not p.startswith(_UNGRIPPABLE_PREFIXES)]
+    if not judged:
+        return StationResult(
+            "3-scope", Status.SATISFIED, f"{len(changed_paths)} draft note(s) only -- not mixed"
+        )
     if not substrate:
         return StationResult("3-scope", Status.SATISFIED, f"{len(code)} file(s), no writing")
     if not code:
@@ -235,6 +246,29 @@ READING_DECLARATION = "**Reading:**"
 NO_READING = "none"
 
 
+def header_lines(text: str) -> Iterator[str]:
+    """The stripped lines of a letter's HEADER, under the one set of line rules the house uses.
+
+    The declaration lives in the header (Aria's cold read of 628, 2026-10-11): the first `---`
+    ends it, so a pasted copy of someone's header further down credits nothing; a fenced block
+    and a four-space or tab-indented line are quotes, not declarations. Everything that reads a
+    `**Field:**` line from a letter (the readings here, the baton's pass and return) asks this
+    function, so a quoted or example line can never act in one reader and not in another
+    (Aletheia's ask on the baton, 2026-10-16: a private copy had missed the indent and fence rules).
+    """
+    in_fence = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped == "---":
+            return
+        if stripped.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence or line.startswith(("    ", "\t")):
+            continue
+        yield stripped
+
+
 def _declared_readings(text: str) -> tuple[bool, list[str]]:
     """``(field_present, branches)`` from every declared line.
 
@@ -253,19 +287,7 @@ def _declared_readings(text: str) -> tuple[bool, list[str]]:
     """
     present = False
     branches: list[str] = []
-    in_fence = False
-    for line in text.splitlines():
-        stripped = line.strip()
-        # The declaration lives in the HEADER (Aria's cold read of 628, 2026-10-11): the
-        # first `---` ends it, so a pasted copy of someone's header further down credits
-        # nothing; a fenced block and a four-space or tab-indented line are quotes.
-        if stripped == "---":
-            break
-        if stripped.startswith("```"):
-            in_fence = not in_fence
-            continue
-        if in_fence or line.startswith(("    ", "\t")):
-            continue
+    for stripped in header_lines(text):
         if not stripped.startswith(READING_DECLARATION):
             continue
         present = True
