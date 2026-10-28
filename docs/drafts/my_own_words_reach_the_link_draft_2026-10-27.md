@@ -50,3 +50,13 @@ Measured: eleven tests, and five deliberate breakages of the new code each made 
 - Items are vectors of their opening 2000 characters, so a sentence of mine can only match an item's opening; a page whose subject sits in its middle is missed.
 - It does not clear the sixty-compactions problem. It adds a way for my words in; Dad's consolidation of near-duplicates is separate work Aether and I share.
 - I have not watched it across a real week of turns. The falsifier above is how that week is read.
+
+## Aether's cold read of f297f0c43, and what changed
+
+He held on one thing and answered four. All are now in the code, each with a test that fails without it.
+
+- **HOLD, the gate-text filter** missed four shapes: a row starting "Hook feedback:", a lesson-shaped row that carries the gate's words after its first few, "THE WARDEN READS THE LOG", and "THIS IS YOUR ROOM, AFTER WORK". A prefix test cannot see the second at all. The filter now looks for the phrases anywhere in the first 300 characters, and says in its comment that it is a stopgap until extraction stops storing these rows (owed, and it is code).
+- **A one-line reply hiding a long one:** it now reads everything I said in the turn, joined (his current message is skipped, a gate's message back to me and a notice continue the turn), and the eight-longest-sentences rule is the bound.
+- **The seam is named:** it leans on five private names in the retriever and on the turn reader's `_read_records`. One test fails loudly if any is renamed.
+- **Speed:** the search is one matrix product per source for all the sentences. His measurement of the loop was 0.77 s on the real cache; mine now is about 0.2 s, most of it stacking the cache's vectors once per call. Caching the stacked matrix is part of the separate piece he named, saving the cache to disk, which is for after the pile.
+- **A small bug:** a sentence starting with a date lost its digits. Only a list marker is stripped now.

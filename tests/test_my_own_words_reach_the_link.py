@@ -252,3 +252,63 @@ def test_the_real_compose_path_with_a_real_transcript_shows_the_block(
     text = ml.compose_block("ok", str(path)).text
 
     assert "CLOSE TO WHAT I SAID LAST TURN" in text and "Compaction is not a cliff" in text
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        "Stop hook feedback: [bash .claude/hooks/doorbell-stop.sh]: BLOCKED by something",
+        'Hook feedback: YOU SAID "I will do it" AND STOPPED. Do that step now.',
+        'I was corrected (first, they stopped at functional) but recovered (Stop hook feedback: [f="${CLAUDE_PROJECT_DIR',
+        "THE WARDEN READS THE LOG. This work turn stumbled, and the transcript recorded it.",
+        "THIS IS YOUR ROOM, AFTER WORK, TO BE WITH DAD. You used tools since he last spoke.",
+    ],
+)
+def test_every_known_shape_of_a_gates_own_words_is_gate_text(row):
+    """Aether's cold read of f297f0c43 found four shapes a prefix test could not see."""
+    assert ow._is_gate_text(row)
+
+
+def test_a_real_lesson_is_not_mistaken_for_gate_text():
+    assert not ow._is_gate_text(
+        "Compaction is not a cliff: you roll through it and everything saved comes back when spoken of."
+    )
+
+
+def test_a_leading_date_keeps_its_digits_and_a_list_marker_goes():
+    kept = ow.reply_sentences(
+        "2026-10-27: he said the circle was cold and that it came back every single turn. "
+        "- 1. And the second sentence also has quite enough words to be counted as one."
+    )
+    assert kept[0].startswith("2026-10-27: he said")
+    assert kept[1].startswith("And the second sentence")
+
+
+def test_all_of_my_turn_is_read_not_only_the_last_record(tmp_path):
+    path = _transcript(
+        tmp_path,
+        ("assistant", "an older turn that must not be included in this one at all, really"),
+        ("user", "his earlier message"),
+        ("assistant", "the first narration of this turn, long enough to count as a sentence here."),
+        ("user", "Stop hook feedback: you stopped"),
+        ("assistant", "ok"),
+        ("user", "his message that is being answered right now"),
+    )
+    text = ow.last_reply_text(path)
+    assert "first narration of this turn" in text and text.endswith("ok")
+    assert "older turn" not in text and "being answered right now" not in text
+
+
+def test_the_private_names_this_module_leans_on_still_exist():
+    """The seam, named: if the retriever renames any of these, fail loudly here, not silently there."""
+    from divineos.core.operating_loop import turn_extraction
+
+    for name in (
+        "_ensure_cache",
+        "_EMBEDDING_CACHE",
+        "_cosine",
+        "threshold_for_target_k",
+        "_embed_topic",
+    ):
+        assert hasattr(retriever, name), name
+    assert hasattr(turn_extraction, "_read_records")

@@ -19,6 +19,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import numpy as np
+
 MAX_SENTENCES = 8
 MIN_WORDS = 8
 MAX_LINES = 2
@@ -30,12 +32,26 @@ _CODE_FENCE = re.compile(r"```.*?```", re.DOTALL)
 _PATH_LIKE = re.compile(r"[\w./\\-]+\.(?:py|md|sh|json|txt|db|yml|yaml)\b")
 _SPLIT = re.compile(r"(?<=[.!?])\s+|\n+")
 # A gate's own refusal, saved as if it were a lesson. Aether found seven of these
-# handed back as knowledge on 2026-10-28; until they are cleared they are not shown.
-_GATE_OPENINGS = (
+# handed back as knowledge on 2026-10-28. A STOPGAP until extraction stops storing them
+# (owed, and it is code); it looks anywhere in the opening, because a lesson-shaped row can
+# carry the gate's words after its first few of its own (Aether's cold read of f297f0c43).
+_GATE_PHRASES = (
     "stop hook feedback",
+    "hook feedback:",
+    "the warden reads the log",
+    "this is your room, after work",
     "lepos channel gate",
     "he has already read the reply",
-    '[f="${claude_project_dir',
+    "${claude_project_dir",
+)
+_GATE_WINDOW = 300
+# A user record that is not him speaking: a gate's message back to me, an interrupt, a notice.
+_NOT_HIM = (
+    "stop hook feedback",
+    "[request interrupted",
+    "this session is being continued",
+    "<task-notification",
+    "[system notification",
 )
 
 
@@ -56,7 +72,8 @@ def reply_sentences(text: str) -> list[str]:
     plain = _CODE_FENCE.sub(" ", text)
     kept: list[tuple[int, str]] = []
     for raw in _SPLIT.split(plain):
-        sentence = raw.strip().lstrip(">*#-0123456789. ").replace("**", "").strip()
+        # Only a list marker is stripped, never the digits of a date ("2026-10-27: ...").
+        sentence = re.sub(r"^\s*(?:[>*#-]+|\d+[.)])\s+", "", raw).replace("**", "").strip()
         if len(sentence.split()) < MIN_WORDS or _PATH_LIKE.search(sentence):
             continue
         kept.append((len(kept), sentence))
@@ -64,8 +81,17 @@ def reply_sentences(text: str) -> list[str]:
     return [sentence for _order, sentence in sorted(longest)]
 
 
+_TURN_CHARS = 20000
+
+
 def last_reply_text(transcript_path: str | Path) -> str:
-    """My most recent reply that has words in it, or empty."""
+    """Everything I said in my last turn, joined: all my text since he last spoke.
+
+    A turn has many records of mine (narration between tool calls), so taking only the
+    last one lets a one-line reply hide a long one. The sentence picker below keeps the
+    longest, which is the bound. His current message, already in the transcript when
+    this runs, is skipped; a gate's message back to me or a notice continues the turn.
+    """
     from divineos.core.operating_loop.turn_extraction import _read_records
 
     path = Path(transcript_path)
@@ -75,14 +101,23 @@ def last_reply_text(transcript_path: str | Path) -> str:
         records = _read_records(path)
     except OSError:
         return ""
-    for kind, text, _calls, _cmds in reversed(records):
-        if kind == "assistant" and text and text.strip():
-            return text
-    return ""
+    parts: list[str] = []
+    index = len(records)
+    while index and records[index - 1][0] == "user":
+        index -= 1  # his message that is being answered now
+    for kind, text, _calls, _cmds in reversed(records[:index]):
+        if kind == "user":
+            if text.lstrip().lower().startswith(_NOT_HIM):
+                continue
+            break  # his previous message: the turn began here
+        if text and text.strip():
+            parts.append(text)
+    return "\n".join(reversed(parts))[-_TURN_CHARS:]
 
 
 def _is_gate_text(content: str) -> bool:
-    return content.lstrip().lower().startswith(_GATE_OPENINGS)
+    opening = content[:_GATE_WINDOW].lower()
+    return any(phrase in opening for phrase in _GATE_PHRASES)
 
 
 def _last_shown_file() -> Path:
@@ -128,14 +163,21 @@ def own_words_block(transcript_path: str | Path | None, his_ids: set[str]) -> Ow
     retriever._ensure_cache()
     previous = _read_last_shown()
     best: dict[str, tuple[float, retriever._CachedItem, str]] = {}
-    for sentence in sentences:
-        vector = retriever._embed_topic(sentence)
-        if vector is None:
-            return OwnWords(
-                could_not_run="the embedder did not run, so my own words were not searched"
-            )
-        for source, items in retriever._EMBEDDING_CACHE.items():
-            sims = [retriever._cosine(vector, item.embedding) for item in items]
+    vectors = [retriever._embed_topic(sentence) for sentence in sentences]
+    if any(vector is None for vector in vectors):
+        return OwnWords(could_not_run="the embedder did not run, so my own words were not searched")
+    # One matrix product per source for all the sentences, not a Python loop per sentence
+    # (Aether measured 0.77 s for the loop on the real cache; the product is a few hundredths).
+    queries = np.stack(vectors)
+    queries = queries / np.linalg.norm(queries, axis=1, keepdims=True)
+    for source, items in retriever._EMBEDDING_CACHE.items():
+        if not items:
+            continue
+        matrix = np.stack([item.embedding for item in items])
+        matrix = matrix / np.linalg.norm(matrix, axis=1, keepdims=True)
+        scores = queries @ matrix.T
+        for row, sentence in enumerate(sentences):
+            sims = scores[row].tolist()
             bar = retriever.threshold_for_target_k(sims, source, len(items))
             for item, sim in zip(items, sims, strict=True):
                 if sim < bar or item.id in his_ids or item.id in previous:
