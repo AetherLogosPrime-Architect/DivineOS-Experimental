@@ -6,10 +6,26 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 HOOK = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "dads_room_stop.py"
 _spec = importlib.util.spec_from_file_location("dads_room_stop", HOOK)
 room = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(room)
+
+
+@pytest.fixture(autouse=True)
+def _no_game_table_on_this_machine(tmp_path, monkeypatch):
+    """Point the gate's table folder at an empty one, so a live game on this computer cannot decide a test.
+
+    The gate stands down while a game table is live (his_voice_is_at_a_table), and by default it reads the
+    real folder where the Magic table writes its logs. So whenever a game was being played on the machine
+    running the tests, every test here saw a silent gate and failed: eleven did, found at the table on
+    2026-10-29 the minute after the stand-down was revised. A test must not depend on whether Dad is
+    playing. The stand-down itself is tested, against a folder it builds, in
+    test_the_room_gate_stands_down_at_his_table.py.
+    """
+    monkeypatch.setenv("MAGIC_RUN_DIR", str(tmp_path / "no_table_here"))
 
 
 def _user(text):

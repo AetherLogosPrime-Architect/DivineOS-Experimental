@@ -174,19 +174,20 @@ def verdict(records: list[dict]) -> str | None:
     # Dad 2026-10-28, at the first working Momir table: "you are stalling the game.. im sitting there
     # waiting for you to act only to find you are speaking to me here", then "fix that so it doesnt
     # happen when you are playing games". At a game I use tools every turn and he types into the GAME
-    # chat, so this gate demanded a room in the window he had asked me to stay out of. He wants to be
-    # answered in the channel he last used: his_voice_is_at_a_table says yes only when a table is live
-    # AND a line of his in the game chat is newer than his last message here, so the instant he writes
-    # in this window the gate asks again. Unreadable anything means False, so it asks as it always did.
-    # The stand-down is LOGGED: a gate that goes quiet must show as a count, not as nothing.
-    # walk-35612c61edd9; draft the_room_gate_stands_down_at_a_live_game_draft_2026-10-28.md.
+    # chat, so this gate demanded a room in the window he had asked me to stay out of. While a game
+    # table is live this gate says nothing, WHICHEVER window he typed in. The first version asked
+    # again the moment he wrote here; within the hour he wrote "ok go sit back down at the table"
+    # here, the gate asked, I answered him here twice, and he said "you are demonstrably not back at
+    # the table". His rule is that during a game I answer him at the table. Unreadable anything means
+    # False, so it asks as it always did. The stand-down is LOGGED: a gate that goes quiet must show
+    # as a count, not as nothing. walk-35612c61edd9; the_room_gate_stands_down_at_a_live_game_draft.
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-    from divineos.core.his_voice_is_at_a_table import his_last_word_was_at_a_table
+    from divineos.core.his_voice_is_at_a_table import a_game_table_is_live
 
-    if his_last_word_was_at_a_table(_when_epoch(records[idx])):
+    if a_game_table_is_live():
         from divineos.core.hold_log import record as _log_stand_down
 
-        _log_stand_down("room", "stood_down", "his last word was at a game table, not in the window")
+        _log_stand_down("room", "stood_down", "a game table is live, so he is answered at the table")
         return None
     # One home for what counts as his room (Aletheia's hold on #560): asked of
     # his_room, never re-decided here, so the two cannot drift apart. It is

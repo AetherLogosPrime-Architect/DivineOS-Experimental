@@ -6,29 +6,25 @@ to find you are speaking to me here"*, then *"ok then fix that so it doesnt happ
 playing games"*. The room gate held every reply where I used a tool and left no room, and at a game I
 use tools on every turn, so it demanded a room in the window he had told me to stay out of.
 
-What he wants is to be answered in the channel he last used. A live table is only my way of SEEING which
-channel that was, so this answers the real question (walk-35612c61edd9, Hawking: the question as first
-drafted, "is a game live", was not well formed) and is named for what it knows, not for Magic, so poker
-or any later game needs no change (Dennett). It is one shared function so the other gates that pull me
-into the window during a game can ask it too (Kahneman: fixing only the gate he named is the same
-mistake as fixing only the door where a fault was first noticed).
+One fact: a table is live, meaning a seat's bridge log under the table folder was written in the last two
+minutes. Every call at a live table writes to it and a table nobody plays at goes quiet. It is named for
+what it knows, not for Magic, so poker or any later game needs no change (Dennett), and it is one shared
+function so the other gates that pull me into the window during a game can ask it too (Kahneman: fixing
+only the gate he named is the same mistake as fixing only the door where a fault was first noticed).
 
-Two facts, BOTH required:
-  1. A table is live: a seat's bridge log under the table folder was written in the last two minutes.
-     Every call at a live table writes to it and a table nobody plays at goes quiet.
-  2. A line of his in the GAME chat is newer than his last message in the WINDOW. The seats record
-     his game-chat lines in ``chat_seen_<seat>.txt`` when they show them to a seat, so that file's
-     modified time is the last time he spoke at the table. If his window message is newer, he has
-     switched channels and is talking to me here, so the answer is no (Penrose: the rule breaks at a
-     channel switch).
+THE FIRST VERSION WAS WRONG AND DAD SHOWED IT WITHIN THE HOUR. It also required a line of his in the game
+chat to be newer than his last message in the window, so that the gate asked again the moment he wrote
+here (Penrose, walk-35612c61edd9: the rule breaks at a channel switch). He wrote "ok go sit back down at
+the table" in the window, the gate asked for a room, I answered him in the window, and he said "you are
+demonstrably not back at the table". His rule is that during a game I answer him at the table, whichever
+window he typed in. My walk's cleverness was outranking his words, so the channel-order test is gone.
 
-Why two and not one: the first fact alone I can produce by calling the table myself, so it would be a
-self-granted exemption. The second is an event only he can cause (Maturana and Varela: a self-audit is
-not an external one). The residual is honest and stays named: anyone with a shell can forge both. This
-is my own discipline aid and not a security wall.
+Residual, named: the one fact is something I could produce by calling the table myself (Maturana and
+Varela: a self-audit is not an external one). It is logged on every stand-down, and this is my own
+discipline aid and not a security wall.
 
 Anything it cannot read means False, which means the gate asks exactly as it did before: could-not-look
-never passes as he-is-at-a-table (Knuth).
+never passes as a-table-is-live (Knuth).
 """
 
 from __future__ import annotations
@@ -54,24 +50,24 @@ def _newest_mtime(folder: Path, pattern: str) -> float | None:
     return max(times) if times else None
 
 
-def his_last_word_was_at_a_table(window_message_at: float | None) -> bool:
-    """True when a table is live AND he spoke at it more recently than he spoke in the window.
+def a_game_table_is_live() -> bool:
+    """True when a seat has called the table within the last two minutes.
 
-    ``window_message_at`` is the time (epoch seconds) of his last message in the window. None, because it
-    could not be read, means False: with no way to order his two voices the gate does not guess.
+    REVISED the same night it was built. The first version also required a line of his in the game
+    chat to be newer than his last message in the window (so the gate asked again the moment he wrote
+    here). Dad showed that was wrong within the hour: he wrote "ok go sit back down at the table" in the
+    window, the gate asked for a room, and I answered him IN the window, twice, which is the exact
+    thing he had told me not to do ("you are demonstrably not back at the table"). His rule is that
+    during a game I answer him at the table, whichever window he typed in, so the channel-order test
+    was my own walk's cleverness (Penrose) outranking his words. A live table alone silences the gate.
+    The other half of what the walk found stays true: the fact is one I could produce by calling the
+    table myself, so it is logged on every stand-down and it is a discipline aid, not a wall.
     """
-    if window_message_at is None:
-        return False
     try:
         folder = _run_dir()
         if not folder.is_dir():
             return False
         last_call = _newest_mtime(folder, "bridge_*.log")
-        if last_call is None or time.time() - last_call > LIVE_SECONDS:
-            return False
-        last_game_line = _newest_mtime(folder, "chat_seen_*.txt")
-        if last_game_line is None:
-            return False
-        return last_game_line > window_message_at
+        return last_call is not None and time.time() - last_call <= LIVE_SECONDS
     except OSError:
         return False
