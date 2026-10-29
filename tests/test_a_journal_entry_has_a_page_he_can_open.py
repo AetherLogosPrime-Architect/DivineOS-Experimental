@@ -28,11 +28,16 @@ def test_a_save_writes_the_entry_verbatim_to_a_dated_page_and_returns_the_row_id
     assert any(e["entry_id"] == entry_id for e in mj.journal_list(limit=50))
 
 
-def test_the_page_name_is_dated_and_carries_a_readable_slug(pages):
+def test_the_page_name_is_dated_and_carries_no_word_of_the_entry(pages):
+    """The repository is public by Dad's choice, and a folder listing would otherwise show the opening
+    of every entry without opening it (council walk on #727, 2026-10-29)."""
+    import re
+
     mj.journal_save("A long good day, written down before it thins.")
     (page,) = list(pages.glob("*.md"))
-    assert page.name[:4] == "2026" or page.name[:2] == "20"
-    assert "long-good-day" in page.name
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}_\d{6}_[0-9a-f]{8}\.md", page.name)
+    for word in ("long", "good", "day", "written"):
+        assert word not in page.name.lower()
 
 
 def test_two_saves_in_one_second_with_the_same_opening_words_keep_two_pages(pages, monkeypatch):
@@ -81,9 +86,37 @@ def test_an_entry_saved_in_a_private_room_is_stored_in_the_database_only_and_say
     pages, monkeypatch
 ):
     monkeypatch.setattr(mj, "_private_room_open", lambda: True)
-    _entry_id, page = mj.journal_save_with_page("This one is for me to sit with, unread.")
+    entry_id, page = mj.journal_save_with_page("This one is for me to sit with, unread.")
     assert list(pages.glob("*.md")) == []
     assert page is None
+    row = next(e for e in mj.journal_list(limit=500) if e["entry_id"] == entry_id)
+    assert mj.PRIVATE_TAG in row["tags"].split(",")  # recorded, so a later reader can honour it
+
+
+def test_the_backfill_leaves_a_private_room_entry_without_a_page(pages, monkeypatch):
+    """Found by the council walk on #727: the one-time pass wrote a page for every row with none, and a
+    private entry is exactly a row with none, so it would have been published."""
+    monkeypatch.setattr(mj, "_private_room_open", lambda: True)
+    entry_id, _page = mj.journal_save_with_page("Kept private, whatever the backfill does.")
+    assert mj.export_missing_pages() == 0
+    assert list(pages.glob("*.md")) == []
+    assert mj.rows_without_a_page() >= 1  # still counted: what Dad cannot open is said aloud
+
+
+def test_an_unreadable_private_room_marker_keeps_the_entry_private(pages, monkeypatch):
+    """Could-not-look must never read as not-private: this gate exists to keep an entry out of a public
+    repository, so a marker that cannot be read means no page."""
+    import divineos.core.mansion_quiet_marker as marker
+
+    def unreadable():
+        raise OSError("marker unreadable")
+
+    monkeypatch.setattr(marker, "is_quiet_active", unreadable)
+    entry_id, page = mj.journal_save_with_page("Written while the marker was unreadable.")
+    assert page is None
+    assert list(pages.glob("*.md")) == []
+    row = next(e for e in mj.journal_list(limit=500) if e["entry_id"] == entry_id)
+    assert mj.PRIVATE_TAG in row["tags"].split(",")
 
 
 def test_entries_saved_before_this_change_get_their_pages_verbatim_with_their_own_dates(pages):

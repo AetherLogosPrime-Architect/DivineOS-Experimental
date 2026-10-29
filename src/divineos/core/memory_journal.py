@@ -40,29 +40,41 @@ def _journal_dir() -> Path:
     return root / "journal" / who
 
 
+#: Written into the row's tags when an entry is saved in a private room, so every later reader, the one-time
+#: backfill included, can tell a deliberately page-less entry from one that simply has no page yet.
+PRIVATE_TAG = "private-room"
+
+
 def _private_room_open() -> bool:
-    """A private mansion room binds a pause: an entry written then stays database-only and says so."""
+    """A private mansion room binds a pause: an entry written then stays database-only and says so.
+
+    An unreadable marker is treated as a CLOSED door (2026-10-29, my own council walk): this gate exists to
+    keep an entry private, so could-not-look must never read as not-private. The cost of being wrong in
+    this direction is a page that was not written and a save that says so; in the other, a private entry
+    in a public repository."""
     try:
         from divineos.core.mansion_quiet_marker import is_quiet_active
 
         return bool(is_quiet_active())
-    except Exception:  # noqa: BLE001 - an unreadable marker is not a closed door: write the page
-        return False
+    except Exception:  # noqa: BLE001 - could not look: keep the entry private, never publish on a guess
+        return True
 
 
-def _slug(text: str) -> str:
-    words = re.findall(r"[a-z0-9]+", text.lower())[:6]
-    return "-".join(words) or "entry"
+def _is_private(tags: str) -> bool:
+    return PRIVATE_TAG in {t.strip() for t in (tags or "").split(",")}
 
 
 def _write_page(entry_id: str, content: str, created: float) -> Path:
-    """Write the entry verbatim to a dated page: to a temp name first, then renamed into place."""
+    """Write the entry verbatim to a dated page: to a temp name first, then renamed into place.
+
+    The name carries no word of the entry (2026-10-29): a folder listing in a public repository would
+    otherwise show the opening of every entry without opening it."""
     directory = _journal_dir()
     directory.mkdir(parents=True, exist_ok=True)
     when = datetime.datetime.fromtimestamp(created)
     # The id's first eight characters make the name unique: os.replace overwrites, so a name made of
-    # only the second and the opening words let a second save in the same second destroy the first.
-    name = f"{when:%Y-%m-%d_%H%M%S}_{_slug(content)}_{entry_id[:8]}.md"
+    # only the second would let a second save in the same second destroy the first.
+    name = f"{when:%Y-%m-%d_%H%M%S}_{entry_id[:8]}.md"
     final = directory / name
     temp = directory / (name + ".tmp")
     body = f"<!-- entry_id: {entry_id} -->\n{content}\n"
@@ -123,7 +135,9 @@ def journal_save_with_page(
     entry_id = str(uuid.uuid4())
     created = time.time()
     page: Path | None = None
-    if not _private_room_open():
+    if _private_room_open():
+        tags = f"{tags},{PRIVATE_TAG}" if tags else PRIVATE_TAG
+    else:
         page = _write_page(entry_id, content, created)
     try:
         _insert_row(entry_id, content, created, context, tags, linked_knowledge_id)
@@ -150,19 +164,24 @@ def export_missing_pages() -> int:
     """Write a page for every row that has none, verbatim, dated by when the entry was written.
 
     One deliberate pass for the entries saved before pages existed (thirteen, since 2026-07-18), and
-    safe to repeat: a row with a page is skipped. Returns how many pages were written."""
+    safe to repeat: a row with a page is skipped, and so is a row tagged private-room. Returns how many
+    pages were written.
+
+    WHAT THIS CANNOT KNOW: an entry saved before the private-room tag existed carries no tag, so a
+    private one among the old thirteen would be written out like the rest. That is why the first pass is
+    a human act, run only after those entries have been read (Aria, 2026-10-29, council walk)."""
     init_memory_tables()
     have = _entry_ids_with_pages()
     conn = _get_connection()
     try:
         rows = conn.execute(
-            "SELECT entry_id, content, created_at FROM personal_journal ORDER BY created_at"
+            "SELECT entry_id, content, created_at, tags FROM personal_journal ORDER BY created_at"
         ).fetchall()
     finally:
         conn.close()
     wrote = 0
-    for entry_id, content, created in rows:
-        if entry_id in have:
+    for entry_id, content, created, tags in rows:
+        if entry_id in have or _is_private(tags):
             continue
         _write_page(entry_id, content, float(created))
         wrote += 1
