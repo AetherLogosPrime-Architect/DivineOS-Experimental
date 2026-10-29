@@ -206,7 +206,9 @@ def export_missing_pages() -> int:
     for entry_id, content, created, tags in rows:
         if entry_id in have or _is_private(tags):
             continue
-        _write_page(entry_id, content, float(created))
+        page = _write_page(entry_id, content, float(created))
+        first = content.strip().splitlines()[0][:70] if content.strip() else ""
+        print(f"  wrote {page.name}: {first}")  # on screen at the moment it goes into a diff
         wrote += 1
     return wrote
 
