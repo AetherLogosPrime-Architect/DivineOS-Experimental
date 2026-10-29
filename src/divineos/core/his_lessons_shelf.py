@@ -283,7 +283,8 @@ def surface(
         return ""  # nothing fits: say nothing, never fill the room
     for b in brought:
         les = b.lesson
-        lines.append(f'- {les.day}: "{les.words}"')
+        mark = f"  [{door.ILLUSTRATION_NOTE}]" if door.is_illustration(les.words) else ""
+        lines.append(f'- {les.day}: "{les.words}"{mark}')
         # His passage is never edited. Only the label says whom it was taught to, so a sentence
         # he wrote to the other seat cannot be mistaken for one he wrote to this one (Aether).
         taught = "" if les.for_ in (me, "both") else f"taught to {les.for_}, yours to use; "
