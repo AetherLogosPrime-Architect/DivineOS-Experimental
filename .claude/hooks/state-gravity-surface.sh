@@ -179,6 +179,7 @@ def _his_last_words():
 touched = ' '.join(file_paths) or bash_command
 written = str(tool_input.get('new_string') or tool_input.get('content') or '')[:300]
 query = ' '.join(p for p in (_his_last_words(), touched[:200], written) if p).strip()
+fresh = []
 try:
     from divineos.core.memory_linkage_retriever import find_in_worklist, newest_in_worklist
     from divineos.core.state_glance import newest_lines, worklist_lines
@@ -225,8 +226,11 @@ try:
     emit, _pointer = should_emit('state_gravity_blocks', combined, residual='\n'.join(standing))
 except Exception:
     emit = True
+# His newest correction rides for three showings, and the counter spends one per run, so a quiet run would burn it unseen.
+if fresh:
+    emit = True
 if not emit:
-    combined = _pointer
+    combined = _pointer or '\n'.join(standing)
 
 
 print(json.dumps({

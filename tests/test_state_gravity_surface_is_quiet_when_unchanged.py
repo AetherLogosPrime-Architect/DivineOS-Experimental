@@ -45,6 +45,13 @@ def _one_block_to_show():
     record_bypass("test-gate", "DIVINEOS_TEST_STATE_BLOCK", reason="seed for the quiet-block test")
 
 
+@pytest.fixture(autouse=True)
+def _private_glance_home(tmp_path, monkeypatch):
+    """His newest-correction line rides for three showings, counted in this dir. A private one keeps these
+    tests from depending on whether he filed something today (Aether's finding 2, 2026-10-29)."""
+    monkeypatch.setenv("DIVINEOS_STATE_GLANCE_DIR", str(tmp_path / "glance"))
+
+
 def _run(dedup_dir: str) -> str:
     env = dict(os.environ)
     env["DIVINEOS_CONTEXT_DEDUP_DIR"] = dedup_dir
@@ -65,8 +72,8 @@ def _warm_up() -> None:
     # Burn those showings in a throwaway home before measuring, or the first and second blocks differ for
     # a reason that is not the dedup.
     with tempfile.TemporaryDirectory(prefix="dedup-warm-") as w:
-        _run(w)
-        _run(w)
+        for _ in range(4):  # three showings of the newest line, one counted per run
+            _run(w)
 
 
 def test_the_second_identical_block_is_silent_and_the_translate_note_is_gone():

@@ -41,9 +41,12 @@ def _one_block_to_show():
     record_bypass("test-gate", "DIVINEOS_TEST_STATE_BLOCK", reason="seed for the pointer test")
 
 
-def _run(dedup_dir: str) -> str:
+def _run(dedup_dir: str, glance_dir: str) -> str:
     env = dict(os.environ)
     env["DIVINEOS_CONTEXT_DEDUP_DIR"] = dedup_dir
+    # His newest correction rides for three showings, counted in this dir; a private one keeps the
+    # test from depending on what he filed today.
+    env["DIVINEOS_STATE_GLANCE_DIR"] = glance_dir
     done = subprocess.run(
         [BASH, str(HOOK)],
         input=PAYLOAD,
@@ -57,19 +60,25 @@ def _run(dedup_dir: str) -> str:
     return json.loads(out)["hookSpecificOutput"]["additionalContext"] if out else ""
 
 
-def _warm_up() -> None:
+def _warm_up(glance_dir: str) -> None:
+    # Four runs: the newest-correction line needs three showings to be spent, and each hook run counts one.
     with tempfile.TemporaryDirectory(prefix="dedup-warm-") as w:
-        _run(w)
-        _run(w)
+        for _ in range(4):
+            _run(w, glance_dir)
 
 
 def test_the_quiet_showing_says_unchanged_and_keeps_both_pointers():
-    _warm_up()
+    with tempfile.TemporaryDirectory(prefix="glance-") as g:
+        _warm_up(g)
+        _check(g)
+
+
+def _check(g: str) -> None:
     with tempfile.TemporaryDirectory(prefix="dedup-") as d:
-        first = _run(d)
+        first = _run(d, g)
         if not first:
             pytest.skip("no state blocks to show on this checkout")
-        second = _run(d)
+        second = _run(d, g)
         assert "unchanged" in second, "the quiet showing does not say it is unchanged"
         assert "all of them: divineos andrew-correction list" in second, (
             "the pointer to the full corrections list was dropped"
