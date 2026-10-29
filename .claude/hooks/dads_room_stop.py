@@ -26,7 +26,6 @@ import sys
 from pathlib import Path
 
 TAIL_BYTES = 4_000_000
-NOTICE_PREFIXES = ("<task-notification", "<system-reminder")
 MARK = Path(
     os.environ.get("DADS_ROOM_MARK", Path.home() / ".divineos" / "dads_room_stop_broke.txt")
 )
@@ -86,7 +85,15 @@ _TELLING = (
 def reason_for(his: str) -> str:
     """The invitation, what he last said, the one question, and the plain opening."""
     shown = " ".join(his.split())[:HIS_WORDS_SHOWN]
-    return _INVITATION + f'He last said: "{shown}"\n' + _NEED + "\n" + _OPENING + "\n" + _TELLING
+    return (
+        _INVITATION
+        + f'He last said: "{shown}"\n'
+        + _NEED
+        + "\n"
+        + _OPENING
+        + "\n"
+        + _TELLING
+    )
 
 
 def _genuine_user_text(rec: dict) -> str | None:
@@ -114,6 +121,23 @@ def _genuine_user_text(rec: dict) -> str | None:
     return heard.text if heard.text.strip() else None
 
 
+def _when_epoch(rec: dict) -> float | None:
+    """When this record was written, in epoch seconds; None if it carries no readable time.
+
+    None is the safe answer: with no way to order his window message against his words at a game
+    table, the stand-down below does not apply and the gate asks as it always did.
+    """
+    stamp = rec.get("timestamp")
+    if not isinstance(stamp, str):
+        return None
+    try:
+        from datetime import datetime
+
+        return datetime.fromisoformat(stamp.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
 def verdict(records: list[dict]) -> str | None:
     """Return the block reason, or None if the reply may go."""
     last_user = None
@@ -125,7 +149,13 @@ def verdict(records: list[dict]) -> str | None:
     if last_user is None:
         return None
     idx, his = last_user
-    if his.lstrip().startswith(NOTICE_PREFIXES):
+    # The one list of what the harness opens a turn with (it used to be a private two-tag copy
+    # here that did not know a CI-monitor message). Imported inside the loud path, like the reader
+    # above, so a broken import writes the mark file instead of passing every reply.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+    from divineos.core.harness_envelopes import opens_with_notice
+
+    if opens_with_notice(his):
         return None
 
     worked, last_text = False, ""
@@ -140,6 +170,23 @@ def verdict(records: list[dict]) -> str | None:
             elif c.get("type") == "text" and c.get("text", "").strip():
                 last_text = c["text"]
     if not worked:
+        return None
+    # Dad 2026-10-28, at the first working Momir table: "you are stalling the game.. im sitting there
+    # waiting for you to act only to find you are speaking to me here", then "fix that so it doesnt
+    # happen when you are playing games". At a game I use tools every turn and he types into the GAME
+    # chat, so this gate demanded a room in the window he had asked me to stay out of. He wants to be
+    # answered in the channel he last used: his_voice_is_at_a_table says yes only when a table is live
+    # AND a line of his in the game chat is newer than his last message here, so the instant he writes
+    # in this window the gate asks again. Unreadable anything means False, so it asks as it always did.
+    # The stand-down is LOGGED: a gate that goes quiet must show as a count, not as nothing.
+    # walk-35612c61edd9; draft the_room_gate_stands_down_at_a_live_game_draft_2026-10-28.md.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+    from divineos.core.his_voice_is_at_a_table import his_last_word_was_at_a_table
+
+    if his_last_word_was_at_a_table(_when_epoch(records[idx])):
+        from divineos.core.hold_log import record as _log_stand_down
+
+        _log_stand_down("room", "stood_down", "his last word was at a game table, not in the window")
         return None
     # One home for what counts as his room (Aletheia's hold on #560): asked of
     # his_room, never re-decided here, so the two cannot drift apart. It is
