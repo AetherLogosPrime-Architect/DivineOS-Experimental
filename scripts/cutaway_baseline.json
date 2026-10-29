@@ -1,0 +1,1475 @@
+{
+ "about": "Per-file floor of DISCONNECTED and SWALLOWED tests; see scripts/cutaway.py.",
+ "files": {
+  "tests/contracts/test_transformation_fidelity.py": {
+   "DISCONNECTED": 4,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test__which_tree.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_a_confirm_in_the_singular_is_still_a_signature.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_a_mirror_that_rebuilds_itself_rides_one_branch.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_a_private_command_parser_cannot_be_written_quietly.py": {
+   "DISCONNECTED": 7,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_a_retired_rule_cannot_be_served_as_current.py": {
+   "DISCONNECTED": 9,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_ablation_audit_surface.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_ablation_runner.py": {
+   "DISCONNECTED": 6,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_acknowledgment_theater_detector.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_actor_authenticity_phase1.py": {
+   "DISCONNECTED": 5,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_aethers_reading_of_507.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_affect_source_enum.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_aletheia_findings_45_46.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_an_ask_to_him_holds_the_work.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_anti_slop.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_anti_substitution_labels.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_auto_cycle.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_benchmark_scoring.py": {
+   "DISCONNECTED": 6,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_beta_reliability.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_body_awareness.py": {
+   "DISCONNECTED": 8,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_briefing_gate.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_briefing_preview_items.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_bypass_compliance_split.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_bypass_rate_gate_repairs.py": {
+   "DISCONNECTED": 4,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_bypass_rate_hook.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_bypass_rate_scan.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_canonical_marker_ledger_inheritance.py": {
+   "DISCONNECTED": 11,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_care_dismissal_detector.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_channel_files_present.py": {
+   "DISCONNECTED": 6,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_character_sheet_loads_into_baseline.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_check_doc_counts.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_check_test_cli_linkage.py": {
+   "DISCONNECTED": 8,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_ci_merge_review_check.py": {
+   "DISCONNECTED": 5,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_ci_merge_review_wiring.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_circuit3_convergence.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_clarity_system_verification.py": {
+   "DISCONNECTED": 5,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_cli_command_modules_all.py": {
+   "DISCONNECTED": 53,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_cli_name_collisions.py": {
+   "DISCONNECTED": 4,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_cli_smoke.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_closure_verification.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_compass_correction_redesign.py": {
+   "DISCONNECTED": 4,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_compass_guidance_coverage.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_compass_quality_gate.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_compass_tiers.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_compliance_audit.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_compliance_baseline.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_consequence_chain.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_consolidation_rename.py": {
+   "DISCONNECTED": 8,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_constitutional_principles.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_consultation_wisdom_read.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_context_governor.py": {
+   "DISCONNECTED": 5,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_context_meter.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_context_tokens.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_correction_marker_machine_origin.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_correction_pairing_surface.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_correction_relevance.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_corrigibility.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_corroboration_sweep.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_council.py": {
+   "DISCONNECTED": 89,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_council_consultation_log.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_council_expert_characteristic_questions.py": {
+   "DISCONNECTED": 46,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_council_experts_all.py": {
+   "DISCONNECTED": 49,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_council_walk.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_dead_architecture_alarm.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_decision_superposition.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_dedup_forgets_on_compaction.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_detect_andrew_build_request.py": {
+   "DISCONNECTED": 9,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_detector_contract_coherence.py": {
+   "DISCONNECTED": 4,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_dirty_tree_checks_ignore_untracked.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_distancing_detector.py": {
+   "DISCONNECTED": 5,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_distancing_intercept.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_doorman_walk_instruction.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_dream_report_seed_cleanup_distinction.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_drift_detection.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_ear_sweep.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_edges.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_embedding_device.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_empirica.py": {
+   "DISCONNECTED": 10,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_empirica_provenance.py": {
+   "DISCONNECTED": 7,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_engineer_register_drift_detector.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_error_handling_infrastructure.py": {
+   "DISCONNECTED": 14,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_event_capture.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_event_query_order_is_always_explicit.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_event_verifier.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_every_message_hook_sits_at_the_table.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_every_refusing_hook_says_what_did_not_run.py": {
+   "DISCONNECTED": 74,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_every_tool_hook_names_its_tools.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_evidence_bearing_stop_gate.py": {
+   "DISCONNECTED": 14,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_expectation_tracking.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_exploration_territory.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_extract_no_op_messaging.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_f14_integrity_check.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_f39_abstention_telemetry.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_fable_audit_round3_compass_drift_direction.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_fable_audit_round4_mechanical_convene.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_fable_audit_round6_3_seal_hook_normalization_symmetry.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_family_access_check.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_family_costly_disagreement.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_family_operator_wiring_contract.py": {
+   "DISCONNECTED": 6,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_family_persistence.py": {
+   "DISCONNECTED": 4,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_family_planted_contradiction.py": {
+   "DISCONNECTED": 9,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_family_reject_clause.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_family_store_is_asked_not_named.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_family_sycophancy.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_finding_backlog.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_fire_id_linkage.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_first_person_orienting_substrate.py": {
+   "DISCONNECTED": 4,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_foundational_truths.py": {
+   "DISCONNECTED": 5,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_foundations_commands.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_friction_fixes.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_frustration_never_shortens_what_we_say.py": {
+   "DISCONNECTED": 4,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_gate_remedy_reachability.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_generated_docs_have_callers.py": {
+   "DISCONNECTED": 4,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_graph_boost.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_guardrail_marker_consistency.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_guardrails.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_hardening_properties.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_harm_acknowledgment_loop.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_harness_envelopes.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_hedge_evidence_check.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_hedge_monitor.py": {
+   "DISCONNECTED": 4,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_his_asks_characterization.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_his_room.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_holding_modes.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_hook_python_lookup.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_hud.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_instruments.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_knowledge_types.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_knowledge_voids.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_leave_is_two_verbs.py": {
+   "DISCONNECTED": 15,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_ledger_compressor.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_lepos_channel_check.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_lepos_his_own_words.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_lepos_jargon_mention_vs_use.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_lepos_to_marker_check.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_lesson_escalation.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_letter_channel_state.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_letter_passages.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_linguistic_drift_detector.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_log_level_config.py": {
+   "DISCONNECTED": 6,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_maintenance_staleness.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_mechanism_claims_catalog.py": {
+   "DISCONNECTED": 10,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_meld.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_member_home_rebuilt.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_memory_kind.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_memory_linkage_retriever_v2.py": {
+   "DISCONNECTED": 4,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_merge_review_comment_approval.py": {
+   "DISCONNECTED": 8,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_merge_review_exempts_nothing.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_mini_save.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_minimal.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_mirror_exit_detector.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_module_inventory.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_moral_compass_silent_pass.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_motivation.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_multi_party_review_gate.py": {
+   "DISCONNECTED": 4,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_multiplex_drift_detector.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_nervous_system_actuators.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_next_task_surface.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_no_agent_settable_bypasses.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_no_fix_claim.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_no_gate_teaches_the_no_fix_escape.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_observation_layer.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_one_word_one_definition_of_substrate.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_open_claims_surface.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_operating_loop_detector_wiring.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_operating_modes.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_overlap_dice.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_pattern_registry.py": {
+   "DISCONNECTED": 5,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_post_response_audit_enforcement_pin.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_pr_gate.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_pre_erasure.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_pre_tool_use_gate_enforcement_pin.py": {
+   "DISCONNECTED": 4,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_precommit_doc_count_autofix_opt_in.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_prescribed_commands_exist.py": {
+   "DISCONNECTED": 176,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_prior_art.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_progress_dashboard.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_pronoun_frame_shift_detector.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_pull_detection.py": {
+   "DISCONNECTED": 4,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_recover_crashed_workers.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_reflection_pairing.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_reflection_storage.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_register_reproduces_check.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_relations.py": {
+   "DISCONNECTED": 4,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_relay_detection.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_reset_template_active_memory.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_reset_template_authorization.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_residency_detector.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_response_scope_intercept.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_rest.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_rest_classification_rule.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_retrigger_write_count.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_root_cause_audit_occupant.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_runway_meter_reads_the_real_trigger.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_savoring_surface.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_scaffold_invocations.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_scaffolding_map.py": {
+   "DISCONNECTED": 4,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_science_lab.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_self_admission_saturation.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_self_critique.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_self_disownership_detector.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_self_grade.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_self_model_knows_when_it_knows_nothing.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_session_checkpoint.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_session_logic.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_session_start_race.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_sibling_corrections.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_sleep.py": {
+   "DISCONNECTED": 9,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_sleep_stays_out_of_the_emergency_stop_allowlist.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_stale_engagement.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_stamp_ready_tree_binding.py": {
+   "DISCONNECTED": 4,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_structural_promotion_check.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_substance_checks.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_substance_checks_contract.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_surface_failure_is_declared.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_sweep_wins.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_sycophancy_detector.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_synchronicity.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_system_monitor.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_talk_to_validator.py": {
+   "DISCONNECTED": 17,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_task_belt.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_the_board_can_see_outside_the_flow.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_the_compressor_leaves_its_gaps.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_the_council_station_asks_for_coverage.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_the_cycle_marker_names_its_tree.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_the_doorbell_is_the_one_listener.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_the_filing_exemption_reads_the_whole_command.py": {
+   "DISCONNECTED": 7,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_the_kiln_file_can_count_itself.py": {
+   "DISCONNECTED": 6,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_the_stale_store_scan_is_actually_called.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_tier_override_surface.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_tone_false_upset_fix.py": {
+   "DISCONNECTED": 6,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_transcript_tail.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_translate_first_gate.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_trust_tiers.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_unified_capture_paths.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_unified_todos.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_unknown_unknown_surface.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_validity_gate.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_verify_before_build_remedy_is_reachable.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_visual.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_voice_guard.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_void_finding.py": {
+   "DISCONNECTED": 3,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_watchmen.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_watchmen_tiers.py": {
+   "DISCONNECTED": 2,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_wire_expectation_tracking.py": {
+   "DISCONNECTED": 7,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  },
+  "tests/test_wiring_gap_phase1.py": {
+   "DISCONNECTED": 5,
+   "reasons": [
+    "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
+   ]
+  }
+ }
+}
