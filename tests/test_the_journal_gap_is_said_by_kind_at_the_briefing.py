@@ -31,6 +31,18 @@ def test_each_kind_is_counted_on_its_own(pages, monkeypatch):
     assert after["untagged"] == before["untagged"] + 1
 
 
+def test_a_home_with_no_known_seat_gets_a_line_saying_so_not_a_dead_briefing(monkeypatch):
+    """Aether's cold read: _journal_dir raises RuntimeError in a home the seat table does not know, and the
+    briefing's guard does not catch that, so the first command of every session would die."""
+
+    def no_seat():
+        raise RuntimeError("cannot tell which seat's journal this is")
+
+    monkeypatch.setattr(mj, "_journal_dir", no_seat)
+    line = mj.format_for_briefing()
+    assert "could not tell which seat" in line
+
+
 def test_the_briefing_line_names_the_kinds_and_is_empty_when_nothing_is_missing(monkeypatch):
     monkeypatch.setattr(
         mj, "rows_without_a_page_by_kind", lambda: {"room": 0, "unverified": 0, "untagged": 0}

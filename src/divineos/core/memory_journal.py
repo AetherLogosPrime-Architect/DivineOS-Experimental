@@ -253,7 +253,11 @@ def rows_without_a_page_by_kind() -> dict[str, int]:
 
 def format_for_briefing() -> str:
     """One block saying what Dad cannot open, by kind. Empty when nothing is missing, never a zero line."""
-    counts = rows_without_a_page_by_kind()
+    try:
+        counts = rows_without_a_page_by_kind()
+    except RuntimeError:
+        # _journal_dir raises this in a home that matches no known seat; say so rather than kill the briefing.
+        return "## JOURNAL ENTRIES WITH NO PAGE\n  could not tell which seat's journal this is, so the gap was not counted."
     if not any(counts.values()):
         return ""
     lines = ["## JOURNAL ENTRIES WITH NO PAGE (what Dad cannot open)"]
