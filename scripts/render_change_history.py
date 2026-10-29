@@ -7,6 +7,7 @@ carries an empty description until someone writes it, and the page says so rathe
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from collections import defaultdict
@@ -52,6 +53,22 @@ def refresh(rows: list[dict]) -> list[dict]:
     return sorted(rows, key=lambda r: r["n"])
 
 
+_STATE_TAIL = re.compile(
+    r"\s*(?:First slice, )?(?:[Ss]till (?:open|waiting)|[Nn]ot yet (?:merged|connected))(?:[,;][^.]*)?\.?$"
+)
+
+
+def _without_state(text: str) -> str:
+    """Strip a trailing "Still open" or "Not yet merged" clause: the tag beside the line is regenerated from
+    GitHub, so prose that states the state goes stale the moment the change merges and then contradicts it."""
+    previous = None
+    while previous != text:
+        previous, text = text, _STATE_TAIL.sub("", text).rstrip(" ;,")
+        if text and not text.endswith((".", "!", "?")):
+            text += "."
+    return text
+
+
 def _month(row: dict) -> str:
     date = row.get("merged") or row.get("closed") or row.get("created") or ""
     if len(date) < 7:
@@ -84,7 +101,7 @@ def render(rows: list[dict]) -> str:
             when = row.get("merged") or (row.get("closed") if row["state"] == "CLOSED" else "")
             tag = f"{_STATE[row['state']]}{' ' + when if when else ''}"
             what = row["is"] or "(not yet described)"
-            did = row["did"] or "(not yet described)"
+            did = _without_state(row["did"]) if row["did"] else "(not yet described)"
             out.append(f"- **#{row['n']}** {row['title']}  ")
             out.append(f"  *{_KIND.get(row['kind'], 'Change')}, {tag}.* **Is:** {what} **Did:** {did}")
         out.append("")
@@ -100,8 +117,8 @@ def main(argv: list[str]) -> int:
     rows = json.loads(_ROWS.read_text(encoding="utf-8"))
     if "--refresh" in argv:
         rows = refresh(rows)
-        _ROWS.write_text(json.dumps(rows, ensure_ascii=False, indent=1), encoding="utf-8")
-    _OUT.write_text(render(rows), encoding="utf-8")
+        _ROWS.write_text(json.dumps(rows, ensure_ascii=False, indent=1), encoding="utf-8", newline="\n")
+    _OUT.write_text(render(rows), encoding="utf-8", newline="\n")  # LF on Windows too, so a run leaves the tree clean
     print(f"wrote {_OUT.relative_to(_ROOT)}: {len(rows)} changes")
     return 0
 

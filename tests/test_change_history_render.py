@@ -51,6 +51,20 @@ def test_a_change_with_no_description_says_so():
     assert "(not yet described)" in text
 
 
+def test_prose_never_states_the_state_the_tag_already_carries():
+    rows = [
+        _row(1, merged="2026-10-02", is_="a", did="Does a thing. Still open, awaiting a decision."),
+        _row(2, merged="2026-10-02", is_="a", did="Does a thing; still waiting."),
+        _row(3, merged="2026-10-02", is_="a", did="Does a thing. Not yet connected. Still open."),
+        _row(4, merged="2026-10-02", is_="a", did="Does a thing. First slice, still open."),
+    ]
+    text = render_mod.render(rows).lower()
+    assert (
+        "still open" not in text and "still waiting" not in text and "not yet connected" not in text
+    )
+    assert text.count("does a thing.") == 4
+
+
 def test_the_committed_rows_describe_every_change():
     rows = json.loads((_ROOT / "docs" / "change_history" / "rows.json").read_text(encoding="utf-8"))
     assert rows, "the committed history is empty"
