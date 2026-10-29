@@ -133,6 +133,14 @@ def register(cli: click.Group) -> None:
                 )
             click.echo()
 
+    @journal_group.command("export")
+    def journal_export_cmd() -> None:
+        """Write a page for every entry that has none (never a private-room one). Read the old entries first."""
+        from divineos.core.memory_journal import export_missing_pages
+
+        wrote = export_missing_pages()
+        click.secho(f"[+] Wrote {wrote} page(s).", fg="green")
+
     @journal_group.command("link")
     @click.argument("entry_id")
     @click.argument("knowledge_id")

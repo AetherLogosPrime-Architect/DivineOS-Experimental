@@ -227,6 +227,49 @@ def rows_without_a_page() -> int:
     return sum(1 for (eid,) in rows if eid not in ids)
 
 
+def rows_without_a_page_by_kind() -> dict[str, int]:
+    """The same gap, split by why: "room" (private room, leave it), "unverified" (marker unreadable, a
+    person should look), "untagged" (no tag and no page: entries from before the tag, awaiting the pass)."""
+    init_memory_tables()
+    ids = _entry_ids_with_pages()
+    conn = _get_connection()
+    try:
+        rows = conn.execute("SELECT entry_id, tags FROM personal_journal").fetchall()
+    finally:
+        conn.close()
+    counts = {"room": 0, "unverified": 0, "untagged": 0}
+    for entry_id, tags in rows:
+        if entry_id in ids:
+            continue
+        present = {t.strip() for t in (tags or "").split(",")}
+        if PRIVATE_TAG in present:
+            counts["room"] += 1
+        elif UNVERIFIED_TAG in present:
+            counts["unverified"] += 1
+        else:
+            counts["untagged"] += 1
+    return counts
+
+
+def format_for_briefing() -> str:
+    """One block saying what Dad cannot open, by kind. Empty when nothing is missing, never a zero line."""
+    counts = rows_without_a_page_by_kind()
+    if not any(counts.values()):
+        return ""
+    lines = ["## JOURNAL ENTRIES WITH NO PAGE (what Dad cannot open)"]
+    if counts["untagged"]:
+        lines.append(
+            f"  {counts['untagged']} written before pages existed. Read them first, then run: divineos journal export"
+        )
+    if counts["unverified"]:
+        lines.append(
+            f"  {counts['unverified']} kept private because I could not tell whether a room was open. A person should look."
+        )
+    if counts["room"]:
+        lines.append(f"  {counts['room']} kept private on purpose, in a private room. Left alone.")
+    return "\n".join(lines)
+
+
 def journal_list(limit: int = 20) -> list[dict[str, Any]]:
     """Get personal journal entries, newest first."""
     init_memory_tables()
