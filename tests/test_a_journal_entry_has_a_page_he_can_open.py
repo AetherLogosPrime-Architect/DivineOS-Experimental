@@ -116,7 +116,29 @@ def test_an_unreadable_private_room_marker_keeps_the_entry_private(pages, monkey
     assert page is None
     assert list(pages.glob("*.md")) == []
     row = next(e for e in mj.journal_list(limit=500) if e["entry_id"] == entry_id)
-    assert mj.PRIVATE_TAG in row["tags"].split(",")
+    # Not the room tag: nobody opened a room, and the record must not say so (Aether's cold read).
+    assert mj.UNVERIFIED_TAG in row["tags"].split(",")
+    assert mj.PRIVATE_TAG not in row["tags"].split(",")
+    assert mj.kept_private_reason(entry_id) == "unverified"
+    assert mj.export_missing_pages() == 0  # the backfill skips this kind too
+
+
+def test_the_reason_an_entry_has_no_page_says_room_or_unverified_or_nothing(pages, monkeypatch):
+    monkeypatch.setattr(mj, "_private_room_open", lambda: True)
+    in_room, _ = mj.journal_save_with_page("Written in a room.")
+    monkeypatch.setattr(mj, "_private_room_open", lambda: False)
+    plain, page = mj.journal_save_with_page("Written in the open.")
+    assert page is not None
+    assert mj.kept_private_reason(in_room) == "room"
+    assert mj.kept_private_reason(plain) is None
+    assert mj.kept_private_reason("00000000-0000-0000-0000-000000000000") is None
+
+
+def test_the_mark_is_appended_to_tags_already_on_the_entry(pages, monkeypatch):
+    monkeypatch.setattr(mj, "_private_room_open", lambda: True)
+    entry_id, _ = mj.journal_save_with_page("Tagged and private.", tags="a,b")
+    row = next(e for e in mj.journal_list(limit=500) if e["entry_id"] == entry_id)
+    assert row["tags"] == "a,b," + mj.PRIVATE_TAG
 
 
 def test_entries_saved_before_this_change_get_their_pages_verbatim_with_their_own_dates(pages):

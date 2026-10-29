@@ -50,10 +50,18 @@ def register(cli: click.Group) -> None:
         if page is not None:
             click.secho(f"    A copy Dad can open: {page}", fg="green")
         else:
-            click.secho(
-                "    Kept in the database only (a private room is open): no page was written.",
-                fg="bright_black",
-            )
+            from divineos.core.memory_journal import kept_private_reason
+
+            if kept_private_reason(entry_id) == "unverified":
+                said = (
+                    "    Kept in the database only: I could not tell whether a private room is "
+                    "open, so no page was written."
+                )
+            else:
+                said = (
+                    "    Kept in the database only (a private room is open): no page was written."
+                )
+            click.secho(said, fg="bright_black")
         if linked_kid:
             click.secho(
                 f"    Auto-linked knowledge {linked_kid[:8]}...",

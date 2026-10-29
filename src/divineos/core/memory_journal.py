@@ -43,25 +43,46 @@ def _journal_dir() -> Path:
 #: Written into the row's tags when an entry is saved in a private room, so every later reader, the one-time
 #: backfill included, can tell a deliberately page-less entry from one that simply has no page yet.
 PRIVATE_TAG = "private-room"
+#: The marker could not be read, so nobody knows whether a room was open. The entry is kept private anyway,
+#: and this tag says the true thing, so a person can find these later and decide (Aether's cold read, 2026-10-29).
+UNVERIFIED_TAG = "private-room-unverified"
 
 
-def _private_room_open() -> bool:
-    """A private mansion room binds a pause: an entry written then stays database-only and says so.
+def _private_room_open() -> bool | None:
+    """Three answers, never merged: True (a private room is open), False (none is), None (could not tell).
 
-    An unreadable marker is treated as a CLOSED door (2026-10-29, my own council walk): this gate exists to
-    keep an entry private, so could-not-look must never read as not-private. The cost of being wrong in
-    this direction is a page that was not written and a save that says so; in the other, a private entry
-    in a public repository."""
+    A private mansion room binds a pause: an entry written then stays database-only and says so. An
+    unreadable marker is NOT treated as an open room, since that would say something false, and NOT as a
+    closed door, since this gate exists to keep an entry out of a public repository: the caller keeps the
+    entry private and names the reason as unverified (council walk on #727, then Aether's cold read)."""
     try:
         from divineos.core.mansion_quiet_marker import is_quiet_active
 
         return bool(is_quiet_active())
-    except Exception:  # noqa: BLE001 - could not look: keep the entry private, never publish on a guess
-        return True
+    except Exception:  # noqa: BLE001 - could not look: say so, never guess in either direction
+        return None
 
 
 def _is_private(tags: str) -> bool:
-    return PRIVATE_TAG in {t.strip() for t in (tags or "").split(",")}
+    return bool({PRIVATE_TAG, UNVERIFIED_TAG} & {t.strip() for t in (tags or "").split(",")})
+
+
+def kept_private_reason(entry_id: str) -> str | None:
+    """Why an entry has no page: "room" (a private room was open), "unverified" (could not tell), or None."""
+    init_memory_tables()
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            "SELECT tags FROM personal_journal WHERE entry_id = ?", (entry_id,)
+        ).fetchone()
+    finally:
+        conn.close()
+    present = {t.strip() for t in ((row[0] if row else "") or "").split(",")}
+    if PRIVATE_TAG in present:
+        return "room"
+    if UNVERIFIED_TAG in present:
+        return "unverified"
+    return None
 
 
 def _write_page(entry_id: str, content: str, created: float) -> Path:
@@ -135,10 +156,12 @@ def journal_save_with_page(
     entry_id = str(uuid.uuid4())
     created = time.time()
     page: Path | None = None
-    if _private_room_open():
-        tags = f"{tags},{PRIVATE_TAG}" if tags else PRIVATE_TAG
-    else:
+    room = _private_room_open()
+    if room is False:
         page = _write_page(entry_id, content, created)
+    else:
+        mark = PRIVATE_TAG if room is True else UNVERIFIED_TAG
+        tags = f"{tags},{mark}" if tags else mark
     try:
         _insert_row(entry_id, content, created, context, tags, linked_knowledge_id)
     except Exception:  # noqa: BLE001 - any failure must remove the page, and is re-raised below
