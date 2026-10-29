@@ -84,8 +84,11 @@ def test_the_second_identical_block_is_silent_and_the_translate_note_is_gone():
         # (642 characters on a fresh home), so "a third of the size" tipped over at 2.8 while the heading and
         # the pointer to the whole text were plainly gone. A ratio is a proxy; the parts are the claim.
         assert "one line each" not in second, "the heading rode again: the waste is back"
-        assert "Whole text" not in second, "the pointer to the whole text rode again"
-        assert len(second) * 2 < len(first), "an unchanged block spoke in full: the waste is back"
+        # The path to the whole text now stands on purpose (see the pointers test): a reader who sees only
+        # the short note must still know where the full one is.
+        # The note now says "unchanged" and keeps two pointers, so on a tiny fresh-home block it can no
+        # longer be half the size; it must still be shorter, with the heading and the translate note gone.
+        assert len(second) < len(first), "an unchanged block spoke in full: the waste is back"
 
 
 def test_a_changed_block_speaks_again():

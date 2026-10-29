@@ -217,13 +217,16 @@ except Exception as exc:  # the wall is the fallback: losing it silently is wors
 # What survives suppression is the STANDING LINES: the first 80 characters of each report line (the dedup contract,
 # test_hook_dedup_contract.py, says something must survive every suppression).
 standing = [l.strip()[:80] for l in str(combined).splitlines() if l.startswith('- ')]
+# The two pointers a reader needs to act (where the whole text is, where the full list is) stand too, and the
+# pointer the dedup returns says outright that the block is unchanged, so silence is never read as 'nothing here'.
+standing += [l for l in str(combined).splitlines() if l.startswith('Whole text') or l.strip().startswith('all of them:')]
 try:
     from divineos.core.context_dedup import should_emit
     emit, _pointer = should_emit('state_gravity_blocks', combined, residual='\n'.join(standing))
 except Exception:
     emit = True
 if not emit:
-    combined = '\n'.join(standing)
+    combined = _pointer
 
 
 print(json.dumps({
