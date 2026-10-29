@@ -59,6 +59,29 @@ def test_the_shared_remedy_pattern_is_exactly_what_it_was():
     assert _lifted_pattern() == EXPECTED_PATTERN
 
 
+def _matches(command: str) -> bool:
+    """Run the lifted pattern the way the gates do (grep -E), so this pins what it DOES."""
+    import shutil
+    import subprocess
+
+    grep = shutil.which("grep")
+    assert grep, "no grep to run the pattern with, so nothing was compared"
+    done = subprocess.run(
+        [grep, "-E", _lifted_pattern()], input=command, text=True, capture_output=True
+    )
+    assert done.returncode in (0, 1), done.stderr
+    return done.returncode == 0
+
+
+def test_the_pattern_lets_a_prescribed_exit_through_and_never_a_work_command():
+    """The hook's own note says nothing here may ever match git, gh, pytest, rm or an editor. A string
+    comparison cannot show that; running the pattern can (Feathers, council walk on #633)."""
+    for exit_command in ("divineos briefing", "divineos goal add x", "divineos council log"):
+        assert _matches(exit_command), exit_command
+    for work_command in ("git push", "gh pr merge 1", "pytest tests", "rm -rf x", "vim file.py"):
+        assert not _matches(work_command), work_command
+
+
 def test_control_the_lift_can_see_a_difference():
     """CONTROL: the comparison fails when an entry differs, so a pass above means something."""
     assert _lifted_tuple() != EXPECTED_FILING_COMMANDS + ("divineos extra",)
