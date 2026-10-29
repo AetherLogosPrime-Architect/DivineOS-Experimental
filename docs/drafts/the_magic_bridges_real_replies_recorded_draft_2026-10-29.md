@@ -8,7 +8,7 @@ The guard that keeps a seat at a live Magic game has to read Dad's chat out of t
 
 ## What it does
 
-`tests/fixtures/magic_bridge_replies.json` holds the replies the bridge really gave during the Momir game of 2026-10-25, copied from tool output word for word: the game log with his chat lines in order among the moves, the idle reply, the chat-post reply, and the shape of a dead bridge after the game. `tests/test_magic_bridge_recorded_replies.py` pins what the file claims: the chat lines are verbatim, they share one text with the moves in order, the log is exactly as long as the bridge said (544 characters, 16 lines), and the file says what it did not record.
+`tests/fixtures/magic_bridge_replies.json` holds the replies the bridge really gave during the Momir game of 2026-10-25, copied from tool output word for word: the game log with his chat lines in order among the moves, the idle reply, the chat-post reply, and the shape of a dead bridge after the game. `tests/test_magic_bridge_recorded_replies.py` pins that three of his chat lines appear in the recorded log in the recorded order among the moves, that the log is 544 characters as the bridge said, that the cursor is not a line count, and that the file says what it did not capture. "Word for word" is the fixture's own claim about how it was copied; there is no original to compare it against.
 
 ## What it cannot do
 
