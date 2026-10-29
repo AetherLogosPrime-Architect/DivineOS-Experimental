@@ -31,8 +31,10 @@ a fourth loop.
 
 from __future__ import annotations
 
+import os
 import re
 import shlex
+from pathlib import Path
 
 
 _ENV_ASSIGN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
@@ -350,6 +352,16 @@ _INERT_HEADS = frozenset(
         "column",
         "less",
         "more",
+        # GREP, added 2026-10-24 (Dad: "the root cause of the issue needs investigated and fixed").
+        # I ended nearly every divineos command with `| grep -v "embedding\|Loading"` to hide
+        # model-loading noise, and a recording command with that on the end stopped being a
+        # recognised exit. The correction marker named `compass-ops observe` as its remedy, the
+        # council-paperwork gate refused that observe as an edit because of my grep, and the
+        # paperwork commands were blocked by the marker: a lock I closed myself. It meets the bar
+        # above: grep consumes input, emits text and has no option that writes a file (unlike sed
+        # and awk). `grep -r x . && git push` still refuses, because git push is an acting segment;
+        # a `> file` redirect on the grep is still caught as a write.
+        "grep",
         # SHELL OPTIONS, added 2026-09-18 (council-de235c61e79d), because two
         # guards were composing into a block that neither contained.
         #
@@ -593,10 +605,22 @@ def acting_segments(bash_command: str) -> list[str] | None:
             # Nothing but assignments or prefixes: it sets up, it does not act.
             continue
         head = stripped.split()[0].lower()
-        if head in _INERT_HEADS:
+        if head in _INERT_HEADS and not _writes_a_file(stripped):
             continue
         acting.append(stripped)
     return acting
+
+
+def _writes_a_file(segment: str) -> bool:
+    """True when the segment redirects output to anything but /dev/null.
+
+    An inert head stays inert only while it writes nothing. Before this check the whole segment was
+    dropped, redirect included, so `| grep x > src/...` and `echo x > .claude/settings.json` were
+    invisible to every gate (Aletheia's hold on #718, 2026-10-24). Not knowing is not a pass: a
+    target built from a variable is a write this cannot read, and that is the same limit
+    shell_write_targets already states.
+    """
+    return any(t != "/dev/null" for t in shell_write_targets(segment))
 
 
 # A segment that could execute something nobody inspected before the remedy
@@ -736,18 +760,85 @@ def _chain_links(command: str) -> list[list[str]] | None:
     return cleaned
 
 
+# The repository this code is running from, found from the module's own place
+# rather than from the working directory: src/divineos/core/<this file>.
+_THIS_REPO = Path(__file__).resolve().parents[3]
+
+
+def _names_this_repos_file(token: str, allowed: str) -> bool:
+    """True when ``token`` is another spelling of this repository's ``allowed``.
+
+    WHY (2026-10-28, Dad: *"you just need to set an exemption for the wait for
+    me guard"* -- and the exemption was already there). The lists above are
+    matched token-for-token, so a path entry only matches the ONE spelling it
+    was written in. `scripts/letter_doorbell.sh` passed; the absolute path to
+    the same file was refused, and the wait-for-me gate blocked the very
+    doorbell its own message names as always allowed. Someone had already met
+    this and answered it by adding a second spelling (`./scripts/...`), which
+    is the tell: an allowlist keyed on how a path is WRITTEN fails on every
+    spelling nobody thought of, and each failure looks like a one-line fix.
+
+    So the comparison is the file, not the spelling (Einstein, walk-e18009f40280:
+    the spelling is frame-dependent -- relative from the repo, absolute from a
+    side room, the MSYS form under Git Bash -- and the invariant across frames
+    is the file's identity on disk).
+
+    NOT a suffix match, which is what the draft proposed and Popper broke
+    before it was built: anyone who can make a directory can make a path that
+    ENDS WITH `scripts/letter_doorbell.sh`, and this list is the one thing
+    permitted to walk past a gate. So the only token that counts is one
+    resolving to the file inside THIS repository, located from this module
+    rather than from the caller's working directory.
+
+    Fails toward False on everything it cannot settle -- an unreadable path is
+    not a remedy (Hoare's rule as the rest of the house applies it).
+    """
+    if "/" not in allowed:  # not a path entry: exact comparison only, done by the caller
+        return False
+    try:
+        target = (_THIS_REPO / allowed).resolve()
+        if not target.is_file():
+            return False
+        candidate = Path(token).expanduser()
+        if not candidate.is_absolute():
+            candidate = Path.cwd() / candidate
+        return os.path.normcase(str(candidate.resolve())) == os.path.normcase(str(target))
+    except (OSError, ValueError, RuntimeError):
+        return False
+
+
+def _link_matches(link: list[str], prefix: tuple[str, ...]) -> bool:
+    """True when this link runs the allowed command named by ``prefix``.
+
+    Position stays exact -- the head at 0, the script at 1, the seat at 2 --
+    so a permitted path appearing as some other command's ARGUMENT is not a
+    match (`grep scripts/letter_doorbell.sh notes.txt` is a look, not an exit).
+    Only the per-token comparison is widened, and only for path entries.
+    """
+    if len(link) < len(prefix):
+        return False
+    return all(got == want or _names_this_repos_file(got, want) for got, want in zip(link, prefix))
+
+
 def runs_only(command: str, allowed: tuple[tuple[str, ...], ...]) -> bool:
     """True when every link in the chain is an allowed command or harmless setup.
 
     At least one link must be an allowed command: a chain of nothing but `cd`
     is not anybody's remedy. Fails toward False on anything it cannot read.
+
+    A path entry matches any spelling of this repository's own copy of that
+    file -- see ``_names_this_repos_file`` for why the spelling cannot be the
+    thing compared. Shared by four consultations (his_voice_ends_the_turn,
+    remedy_allowlist twice, sort_first), so the repair reaches all four and
+    three of them had the same blindness without having been bitten yet
+    (Dad, 2026-10-28: fix the places that have yet to fail).
     """
     links = _chain_links(command)
     if not links:
         return False
     found = False
     for link in links:
-        if any(tuple(link[: len(prefix)]) == prefix for prefix in allowed):
+        if any(_link_matches(link, prefix) for prefix in allowed):
             found = True
         elif link[0] not in _HARMLESS_HEADS:
             return False
