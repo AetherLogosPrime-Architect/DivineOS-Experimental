@@ -1,13 +1,14 @@
 """Council-walk-gate theme: read-only commands owe no walk (pile round three).
 
-Born as reproductions of problems, each marked ``xfail(strict=True)``. Sixteen of
-the nineteen parameter cases have since been repaired on main (the classifier now
-lets read-only look-ups and ``--help`` through), so their marks have been removed
-and they stand as ordinary regression tests: if the repair is ever undone they go
-red. Three cases are still real problems and keep their marks, each with a reason
-that names the defect: ``compass-ops spectrums``, ``journal search``, and the
-fingerprint of one file in two working copies. The day one of those is repaired its
-mark turns into a failure and has to come off.
+Born as reproductions of problems, each marked ``xfail(strict=True)``. All of the
+read-only look-up cases have since been repaired on main (the classifier now lets
+read-only look-ups and ``--help`` through; ``compass-ops spectrums`` and ``journal
+search`` were the last two and came off on 2026-10-30 when the strict marks turned
+into failures, which is what a strict mark is for), so they stand as ordinary
+regression tests: if the repair is ever undone they go red. One case is still a real
+problem and keeps its mark, with a reason that names the defect: the fingerprint of
+one file in two working copies. The day that is repaired its mark turns into a
+failure and has to come off.
 
 The tests that are NOT marked xfail include controls. A probe that cannot tell a
 broken probe from an absent problem proves nothing, so each control shows the same
@@ -47,13 +48,6 @@ def _no_keywords():
     return {}
 
 
-_STILL_OWES_A_WALK = pytest.mark.xfail(
-    raises=AssertionError,
-    strict=True,
-    reason="reproduces: a read-only look-up still owes a council walk",
-)
-
-
 @pytest.mark.parametrize(
     "command",
     [
@@ -66,17 +60,9 @@ _STILL_OWES_A_WALK = pytest.mark.xfail(
         pytest.param("divineos prereg summary", id="prereg-summary"),
         pytest.param("divineos compass-ops history", id="compass-history"),
         pytest.param("divineos compass-ops summary", id="compass-summary"),
-        pytest.param(
-            "divineos compass-ops spectrums",
-            id="compass-spectrums",
-            marks=_STILL_OWES_A_WALK,
-        ),
+        pytest.param("divineos compass-ops spectrums", id="compass-spectrums"),
         pytest.param("divineos journal list", id="journal-list"),
-        pytest.param(
-            "divineos journal search topic",
-            id="journal-search",
-            marks=_STILL_OWES_A_WALK,
-        ),
+        pytest.param("divineos journal search topic", id="journal-search"),
     ],
 )
 def test_a_read_only_look_up_owes_no_council_walk(command):
