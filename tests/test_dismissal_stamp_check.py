@@ -87,6 +87,15 @@ def test_the_stamp_followed_by_a_real_question_to_him_is_not_refused():
     assert not ds.should_refuse(reply)
 
 
+def test_a_but_that_only_repeats_the_stamp_is_still_refused():
+    """The contrast excuse needs something that DOES need him; a negated one is the stamp in a longer
+    coat (Dillahunty's case against my own excuse)."""
+    assert ds.should_refuse(
+        _reply("Done.", "Nothing needs your answer, but the rest does not need you either.")
+    )
+    assert ds.should_refuse(_reply("Done.", "Nothing needs you, but that part does not matter."))
+
+
 def test_the_stamp_with_nothing_after_it_is_still_refused():
     """Control for the two excuses: no contrast, no later question, still the stamp."""
     assert ds.should_refuse(_reply("Done.", "Nothing needs your answer on the merge."))

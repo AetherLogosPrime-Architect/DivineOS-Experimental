@@ -33,7 +33,9 @@ from divineos.core.lepos_translation_gate import DISMISSAL_RE
 
 _HEADING = re.compile(r"^\s{0,3}#{1,6}\s+\S", re.MULTILINE)
 _CODE = re.compile(r"```.*?```|`[^`\n]*`", re.S)
-_CONTRAST = re.compile(r"\bbut\b[^.\n]*\b(?:does|do)\b", re.IGNORECASE)
+# "but #551 does" names what needs him; "but the rest does not need you either" is the stamp again in a
+# longer coat (walk-576fae65f370, Dillahunty), so a negation after does/do is not an excuse.
+_CONTRAST = re.compile(r"\bbut\b[^.\n]*\b(?:does|do)\b(?!\s+not\b)", re.IGNORECASE)
 _QUOTED = re.compile(r"\"[^\"\n]*\"|“[^”\n]*”|\*\"[^\n]*?\"\*")
 
 
