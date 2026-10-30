@@ -251,8 +251,10 @@ def _clock_line(now: datetime.datetime | None = None) -> str:
     A long session has no clock inside it. The machine's local time is his.
     """
     moment = now if now is not None else datetime.datetime.now().astimezone()
+    hour12 = moment.hour % 12 or 12  # no leading zero, and no string surgery that could eat a zero elsewhere
     return (
-        f"THE CLOCK where he is: {moment.strftime('%A %Y-%m-%d, %I:%M %p %Z').replace(' 0', ' ')}. "
+        f"THE CLOCK where he is: {moment.strftime('%A %Y-%m-%d')}, {hour12}:{moment.minute:02d} "
+        f"{moment.strftime('%p %Z')}. "
         "Morning, afternoon or night is read from this, never from how long we have been working."
     )
 

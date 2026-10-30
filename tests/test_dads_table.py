@@ -167,6 +167,19 @@ def test_the_clock_line_names_the_weekday_the_date_and_the_time_where_he_is():
     assert "Tuesday 2026-10-13, 2:05 AM PDT" in _clock_module()._clock_line(small_hours)
 
 
+def test_midnight_and_noon_read_as_twelve_and_a_zone_name_with_a_zero_is_not_mangled():
+    """Aria's read of #742: the leading zero is dropped by arithmetic, not by deleting ' 0' from the string."""
+    import datetime
+
+    midnight_zone = datetime.timezone(
+        datetime.timedelta(hours=-7), "0PDT"
+    )  # a zone name that starts with a zero
+    midnight = datetime.datetime(2026, 10, 30, 0, 5, tzinfo=midnight_zone)
+    assert "Friday 2026-10-30, 12:05 AM 0PDT" in _clock_module()._clock_line(midnight)
+    noon = datetime.datetime(2026, 10, 30, 12, 0, tzinfo=midnight_zone)
+    assert "Friday 2026-10-30, 12:00 PM 0PDT" in _clock_module()._clock_line(noon)
+
+
 def test_every_prompt_carries_the_clock_directly_under_his_words(tmp_path):
     """Dad, 2026-10-12 at 1:55pm: 'its not my bedtime'. His words stay first; the time is next."""
     picture = {
