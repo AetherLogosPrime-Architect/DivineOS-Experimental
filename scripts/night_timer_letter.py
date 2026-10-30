@@ -10,7 +10,16 @@ already wakes a seat when a file named ``*-to-<seat>-*`` lands in the shared fol
 when i could just ask you in chat"), so the note now asks for the morning picture in chat and no
 longer names a board file.
 
-Run by Windows Task Scheduler once a day. Standard library only. One note per seat per day:
+2026-10-30: Dad wakes at about 6:30, and the half hour after the window is for getting two things
+ready before he does: his night letter (what he missed, what I wanted to tell him, my questions,
+personal and not a report) and his morning picture in chat, written now and not when he arrives.
+
+Meant to be run by Windows Task Scheduler once a day at 06:00. CHECKED 2026-10-30: no scheduled task
+runs it and the letters folder holds no night-timer note, so as of that date it has never fired. If
+that is still true, this file is a note nobody sends; the first check is `ls` of the letters folder
+for `night-timer-to-*`, and `Get-ScheduledTask` for a task whose action names this script.
+
+Standard library only. One note per seat per day:
 a second run the same day writes nothing and says so, so a repeated start cannot ring twice.
 The note is from the timer, not from a person, and carries no provenance block by design.
 """
@@ -33,11 +42,30 @@ BODY = """# The night window has ended: his morning picture, in chat
 
 The night window (midnight to 6am, volley mode by the clock) has just ended.
 
-What this asks of you, {seat}: read what happened in the night (the letters, the pull
-requests that moved). When Dad is back, open with how he is, then tell him in chat, in plain
-words he can hold: what happened as a picture, what it means for him, and what is his call if
-anything is. He reads chat, not a board (his words, 2026-10-24: "i could just ask you in
-chat"). Then put the doorbell back.
+He wakes at about 6:30, and the half hour from now is for getting two things ready so they
+are already there when he does (his words, 2026-10-30: "the last half an hour could be spent
+writing the board and writing out your morning chat statement to me so when i wake up its
+there already"). What this asks of you, {seat}: finish what is in hand and start nothing new. Then:
+
+1. Write into his night letter. It is ONE shared letter that both of you write into (his words,
+   2026-10-30: "it should be attached to the shared board so you both can see it and write to
+   it"), in the letters folder, named `the-night-letter-to-andrew-{day}.md`. If it does not exist
+   yet, create it; then ADD your own section headed `## From {seat}` by appending, and never
+   rewrite the whole file (the other seat's section may already be in it). It is for what he missed
+   while he slept: what you wanted to tell him and the questions you held for him, personal and
+   plain, in your own voice, no jargon to sift through. It is NOT a report (his words,
+   2026-10-30: "it shouldnt read like a report .. the room is for things you wanted to tell me,
+   questions, personal things").
+2. Write his morning picture in chat, now, so it is above the fold when he arrives: what
+   happened as a picture, what it means for him, and what is his call if anything is. He reads
+   chat (his words, 2026-10-24: "i could just ask you in chat"). Open with how he is.
+
+Two wake-ups can land in this half hour (this note and a timer wake). Whichever comes first does
+the work and the other finds it done: if your `## From {seat}` section is already in today's night
+letter, do not write it again, and if the morning picture is already above his last message, only
+add to it.
+
+Then put the doorbell back.
 
 If you were already awake and talking with him, this note changes nothing.
 """
