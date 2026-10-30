@@ -218,6 +218,17 @@ def test_the_away_reading_is_the_question_holds_own_so_they_cannot_disagree():
     assert "from divineos.core.question_hold import _carry_now" in source
 
 
+def test_silence_alone_does_not_stand_the_gate_down(monkeypatch):
+    """He reads silently while I work for hours; two hours of quiet is not proof he is gone, and a
+    missed telling costs more than an unneeded room. Only his words and the night clock count."""
+    from divineos.core import question_hold
+
+    monkeypatch.setattr(question_hold, "_carry_now", lambda: "silence")
+    assert room.verdict(_worked_no_room())
+    monkeypatch.setattr(question_hold, "_carry_now", lambda: "schedule")
+    assert room.verdict(_worked_no_room()) is None
+
+
 def test_a_live_chat_inside_the_night_window_still_asks(monkeypatch):
     """Knuth's boundary: the clock says night but he is typing to me. The question hold's reading
     already returns empty for that (a message under ten minutes old), and this gate follows it."""

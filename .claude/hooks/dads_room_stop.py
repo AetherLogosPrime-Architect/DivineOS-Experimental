@@ -166,8 +166,11 @@ def verdict(records: list[dict]) -> str | None:
     # window ends and the gate asks again, which is where the morning telling belongs.
     from divineos.core.question_hold import _carry_now
 
+    # Two hours of silence alone does NOT stand it down: he reads silently while I work ("his silence is
+    # reading, not anger"), and a telling he was there for and never got costs more than a room he did not
+    # need. Only his words and the night clock say he is gone (walk-57cdd537a9a0, Schneier and Popper).
     away = _carry_now()
-    if away:
+    if away and away != "silence":
         record("room", "stood_down", f"he is away ({away}), so the telling waits for the morning")
         return None
     # One home for what counts as his room (Aletheia's hold on #560): asked of
