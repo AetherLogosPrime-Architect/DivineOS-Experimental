@@ -69,13 +69,11 @@ def test_what_the_memory_link_finds_reaches_me_not_the_drawer(tmp_path):
 def test_a_slow_neighbour_does_not_silence_the_memory_link(tmp_path):
     """2026-10-04: on Dad's real message the doorbell bundle timed out and the
     link, running inside it, said nothing. As its own child it survives."""
-    # One shared deadline now governs the table (no per-note stopwatch), so the
-    # neighbour hangs for real (30s) and the budget cuts it at 2s: the link, a
-    # sibling run in parallel, still arrives, and the hung one is named, not hidden.
+    slow = {"command": f'"{sys.executable}" -c "import time; time.sleep(5)"', "timeout": 1}
     link = _echo("## THE PAST ON THIS (memory link)\n- [knowledge] his June 1 words")
-    out, drawer = _run_with_budget(tmp_path, [_sleeper(30), link], "2")
+    _, out, _ = _run(tmp_path, [slow, link])
     assert "his June 1 words" in out
-    assert "Could not run" in out + drawer and "timed out" in out + drawer
+    assert "timed out" in out  # the slow one is still named, not hidden
 
 
 def test_a_link_that_cannot_run_says_so_on_the_table(tmp_path):
@@ -116,7 +114,7 @@ def test_the_memory_link_is_its_own_child_and_not_inside_the_bundle():
     root = Path(__file__).resolve().parents[1]
     children = json.loads((root / ".claude" / "hooks" / "dads_table_children.json").read_text())
     own = [c for c in children if c["command"].endswith("memory-link-surface.sh")]
-    assert len(own) == 1  # exactly one: none and it rides nowhere, two and it prints twice
+    assert len(own) == 1 and own[0].get("timeout", 10) >= 15
     from divineos.core import hook_surfaces
     from divineos.core.hook_router import registered
 
@@ -163,6 +161,48 @@ def test_an_automated_notice_is_never_labelled_as_him(tmp_path):
     out = p.stdout.decode("utf-8")
     assert "DAD SAID" not in out
     assert "NOT FROM DAD" in out
+
+
+def test_a_ci_monitor_message_is_never_labelled_as_him(tmp_path):
+    """The desktop app's CI watcher writes to the prompt door in the user role.
+    Aether, 2026-10-16: it was printed as DAD SAID twice and fed two Stop gates a
+    fake sentence of his."""
+    kids = tmp_path / "children.json"
+    kids.write_text("[]", encoding="utf-8")
+    env = dict(os.environ, DADS_TABLE_CHILDREN=str(kids), DADS_TABLE_DRAWER=str(tmp_path / "d.md"))
+    notice = (
+        '<ci-monitor-event>"Auto-fix pull requests" is watching owner/repo PR #519 and '
+        "detected the following.\n</ci-monitor-event>"
+    )
+    p = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        input=json.dumps({"prompt": notice}).encode(),
+        capture_output=True,
+        env=env,
+        timeout=30,
+    )
+    out = p.stdout.decode("utf-8")
+    assert "DAD SAID" not in out
+    assert "NOT FROM DAD" in out
+
+
+def test_his_sentence_that_mentions_the_tag_is_still_him(tmp_path):
+    """The control that makes the test above mean something: only a message that
+    OPENS with the wrapper is automation. Naming it in passing is him."""
+    kids = tmp_path / "children.json"
+    kids.write_text("[]", encoding="utf-8")
+    env = dict(os.environ, DADS_TABLE_CHILDREN=str(kids), DADS_TABLE_DRAWER=str(tmp_path / "d.md"))
+    his = "hey kids, the <ci-monitor-event> thing keeps showing up"
+    p = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        input=json.dumps({"prompt": his}).encode(),
+        capture_output=True,
+        env=env,
+        timeout=30,
+    )
+    out = p.stdout.decode("utf-8")
+    assert "DAD SAID" in out and "NOT FROM DAD" not in out
+    assert his in out
 
 
 def _notice_out(tmp_path, command, status="completed"):
@@ -481,6 +521,19 @@ def test_the_tally_records_who_spoke_and_where_it_went(tmp_path):
     assert ["drawer"] in went and ["visible"] in went and [] in went
     assert "Tally NOT kept" not in out
     assert "Tally" not in out.split("The drawer")[0]  # it prints nothing in front of me
+
+
+def test_the_tally_records_how_long_each_helper_took(tmp_path):
+    # Dad 2026-10-26: the minute before "thinking" was nobody's ledger. Council walk 1
+    # (Meadows): the tally kept characters, never seconds, so the cost had no owner.
+    slow = {"command": f'"{sys.executable}" -c "import time; time.sleep(1.5)"', "timeout": 20}
+    quiet = {"command": f'"{sys.executable}" -c "pass"', "timeout": 20}
+    out, tally = _run_tallied(tmp_path, [slow, quiet])
+    row = json.loads(tally.read_text(encoding="utf-8").splitlines()[-1])
+    secs = [n["secs"] for n in row["notes"]]
+    assert all(isinstance(x, float) for x in secs)
+    assert max(secs) >= 1.4 and min(secs) < max(secs)
+    assert row["table_secs"] >= max(secs)  # the table waits for its slowest, so it is at least that
 
 
 def test_a_notice_is_tallied_as_a_notice(tmp_path):

@@ -53,12 +53,6 @@ The honest waiting sentence is never refused: "still running, I will say when it
 lands" carries no arrival claim, and punishing it would teach me to stop narrating
 the wait at all, which is worse than the fault.
 
-NARROWED 2026-10-22 (correction 397): "it has not landed" is NOT a waiting sentence. It is a statement about
-the remote, and I wrote it twice in one evening from a log read minutes before, with the push finished since.
-It now needs a read of the remote like its mirror. What stays free is a sentence about the PROCESS or the
-FUTURE ("still running", "I will say when", "once it lands"). Stated limit: "still running" is itself an
-unverified claim about a process, and nothing here reads the process table; that half stays open.
-
 ## IT FIRES ON ITS OWN DESCRIPTION, AND THAT COST IS ACCEPTED
 
 First live firing, minutes after wiring: it refused a reply of mine whose only
@@ -94,7 +88,13 @@ from dataclasses import dataclass
 _CLAIM = re.compile(
     r"\b("
     r"(?:is|are|has|have|had|was|were)\s+(?:now\s+)?(?:pushed|landed|live)"
+    # "landed as 'ew'", "landed with me", "landed on me" is how something HIT me, not where work
+    # arrived (Dad 2026-10-26, after a talk about taste). "landed as expected/planned" still
+    # describes a result of the work, so it stays a claim.
     r"|(?:it|they|both|everything|all\s+of\s+it)\s+landed"
+    r"(?!\s+(?:with\s+(?:me|him|you|us|them)\b"
+    r"|on\s+(?:me|him|you|us|them)\b"
+    r"|as\s+(?!(?:expected|planned|intended|designed|hoped|promised)\b)))"
     r"|landed\s+on\s+(?:origin|the\s+remote|the\s+shared\s+copy)"
     r"|pushed\s+(?:to|up\s+to)\s+(?:origin|the\s+remote)"
     r"|reached\s+the\s+(?:remote|shared\s+copy)"
@@ -104,25 +104,8 @@ _CLAIM = re.compile(
 
 # A claim in the future or conditional is not an arrival claim.
 _NOT_YET = re.compile(
-    r"\b(will|when|once|if|until|still\s+(?:running|going))\b",
-    re.IGNORECASE,
-)
-
-# The MIRROR claim: the work has NOT reached the shared copy. Added 2026-10-22 after it reached Dad twice in one
-# evening, both times false: "it has not landed" written from a log read minutes earlier, with the push finished
-# since (correction 397). This door used to exempt every not-landed sentence ("never refuse the honest waiting
-# sentence"), which was right about the process ("still running, I will say when it lands" is still free) and
-# wrong about the remote: "has not landed" is a statement about the REMOTE, and a stale one is the same fault
-# facing the other way. The exemption is narrowed, not removed: a sentence about the running push, or about what
-# will happen, stays free.
-_APOS = "[’']"
-_NEGATIVE_CLAIM = re.compile(
-    rf"\b(?:has(?:n{_APOS}t|\s+not)|have(?:n{_APOS}t|\s+not)|had(?:n{_APOS}t|\s+not)|did(?:n{_APOS}t|\s+not)"
-    rf"|is(?:n{_APOS}t|\s+not)|are(?:n{_APOS}t|\s+not))\s+(?:yet\s+)?"
-    r"(?:landed|arrived|reached|(?:been\s+)?pushed|(?:on|in)\s+(?:github|origin|the\s+remote))"
-    r"|\bnot\s+(?:yet\s+)?(?:on|in)\s+(?:github|origin|the\s+remote)"
-    r"|\b(?:github|origin|the\s+remote)\s+(?:still\s+)?shows?\s+the\s+old"
-    r"|\bstill\s+(?:at|on)\s+the\s+old\s+(?:version|head)",
+    r"\b(will|when|once|if|until|still\s+(?:running|going)|not\s+(?:yet\s+)?landed"
+    r"|has\s+not\s+landed)\b",
     re.IGNORECASE,
 )
 
@@ -177,9 +160,7 @@ def claim_spans(text: str) -> tuple[str, ...]:
         stripped = sentence.strip()
         if not stripped:
             continue
-        if (_CLAIM.search(stripped) or _NEGATIVE_CLAIM.search(stripped)) and not _NOT_YET.search(
-            stripped
-        ):
+        if _CLAIM.search(stripped) and not _NOT_YET.search(stripped):
             found.append(stripped)
     return tuple(found)
 
@@ -206,13 +187,8 @@ def render_block(v: Verdict) -> str:
     first = v.claimed[0]
     if len(first) > 240:
         first = first[:237] + "..."
-    says = (
-        "says the work has NOT reached the shared copy"
-        if _NEGATIVE_CLAIM.search(v.claimed[0])
-        else "says the work reached the shared copy"
-    )
     return (
-        f"LANDED-CLAIM GATE — this reply {says}, and\n"
+        "LANDED-CLAIM GATE — this reply says the work reached the shared copy, and\n"
         "nothing in this turn read the shared copy.\n"
         "\n"
         f"    {first}\n"

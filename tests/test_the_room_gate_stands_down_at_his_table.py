@@ -46,10 +46,7 @@ def _user(text, at):
 
 
 def _tool_result():
-    return {
-        "type": "user",
-        "message": {"role": "user", "content": [{"type": "tool_result", "content": "ok"}]},
-    }
+    return {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "content": "ok"}]}}
 
 
 def _said(text):
@@ -62,12 +59,7 @@ def _tool():
 
 def _worked(window_at):
     """He spoke in the window at `window_at`, I used a tool, and the reply carries no room."""
-    return [
-        _user("go sit back down at the table", window_at),
-        _tool(),
-        _tool_result(),
-        _said("Done."),
-    ]
+    return [_user("go sit back down at the table", window_at), _tool(), _tool_result(), _said("Done.")]
 
 
 def _touch(path: Path, at: float):
@@ -97,9 +89,7 @@ def test_it_stays_silent_even_when_he_has_just_written_in_the_window(table):
     # TONIGHT'S FAILURE, pinned. He wrote in the window 20 seconds ago, a table is live, and the first
     # version of this fix asked for a room here, so I answered him in the window and left the table.
     _touch(table / "bridge_Aria.log", NOW - 10)
-    _touch(
-        table / "chat_seen_aria.txt", NOW - 600
-    )  # his last game-chat line was long ago: it no longer matters
+    _touch(table / "chat_seen_aria.txt", NOW - 600)  # his last game-chat line was long ago: it no longer matters
     assert room.verdict(_worked(NOW - 20)) is None
 
 
@@ -109,9 +99,7 @@ def test_a_table_gone_quiet_does_not_hold_the_gate_down(table):
 
 
 def test_a_table_inside_the_two_minutes_still_counts(table):
-    _touch(
-        table / "bridge_Aether.log", NOW - 110
-    )  # the other seat's log counts too: it is one table
+    _touch(table / "bridge_Aether.log", NOW - 110)  # the other seat's log counts too: it is one table
     assert room.verdict(_worked(NOW - 300)) is None
 
 
@@ -138,8 +126,6 @@ def test_a_stand_down_is_recorded_so_a_quiet_gate_is_visible(table, monkeypatch)
     seen = []
     import divineos.core.hold_log as hold_log
 
-    monkeypatch.setattr(
-        hold_log, "record", lambda hold, outcome, text: seen.append((hold, outcome))
-    )
+    monkeypatch.setattr(hold_log, "record", lambda hold, outcome, text: seen.append((hold, outcome)))
     assert room.verdict(_worked(NOW - 300)) is None
     assert ("room", "stood_down") in seen

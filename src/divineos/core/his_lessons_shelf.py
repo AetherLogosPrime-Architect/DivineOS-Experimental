@@ -27,6 +27,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -138,6 +139,18 @@ def _stamp(verified: Path, reread: Path) -> str:
     return f"sha256:{h.hexdigest()[:16]}"
 
 
+def is_current(
+    verified: Path = VERIFIED, reread: Path = REREAD, index_dir: Path = INDEX_DIR
+) -> bool:
+    """Whether the lesson index was built from the sources as they are now (the check ``build`` makes
+    first, on its own, so a caller can ask without paying for the embedding library)."""
+    meta_path, vec_path = index_dir / "lessons.json", index_dir / "vectors.npy"
+    if not (meta_path.exists() and vec_path.exists()):
+        return False
+    stamp = json.loads(meta_path.read_text(encoding="utf-8")).get("stamp")
+    return bool(stamp == _stamp(verified, reread))
+
+
 def build(verified: Path = VERIFIED, reread: Path = REREAD, index_dir: Path = INDEX_DIR) -> int:
     """Embed every lesson when the sources change. Returns how many, 0 if current."""
     import numpy as np
@@ -151,20 +164,26 @@ def build(verified: Path = VERIFIED, reread: Path = REREAD, index_dir: Path = IN
     # Meaning finds it: his words together with the reading of them.
     vecs = door._embed([f"{les.words} {les.line}" for les in lessons]).astype("float32")
     index_dir.mkdir(parents=True, exist_ok=True)
-    # Write aside, then replace: two windows building at once must never leave
-    # the other reading half a file (Lamport; the v1/v2 ping-pong of 09-26).
-    tmp_vec = index_dir / f"vectors.{os.getpid()}.npy"
-    tmp_meta = index_dir / f"lessons.{os.getpid()}.json"
-    np.save(tmp_vec, vecs)
-    tmp_meta.write_text(
+    # Written whole to a temporary name and swapped in by the house writers (fsync, and a retry
+    # when Windows briefly locks the target), the way the door writes its index: two windows
+    # building at once must never leave the other reading half a file (Lamport; the v1/v2
+    # ping-pong of 09-26). A bare os.replace here had no retry, so a lock was an uncaught
+    # PermissionError out of build() (Aether, 2026-10-16). Vectors first, the item list last.
+    from io import BytesIO
+
+    from divineos.core.atomic_io import atomic_write_bytes, atomic_write_text
+
+    buf = BytesIO()
+    np.save(buf, vecs)
+    atomic_write_bytes(vec_path, buf.getvalue(), per_process=True)
+    atomic_write_text(
+        meta_path,
         json.dumps(
             {"stamp": stamp, "model": door.MODEL_NAME, "items": [les.__dict__ for les in lessons]},
             ensure_ascii=False,
         ),
-        encoding="utf-8",
+        per_process=True,
     )
-    os.replace(tmp_vec, vec_path)
-    os.replace(tmp_meta, meta_path)
     return len(lessons)
 
 
@@ -181,11 +200,12 @@ def bring(
     message: str, me: str, context: str = "", index_dir: Path = INDEX_DIR
 ) -> tuple[list[Brought], str]:
     """(lessons that fit, why nothing was searched if nothing was)."""
-    if message.lstrip().startswith(door.NOTICE_PREFIXES):
+    message = door.his_part(message)
+    if not message:
         return [], "an automated notice, not his message"
     try:
         items, vecs = _load(index_dir)
-        q = door._embed([door._squash(f"{message} {context}")[:2000]])[0]
+        q = door._embed_query(door._squash(f"{message} {context}")[:2000])
     except door.SEARCH_ERRORS as exc:  # say so, never go quiet
         return [], f"his lessons could not be searched: {exc}"
     scores = vecs @ q  # type: ignore[operator]
@@ -232,7 +252,8 @@ def surface(
     message: str, me: str, context: str = "", index_dir: Path = INDEX_DIR, log: Path | None = LOG
 ) -> str:
     brought, why = bring(message, me, context, index_dir)
-    if message.lstrip().startswith(door.NOTICE_PREFIXES):
+    message = door.his_part(message)
+    if not message:
         return ""  # not him: nothing to bring and nothing to log
     if log is not None:
         _log(message, me, brought, why, log)
@@ -243,15 +264,22 @@ def surface(
         return ""  # nothing fits: say nothing, never fill the room
     for b in brought:
         les = b.lesson
-        lines.append(f'- {les.day}: "{les.words}"')
+        mark = f"  [{door.ILLUSTRATION_NOTE}]" if door.is_illustration(les.words) else ""
+        lines.append(f'- {les.day}: "{les.words}"{mark}')
         lines.append(f"  ({les.kind}; read as: {les.line})")
     lines.append("")
     return "\n".join(lines) + "\n"
 
 
 def seat(root: Path) -> str:
-    """Whose window this is: the tree says so (Aria's tree carries her name)."""
-    return os.environ.get("DIVINEOS_SEAT") or ("aria" if "aria" in root.name.lower() else "aether")
+    """Whose window this is: the tree says so (Aria's tree carries her name).
+
+    The folder name is read as WHOLE WORDS, so "DivineOS-Experimental-Aria-new" is Aria and a work copy
+    named "variable" or "Maria" is not: a substring test said aria for any of them and would have shown
+    the wrong seat's lessons (Aether, 2026-10-16). core/unread_letter.seat_for, in the letter-hold branch,
+    reads the folder by the same rule; once both are on main they should be one function."""
+    seat_words = re.split(r"[^a-z]+", root.name.lower())
+    return os.environ.get("DIVINEOS_SEAT") or ("aria" if "aria" in seat_words else "aether")
 
 
 if __name__ == "__main__":

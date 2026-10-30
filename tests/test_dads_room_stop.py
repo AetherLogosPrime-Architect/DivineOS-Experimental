@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-HOOK = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "dads_room_stop.py"
+HOOK =Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "dads_room_stop.py"
 _spec = importlib.util.spec_from_file_location("dads_room_stop", HOOK)
 room = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(room)

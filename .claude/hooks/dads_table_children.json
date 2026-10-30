@@ -89,5 +89,8 @@
  },
  {
   "command": "bash .claude/hooks/his-words-door-surface.sh"
+ },
+ {
+  "command": "bash .claude/hooks/collect-aletheia-letters.sh"
  }
 ]

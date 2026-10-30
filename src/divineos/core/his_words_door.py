@@ -41,6 +41,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from divineos.core.his_message import typed_part
+
 MODEL_NAME = "all-MiniLM-L6-v2"
 CORPUS = Path.home() / ".divineos-shared" / "dad_corpus" / "dad_all.jsonl"
 INDEX_DIR = Path.home() / ".divineos-shared" / "dad_corpus" / "index"
@@ -52,6 +54,50 @@ MIN_SIGNAL_WORDS = 4  # below this his message alone carries no query (Peirce)
 PASSAGE_CHARS = 400
 MIN_PASSAGE_CHARS = 25
 NOTICE_PREFIXES = ("<task-notification", "<system-reminder", "<ci-monitor-event", "<local-command")
+_NOTICE_BLOCK = re.compile(
+    r"<(task-notification|system-reminder|ci-monitor-event|local-command[\w-]*)\b.*?</\1>", re.S
+)
+
+
+# HIS PICTURES ARE NOT HIS BIOGRAPHY (correction 390, 2026-10-16). He asked what the
+# sandwich and the fifteen cars were; I had listed them as things I knew about him. Both
+# were pictures he used to teach. I kept the vivid image and dropped what KIND of sentence
+# it was, so an analogy became a biography.
+#
+# Measured on his 17,152 real passages: 3.4% match. Bare "like a", "as if" and "its like
+# <anything>" were left out, because "spoken to like a regular person" is an ASK of his
+# and "its like you keep framing this as my project" is a complaint, neither a picture.
+#
+# THIS IS A LEXICAL PRIMING AID, NOT A CLASSIFIER. It catches pictures that announce
+# themselves; a picture that does not passes unmarked, so an unmarked passage is not
+# thereby a fact about his life. The mark is a caution on a passage that is printed
+# whole, never a reason to drop it.
+_ILLUSTRATION_CUES = re.compile(
+    r"\b(think of|imagine|picture (?:it|this|that|a|an)\b|lets say|let's say|"
+    r"say you (?:had|were|have)|for example|for instance|as an example|an analogy|"
+    r"analogy|metaphor|its like (?:a|an|the|when|if|i told)\b|"
+    r"it's like (?:a|an|the|when|if|i told)\b|is like a\b|just like (?:a|an|when|if)\b|"
+    r"kind of like (?:a|an|the)\b|the difference between)\b",
+    re.I,
+)
+ILLUSTRATION_NOTE = "may be a picture he used to teach, not a fact about his life"
+
+
+def is_illustration(text: str) -> bool:
+    """Does this passage of his announce itself as a picture, an example or an analogy?"""
+    return bool(_ILLUSTRATION_CUES.search(text or ""))
+
+
+def his_part(message: str) -> str:
+    """His own words in a turn, with the automated notices cut out; "" when nothing of his is left.
+
+    The notice test used to be "the message STARTS with a notice prefix", so a turn that opened with a
+    task notification and then carried his sentence was read as all notice and his words were never
+    searched (Aether saw it in the same window on 2026-10-16, the turn where he said he had deleted
+    the helper window). A turn that is only notice still comes back empty, as before, and so does one
+    whose notice is never closed, since text after an open tag cannot be told apart from the tag's own."""
+    rest = _NOTICE_BLOCK.sub(" ", message).strip()
+    return "" if rest.startswith(NOTICE_PREFIXES) else rest
 
 
 @dataclass(frozen=True)
@@ -92,9 +138,26 @@ def _is_this_message(passage: str, message: str) -> bool:
     return bool(p) and bool(m) and (p in m or m in p)
 
 
+# Text he pasted INTO a message is not his typing, and the cut lives in his_message.typed_part, its one home:
+# it ends a paste at the closing tag carrying the SAME id, so a pasted letter that itself quotes these tags
+# cannot let its remainder through as his typing (Aletheia's condition on this PR, 2026-10-17; the first
+# cutter here ended at the first closing tag).
+
+
 def passages_of(text: str) -> list[str]:
-    """Cut one message to quote-size pieces on his own pauses (Bengio)."""
-    parts = re.split(r"(?<=[.!?])\s+|\.\.\s+|\n+", text)
+    """Cut one message to quote-size pieces on his own pauses (Bengio).
+
+    Text he pasted into the message is cut out first: it is someone else's words (a letter of
+    Aletheia's, a dream of mine, a web page), and this door's whole promise is that what it prints
+    is what he typed. His own words around the block stay.
+
+    The cut falls AFTER his two dots and never through them: a split alternative that consumed ".."
+    turned "after all.. plus all the failures" into "after all plus all the failures", dropping his
+    marks and running two thoughts together, while the door says his words print as he wrote them
+    (probed 2026-10-16, walk-7c48d8c7f6e0). The sentence-end rule below already splits after a dot,
+    so the two dots stay on the piece they close."""
+    text = typed_part(text)
+    parts = re.split(r"(?<=[.!?])\s+|\n+", text)
     out, buf = [], ""
     for p in parts:
         if len(buf) + len(p) > PASSAGE_CHARS and buf:
@@ -117,11 +180,19 @@ def _cleaner_stamp() -> str:
     """
     import inspect
 
-    from divineos.core import his_words_corpus
+    from divineos.core import his_message, his_words_corpus
 
+    # passages_of only CALLS typed_part, so the paste cutter and the "whose message" cut it stands on are hashed
+    # too: an edit to either (a new tag form, a new closing rule) must retire an index cut by the old rule
+    # (Aether, reading this PR, 2026-10-24).
     parts = [
         inspect.getsource(his_words_corpus),
         inspect.getsource(passages_of),
+        inspect.getsource(his_message.typed_part),
+        inspect.getsource(his_message._cut_pastes),
+        inspect.getsource(his_message._his_part),
+        his_message._PASTE_OPEN.pattern,
+        his_message._PASTE_ID.pattern,
         f"{PASSAGE_CHARS}|{MIN_PASSAGE_CHARS}|{MODEL_NAME}",
     ]
     digest = hashlib.sha256("\n".join(parts).replace("\r\n", "\n").encode("utf-8")).hexdigest()
@@ -186,15 +257,43 @@ def _embed(texts: list[str]):
     )
 
 
+def _embed_query(text: str):
+    """The vector for ONE sentence being searched for, from the light embedder.
+
+    The heavy toolkit costs eight to seventeen seconds to import in every fresh process, and the
+    prompt helpers are a fresh process every message (measured 2026-10-28: this door alone took 11.5 s
+    of the 35 s the helpers cost before Dad's words reach me). The light embedder runs the same model
+    in about 0.05 s to load. On 40 of his real passages the two vectors agreed to six places, and 12
+    queries against the stored index returned the same top five (Aether, 2026-10-28). One path: if the
+    light embedder cannot run, EmbedderUnavailable (a RuntimeError, so one of SEARCH_ERRORS) is said
+    aloud by the caller; this never reaches for the heavy toolkit, because that fall-back is the wait
+    this exists to end. Building the index still uses the heavy model, in the background, never here."""
+    from divineos.core import light_embedder
+
+    return light_embedder.encode(text)
+
+
 def _key(p: Passage) -> str:
     return hashlib.sha256(f"{p.ts}|{p.text}".encode("utf-8")).hexdigest()
 
 
-def build_index(corpus: Path = CORPUS, index_dir: Path = INDEX_DIR) -> int:
-    """Embed every passage not yet in the index. Returns how many were added.
+# What one hook run embeds at most. A full pass over his real corpus (14,795
+# passages) took 64.9 seconds on a quiet machine; the hook is killed at 30. A run
+# of 1,500 measured 12.1 seconds with the model's load included, too much of a
+# budget the search and the lesson shelf also draw on, so 800: about 8 seconds, and
+# the whole corpus catches up in about 19 turns.
+MAX_EMBED_PER_RUN = 800
+
+
+def build_index(
+    corpus: Path = CORPUS, index_dir: Path = INDEX_DIR, limit: int | None = None
+) -> int:
+    """Embed the passages not yet in the index, at most ``limit`` (default
+    MAX_EMBED_PER_RUN) per call. Returns how many were added.
 
     Incremental: new words of his cost only their own embedding. A model change
-    re-embeds everything rather than mixing two models' vectors (Knuth).
+    re-embeds everything, over as many runs as it takes, rather than mixing two
+    models' vectors (Knuth).
     """
     import numpy as np
 
@@ -206,16 +305,60 @@ def build_index(corpus: Path = CORPUS, index_dir: Path = INDEX_DIR) -> int:
         meta = {"model": MODEL_NAME, "cleaner": CLEANER, "items": []}
     elif vec_path.exists():
         vecs = np.load(vec_path)
+    # A build killed between its two writes leaves the files disagreeing (Aether,
+    # 2026-10-05). Vectors are written first and in item order, so the only tear the
+    # write order can produce is vectors AHEAD of items, and then row i still belongs
+    # to item i: keep the first len(items) rows and let the passages the lost item
+    # list never recorded be embedded again. A full re-embed of his real corpus took
+    # 64.9 seconds and the hook is killed at 30, so it would never finish. Fewer
+    # vectors than items (an older torn pair, a hand edit) or a missing file leaves
+    # no row to trust: start over.
+    healed = False
+    if vecs is not None and len(vecs) > len(meta["items"]):
+        vecs = vecs[: len(meta["items"])] if meta["items"] else None
+        healed = True
+    elif (vecs is None) != (not meta["items"]) or (
+        vecs is not None and len(vecs) < len(meta["items"])
+    ):
+        meta = {"model": MODEL_NAME, "cleaner": CLEANER, "items": []}
+        vecs = None
     known = {i["key"] for i in meta["items"]}
     fresh = [p for p in load_passages(corpus) if _key(p) not in known]
-    if not fresh:
+    # Bounded work per run: what a hook can finish before it is killed. The rest
+    # waits for the next run; each run saves a consistent pair, so the index only
+    # ever grows toward whole (and a search over a partial index is still valid).
+    fresh = fresh[: MAX_EMBED_PER_RUN if limit is None else limit]
+    if not fresh and not (healed and vecs is not None):
         return 0
-    new = _embed([p.text for p in fresh]).astype("float32")
-    vecs = new if vecs is None else np.vstack([vecs, new])
-    meta["items"] += [{"key": _key(p), "text": p.text, "day": p.day, "ts": p.ts} for p in fresh]
-    np.save(vec_path, vecs)
-    meta_path.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+    if fresh:
+        new = _embed([p.text for p in fresh]).astype("float32")
+        vecs = new if vecs is None else np.vstack([vecs, new])
+        meta["items"] += [{"key": _key(p), "text": p.text, "day": p.day, "ts": p.ts} for p in fresh]
+    if vecs is None:  # a heal that left no rows and nothing to embed: nothing to save
+        return 0
+    # Each file is written whole to a temporary name and swapped in, by the house
+    # writers (fsync, and a retry when Windows briefly locks the target). Vectors
+    # first, the item list last, so a kill between them always leaves vectors AHEAD
+    # of items: a mismatch _load_index detects, never a quiet wrong quote.
+    from io import BytesIO
+
+    from divineos.core.atomic_io import atomic_write_bytes, atomic_write_text
+
+    buf = BytesIO()
+    np.save(buf, vecs)
+    atomic_write_bytes(vec_path, buf.getvalue(), per_process=True)
+    atomic_write_text(meta_path, json.dumps(meta, ensure_ascii=False), per_process=True)
     return len(fresh)
+
+
+def unindexed(corpus: Path = CORPUS, index_dir: Path = INDEX_DIR) -> int:
+    """How many of his passages are not in the index yet: the work still to do."""
+    meta_path = index_dir / "passages.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+    if meta.get("model") != MODEL_NAME or meta.get("cleaner") != CLEANER:
+        return len(load_passages(corpus))
+    known = {i["key"] for i in meta["items"]}
+    return sum(1 for p in load_passages(corpus) if _key(p) not in known)
 
 
 def _load_index(index_dir: Path):
@@ -225,12 +368,19 @@ def _load_index(index_dir: Path):
     if meta.get("model") != MODEL_NAME:
         raise ValueError(f"index built with {meta.get('model')}, not {MODEL_NAME}")
     items = [Passage(text=i["text"], day=i["day"], ts=i["ts"]) for i in meta["items"]]
-    return items, np.load(index_dir / "vectors.npy")
+    vecs = np.load(index_dir / "vectors.npy")
+    if len(vecs) != len(items):
+        raise ValueError(
+            f"the index disagrees with itself ({len(items)} passages, {len(vecs)} vectors): "
+            "a build was cut off, and the next build rebuilds it"
+        )
+    return items, vecs
 
 
 def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
     """What has he said before that means what he is saying now."""
-    if message.lstrip().startswith(NOTICE_PREFIXES):
+    message = his_part(message)
+    if not message:
         return Door([], [], looked=False, reason="an automated notice, not his message")
     words = re.findall(r"[a-zA-Z']+", message)
     if len(words) < MIN_SIGNAL_WORDS and not context.strip():
@@ -240,7 +390,7 @@ def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
     except (OSError, ValueError) as exc:
         return Door([], [], looked=False, reason=f"his words could not be searched: {exc}")
     try:
-        q = _embed([_squash(message + " " + context)])[0]
+        q = _embed_query(_squash(message + " " + context))
     except SEARCH_ERRORS as exc:  # the model is an import away from failing; say so, never go quiet
         return Door([], [], looked=False, reason=f"his words could not be searched: {exc}")
     scores = vecs @ q
@@ -273,61 +423,6 @@ def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
     return Door(hits=hits[:SHOW], repeats=repeats, looked=True)
 
 
-HOLD_FLOOR = 0.60  # measured on the 2026-09-26 replay of real replies; see tests
-SAME_THING = 0.60  # two passages of his this close say the same thing
-
-
-def _quoted_in(passage: str, reply: str) -> bool:
-    """Already answered in the reply (Hofstadter): a reply that quotes him is
-    the right move and must never be held for matching him."""
-    head = _squash(passage)[:40].lower()
-    return len(head) >= 20 and head in _squash(reply).lower()
-
-
-def owed_in_reply(reply: str, his_message: str = "", index_dir: Path = INDEX_DIR) -> Hit | None:
-    """Something he has said that speaks to what I am about to send him, and
-    that the reply does not yet quote and answer. His rule, 2026-09-26: "my
-    words AND your words should trigger it". The query is my own reply -- the
-    natural-language act, never command syntax (Hinton)."""
-    if his_message.lstrip().startswith(NOTICE_PREFIXES) or not reply.strip():
-        return None
-    try:
-        items, vecs = _load_index(index_dir)
-        q = _embed([_squash(reply)[:2000]])[0]
-    except SEARCH_ERRORS:
-        return None  # the prompt-side door already says loudly when search is down
-    scores = vecs @ q
-    top = [int(i) for i in scores.argsort()[::-1][:25]]
-    # What the reply already quotes and answers. A reply that has taken up his
-    # words on a thing has answered the thing: another passage of his saying the
-    # same must not hold it, or the check nags (found by the pin test 2026-09-26:
-    # three circle asks quoted, held over a fourth).
-    answered = [i for i in top if _quoted_in(items[i].text, reply)]
-    for i in top:
-        s = float(scores[i])
-        if s < HOLD_FLOOR:
-            return None
-        p = items[i]
-        if _is_this_message(p.text, his_message):
-            continue
-        if i in answered or any(float(vecs[i] @ vecs[a]) >= SAME_THING for a in answered):
-            continue
-        return Hit(p, s)
-    return None
-
-
-def hold_reason(hit: Hit) -> str:
-    p = hit.passage
-    return (
-        "HE HAS SAID THIS BEFORE, and it speaks to what you are about to send him.\n"
-        f'On {p.day} he said: "{p.text}"\n\n'
-        "Answer it before this goes to him -- his rule: \"i say you said: 'insert your "
-        "words here' and then i say what i wanted to say about it, so its not mirroring "
-        'its addressing what someone said with your own words". Quote him, then say '
-        "what you have to say about it. Append only that; do not re-post the reply."
-    )
-
-
 def surface(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> str:
     door = look(message, context, index_dir)
     lines = ["## HE HAS SAID THIS BEFORE (found by meaning, his words as he wrote them)", ""]
@@ -335,8 +430,10 @@ def surface(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> str
         lines.append(f"Not searched this turn: {door.reason}.")
         return "\n".join(lines) + "\n"
     if not door.hits:
-        lines.append("Looked through everything he has said. Nothing close to this.")
-        return "\n".join(lines) + "\n"
+        # Silent on purpose (Aletheia's hold, 2026-10-16): his rule for the lessons shelf is
+        # "nothing when nothing fits: silence is fine, wallpaper is not". A search that ran and
+        # found nothing says nothing; only a search that could not run is spoken above.
+        return ""
     if len(door.repeats) >= 2:
         first = door.repeats[0].passage
         dates = ", ".join(r.passage.day[5:] for r in door.repeats)
@@ -346,7 +443,8 @@ def surface(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> str
         )
         lines.append("")
     for h in door.hits:
-        lines.append(f'- {h.passage.day} ({h.score:.2f}): "{h.passage.text}"')
+        mark = f"  [{ILLUSTRATION_NOTE}]" if is_illustration(h.passage.text) else ""
+        lines.append(f'- {h.passage.day} ({h.score:.2f}): "{h.passage.text}"{mark}')
     lines.append("")
     lines.append(
         "Said on the dates shown. None of it is how he feels now; "
@@ -359,7 +457,10 @@ if __name__ == "__main__":
     import sys
 
     if sys.argv[1:2] == ["build"]:
-        print(f"added {build_index()} passage(s) to his index")
+        added = build_index()
+        left = unindexed()
+        print(f"added {added} passage(s) to his index; {left} still to add")
+        sys.exit(3 if left else 0)  # nonzero while behind, so the hook can say so
     else:
         payload = json.loads(sys.stdin.read() or "{}")
         print(surface(str(payload.get("prompt", ""))), end="")

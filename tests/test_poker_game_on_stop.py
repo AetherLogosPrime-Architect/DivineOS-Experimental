@@ -47,6 +47,23 @@ def test_a_move_restarts_the_idle_clock_so_a_real_game_is_never_let_go():
     assert reason and marker == {"turn": 7, "since": NOW}
 
 
+def test_a_seat_the_table_is_playing_for_is_not_held():
+    """Dad, 2026-10-29: told to wait, both seats were stuck in the game and he had to interrupt. An away
+    seat is already played by the table by pot odds, so leaving cannot drop it out of the game, which is
+    the one thing the hold exists to prevent."""
+    view = {"hand": 3, "live": True, "turn": 7, "away": ["aria"]}
+    assert hook.verdict(view, {}, NOW, "aria")[0] is None
+    assert hook.decide(view, False, False, {}, NOW, "aria")[0] is None
+    # control: the other seat, not away, is still held, so the lift is about this seat only
+    assert hook.verdict(view, {}, NOW, "aether")[0] is not None
+
+
+def test_a_seat_that_is_not_away_is_still_held_when_he_spoke_to_put_it_back():
+    view = {"hand": 3, "live": True, "turn": 7, "away": []}
+    hold, _ = hook.decide(view, True, False, {}, NOW, "aria")
+    assert hold and "Do not re-post" in hold["reason"]
+
+
 ROOT = str(Path(__file__).resolve().parents[1])
 
 

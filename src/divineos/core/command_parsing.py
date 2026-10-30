@@ -817,7 +817,9 @@ def _link_matches(link: list[str], prefix: tuple[str, ...]) -> bool:
     """
     if len(link) < len(prefix):
         return False
-    return all(got == want or _names_this_repos_file(got, want) for got, want in zip(link, prefix))
+    return all(
+        got == want or _names_this_repos_file(got, want) for got, want in zip(link, prefix)
+    )
 
 
 def runs_only(command: str, allowed: tuple[tuple[str, ...], ...]) -> bool:

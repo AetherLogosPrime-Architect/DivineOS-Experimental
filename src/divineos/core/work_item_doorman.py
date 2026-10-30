@@ -712,9 +712,11 @@ _HOW = {
     "rough draft": "write docs/drafts/<name>_draft_<date>.md -- the idea, not a plan",
     "council walk": (
         'divineos walk open "<the question>" then `walk apply <id> <Lens> '
-        "--finding ...` (the lens is positional; there is no --lens) for each lens surfaced, then `walk close <id>`. "
-        "NOT `mansion council --show`: that primes lenses into context and "
-        "satisfies nothing here."
+        '--finding "..." --question N` for each lens surfaced (the first apply for a '
+        "lens refuses and DELIVERS the lens: read it, then apply again naming the "
+        "question you answer), then `walk close <id>`. "
+        "NOT `mansion council --show` alone: that primes a lens into context and "
+        "writes no closed walk, which is what this check reads."
     ),
 }
 

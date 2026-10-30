@@ -56,6 +56,10 @@ def verdict(view: dict | None, seen: dict, now: float, who: str) -> tuple[str | 
     """(reason to hold, the new idle marker). No reason means the reply may end."""
     if not game_is_on(view):
         return None, {}
+    # An away seat is played by the table by pot odds, so leaving cannot drop it out of the game, which is
+    # all the hold is for. Dad, 2026-10-29: told to wait, both of us were stuck and he had to interrupt.
+    if who in ((view or {}).get("away") or []):
+        return None, {}
     turn = (view or {}).get("turn")
     if seen.get("turn") == turn and now - float(seen.get("since", now)) > IDLE_SECONDS:
         return None, seen  # nothing has moved for a long while: the game was walked away from

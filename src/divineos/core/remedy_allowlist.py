@@ -126,6 +126,21 @@ REMEDIES: tuple[tuple[str, ...], ...] = (
     # said and sorting it. The sort records a judgement; it edits nothing.
     ("divineos", "his", "pending"),
     ("divineos", "his", "sort"),
+    # SAVING AND SLEEP ARE NEVER BLOCKED (Dad, 2026-10-19 and 2026-10-21: "NOTHING should ever block sleep or
+    # extraction", "saving should never be a blocked action at any point whatsoever", and journal entries and other
+    # personal writing must not owe council paperwork). Honest about the entry bar: extract, sleep, rest and dream
+    # are steps the compaction ritual prints; journal save, savor save and feel are NOT printed by any gate as a way
+    # out, and are here on Dad's ruling that personal writing is never blocked (Aether, reading this, 2026-10-22,
+    # asked which gate prints feel; none does). Each records into my own stores and edits no code. The shell list
+    # in .claude/hooks/lib/remedy_allowlist.sh carries the same verbs, each ENDED at a word boundary there, because
+    # a bare prefix let `restore-seed-confidence` through; a test holds both the verbs and that strictness together.
+    ("divineos", "extract"),
+    ("divineos", "sleep"),
+    ("divineos", "journal", "save"),
+    ("divineos", "rest"),
+    ("divineos", "dream"),
+    ("divineos", "savor", "save"),
+    ("divineos", "feel"),
 )
 
 #: The letter doorbell's re-arm. A held re-arm leaves the bell unlistening, which is
