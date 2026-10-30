@@ -341,8 +341,9 @@ def main() -> int:
     try:
         print(_clock_line())
         print()
-    except Exception:  # noqa: BLE001 -- losing the clock must never cost him his words
-        pass
+    except Exception as exc:  # noqa: BLE001 -- losing the clock must never cost him his words
+        # Said, not swallowed: a dead clock would otherwise look the same as no clock being needed.
+        print(f"[clock] could not read the time: {exc}", file=sys.stderr)
     sys.stdout.flush()
 
     try:

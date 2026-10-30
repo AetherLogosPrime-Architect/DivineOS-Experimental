@@ -225,6 +225,8 @@ def test_a_clock_that_fails_still_leaves_his_words_printed_and_the_exit_at_zero(
     assert (
         "THE CLOCK where he is:" not in out
     )  # control: the broken clock really was the one that ran
+    # Aria's read of #742: losing the clock is said on stderr, not silent.
+    assert "[clock] could not read the time: the clock is gone" in p.stderr.decode("utf-8")
 
 
 def test_an_automated_notice_carries_the_clock_too(tmp_path):
