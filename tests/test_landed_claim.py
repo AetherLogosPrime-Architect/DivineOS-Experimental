@@ -112,6 +112,39 @@ def test_it_fires_on_its_own_description_and_that_is_recorded_not_suppressed() -
     assert claim_spans(describing_the_door) != ()
 
 
+def test_live_about_something_that_is_not_git_work_is_not_an_arrival_claim() -> None:
+    """Dad 2026-10-30: "do not suffer the gates ... false alarms means something is broken".
+
+    The bare word fired on a poker table page that was live in a browser, and on a sentence that only talked
+    about this door. A page, a table or a game being live says nothing about the shared copy.
+    """
+    for sentence in (
+        "The chat addressing is live on your table.",
+        "It is live on the page now.",
+        'The one that flagged a "this is live" claim right after I had checked it was live.',
+        "The scratch table was live on port 8792.",
+    ):
+        assert claim_spans(sentence) == (), sentence
+
+
+def test_live_about_git_work_is_still_a_claim_and_still_refused() -> None:
+    """The narrowing keeps the real shape: work reaching the shared copy, said with a git word."""
+    for sentence in (
+        "PR #741 is live on GitHub.",
+        "The branch is now live.",
+        "The draft has been live on origin since this morning.",
+        "The commit is live on main.",
+    ):
+        assert claim_spans(sentence) != (), sentence
+    assert assess("The branch is live.", RECEIPT_ONLY).refuses
+
+
+def test_the_other_arrival_phrases_stay_bare() -> None:
+    """Only the word live needed a git word; pushed, landed and reached the remote name the destination."""
+    for sentence in ("It is pushed.", "Everything landed.", "It reached the remote."):
+        assert claim_spans(sentence) != (), sentence
+
+
 def test_the_detector_is_not_matching_everything() -> None:
     """Control, in both directions.
 

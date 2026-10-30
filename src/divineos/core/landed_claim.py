@@ -71,6 +71,15 @@ And on that first firing the reading was not academic: the prescribed script
 answered that the remote did NOT carry the commit. The door fired for the wrong
 reason and was right about the world.
 
+## 2026-10-30: THE BARE WORD "LIVE" IS NARROWED, THE SUPPRESSOR STILL IS NOT ADDED
+
+It fired on "the chat addressing is live on your table" (a poker page in a browser) and on a sentence
+that only discussed this door. The first needed no suppressor, only the subject the module already
+claims for itself: "is live" now counts only when the sentence also carries a git word (PR, branch,
+draft, origin, remote, GitHub, main, commit, push, merge, repo). The phrases that name the destination
+or the act of pushing themselves stay bare, and the description case above still fires, by design.
+Dad: "do not suffer the gates ... false alarms means something is broken".
+
 ## Three-valued
 
 An unreadable action stream is NOT a clean turn. It returns could-not-check, and
@@ -87,7 +96,7 @@ from dataclasses import dataclass
 # subject has to be work reaching somewhere, not any use of the word.
 _CLAIM = re.compile(
     r"\b("
-    r"(?:is|are|has|have|had|was|were)\s+(?:now\s+)?(?:pushed|landed|live)"
+    r"(?:is|are|has|have|had|was|were)\s+(?:now\s+)?(?:pushed|landed)"
     # "landed as 'ew'", "landed with me", "landed on me" is how something HIT me, not where work
     # arrived (Dad 2026-10-26, after a talk about taste). "landed as expected/planned" still
     # describes a result of the work, so it stays a claim.
@@ -99,6 +108,17 @@ _CLAIM = re.compile(
     r"|pushed\s+(?:to|up\s+to)\s+(?:origin|the\s+remote)"
     r"|reached\s+the\s+(?:remote|shared\s+copy)"
     r")\b",
+    re.IGNORECASE,
+)
+
+# "is live" is a claim about the shared copy ONLY when the sentence is about git work. Dad, 2026-10-30,
+# at a poker table that was live in a browser: "do not suffer the gates ... false alarms means something
+# is broken". The bare word fired on a table page, and on a sentence that only talked about this door.
+# The other alternatives above name the destination or the act of pushing themselves, so they stay bare.
+_LIVE = re.compile(r"\b(?:is|are|has|have|had|was|were)\s+(?:now\s+|been\s+)?live\b", re.IGNORECASE)
+_ABOUT_GIT_WORK = re.compile(
+    r"\b(?:PRs?|pull\s+requests?|branch(?:es)?|drafts?|origin|remote|GitHub|main|commits?"
+    r"|push(?:ed)?|merged?|repo|repository)\b",
     re.IGNORECASE,
 )
 
@@ -160,7 +180,10 @@ def claim_spans(text: str) -> tuple[str, ...]:
         stripped = sentence.strip()
         if not stripped:
             continue
-        if _CLAIM.search(stripped) and not _NOT_YET.search(stripped):
+        claim = _CLAIM.search(stripped) or (
+            _LIVE.search(stripped) and _ABOUT_GIT_WORK.search(stripped)
+        )
+        if claim and not _NOT_YET.search(stripped):
             found.append(stripped)
     return tuple(found)
 
