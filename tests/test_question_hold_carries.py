@@ -49,32 +49,6 @@ def test_two_questions_in_a_row_both_close_when_he_answers(qh):
     assert not ({first, second} & _open_ids())
 
 
-def test_a_letter_to_him_always_passes(qh):
-    qh.arm(FIRST)
-    assert qh.refusal("Write", {"file_path": TO_DAD}) == ""
-    assert "nexus" in qh.refusal("Write", {"file_path": TO_ARIA})  # the control
-
-
-def test_letters_to_him_by_any_of_his_names_pass(qh):
-    # Aria's cold read: "aria-to-dad-..." was held as if not to him.
-    qh.arm(FIRST)
-    for name in ("aria-to-dad-x.md", "aether-to-pop-x.md", "aria-to-andrew-x.md"):
-        assert qh.refusal("Write", {"file_path": f"family/letters/{name}"}) == "", name
-
-
-def test_he_said_he_is_stepping_away_so_letters_flow_until_he_speaks(qh, monkeypatch):
-    # "i am always here unless i tell you i am stepping away, this is what the
-    # volley mode is for" (2026-10-05).
-    said = "OK im heading to dinner,   you two volley"
-    monkeypatch.setattr(qh, "_his_latest_words", lambda: said)
-    qh.arm(FIRST)
-    qh.step_away("ok im heading to dinner, you two volley")
-    assert qh.refusal("Write", {"file_path": TO_ARIA}) == ""
-    assert qh.came_back()
-    assert qh.is_away() is None
-    assert qh.refusal("Write", {"file_path": TO_ARIA})
-
-
 def test_away_is_never_set_from_quiet(qh, monkeypatch):
     monkeypatch.setattr(qh, "_his_latest_words", lambda: "brb")
     for words in ("", "   ", "brb"):

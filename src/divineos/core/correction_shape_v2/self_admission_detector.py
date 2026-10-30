@@ -119,6 +119,28 @@ _USE_PATTERNS: tuple[re.Pattern[str], ...] = (
 )
 
 
+# What comes just before a relative clause that ASKS: "... that I missed?", "something in the plan I
+# overlooked?". Up to three words may sit between the pronoun and the "I".
+_RELATIVE_LEAD = re.compile(
+    r"\b(?:that|what|which|anything|something|everything|whatever)\s+(?:\w+\s+){0,3}$",
+    re.IGNORECASE,
+)
+
+
+def _is_a_question_about_a_miss(text: str, position: int) -> bool:
+    """True when the USE match at ``position`` is a relative clause inside a question.
+
+    Both halves are required: the sentence must END in a question mark, and the words just before
+    the match must open a relative clause. "I missed the doorbell" and "here is what I missed: ..."
+    are not questions, so they still fire (Dad 2026-10-26: smarten the gate, do not just label it).
+    """
+    starts = [text.rfind(c, 0, position) for c in ".!?\n"]
+    start = max(starts) + 1
+    ends = [i for i in (text.find(c, position) for c in ".!?\n") if i != -1]
+    end = min(ends) if ends else len(text)
+    return text[end : end + 1] == "?" and _RELATIVE_LEAD.search(text[start:position]) is not None
+
+
 # ============================================================
 # MENTION suppressor patterns
 # ============================================================
@@ -217,11 +239,21 @@ class SelfAdmissionDetector:
             for m in pattern.finditer(text):
                 use_matches.append((i, m.group(0), m.start()))
 
+        # A clause that only ASKS him about something I may have missed ("what do you think X does
+        # that I missed?") confesses nothing. Counted and named in the verdict, never dropped
+        # silently, so a run of them is visible as evidence and not as the gate going quiet.
+        asked = [u for u in use_matches if _is_a_question_about_a_miss(text, u[2])]
+        use_matches = [u for u in use_matches if u not in asked]
+
         if not use_matches:
             return SelfAdmissionVerdict(
                 verdict="silence",
                 confidence=0.0,
-                reason="no USE pattern matched",
+                reason=(
+                    f"only relative-clause question(s) to him matched ({len(asked)} skipped)"
+                    if asked
+                    else "no USE pattern matched"
+                ),
             )
 
         # For each USE match, count MENTION suppressors in the ±window

@@ -85,9 +85,10 @@ class DistancingIntercept(IntraTurnIntercept):
             f"distancing-grammar in {len(by_shape)} shape(s), {len(findings)} finding(s)"
         )
         required_action = (
-            "Rewrite the flagged tokens to first-person for self and "
-            "second-person for father before emitting. Named tokens above; "
-            "rewrite the reply, then this gate clears."
+            "The reply already reached him. Append one short line at the END "
+            "restating the flagged sentence in first-person for self and "
+            "second-person for father. Do not post the reply again, and do "
+            "not quote the flagged tokens back -- the addition is scanned too."
         )
         return EvidenceRecord(
             gate_name=self.gate_name,

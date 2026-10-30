@@ -23,6 +23,8 @@ from divineos.cli.build_flow_commands import _walk_postdates_build
 from divineos.core import council_walk as cw
 from divineos.core.council_required import push_choke as pc
 
+from _walk_helpers import apply_delivered
+
 
 def _git(repo: Path, *args: str) -> str:
     return subprocess.run(
@@ -60,7 +62,9 @@ def _closed_walk(repo: Path, scope: tuple[str, ...]) -> str:
         "does this change hold across every file it touches", scope=scope, gravity="normal"
     )
     for lens in opened["lenses"]:
-        cw.apply_lens(opened["walk_id"], lens, "a finding that is long enough to count: " + lens)
+        apply_delivered(
+            cw, opened["walk_id"], lens, "a finding that is long enough to count: " + lens
+        )
     cw.close_walk(opened["walk_id"], repo=repo)
     return opened["walk_id"]
 
@@ -107,9 +111,12 @@ def test_the_target_folder_is_read_from_the_call_not_the_hook(repo, tmp_path):
     sub = repo / "sub"
     sub.mkdir()
     assert pc.target_dir((str(repo / "new" / "deep.py"),), "", other) == repo
-    # Forward slashes, as the shell here is given. An unquoted backslash path is eaten by the
-    # tokenizer (a stated limit), and that case lands on None, which is the strict direction.
-    here = repo.as_posix()
+    # Forward slashes, as the shell here is given. Backslashes survive the tokenizer now
+    # (posix=False); the one stated limit is an UNQUOTED folder with a space in its name,
+    # which lands on None, the strict direction. Quoting is the contract.
+    # Quoted, as a real shell needs when the path has a space (both real checkouts live
+    # under "C:/DIVINE OS/"; Aria found this test passing only where the path had none).
+    here = f'"{repo.as_posix()}"'
     assert pc.target_dir((), f"cd {here} && git commit -qm x", other) == repo
     assert pc.target_dir((), f"git -C {here} commit -qm x", other) == repo
     assert pc.target_dir((), f"cd {here} && cd sub && git commit -qm x", other) == sub
@@ -234,7 +241,9 @@ def test_closing_from_the_right_folder_says_it_bound(repo):
     _commit(repo, "a.py")
     opened = cw.open_walk("does this change hold across every file it touches", scope=("a.py",))
     for lens in opened["lenses"]:
-        cw.apply_lens(opened["walk_id"], lens, "a finding that is long enough to count: " + lens)
+        apply_delivered(
+            cw, opened["walk_id"], lens, "a finding that is long enough to count: " + lens
+        )
     result = cw.close_walk(opened["walk_id"], repo=repo)
     assert result["bound"] is True
     assert Path(result["bound_in"]) == repo
@@ -260,7 +269,9 @@ def test_a_walk_closed_in_the_wrong_folder_is_not_tied_to_that_folders_changes(t
     elsewhere = _make("elsewhere", "unrelated.py")
     opened = cw.open_walk("does this change hold across every file it touches", scope=("a.py",))
     for lens in opened["lenses"]:
-        cw.apply_lens(opened["walk_id"], lens, "a finding that is long enough to count: " + lens)
+        apply_delivered(
+            cw, opened["walk_id"], lens, "a finding that is long enough to count: " + lens
+        )
     wrong = cw.close_walk(opened["walk_id"], repo=elsewhere)
     assert wrong["bound"] is False
     assert Path(wrong["bound_in"]) == elsewhere

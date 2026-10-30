@@ -47,7 +47,5 @@ docs/foundational_truths.md:protected-list-model
 scripts/check_multi_party_review.py:protected-list-model
 scripts/check_push_readiness.sh:protected-list-model
 src/divineos/cli/prs_commands.py:protected-list-model
-src/divineos/cli/push_ready_command.py:protected-list-model
 src/divineos/cli/stamp_ready_command.py:protected-list-model
 src/divineos/core/pr_gate/__init__.py:protected-list-model
-src/divineos/core/push_ready.py:protected-list-model

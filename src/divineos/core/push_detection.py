@@ -30,31 +30,38 @@ from __future__ import annotations
 
 import re
 
-# Anchored: optional leading whitespace, then `git`, then 1+ whitespace,
-# then `push`, then a word boundary. The `\b` after push ensures we
-# don't match `git pushd` or similar.
-_GIT_PUSH_RE = re.compile(r"^\s*git\s+push\b")
+from divineos.core.command_parsing import blank_quoted_spans
+
+# A push starts a segment: at the start of the command, or after a chain separator
+# or an opening bracket. The `\b` after push keeps `git pushd` out. Between `git` and
+# `push` only git's own `-C <folder>` may stand, so `git -C dir push` is a push and
+# `git -C dir status` is not (the cd-drift doorman prescribes `git -C`, so the push
+# check has to read it; Aria, 2026-10-26, walk-fb1339722adc).
+_GIT_PUSH_RE = re.compile(r"^\s*git\s+push\b")  # still what pushes_only_tags reads
+_PUSH_START_RE = re.compile(r"(?:^|&&|;|\|\||[({])\s*git\s+(?P<c>(?:-C\s+\S+\s+)*)push\b")
+_DASH_C_RE = re.compile(r"-C\s+(\S+)")
+
+
+def _structure(command: str) -> str:
+    """The command with quoted arguments blanked to filler of the SAME length, so an
+    offset here indexes the original; or the command itself when that cannot be done
+    safely. A quoted argument is data: splitting inside it judged a walk note that
+    merely mentioned a semicolon and the push words as a real push (2026-10-26)."""
+    blanked = blank_quoted_spans(command or "")
+    return blanked if blanked is not None else (command or "")
 
 
 def is_git_push_command(command: str) -> bool:
     """True when the shell command's primary action is `git push`.
 
-    Handles single-segment commands and the common `cd <dir> && git push`
-    chained form. Substring occurrences inside quoted data, heredocs, or
-    other tools' arguments must NOT match — see regression tests.
+    Handles single-segment commands, the common `cd <dir> && git push` chained
+    form, a push inside a subshell, and `git -C <dir> push`. Substring occurrences
+    inside quoted data, heredocs, or other tools' arguments must NOT match — see
+    regression tests.
     """
     if not command or not command.strip():
         return False
-    # Split on shell chain separators and check each segment. A real
-    # `git push` is always its own segment; substring-in-data is never
-    # its own segment.
-    for segment in re.split(r"&&|;|\|\|", command):
-        segment = segment.strip()
-        if not segment:
-            continue
-        if _GIT_PUSH_RE.match(segment):
-            return True
-    return False
+    return _PUSH_START_RE.search(_structure(command)) is not None
 
 
 # Options of `git push` that take a separate value, so the value is not the remote.
@@ -124,7 +131,12 @@ def pushes_only_tags(command: str) -> bool:
     return bool(pushes) and all(_segment_pushes_only_tags(s) for s in pushes)
 
 
-_CD_PREFIX_RE = re.compile(r"""\s*cd\s+("[^"]+"|'[^']+'|\S+)""")
+# A 'cd <path>' at the start of the command or after ';', '&&', '||', '|' or an opening
+# bracket. The LAST one before the push whose bracket still encloses the push is the
+# tree being pushed: the pipeline gate requires 'set -o pipefail;' in front of a
+# mutating pipe, so the cd is rarely first, and the cd-drift doorman prescribes a
+# subshell, so it is often inside brackets.
+_CD_PREFIX_RE = re.compile(r"(?:^|[;&|({]\s*)\s*cd\s+(?P<p>[^\s;&|(){}]+)")
 _GIT_BASH_DRIVE_RE = re.compile(r"^/([A-Za-z])(?:/|$)")
 
 
@@ -148,16 +160,54 @@ def push_cwd(command: str, *, windows: bool | None = None) -> str | None:
 
     Returns the path only when it really is a git working tree, so a wrong
     guess falls back to the ambient root rather than checking some other tree.
+
+    2026-10-26: also reads the two forms the cd-drift doorman prescribes, a ``cd``
+    inside a subshell and ``git -C <folder> push``, which it could not. A ``cd`` in
+    brackets reaches the push only while the push is inside the same brackets; a
+    push after the closing bracket runs in the folder the shell started in. A folder
+    that was NAMED but is not a git tree says so on stderr, because the check then
+    measures a different tree than the push goes to; naming no folder stays quiet
+    (the session folder is the right subject then). walk-fb1339722adc.
     """
     import os
+    import sys
 
-    match = _CD_PREFIX_RE.match(command or "")
-    if not match:
-        return None
-    path = match.group(1).strip("\"'")
-    if windows if windows is not None else os.name == "nt":
-        path = windows_path_from_git_bash(path)
-    marker = os.path.join(path, ".git")
+    command = command or ""
+    structure = _structure(command)
+    push = _PUSH_START_RE.search(structure)
+    if push is None:
+        return None  # both-empty: no push in the command means no tree to name, and the hook only asks after it found one
+
+    def _text(span: tuple[int, int]) -> str:
+        return command[span[0] : span[1]].strip("\"'")
+
+    use_windows = windows if windows is not None else os.name == "nt"
+
+    def _native(path: str) -> str:
+        return windows_path_from_git_bash(path) if use_windows else path
+
+    cd_dir = None
+    for match in reversed(list(_CD_PREFIX_RE.finditer(structure[: push.start()]))):
+        depth = lowest = 0
+        for ch in structure[match.end("p") : push.start()]:
+            depth += (ch == "(") - (ch == ")")
+            lowest = min(lowest, depth)
+        if lowest == 0:  # no bracket closed between this cd and the push
+            cd_dir = _native(_text(match.span("p")))
+            break
+    named = cd_dir
+    offset = push.start("c")
+    for m in _DASH_C_RE.finditer(push.group("c")):
+        folder = _native(_text((offset + m.start(1), offset + m.end(1))))
+        # a relative -C is relative to wherever the shell is by then
+        named = folder if os.path.isabs(folder) or named is None else os.path.join(named, folder)
+    if named is None:
+        return None  # both-empty: no folder named is not the same as a folder that failed; this one is quiet on purpose, the other speaks below
+    marker = os.path.join(named, ".git")
     if os.path.isdir(marker) or os.path.isfile(marker):
-        return path
+        return named
+    print(
+        f"[push-check] named {named!r} but it is not a git tree; measuring the session folder",
+        file=sys.stderr,
+    )
     return None

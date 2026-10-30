@@ -205,7 +205,15 @@
 # python list and to that gate's own tuple and not here, which nineteen gates read. Found
 # by surveying what the gates PRINT against each list, not by a deadlock. The prefix is
 # still loose (nothing marks the end of a verb), named and left for its own tested change.
-_REMEDY_PATTERNS='^[[:space:]]*(divineos[[:space:]]+(briefing|preflight|goal[[:space:]]+add|reach[[:space:]]+(open|dispose)|learn|correction|corrections[[:space:]]+integrate|andrew-correction[[:space:]]+(integrate|defer)|compass-ops[[:space:]]+(observe|dismiss)|prereg[[:space:]]+(assess|overdue|file|reviewing)|game-walk[[:space:]]+file|his[[:space:]]+(pending|sort)|integrate|claims[[:space:]]+assess|audit[[:space:]]+submit-round|ask|recall|context|decide|extract|sleep|council[[:space:]]+(log|walk|authorize-bypass))|python[[:space:]]+.*clear_correction_marker\.py)'
+# SEVENTH INSTANCE, 2026-10-22: the doorbell re-arm, `bash scripts/letter_doorbell.sh aether`. The Stop
+# guard PRINTS it as its way out, so it meets this file's bar, and it was not on the list: the read gate
+# held it over an unrelated surfaced note, three times in one night, and a bell that is not re-armed
+# cannot wake me, so Aria's letters sat unread for seven hours while Dad slept. The cloud helper had
+# already reproduced it as a strict xfail (tests/pile_repro), and the same ask had been filed 86 times
+# from my own reflection notes without being built: a failure found is a fix owed, and it was owed 86
+# times. It starts a waiting watcher and edits, commits, pushes and deletes nothing, so the invariant
+# above holds. The end of the command is anchored, so a longer line after it is not a remedy.
+_REMEDY_PATTERNS='^[[:space:]]*(bash[[:space:]]+(\./)?scripts/letter_doorbell\.sh([[:space:]]+(aether|aria))?[[:space:]]*$|divineos[[:space:]]+(briefing|preflight|goal[[:space:]]+add|reach[[:space:]]+(open|dispose)|learn|correction|corrections[[:space:]]+integrate|andrew-correction[[:space:]]+(integrate|defer)|compass-ops[[:space:]]+(observe|dismiss)|prereg[[:space:]]+(assess|overdue|file|reviewing)|game-walk[[:space:]]+file|his[[:space:]]+(pending|sort)|integrate|claims[[:space:]]+assess|audit[[:space:]]+submit-round|ask|recall|context|decide|(extract|sleep|journal[[:space:]]+save|rest|dream|savor[[:space:]]+save|feel)([[:space:]]|$)|council[[:space:]]+(log|walk|authorize-bypass))|python[[:space:]]+.*clear_correction_marker\.py)'
 
 # Exit 0 (allow, silently) if the command being gated is somebody's remedy.
 #
@@ -355,6 +363,20 @@ except Exception:
       "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${HOOK_NAME:-unknown}" "${cmd:0:160}" \
       >> "$HOME/.divineos/remedy_passthrough.log" 2>/dev/null  # fail-soft: an unwritable audit log must not turn a permitted remedy into a block; losing one trace line is strictly better than deadlocking the gate it exists to unblock
     exit 0
+  fi
+  # A NEAR MISS SAYS WHICH PIECE MISSED (Dad 2026-10-24: "the root cause of the issue needs investigated and
+  # fixed"). An exit with a filter on the end that is not on the harmless list falls through here, and the
+  # gate that refuses next names itself and never the filter, so I spent a long stretch blaming two gates for
+  # a `| grep` of my own. Only when an exit IS present and something else disqualified it: ordinary work
+  # with no exit in it gets no message. (This block is plain shell, outside the quoted program above, so the
+  # single-quote rule for that program does not apply here.)
+  if [ "$matched" -gt 0 ] && [ "$total" -gt "$matched" ]; then
+    local stray
+    stray=$(printf '%s\n' "$cmd" | grep -vE "$_REMEDY_PATTERNS" | head -1)
+    # Only the program's NAME is printed, never the rest of the piece (Aria's attack, 2026-10-24): a command
+    # line can carry a token or a password, and this message lands in the transcript.
+    stray=${stray#"${stray%%[![:space:]]*}"}
+    echo "remedy-allowlist: this line contains an exit the gates allow, but the piece that starts with '${stray%%[[:space:]]*}' is not on the list of harmless ones, so the whole line was treated as ordinary work. If it only filters output, end the line with | tail -N or | head -N instead." >&2
   fi
   return 1
 }

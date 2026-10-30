@@ -216,8 +216,12 @@ def test_coverage_for_reports_partial_against_a_real_walk(tmp_path, monkeypatch)
 
     monkeypatch.setattr(cw, "divineos_home", lambda: tmp_path)
     w = cw.open_walk("whether partial overlap is coverage", gravity="normal", scope=("a.py",))
+    from _walk_helpers import apply_delivered
+
     for lens in w["lenses"]:
-        cw.apply_lens(w["walk_id"], lens, f"{lens}: a real finding of sufficient length to pass")
+        apply_delivered(
+            cw, w["walk_id"], lens, f"{lens}: a real finding of sufficient length to pass"
+        )
     cw.close_walk(w["walk_id"])
 
     whole = cw.coverage_for(("a.py",))
