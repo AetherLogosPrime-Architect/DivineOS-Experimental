@@ -178,7 +178,25 @@ def _his_latest_words() -> str:
 # quote of "ok go ahead" would have opened volley mode). The list is his own
 # phrases and "stepping away", which he used on 2026-10-05. A keyword list is
 # gameable, so it sits on top of the provenance check and never replaces it.
-AWAY_CUES = ("be gone", "to bed", "volley mode", "stepping away", "you two volley")
+#
+# GOODNIGHT COUNTS (Dad, 2026-10-30, after the night he said it and the mode did not start). The
+# first plan was a reader of meaning; there is none that can run in a stop hook (Aether read the
+# code and found `reflect` only compares a reply to his message), so the floor is the whole rule: a
+# plain list he can read and change when it misses. "good night" also matches "a good night's
+# sleep", a false open that still needs me to quote his words and costs only a morning list.
+AWAY_CUES = (
+    "be gone",
+    "to bed",
+    "volley mode",
+    "stepping away",
+    "you two volley",
+    "goodnight",
+    "good night",
+    "night night",
+    "nite",
+    "going away",
+    "away for a bit",
+)
 
 
 def step_away(his_words: str) -> dict[str, Any]:
@@ -189,7 +207,7 @@ def step_away(his_words: str) -> dict[str, Any]:
     if not any(cue in _flat(words) for cue in AWAY_CUES):
         raise ValueError(
             "those words do not say he is away. He means away by saying he will be gone, "
-            "that he is going to bed or stepping away, or go into volley mode. 'ok go ahead', "
+            "that he is going to bed or stepping away, says goodnight, or goes into volley mode. 'ok go ahead', "
             "'proceed' and 'continue' mean he is here."
         )
     if _flat(words) not in _flat(_his_latest_words()):

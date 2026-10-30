@@ -58,6 +58,10 @@ def test_go_ahead_and_proceed_are_not_away(qh, monkeypatch, said):
         "go into volley mode",
         "heading to bed",
         "i am stepping away for dinner",
+        "goodnight you two, see you in the morning",
+        "good night",
+        "night night, ill be away for a bit",
+        "nite nite you two",
     ],
 )
 def test_his_own_away_words_open_volley_mode(qh, monkeypatch, said):
