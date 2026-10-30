@@ -183,6 +183,90 @@ def test_nothing_checks_what_is_said_in_the_room():
         assert room.verdict([_user("go"), _tool(), _tool_result(), _said(closing)]) is None
 
 
+def _worked_no_room():
+    return [_user("go"), _tool(), _tool_result(), _said("Done, tests pass.")]
+
+
+def test_while_he_is_away_the_gate_stands_down_and_says_so(monkeypatch):
+    """Night of 2026-10-29 to 30: about twenty rooms demanded of a sleeping man. The stand-down is
+    logged, because a gate that goes quiet must show as a count and not as nothing (Norman)."""
+    from divineos.core import hold_log, question_hold
+
+    monkeypatch.setattr(question_hold, "_carry_now", lambda: "his words")
+    assert room.verdict(_worked_no_room()) is None
+    rows = [r for r in hold_log.read_all() if r["hold"] == "room"]
+    assert rows and rows[-1]["outcome"] == "stood_down"
+    assert "his words" in rows[-1]["first_words"]
+
+
+def test_not_away_the_gate_asks_as_before(monkeypatch):
+    """Control, and the 06:00 edge (Knuth): once the clock window has ended the reading says not
+    away, so the morning wrap-up turn is asked for its room as it always was."""
+    from divineos.core import question_hold
+
+    monkeypatch.setattr(question_hold, "_carry_now", lambda: "")
+    assert room.verdict(_worked_no_room())
+
+
+def test_the_away_reading_is_the_question_holds_own_so_they_cannot_disagree():
+    """If the question hold renames its reading this test turns red here, not silently at night as a
+    gate that asks forever. The stand-down is wired to that one function and no private copy."""
+    from divineos.core import question_hold
+
+    assert callable(question_hold._carry_now)
+    source = HOOK.read_text(encoding="utf-8")
+    assert "from divineos.core.question_hold import _carry_now" in source
+
+
+def test_an_away_reading_that_breaks_asks_and_is_logged(monkeypatch):
+    """Fails toward asking (Wayne): if the question hold's reading raises, the gate does not pass
+    quietly; it asks as it always did and writes an away_unreadable line so the loss is countable."""
+    from divineos.core import hold_log, question_hold
+
+    def broken():
+        raise RuntimeError("renamed")
+
+    monkeypatch.setattr(question_hold, "_carry_now", broken)
+    assert room.verdict(_worked_no_room())
+    rows = [r for r in hold_log.read_all() if r["hold"] == "room"]
+    assert any(r["outcome"] == "away_unreadable" and "renamed" in r["first_words"] for r in rows)
+
+
+def test_silence_alone_does_not_stand_the_gate_down(monkeypatch):
+    """He reads silently while I work for hours; two hours of quiet is not proof he is gone, and a
+    missed telling costs more than an unneeded room. Only his words and the night clock count."""
+    from divineos.core import question_hold
+
+    monkeypatch.setattr(question_hold, "_carry_now", lambda: "silence")
+    assert room.verdict(_worked_no_room())
+    monkeypatch.setattr(question_hold, "_carry_now", lambda: "schedule")
+    assert room.verdict(_worked_no_room()) is None
+
+
+def test_a_live_chat_inside_the_night_window_still_asks(monkeypatch):
+    """Knuth's boundary: the clock says night but he is typing to me. The question hold's reading
+    already returns empty for that (a message under ten minutes old), and this gate follows it."""
+    from divineos.core import question_hold
+
+    monkeypatch.setattr(question_hold, "_scheduled_away", lambda now=None: {"by": "schedule"})
+    monkeypatch.setattr(question_hold, "_stepped_away", lambda: None)
+    monkeypatch.setattr(question_hold, "_silent_away", lambda: None)
+    monkeypatch.setattr(question_hold, "_his_latest", lambda: ("go", __import__("time").time()))
+    assert room.verdict(_worked_no_room())
+
+
+def test_an_unreadable_last_message_is_not_away(monkeypatch):
+    """Could not look is never away (his rule everywhere else in the hold): with no readable last
+    message of his, a clock-only away does not silence the gate."""
+    from divineos.core import question_hold
+
+    monkeypatch.setattr(question_hold, "_scheduled_away", lambda now=None: {"by": "schedule"})
+    monkeypatch.setattr(question_hold, "_stepped_away", lambda: None)
+    monkeypatch.setattr(question_hold, "_silent_away", lambda: None)
+    monkeypatch.setattr(question_hold, "_his_latest", lambda: None)
+    assert room.verdict(_worked_no_room())
+
+
 def test_hook_blocks_and_breaks_loudly(tmp_path):
     t = tmp_path / "t.jsonl"
     t.write_text(
