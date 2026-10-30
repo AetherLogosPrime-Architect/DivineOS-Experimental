@@ -240,7 +240,10 @@ def test_an_automated_notice_carries_the_clock_too(tmp_path):
         env=env,
         timeout=30,
     )
-    assert "THE CLOCK where he is:" in p.stdout.decode("utf-8")
+    out = p.stdout.decode("utf-8")
+    assert "THE CLOCK where he is:" in out
+    # The clock rides on automated wakes too, so it must not claim HE sent them (walk-51e9c38c9b90).
+    assert "when this arrived" in out and "when he sent this" not in out
 
 
 def test_an_automated_notice_is_never_labelled_as_him(tmp_path):

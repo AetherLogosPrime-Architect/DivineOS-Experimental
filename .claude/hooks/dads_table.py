@@ -254,7 +254,7 @@ def _clock_line(now: datetime.datetime | None = None) -> str:
     hour12 = moment.hour % 12 or 12  # no leading zero, and no string surgery that could eat a zero elsewhere
     return (
         f"THE CLOCK where he is: {moment.strftime('%A %Y-%m-%d')}, {hour12}:{moment.minute:02d} "
-        f"{moment.strftime('%p %Z')} (when he sent this; a long turn runs on past it). "
+        f"{moment.strftime('%p %Z')} (when this arrived; a long turn runs on past it). "
         "Morning, afternoon or night is read from this, never from how long we have been working."
     )
 
