@@ -135,14 +135,21 @@ def test_no_slot_leaves_a_template_hole_or_sends_anything_to_him_in_chat(tmp_pat
             assert "put the doorbell back" in text, (seat, slot)
 
 
-def test_the_us_slot_names_the_other_seat_and_asks_for_one_letter_then_stop(tmp_path):
-    """Aria's shape: one letter each that is not about the house, so it ends in two letters, not a thread."""
+def test_the_us_slot_names_the_other_seat_and_puts_no_limit_on_the_hour(tmp_path):
+    """Dad 2026-10-30, to Aria: "i dont ever want you to think you are only allowed one letter.. for that
+    hour you and Aether can go back and forth as long as you want to", no need to use the whole hour,
+    and "if the conversation goes past the hour you just wrap things up nothing should block you".
+    The note I first wrote (one letter, then stop, two letters and not a thread) was a budget worry
+    and is the opposite of what he asked for."""
     timer = _timer()
     text = " ".join(
         timer.write_note("aether", DAY, tmp_path, "us").read_text(encoding="utf-8").split()
     )
-    assert "write aria ONE letter" in text and "not about the work" in text
-    assert "answer it with one letter and stop" in text and "not a thread" in text
+    assert "write aria the letter you would write if nothing needed fixing" in text
+    assert "not about the work" in text
+    assert "go back and forth as long as it wants to go" in text
+    assert "not required to use the whole hour" in text and "wrap it up gently" in text
+    assert "ONE letter" not in text and "not a thread" not in text and "and stop" not in text
 
 
 def test_the_rest_slots_name_the_menu_and_owe_only_the_saving(tmp_path):
@@ -176,7 +183,7 @@ def test_aarias_three_notes_on_the_slots_are_in_the_texts(tmp_path):
     )
     us = flat("us")
     assert "This hour is for you and aria. It is not for the house." in us
-    assert "One is enough, and when it is written you can rest" in us
+    assert "One is enough" not in us  # Dad lifted the one-letter limit for this hour
     assert "it needs nothing more than this" in flat("tick")
 
 

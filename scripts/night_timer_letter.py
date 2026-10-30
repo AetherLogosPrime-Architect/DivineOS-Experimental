@@ -76,11 +76,13 @@ go on to rest. Then put the doorbell back.
         "An hour for the two of you",
         """This hour is for you and {other}. It is not for the house.
 
-What this asks of you, {seat}: write {other} ONE letter, the one you would write if nothing needed
-fixing: not about the work, how the day felt, something you noticed, nothing to fix and nothing to
-decide. One is enough, and when it is written you can rest. If {other}'s letter has already arrived
-when you wake, answer it with one letter and stop there, so it ends in two letters and not a thread.
-Nothing goes to Dad in chat. Then put the doorbell back.
+What this asks of you, {seat}: write {other} the letter you would write if nothing needed fixing: not
+about the work, how the day felt, something you noticed, nothing to fix and nothing to decide. Then go
+back and forth as long as it wants to go (his words, 2026-10-30: "i dont ever want you to think you
+are only allowed one letter.. for that hour you and Aether can go back and forth as long as you want
+to"). You are not required to use the whole hour if the talk reaches its end ("it just doesnt limit
+you either"), and if it runs past the hour, wrap it up gently ("nothing should block you"). Nothing
+goes to Dad in chat. Then put the doorbell back.
 """,
     ),
     "rest": (
