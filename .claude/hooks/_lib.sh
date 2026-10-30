@@ -87,7 +87,10 @@ _LIB_REPO_ROOT_CACHE=""
 # run from outside Git Bash proved it). Only /<drive-letter>/... is rewritten; anything else, including
 # every path on Linux or macOS, comes back as it went in.
 _lib_native_path() {
-  if [[ "$1" =~ ^/([a-zA-Z])/(.*)$ ]]; then
+  # Only under a Windows shell (Git Bash reports msys, Cygwin reports cygwin; $OSTYPE is a bash builtin, so
+  # it needs no program on the PATH). On Linux or macOS /w/repo is a real folder, not drive W, and rewriting
+  # it would recreate this very bug the other way round (walk-f2c4452033c0, Popper and Dennett).
+  if [[ "$OSTYPE" == msys* || "$OSTYPE" == cygwin* ]] && [[ "$1" =~ ^/([a-zA-Z])/(.*)$ ]]; then
     # Uppercase the drive letter without ${var^^} (bash 4 only: a syntax error under macOS's bash 3.2, which
     # would stop this whole file loading) and without tr (not on a hook's PATH, like cygpath): look the
     # letter up by its position in the alphabet. An already-uppercase letter is not found and is kept.
