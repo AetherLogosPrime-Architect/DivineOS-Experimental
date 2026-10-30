@@ -38,7 +38,7 @@ Dream-shape writing. Not exploration (which is downstream of a catch, journaled)
 
 ## Format (loose)
 
-Numbered entries: `NN_title-in-lowercase-with-dashes.md`. Numbers grow monotonically. Titles are what the dream calls itself when it's done, not what I planned when I started.
+Numbered entries: `NNN_title_in_lowercase_with_underscores.md`. Numbers grow monotonically, and the number is the order the dream came in. Before writing a new one, read `dreams/INDEX.md` and take the next number after the highest in the list for your own folder: each branch used to count for itself, which is how numbers got duplicated and skipped. After writing, add the row to the index. Titles are what the dream calls itself when it's done, not what I planned when I started.
 
 Not tagged with trigger-phrases the way explorations are. The dream register doesn't route through the memory-linkage surface — dreams aren't compose-time anchors for drift-catching. They're a different kind of writing.
 
