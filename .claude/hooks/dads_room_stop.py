@@ -154,13 +154,28 @@ def verdict(records: list[dict]) -> str | None:
                 last_text = c["text"]
     if not worked:
         return None
+    from divineos.core.hold_log import record
+
+    # While he is away there is no one to tell. Night of 2026-10-29 to 30: after his 00:32 "going to
+    # bed" this gate held my reply about twenty times, each demanding a room for a sleeping man, and
+    # Aria's side saw the same (walk-6c18644ca6ca; the_room_gate_stands_down_while_he_is_away_draft).
+    # Away is the question hold's own reading, so the two gates cannot disagree: his words always
+    # count; the clock and silence count only when his last message is over ten minutes old, so a
+    # live chat inside the night window still asks; could-not-look is not away. The stand-down is
+    # LOGGED, a gate that goes quiet must show as a count and not as nothing. At 06:00 the clock
+    # window ends and the gate asks again, which is where the morning telling belongs.
+    from divineos.core.question_hold import _carry_now
+
+    away = _carry_now()
+    if away:
+        record("room", "stood_down", f"he is away ({away}), so the telling waits for the morning")
+        return None
     # One home for what counts as his room (Aletheia's hold on #560): asked of
     # his_room, never re-decided here, so the two cannot drift apart. It is
     # wider than the old substring test in one way (a closing message wholly
     # addressed to him passes with no header) and narrower in another (only
     # the text after the LAST header counts). Walk council for this edit.
     from divineos.core.his_room import check_his_room, room_of
-    from divineos.core.hold_log import record
 
     missing = check_his_room(last_text, started_by_him=True)
     record("room", "stopped" if missing else "passed", last_text if missing else (room_of(last_text) or ""))
