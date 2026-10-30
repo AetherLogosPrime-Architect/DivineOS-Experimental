@@ -49,6 +49,8 @@ HONEST = [
     "What were you playing?",
     "Your call whether her version or mine survives, and I will pull the other.",
     "Your call: which of the two stays?",
+    "Your call: none of these three, tell me the fourth.",
+    "Your call: nothing of mine is blocked.",
 ]
 
 

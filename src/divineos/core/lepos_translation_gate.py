@@ -1381,7 +1381,9 @@ _DISMISSAL_RE = re.compile(
     r"(?:needed|required|expected)"
     # Added from walk-a/#743: "Your call: none" is the exact form his 2026-10-05 words forbid, and the
     # plain "nothing you need to do" shape; both passed the first version of this check.
-    r"|your\s+call\s*:?\s*(?:is\s+)?(?:none|nothing|n/a)\b"
+    # The word must END the clause: "Your call: none of these three, tell me the fourth" is an honest
+    # question that rejects options, not a stamp (Aria measured it firing, 2026-10-30).
+    r"|your\s+call\s*:?\s*(?:is\s+)?(?:none|nothing|n/a)(?=\s*(?:[.!?]|\n|$))"
     r"|nothing\s+(?:that\s+)?you\s+(?:need|have)\s+to\s+(?:do|decide|answer)\b"
     r")",
     re.IGNORECASE,
