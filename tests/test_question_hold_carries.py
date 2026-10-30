@@ -72,9 +72,13 @@ def test_a_notice_is_never_read_as_his_words(tmp_path, monkeypatch, qh):
     db = tmp_path / "asks.db"
     monkeypatch.setenv("DIVINEOS_HIS_ASKS_DB", str(db))
     conn = sqlite3.connect(db)
-    conn.execute("CREATE TABLE messages (his_text TEXT, filed_at REAL)")
-    conn.execute("INSERT INTO messages VALUES ('heading to bed, you two volley', 1)")
-    conn.execute("INSERT INTO messages VALUES ('<task-notification>x</task-notification>', 2)")
+    conn.execute("CREATE TABLE messages (his_text TEXT, filed_at REAL, state TEXT DEFAULT 'FILED')")
+    conn.execute(
+        "INSERT INTO messages (his_text, filed_at) VALUES ('heading to bed, you two volley', 1)"
+    )
+    conn.execute(
+        "INSERT INTO messages (his_text, filed_at) VALUES ('<task-notification>x</task-notification>', 2)"
+    )
     conn.commit()
     conn.close()
     assert qh._his_latest_words() == "heading to bed, you two volley"

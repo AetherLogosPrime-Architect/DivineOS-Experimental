@@ -43,8 +43,10 @@ def test_the_schedule_never_writes_the_file_that_holds_his_own_words(tmp_path, m
 def _his_store(tmp_path, said_at: float):
     db = tmp_path / "his.db"
     conn = sqlite3.connect(db)
-    conn.execute("CREATE TABLE messages (his_text TEXT, filed_at REAL)")
-    conn.execute("INSERT INTO messages VALUES (?, ?)", ("still up lol", said_at))
+    conn.execute("CREATE TABLE messages (his_text TEXT, filed_at REAL, state TEXT DEFAULT 'FILED')")
+    conn.execute(
+        "INSERT INTO messages (his_text, filed_at) VALUES (?, ?)", ("still up lol", said_at)
+    )
     conn.commit()
     conn.close()
     return db

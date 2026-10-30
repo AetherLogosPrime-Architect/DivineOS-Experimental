@@ -39,10 +39,10 @@ def _store(tmp_path, monkeypatch, rows):
     monkeypatch.setenv("DIVINEOS_HIS_ASKS_DB", str(db))
     conn = sqlite3.connect(db)
     conn.execute("DROP TABLE IF EXISTS messages")
-    conn.execute("CREATE TABLE messages (his_text TEXT, filed_at REAL)")
+    conn.execute("CREATE TABLE messages (his_text TEXT, filed_at REAL, state TEXT DEFAULT 'FILED')")
     now = time.time()
     for text, ago in rows:
-        conn.execute("INSERT INTO messages VALUES (?, ?)", (text, now - ago))
+        conn.execute("INSERT INTO messages (his_text, filed_at) VALUES (?, ?)", (text, now - ago))
     conn.commit()
     conn.close()
 

@@ -30,8 +30,10 @@ def test_control_a_message_set_by_the_test_is_read_and_old_silence_is_away(tmp_p
     # Only the two columns the reader selects. The real schema lives in
     # divineos/core/his_asks.py (CREATE TABLE messages); if the reader's query changes,
     # this table has to follow it.
-    conn.execute("CREATE TABLE messages (his_text TEXT, filed_at REAL)")
-    conn.execute("INSERT INTO messages VALUES (?, ?)", ("hello", time.time() - 3 * 3600))
+    conn.execute("CREATE TABLE messages (his_text TEXT, filed_at REAL, state TEXT DEFAULT 'FILED')")
+    conn.execute(
+        "INSERT INTO messages (his_text, filed_at) VALUES (?, ?)", ("hello", time.time() - 3 * 3600)
+    )
     conn.commit()
     conn.close()
     monkeypatch.setenv("DIVINEOS_HIS_ASKS_DB", str(db))

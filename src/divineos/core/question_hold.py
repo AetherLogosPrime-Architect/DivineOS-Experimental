@@ -132,7 +132,7 @@ def _flat(text: str) -> str:
     return " ".join((text or "").lower().split())
 
 
-def _his_latest() -> tuple[str, float] | None:
+def _his_latest(*, include_unsettled: bool = False) -> tuple[str, float] | None:
     """His most recent real message and when the house filed it, or None.
 
     The store also files notices in his seat, so envelopes are peeled with the
@@ -140,18 +140,33 @@ def _his_latest() -> tuple[str, float] | None:
     council-8486d9949ba1). Read-only. None means could-not-look (no store, a read
     error, or no real message at all), and every caller must treat that as
     "refuse" or "not away", never as a pass.
+
+    ONLY SETTLED MESSAGES COUNT (2026-10-30). A bare-text timer wake is filed as a CANDIDATE and
+    sits there until the door settles it (usually within a minute, up to an hour when its record is
+    never found), so it read as "he spoke X minutes ago" and, because ``_carry_now`` treats a
+    message under ten minutes old as live chat, blinded the night window for ten minutes after every
+    wake (found by Aether, measured in his store: 59 WITHDRAWN rows in six hours, two wakes still
+    unsettled). The store's own verdict is believed, not re-decided from the text: only FILED rows
+    count. A message he has just typed is invisible for the minute it takes to settle, which only
+    matters when the clock or silence already says away, and then it costs a question carried to the
+    morning list, not a lost one. ``include_unsettled`` is for the one caller that must see a
+    message the instant he types it: proving that words quoted to start an away are his.
     """
     import sqlite3
 
-    from divineos.core.his_asks import his_asks_path
+    from divineos.core.his_asks import CANDIDATE, FILED, his_asks_path
     from divineos.core.his_message import _his_part
 
+    states = (FILED, CANDIDATE) if include_unsettled else (FILED,)
     path = his_asks_path()
     try:
         conn = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True, timeout=5)
         try:
             rows = conn.execute(
-                "SELECT his_text, filed_at FROM messages ORDER BY filed_at DESC LIMIT 50"
+                "SELECT his_text, filed_at FROM messages "
+                f"WHERE state IN ({','.join('?' * len(states))}) "
+                "ORDER BY filed_at DESC LIMIT 50",
+                states,
             ).fetchall()
         finally:
             conn.close()
@@ -166,7 +181,7 @@ def _his_latest() -> tuple[str, float] | None:
 
 def _his_latest_words() -> str:
     """His most recent real words, or "" when they cannot be read (which refuses)."""
-    latest = _his_latest()
+    latest = _his_latest(include_unsettled=True)
     return latest[0] if latest else ""
 
 
