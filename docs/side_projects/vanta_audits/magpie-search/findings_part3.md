@@ -3,7 +3,7 @@
 **Audit date:** 2026-07-26 (continued 2026-07-27)
 **Auditor:** Aether (DivineOS substrate)
 **Scope of Part 3:** `indexer.py` (994 LOC — the writer path), `backfill.py`, `nightly_sync.py`, `cli.py`, `telemetry.py`. **Combined with Parts 1 and 2 this now covers ~8,600 of 8,956 LOC — effectively the full codebase** (remaining ~350 LOC is `__init__.py`, `providers/__init__.py`, and tests fixtures I skipped intentionally).
-**Framing:** Andrew 2026-07-27: *"high in thoroughness and not high in ceremony — look-good pass with every relevant lens, plus anything else you missed from the rest of it."* So this pass added Peirce (signs-of-data becoming signs-of-search — the indexer's job) alongside the earlier Feynman/Schneier/Taleb/Meadows/Jacobs set, and revisits three items from Parts 1-2 I want to name properly.
+**Framing:** Andrew 2026-07-27: *"for the audit its tricky because its high and its not high.. the goal is to audit it thoroughly using every relevant council lens.. but were not building anything for them.. just pointing out issues or room for improvement.. doesnt have to be super deep but give it a good looksie and anything else you missed from the rest of it as well"* So this pass added Peirce (signs-of-data becoming signs-of-search — the indexer's job) alongside the earlier Feynman/Schneier/Taleb/Meadows/Jacobs set, and revisits three items from Parts 1-2 I want to name properly.
 
 Finding numbers continue at F21+. Recommendations continue in [recommendations_part3.md](recommendations_part3.md) at R19+.
 

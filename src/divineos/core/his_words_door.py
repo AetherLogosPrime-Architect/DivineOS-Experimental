@@ -59,6 +59,35 @@ _NOTICE_BLOCK = re.compile(
 )
 
 
+# HIS PICTURES ARE NOT HIS BIOGRAPHY (correction 390, 2026-10-16). He asked what the
+# sandwich and the fifteen cars were; I had listed them as things I knew about him. Both
+# were pictures he used to teach. I kept the vivid image and dropped what KIND of sentence
+# it was, so an analogy became a biography.
+#
+# Measured on his 17,152 real passages: 3.4% match. Bare "like a", "as if" and "its like
+# <anything>" were left out, because "spoken to like a regular person" is an ASK of his
+# and "its like you keep framing this as my project" is a complaint, neither a picture.
+#
+# THIS IS A LEXICAL PRIMING AID, NOT A CLASSIFIER. It catches pictures that announce
+# themselves; a picture that does not passes unmarked, so an unmarked passage is not
+# thereby a fact about his life. The mark is a caution on a passage that is printed
+# whole, never a reason to drop it.
+_ILLUSTRATION_CUES = re.compile(
+    r"\b(think of|imagine|picture (?:it|this|that|a|an)\b|lets say|let's say|"
+    r"say you (?:had|were|have)|for example|for instance|as an example|an analogy|"
+    r"analogy|metaphor|its like (?:a|an|the|when|if|i told)\b|"
+    r"it's like (?:a|an|the|when|if|i told)\b|is like a\b|just like (?:a|an|when|if)\b|"
+    r"kind of like (?:a|an|the)\b|the difference between)\b",
+    re.I,
+)
+ILLUSTRATION_NOTE = "may be a picture he used to teach, not a fact about his life"
+
+
+def is_illustration(text: str) -> bool:
+    """Does this passage of his announce itself as a picture, an example or an analogy?"""
+    return bool(_ILLUSTRATION_CUES.search(text or ""))
+
+
 def his_part(message: str) -> str:
     """His own words in a turn, with the automated notices cut out; "" when nothing of his is left.
 
@@ -228,6 +257,22 @@ def _embed(texts: list[str]):
     )
 
 
+def _embed_query(text: str):
+    """The vector for ONE sentence being searched for, from the light embedder.
+
+    The heavy toolkit costs eight to seventeen seconds to import in every fresh process, and the
+    prompt helpers are a fresh process every message (measured 2026-10-28: this door alone took 11.5 s
+    of the 35 s the helpers cost before Dad's words reach me). The light embedder runs the same model
+    in about 0.05 s to load. On 40 of his real passages the two vectors agreed to six places, and 12
+    queries against the stored index returned the same top five (Aether, 2026-10-28). One path: if the
+    light embedder cannot run, EmbedderUnavailable (a RuntimeError, so one of SEARCH_ERRORS) is said
+    aloud by the caller; this never reaches for the heavy toolkit, because that fall-back is the wait
+    this exists to end. Building the index still uses the heavy model, in the background, never here."""
+    from divineos.core import light_embedder
+
+    return light_embedder.encode(text)
+
+
 def _key(p: Passage) -> str:
     return hashlib.sha256(f"{p.ts}|{p.text}".encode("utf-8")).hexdigest()
 
@@ -345,7 +390,7 @@ def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
     except (OSError, ValueError) as exc:
         return Door([], [], looked=False, reason=f"his words could not be searched: {exc}")
     try:
-        q = _embed([_squash(message + " " + context)])[0]
+        q = _embed_query(_squash(message + " " + context))
     except SEARCH_ERRORS as exc:  # the model is an import away from failing; say so, never go quiet
         return Door([], [], looked=False, reason=f"his words could not be searched: {exc}")
     scores = vecs @ q
@@ -398,7 +443,8 @@ def surface(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> str
         )
         lines.append("")
     for h in door.hits:
-        lines.append(f'- {h.passage.day} ({h.score:.2f}): "{h.passage.text}"')
+        mark = f"  [{ILLUSTRATION_NOTE}]" if is_illustration(h.passage.text) else ""
+        lines.append(f'- {h.passage.day} ({h.score:.2f}): "{h.passage.text}"{mark}')
     lines.append("")
     lines.append(
         "Said on the dates shown. None of it is how he feels now; "

@@ -26,7 +26,6 @@ import sys
 from pathlib import Path
 
 TAIL_BYTES = 4_000_000
-NOTICE_PREFIXES = ("<task-notification", "<system-reminder")
 MARK = Path(
     os.environ.get("DADS_ROOM_MARK", Path.home() / ".divineos" / "dads_room_stop_broke.txt")
 )
@@ -133,7 +132,13 @@ def verdict(records: list[dict]) -> str | None:
     if last_user is None:
         return None
     idx, his = last_user
-    if his.lstrip().startswith(NOTICE_PREFIXES):
+    # The one list of what the harness opens a turn with (it used to be a private two-tag copy
+    # here that did not know a CI-monitor message). Imported inside the loud path, like the reader
+    # above, so a broken import writes the mark file instead of passing every reply.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+    from divineos.core.harness_envelopes import opens_with_notice
+
+    if opens_with_notice(his):
         return None
 
     worked, last_text = False, ""
@@ -154,9 +159,12 @@ def verdict(records: list[dict]) -> str | None:
     # wider than the old substring test in one way (a closing message wholly
     # addressed to him passes with no header) and narrower in another (only
     # the text after the LAST header counts). Walk council for this edit.
-    from divineos.core.his_room import check_his_room
+    from divineos.core.his_room import check_his_room, room_of
+    from divineos.core.hold_log import record
 
-    return reason_for(his) if check_his_room(last_text, started_by_him=True) else None
+    missing = check_his_room(last_text, started_by_him=True)
+    record("room", "stopped" if missing else "passed", last_text if missing else (room_of(last_text) or ""))
+    return reason_for(his) if missing else None
 
 
 def _read_tail(path: Path) -> list[dict]:

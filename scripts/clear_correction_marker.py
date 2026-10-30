@@ -7,7 +7,8 @@ correction-not-logged gate's named remedy (``divineos learn`` /
 gate blocks Edit/Write/Bash on substrate files until the marker clears;
 the marker can only clear via a CLI that won't import.
 
-The Andrew 2026-06-08 "gate-trap structural fix" correction (#2 in the
+The gate-trap structural-fix correction from Andrew's 2026-06-08 feedback
+(that name is our label for it, not his words; #2 in the
 open queue at filing time) named the principle: gate-remedies-must-execute.
 If the remedy a gate names is itself blocked by the failure the gate is
 trying to catch, the gate is a cage, not a keel.

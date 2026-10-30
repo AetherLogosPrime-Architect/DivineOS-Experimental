@@ -43,6 +43,19 @@ member_home() {
   local py="${2:-}"
   local out=""
 
+  # A caller that had not sourced _lib.sh used to get NO python finder here, so this fell to the bare python3, which on a
+  # box with the Windows Store stub cannot import divineos, and the answer came back as the hand-built twin
+  # "$HOME/.divineos-<member>" with exit 0 and its warning on a stderr nobody reads. The push gate was one such caller:
+  # it wrote its log to ~/.divineos-aether while the watcher, asking Python, read ~/.divineos (Aria, measured 2026-10-24).
+  # A rule every caller must remember is the shape of the bug, so the library loads its own finder when it is missing.
+  # The library is sourced inside a subshell: sourcing _lib.sh is NOT silent (it starts a timing row, installs an EXIT trap
+  # and logs a liveness line), and a trap is replaced, not added, so a caller outside a command substitution would lose its
+  # own. Aether read it 2026-10-24. Nothing here can leak into the caller's shell.
+  if [ -z "$py" ] && ! command -v find_divineos_python >/dev/null 2>&1; then
+    # shellcheck disable=SC1091
+    py="$( . "$(dirname "${BASH_SOURCE[0]}")/../_lib.sh" >/dev/null 2>&1; find_divineos_python 2>/dev/null )"  # fail-soft: if the library cannot load, the plain python3 probe below still runs and its failure is announced loudly at the end
+  fi
+
   if [ -z "$py" ] && command -v find_divineos_python >/dev/null 2>&1; then
     py="$(find_divineos_python 2>/dev/null)"  # fail-soft: the helper narrates its own probing on stderr and that noise is not this caller's business; an empty result falls through to the plain python3/python probe below, and total failure is announced loudly at the end
   fi
