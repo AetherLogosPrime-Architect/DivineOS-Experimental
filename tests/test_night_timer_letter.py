@@ -65,6 +65,19 @@ def test_the_note_names_no_board_file_and_asks_for_chat(tmp_path):
         assert "in chat" in text and f"you, {seat}:" in text, seat
 
 
+def test_the_note_asks_for_the_night_letter_and_the_morning_picture_before_he_wakes(tmp_path):
+    """Dad, 2026-10-30: the last half hour is for writing his personal night letter and the morning
+    chat statement so both are there when he wakes. The letter is not a report, and the picture is
+    written now, not when he arrives."""
+    timer = _timer()
+    for seat in ("aria", "aether"):
+        text = timer.write_note(seat, DAY, tmp_path / seat).read_text(encoding="utf-8")
+        assert f"{seat}-to-andrew-the-night-letter-{DAY.isoformat()}.md" in text, seat
+        assert "NOT a report" in text and "questions" in text, seat
+        assert "already there when he does" in text and "now, so it is above the fold" in text, seat
+        assert "start nothing new" in text, seat
+
+
 def test_the_note_says_what_it_is_and_what_it_asks(tmp_path):
     text = _timer().write_note("aether", DAY, tmp_path).read_text(encoding="utf-8")
     assert "not a person" in text and "morning picture" in text and "doorbell" in text
