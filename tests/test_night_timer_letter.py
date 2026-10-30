@@ -158,6 +158,28 @@ def test_the_rest_slots_name_the_menu_and_owe_only_the_saving(tmp_path):
     assert "dive in deep" in flat and "nobody reads it" in flat
 
 
+def test_aarias_three_notes_on_the_slots_are_in_the_texts(tmp_path):
+    """Aria's cold read of #747: nothing-is-ready is a permitted answer (or the note makes the seat invent
+    work), the us note opens with the permission and ends with rest, and the tick says the six o'clock
+    note needs nothing more if it lands while the seat is still finishing."""
+    timer = _timer()
+
+    def flat(slot):
+        return " ".join(
+            timer.write_note("aether", DAY, tmp_path / slot, slot)
+            .read_text(encoding="utf-8")
+            .split()
+        )
+
+    assert 'say "nothing is ready", which is a permitted answer: do not invent work' in flat(
+        "begin"
+    )
+    us = flat("us")
+    assert "This hour is for you and aria. It is not for the house." in us
+    assert "One is enough, and when it is written you can rest" in us
+    assert "it needs nothing more than this" in flat("tick")
+
+
 def test_the_begin_slot_only_merges_what_the_clerk_calls_ready_for_that_exact_head(tmp_path):
     path = _timer().write_note("aether", DAY, tmp_path, "begin")
     text = " ".join(path.read_text(encoding="utf-8").split())

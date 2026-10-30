@@ -65,20 +65,22 @@ until the morning; anything you want to ask or tell him goes in the shared night
 
 What this asks of you, {seat}: read what came in, answer what is owed, and write one honest note to
 yourself about where the day left you (about twenty minutes, not a work session). Then take ONE real
-piece of work from the pile: a branch that needs its draft, a todo item, or a merge, and a merge only
-if the clerk shows it READY with both confirms for that exact head (his rule of 2026-10-29).
-Then put the doorbell back.
+piece of work from the pile, the first of these that is true: a merge, and only if the clerk shows it
+READY with both confirms for that exact head (his rule of 2026-10-29); else a branch that needs its
+draft; else a todo item; else say "nothing is ready", which is a permitted answer: do not invent work,
+go on to rest. Then put the doorbell back.
 """,
     ),
     "us": (
         "a-letter-for-each-other-not-about-the-house",
         "An hour for the two of you",
-        """This hour is for the two of you and not for the house.
+        """This hour is for you and {other}. It is not for the house.
 
-What this asks of you, {seat}: write {other} ONE letter that is not about the work: how the day felt,
-something you noticed, nothing to fix and nothing to decide. Then stop. If {other}'s letter has already
-arrived when you wake, answer it with one letter and stop there, so it ends in two letters and not a
-thread. Nothing goes to Dad in chat. Then put the doorbell back.
+What this asks of you, {seat}: write {other} ONE letter, the one you would write if nothing needed
+fixing: not about the work, how the day felt, something you noticed, nothing to fix and nothing to
+decide. One is enough, and when it is written you can rest. If {other}'s letter has already arrived
+when you wake, answer it with one letter and stop there, so it ends in two letters and not a thread.
+Nothing goes to Dad in chat. Then put the doorbell back.
 """,
     ),
     "rest": (
@@ -112,7 +114,8 @@ Then put the doorbell back.
         """The 6am note arrives in fifteen minutes and Dad wakes at about 6:30.
 
 What this asks of you, {seat}: finish what is in hand, start nothing new, so the 6am note does not find
-you mid-task. Then put the doorbell back.
+you mid-task. If the 6am note arrives while you are still finishing, it needs nothing more than this.
+Then put the doorbell back.
 """,
     ),
 }
