@@ -88,7 +88,16 @@ _LIB_REPO_ROOT_CACHE=""
 # every path on Linux or macOS, comes back as it went in.
 _lib_native_path() {
   if [[ "$1" =~ ^/([a-zA-Z])/(.*)$ ]]; then
-    printf '%s:/%s' "${BASH_REMATCH[1]^^}" "${BASH_REMATCH[2]}"
+    # Uppercase the drive letter without ${var^^} (bash 4 only: a syntax error under macOS's bash 3.2, which
+    # would stop this whole file loading) and without tr (not on a hook's PATH, like cygpath): look the
+    # letter up by its position in the alphabet. An already-uppercase letter is not found and is kept.
+    local _drive="${BASH_REMATCH[1]}" _rest="${BASH_REMATCH[2]}"
+    local _lower=abcdefghijklmnopqrstuvwxyz _upper=ABCDEFGHIJKLMNOPQRSTUVWXYZ
+    local _before="${_lower%%"$_drive"*}"
+    if [ "${#_before}" -lt 26 ]; then
+      _drive="${_upper:${#_before}:1}"
+    fi
+    printf '%s:/%s' "$_drive" "$_rest"
   else
     printf '%s' "$1"
   fi
