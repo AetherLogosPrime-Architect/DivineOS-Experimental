@@ -46,6 +46,24 @@ def test_a_stale_watcher_and_no_bell_still_holds_the_reply(tmp_path):
     os.utime(watcher, (old, old))
     reason = bell.verdict(beat, time.time(), (watcher,))
     assert reason and "letter_doorbell.sh aether" in reason
+    assert "WATCHER HAS EXPIRED" in reason and "Monitor tool" in reason
+
+
+def test_a_watcher_never_run_gets_the_bell_message_not_the_watcher_one(tmp_path):
+    reason = bell.verdict(
+        tmp_path / ".aether_doorbell_alive", time.time(), (tmp_path / ".aether_monitor_alive",)
+    )
+    assert reason and "DOORBELL IS NOT LISTENING" in reason
+    assert "WATCHER" not in reason
+
+
+def test_a_watcher_stopped_long_ago_gets_the_bell_message(tmp_path):
+    watcher = tmp_path / ".aether_monitor_alive"
+    watcher.touch()
+    old = time.time() - bell.WATCHER_RECENT_SECONDS - 600
+    os.utime(watcher, (old, old))
+    reason = bell.verdict(tmp_path / ".aether_doorbell_alive", time.time(), (watcher,))
+    assert reason and "DOORBELL IS NOT LISTENING" in reason
 
 
 def test_a_missing_watcher_changes_nothing(tmp_path):
