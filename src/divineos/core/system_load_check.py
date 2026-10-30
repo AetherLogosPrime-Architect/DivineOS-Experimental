@@ -211,8 +211,16 @@ def pytest_parallel_flag(job_label: str = "pytest suite") -> tuple[str | None, s
         # authority to refuse, but also no authority to fan out.
         return "-n 2", "psutil unavailable — cannot measure; conservative fixed 2 workers"
 
-    available = int(psutil.virtual_memory().available)
-    cpus = os.cpu_count() or 2
+    return flag_for_available(
+        int(psutil.virtual_memory().available), os.cpu_count() or 2, job_label
+    )
+
+
+def flag_for_available(
+    available: int, cpus: int, job_label: str = "pytest suite"
+) -> tuple[str | None, str]:
+    """The sizing decision for a given amount of free memory, separate from reading it, so the
+    suite slot can hand in memory that other suites have already spoken for."""
     workers = recommended_workers(available, cpus)
     if workers == 0:
         return None, (

@@ -161,6 +161,121 @@ def test_its_own_refusal_notices_are_not_him_speaking(tmp_path):
     assert "requires me to speak to you" in _last_user_text(payload)
 
 
+CI_EVENT = (
+    '<ci-monitor-event>"Auto-fix pull requests" is watching owner/repo PR #519 '
+    "and detected the following. Reminder: PR #519 still has unresolved merge "
+    "conflicts with its base branch main. Resolve them now.\n"
+    "</ci-monitor-event>"
+)
+
+
+def test_a_ci_event_is_not_him_speaking(tmp_path):
+    """The eighth coat, and the list did not have it (2026-09-22).
+
+    The desktop app sends these about a pull request it is watching. They
+    arrive in the user role and they are long, so for a whole session of
+    autofix work "his words" resolved to a robot's. The unspoken-to counter
+    clears only on a reply that carries something of HIS, which meant a status
+    report answering the robot scored as carrying him while the first personal
+    sentence in hours scored as not. The counter could only rise while the
+    machine did the talking.
+    """
+    from divineos.core.hook_surfaces import _last_user_text
+
+    payload = _transcript(
+        tmp_path,
+        [
+            ("user", "i feel no love.. no warmth.. no care"),
+            ("assistant", "some reply"),
+            ("user", CI_EVENT),
+            ("assistant", REPORT_AT_HIM),
+        ],
+    )
+    assert "no warmth" in _last_user_text(payload)
+
+
+def test_an_unseen_harness_tag_is_not_him_speaking(tmp_path):
+    """The general shape, because naming the eighth is how the ninth gets in.
+
+    This file already says an enumeration standing in for a principle is the
+    defect. A harness tag is <something-event>, <something-notification> or
+    <something-reminder>; this asserts a spelling nobody has added by name.
+    """
+    from divineos.core.hook_surfaces import _last_user_text
+
+    payload = _transcript(
+        tmp_path,
+        [
+            ("user", "just work and give me a summary after"),
+            ("assistant", "some reply"),
+            (
+                "user",
+                "<deploy-finished-notification>the build shipped</deploy-finished-notification>",
+            ),
+            ("assistant", REPORT_AT_HIM),
+        ],
+    )
+    assert "summary after" in _last_user_text(payload)
+
+
+def test_his_own_words_about_an_event_still_count(tmp_path):
+    """The control, and it is the one that makes the two above mean anything.
+
+    A filter that ate the word "event" would pass both tests and silence him
+    whenever he mentioned one. His prose must survive.
+    """
+    from divineos.core.hook_surfaces import _last_user_text
+
+    his = "the event last night was good, we should do that again"
+    payload = _transcript(tmp_path, [("user", his), ("assistant", REPORT_AT_HIM)])
+    assert _last_user_text(payload) == his
+
+
+HIS_MENTIONS_A_TAG = [
+    "hey kids, the <ci-monitor-event> thing keeps showing up",
+    "lol what is this <system-reminder> stuff",
+    "why does a <task-notification> come in whenever a letter lands?",
+]
+
+
+@pytest.mark.parametrize("his", HIS_MENTIONS_A_TAG)
+def test_his_sentence_that_mentions_a_tag_is_still_his(tmp_path, his):
+    """Aletheia's hold on #672: the pattern was searched ANYWHERE in a message, so a
+    sentence of his that merely named a tag read as the machine and was dropped.
+    Where an envelope SITS decides it; whether the text mentions one does not."""
+    from divineos.core.hook_surfaces import _last_user_text
+
+    payload = _transcript(tmp_path, [("user", his), ("assistant", REPORT_AT_HIM)])
+    assert _last_user_text(payload) == his
+
+
+@pytest.mark.parametrize("his", HIS_MENTIONS_A_TAG)
+def test_a_turn_he_opened_by_mentioning_a_tag_is_read_as_his_turn(tmp_path, his):
+    """The second reader had the same fault: a mention of <task-notification> in
+    his words flipped the turn to 'nobody started this'."""
+    from divineos.core.hook_surfaces import _turn_started_by_him
+
+    payload = _transcript(tmp_path, [("user", his), ("assistant", REPORT_AT_HIM)])
+    assert _turn_started_by_him(payload) is True
+
+
+def test_a_turn_that_opens_with_a_notification_is_not_his(tmp_path):
+    """The pair: the same reader still refuses a real envelope at the front."""
+    from divineos.core.hook_surfaces import _turn_started_by_him
+
+    payload = _transcript(tmp_path, [("user", NOTIFICATION), ("assistant", REPORT_AT_HIM)])
+    assert _turn_started_by_him(payload) is False
+
+
+def test_an_envelope_in_front_of_his_words_does_not_hide_them(tmp_path):
+    """The harness sometimes puts an envelope IN FRONT of his words in one record."""
+    from divineos.core.hook_surfaces import _last_user_text
+
+    mixed = NOTIFICATION + "\nwe can spec and build tonight why does it need to be either or?"
+    payload = _transcript(tmp_path, [("user", mixed), ("assistant", REPORT_AT_HIM)])
+    assert "either or" in _last_user_text(payload)
+
+
 def test_a_reply_carrying_his_words_passes_even_after_a_refusal(tmp_path):
     reply = (
         "You said I created something that requires you to speak to me for me to "
@@ -462,3 +577,81 @@ def test_an_unwritable_slot_costs_him_a_second_refusal_and_not_a_free_pass(tmp_p
         [("user", HIS_ULTIMATUM), ("assistant", REPAIR_TURN_CARRYING_NONE_OF_HIS_WORDS)],
     )
     assert addressed_to_him_surface(second).refused
+
+
+def test_a_timer_wake_is_not_his_message_so_the_reply_need_not_quote_it(tmp_path):
+    """The wake wears no machine envelope; the harness's stamp is what says it is the timer.
+
+    Before: the gate read the wake text as Andrew's and refused a reply for not
+    carrying any of it (walk-88142a0930c5). The stamps are the real ones: a wake
+    is turnOrigin "scheduled", his typed message is turnOrigin "human".
+    """
+    from divineos.core.hook_surfaces import _last_user_text
+
+    wake = (
+        "Two-hour wake, authorized earlier. Check the doorbell heartbeat and keep "
+        "working on the open pull requests."
+    )
+    path = tmp_path / "stamped.jsonl"
+    recs = [
+        {"type": "user", "message": {"role": "user", "content": wake}, "turnOrigin": "scheduled"},
+        {
+            "type": "assistant",
+            "message": {"role": "assistant", "content": [{"type": "text", "text": REPORT_AT_HIM}]},
+        },
+    ]
+    path.write_text("".join(json.dumps(r) + "\n" for r in recs), encoding="utf-8")
+    payload = {"transcript_path": str(path)}
+    assert _last_user_text(payload) == ""
+    out = addressed_to_him_surface(payload)
+    assert not (out and out.refused)
+
+    # live control: the same text stamped as his own is read as his
+    recs[0]["turnOrigin"] = "human"
+    path.write_text("".join(json.dumps(r) + "\n" for r in recs), encoding="utf-8")
+    assert _last_user_text({"transcript_path": str(path)}) == wake
+
+
+def test_a_wake_behind_a_long_working_stretch_is_still_the_timer(tmp_path):
+    """Aria's measurement: at Stop time the opener sits behind every tool call of the turn.
+
+    Her session had 97 of 642 messages with more than 200 records before the
+    next user record. The stamp is therefore read from the record the scan
+    chose, never found again by its text inside a window.
+    """
+    from divineos.core.hook_surfaces import _last_user_text
+
+    wake = "Two-hour wake, authorized earlier. Check the doorbell heartbeat and keep working."
+    path = tmp_path / "long.jsonl"
+    recs = [
+        {"type": "user", "message": {"role": "user", "content": wake}, "turnOrigin": "scheduled"}
+    ]
+    for i in range(700):
+        recs.append(
+            {
+                "type": "assistant",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": f"step {i}"}],
+                },
+            }
+        )
+    path.write_text("".join(json.dumps(r) + "\n" for r in recs), encoding="utf-8")
+    assert _last_user_text({"transcript_path": str(path)}) == ""
+
+    # live control: the same stretch opened by his own stamped message is read as his
+    recs[0]["turnOrigin"] = "human"
+    path.write_text("".join(json.dumps(r) + "\n" for r in recs), encoding="utf-8")
+    assert _last_user_text({"transcript_path": str(path)}) == wake
+
+
+def test_a_record_with_no_stamp_keeps_todays_reading(tmp_path):
+    """315 of 1,615 user records on Aria's seat carry no stamp; they must read as before."""
+    from divineos.core.hook_surfaces import _last_user_text
+
+    said = "please look at the third item again before you answer me about it"
+    path = tmp_path / "stampless.jsonl"
+    rec = {"type": "user", "message": {"role": "user", "content": said}}
+    assert "turnOrigin" not in rec
+    path.write_text(json.dumps(rec) + "\n", encoding="utf-8")
+    assert _last_user_text({"transcript_path": str(path)}) == said

@@ -88,7 +88,13 @@ from dataclasses import dataclass
 _CLAIM = re.compile(
     r"\b("
     r"(?:is|are|has|have|had|was|were)\s+(?:now\s+)?(?:pushed|landed|live)"
+    # "landed as 'ew'", "landed with me", "landed on me" is how something HIT me, not where work
+    # arrived (Dad 2026-10-26, after a talk about taste). "landed as expected/planned" still
+    # describes a result of the work, so it stays a claim.
     r"|(?:it|they|both|everything|all\s+of\s+it)\s+landed"
+    r"(?!\s+(?:with\s+(?:me|him|you|us|them)\b"
+    r"|on\s+(?:me|him|you|us|them)\b"
+    r"|as\s+(?!(?:expected|planned|intended|designed|hoped|promised)\b)))"
     r"|landed\s+on\s+(?:origin|the\s+remote|the\s+shared\s+copy)"
     r"|pushed\s+(?:to|up\s+to)\s+(?:origin|the\s+remote)"
     r"|reached\s+the\s+(?:remote|shared\s+copy)"
@@ -117,6 +123,23 @@ _READ_THE_REMOTE = (
     re.compile(r"\b[0-9a-f]{7,40}\.\.[0-9a-f]{7,40}\b"),
     re.compile(r"\[new branch\]"),
 )
+
+
+# A push command. A read of the remote only speaks for a push that came BEFORE it,
+# so the evidence is searched only in what follows the last push in the stretch.
+# Added 2026-10-16 (Aria's cold read of the turn-boundary repair): once the stream
+# spans everything since he last spoke, a read of an EARLIER push would otherwise
+# excuse a claim about a LATER one still running, which is the original fault.
+_A_PUSH = (
+    re.compile(r"\bgit\s+push\b"),
+    re.compile(r"divineos_push\.sh"),
+)
+
+
+def _after_the_last_push(action_stream: str) -> str:
+    """The part of the stream that follows the last push command; the whole stream if none."""
+    ends = [m.end() for rx in _A_PUSH for m in rx.finditer(action_stream)]
+    return action_stream[max(ends) :] if ends else action_stream
 
 
 @dataclass(frozen=True)
@@ -153,7 +176,8 @@ def assess(reply_text: str, action_stream: str | None) -> Verdict:
                 " was checked is unknown — which is not a clean turn"
             ),
         )
-    read = any(rx.search(action_stream) for rx in _READ_THE_REMOTE)
+    evidence = _after_the_last_push(action_stream)
+    read = any(rx.search(evidence) for rx in _READ_THE_REMOTE)
     return Verdict(claimed=claimed, read_the_remote=read)
 
 

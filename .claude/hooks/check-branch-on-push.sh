@@ -199,6 +199,31 @@ EOF
         hook_say_nothing_ran_for "$INPUT"
         exit 2
     fi
+    # SPEND THE ONE KEY, or refuse. Andrew 2026-09-30: "a single bypass key,
+    # and in order to get it replaced when you use it, you must show evidence
+    # of an actual root cause fix". A reason I write myself used to be enough
+    # to open this gate; now the reason is the log and the key is the key.
+    # core/bypass_key.py, prereg-b3e8453df633, walk-0e68ddafaa93.
+    # Fails CLOSED and says so in one line: any error here prints a sentence naming
+    # its class, so the refusal text is never a raw traceback (Aria, cold read of #597),
+    # and a crash before the print is still caught by 2>&1 below.
+    KEY_REFUSAL=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -c "
+import json, sys
+try:
+    from divineos.core import bypass_key as bk
+    cmd = (json.loads(sys.stdin.read() or '{}').get('tool_input') or {}).get('command', '') or ''
+    at = cmd.find('git push')
+    seg = cmd[at:].split(';')[0].split('&&')[0].split('||')[0].split('|')[0] if at >= 0 else cmd
+    bk.spend('check-branch-on-push', seg)
+except Exception as e:
+    print(e if type(e).__name__ == 'KeySpent' else 'the key could not be read or spent: ' + type(e).__name__)
+" 2>&1)
+    if [ -n "$KEY_REFUSAL" ]; then
+        echo "[check-branch-on-push] NO KEY — the override did not open the gate." >&2
+        echo "  $KEY_REFUSAL" >&2
+        hook_say_nothing_ran_for "$INPUT"
+        exit 2
+    fi
     # Fire the four-step LOGGED/REPORTED/ADDRESSED/FIXED loop.
     # Fail-open on any Python-side error: bypass still proceeds (kill-switch
     # authority preserved) but stderr records the telemetry-firing miss.
@@ -282,6 +307,10 @@ fi
 #
 # The command being intercepted is in the payload, and it carries its own
 # directory when I push from a worktree. Read it rather than assume.
+# The extraction's stderr is kept, not thrown away: when the command names a folder
+# that is not a git tree, the matcher says so there, and that sentence has to reach
+# the screen or the check silently measures a tree the push does not go to.
+PUSH_ERR="$(mktemp 2>/dev/null)" || PUSH_ERR=""  # fail-soft: no temp file only means the not-a-tree note cannot be shown; the extraction and the check run exactly as before
 PUSH_CWD=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -c "
 import json, re, sys, os
 try:
@@ -296,7 +325,15 @@ from divineos.core.push_detection import push_cwd
 path = push_cwd(cmd)
 if path:
     print(path)
-" 2>/dev/null)  # fail-soft: if extraction fails we fall back to the ambient root, which is the pre-2026-08-15 behaviour
+" 2>"${PUSH_ERR:-/dev/null}")  # fail-soft: if extraction fails we fall back to the ambient root, which is the pre-2026-08-15 behaviour
+PUSH_NOTE=""
+if [ -n "$PUSH_ERR" ]; then
+    PUSH_NOTE="$(grep '^\[push-check\]' "$PUSH_ERR" 2>/dev/null | head -3)"  # fail-soft: no note is the ordinary case, and an unreadable temp file only means the note is not shown, never that the check is skipped
+    rm -f "$PUSH_ERR"
+fi
+if [ -n "$PUSH_NOTE" ]; then
+    printf '%s\n' "$PUSH_NOTE" >&2
+fi
 
 if [ -n "$PUSH_CWD" ]; then
     CHECK_OUTPUT=$(PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
@@ -309,7 +346,20 @@ CHECK_RC=$?
 
 case "$CHECK_RC" in
   0)
-    # Healthy. Allow silently.
+    # Healthy, and reached with no override (the marker path exits above), so
+    # this is the lock letting a push through on its own. If the key was spent
+    # on this same push, this is the dogfood that earns it back -- witnessed by
+    # the gate, never typed. Fail-soft: a pass must never be blocked by the
+    # bookkeeping of a pass.
+    printf '%s' "$INPUT" | "$PYTHON_BIN" -c "
+import json, sys
+from divineos.core import bypass_key as bk
+cmd = (json.loads(sys.stdin.read() or '{}').get('tool_input') or {}).get('command', '') or ''
+at = cmd.find('git push')
+seg = cmd[at:].split(';')[0].split('&&')[0].split('||')[0].split('|')[0] if at >= 0 else cmd
+if bk.note_clean_pass('check-branch-on-push', seg):
+    print('[check-branch-on-push] KEY RETURNED — the lock let the same push through after its fix.', file=sys.stderr)
+" || true  # fail-soft: see comment above
     exit 0
     ;;
   1|2)
@@ -327,7 +377,13 @@ case "$CHECK_RC" in
     else
       LEVEL="CRITICAL"
     fi
+    # NAME THE SUBJECT (walk-fb1339722adc, Lovelace). When this alarm measured a
+    # different tree than the push goes to, the only way to see it was to
+    # diagnose it by hand; now the block says which folder it asked about.
+    MEASURED="${PUSH_CWD:-$REPO_ROOT (the session folder; the command named no other tree)}"
     cat >&2 <<EOF
+Measured tree: $MEASURED
+
 $CHECK_OUTPUT
 
 The push has been BLOCKED ($LEVEL) because divineos check-branch

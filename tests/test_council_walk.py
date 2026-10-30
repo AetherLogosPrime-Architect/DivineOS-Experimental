@@ -9,6 +9,8 @@ import pytest
 
 from divineos.core import council_walk as cw
 
+from _walk_helpers import apply_delivered
+
 PROBLEM = (
     "Whether a walk that refuses to close produces thinking or a form I fill in with restatements"
 )
@@ -107,7 +109,9 @@ def test_completed_walk_is_spent_once():
     """Schneier: a completed walk must not be a permanent pass."""
     w = cw.open_walk(PROBLEM)
     for lens in w["lenses"]:
-        cw.apply_lens(w["walk_id"], lens, f"{lens}: a real finding of sufficient length to pass")
+        apply_delivered(
+            cw, w["walk_id"], lens, f"{lens}: a real finding of sufficient length to pass"
+        )
     cw.close_walk(w["walk_id"])
     assert cw.is_complete(w["walk_id"]) is True
     cw.consume(w["walk_id"])
@@ -135,7 +139,9 @@ def test_distinctness_needs_two_findings_and_says_so():
     assert d["available"] is False
     assert "fewer than two" in d["reason"]
 
-    cw.apply_lens(w["walk_id"], w["lenses"][0], "a single finding of sufficient length to store")
+    apply_delivered(
+        cw, w["walk_id"], w["lenses"][0], "a single finding of sufficient length to store"
+    )
     d = cw.finding_distinctness(w["walk_id"])
     assert d["available"] is False, "one finding cannot have a pairwise similarity"
 

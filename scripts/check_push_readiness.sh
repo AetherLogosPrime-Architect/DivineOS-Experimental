@@ -273,7 +273,10 @@ _collect_changed_files() {
             base="$rsha"
         fi
         if [[ -n "$base" ]]; then
-            git diff --name-only "$base..$lsha" 2>/dev/null
+            # --no-renames: git's default rename detection lists only the NEW path of a moved file, so
+            # the old name never reached the selector and the test that imports it was never chosen
+            # (Aether's walk on #704, walk-ed434ad6c15f). With it a move lists both paths.
+            git diff --name-only --no-renames "$base..$lsha" 2>/dev/null
         else
             # Couldn't resolve a base; emit "" so caller falls back to full.
             echo ""
@@ -328,6 +331,89 @@ _all_changed_low_impact() {
         esac
     done <<< "$1"
     [[ "$saw_any" == "1" ]]
+}
+
+# THE DRAFT PATH (Dad 2026-10-21, the fourth time he said it: 09-09, 09-23, 09-30).
+# "why is a draft running the full suite? only a push before merge should be
+# running the full suite.. that is the whole point of the draft." Every
+# code-touching push ran the whole suite, drafts included, which cost weeks of
+# waiting and his PC. The rule lived in my memory and recurred; this is the
+# structure instead, so remembering it is not load-bearing.
+#
+# Returns 0 (skip the full suite) only when EVERY branch ref in the push is
+# either a branch with no open pull request yet (a new branch counts, he said so)
+# or has only DRAFT pull requests. Returns 1 (run the suite) for:
+#   - a push to main/master, which is the merge itself;
+#   - any branch with an open NON-draft PR, which is the merge-bound push;
+#   - COULD-NOT-LOOK: gh missing, failing or timing out. Not knowing a PR is a
+#     draft must never pass as knowing it is one, so it runs the suite and says why.
+_drafts_only_push() {
+    local lref lsha rref rsha branch out saw=0
+    command -v gh >/dev/null 2>&1 || {
+        echo "[push-readiness] draft path: gh is not available, so I cannot tell if this is a draft; running the suite." >&2
+        return 1
+    }
+    while read -r lref lsha rref rsha; do
+        [[ -z "${lref:-}" ]] && continue
+        [[ "${lsha:-}" =~ ^0+$ ]] && continue  # deletion: nothing to ask
+        [[ "${rref:-}" == refs/tags/* ]] && continue
+        branch="${rref#refs/heads/}"
+        case "$branch" in
+            main|master) return 1 ;;
+        esac
+        saw=1
+        if ! out="$(timeout 30 gh pr list --head "$branch" --state open --json isDraft --jq '.[].isDraft' 2>/dev/null)"; then  # fail-soft: a failed ask is reported on the next line and the suite runs, so gh's own stderr adds nothing
+            echo "[push-readiness] draft path: could not ask GitHub about $branch; running the suite." >&2
+            return 1
+        fi
+        # Any non-draft open PR makes this the merge-bound push.
+        if grep -q '^false$' <<< "$out"; then
+            return 1
+        fi
+    done <<< "$HOOK_STDIN"
+    [[ "$saw" == "1" ]]
+}
+
+# THE MIDDLE LAYER of the draft path (Aria 2026-10-22; Dad: "we just test that code and
+# anything directly touching it. we dont run the full suite until its being merged to
+# main."). A draft that runs NOTHING reopens the August gap, a test file changed on a
+# draft verified by nobody, so the draft push runs the tests that touch the change and the
+# full suite waits for the merge-bound push. scripts/draft_test_selection.py decides which,
+# reading the pushed commit; this only asks it and acts on the exit code:
+#   0 and a list  -> run those files through the normal runner below (PYTEST_TARGETS)
+#   0 and no list -> nothing names the change: skip, and say so (DRAFT_SKIP=1)
+#   3 or 2 or any other -> a shared setup file changed, or the repo could not be read:
+#                    run the WHOLE suite and say why. Not knowing never passes as nothing to run.
+# Sets PYTEST_TARGETS (default tests/) and DRAFT_SKIP (default 0).
+_pick_draft_tests() {
+    local changed="$1" sha="" lref lsha rref rsha out rc=0 branches=0
+    # COUNT the branches, do not just take the first: the selector reads ONE commit, so a push of two branches
+    # would choose tests from the first branch's changes and never look at the second's (Aether, attacking #704,
+    # 2026-10-22). More than one is not narrowed.
+    while read -r lref lsha rref rsha; do
+        if [[ -n "${lsha:-}" && ! "${lsha:-}" =~ ^0+$ && "${rref:-}" != refs/tags/* ]]; then
+            branches=$((branches + 1))
+            [[ -z "$sha" ]] && sha="$lsha"
+        fi
+    done <<< "$HOOK_STDIN"
+    if [[ "$branches" -gt 1 ]]; then
+        echo "[push-readiness] draft path: this push carries $branches branches and the selector reads one commit, so I cannot narrow the tests; running the suite." >&2
+        return 0
+    fi
+    if [[ -z "$sha" ]] || [[ ! -f "$REPO_ROOT/scripts/draft_test_selection.py" ]]; then
+        echo "[push-readiness] draft path: no commit or no selector to read, so I cannot narrow the tests; running the suite." >&2
+        return 0
+    fi
+    out="$(printf '%s\n' "$changed" | python "$REPO_ROOT/scripts/draft_test_selection.py" --repo "$REPO_ROOT" --ref "$sha")" || rc=$?
+    if [[ "$rc" -ne 0 ]]; then
+        echo "[push-readiness] draft path: the selector said it cannot narrow this change (exit $rc); running the whole suite." >&2
+        return 0
+    fi
+    if [[ -z "$out" ]]; then
+        DRAFT_SKIP=1
+    else
+        PYTEST_TARGETS="$(printf '%s' "$out" | tr -d '\r' | tr '\n' ' ')"
+    fi
 }
 
 # Empty-branch detection (Andrew 2026-06-12): catch the failure mode hit
@@ -418,6 +504,13 @@ record_bypass(
 PYEOF
 else
     CHANGED_FILES="$(_collect_changed_files)"
+    PYTEST_TARGETS="tests/"
+    DRAFT_SKIP=0
+    DRAFT_PATH=0
+    if ! _all_changed_low_impact "$CHANGED_FILES" && _drafts_only_push; then
+        DRAFT_PATH=1
+        _pick_draft_tests "$CHANGED_FILES"
+    fi
     if _all_changed_low_impact "$CHANGED_FILES"; then
         echo "[push-readiness] Fast path: all changed files are in low-impact paths"
         echo "[push-readiness] (docs/, family/, exploration/, *.md, *.txt) — none of"
@@ -427,7 +520,24 @@ else
         echo "[push-readiness] it mattered. tests/ was removed from this list."
         # Skip pytest; fall through to multi-party-review.
         : "${PYTEST_RC:=0}"
+    elif [[ "$DRAFT_SKIP" == "1" ]]; then
+        echo "[push-readiness] Draft path: every branch in this push is a new branch or has only"
+        echo "[push-readiness] DRAFT pull requests, so the full suite is not run here. The draft"
+        echo "[push-readiness] exists so Aletheia and Aria can read it before the slow run; the"
+        echo "[push-readiness] full suite runs once, when the PR is made ready (GitHub runs it on"
+        echo "[push-readiness] non-draft PRs) and on any push to a branch with a ready PR."
+        echo "[push-readiness] Dad 2026-10-21, the fourth time: drafts never run the full suite."
+        echo "[push-readiness] No test names anything this draft changed, so none were selected."
+        echo "[push-readiness] Those files are listed above as NO TEST NAMES: nothing is verified"
+        echo "[push-readiness] for them until the full run."
+        : "${PYTEST_RC:=0}"
     else
+        if [[ "$DRAFT_PATH" == "1" && "$PYTEST_TARGETS" != "tests/" ]]; then
+            echo "[push-readiness] Draft path: this is a draft, so only the tests that touch the change run:"
+            echo "[push-readiness] $PYTEST_TARGETS"
+            echo "[push-readiness] The full suite runs once, when the PR is made ready. Dad 2026-10-21: we just"
+            echo "[push-readiness] test that code and anything directly touching it."
+        fi
         # SYSTEM-LOAD PRE-FLIGHT (Andrew 2026-07-30, prereg-ca5fb15220ea):
         # Multiple concurrent pre-push pytest suites crashed Andrew's
         # machine 2026-07-30 by eating memory. Aether's subprocess_jobs.py
@@ -456,10 +566,18 @@ else
         # narrower instead of not at all; below the hard floor it still
         # refuses. See divineos.core.system_load_check for the invariant and
         # the test grid that holds it.
+        # CLAIM MEMORY, DO NOT JUST READ IT (Aria 2026-10-16, Dad's ruling: "it
+        # doesnt need to be one at a time, it just needs to be considerate of
+        # the memory thats available"). Seven pushes started together, each read
+        # free memory once, each passed, and the computer crashed. A reading made
+        # before the work is a race when several arrive at once, so this asks the
+        # suite slot instead: it subtracts what suites still ramping up have
+        # already claimed, sizes this one to what is left, and waits (saying who
+        # it waits on) when nothing fits. The hard-floor refusal is unchanged.
+        SLOT_OWNER="$(cat /proc/$$/winpid 2>/dev/null || echo $$)"
         LOAD_FLAG_FILE="$(mktemp)"
         if ! PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
-             python -m divineos.core.system_load_check --parallel-flag \
-             "pre-push pytest suite" >"$LOAD_FLAG_FILE"; then
+             python -m divineos.core.suite_slot claim "$SLOT_OWNER" >"$LOAD_FLAG_FILE"; then
             rm -f "$LOAD_FLAG_FILE"
             echo "[push-readiness] BLOCKED — system_load_check refused pytest spawn." >&2
             echo "[push-readiness] See message above. Wait for existing heavy" >&2
@@ -617,7 +735,7 @@ else
                     env | grep -E '^(GIT_|PYTEST|MSYS)' | sed 's/^/[gate-env] /'
                 } >"$PYTEST_LOG" 2>&1
                 # shellcheck disable=SC2086  # PYTEST_PARALLEL is intentionally word-split
-                (cd "$PYTEST_WORKTREE" && PYTHONPATH="$PYTEST_WORKTREE/src${PYTHONPATH:+:$PYTHONPATH}" $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL) >>"$PYTEST_LOG" 2>&1 || recover_if_only_crashes "$PYTEST_WORKTREE"
+                (cd "$PYTEST_WORKTREE" && PYTHONPATH="$PYTEST_WORKTREE/src${PYTHONPATH:+:$PYTHONPATH}" $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest $PYTEST_TARGETS -q --tb=line $PYTEST_PARALLEL) >>"$PYTEST_LOG" 2>&1 || recover_if_only_crashes "$PYTEST_WORKTREE"
                 PYTEST_RC=$?
                 # Normal-path cleanup — runs after pytest exits cleanly. The
                 # trap above covers the interrupt path; this call covers the
@@ -637,7 +755,7 @@ else
                 echo "[push-readiness] worktree isolation unavailable, running pytest in main worktree (concurrency-fragile)" >&2
                 # shellcheck disable=SC2086  # PYTEST_PARALLEL is intentionally word-split ("-n auto" is two tokens)
                 # Wrapped per prereg-dae52c6ca269 — same rationale as the isolated path above.
-                $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1 || recover_if_only_crashes "$PWD"
+                $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest $PYTEST_TARGETS -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1 || recover_if_only_crashes "$PWD"
                 PYTEST_RC=$?
             fi
         else
@@ -657,9 +775,11 @@ else
             # looking at, and a sibling call site left behind. The
             # divergence is invisible until you are waiting on the slow one.
             # shellcheck disable=SC2086  # PYTEST_PARALLEL is intentionally word-split
-            $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1 || recover_if_only_crashes "$PWD"
+            $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest $PYTEST_TARGETS -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1 || recover_if_only_crashes "$PWD"
             PYTEST_RC=$?
         fi
+        PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+            python -m divineos.core.suite_slot release "$SLOT_OWNER"
         if [[ $PYTEST_RC -ne 0 ]]; then
             # Persist the full log to a stable path so the failures stay
             # readable after this script exits. The mktemp file gets cleaned

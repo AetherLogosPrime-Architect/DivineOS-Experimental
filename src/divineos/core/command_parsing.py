@@ -350,6 +350,16 @@ _INERT_HEADS = frozenset(
         "column",
         "less",
         "more",
+        # GREP, added 2026-10-24 (Dad: "the root cause of the issue needs investigated and fixed").
+        # I ended nearly every divineos command with `| grep -v "embedding\|Loading"` to hide
+        # model-loading noise, and a recording command with that on the end stopped being a
+        # recognised exit. The correction marker named `compass-ops observe` as its remedy, the
+        # council-paperwork gate refused that observe as an edit because of my grep, and the
+        # paperwork commands were blocked by the marker: a lock I closed myself. It meets the bar
+        # above: grep consumes input, emits text and has no option that writes a file (unlike sed
+        # and awk). `grep -r x . && git push` still refuses, because git push is an acting segment;
+        # a `> file` redirect on the grep is still caught as a write.
+        "grep",
         # SHELL OPTIONS, added 2026-09-18 (council-de235c61e79d), because two
         # guards were composing into a block that neither contained.
         #
@@ -478,6 +488,43 @@ def shell_command_is_unplaced(tokens: list[str]) -> bool:
     return _scan_shell(tokens)[1]
 
 
+def _ampersand_is_part_of_a_redirect(text: str, index: int, current: list[str]) -> bool:
+    """True when the ampersand at ``index`` belongs to a redirect, not to a separator.
+
+    ``2>&1``, ``>&2`` and ``1>&2`` duplicate a file descriptor: the ampersand sits right
+    after an arrow and the WHOLE next word is ASCII digits or a single ``-``. Read as a
+    separator it cut the command in two and left a stray word (``1``), and a gate that
+    judges each segment then saw an unknown second command behind a prescribed remedy
+    and refused the remedy (2026-10-16: an exit typed with ``2>&1`` on the end was
+    refused for hours, while the same line with ``| tail`` passed).
+
+    NARROWER THAN FIRST BUILT, TWICE, and the reasons are the point. The first version
+    also kept ``&>file`` and ``>& file`` whole; those WRITE a file, and kept whole they
+    hide the write behind an inert head such as ``echo`` (found by probing main against
+    the change after the first confirm). The second looked only at the first character
+    after the ampersand, so ``>&2file`` (a file NAMED ``2file``) and ``>&²`` passed as
+    descriptor duplications; bash treats ``>&word`` as a duplication only when the whole
+    word is digits or ``-`` (Aria's cold read, 2026-10-16). Now the word must be ASCII
+    digits, or ``-``, and then end the text or meet a character that cannot continue
+    a word. Anything else keeps splitting exactly as on main.
+
+    A doubled ``&&`` is never a redirect, and a trailing ``&`` after anything else
+    (``cmd 2>&1 & other``) still separates. Left visibly: a redirect to a file after a
+    duplication (``echo y 2>&1 > f``, ``echo y >&2 > f``) behaves like ``echo y > f``,
+    which this module already accepted; ``echo y >&2 > f`` changes from refused to
+    passed, which is the same class and is said plainly in the design note.
+    """
+    if not current or current[-1] not in "<>":
+        return False
+    return _DESCRIPTOR_TARGET.match(text, index + 1) is not None
+
+
+# The whole word after a duplication ampersand: ASCII digits or a lone dash, ending the
+# text or meeting a character that cannot continue a word. ``[0-9]``, never ``\d`` or
+# ``str.isdigit``, because both accept superscript digits that are not descriptors.
+_DESCRIPTOR_TARGET = re.compile(r"(?:[0-9]+|-)(?=$|[\s;|&)])")
+
+
 def split_shell_segments(bash_command: str) -> list[str] | None:
     """Split on unquoted separators, or ``None`` if it cannot be done safely.
 
@@ -511,6 +558,10 @@ def split_shell_segments(bash_command: str) -> list[str] | None:
             continue
         if ch in ("'", '"'):
             quote = ch
+            current.append(ch)
+            i += 1
+            continue
+        if ch == "&" and _ampersand_is_part_of_a_redirect(bash_command, i, current):
             current.append(ch)
             i += 1
             continue
@@ -552,10 +603,22 @@ def acting_segments(bash_command: str) -> list[str] | None:
             # Nothing but assignments or prefixes: it sets up, it does not act.
             continue
         head = stripped.split()[0].lower()
-        if head in _INERT_HEADS:
+        if head in _INERT_HEADS and not _writes_a_file(stripped):
             continue
         acting.append(stripped)
     return acting
+
+
+def _writes_a_file(segment: str) -> bool:
+    """True when the segment redirects output to anything but /dev/null.
+
+    An inert head stays inert only while it writes nothing. Before this check the whole segment was
+    dropped, redirect included, so `| grep x > src/...` and `echo x > .claude/settings.json` were
+    invisible to every gate (Aletheia's hold on #718, 2026-10-24). Not knowing is not a pass: a
+    target built from a variable is a write this cannot read, and that is the same limit
+    shell_write_targets already states.
+    """
+    return any(t != "/dev/null" for t in shell_write_targets(segment))
 
 
 # A segment that could execute something nobody inspected before the remedy

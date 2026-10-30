@@ -35,9 +35,9 @@ def main() -> int:
         return 0  # both-empty: each 0 means allow; could-not-look also says so on stderr
     tool_name = str(payload.get("tool_name") or "")
     tool_input = payload.get("tool_input") or {}
-    if hv.let_through(tool_name, tool_input):
-        return 0
     path = payload.get("transcript_path")
+    if hv.let_through(tool_name, tool_input, path):
+        return 0
     if not path:
         _say("no transcript path in the payload; could not look whether he spoke")
         return 0

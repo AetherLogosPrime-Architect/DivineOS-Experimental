@@ -89,6 +89,15 @@ for cand in "$REPO_ROOT/.venv/Scripts/python.exe" "$REPO_ROOT/.venv/bin/python";
 done
 ARGFILE="$(mktemp)"
 printf '%s\n' "${!TESTS[@]}" > "$ARGFILE"
+# 2026-10-19: handed to a native Windows python as a POSIX path (/tmp/...), the
+# argument file is found only while the shell happens to be converting paths. With
+# MSYS_NO_PATHCONV set in the caller's environment it was not, and the run died
+# with "the tests could not be run". Converted explicitly so the ambient setting
+# cannot decide whether this check works.
+ARGPATH="$ARGFILE"
+if command -v cygpath >/dev/null 2>&1; then
+    ARGPATH="$(cygpath -m "$ARGFILE")"
+fi
 # Serial on purpose: with xdist the workers never expand the argument file, so
 # nothing is collected (pytest exit 5, seen 2026-10-04).
 # Run as from a clean shell, the same scrub check_push_readiness.sh uses: this
@@ -98,7 +107,7 @@ printf '%s\n' "${!TESTS[@]}" > "$ARGFILE"
 env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u GIT_INDEX_FILE \
     -u GIT_OBJECT_DIRECTORY -u GIT_ALTERNATE_OBJECT_DIRECTORIES -u GIT_PREFIX \
     -u GIT_NAMESPACE -u GIT_QUARANTINE_PATH \
-    "$PY" -m pytest "@$ARGFILE" -q --tb=short -p no:cacheprovider
+    "$PY" -m pytest "@$ARGPATH" -q --tb=short -p no:cacheprovider
 rc=$?
 rm -f "$ARGFILE"
 if [[ $rc -eq 1 ]]; then

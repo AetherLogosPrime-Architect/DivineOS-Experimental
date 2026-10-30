@@ -120,6 +120,32 @@ REMEDIES: tuple[tuple[str, ...], ...] = (
     # said and sorting it. The sort records a judgement; it edits nothing.
     ("divineos", "his", "pending"),
     ("divineos", "his", "sort"),
+    # SAVING AND SLEEP ARE NEVER BLOCKED (Dad, 2026-10-19 and 2026-10-21: "NOTHING should ever block sleep or
+    # extraction", "saving should never be a blocked action at any point whatsoever", and journal entries and other
+    # personal writing must not owe council paperwork). Honest about the entry bar: extract, sleep, rest and dream
+    # are steps the compaction ritual prints; journal save, savor save and feel are NOT printed by any gate as a way
+    # out, and are here on Dad's ruling that personal writing is never blocked (Aether, reading this, 2026-10-22,
+    # asked which gate prints feel; none does). Each records into my own stores and edits no code. The shell list
+    # in .claude/hooks/lib/remedy_allowlist.sh carries the same verbs, each ENDED at a word boundary there, because
+    # a bare prefix let `restore-seed-confidence` through; a test holds both the verbs and that strictness together.
+    ("divineos", "extract"),
+    ("divineos", "sleep"),
+    ("divineos", "journal", "save"),
+    ("divineos", "rest"),
+    ("divineos", "dream"),
+    ("divineos", "savor", "save"),
+    ("divineos", "feel"),
+)
+
+#: The letter doorbell's re-arm. A held re-arm leaves the bell unlistening, which is
+#: the failure the shell list's entry exists to stop (Aria found the two lists
+#: disagreeing, 2026-10-22). Kept apart from REMEDIES because `bash` is a forbidden
+#: head there: this is one named script with one named seat, never `bash` in general.
+SCRIPT_REMEDIES: tuple[tuple[str, ...], ...] = (
+    ("bash", "scripts/letter_doorbell.sh", "aether"),
+    ("bash", "scripts/letter_doorbell.sh", "aria"),
+    ("bash", "./scripts/letter_doorbell.sh", "aether"),
+    ("bash", "./scripts/letter_doorbell.sh", "aria"),
 )
 
 #: Verbs that must never appear here, asserted by a test rather than trusted to
@@ -199,6 +225,20 @@ def outside_quotes(command: str) -> str:
     return command if blanked is None else blanked
 
 
+def _own_seat_script_remedies() -> tuple[tuple[str, ...], ...]:
+    """The script exits for the seat this checkout is, and none when it cannot be told.
+    The other seat's bell is not this seat's exit (the overdue-review block already
+    held that line, pinned in test_a_remedy_is_not_a_write.py), and an unreadable seat
+    fails toward the pause."""
+    try:
+        from divineos.core.sibling_audit_rounds import this_seat
+
+        seat = this_seat()
+    except Exception:  # noqa: BLE001 — cannot tell the seat: no script exit
+        return ()
+    return tuple(prefix for prefix in SCRIPT_REMEDIES if prefix[-1] == seat)
+
+
 def is_remedy(command: str) -> bool:
     """True when this command is some gate's prescribed exit, and nothing else.
 
@@ -235,7 +275,7 @@ def is_remedy(command: str) -> bool:
     try:
         from divineos.core.command_parsing import runs_only
 
-        return runs_only(command, REMEDIES)
+        return runs_only(command, REMEDIES + _own_seat_script_remedies())
     except Exception:  # noqa: BLE001 — fail toward not-a-remedy, never toward a block
         return False
 

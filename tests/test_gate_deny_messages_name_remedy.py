@@ -60,6 +60,11 @@ _HOOKS_DIR = _PROJECT_ROOT / ".claude" / "hooks"
 _NON_GATING_HOOKS: frozenset[str] = frozenset(
     {
         "_lib.sh",
+        # Shows Andrew's own past words and lessons at the table. Every exit is
+        # `exit 0`; a failed search is spoken on stdout as could-not-be-searched,
+        # never a refusal. Read exit-by-exit before declaring (walk
+        # council-94728f824e72).
+        "his-words-door-surface.sh",
         # The front door keeps and settles Andrew's messages and never refuses:
         # every path exits zero, and a failure is recorded as could-not-file.
         # Refusing is a later, separate piece (the sort-first refusal), which
@@ -69,6 +74,10 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         # branch at write-time. PostToolUse and exits zero on every path: it
         # reports a failed capture, it never refuses the write.
         "capture-channel-letter.sh",
+        # Carries Aletheia's letters from his downloads into her audit folder and
+        # announces each new one. Every path exits zero: an unreadable inbox is
+        # reported on stderr as could-not-look, and nothing is ever refused.
+        "collect-aletheia-letters.sh",
         # A RELAY, not a gate, and the distinction is the doorbell design
         # itself: it knocks and steps aside, and every judgment lives in the
         # OS. Its own absent path exits zero and it composes no refusal of its
@@ -462,6 +471,7 @@ _UNCLASSIFIED_BASELINE: frozenset[str] = frozenset(
         "self-demotion-prime.sh",
         "self-demotion-stop.sh",
         "session-init-once.sh",
+        "session-start-behind-main.sh",
         "session-start-verify-git-hooks.sh",
         "shoggoth-gate.sh",
         "sibling-correction-surface.sh",
