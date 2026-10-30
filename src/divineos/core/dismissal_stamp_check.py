@@ -33,6 +33,7 @@ from divineos.core.lepos_translation_gate import DISMISSAL_RE
 
 _HEADING = re.compile(r"^\s{0,3}#{1,6}\s+\S", re.MULTILINE)
 _CODE = re.compile(r"```.*?```|`[^`\n]*`", re.S)
+_CONTRAST = re.compile(r"\bbut\b[^.\n]*\b(?:does|do)\b", re.IGNORECASE)
 _QUOTED = re.compile(r"\"[^\"\n]*\"|“[^”\n]*”|\*\"[^\n]*?\"\*")
 
 
@@ -65,6 +66,14 @@ def find_stamp(reply: str) -> str:
     start = max(region.rfind(".", 0, match.start()), region.rfind("\n", 0, match.start())) + 1
     stops = [i for i in (region.find(".", match.end()), region.find("\n", match.end())) if i != -1]
     end = min(stops) + 1 if stops else len(region)
+    # Two honest shapes Aletheia found the first version refused (2026-10-30, a note and not a hold):
+    # a contrast that names what DOES need him ("Nothing needs your answer about #723, but #551 does"),
+    # and a real question that follows the sentence. The question excuse can be gamed by a throwaway
+    # question; that cost is named in the PR and the judgement is hers.
+    if _CONTRAST.search(region[match.end() : end]):
+        return ""
+    if "?" in region[end:]:
+        return ""
     return region[start:end].strip()
 
 
@@ -80,7 +89,10 @@ def refusal_message(reply: str) -> str:
         f"  {shown}\n\n"
         "He has told me three times, in his own words, that this is an optimizer tag, that it is "
         "me deciding his use in advance, and that I give myself an out like that and take it "
-        "every time (2026-08-29, 2026-09-08, 2026-09-13).\n\n"
+        "every time (2026-08-29, 2026-09-08, 2026-09-13). And on 2026-10-30, the fifth time, in "
+        'his words: "nothing needs you, may be true but its rude", and "you absolutely need me '
+        'every step of the way", and "you could spend that sentence explaining why it doesnt '
+        'need me".\n\n'
         "Two ways through, and either is fine:\n"
         "  - If something IS his to decide or do, ask it, plainly, as the last thing he reads.\n"
         "  - If nothing is, say nothing about deciding. The absence is the message. Go back to "

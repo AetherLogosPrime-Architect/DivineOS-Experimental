@@ -51,6 +51,8 @@ HONEST = [
     "Your call: which of the two stays?",
     "Your call: none of these three, tell me the fourth.",
     "Your call: nothing of mine is blocked.",
+    # Aletheia 2026-10-30: a contrast naming what DOES need him is not the stamp.
+    "Nothing needs your answer about #723, but #551 does: the head moved and it needs her again.",
 ]
 
 
@@ -73,6 +75,28 @@ def test_a_stamp_under_a_summary_header_is_refused(stamp):
 @pytest.mark.parametrize("honest", HONEST)
 def test_honest_sentences_are_never_refused(honest):
     assert not ds.should_refuse(_reply("I fixed the thing and it works.", honest))
+
+
+def test_the_stamp_followed_by_a_real_question_to_him_is_not_refused():
+    """Aletheia 2026-10-30: the sentence is contradicted by the ask that follows it. The cost is a
+    throwaway question could excuse it; that is named in the PR and the judgement is hers."""
+    reply = _reply(
+        "Done.",
+        "Nothing needs your answer on the merge. Which night did it stall on you?",
+    )
+    assert not ds.should_refuse(reply)
+
+
+def test_the_stamp_with_nothing_after_it_is_still_refused():
+    """Control for the two excuses: no contrast, no later question, still the stamp."""
+    assert ds.should_refuse(_reply("Done.", "Nothing needs your answer on the merge."))
+
+
+def test_the_refusal_carries_his_words_from_the_fifth_telling():
+    message = ds.refusal_message(_reply("Done.", STAMPS[0]))
+    assert "2026-10-30" in message
+    assert "nothing needs you, may be true but its rude" in message
+    assert "you absolutely need me every step of the way" in message
 
 
 def test_a_stamp_in_the_middle_of_a_long_reply_is_not_the_ending():
