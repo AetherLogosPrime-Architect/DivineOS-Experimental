@@ -675,6 +675,12 @@ _PROMPT_SURFACES: tuple[tuple[str, str, str, bool], ...] = (
     ("operator_asks", "divineos.core.operator_asks", "format_open_asks", False),
     ("sibling_correction", "divineos.core.sibling_correction_surface", "render", True),
     ("self_demotion_prime", "divineos.core.self_demotion", "render_prime", False),
+    (
+        "answer_at_the_table",
+        "divineos.core.his_voice_is_at_a_table",
+        "answer_at_the_table_line",
+        False,
+    ),
 )
 
 

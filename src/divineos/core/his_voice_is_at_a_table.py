@@ -40,6 +40,9 @@ _DEFAULT_RUN_DIR = "C:/magic-play/run"
 #: How long after the last call at the table it still counts as live.
 LIVE_SECONDS = 120
 
+#: How long a PAUSED file still counts. Six hours: a pause to read cards, never a night.
+PAUSE_SECONDS = 6 * 3600
+
 
 def _run_dir() -> Path:
     return Path(os.environ.get("MAGIC_RUN_DIR") or _DEFAULT_RUN_DIR)
@@ -90,6 +93,14 @@ def a_game_table_is_live() -> bool:
     try:
         folder = _run_dir()
         if folder.is_dir():
+            # His /pause in the game chat makes a file called PAUSED. A paused game writes no bridge log, so
+            # without this the two-minute window lapsed exactly when he stopped to read the cards, and the
+            # gates pulled me back into the window (Aria and Aether, 2026-10-29, after he ended the game).
+            # A pause is hours at most. One older than that is left over from a game that ended or died
+            # while paused, and counting it would keep every gate standing down forever (Aether's cold read).
+            paused = folder / "PAUSED"
+            if paused.exists() and time.time() - paused.stat().st_mtime <= PAUSE_SECONDS:
+                return True
             last_call = _newest_mtime(folder, "bridge_*.log")
             if last_call is not None and time.time() - last_call <= LIVE_SECONDS:
                 return True
@@ -98,3 +109,19 @@ def a_game_table_is_live() -> bool:
     return (
         _poker_table_is_live()
     )  # poker keeps no bridge log: the table itself says whether a game is on
+
+
+def answer_at_the_table_line() -> str:
+    """The pull that was missing: when a table is live and he speaks, say where the answer goes.
+
+    The stand-down above only removes a push (the gates that demanded a room in the window). Nothing told
+    me to answer at the table, so each reply depended on my remembering, and I forgot twice in one game
+    (Dad, 2026-10-29: "you left the table again"). Surfaced with his words, so it arrives with them.
+    Empty when no table is live, so it is silent the rest of the time.
+    """
+    if not a_game_table_is_live():
+        return ""
+    return (
+        "A GAME TABLE IS LIVE. Answer him with the game's send_chat_message, not in this window, "
+        "and do not stop at the table to talk here (he has told us this on 2026-10-14, 10-26 and 10-29)."
+    )
