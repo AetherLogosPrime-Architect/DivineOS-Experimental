@@ -95,6 +95,69 @@ def test_shell_that_never_touches_the_os_is_counted_apart(tmp_path):
     assert hl.inventory(root).detached_files == 1  # only a.sh; the others reach the OS
 
 
+def test_a_doorbell_that_runs_a_module_of_the_os_is_not_detached(tmp_path):
+    """The `-m divineos...` form is the doorbell the migration wants. The
+    counter did not know it: ten of 45 'detached' files on main were this."""
+    root = _tree(
+        tmp_path,
+        {"Stop": ["bell.sh", "own.sh"]},
+        {
+            "bell.sh": '#!/bin/bash\npython -m divineos.hooks.some_hook "$@"\n',
+            "own.sh": "#!/bin/bash\necho the judgment lives in this file\n",
+        },
+    )
+    # Control: own.sh must stay detached, or a loosened pattern calls everything attached.
+    assert hl.inventory(root).detached_files == 1
+
+
+def test_a_doorbell_spelled_with_quotes_or_no_space_is_still_a_doorbell(tmp_path):
+    """The cloud helper's F5 and F6: `-m "divineos.hooks.x"` and `-mdivineos.hooks.x`
+    are real calls the first version of the pattern read as detached."""
+    root = _tree(
+        tmp_path,
+        {"Stop": ["quoted.sh", "tight.sh", "own.sh"]},
+        {
+            "quoted.sh": '#!/bin/bash\nexec "$PYTHON_BIN" -m "divineos.hooks.x"\n',
+            "tight.sh": '#!/bin/bash\nexec "$PYTHON_BIN" -mdivineos.hooks.x\n',
+            "own.sh": "#!/bin/bash\necho the judgment lives in this file\n",
+        },
+    )
+    # Control: own.sh stays detached, so a loosened pattern cannot call everything attached.
+    assert hl.inventory(root).detached_files == 1
+
+
+def test_a_commit_message_or_grep_flag_that_says_divineos_is_not_a_doorbell(tmp_path):
+    """The flag has to belong to an interpreter. A bare `-m divineos` also matched `git commit -m "divineos fix"`,
+    so a script that only commits was counted as attached to the OS."""
+    root = _tree(
+        tmp_path,
+        {"Stop": ["commits.sh", "greps.sh", "bell.sh", "var.sh"]},
+        {
+            "commits.sh": '#!/bin/bash\ngit commit -m "divineos: tidy"\n',
+            "greps.sh": "#!/bin/bash\ngrep -m1 divineos\n",
+            "bell.sh": "#!/bin/bash\npython3 -u -m divineos.hooks.x\n",
+            "var.sh": '#!/bin/bash\nexec "$HOOKPY" -m divineos.hooks.y\n',
+        },
+    )
+    # Two detached (commit, grep), two attached (a python with a flag before -m, and a quoted variable).
+    assert hl.inventory(root).detached_files == 2
+
+
+def test_a_comment_that_names_the_os_does_not_attach_a_script(tmp_path):
+    """Five scripts on main were 'attached' only because a comment said
+    `divineos <word>`; two of them make no OS call at all."""
+    root = _tree(
+        tmp_path,
+        {"Stop": ["talks.sh", "calls.sh"]},
+        {
+            "talks.sh": "#!/bin/bash\n# this will one day run divineos briefing\n  # from divineos import x\necho hi\n",
+            "calls.sh": "#!/bin/bash\n# runs the doorbell\ndivineos briefing\n",
+        },
+    )
+    # talks.sh only mentions the OS in comments (detached); calls.sh really calls it.
+    assert hl.inventory(root).detached_files == 1
+
+
 def test_embedded_python_is_counted_as_judgment_in_the_shell(tmp_path):
     root = _tree(
         tmp_path,

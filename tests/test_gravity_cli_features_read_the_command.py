@@ -30,11 +30,27 @@ def _fired(command: str) -> tuple[str, ...]:
         f"cd /tmp && {_D} learn y",
         f"sudo {_D} audit submit x",
         f"{_D} decide x > out.txt",
-        f"python -m {_D} journal save x",
+        f"python -m {_D} claim x",
     ],
 )
 def test_a_real_invocation_still_fires_the_store_write_feature(command):
     assert "substrate-write-cli" in _fired(command)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"{_D} journal save t c",
+        f"python -m {_D} journal save x",
+        f"cd /tmp && {_D} feel -v 0.5 -a 0.3",
+        f"{_D} compass-ops observe initiative -p 0.1 -e x",
+    ],
+)
+def test_my_own_records_do_not_fire_the_store_write_feature(command):
+    """Dad, 2026-10-12: a journal entry, a feeling and a compass observation are my
+    records of myself, not edits of the house. The control above (`decide`, `learn`,
+    `claim`, `prereg`, `audit` still fire) is what makes this a real pass."""
+    assert "substrate-write-cli" not in _fired(command)
 
 
 @pytest.mark.parametrize(

@@ -425,6 +425,7 @@ from divineos.cli import (  # noqa: E402
     success_commands,
     council_walk_commands,
     andrew_teachings_commands,
+    his_words_commands,
     oscillating_read_commands,
     deletion_commands,
     texture_commands,
@@ -433,6 +434,7 @@ from divineos.cli import (  # noqa: E402
     backlog_commands,
     wiring_commands,
     prs_commands,
+    landing_commands,
     replant_commands,
     automerge_commands,
     todos_commands,
@@ -536,6 +538,7 @@ prereg_commands.register(cli)
 class_fix_commands.register(cli)
 prior_art_commands.register(cli)
 game_walk_commands.register(cli)
+landing_commands.register(cli)
 operator_ask_commands.register(cli)
 reach_commands.register(cli)
 synchronicity_commands.register(cli)
@@ -550,6 +553,7 @@ andrew_given_commands.register(cli)
 success_commands.register(cli)
 council_walk_commands.register(cli)
 andrew_teachings_commands.register(cli)
+his_words_commands.register(cli)
 oscillating_read_commands.register(cli)
 cli.add_command(admin_reset_template.reset_template)
 cli.add_command(admin_reset_template.authorize_reset_template)

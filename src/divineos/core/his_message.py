@@ -52,6 +52,7 @@ Why and how it was built: docs/drafts/one_reader_of_him_draft_2026-09-28.md
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 
@@ -143,6 +144,60 @@ def _his_part(text: str) -> str:
     if not rest or _is_notice(rest):
         return ""
     return rest
+
+
+# Text he PASTED arrives inside <pasted_content id="..."> ... </pasted_content id="...">. It is
+# someone else's writing that he carried in, not his words, and a line of it ("CONFIRMS: #594",
+# "yes, land it") must never pass as his yes. The closing tag carries the opening tag's id, so a
+# pattern that wants a bare closing tag never finds the close and the block leaks; an unclosed
+# block runs to the end of the message. Found by Aletheia 2026-10-17 reading Aria's #594, which had
+# cut it in the words door only; this is its one home.
+_PASTE_OPEN = re.compile(r"<pasted_content\b([^>]*)>")
+_PASTE_ID = re.compile(r"""\bid\s*=\s*["']([^"']*)["']""")
+
+
+def _cut_pastes(text: str) -> str:
+    """``text`` with every pasted block removed.
+
+    The block ends at the closing tag that carries the SAME id as the opening one. A paste is
+    often a letter that itself names these tags (Aletheia's letter of 2026-10-17 quotes both), and
+    the first closing tag inside it must not end the block early and let the rest of her writing
+    through as his typing. A block with no closing tag of its own id runs to the end: the direction
+    that costs him one retype, never one that lets a pasted line pass.
+    """
+    kept: list[str] = []
+    pos = 0
+    while True:
+        opening = _PASTE_OPEN.search(text, pos)
+        if opening is None:
+            kept.append(text[pos:])
+            break
+        kept.append(text[pos : opening.start()])
+        ident = _PASTE_ID.search(opening.group(1))
+        tag = r"</pasted_content\b[^>]*>"
+        if ident:
+            tag = (
+                r"</pasted_content\b[^>]*\bid\s*=\s*[\"']"
+                + re.escape(ident.group(1))
+                + r"[\"'][^>]*>"
+            )
+        closing = re.compile(tag).search(text, opening.end())
+        if closing is None:
+            break
+        kept.append("\n")
+        pos = closing.end()
+    return "".join(kept)
+
+
+def typed_part(text: str) -> str:
+    """What in this message he actually TYPED: his part, with any pasted block cut out.
+
+    ``his_part`` answers whose message it is; this answers whose WORDS are in it. A reader that
+    needs his own sentences (a quote that must be a stretch of what he typed) reads this one.
+    What it proves is that the words are not inside a harness-tagged paste; text pasted without
+    the tag cannot be told from typing.
+    """
+    return _cut_pastes(_his_part(text)).strip()
 
 
 def his_part(text: str) -> str:
@@ -320,6 +375,66 @@ def arrival(record: dict) -> Arrival | None:
             kind = "task-notification"
         return Arrival(uuid, when, None, kind, _arrival_text(slip.get("prompt")))
     return None
+
+
+# THE THIRD QUESTION (2026-10-24, walk-88142a0930c5): who OPENED this turn.
+# Three readers answered "did he say this" and disagreed: hear() above, the
+# prompt-time table (a text-prefix test) and the addressed_to_him Stop gate. The
+# harness stamps every user record with turnOrigin; that stamp is the one thing
+# read here, never the text. A record with no stamp, or one this code does not
+# know, is UNKNOWN, and every caller keeps its old behaviour for UNKNOWN.
+HIM = "him"
+SCHEDULED = "scheduled"
+NOTICE = "notice"
+UNKNOWN = "unknown"
+
+_TURN_ORIGINS = {"human": HIM, "scheduled": SCHEDULED, "task_notification": NOTICE}
+_TAIL_RECORDS = 200  # the current prompt's record is at the end; no need for the whole file
+
+
+def opener_kind(record: dict) -> str:
+    """HIM, SCHEDULED, NOTICE or UNKNOWN for one user record, by the harness's stamp."""
+    if not isinstance(record, dict) or record.get("type") != "user":
+        return UNKNOWN
+    origin = record.get("turnOrigin")
+    if isinstance(origin, str):
+        return _TURN_ORIGINS.get(origin, UNKNOWN)
+    # The older era stamped a notice only as origin.kind (6 records on one seat,
+    # 5 on the other; Aria and Aether, 2026-10-24). Wakes never carried it.
+    older = record.get("origin")
+    if isinstance(older, dict) and older.get("kind") == "task-notification":
+        return NOTICE
+    return UNKNOWN
+
+
+def opener_of_prompt(transcript_path: object, prompt: str) -> str:
+    """Who opened the turn this prompt belongs to, or UNKNOWN when it cannot be told.
+
+    Finds the newest user record near the end whose text is this prompt and reads
+    its stamp. The text match is not the classifier; it is the proof that the
+    record found is THIS turn's and not the previous one's, which is all that is
+    in the file if the hook ran before the prompt was written.
+    """
+    want = (prompt or "").strip()
+    if not want or not transcript_path:
+        return UNKNOWN
+    try:
+        with open(str(transcript_path), encoding="utf-8") as f:
+            lines = f.readlines()[-_TAIL_RECORDS:]
+    except OSError:
+        return UNKNOWN
+    for line in reversed(lines):
+        try:
+            record = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(record, dict) or record.get("type") != "user":
+            continue
+        message = record.get("message")
+        content = message.get("content") if isinstance(message, dict) else None
+        if _arrival_text(content).strip() == want:
+            return opener_kind(record)
+    return UNKNOWN
 
 
 def may_carry_arrival(line: str) -> bool:

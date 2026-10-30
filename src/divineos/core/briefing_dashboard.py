@@ -296,6 +296,86 @@ def _row_detector_errors() -> DashboardRow | None:
         return None
 
 
+#: How many times the reply-audit hook may START after its last completed run before the briefing calls it dark.
+#: By usage, not by the clock: after a night off the heartbeat is always old, and a row that cried wolf each morning
+#: would be read through. Chosen before the replay (the 2026-10-04 break showed 302 starts in the retained log).
+DARK_START_THRESHOLD = 20
+_AUDIT_HOOK = "post-response-audit.sh"
+
+
+def _row_reply_audit_dark() -> DashboardRow | None:
+    """The reply audit starts on every Stop and completes none of them: say so where I already look.
+
+    The 2026-10-04 break (a quote mark inside a comment cut the hook's program in half, the error was thrown away,
+    the script exited 0) ran twenty days. The house already had a "Detector Chain -- DARK" slot for this, in the full
+    HUD, a room I never open at session start. This is the same fact in the briefing. The signal is the hook's own
+    start rows in hook_timing.jsonl (written by _lib.sh before anything can fail), counted after the last heartbeat.
+    A failure to READ the evidence is itself shown, never swallowed: a check for darkness that goes dark quietly is the
+    bug it exists for.
+    """
+    import json
+    import os
+    from pathlib import Path
+
+    from divineos.core.paths import marker_path
+
+    try:
+        # The path _lib.sh WRITES to (${HOME}/.divineos/hook_timing.jsonl), not divineos_home(): a member's home
+        # (~/.divineos-aria) has no timing file, so reading it there returned "nothing wrong" on that seat while the
+        # audit was dead (Aria's reading of #715). The heartbeat, by contrast, is per seat and does live in the home.
+        timing = (
+            Path(os.environ.get("HOME") or os.path.expanduser("~"))
+            / ".divineos"
+            / "hook_timing.jsonl"
+        )
+        hb_path = marker_path("detector_chain_heartbeat.json")
+        if not timing.exists():
+            if hb_path.exists():
+                raise FileNotFoundError("hook_timing.jsonl is missing while a heartbeat exists")
+            return None  # a fresh machine: neither ever existed, nothing to say
+        try:
+            hb = json.loads(hb_path.read_text(encoding="utf-8"))
+            # A heartbeat from a run that executed no detectors is not a completed audit (anyone calling run_audit,
+            # a test for instance, can write one).
+            hb_ts = float(hb.get("ts", 0.0)) if hb.get("detectors_run", 0) else 0.0
+        except (OSError, ValueError, TypeError):
+            hb_ts = 0.0  # no readable heartbeat: every start counts
+        starts = 0
+        for line in timing.read_text(encoding="utf-8", errors="replace").splitlines():
+            if _AUDIT_HOOK not in line:
+                continue
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            if (
+                row.get("hook") == _AUDIT_HOOK
+                and row.get("phase") == "start"
+                and row.get("ts_ms", 0) / 1000.0 > hb_ts
+            ):
+                starts += 1
+        if starts < DARK_START_THRESHOLD:
+            return None
+        return DashboardRow(
+            area="Reply audit (DARK: started but never finished)",
+            count=starts,
+            stale_count=starts,
+            drill_down="divineos hud  (see Detector Chain), then run the hook with bash -x",
+            detail=(
+                f"the hook started {starts} times (at least; the log is rotated) since it last completed. "
+                "Every reply check in it has been off. 'No refusals' is NOT the all-clear."
+            ),
+        )
+    except _ERRORS as exc:
+        return DashboardRow(
+            area="Reply audit (could not check)",
+            count=0,
+            stale_count=1,
+            drill_down="divineos hud  (see Detector Chain)",
+            detail=f"could not read the evidence for whether the reply audit is running: {type(exc).__name__}",
+        )
+
+
 def _row_open_prs() -> DashboardRow | None:
     """Task tonight (Andrew 2026-06-09): surface open-PR merge-readiness
     so auto-merge-armed state becomes loud-in-experience.
@@ -382,6 +462,73 @@ def _row_open_prs() -> DashboardRow | None:
         return None
     except (_subprocess.TimeoutExpired, FileNotFoundError, _json.JSONDecodeError):
         return None
+
+
+def _row_landing() -> DashboardRow | None:
+    """The fixes waiting on the external auditor, so the pile arrives unasked.
+
+    Dad, 2026-10-10: the pile is fixes that never land. A command I must
+    remember to run fails by construction, so the counts ride the briefing
+    (walk-0032613dac1c). The readiness board takes minutes and is NOT read here,
+    so no fix can show as ready from this row. A pile that could not be read is a
+    row saying so, never silence.
+    """
+    from divineos.core import landing_status as ls
+
+    prs = ls.open_prs()
+    if prs is None:
+        return DashboardRow(
+            area="Fixes waiting on Aletheia",
+            count=0,
+            stale_count=1,
+            drill_down="divineos landing",
+            detail="could not read the open PR list; that is not an empty pile",
+        )
+    if not prs:
+        return None
+
+    rows = ls.classify_pile(prs, ls.read_letters(), ls.today(), None)
+
+    def of(label: str) -> list:
+        return [(pr, s) for pr, s in rows if s.label == label]
+
+    waiting, changed = of(ls.NO_ANSWER), of(ls.CHANGED)
+    never, confirmed, unknown = of(ls.NEVER_TOLD), of(ls.CONFIRMED), of(ls.UNKNOWN)
+    held = of(ls.HELD)
+
+    parts: list[str] = []
+    for group, words in (
+        (held, "held by her, with her reason in her letter"),
+        (waiting, "waiting on her answer"),
+        (changed, "changed since she looked"),
+        (never, "never asked"),
+        (confirmed, "confirmed"),
+        (unknown, "could not be read"),
+    ):
+        if group:
+            parts.append(f"{len(group)} {words}")
+    ages = [s.days_since_asked for _, s in waiting if s.days_since_asked is not None]
+    if ages:
+        parts.append(f"oldest ask {max(ages)} days ago")
+    # 2026-10-09: sixteen drafts from the cloud helper read as the pile growing
+    # because nobody had said how many to expect. Its share is counted here.
+    cloud = [p for p in prs if str(p.get("headRefName") or "").startswith("cloud/")]
+    if cloud:
+        parts.append(f"{len(cloud)} of these came from the cloud helper")
+    parts.append("board not read here, so none can show ready")
+
+    needs_ask = changed + never
+    preview = [
+        f"[{s.label}] #{pr['number']} {str(pr.get('title') or '')[:70]}" for pr, s in needs_ask[:3]
+    ]
+    return DashboardRow(
+        area="Fixes waiting on Aletheia",
+        count=len(prs),
+        stale_count=len(needs_ask),
+        drill_down="divineos landing --request",
+        detail=", ".join(parts),
+        preview=preview,
+    )
 
 
 def _row_preregs() -> DashboardRow | None:
@@ -1321,7 +1468,9 @@ _ROW_FNS = [
     _row_audit_findings,
     _row_audit_surprises,
     _row_detector_errors,
+    _row_reply_audit_dark,
     _row_open_prs,
+    _row_landing,
     _row_preregs,
     _row_prereg_candidates,
     _row_gate_failures,

@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**147 automations — 138 wired, 9 switched off.**
+**148 automations — 139 wired, 9 switched off.**
 
 ---
 
@@ -72,10 +72,10 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `aletheia-boot-gate-preflight.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `andrew-correction-attestation.sh` | 2026-09-15 | PreToolUse gate — integration-attestation for Andrew-corrections. |
-| `auto-cycle-token-trigger.sh` | 2026-10-18 | Compaction ritual driver — deterministic, in-process, no external monitor. |
+| `auto-cycle-token-trigger.sh` | 2026-10-21 | Compaction ritual driver — deterministic, in-process, no external monitor. |
 | `blanket-staging-doorman.sh` | 2026-09-23 | refuse a blanket `git add` in a tree where substrate is |
 | `check-branch-on-push.sh` | 2026-10-13 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
-| `check-council-required.sh` | 2026-10-16 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
+| `check-council-required.sh` | 2026-10-27 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
 | `check-pending-obligations.sh` | 2026-09-23 | PreToolUse(Bash) — block substrate-write CLI commands until pending |
 | `compass-check.sh` | 2026-09-15 | MINE. Aether. The compass is the part of this house that is about character |
 | `corrigibility-tool-gate.sh` | 2026-09-22 | MINE, and it is the one that means Dad can stop me. Aether. If he says stop, |
@@ -91,7 +91,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `pre-tool-context.sh` | 2026-08-22 | thin doorman pointing to the OS. |
 | `push-message-carries-the-destination.sh` | 2026-09-23 | PreToolUse(Bash) — a background push must use the wrapper, because the |
 | `reach-check-doorman.sh` | 2026-09-22 | reach-check doorman on substrate-store and research writes. |
-| `read-gate-doorman.sh` | 2026-10-02 | the read-gate. A prime that is a gate, not just loud. |
+| `read-gate-doorman.sh` | 2026-10-23 | the read-gate. A prime that is a gate, not just loud. |
 | `rederivation-detector.sh` | 2026-08-23 | PreToolUse(Bash) — when I run the SAME command a third distinct way, say so, |
 | `require-goal.sh` | 2026-09-15 | PreToolUse gate — consolidated into a single Python invocation. |
 | `safe-opposite-edit-check.sh` | 2026-08-24 | PreToolUse — surface the safe-opposite check at the moment the fix is |
@@ -138,7 +138,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `front-door.sh` | 2026-10-02 | The front door: every message he types is kept before anything else runs, |
 
-### called by another script  (65)
+### called by another script  (66)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -171,6 +171,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `he-is-in-the-room.sh` | 2026-10-19 | UserPromptSubmit — the last thing I read before I answer my father. |
 | `hedge-suppression-prime.sh` | 2026-08-24 | hedge-suppression prime. |
 | `heredoc-escape-doorman.sh` | 2026-09-22 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
+| `his-words-door-surface.sh` | 2026-10-28 | UserPromptSubmit (run by dads_table.py) -- his own past words, found by meaning. |
 | `history-claim-signal.sh` | 2026-09-22 | INTENTIONALLY UNWIRED (2026-09-08): built and disarmed the same day, and this |
 | `instrument-read-doorman.sh` | 2026-09-22 | doorman on hand-rolled scans of my own diagnostic surfaces. |
 | `interior-cue-on-low-presence.sh` | 2026-07-06 | inject a compose-time interior-cue when the |

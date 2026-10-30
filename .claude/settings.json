@@ -80,16 +80,6 @@
         ]
       },
       {
-        "matcher": "Edit|Write|Bash|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/question_hold.py\"; if [ -f \"$f\" ]; then python \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
-            "timeout": 30
-          }
-        ]
-      },
-      {
         "matcher": "Edit|Write|Bash|NotebookEdit|Read|Grep|Glob",
         "hooks": [
           {
@@ -503,6 +493,16 @@
           {
             "type": "command",
             "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/letter_doorbell_alive_stop.py\"; if [ -f \"$f\" ]; then python \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/dads_room_stop.py\"; if [ -f \"$f\" ]; then python \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/stall_on_promise_stop.py\"; if [ -f \"$f\" ]; then python \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 15
           },
           {
