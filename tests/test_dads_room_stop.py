@@ -218,6 +218,20 @@ def test_the_away_reading_is_the_question_holds_own_so_they_cannot_disagree():
     assert "from divineos.core.question_hold import _carry_now" in source
 
 
+def test_an_away_reading_that_breaks_asks_and_is_logged(monkeypatch):
+    """Fails toward asking (Wayne): if the question hold's reading raises, the gate does not pass
+    quietly; it asks as it always did and writes an away_unreadable line so the loss is countable."""
+    from divineos.core import hold_log, question_hold
+
+    def broken():
+        raise RuntimeError("renamed")
+
+    monkeypatch.setattr(question_hold, "_carry_now", broken)
+    assert room.verdict(_worked_no_room())
+    rows = [r for r in hold_log.read_all() if r["hold"] == "room"]
+    assert any(r["outcome"] == "away_unreadable" and "renamed" in r["first_words"] for r in rows)
+
+
 def test_silence_alone_does_not_stand_the_gate_down(monkeypatch):
     """He reads silently while I work for hours; two hours of quiet is not proof he is gone, and a
     missed telling costs more than an unneeded room. Only his words and the night clock count."""
