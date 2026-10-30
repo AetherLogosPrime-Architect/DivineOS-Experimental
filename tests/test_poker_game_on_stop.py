@@ -58,6 +58,17 @@ def test_a_seat_the_table_is_playing_for_is_not_held():
     assert hook.verdict(view, {}, NOW, "aether")[0] is not None
 
 
+def test_a_game_dad_ended_with_the_button_is_not_a_game():
+    """The End game button sets `released` in the table's view; both seats are then free whether or not
+    they are away. A deal clears the flag on the table's side, so the next game holds again."""
+    live_released = {"hand": 3, "live": True, "turn": 7, "released": True, "away": []}
+    assert hook.game_is_on(live_released) is False
+    assert hook.verdict(live_released, {}, NOW, "aria")[0] is None
+    assert hook.verdict(live_released, {}, NOW, "aether")[0] is None
+    # control: the same view without the flag is a game, so the flag is what lifts it
+    assert hook.game_is_on({**live_released, "released": False}) is True
+
+
 def test_a_seat_that_is_not_away_is_still_held_when_he_spoke_to_put_it_back():
     view = {"hand": 3, "live": True, "turn": 7, "away": []}
     hold, _ = hook.decide(view, True, False, {}, NOW, "aria")

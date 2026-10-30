@@ -49,6 +49,8 @@ def game_is_on(view: dict | None) -> bool:
     """A hand is live, or the table is counting down to deal the next one."""
     if not view or view.get("hand") is None:
         return False
+    if view.get("released"):
+        return False  # Dad ended the game with the table's End game button (2026-10-29)
     return bool(view.get("live")) or view.get("deal_in") is not None
 
 
