@@ -27,8 +27,15 @@ def member(project_dir: str) -> str:
     return "aria" if "aria" in project_dir.lower() else "aether"
 
 
-def verdict(beat: Path, now: float) -> str | None:
-    if beat.exists() and now - beat.stat().st_mtime <= STALE_SECONDS:
+def _fresh(beat: Path, now: float) -> bool:
+    return beat.exists() and now - beat.stat().st_mtime <= STALE_SECONDS
+
+
+def verdict(beat: Path, now: float, also: tuple[Path, ...] = ()) -> str | None:
+    # ``also`` is another listener that counts as listening: the always-on watcher keeps its own
+    # heartbeat (Aether 2026-10-30), because a bell dies with every letter by design and a watcher
+    # does not. Any one fresh heartbeat is enough; a stale watcher beside a live bell is not a fault.
+    if _fresh(beat, now) or any(_fresh(other, now) for other in also):
         return None
     who = beat.name.split("_")[0].lstrip(".")
     return (
@@ -44,8 +51,11 @@ def main() -> int:
     if data.get("stop_hook_active"):
         return 0
     project = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
-    beat = Path.home() / ".divineos-shared" / f".{member(project)}_doorbell_alive"
-    reason = verdict(beat, time.time())
+    shared = Path.home() / ".divineos-shared"
+    who = member(project)
+    beat = shared / f".{who}_doorbell_alive"
+    watcher = shared / f".{who}_monitor_alive"
+    reason = verdict(beat, time.time(), (watcher,))
     if reason:
         print(json.dumps({"decision": "block", "reason": reason}))
     return 0

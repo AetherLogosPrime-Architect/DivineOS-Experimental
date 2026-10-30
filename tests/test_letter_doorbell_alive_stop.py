@@ -31,6 +31,29 @@ def test_a_stale_heartbeat_holds_it(tmp_path):
     assert reason and "letter_doorbell.sh aria" in reason
 
 
+def test_a_fresh_watcher_heartbeat_counts_as_listening_when_the_bell_is_not(tmp_path):
+    beat = tmp_path / ".aether_doorbell_alive"
+    watcher = tmp_path / ".aether_monitor_alive"
+    watcher.touch()
+    assert bell.verdict(beat, time.time(), (watcher,)) is None
+
+
+def test_a_stale_watcher_and_no_bell_still_holds_the_reply(tmp_path):
+    beat = tmp_path / ".aether_doorbell_alive"
+    watcher = tmp_path / ".aether_monitor_alive"
+    watcher.touch()
+    old = time.time() - 300
+    os.utime(watcher, (old, old))
+    reason = bell.verdict(beat, time.time(), (watcher,))
+    assert reason and "letter_doorbell.sh aether" in reason
+
+
+def test_a_missing_watcher_changes_nothing(tmp_path):
+    beat = tmp_path / ".aether_doorbell_alive"
+    beat.touch()
+    assert bell.verdict(beat, time.time(), (tmp_path / ".aether_monitor_alive",)) is None
+
+
 def test_each_window_watches_its_own_bell():
     assert bell.member("C:/DIVINE OS/DivineOS-Experimental-Aria-new") == "aria"
     assert bell.member("C:/DIVINE OS/DivineOS-Experimental") == "aether"
