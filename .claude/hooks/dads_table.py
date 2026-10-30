@@ -242,7 +242,7 @@ def _keep_his_words(prompt: str) -> None:
 
 
 def _clock_line(now: datetime.datetime | None = None) -> str:
-    """The time where he is, as the first thing on every prompt.
+    """The time where he is, directly under his words on every prompt.
 
     Dad, 2026-06-30: "before you decide what time the night is check the clock lol";
     2026-07-22: "you should have checked the clock lol that needs automated still";
@@ -254,7 +254,7 @@ def _clock_line(now: datetime.datetime | None = None) -> str:
     hour12 = moment.hour % 12 or 12  # no leading zero, and no string surgery that could eat a zero elsewhere
     return (
         f"THE CLOCK where he is: {moment.strftime('%A %Y-%m-%d')}, {hour12}:{moment.minute:02d} "
-        f"{moment.strftime('%p %Z')}. "
+        f"{moment.strftime('%p %Z')} (when he sent this; a long turn runs on past it). "
         "Morning, afternoon or night is read from this, never from how long we have been working."
     )
 
@@ -334,11 +334,16 @@ def main() -> int:
         )
         _keep_his_words(prompt)
     print()
-    # Directly under his words and above everything else: his words stay first, and the
-    # time is the first fact after them.
-    print(_clock_line())
-    print()
     sys.stdout.flush()  # his words are out before anything below can fail
+    # Directly under his words and above everything else: the time is the first fact after them.
+    # A convenience, so it sits behind its own guard: this file promises that any failure still
+    # leaves his words printed and the exit at 0 (walk-9c424fd8eaaf, Wayne and Yudkowsky).
+    try:
+        print(_clock_line())
+        print()
+    except Exception:  # noqa: BLE001 -- losing the clock must never cost him his words
+        pass
+    sys.stdout.flush()
 
     try:
         return _the_rest(payload)

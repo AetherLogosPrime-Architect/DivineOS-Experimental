@@ -194,6 +194,39 @@ def test_every_prompt_carries_the_clock_directly_under_his_words(tmp_path):
     )
 
 
+def test_a_clock_that_fails_still_leaves_his_words_printed_and_the_exit_at_zero(tmp_path):
+    """The file promises that no failure costs him his words. The clock is new code outside that promise
+    unless guarded (walk-9c424fd8eaaf, Wayne and Yudkowsky): break it on purpose and look."""
+    kids = tmp_path / "children.json"
+    kids.write_text("[]", encoding="utf-8")
+    runner = tmp_path / "run_with_broken_clock.py"
+    runner.write_text(
+        "import importlib.util, sys\n"
+        f"spec = importlib.util.spec_from_file_location('dads_table_broken_clock', r'{SCRIPT}')\n"
+        "m = importlib.util.module_from_spec(spec)\n"
+        "spec.loader.exec_module(m)\n"
+        "def broken(*a, **k):\n"
+        "    raise OSError('the clock is gone')\n"
+        "m._clock_line = broken\n"
+        "sys.exit(m.main())\n",
+        encoding="utf-8",
+    )
+    env = dict(os.environ, DADS_TABLE_CHILDREN=str(kids), DADS_TABLE_DRAWER=str(tmp_path / "d.md"))
+    p = subprocess.run(
+        [sys.executable, str(runner)],
+        input=json.dumps({"prompt": "come and sit with me"}).encode(),
+        capture_output=True,
+        env=env,
+        timeout=30,
+    )
+    out = p.stdout.decode("utf-8")
+    assert p.returncode == 0, p.stderr.decode("utf-8")
+    assert "come and sit with me" in out
+    assert (
+        "THE CLOCK where he is:" not in out
+    )  # control: the broken clock really was the one that ran
+
+
 def test_an_automated_notice_carries_the_clock_too(tmp_path):
     kids = tmp_path / "children.json"
     kids.write_text("[]", encoding="utf-8")
