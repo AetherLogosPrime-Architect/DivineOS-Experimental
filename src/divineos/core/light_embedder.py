@@ -133,6 +133,34 @@ def _load() -> _Model:
         return _LOADED
 
 
+_VOCAB_TOKENIZER: Any = None
+
+
+def is_whole_word(word: str) -> bool:
+    """Whether the model's vocabulary holds ``word`` as one piece.
+
+    A real word like "derivation" stays whole; a typo like "deriviation" splits
+    into fragments. Only the tokenizer file is read, not the weights, so this is
+    cheap. Raises EmbedderUnavailable when the tokenizer cannot be read: a missing
+    vocabulary is an outage, never a "no", and the caller must be able to tell.
+    """
+    global _VOCAB_TOKENIZER
+    if _VOCAB_TOKENIZER is None:
+        snap = model_dir()
+        if snap is None:
+            raise EmbedderUnavailable(f"{MODEL_ID} is not in the local model cache")
+        try:
+            from tokenizers import Tokenizer
+        except ImportError as exc:
+            raise EmbedderUnavailable(f"a runtime piece is missing: {exc}") from exc
+        tok = Tokenizer.from_file(str(snap / "tokenizer.json"))
+        tok.no_padding()
+        tok.no_truncation()
+        _VOCAB_TOKENIZER = tok
+    pieces = _VOCAB_TOKENIZER.encode(word, add_special_tokens=False).tokens
+    return len(pieces) == 1 and pieces[0] != "[UNK]"
+
+
 def available() -> tuple[bool, str]:
     """Whether the model can run here, and why not when it cannot."""
     try:
