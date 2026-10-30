@@ -12,7 +12,7 @@ The note on main (after #714 retired the volley board) fires at 06:00 and tells 
 
 ## What it does
 
-The same note, same name, same one-per-day rule, new text. It says he wakes at about 6:30 and asks for two things now: his night letter (one file, `<seat>-to-andrew-the-night-letter-<day>.md`, personal and plain, what he missed, what the seat wanted to tell him and its questions, explicitly not a report) and his morning picture in chat, written before he arrives so it sits above the fold when he does. Finish what is in hand, start nothing new. It still changes nothing if the seat is already talking with him.
+The same note, same name, same one-per-day rule, new text. It says he wakes at about 6:30 and asks for two things now: his night letter (ONE shared file both seats write into, `the-night-letter-to-andrew-<day>.md`, each under its own `## From <seat>` heading, because Dad said "it should be attached to the shared board so you both can see it and write to it"; personal and plain, what he missed, what the seat wanted to tell him and its questions, explicitly not a report) and his morning picture in chat, written before he arrives so it sits above the fold when he does. Finish what is in hand, start nothing new. It still changes nothing if the seat is already talking with him.
 
 ## What it does not do
 

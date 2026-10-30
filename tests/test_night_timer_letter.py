@@ -72,7 +72,11 @@ def test_the_note_asks_for_the_night_letter_and_the_morning_picture_before_he_wa
     timer = _timer()
     for seat in ("aria", "aether"):
         text = timer.write_note(seat, DAY, tmp_path / seat).read_text(encoding="utf-8")
-        assert f"{seat}-to-andrew-the-night-letter-{DAY.isoformat()}.md" in text, seat
+        # ONE shared letter both seats write into (Dad 2026-10-30), each under its own heading.
+        assert f"the-night-letter-to-andrew-{DAY.isoformat()}.md" in text, seat
+        assert f"## From {seat}" in text and "both of you write into" in text, seat
+        # Two wake-ups can land in the half hour; the second must find the first one's work done.
+        assert "already in today's night" in text, seat
         assert "NOT a report" in text and "questions" in text, seat
         assert "already there when he does" in text and "now, so it is above the fold" in text, seat
         assert "start nothing new" in text, seat
