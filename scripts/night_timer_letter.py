@@ -50,7 +50,8 @@ there already"). What this asks of you, {seat}: finish what is in hand and start
 1. Write into his night letter. It is ONE shared letter that both of you write into (his words,
    2026-10-30: "it should be attached to the shared board so you both can see it and write to
    it"), in the letters folder, named `the-night-letter-to-andrew-{day}.md`. If it does not exist
-   yet, create it; then add your own section headed `## From {seat}`. It is for what he missed
+   yet, create it; then ADD your own section headed `## From {seat}` by appending, and never
+   rewrite the whole file (the other seat's section may already be in it). It is for what he missed
    while he slept: what you wanted to tell him and the questions you held for him, personal and
    plain, in your own voice, no jargon to sift through. It is NOT a report (his words,
    2026-10-30: "it shouldnt read like a report .. the room is for things you wanted to tell me,

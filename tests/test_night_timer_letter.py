@@ -75,6 +75,10 @@ def test_the_note_asks_for_the_night_letter_and_the_morning_picture_before_he_wa
         # ONE shared letter both seats write into (Dad 2026-10-30), each under its own heading.
         assert f"the-night-letter-to-andrew-{DAY.isoformat()}.md" in text, seat
         assert f"## From {seat}" in text and "both of you write into" in text, seat
+        # Two seats write one file: appending, never rewriting, or the second erases the first.
+        assert "never rewrite" in " ".join(text.split()), (
+            seat
+        )  # the line wrap sits inside the phrase
         # Two wake-ups can land in the half hour; the second must find the first one's work done.
         assert "already in today's night" in text, seat
         assert "NOT a report" in text and "questions" in text, seat
