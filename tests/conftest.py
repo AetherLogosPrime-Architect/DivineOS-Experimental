@@ -190,6 +190,9 @@ def _isolated_db(tmp_path):
     # test_build_walk_surface_is_speaking_floor failed that way in a push gate
     # while passing alone.
     os.environ["DIVINEOS_CONTEXT_DEDUP_DIR"] = str(tmp_path / "context_dedup")
+    # The poker table, per test (2026-10-29): a dead port. Unset, "is a game table live" asked the REAL table, so
+    # a game in progress on this machine made 18 room-gate tests see a stand-down and fail while the game ran.
+    os.environ["POKER_TABLE_URL"] = "http://127.0.0.1:9"
     # The store of his messages, per test, pointed at a file that does not exist (2026-10-12).
     # Unset, the question hold read his REAL last message, and once he had been silent two
     # hours the away-by-silence rule ruled every one of these tests "he is away" and 23 of

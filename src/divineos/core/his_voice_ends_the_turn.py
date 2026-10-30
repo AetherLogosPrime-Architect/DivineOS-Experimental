@@ -30,6 +30,8 @@ docs/drafts/his_voice_ends_the_turn_draft_2026-09-24.md in the Aria-new seat.
 from __future__ import annotations
 
 import json
+import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -192,8 +194,66 @@ def spoke_mid_turn(transcript_path: str | Path, tail_bytes: int = _TAIL_BYTES) -
         window *= 4
 
 
-def let_through(tool_name: str, tool_input: dict) -> bool:
-    """The remedies, and nothing that could do more than they show."""
+def _records_a_note(tool_name: str, tool_input: dict, transcript_path: str | None) -> bool:
+    """An Edit or Write of a .md inside THIS seat's own memory folder.
+
+    What passes this gate is what reads him, records him, or settles the house's
+    own gates; the work that buries his answer (code, commits, tests, pushes) does
+    not. A note of his words is a record, the same kind of act as `divineos learn`,
+    which already passes. That purpose is the test for any later exemption (Dad,
+    2026-10-26: "writing my words into a note should also be excluded from that
+    gate"; walk-d778267fd5db). Letters are not records of him, they are sends.
+
+    This seat's memory is the folder beside its transcript, so another seat's
+    notes cannot be named by accident, and with no transcript path there is no
+    folder to find: refused, never guessed. The extension is checked on the name
+    as given and on the resolved one, so `x.md:stream` and `x.md.` are not notes.
+    """
+    if tool_name not in ("Edit", "Write") or not transcript_path:
+        return False  # both-empty: the caller asks one question, let through or not; a bad path says so on stderr below, an ordinary no stays quiet
+    given = (tool_input or {}).get("file_path")
+    if not isinstance(given, str) or not os.path.isabs(given):
+        return False
+    try:
+        if any(ord(c) < 32 for c in given):
+            # Resolving does not object to a hidden NUL on Windows, so the check
+            # and the tool could disagree about where the name ends.
+            raise ValueError("control character in the path")
+        memory = (Path(transcript_path).parent / "memory").resolve()
+        target = Path(given).resolve()
+    except (OSError, ValueError, RuntimeError) as err:
+        # Could-not-look, kept apart from "not a note" (Hoare on the walk): the
+        # refusal is the same, the reason is not, and it must not pass silently.
+        print(
+            f"[his-voice] could not resolve {given!r} ({err}); refused, not guessed",
+            file=sys.stderr,
+        )
+        return False
+    if not target.is_relative_to(memory):
+        return False
+    return all(
+        p.name.lower().endswith(".md") and p.name.lower() != ".md" for p in (Path(given), target)
+    )
+
+
+# The tools that only look. They change nothing and send nothing, so they cannot bury
+# his answer; writing back can. Dad, 2026-10-26: "the gate should not stop you from
+# reading the letter, just writing back until i respond". The unread-letter gate
+# refuses every tool until a waiting letter is read, tells me to open it with the Read
+# tool, and says reading is never blocked, so refusing Read here made that gate's only
+# exit lead into this gate's wall (walk-f744751f09d5). Web tools reach outward and a
+# shell command can be anything, so neither is in this class; a tool added later is
+# held until someone decides.
+_READ_TOOLS = frozenset({"Read", "Grep", "Glob"})
+
+
+def let_through(tool_name: str, tool_input: dict, transcript_path: str | None = None) -> bool:
+    """What reads him, records him, or settles the house's own gates, and nothing that
+    could do more: the looking tools, a note of his words, and the listed remedies."""
+    if tool_name in _READ_TOOLS:
+        return True
+    if _records_a_note(tool_name, tool_input, transcript_path):
+        return True
     if tool_name != "Bash":
         return False
     return runs_only(str((tool_input or {}).get("command") or ""), _REMEDIES)
@@ -214,6 +274,13 @@ def refusal(his_words: str) -> str:
         "letter through your doorbell, so make sure it is listening before you stop: "
         "bash scripts/letter_doorbell.sh <seat>, started with the tool's "
         "run_in_background setting, never with a shell '&' (that form is refused)\n\n"
+        "Reading is allowed (Read, Grep, Glob), so a waiting letter can be opened "
+        "while he is mid-sentence; writing back, building and pushing wait until you "
+        "have answered him.\n\n"
+        "Also allowed: Edit or Write of a .md note in your own memory folder, to "
+        "record what he said as he said it. Do that FIRST, with no answer text "
+        "beside it (an answer written beside a tool call is the one that gets "
+        "retold), then answer him in the reply that has no tool call.\n\n"
         "Still allowed, because they are how you read him and settle the house's "
         "own gates: divineos his / ask / recall / corrections and the other "
         "commands that only read or record, scripts/letter_doorbell.sh, "

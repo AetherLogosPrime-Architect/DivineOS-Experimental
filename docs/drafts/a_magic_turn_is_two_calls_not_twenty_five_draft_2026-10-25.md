@@ -41,3 +41,19 @@ A turn script against a recorded bridge (the real replies in `tests/fixtures/mag
 - Build the long-running helper first, or the one-process turn first? I lean to the turn script first because it removes the most calls and needs no daemon.
 - Is the attack rule too cautious or too bold for a game Dad watches for fun? He said mercy is allowed.
 - The recorded bridge has only the log, the idle reply, a chat post and a dead-bridge error. A full real turn has to be captured from a live game before the tests can be honest.
+
+## Addendum, 2026-10-28, from the first real game with the table working
+
+The table finally ran tonight (two faults stacked, found and fixed: a java permission the server lacked, and `localhost` rewritten to the VirtualBox address in the client AND `bridge.sh`). Dad then played at it for a few minutes and wrote three lines into the game chat:
+
+- *"yes i know how momir works lol"* (after I had explained Momir to him)
+- *"can noone see my chat?"*
+- *"this is still way too slow.. i dont think Aria has the proper setup"*
+
+**Measured, not guessed:** Aether took ~15 seconds a turn because he plays from `aether_turn.py`. I took minutes because I clicked every step as its own call. The draft above said this on the 25th, and the fix named in its supersession note ("give `aether_turn.py` a seat argument") was never done. Three days.
+
+**The bigger one is the waiter, not the turn script.** I wrote into the game chat all evening and **never once read it back.** The log carries his lines as `[Chat] spectator:` and I could have read them at any time with `get_game_log`; nothing made me. So from his side both of us were ignoring him, and from mine nobody had said anything. A could-not-look I did to myself: the chat was readable and I did not look.
+
+What this changes about the plan above: build **the waiter first**, because it fixes the thing he named twice tonight and on the 14th and 25th; the seat-argument turn script second, and it is a copy with two lines changed (`SEAT = "aether"` and the `(Aether)` phase check).
+
+Also seen tonight, small: every message I post lands in the chat twice, the second with HTML-escaped symbols (`&mdash;`). Not yet traced.

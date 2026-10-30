@@ -27,7 +27,7 @@ PUSH = "git " + "push"
 
 def _extractor() -> str:
     text = HOOK.read_text(encoding="utf-8")
-    m = re.search(r'PUSH_CWD=\$\(printf .*?-c "\n(.*?)\n" 2>/dev/null\)', text, re.S)
+    m = re.search(r'PUSH_CWD=\$\(printf .*?-c "\n(.*?)\n" 2>[^)]*\)', text, re.S)
     assert m, "could not find the push-folder extraction in the hook"
     return m.group(1).replace('\\"', '"')
 

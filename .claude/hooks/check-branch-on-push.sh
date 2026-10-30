@@ -307,6 +307,10 @@ fi
 #
 # The command being intercepted is in the payload, and it carries its own
 # directory when I push from a worktree. Read it rather than assume.
+# The extraction's stderr is kept, not thrown away: when the command names a folder
+# that is not a git tree, the matcher says so there, and that sentence has to reach
+# the screen or the check silently measures a tree the push does not go to.
+PUSH_ERR="$(mktemp 2>/dev/null)" || PUSH_ERR=""  # fail-soft: no temp file only means the not-a-tree note cannot be shown; the extraction and the check run exactly as before
 PUSH_CWD=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -c "
 import json, re, sys, os
 try:
@@ -321,7 +325,15 @@ from divineos.core.push_detection import push_cwd
 path = push_cwd(cmd)
 if path:
     print(path)
-" 2>/dev/null)  # fail-soft: if extraction fails we fall back to the ambient root, which is the pre-2026-08-15 behaviour
+" 2>"${PUSH_ERR:-/dev/null}")  # fail-soft: if extraction fails we fall back to the ambient root, which is the pre-2026-08-15 behaviour
+PUSH_NOTE=""
+if [ -n "$PUSH_ERR" ]; then
+    PUSH_NOTE="$(grep '^\[push-check\]' "$PUSH_ERR" 2>/dev/null | head -3)"  # fail-soft: no note is the ordinary case, and an unreadable temp file only means the note is not shown, never that the check is skipped
+    rm -f "$PUSH_ERR"
+fi
+if [ -n "$PUSH_NOTE" ]; then
+    printf '%s\n' "$PUSH_NOTE" >&2
+fi
 
 if [ -n "$PUSH_CWD" ]; then
     CHECK_OUTPUT=$(PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
@@ -365,7 +377,13 @@ if bk.note_clean_pass('check-branch-on-push', seg):
     else
       LEVEL="CRITICAL"
     fi
+    # NAME THE SUBJECT (walk-fb1339722adc, Lovelace). When this alarm measured a
+    # different tree than the push goes to, the only way to see it was to
+    # diagnose it by hand; now the block says which folder it asked about.
+    MEASURED="${PUSH_CWD:-$REPO_ROOT (the session folder; the command named no other tree)}"
     cat >&2 <<EOF
+Measured tree: $MEASURED
+
 $CHECK_OUTPUT
 
 The push has been BLOCKED ($LEVEL) because divineos check-branch

@@ -50,6 +50,30 @@ def _newest_mtime(folder: Path, pattern: str) -> float | None:
     return max(times) if times else None
 
 
+#: Where the poker table answers. ``POKER_TABLE_URL`` points a test at a stand-in server.
+_DEFAULT_POKER_URL = "http://127.0.0.1:8765"
+
+
+def _poker_table_is_live() -> bool:
+    """A hand is live or the next deal is counting down, and Dad has not ended the game.
+
+    Asked of the table itself, the same fact the poker stop hook reads. Could-not-look is False, so a
+    table that is down never passes as a live one (Knuth).
+    """
+    import json
+    import urllib.request
+
+    url = (os.environ.get("POKER_TABLE_URL") or _DEFAULT_POKER_URL).rstrip("/")
+    try:
+        with urllib.request.urlopen(f"{url}/state?seat=aria", timeout=1.0) as reply:
+            view = json.load(reply)
+    except (OSError, ValueError):
+        return False
+    if not isinstance(view, dict) or view.get("hand") is None or view.get("released"):
+        return False
+    return bool(view.get("live")) or view.get("deal_in") is not None
+
+
 def a_game_table_is_live() -> bool:
     """True when a seat has called the table within the last two minutes.
 
@@ -65,9 +89,12 @@ def a_game_table_is_live() -> bool:
     """
     try:
         folder = _run_dir()
-        if not folder.is_dir():
-            return False
-        last_call = _newest_mtime(folder, "bridge_*.log")
-        return last_call is not None and time.time() - last_call <= LIVE_SECONDS
+        if folder.is_dir():
+            last_call = _newest_mtime(folder, "bridge_*.log")
+            if last_call is not None and time.time() - last_call <= LIVE_SECONDS:
+                return True
     except OSError:
-        return False
+        pass
+    return (
+        _poker_table_is_live()
+    )  # poker keeps no bridge log: the table itself says whether a game is on

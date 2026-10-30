@@ -160,6 +160,16 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
   Measured 2026-09-10 after finding four built-correct-uncalled mechanisms in one session. The catalogue of exactly this debt exists with 83 entries and a CLI, its own June entries name the class as 'a tool that exists but isnt reliably surfaced is dead capability', its Shipped section holds one item, and nothing has been added since 2026-08-24. No hook, briefing surface or prime names it. So the list of things nobody reaches for is itself a thing nobody reaches for, which is the root of the pattern rather than another instance of it. Fix shape is the same as the push-message repair: make it ARRIVE rather than requiring the reach. Syncing with Aria before building because it touches shared surfaces.
 - **A keep of a queued 'yes' should take only records at or before its own keep time (Aletheia, named since 2026-10-09, not claimed by #617)** [filed 2026-10-23]
   When his first yes is kept and his second is already recorded but not yet kept, the first can take the second's record. Status unknown as of 2026-10-23: check against what landed in the landing clerk before building.
+- **The landing commands (landing, file-confirm, homework) have no test file naming them** [filed 2026-10-29]
+  Found by the 2026-10-29 pre-compaction extract: landing_commands is marked untested. Every confirm filed and every ready line read today went through it, so a test comes first before anyone relies on it again.
+- **A ready claim must cite the clerk and the finding counts, not a round title** [filed 2026-10-29]
+  Correction 409 root cause: I read a template label as evidence three times on 2026-10-29. Needs a check that refuses or flags a ready claim without the clerk's answer; psf-982722db.
+- **The council gate reads recording commands (compass-ops observe) as code edits and blocks the compaction ritual's own step** [filed 2026-10-29]
+  Dad authorized one bypass via PowerShell on 2026-10-29 and said to add an exemption so the ritual can do what it asks. check-council-required.sh classifies divineos compass-ops as substrate-write-cli.
+- **The scope check counts docs/drafts/ as code, so a writing-only change with its required design note reads MIXED** [filed 2026-10-29]
+  check_scope_station treats only family/letters/, exploration/, dreams/, docs/archives/ as writing, while the 1-draft station demands a design note on the branch. A dreams-only PR (#676) read '176 writing files riding on 1 code file' because its note sat in docs/drafts/. Worked around 2026-10-29 by moving the note to exploration/; the lists should agree (add docs/drafts/ to the prose prefixes, with a council walk since the lens requirement shares the list).
+- **The fire-door check fails only in the full local push run** [filed 2026-10-30]
+  tests/test_no_gate_teaches_the_no_fix_escape.py::test_the_fire_door_opens_in_the_new_words_and_rings_under_the_new_name reads bypass_events.jsonl and finds no file in the full parallel run on this machine (it passes alone, and passes on GitHub main). Cost a once-only DIVINEOS_SKIP_TESTS push for #657 (Dad said yes, 2026-10-30). Find why no event is written there, fix the root, and the push gate's own flake class.
 
 ### handoff-discipline
 

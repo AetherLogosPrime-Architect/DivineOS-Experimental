@@ -33,11 +33,18 @@ def main() -> int:
         # A helper I started was not spoken to; my own next call is the one
         # that waits (the same line sort_first draws).
         return 0  # both-empty: each 0 means allow; could-not-look also says so on stderr
+    from divineos.core.his_voice_is_at_a_table import a_game_table_is_live
+
+    if a_game_table_is_live():
+        # Dad, 2026-10-29: at a table I answer him in the game chat, whichever window he typed in; ending the
+        # turn to answer him here puts me in stasis, away from the table. Said on stderr, never silent.
+        _say("a game table is live; he is answered at the table, so this turn is not ended")
+        return 0
     tool_name = str(payload.get("tool_name") or "")
     tool_input = payload.get("tool_input") or {}
-    if hv.let_through(tool_name, tool_input):
-        return 0
     path = payload.get("transcript_path")
+    if hv.let_through(tool_name, tool_input, path):
+        return 0
     if not path:
         _say("no transcript path in the payload; could not look whether he spoke")
         return 0
