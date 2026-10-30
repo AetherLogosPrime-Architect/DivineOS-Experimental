@@ -12,7 +12,7 @@ Dad went to bed at 00:32 on 2026-10-30 ("its past midnight so im going to bed").
 
 ## What it does
 
-`dads_room_stop.verdict` already stands down for one case, a live game table (his 10-28 words, logged as "stood_down"). It gets a second: while he is away it says nothing and logs `stood_down` with the reason. "Away" is the question hold's own reading, `question_hold._carry_now()`, so the two cannot disagree: his words always count; the clock window and two hours of silence count only when his last real message is older than ten minutes (a live chat is never away); could-not-look is never away, so it asks as it always did.
+`dads_room_stop.verdict` already stands down for one case, a live game table (his 10-28 words, logged as "stood_down"). It gets a second: while he is away it says nothing and logs `stood_down` with the reason. "Away" is the question hold's own reading, `question_hold._carry_now()`, so the two cannot disagree: his words always count; the clock window counts only when his last real message is older than ten minutes (a live chat is never away); could-not-look is never away, so it asks as it always did. Two hours of silence alone does NOT stand this gate down (the question hold counts it, this gate does not): he reads silently while I work, and a telling he was there for costs more than a room he did not need. The Schneier lens found that attack (working silently two hours would have silenced my own gate); a test pins it.
 
 At 06:00 the clock window ends, so the 06:00 to 06:30 wrap-up turn is not away and the gate asks for the room as usual, which is where a message to him is the whole point.
 
