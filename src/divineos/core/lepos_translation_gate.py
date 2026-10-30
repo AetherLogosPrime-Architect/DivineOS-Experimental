@@ -1379,6 +1379,10 @@ _DISMISSAL_RE = re.compile(
     r"(?:\w+\s+){0,3}?(?:need|have)\s+to\s+(?:do|decide|answer|act|reply)"
     r"|no\s+(?:decision|action|answer|reply|input)\s+(?:is\s+)?"
     r"(?:needed|required|expected)"
+    # Added from walk-a/#743: "Your call: none" is the exact form his 2026-10-05 words forbid, and the
+    # plain "nothing you need to do" shape; both passed the first version of this check.
+    r"|your\s+call\s*:?\s*(?:is\s+)?(?:none|nothing|n/a)\b"
+    r"|nothing\s+(?:that\s+)?you\s+(?:need|have)\s+to\s+(?:do|decide|answer)\b"
     r")",
     re.IGNORECASE,
 )

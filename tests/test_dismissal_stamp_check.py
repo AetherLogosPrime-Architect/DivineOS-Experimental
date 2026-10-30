@@ -29,6 +29,10 @@ STAMPS = [
     "Nothing further is needed from you until she answers.",
     "There's no question I need you to answer.",
     "Nothing new is waiting on you.",
+    "Your call: none.",
+    "Your call: nothing.",
+    "There is nothing you need to do tonight.",
+    "Nothing you have to decide.",
 ]
 
 #: Honest sentences the first version of the pattern wrongly caught (measured over my replies on
@@ -43,6 +47,8 @@ HONEST = [
     "Nothing about any of this was your fault.",
     "You decide whether her version or mine survives, and I will pull the other.",
     "What were you playing?",
+    "Your call whether her version or mine survives, and I will pull the other.",
+    "Your call: which of the two stays?",
 ]
 
 
