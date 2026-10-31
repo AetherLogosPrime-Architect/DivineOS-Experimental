@@ -175,6 +175,16 @@ def test_the_same_sentences_in_a_turn_with_no_push_are_left_alone() -> None:
         assert not assess(sentence, "Bash: python seat.py aether state").refuses, sentence
 
 
+def test_up_to_date_and_out_of_date_are_not_arrivals_and_the_contraction_is_one() -> None:
+    """Aria's break of f8776ff5e: "is up" matched inside "up to date"; "it's live" slipped past "is live"."""
+    for innocent in ("Everything is up to date.", "The build is out of date."):
+        assert not assess(innocent, PUSH_TURN).refuses, innocent
+    for contraction in ("It's live.", "It's up.", "That's out.", "The PR's live on GitHub."):
+        assert assess(contraction, PUSH_TURN).refuses, contraction
+    assert claim_spans("The PR's live.") != ()  # the git-word path takes the contraction too
+    assert claim_spans("The table's live.") == ()  # and still needs the git word
+
+
 def test_a_push_turn_that_read_the_remote_is_clear_and_the_waiting_sentence_is_free() -> None:
     assert not assess("The fix went live.", PUSH_TURN + "\n" + READ_THE_REMOTE).refuses
     assert not assess("It will be live once the push finishes.", PUSH_TURN).refuses

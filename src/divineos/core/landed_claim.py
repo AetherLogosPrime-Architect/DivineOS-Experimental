@@ -115,7 +115,9 @@ _CLAIM = re.compile(
 # at a poker table that was live in a browser: "do not suffer the gates ... false alarms means something
 # is broken". The bare word fired on a table page, and on a sentence that only talked about this door.
 # The other alternatives above name the destination or the act of pushing themselves, so they stay bare.
-_LIVE = re.compile(r"\b(?:is|are|has|have|had|was|were)\s+(?:now\s+|been\s+)?live\b", re.IGNORECASE)
+_LIVE = re.compile(
+    r"(?:\b(?:is|are|has|have|had|was|were)|'s)\s+(?:now\s+|been\s+)?live\b", re.IGNORECASE
+)
 _ABOUT_GIT_WORK = re.compile(
     r"\b(?:PRs?|pull\s+requests?|branch(?:es)?|drafts?|origin|remote|GitHub|main|commits?"
     r"|push(?:ed)?|merged?|repo|repository)\b",
@@ -165,9 +167,12 @@ _A_PUSH_TURN = (
     re.compile(r"\bgh\s+pr\s+(?:create|ready)\b"),
     re.compile(r"divineos_push\.sh"),
 )
+# "up" and "out" are in "up to date" and "out of date", which are not arrivals (Aria's break, same night);
+# "'s" is the contraction of "is" ("it's live"), the cheapest way round the plain form.
 _ARRIVAL_WORD = re.compile(
-    r"\b(?:(?:is|are|was|were|has\s+been|have\s+been|went|gone)\s+(?:now\s+)?(?:live|up|out|shipped|deployed)"
-    r"|(?:has|have)\s+(?:now\s+)?(?:shipped|deployed)|on\s+GitHub)\b",
+    r"(?:\b(?:is|are|was|were|has\s+been|have\s+been|went|gone)|'s)\s+(?:now\s+)?"
+    r"(?:live|up(?!\s+to\b)|out(?!\s+of\b)|shipped|deployed)\b"
+    r"|\b(?:has|have)\s+(?:now\s+)?(?:shipped|deployed)\b|\bon\s+GitHub\b",
     re.IGNORECASE,
 )
 
