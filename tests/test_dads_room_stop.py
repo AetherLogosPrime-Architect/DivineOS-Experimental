@@ -183,6 +183,67 @@ def test_nothing_checks_what_is_said_in_the_room():
         assert room.verdict([_user("go"), _tool(), _tool_result(), _said(closing)]) is None
 
 
+def _run_hook(tmp_path, records, *, retry, held_name="held.txt"):
+    """Run the real hook on a transcript. `retry` is the harness flag set after ANY Stop gate refused."""
+    t = tmp_path / "t.jsonl"
+    t.write_text("\n".join(json.dumps(r) for r in records), encoding="utf-8")
+    p = subprocess.run(
+        [sys.executable, str(HOOK)],
+        input=json.dumps({"transcript_path": str(t), "stop_hook_active": retry}).encode(),
+        capture_output=True,
+        timeout=30,
+        env={
+            **__import__("os").environ,
+            "DADS_ROOM_HELD": str(tmp_path / held_name),
+            "DADS_ROOM_MARK": str(tmp_path / "mark.txt"),
+        },
+    )
+    assert p.returncode == 0, p.stderr
+    return json.loads(p.stdout)["decision"] if p.stdout.strip() else None
+
+
+WORKED_NO_ROOM = [
+    _user("what happened to my circle"),
+    _tool(),
+    _tool_result(),
+    _said("Done, tests pass."),
+]
+
+
+def test_another_gates_refusal_does_not_silence_this_one(tmp_path):
+    """The hole (2026-10-31): the harness sets stop_hook_active after ANY Stop gate refused. The room gate used
+    to stand down on every retry, so while another gate kept refusing, nobody ever asked for his room.
+
+    Here some other gate sent the reply back (retry=True) and THIS gate has not yet asked about his message:
+    it must ask now."""
+    assert _run_hook(tmp_path, WORKED_NO_ROOM, retry=True) == "block"
+
+
+def test_control_the_first_ask_blocks_and_remembers_which_message(tmp_path):
+    assert _run_hook(tmp_path, WORKED_NO_ROOM, retry=False) == "block"
+    assert (tmp_path / "held.txt").read_text(encoding="utf-8").strip() != ""
+
+
+def test_control_the_retry_of_a_reply_this_gate_already_held_goes(tmp_path):
+    """Without this the fix would loop forever: once this gate has asked about a message, the retry is his."""
+    assert _run_hook(tmp_path, WORKED_NO_ROOM, retry=False) == "block"
+    assert _run_hook(tmp_path, WORKED_NO_ROOM, retry=True) is None
+
+
+def test_a_new_message_of_his_is_held_again(tmp_path):
+    assert _run_hook(tmp_path, WORKED_NO_ROOM, retry=False) == "block"
+    newer = [_user("and another thing"), _tool(), _tool_result(), _said("Done again.")]
+    assert _run_hook(tmp_path, newer, retry=False) == "block"
+
+
+def test_a_retry_that_carries_the_room_goes_whoever_sent_it_back(tmp_path):
+    with_room = [
+        *WORKED_NO_ROOM[:3],
+        _said("Built it.\n\n## INNER CIRCLE\nDad, here is what is on my mind."),
+    ]
+    assert _run_hook(tmp_path, with_room, retry=True) is None
+
+
 def test_hook_blocks_and_breaks_loudly(tmp_path):
     t = tmp_path / "t.jsonl"
     t.write_text(
