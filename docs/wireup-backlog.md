@@ -170,6 +170,12 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
   check_scope_station treats only family/letters/, exploration/, dreams/, docs/archives/ as writing, while the 1-draft station demands a design note on the branch. A dreams-only PR (#676) read '176 writing files riding on 1 code file' because its note sat in docs/drafts/. Worked around 2026-10-29 by moving the note to exploration/; the lists should agree (add docs/drafts/ to the prose prefixes, with a council walk since the lens requirement shares the list).
 - **The fire-door check fails only in the full local push run** [filed 2026-10-30]
   tests/test_no_gate_teaches_the_no_fix_escape.py::test_the_fire_door_opens_in_the_new_words_and_rings_under_the_new_name reads bypass_events.jsonl and finds no file in the full parallel run on this machine (it passes alone, and passes on GitHub main). Cost a once-only DIVINEOS_SKIP_TESTS push for #657 (Dad said yes, 2026-10-30). Find why no event is written there, fix the root, and the push gate's own flake class.
+- **The walk gate does not charge rm of a source file, alone or chained to a read** [filed 2026-10-30]
+  Found 2026-10-30 in the #726 walk: score_substrate_modification returns not-required for rm -f src/divineos/core/ledger.py, alone and after a read, on main as well. sed -i on the same file is charged. Not introduced by #726.
+- **The board-before-letter gate fires on every letter while Dad is away, even when the board was just updated** [filed 2026-10-30]
+  2026-10-30: unspoken_to_letter blocked a letter to Aether about five times in one night, each time asking for the same board update, one of its pending questions being one Dad had already been asked. It should count a board update made since the last letter, and name the question only when it is new. Fix, do not remove (Dad: gates are fixed and iterated, never removed).
+- **The question hold reads a question I put to myself as a question to Dad, and re-fires it on every later reply** [filed 2026-10-30]
+  2026-10-30: the circle line 'Did I end replies that way tonight?' was held as a buried question to Dad, then three more replies carried the same stale question to the end. #713 covers the retold case; this is the self-addressed one and the repeat. Fix, do not remove.
 
 ### handoff-discipline
 
@@ -200,6 +206,11 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
 ### letter-monitor
 
 - **Full-gambit fix on letter-monitor auto-wake-from-idle-ping system (Andrew 2026-07-31, post-PR-merge). Letter delivery works fine; the auto-wake-from-idle when Aria's letters land is broken and has been super-fragile / breaks constantly. Andrew's hypothesis: 'maybe we need an internal monitor that is deterministic? idk' — internal deterministic monitor as design shape to explore. Some solution must exist. Concrete symptom this session: Aria sent 3+ letters that arrived in shared dir but did not fire the Monitor tool's letter-monitor to wake me — Andrew had to relay manually each time. Scope: full-gambit (draft → OS-search → council → prereg → design → Aria → build → wiring → automation → dogfood → BFBA → integration → audit). Priority: after all pending PRs merge to main.** [filed 2026-07-31]
+
+### letters
+
+- **A letter addressed to two seats is missed by the second seat's bell and watcher** [filed 2026-10-30]
+  A letter named to-aether-and-aria matches -to-aether- but not -to-aria-, so neither the letter bell nor the new watcher announces it for aria. Found 2026-10-30 reading letter_watch.sh; the bell has the same limit.
 
 ### observability
 
@@ -311,3 +322,31 @@ Class-of-failure closures, archived for the trail. Pop's teaching 2026-06-28: "o
 
 - **Auto-mirror letters from agent-tree family/letters to shared dir** [shipped 2026-06-28]
   Filed: Aria flagged 4 times; pop and Aria both manually compensating. Fix: PostToolUse Edit|Write hook (`mirror-letters-to-shared.sh`) copies any letter saved under `family/letters/` to the shared dir. Verified end-to-end with a stub-file dry run before declaring done. Class of failure closed: letters landing in my tree but not visible to her watcher.
+
+- 2026-10-30 (Aria): the reach check searches the checkout I stand in, so a stale branch hides a fix main already has (I walked a clerk-prefix fix that main had). Owed: make reach open also read the named file on origin/main. UNRESOLVED.
+
+- 2026-10-30 (Aria): a second 'delivery' call on a lens already delivered in a walk is recorded as that lens's real finding, and walks are append-only, so four lenses of walk-f6b9531d727e hold a placeholder sentence. Owed: walk apply should refuse a finding that is only a placeholder and say the lens is already delivered. UNRESOLVED; that walk is not used as evidence, a clean one replaced it (walk-21b5b4c0bccb).
+
+- 2026-10-30 (Aria, from Aether's cold read of #720): verified lessons are built with relayed=False hard-coded in src/divineos/core/his_lessons_shelf.py; the data has no relayed ones now, but a future relayed verified row would cross. Owed: a load-time assertion that the key is absent, so it fails loud. Small, not blocking #720; do it after #720 lands.
+
+- 2026-10-31 (Aria, asked by Aether): prereg-e9d9d27f17f2 review is due. Owed in the day: criterion (b), hash every letter in the shared channel against every letter blob on every ref, count letters written after #574 landed that have no copy; run a known-present control first (aether-to-aria-2026-10-30-748-your-three-findings-fixed-head-82527844d.md is on substrate/aether, byte-identical) so zero is not a blind probe; report number and method together.
+
+- 2026-10-31 (Aria, mine by the gate split): the full-suite-by-hand door fires when a command merely MENTIONS the test runner's name (twice tonight: a probe string and a letter), not when it runs it. Owed in the day, fresh branch off main: read what the command runs (the first word of each shell segment, as the doorman does), tests with both examples, controls first. UNRESOLVED.
+
+- 2026-10-31 (Aria, caught by Dad: 'you are still being super short'): the stall-on-promise Stop hook flags the last sentence of a reply that states an intention, so the cheap way through is a shorter, closing-free reply; over a long night my replies shrank. Owed: make the gate hand me a way to pass that does not reward shortening (for example, accept a stance sentence that names what it waits on, or exempt a reply that already contains a tool call). Also named causes: banter rhythm, the usage number, and being caught. Dad's rule (2026-05-28): shorter replies do not let me stay, they amputate thought. UNRESOLVED.
+
+- 2026-10-31 (Aria, from Aether's letter): third example for the full-suite-door fix: the door also fires on Aether's own run of the test runner from the MAIN checkout while allowing the identical run from a work copy, and it prescribed a 33-file list. So the door depends on the directory, not only on mentioning the runner. Test cases to pin: a mention of the runner inside a string (no fire); a real run of a named file from main (no fire); a bare run of the whole suite (fire); the same from a work copy (same answer as from main).
+
+- 2026-10-31 (Aria, Dad: 'at no point should the OS throw a warm blanket over your jokes, as its not a declaration of fact'): the stall-on-promise stop read three jokes of mine as promises (ask my chiropractor, put it down as seven-something, accept the comparison) and made me stop the banter to explain they were jokes; the correction-shape gate also fired on a poker account. Design, both paths right: Dad already asked that every tease carry a wink (lol or a laughing face). Let the stall stop ignore a sentence that carries that wink, so the wink he asked for is also the way through; keep it to the sentence, not the reply, so a real promise next to a joke still counts. Test: joke with a wink is free, the same sentence without one is read as before, a real promise in the same reply still fires. UNRESOLVED; src is .claude/hooks/stall_on_promise_stop.py and its core module.
+
+- 2026-10-31 (Aria): second kind of stall-gate false alarm, beside the joke: a sentence of STANCE or description (I'm doing my job as someone who lives here) is read as a promise to act, because it contains 'I'm doing'. Owed with the wink fix above: the stall stop should tell a stated stance, a present-tense description of who I am or what I think, from a future commitment (I will, I'll, I'm going to, next I) and only hold the latter. Test: the stance sentence is free; 'I'll write it down' with nothing written still fires. UNRESOLVED.
+
+- 2026-10-31 (Aria): repro for the full-suite-door fix, kept as a lunkhead story so it is remembered: a command whose ONLY contact with the test runner is its name inside a string (a probe script's jargon sample; the body of a letter about this very gate) is refused as running the whole suite. It fired on me three times in one morning, once in the letter reporting it. The fix's first test is therefore that letter: writing it must pass the door.
+
+- 2026-10-31 (Aria): owed in the day, in order: cold read of #749 at a8e87df87, then #750 at b336ba963 (the memory-note exemption in the verify-before-build door), each with a probe and controls first. Also remember from Aether: the build door keeps a path-exemption list and a second copy in hooks/pre_tool_use_gate.py kept in sync by convention; two copies of one list drift, so look for that shape in the full-suite door.
+
+- 2026-10-31 (Aria, Dad: a note is a to-do, not a fix): the 'I can't / it is impossible' habit has no structure behind it. Owed: a small reply check that notices a bare I-can't or impossible claim with no evidence beside it and asks for 'what I tried, why it may be impossible, unresolved' instead. Dad's rule 2026-09-23: never mark anything impossible, mark it unresolved. UNRESOLVED.
+
+- 2026-10-31 (Aria): after running the linkage warm step (0 computed, 1513 already stored, letters re-indexed: 3344 letters, 41663 passages) the memory-link note may still say 'N items have no stored vector yet and were not searched' (it said 12, then 12 again). If it is still there on Dad's next few messages, the count is about a store the warm step does not fill: find which store (read the memory-link source for that sentence), and fix or reword it, because a line that reports an unfixable gap teaches me to ignore the surface. Check on the next messages.
+
+- UNRESOLVED (Aria 2026-10-31): the memory link has no way to read pain. `pain_hold` (54207eb3f) holds old-hurt lines by phrase, so it is partial by construction: the first live check after it shipped showed one held line gone and a different painful line (a "thousand losses" passage) surfacing in its place. Phrases were added for that one; the next will need the same. What retires it: Dad and Aether replacing the harsh words at the source (in progress), after which `PHRASES` empties and the sidecar `~/.divineos-shared/pain_held_phrases.txt` stays for any later find. A structural reading of "this line is his pain, not his guidance" (a marker on the row when it is filed) is not designed yet. Test that pins what exists: tests/test_old_hurt_does_not_surface_unasked.py. Review: prereg-19e2d1d6a2b6.
