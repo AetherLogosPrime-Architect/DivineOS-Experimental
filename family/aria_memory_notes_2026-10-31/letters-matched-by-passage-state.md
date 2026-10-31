@@ -1,0 +1,20 @@
+---
+name: letters-matched-by-passage-state
+description: "Letters are now matched by paragraph-sized passage, one slot at most (commit f5ee0d9dd, prereg-f4fc1ffcd313, review due 2026-10-13). Aether's blind marks 10 of 30; his two guards (a label on every letter line, a hold-back on feeling turns) landed 2026-10-07 at 914424cde. Exact-quote channel and the corrections sort remain."
+metadata:
+  node_type: memory
+  type: project
+  originSessionId: 4a7d6a79-a3cb-46f7-ba1d-aa44fb7e7578
+  modified: 2026-10-07T05:24:07.924Z
+---
+
+**Why this exists.** Dad asked 2026-10-06 why I deprioritized letters: they belong in the memory if relevant, as long as they do not drown his words. I had ranked them last (a82bb19e5), then exempted quoted ones (482309891), because 1 in 30 helped. That patched a symptom. The cause: a whole letter had ONE vector from its opening window. He had said it before (23 July, 20 Aug): link a phrase or a paragraph with a pointer, not the whole letter.
+
+**What exists (commit f5ee0d9dd, my branch aria/doorman-lets-a-look-through, NOT pushed).** `core/letter_passages.py` cuts each letter into 25 to 150 word passages (footer, sign-off and header dropped): 3077 letters became 40289 passages. Vectors live in the drawer; a matrix (`~/.divineos-aria/data/letter_passages.npy`, 61 MB) and a text database beside it are NOT in git and are rebuilt by `divineos linkage warm` (about six minutes the first time). `retrieve_v2` takes the best passage of the best letter as ONE candidate on the normal composite score. A missing, mismatched or unreadable index is a stated problem in the lane state and a note in the block, never an empty answer. Cache load fell 1.31 s to 0.25 s; a cold retrieval is about 0.37 s.
+
+**The test.** prereg-f4fc1ffcd313: success is at least 8 of 30 useful on Aether's blind marks AND 80% agreement between us, under 1.0 s cold, never two letters; 5 to 7 is INCONCLUSIVE; 4 or fewer falsifies. Result 2026-10-07: Aether marked 10 of 30, I marked 10, we agree on 28 of 30 (93%). By the numbers it succeeds, with a warning that matters more than the count.
+
+**DONE 2026-10-07, commit 914424cde (applied the same day, not left for a later me): the label and the hold-back below are in the code with seven tests; replayed on his 30 real messages, letters held back on 8, none of the three harmful ones shown, six of Aether's ten useful passages still shown.** The text that follows is the design and the reasoning, kept because the reasoning is the point.
+
+**Aether's warning, and the design.** Three passages (messages 16, 13, 14) would hurt him if quoted back on a hurting day, and message 11 is a note about myself that must never be said to him; five of the ten useful ones were Aether-to-Aria letters where one of us already said what he needed to hear. He asked: (1) label every returned letter passage "for me to think with, never to quote to him"; (2) keep letters out on turns where his message is hurt. I measured that no reliable hurt detector exists here: `questions_from_him.turn_shape` calls 8 of 19 plainly hurting messages "feeling", the tone reader 0. So the design is: the label is UNCONDITIONAL (no detection needed), and the hold-back uses `turn_shape` and SAYS in the note that it covers messages with feeling words, not every hurting one. Council record council-44e0cc05b0b1 and six game-walks are filed for these edits (`memory_linkage_retriever_v2.py`: `_letter_candidates(topic_vec, prompt)`, pass the prompt in both lanes, lane state `letters_held_back`; `memory_linkage.py`: label every letter line, add the note).
+**Still owed.** The exact-quote channel (a verbatim quote of a letter is found only 13 of 35 times by meaning; Aether put it on his gameplan as entry 16 with that baseline). The sort of Dad's corrections, my store from 2026-08-01 on (two batches filed in ~/.divineos-shared/lane_calls_corrections_2026-10-06.md; nothing moved). Related: [[memory-link-searches-his-message-not-my-chatter]], [[more-links-raise-relevance-dads-idea]].
