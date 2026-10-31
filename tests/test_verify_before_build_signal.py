@@ -654,6 +654,26 @@ def test_low_friction_path_mansion():
     assert _is_low_friction_path("mansion/study/notes.md") is True
 
 
+def test_low_friction_path_a_memory_note_and_branch_owner_paperwork():
+    """2026-10-31: the door asked for a search before each memory note and each branch owner file. Neither is a
+    build: one is me writing down what Dad told me, the other is a line saying who owns a branch."""
+    assert _is_low_friction_path(
+        r"C:\Users\aethe\.claude\projects\C--DIVINE-OS-DivineOS-Experimental\memory\feedback_x.md"
+    )
+    assert _is_low_friction_path("/home/x/.claude/projects/proj/memory/MEMORY.md")
+    assert _is_low_friction_path("/home/x/.divineos-shared/branch_owners/aether__a__b.txt")
+
+
+def test_low_friction_path_memory_exemption_does_not_leak_to_code():
+    """Controls, so the exemption above cannot pass on a detector that exempts everything: a folder named
+    memory outside the Claude projects folder, source under the projects folder, and the shared folder's
+    scripts are all still gated."""
+    assert not _is_low_friction_path("src/divineos/core/memory/anything.py")
+    assert not _is_low_friction_path("/home/x/.claude/projects/proj/settings.json")
+    assert not _is_low_friction_path("/home/x/.divineos-shared/night_timer/night_timer_letter.py")
+    assert not _is_low_friction_path("/home/x/.divineos-shared/workbench/helper.py")
+
+
 def test_low_friction_path_code_not_exempt():
     assert _is_low_friction_path("src/divineos/core/foo.py") is False
 
