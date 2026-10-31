@@ -244,6 +244,40 @@ def test_a_retry_that_carries_the_room_goes_whoever_sent_it_back(tmp_path):
     assert _run_hook(tmp_path, with_room, retry=True) is None
 
 
+def _run_seat(tmp_path, seat, records, *, retry):
+    """The real hook for one seat's own transcript, with no marker override: both seats share this home."""
+    t = tmp_path / f"{seat}.jsonl"
+    t.write_text("\n".join(json.dumps(r) for r in records), encoding="utf-8")
+    env = {k: v for k, v in __import__("os").environ.items() if k != "DADS_ROOM_HELD"}
+    env.update(
+        {"HOME": str(tmp_path), "USERPROFILE": str(tmp_path), "DADS_ROOM_MARK": str(tmp_path / "m")}
+    )
+    p = subprocess.run(
+        [sys.executable, str(HOOK)],
+        input=json.dumps({"transcript_path": str(t), "stop_hook_active": retry}).encode(),
+        capture_output=True,
+        timeout=30,
+        env=env,
+    )
+    assert p.returncode == 0, p.stderr
+    return json.loads(p.stdout)["decision"] if p.stdout.strip() else None
+
+
+def test_two_seats_sharing_a_home_do_not_overwrite_each_others_marker(tmp_path):
+    """Aria's read of #751: one marker file for both seats gave a seat an extra hold when they interleaved.
+    A asks, B asks about its own message, A retries: A's retry must go."""
+    a_turn = WORKED_NO_ROOM
+    b_turn = [_user("a different thing"), _tool(), _tool_result(), _said("Done.")]
+    assert _run_seat(tmp_path, "a", a_turn, retry=False) == "block"
+    assert _run_seat(tmp_path, "b", b_turn, retry=False) == "block"
+    assert _run_seat(tmp_path, "a", a_turn, retry=True) is None
+
+
+def test_control_one_seat_alone_asks_then_lets_its_retry_go(tmp_path):
+    assert _run_seat(tmp_path, "a", WORKED_NO_ROOM, retry=False) == "block"
+    assert _run_seat(tmp_path, "a", WORKED_NO_ROOM, retry=True) is None
+
+
 def test_hook_blocks_and_breaks_loudly(tmp_path):
     t = tmp_path / "t.jsonl"
     t.write_text(

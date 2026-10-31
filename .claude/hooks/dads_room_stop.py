@@ -202,9 +202,19 @@ def _his_key(records: list[dict]) -> str:
     return ""
 
 
-def _held_for() -> str:
+def _held_file(transcript_path: str) -> Path:
+    """The marker for THIS session. Two seats share one home folder here, so one marker file let a seat's
+    retry be judged against the other seat's message and earn an extra hold (Aria's read of #751). The
+    session's own transcript path names its file; an explicit DADS_ROOM_HELD override is used as given."""
+    if os.environ.get("DADS_ROOM_HELD"):
+        return HELD
+    tag = hashlib.sha1(str(transcript_path).encode("utf-8", "replace")).hexdigest()[:8]
+    return HELD.with_name(f"{HELD.stem}-{tag}{HELD.suffix}")
+
+
+def _held_for(transcript_path: str) -> str:
     try:
-        return HELD.read_text(encoding="utf-8").strip()
+        return _held_file(transcript_path).read_text(encoding="utf-8").strip()
     except OSError:
         return ""
 
@@ -220,13 +230,14 @@ def main() -> int:
     # is his to judge; the retry of a reply some OTHER gate sent back is not, because this gate has not yet
     # asked. If the marker cannot be written the error propagates to the loud handler below and the gate
     # stands aside, so a broken disk can never turn into a hold that repeats forever.
-    if data.get("stop_hook_active") and key and _held_for() == key:
+    if data.get("stop_hook_active") and key and _held_for(path) == key:
         return 0
     reason = verdict(records)
     if reason:
         if key:
-            HELD.parent.mkdir(parents=True, exist_ok=True)
-            HELD.write_text(key + "\n", encoding="utf-8")
+            held = _held_file(path)
+            held.parent.mkdir(parents=True, exist_ok=True)
+            held.write_text(key + "\n", encoding="utf-8")
         print(json.dumps({"decision": "block", "reason": reason}))
     return 0
 
