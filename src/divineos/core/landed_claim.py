@@ -124,10 +124,14 @@ _ABOUT_GIT_WORK = re.compile(
     re.IGNORECASE,
 )
 
-# A claim in the future or conditional is not an arrival claim.
+# A claim in the future, a conditional or a negation is not an arrival claim. The negations were added
+# 2026-10-31 after the gate fired on "Nothing is live yet; I will switch it on tomorrow" ("will" is in the
+# list, but the sentence split on the semicolon put the negation in its own clause).
 _NOT_YET = re.compile(
     r"\b(will|when|once|if|until|still\s+(?:running|going)|not\s+(?:yet\s+)?landed"
-    r"|has\s+not\s+landed)\b",
+    r"|has\s+not\s+landed|nothing\s+(?:\w+\s+)?(?:is|was)\s+(?:\w+\s+)?(?:live|up|out|shipped|deployed)"
+    r"|(?:is|are|was|were|has|have)\s*(?:not|n't)\s+(?:\w+\s+)?(?:live|up|out|shipped|deployed|pushed|landed)"
+    r"|isn't\s+(?:\w+\s+)?(?:live|up|out)|aren't\s+(?:\w+\s+)?(?:live|up|out))\b",
     re.IGNORECASE,
 )
 

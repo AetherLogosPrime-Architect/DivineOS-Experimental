@@ -185,6 +185,26 @@ def test_up_to_date_and_out_of_date_are_not_arrivals_and_the_contraction_is_one(
     assert claim_spans("The table's live.") == ()  # and still needs the git word
 
 
+def test_a_negation_is_not_an_arrival_claim_even_in_a_push_turn() -> None:
+    """The gate fired on "Nothing is live yet; I'll switch it on between hands tomorrow" (2026-10-31).
+
+    Saying that something has NOT arrived is the honest waiting sentence; refusing it teaches me to stop saying it.
+    """
+    for sentence in (
+        "Nothing is live yet.",
+        "Nothing is live yet; I'll switch it on between hands tomorrow, with you at the table.",
+        "The fix isn't live.",
+        "The PR is not live on GitHub.",
+        "The branch has not been pushed.",
+        "None of it is out yet, nothing is shipped.",
+    ):
+        assert not assess(sentence, PUSH_TURN).refuses, sentence
+        assert claim_spans(sentence) == (), sentence
+    assert assess(
+        "The branch is live.", PUSH_TURN
+    ).refuses  # control: the plain claim still refuses
+
+
 def test_a_push_turn_that_read_the_remote_is_clear_and_the_waiting_sentence_is_free() -> None:
     assert not assess("The fix went live.", PUSH_TURN + "\n" + READ_THE_REMOTE).refuses
     assert not assess("It will be live once the push finishes.", PUSH_TURN).refuses
