@@ -2287,6 +2287,38 @@ def heredoc_escape_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def his_words_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a write that quotes Andrew in words he did not type.
+
+    His marks decided the rule: close to half of the quotes that were "nearly"
+    his, he marked not his, so only his exact words pass. An unquoted paraphrase
+    always passes, because it claims only to be a reading. The logic lives in
+    ``core.his_words``; this is the wire.
+    """
+    from divineos.core import his_words as hw
+
+    texts = hw.texts_from_payload(payload)
+    if texts is None:
+        return SurfaceOutcome(name="his_words", state="nothing-to-say")
+    result = hw.check(*texts)
+    if result.auto_fixed:
+        from datetime import date
+
+        from divineos.core import his_words_edits
+
+        his_words_edits.log_auto_fixes(result.auto_fixed, date.today().isoformat())
+    if result.state == "pass":
+        return SurfaceOutcome(name="his_words", state="nothing-to-say")
+    # CANNOT_CHECK refuses too: a quote of him nobody could verify must not
+    # read as a verified one.
+    return SurfaceOutcome(
+        name="his_words",
+        refused=True,
+        reason=hw.refusal_text(result),
+        state="spoke",
+    )
+
+
 def slashed_ref_path_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse a git argument the Windows shell rewrites before git sees it.
 
@@ -2785,6 +2817,11 @@ def install() -> None:
         register("PreToolUse", "cd_drift", cd_drift_surface)
     if "slashed_ref_path" not in registered("PreToolUse"):
         register("PreToolUse", "slashed_ref_path", slashed_ref_path_surface)
+    # 2026-09-23, registered in the same change that adds it. Andrew found words
+    # in his mouth he never said, one of them a rule that held drafts still for
+    # weeks. This is the door on every path a quote of him is written through.
+    if "his_words" not in registered("PreToolUse"):
+        register("PreToolUse", "his_words", his_words_surface)
     # 2026-10-21, registered in the same change as the surface (a surface nothing dispatches is an
     # alarm with the cable coiled beside it): Dad's fourth statement that trials are counted in uses.
     if "trial_in_days" not in registered("PreToolUse"):

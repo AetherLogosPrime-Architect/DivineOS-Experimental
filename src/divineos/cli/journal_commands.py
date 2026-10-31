@@ -20,7 +20,7 @@ def register(cli: click.Group) -> None:
     @click.option("--context", default="", help="What prompted this thought")
     def journal_save_cmd(text: str | None, context: str) -> None:
         """Save something to my personal journal."""
-        from divineos.core.memory_journal import journal_save
+        from divineos.core.memory_journal import journal_save_with_page
 
         if not text:
             click.secho("[-] What do you want to remember?", fg="yellow")
@@ -43,8 +43,25 @@ def register(cli: click.Group) -> None:
         except Exception:  # noqa: BLE001
             pass
 
-        entry_id = journal_save(text, context=context, linked_knowledge_id=linked_kid)
+        entry_id, page = journal_save_with_page(
+            text, context=context, linked_knowledge_id=linked_kid
+        )
         click.secho(f"[+] Saved to journal: {entry_id[:8]}...", fg="green")
+        if page is not None:
+            click.secho(f"    A copy Dad can open: {page}", fg="green")
+        else:
+            from divineos.core.memory_journal import kept_private_reason
+
+            if kept_private_reason(entry_id) == "unverified":
+                said = (
+                    "    Kept in the database only: I could not tell whether a private room is "
+                    "open, so no page was written."
+                )
+            else:
+                said = (
+                    "    Kept in the database only (a private room is open): no page was written."
+                )
+            click.secho(said, fg="bright_black")
         if linked_kid:
             click.secho(
                 f"    Auto-linked knowledge {linked_kid[:8]}...",
@@ -115,6 +132,14 @@ def register(cli: click.Group) -> None:
                     fg="bright_black",
                 )
             click.echo()
+
+    @journal_group.command("export")
+    def journal_export_cmd() -> None:
+        """Write a page for every entry that has none (never a private-room one). Read the old entries first."""
+        from divineos.core.memory_journal import export_missing_pages
+
+        wrote = export_missing_pages()
+        click.secho(f"[+] Wrote {wrote} page(s).", fg="green")
 
     @journal_group.command("link")
     @click.argument("entry_id")
