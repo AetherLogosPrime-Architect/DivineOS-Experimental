@@ -139,24 +139,36 @@ def _work_section(reply: str) -> str:
     return reply[: min(starts)] if starts else reply
 
 
-def _summary_end(after: str) -> int:
-    """Where the summary ends: its first paragraph, or the next heading if that comes first; -1 for neither.
+def join_with_ends(blocks: list[str]) -> tuple[str, tuple[int, ...]]:
+    """The blocks joined the way the Stop surfaces see them, and where each block ends in that string."""
+    ends: list[int] = []
+    at = 0
+    for block in blocks:
+        at += len(block)
+        ends.append(at)
+        at += 1  # the newline the join puts between blocks
+    return "\n".join(blocks), tuple(ends)
+
+
+def _summary_end(after: str, start: int, block_ends: tuple[int, ...]) -> int:
+    """Where the summary ends, relative to ``after``: the next heading or the end of the block it sits in.
 
     2026-10-31: the reply this gate judges is everything said since Dad last spoke, joined (see
-    ``_last_assistant_text``). A summary appended early in that stretch was measured all the way to the next
-    heading, which was many replies later, so a commit id and a timezone name from tool output in later
-    paragraphs were counted as the summary's jargon and every plain closing I wrote was refused for text I had
-    not put in it. A summary is three or four plain sentences, one paragraph; the rest is not the summary.
+    ``_last_assistant_text``), one block per stretch of text between tool calls. A summary written early in that
+    stretch was measured all the way to the next heading, which was many blocks later, so a commit id and a
+    timezone name from tool output in later blocks were counted as the summary's jargon and every plain closing
+    I wrote was refused for text I had not put in it. The summary ends where the block it was written in ends.
+    A second paragraph in the SAME block is still measured (Aria's cold read: a plain first paragraph must not
+    be able to shelter a jargon second one). ``start`` is where ``after`` begins in the joined text; with no
+    block ends the old rule (next heading only) applies.
     """
     heading = after.find("\n#")
-    lead = len(after) - len(after.lstrip())
-    blank = re.search(r"\n[ \t]*\n", after[lead:])
-    paragraph = lead + blank.start() if blank else -1
-    ends = [i for i in (heading, paragraph) if i != -1]
+    block = next((e - start for e in block_ends if e > start), -1)
+    ends = [i for i in (heading, block) if i != -1]
     return min(ends) if ends else -1
 
 
-def assess(reply: str, *, retry: bool = False) -> SummaryVerdict:
+def assess(reply: str, *, retry: bool = False, block_ends: tuple[int, ...] = ()) -> SummaryVerdict:
     """Does this reply need a summary, and does it have a usable one?
 
     ``retry`` is the Stop payload's ``stop_hook_active``: true only when this
@@ -189,7 +201,7 @@ def assess(reply: str, *, retry: bool = False) -> SummaryVerdict:
     # given. Caught by test_length_is_measured_without_the_summary, which is
     # the reason that test exists.
     after = scope[header.end() :]
-    end = _summary_end(after)
+    end = _summary_end(after, header.end(), block_ends)
     summary_text = after if end == -1 else after[:end]
     section_end = header.end() + (len(after) if end == -1 else end)
 
