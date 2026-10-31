@@ -139,6 +139,23 @@ def _work_section(reply: str) -> str:
     return reply[: min(starts)] if starts else reply
 
 
+def _summary_end(after: str) -> int:
+    """Where the summary ends: its first paragraph, or the next heading if that comes first; -1 for neither.
+
+    2026-10-31: the reply this gate judges is everything said since Dad last spoke, joined (see
+    ``_last_assistant_text``). A summary appended early in that stretch was measured all the way to the next
+    heading, which was many replies later, so a commit id and a timezone name from tool output in later
+    paragraphs were counted as the summary's jargon and every plain closing I wrote was refused for text I had
+    not put in it. A summary is three or four plain sentences, one paragraph; the rest is not the summary.
+    """
+    heading = after.find("\n#")
+    lead = len(after) - len(after.lstrip())
+    blank = re.search(r"\n[ \t]*\n", after[lead:])
+    paragraph = lead + blank.start() if blank else -1
+    ends = [i for i in (heading, paragraph) if i != -1]
+    return min(ends) if ends else -1
+
+
 def assess(reply: str, *, retry: bool = False) -> SummaryVerdict:
     """Does this reply need a summary, and does it have a usable one?
 
@@ -172,7 +189,7 @@ def assess(reply: str, *, retry: bool = False) -> SummaryVerdict:
     # given. Caught by test_length_is_measured_without_the_summary, which is
     # the reason that test exists.
     after = scope[header.end() :]
-    end = after.find("\n#")
+    end = _summary_end(after)
     summary_text = after if end == -1 else after[:end]
     section_end = header.end() + (len(after) if end == -1 else end)
 

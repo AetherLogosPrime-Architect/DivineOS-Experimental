@@ -43,6 +43,39 @@ class TestWhenItIsOwed:
         assert v.needed is False
 
 
+class TestTheSummaryIsItsFirstParagraph:
+    """2026-10-31: the gate judges everything said since Dad last spoke, joined. A plain summary early in that
+    stretch was measured to the next heading, which was many replies later, so a commit id and a timezone name
+    from later paragraphs were counted as the summary's jargon and every plain closing was refused."""
+
+    LATER = (
+        "Later I checked 59fe1a6ea on America/Los_Angeles time, read summary_room.py and hook_surfaces.py, "
+        "and ran divineos_push.sh twice.\n\n"
+    )
+
+    def test_later_paragraphs_are_not_the_summary(self):
+        v = sr.assess(
+            "## SUMMARY\nI fixed the watcher and it works now.\n\n"
+            + self.LATER
+            + "Then more plain talk."
+        )
+        assert v.present is True and v.too_technical is False
+
+    def test_the_control_jargon_in_the_summary_paragraph_itself_still_flags(self):
+        """Without this the test above would pass on a detector that never flags anything."""
+        v = sr.assess(
+            "## SUMMARY\nI changed hook_router.py and summary_room.py, ran divineos prereg file, and 84fccf55 "
+            "landed the self_demotion fix.\n\nPlain talk after."
+        )
+        assert v.too_technical is True
+
+    def test_a_heading_still_ends_the_summary_before_a_blank_line(self):
+        v = sr.assess(
+            "## SUMMARY\nPlain words.\n## NEXT\nsee hook_router.py and summary_room.py and 84fccf55 and x_y_z"
+        )
+        assert v.too_technical is False
+
+
 class TestRegister:
     def test_a_summary_in_the_works_own_register_is_flagged(self):
         v = sr.assess(
