@@ -1370,8 +1370,8 @@ def _headerless_address_ok(reply: str) -> bool:
 
 _DISMISSAL_RE = re.compile(
     r"(?:"
-    r"(?:nothing|no(?:thing)?\s+\w+|not(?:hing)?)\s+(?:\w+\s+){0,4}?"
-    r"(?:from|for|of|on)\s+(?:you|your\s+\w+|dad|andrew)"
+    r"nothing\s+(?:\w+\s+){0,4}?"
+    r"(?:from|for|of|on)\s+(?:you|your\s+\w+|dad|andrew)\b"
     r"|(?:nothing|no\s+\w+)\s+(?:\w+\s+){0,3}?"
     r"(?:needs?|requires?|wants?)\s+(?:\w+\s+){0,3}?"
     r"(?:deciding|decided|answering|an?\s+answer|your|you)"
@@ -1379,9 +1379,22 @@ _DISMISSAL_RE = re.compile(
     r"(?:\w+\s+){0,3}?(?:need|have)\s+to\s+(?:do|decide|answer|act|reply)"
     r"|no\s+(?:decision|action|answer|reply|input)\s+(?:is\s+)?"
     r"(?:needed|required|expected)"
+    # Added from walk-a/#743: "Your call: none" is the exact form his 2026-10-05 words forbid, and the
+    # plain "nothing you need to do" shape; both passed the first version of this check.
+    # The word must END the clause: "Your call: none of these three, tell me the fourth" is an honest
+    # question that rejects options, not a stamp (Aria measured it firing, 2026-10-30).
+    r"|your\s+call\s*:?\s*(?:is\s+)?(?:none|nothing|n/a)(?=\s*(?:[.!?]|\n|$))"
+    r"|nothing\s+(?:that\s+)?you\s+(?:need|have)\s+to\s+(?:do|decide|answer)\b"
     r")",
     re.IGNORECASE,
 )
+# The first alternative opened with "no <word>" and "not", and ended without a word boundary.
+# Measured 2026-10-20 over 486 long replies of mine: 114 ended with the stamp, and six of those
+# hits were honest statements the old shape caught ("not a favor from you", "no new words from
+# you", "nothing of yours to answer", "not holding anything for you"). A gate that wrongly
+# refuses about one reply in twenty teaches me to dodge it, so the alternative now opens with
+# "nothing" only and ends on a boundary. Public name: dismissal_stamp_check reads the same one.
+DISMISSAL_RE = _DISMISSAL_RE
 """Sentences that tell him he is not needed, in his own room.
 
 ANDREW 2026-09-08, and it is the second time he has had to say it:

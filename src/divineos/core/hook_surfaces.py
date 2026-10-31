@@ -1938,6 +1938,42 @@ def order_question_stop_surface(payload: dict) -> SurfaceOutcome | None:
     return SurfaceOutcome(name="order_question", refused=True, state="spoke", reason=reason)
 
 
+def dismissal_stamp_stop_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a reply that ENDS by telling Dad he is not needed ("nothing needs your answer").
+
+    Andrew, three times: it is an optimizer tag, it decides his use in advance. The pattern has
+    existed since 2026-09-08 but was applied only inside the inner-circle block, so my summary
+    endings walked past it. See core/dismissal_stamp_check.py.
+    """
+    text = _last_assistant_text(payload)
+    if not text.strip():
+        return SurfaceOutcome(name="dismissal_stamp", state="nothing-to-say")
+    try:
+        from divineos.core import dismissal_stamp_check as ds
+
+        if not ds.should_refuse(text):
+            return SurfaceOutcome(name="dismissal_stamp", state="nothing-to-say")
+        reason = ds.refusal_message(text)
+        if payload.get("stop_hook_active"):
+            # The repair turn: a Stop gate cannot refuse twice, so the repeat is carried to the
+            # next compose instead of vanishing (the same rule the order check follows).
+            from divineos.hooks.stop_carry import carry
+
+            carry(
+                "dismissal-stamp-repeated",
+                "On a repair turn I ended on the stamp again, and this gate cannot refuse twice: "
+                + reason,
+            )
+            return SurfaceOutcome(name="dismissal_stamp", state="nothing-to-say")
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="dismissal_stamp",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    return SurfaceOutcome(name="dismissal_stamp", refused=True, state="spoke", reason=reason)
+
+
 def summary_room_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse a reply that dropped the room which compresses it for him.
 
@@ -2913,6 +2949,10 @@ def install() -> None:
     # choice of order with no stated dependency (prereg-c4888c81eca6).
     if "order_question" not in registered("Stop"):
         register("Stop", "order_question", order_question_stop_surface)
+    # Beside the order check, same shape: in-process, no new hook script. Refuses once when the
+    # reply ENDS on the stamp that tells him he is not needed, wherever it is titled.
+    if "dismissal_stamp" not in registered("Stop"):
+        register("Stop", "dismissal_stamp", dismissal_stamp_stop_surface)
     # Beside summary_room because both refuse rather than annotate. That one asks
     # whether he can FIND the answer; this one asks whether the answer was
     # checked against the thing it is about.
