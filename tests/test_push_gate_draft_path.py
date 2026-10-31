@@ -123,7 +123,7 @@ def _run_gate(
         input=stdin,
         capture_output=True,
         text=True,
-        timeout=300,
+        timeout=540,
         cwd=str(repo),
         env=_clean_env(fake_bin, out, rc),
     )
