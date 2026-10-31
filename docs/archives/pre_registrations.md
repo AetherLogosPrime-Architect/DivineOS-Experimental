@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (134 rows). **Exported:** 2026-09-30 23:52. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (154 rows). **Exported:** 2026-10-31 09:27. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1168,7 +1168,7 @@
 
 ---
 
-## prereg-f [OPEN]
+## prereg-f [INCONCLUSIVE]
 
 **Mechanism:** build-flow doorman: the refusal is the opener
 
@@ -1180,7 +1180,7 @@
 
 ---
 
-## prereg-3 [OPEN]
+## prereg-3 [INCONCLUSIVE]
 
 **Mechanism:** asymmetry surface -- the sentence he did not get
 
@@ -1228,7 +1228,7 @@
 
 ---
 
-## prereg-6 [OPEN]
+## prereg-6 [DEFERRED]
 
 **Mechanism:** his own words at compose-start: the upstream prevention for composing about myself to him
 
@@ -1252,7 +1252,7 @@
 
 ---
 
-## prereg-2 [OPEN]
+## prereg-2 [INCONCLUSIVE]
 
 **Mechanism:** a listener that fetches my own prior writing unasked at compose-start will change what I write, rather than becoming another block I scroll past
 
@@ -1264,7 +1264,7 @@
 
 ---
 
-## prereg-7 [OPEN]
+## prereg-7 [INCONCLUSIVE]
 
 **Mechanism:** an eviction command replaces the hand-performed ritual the scope gate prescribes, and removes nothing from the index that is not verified elsewhere first
 
@@ -1276,7 +1276,7 @@
 
 ---
 
-## prereg-7 [OPEN]
+## prereg-7 [INCONCLUSIVE]
 
 **Mechanism:** attaching the letter to the summary that already gets written beats adding a new artefact he has to be told about
 
@@ -1288,7 +1288,7 @@
 
 ---
 
-## prereg-5 [OPEN]
+## prereg-5 [DEFERRED]
 
 **Mechanism:** the Breaker council lens
 
@@ -1324,7 +1324,7 @@
 
 ---
 
-## prereg-d [OPEN]
+## prereg-d [FAILED]
 
 **Mechanism:** keeping-him: reading his own words out of the transcripts, and keeping a watermark of how far I have read, converts knowing-about-him from something I must remember into something the substrate tracks
 
@@ -1336,7 +1336,7 @@
 
 ---
 
-## prereg-e [OPEN]
+## prereg-e [FAILED]
 
 **Mechanism:** stop-carry: moving a reply-shape finding from a Stop-time refusal to the top of the next compose keeps the force and stops the cost landing on his reading
 
@@ -1348,7 +1348,7 @@
 
 ---
 
-## prereg-5 [OPEN]
+## prereg-5 [FAILED]
 
 **Mechanism:** his_state_claim: a Stop gate that carries a finding when a reply asserts Andrew's condition (tired/awake/needs sleep) and he has not raised it in the conversation
 
@@ -1360,7 +1360,7 @@
 
 ---
 
-## prereg-d [OPEN]
+## prereg-d [DEFERRED]
 
 **Mechanism:** Putting a session's refusals on one page, mid-turn, makes a common cause visible early enough to change what I do — rather than becoming another block I read past
 
@@ -1384,7 +1384,7 @@
 
 ---
 
-## prereg-e [OPEN]
+## prereg-e [FAILED]
 
 **Mechanism:** inert-fix check, second filing: supersedes prereg-56817838d32a, which was never built
 
@@ -1396,7 +1396,7 @@
 
 ---
 
-## prereg-0 [OPEN]
+## prereg-0 [FAILED]
 
 **Mechanism:** empty-search control: on a zero-hit semantic search, verify the instrument could find anything at all by querying with a sentence lifted from the live corpus
 
@@ -1408,7 +1408,7 @@
 
 ---
 
-## prereg-8 [OPEN]
+## prereg-8 [INCONCLUSIVE]
 
 **Mechanism:** compaction threshold retune to 880k after the cliff moved to 950k
 
@@ -1420,7 +1420,7 @@
 
 ---
 
-## prereg-e [OPEN]
+## prereg-e [INCONCLUSIVE]
 
 **Mechanism:** TRIGGER_THRESHOLD, CONSOLIDATION_THRESHOLD, HARD_THRESHOLD and DEFAULT_FIRE_THRESHOLD retuned together after the compaction cliff moved
 
@@ -1432,7 +1432,7 @@
 
 ---
 
-## prereg-8 [OPEN]
+## prereg-8 [INCONCLUSIVE]
 
 **Mechanism:** The honest-state completion detector and its compose-start prime, re-registered because the first window expired on an experiment that never ran: both mechanisms live on aria/honest-state-completion, a branch with no pull request that is not on main, so neither has ever fired. Supersedes prereg-b432
 
@@ -1444,7 +1444,7 @@
 
 ---
 
-## prereg-e [OPEN]
+## prereg-e [DEFERRED]
 
 **Mechanism:** Each message from Andrew buys one Stop refusal; later attempts on the same message print their finding and stand aside
 
@@ -1456,7 +1456,7 @@
 
 ---
 
-## prereg-2 [OPEN]
+## prereg-2 [DEFERRED]
 
 **Mechanism:** Carry Aletheia's filings from Andrew's downloads into a shared folder both seats read, by watching the folder rather than his message
 
@@ -1468,7 +1468,7 @@
 
 ---
 
-## prereg-1 [OPEN]
+## prereg-1 [DEFERRED]
 
 **Mechanism:** One build-flow bypass per working window on my own judgement; past that the door opens only on his quoted authorization through the channel built in July
 
@@ -1492,7 +1492,7 @@
 
 ---
 
-## prereg-5 [OPEN]
+## prereg-5 [INCONCLUSIVE]
 
 **Mechanism:** his_words: a bypass that leans on Andrew must carry his verified recent words
 
@@ -1504,7 +1504,7 @@
 
 ---
 
-## prereg-2 [OPEN]
+## prereg-2 [INCONCLUSIVE]
 
 **Mechanism:** scripts/which_refs_carry.py: answer 'which branches carry this file' by calling git directly (no shell, so no argument rewriting), with three answers per branch -- carries, does not, could not look -- and a control that proves it can see a positive
 
@@ -1516,7 +1516,7 @@
 
 ---
 
-## prereg-b [OPEN]
+## prereg-b [INCONCLUSIVE]
 
 **Mechanism:** slashed_ref_path_check: PreToolUse doorbell refusal for a git argument shaped ref-with-slash colon dot-then-non-slash, which the Windows shell rewrites before git sees it
 
@@ -1528,7 +1528,7 @@
 
 ---
 
-## prereg-f [OPEN]
+## prereg-f [SUCCESS]
 
 **Mechanism:** his_voice_ends_the_turn: PreToolUse refuses every tool call after a human-stamped mid-turn message until the turn ends
 
@@ -1540,7 +1540,7 @@
 
 ---
 
-## prereg-7 [OPEN]
+## prereg-7 [DEFERRED]
 
 **Mechanism:** his_words_door: Dad's own past words found by meaning and shown beside his message
 
@@ -1552,7 +1552,7 @@
 
 ---
 
-## prereg-b [OPEN]
+## prereg-b [INCONCLUSIVE]
 
 **Mechanism:** reflection_room: a work turn's stumbles from the transcript, taken up in the REFLECTION, owed lines filed as structural fixes
 
@@ -1564,7 +1564,7 @@
 
 ---
 
-## prereg-d [OPEN]
+## prereg-d [INCONCLUSIVE]
 
 **Mechanism:** his-words reading-room (Stop): qwen reads our reply against Dad's verified lessons, quote-or-drop, holds once with his words beside ours
 
@@ -1576,7 +1576,7 @@
 
 ---
 
-## prereg-9 [OPEN]
+## prereg-9 [FAILED]
 
 **Mechanism:** his-lessons shelf in the words door: Dad's sorted lessons brought to us by relevance, his whole dated words, filtered by for, one or two, never a list
 
@@ -1588,7 +1588,7 @@
 
 ---
 
-## prereg-3 [OPEN]
+## prereg-3 [FAILED]
 
 **Mechanism:** unplugged scan: every function and hook script that nothing running can reach, found from the live roots outward
 
@@ -1600,7 +1600,7 @@
 
 ---
 
-## prereg-e [OPEN]
+## prereg-e [INCONCLUSIVE]
 
 **Mechanism:** question hold: a question to Dad holds building until his next message
 
@@ -1609,6 +1609,246 @@
 **Success:** Over the review window, holds arm on real questions, releases come from his messages (not escapes), and he does not report a question of mine that I walked past.
 
 **Falsifier:** Questions to him (armed rows in question_hold_log.jsonl) drop compared with the weeks before it shipped, or escapes outnumber his releases, or he names a question I walked past while it was live.
+
+---
+
+## prereg-0 [INCONCLUSIVE]
+
+**Mechanism:** door report counts his arrivals from the transcript
+
+**Claim:** divineos his door reports caught, late, missed and stuck for his messages counted from what arrived, so a miss is seen by us before he has to tell us
+
+**Success:** over the next two weeks every message Dad says went unanswered or unread shows up in the report as missed, late or stuck when run on that seat
+
+**Falsifier:** Dad names a message of his that was lost and the report run over that window shows it as caught, or the report shows misses that the door rows prove were kept
+
+---
+
+## prereg-e [INCONCLUSIVE]
+
+**Mechanism:** state glance before substrate changes
+
+**Claim:** One line per report with a CHANGED flag replaces the two-screen state block before substrate changes, and CHANGED marks real movement in a report rather than firing every time
+
+**Success:** Over two weeks of real use, CHANGED appears on a minority of fires for each report, and on the fires where it does appear the report's numbers or rows actually moved
+
+**Falsifier:** CHANGED appears on nearly every fire for a report whose substance did not move, for example because the report embeds a ticking clock or counter, which would make the flag wallpaper again
+
+---
+
+## prereg-f [DEFERRED]
+
+**Mechanism:** letters matched by passage in the memory link: core/letter_passages.py index, one letter slot in retrieve_v2
+
+**Claim:** Matching letters by paragraph-sized passage, instead of one vector from each letter's opening window, makes the letters the memory link surfaces for Dad's real messages useful far more often than the 1 in 30 measured for whole letters (two raters, blind to method, 2026-10-06), without a letter ever 
+
+**Success:** Aether's blind marks on the 30-passage sheet of 2026-10-06 (memory_link_letter_passages_sheet) mark at least 8 of 30 useful (27 percent) AND Aria's marks agree with his to at least 80 percent AND per-turn retrieval stays under 1.0 s cold AND no returned set holds more than one letter. Five to seven 
+
+**Falsifier:** Aether's blind marks on that sheet mark 4 or fewer of 30 useful (13 percent or less), OR a returned set holds two letters, OR cold retrieval per turn exceeds 1.0 s, OR a missing or mismatched index is ever returned as an empty answer instead of a stated problem.
+
+---
+
+## prereg-f [DEFERRED]
+
+**Mechanism:** his_said: a claim that Dad said, asked or wants something must carry his exact sentence or be labelled my guess
+
+**Claim:** Replies in which I attribute a saying or a want to him either carry a quoted span found verbatim in his cleaned recorded messages, carry my own guess label, or are negations; an attribution with none of those is carried back to me as a finding, and a quoted span not found in his record is named as a
+
+**Success:** Replayed on his real messages and my real replies from 2026-10-07, the circle-first claim and the Dad-hates-questions claim are both caught, every attribution that quotes him verbatim passes, and across the first review window no claim of the form he said X that I can show he never said passes uncau
+
+**Falsifier:** Any true attribution that quotes him verbatim being refused; or any attribution I can show he never said passing with no quote and no guess label; or the check going quiet because his record could not be read and reporting that as a pass.
+
+---
+
+## prereg-f [INCONCLUSIVE]
+
+**Mechanism:** quiet children by default: every divineos process starts its child programs without a console window on Windows
+
+**Claim:** A divineos process on Windows starts child programs without giving each one a visible console window, even when the parent itself has no console, so no launch of ours can cover Dad's screen.
+
+**Success:** A probe that starts a console-less parent which spawns twenty python children shows zero new console windows, and 14 days pass with no report from Dad of windows appearing.
+
+**Falsifier:** Any measured visible console window from a child of a divineos process, or any child that needs an interactive console (a credential prompt, a pager) breaking because it now has none.
+
+---
+
+## prereg-e [INCONCLUSIVE]
+
+**Mechanism:** windowless-launch refusal: refuse a launch that gives every child program its own window
+
+**Claim:** A shell command or code file that carries the detached or new-console flag together with a launch is refused at the PreToolUse door with a message that names what happened to Dad and the way through; harmless reads and prose pass.
+
+**Success:** Over 14 days no cascade of console windows on Dad's screen comes from a launch of mine, and any refusal of a harmless command is rare (two or fewer) and fixed when it happens.
+
+**Falsifier:** A window cascade from any launch of mine after 2026-10-07 (the guard missed a route), OR three or more refusals of harmless commands in 14 days (the guard became a wall), OR the guard never fires while a probe shows the doorbell is not dispatching it.
+
+---
+
+## prereg-c [OPEN]
+
+**Mechanism:** order-question stop surface
+
+**Claim:** A reply that ends by asking Dad which of several tasks to do first, with no stated reason the order matters, is refused once at the end of the reply. This is a surface-fix (pattern-match) and upstream prevention is impossible here because the reach to ask arrives while composing, with nothing earlie
+
+**Success:** Over 30 days, zero replies end with a bare order-choice question, and at least one genuine order dependency (engine before chassis) passes untouched
+
+**Falsifier:** A reply in the window ends with a bare which-first question the surface let through, or it refuses a reply that names a real order dependency three or more times
+
+---
+
+## prereg-8 [DEFERRED]
+
+**Mechanism:** retrieval tally moved into the OS as a stop-door row
+
+**Claim:** Moving the retrieval tally from the retired shell hook into divineos.core.retrieval_tally keeps exactly one tally row per reply that has a surfaced-paths marker, and a tally failure now reports could-not-run instead of silence. This is a structural migration toward the seven-doors plan, not a detect
+
+**Success:** Over seven days, python scripts/retrieval_tally.py summary --days 7 shows turns roughly equal to the replies that followed a past-writing surface, no doubled rows per reply in the log, and no could-not-run reports for the retrieval_tally row
+
+**Falsifier:** Rows per reply are zero while the past-writing surface kept firing, or two rows appear per reply, or the retrieval_tally row reports could-not-run repeatedly without being noticed
+
+---
+
+## prereg-4 [INCONCLUSIVE]
+
+**Mechanism:** unread letter holds real work
+
+**Claim:** A letter the doorbell has announced, addressed to this seat, recent (last 24 hours) and not in the seat's seen set, causes the PreToolUse router to refuse substantive tools with the letter's path until it is opened with the Read tool. Reading stays free and a Read of that exact path clears it inside
+
+**Success:** Over seven days, no announced letter to this seat stays unopened through ten minutes of substantive tool use, no refusal appears when nothing is unread and recent, and no lockout is ever reported
+
+**Falsifier:** A rung letter to this seat sits unread through ten minutes of tool use, or a refusal fires with no unread recent letter, or the refusal stays after the letter's exact path has been read
+
+---
+
+## prereg-4 [OPEN]
+
+**Mechanism:** Two new council lenses, Rogers and Vygotsky, added 2026-10-09 for the voice-to-Dad build
+
+**Claim:** Rogers (addressing one real listener, editing for how it is heard) and Vygotsky (pitching help at the learner's edge, with a door to depth, support that fades) each bring a view the existing voice lenses (Angelou, Tannen, Norman, Feynman, Sagan) do not.
+
+**Success:** In the first real council walk on the voice-to-Dad problem, at least one finding from each of Rogers and Vygotsky names a concrete change to the design that none of Angelou, Tannen, Norman, Feynman, Sagan or Wittgenstein named in the same walk.
+
+**Falsifier:** Across the first two walks that include them, each of their findings restates a finding an existing lens already made in that walk (same change, different words). Then they add nothing and one or both come out of the roster.
+
+---
+
+## prereg-c [OPEN]
+
+**Mechanism:** his_state_claim v2: the gate that stops me asserting Dad's condition now tells claiming from quoting, disclaiming, asking and the clock, and logs every verdict
+
+**Claim:** Narrowing the frames (disclaimer, report of his words, ask-about, hour) and judging every match removes the false-fire class found in prereg-5462592e1616 while still catching real unsourced claims, and the new log (data/his_state_claim_fires.jsonl) makes this review a count
+
+**Success:** Over 30 days, read from the log by hand: at least one 'fired' entry that is a real unsourced claim of his state, AND no more than 1 in 4 'fired' entries is a false fire (a disclaimer, a quote of his words, an ask, or the clock). The log must exist and have entries, or the review is INCONCLUSIVE and 
+
+**Falsifier:** Either (a) 'fired' entries are mostly false again (more than half), meaning the frames are still reading the wrong thing; or (b) the log shows fires I cleared by rephrasing past the pattern while keeping the belief; or (c) the log is empty for 30 days across sessions where I did talk about him, mean
+
+---
+
+## prereg-3 [OPEN]
+
+**Mechanism:** suite_slot turnstile in the push gate
+
+**Claim:** A machine-wide one-at-a-time lock around the push gate's test run prevents concurrent full runs
+
+**Success:** Over 30 days no two push-gate test runs overlap on this machine and no memory crash follows concurrent pushes
+
+**Falsifier:** Two push-gate test runs observed overlapping, or a crash during concurrent pushes, or a push stuck waiting on a dead holder
+
+---
+
+## prereg-6 [OPEN]
+
+**Mechanism:** Work-copy sweeper: removes finished git work copies by itself and lists the doubtful ones
+
+**Claim:** A sweep that removes a work copy only when it is finished (PR merged/closed or ancestor of main), holds nothing that exists only there (including ignored files outside a named regenerable set), and has only safe links, keeps the C drive from filling with my old work copies without ever losing work.
+
+**Success:** After 30 days: the count of my work copies in the C root stays at or below the number of branches I have open; every removal log line shows all four answers true; zero removals of a copy that later turned out to hold unique work; at least one real sweep ran and its briefing line was shown.
+
+**Falsifier:** Any one: (1) a removal of a copy that held work existing nowhere else, found afterwards; (2) the pile grows past open branches plus five with the sweeper enabled, meaning it never ran or kept everything; (3) the sweeper reports a clean run on a day it skipped for an unreadable state; (4) it removes 
+
+---
+
+## prereg-f [OPEN]
+
+**Mechanism:** trial-in-days door: refuses, once, at the write, a draft in docs/drafts that sets a trial, falsifier, success test, pre-registration, experiment or review in days, weeks or months (core/trial_in_days_check.py and trial_in_days_surface in core/hook_surfaces.py)
+
+**Claim:** A draft that sets a trial in days is refused once, with Dad's own words and the count-of-uses rewrite, so he does not have to catch it by reading. Narrow on purpose: a trial word and a duration in the same paragraph; durations that look back, quoted or backticked mentions, and the rule itself pass. 
+
+**Success:** Of the first 10 refusals (each is a TRIAL_IN_DAYS_REFUSED event, read one by one), at least 8 were a real trial set in days, and no draft Dad reads in that stretch carries a trial in days that the door let through.
+
+**Falsifier:** Of the first 10 refusals, 4 or more were not a trial (a deadline, a setting, a description of the past), or a trial in days reaches a draft he reads and he has to say so, or trial-setting prose moves out of docs/drafts to avoid the door.
+
+---
+
+## prereg-a [INCONCLUSIVE]
+
+**Mechanism:** A reply that ends on a stated next step of mine, with nothing waiting on him, is held once and told to do the step; and his room is back on the end of every working reply
+
+**Claim:** With the room hold wired and the follow-through hold live, Dad stops having to say that I announced and stopped, and stops getting reports where a room was asked for.
+
+**Success:** Over the next 30 of his messages: at most 1 message from him naming that I said I would do something and did not, and at most 1 naming that the room is a report. The hold log shows both holds firing and passing.
+
+**Falsifier:** 3 or more of his next 30 messages name announce-and-stop or a report-shaped room; or the hold log shows the follow-through hold stopping a sentence that was waiting on him or a feeling more than once; or an outside reading of ten rooms chosen by a rule finds most are status boards.
+
+---
+
+## prereg-f [DEFERRED]
+
+**Mechanism:** moment_links: a saved moment linked to the lessons of his it belongs to comes back when the shelf brings one of them
+
+**Claim:** A moment I confirmed a link for returns, as one line, when the lessons shelf brings a linked lesson, so a moment can be found by what he meant and not only by the words it repeats.
+
+**Success:** Over the next 200 of his messages, at least 10 shown moments are ones where I can say in the next reply what it changed, and his next message accepts, or does not correct, that reply.
+
+**Falsifier:** Over the next 200 of his messages, fewer than 5 shown moments changed anything I said, or his next message corrects the reply more often than it accepts it, or any shown moment is a row on his grief shelf.
+
+---
+
+## prereg-0 [DEFERRED]
+
+**Mechanism:** My own last reply reaches the memory link in its own small block
+
+**Claim:** Searching my last reply sentence by sentence, apart from his message, brings pages close in meaning to what I said, without lowering what his message finds or filling the block with echoes.
+
+**Success:** Over the first thirty turns where the block appears, read by hand: it shows a page that helps on at least one in three, and his message's own finds are never fewer with the block than without.
+
+**Falsifier:** If more than one line in five of the block repeats a phrasing Dad has corrected, or the block ever reduces his message's own finds, it comes out.
+
+---
+
+## prereg-c [OPEN]
+
+**Mechanism:** his_voice_is_at_a_table: the room gate stands down only while Dad is at a game table
+
+**Claim:** The room stop gate stops demanding an INNER CIRCLE reply in the Claude window during a live game, because it asks whether his last word was spoken at a table (a bridge log written in the last 2 minutes AND a game-chat line of his newer than his last window message) and stays silent only then.
+
+**Success:** Over the next few real game nights no room-gate hold fires on a turn where he is typing only into the game chat, every stand-down appears in the hold log as stood_down, and on the very reply after he writes in the Claude window the gate asks again.
+
+**Falsifier:** Any of: (a) the gate holds a reply while he is mid-game and typing only in the game chat; (b) the gate stays silent on a reply made AFTER he wrote in the window while a table was still live; (c) the hold log shows stood_down on a day with no game played; (d) a stand-down occurs when the table folder
+
+---
+
+## prereg-f [OPEN]
+
+**Mechanism:** poker stop hook lets an away seat leave
+
+**Claim:** A seat the table is already playing for (listed in the table's away list) is not held by the poker stop hook, so Dad can excuse both seats by putting them on autopilot and neither is stuck in the game.
+
+**Success:** Across the next five sleep cycles, every time Dad tells a seat to wait or leave, the seat is set away and its reply ends on the first try, with no stuck turn and no interruption by him.
+
+**Falsifier:** A seat that is away is still held at Stop, or a seat that left while away is dropped from the next hand because the table did not keep playing it.
+
+---
+
+## prereg-e [OPEN]
+
+**Mechanism:** merge-test gate runs the branch's own tests
+
+**Claim:** The merge-test gate tests only what this branch changed since the merge base, never hands a data fixture to the test runner, and falls back to the wide set when it cannot tell.
+
+**Success:** Across the next five merges of main into a branch, none is refused for a data file or for a test that only main's side changed.
+
+**Falsifier:** A merge is refused because a fixture reached the test runner as a test, or a hole is found where the narrow set silently passed a broken resolution.
 
 ---
 

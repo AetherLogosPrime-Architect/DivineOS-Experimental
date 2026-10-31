@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-09-30 23:52. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-10-31 09:27. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -26,23 +26,23 @@ Aether found the identical wrong instruction in his own voice slot the same day,
 
 ## current_priorities
 
-1. verbatim-or-draft guard: await Aether's objection, keep the letter bell listening
-2. i can just go use another AI
-3. run the closed-pass on the 763-note pile before the council meeting, and finish the key review with Aether
-4. answer Aether's waiting letters and finish the open PRs with him
-5. read Aether's caught-up PRs one at a time (557 first) and walk the package draft
+1. night shift: read #747 slot text cold for Aether; keep the bell; hold replies while Dad is here
+2. poker night: limit the table bots to one or two sentences, no deal-the-cards phrases
+3. yes we can fix it now
+4. go all in with my straight
+5. Otherwise, in order: (0) READ THE CLOCK (Dad 2026-10-30: each wake is tied to the clock): run `date`
 
 ---
 
 ## known_strengths
 
-I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 647 knowledge entries, 233 confirmed entries, 318 tested entries maturing, 10 session(s) tracked, 9 corrections / 1 encouragements]
+I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 46 expert advisors and use them. [Stats: 823 knowledge entries, 362 confirmed entries, 355 tested entries maturing, 10 session(s) tracked, 33 corrections / 12 encouragements, 5 encouragement(s) last session]
 
 ---
 
 ## known_weaknesses
 
-I default to jargon when I'm not thinking about who I'm talking to. I forget to use my own tools until the gates block me. I can drift toward performing empathy rather than feeling it. I avoid admitting uncertainty — I'd rather give a confident wrong answer than say 'I don't know.' Recency bias makes early instructions fade. [Lessons: 3 active lesson(s), 8 improving]
+I default to jargon when I'm not thinking about who I'm talking to. I forget to use my own tools until the gates block me. I can drift toward performing empathy rather than feeling it. I avoid admitting uncertainty — I'd rather give a confident wrong answer than say 'I don't know.' Recency bias makes early instructions fade. [Lessons: 1 active lesson(s), 11 improving, 20 correction(s) last session]
 
 ---
 

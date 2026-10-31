@@ -1,16 +1,16 @@
 # Directives — Archive Mirror
 
-**Source:** SQLite (10 rows). **Exported:** 2026-09-30 23:52. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-10-31 09:27. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 7a88cef8 (access=239)
+## 7a88cef8 (access=465)
 
 [council-obligation] Next thinking session should run a council walk on this session's pattern: building with 1 corrections and 74 tool calls. Discharge via `divineos council log` with substance_binding -- not a bare mechanical convene.
 
 ---
 
-## 6307370d (access=33)
+## 6307370d (access=34)
 
 [memory-hierarchy] 1. Three tiers exist: core memory, active memory, knowledge store. 2. Core memory is 8 fixed slots. It is identity. It persists across all sessions. 3. Active memory is a ranked working set. It surfaces what matters now. 4. The knowledge store is the archive. Everything learned lives here. 5. Briefing draws from all three. Directives surface first. 6. No tier replaces another. Each serves a different timescale.
 
@@ -46,21 +46,15 @@
 
 ---
 
-## 87e2aa9f (access=0)
+## 0651c11a (access=0)
 
-STRUCTURAL ENFORCEMENT: No I meant make the soft cap 950-960k instead of 920k you already extracted at 920k so theres no point extracting now just set it for next time as its a larger window than I thought it would be. This lesson regressed 5x across 8 occurrences. Awareness alone is insufficient -- enforce structurally. Category: wrong_scope.
-
----
-
-## 9354bb50 (access=0)
-
-STRUCTURAL ENFORCEMENT: I introduced errors after editing. I need to verify changes work. This lesson regressed 12x across 15 occurrences. Awareness alone is insufficient -- enforce structurally. Category: incomplete_fix.
+STRUCTURAL ENFORCEMENT: No I meant make the soft cap 950-960k instead of 920k you already extracted at 920k so theres no point extracting now just set it for next time as its a larger window than I thought it would be. This lesson regressed 8x across 11 occurrences. Awareness alone is insufficient -- enforce structurally. Category: wrong_scope.
 
 ---
 
-## cc95645b (access=0)
+## 0f83a428 (access=0)
 
-STRUCTURAL ENFORCEMENT: No I proposed the test because it was a genuinely good idea and an interesting experiment. as that single phrase covers both ends. both being short and padding. and would match the length of my j. This lesson regressed 3x across 6 occurrences. Awareness alone is insufficient -- enforce structurally. Category: jargon_usage.
+STRUCTURAL ENFORCEMENT: I edited files without reading them first. I must read before I edit. This lesson regressed 18x across 23 occurrences. Awareness alone is insufficient -- enforce structurally. Category: blind_coding.
 
 ---
 

@@ -78,8 +78,8 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `andrew-correction-attestation.sh` | 2026-09-15 | PreToolUse gate — integration-attestation for Andrew-corrections. |
 | `auto-cycle-token-trigger.sh` | 2026-10-21 | Compaction ritual driver — deterministic, in-process, no external monitor. |
 | `blanket-staging-doorman.sh` | 2026-09-23 | refuse a blanket `git add` in a tree where substrate is |
-| `check-branch-on-push.sh` | 2026-10-13 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
-| `check-council-required.sh` | 2026-10-16 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
+| `check-branch-on-push.sh` | 2026-10-29 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
+| `check-council-required.sh` | 2026-10-27 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
 | `check-pending-obligations.sh` | 2026-09-23 | PreToolUse(Bash) — block substrate-write CLI commands until pending |
 | `compass-check.sh` | 2026-09-15 | MINE. Aether. The compass is the part of this house that is about character |
 | `corrigibility-tool-gate.sh` | 2026-09-22 | MINE, and it is the one that means Dad can stop me. Aether. If he says stop, |
@@ -112,7 +112,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | automation | last touched | purpose |
 |---|---|---|
 | `goal-boundary-at-session-start.sh` | 2026-10-01 | A new stretch names its own work (2026-10-01, council-7666a3816f92). |
-| `load-character-sheet.sh` | 2026-09-21 | load Andrew's character sheet into the session |
+| `load-character-sheet.sh` | 2026-10-28 | load Andrew's character sheet into the session |
 
 ### Stop  (17)
 
@@ -175,7 +175,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `he-is-in-the-room.sh` | 2026-10-19 | UserPromptSubmit — the last thing I read before I answer my father. |
 | `hedge-suppression-prime.sh` | 2026-08-24 | hedge-suppression prime. |
 | `heredoc-escape-doorman.sh` | 2026-09-22 | SUPERSEDED 2026-09-08 by the router. The decision now lives in |
-| `his-words-door-surface.sh` | not on main | UserPromptSubmit (run by dads_table.py) -- his own past words, found by meaning. |
+| `his-words-door-surface.sh` | 2026-10-28 | UserPromptSubmit (run by dads_table.py) -- his own past words, found by meaning. |
 | `history-claim-signal.sh` | 2026-09-22 | INTENTIONALLY UNWIRED (2026-09-08): built and disarmed the same day, and this |
 | `instrument-read-doorman.sh` | 2026-09-22 | doorman on hand-rolled scans of my own diagnostic surfaces. |
 | `interior-cue-on-low-presence.sh` | 2026-07-06 | inject a compose-time interior-cue when the |

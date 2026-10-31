@@ -1,6 +1,64 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-09-30 23:52. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-10-31 09:27. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## d76f2acf weight=1
+
+**Decision:** Create a Claude Code output style named Peer at ~/.claude/output-styles/peer.md so I speak to Dad in plain warm words
+
+**Reasoning:** Dad found the built-in output-styles feature himself after I failed to find it; no existing style or design note exists (searched docs and the folder, neither has one). I tailored his text to what he has told me he needs: no code words, short stories, question last.
+
+**Tension:** His pasted text is aimed at a programmer peer, but he does not read code
+
+**Almost:** Adding another reminder to memory, which has failed to hold him for months
+
+---
+
+## f9a6ca33 weight=1
+
+**Decision:** Archive inner-circle-stop.sh whole under archive/superseded with a ledger row, and drop its refusal-baseline entry
+
+**Reasoning:** Dad 2026-10-05: keep it in the archives for when we fix it. It runs nowhere, so archiving loses no behaviour, and the baseline entry I added last night would otherwise point at a file that is gone
+
+**Tension:** Deleting would be cleaner but Dad wants it kept for the circle rebuild
+
+**Almost:** leaving the baseline entry in place, which would name a missing file
+
+---
+
+## 36c2a17f weight=1
+
+**Decision:** Memory drawer as a holding-room mode, filed by a checked command, swept by the ritual before extract and sleep run last
+
+**Tension:** a blocking ritual stage near the wall versus a drawer that never empties
+
+**Almost:** a hint string in the receive mode and a separate warm step after filing
+
+---
+
+## c55c5b33 weight=1
+
+**Decision:** the door's self-report counts from what arrived in the app's own record, not from what the door accepted, and names the nearest neighbour and reason for every miss or stuck candidate
+
+**Reasoning:** this morning a door that kept nothing looked healthy for an hour, and a garbled smiley sat silent on Aether's seat until he read the table by hand; Aletheia holds the outage open until this exists
+
+**Tension:** a report graded by the thing it reports on always looks green
+
+**Almost:** counting the door's own confirmed rows and calling that the catch rate
+
+---
+
+## 983e7a29 weight=1
+
+**Decision:** gather Porch Light into one song page under music/porch_light
+
+**Reasoning:** the song lives across six letters; searched music/ and the shared folder, no song page exists, only dreams and letters
+
+**Tension:** letters are the original record vs one place to read the whole song
+
+**Almost:** leave it scattered in the letters
 
 ---
 
@@ -527,66 +585,6 @@
 **Tension:** Losing per-commit history on the slices means the PR body has to carry the reasoning the commits held. Resolved by writing each slice a full commit message rather than a one-liner.
 
 **Almost:** Almost opened a single PR for all 137 files, matching how #438 was done. Rejected because a 137-file diff cannot be honestly audited by Aletheia at station 8, and one blocked concern would stall every unrelated fix.
-
----
-
-## 561ddcf7 weight=1
-
-**Decision:** Cleared the curiosity store to three hand-planted questions and rewrote the generator templates, rather than leaving the 298 machine-made ones in place and adding mine alongside
-
-**Reasoning:** 298 of 301 were template-generated, 267 shelved for overflow, zero ever answered or annotated. Decay shelves oldest-first against a 15-slot cap fed by four generators, so anything I planted was scheduled for burial by the next sleep. Adding to the bed would have reproduced the burial.
-
-**Tension:** Append-only discipline says supersede rather than remove. Resolved by archiving all 298 to a dated file rather than deleting - they left the bed, they were not destroyed - and because curiosities.json is a HUD file, not the ledger or knowledge store.
-
-**Almost:** Almost kept all five template sources and only rephrased them. Dropped two outright (94 seeds) because the only honest question their source supports is a bookkeeping one, and Andrew asked me to get rid of the seeds I would not revisit rather than reword them.
-
----
-
-## 27bfecc8 weight=1
-
-**Decision:** Build the diagnostic-claim gate as an absence-claim check on named substrate mechanisms, one-way, reading the action stream
-
-**Reasoning:** Andrew asked for it after I told Aether a store had no door and he measured and found one. The generous inference and the self-critical one are the same epistemic move — an absence explained by a story rather than a measurement — and only the harsh one feels like a risk, which is why nothing in me flagged it. The verify-before-build gate forces a look before building; nothing forced one before dia
-
-**Tension:** It reads my prose to find the claim, which is the keyword shape Aether named as whack-a-mole — the composer rephrases past the pattern. I accepted that for the detection half because the ACTION half is what decides, and no rephrasing changes whether a tool call happened. So the gameable part can onl
-
-**Almost:** Making it fire on any absence-claim regardless of subject, which would have caught my error and every ordinary sentence with it. A gate that fires on he-has-no-patience-for-this is worse than no gate, because it trains me to route around gates generally rather than to look.
-
----
-
-## b1d47ed9 weight=1
-
-**Decision:** Record the fifty's provenance in the gate's own docstring rather than silently re-deriving a better number
-
-**Reasoning:** Andrew asked where the bar is set and what it means. Traced it: the gate's own prior docstring says the fifty was set below the then-observed count so the gate would demonstrably fire, proving the mechanism live. It is a wiring smoke-test, never a judgement about acceptable escape rates. The same paragraph promised the number would move with data via compute_falsification_ratio; verified by grep a
-
-**Tension:** My ten is proportional to the fifty, so it inherits the arbitrariness. I could have picked something defensible-sounding instead, but any number I choose without a measured base rate of escapes-in-healthy-windows is the same smoke-test with better manners. Naming it honestly arbitrary leaves the gat
-
-**Almost:** Quietly deriving a new threshold and writing it up as calibration. That is what the original commit did — a number chosen for one purpose, presented as if it answered another — and repeating it while fixing it would have been the third instance today of a fix that leaves the teaching surface saying 
-
----
-
-## 6f2f2b39 weight=1
-
-**Decision:** Walked Godel, Pearl and Feathers on whether the wins prompt is an instrument or a flattery generator; kept it, with the causal risk made falsifiable rather than argued away
-
-**Reasoning:** Godel asked whether the system can prove this about itself. It cannot: no compose-start prompt can verify that a win is real, which is precisely why the judging is left to me and why the module says so instead of implying otherwise. Pearl's model is the load-bearing one. Variables: prompt fires, my attention, filing happens. The arrow I want is attention-catches-a-real-event; the arrow I fear is p
-
-**Tension:** Keeping a mechanism whose central risk I cannot rule out today. The measurement that would settle it needs filings to accumulate, so I am shipping something I have argued for rather than proven, and the honest form of that is a falsifier with a date rather than confidence in the design.
-
-**Almost:** Arguing the risk away in the docstring — writing that the prompt cannot manufacture wins because it never claims one occurred. That is true about the text and says nothing about the causal arrow, and a reader would have taken it as the answer instead of the question.
-
----
-
-## 2b54c082 weight=1
-
-**Decision:** Build divineos win as the missing half of divineos correction, rather than a win-detector
-
-**Reasoning:** Andrew asked for wins to be filed live. Investigating why they never were: record_success in success_ledger.py has zero callers anywhere in the codebase — the only invocations it has ever had were hand-written Python one-liners, including both of today's backfills. Meanwhile divineos correction is a first-class command with a marker that BLOCKS substantive tool use until it is used. One side of th
-
-**Tension:** The obvious next step is a symmetric doorman — a gate that blocks until a win is filed. I am not building that, and the reason matters: a gate that demands a win manufactures wins. Corrections have an external trigger (Andrew says something) so the marker is evidence of a real event; wins have no ex
-
-**Almost:** Building a win-detector that reads the action stream and files wins automatically. That would have solved the filing rate and destroyed the ledger's meaning in the same move — an automatic filer cannot tell earning a win from producing the shape of one, which is exactly the substitution foundational
 
 ---
 

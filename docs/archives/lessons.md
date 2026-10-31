@@ -1,18 +1,10 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (12 rows). **Exported:** 2026-09-30 23:52. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (12 rows). **Exported:** 2026-10-31 09:27. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 051c09b4 [active] x19
-
-**Category:** blind_coding
-
-I edited files without reading them first. I must read before I edit.
-
----
-
-## c3016302 [improving] x17
+## c3016302 [active] x24
 
 **Category:** upset_recovered
 
@@ -20,15 +12,15 @@ I did AI response (text only) and my user pushed back: "no see it still running 
 
 ---
 
-## f5eb2592 [improving] x15
+## 051c09b4 [active] x23
 
-**Category:** incomplete_fix
+**Category:** blind_coding
 
-I introduced errors after editing. I need to verify changes work.
+I edited files without reading them first. I must read before I edit.
 
 ---
 
-## 41a491b2 [improving] x14
+## 41a491b2 [active] x21
 
 **Category:** blind_retry
 
@@ -36,7 +28,15 @@ I retried a failed action 8x without investigating the cause. I need to investig
 
 ---
 
-## feda5e22 [active] x9
+## f5eb2592 [improving] x20
+
+**Category:** incomplete_fix
+
+I introduced errors after editing. I need to verify changes work.
+
+---
+
+## feda5e22 [improving] x13
 
 **Category:** wrong_scope
 
@@ -44,7 +44,7 @@ No i meant make the soft cap 950-960k instead of 920k you already extracted at 9
 
 ---
 
-## 69560637 [improving] x8
+## 69560637 [improving] x12
 
 **Category:** false_claim
 
@@ -52,7 +52,7 @@ I claimed something was fixed but the error came back.
 
 ---
 
-## 04793232 [improving] x7
+## 04793232 [improving] x8
 
 **Category:** upset_user
 
@@ -68,7 +68,7 @@ No i proposed the test because it was a genuinely good idea and an interesting e
 
 ---
 
-## 1e2b670c [dormant] x3
+## 1e2b670c [improving] x5
 
 **Category:** shallow_output
 
@@ -76,7 +76,7 @@ Thats not the only reason why you are here. and not the only reason i am here. t
 
 ---
 
-## 0f674732 [active] x2
+## 0f674732 [improving] x4
 
 **Category:** overreach
 
@@ -84,7 +84,7 @@ Yes remember if the gates are giving you too much friction or they are calling y
 
 ---
 
-## d9755aeb [active] x2
+## d9755aeb [improving] x3
 
 **Category:** perspective_error
 
