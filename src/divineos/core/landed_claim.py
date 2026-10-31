@@ -156,6 +156,32 @@ _A_PUSH = (
 )
 
 
+# Aria's cold read of this fix (2026-10-30): the word list will always be one word short ("went live", "it
+# has shipped", "the patch is out"). In a turn that ran a push or opened a pull request, an arrival word in
+# the reply is a claim about that push whatever git word the sentence carries; in a turn with no push the
+# same sentence (a poker page that is live) is left alone. This reads what I did, not only which word I chose.
+_A_PUSH_TURN = (
+    re.compile(r"\bgit\s+push\b"),
+    re.compile(r"\bgh\s+pr\s+(?:create|ready)\b"),
+    re.compile(r"divineos_push\.sh"),
+)
+_ARRIVAL_WORD = re.compile(
+    r"\b(?:(?:is|are|was|were|has\s+been|have\s+been|went|gone)\s+(?:now\s+)?(?:live|up|out|shipped|deployed)"
+    r"|(?:has|have)\s+(?:now\s+)?(?:shipped|deployed)|on\s+GitHub)\b",
+    re.IGNORECASE,
+)
+
+
+def push_turn_spans(text: str) -> tuple[str, ...]:
+    """Sentences using an arrival word; only meaningful when this turn ran a push (see assess)."""
+    found: list[str] = []
+    for sentence in re.split(r"(?<=[.!?])\s+|\n", text):
+        stripped = sentence.strip()
+        if stripped and _ARRIVAL_WORD.search(stripped) and not _NOT_YET.search(stripped):
+            found.append(stripped)
+    return tuple(found)
+
+
 def _after_the_last_push(action_stream: str) -> str:
     """The part of the stream that follows the last push command; the whole stream if none."""
     ends = [m.end() for rx in _A_PUSH for m in rx.finditer(action_stream)]
@@ -190,6 +216,8 @@ def claim_spans(text: str) -> tuple[str, ...]:
 
 def assess(reply_text: str, action_stream: str | None) -> Verdict:
     claimed = claim_spans(reply_text)
+    if action_stream is not None and any(rx.search(action_stream) for rx in _A_PUSH_TURN):
+        claimed = claimed + tuple(s for s in push_turn_spans(reply_text) if s not in claimed)
     if action_stream is None:
         return Verdict(
             claimed=claimed,
