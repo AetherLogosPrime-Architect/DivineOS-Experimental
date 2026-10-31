@@ -800,6 +800,7 @@ src/divineos/
     work_copy_sweep.py         Work copies clean themselves up: finished ones are removed, doubtful ones are listed, nothing is ...
     his_words_bundle.py        His words and his lessons, found by meaning, in ONE process.
     his_voice_is_at_a_table.py Was his last word to me spoken at a game table, or in the window?
+    pain_hold.py               Lines of Dad's old hurt that the memory link must not hand back unasked.
 
   analysis/
     _session_types.py          Session analysis type definitions
