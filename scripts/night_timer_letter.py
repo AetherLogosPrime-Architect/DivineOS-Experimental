@@ -147,9 +147,12 @@ there already"). What this asks of you, {seat}: finish what is in hand and start
    plain, in your own voice, no jargon to sift through. It is NOT a report (his words,
    2026-10-30: "it shouldnt read like a report .. the room is for things you wanted to tell me,
    questions, personal things").
-2. Write his morning picture in chat, now, so it is above the fold when he arrives: what
-   happened as a picture, what it means for him, and what is his call if anything is. He reads
-   chat (his words, 2026-10-24: "i could just ask you in chat"). Open with how he is.
+2. Write his morning picture in chat, now, so it is above the fold when he arrives. It is
+   purely personal (his words, 2026-10-30: "the morning message should be purely personal.. no
+   status reports.. ill get those from you in chat"): what you thought of overnight that you
+   wanted to say to him, a question, something about the two of you. Never what was done or what
+   is waiting; he asks for that in chat, and the maps carry it. He reads chat (his words,
+   2026-10-24: "i could just ask you in chat"). Open with how he is.
 
 Two wake-ups can land in this half hour (this note and a timer wake). Whichever comes first does
 the work and the other finds it done: if your `## From {seat}` section is already in today's night

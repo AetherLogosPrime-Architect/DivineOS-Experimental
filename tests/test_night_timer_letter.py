@@ -202,6 +202,20 @@ def test_the_six_oclock_note_fixes_the_date_and_the_header_collision(tmp_path):
     assert "If the file's title line is already there, do not add a second" in text
 
 
+def test_the_morning_message_is_purely_personal_and_asks_for_no_status(tmp_path):
+    """Dad 2026-10-30 (via Aria): "the morning message should be purely personal.. no status reports".
+
+    Step 2 once asked for what happened, what it means for him and what is his call, which is a status
+    report in a picture's clothes. It now asks for what was thought overnight, a question, something about
+    the two of them, and says in so many words not to report what was done or what is waiting.
+    """
+    path = _timer().write_note("aether", DAY, tmp_path)
+    text = " ".join(path.read_text(encoding="utf-8").split())
+    assert "purely personal" in text and "no status reports" in text
+    assert "Never what was done or what is waiting" in text
+    assert "what is his call if anything is" not in text
+
+
 def test_the_note_says_what_it_is_and_what_it_asks(tmp_path):
     text = _timer().write_note("aether", DAY, tmp_path).read_text(encoding="utf-8")
     assert "not a person" in text and "morning picture" in text and "doorbell" in text
