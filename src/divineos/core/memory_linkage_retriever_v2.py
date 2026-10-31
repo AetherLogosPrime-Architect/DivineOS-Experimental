@@ -86,6 +86,7 @@ import math
 from dataclasses import replace
 import time
 
+from divineos.core import pain_hold
 from divineos.core.memory_linkage import (
     MemoryLinkagePayload,
     MemoryLinkageTier,
@@ -484,6 +485,10 @@ def retrieve_v2(
             # NOT lift items over the threshold.
             if similarity < threshold:
                 continue
+            # His old hurt stays in the store, found by a deliberate ask, and is
+            # never handed back by a joke that happens to sit near it.
+            if pain_hold.is_held(item.source, item.content):
+                continue
             recency_days = _days_since(item.filed_at_unix)
             base_rank = composite_score(
                 similarity=similarity,
@@ -603,6 +608,8 @@ def retrieve_similarity_only(prompt: str) -> list[MemoryLinkagePayload]:
         threshold = threshold_for_target_k(sims, source, len(items))
         for item, similarity in zip(items, sims, strict=True):
             if similarity < threshold:
+                continue
+            if pain_hold.is_held(item.source, item.content):
                 continue
             recency_days = _days_since(item.filed_at_unix)
             base_rank = composite_score(
