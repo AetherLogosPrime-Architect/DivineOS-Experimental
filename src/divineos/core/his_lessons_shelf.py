@@ -264,6 +264,13 @@ def surface(
         return ""  # nothing fits: say nothing, never fill the room
     for b in brought:
         les = b.lesson
+        # A line he rewrote with a clear head is shown as his later version, labelled, and its reading is
+        # dropped (the readers' label of a hard-day line can carry the sting too). Dad, 2026-10-31.
+        rewritten = door.softened(les.words)
+        if rewritten:
+            lines.append(f'- {les.day}: "{rewritten}"')
+            lines.append(f"  ({les.kind}; said on a harder day, shown as he later meant it)")
+            continue
         mark = f"  [{door.ILLUSTRATION_NOTE}]" if door.is_illustration(les.words) else ""
         lines.append(f'- {les.day}: "{les.words}"{mark}')
         lines.append(f"  ({les.kind}; read as: {les.line})")
