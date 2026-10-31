@@ -20,6 +20,7 @@ says so on stderr and in a mark file instead of passing quietly.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sys
@@ -28,6 +29,14 @@ from pathlib import Path
 TAIL_BYTES = 4_000_000
 MARK = Path(
     os.environ.get("DADS_ROOM_MARK", Path.home() / ".divineos" / "dads_room_stop_broke.txt")
+)
+# Which message of his this gate has already held a reply for. 2026-10-31: the gate used to stand down on
+# every retry (the harness sets stop_hook_active after ANY Stop gate refused), so when another gate spoke
+# first the room gate never got its turn, and a night of refusals from the summary gate meant a night of
+# replies with no room asked for. The question it needs answered is "have I already asked about THIS
+# message", not "did somebody ask".
+HELD = Path(
+    os.environ.get("DADS_ROOM_HELD", Path.home() / ".divineos" / "dads_room_held_for.txt")
 )
 
 # Dad 2026-10-09, after an eighteen-lens walk (the council log is filed against
@@ -183,15 +192,41 @@ def _read_tail(path: Path) -> list[dict]:
     return out
 
 
+def _his_key(records: list[dict]) -> str:
+    """Which message of his is the last one: its record id (or position) and a short hash of its words."""
+    for i in range(len(records) - 1, -1, -1):
+        text = _genuine_user_text(records[i])
+        if text is not None:
+            stamp = str(records[i].get("uuid") or records[i].get("timestamp") or i)
+            return stamp + ":" + hashlib.sha1(text.encode("utf-8", "replace")).hexdigest()[:12]
+    return ""
+
+
+def _held_for() -> str:
+    try:
+        return HELD.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
 def main() -> int:
     data = json.loads(sys.stdin.read() or "{}")
-    if data.get("stop_hook_active"):
-        return 0  # one hold per reply; the retry is his to judge
     path = data.get("transcript_path") or data.get("transcript")
     if not path:
         return 0
-    reason = verdict(_read_tail(Path(path)))
+    records = _read_tail(Path(path))
+    key = _his_key(records)
+    # One hold per message of his, whichever gate went first: the retry of a reply THIS gate has already held
+    # is his to judge; the retry of a reply some OTHER gate sent back is not, because this gate has not yet
+    # asked. If the marker cannot be written the error propagates to the loud handler below and the gate
+    # stands aside, so a broken disk can never turn into a hold that repeats forever.
+    if data.get("stop_hook_active") and key and _held_for() == key:
+        return 0
+    reason = verdict(records)
     if reason:
+        if key:
+            HELD.parent.mkdir(parents=True, exist_ok=True)
+            HELD.write_text(key + "\n", encoding="utf-8")
         print(json.dumps({"decision": "block", "reason": reason}))
     return 0
 
