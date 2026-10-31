@@ -962,11 +962,20 @@ def _last_assistant_text(payload: dict) -> str:
     So: collect assistant text backwards until the previous message that is
     genuinely HIS, then join in the order I said it.
     """
+    return "\n".join(_last_assistant_blocks(payload))
+
+
+def _last_assistant_blocks(payload: dict) -> list[str]:
+    """The pieces ``_last_assistant_text`` joins, in the order said: one per stretch of text between tool calls.
+
+    Kept apart so a surface that must not measure across pieces (the summary room: a summary ends where the
+    piece it was written in ends) can know where each one stops. Empty when there is nothing to read.
+    """
     path = _transcript_file(payload)
     if path is None:
-        return ""
+        return []
 
-    def scan() -> str:
+    def scan() -> list[str]:
         # A window that holds no turn of his may be missing the reply's opening
         # blocks, so it widens. Only reaching his turn, or the whole file, ends it.
         for lines, whole in _windows(path):
@@ -980,10 +989,10 @@ def _last_assistant_text(payload: dict) -> str:
                 if text.strip():
                     blocks.append(text)
             if reached_his_turn or whole:
-                return "\n".join(reversed(blocks))
-        return ""
+                return list(reversed(blocks))
+        return []
 
-    return _memo(path, "last_assistant_text", scan)
+    return _memo(path, "last_assistant_blocks", scan)
 
 
 def _this_turns_action_stream(payload: dict) -> str:
@@ -1945,13 +1954,16 @@ def summary_room_surface(payload: dict) -> SurfaceOutcome | None:
     as exit 2 exactly as the shell hook did. The wire protocol is part of the
     behaviour a migration promises to preserve.
     """
-    text = _last_assistant_text(payload)
-    if not text.strip():
+    blocks = _last_assistant_blocks(payload)
+    if not any(b.strip() for b in blocks):
         return SurfaceOutcome(name="summary_room", state="nothing-to-say")
     try:
-        from divineos.core.summary_room import assess, render_block
+        from divineos.core.summary_room import assess, join_with_ends, render_block
 
-        block = render_block(assess(text, retry=bool(payload.get("stop_hook_active"))))
+        text, block_ends = join_with_ends(blocks)
+        block = render_block(
+            assess(text, retry=bool(payload.get("stop_hook_active")), block_ends=block_ends)
+        )
     except Exception as exc:  # noqa: BLE001
         return SurfaceOutcome(
             name="summary_room",
