@@ -185,6 +185,28 @@ def test_up_to_date_and_out_of_date_are_not_arrivals_and_the_contraction_is_one(
     assert claim_spans("The table's live.") == ()  # and still needs the git word
 
 
+def test_a_negation_cancels_only_its_own_clause() -> None:
+    """Aria's break of a0280d2a0 (2026-10-31): a negation word elsewhere in the sentence hid a real claim.
+
+    Controls first: the plain claims fire. Then the sentences where a claim sits beside a negation.
+    """
+    for control in ("The branch is live.", "It's live.", "The PR is live now."):
+        assert assess(control, PUSH_TURN).refuses, control
+    for hidden in (
+        "The PR is live, nothing is out of date.",
+        "It is not live yet, but the other one is live.",
+        "It was not live before, now it is live.",
+        "The PR is live and nothing is wrong.",
+    ):
+        assert assess(hidden, PUSH_TURN).refuses, hidden
+    assert (
+        claim_spans("It is not live yet, but the PR is live.") != ()
+    )  # the git-word path judges per clause too
+    assert (
+        claim_spans("It is in a PR and it's live.") != ()
+    )  # the git word may sit in another clause
+
+
 def test_a_negation_is_not_an_arrival_claim_even_in_a_push_turn() -> None:
     """The gate fired on "Nothing is live yet; I'll switch it on between hands tomorrow" (2026-10-31).
 

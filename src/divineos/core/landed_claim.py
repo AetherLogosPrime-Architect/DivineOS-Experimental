@@ -130,6 +130,7 @@ _ABOUT_GIT_WORK = re.compile(
 _NOT_YET = re.compile(
     r"\b(will|when|once|if|until|still\s+(?:running|going)|not\s+(?:yet\s+)?landed"
     r"|has\s+not\s+landed|nothing\s+(?:\w+\s+)?(?:is|was)\s+(?:\w+\s+)?(?:live|up|out|shipped|deployed)"
+    r"|none\s+of\s+(?:\w+\s+){1,3}?(?:is|are|was|were)\s+(?:\w+\s+)?(?:live|up|out|shipped|deployed)"
     r"|(?:is|are|was|were|has|have)\s*(?:not|n't)\s+(?:\w+\s+)?(?:live|up|out|shipped|deployed|pushed|landed)"
     r"|isn't\s+(?:\w+\s+)?(?:live|up|out)|aren't\s+(?:\w+\s+)?(?:live|up|out))\b",
     re.IGNORECASE,
@@ -181,12 +182,29 @@ _ARRIVAL_WORD = re.compile(
 )
 
 
+# A negation only cancels the clause it sits in. Aria's break of a0280d2a0 (2026-10-31): "the PR is live, nothing is
+# out of date" and "it is not live yet, but the PR is live" were free because the negation was judged on the whole
+# sentence. Clauses split on a comma, a semicolon, a dash, "but" and "and".
+_CLAUSES = re.compile(r"[,;]|[—–]|\s+but\s+|\s+and\s+", re.IGNORECASE)
+
+
+def _some_clause_claims(sentence: str, claims_in) -> bool:
+    """True when any clause holds a claim and carries no negation or future word of its own."""
+    return any(
+        claims_in(clause) and not _NOT_YET.search(clause)
+        for clause in _CLAUSES.split(sentence)
+        if clause.strip()
+    )
+
+
 def push_turn_spans(text: str) -> tuple[str, ...]:
     """Sentences using an arrival word; only meaningful when this turn ran a push (see assess)."""
     found: list[str] = []
     for sentence in re.split(r"(?<=[.!?])\s+|\n", text):
         stripped = sentence.strip()
-        if stripped and _ARRIVAL_WORD.search(stripped) and not _NOT_YET.search(stripped):
+        if stripped and _some_clause_claims(
+            stripped, lambda clause: bool(_ARRIVAL_WORD.search(clause))
+        ):
             found.append(stripped)
     return tuple(found)
 
@@ -215,10 +233,13 @@ def claim_spans(text: str) -> tuple[str, ...]:
         stripped = sentence.strip()
         if not stripped:
             continue
-        claim = _CLAIM.search(stripped) or (
-            _LIVE.search(stripped) and _ABOUT_GIT_WORK.search(stripped)
-        )
-        if claim and not _NOT_YET.search(stripped):
+        # The git word may sit in a different clause from "live" ("it is in a PR and it's live"), so it is
+        # looked for in the whole sentence; the negation is judged per clause (see _CLAUSES).
+        about_git = bool(_ABOUT_GIT_WORK.search(stripped))
+        if _some_clause_claims(
+            stripped,
+            lambda clause: bool(_CLAIM.search(clause) or (_LIVE.search(clause) and about_git)),
+        ):
             found.append(stripped)
     return tuple(found)
 
