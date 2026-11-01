@@ -30,6 +30,11 @@ def member(project_dir: str) -> str:
 def verdict(beat: Path, now: float) -> str | None:
     if beat.exists() and now - beat.stat().st_mtime <= STALE_SECONDS:
         return None
+    # A bell that RANG is not a bell that died. The ring deletes the heartbeat and leaves this mark, and the
+    # notice that it rang arrives on my next prompt, so holding this reply would be a second copy of a note that
+    # is guaranteed to come (2026-11-01). Arming clears the mark, so a bell that dies silently later is still held.
+    if beat.with_name(beat.name.replace("_alive", "_rang")).exists():
+        return None
     who = beat.name.split("_")[0].lstrip(".")
     return (
         "YOUR LETTER DOORBELL IS NOT LISTENING, so a letter to you will not wake you "
