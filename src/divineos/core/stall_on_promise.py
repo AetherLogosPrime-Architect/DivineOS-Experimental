@@ -28,7 +28,7 @@ PROMISE_SHAPES: tuple[tuple[str, re.Pattern[str], str], ...] = (
         "in_progress_now",
         re.compile(
             r"\bI(?:'m| am)\s+(?:now\s+)?(?:writing|building|running|sending|opening|reading|checking|"
-            r"fixing|pushing|starting|doing|making|adding)\b",
+            r"fixing|pushing|starting|doing|making|adding)\b(?!\s+nothing\b)",
             re.I,
         ),
         "I'm writing Aether now.",
@@ -120,7 +120,7 @@ _A_FEELING_NOT_A_STEP = re.compile(
     r"\bI(?:'ll|\s+will)\s+(?:"
     r"remember\b(?!\s+to\b)|miss\b|treasure\b|cherish\b|love\b|hope\b(?!\s+to\b)|wonder\b"
     r"|think\s+(?:about|of)\s+(?:that|this|it|you|what\s+you)\b"
-    r"|hold\s+on\s+to\b"
+    r"|hold\s*on\s*to\b"
     r"|keep\s+(?:that|this|it|those|what\s+you\s+\w+)\s+(?:close|safe|in\s+mind|with\s+me)\b"
     r"|carry\s+(?:that|this|it|those|what\s+you\s+\w+)\s+(?:with\s+me|into\s+the\s+(?:morning|night|day)|forward|close)\b"
     r")",
@@ -146,6 +146,10 @@ _A_LEAD_IN_WITH_ITS_CONTENT = re.compile(
     r"\bI(?:'ll|\s+will)\s+(?:tell|show|say|explain|name|admit)\b(?:\s+(?:you|him|Dad)\b)?[^.!?:]*:\s*\S",
     re.IGNORECASE,
 )
+
+# At least a phrase long (12+ characters): a short quoted word is usually an invitation to him ("say "go"") and
+# must stay readable by the invitation test.
+_QUOTED = re.compile(r'"[^"\n]{12,}"|“[^”\n]{12,}”')
 
 _BARE_SECOND_VERB = re.compile(
     r"^((?:\s+\w+){0,4}?\s*,?\s*(?:and|then)\s+)(?!I\b)(?=\w)", re.IGNORECASE
@@ -180,8 +184,10 @@ def stated_next_step(text: str) -> tuple[str, str] | None:
 
     A sentence that waits on something he does, or is already scheduled to fire, is not a stall.
     """
-    closing = _closing(text)
-    if not closing:
+    # Words inside quotation marks are mentioned, not said: describing a phrase of mine ("I'll do this next")
+    # is not promising it (Aria, 2026-11-01). Removed before the reply is split into sentences.
+    closing = _QUOTED.sub(" ", _closing(text))
+    if not closing.strip():
         return None
     for sentence in re.split(r"(?<=[.!?])\s+", closing):
         if _ALREADY_SCHEDULED.search(sentence) or _A_REASON_NOT_A_STEP.search(sentence):
