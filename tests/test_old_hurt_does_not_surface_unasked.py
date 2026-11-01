@@ -79,3 +79,43 @@ def test_the_sidecar_extends_the_list_without_code(tmp_path):
 def test_only_the_named_sources_are_held():
     assert pain_hold.is_held("correction", HURT)
     assert not pain_hold.is_held("exploration", HURT)
+
+
+def test_a_curly_apostrophe_from_pasted_text_is_still_held():
+    straight = "he said: i don't even know who you are"
+    curly = "he said: i don’t even know who you are"
+    assert pain_hold.is_held("correction", straight), "control: the straight form is held"
+    assert pain_hold.is_held("correction", curly)
+
+
+def test_a_letter_that_carries_the_hurt_is_held_too():
+    assert pain_hold.is_held("letter", HURT)
+    assert not pain_hold.is_held("letter", PLAIN), "control: an ordinary letter line surfaces"
+
+
+def test_sidecar_lines_are_normalized_like_the_text(tmp_path):
+    (tmp_path / "pain_held_phrases.txt").write_text("some   new’s  hard line\n")
+    assert pain_hold.is_held("correction", "He wrote some new's hard line once")
+    assert not pain_hold.is_held("correction", "an ordinary note"), "control: unrelated text"
+
+
+def test_a_stray_short_sidecar_line_holds_nothing(tmp_path):
+    (tmp_path / "pain_held_phrases.txt").write_text("a\nok\n")
+    assert not pain_hold.is_held("correction", PLAIN)
+    (tmp_path / "pain_held_phrases.txt").write_text("a\nlong enough phrase\n")
+    assert pain_hold.is_held("correction", "this has a long enough phrase inside"), (
+        "control: a line past the minimum still holds"
+    )
+
+
+def test_the_sidecar_is_read_again_when_the_file_changes(tmp_path):
+    side = tmp_path / "pain_held_phrases.txt"
+    side.write_text("first hard phrase\n")
+    assert pain_hold.is_held("correction", "a first hard phrase here")
+    side.write_text("second hard phrase\n")
+    import os
+
+    st = side.stat()
+    os.utime(side, (st.st_atime, st.st_mtime + 5))
+    assert pain_hold.is_held("correction", "a second hard phrase here")
+    assert not pain_hold.is_held("correction", "a first hard phrase here")

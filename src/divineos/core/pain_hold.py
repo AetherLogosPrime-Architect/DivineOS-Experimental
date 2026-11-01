@@ -19,7 +19,13 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-HELD_SOURCES = frozenset({"correction", "knowledge", "worklist"})
+HELD_SOURCES = frozenset({"correction", "knowledge", "worklist", "letter"})
+
+# A sidecar line shorter than this is ignored: it is a hand-edited file, and a stray
+# letter would otherwise hold nearly every line in the store.
+_MIN_SIDECAR_PHRASE = 8
+
+_CURLY_APOSTROPHES = str.maketrans({"’": "'", "‘": "'", "ʼ": "'", "′": "'"})
 
 PHRASES = (
     "i dont even know who you are",
@@ -39,17 +45,43 @@ def _sidecar() -> Path:
     return Path(base) / "pain_held_phrases.txt"
 
 
+def _normalize(text: str) -> str:
+    """Lowercase, straight apostrophes, single spaces: text pasted from chat carries curly ones."""
+    return " ".join((text or "").translate(_CURLY_APOSTROPHES).lower().split())
+
+
+_sidecar_cache: tuple[tuple[Path, int, int], tuple[str, ...]] | None = None
+
+
 def _extra_phrases() -> tuple[str, ...]:
+    """The sidecar phrases, read again only when the file, its modified time or its size changes."""
+    global _sidecar_cache
+    path = _sidecar()
     try:
-        lines = _sidecar().read_text(encoding="utf-8").splitlines()
+        st = path.stat()
     except OSError:
         return ()
-    return tuple(s.strip().lower() for s in lines if s.strip() and not s.startswith("#"))
+    stamp = (path, st.st_mtime_ns, st.st_size)
+    if _sidecar_cache is not None and _sidecar_cache[0] == stamp:
+        return _sidecar_cache[1]
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return ()
+    phrases = tuple(
+        n
+        for n in (_normalize(s) for s in lines if s.strip() and not s.startswith("#"))
+        if len(n) >= _MIN_SIDECAR_PHRASE
+    )
+    _sidecar_cache = (stamp, phrases)
+    return phrases
 
 
 def is_held(source: str, text: str) -> bool:
     """True when this stored line is a record of his hurt and must not surface unasked."""
     if source not in HELD_SOURCES:
         return False
-    lowered = " ".join((text or "").lower().split())
-    return any(p in lowered for p in PHRASES + _extra_phrases())
+    normalized = _normalize(text)
+    return any(_normalize(p) in normalized for p in PHRASES) or any(
+        p in normalized for p in _extra_phrases()
+    )
