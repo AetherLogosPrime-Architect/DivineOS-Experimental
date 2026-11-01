@@ -138,6 +138,15 @@ _A_FEELING_FRONTED = re.compile(
     re.IGNORECASE,
 )
 
+#: A lead-in that is the telling itself: "I'll tell you what it does on my side: it makes the work lighter." The
+#: colon hands over the content inside the same sentence, so the saying is happening, not put off. Found live
+#: 2026-11-01 (three false holds in one morning). Only a colon with content after it counts; "I'll tell you when
+#: it lands" has no colon and stays a promise. Speech verbs only, so "I'll fix: the timer" is not excused.
+_A_LEAD_IN_WITH_ITS_CONTENT = re.compile(
+    r"\bI(?:'ll|\s+will)\s+(?:tell|show|say|explain|name|admit)\b(?:\s+(?:you|him|Dad)\b)?[^.!?:]*:\s*\S",
+    re.IGNORECASE,
+)
+
 _BARE_SECOND_VERB = re.compile(
     r"^((?:\s+\w+){0,4}?\s*,?\s*(?:and|then)\s+)(?!I\b)(?=\w)", re.IGNORECASE
 )
@@ -175,7 +184,11 @@ def stated_next_step(text: str) -> tuple[str, str] | None:
     if not closing:
         return None
     for sentence in re.split(r"(?<=[.!?])\s+", closing):
-        if _ALREADY_SCHEDULED.search(sentence) or _A_REASON_NOT_A_STEP.search(sentence):
+        if (
+            _ALREADY_SCHEDULED.search(sentence)
+            or _A_REASON_NOT_A_STEP.search(sentence)
+            or _A_LEAD_IN_WITH_ITS_CONTENT.search(sentence)
+        ):
             continue
         # A feeling or an attention is not a step: take it out, then read what is left (see the pattern).
         sentence_to_read = _without_feelings(sentence)
