@@ -35,7 +35,14 @@ _HEADING = re.compile(r"^\s{0,3}#{1,6}\s+\S", re.MULTILINE)
 _CODE = re.compile(r"```.*?```|`[^`\n]*`", re.S)
 # "but #551 does" names what needs him; "but the rest does not need you either" is the stamp again in a
 # longer coat (walk-576fae65f370, Dillahunty), so a negation after does/do is not an excuse.
-_CONTRAST = re.compile(r"\bbut\b[^.\n]*\b(?:does|do)\b(?!\s+not\b)", re.IGNORECASE)
+# A bare "do" was the gap Aria found (2026-11-01): "but I will do the rest myself" is the stamp again, since
+# "do" there is the verb of what I will do. So "does/do" counts only when it stands for what needs him: it ends
+# the clause ("but #551 does:"), or is followed by need/want/require; "needs/wants/requires" count on their own.
+_CONTRAST = re.compile(
+    r"\bbut\b[^.\n]*\b(?:(?:does|do)\b(?=\s*[:,;]|\s+(?:still\s+)?(?:need|want|require)\b)"
+    r"|(?:needs|wants|requires)\b)",
+    re.IGNORECASE,
+)
 _QUOTED = re.compile(r"\"[^\"\n]*\"|“[^”\n]*”|\*\"[^\n]*?\"\*")
 
 

@@ -96,6 +96,24 @@ def test_a_but_that_only_repeats_the_stamp_is_still_refused():
     assert ds.should_refuse(_reply("Done.", "Nothing needs you, but that part does not matter."))
 
 
+def test_a_but_that_names_what_i_will_do_is_still_the_stamp():
+    """The gap Aria found (2026-11-01): a bare 'do' in 'I will do the rest myself' read as a contrast."""
+    assert ds.should_refuse(
+        _reply("Done.", "Nothing needs your answer, but I will do the rest myself.")
+    )
+    assert ds.should_refuse(_reply("Done.", "Nothing needs you, but we do the rest tomorrow."))
+
+
+def test_a_but_that_names_what_needs_him_still_passes():
+    for sentence in (
+        "Nothing needs your answer about #723, but #551 does need her.",
+        "Nothing needs your answer about #723, but #551 does: the head moved.",
+        "Nothing needs your answer on the poker, but the merge still wants your word.",
+        "Nothing needs you here, but the stamp needs Aletheia first.",
+    ):
+        assert not ds.should_refuse(_reply("Done.", sentence)), sentence
+
+
 def test_the_stamp_with_nothing_after_it_is_still_refused():
     """Control for the two excuses: no contrast, no later question, still the stamp."""
     assert ds.should_refuse(_reply("Done.", "Nothing needs your answer on the merge."))
