@@ -184,12 +184,13 @@ def stated_next_step(text: str) -> tuple[str, str] | None:
     if not closing:
         return None
     for sentence in re.split(r"(?<=[.!?])\s+", closing):
-        if (
-            _ALREADY_SCHEDULED.search(sentence)
-            or _A_REASON_NOT_A_STEP.search(sentence)
-            or _A_LEAD_IN_WITH_ITS_CONTENT.search(sentence)
-        ):
+        if _ALREADY_SCHEDULED.search(sentence) or _A_REASON_NOT_A_STEP.search(sentence):
             continue
+        # The lead-in itself is the saying; what it hands over is still read, so a promise riding after the
+        # colon ("I'll tell you what happened: I'm going to run the test next") is held (Popper, found by running it).
+        lead_in = _A_LEAD_IN_WITH_ITS_CONTENT.search(sentence)
+        if lead_in is not None:
+            sentence = sentence[lead_in.end() - 1 :]
         # A feeling or an attention is not a step: take it out, then read what is left (see the pattern).
         sentence_to_read = _without_feelings(sentence)
         markers = [

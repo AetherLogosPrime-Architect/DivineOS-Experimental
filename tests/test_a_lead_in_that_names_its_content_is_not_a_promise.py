@@ -28,6 +28,7 @@ def test_a_lead_in_with_its_content_is_not_held(text):
         "I'll tell you tomorrow:",
         "I'll fix: the timer next.",
         "I'll write the letter: after the walk.",
+        "I'll tell you what happened: I'm going to run the test next.",
     ],
 )
 def test_the_same_verb_without_content_and_work_verbs_are_still_held(text):
