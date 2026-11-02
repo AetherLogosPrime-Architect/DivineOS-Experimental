@@ -179,6 +179,7 @@ def _his_last_words():
 touched = ' '.join(file_paths) or bash_command
 written = str(tool_input.get('new_string') or tool_input.get('content') or '')[:300]
 query = ' '.join(p for p in (_his_last_words(), touched[:200], written) if p).strip()
+fresh = []
 try:
     from divineos.core.memory_linkage_retriever import find_in_worklist, newest_in_worklist
     from divineos.core.state_glance import newest_lines, worklist_lines
@@ -209,6 +210,28 @@ except Exception as exc:  # the wall is the fallback: losing it silently is wors
         header + '\n\n' + f'(glance unavailable: {type(exc).__name__}: {exc})\n\n'
         + translate_note + '\n\n' + '\n\n'.join(parts)
     )
+
+# QUIET WHEN UNCHANGED (Aria 2026-10-10, Dad's token-waste order), composed over the glance above (2026-10-22).
+# The glance already compresses each report to one line; this stops the identical glance riding before every edit.
+# The key is the whole text, so a CHANGED line, a new correction or a fresh 'newest' line re-emits it in full, and
+# dedup state is cleared on compaction (context_dedup.on_compaction) so silence never points at content that is gone.
+# What survives suppression is the STANDING LINES: the first 80 characters of each report line (the dedup contract,
+# test_hook_dedup_contract.py, says something must survive every suppression).
+standing = [l.strip()[:80] for l in str(combined).splitlines() if l.startswith('- ')]
+# The two pointers a reader needs to act (where the whole text is, where the full list is) stand too, and the
+# pointer the dedup returns says outright that the block is unchanged, so silence is never read as 'nothing here'.
+standing += [l for l in str(combined).splitlines() if l.startswith('Whole text') or l.strip().startswith('all of them:')]
+try:
+    from divineos.core.context_dedup import should_emit
+    emit, _pointer = should_emit('state_gravity_blocks', combined, residual='\n'.join(standing))
+except Exception:
+    emit = True
+# His newest correction rides for three showings, and the counter spends one per run, so a quiet run would burn it unseen.
+if fresh:
+    emit = True
+if not emit:
+    combined = _pointer or '\n'.join(standing)
+
 
 print(json.dumps({
     'hookSpecificOutput': {
