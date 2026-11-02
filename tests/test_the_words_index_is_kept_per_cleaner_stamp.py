@@ -305,6 +305,27 @@ class TestAHouseAdoptsAnIndexItAlreadyOwns:
         embedded = self._counting_embed(monkeypatch)
         assert door.build_index(corpus, mine) == len(HIS) and sum(embedded) == len(HIS)
 
+    def test_a_root_with_a_cut_off_vector_file_is_refused_not_raised(
+        self, tmp_path, corpus, monkeypatch
+    ):
+        """Aria's last small thing: np.load on a truncated file can raise something other than OSError
+        or ValueError, and then the guard would escape instead of refusing. Cut the file at several
+        points and require a clean refusal, built in full."""
+        root = self._legacy_root(tmp_path, corpus, monkeypatch, STAMP_A)
+        whole = (root / "vectors.npy").read_bytes()
+        monkeypatch.setattr(door, "CLEANER", STAMP_A)
+        for keep in (0, 1, 10, len(whole) // 2, len(whole) - 1):
+            (root / "vectors.npy").write_bytes(whole[:keep])
+            mine = door.keyed_dir(root, STAMP_A)
+            if mine.exists():
+                import shutil
+
+                shutil.rmtree(mine)
+            assert door.unindexed(corpus, mine) == len(HIS), f"cut at {keep} bytes"
+            embedded = self._counting_embed(monkeypatch)
+            assert door.build_index(corpus, mine) == len(HIS), f"cut at {keep} bytes"
+            assert sum(embedded) == len(HIS)
+
     def test_a_root_rewritten_while_it_is_being_copied_is_not_adopted(
         self, tmp_path, corpus, monkeypatch
     ):

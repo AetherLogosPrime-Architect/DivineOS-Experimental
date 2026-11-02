@@ -285,7 +285,7 @@ def _root_snapshot(root: Path) -> tuple[str, bytes] | None:
         again = meta_path.read_text(encoding="utf-8")
         meta = json.loads(first)
         rows = _vector_rows(vec_bytes)
-    except (OSError, ValueError):
+    except (OSError, ValueError, EOFError):  # np.load raises EOFError on an empty file
         return None
     if first != again or meta.get("model") != MODEL_NAME or meta.get("cleaner") != CLEANER:
         return None
