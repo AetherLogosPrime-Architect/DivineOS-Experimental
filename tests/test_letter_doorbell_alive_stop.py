@@ -37,6 +37,25 @@ def test_a_bell_that_rang_is_not_held_for_dying(tmp_path):
     assert bell.verdict(tmp_path / ".aether_doorbell_alive", time.time()) is None
 
 
+def test_a_bell_that_rang_long_ago_and_was_never_rearmed_is_held(tmp_path):
+    # Dad, 2026-11-02: the ring stands the check aside for one reply, not forever. A mark older than the
+    # grace means the notice has long since come and the bell is simply down.
+    rang = tmp_path / ".aether_doorbell_rang"
+    rang.write_text("1")
+    old = time.time() - 600
+    os.utime(rang, (old, old))
+    reason = bell.verdict(tmp_path / ".aether_doorbell_alive", time.time())
+    assert reason and "bash scripts/letter_doorbell.sh aether" in reason
+
+
+def test_a_bell_that_rang_just_now_is_not_held(tmp_path):
+    rang = tmp_path / ".aether_doorbell_rang"
+    rang.write_text("1")
+    recent = time.time() - 20
+    os.utime(rang, (recent, recent))
+    assert bell.verdict(tmp_path / ".aether_doorbell_alive", time.time()) is None
+
+
 def test_a_bell_that_rang_and_was_rearmed_then_died_is_still_held(tmp_path):
     # Arming removes the mark (the script does it); with no mark and no heartbeat the bell died silently.
     assert bell.verdict(tmp_path / ".aether_doorbell_alive", time.time())
