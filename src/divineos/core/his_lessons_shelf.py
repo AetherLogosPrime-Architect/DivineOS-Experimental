@@ -36,7 +36,10 @@ from divineos.core import his_words_door as door
 LESSONS_DIR = Path.home() / ".divineos-shared" / "dad_corpus"
 VERIFIED = LESSONS_DIR / "verified_lessons.json"
 REREAD = LESSONS_DIR / "reread_all.json"
-INDEX_DIR = LESSONS_DIR / "lesson_index"
+INDEX_ROOT = LESSONS_DIR / "lesson_index"
+INDEX_DIR = door.keyed_dir(
+    INDEX_ROOT, door.CLEANER
+)  # one folder per cleaner stamp, as the door's index
 BRING = frozenset(
     {
         "teaching",
@@ -209,6 +212,11 @@ def _load(index_dir: Path) -> tuple[list[Lesson], object]:
     return [Lesson(**i) for i in meta["items"]], np.load(index_dir / "vectors.npy")
 
 
+def which_index(index_dir: Path) -> tuple[Path | None, str]:
+    """The door's rule for which folder a search reads, applied to the lessons: own, a sibling, or none."""
+    return door.which_index(index_dir, "lessons.json", _load)
+
+
 def bring(
     message: str, me: str, context: str = "", index_dir: Path = INDEX_DIR
 ) -> tuple[list[Brought], str]:
@@ -216,8 +224,14 @@ def bring(
     message = door.his_part(message)
     if not message:
         return [], "an automated notice, not his message"
+    folder, _how = which_index(index_dir)
+    if folder is None:
+        return (
+            [],
+            "his lessons could not be searched: no index for this house's cleaning rules yet, and none from another house to read",
+        )
     try:
-        items, vecs = _load(index_dir)
+        items, vecs = _load(folder)
         q = door._embed_query(door._squash(f"{message} {context}")[:2000])
     except door.SEARCH_ERRORS as exc:  # say so, never go quiet
         return [], f"his lessons could not be searched: {exc}"

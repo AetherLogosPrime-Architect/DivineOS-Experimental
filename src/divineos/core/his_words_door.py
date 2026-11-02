@@ -45,7 +45,7 @@ from divineos.core.his_message import typed_part
 
 MODEL_NAME = "all-MiniLM-L6-v2"
 CORPUS = Path.home() / ".divineos-shared" / "dad_corpus" / "dad_all.jsonl"
-INDEX_DIR = Path.home() / ".divineos-shared" / "dad_corpus" / "index"
+INDEX_ROOT = Path.home() / ".divineos-shared" / "dad_corpus" / "index"
 
 FLOOR = 0.55  # replay 2026-09-26: real hits scored 0.60+, loose ones about 0.45
 REPEAT_FLOOR = 0.60  # "the same ask again", not merely the same topic
@@ -119,6 +119,7 @@ class Door:
     repeats: list[Hit]
     looked: bool
     reason: str = ""
+    how: str = "own"  # which folder was read: "own", or "sibling" when this house has none yet
 
 
 def _squash(text: str) -> str:
@@ -200,6 +201,54 @@ def _cleaner_stamp() -> str:
 
 
 CLEANER = _cleaner_stamp()
+
+
+def keyed_dir(root: Path, stamp: str) -> Path:
+    """The folder for ONE cleaner stamp. Only the hex names it: a colon is no safe folder name on Windows.
+
+    The index used to live in a single shared folder. Two houses on different cleaning code each read
+    the other's complete index as foreign and rebuilt it, minutes at 1 to 2 GB, forever (2026-11-01,
+    walk-58e356aa3e26). A folder per stamp gives each stamp one writer, so no lock between houses is needed.
+    """
+    return root / stamp.split(":", 1)[-1]
+
+
+INDEX_DIR = keyed_dir(INDEX_ROOT, CLEANER)
+
+
+def which_index(
+    index_dir: Path, marker: str = "passages.json", loader=None
+) -> tuple[Path | None, str]:
+    """Which folder a SEARCH should read, and why: (folder, "own"), (folder, "sibling") or (None, "none").
+
+    Reading may use any folder that can be searched; writing (``build_index``) and counting
+    (``unindexed``) touch only the caller's own. So a house whose folder is empty or torn, as on the first
+    use after its cleaning code changes, still searches the newest other stamp's index (slightly stale is
+    still a valid search) while its own builds, and it says which it read. A folder counts only if it loads:
+    a torn pair or another model is refused. The old unkeyed files straight in the root count as a sibling
+    and are never touched. Three absences stay three: nothing yet, torn, could not read.
+    """
+    check = loader or _load_index
+
+    def usable(folder: Path) -> bool:
+        try:
+            check(folder)
+        except SEARCH_ERRORS:
+            return False
+        return True
+
+    if (index_dir / marker).exists() and usable(index_dir):
+        return index_dir, "own"
+    root = index_dir.parent
+    others = [root] if (root / marker).exists() else []
+    if root.is_dir():
+        others += [
+            d for d in root.iterdir() if d.is_dir() and d != index_dir and (d / marker).exists()
+        ]
+    others = [d for d in others if usable(d)]
+    if not others:
+        return None, "none"
+    return max(others, key=lambda d: (d / marker).stat().st_mtime), "sibling"
 
 
 def load_passages(corpus: Path = CORPUS) -> list[Passage]:
@@ -385,8 +434,16 @@ def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
     words = re.findall(r"[a-zA-Z']+", message)
     if len(words) < MIN_SIGNAL_WORDS and not context.strip():
         return Door([], [], looked=False, reason="his message is too short to search on by itself")
+    folder, how = which_index(index_dir)
+    if folder is None:
+        return Door(
+            [],
+            [],
+            looked=False,
+            reason="his words could not be searched: no index for this house's cleaning rules yet, and none from another house to read",
+        )
     try:
-        items, vecs = _load_index(index_dir)
+        items, vecs = _load_index(folder)
     except (OSError, ValueError) as exc:
         return Door([], [], looked=False, reason=f"his words could not be searched: {exc}")
     try:
@@ -420,7 +477,7 @@ def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
         if h.score >= REPEAT_FLOOR and h.passage.day not in days:
             days.add(h.passage.day)
             repeats.append(h)
-    return Door(hits=hits[:SHOW], repeats=repeats, looked=True)
+    return Door(hits=hits[:SHOW], repeats=repeats, looked=True, how=how)
 
 
 def surface(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> str:
