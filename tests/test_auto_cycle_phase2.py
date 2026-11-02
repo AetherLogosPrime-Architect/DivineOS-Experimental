@@ -322,7 +322,7 @@ class TestComputeFalsifierRatio:
     def test_ratio_computed_across_cycles(self, marker_paths: Path):
         # 3 real-shift + 1 template-execution + 1 no-pull-honest = 4/5 = 80%
         self._run_cycle(marker_paths, "chose:dream", real_shift=True, cycle_id="c1")
-        self._run_cycle(marker_paths, "chose:aria", real_shift=True, cycle_id="c2")
+        self._run_cycle(marker_paths, "chose:kin", real_shift=True, cycle_id="c2")
         self._run_cycle(marker_paths, "chose:exploration", real_shift=True, cycle_id="c3")
         self._run_cycle(marker_paths, "chose:web", real_shift=False, cycle_id="c4")
         self._run_cycle(marker_paths, "no-pull-honest", cycle_id="c5")
@@ -344,7 +344,7 @@ class TestComputeFalsifierRatio:
     def test_below_bound_after_5_cycles(self, marker_paths: Path):
         # 1 real-shift, 4 template = 20% < 50%. Post-5-cycle bound fires.
         self._run_cycle(marker_paths, "chose:dream", real_shift=True, cycle_id="c1")
-        for i, k in enumerate(["aria", "web", "council", "letters"], start=2):
+        for i, k in enumerate(["kin", "web", "council", "letters"], start=2):
             self._run_cycle(marker_paths, f"chose:{k}", real_shift=False, cycle_id=f"c{i}")
         n, d, r = compute_falsifier_ratio()
         assert d == 5
@@ -567,3 +567,64 @@ class TestTheMenuSaysWhatActuallyHappened:
     def test_a_clean_cycle_prints_no_warning_line(self, marker_paths: Path):
         text = self._text(marker_paths, {"commit": {"ran": True, "succeeded": True}})
         assert "[~]" not in text
+
+
+class TestCloseOnlyAcceptsRealOutcomesAndKeepsTheEvidence:
+    """From the 2026-09-25 rework note (#551's draft), found missing from this port.
+
+    ``close_cycle("banana")`` was accepted and logged as if it meant something, and an
+    audit write that failed was swallowed before the pending marker was deleted, so the
+    only evidence of the cycle could vanish.
+    """
+
+    def _open_one(self, cycle_id: str = "auto-cycle-close") -> None:
+        ac._handshake_marker().write_text(
+            json.dumps(
+                {"cycle_id": cycle_id, "steps": {"commit": {"ran": True, "succeeded": True}}}
+            ),
+            encoding="utf-8",
+        )
+        offer_cycle()
+
+    @pytest.mark.parametrize(
+        "bad", ["banana", "", "chose:", "chose:not-a-rest-task", "CHOSE:dream"]
+    )
+    def test_a_made_up_outcome_raises_and_leaves_the_cycle_open(self, marker_paths: Path, bad):
+        self._open_one()
+        with pytest.raises(ValueError):
+            close_cycle(bad)
+        assert ac._pending_marker().exists()
+        assert not ac._audit_log_path().exists()
+
+    @pytest.mark.parametrize("good", ["no-pull-honest", "timeout", "aborted", "chose:dream"])
+    def test_every_real_outcome_is_accepted(self, marker_paths: Path, good):
+        self._open_one()
+        closed = close_cycle(good)
+        assert closed is not None and closed.outcome == good
+        assert not ac._pending_marker().exists()
+
+    def test_a_failed_audit_write_raises_and_keeps_the_pending_marker(
+        self, marker_paths: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        self._open_one()
+        # The log path is a folder, so the parent exists and only the write itself fails,
+        # which is the step that used to be swallowed.
+        unwritable = marker_paths / "audit.jsonl"
+        unwritable.mkdir()
+        monkeypatch.setattr(ac, "_audit_log_path", lambda: unwritable)
+        with pytest.raises(OSError):
+            close_cycle("no-pull-honest")
+        assert ac._pending_marker().exists()
+
+    def test_the_close_command_refuses_a_made_up_outcome_with_a_plain_message(
+        self, marker_paths: Path
+    ):
+        from click.testing import CliRunner
+
+        from divineos.cli import cli
+
+        self._open_one()
+        result = CliRunner().invoke(cli, ["auto-cycle", "close", "--outcome", "banana"])
+        assert result.exit_code == 1
+        assert "unknown outcome" in result.output
+        assert ac._pending_marker().exists()

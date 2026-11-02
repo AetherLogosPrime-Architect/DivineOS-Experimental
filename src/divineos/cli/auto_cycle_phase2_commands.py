@@ -109,12 +109,16 @@ def register(cli: click.Group) -> None:
         if real_shift is not None:
             real_shift_bool = real_shift.lower() == "yes"
 
-        result = close_cycle(
-            outcome=outcome,
-            chosen_key=chosen_key,
-            real_shift=real_shift_bool,
-            notes=notes,
-        )
+        try:
+            result = close_cycle(
+                outcome=outcome,
+                chosen_key=chosen_key,
+                real_shift=real_shift_bool,
+                notes=notes,
+            )
+        except ValueError as exc:
+            click.secho(f"[-] {exc}", fg="red")
+            raise click.exceptions.Exit(1) from exc
         if result is None:
             click.secho(
                 "[~] No pending cycle to close. Run 'auto-cycle offer' first.",

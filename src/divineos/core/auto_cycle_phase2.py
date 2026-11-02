@@ -423,6 +423,17 @@ def offer_cycle() -> tuple[OfferingRecord | None, str]:
     return record, text
 
 
+_FIXED_OUTCOMES = frozenset({"no-pull-honest", "timeout", "aborted"})
+
+
+def _outcome_is_valid(outcome: str) -> bool:
+    if outcome in _FIXED_OUTCOMES:
+        return True
+    if outcome.startswith("chose:"):
+        return outcome[len("chose:") :] in {task.key for task in REST_TASKS}
+    return False
+
+
 def close_cycle(
     outcome: str,
     chosen_key: str | None = None,
@@ -443,7 +454,16 @@ def close_cycle(
     Only meaningful for "chose:<key>" outcomes; None otherwise.
 
     Returns the CloseOutcome record, or None if no pending marker exists.
+
+    Raises ``ValueError`` for an outcome that is none of the above (including a
+    ``chose:`` key that is not a rest task), before anything is touched, and lets an
+    audit-log write failure propagate so the pending marker stays in place.
     """
+    if not _outcome_is_valid(outcome):
+        raise ValueError(
+            f"unknown outcome {outcome!r}: use chose:<key> (a rest task key), "
+            "no-pull-honest, timeout or aborted"
+        )
     if not _pending_marker().exists():
         return None
     try:
@@ -508,11 +528,11 @@ def _append_audit_log(pending: dict[str, Any], outcome: CloseOutcome) -> None:
         "menu_shown": pending.get("menu_shown"),
         "use_counts_at_offering": pending.get("use_counts_at_offering"),
     }
-    try:
-        with path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(entry) + "\n")
-    except OSError:
-        pass
+    # No swallowing: a failed write must reach ``close_cycle`` before the pending
+    # marker is deleted, or the only evidence of the cycle can vanish (2026-09-25
+    # rework note, #551).
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry) + "\n")
 
 
 def compute_falsifier_ratio() -> tuple[int, int, float | None]:
