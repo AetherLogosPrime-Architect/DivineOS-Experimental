@@ -251,6 +251,62 @@ def which_index(
     return max(others, key=lambda d: (d / marker).stat().st_mtime), "sibling"
 
 
+def note_sibling(index_dir: Path, folder: Path, how: str, what: str) -> None:
+    """Reading a sibling's index leaves one line in the hold log, so how often it happens can be counted.
+
+    ``Door.how`` was set and shown to no one, so a house reading a stale sibling read it silently
+    (Aria's cold read, 2026-11-01). Its own folder leaves nothing.
+    """
+    if how == "own":
+        return
+    from divineos.core import hold_log
+
+    hold_log.record(
+        "index_read", how, f"{what} read {folder.name or folder} because {index_dir.name} had none"
+    )
+
+
+def _adoptable_root(index_dir: Path) -> Path | None:
+    """The old unkeyed root when its files carry THIS house's own stamp and model, else None.
+
+    The legacy files that sat straight in the folder are complete and may already be this house's own.
+    Adopting them costs a copy; not adopting costs a full re-embed of the corpus. A house whose stamp
+    really differs gets None, and builds in full once, because its cleaning rules do differ.
+    """
+    root = index_dir.parent
+    meta_path, vec_path = root / "passages.json", root / "vectors.npy"
+    if index_dir == root or not (meta_path.exists() and vec_path.exists()):
+        return None
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if meta.get("model") != MODEL_NAME or meta.get("cleaner") != CLEANER:
+        return None
+    return root
+
+
+def _adopt_root_files(index_dir: Path) -> None:
+    """Copy the adoptable root files into this stamp's folder when it has none. The root is never touched."""
+    if (index_dir / "passages.json").exists():
+        return
+    root = _adoptable_root(index_dir)
+    if root is None:
+        return
+    from divineos.core.atomic_io import atomic_write_bytes, atomic_write_text
+
+    # vectors first, the item list last, as every writer here does: a kill between them leaves vectors
+    # AHEAD of items, which the loader detects, and never a quiet wrong quote
+    atomic_write_bytes(
+        index_dir / "vectors.npy", (root / "vectors.npy").read_bytes(), per_process=True
+    )
+    atomic_write_text(
+        index_dir / "passages.json",
+        (root / "passages.json").read_text(encoding="utf-8"),
+        per_process=True,
+    )
+
+
 def load_passages(corpus: Path = CORPUS) -> list[Passage]:
     """Aether's cleaner first (our pasted-back text and bare replies out), then
     cut to quote size. The 08-13 paste and the 08-21 assistant-styled passage
@@ -347,6 +403,7 @@ def build_index(
     import numpy as np
 
     index_dir.mkdir(parents=True, exist_ok=True)
+    _adopt_root_files(index_dir)
     meta_path, vec_path = index_dir / "passages.json", index_dir / "vectors.npy"
     meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
     vecs = None
@@ -403,6 +460,8 @@ def build_index(
 def unindexed(corpus: Path = CORPUS, index_dir: Path = INDEX_DIR) -> int:
     """How many of his passages are not in the index yet: the work still to do."""
     meta_path = index_dir / "passages.json"
+    if not meta_path.exists() and (root := _adoptable_root(index_dir)) is not None:
+        meta_path = root / "passages.json"  # what the next build will adopt, so it counts as done
     meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
     if meta.get("model") != MODEL_NAME or meta.get("cleaner") != CLEANER:
         return len(load_passages(corpus))
@@ -442,6 +501,7 @@ def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
             looked=False,
             reason="his words could not be searched: no index for this house's cleaning rules yet, and none from another house to read",
         )
+    note_sibling(index_dir, folder, how, "the door")
     try:
         items, vecs = _load_index(folder)
     except (OSError, ValueError) as exc:

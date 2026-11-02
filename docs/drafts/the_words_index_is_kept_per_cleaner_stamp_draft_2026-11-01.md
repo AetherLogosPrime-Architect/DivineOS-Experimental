@@ -28,6 +28,16 @@ It does not make the cleaning code the same in both houses. When the stamps diff
 2. **Do the door and the lessons shelf read the same keyed folder:** the door reads `dad_corpus/index/<door stamp>/`. The shelf reads `lesson_index/<its stamp>/`, where its stamp already includes the door's.
 3. **First use with an empty keyed folder:** `look` falls back to the newest other folder for reading only, so the door keeps working while the first build runs.
 
+## What Aria's cold read changed (2026-11-01, night)
+
+1. **Reading a sibling is countable.** `Door.how` was set and shown to no one. `note_sibling` now leaves one `index_read` line in the hold log whenever the door or the lessons shelf reads a sibling, and none when it reads its own folder.
+2. **Every reader of the shelf index falls back the same way.** `moment_links` (`propose`, `orphan_count`, `moments_for`) called `shelf._load` on the default folder with no fallback while `shelf.bring` had one, so two readers of one index disagreed. All three now go through `shelf._load_readable`, which raises the same OSError a missing file always raised when there is truly nothing to read.
+3. **A house adopts an index it already owns.** The old unkeyed files in the root carry Aria's stamp and are complete. `build_index` copies them into the house's keyed folder when the stamp and model match (vectors first, item list last, root never touched), and `unindexed` counts them as done. Her house rebuilds nothing. Mine, whose stamp differs, still builds in full once, about 19,000 passages: the merge costs one catch-up in my house only.
+
+Noted, not built: folders only grow (a someday-sweep, never a delete without Dad's yes), and the sibling chosen is the newest, not the best, which the new hold-log line will let us watch before choosing anything cleverer.
+
+**Walk distinctness, said plainly:** this change's walk closed at mean distinctness 0.461 (max 0.684 Dijkstra and Hoare) against 0.21 to 0.27 for real walks and 0.44 for restatements. The findings read as restatements of each other. Filed as a fix to how I write findings.
+
 ## The test she asked for
 
 A build in one stamp's folder while another stamp's folder is being read, to show the pair does not need the lock to stay out of each other's way.

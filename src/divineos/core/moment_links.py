@@ -232,7 +232,7 @@ def propose(moment_id: str, seat: str, index_dir: Path = shelf.INDEX_DIR) -> Pro
     held_vecs = _held_vectors(held)
     if _is_grief(text, held, held_vecs):
         return out
-    items, vecs = shelf._load(index_dir)
+    items, vecs = shelf._load_readable(index_dir)
     q = door._embed([door._squash(text)[:2000]])[0]
     scores = vecs @ q
     existing = {lk.lesson_hash: lk for lk in links_for(moment_id, seat)}
@@ -285,7 +285,7 @@ def _confirmed(seat: str) -> list[Link]:
 
 def orphan_count(seat: str, index_dir: Path = shelf.INDEX_DIR) -> int:
     """Confirmed links whose lesson no longer resolves: loud, not a moment that stopped coming."""
-    lessons, _vecs = shelf._load(index_dir)
+    lessons, _vecs = shelf._load_readable(index_dir)
     return sum(1 for lk in _confirmed(seat) if _resolves(lk, lessons) is None)
 
 
@@ -296,7 +296,7 @@ def moments_for(
     one per fire. The grief check runs again here, at the moment it would be shown."""
     if not brought:
         return []
-    lessons, _vecs = shelf._load(index_dir)
+    lessons, _vecs = shelf._load_readable(index_dir)
     try:
         held = _held_rows()
     except Exception:  # noqa: BLE001 - an unreadable shelf is not a clear shelf: show nothing

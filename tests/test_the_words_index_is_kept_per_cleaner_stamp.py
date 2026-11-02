@@ -189,3 +189,103 @@ class TestTheShelfFollowsTheSameRule:
         assert shelf.which_index(mine) == (other, "sibling")
         assert shelf.which_index(other) == (other, "own")
         assert shelf.which_index(door.keyed_dir(tmp_path / "nowhere", STAMP_B)) == (None, "none")
+
+    def test_every_reader_of_the_shelf_index_falls_back_the_same_way(self, tmp_path):
+        """Aria's cold read, item 2: moment_links read the shelf index with no fallback while
+        shelf.bring had one, so two readers of one index disagreed about it."""
+        root = tmp_path / "lesson_index"
+        other = door.keyed_dir(root, STAMP_A)
+        other.mkdir(parents=True)
+        (other / "lessons.json").write_text(
+            json.dumps({"model": door.MODEL_NAME, "items": []}), encoding="utf-8"
+        )
+        np.save(other / "vectors.npy", np.zeros((0, 4), dtype="float32"))
+        items, _vecs = shelf._load_readable(door.keyed_dir(root, STAMP_B))
+        assert items == []
+        with pytest.raises(OSError):
+            shelf._load_readable(door.keyed_dir(tmp_path / "nowhere", STAMP_B))
+
+    def test_moment_links_reads_the_shelf_through_the_fallback_loader(self):
+        import inspect
+
+        from divineos.core import moment_links
+
+        source = inspect.getsource(moment_links)
+        assert "shelf._load_readable(" in source
+        assert "shelf._load(" not in source
+
+
+@pytest.fixture()
+def hold_log_file(tmp_path, monkeypatch):
+    from divineos.core import hold_log
+
+    path = tmp_path / "hold_log.jsonl"
+    monkeypatch.setattr(hold_log, "_log_path", lambda: path)
+    return path
+
+
+class TestReadingASiblingIsCountable:
+    """Aria's cold read, item 1: Door.how was set and shown to no one, so a house reading a stale
+    sibling read it silently. It now leaves one line in the hold log."""
+
+    def test_reading_a_sibling_leaves_a_line_and_reading_its_own_leaves_none(
+        self, tmp_path, corpus, monkeypatch, hold_log_file
+    ):
+        root = tmp_path / "index"
+        a = door.keyed_dir(root, STAMP_A)
+        _build_as(monkeypatch, STAMP_A, corpus, a)
+        door.look("where is the inner circle", index_dir=a)
+        assert not hold_log_file.exists()  # its own folder: nothing to count
+        monkeypatch.setattr(door, "CLEANER", STAMP_B)
+        door.look("where is the inner circle", index_dir=door.keyed_dir(root, STAMP_B))
+        rows = [json.loads(line) for line in hold_log_file.read_text(encoding="utf-8").splitlines()]
+        assert (
+            len(rows) == 1 and rows[0]["hold"] == "index_read" and rows[0]["outcome"] == "sibling"
+        )
+        assert STAMP_A.split(":")[1] in rows[0]["first_words"]
+
+
+class TestAHouseAdoptsAnIndexItAlreadyOwns:
+    """Aria's cold read, item 3: the legacy files in the root carry her stamp and are complete, so
+    her house should adopt them into its keyed folder and rebuild nothing. A house whose stamp
+    differs still builds once, because the cleaning rules really differ."""
+
+    def _legacy_root(self, tmp_path, corpus, monkeypatch, stamp):
+        root = tmp_path / "index"
+        _build_as(monkeypatch, stamp, corpus, root)  # the old layout: files straight in the root
+        return root
+
+    def test_a_matching_stamp_adopts_the_root_files_and_embeds_nothing(
+        self, tmp_path, corpus, monkeypatch
+    ):
+        root = self._legacy_root(tmp_path, corpus, monkeypatch, STAMP_A)
+        mine = door.keyed_dir(root, STAMP_A)
+        monkeypatch.setattr(door, "CLEANER", STAMP_A)
+        assert door.unindexed(corpus, mine) == 0
+        embedded: list[int] = []
+        monkeypatch.setattr(
+            door,
+            "_embed",
+            lambda texts: (embedded.append(len(texts)), np.zeros((len(texts), 4), dtype="float32"))[
+                1
+            ],
+        )
+        assert door.build_index(corpus, mine) == 0 and not embedded
+        assert (mine / "passages.json").read_bytes() == (root / "passages.json").read_bytes()
+        assert (mine / "vectors.npy").read_bytes() == (root / "vectors.npy").read_bytes()
+
+    def test_the_root_files_are_never_touched_by_an_adoption(self, tmp_path, corpus, monkeypatch):
+        root = self._legacy_root(tmp_path, corpus, monkeypatch, STAMP_A)
+        before = {p.name: p.read_bytes() for p in root.glob("*") if p.is_file()}
+        monkeypatch.setattr(door, "CLEANER", STAMP_A)
+        door.build_index(corpus, door.keyed_dir(root, STAMP_A))
+        assert {p.name: p.read_bytes() for p in root.glob("*") if p.is_file()} == before
+
+    def test_a_different_stamp_is_not_adopted_and_builds_in_full(
+        self, tmp_path, corpus, monkeypatch
+    ):
+        root = self._legacy_root(tmp_path, corpus, monkeypatch, STAMP_A)
+        mine = door.keyed_dir(root, STAMP_B)
+        monkeypatch.setattr(door, "CLEANER", STAMP_B)
+        assert door.unindexed(corpus, mine) == len(HIS)
+        assert door.build_index(corpus, mine) == len(HIS)

@@ -217,6 +217,19 @@ def which_index(index_dir: Path) -> tuple[Path | None, str]:
     return door.which_index(index_dir, "lessons.json", _load)
 
 
+def _load_readable(index_dir: Path) -> tuple[list[Lesson], object]:
+    """``_load`` through the fallback: every reader of this index reads a sibling's when its own is empty.
+
+    ``bring`` had the fallback and the moment readers did not, so two readers of one index disagreed
+    about it (Aria's cold read, 2026-11-01). Nothing to read at all is an OSError, the same class a
+    missing file always raised here, so no caller meets a new kind of failure.
+    """
+    folder, _how = which_index(index_dir)
+    if folder is None:
+        raise FileNotFoundError(f"no lesson index to read in {index_dir} or beside it")
+    return _load(folder)
+
+
 def bring(
     message: str, me: str, context: str = "", index_dir: Path = INDEX_DIR
 ) -> tuple[list[Brought], str]:
@@ -224,12 +237,13 @@ def bring(
     message = door.his_part(message)
     if not message:
         return [], "an automated notice, not his message"
-    folder, _how = which_index(index_dir)
+    folder, how = which_index(index_dir)
     if folder is None:
         return (
             [],
             "his lessons could not be searched: no index for this house's cleaning rules yet, and none from another house to read",
         )
+    door.note_sibling(index_dir, folder, how, "the lessons shelf")
     try:
         items, vecs = _load(folder)
         q = door._embed_query(door._squash(f"{message} {context}")[:2000])
