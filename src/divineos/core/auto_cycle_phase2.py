@@ -255,6 +255,14 @@ def _use_counts_since_last_cycle() -> dict[str, int]:
     return counts
 
 
+def _step_ran(step: Any) -> bool:
+    return isinstance(step, dict) and step.get("ran") is True
+
+
+def _step_ok(step: Any) -> bool:
+    return _step_ran(step) and step.get("succeeded") is True
+
+
 def _handshake_summary(hr: HandshakeResult) -> dict[str, Any]:
     """Subset of HandshakeResult suitable for embedding in the offering
     record. Full step data omitted; only the shape and outcome kept."""
@@ -304,9 +312,19 @@ def render_menu(handshake: HandshakeResult, use_counts: dict[str, int]) -> str:
             "addressing the fatal error first."
         )
     elif handshake.any_step_failed:
+        # Say what happened to each step. "Failed" and "did not run" are
+        # different facts (phase 1 keeps ran and succeeded apart on purpose),
+        # and a dry-run marker is all of the second kind.
+        not_run = [n for n, s in handshake.steps.items() if not _step_ran(s)]
+        failed = [n for n, s in handshake.steps.items() if _step_ran(s) and not _step_ok(s)]
+        parts = []
+        if not_run:
+            parts.append(f"did not run: {', '.join(not_run)}")
+        if failed:
+            parts.append(f"failed: {', '.join(failed)}")
         lines.append("")
         lines.append(
-            "  [~] Transient step failure noted; proceeding to "
+            f"  [~] Not every phase 1 step finished ({'; '.join(parts)}); proceeding to "
             "invitational phase anyway (Aether's design: fire the "
             "invitation even after partial mechanical failure)."
         )

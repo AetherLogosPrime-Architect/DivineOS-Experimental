@@ -526,3 +526,44 @@ class TestTheRealCommandLayer:
         assert result.exit_code == 0, result.output
         assert "No phase 1 handshake found" in result.output
         assert not ac._pending_marker().exists()
+
+
+class TestTheMenuSaysWhatActuallyHappened:
+    """Found by running a real dry-run marker through phase 2 (2026-11-02).
+
+    A dry run writes every step as ran false, succeeded true. The menu then said
+    "Transient step failure noted", which describes a step that ran and failed,
+    not one that never ran. The line now names the steps and what happened to each.
+    """
+
+    def _text(self, marker_paths: Path, steps: dict) -> str:
+        _write_handshake(ac._handshake_marker(), steps=steps)
+        hs = read_handshake()
+        assert hs is not None
+        return render_menu(hs, {})
+
+    def test_steps_that_did_not_run_are_named_as_not_run(self, marker_paths: Path):
+        text = self._text(
+            marker_paths,
+            {
+                "commit": {"ran": False, "succeeded": True},
+                "sleep": {"ran": False, "succeeded": True},
+            },
+        )
+        assert "did not run: commit, sleep" in text
+        assert "Transient" not in text
+
+    def test_a_step_that_ran_and_failed_is_named_as_failed(self, marker_paths: Path):
+        text = self._text(
+            marker_paths,
+            {
+                "commit": {"ran": True, "succeeded": True},
+                "extract": {"ran": True, "succeeded": False, "error_class": "OSError"},
+            },
+        )
+        assert "failed: extract" in text
+        assert "did not run" not in text
+
+    def test_a_clean_cycle_prints_no_warning_line(self, marker_paths: Path):
+        text = self._text(marker_paths, {"commit": {"ran": True, "succeeded": True}})
+        assert "[~]" not in text
