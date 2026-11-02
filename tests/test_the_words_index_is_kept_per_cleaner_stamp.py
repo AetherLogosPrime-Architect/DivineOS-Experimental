@@ -281,6 +281,53 @@ class TestAHouseAdoptsAnIndexItAlreadyOwns:
         door.build_index(corpus, door.keyed_dir(root, STAMP_A))
         assert {p.name: p.read_bytes() for p in root.glob("*") if p.is_file()} == before
 
+    def _counting_embed(self, monkeypatch) -> list[int]:
+        embedded: list[int] = []
+        monkeypatch.setattr(
+            door,
+            "_embed",
+            lambda texts: (embedded.append(len(texts)), np.zeros((len(texts), 4), dtype="float32"))[
+                1
+            ],
+        )
+        return embedded
+
+    def test_a_root_whose_vectors_and_items_disagree_is_not_adopted(
+        self, tmp_path, corpus, monkeypatch
+    ):
+        """Aria's second look: a torn or half-rewritten root must never be copied. Counted as work
+        still to do, and built in full, which is the safe direction."""
+        root = self._legacy_root(tmp_path, corpus, monkeypatch, STAMP_A)
+        np.save(root / "vectors.npy", np.zeros((1, 4), dtype="float32"))  # fewer rows than items
+        mine = door.keyed_dir(root, STAMP_A)
+        monkeypatch.setattr(door, "CLEANER", STAMP_A)
+        assert door.unindexed(corpus, mine) == len(HIS)
+        embedded = self._counting_embed(monkeypatch)
+        assert door.build_index(corpus, mine) == len(HIS) and sum(embedded) == len(HIS)
+
+    def test_a_root_rewritten_while_it_is_being_copied_is_not_adopted(
+        self, tmp_path, corpus, monkeypatch
+    ):
+        """The other house, still on the old code, finishes a rebuild of the root between my read of
+        its item list and my read of its vectors. The two files would then belong to different builds."""
+        root = self._legacy_root(tmp_path, corpus, monkeypatch, STAMP_A)
+        mine = door.keyed_dir(root, STAMP_A)
+        monkeypatch.setattr(door, "CLEANER", STAMP_A)
+        real_read_bytes = Path.read_bytes
+
+        def read_then_the_other_house_finishes(self):
+            data = real_read_bytes(self)
+            if self.name == "vectors.npy" and self.parent == root:
+                meta = json.loads((root / "passages.json").read_text(encoding="utf-8"))
+                meta["items"] = list(reversed(meta["items"]))  # a different build's item list
+                (root / "passages.json").write_text(json.dumps(meta), encoding="utf-8")
+            return data
+
+        monkeypatch.setattr(Path, "read_bytes", read_then_the_other_house_finishes)
+        embedded = self._counting_embed(monkeypatch)
+        door.build_index(corpus, mine)
+        assert sum(embedded) == len(HIS), "a root that changed mid-copy must be built in full"
+
     def test_a_different_stamp_is_not_adopted_and_builds_in_full(
         self, tmp_path, corpus, monkeypatch
     ):

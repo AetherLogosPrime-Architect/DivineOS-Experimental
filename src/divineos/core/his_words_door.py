@@ -266,45 +266,54 @@ def note_sibling(index_dir: Path, folder: Path, how: str, what: str) -> None:
     )
 
 
-def _adoptable_root(index_dir: Path) -> Path | None:
-    """The old unkeyed root when its files carry THIS house's own stamp and model, else None.
+def _root_snapshot(root: Path) -> tuple[str, bytes] | None:
+    """The old unkeyed root as ONE consistent pair (item list text, vector bytes), or None.
 
-    The legacy files that sat straight in the folder are complete and may already be this house's own.
-    Adopting them costs a copy; not adopting costs a full re-embed of the corpus. A house whose stamp
-    really differs gets None, and builds in full once, because its cleaning rules do differ.
+    The legacy files that sat straight in the folder are complete and may already be this house's own,
+    and adopting them costs a copy where not adopting costs a full re-embed. But until both houses run the
+    keyed layout, the other house may still be rewriting the root, and two separate reads could pair the
+    vectors of one build with the item list of another: row i would no longer belong to item i, a quiet
+    wrong quote and not a loud failure (Aria's second look, 2026-11-01). So: read the item list, read the
+    vectors, read the item list AGAIN and require it unchanged, and require as many vector rows as items.
+    Anything else is None, and the caller builds in full, which is the safe direction. A stamp or model
+    that differs is None too: that house's cleaning rules really do differ.
     """
-    root = index_dir.parent
     meta_path, vec_path = root / "passages.json", root / "vectors.npy"
-    if index_dir == root or not (meta_path.exists() and vec_path.exists()):
-        return None
     try:
-        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        first = meta_path.read_text(encoding="utf-8")
+        vec_bytes = vec_path.read_bytes()
+        again = meta_path.read_text(encoding="utf-8")
+        meta = json.loads(first)
+        rows = _vector_rows(vec_bytes)
     except (OSError, ValueError):
         return None
-    if meta.get("model") != MODEL_NAME or meta.get("cleaner") != CLEANER:
+    if first != again or meta.get("model") != MODEL_NAME or meta.get("cleaner") != CLEANER:
         return None
-    return root
+    return (first, vec_bytes) if rows == len(meta.get("items", ())) else None
+
+
+def _vector_rows(vec_bytes: bytes) -> int:
+    from io import BytesIO
+
+    import numpy as np
+
+    return len(np.load(BytesIO(vec_bytes)))
 
 
 def _adopt_root_files(index_dir: Path) -> None:
-    """Copy the adoptable root files into this stamp's folder when it has none. The root is never touched."""
-    if (index_dir / "passages.json").exists():
+    """Copy the root's verified pair into this stamp's folder when it has none. The root is never touched."""
+    if (index_dir / "passages.json").exists() or index_dir == index_dir.parent:
         return
-    root = _adoptable_root(index_dir)
-    if root is None:
+    snapshot = _root_snapshot(index_dir.parent)
+    if snapshot is None:
         return
     from divineos.core.atomic_io import atomic_write_bytes, atomic_write_text
 
-    # vectors first, the item list last, as every writer here does: a kill between them leaves vectors
-    # AHEAD of items, which the loader detects, and never a quiet wrong quote
-    atomic_write_bytes(
-        index_dir / "vectors.npy", (root / "vectors.npy").read_bytes(), per_process=True
-    )
-    atomic_write_text(
-        index_dir / "passages.json",
-        (root / "passages.json").read_text(encoding="utf-8"),
-        per_process=True,
-    )
+    meta_text, vec_bytes = snapshot
+    # exactly the bytes that were checked, vectors first and the item list last as every writer here does:
+    # a kill between them leaves vectors AHEAD of items, which the loader detects
+    atomic_write_bytes(index_dir / "vectors.npy", vec_bytes, per_process=True)
+    atomic_write_text(index_dir / "passages.json", meta_text, per_process=True)
 
 
 def load_passages(corpus: Path = CORPUS) -> list[Passage]:
@@ -460,9 +469,12 @@ def build_index(
 def unindexed(corpus: Path = CORPUS, index_dir: Path = INDEX_DIR) -> int:
     """How many of his passages are not in the index yet: the work still to do."""
     meta_path = index_dir / "passages.json"
-    if not meta_path.exists() and (root := _adoptable_root(index_dir)) is not None:
-        meta_path = root / "passages.json"  # what the next build will adopt, so it counts as done
-    meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+    if meta_path.exists():
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    elif index_dir != index_dir.parent and (snapshot := _root_snapshot(index_dir.parent)):
+        meta = json.loads(snapshot[0])  # what the next build will adopt, so it counts as done
+    else:
+        meta = {}
     if meta.get("model") != MODEL_NAME or meta.get("cleaner") != CLEANER:
         return len(load_passages(corpus))
     known = {i["key"] for i in meta["items"]}
