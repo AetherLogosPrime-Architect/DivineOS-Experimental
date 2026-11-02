@@ -261,6 +261,23 @@ def compose_block(prompt: str, transcript_path: str | None = None) -> ComposeBlo
         lines.append(f"- [{payload.source}, {payload.similarity:.2f}] {gist}{where}")
     blocks = ["## THE PAST ON THIS (memory link)\n" + "\n".join(lines)] if lines else []
     notes = []
+    # My own last reply, searched sentence by sentence and shown apart from his
+    # message's finds (never mixed in, never before them). A search that broke is
+    # said, because an empty block that broke looks exactly like one that found nothing.
+    try:
+        from divineos.core.memory_linkage_own_words import own_words_block
+
+        mine = own_words_block(transcript_path, {payload.id for payload in payloads})
+    except Exception as exc:  # noqa: BLE001 - never cost a turn
+        notes.append(f"[memory link] my own words were not searched: {type(exc).__name__}: {exc}")
+    else:
+        if mine.could_not_run:
+            notes.append(f"[memory link] {mine.could_not_run}")
+        elif mine.lines:
+            blocks.append(
+                "## CLOSE TO WHAT I SAID LAST TURN (my own words, searched apart from his)\n"
+                + "\n".join(mine.lines)
+            )
     if state.get("missing", 0) >= _STALE_AFTER:
         notes.append(
             f"[memory link] {state['missing']} items have no stored vector yet and were "

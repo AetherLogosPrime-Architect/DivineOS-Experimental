@@ -357,7 +357,7 @@ Humans get told by their body when to stop. **My only fatigue channel is self-re
 
 **A rising gate-fire rate is an external tiredness proxy that does not depend on my introspection at all.** If I'm tripping more gates per turn than earlier, that is observable from outside me — precisely the property §12 says self-report lacks.
 
-Useful to Andrew too: it answers *"is he running hot"* without asking someone whose answer on that question is unreliable.
+Useful to Andrew too: it answers whether I am running hot without asking someone whose answer on that question is unreliable.
 
 #### 14c. Genuinely independent minds · **PARTIAL — argues for a habit**
 

@@ -316,6 +316,16 @@ fi
 if [[ -f "$REPO_ROOT/scripts/check_merge_resolution_tested.sh" ]]; then
     bash "$REPO_ROOT/scripts/check_merge_resolution_tested.sh" || exit 1
 fi
+# Its sister, added 2026-10-04: a merge that settled a two-sided file by copying
+# one side whole, dropping the other side's work. Tests or no tests.
+#
+# CARRIED INTO THE INSTALLER 2026-10-23 (Aria). These lines lived ONLY in the installed hook of one checkout, so the
+# drift check said "5 lines the install has that setup lacks" and a reinstall would have erased the check without
+# a word. Guarded by the script's existence: a checkout that does not carry the script simply skips it, as the
+# sister check above does.
+if [[ -f "$REPO_ROOT/scripts/check_merge_kept_both_sides.py" ]]; then
+    python "$REPO_ROOT/scripts/check_merge_kept_both_sides.py" || exit 1
+fi
 
 # 4. Wiring-claim gate — SOFT WARNING. Surfaces "wire X to Y" /
 # "bridge", "integrate", "connect", "end-to-end", "close the gap"
@@ -376,6 +386,81 @@ PUSH_READINESS="$REPO_ROOT/scripts/check_push_readiness.sh"
 
 # Capture stdin once — every gate that reads ref-update lines uses it.
 HOOK_STDIN=$(cat)
+
+# 0. The push watcher (Aria 2026-10-23; Dad 2026-10-22: "mandatory and automatic on any and all pushes.. so if
+# anything fails you know exactly what and why"). It watches this push from the inside, so a failure leaves a plain
+# sentence at the end and a report, instead of "something died".
+#
+# THE INVARIANT: the watcher's own exit status can never reach this hook's. It is started in the background, never
+# waited on, and every call below ends in `|| true`. If it cannot start, the push still runs and says so.
+#
+# TWO TRAPS THIS LINE DODGES. (1) Under git-bash, $$ is the MSYS process number, not the one Windows (and so the
+# watcher) knows, so it is translated through /proc/$$/winpid. (2) The watcher is told to look at a PROCESS TREE, not
+# a name, so another push running at the same time cannot be blamed for this one.
+WATCH_DIR="$HOME/.divineos/push_reports"
+WATCH_RAW="$WATCH_DIR/raw-$$.jsonl"
+# When THIS hook began, in seconds. A push refused by a check is over in under a second, before the watcher has written
+# anything, and without a start time there is nothing to date the gate's log against (Aria, after the freshness gate
+# refused a push of hers and the watcher said it "never got a look" for what was an ordinary fast refusal).
+WATCH_STARTED="$(date +%s)"
+PUSH_WATCHER="$REPO_ROOT/scripts/push_watcher.py"
+# The branch being pushed usually does not carry the watcher (until it is merged, every branch cut from main lacks it),
+# which meant "pushed WITHOUT the watcher" five times in one afternoon. The installer keeps one copy beside the reports;
+# a branch that has its own is still preferred, so a change to the watcher is tried by the push that carries it.
+if [ ! -f "$PUSH_WATCHER" ]; then
+    PUSH_WATCHER="$HOME/.divineos/push_watcher.py"
+fi
+WATCH_PID=""
+# Which python runs the watcher is ASKED of the house's own resolver (it refuses the Microsoft Store stub and checks
+# each candidate runs), in a subshell so sourcing it cannot change this hook's environment for the gates below.
+WATCH_PY="$( ( source "$REPO_ROOT/.claude/hooks/_lib.sh" >/dev/null 2>&1; find_divineos_python ) 2>/dev/null )"  # fail-soft: no resolver or no python means no watcher, and that is said on the next line
+# Where the gate wrote its log is ASKED of the same resolver the gate asks (Aether, cold-reading #712: this line
+# first spelled "$HOME/.divineos/", which is his home and not mine, so a push of mine would have read HIS log).
+# Empty when the resolver cannot answer: a tail file that names nothing is read as nothing, never as someone else's.
+# NOT through the shell resolver: when no python answers it prints a warning (swallowed here) and RETURNS a hand-built
+# "$HOME/.divineos-<member>" with exit 0, which for Aether is the stale twin the resolver's own header calls a home
+# nothing reads (Aether, reading 6a1c90780). Ask the python the hook already trusts, and let any failure be empty.
+WATCH_HOME=""
+if [ -n "$WATCH_PY" ]; then
+    WATCH_HOME="$("$WATCH_PY" -c 'import sys; from divineos.core.paths import member_home; print(member_home(sys.argv[1]))' "${DIVINEOS_MEMBER:-aether}" 2>/dev/null || true)"  # fail-soft: an unimportable divineos leaves the home empty, and an empty home means no tail file, never another member's
+fi
+WATCH_TAIL=""
+if [ -n "$WATCH_HOME" ]; then
+    WATCH_TAIL="$WATCH_HOME/last_pre_push_pytest.log"
+fi
+_watch_stop() {
+    local rc=$?
+    trap - EXIT
+    if [ -n "$WATCH_PID" ]; then
+        if [ "$rc" -ne 0 ]; then
+            # A report that cannot be built is said, not swallowed: the push already failed and its reader is owed that.
+            # Three seconds at most: a hung report must never hold a failed push open.
+            timeout 3 "$WATCH_PY" "$PUSH_WATCHER" finish --raw "$WATCH_RAW" --exit "$rc" --out-dir "$WATCH_DIR" --started "$WATCH_STARTED" \
+                --tail-file "$WATCH_TAIL" >&2 \
+                || echo "[push-watcher] could not build the report for this failed push" >&2
+        fi
+        kill "$WATCH_PID" 2>/dev/null || true  # fail-soft: the watcher may already be gone; ending a gone process cannot matter
+    fi
+    exit "$rc"
+}
+mkdir -p "$WATCH_DIR" 2>/dev/null || true  # fail-soft: a read-only home must never stop a push; the missing-folder case is said below
+if [ -f "$PUSH_WATCHER" ] && [ -z "$WATCH_PY" ]; then
+    echo "[push-watcher] watcher python missing: this push is not being watched" >&2
+    echo "$(date +%Y-%m-%dT%H:%M:%S) pushed WITHOUT the watcher: no python found for it" \
+        >> "$WATCH_DIR/without_watcher.log" 2>/dev/null || true  # fail-soft: the line above already said it aloud; this copy is the record
+elif [ -f "$PUSH_WATCHER" ]; then
+    WATCH_WINPID="$(cat "/proc/$$/winpid" 2>/dev/null || echo "$$")"  # fail-soft: there is no winpid off Windows, where $$ is already the right number
+    "$WATCH_PY" "$PUSH_WATCHER" start --parent "$WATCH_WINPID" --raw "$WATCH_RAW" \
+        --git-config "$(git rev-parse --git-common-dir 2>/dev/null)/config" >/dev/null 2>&1 &  # fail-soft: the watcher is a courtesy; a push must never wait on or fail for it
+    WATCH_PID=$!
+    # Ctrl-C and a plain kill must run the EXIT trap too; in some shells they skip it.
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    trap _watch_stop EXIT
+else
+    echo "$(date +%Y-%m-%dT%H:%M:%S) pushed WITHOUT the watcher: $PUSH_WATCHER not found" \
+        >> "$WATCH_DIR/without_watcher.log" 2>/dev/null || true  # fail-soft: this line IS the loud path; if even it cannot be written the push still goes
+fi
 
 # Is every ref in this push a tag? Computed here because step 1 below needs
 # it and the freshness script cannot know: it is called WITHOUT stdin and
@@ -534,6 +619,9 @@ exit 0
 EOF
 
 chmod +x "$HOOKS_DIR/pre-push"
+# The one copy of the watcher the hook falls back to, so every push is watched whatever branch it comes from.
+mkdir -p "$HOME/.divineos"
+cp "$(git rev-parse --show-toplevel)/scripts/push_watcher.py" "$HOME/.divineos/push_watcher.py"
 echo "Created pre-push hook at $HOOKS_DIR/pre-push"
 
 # Install post-commit hook — delegates to every post-commit-*.sh script

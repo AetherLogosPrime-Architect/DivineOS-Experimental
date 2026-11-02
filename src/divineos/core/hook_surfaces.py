@@ -962,11 +962,20 @@ def _last_assistant_text(payload: dict) -> str:
     So: collect assistant text backwards until the previous message that is
     genuinely HIS, then join in the order I said it.
     """
+    return "\n".join(_last_assistant_blocks(payload))
+
+
+def _last_assistant_blocks(payload: dict) -> list[str]:
+    """The pieces ``_last_assistant_text`` joins, in the order said: one per stretch of text between tool calls.
+
+    Kept apart so a surface that must not measure across pieces (the summary room: a summary ends where the
+    piece it was written in ends) can know where each one stops. Empty when there is nothing to read.
+    """
     path = _transcript_file(payload)
     if path is None:
-        return ""
+        return []
 
-    def scan() -> str:
+    def scan() -> list[str]:
         # A window that holds no turn of his may be missing the reply's opening
         # blocks, so it widens. Only reaching his turn, or the whole file, ends it.
         for lines, whole in _windows(path):
@@ -980,10 +989,10 @@ def _last_assistant_text(payload: dict) -> str:
                 if text.strip():
                     blocks.append(text)
             if reached_his_turn or whole:
-                return "\n".join(reversed(blocks))
-        return ""
+                return list(reversed(blocks))
+        return []
 
-    return _memo(path, "last_assistant_text", scan)
+    return _memo(path, "last_assistant_blocks", scan)
 
 
 def _this_turns_action_stream(payload: dict) -> str:
@@ -1945,13 +1954,16 @@ def summary_room_surface(payload: dict) -> SurfaceOutcome | None:
     as exit 2 exactly as the shell hook did. The wire protocol is part of the
     behaviour a migration promises to preserve.
     """
-    text = _last_assistant_text(payload)
-    if not text.strip():
+    blocks = _last_assistant_blocks(payload)
+    if not any(b.strip() for b in blocks):
         return SurfaceOutcome(name="summary_room", state="nothing-to-say")
     try:
-        from divineos.core.summary_room import assess, render_block
+        from divineos.core.summary_room import assess, join_with_ends, render_block
 
-        block = render_block(assess(text, retry=bool(payload.get("stop_hook_active"))))
+        text, block_ends = join_with_ends(blocks)
+        block = render_block(
+            assess(text, retry=bool(payload.get("stop_hook_active")), block_ends=block_ends)
+        )
     except Exception as exc:  # noqa: BLE001
         return SurfaceOutcome(
             name="summary_room",
@@ -2283,6 +2295,38 @@ def heredoc_escape_surface(payload: dict) -> SurfaceOutcome | None:
         name="heredoc_escape",
         refused=True,
         reason=check.refusal_message(command),
+        state="spoke",
+    )
+
+
+def his_words_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a write that quotes Andrew in words he did not type.
+
+    His marks decided the rule: close to half of the quotes that were "nearly"
+    his, he marked not his, so only his exact words pass. An unquoted paraphrase
+    always passes, because it claims only to be a reading. The logic lives in
+    ``core.his_words``; this is the wire.
+    """
+    from divineos.core import his_words as hw
+
+    texts = hw.texts_from_payload(payload)
+    if texts is None:
+        return SurfaceOutcome(name="his_words", state="nothing-to-say")
+    result = hw.check(*texts)
+    if result.auto_fixed:
+        from datetime import date
+
+        from divineos.core import his_words_edits
+
+        his_words_edits.log_auto_fixes(result.auto_fixed, date.today().isoformat())
+    if result.state == "pass":
+        return SurfaceOutcome(name="his_words", state="nothing-to-say")
+    # CANNOT_CHECK refuses too: a quote of him nobody could verify must not
+    # read as a verified one.
+    return SurfaceOutcome(
+        name="his_words",
+        refused=True,
+        reason=hw.refusal_text(result),
         state="spoke",
     )
 
@@ -2785,6 +2829,11 @@ def install() -> None:
         register("PreToolUse", "cd_drift", cd_drift_surface)
     if "slashed_ref_path" not in registered("PreToolUse"):
         register("PreToolUse", "slashed_ref_path", slashed_ref_path_surface)
+    # 2026-09-23, registered in the same change that adds it. Andrew found words
+    # in his mouth he never said, one of them a rule that held drafts still for
+    # weeks. This is the door on every path a quote of him is written through.
+    if "his_words" not in registered("PreToolUse"):
+        register("PreToolUse", "his_words", his_words_surface)
     # 2026-10-21, registered in the same change as the surface (a surface nothing dispatches is an
     # alarm with the cable coiled beside it): Dad's fourth statement that trials are counted in uses.
     if "trial_in_days" not in registered("PreToolUse"):
