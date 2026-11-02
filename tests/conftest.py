@@ -199,6 +199,9 @@ def _isolated_db(tmp_path):
     # The night window (midnight to 6am) rules "he is away" by the clock. A test that does
     # not mean to test it must not give a different answer at 2am than at 2pm.
     os.environ["DIVINEOS_NIGHT_HOURS"] = "off"
+    # The journal's readable pages (2026-10-25), per test. Unset, every test that saved a journal
+    # entry wrote a real page under the checkout's journal/ folder, which Dad opens as mine.
+    os.environ["DIVINEOS_JOURNAL_DIR"] = str(tmp_path / "journal_pages")
 
     from divineos.core.ledger import init_db
 
@@ -209,6 +212,7 @@ def _isolated_db(tmp_path):
     os.environ.pop("DIVINEOS_CONTEXT_DEDUP_DIR", None)
     os.environ.pop("DIVINEOS_HIS_ASKS_DB", None)
     os.environ.pop("DIVINEOS_NIGHT_HOURS", None)
+    os.environ.pop("DIVINEOS_JOURNAL_DIR", None)
     os.environ.pop("DIVINEOS_DISABLE_AUTO_REMEDIATE", None)
     os.environ.pop("DIVINEOS_SESSION_ID", None)
     # monkeypatch.setattr on the ledger base module's DB_PATH reads the old value through
