@@ -146,6 +146,106 @@ def test_a_broken_note_is_named_and_never_blocks_him(tmp_path):
     assert "Could not run" in out and "exit 5" in out
 
 
+def _clock_module():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("dads_table_for_clock", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_clock_line_names_the_weekday_the_date_and_the_time_where_he_is():
+    import datetime
+
+    pdt = datetime.timezone(datetime.timedelta(hours=-7), "PDT")
+    afternoon = datetime.datetime(2026, 10, 12, 13, 56, tzinfo=pdt)
+    line = _clock_module()._clock_line(afternoon)
+    assert "Monday 2026-10-12, 1:56 PM PDT" in line
+    # Control: the same function says AM for the small hours, so the format is not a constant.
+    small_hours = datetime.datetime(2026, 10, 13, 2, 5, tzinfo=pdt)
+    assert "Tuesday 2026-10-13, 2:05 AM PDT" in _clock_module()._clock_line(small_hours)
+
+
+def test_midnight_and_noon_read_as_twelve_and_a_zone_name_with_a_zero_is_not_mangled():
+    """Aria's read of #742: the leading zero is dropped by arithmetic, not by deleting ' 0' from the string."""
+    import datetime
+
+    midnight_zone = datetime.timezone(
+        datetime.timedelta(hours=-7), "0PDT"
+    )  # a zone name that starts with a zero
+    midnight = datetime.datetime(2026, 10, 30, 0, 5, tzinfo=midnight_zone)
+    assert "Friday 2026-10-30, 12:05 AM 0PDT" in _clock_module()._clock_line(midnight)
+    noon = datetime.datetime(2026, 10, 30, 12, 0, tzinfo=midnight_zone)
+    assert "Friday 2026-10-30, 12:00 PM 0PDT" in _clock_module()._clock_line(noon)
+
+
+def test_every_prompt_carries_the_clock_directly_under_his_words(tmp_path):
+    """Dad, 2026-10-12 at 1:55pm: 'its not my bedtime'. His words stay first; the time is next."""
+    picture = {
+        "command": f'"{sys.executable}" -c "print(\'Andrew is my father\')" he-is-in-the-room',
+        "timeout": 10,
+    }
+    _, out, _ = _run(tmp_path, [picture])
+    assert (
+        out.index(HIS_WORDS)
+        < out.index("THE CLOCK where he is:")
+        < out.index("Andrew is my father")
+    )
+
+
+def test_a_clock_that_fails_still_leaves_his_words_printed_and_the_exit_at_zero(tmp_path):
+    """The file promises that no failure costs him his words. The clock is new code outside that promise
+    unless guarded (walk-9c424fd8eaaf, Wayne and Yudkowsky): break it on purpose and look."""
+    kids = tmp_path / "children.json"
+    kids.write_text("[]", encoding="utf-8")
+    runner = tmp_path / "run_with_broken_clock.py"
+    runner.write_text(
+        "import importlib.util, sys\n"
+        f"spec = importlib.util.spec_from_file_location('dads_table_broken_clock', r'{SCRIPT}')\n"
+        "m = importlib.util.module_from_spec(spec)\n"
+        "spec.loader.exec_module(m)\n"
+        "def broken(*a, **k):\n"
+        "    raise OSError('the clock is gone')\n"
+        "m._clock_line = broken\n"
+        "sys.exit(m.main())\n",
+        encoding="utf-8",
+    )
+    env = dict(os.environ, DADS_TABLE_CHILDREN=str(kids), DADS_TABLE_DRAWER=str(tmp_path / "d.md"))
+    p = subprocess.run(
+        [sys.executable, str(runner)],
+        input=json.dumps({"prompt": "come and sit with me"}).encode(),
+        capture_output=True,
+        env=env,
+        timeout=30,
+    )
+    out = p.stdout.decode("utf-8")
+    assert p.returncode == 0, p.stderr.decode("utf-8")
+    assert "come and sit with me" in out
+    assert (
+        "THE CLOCK where he is:" not in out
+    )  # control: the broken clock really was the one that ran
+    # Aria's read of #742: losing the clock is said on stderr, not silent.
+    assert "[clock] could not read the time: the clock is gone" in p.stderr.decode("utf-8")
+
+
+def test_an_automated_notice_carries_the_clock_too(tmp_path):
+    kids = tmp_path / "children.json"
+    kids.write_text("[]", encoding="utf-8")
+    env = dict(os.environ, DADS_TABLE_CHILDREN=str(kids), DADS_TABLE_DRAWER=str(tmp_path / "d.md"))
+    p = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        input=json.dumps({"prompt": "<task-notification>x</task-notification>"}).encode(),
+        capture_output=True,
+        env=env,
+        timeout=30,
+    )
+    out = p.stdout.decode("utf-8")
+    assert "THE CLOCK where he is:" in out
+    # The clock rides on automated wakes too, so it must not claim HE sent them (walk-51e9c38c9b90).
+    assert "when this arrived" in out and "when he sent this" not in out
+
+
 def test_an_automated_notice_is_never_labelled_as_him(tmp_path):
     kids = tmp_path / "children.json"
     kids.write_text("[]", encoding="utf-8")
