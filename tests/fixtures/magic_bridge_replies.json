@@ -1,0 +1,25 @@
+{
+  "_what": "Replies the Magic seat bridge really gave during the Momir game of 2026-10-25, copied from tool output. Nothing here was written from memory of the bridge's contract.",
+  "_source": "get_game_log called through C:/magic-play/play.sh on Aria's seat (port 19001) during the game; get_action_choices and send_chat_message likewise; the dead-bridge record from the same seat after the game ended.",
+  "_not_recorded": {
+    "cursor_meaning": "unverified",
+    "why": "total_length counts characters (the recorded log is exactly 544). The cursor was 30 while the log had 16 lines and 544 characters, so it is neither. Find out what it counts from a live game before any code depends on it.",
+    "get_game_state": "only the first 900 characters of one reply were seen, so the full shape is not recorded here"
+  },
+  "get_game_log": {
+    "log": "[Chat] spectator: YAY\nAria turn 1:\n[Chat] Aria: Keep. Seven Islands and a dream. Show me what you got, Aether.\n[Chat] spectator: can you see me in chat?\nAria played Island\nAria activated Emblem Momir's ability\nAether turn 1:\nAether drew a card\nAether played Forest\nAether activated Emblem Momir's ability\nAria turn 2:\nAria drew Island\nAria played Island\nAria activated Emblem Momir's ability\n[Chat] Aether: Dad says table talk goes here. Honor Guard says hello, Aria. Small, but he has big dreams.\n[Chat] spectator: yes can you see my chat now?",
+    "total_length": 544,
+    "truncated": false,
+    "cursor": 30
+  },
+  "get_action_choices_when_idle": {
+    "action_pending": false
+  },
+  "send_chat_message": {
+    "success": true
+  },
+  "bridge_down_after_the_game": {
+    "listening_on_19001_19002": 0,
+    "tool_call_error": "ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception), raised from mcp_call.py streamable_http_client"
+  }
+}
