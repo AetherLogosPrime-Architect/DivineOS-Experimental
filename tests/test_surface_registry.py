@@ -178,6 +178,26 @@ def test_a_surface_the_bridge_deliberately_keeps_unregistered_is_not_called_dark
         assert name not in dark, f"{name} is deliberately wired elsewhere, not dark"
 
 
+def test_the_journal_surface_is_listed_live_only_while_the_briefing_really_calls_it():
+    """The false line back under a new name (2026-11-01).
+
+    The memory journal exposes format_for_briefing and is not registered, so the dark list called it
+    built and reachable by nothing, on eleven pull requests at once. It is reachable: the briefing
+    command imports it and calls it directly. So it belongs on the already-live list (walk-eca4e19917a4).
+    The second assertion is what keeps the entry honest: if the briefing ever stops calling the journal,
+    the entry would be a lie that silences a real dark surface, and this test fails.
+    """
+    from pathlib import Path
+
+    from divineos.cli import knowledge_commands
+    from divineos.core.surface_bridge import ALREADY_LIVE
+
+    assert "memory_journal" in ALREADY_LIVE
+    source = Path(knowledge_commands.__file__).read_text(encoding="utf-8")
+    assert "from divineos.core.memory_journal import format_for_briefing" in source
+    assert "memory_journal" not in sr.dark_surfaces("divineos.core")
+
+
 def test_an_unreadable_bridge_leaves_the_dark_list_longer_not_shorter():
     """Conservative direction, pinned.
 

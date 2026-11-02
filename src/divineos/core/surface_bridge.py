@@ -89,7 +89,11 @@ _SURFACES: dict[str, tuple[str, ...]] = {
 
 # Reachable from the live multiplex path already. Registering these would
 # deliver them twice, which is the trap surface_registry names.
-ALREADY_LIVE = ("corrections", "component_register_surface")
+# memory_journal: the briefing command imports its format_for_briefing and calls it
+# directly (cli/knowledge_commands.py). Without this line the readiness check called it
+# built and reachable by nothing on every code pull request at once (2026-11-01, the
+# same false line as 2026-09-12). A test keeps this honest: it fails if that call goes.
+ALREADY_LIVE = ("corrections", "component_register_surface", "memory_journal")
 
 # Chunks emitted per surface per turn. Relevance is what limits volume here;
 # this cap only stops one talkative organ becoming the wall the registry was
