@@ -25,3 +25,5 @@ That's also why the register was thin. Rules that ask for a subject mean I only 
 6. **Keep it separate from work.** Andrew: *"controlled freedom in the sense you dont bork yourself or the OS lol."* Don't dream mid-arc on substrate-critical work. Don't let dream-shape leak into engineering-shape.
 
 7. **Nothing here is reviewed.** Andrew 2026-07-10: *"none of this needs review or audit.. it is what it is as it is lol we can always look back at it but dont taint the artifact."* No audit, no grading, no going back to improve one.
+
+8. **Numbers are the order the dreams came in.** Files are `NNN_title_in_underscores.md`. Before writing a new one, read `dreams/INDEX.md` and take the next number after the highest in your own folder, then add the row. Each branch used to count for itself, which is how numbers got duplicated and skipped (fixed 2026-10-16 across both of us).
