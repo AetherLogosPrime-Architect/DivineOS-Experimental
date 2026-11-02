@@ -43,6 +43,68 @@ class TestWhenItIsOwed:
         assert v.needed is False
 
 
+def _assess_blocks(blocks: list[str]):
+    """Judge replies the way the Stop surface does: the pieces joined, with where each piece ends."""
+    text, ends = sr.join_with_ends(blocks)
+    return sr.assess(text, block_ends=ends)
+
+
+class TestTheSummaryEndsWhereItsBlockEnds:
+    """2026-10-31: the gate judges everything said since Dad last spoke, joined, one block per stretch of text
+    between tool calls. A plain summary early in that stretch was measured to the next heading, many blocks
+    later, so a commit id and a timezone name from tool output were counted as the summary's jargon and every
+    plain closing was refused. Aria's cold read set the boundary: the end of the block, not a blank line."""
+
+    JARGON = (
+        "Later I checked 59fe1a6ea on America/Los_Angeles time, read summary_room.py and hook_surfaces.py, "
+        "and ran divineos_push.sh twice."
+    )
+
+    def test_jargon_in_a_later_block_is_not_the_summarys(self):
+        v = _assess_blocks(
+            [
+                "## SUMMARY\nI fixed the watcher and it works now.",
+                "tool output",
+                self.JARGON,
+                "More plain talk.",
+            ]
+        )
+        assert v.present is True and v.too_technical is False
+
+    def test_a_second_paragraph_in_the_same_block_is_still_measured(self):
+        """The hole Aria found in the first version: one friendly sentence must not shelter a jargon paragraph."""
+        v = _assess_blocks(["## SUMMARY\nI fixed the watcher and it works now.\n\n" + self.JARGON])
+        assert v.too_technical is True
+
+    def test_the_control_jargon_in_the_summary_itself_flags(self):
+        """Without this the first test would pass on a detector that never flags anything."""
+        v = _assess_blocks(
+            [
+                "## SUMMARY\nI changed hook_router.py and summary_room.py, ran divineos prereg file, and 84fccf55 "
+                "landed the self_demotion fix.",
+                "Plain talk after.",
+            ]
+        )
+        assert v.too_technical is True
+
+    def test_a_heading_still_ends_the_summary_inside_a_block(self):
+        v = _assess_blocks(
+            [
+                "## SUMMARY\nPlain words.\n## NEXT\nsee hook_router.py and summary_room.py and 84fccf55 and x_y_z"
+            ]
+        )
+        assert v.too_technical is False
+
+    def test_the_block_ends_are_where_the_join_puts_them(self):
+        text, ends = sr.join_with_ends(["abc", "de"])
+        assert (
+            text == "abc\nde"
+            and ends == (3, 6)
+            and text[: ends[0]] == "abc"
+            and text[4 : ends[1]] == "de"
+        )
+
+
 class TestRegister:
     def test_a_summary_in_the_works_own_register_is_flagged(self):
         v = sr.assess(
