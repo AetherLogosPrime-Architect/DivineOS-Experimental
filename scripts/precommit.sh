@@ -822,6 +822,19 @@ if [ $ERRORS -eq 0 ]; then
     python scripts/check_installed_shim.py || true  # fail-soft: informational only; a stale copy of the shim on someone's PATH is a real finding but is not grounds to block their commit, and stderr is left un-silenced so a crash in the checker is still visible
 fi
 
+# 9. New-module checklist (advisory, never blocks). A new core/*.py or
+#    .claude/hooks/*.sh has failed the first push four ways, each visible only
+#    at the late push gate. This prints the exact line or number to add now.
+#    Outside the `ERRORS -eq 0` block on purpose: it is most useful exactly
+#    when something else is also red. It exits 0 itself; the `|| true` is the
+#    belt for an interpreter that cannot even start it.
+_nmc="$(python scripts/new_module_checklist.py 2>&1 || true)"  # fail-soft: advisory by design; a pre-commit step that can hold the commit shut gets turned off, and a crash is printed below rather than swallowed
+if [ -n "$_nmc" ]; then
+    section "New-module checklist (advisory)"
+    printf '%s\n' "$_nmc"
+fi
+unset _nmc
+
 echo ""
 if [ $ERRORS -eq 0 ]; then
     echo "All clear. git commit will succeed."
