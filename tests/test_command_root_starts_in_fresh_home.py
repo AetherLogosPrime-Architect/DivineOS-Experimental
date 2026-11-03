@@ -40,3 +40,13 @@ def test_empty_first_input_is_skipped_not_an_error(monkeypatch):
     )
     assert capture_user_input([]) == ""
     assert emitted == []
+
+
+def test_docstring_does_not_claim_to_catch_event_validation_errors():
+    """The docstring must match the handlers: EventValidationError is not a ValueError."""
+    from divineos.event.event_validation import EventValidationError
+
+    assert not issubclass(EventValidationError, ValueError)
+    doc = capture_user_input.__doc__ or ""
+    assert "Catches validation errors" not in doc
+    assert "EventValidationError is NOT caught" in doc
