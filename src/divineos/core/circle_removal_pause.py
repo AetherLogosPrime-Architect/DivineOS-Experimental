@@ -72,7 +72,7 @@ _SHELL_REMOVAL = re.compile(
 # one that was quietly unplugged.
 DECISION_MARKER = Path(
     os.environ.get(
-        "CIRCLE_DECISION_MARKER", Path.home() / ".divineos" / "circle_removed_on_his_decision.json"
+        "CIRCLE_REMOVED_MARKER", Path.home() / ".divineos" / "circle_removed_on_his_decision.json"
     )
 )
 

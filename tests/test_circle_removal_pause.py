@@ -215,7 +215,7 @@ def test_a_removal_that_goes_through_leaves_a_record_that_he_decided_it(
 ):
     # Aria's state check would otherwise raise the alarm on every session for a room he chose to remove.
     decision = tmp_path / "circle_removed_on_his_decision.json"
-    monkeypatch.setenv("CIRCLE_DECISION_MARKER", str(decision))
+    monkeypatch.setenv("CIRCLE_REMOVED_MARKER", str(decision))  # the name Aria's state check reads
     import importlib
 
     from divineos.core import circle_removal_pause
