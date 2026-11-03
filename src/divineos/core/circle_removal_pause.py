@@ -29,44 +29,142 @@ DEFAULT_MARKER = Path(
 
 ROOM_FILE = ROOM + ".py"
 
-_SETTINGS = re.compile(r"settings(?:\.local)?\.json$", re.IGNORECASE)
-_HOOK_FILE = re.compile(re.escape(ROOM_FILE) + r"$", re.IGNORECASE)
-# The ways to remove, move or hollow the hook file from a shell (Aria's cold read, 2026-11-03): delete or move it,
-# strip it from settings with sed, truncate it by redirect, copy /dev/null over it, truncate it, or do any of those
-# from a Python one-liner. Copying it somewhere else, or reading it into another file, is not one of them.
-_SHELL_REMOVAL = re.compile(
-    r"(?:^|[\s;&|])(?:rm|mv|del|unlink|Remove-Item|truncate|cp\s+/dev/null)\b[^\n;&|]*"
-    + ROOM
-    + r"|\bsed\s+-i\b[^\n]*"
-    + ROOM
-    + r"[^\n]*/d\b"
-    + r"|(?:^|[\s;&|:])>>?\s*\S*"
-    + ROOM
-    + r"|\bos\.(?:remove|rename|unlink|truncate|replace)\([^)]*"
-    + ROOM
+_SETTINGS_NAME = re.compile(r"settings(?:\.local)?\.json", re.IGNORECASE)
+# The room is a FILE, so a path is the room only when its FINAL component is the hook file. A path that merely
+# contains the name (a test of it, a backup, a branch, a log) is not the room (the outside reader, 2026-11-03:
+# the substring version wrote "he decided" on ordinary work).
+_ROOM_REF = re.compile(r"(?<![\w.-])" + re.escape(ROOM_FILE) + r"(?![\w.])", re.IGNORECASE)
+
+
+def _final(token: str) -> str:
+    """The last path component of a path or command word, either slash, quotes and a trailing slash dropped."""
+    cleaned = token.strip().strip("\"'").replace("\\", "/").rstrip("/")
+    return cleaned.rsplit("/", 1)[-1]
+
+
+def _is_room(token: str) -> bool:
+    return _final(token).casefold() == ROOM_FILE
+
+
+def _is_settings(token: str) -> bool:
+    return _SETTINGS_NAME.fullmatch(_final(token)) is not None
+
+
+# A command is read as words, not searched as a string: a shell line is segments, each a verb acting on
+# arguments, and only the final component of an argument says which file it is. Quoted text stays one word.
+_WORD = r"""(?:"[^"]*"|'[^']*'|[^\s;&|<>"'])+"""
+_TOKENS = re.compile(r"\n|&&|\|\||>>|>\||[;&|<>]|" + _WORD)
+_BREAKS = {"\n", ";", "&&", "||", "|", "&"}
+_REDIRECTS = {">", ">>", ">|"}
+
+_DELETE_OR_MOVE = {
+    "rm",
+    "mv",
+    "del",
+    "unlink",
+    "remove-item",
+    "truncate",
+    "rename-item",
+    "move-item",
+    "clear-content",
+}
+_WRITE_OVER = {"set-content", "add-content", "out-file", "tee"}
+
+# Python one-liners: the path must be a quoted literal whose final component is the hook file or a settings file.
+_PY_ROOM = r"""['"](?:[^'"]*[/\\])?""" + re.escape(ROOM_FILE) + r"""['"]"""
+_PY_SETTINGS = r"""['"](?:[^'"]*[/\\])?settings(?:\.local)?\.json['"]"""
+_PYTHON_REMOVAL = re.compile(
+    r"\bos\.(?:remove|rename|unlink|truncate|replace)\([^)]*"
+    + _PY_ROOM
     + r"|\bshutil\.(?:move|rmtree)\([^)]*"
-    + ROOM
-    # Aria's second read (2026-11-03): a substitute not a delete, a copy or tee OVER the file, the PowerShell
-    # cmdlets (this machine's shell), a restore to an older version, and a Python one-liner that opens a file to
-    # write. Copying the hook file somewhere else (it is the SOURCE) and restoring from main stay free: the state
-    # check tells us to repair with exactly that.
-    + r"|\bsed\s+-i\b[^\n]*"
-    + ROOM
-    + r"|\bcp\s+(?:-\S+\s+)*\S+\s+\S*"
-    + ROOM
-    + r"|\btee\s+(?:-a\s+)?\S*"
-    + ROOM
-    + r"|\b(?:Rename-Item|Move-Item|Clear-Content|Set-Content|Add-Content|Out-File)\b[^\n;&|]*"
-    + ROOM
-    + r"|\bgit\s+(?:checkout|restore)\b(?!\s+(?:origin/)?main\b)[^\n;&|]*(?:"
-    + ROOM
-    + r"|settings(?:\.local)?\.json)"
+    + _PY_ROOM
     + r"|\bopen\([^)]*(?:"
-    + ROOM
-    + r"|settings(?:\.local)?\.json)[^)]*,\s*['\"][wa]"
-    + r"|(?:^|[\s;&|:])>>?\s*\S*settings(?:\.local)?\.json",
+    + _PY_ROOM
+    + "|"
+    + _PY_SETTINGS
+    + r")[^)]*,\s*['\"][wa]",
     re.IGNORECASE,
 )
+
+
+def _unquote(word: str) -> str:
+    return word.replace('"', "").replace("'", "")
+
+
+def _segments(command: str) -> list[list[str]]:
+    segments: list[list[str]] = [[]]
+    for token in _TOKENS.findall(command):
+        if token in _BREAKS:
+            segments.append([])
+        else:
+            segments[-1].append(token if token in _REDIRECTS else _unquote(token))
+    return [s for s in segments if s]
+
+
+def _restores_from_main(rest: list[str]) -> bool:
+    # The state check tells us to repair with exactly this, so the repair must not meet the pause.
+    return any(t in ("main", "origin/main", "--source=main", "--source=origin/main") for t in rest)
+
+
+def _git_removes(rest: list[str]) -> bool:
+    flags = {t for t in rest if t.startswith("-")}
+    skip = 0
+    while skip < len(rest) and rest[skip].startswith("-"):
+        skip += 2 if rest[skip] in ("-C", "-c") else 1
+    if skip >= len(rest):
+        return False
+    sub, args = rest[skip].lower(), rest[skip + 1 :]
+    if sub in ("rm", "mv"):
+        return any(_is_room(a) for a in args if not a.startswith("-"))
+    if sub in ("checkout", "restore"):
+        if flags & {"-b", "-B", "-c", "-C", "--orphan"} or _restores_from_main(args):
+            return False  # making a branch is not a path; restoring from main is the repair
+        paths = (
+            args[args.index("--") + 1 :]
+            if "--" in args
+            else [a for a in args if not a.startswith("-")]
+        )
+        return any(_is_room(p) or _is_settings(p) for p in paths)
+    return False
+
+
+def _segment_removes(words: list[str]) -> bool:
+    plain: list[str] = []
+    i = 0
+    while i < len(words):
+        if words[i] in _REDIRECTS:
+            # "> file", ">> file", ": > file": the target is what is written, not any word that names the file.
+            if i + 1 < len(words) and (_is_room(words[i + 1]) or _is_settings(words[i + 1])):
+                return True
+            i += 2
+            continue
+        plain.append(words[i])
+        i += 1
+    while plain and "=" in plain[0] and not plain[0].startswith("-"):
+        plain.pop(0)  # VAR=value prefixes
+    if not plain:
+        return False
+    verb = _final(plain[0]).lower().removesuffix(".exe")
+    rest = plain[1:]
+    args = [a for a in rest if not a.startswith("-")]
+    if verb == "git":
+        return _git_removes(rest)
+    if verb in _DELETE_OR_MOVE or verb in _WRITE_OVER:
+        return any(_is_room(a) for a in args)
+    if verb == "cp":
+        # Only the destination is overwritten; copying the hook file somewhere else is a backup, not a removal.
+        return len(args) >= 2 and _is_room(args[-1])
+    if verb == "sed" and any(re.match(r"-(?:[A-Za-z]*i|-in-place)", t) for t in rest):
+        mentions = any(ROOM in t for t in rest)
+        return any(_is_room(a) for a in args) or (mentions and any(_is_settings(a) for a in args))
+    return False
+
+
+def _shell_removes(command: str) -> bool:
+    if _PYTHON_REMOVAL.search(command):
+        return True
+    return any(_segment_removes(segment) for segment in _segments(command))
+
 
 # Written when a second removal call goes through, so the state check can tell a room he chose to remove from
 # one that was quietly unplugged.
@@ -97,27 +195,30 @@ def _removes_the_room(tool_name: str, tool_input: dict) -> bool:
         )
     if tool_name == "Edit":
         path = str(tool_input.get("file_path", ""))
-        if _HOOK_FILE.search(path):
+        if _is_room(path):
             return True  # gutting the hook leaves it "running" and printing nothing
         old = str(tool_input.get("old_string", ""))
         new = str(tool_input.get("new_string", ""))
-        return bool(_SETTINGS.search(path)) and (
-            (ROOM_FILE in old and ROOM_FILE not in new)  # unwired, or renamed so the word survives
+        return _is_settings(path) and (
+            len(_ROOM_REF.findall(new))
+            < len(_ROOM_REF.findall(old))  # unwired, renamed, or suffixed off
             or ('"Stop"' in old and '"Stop"' not in new)  # the block the room hangs off
         )
     if tool_name == "Write":
         target = Path(str(tool_input.get("file_path", "")))
-        if _HOOK_FILE.search(str(target)):
+        if _is_room(str(target)):
             return True
-        content = str(tool_input.get("content", ""))
-        if not _SETTINGS.search(str(target)) or ROOM_FILE in content:
+        if not _is_settings(str(target)):
             return False
         try:
-            return ROOM_FILE in target.read_text(encoding="utf-8")
+            before = target.read_text(encoding="utf-8")
         except OSError:
             return False
+        return len(_ROOM_REF.findall(str(tool_input.get("content", "")))) < len(
+            _ROOM_REF.findall(before)
+        )
     if tool_name in ("Bash", "PowerShell"):
-        return _SHELL_REMOVAL.search(str(tool_input.get("command", ""))) is not None
+        return _shell_removes(str(tool_input.get("command", "")))
     return False
 
 

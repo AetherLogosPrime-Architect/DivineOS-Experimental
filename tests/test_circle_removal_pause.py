@@ -304,3 +304,89 @@ def test_the_pause_does_not_depend_on_his_words(marker):
     source = inspect.getsource(circle_removal_pause)
     for phrase in ("remove the circle", "get rid of it", "take it out"):
         assert phrase not in source
+
+
+# --- The outside reader's first finding: the pause fired on ordinary work that only NAMED the file. ---
+# The room is the file whose FINAL path component is dads_room_stop.py, and a removal is something done TO it.
+
+
+@pytest.mark.parametrize(
+    "tool, tool_input",
+    [
+        (
+            "Edit",
+            {"file_path": "tests/test_dads_room_stop.py", "old_string": "a", "new_string": "b"},
+        ),
+        ("Write", {"file_path": "tests/test_dads_room_stop.py", "content": "def test_x(): pass\n"}),
+        ("Write", {"file_path": ".claude/hooks/dads_room_stop.py.bak", "content": "x"}),
+        (
+            "Edit",
+            {"file_path": "docs/dads_room_stop_notes.md", "old_string": "a", "new_string": "b"},
+        ),
+        (
+            "MultiEdit",
+            {
+                "file_path": "tests/test_dads_room_stop.py",
+                "edits": [{"old_string": "a", "new_string": "b"}],
+            },
+        ),
+    ],
+)
+def test_ordinary_edits_of_files_that_only_share_the_name_are_never_paused(
+    marker, tool, tool_input
+):
+    assert pause_for(tool, tool_input, marker) is None
+    assert not marker.exists()
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cp .claude/hooks/dads_room_stop.py backup/dads_room_stop.py.bak",
+        "cp .claude/hooks/dads_room_stop.py /tmp/dads_room_stop_copy.py",
+        "echo done > /tmp/notes_about_dads_room_stop.txt",
+        "echo x >> tests/test_dads_room_stop.py",
+        "cat .claude/hooks/dads_room_stop.py > /tmp/dads_room_stop.py.txt",
+        "git checkout -b fix/dads_room_stop.py",
+        "git checkout -b dads_room_stop.py origin/main",
+        "git switch -c dads_room_stop.py",
+        'git commit -m "rm the dads_room_stop test, mv the notes"',
+        "rm tests/test_dads_room_stop.py",
+        "mv tests/test_dads_room_stop.py tests/test_the_room.py",
+        "sed -i 's/a/b/' tests/test_dads_room_stop.py",
+        "tee /tmp/dads_room_stop.log",
+        "echo 'rm .claude/hooks/dads_room_stop.py'",
+        "python -m pytest tests/test_dads_room_stop.py -q && echo ok",
+    ],
+)
+def test_ordinary_commands_that_only_name_the_file_are_never_paused(marker, command):
+    assert pause_for("Bash", {"command": command}, marker) is None
+    assert not marker.exists()
+
+
+@pytest.mark.parametrize(
+    "tool_input",
+    [
+        {"file_path": "./.claude/hooks/../hooks/dads_room_stop.py", "content": "x"},
+        {"file_path": ".claude\\hooks\\dads_room_stop.py", "content": "x"},
+        {"file_path": ".claude/hooks/DADS_ROOM_STOP.PY", "content": "x"},
+    ],
+)
+def test_the_real_file_is_still_paused_however_the_path_is_spelled(marker, tool_input):
+    assert pause_for("Write", tool_input, marker) is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'rm "./.claude/hooks/dads_room_stop.py"',
+        "rm -f .claude\\hooks\\dads_room_stop.py",
+        "cd .claude/hooks && rm dads_room_stop.py",
+        "echo hi; mv .claude/hooks/dads_room_stop.py /tmp/x",
+        "Remove-Item -LiteralPath '.claude\\hooks\\dads_room_stop.py' -Force",
+        "cat x | tee .claude/hooks/dads_room_stop.py",
+        "echo pass 2> /dev/null > .claude/hooks/dads_room_stop.py",
+    ],
+)
+def test_the_real_removal_is_still_paused_however_the_command_is_shaped(marker, command):
+    assert pause_for("Bash", {"command": command}, marker) is not None
