@@ -64,3 +64,41 @@ def test_a_real_step_is_still_held(text):
 )
 def test_let_me_run_the_tests_is_held():
     assert stated_next_step("Let me run the tests.") is not None
+
+
+# Findings from the independent checker on #759: each of these was let through and must be held.
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I'll say the word, and then deploy the service tonight.",
+        "I'll be honest with you, then push the branch.",
+        "I'll keep trying the push until it lands.",
+        "I'll make it worth merging by running the tests next.",
+        "I owe you nothing less than the fix.",
+    ],
+)
+def test_a_real_step_hidden_behind_a_stance_shape_is_held(text):
+    assert stated_next_step("That is all of it. " + text) is not None, text
+
+
+def test_a_lead_in_kept_in_the_reply_still_holds_a_second_step_after_then():
+    text = (
+        "I'll add the careful part, and then push it tonight.\n\n"
+        "The careful part: the check reads only the words."
+    )
+    assert stated_next_step(text) is not None
+
+
+def test_the_content_must_turn_up_as_a_whole_word_not_inside_another():
+    text = "I'll add the fix, since you asked.\n\nThe prefix of the name is long."
+    assert stated_next_step(text) is not None
+
+
+def test_a_later_sentence_saying_the_content_is_not_there_does_not_deliver_it():
+    text = "I'll add the careful part, since you asked.\n\nThe careful part isn't written yet."
+    assert stated_next_step(text) is not None
+
+
+@pytest.mark.parametrize("text", ["I'll keep trying.", "I'll keep showing up for my share."])
+def test_the_bare_stances_are_still_let_through(text):
+    assert stated_next_step("That is all of it. " + text) is None, text
