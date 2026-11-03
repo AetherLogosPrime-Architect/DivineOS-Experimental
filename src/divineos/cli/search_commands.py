@@ -23,13 +23,10 @@ from pathlib import Path
 import click
 
 from divineos.core import semantic_search
-from divineos.core._ledger_base import data_dir as get_data_dir
-
-_DB_NAME = "semantic_search.db"
 
 
 def _db_path() -> str:
-    return str(Path(get_data_dir()) / _DB_NAME)
+    return semantic_search.default_db_path()
 
 
 def _report_model_unavailable(detail: str) -> None:
@@ -230,14 +227,4 @@ def register(cli: click.Group) -> None:
 
 def _gather_paths(corpus: str) -> list[str]:
     """Resolve the corpus selector to a list of file paths."""
-    repo_root = Path.cwd()
-    paths: list[str] = []
-    if corpus in ("exploration", "all"):
-        expl_dir = repo_root / "exploration" / "aether"
-        if expl_dir.exists():
-            paths.extend(str(p) for p in expl_dir.glob("*.md"))
-    if corpus in ("letters", "all"):
-        letters_dir = repo_root / "family" / "letters"
-        if letters_dir.exists():
-            paths.extend(str(p) for p in letters_dir.glob("*.md"))
-    return sorted(paths)
+    return semantic_search.corpus_paths(corpus, Path.cwd())

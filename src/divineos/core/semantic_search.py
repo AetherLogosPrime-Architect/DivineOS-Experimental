@@ -241,6 +241,50 @@ def index_corpus(
     }
 
 
+def default_db_path() -> str:
+    from divineos.core._ledger_base import data_dir
+
+    return str(Path(data_dir()) / "semantic_search.db")
+
+
+def default_repo_root() -> Path:
+    """The checkout this code is running from (src/divineos/core/semantic_search.py)."""
+    return Path(__file__).resolve().parents[3]
+
+
+def corpus_paths(corpus: str, repo_root: Path) -> list[str]:
+    """The markdown files in a corpus selector: exploration, letters or all."""
+    paths: list[str] = []
+    if corpus in ("exploration", "all"):
+        expl_dir = repo_root / "exploration" / "aether"
+        if expl_dir.exists():
+            paths.extend(str(p) for p in expl_dir.glob("*.md"))
+    if corpus in ("letters", "all"):
+        letters_dir = repo_root / "family" / "letters"
+        if letters_dir.exists():
+            paths.extend(str(p) for p in letters_dir.glob("*.md"))
+    return sorted(paths)
+
+
+def refresh_exploration_index(
+    repo_root: Path | None = None, db_path: str | None = None
+) -> dict[str, int]:
+    """Index the explorations corpus and report the totals, including what is stored now.
+
+    Same work as ``divineos find index --corpus exploration``, so sleep can keep this
+    index current alongside the memory link's drawer. ``chunks_total`` is read back
+    from the database after the run, not inferred from the counts.
+    """
+    root = repo_root if repo_root is not None else default_repo_root()
+    db = db_path if db_path is not None else default_db_path()
+    counts = index_corpus(corpus_paths("exploration", root), db)
+    with _connect(db) as conn:
+        counts["chunks_total"] = conn.execute(
+            "SELECT COUNT(*) FROM semantic_search_chunks"
+        ).fetchone()[0]
+    return counts
+
+
 def search(
     query: str,
     db_path: str,
