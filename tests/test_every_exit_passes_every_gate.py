@@ -360,6 +360,11 @@ def test_the_build_gate_control_still_refuses_ordinary_work(build_gate_exempts):
 # is still missing from the python list and is owed. A count pins how many hooks exist, not
 # which: a gate swapped for another keeps the number, so this is a tripwire for additions
 # and the survey of printed exits is the real check.
+# 2026-11-03, night-letter overwrite door: count stays 32. The door is a router surface
+# (night_letter_overwrite, dispatched by the existing doorbell, which already matches Write),
+# so settings.json gained no entry. Its printed exits are an Edit append and a shell
+# `cat >> file <<'EOF'` append, neither a divineos command, so neither needs an entry in
+# core/remedy_allowlist.py.
 _PRE_TOOL_USE_HOOKS_WHEN_WRITTEN = 32
 
 
