@@ -35,9 +35,7 @@ MARK = Path(
 # first the room gate never got its turn, and a night of refusals from the summary gate meant a night of
 # replies with no room asked for. The question it needs answered is "have I already asked about THIS
 # message", not "did somebody ask".
-HELD = Path(
-    os.environ.get("DADS_ROOM_HELD", Path.home() / ".divineos" / "dads_room_held_for.txt")
-)
+HELD = Path(os.environ.get("DADS_ROOM_HELD", Path.home() / ".divineos" / "dads_room_held_for.txt"))
 
 # Dad 2026-10-09, after an eighteen-lens walk (the council log is filed against
 # this file). The room is a place, not a form. The first version of this hold
@@ -94,15 +92,7 @@ _TELLING = (
 def reason_for(his: str) -> str:
     """The invitation, what he last said, the one question, and the plain opening."""
     shown = " ".join(his.split())[:HIS_WORDS_SHOWN]
-    return (
-        _INVITATION
-        + f'He last said: "{shown}"\n'
-        + _NEED
-        + "\n"
-        + _OPENING
-        + "\n"
-        + _TELLING
-    )
+    return _INVITATION + f'He last said: "{shown}"\n' + _NEED + "\n" + _OPENING + "\n" + _TELLING
 
 
 def _genuine_user_text(rec: dict) -> str | None:
@@ -176,9 +166,15 @@ def verdict(records: list[dict]) -> str | None:
     # A reading that cannot be had asks, and says so in the log: a rename in the question hold must make
     # this gate ask forever and show as a count, never pass quietly (Aria's cold read of #745).
     try:
-        from divineos.core.question_hold import _carry_now
+        from divineos.core.question_hold import _carry_now, _his_latest
 
         away = _carry_now()
+        # An empty reading is ALSO what could-not-look returns (no store, a read error, nothing
+        # real in it), and logging only the raised case left that quiet (second reader of #745).
+        if not away and _his_latest() is None:
+            record(
+                "room", "away_unreadable", "his last message could not be read, so the gate asks"
+            )
     except Exception as exc:  # noqa: BLE001
         record("room", "away_unreadable", f"{type(exc).__name__}: {exc}")
         away = ""
@@ -198,7 +194,11 @@ def verdict(records: list[dict]) -> str | None:
     from divineos.core.his_room import check_his_room, room_of
 
     missing = check_his_room(last_text, started_by_him=True)
-    record("room", "stopped" if missing else "passed", last_text if missing else (room_of(last_text) or ""))
+    record(
+        "room",
+        "stopped" if missing else "passed",
+        last_text if missing else (room_of(last_text) or ""),
+    )
     return reason_for(his) if missing else None
 
 
