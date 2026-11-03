@@ -43,6 +43,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from divineos.core.harness_envelopes import NOTICE_OPENERS
+
 # The literal header of the room addressed to him. Matching the header rather
 # than the tone is deliberate: a gate that decides by reading the shape of my
 # prose is one I can rephrase past, and a gate I can talk my way through is
@@ -51,12 +53,7 @@ CLOSING_ROOM_HEADER = "## INNER CIRCLE"
 
 # Wrappers that mark a user-slot record as machinery rather than as Andrew.
 # None of these is ever typed by a person.
-_NOT_HIM = (
-    "[SYSTEM NOTIFICATION",
-    "<task-notification>",
-    "<system-reminder>",
-    "<ci-monitor-event>",
-)
+_NOT_HIM = ("[SYSTEM NOTIFICATION",) + tuple(opener + ">" for opener in NOTICE_OPENERS)
 
 
 @dataclass(frozen=True)
