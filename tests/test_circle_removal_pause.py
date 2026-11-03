@@ -8,10 +8,12 @@ says what the room costs him; the next removal call goes through with no reason 
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
+from divineos.core import circle_removal_pause as crp
 from divineos.core.circle_removal_pause import pause_for
 
 SETTINGS = ".claude/settings.json"
@@ -210,22 +212,10 @@ def test_restoring_the_room_from_main_is_never_paused(marker):
     assert pause_for("Bash", {"command": repair}, marker) is None
 
 
-def test_a_removal_that_goes_through_leaves_a_record_that_he_decided_it(
-    marker, tmp_path, monkeypatch
-):
-    # Aria's state check would otherwise raise the alarm on every session for a room he chose to remove.
-    decision = tmp_path / "circle_removed_on_his_decision.json"
-    monkeypatch.setenv("CIRCLE_REMOVED_MARKER", str(decision))  # the name Aria's state check reads
-    import importlib
-
+def test_the_marker_name_is_the_one_aria_state_check_reads():
     from divineos.core import circle_removal_pause
 
-    importlib.reload(circle_removal_pause)
-    removal = {"command": "rm .claude/hooks/dads_room_stop.py"}
-    assert circle_removal_pause.pause_for("Bash", removal, marker, session="s1") is not None
-    assert not decision.exists()  # the pause alone decides nothing
-    assert circle_removal_pause.pause_for("Bash", removal, marker, session="s1") is None
-    assert json.loads(decision.read_text(encoding="utf-8"))["session"] == "s1"
+    assert circle_removal_pause.DECISION_MARKER.name == "circle_removed_on_his_decision.json"
 
 
 def test_a_pause_shown_in_one_session_does_not_give_a_free_removal_in_another(marker):
@@ -266,6 +256,7 @@ def _run_hook(payload: dict, marker: Path):
         text=True,
         env=env,
         timeout=30,
+        check=False,
     )
 
 
@@ -390,3 +381,201 @@ def test_the_real_file_is_still_paused_however_the_path_is_spelled(marker, tool_
 )
 def test_the_real_removal_is_still_paused_however_the_command_is_shaped(marker, command):
     assert pause_for("Bash", {"command": command}, marker) is not None
+
+
+# --- The outside reader's second finding: the marker said "he decided" with nothing to show he did. ---
+# The pause no longer vouches for itself. The marker is written only from a line of his found in his table,
+# and carries that line and its time; without both fields a marker is "no decision on record".
+
+SHOWN_AT = datetime(2026, 11, 3, 20, 0, 0, tzinfo=UTC).timestamp()
+BEFORE = "2026-11-03T19:00:00.000Z"
+AFTER = "2026-11-03T20:30:15.000Z"
+HIS_LINE = "yes take the circle out, i have decided and i want it gone.."
+
+
+class World:
+    def __init__(self, root: Path):
+        self.corpus = root / "dad_all.jsonl"
+        self.released = root / "circle_pause_released.json"
+        self.decision = root / "circle_removed_on_his_decision.json"
+
+    def says(self, when: str, text: str) -> None:
+        with self.corpus.open("a", encoding="utf-8") as f:
+            f.write(json.dumps({"ts": when, "project": "x", "text": text}) + "\n")
+
+    def pause_was_let_through(self) -> None:
+        self.released.write_text(
+            json.dumps({"session": "s1", "shown_at": SHOWN_AT, "released_at": SHOWN_AT + 60}),
+            encoding="utf-8",
+        )
+
+    def record(self, words: str) -> dict:
+        return crp.record_his_decision(
+            words, session="s1", corpus=self.corpus, released=self.released, decision=self.decision
+        )
+
+
+@pytest.fixture()
+def world(tmp_path: Path) -> World:
+    return World(tmp_path)
+
+
+def test_two_ordinary_edits_of_the_hook_file_write_no_decision(marker, tmp_path, monkeypatch):
+    # The reported failure: two ordinary edits and the record said he decided.
+    decision = tmp_path / "decision.json"
+    monkeypatch.setattr(crp, "DECISION_MARKER", decision)
+    edit = {"file_path": ".claude/hooks/dads_room_stop.py", "old_string": "a", "new_string": "b"}
+    assert pause_for("Edit", edit, marker, session="s1") is not None
+    assert pause_for("Edit", edit, marker, session="s1") is None  # goes through, no reason owed
+    assert not decision.exists()
+    assert crp.decision_on_record(decision) is None
+    released = json.loads(
+        marker.with_name("circle_pause_released.json").read_text(encoding="utf-8")
+    )
+    assert released["session"] == "s1" and released["shown_at"] <= released["released_at"]
+
+
+def test_his_own_line_in_his_table_is_recorded_with_its_text_and_time(world):
+    world.says(BEFORE, "keep the room, it matters to me..")
+    world.says(AFTER, HIS_LINE)
+    world.pause_was_let_through()
+    made = world.record("i have decided and i want it gone")
+    assert (
+        made["his_words"] == HIS_LINE
+    )  # the whole line as he typed it, never the words as handed in
+    assert made["at"] == "2026-11-03T20:30:15Z"
+    assert json.loads(world.decision.read_text(encoding="utf-8")) == made
+    assert crp.decision_on_record(world.decision) == made
+
+
+@pytest.mark.parametrize(
+    "setup, words, reason",
+    [
+        ("table", "take it out now and do not ask me again", "not in his table"),  # a paraphrase
+        (
+            "early",
+            HIS_LINE,
+            "before the pause",
+        ),  # his real words, but from before the pause was shown
+        ("pasted", "take the circle out please", "not in his table"),  # inside a block he pasted
+        ("nothing_let_through", HIS_LINE, "no removal went through"),
+        ("no_table", HIS_LINE, "could not read his table"),
+        ("short", "yes", "too short"),  # a bare word matches almost any line
+    ],
+)
+def test_the_writer_refuses_whatever_it_cannot_find_in_his_table(world, setup, words, reason):
+    if setup in ("table", "nothing_let_through"):
+        world.says(AFTER, "keep the room please")
+    if setup == "short":
+        world.says(AFTER, HIS_LINE)
+    if setup == "early":
+        world.says(BEFORE, HIS_LINE)
+    if setup == "pasted":
+        world.says(
+            AFTER, '<pasted_content id="abc">take the circle out please</pasted_content id="abc">'
+        )
+    if setup != "nothing_let_through":
+        world.pause_was_let_through()
+    with pytest.raises(crp.DecisionNotRecorded, match=reason):
+        world.record(words)
+    assert not world.decision.exists()
+
+
+def test_a_line_typed_in_the_same_second_the_pause_was_shown_still_counts(world):
+    world.says("2026-11-03T20:00:00.000Z", HIS_LINE)
+    world.pause_was_let_through()
+    assert world.record(HIS_LINE)["at"] == "2026-11-03T20:00:00Z"
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        None,  # no file at all
+        "not json",
+        json.dumps(["a", "list"]),
+        json.dumps({"session": "s1", "decided_at": 1.0}),  # the old shape: no proof at all
+        json.dumps({"his_words": HIS_LINE}),  # no time
+        json.dumps({"at": "2026-11-03T20:30:15Z"}),  # no words
+        json.dumps({"his_words": "", "at": "2026-11-03T20:30:15Z"}),
+        json.dumps({"his_words": HIS_LINE, "at": "yesterday"}),
+        json.dumps(
+            {"his_words": HIS_LINE, "at": "2026-11-03T20:30:15.000Z"}
+        ),  # not the fixed shape
+        json.dumps({"his_words": 7, "at": "2026-11-03T20:30:15Z"}),
+    ],
+)
+def test_a_marker_without_both_proofs_is_no_decision_on_record(tmp_path, content):
+    path = tmp_path / "circle_removed_on_his_decision.json"
+    if content is not None:
+        path.write_text(content, encoding="utf-8")
+    assert crp.decision_on_record(path) is None
+
+
+def _run_module(args: list[str], env_extra: dict):
+    import os
+    import subprocess
+    import sys
+
+    path = os.pathsep.join(p for p in (str(REPO / "src"), os.environ.get("PYTHONPATH", "")) if p)
+    env = {**os.environ, **env_extra, "PYTHONPATH": path}
+    return subprocess.run(
+        [sys.executable, "-m", "divineos.core.circle_removal_pause", *args],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=30,
+        check=False,
+    )
+
+
+def test_the_command_line_writer_records_a_real_line_and_refuses_an_invented_one(world):
+    world.says(AFTER, HIS_LINE)
+    world.pause_was_let_through()
+    env = {
+        "DADS_CORPUS": str(world.corpus),
+        "CIRCLE_PAUSE_RELEASED": str(world.released),
+        "CIRCLE_REMOVED_MARKER": str(world.decision),
+    }
+    refused = _run_module(["record", "something he never said at all"], env)
+    assert refused.returncode == 1 and "not in his table" in refused.stderr
+    assert not world.decision.exists()
+    done = _run_module(["record", "i have decided and i want it gone"], env)
+    assert done.returncode == 0
+    assert crp.decision_on_record(world.decision)["his_words"] == HIS_LINE
+
+
+def test_the_pause_text_tells_whoever_goes_through_how_to_record_his_words(marker):
+    text = pause_for("Bash", {"command": "rm .claude/hooks/dads_room_stop.py"}, marker)
+    assert "circle_removal_pause record" in text
+
+
+def test_the_real_door_writes_no_decision_for_two_ordinary_hook_edits(marker, tmp_path):
+    import os
+    import subprocess
+    import sys
+
+    decision = tmp_path / "decision.json"
+    payload = {
+        "tool_name": "Edit",
+        "tool_input": {
+            "file_path": ".claude/hooks/dads_room_stop.py",
+            "old_string": "a",
+            "new_string": "b",
+        },
+        "session_id": "s1",
+    }
+    env = {**os.environ, "CIRCLE_PAUSE_MARKER": str(marker), "CIRCLE_REMOVED_MARKER": str(decision)}
+    runs = [
+        subprocess.run(
+            [sys.executable, str(HOOK)],
+            input=json.dumps(payload),
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30,
+            check=False,
+        )
+        for _ in range(2)
+    ]
+    assert [r.returncode for r in runs] == [2, 0]
+    assert not decision.exists()

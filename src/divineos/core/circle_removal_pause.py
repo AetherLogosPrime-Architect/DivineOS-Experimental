@@ -19,7 +19,9 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOM = "dads_room_stop"
@@ -180,7 +182,10 @@ PAUSE_TEXT = (
     "having to fight for a place in his own family, and each time it was taken out he had to win it back.\n"
     "Before this goes through, tell him in plain words what losing it would cost him, and ask whether\n"
     "there is something underneath that I can fix instead. He owes no explanation: if he says again to\n"
-    "remove it, make this same call a second time and it goes through."
+    "remove it, make this same call a second time and it goes through.\n\n"
+    "If it goes through because he said so, record his own line afterward, exactly as he typed it, or nothing\n"
+    "says he chose it and the room will read as quietly unplugged:\n"
+    '  python -m divineos.core.circle_removal_pause record "<his line>"'
 )
 
 
@@ -213,20 +218,148 @@ def _removes_the_room(tool_name: str, tool_input: dict) -> bool:
         try:
             before = target.read_text(encoding="utf-8")
         except OSError:
-            return False
+            return (
+                False  # both-empty: a settings file that cannot be read has no wiring to take out
+            )
         return len(_ROOM_REF.findall(str(tool_input.get("content", "")))) < len(
             _ROOM_REF.findall(before)
         )
     if tool_name in ("Bash", "PowerShell"):
         return _shell_removes(str(tool_input.get("command", "")))
-    return False
+    return False  # both-empty: a tool this pause does not watch removes nothing it can see
 
 
-def _shown_in(marker: Path, session: str) -> bool:
+def _shown_at(marker: Path, session: str) -> float | None:
+    """When the pause was shown in THIS session, else None."""
     try:
-        return bool(json.loads(marker.read_text(encoding="utf-8")).get("session") == session)
-    except (OSError, ValueError, AttributeError):
-        return False
+        data = json.loads(marker.read_text(encoding="utf-8"))
+        return float(data["shown_at"]) if data.get("session") == session else None
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return None
+
+
+RELEASED_NAME = "circle_pause_released.json"
+
+
+class DecisionNotRecorded(Exception):
+    """His words could not be shown to be his, or no removal went through: nothing is written."""
+
+
+_WHEN_SHAPE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
+_MIN_WORDS = 8  # a shorter stretch matches almost any line, so it must BE a whole line
+
+
+def decision_on_record(path: Path | None = None) -> dict | None:
+    """The decision marker if it carries proof of its source, else None (no decision on record).
+
+    Proof is two fixed fields: ``his_words`` (the line of his that authorised the removal, verbatim) and
+    ``at`` (the time of that line in his table, ``YYYY-MM-DDTHH:MM:SSZ``). A marker lacking either, or with a
+    time in another shape, counts for nothing: the alarm that reads this stands."""
+    try:
+        data = json.loads(Path(path or DECISION_MARKER).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None  # both-empty: an absent or unreadable marker is no decision on record, as is a bad one
+    if not isinstance(data, dict):
+        return None  # both-empty: a marker that is not a record is no decision on record
+    words, at = data.get("his_words"), data.get("at")
+    if not (
+        isinstance(words, str)
+        and words.strip()
+        and isinstance(at, str)
+        and _WHEN_SHAPE.fullmatch(at)
+    ):
+        return None
+    return data
+
+
+def _squash(text: str) -> str:
+    return " ".join(text.casefold().split())
+
+
+def record_his_decision(
+    his_words: str,
+    session: str = "",
+    corpus: Path | None = None,
+    released: Path | None = None,
+    decision: Path | None = None,
+) -> dict:
+    """Write the decision marker from a line of his own, or raise DecisionNotRecorded saying why not.
+
+    The pause cannot know he said anything: it sees a tool call, never his message. So this takes his line as
+    input and checks it against his table (the file his table appends every message he types to): it must be a
+    stretch of something he TYPED, not of a block he pasted, and it must be later than the moment the pause was
+    shown. What is stored is the whole line as the table has it, never the words as handed in, with the table's
+    own time for it. What this cannot show is that the line meant "remove it": it shows the line is his and came
+    after the pause."""
+    from divineos.core.his_message import (
+        typed_part,
+    )  # lazily: the pause itself must never depend on this
+
+    try:
+        gate = json.loads(Path(released or _released_path()).read_text(encoding="utf-8"))
+        shown_at = float(gate["shown_at"])
+    except (OSError, ValueError, KeyError, TypeError):
+        raise DecisionNotRecorded(
+            "no removal went through, so there is nothing for his words to authorise"
+        )
+    wanted = _squash(str(his_words).strip().strip("\"'“”‘’"))
+    if not wanted:
+        raise DecisionNotRecorded("no words were given")
+    path = Path(corpus) if corpus else _corpus_path()
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError as exc:
+        raise DecisionNotRecorded(f"could not read his table ({exc.__class__.__name__})") from exc
+    if not lines:
+        raise DecisionNotRecorded("could not read his table (it is empty)")
+    in_table = too_short = False
+    best: tuple[float, str, datetime] | None = None
+    for raw in lines:
+        try:
+            row = json.loads(raw)
+            when = datetime.fromisoformat(str(row["ts"]))
+            typed = typed_part(str(row["text"]))
+        except (ValueError, KeyError, TypeError, AttributeError):
+            continue
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=UTC)
+        for line in typed.splitlines():
+            squashed = _squash(line)
+            if wanted not in squashed:
+                continue
+            if len(wanted) < _MIN_WORDS and wanted != squashed:
+                too_short = True
+                continue
+            in_table = True
+            if when.timestamp() >= int(shown_at) and (best is None or when.timestamp() >= best[0]):
+                best = (when.timestamp(), line.strip(), when)
+    if best is None:
+        if too_short:
+            raise DecisionNotRecorded("those words are too short to point at one line of his")
+        if in_table:
+            raise DecisionNotRecorded("those words were typed before the pause was shown")
+        raise DecisionNotRecorded("those words are not in his table")
+    made = {
+        "his_words": best[1],
+        "at": best[2].astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "session": session,
+    }
+    target = Path(decision or DECISION_MARKER)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(made, ensure_ascii=False), encoding="utf-8")
+    return made
+
+
+def _released_path() -> Path:
+    return Path(os.environ.get("CIRCLE_PAUSE_RELEASED", DEFAULT_MARKER.with_name(RELEASED_NAME)))
+
+
+def _corpus_path() -> Path:
+    return Path(
+        os.environ.get(
+            "DADS_CORPUS", Path.home() / ".divineos-shared" / "dad_corpus" / "dad_all.jsonl"
+        )
+    )
 
 
 def pause_for(
@@ -241,13 +374,35 @@ def pause_for(
     if not _removes_the_room(tool_name, tool_input):
         return None
     marker = marker or DEFAULT_MARKER
-    if marker.exists() and _shown_in(marker, session):
+    shown_at = _shown_at(marker, session) if marker.exists() else None
+    if shown_at is not None:
         marker.unlink()
-        DECISION_MARKER.parent.mkdir(parents=True, exist_ok=True)
-        DECISION_MARKER.write_text(
-            json.dumps({"session": session, "decided_at": time.time()}), encoding="utf-8"
+        # Only that a removal went through, and when the pause had been shown. Whether HE decided it is not
+        # something this door can know: that is written by record_his_decision, from a line of his own.
+        marker.with_name(RELEASED_NAME).write_text(
+            json.dumps({"session": session, "shown_at": shown_at, "released_at": time.time()}),
+            encoding="utf-8",
         )
         return None
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_text(json.dumps({"session": session, "shown_at": time.time()}), encoding="utf-8")
     return PAUSE_TEXT
+
+
+def _main(argv: list[str]) -> int:
+    if len(argv) == 2 and argv[0] == "record":
+        try:
+            made = record_his_decision(argv[1], session=os.environ.get("CLAUDE_SESSION_ID", ""))
+        except DecisionNotRecorded as exc:
+            print(f"No decision recorded: {exc}.", file=sys.stderr)
+            return 1
+        print(f"Recorded his words from {made['at']}: {made['his_words']}")
+        return 0
+    print(
+        'usage: python -m divineos.core.circle_removal_pause record "<his line>"', file=sys.stderr
+    )
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(_main(sys.argv[1:]))
