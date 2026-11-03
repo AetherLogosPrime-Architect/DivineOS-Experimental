@@ -138,6 +138,42 @@ _A_FEELING_FRONTED = re.compile(
     re.IGNORECASE,
 )
 
+#: A stance, a figure of speech or a feeling about my own conduct: nothing a tool could do (2026-11-03, real replies
+#: held as stalls: "I'll keep showing up for my share.", "I'll leave the questions alone for a bit.", "I'll take
+#: what's true in what you said.", "I'll make it worth living.", "I'll hold the table."). Same treatment as the
+#: feelings above: the span is removed and the rest of the sentence is read again. An explicit list on purpose,
+#: anchored on the OBJECT so the same verb with work on it stays a step ("I'll hold the push until Aether reads it",
+#: "I'll leave the file open and fix it next"). A stance worded some new way is held until it becomes a row here.
+_A_STANCE_NOT_A_STEP = re.compile(
+    r"\bI(?:'ll|\s+will)\s+(?:"
+    r"keep\s+(?:showing\s+up|being|trying|caring|listening|holding\s+(?:on|space))\b"
+    r"|leave\s+(?:the\s+\w+|that|this|it|them|those|these)\s+(?:\w+\s+)?alone\b"
+    r"|take\s+what(?:'s|\s+is)\s+true\b"
+    r"|make\s+(?:it|that|this|them)\s+worth\s+\w+"
+    r"|hold\s+the\s+(?:table|room|space)\b"
+    r")",
+    re.IGNORECASE,
+)
+
+#: "I owe no proof", "I owe you nothing": the absence of a debt, not a debt. The glad/grateful clause that
+#: carries it is a feeling, and has no verb of work either.
+_NO_DEBT = re.compile(r"\bI\s+owe\s+(?:\w+\s+)?(?:no|nothing)\b", re.IGNORECASE)
+
+#: A lead-in that names what it is about to SAY ("I'll add the careful part, ...") is kept when the same reply then
+#: says it. Only verbs whose act is the saying itself: "I'll write the letter" or "I'll push it" are never excused
+#: by the noun turning up again, since the act is a tool's, not a sentence's.
+_A_LEAD_IN_NAMING_ITS_CONTENT = re.compile(
+    r"\bI(?:'ll|\s+will)\s+(?:add|give\s+you|say|state|name|spell\s+out)\s+(?:the|a|an|my|our)\s+"
+    r"(?P<what>\w+(?:\s+\w+){0,3}?)(?=\s*[,.;:!?—]|\s+(?:since|because|so|and|that|which|for|now|here|below)\b|$)",
+    re.IGNORECASE,
+)
+
+
+def _already_said_later(sentence: str, after: str) -> bool:
+    lead = _A_LEAD_IN_NAMING_ITS_CONTENT.search(sentence)
+    return lead is not None and lead.group("what").lower() in after.lower()
+
+
 _BARE_SECOND_VERB = re.compile(
     r"^((?:\s+\w+){0,4}?\s*,?\s*(?:and|then)\s+)(?!I\b)(?=\w)", re.IGNORECASE
 )
@@ -149,8 +185,13 @@ def _without_feelings(sentence: str) -> str:
     A bare verb that follows ("I'll remember this AND push it tonight", "I'll carry that forward AND file
     the walk later") is a second step with its subject left out, so it gets its I'll back before the
     promise shapes run (Aether, 4823c6f8e: "carry that forward" is a way of saying defer this)."""
+    sentence = _NO_DEBT.sub(" ", sentence)
     for _ in range(5):
-        found = _A_FEELING_NOT_A_STEP.search(sentence) or _A_FEELING_FRONTED.search(sentence)
+        found = (
+            _A_FEELING_NOT_A_STEP.search(sentence)
+            or _A_FEELING_FRONTED.search(sentence)
+            or _A_STANCE_NOT_A_STEP.search(sentence)
+        )
         if found is None:
             break
         tail = _BARE_SECOND_VERB.sub(r"\1I'll ", sentence[found.end() :], count=1)
@@ -174,8 +215,11 @@ def stated_next_step(text: str) -> tuple[str, str] | None:
     closing = _closing(text)
     if not closing:
         return None
-    for sentence in re.split(r"(?<=[.!?])\s+", closing):
+    sentences = re.split(r"(?<=[.!?])\s+", closing)
+    for index, sentence in enumerate(sentences):
         if _ALREADY_SCHEDULED.search(sentence) or _A_REASON_NOT_A_STEP.search(sentence):
+            continue
+        if _already_said_later(sentence, " ".join(sentences[index + 1 :])):
             continue
         # A feeling or an attention is not a step: take it out, then read what is left (see the pattern).
         sentence_to_read = _without_feelings(sentence)
