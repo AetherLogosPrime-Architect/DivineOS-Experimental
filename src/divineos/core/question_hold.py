@@ -273,15 +273,8 @@ def _scheduled_away(now: float | None = None) -> dict[str, Any] | None:
     return {"his_words": "", "since": start, "by": "schedule"}
 
 
-def _volley_started() -> dict[str, Any] | None:
-    """Away because a seat ran `divineos volley start` today (see core/volley_now.py)."""
-    from divineos.core.volley_now import active
-
-    return active()
-
-
 def is_away() -> dict[str, Any] | None:
-    return _stepped_away() or _volley_started() or _scheduled_away() or _silent_away()
+    return _stepped_away() or _scheduled_away() or _silent_away()
 
 
 # WHAT HAPPENS TO A QUESTION ASKED WHILE HE IS AWAY (Dad, 2026-10-12: while he is away
@@ -305,8 +298,6 @@ def _carry_now() -> str:
     stepped = _stepped_away()
     if stepped:
         return "his words"
-    if _volley_started():
-        return "volley"  # a seat read him going to bed: carried like his own words
     away = _scheduled_away() or _silent_away()
     if not away:
         return ""

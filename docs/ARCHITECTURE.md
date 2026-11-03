@@ -114,7 +114,7 @@ src/divineos/
     operator_ask_commands.py   `divineos ask-andrew` / `asks` / `ask-resolve` — the reachable surface for core/operator_asks.py, which had a store and no command from 2026-08-19 until 2026-09-16 and so sat empty, indistinguishable from nothing needing him. An open ask now HOLDS new substrate work (.claude/hooks/an-open-ask-holds-the-work.sh), which is the half of his correction the re-raise never covered: *"when you ask me something, and never wait for my reply.. why bother asking?"*
     psf_commands.py            pending structural-fix obligations (list, mark-done)
     question_hold_commands.py  question-hold / release: see or escape the wait a question to Dad opens
-    volley_commands.py         volley start / stop / status: begin or end the night quiet by hand
+    volley_commands.py         volley start / stop / status: the front door to the stepped-away path; start needs his going-to-bed words, checked against his latest filed message
     reach_commands.py          reach-check — surface prior work, then prove it was opened
     obligation_commands.py     obligations check / is-write / list / disabled — substrate-write CLI surface for the obligation gate (#33 + #42 unified hook)
     synchronicity_commands.py  synchronicity — temporal co-occurrence detector (Pillar VI)
@@ -761,7 +761,6 @@ src/divineos/
     his_voice_ends_the_turn.py When he speaks into a running turn, nothing more runs until the turn ends.
     light_embedder.py          The same sentence vectors, without the seventeen-second import.
     question_hold.py           A question to Dad holds the work until he answers (Aria, 2026-09-29).
-    volley_now.py              The night quiet started by hand when Dad goes to bed; ORed with the clock.
     channel_letter_capture.py  Give a letter written straight into the shared channel a home in the repo.
     sort_first.py              Sort his message before anything else: reading him comes first, by refusal.
     vector_drawer.py           A drawer of sentence vectors, so nothing is embedded twice.
