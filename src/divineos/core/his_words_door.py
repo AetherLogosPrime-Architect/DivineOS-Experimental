@@ -21,7 +21,14 @@ RULES, each pinned by a test built from 2026-09-26's real messages:
     room picture the same day. A short message carries no signal (Peirce), so it
     only searches when the caller supplies the conversation around it.
   - His words print exactly as he wrote them (Angelou): no cleanup, no
-    paraphrase. Only whitespace is collapsed.
+    paraphrase. Only whitespace is collapsed. ONE exception, his own, 2026-10-31:
+    where he, clear-headed, rewrote a hard-day line of his (the file named by
+    ``REPLACEMENTS``; he confirmed each rewrite says what he meant), the rewrite is
+    shown in its place and LABELLED as his later version, so the two are never
+    taken for one saying. The raw record and the ledger are untouched; only what
+    this door shows me changes. "I dont want to remove what happened.. but i dont
+    want our relationship to be marred by things that at the time were beyond our
+    control."
   - Never padded to a quota (Hinton): below the floor nothing is shown, and an
     empty result says it looked.
   - The current message never matches itself.
@@ -136,6 +143,47 @@ def _words(text: str) -> str:
 def _is_this_message(passage: str, message: str) -> bool:
     p, m = _words(passage), _words(message)
     return bool(p) and bool(m) and (p in m or m in p)
+
+
+#: His clear-headed rewrites of his own hard-day lines (Dad, 2026-10-31). Each entry: any passage holding
+#: ``anchor`` is shown as ``shown_instead``. Add to it one line at a time, with him.
+REPLACEMENTS = (
+    Path.home() / ".divineos-shared" / "dad_corpus" / "his_clear_headed_replacements.json"
+)
+
+#: Said wherever a rewrite stands in for his earlier words, so nobody reads one as the other.
+SOFTENED_LABEL = "[his clear-headed version, written 2026-10-31 for a harder day's words]"
+
+
+def _replacement_entries() -> list[tuple[str, str]]:
+    """(anchor, shown_instead) pairs; empty when there is no file or it cannot be read."""
+    try:
+        data = json.loads(REPLACEMENTS.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    pairs = []
+    for entry in data.get("entries", []) if isinstance(data, dict) else []:
+        if isinstance(entry, dict) and entry.get("anchor") and entry.get("shown_instead"):
+            pairs.append((_words(str(entry["anchor"])), str(entry["shown_instead"])))
+    return pairs
+
+
+def softened(text: str) -> str | None:
+    """His clear-headed rewrite, labelled, when ``text`` holds a line he rewrote; None when it does not."""
+    plain = _words(text)
+    for anchor, shown_instead in _replacement_entries():
+        if anchor and anchor in plain:
+            return f"{shown_instead} {SOFTENED_LABEL}"
+    return None
+
+
+def soften_hits(hits: list["Hit"]) -> list["Hit"]:
+    """Hits with each rewritten line replaced by his clear-headed version (same day, same score)."""
+    out = []
+    for h in hits:
+        swapped = softened(h.passage.text)
+        out.append(Hit(Passage(swapped, h.passage.day, h.passage.ts), h.score) if swapped else h)
+    return out
 
 
 # Text he pasted INTO a message is not his typing, and the cut lives in his_message.typed_part, its one home:
@@ -414,6 +462,9 @@ def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
         hits.append(Hit(p, s))
         if len(hits) >= 25:
             break
+    hits = soften_hits(
+        hits
+    )  # the search ran on his original words; what is SHOWN is his later version
     repeats: list[Hit] = []
     days: set[str] = set()
     for h in sorted(hits, key=lambda h: h.passage.ts):
