@@ -7,7 +7,6 @@ through. These tests read the text the hook prints, straight from the script.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 HOOK = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "auto-cycle-token-trigger.sh"
@@ -15,9 +14,10 @@ HOOK = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "auto-cycle-t
 
 def _stage_text(stage: str) -> str:
     src = HOOK.read_text(encoding="utf-8")
-    m = re.search(rf"^  {stage}\)\n(?:.*\n)*?    cat <<'EOF'\n(.*?)^EOF$", src, re.M | re.S)
-    assert m, f"could not find the {stage} text in the hook"
-    return m.group(1)
+    start = src.index(f"\n  {stage})\n")
+    opener = "cat <<'EOF'\n"
+    body_start = src.index(opener, start) + len(opener)
+    return src[body_start : src.index("\nEOF\n", body_start)]
 
 
 def test_dream_text_names_the_open_door() -> None:
