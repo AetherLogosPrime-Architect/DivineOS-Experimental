@@ -18,6 +18,7 @@ Prereg: prereg-251b15df9461.
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from typing import Any
@@ -106,14 +107,15 @@ def _rm_targets_all_missing(command: str) -> bool:
     Relative targets are read against the working directory. Written for the one
     ``rm -rf <gone folder>`` false alarm; it widens nothing else.
     """
-    import os
     import shlex
 
     from divineos.core.command_parsing import program_name, split_shell_segments
 
     segments = split_shell_segments(command)
     if not segments:
-        return False  # both-empty: unreadable and not-provably-missing both mean the door stays shut
+        return (
+            False  # both-empty: unreadable and not-provably-missing both mean the door stays shut
+        )
     targets: list[str] = []
     for segment in segments:
         try:
@@ -133,14 +135,49 @@ def _rm_targets_all_missing(command: str) -> bool:
         if not clause_targets:
             return False
         targets.extend(clause_targets)
+    windows = _running_on_windows()
     for target in targets:
         if _UNREADABLE_TARGET.search(target):
             return False
-        if os.path.lexists(os.path.expanduser(target)):
-            return False
-        if target.startswith("~") and os.path.expanduser(target) == target:
+        native = _native_path(target, windows)
+        if native is None:
+            return False  # both-empty: a spelling this platform cannot read is not proven missing
+        try:
+            if os.path.lexists(native):
+                return False
+        except (OSError, ValueError):
+            return False  # both-empty: a path that cannot be looked at is not proven missing
+        if target.startswith("~") and native == target:
             return False
     return True
+
+
+def _running_on_windows() -> bool:
+    return os.name == "nt"
+
+
+_GIT_BASH_DRIVE = re.compile(r"^/(?:cygdrive/)?([A-Za-z])(?:/(.*))?$")
+
+
+def _native_path(target: str, windows: bool) -> str | None:
+    """The spelling to ask the disk about, or None when this platform cannot read it.
+
+    Git Bash writes drive C as ``/c/...`` (or ``/cygdrive/c/...``); native Windows
+    Python does not know that spelling, so asking it about ``/c/x`` answers "absent"
+    for a folder that is there. Any other leading-slash path (``/tmp``, ``//server``)
+    lives behind Git Bash's own mounts, which this process cannot see, so it is not
+    readable either. Off Windows nothing changes.
+    """
+    expanded = os.path.expanduser(target)
+    if not windows:
+        return expanded
+    forward = expanded.replace("\\", "/")
+    if not forward.startswith("/"):
+        return expanded
+    drive = _GIT_BASH_DRIVE.match(forward)
+    if drive is None:
+        return None
+    return f"{drive.group(1).upper()}:/{drive.group(2) or ''}"
 
 
 def is_destructive_deletion(command: str) -> tuple[bool, str | None]:

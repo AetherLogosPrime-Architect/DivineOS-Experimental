@@ -39,7 +39,9 @@ def house_folder():
     try:
         yield folder
     finally:
-        shutil.rmtree(folder, ignore_errors=True)  # fail-soft: removes only the throwaway folder this fixture made; a leftover must not fail a test that already passed
+        shutil.rmtree(
+            folder, ignore_errors=True
+        )  # fail-soft: removes only the throwaway folder this fixture made; a leftover must not fail a test that already passed
 
 
 def _missing(folder: Path) -> str:
@@ -118,3 +120,81 @@ def test_branch_deletions_are_untouched():
     """The rule is about files on disk; git deletions keep their own door."""
     assert dd.block_reason("git branch -D some-branch-that-does-not-exist") is not None
     assert dd.block_reason("git push origin --delete some-branch") is not None
+
+
+# --- Git Bash spellings on native Windows -------------------------------------------
+#
+# Second-reader finding: a command typed in Git Bash names a folder as ``/c/Users/x``.
+# Native Windows Python cannot see that spelling, so ``lexists`` answered "absent" for a
+# folder that was there, and ``rm -rf`` of an existing folder was freed. The rule: turn
+# the Git Bash spelling into the native one BEFORE asking, and a path that cannot be
+# turned (or cannot be read) is not proven missing, so the door stays shut. Real Windows
+# is not available where these run: the spelling rule is a pure function with the
+# platform passed in, and the end-to-end cases give the door a Windows-shaped view of the
+# disk (the one dependency faked is the answer to "is anything there").
+
+
+@pytest.mark.parametrize(
+    ("typed", "native"),
+    [
+        ("/c/Users/x/folder", "C:/Users/x/folder"),
+        ("/C/Users/x", "C:/Users/x"),
+        ("/d/a", "D:/a"),
+        ("/cygdrive/c/Users/x", "C:/Users/x"),
+        ("/c", "C:/"),
+        ("/c/", "C:/"),
+        ("C:/already/native", "C:/already/native"),
+        ("C:\\already\\native", "C:\\already\\native"),
+        ("relative/folder", "relative/folder"),
+    ],
+)
+def test_git_bash_spellings_become_native_on_windows(typed, native):
+    assert dd._native_path(typed, windows=True) == native
+
+
+@pytest.mark.parametrize(
+    "typed", ["/tmp/x", "/home/me", "/cd/x", "/cygdrive", "//server/share", "\\\\server\\share"]
+)
+def test_a_leading_slash_that_is_not_a_drive_cannot_be_read_on_windows(typed):
+    assert dd._native_path(typed, windows=True) is None
+
+
+def test_the_spelling_is_left_alone_off_windows():
+    assert dd._native_path("/c/Users/x", windows=False) == "/c/Users/x"
+    assert dd._native_path("/tmp/x", windows=False) == "/tmp/x"
+
+
+@pytest.fixture
+def windows_view(monkeypatch):
+    """The door running on native Windows, where only ``C:/...`` spellings can be seen."""
+    present = {"C:/keep/me"}
+    monkeypatch.setattr(dd, "_running_on_windows", lambda: True)
+    monkeypatch.setattr(dd.os.path, "lexists", lambda p: p.replace("\\", "/") in present)
+    return present
+
+
+def test_an_existing_folder_typed_the_git_bash_way_is_held_on_windows(windows_view):
+    """THE DEFECT: the bare ``/c/...`` spelling used to read as absent and be freed."""
+    assert dd.block_reason("rm -rf /c/keep/me") is not None
+    assert dd.block_reason("rm -rf '/c/keep/me'") is not None
+    assert dd.block_reason("rm -rf /c/gone /c/keep/me") is not None
+
+
+def test_a_missing_folder_typed_the_git_bash_way_is_still_free_on_windows(windows_view):
+    assert dd.block_reason("rm -rf /c/keep/gone") is None
+
+
+def test_a_path_that_cannot_be_converted_is_held_on_windows(windows_view):
+    # /tmp would be freed by the separate temporary-folder rule, so use paths it does not cover
+    assert dd.block_reason("rm -rf /home/me/some_folder_xyz") is not None
+    assert dd.block_reason("rm -rf /opt/some_folder_xyz") is not None
+    assert dd.block_reason("rm -rf //server/share/x") is not None
+
+
+@pytest.mark.parametrize("failure", [OSError("denied"), ValueError("embedded null byte")])
+def test_a_path_that_cannot_be_read_keeps_the_door_shut(monkeypatch, failure):
+    def _cannot_look(_path):
+        raise failure
+
+    monkeypatch.setattr(dd.os.path, "lexists", _cannot_look)
+    assert dd.block_reason("rm -rf some_folder_that_will_not_be_read") is not None
