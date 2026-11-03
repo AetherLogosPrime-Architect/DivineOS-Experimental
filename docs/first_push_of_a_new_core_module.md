@@ -29,7 +29,8 @@ scripts and tests named here on 2026-11-03; if a name has moved, trust the file 
 - **Symptom:** the commit-msg check `scripts/check_prereg_for_new_infra.py` exits 1 on a commit that adds a new file under `src/divineos/core/`.
 - **Cause:** new core infrastructure must name a pre-registration, matched as `prereg-` plus 12 hex characters, anywhere in the message body.
   It only looks at new files in `src/divineos/core/`, not at edits and not at hooks.
-  The documented bypass is `DIVINEOS_NEW_INFRA_NO_PREREG=1`; do not reach for it without a real reason.
+  The script's docstring still names `DIVINEOS_NEW_INFRA_NO_PREREG=1`, but the code ignores that variable. The bypass that works
+  is `DIVINEOS_NEW_INFRA_EMERGENCY=<reason>` (it needs a reason, and firing it is logged); do not reach for it without a real reason.
 - **Fix:** file one first, then paste the id (`prereg-xxxxxxxxxxxx`) into the commit body:
   `divineos prereg file "<mechanism>" --claim ... --success ... --falsifier ... --embarrassing ... --review-after-uses N --uses-of <EVENT_TYPE>`.
 - **Two corrections to older advice:** `--embarrassing` is also required now (the reading that would make you sorry you built it),
@@ -48,19 +49,24 @@ scripts and tests named here on 2026-11-03; if a name has moved, trust the file 
 ## 5. A session-start check is not registered where it runs
 
 - **Symptom:** the check never fires at session start, and nothing complains. Adding it to `settings.json` does not help.
-- **Cause:** SessionStart is a single launcher, `.claude/hooks/session-init-once.sh`. It runs the scripts named in its `INIT_HOOKS` roster, once per session.
-  A script that is not on the roster is not run.
+- **Cause:** the session-start work is gathered in one launcher, `.claude/hooks/session-init-once.sh`. It is a UserPromptSubmit hook, not a
+  SessionStart one (it was moved off the SessionStart path on purpose; read its header). It runs the scripts named in its `INIT_HOOKS`
+  roster, once per session, on the first prompt. A script that is not on the roster is not run.
 - **Fix:** add the file name on its own line in the `INIT_HOOKS="..."` block, with a comment saying why and when. Comment lines inside the block are allowed.
 - **Look at:** `.claude/hooks/session-init-once.sh`, near line 129.
-  It skips a listed name that is missing from disk with `continue`, so a typo in the name also fails silently. Check the spelling.
+  A listed name that is missing from disk is skipped with `continue`, so a typo means the check does not run and the prompt still goes through cleanly.
+  It is not wholly silent: the launcher appends a `listed_child_missing` row to `~/.divineos/hook-liveness.log`. Nothing shows in the session,
+  so look in that log after adding a name, and check the spelling.
 
 ## 6. A script run from Python by a drive-letter path exits 127
 
-- **Symptom:** `/bin/bash: C:/.../script.sh: No such file or directory`, exit code 127, when Python starts Git's bash on a script by its `C:/` path.
-- **Cause:** Git's bash reads `C:/x` as a folder name in the current directory, not as a drive path.
-  Git Bash writes the same drive as `/c/...`, and Windows Python does not read that form either, so the two styles do not meet.
-  Tested 2026-11-03: `bash C:/.../t.sh` gave 127.
-- **Fix:** feed the script on stdin, `bash -s` with the file's text as input (tested, works), or give a path relative to the working folder.
+- **Symptom:** `/bin/bash: C:/.../script.sh: No such file or directory`, exit code 127, when Python starts `bash` on a script by its `C:/` path.
+- **Cause:** the `bash` that Python finds first on PATH can be `C:\Windows\System32\bash.exe`, the WSL launcher, not Git's bash
+  (`where.exe bash` lists both here; check which comes first on yours). WSL's bash reads `C:/x` as a folder name in the current
+  directory, not as a drive path, which is where the 127 comes from. Git's own bash accepts `C:/...` paths.
+  Windows Python in turn does not read the `/c/...` form Git Bash writes, so those two styles do not meet.
+  The earlier 2026-11-03 test that gave 127 ran through whichever `bash` was first on PATH (the WSL one); it was not re-run against Git's bash by full path.
+- **Fix:** call Git's bash by its full path (`C:\Program Files\Git\usr\bin\bash.exe`), or feed the script on stdin, `bash -s` with the file's text as input (tested, works), or give a path relative to the working folder.
   The relative-path form I did not test here. For a hook that must hand a path to Python, `_lib_native_path` in `.claude/hooks/_lib.sh` converts `/c/...` to `C:/...`, the right direction for Python.
 - **Look at:** `.claude/hooks/_lib.sh` (`_lib_native_path`).
 
