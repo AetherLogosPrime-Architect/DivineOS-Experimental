@@ -18,7 +18,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT / "src"))
-MARK = Path(os.environ.get("REFLECTION_ROOM_MARK", Path.home() / ".divineos" / "reflection_room_broke.txt"))
+
+
+def _mark_path() -> Path:
+    # Resolved when needed, never at import: Path.home() raises in an environment with no home, and a hook
+    # that dies at import cannot leave the mark that says it died.
+    override = os.environ.get("REFLECTION_ROOM_MARK")
+    return Path(override) if override else Path.home() / ".divineos" / "reflection_room_broke.txt"
 
 
 def main() -> int:
@@ -51,8 +57,9 @@ if __name__ == "__main__":
         msg = f"reflection_room_stop broke: {type(exc).__name__}: {exc}"
         print(msg, file=sys.stderr)
         try:
-            MARK.parent.mkdir(parents=True, exist_ok=True)
-            MARK.write_text(msg + "\n", encoding="utf-8")
-        except OSError:
+            mark = _mark_path()
+            mark.parent.mkdir(parents=True, exist_ok=True)
+            mark.write_text(msg + "\n", encoding="utf-8")
+        except (OSError, RuntimeError):
             pass
         sys.exit(0)

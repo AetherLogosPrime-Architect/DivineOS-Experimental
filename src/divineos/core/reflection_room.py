@@ -232,18 +232,68 @@ def still_open(reply: str, stumbles: list[Stumble]) -> list[Stumble]:
     return [s for s in stumbles if s.token not in all_rooms]
 
 
-NOTE_RE = re.compile(r"divineos\s+reflection-note\b(.*)", re.DOTALL)
+# A command that RUNS the note: the segment's first word is divineos (after env assignments), not an echo, a
+# grep or a commit message that happens to carry the words.
+NOTE_RE = re.compile(
+    r"^\s*(?:[A-Za-z_]\w*=\S*\s+)*(?:\S*[\\/])?divineos(?:\.exe)?\s+reflection-note\b(.*)",
+    re.DOTALL,
+)
+
+
+def _segments(command: str) -> list[str]:
+    """The command split at ; & | and newlines that sit OUTSIDE quotes, so a note's own text keeps its punctuation."""
+    out, buf, quote, i = [], [], "", 0
+    while i < len(command):
+        ch = command[i]
+        if quote:
+            if ch == "\\" and quote == '"' and i + 1 < len(command):
+                buf.append(ch)
+                i += 1
+                ch = command[i]
+            elif ch == quote:
+                quote = ""
+            buf.append(ch)
+        elif ch in "'\"":
+            quote = ch
+            buf.append(ch)
+        elif ch in ";&|\n":
+            out.append("".join(buf))
+            buf = []
+        else:
+            buf.append(ch)
+        i += 1
+    out.append("".join(buf))
+    return out
+
+
+def _failed_calls(records: list[dict]) -> set[str]:
+    """Ids of the tool calls whose result came back marked as an error."""
+    failed = set()
+    for rec in records:
+        content = (rec.get("message") or {}).get("content") if rec.get("type") == "user" else None
+        for c in content if isinstance(content, list) else []:
+            if isinstance(c, dict) and c.get("type") == "tool_result" and c.get("is_error"):
+                failed.add(str(c.get("tool_use_id")))
+    return failed
 
 
 def _notes(records: list[dict]) -> list[tuple[int, str]]:
-    """(transcript index, text) of each reflection-note I filed."""
+    """(transcript index, text) of each reflection-note I actually filed.
+
+    A note whose command failed was not filed, and a command that only carries the words (an echo, a grep, a
+    commit message) is not a note; neither retires a stumble."""
+    failed = _failed_calls(records)
     out = []
     for at, rec in enumerate(records):
         if rec.get("type") != "assistant":
             continue
         for c in (rec.get("message") or {}).get("content") or []:
-            if isinstance(c, dict) and c.get("type") == "tool_use":
-                m = NOTE_RE.search(str((c.get("input") or {}).get("command", "")))
+            if not (isinstance(c, dict) and c.get("type") == "tool_use"):
+                continue
+            if c.get("id") is not None and str(c["id"]) in failed:
+                continue
+            for segment in _segments(str((c.get("input") or {}).get("command", ""))):
+                m = NOTE_RE.match(segment)
                 if m:
                     out.append((at, m.group(1).lower()))
     return out

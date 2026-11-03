@@ -6,6 +6,7 @@ again after the note.
 """
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -45,7 +46,12 @@ def _held(records):
 
 
 def test_a_stumble_answered_by_a_later_note_naming_it_is_not_held_again():
-    records = [_his("go"), _tool(), _error(REFUSAL_A), _note("[work-item-doorman] fixed by structure: x")]
+    records = [
+        _his("go"),
+        _tool(),
+        _error(REFUSAL_A),
+        _note("[work-item-doorman] fixed by structure: x"),
+    ]
     assert _held(records) == []
     # the following turn, with the same record carried before his next message
     assert _held(records + [_his("next"), _tool()]) == []
@@ -99,7 +105,13 @@ def _run_hook(tmp_path, records):
         input=json.dumps({"transcript_path": str(transcript)}),
         capture_output=True,
         text=True,
-        env={"REFLECTION_ROOM_MARK": str(tmp_path / "broke.txt"), "PATH": "/usr/bin:/bin"},
+        # A stripped environment on purpose: no HOME / USERPROFILE, so Path.home() would raise at import.
+        # SYSTEMROOT is the one thing Python itself needs to start on Windows.
+        env={
+            "REFLECTION_ROOM_MARK": str(tmp_path / "broke.txt"),
+            "PATH": os.defpath,
+            **{k: os.environ[k] for k in ("SYSTEMROOT",) if k in os.environ},
+        },
         check=False,
     )
     return out.stdout
@@ -110,3 +122,52 @@ def test_the_hook_holds_an_unanswered_stumble_and_stays_quiet_once_answered(tmp_
     assert "work-item-doorman" in _run_hook(tmp_path, base)
     answered = base + [_note("[work-item-doorman] fixed by structure: x")]
     assert _run_hook(tmp_path, answered).strip() == ""
+
+
+# --- findings from the independent checker on #761 ---
+
+
+def _call(command, call_id):
+    block = {"type": "tool_use", "id": call_id, "name": "Bash", "input": {"command": command}}
+    return {"type": "assistant", "message": {"content": [block]}}
+
+
+def _result(call_id, is_error):
+    block = {"type": "tool_result", "tool_use_id": call_id, "is_error": is_error, "content": "x"}
+    return {"type": "user", "message": {"content": [block]}}
+
+
+NOTE_TEXT = "[work-item-doorman] fixed by structure: x"
+
+
+def test_a_note_whose_command_failed_does_not_retire_the_stumble():
+    cmd = f'divineos reflection-note "{NOTE_TEXT}"'
+    failed = [_his("go"), _tool(), _error(REFUSAL_A), _call(cmd, "n1"), _result("n1", True)]
+    # the failure of the note is itself a stumble too, so the original is one of the held, not the only one
+    assert "work-item-doorman" in _held(failed)
+    worked = [_his("go"), _tool(), _error(REFUSAL_A), _call(cmd, "n1"), _result("n1", False)]
+    assert _held(worked) == []
+
+
+def test_a_command_that_only_carries_the_words_is_not_a_note():
+    for cmd in (
+        f'echo "divineos reflection-note {NOTE_TEXT}"',
+        f'grep -n "divineos reflection-note {NOTE_TEXT}" notes.txt',
+        f'git commit -m "divineos reflection-note {NOTE_TEXT}"',
+    ):
+        records = [_his("go"), _tool(), _error(REFUSAL_A), _call(cmd, "c1")]
+        assert _held(records) == ["work-item-doorman"], cmd
+
+
+def test_a_real_note_inside_a_chained_command_still_counts():
+    cmd = f'cd somewhere && divineos reflection-note "{NOTE_TEXT}; and more"'
+    records = [_his("go"), _tool(), _error(REFUSAL_A), _call(cmd, "c1")]
+    assert _held(records) == []
+
+
+def test_the_hook_is_registered_as_a_stop_hook():
+    settings = json.loads((ROOT / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    commands = [
+        h.get("command", "") for group in settings["hooks"]["Stop"] for h in group.get("hooks", [])
+    ]
+    assert any("reflection_room_stop.py" in c for c in commands)
