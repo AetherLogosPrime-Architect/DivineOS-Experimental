@@ -542,7 +542,7 @@ class TestAnUnclosedOfferingIsNotSilentlyOverwritten:
             encoding="utf-8",
         )
 
-    def test_the_older_cycle_is_logged_as_aborted_and_the_new_one_is_pending(
+    def test_the_older_cycle_is_logged_as_superseded_and_the_new_one_is_pending(
         self, marker_paths: Path
     ):
         self._handshake("auto-cycle-first")
@@ -555,10 +555,40 @@ class TestAnUnclosedOfferingIsNotSilentlyOverwritten:
             for line in ac._audit_log_path().read_text(encoding="utf-8").splitlines()
         ]
         assert [e["cycle_id"] for e in log] == ["auto-cycle-first"]
-        assert log[0]["outcome"] == "aborted"
+        # Its own outcome, not "aborted": a re-run of offer is not a failure of the mechanism
+        # (the second reader's finding 2; Aether agreed, 2026-11-03).
+        assert log[0]["outcome"] == "superseded"
         assert "superseded" in log[0]["notes"]
         pending = json.loads(ac._pending_marker().read_text(encoding="utf-8"))
         assert pending["cycle_id"] == "auto-cycle-second"
+
+    def test_offering_twice_does_not_move_the_ratio(self, marker_paths: Path):
+        """The measure of whether the mechanism works must not change because someone re-ran offer."""
+        self._handshake("auto-cycle-one")
+        offer_cycle()
+        close_cycle("no-pull-honest")
+        before = ac.compute_falsifier_ratio()
+        assert before == (1, 1, 1.0)
+
+        self._handshake("auto-cycle-two")
+        offer_cycle()
+        self._handshake("auto-cycle-three")
+        offer_cycle()  # supersedes cycle two
+
+        assert ac.compute_falsifier_ratio() == before
+
+    def test_control_a_real_abort_still_counts_against_the_mechanism(self, marker_paths: Path):
+        self._handshake("auto-cycle-one")
+        offer_cycle()
+        close_cycle("aborted", notes="walked away")
+        assert ac.compute_falsifier_ratio() == (0, 1, 0.0)
+
+    def test_superseded_is_not_something_a_seat_can_choose(self, marker_paths: Path):
+        """It is the machine's outcome for a re-run; the CLI must not offer it as an answer."""
+        self._handshake("auto-cycle-one")
+        offer_cycle()
+        with pytest.raises(ValueError):
+            close_cycle("superseded")
 
     def test_a_first_offering_logs_nothing(self, marker_paths: Path):
         self._handshake("auto-cycle-only")

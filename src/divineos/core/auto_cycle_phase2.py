@@ -398,8 +398,9 @@ def offer_cycle() -> tuple[OfferingRecord | None, str]:
     # one replaces it; otherwise its outcome never feeds the falsifier ratio
     # and an abandoned cycle reads as if it never happened.
     close_cycle(
-        "aborted",
+        SUPERSEDED,
         notes="superseded: a new offering opened before this one was closed",
+        _machine=True,
     )
 
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -448,11 +449,20 @@ def _outcome_is_valid(outcome: str) -> bool:
     return False
 
 
+# The machine's own outcome for an offering that a newer offer replaced before anyone closed it. Never a
+# seat's answer (so it is not in _FIXED_OUTCOMES and the CLI cannot be given it), and never counted: running
+# `offer` twice is not a failure of the mechanism, and counting it as one made the ratio fall for a reason
+# unrelated to whether the mechanism works (the second reader's finding 2).
+SUPERSEDED = "superseded"
+
+
 def close_cycle(
     outcome: str,
     chosen_key: str | None = None,
     real_shift: bool | None = None,
     notes: str = "",
+    *,
+    _machine: bool = False,
 ) -> CloseOutcome | None:
     """Close a pending phase 2 cycle. Writes the outcome for the falsifier
     ratio and clears the pending marker.
@@ -473,7 +483,7 @@ def close_cycle(
     ``chose:`` key that is not a rest task), before anything is touched, and lets an
     audit-log write failure propagate so the pending marker stays in place.
     """
-    if not _outcome_is_valid(outcome):
+    if not (_outcome_is_valid(outcome) or (_machine and outcome == SUPERSEDED)):
         raise ValueError(
             f"unknown outcome {outcome!r}: use chose:<key> (a rest task key), "
             "no-pull-honest, timeout or aborted"
@@ -557,7 +567,8 @@ def compute_falsifier_ratio() -> tuple[int, int, float | None]:
     on a chose:<key> outcome, OR no-pull-honest which is a valid non-forced
     outcome per Aria's dissent).
     Denominator: total closed cycles excluding aborted-with-fatal-phase-1-error
-    (which are infrastructure failures, not register failures).
+    (which are infrastructure failures, not register failures) and excluding
+    superseded offerings (an `offer` re-run is not an outcome of the mechanism).
 
     Falsifier bound: <50% after 5 firings → reshape or unwire.
 
@@ -577,6 +588,8 @@ def compute_falsifier_ratio() -> tuple[int, int, float | None]:
             if not isinstance(entry, dict):
                 continue
             outcome = entry.get("outcome", "")
+            if outcome == SUPERSEDED:
+                continue  # a re-run of offer, not an outcome of the mechanism
             handshake = entry.get("handshake_summary") or {}
             fatal = bool(handshake.get("fatal_step_failure"))
             if outcome == "aborted" and fatal:
