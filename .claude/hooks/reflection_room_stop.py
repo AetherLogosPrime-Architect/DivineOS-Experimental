@@ -28,7 +28,10 @@ def main() -> int:
         return 0
     from divineos.core import reflection_room as room
 
-    worked, stumbles, reply = room.this_turn(room.read_tail(Path(path)))
+    records = room.read_tail(Path(path))
+    worked, stumbles, reply = room.this_turn(records)
+    # A stumble a filed reflection-note already named is not asked for again.
+    stumbles = room.unanswered(records, stumbles)
     owed = room.owed_lines(reply)
     if owed:
         room.file_owed(owed, stumbles)

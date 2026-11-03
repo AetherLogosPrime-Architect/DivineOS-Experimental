@@ -60,6 +60,8 @@ class Stumble:
     key: str
     count: int
     example: str
+    first_at: int = -1  # transcript index of its first / last occurrence
+    last_at: int = -1
 
     @property
     def token(self) -> str:
@@ -155,7 +157,8 @@ def this_turn(records: list[dict]) -> tuple[bool, list[Stumble], str]:
     reply: list[str] = []
     counts: dict[str, int] = {}
     examples: dict[str, str] = {}
-    for rec in records[start + 1 :]:
+    seen: dict[str, list[int]] = {}
+    for at, rec in enumerate(records[start + 1 :], start + 1):
         if rec.get("type") == "assistant":
             for c in (rec.get("message") or {}).get("content") or []:
                 if isinstance(c, dict) and c.get("type") == "tool_use":
@@ -173,15 +176,19 @@ def this_turn(records: list[dict]) -> tuple[bool, list[Stumble], str]:
                             continue  # a probe answering no (grep, cmp): 6 of ~900 on 2026-09-26
                         k = _key(t)
                         counts[k] = counts.get(k, 0) + 1
+                        seen.setdefault(k, []).append(at)
                         examples.setdefault(k, t.strip().splitlines()[0][:160] if t.strip() else "")
             t = _text(content)
             if t.startswith("Stop hook feedback") and ROOM_MARK not in t:
                 k = "held at Stop: " + _key(t.split(":", 1)[-1])
                 counts[k] = counts.get(k, 0) + 1
+                seen.setdefault(k, []).append(at)
                 examples.setdefault(
                     k, t.strip().splitlines()[1][:160] if len(t.strip().splitlines()) > 1 else ""
                 )
-    stumbles = [Stumble(k, n, examples.get(k, "")) for k, n in counts.items()]
+    stumbles = [
+        Stumble(k, n, examples.get(k, ""), seen[k][0], seen[k][-1]) for k, n in counts.items()
+    ]
     return worked, stumbles, "\n\n".join(reply)
 
 
@@ -223,6 +230,39 @@ def still_open(reply: str, stumbles: list[Stumble]) -> list[Stumble]:
     """
     all_rooms = "\n".join(_rooms(reply)).lower()
     return [s for s in stumbles if s.token not in all_rooms]
+
+
+NOTE_RE = re.compile(r"divineos\s+reflection-note\b(.*)", re.DOTALL)
+
+
+def _notes(records: list[dict]) -> list[tuple[int, str]]:
+    """(transcript index, text) of each reflection-note I filed."""
+    out = []
+    for at, rec in enumerate(records):
+        if rec.get("type") != "assistant":
+            continue
+        for c in (rec.get("message") or {}).get("content") or []:
+            if isinstance(c, dict) and c.get("type") == "tool_use":
+                m = NOTE_RE.search(str((c.get("input") or {}).get("command", "")))
+                if m:
+                    out.append((at, m.group(1).lower()))
+    return out
+
+
+def unanswered(records: list[dict], stumbles: list[Stumble]) -> list[Stumble]:
+    """Drop the stumbles a filed reflection-note has already answered.
+
+    Answered means: a note came after the stumble first appeared, its text
+    carries the literal '[token]' the hold asked for, and the stumble has not
+    occurred again after that note. A vague note names nothing and retires
+    nothing; a recurrence after the note is held again.
+    """
+    notes = _notes(records)
+    return [
+        s
+        for s in stumbles
+        if not any(s.last_at < at and f"[{s.token}]" in text for at, text in notes)
+    ]
 
 
 def owed_lines(reply: str) -> list[str]:
