@@ -440,3 +440,33 @@ def opener_of_prompt(transcript_path: object, prompt: str) -> str:
 def may_carry_arrival(line: str) -> bool:
     """A cheap pre-check on a raw transcript line, before parsing it as JSON."""
     return '"origin"' in line or '"queued_command"' in line
+
+
+# Every notice shape the answer check knows, spelled out. A new shape the harness invents is NOT
+# handled until it is added here (and a case in tests/test_harness_notices_are_not_his_words.py).
+# Real and HTML-escaped tags: ``&lt;system-reminder&gt;`` arrives when a notice is quoted through
+# a layer that escapes it. A tag that never closes is left alone on purpose: eating to the end
+# would swallow his real words after it, and the cost of leaving it is a few notice words counted.
+_NOTICE_BLOCK = re.compile(
+    r"(?:<|&lt;)(system-reminder|task-notification)\b[^>]*?(?:>|&gt;)"
+    r"[\s\S]*?(?:</|&lt;/)\1\s*(?:>|&gt;)",
+    re.IGNORECASE,
+)
+# "[SYSTEM NOTIFICATION - NOT USER INPUT] ..." runs to the end of its paragraph (a blank line).
+_NOTICE_BANNER = re.compile(
+    r"\[SYSTEM NOTIFICATION\b[^\n]*(?:\n(?![ \t]*\n)[^\n]*)*",
+    re.IGNORECASE,
+)
+
+
+def without_notices(text: str) -> str:
+    """``text`` with every known harness notice cut out, wherever it sits (front, middle, end).
+
+    ``_his_part`` only peels envelopes that OPEN the message and knows neither the escaped form
+    nor the banner, so the answer check measured the notice as his words. Kept separate on
+    purpose: the shared reader's source is hashed into the words-door index stamp, so editing it
+    would force every index to re-embed.
+    """
+    original = text or ""
+    cut = _NOTICE_BANNER.sub(" ", _NOTICE_BLOCK.sub(" ", original))
+    return original if cut == original else cut.strip()
