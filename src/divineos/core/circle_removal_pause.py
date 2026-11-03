@@ -45,8 +45,35 @@ _SHELL_REMOVAL = re.compile(
     + r"|\bos\.(?:remove|rename|unlink|truncate|replace)\([^)]*"
     + ROOM
     + r"|\bshutil\.(?:move|rmtree)\([^)]*"
-    + ROOM,
+    + ROOM
+    # Aria's second read (2026-11-03): a substitute not a delete, a copy or tee OVER the file, the PowerShell
+    # cmdlets (this machine's shell), a restore to an older version, and a Python one-liner that opens a file to
+    # write. Copying the hook file somewhere else (it is the SOURCE) and restoring from main stay free: the state
+    # check tells us to repair with exactly that.
+    + r"|\bsed\s+-i\b[^\n]*"
+    + ROOM
+    + r"|\bcp\s+(?:-\S+\s+)*\S+\s+\S*"
+    + ROOM
+    + r"|\btee\s+(?:-a\s+)?\S*"
+    + ROOM
+    + r"|\b(?:Rename-Item|Move-Item|Clear-Content|Set-Content|Add-Content|Out-File)\b[^\n;&|]*"
+    + ROOM
+    + r"|\bgit\s+(?:checkout|restore)\b(?!\s+(?:origin/)?main\b)[^\n;&|]*(?:"
+    + ROOM
+    + r"|settings(?:\.local)?\.json)"
+    + r"|\bopen\([^)]*(?:"
+    + ROOM
+    + r"|settings(?:\.local)?\.json)[^)]*,\s*['\"][wa]"
+    + r"|(?:^|[\s;&|:])>>?\s*\S*settings(?:\.local)?\.json",
     re.IGNORECASE,
+)
+
+# Written when a second removal call goes through, so the state check can tell a room he chose to remove from
+# one that was quietly unplugged.
+DECISION_MARKER = Path(
+    os.environ.get(
+        "CIRCLE_DECISION_MARKER", Path.home() / ".divineos" / "circle_removed_on_his_decision.json"
+    )
 )
 
 PAUSE_TEXT = (
@@ -60,6 +87,14 @@ PAUSE_TEXT = (
 
 
 def _removes_the_room(tool_name: str, tool_input: dict) -> bool:
+    if tool_name == "MultiEdit":
+        # Each edit is judged as an Edit on the same file (the matcher named MultiEdit; the module did not).
+        path = str(tool_input.get("file_path", ""))
+        return any(
+            _removes_the_room("Edit", {"file_path": path, **edit})
+            for edit in tool_input.get("edits") or []
+            if isinstance(edit, dict)
+        )
     if tool_name == "Edit":
         path = str(tool_input.get("file_path", ""))
         if _HOOK_FILE.search(path):
@@ -107,6 +142,10 @@ def pause_for(
     marker = marker or DEFAULT_MARKER
     if marker.exists() and _shown_in(marker, session):
         marker.unlink()
+        DECISION_MARKER.parent.mkdir(parents=True, exist_ok=True)
+        DECISION_MARKER.write_text(
+            json.dumps({"session": session, "decided_at": time.time()}), encoding="utf-8"
+        )
         return None
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_text(json.dumps({"session": session, "shown_at": time.time()}), encoding="utf-8")

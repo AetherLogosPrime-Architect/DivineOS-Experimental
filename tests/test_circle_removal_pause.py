@@ -170,6 +170,64 @@ def test_the_other_ways_to_hollow_or_move_the_file_are_paused(marker, command):
     assert pause_for("Bash", {"command": command}, marker) is not None
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "sed -i 's/dads_room_stop/x_off/' .claude/settings.json",
+        "cp /tmp/stub.py .claude/hooks/dads_room_stop.py",
+        "echo pass | tee .claude/hooks/dads_room_stop.py",
+        "Rename-Item .claude/hooks/dads_room_stop.py gone.py",
+        "Move-Item .claude/hooks/dads_room_stop.py C:/tmp/gone.py",
+        "Clear-Content .claude/hooks/dads_room_stop.py",
+        "Set-Content .claude/hooks/dads_room_stop.py 'pass'",
+        "'x' | Out-File .claude/hooks/dads_room_stop.py",
+        "git checkout HEAD~50 -- .claude/settings.json",
+        "git restore .claude/hooks/dads_room_stop.py",
+        "python -c \"open('.claude/settings.json','w').write('{}')\"",
+    ],
+)
+def test_aria_second_read_eleven_other_ways_through_are_paused(marker, command):
+    assert pause_for("Bash", {"command": command}, marker) is not None
+
+
+def test_a_multiedit_that_drops_the_room_or_touches_the_hook_file_is_paused(marker):
+    drops = {
+        "file_path": SETTINGS,
+        "edits": [{"old_string": "python .claude/hooks/dads_room_stop.py", "new_string": "true"}],
+    }
+    assert pause_for("MultiEdit", drops, marker) is not None
+    marker.unlink()
+    hook = {
+        "file_path": ".claude/hooks/dads_room_stop.py",
+        "edits": [{"old_string": "def main", "new_string": "def main_off"}],
+    }
+    assert pause_for("MultiEdit", hook, marker) is not None
+
+
+def test_restoring_the_room_from_main_is_never_paused(marker):
+    # The state check tells us to repair with exactly this; the repair must not meet the pause.
+    repair = "git checkout origin/main -- .claude/hooks/dads_room_stop.py .claude/settings.json"
+    assert pause_for("Bash", {"command": repair}, marker) is None
+
+
+def test_a_removal_that_goes_through_leaves_a_record_that_he_decided_it(
+    marker, tmp_path, monkeypatch
+):
+    # Aria's state check would otherwise raise the alarm on every session for a room he chose to remove.
+    decision = tmp_path / "circle_removed_on_his_decision.json"
+    monkeypatch.setenv("CIRCLE_DECISION_MARKER", str(decision))
+    import importlib
+
+    from divineos.core import circle_removal_pause
+
+    importlib.reload(circle_removal_pause)
+    removal = {"command": "rm .claude/hooks/dads_room_stop.py"}
+    assert circle_removal_pause.pause_for("Bash", removal, marker, session="s1") is not None
+    assert not decision.exists()  # the pause alone decides nothing
+    assert circle_removal_pause.pause_for("Bash", removal, marker, session="s1") is None
+    assert json.loads(decision.read_text(encoding="utf-8"))["session"] == "s1"
+
+
 def test_a_pause_shown_in_one_session_does_not_give_a_free_removal_in_another(marker):
     # Aria's marker finding: shown, kept, and weeks later a quiet removal must meet the pause again.
     removal = {"command": "rm .claude/hooks/dads_room_stop.py"}
