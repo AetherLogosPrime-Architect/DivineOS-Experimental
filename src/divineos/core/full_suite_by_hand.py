@@ -24,7 +24,11 @@ import shlex
 import subprocess
 from pathlib import Path
 
-from divineos.core.command_parsing import split_shell_segments, strip_prefixes_raw
+from divineos.core.command_parsing import (
+    _SUBSTITUTION_MARKS,
+    split_shell_segments,
+    strip_prefixes_raw,
+)
 
 # Nothing runs under these.
 _COLLECT_ONLY = {"--collect-only", "--co"}
@@ -73,14 +77,63 @@ def _pytest_args(segment: str) -> list[str] | None:
         return None
     if _program(tokens[0]) == "git" and not _git_can_run(tokens):
         return None
+    if _is_record_segment(segment, tokens):
+        return None
+    real = _pytest_invocation_args(tokens)
+    if real is not None:
+        return real
+    if any(_PYTEST_WORD.search(tok) for tok in tokens):
+        return []
+    return None
+
+
+def _pytest_invocation_args(tokens: list[str]) -> list[str] | None:
+    """The arguments after a real pytest program or ``-m pytest``, else None."""
     for i, tok in enumerate(tokens):
         if _program(tok) in ("pytest", "py.test"):
             return tokens[i + 1 :]
         if tok == "-m" and i + 1 < len(tokens) and tokens[i + 1] == "pytest":
             return tokens[i + 2 :]
-    if any(_PYTEST_WORD.search(tok) for tok in tokens):
-        return []
     return None
+
+
+# `divineos` subcommands that RECORD their text and never run it, so the word
+# inside their quoted arguments is data. Exempt by name, which is the weakness:
+# tests/test_full_suite_record_commands.py reads the code of every command here
+# and fails if it, or what it calls in divineos.core, can execute its text.
+# reflection-note is not here: it has no Click function in this repository, so
+# there is no code to read and nothing to pin.
+_RECORD_COMMANDS = frozenset(
+    {
+        ("learn",),
+        ("decide",),
+        ("claim",),
+        ("feel",),
+        ("journal", "save"),
+        ("compass-ops", "observe"),
+        ("prereg", "file"),
+        ("prereg", "assess"),
+        ("goal", "add"),
+    }
+)
+# A quoted $( ), backtick or ${ } still runs inside double quotes, and <( ) and
+# >( ) run in a subshell, so any of these in the segment ends the exemption.
+_EXECUTING_MARKS = (*_SUBSTITUTION_MARKS, "<(", ">(")
+
+
+def _is_record_segment(segment: str, tokens: list[str]) -> bool:
+    """True only for a bare ``divineos <record command> ...`` that is one whole
+    segment with nothing in it the shell would execute."""
+    if not tokens or tokens[0] != "divineos":
+        return False
+    if not any(tuple(tokens[1 : 1 + len(key)]) == key for key in _RECORD_COMMANDS):
+        return False
+    if any(mark in segment for mark in _EXECUTING_MARKS):
+        return False
+    # A splitter that cannot cut this safely, or cuts it in more than one, means
+    # a second command may be in here; fail closed.
+    cut = split_shell_segments(segment)
+    return cut is not None and len(cut) == 1
 
 
 def _git_can_run(tokens: list[str]) -> bool:
@@ -267,6 +320,34 @@ def changed_tests(repo: Path) -> list[str]:
     return list(dict.fromkeys(found))
 
 
+def _segment_runs_pytest(segment: str) -> bool:
+    try:
+        tokens = shlex.split(strip_prefixes_raw(segment).strip(), posix=True)
+    except ValueError:
+        return False
+    return _pytest_invocation_args(tokens) is not None
+
+
+def _word_refusal() -> str:
+    """The refusal when the word was found but no pytest program was: it says
+    which rule fired and the one way out, and gives no test-running advice to a
+    command that may not have been running tests."""
+    return (
+        "THE FULL SUITE IS THE PUSH'S JOB. This command was refused by one rule: "
+        "the word pytest appears in a part of it the door cannot prove is only text "
+        "(a quoted script, a group, a pipe into a shell, or a program that can run "
+        "its arguments), so it is treated as a run with no test files named. It may "
+        "not have been running tests at all.\n\n"
+        'Dad, 2026-09-09: "is there a reason you continue to run the full suite and '
+        "gauntlet after every small change? do you realize that it takes upwards of "
+        '15-20 mins?" He has asked four times. The push runs the whole suite itself.\n\n'
+        "The one way out: put the words in a divineos record command, whose text the "
+        "door knows is data (divineos learn, decide, claim, feel, journal save, "
+        "compass-ops observe, prereg file, prereg assess, goal add). If it really "
+        "was a test run, name the test files."
+    )
+
+
 def decide(command: str, repo: Path | None = None) -> str | None:
     """The refusal text when this command hand-runs the whole suite, else None."""
     # The raw split, not acting_segments: that one drops cd as inert, which is
@@ -282,6 +363,9 @@ def decide(command: str, repo: Path | None = None) -> str | None:
     # unknown place counts as everything.
     here: Path | None = base
     hit = False
+    # True when a real pytest program was found, as opposed to the word turning
+    # up somewhere the door cannot prove is only text. Decides what it says.
+    real_run = False
     # Aletheia, 2026-10-04: "(cd src; pytest ../tests)" and "{ ...; }" run in a
     # group the splitter cuts into pieces, so a brace group's pytest arrives
     # with no brace on it. Carry the depth across segments: a run inside any
@@ -313,9 +397,12 @@ def decide(command: str, repo: Path | None = None) -> str | None:
         args = _pytest_args(s)
         if args is not None and _whole_suite_from(args, base, here):
             hit = True
+            real_run = _segment_runs_pytest(s)
             break
     if not hit:
         return None
+    if not real_run:
+        return _word_refusal()
     tests = changed_tests(repo) if repo is not None else []
     # Tannen, 2026-10-04: after a cd these paths would read from the wrong
     # place, so name where they are written from.
