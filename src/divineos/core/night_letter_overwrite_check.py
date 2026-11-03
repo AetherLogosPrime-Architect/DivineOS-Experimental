@@ -23,7 +23,7 @@ import os
 import re
 from collections.abc import Callable
 
-_NIGHT_LETTER = re.compile(r"^the-night-letter-to-andrew-\d{4}-\d{2}-\d{2}\.md$")
+_NIGHT_LETTER = re.compile(r"^the-night-letter-to-andrew-\d{4}-\d{2}-\d{2}\.md$", re.IGNORECASE)
 
 
 def _basename(path: str) -> str:
@@ -40,7 +40,7 @@ def _exists(path: str) -> bool:
 
 
 def should_refuse(tool_name: str, file_path: str, exists: Callable[[str], bool] = _exists) -> bool:
-    if tool_name != "Write" or not file_path:
+    if (tool_name or "").lower() != "write" or not file_path:
         return False
     return is_night_letter(file_path) and exists(file_path)
 

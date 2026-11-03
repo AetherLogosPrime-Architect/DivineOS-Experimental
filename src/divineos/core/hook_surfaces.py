@@ -2374,9 +2374,10 @@ def night_letter_overwrite_surface(payload: dict) -> SurfaceOutcome | None:
     Fails soft: a broken check here says so and lets the write through, since
     walling every Write behind a broken guard costs more than one letter.
     """
-    if (payload.get("tool_name") or "") != "Write":
+    if (payload.get("tool_name") or "").lower() != "write":
         return SurfaceOutcome(name="night_letter_overwrite", state="nothing-to-say")
-    file_path = (payload.get("tool_input") or {}).get("file_path") or ""
+    tool_input = payload.get("tool_input") or {}
+    file_path = tool_input.get("file_path") or tool_input.get("path") or ""
     try:
         from divineos.core import night_letter_overwrite_check as check
 

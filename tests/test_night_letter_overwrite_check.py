@@ -93,3 +93,23 @@ class TestTheSurface:
     def test_non_write_payload_says_nothing(self) -> None:
         out = night_letter_overwrite_surface({"tool_name": "Bash", "tool_input": {"command": "ls"}})
         assert out is not None and not out.refused
+
+
+class TestCaseAndKeyVariants:
+    def test_differently_cased_file_name_is_still_a_night_letter(self, tmp_path: Path) -> None:
+        target = tmp_path / "The-Night-Letter-To-Andrew-2026-11-03.MD"
+        target.write_text("x", encoding="utf-8")
+        assert check.should_refuse("Write", str(target))
+
+    def test_lower_case_tool_name_is_still_a_write(self, tmp_path: Path) -> None:
+        target = tmp_path / "the-night-letter-to-andrew-2026-11-03.md"
+        target.write_text("x", encoding="utf-8")
+        assert check.should_refuse("write", str(target))
+        assert not check.should_refuse("edit", str(target))
+
+    def test_surface_reads_a_path_key_and_a_lower_case_tool(self, tmp_path: Path) -> None:
+        target = tmp_path / "the-night-letter-to-andrew-2026-11-03.md"
+        target.write_text("x", encoding="utf-8")
+        payload = {"tool_name": "write", "tool_input": {"path": str(target), "content": "x"}}
+        out = night_letter_overwrite_surface(payload)
+        assert out is not None and out.refused
