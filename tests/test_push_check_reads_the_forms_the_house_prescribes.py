@@ -29,6 +29,12 @@ import pytest
 from divineos.core.cd_drift_check import refusal_message
 from divineos.core.push_detection import is_git_push_command, push_cwd
 
+# Every test here runs the real hook in a subprocess, which `_run_hook` already allows 120 seconds.
+# The suite-wide 30-second limit was shorter than the hook's own budget: alone, the slowest takes about
+# 14 seconds, and on the crowded CI runner it went past 30 and failed #781 twice with nothing of #781
+# in it (2026-11-03). The limit now matches the budget the hook is given.
+pytestmark = pytest.mark.timeout(120)
+
 PUSH = "git " + "push"
 BEHIND = 13
 _HOOK = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "check-branch-on-push.sh"
