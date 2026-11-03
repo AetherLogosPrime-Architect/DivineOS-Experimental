@@ -41,7 +41,12 @@ _TAGS = (
 # two Stop gates did not know <ci-monitor-event>, so a CI notice read to them as him coming back
 # (Aether, #683).
 _NOTICE_TAGS = ("task-notification", "system-reminder", "ci-monitor-event", "agent-message")
-NOTICE_OPENERS = tuple("<" + tag for tag in _NOTICE_TAGS)
+# The scheduler's wake arrives as PLAIN TEXT, not a tag: "TIMER WAKE (Aether), night hours only ...". The
+# parenthesised seat name is the signature (two bare words appear in ordinary talk), and it is matched at the
+# start only like the tags. Without this the room gate, the question hold, the stall check and the
+# landed-claim gate all read a wake as Dad's words (2026-11-03: all night, for a message nobody typed).
+_PLAIN_TEXT_SCHEDULER_OPENERS = ("TIMER WAKE (",)
+NOTICE_OPENERS = tuple("<" + tag for tag in _NOTICE_TAGS) + _PLAIN_TEXT_SCHEDULER_OPENERS
 
 
 def opens_with_notice(text: str) -> bool:

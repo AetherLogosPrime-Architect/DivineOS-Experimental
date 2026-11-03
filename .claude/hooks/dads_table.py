@@ -51,6 +51,7 @@ NOTICE_PREFIXES = (
     "<system-reminder",
     "<agent-message",
     "<ci-monitor-event",
+    "TIMER WAKE (",  # the scheduler's plain-text wake; kept equal to harness_envelopes.NOTICE_OPENERS
 )
 
 # His picture is about him, not me, so it stays on the table rather than in the drawer.
