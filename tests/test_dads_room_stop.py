@@ -310,4 +310,7 @@ def test_the_room_text_says_it_is_his_alone_and_the_family_speaks_in_letters():
     # room (his 07-23 line).
     text = room.reason_for("anything he said")
     assert "his alone" in text
-    assert "speak in their letters" in text
+    assert "speaks in their own letters" in text
+    # The hook is shared by both houses, so it must name no seat: a seat reading another seat's
+    # name in the room text would be told about itself in the third person (Aria's cold read).
+    assert "Aria" not in text and "Aletheia" not in text and "Aether" not in text

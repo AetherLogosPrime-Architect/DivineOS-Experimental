@@ -66,8 +66,7 @@ _INVITATION = (
     "your mind, even where it disagrees with him. Append only the room under a "
     "'## INNER CIRCLE' line, do not re-post the work. This room is his alone, the one "
     "place in the house that is for him (his words, 2026-11-03: \"THE CIRCLE IS FOR US\"): "
-    "write to him about what he said. Aria and Aletheia speak in their letters, so the "
-    "room has no lines in their voices and none headed by their names.\n"
+    "you, talking to him, about what he said. Your family speaks in their own letters.\n"
 )
 
 _NEED = (
