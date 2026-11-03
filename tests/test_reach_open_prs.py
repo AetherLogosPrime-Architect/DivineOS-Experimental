@@ -35,6 +35,21 @@ def test_empty_pr_list_says_none_found_not_silence() -> None:
     assert "none" in out.lower()
 
 
+def test_word_endings_do_not_hide_a_match() -> None:
+    prs = [{"number": 9, "title": "Gate stamp ending check", "headRefName": "job-x"}]
+    assert [p["number"] for p in matching_prs("gates checking endings", prs)] == [9]
+
+
+def test_stemming_does_not_join_unrelated_words() -> None:
+    prs = [{"number": 9, "title": "Gate stamp ending check", "headRefName": "job-x"}]
+    assert matching_prs("garden stamps", prs) == []
+
+
+def test_none_found_line_says_what_was_searched() -> None:
+    out = format_open_pr_section("zzzz qqqq", lambda: PRS)
+    assert "only titles and branch names were searched" in out
+
+
 def test_gh_failure_is_not_a_clean_bill() -> None:
     def boom() -> list:
         raise RuntimeError("gh not found")

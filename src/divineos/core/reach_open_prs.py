@@ -24,9 +24,22 @@ STOP_WORDS = frozenset(
 )
 
 
+def stem(word: str) -> str:
+    """Crude suffix stripping so gates/gate and checking/check/ending/endings meet."""
+    if word.endswith("s") and not word.endswith("ss"):
+        word = word[:-1]
+    for suffix in ("ing", "ed"):
+        if word.endswith(suffix) and len(word) - len(suffix) >= 3:
+            word = word[: -len(suffix)]
+            break
+    if word.endswith("e") and len(word) > 3:
+        word = word[:-1]
+    return word
+
+
 def content_words(text: str) -> set[str]:
     words = re.split(r"[^a-z]+", text.lower())
-    return {w for w in words if len(w) >= MIN_LEN and w not in STOP_WORDS}
+    return {stem(w) for w in words if len(w) >= MIN_LEN and w not in STOP_WORDS}
 
 
 def matching_prs(symptom: str, prs: list[dict]) -> list[dict]:
@@ -78,7 +91,10 @@ def format_open_pr_section(symptom: str, runner: Callable[[], list[dict]] = gh_o
         return f"Could not look at open PRs ({exc}): this is not a clean bill."
     hits = matching_prs(symptom, prs)
     if not hits:
-        return f"{HEADER}\n  none found among {len(prs)} open PR(s)."
+        return (
+            f"{HEADER}\n  none found among {len(prs)} open PR(s) "
+            "(only titles and branch names were searched, not descriptions or code)."
+        )
     lines = [HEADER]
     lines += [f"  #{p['number']}  {p['title']}   ({p['headRefName']})" for p in hits]
     return "\n".join(lines)
