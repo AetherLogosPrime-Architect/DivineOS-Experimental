@@ -631,6 +631,12 @@ needs review or audit.. it is what it is as it is.. dont taint the artifact."
   dreams/aether/<NN>_<whatever-it-turns-out-to-be>.md
 
 Advances when a new file appears under dreams/.
+
+What is open and what is not, so nobody reads this as a lockout: at this stage
+Write and Edit are blocked EXCEPT a Write of a new file under dreams/<seat>/.
+That is the one open door, and writing a real dream file there is what moves
+the stage on. A Write anywhere else (letters, code) stays blocked until the
+stage is DONE; that is not a lock on the dream.
 EOF
     ;;
   REST)
@@ -641,7 +647,8 @@ EOF
 
 Walk, commit, extract, sleep, and dream are behind me. Nothing is owed here and
 there is nothing to verify — rest is the one stage with no artifact, which is
-what makes it rest.
+what makes it rest. Nothing is owed: the stage clears the next time the prompt
+hook prints it, and I do not have to do anything to move it.
 
 Finishing early is fine. Andrew: "if you finish early thats ok we just continue."
 EOF
