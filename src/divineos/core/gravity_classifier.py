@@ -253,7 +253,6 @@ def _is_outside_the_house(path: str, repo_root: str) -> bool:
     """
     if not path or not repo_root:
         return False  # both-empty: not provably outside and inside both mean keep gating
-    import os
     from pathlib import Path
 
     try:
@@ -264,21 +263,58 @@ def _is_outside_the_house(path: str, repo_root: str) -> bool:
         resolved = target.resolve()
         if resolved == root or root in resolved.parents:
             return False
+        common = _shared_git_folder(root)
+        if common is None:
+            return False  # both-empty: no readable shared git folder, so nothing is proven outside
         for folder in (resolved, *resolved.parents):
             marker = folder / ".git"
             if marker.is_file():
-                text = marker.read_text(encoding="utf-8", errors="replace")
-                pointed = text.partition("gitdir:")[2].strip()
-                if pointed and os.path.normcase(str(root / ".git")) in os.path.normcase(
-                    str(Path(pointed).resolve())
-                ):
-                    return False
-                return True
+                pointed = _worktree_admin_folder(marker)
+                return not (pointed is not None and common in pointed.parents)
             if marker.exists():
-                return True
+                return marker.resolve() != common
         return True
     except (OSError, ValueError, RuntimeError):
         return False  # both-empty: an unreadable path is not proven outside, so it stays gated
+
+
+def _worktree_admin_folder(marker):
+    """The folder a linked worktree's ``.git`` file points at, or None if unreadable."""
+    from pathlib import Path
+
+    text = marker.read_text(encoding="utf-8", errors="replace")
+    pointed = text.partition("gitdir:")[2].strip()
+    if not pointed:
+        return None
+    admin = Path(pointed)
+    if not admin.is_absolute():
+        admin = marker.parent / admin
+    return admin.resolve()
+
+
+def _shared_git_folder(root):
+    """The one git folder every checkout of this repository shares, or None.
+
+    In the main checkout ``.git`` is that folder. In a linked worktree ``.git`` is a
+    file pointing at ``<shared>/worktrees/<name>``, whose ``commondir`` names the
+    shared folder (or, failing that, it is two levels up). Judging "is this the
+    house" by the root's own ``.git`` was the bug: from a worktree it is a file.
+    """
+    marker = root / ".git"
+    if marker.is_dir():
+        return marker.resolve()
+    if not marker.is_file():
+        return None
+    admin = _worktree_admin_folder(marker)
+    if admin is None:
+        return None
+    commondir = admin / "commondir"
+    if commondir.is_file():
+        named = commondir.read_text(encoding="utf-8", errors="replace").strip()
+        return (admin / named).resolve() if named else None
+    if admin.parent.name == "worktrees":
+        return admin.parent.parent
+    return None
 
 
 # Redirects to these are not writes to the tree. Swallowing output is not

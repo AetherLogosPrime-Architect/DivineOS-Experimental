@@ -34,7 +34,9 @@ def tmp_path():
     try:
         yield folder
     finally:
-        shutil.rmtree(folder, ignore_errors=True)  # fail-soft: cleanup of an OS-temp scratch folder only; a leftover temp dir must not fail the test that already passed
+        shutil.rmtree(
+            folder, ignore_errors=True
+        )  # fail-soft: cleanup of an OS-temp scratch folder only; a leftover temp dir must not fail the test that already passed
 
 
 def _repo_root() -> Path:
@@ -142,3 +144,103 @@ def test_unrelated_git_clone_outside_the_root_is_free(tmp_path):
     (clone / ".git").mkdir()
     gravity = score_substrate_modification("Edit", (str(clone / ".claude" / "hooks" / "x.sh"),), "")
     assert gravity.fired_features == ()
+
+
+# --- the repository root is itself a linked worktree -------------------------------
+#
+# Second-reader finding on this PR: the "outside the house" test assumed the root's
+# ``.git`` is a folder. When the root is a linked worktree its ``.git`` is a FILE, so
+# the main checkout and the sibling worktrees (the same house at other addresses)
+# were judged outside and freed, while a stranger's clone was judged the same way.
+
+
+def _make_house_with_worktrees(base: Path) -> dict[str, Path]:
+    """A main checkout plus two linked worktrees, laid out as git lays them out."""
+    main = base / "main_checkout"
+    (main / ".git" / "worktrees").mkdir(parents=True)
+    layout = {"main": main}
+    for name in ("wt_root", "wt_sibling"):
+        wt = base / name
+        wt.mkdir()
+        admin = main / ".git" / "worktrees" / name
+        admin.mkdir()
+        (admin / "commondir").write_text("../..\n", encoding="utf-8")
+        (wt / ".git").write_text(f"gitdir: {admin}\n", encoding="utf-8")
+        layout[name] = wt
+    stranger = base / "someone_elses_clone"
+    (stranger / ".git").mkdir(parents=True)
+    layout["stranger"] = stranger
+    other_main = base / "other_repo"
+    (other_main / ".git" / "worktrees" / "wt_other").mkdir(parents=True)
+    other_wt = base / "wt_other"
+    other_wt.mkdir()
+    (other_wt / ".git").write_text(
+        f"gitdir: {other_main / '.git' / 'worktrees' / 'wt_other'}\n", encoding="utf-8"
+    )
+    layout["other_worktree"] = other_wt
+    return layout
+
+
+def _hooks_file(checkout: Path) -> str:
+    folder = checkout / ".claude" / "hooks"
+    folder.mkdir(parents=True, exist_ok=True)
+    target = folder / "check-council-required.sh"
+    target.write_text("#!/bin/bash\n", encoding="utf-8")
+    return str(target)
+
+
+def test_worktree_root_still_counts_the_main_checkout_as_the_house(tmp_path):
+    from divineos.core.gravity_classifier import _is_outside_the_house
+
+    layout = _make_house_with_worktrees(tmp_path)
+    root = str(layout["wt_root"])
+    assert _is_outside_the_house(_hooks_file(layout["main"]), root) is False
+
+
+def test_worktree_root_still_counts_a_sibling_worktree_as_the_house(tmp_path):
+    from divineos.core.gravity_classifier import _is_outside_the_house
+
+    layout = _make_house_with_worktrees(tmp_path)
+    root = str(layout["wt_root"])
+    assert _is_outside_the_house(_hooks_file(layout["wt_sibling"]), root) is False
+
+
+def test_worktree_root_counts_its_own_files_as_the_house(tmp_path):
+    from divineos.core.gravity_classifier import _is_outside_the_house
+
+    layout = _make_house_with_worktrees(tmp_path)
+    root = str(layout["wt_root"])
+    assert _is_outside_the_house(_hooks_file(layout["wt_root"]), root) is False
+
+
+def test_worktree_root_frees_a_stranger_clone_and_another_repos_worktree(tmp_path):
+    from divineos.core.gravity_classifier import _is_outside_the_house
+
+    layout = _make_house_with_worktrees(tmp_path)
+    root = str(layout["wt_root"])
+    assert _is_outside_the_house(_hooks_file(layout["stranger"]), root) is True
+    assert _is_outside_the_house(_hooks_file(layout["other_worktree"]), root) is True
+
+
+def test_unreadable_worktree_pointer_keeps_the_door_shut(tmp_path):
+    from divineos.core.gravity_classifier import _is_outside_the_house
+
+    layout = _make_house_with_worktrees(tmp_path)
+    (layout["wt_root"] / ".git").write_text("not a pointer\n", encoding="utf-8")
+    assert _is_outside_the_house(_hooks_file(layout["main"]), str(layout["wt_root"])) is False
+
+
+# --- the guardrail list never names a path outside the repository root -------------
+
+
+def test_every_guardrail_entry_is_repo_relative():
+    """An entry outside the root would be freed by the outside-the-house filter and
+    could never match ``_normalize_to_repo_relative`` either, so it would silently
+    stop counting. None exists today; this fails the day one is added."""
+    listed, _ = _guardrail_listed_paths()
+    assert listed, "guardrail list not found; the check below would prove nothing"
+    for entry in listed:
+        parts = entry.split("/")
+        assert not entry.startswith(("/", "~")), entry
+        assert ".." not in parts, entry
+        assert not (len(entry) > 1 and entry[1] == ":"), entry
