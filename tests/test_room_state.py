@@ -24,6 +24,8 @@ import shutil
 import sys
 from pathlib import Path
 
+import pytest
+
 from divineos.core import room_state
 
 REPO = Path(__file__).resolve().parents[1]
@@ -49,6 +51,72 @@ def _house(tmp_path, settings=GOOD_SETTINGS, hook_text=None, copy_real_hook=Fals
     elif hook_text is not None:
         (tmp_path / HOOK_REL).write_text(hook_text, encoding="utf-8")
     return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def _no_real_removal_marker(tmp_path, monkeypatch):
+    """The 'he chose to remove it' marker lives in the real home; no test may read or write it."""
+    monkeypatch.setenv("CIRCLE_REMOVED_MARKER", str(tmp_path / "removed_marker_for_tests.json"))
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "true # dads_room_stop.py",
+        "echo dads_room_stop.py",
+        "false && python .claude/hooks/dads_room_stop.py",
+    ],
+)
+def test_a_command_that_only_mentions_the_hook_does_not_make_the_room_stand(tmp_path, command):
+    """Aether's cold read (2026-11-03): the file can be NAMED in a Stop command that never runs it. The
+    registered command itself is run as the harness runs it, so a mention that runs nothing blocks nothing."""
+    spoofed = {"hooks": {"Stop": [{"hooks": [{"type": "command", "command": command}]}]}}
+    state = room_state.check(_house(tmp_path, settings=spoofed, copy_real_hook=True))
+    assert not state.blocks and not state.standing
+    assert any("does not block" in p for p in state.problems)
+
+
+def test_control_the_registered_command_in_the_real_settings_blocks():
+    """The real registered Stop command, run through bash with the project dir set, must answer block."""
+    assert room_state.check(REPO).blocks
+
+
+def _decided(tmp_path, session="s1"):
+    marker = tmp_path / "removed_marker_for_tests.json"
+    marker.write_text(json.dumps({"session": session, "shown_at": 1.0}), encoding="utf-8")
+    return marker
+
+
+def test_a_room_he_chose_to_remove_is_named_calmly_once_not_alarmed_forever(tmp_path):
+    """Aether's cold read: after his second 'remove it' goes through, an alarm every session contradicts doing
+    what he decided, and teaches us to ignore the line that would one day matter."""
+    house = _house(tmp_path / "h", settings={"hooks": {"Stop": []}})
+    marker = _decided(tmp_path)
+    first = room_state.report(house, removed_marker=marker)
+    assert "on his decision" in first and "NOT STANDING" not in first
+    assert room_state.report(house, removed_marker=marker) == ""  # told once, then quiet
+
+
+def test_a_new_problem_after_his_decision_alarms_again(tmp_path):
+    """Quiet is for the state he decided. A different break (the settings come back but the hook is a stub)
+    is not what he chose, and says so loudly."""
+    gone = _house(tmp_path / "gone", settings={"hooks": {"Stop": []}})
+    marker = _decided(tmp_path)
+    room_state.report(gone, removed_marker=marker)
+    stub = _house(tmp_path / "stub", hook_text="import sys\nsys.exit(0)\n")
+    assert "NOT STANDING" in room_state.report(stub, removed_marker=marker)
+
+
+def test_a_standing_room_is_silent_and_leaves_his_decision_marker_alone(tmp_path):
+    marker = _decided(tmp_path)
+    before = marker.read_text(encoding="utf-8")
+    assert room_state.report(REPO, removed_marker=marker) == ""
+    assert marker.read_text(encoding="utf-8") == before
+
+
+def test_no_marker_means_the_alarm(tmp_path):
+    house = _house(tmp_path, settings={"hooks": {"Stop": []}})
+    assert "NOT STANDING" in room_state.report(house, removed_marker=tmp_path / "absent.json")
 
 
 def test_control_the_real_house_is_wired_present_and_blocks():
