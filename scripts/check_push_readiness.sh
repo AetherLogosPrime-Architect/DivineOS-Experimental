@@ -107,11 +107,26 @@ done <<< "$HOOK_STDIN"
 # Exit code convention (Aletheia 2026-05-17 audit note):
 #   0   — all gates passed
 #   10  — pytest failure (test-suite regression)
+#   11  — could not check (the suite could not be run, e.g. a branch cut before the
+#         gate's own runner module reached main; NOT a test failure, still blocks)
 #   20  — multi-party-review failure (missing External-Review trailer)
 #   24  — substrate files on a code branch (branch-scope failure)
 #   30  — infrastructure error (script missing, python missing, etc.)
 # Differentiated so the operator can distinguish failure-modes from the
 # pre-push exit code alone, without re-reading stderr.
+
+# Reads a captured pytest log and prints "<failed|could_not_check> <exit code> <reason>".
+# Defaults to "failed 10" (the old behaviour) if the classifier itself cannot run, e.g. when
+# this script runs from a checkout old enough not to carry it.
+_gate_verdict_for_log() {
+    local verdict
+    if verdict="$(PYTHONPATH="$(git rev-parse --show-toplevel)/src${PYTHONPATH:+:$PYTHONPATH}" \
+        python -m divineos.core.push_gate_verdict "$1" 2>/dev/null)" && [[ -n "$verdict" ]]; then
+        echo "$verdict"
+    else
+        echo "failed 10 the classifier could not run"
+    fi
+}
 
 # ─── 0. Branch scope: is this carrying substrate it should not? ─────────
 #
@@ -841,13 +856,19 @@ else
             tail -100 "$LAST_LOG" >&2
             rm -f "$PYTEST_LOG"
             echo "" >&2
-            if grep -q "no tests ran" "$LAST_LOG"; then
-                # Zero collected is the instrument failing, not the code: say so,
-                # with the [gate-env] lines above as the evidence to read.
-                echo "[push-readiness] BLOCKED — the gate collected NO tests (exit 10)." >&2
+            # Could-not-look is not found-a-fault: the same log may mean the suite failed,
+            # or that the gate could not run it (a branch cut before the gate's own runner
+            # module reached main). Different words and a different exit code for each.
+            read -r GATE_KIND GATE_CODE GATE_REASON < <(_gate_verdict_for_log "$LAST_LOG")
+            if [[ "$GATE_KIND" == "could_not_check" ]]; then
+                echo "[push-readiness] BLOCKED — COULD NOT CHECK (exit $GATE_CODE). This is NOT a test failure." >&2
+                echo "[push-readiness] Why: $GATE_REASON." >&2
                 echo "[push-readiness] Nothing was tested, so this says nothing about the code." >&2
                 grep '^\[gate-env\]' "$LAST_LOG" >&2 \
                     || echo "[push-readiness] (the log carries no [gate-env] lines, so the non-isolated path ran)" >&2
+                echo "[push-readiness] Full log persisted: $LAST_LOG" >&2
+                echo "[push-readiness] Bring the branch up to date with main and push again, or bypass on purpose: DIVINEOS_SKIP_TESTS=1 git push" >&2
+                exit "$GATE_CODE"
             fi
             echo "[push-readiness] BLOCKED — tests failing (exit 10)." >&2
             echo "[push-readiness] Full log persisted: $LAST_LOG" >&2
