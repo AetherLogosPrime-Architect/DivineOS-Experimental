@@ -22,7 +22,7 @@ BASH = shutil.which("bash")
 pytestmark = pytest.mark.skipif(BASH is None, reason="no bash to run the bell with")
 
 
-def _ring(home: Path, seconds: float = 6) -> tuple[str, bool]:
+def _ring(home: Path, seconds: float = 6, bell: Path = BELL) -> tuple[str, bool]:
     """The bell's output, and whether it was still running when time ran out.
 
     The bell leaves silently when its starter is gone (kill -0 $PPID). Started
@@ -37,7 +37,7 @@ def _ring(home: Path, seconds: float = 6) -> tuple[str, bool]:
     env = {**os.environ, "HOME": str(home), "DOORBELL_ALLOW_UNTRACKED": "1"}
     try:
         p = subprocess.run(
-            [BASH, "-c", f'bash "{BELL.as_posix()}" aether; :'],
+            [BASH, "-c", f'bash "{bell.as_posix()}" aether; :'],
             env=env,
             capture_output=True,
             text=True,
@@ -81,3 +81,23 @@ def test_a_folder_it_cannot_read_faults_instead_of_staying_quiet(tmp_path):
     (tmp_path / ".divineos-shared").mkdir()
     out, _ = _ring(tmp_path)
     assert "DOORBELL FAULT" in out, out
+
+
+def test_the_bell_rings_from_a_folder_with_a_space_in_its_name(tmp_path):
+    """A checkout at a path like '/tmp/a b/repo' must not break the bell's start.
+
+    The bell is copied under a folder whose name has a space and rung from
+    there; an unquoted path would make bash report "No such file or directory".
+    """
+    spaced = tmp_path / "a b" / "scripts"
+    shutil.copytree(BELL.parent, spaced)
+    letters = tmp_path / "home" / ".divineos-shared" / "letters"
+    letters.mkdir(parents=True)
+    (letters / "aria-to-aether-2026-10-01-old.md").write_text("x", encoding="utf-8")
+    (letters / "aria-to-aether-2026-10-01-new.md").write_text("x", encoding="utf-8")
+    (tmp_path / "home" / ".divineos-shared" / ".aether_doorbell_announced").write_bytes(
+        b"aria-to-aether-2026-10-01-old.md\n"
+    )
+    out, _ = _ring(tmp_path / "home", bell=spaced / "letter_doorbell.sh")
+    assert "No such file or directory" not in out, out
+    assert "LETTER ARRIVED" in out, out
