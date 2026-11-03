@@ -33,6 +33,12 @@ class ClerkRefused(Exception):
 _DAD_CORPUS = Path.home() / ".divineos-shared" / "dad_corpus" / "dad_all.jsonl"
 
 
+# The one form the clerk reads a round's tree in: the round's NOTES, this exact text, then the tree. The
+# matcher below, the clerk's own writer, and the warning for a round that lacks it all use this, so they
+# cannot disagree.
+TREE_LINE_PREFIX = "tree-hash: "
+
+
 def _squash(text: str) -> str:
     return " ".join(text.casefold().split())
 
@@ -56,7 +62,7 @@ def her_confirm_filed_at(
     audit was done (his words, 2026-10-15), so his yes counts only if typed after that.
     The round must name this tree, and only her external confirm in it counts.
     """
-    if f"tree-hash: {tree}" not in round_notes:
+    if f"{TREE_LINE_PREFIX}{tree}" not in round_notes:
         return None
     stamps = [
         getattr(f, "created_at")
@@ -68,7 +74,7 @@ def her_confirm_filed_at(
     return datetime.fromtimestamp(max(stamps), tz=timezone.utc)
 
 
-_TREE_LINE = re.compile(r"tree-hash:\s*[0-9a-f]{40}", re.IGNORECASE)
+_TREE_LINE = re.compile(re.escape(TREE_LINE_PREFIX) + r"[0-9a-f]{40}")
 
 
 def rounds_without_tree_line(pr: int, rounds: Sequence[object]) -> list[str]:
@@ -84,7 +90,7 @@ def rounds_without_tree_line(pr: int, rounds: Sequence[object]) -> list[str]:
     for rnd in rounds:
         focus = str(getattr(rnd, "focus", ""))
         notes = str(getattr(rnd, "notes", ""))
-        if named.search(focus) and not _TREE_LINE.search(focus + "\n" + notes):
+        if named.search(focus) and not _TREE_LINE.search(notes):
             lines.append(
                 f"round {getattr(rnd, 'round_id', '?')} has no tree-hash line: it cannot be "
                 "matched to a head; file a new round with the designed first call"
@@ -232,7 +238,7 @@ def round_step(
         f"PR {pr} {title[:80]}, branch {branch} at {her_short}: Aletheia CONFIRMS, Andrew confirms"
     )
     notes = (
-        f"tree-hash: {tree}; patch-id: {patch_id}; her line: CONFIRMS: #{pr} at "
+        f"{TREE_LINE_PREFIX}{tree}; patch-id: {patch_id}; her line: CONFIRMS: #{pr} at "
         f"{her_short} in her own letter, filed by the landing clerk."
     )
     return [

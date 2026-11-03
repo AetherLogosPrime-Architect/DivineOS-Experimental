@@ -154,10 +154,12 @@ def register(cli: click.Group) -> None:
         # not look is not a pass, so READY is impossible without it.
         letters = read_letters()
         rows = classify_pile(prs, letters, today(), held)
+        rounds_unreadable = ""
         try:
-            all_rounds = list_rounds(limit=500)
-        except Exception:  # noqa: BLE001 - an unreadable store only loses the extra line
-            all_rounds = []
+            all_rounds: list | None = list_rounds(limit=500)
+        except Exception as exc:  # noqa: BLE001 - an unreadable store must be said, not skipped
+            all_rounds = None
+            rounds_unreadable = f"{type(exc).__name__}: {exc}"
 
         counts = {label: sum(1 for _, s in rows if s.label == label) for label in _ORDER}
         click.secho(
@@ -177,8 +179,17 @@ def register(cli: click.Group) -> None:
                 click.echo(
                     f"  #{pr['number']:<4} {str(pr.get('headRefName'))[:38]:<38} {status.detail}"
                 )
-                for why in rounds_without_tree_line(int(pr["number"]), all_rounds):
-                    click.secho(f"        {why}", fg="yellow")
+                # A PR already confirmed is not the one a missing line is holding up, and a closed
+                # history would otherwise repeat this line on every run until nobody reads it.
+                if all_rounds is not None and label != CONFIRMED:
+                    for why in rounds_without_tree_line(int(pr["number"]), all_rounds):
+                        click.secho(f"        {why}", fg="yellow")
+        if all_rounds is None:
+            click.secho(
+                "[!] Could not read the audit rounds, so rounds missing a tree-hash line are not "
+                f"shown ({rounds_unreadable}). This is not a clean bill.",
+                fg="yellow",
+            )
         if held is None:
             click.secho(
                 "[!] The readiness board could not be read, so nothing can show READY.",
