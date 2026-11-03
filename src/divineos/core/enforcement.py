@@ -147,6 +147,11 @@ def capture_user_input(command_args: list[str]) -> str:
             # Convert command args to input string
             input_str = " ".join(command_args) if command_args else ""
 
+            if not input_str:
+                # Started from inside another program, argv carries no arguments;
+                # an empty input is nothing to record, not an error.
+                return input_str
+
             logger.debug(f"Capturing user input: {input_str[:100]}...")
 
             # Emit USER_INPUT event with error handling
