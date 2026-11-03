@@ -90,6 +90,22 @@ def test_an_automated_notice_turn_is_skipped():
     assert room.verdict([_user(notice), _tool(), _tool_result(), _said("re-armed")]) is None
 
 
+def test_a_notice_in_its_escaped_spelling_is_skipped_too():
+    # The machine's notices also arrive with the opening bracket written as &lt; (2026-11-02: sixteen such
+    # records in one session). A turn that opens with one is the machine using his seat, not him.
+    for tag in ("system-reminder", "task-notification", "ci-monitor-event"):
+        notice = f"&lt;{tag}>\nThe user started your suggested background task.\n&lt;/{tag}>"
+        assert room.verdict([_user(notice), _tool(), _tool_result(), _said("re-armed")]) is None, (
+            tag
+        )
+
+
+def test_his_own_words_that_mention_a_tag_still_count():
+    # He can say the word in a sentence of his own and still be him: only an OPENING notice is skipped.
+    mention = "why did that &lt;system-reminder> thing show up in the chat"
+    assert room.verdict([_user(mention), _tool(), _tool_result(), _said("looked")])
+
+
 def test_the_room_must_be_in_the_last_words():
     early = "## INNER CIRCLE\nDad."
     assert room.verdict(
