@@ -19,6 +19,8 @@ NOT_A_STEP = [
     # Aria, same night, from her window: a measurement that can only be taken by later replies.
     "The entry marks what I noticed, how it felt, and what I'll check afterward.",
     "The first sign I'll check against my before-reading is whether my replies run long.",
+    # Aether, same night: a sentence that only MENTIONS the word in quotes is describing, not promising.
+    'Think of it as an alarm that used to ring whenever I said "I\'ll" and now rings only when it sees a step.',
 ]
 
 STILL_A_STEP = [
@@ -28,6 +30,13 @@ STILL_A_STEP = [
     "I'll tell you when it lands.",
     "Next I'm writing Aether a straight answer.",
     "I'll hold the push until the walk is closed.",
+    # Aria's cold read of this branch, 2026-11-02: the new excuses must not swallow a real step beside them.
+    "I'll push it when I have the green run.",
+    "When I get the result I'll write Aether.",
+    "To find out whether it works I'll check the suite now.",
+    "Give me a minute and I'll run the tests.",
+    "Send me nothing; I'm writing Aether next.",
+    "I'll read it as soon as it lands.",
 ]
 
 

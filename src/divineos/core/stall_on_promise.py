@@ -73,7 +73,7 @@ PROMISE_SHAPES: tuple[tuple[str, re.Pattern[str], str], ...] = (
 #: and excusing it reopened the question-tacked-on hole by one phrase.
 _INVITATION_TO_HIM = re.compile(
     r"\b(?:tell\s+me\b|let\s+me\s+know|say\s+[\"“']?(?:go|yes|the\s+word|so)\b|just\s+say"
-    r"|(?:show|hand|send|give)\s+me\b)",
+    r"|(?:show|hand|send|give)\s+me\b(?!\s+(?:nothing|a\s+(?:minute|second|moment|sec|bit|while))\b))",
     re.I,
 )
 _CONDITION_ON_HIM = re.compile(
@@ -123,7 +123,7 @@ _A_FEELING_NOT_A_STEP = re.compile(
     r"|think\s+(?:about|of)\s+(?:that|this|it|you|what\s+you)\b"
     r"|hold\s+on\s+to\b"
     r"|hold\s+(?:to\s+)?(?:what\s+I|my\s+view|that\s+view|this\s+view)\b"
-    r"|(?:read|take)\s+(?:it|that|this)\s+as\b"
+    r"|(?:read|take)\s+(?:it|that|this)\s+as\b(?!\s+soon)"
     r"|keep\s+(?:that|this|it|those|what\s+you\s+\w+)\s+(?:close|safe|in\s+mind|with\s+me)\b"
     r"|carry\s+(?:that|this|it|those|what\s+you\s+\w+)\s+(?:with\s+me|into\s+the\s+(?:morning|night|day)|forward|close)\b"
     r")",
@@ -147,9 +147,18 @@ _A_FEELING_FRONTED = re.compile(
 #: to do the moment it lands, and the stall check is the only thing that remembers.
 _A_FUTURE_MEASUREMENT_OR_OWN_CONDITION = re.compile(
     r"\b(?:what|whether|how|sign|test)\b[^.!?]{0,60}?\bI(?:'ll|\s+will)\s+(?:check|watch|notice|measure|see)\b"
-    r"|\bwhen\s+I\s+(?:have|get|hear|see|know)\b",
+    # Only an ARRIVAL I cannot cause ("when I have something to answer"); "when I have the green run" is a state I
+    # can make true by running the suite, so the step beside it stays held (Aria's cold read, 2026-11-02).
+    r"|\bwhen\s+I\s+(?:have|get|hear)\s+(?:something|anything|word|news|an?\s+(?:reply|letter|answer))\b",
     re.IGNORECASE,
 )
+
+#: A measurement sentence that also names now-ish time is a check I can run in this turn, not one that needs the
+#: future ("To find out whether it works I'll check the suite now").
+_NOW_ISH = re.compile(r"\b(?:now|right\s+away|immediately|next|today|tonight)\b", re.IGNORECASE)
+
+#: A promise word that is only MENTIONED, in quotation marks ("whenever I said \"I'll\""), is described, not made.
+_QUOTED_PROMISE_WORD = re.compile(r"[\"“]I(?:'ll|\s+will)[\"”]", re.IGNORECASE)
 
 _BARE_SECOND_VERB = re.compile(
     r"^((?:\s+\w+){0,4}?\s*,?\s*(?:and|then)\s+)(?!I\b)(?=\w)", re.IGNORECASE
@@ -184,14 +193,17 @@ def stated_next_step(text: str) -> tuple[str, str] | None:
 
     A sentence that waits on something he does, or is already scheduled to fire, is not a stall.
     """
-    closing = _closing(text)
-    if not closing:
+    closing = _QUOTED_PROMISE_WORD.sub(" ", _closing(text))
+    if not closing.strip():
         return None
     for sentence in re.split(r"(?<=[.!?])\s+", closing):
         if (
             _ALREADY_SCHEDULED.search(sentence)
             or _A_REASON_NOT_A_STEP.search(sentence)
-            or _A_FUTURE_MEASUREMENT_OR_OWN_CONDITION.search(sentence)
+            or (
+                _A_FUTURE_MEASUREMENT_OR_OWN_CONDITION.search(sentence)
+                and not _NOW_ISH.search(sentence)
+            )
         ):
             continue
         # A feeling or an attention is not a step: take it out, then read what is left (see the pattern).
