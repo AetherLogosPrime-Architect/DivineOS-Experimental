@@ -24,7 +24,7 @@ I ran `her_confirm_filed_at` and `rounds_without_tree_line` side by side on four
 - Whether `list_rounds(limit=500)` (newest first, `store.py:655`) is enough in practice; I confirmed the order and the cap and nothing more.
 
 ### One thing it gets right
-One constant (`TREE_LINE_PREFIX`) is now the only definition of the text, shared by the matcher, the clerk's own writer (`round_step`) and the warning, and the 14 forms above show the shared definition does what it says. It also says on screen when the round store cannot be read (`landing_commands.py:164-169`, `:190-195`) instead of dropping the line quietly.
+One constant (`TREE_LINE_PREFIX`) is now the only definition of the text, shared by the matcher, the clerk's own writer (`round_step`) and the warning, and the 14 forms above show the shared definition does what it says. It also says on screen when the round store cannot be read (`landing_commands.py:159-162`, `:188-193`) instead of dropping the line quietly.
 
 ---
 
