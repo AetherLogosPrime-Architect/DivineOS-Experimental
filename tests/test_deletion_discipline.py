@@ -8,6 +8,8 @@ record clears the block, TTL expires it, hollow justifications are rejected.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from divineos.core import deletion_discipline as dd
@@ -17,6 +19,8 @@ from divineos.core import deletion_discipline as dd
 def _isolate_justifications(tmp_path, monkeypatch):
     """Point the justification marker at a temp file per test."""
     monkeypatch.setattr(dd, "marker_path", lambda name: tmp_path / name)
+    # Relative targets are read against the working directory, so pin it to the repo root.
+    monkeypatch.chdir(Path(__file__).resolve().parent.parent)
 
 
 class TestDestructiveDetection:
@@ -28,8 +32,11 @@ class TestDestructiveDetection:
         "git branch --delete feature-x",
         "git rm src/divineos/core/foo.py",
         "rm -rf src/divineos/core",
-        "rm -r tests/divineos",
-        "rm -f src/divineos/important.py",
+        # These two used to name files that do not exist. Deleting nothing is no longer a
+        # deletion (test_deletion_of_nothing_is_not_a_deletion.py), so a destructive example
+        # has to point at something that is really there. The autouse fixture pins the cwd.
+        "rm -r tests/conftest.py",
+        "rm -f src/divineos/__init__.py",
     ]
 
     def test_destructive_commands_flagged(self):
