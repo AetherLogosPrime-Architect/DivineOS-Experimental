@@ -493,7 +493,10 @@ def _clean(text: str) -> str:
 # becomes a carry a skipped real question is lost, not harmless, so this errs toward finding.
 _REPORTED = re.compile(
     r"^(?:it|that|this|the question|the answer|i|he|she|they|we|you|dad|aria|aether|aletheia)\s+"
-    r"(?:\w+\s+){0,2}?(?:was|were|asked|said|wrote|called|read|reads|says)\b[^:?]{0,30}:\s*\S",
+    r"(?:\w+\s+){0,2}?(?:was|were|asked|said|wrote|called|read|reads|says)\b[^:?]{0,30}:\s*\S"
+    # A story's own beat ("One of them stopped me cold: could I honestly write ...?"). Only these two verbs, so
+    # "One of them asked: do you want it moved?" stays a real ask (Popper, walk-1dc1ea40bee7).
+    r"|^one\s+of\s+(?:the\s+)?\w+\s+(?:stopped|struck)\b[^:?]{0,30}:\s*\S",
     re.I,
 )
 
