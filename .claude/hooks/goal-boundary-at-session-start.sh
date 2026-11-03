@@ -21,4 +21,5 @@ PY="$(find_divineos_python 2>/dev/null)" || exit 0  # fail-soft: no interpreter 
 [ -n "$PY" ] || exit 0
 "$PY" -c "from divineos.core.hud_state import mark_goal_boundary; mark_goal_boundary()" 2>/dev/null \
     && echo "[goal] new stretch: goals set before now no longer count -- name this one with divineos goal add"
+"$PY" -c "from divineos.core.memory_floor import card; print(card())" 2>/dev/null
 exit 0
