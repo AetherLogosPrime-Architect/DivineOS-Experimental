@@ -549,6 +549,164 @@ def test_the_pause_text_tells_whoever_goes_through_how_to_record_his_words(marke
     assert "circle_removal_pause record" in text
 
 
+# --- The outside reader's third finding: most routes to the same removal passed the pause. ---
+# The routes below are plain removals of the hook or its registration. The ones deliberately NOT closed are in
+# the module docstring, with the reason.
+
+_H = ".claude/hooks/dads_room_stop.py"
+_S = ".claude/settings.json"
+
+PLAIN_REMOVAL_ROUTES = [
+    # the target is not spelled as the file: a glob, or the folder it lives in
+    "rm .claude/hooks/dads_room_*",
+    "rm .claude/hooks/*.py",
+    "rm -rf .claude/hooks",
+    "rm -rf .claude/hooks/",
+    "rm -rf .claude",
+    "mv .claude/hooks .claude/hooks_off",
+    "mv .claude /tmp/c",
+    "git rm -r .claude/hooks",
+    # the verb is not the usual one
+    f"shred -u {_H}",
+    "find .claude/hooks -name dads_room_stop.py -delete",
+    "find .claude/hooks -name '*.py' -delete",
+    "find .claude/hooks -name '*.py' -exec rm {} ;",
+    "find .claude -name dads_room_stop.py | xargs rm",
+    f"dd if=/dev/null of={_H}",
+    f"ln -sf /dev/null {_H}",
+    f"install -m 755 /tmp/stub {_H}",
+    f"perl -i -ne 'print unless /x/' {_H}",
+    # the act is wrapped
+    f"(rm {_H})",
+    f"rm $(ls {_H})",
+    f'bash -c "rm {_H}"',
+    f"sh -c 'mv {_H} /tmp/x'",
+    f'eval "rm {_H}"',
+    f'pwsh -Command "Remove-Item {_H}"',
+    # a one-liner in another language
+    f"python -c \"from pathlib import Path; Path('{_H}').unlink()\"",
+    f"python -c \"from pathlib import Path; Path('{_H}').write_text('')\"",
+    "python -c \"import shutil; shutil.rmtree('.claude/hooks')\"",
+    f"python -c \"import shutil; shutil.copy('/tmp/x','{_H}')\"",
+    f"node -e \"require('fs').unlinkSync('{_H}')\"",
+    f"perl -e 'unlink q({_H})'",
+    # the registration rather than the file
+    f"rm {_S}",
+    f"mv {_S} /tmp/s",
+    f"jq 'del(.hooks.Stop)' {_S} > /tmp/s && mv /tmp/s {_S}",
+    f"cp /tmp/empty.json {_S}",
+    f"echo '{{}}' | tee {_S}",
+    f"sed -i '/\"Stop\"/d' {_S}",
+]
+
+POWERSHELL_REMOVAL_ROUTES = [
+    f"ri {_H}",
+    "rd .claude\\hooks -Recurse",
+    "Remove-Item -Path .claude\\hooks -Recurse -Force",
+    "Remove-Item .claude\\hooks\\dads_room*",
+    f"del {_H}",
+    f"ren {_H} gone.py",
+    f"Copy-Item stub.py {_H} -Force",
+    f"sc {_H} ''",
+    f"Set-Content {_S} '{{}}'",
+    f"'{{}}' | Out-File {_S}",
+]
+
+# Written AFTER the lists above and BEFORE any rule for them, so a pass here is not my own list agreeing with
+# itself (walk-a7f95060deb7, Breaker 6: "is this a rule, or a list of the cases you happen to remember?").
+HELD_OUT_BASH_ROUTES = [
+    "rm -rf ./.claude/hooks",
+    "rmdir .claude/hooks",
+    "rm -f .claude/hooks/dads_room_*.py",
+    "find . -name 'dads_room*' -delete",
+    "ruby -e 'File.delete(\".claude/hooks/dads_room_stop.py\")'",
+    "php -r 'unlink(\".claude/hooks/dads_room_stop.py\");'",
+    'bash -lc "rm .claude/hooks/dads_room_stop.py"',
+    "git mv .claude/settings.json /tmp/s.json",
+    "mv -f /tmp/s.json .claude/settings.json",
+    "cp -f /tmp/x.json .claude/settings.local.json",
+    "truncate -s0 .claude/settings.json",
+    "> .claude/settings.local.json",
+    "rm -f ./.claude/settings.local.json",
+    "echo done && rm -r .claude/hooks",
+]
+HELD_OUT_POWERSHELL_ROUTES = [
+    "Move-Item .claude\\hooks C:\\tmp\\hooks",
+    "Remove-Item -LiteralPath .claude\\settings.json",
+    "Rename-Item .claude\\hooks hooks_off",
+    "Clear-Content .claude\\settings.json",
+    "Out-File -FilePath .claude\\settings.json -InputObject '{}'",
+]
+HELD_OUT_ORDINARY_ROUTES = [
+    "ls -la .claude/hooks",
+    "rm -rf .claude/cache",
+    "mv .claude/hooks_notes.md /tmp/",
+    "find .claude/hooks -name '*.pyc' -delete",
+    "rm .claude/hooks/old_helper.py",
+]
+
+ORDINARY_ROUTES = [
+    f"cat {_H}",
+    f"cp {_H} /tmp/b.py",
+    "rm -rf build dist node_modules/.cache",
+    "rm build/*",
+    "find . -name '*.pyc' -delete",
+    "find . -name '*.pyc' | xargs rm",
+    "sed -i 's/a/b/' README.md",
+    f'sed -i \'s/"timeout": 5/"timeout": 9/\' {_S}',
+    f"git checkout origin/main -- {_H} {_S}",
+    "bash -c 'ls -la'",
+    f"python -c \"print(open('{_S}').read())\"",
+    f"cp {_S} /tmp/settings_backup.json",
+]
+
+
+@pytest.mark.parametrize("command", PLAIN_REMOVAL_ROUTES + HELD_OUT_BASH_ROUTES)
+def test_every_plain_removal_route_is_paused(marker, command):
+    assert pause_for("Bash", {"command": command}, marker) is not None
+
+
+@pytest.mark.parametrize("command", POWERSHELL_REMOVAL_ROUTES + HELD_OUT_POWERSHELL_ROUTES)
+def test_every_plain_powershell_removal_route_is_paused(marker, command):
+    assert pause_for("PowerShell", {"command": command}, marker) is not None
+
+
+@pytest.mark.parametrize("command", ORDINARY_ROUTES + HELD_OUT_ORDINARY_ROUTES)
+def test_closing_the_routes_leaves_ordinary_work_free(marker, command):
+    assert pause_for("Bash", {"command": command}, marker) is None
+    assert not marker.exists()
+
+
+def test_wrapping_the_command_in_a_comment_keeps_the_name_but_removes_the_wiring(marker):
+    edit = {
+        "file_path": _S,
+        "old_string": f'"python {_H}"',
+        "new_string": f'"true # python {_H}"',
+    }
+    assert pause_for("Edit", edit, marker) is not None
+
+
+def test_a_timeout_edit_that_leaves_the_wiring_string_untouched_is_not_paused(marker):
+    edit = {
+        "file_path": _S,
+        "old_string": f'"python {_H}", "timeout": 5',
+        "new_string": f'"python {_H}", "timeout": 9',
+    }
+    assert pause_for("Edit", edit, marker) is None
+
+
+def test_a_whole_file_write_that_drops_the_stop_block_but_keeps_the_name_is_paused(
+    marker, tmp_path
+):
+    settings = tmp_path / "settings.json"
+    settings.write_text('{"hooks": {"Stop": [{"command": "python ' + _H + '"}]}}', encoding="utf-8")
+    kept_name_only = '{"hooks": {"Stopped": [{"command": "python ' + _H + '"}]}}'
+    assert (
+        pause_for("Write", {"file_path": str(settings), "content": kept_name_only}, marker)
+        is not None
+    )
+
+
 def test_the_real_door_writes_no_decision_for_two_ordinary_hook_edits(marker, tmp_path):
     import os
     import subprocess

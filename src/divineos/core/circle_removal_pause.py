@@ -12,10 +12,23 @@ whatever reason is or is not given, so the pause is an invitation and never a ga
 
 WHAT IT CANNOT SEE, said so silence is not read as coverage: an intent with no act. If one of us is told to
 take the room out and simply does nothing, nothing fires; that agreement is ours to hold in the room.
+
+ROUTES LEFT OPEN ON PURPOSE (2026-11-03, after the outside reader's probe): the plain removals of the hook file
+or its registration are closed (the file, a glob that matches it, the folder holding it, settings.json, by any
+of the delete/move/overwrite verbs and their PowerShell aliases, through bash -c / eval / pwsh wrappers, and by
+one-liners in python, node, perl, ruby, php). NOT closed, because the act is not in the text of the call:
+  - a path held in a variable or built by a script (rm $f; python do_it.py), or an encoded command run by a shell;
+  - git reset --hard, git stash, git clean, git checkout . : they can take the room out without naming it, and
+    they are also ordinary daily work, so holding them would be a pause on nearly everything (Aria's named misses);
+  - chmod / attrib / icacls on the file: it disables the room without removing it.
+These are what Aria's room-state check (PR 768) is for: it looks at whether the room stands, not at the act.
+A list of verbs always loses to the next verb; this one is a speed bump with a plain sentence on it.
 """
 
 from __future__ import annotations
 
+import fnmatch
+import itertools
 import json
 import os
 import re
@@ -23,6 +36,8 @@ import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+
+from divineos.core.command_parsing import shell_command_body
 
 ROOM = "dads_room_stop"
 DEFAULT_MARKER = Path(
@@ -40,7 +55,7 @@ _ROOM_REF = re.compile(r"(?<![\w.-])" + re.escape(ROOM_FILE) + r"(?![\w.])", re.
 
 def _final(token: str) -> str:
     """The last path component of a path or command word, either slash, quotes and a trailing slash dropped."""
-    cleaned = token.strip().strip("\"'").replace("\\", "/").rstrip("/")
+    cleaned = token.strip().strip("\"'").replace("\\", "/").rstrip("/)};`")
     return cleaned.rsplit("/", 1)[-1]
 
 
@@ -52,27 +67,101 @@ def _is_settings(token: str) -> bool:
     return _SETTINGS_NAME.fullmatch(_final(token)) is not None
 
 
+# The quoted string that wires the room in, e.g. "python .claude/hooks/dads_room_stop.py". An edit that leaves
+# the name in the text but changes that string ("true # python ...") has still unwired it.
+_WIRING_STRING = re.compile(r'"[^"\n]*' + re.escape(ROOM_FILE) + r'[^"\n]*"', re.IGNORECASE)
+
+
+def _wiring_lost(before: str, after: str) -> bool:
+    if len(_ROOM_REF.findall(after)) < len(_ROOM_REF.findall(before)):
+        return True
+    return any(wired not in after for wired in _WIRING_STRING.findall(before))
+
+
 # A command is read as words, not searched as a string: a shell line is segments, each a verb acting on
 # arguments, and only the final component of an argument says which file it is. Quoted text stays one word.
 _WORD = r"""(?:"[^"]*"|'[^']*'|[^\s;&|<>"'])+"""
 _TOKENS = re.compile(r"\n|&&|\|\||>>|>\||[;&|<>]|" + _WORD)
 _BREAKS = {"\n", ";", "&&", "||", "|", "&"}
 _REDIRECTS = {">", ">>", ">|"}
+_GLOB = re.compile(r"[*?\[]")
 
-_DELETE_OR_MOVE = {
-    "rm",
-    "mv",
-    "del",
-    "unlink",
-    "remove-item",
-    "truncate",
-    "rename-item",
-    "move-item",
-    "clear-content",
-}
-_WRITE_OVER = {"set-content", "add-content", "out-file", "tee"}
 
-# Python one-liners: the path must be a quoted literal whose final component is the hook file or a settings file.
+def _norm(token: str) -> str:
+    return token.strip().strip("\"'").replace("\\", "/").rstrip("/").removeprefix("./").casefold()
+
+
+def _is_hooks_dir(token: str) -> bool:
+    """The folder the room lives in, or the one above it: removing either removes the room."""
+    path = _norm(token)
+    return path in (".claude/hooks", ".claude") or path.endswith(("/.claude/hooks", "/.claude"))
+
+
+def _glob_matches_room(token: str) -> bool:
+    """A glob that would sweep up the hook file: in the hooks folder, or starting with the room's own name.
+    A bare "*" in some other folder (rm build/*) is ordinary cleanup and is not the room."""
+    final = _final(token).casefold()
+    if not _GLOB.search(final) or not fnmatch.fnmatchcase(ROOM_FILE, final):
+        return False
+    path = _norm(token)
+    parent = path.rsplit("/", 1)[0] if "/" in path else ""
+    return final.startswith("dads_room") or parent.endswith(".claude/hooks")
+
+
+def _is_target(token: str) -> bool:
+    """The room, its registration, the folder holding either, or a glob that would take the room with it."""
+    return (
+        _is_room(token) or _is_settings(token) or _is_hooks_dir(token) or _glob_matches_room(token)
+    )
+
+
+def _is_written_target(token: str) -> bool:
+    return _is_room(token) or _is_settings(token)
+
+
+# The verbs that delete, move or empty something, with the aliases a shell person actually reaches for
+# (PowerShell's ri, rd, ren, mi, sc, clc; shred; rmdir). Copy-like verbs overwrite only their LAST argument.
+_DELETE_OR_MOVE = frozenset(
+    [
+        "rm",
+        "mv",
+        "del",
+        "unlink",
+        "rmdir",
+        "erase",
+        "shred",
+        "truncate",
+        "remove-item",
+        "ri",
+        "rd",
+        "rename-item",
+        "ren",
+        "rni",
+        "move",
+        "move-item",
+        "mi",
+    ]
+)
+_WRITE_OVER = frozenset(
+    ["set-content", "sc", "add-content", "ac", "out-file", "tee", "clear-content", "clc"]
+)
+_COPY_OVER = frozenset(["cp", "copy", "copy-item", "cpi", "xcopy", "install", "ln"])
+_DESTRUCTIVE = _DELETE_OR_MOVE | {"sed", "perl", "dd", "tee"}
+_POWERSHELLS = frozenset({"powershell", "pwsh", "cmd"})
+_INTERPRETERS = ("python", "py", "node", "deno", "bun", "perl", "ruby", "php", "lua")
+
+# One-liners in another language: the hook file, its folder or a settings file named next to an act that
+# removes, replaces or rewrites. Quoted literals have lost their quotes by the time they are read here.
+_SCRIPT_ACT = re.compile(
+    r"remove|unlink|rmSync|rmdir|rmtree|rename|truncate|delete|write_text|write_bytes|writeFile|appendFile"
+    r"|move|copy",
+    re.IGNORECASE,
+)
+_SETTINGS_REF = re.compile(r"(?<![\w.-])settings(?:\.local)?\.json(?![\w.])", re.IGNORECASE)
+_HOOKS_DIR_REF = re.compile(r"\.claude[/\\]hooks[/\\]?(?=['\")\s;]|$)", re.IGNORECASE)
+
+# Python one-liners that open a file to write, or move or remove it by path: the path must be a quoted literal
+# whose final component is the hook file or a settings file.
 _PY_ROOM = r"""['"](?:[^'"]*[/\\])?""" + re.escape(ROOM_FILE) + r"""['"]"""
 _PY_SETTINGS = r"""['"](?:[^'"]*[/\\])?settings(?:\.local)?\.json['"]"""
 _PYTHON_REMOVAL = re.compile(
@@ -87,6 +176,8 @@ _PYTHON_REMOVAL = re.compile(
     + r")[^)]*,\s*['\"][wa]",
     re.IGNORECASE,
 )
+
+_MAX_DEPTH = 3  # bash -c inside eval inside pwsh: three wrappers deep is enough, and bounded
 
 
 def _unquote(word: str) -> str:
@@ -117,7 +208,7 @@ def _git_removes(rest: list[str]) -> bool:
         return False
     sub, args = rest[skip].lower(), rest[skip + 1 :]
     if sub in ("rm", "mv"):
-        return any(_is_room(a) for a in args if not a.startswith("-"))
+        return any(_is_target(a) for a in args if not a.startswith("-"))
     if sub in ("checkout", "restore"):
         if flags & {"-b", "-B", "-c", "-C", "--orphan"} or _restores_from_main(args):
             return False  # making a branch is not a path; restoring from main is the repair
@@ -130,13 +221,34 @@ def _git_removes(rest: list[str]) -> bool:
     return False
 
 
-def _segment_removes(words: list[str]) -> bool:
+def _find_removes(rest: list[str]) -> bool:
+    """find that deletes or runs a destructive verb, over a name that would match the room."""
+    lowered = [t.lower() for t in rest]
+    acts = "-delete" in lowered or any(
+        t in ("-exec", "-execdir", "-ok")
+        and i + 1 < len(rest)
+        and rest[i + 1].lower() in _DESTRUCTIVE
+        for i, t in enumerate(lowered)
+    )
+    if not acts:
+        return False
+    starts = [t for t in itertools.takewhile(lambda w: not w.startswith(("-", "(", "!")), rest)]
+    in_scope = any(_is_hooks_dir(p) or _norm(p) in ("", ".") for p in starts) or not starts
+    names = [t for t in rest if not t.startswith("-")]
+    named = any(
+        _is_room(t) or (_GLOB.search(t) and fnmatch.fnmatchcase(ROOM_FILE, t.casefold()))
+        for t in names
+    )
+    return named and (in_scope or any(_is_room(t) for t in names))
+
+
+def _segment_removes(words: list[str], seen: list[str], depth: int) -> bool:
     plain: list[str] = []
     i = 0
     while i < len(words):
         if words[i] in _REDIRECTS:
             # "> file", ">> file", ": > file": the target is what is written, not any word that names the file.
-            if i + 1 < len(words) and (_is_room(words[i + 1]) or _is_settings(words[i + 1])):
+            if i + 1 < len(words) and _is_written_target(words[i + 1]):
                 return True
             i += 2
             continue
@@ -146,26 +258,59 @@ def _segment_removes(words: list[str]) -> bool:
         plain.pop(0)  # VAR=value prefixes
     if not plain:
         return False
+    plain[0] = plain[0].lstrip("({`$")  # a subshell, or a command run from a substitution
     verb = _final(plain[0]).lower().removesuffix(".exe")
     rest = plain[1:]
     args = [a for a in rest if not a.startswith("-")]
     if verb == "git":
         return _git_removes(rest)
-    if verb in _DELETE_OR_MOVE or verb in _WRITE_OVER:
-        return any(_is_room(a) for a in args)
-    if verb == "cp":
+    if verb in _DELETE_OR_MOVE:
+        return any(_is_target(a) for a in args)
+    if verb in _WRITE_OVER:
+        return any(_is_written_target(a) for a in args)
+    if verb in _COPY_OVER:
         # Only the destination is overwritten; copying the hook file somewhere else is a backup, not a removal.
-        return len(args) >= 2 and _is_room(args[-1])
-    if verb == "sed" and any(re.match(r"-(?:[A-Za-z]*i|-in-place)", t) for t in rest):
-        mentions = any(ROOM in t for t in rest)
+        return len(args) >= 2 and _is_written_target(args[-1])
+    if verb == "dd":
+        return any(t.startswith("of=") and _is_written_target(t[3:]) for t in rest)
+    if verb in ("sed", "perl") and any(re.match(r"-(?:[A-Za-z]*i|-in-place)", t) for t in rest):
+        mentions = any(ROOM in t or re.search(r"\bStop\b", t) for t in rest)
         return any(_is_room(a) for a in args) or (mentions and any(_is_settings(a) for a in args))
+    if verb == "find":
+        return _find_removes(rest)
+    if verb == "xargs":
+        # find ... | xargs rm: the names went by in an earlier segment, the verb comes here.
+        after = [a for a in rest if not a.startswith("-")]
+        named_before = any(_is_room(w) or _is_hooks_dir(w) or _glob_matches_room(w) for w in seen)
+        return bool(after) and after[0].lower() in _DELETE_OR_MOVE and named_before
+    if depth < _MAX_DEPTH:
+        body = shell_command_body(
+            plain
+        )  # bash -c "...", sh -lc "...", eval "...": judge what is inside
+        if body is not None and _shell_removes(body, depth + 1):
+            return True
+        if verb in _POWERSHELLS and any(
+            " " in a and _shell_removes(a, depth + 1) for a in rest if not a.startswith("-")
+        ):
+            return True
+    if verb.startswith(_INTERPRETERS):
+        text = " ".join(rest)
+        if _SCRIPT_ACT.search(text):
+            return bool(
+                _ROOM_REF.search(text) or _SETTINGS_REF.search(text) or _HOOKS_DIR_REF.search(text)
+            )
     return False
 
 
-def _shell_removes(command: str) -> bool:
+def _shell_removes(command: str, depth: int = 0) -> bool:
     if _PYTHON_REMOVAL.search(command):
         return True
-    return any(_segment_removes(segment) for segment in _segments(command))
+    seen: list[str] = []
+    for segment in _segments(command):
+        if _segment_removes(segment, seen, depth):
+            return True
+        seen.extend(segment)
+    return False
 
 
 # Written when a second removal call goes through, so the state check can tell a room he chose to remove from
@@ -205,8 +350,7 @@ def _removes_the_room(tool_name: str, tool_input: dict) -> bool:
         old = str(tool_input.get("old_string", ""))
         new = str(tool_input.get("new_string", ""))
         return _is_settings(path) and (
-            len(_ROOM_REF.findall(new))
-            < len(_ROOM_REF.findall(old))  # unwired, renamed, or suffixed off
+            _wiring_lost(old, new)  # unwired, renamed, suffixed off, or wrapped in a comment
             or ('"Stop"' in old and '"Stop"' not in new)  # the block the room hangs off
         )
     if tool_name == "Write":
@@ -221,9 +365,8 @@ def _removes_the_room(tool_name: str, tool_input: dict) -> bool:
             return (
                 False  # both-empty: a settings file that cannot be read has no wiring to take out
             )
-        return len(_ROOM_REF.findall(str(tool_input.get("content", "")))) < len(
-            _ROOM_REF.findall(before)
-        )
+        content = str(tool_input.get("content", ""))
+        return _wiring_lost(before, content) or ('"Stop"' in before and '"Stop"' not in content)
     if tool_name in ("Bash", "PowerShell"):
         return _shell_removes(str(tool_input.get("command", "")))
     return False  # both-empty: a tool this pause does not watch removes nothing it can see
