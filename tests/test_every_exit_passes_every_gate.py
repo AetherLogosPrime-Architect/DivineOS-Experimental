@@ -360,7 +360,11 @@ def test_the_build_gate_control_still_refuses_ordinary_work(build_gate_exempts):
 # is still missing from the python list and is owed. A count pins how many hooks exist, not
 # which: a gate swapped for another keeps the number, so this is a tripwire for additions
 # and the survey of printed exits is the real check.
-_PRE_TOOL_USE_HOOKS_WHEN_WRITTEN = 32
+# 32 -> 33 on 2026-11-03: circle_removal_pause.py joined (Dad: the room is never unplugged in one call). The
+# question this test asks was answered: its only exit is "make the same call again", which is the call the
+# other gates already judge, so there is no new command for the shared remedy list to carry. It blocks only
+# the act of removing the room; nothing else it sees is held.
+_PRE_TOOL_USE_HOOKS_WHEN_WRITTEN = 33
 
 
 def _pre_tool_use_hook_count() -> int:
