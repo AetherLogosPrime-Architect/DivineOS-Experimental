@@ -10,7 +10,7 @@ _CARD = (
     "[memory] Where things live, one command each: what happened `divineos context`; "
     'what I know `divineos ask "topic"`; my writing, letters and knowledge prose by meaning '
     '`divineos find query "topic"`; my explorations `divineos recall-explorations`; '
-    "his words `divineos andrew-correction list`.",
+    'his words `divineos his-words find "words"`.',
     "[memory] Arrives by itself: his past words and the memory link's matches on each of "
     "his messages. Not searched yet: dreams and rest sessions.",
     "[memory] When something feels lost: search outward and inward together "

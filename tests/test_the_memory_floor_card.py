@@ -37,9 +37,10 @@ def test_every_command_the_card_names_exists():
         ["ask"],
         ["find", "query"],
         ["recall-explorations"],
-        ["andrew-correction", "list"],
+        ["his-words", "find"],
     ):
         assert expected in named
+    assert ["andrew-correction", "list"] not in named  # open corrections only, not a search
     for path in named:
         result = CliRunner().invoke(cli, [*path, "--help"])
         assert result.exit_code == 0, f"card names `divineos {' '.join(path)}`: {result.output}"
@@ -54,12 +55,14 @@ def test_hook_calls_memory_floor():
 
 
 def test_broken_import_prints_nothing_and_exits_zero():
+    # Portable: no shell. The hook discards stderr and ends in `exit 0`; those two
+    # facts are asserted on its text, and the part that is Python's (a failed
+    # import prints nothing on stdout) is run directly.
     broken = CALL.replace("divineos.core.memory_floor", "divineos.core.memory_floor_missing")
-    out = subprocess.run(
-        f'"{sys.executable}" -c "{broken}" 2>/dev/null; exit 0',
-        shell=True,
-        capture_output=True,
-        text=True,
-    )
-    assert out.returncode == 0
+    out = subprocess.run([sys.executable, "-c", broken], capture_output=True, text=True)
+    assert out.returncode != 0  # control: the import really did fail
     assert out.stdout == ""
+    lines = HOOK.read_text().splitlines()
+    call_lines = [ln for ln in lines if "divineos.core.memory_floor import card" in ln]
+    assert len(call_lines) == 1 and call_lines[0].rstrip().endswith("2>/dev/null")
+    assert lines[-1].strip() == "exit 0"
