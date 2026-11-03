@@ -18,8 +18,19 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-_DIVINEOS_WORD = re.compile(r"(?<![\w-])divineos(?![\w-])", re.IGNORECASE)
-_PYTEST_WORD = re.compile(r"(?<![\w-])pytest(?![\w-])", re.IGNORECASE)
+_NAMES = {"divineos", "pytest", "py.test"}
+# A folder path may hold spaces and hyphens, but a space followed by a hyphen starts a flag,
+# so the path ends there. A relative prefix may not hold spaces at all.
+_PATH = r"(?:(?:[A-Za-z]:)?/(?:(?!\s-).)*?/|\S*/)?"
+_DIRECT_EXE = re.compile(
+    "^" + _PATH + r"(?:divineos|pytest|py\.test)(?:\.exe)?(?:\s|$)", re.IGNORECASE
+)
+_FIRST_SCRIPT = re.compile(
+    "^" + _PATH + r"(?:divineos|pytest|py\.test)(?:\.(?:py|exe|cmd))?(?:\s|$)", re.IGNORECASE
+)
+_PYTHON_EXE = re.compile(
+    "^" + _PATH + r"(?:python[\d.]*|pythonw|py)(?:\.exe)?(?:\s+(?P<rest>.*))?$", re.IGNORECASE
+)
 _RELATIVE_SCRIPT = re.compile(r"(?:^|\s)(?:\./)?scripts/\S+")
 _ONE_LINE_LIMIT = 120
 
@@ -69,7 +80,30 @@ def _names_the_repo(cmdline: str, repo_root: Path) -> bool:
         return True
     if _RELATIVE_SCRIPT.search(flat):
         return True
-    return bool(_DIVINEOS_WORD.search(flat) or _PYTEST_WORD.search(flat))
+    return _runs_divineos_or_pytest(flat)
+
+
+def _runs_divineos_or_pytest(flat: str) -> bool:
+    """True when the program being run IS divineos or pytest, not when a word mentions one.
+
+    ``grep -r divineos /etc``, ``pip install pytest`` and ``ssh host pytest`` carry the
+    word only as an argument, so they are not ours. Ours: the executable itself, or a
+    python interpreter whose ``-m`` module or first script is one of them.
+    """
+    if _DIRECT_EXE.match(flat):
+        return True
+    m = _PYTHON_EXE.match(flat)
+    if not m:
+        return False
+    rest = (m.group("rest") or "").split()
+    i = 0
+    while i < len(rest) and rest[i].startswith("-"):
+        if rest[i] == "-m" and i + 1 < len(rest):
+            return rest[i + 1].split(".")[0].lower() in _NAMES
+        i += 2 if rest[i] in ("-W", "-X") else 1
+    # The first script may sit in a folder with spaces in its name, so match the joined
+    # remainder rather than one whitespace-split token.
+    return bool(_FIRST_SCRIPT.match(" ".join(rest[i:])))
 
 
 def select_ours(rows: list[ProcessRow], repo_root: Path) -> list[ProcessRow]:

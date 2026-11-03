@@ -8,6 +8,7 @@ an empty list from a blind reader looks exactly like an empty room.
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -96,9 +97,56 @@ def test_the_module_has_no_way_to_kill_or_write():
         assert forbidden not in source, forbidden
 
 
-def test_the_command_runs_and_prints_a_header():
+def test_a_word_in_the_arguments_does_not_make_a_process_ours():
+    decoys = [
+        _row(600, 1, 5, "grep -r divineos /etc"),
+        _row(601, 1, 5, "/usr/bin/pip install pytest"),
+        _row(602, 1, 5, "ssh host pytest"),
+        _row(603, 1, 5, "/usr/bin/python3 -c print('divineos pytest')"),
+        _row(604, 1, 5, "C:/Windows/System32/notepad.exe divineos.txt"),
+    ]
+    assert rp.select_ours(decoys, REPO) == []
+
+
+def test_the_program_being_divineos_or_pytest_is_ours_in_each_launch_shape():
+    real = [
+        _row(700, 1, 5, "pytest tests/ -q"),
+        _row(701, 1, 5, "/home/u/.venv/bin/divineos briefing"),
+        _row(702, 1, 5, "C:/Program Files/Python313/python.exe -m pytest -q"),
+        _row(703, 1, 5, "python -W ignore -m divineos.cli hud"),
+        _row(704, 1, 5, "C:/Users/me/proj/.direnv/python-3.13.11/Scripts/divineos.exe running"),
+    ]
+    assert {r.pid for r in rp.select_ours(real, REPO)} == {700, 701, 702, 703, 704}
+
+
+def test_the_command_lists_a_real_process_and_leaves_a_decoy_out(tmp_path):
+    """A live control: both children are asserted alive before the command is read."""
+    import subprocess
+    import sys
+
     from divineos.cli import cli
 
-    result = CliRunner().invoke(cli, ["running"])
-    assert result.exit_code == 0, result.output
-    assert "running" in result.output.lower()
+    real = tmp_path / "divineos.py"
+    decoy = tmp_path / "sleeper.py"
+    for script in (real, decoy):
+        script.write_text("import time\ntime.sleep(60)\n", encoding="utf-8")
+    procs = [
+        subprocess.Popen([sys.executable, str(real)]),
+        subprocess.Popen([sys.executable, str(decoy), "divineos"]),
+    ]
+    try:
+        assert all(p.poll() is None for p in procs), "a control exited before it was read"
+        # Wait until the table shows both, so a slow start is not read as absence.
+        deadline = time.time() + 20
+        pids = {r.pid for r in rp.read_live_rows()}
+        while time.time() < deadline and not all(p.pid in pids for p in procs):
+            time.sleep(0.2)
+            pids = {r.pid for r in rp.read_live_rows()}
+        result = CliRunner().invoke(cli, ["running"])
+        assert result.exit_code == 0, result.output
+        assert f"pid {procs[0].pid} " in result.output, result.output
+        assert f"pid {procs[1].pid} " not in result.output, result.output
+    finally:
+        for p in procs:
+            p.kill()
+            p.wait()
