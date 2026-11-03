@@ -39,14 +39,16 @@ def register(cli: click.Group) -> None:
     def auto_cycle_offer() -> None:
         """Render the invitational menu and record the offering.
 
-        Reads the phase 1 handshake marker at
-        ``~/.divineos/auto_cycle_phase1_done.json``. If absent, surfaces
+        Reads the phase 1 handshake marker (``auto_cycle_phase1_done.json``
+        in this house's data folder, the path phase 1 itself reports). If absent, surfaces
         that no handshake was found. If present, renders the flat
         option menu with use-count mirror, writes a pending marker so
         ``close`` can correlate, and consumes the handshake.
         """
         record, text = offer_cycle()
         if record is None:
+            from divineos.core.auto_cycle import marker_path
+
             click.secho(
                 "[~] No phase 1 handshake found — refusing to fire.",
                 fg="bright_black",
@@ -57,9 +59,9 @@ def register(cli: click.Group) -> None:
                 "'nothing to do, proceed.' Phase 2 fails toward not-firing "
                 "so a write-failure at phase 1 cannot silently look like a "
                 "successful no-op.\n"
-                "    Phase 1 writes ~/.divineos/auto_cycle_phase1_done.json "
+                f"    Phase 1 writes {marker_path()} "
                 "when the mechanical pipeline completes; if that path is "
-                "missing, either phase 1 never ran OR its write itself failed.",
+                "missing or unreadable, either phase 1 never ran OR its write itself failed.",
                 fg="bright_black",
             )
             return

@@ -67,7 +67,9 @@ completes.
 
 from __future__ import annotations
 
+import calendar
 import json
+import math
 import time
 import uuid
 from dataclasses import dataclass
@@ -189,9 +191,21 @@ def read_handshake() -> HandshakeResult | None:
     if not isinstance(data, dict):
         return None
 
-    steps = data.get("steps") or {}
-    if not isinstance(steps, dict):
-        steps = {}
+    # Phase 1 always writes its steps. A marker with none, or a non-object, is valid JSON that is not
+    # phase 1's marker, and reading it as "completed with nothing failed" was the opposite of this
+    # function's own invariant (the second reader, 2026-11-03: `{}` rendered a full menu and was deleted).
+    steps = data.get("steps")
+    if not isinstance(steps, dict) or not steps:
+        return None
+
+    try:
+        trigger_pct = float(data.get("trigger_context_pct", 0.0))
+        tokens_used = int(data.get("phase1_tokens_used", 0))
+        budget_left = int(data.get("budget_remaining_est", 0))
+    except (TypeError, ValueError):
+        return None  # a value that is present but not a number is malformed, not a crash
+    if not math.isfinite(trigger_pct):
+        return None
 
     any_step_failed = False
     fatal_step_failure = False
@@ -211,10 +225,10 @@ def read_handshake() -> HandshakeResult | None:
 
     return HandshakeResult(
         completed_at=str(data.get("phase1_completed_at", "")),
-        trigger_context_pct=float(data.get("trigger_context_pct", 0.0)),
+        trigger_context_pct=trigger_pct,
         steps=steps,
-        phase1_tokens_used=int(data.get("phase1_tokens_used", 0)),
-        budget_remaining_est=int(data.get("budget_remaining_est", 0)),
+        phase1_tokens_used=tokens_used,
+        budget_remaining_est=budget_left,
         session_id=data.get("session_id"),
         cycle_id=str(data.get("cycle_id", "")),
         any_step_failed=any_step_failed,
@@ -476,7 +490,8 @@ def close_cycle(
     cycle_id = str(pending.get("cycle_id", ""))
     offered_at_str = str(pending.get("offered_at", ""))
     try:
-        offered_ts = time.mktime(time.strptime(offered_at_str, "%Y-%m-%dT%H:%M:%SZ"))
+        # The string is UTC; mktime would read it as local time and be hours off (the second reader, finding 4).
+        offered_ts = float(calendar.timegm(time.strptime(offered_at_str, "%Y-%m-%dT%H:%M:%SZ")))
     except (ValueError, TypeError):
         offered_ts = time.time()
 

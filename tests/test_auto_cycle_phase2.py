@@ -78,6 +78,57 @@ class TestReadHandshake:
         ac._handshake_marker().write_text("{not-json", encoding="utf-8")
         assert read_handshake() is None
 
+    _OK_STEPS = '"steps": {"commit": {"ran": true, "succeeded": true}}'
+
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            "{}",
+            '{"cycle_id": "x"}',
+            '{"steps": "oops"}',
+            '{"steps": null}',
+            '{"steps": {}}',
+            '{"steps": ["commit"]}',
+            "{" + _OK_STEPS + ', "trigger_context_pct": "abc"}',
+            "{" + _OK_STEPS + ', "trigger_context_pct": null}',
+            "{" + _OK_STEPS + ', "trigger_context_pct": NaN}',
+            "{" + _OK_STEPS + ', "phase1_tokens_used": "12.5"}',
+            "{" + _OK_STEPS + ', "budget_remaining_est": null}',
+        ],
+    )
+    def test_a_marker_that_is_not_a_real_marker_reads_as_did_not_complete(
+        self, marker_paths: Path, raw: str
+    ):
+        """The second reader's finding 1 and 3: valid JSON is not a valid marker. Phase 1 always writes steps
+        and numbers, so a marker without steps, or with a value that is not a number, is 'did not complete'
+        (None), not a completed phase 1 and not a traceback."""
+        ac._handshake_marker().write_text(raw, encoding="utf-8")
+        assert read_handshake() is None
+
+    def test_offering_on_a_marker_with_no_steps_refuses_and_keeps_the_marker(
+        self, marker_paths: Path
+    ):
+        ac._handshake_marker().write_text("{}", encoding="utf-8")
+        record, text = ac.offer_cycle()
+        assert record is None and text == ""
+        assert ac._handshake_marker().exists()
+
+    def test_the_duration_does_not_depend_on_the_local_timezone(
+        self, marker_paths: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """The second reader's finding 4: the offered time is a UTC string; mktime reads it as LOCAL time."""
+        import calendar
+        import time as _time
+
+        offered = _time.strftime("%Y-%m-%dT%H:%M:%SZ", _time.gmtime())
+        ac._pending_marker().write_text(
+            json.dumps({"cycle_id": "tz-1", "offered_at": offered}), encoding="utf-8"
+        )
+        # a seat nine hours east of UTC: the old code read the UTC string as local, nine hours off
+        monkeypatch.setattr(_time, "mktime", lambda tup: calendar.timegm(tup) - 9 * 3600)
+        record = ac.close_cycle("no-pull-honest")
+        assert record is not None and record.duration_sec < 60
+
     def test_transient_step_failure_flagged_but_not_fatal(self, marker_paths: Path):
         _write_handshake(
             ac._handshake_marker(),
@@ -378,13 +429,38 @@ class TestPhase2ReadsWhereReaderPhase1Writes:
         monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
         written = tmp_path / "auto_cycle_phase1_done.json"
         written.write_text(
-            json.dumps({"cycle_id": "auto-cycle-abc", "steps": {}, "repo_root": "x"}),
+            json.dumps(
+                {
+                    "cycle_id": "auto-cycle-abc",
+                    # phase 1 always writes its steps; this test is about WHERE the marker is read, not
+                    # about an empty one (which is now, rightly, "did not complete")
+                    "steps": {"commit": {"ran": True, "succeeded": True}},
+                    "repo_root": "x",
+                }
+            ),
             encoding="utf-8",
         )
         assert auto_cycle.marker_path() == written
         found = read_handshake()
         assert found is not None
         assert found.cycle_id == "auto-cycle-abc"
+
+
+class TestTheRefusalNamesThePathItReallyReads:
+    def test_the_message_names_this_houses_marker_not_the_default_one(self, tmp_path, monkeypatch):
+        """The second reader's finding 6: the text said ~/.divineos/... while the code reads divineos_home()."""
+        import click
+        from click.testing import CliRunner
+
+        from divineos.cli import auto_cycle_phase2_commands as cmds
+        from divineos.cli.auto_cycle_commands import auto_cycle_group
+        from divineos.core import auto_cycle
+
+        monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
+        cmds.register(click.Group())
+        out = CliRunner().invoke(auto_cycle_group, ["offer"]).output
+        assert str(auto_cycle.marker_path()) in out
+        assert "~/.divineos" not in out
 
 
 class TestMissingMeansNotCompleted:
