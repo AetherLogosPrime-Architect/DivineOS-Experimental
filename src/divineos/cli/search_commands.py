@@ -146,7 +146,7 @@ def register(cli: click.Group) -> None:
     @search_group.command("index")
     @click.option(
         "--corpus",
-        type=click.Choice(["exploration", "letters", "all"]),
+        type=click.Choice(["exploration", "letters", "dreams", "all"]),
         default="exploration",
         help="Which corpus to index (default: exploration)",
     )
@@ -240,4 +240,8 @@ def _gather_paths(corpus: str) -> list[str]:
         letters_dir = repo_root / "family" / "letters"
         if letters_dir.exists():
             paths.extend(str(p) for p in letters_dir.glob("*.md"))
+    if corpus in ("dreams", "all"):
+        from divineos.core.dream_files import dream_paths
+
+        paths.extend(str(p) for p in dream_paths(repo_root / "dreams"))
     return sorted(paths)
