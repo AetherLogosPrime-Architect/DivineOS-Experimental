@@ -124,6 +124,16 @@ def test_the_command_prints_the_report_and_exits_zero_either_way(tmp_path, capsy
     assert capsys.readouterr().out == ""
 
 
+def test_the_check_itself_cannot_be_dropped_from_session_start_unseen():
+    """The same shape it guards: a check that is written, present and never run reads as a clean house. The
+    session-start roster names the wrapper, the wrapper exists, and it calls this module."""
+    roster = (REPO / ".claude" / "hooks" / "session-init-once.sh").read_text(encoding="utf-8")
+    wrapper = REPO / ".claude" / "hooks" / "session-start-verify-room.sh"
+    assert "\nsession-start-verify-room.sh\n" in roster
+    assert wrapper.is_file()
+    assert "core/room_state.py" in wrapper.read_text(encoding="utf-8")
+
+
 def test_the_probe_uses_the_python_it_is_given(tmp_path):
     """The hook is run with an explicit interpreter, never a bare name that could be a store stub."""
     state = room_state.check(REPO, python=sys.executable)
