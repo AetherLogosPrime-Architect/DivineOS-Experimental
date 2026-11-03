@@ -30,6 +30,19 @@ hash cured the typed-version drift and made every code difference a reset.
    counted by running the cleaner over the corpus (no embedding). When N < M it says the index is
    still catching up. When more than three stamp folders exist it adds their count and total size.
 
+## What Aria's cold read changed (2026-11-03, night)
+
+- **The lock holds pid plus process start time**, not the pid alone (Windows recycles pids): taken
+  over only when that pair matches no live process AND the age bound (ten minutes) has passed. A
+  builder holding it over 60 seconds is logged as slow, so it is seen before it is stale.
+- **Copy-forward verifies five copied vectors** against fresh embeddings each time and refuses the
+  copy if any differ beyond a tolerance (the key hashes the text, not how the embedder was fed it).
+- **The lesson shelf has its own `INDEX_DIR`:** read it first for the same stamp-in-a-shared-folder
+  shape; if it has it, it will wipe next.
+- **The reach line** is always printed in a recall; in the passive surface only when N is less than M
+  or the index was built by another cleaner.
+- **Counting M** is bounded or cached (corpus file size and mtime), so the line never slows a prompt.
+
 ## What it does not do
 
 It does not make the two houses clean text the same way; that is a carry of the live house's

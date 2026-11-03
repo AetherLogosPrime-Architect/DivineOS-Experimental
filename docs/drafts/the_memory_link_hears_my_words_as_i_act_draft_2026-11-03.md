@@ -75,6 +75,31 @@ reaches me as it does from PreToolUse.
   never an exception into the harness; shadow prints nothing. A broken search says so once a session.
 - **Arrives, does not wait to be opened** (Bengio): added context on the next step, no command, no file.
 
+## What the replay and Aria's cold read changed (2026-11-03, night)
+
+- **The replay ran, and it broke a plain floor.** On 55 sentences of mine tonight with the
+  dismissal shape (six distinct sampled, each searched alone, no future leaked), four of the five
+  real dismissals brought back the right correction in the top three, one variant missed, and the
+  right item scored 0.30 to 0.35 while irrelevant knowledge scored 0.43 to 0.55 above it. Aria's
+  independent recall probe saw the same shape. So the selector **orders by kind first** (his
+  corrections and his explaining words, then his lessons, then loose knowledge, my own earlier text
+  last) and applies a floor **per kind**, chosen from the shadow log, not inherited.
+- **Her guard:** the second channel by shape may promote, never suppress. A sentence outside any
+  known shape still gets the plain meaning search; silence on the shape channel never reads as
+  "nothing close". Kind is the tag already on every stored item; no new classifier.
+- **Payload answered by running code:** the before-tool event carries `transcript_path`
+  (`state-gravity-surface.sh` reads it) and its added context reaches me on the next step; the session
+  key is the transcript file name's stem. PostToolUse is not needed.
+- **A recall is not a surface.** Him asking where he said something is a recall: no floor, a
+  measured "searched N of M". Speaking while I act is a surface: a floor and a cap. Two operations,
+  one retriever; the rules of one are never applied to the other.
+- **The one-in-five ceiling is a backstop**, used only if the floor lets too much through; rank
+  first, rate second.
+- **Search with my description text and sentences, not the tool command** (commands and paths embed
+  as noise).
+- **The next replay** is per moment (transcript up to each moment only), with the 111-message
+  dismissal family as a positive control that can say yes.
+
 ## Open for the walk
 
 Is two items the right cap, or one? What is the floor for "close to what I just said" when the
