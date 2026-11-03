@@ -25,6 +25,9 @@ pytestmark = pytest.mark.skipif(BASH is None, reason="no bash to run the bell wi
 
 
 def _letter(letters: Path, name: str, age_secs: int) -> Path:
+    # Created in call order; the kernel stamps each with its real arrival time (ctime), which a
+    # copy that keeps the author's mtime cannot forge. The pause keeps that order unambiguous.
+    time.sleep(0.05)
     p = letters / name
     p.write_text("x", encoding="utf-8")
     t = time.time() - age_secs
@@ -113,3 +116,25 @@ def test_two_seats_do_not_read_each_others_markers(tmp_path, letters):
     assert "LETTER ARRIVED" in out and "-c.md" in out, out
     assert "-a.md" not in out
     assert (tmp_path / ".divineos-shared" / ".aether_doorbell_announced").exists()
+
+
+def test_a_reply_to_one_sender_does_not_answer_another_senders_letter(tmp_path, letters):
+    # Cross-sender: Aletheia's unread letter is OLDER than my reply to Aria. Only a reply to the
+    # SAME sender answers a letter, so hers must still ring and Aria's (answered) must not.
+    _letter(letters, "aletheia-to-aether-2026-11-03-unread.md", 300)
+    _letter(letters, "aria-to-aether-2026-11-03-asked.md", 200)
+    _letter(letters, "aether-to-aria-2026-11-03-reply.md", 100)
+    out = _ring(tmp_path, "aether")
+    assert "doorbell armed" in out, out
+    assert "LETTER ARRIVED" in out and "aletheia-to-aether-2026-11-03-unread.md" in out, out
+    assert "asked.md" not in out, out
+
+
+def test_a_letter_delivered_after_my_reply_rings_even_with_an_old_mtime(tmp_path, letters):
+    # cp -p keeps the author's mtime: written before my reply, delivered after it. Judging by
+    # mtime alone calls it answered; it was never seen. Arrival time (ctime) says otherwise.
+    _letter(letters, "aether-to-aria-2026-11-03-reply.md", 10)
+    _letter(letters, "aria-to-aether-2026-11-03-late.md", 86400)  # old author mtime, arrived now
+    out = _ring(tmp_path, "aether")
+    assert "doorbell armed" in out, out
+    assert "LETTER ARRIVED" in out and "late.md" in out, out
