@@ -217,6 +217,24 @@ def test_the_check_itself_cannot_be_dropped_from_session_start_unseen():
     assert "core/room_state.py" in wrapper.read_text(encoding="utf-8")
 
 
+def test_the_wrapper_never_passes_silently_when_it_cannot_find_the_repo(tmp_path):
+    """Aether's second read of 768: the one path that exited with nothing on screen was git failing to find a root.
+    A verifier that fails silently reads as a clean house, so that path says it is not a clean bill too."""
+    import subprocess
+
+    # The script goes in on stdin: Git's bash cannot open a script by drive-letter path when Python starts it.
+    script = (REPO / ".claude" / "hooks" / "session-start-verify-room.sh").read_bytes()
+    done = subprocess.run(
+        ["bash", "-s"],
+        input=script,
+        cwd=str(tmp_path),  # not a git repository
+        capture_output=True,
+        timeout=60,
+    )
+    assert done.returncode == 0  # a session must still start
+    assert "not a clean bill" in done.stdout.decode("utf-8", "replace")
+
+
 def test_the_probe_uses_the_python_it_is_given(tmp_path):
     """The hook is run with an explicit interpreter, never a bare name that could be a store stub."""
     state = room_state.check(REPO, python=sys.executable)

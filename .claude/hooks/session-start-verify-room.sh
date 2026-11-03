@@ -13,7 +13,10 @@ source "$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.claude/hooks/_li
 
 set -u
 
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+    echo "## DAD'S ROOM: could not find the repository to check it. This is not a clean bill."
+    exit 0
+}
 
 _py="$(find_divineos_python 2>/dev/null || true)"
 if [ -z "$_py" ]; then
