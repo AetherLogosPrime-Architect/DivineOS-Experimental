@@ -445,17 +445,21 @@ def may_carry_arrival(line: str) -> bool:
 # Every notice shape the answer check knows, spelled out. A new shape the harness invents is NOT
 # handled until it is added here (and a case in tests/test_harness_notices_are_not_his_words.py).
 # Real and HTML-escaped tags: ``&lt;system-reminder&gt;`` arrives when a notice is quoted through
-# a layer that escapes it. A tag that never closes is left alone on purpose: eating to the end
-# would swallow his real words after it, and the cost of leaving it is a few notice words counted.
+# a layer that escapes it. A notice is only a WHOLE envelope that opens at a line start and whose
+# closing tag ends its line: a pair he types inside his own sentence is his words, and an
+# envelope that never closes is left alone (eating to the end would swallow his real words).
+# The body may not contain a second opening of the same tag, so a pair he typed cannot stretch
+# over to a real notice further down and take the words between.
 _NOTICE_BLOCK = re.compile(
-    r"(?:<|&lt;)(system-reminder|task-notification)\b[^>]*?(?:>|&gt;)"
-    r"[\s\S]*?(?:</|&lt;/)\1\s*(?:>|&gt;)",
-    re.IGNORECASE,
+    r"^[ \t]*(?:<|&lt;)(system-reminder|task-notification)\b[^>\n]*?(?:>|&gt;)"
+    r"(?:(?!(?:<|&lt;)\1\b)[\s\S])*?(?:</|&lt;/)\1\s*(?:>|&gt;)[ \t]*(?=\n|\Z)",
+    re.IGNORECASE | re.MULTILINE,
 )
-# "[SYSTEM NOTIFICATION - NOT USER INPUT] ..." runs to the end of its paragraph (a blank line).
+# "[SYSTEM NOTIFICATION - NOT USER INPUT] ..." is the banner LINE only, and only at a line start.
+# A mention of it mid-sentence is his words, and the line right after it (no blank line) is his.
 _NOTICE_BANNER = re.compile(
-    r"\[SYSTEM NOTIFICATION\b[^\n]*(?:\n(?![ \t]*\n)[^\n]*)*",
-    re.IGNORECASE,
+    r"^[ \t]*\[SYSTEM NOTIFICATION\b[^\n]*$",
+    re.IGNORECASE | re.MULTILINE,
 )
 
 

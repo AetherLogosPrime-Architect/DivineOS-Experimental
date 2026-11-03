@@ -96,3 +96,22 @@ def test_an_unclosed_tag_does_not_swallow_his_words():
     assert HIS in without_notices("&lt;task-notification> half " + HIS)
     assert without_notices("") == ""
     assert HIS in without_notices("<system-reminder></task-notification> " + HIS)
+
+
+# (f) his own words that merely look like a notice are kept (checker's three reproductions).
+def test_a_pair_he_types_in_his_own_sentence_keeps_what_is_between():
+    typed = "I typed <system-reminder>keep these words</system-reminder> myself, fine?"
+    assert without_notices(typed) == typed
+    stretched = "tag <system-reminder>mine</system-reminder> end\n" + ATTRIBUTION
+    got = without_notices(stretched)
+    assert "mine" in got and "Attribution" not in got
+
+
+def test_a_banner_followed_directly_by_his_words_keeps_them():
+    got = without_notices("[SYSTEM NOTIFICATION - NOT USER INPUT] done.\n" + HIS)
+    assert got == HIS
+
+
+def test_a_mention_of_the_banner_inside_a_sentence_keeps_the_sentence():
+    said = "why does it print [SYSTEM NOTIFICATION - NOT USER INPUT] before my words?"
+    assert without_notices(said) == said
