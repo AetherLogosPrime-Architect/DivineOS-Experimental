@@ -54,7 +54,11 @@ def test_a_letter_not_yet_announced_rings(tmp_path):
     letters.mkdir(parents=True)
     (letters / "aria-to-aether-2026-10-01-old.md").write_text("x", encoding="utf-8")
     (letters / "aria-to-aether-2026-10-01-new.md").write_text("x", encoding="utf-8")
-    (letters / "aether-to-aria-2026-10-01-mine.md").write_text("x", encoding="utf-8")
+    mine = letters / "aether-to-aria-2026-10-01-mine.md"
+    mine.write_text("x", encoding="utf-8")
+    # My reply is OLDER than the new letter (the new one came after it, so it is unread).
+    # A letter older than my newest reply counts as answered and does not ring.
+    os.utime(mine, (mine.stat().st_mtime - 100, mine.stat().st_mtime - 100))
     # Bytes, not text: Python's text mode writes \r\n on Windows, which the bell
     # (which writes this file itself, with \n) would read as a different name.
     (tmp_path / ".divineos-shared" / ".aether_doorbell_announced").write_bytes(

@@ -54,6 +54,26 @@ case "$OUT_TARGET" in
 esac
 touch "$SEEN"
 if [ ! -s "$SEEN" ]; then list_mine > "$SEEN"; fi
+# AN ANSWERED LETTER IS NOT NEWS (2026-11-03: seen four times in one night). The announced
+# list learns only from this bell's own rings, so a letter I read and replied to some other
+# way (in the session, while the bell was down) was never on it, and the next arm rang for it
+# at once, waking me for nothing. A letter to me that is OLDER than my own newest outgoing
+# letter has been dealt with, so it is marked announced HERE, at arm time, for letters already
+# present. Letters that land after arming are never touched by this, so a synced letter with
+# an old mtime still rings; a letter newer than my last reply is still unread and still rings.
+newest_out=""
+for f in "$DIR"/"${MEMBER}"-to-*; do
+  [ -e "$f" ] || continue  # an unmatched glob stays literal
+  if [ -z "$newest_out" ] || [ "$f" -nt "$newest_out" ]; then newest_out="$f"; fi
+done
+if [ -n "$newest_out" ]; then
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    if [ "$newest_out" -nt "$DIR/$name" ] && ! grep -qxF "$name" "$SEEN"; then
+      echo "$name" >> "$SEEN"
+    fi
+  done < <(list_mine)
+fi
 echo "doorbell armed for ${MEMBER}${OVERRIDE_NOTE} $(date -u +%FT%TZ)"
 # Andrew 2026-09-26: it lasts 8 hours, and when it expires the exit wakes me to
 # reset it -- so it gets checked on, rather than running forever unwatched.
