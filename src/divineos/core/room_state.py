@@ -82,10 +82,23 @@ def _stop_commands(settings_path: Path) -> tuple[list[str], str]:
         return [], f"could not read the Stop block of {settings_path.name} ({type(exc).__name__})"
 
 
+def _hooks_switched_off(settings_path: Path) -> bool:
+    try:
+        data = json.loads(settings_path.read_text(encoding="utf-8"))
+        return isinstance(data, dict) and bool(data.get("disableAllHooks"))
+    except (OSError, ValueError):
+        return False  # unreadable is reported by _stop_commands, not read as "switched off"
+
+
 def _room_commands(claude_dir: Path) -> tuple[list[str], list[str]]:
     """The registered Stop commands that name the room, and any problem reading settings."""
     named: list[str] = []
     problems: list[str] = []
+    for name in SETTINGS_FILES:
+        if _hooks_switched_off(claude_dir / name):
+            # One key in either file silences every hook while the Stop entry stays in place (reader E,
+            # 2026-11-03), so the room counts as unwired whatever the other file still names.
+            return [], [f"{name} has disableAllHooks on: no hook runs, so the room cannot"]
     for name in SETTINGS_FILES:
         commands, problem = _stop_commands(claude_dir / name)
         named += [c for c in commands if _NAMES_ROOM.search(c)]
@@ -165,7 +178,16 @@ def _read_marker(marker: Path) -> dict | None:
         data = json.loads(marker.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None  # absent or unreadable: no decision on record, so the alarm stands
-    return data if isinstance(data, dict) else None
+    if not isinstance(data, dict):
+        return None
+    # A decision is his words, not a file that happens to exist (reader E, 2026-11-03: ordinary edits of a test
+    # file wrote this marker). Without his verbatim line and its time, nothing is on record and the alarm stands.
+    his_words, at = data.get("his_words"), data.get("at")
+    if not (
+        isinstance(his_words, str) and his_words.strip() and isinstance(at, str) and at.strip()
+    ):
+        return None
+    return data
 
 
 def report(repo_root: Path, python: str | None = None, removed_marker: Path | None = None) -> str:

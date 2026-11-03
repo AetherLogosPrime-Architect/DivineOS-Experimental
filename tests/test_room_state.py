@@ -83,8 +83,57 @@ def test_control_the_registered_command_in_the_real_settings_blocks():
 
 def _decided(tmp_path, session="s1"):
     marker = tmp_path / "removed_marker_for_tests.json"
-    marker.write_text(json.dumps({"session": session, "shown_at": 1.0}), encoding="utf-8")
+    marker.write_text(
+        json.dumps(
+            {
+                "session": session,
+                "shown_at": 1.0,
+                "his_words": "yes remove it, i said it twice",
+                "at": "2026-11-03T18:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
     return marker
+
+
+@pytest.mark.parametrize("settings_name", ["settings.json", "settings.local.json"])
+def test_disable_all_hooks_leaves_the_stop_entry_but_the_room_is_not_wired(tmp_path, settings_name):
+    """Reader E (2026-11-03): one key silences every hook and the Stop entry still names the room."""
+    stop = {
+        "hooks": {
+            "Stop": [{"hooks": [{"command": f"python .claude/hooks/{room_state.ROOM_FILE}"}]}]
+        }
+    }
+    house = _house(tmp_path / "h", settings=stop)
+    (house / ".claude" / settings_name).write_text(
+        json.dumps({**stop, "disableAllHooks": True}), encoding="utf-8"
+    )
+    state = room_state.check(house)
+    assert not state.wired and any("disableAllHooks" in p for p in state.problems)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"session": "s1", "shown_at": 1.0},  # the old shape, no words and no time
+        {"session": "s1", "his_words": "", "at": "2026-11-03T18:00:00Z"},
+        {"session": "s1", "his_words": "   ", "at": "2026-11-03T18:00:00Z"},
+        {"session": "s1", "his_words": "remove it", "at": ""},
+        {"session": "s1", "his_words": "remove it"},
+        {"session": "s1", "his_words": 5, "at": "2026-11-03T18:00:00Z"},
+    ],
+)
+def test_a_marker_without_his_words_and_their_time_is_no_decision_and_the_alarm_stands(
+    tmp_path, payload
+):
+    """Reader E (2026-11-03): ordinary edits of a test file wrote the marker, so the watchman said 'on his
+    decision, nothing here is wrong'. A decision is his verbatim words with their time, or it is nothing."""
+    marker = tmp_path / "removed_marker_for_tests.json"
+    marker.write_text(json.dumps(payload), encoding="utf-8")
+    house = _house(tmp_path / "h", settings={"hooks": {"Stop": []}})
+    out = room_state.report(house, removed_marker=marker)
+    assert "NOT STANDING" in out and "on his decision" not in out
 
 
 def test_a_room_he_chose_to_remove_is_named_calmly_once_not_alarmed_forever(tmp_path):
