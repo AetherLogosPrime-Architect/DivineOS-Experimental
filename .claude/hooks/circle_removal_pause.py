@@ -21,7 +21,11 @@ def main() -> int:
     from divineos.core.circle_removal_pause import pause_for
 
     data = json.loads(sys.stdin.read() or "{}")
-    text = pause_for(str(data.get("tool_name", "")), data.get("tool_input") or {})
+    text = pause_for(
+        str(data.get("tool_name", "")),
+        data.get("tool_input") or {},
+        session=str(data.get("session_id", "")),
+    )
     if text:
         print(text, file=sys.stderr)
         return 2

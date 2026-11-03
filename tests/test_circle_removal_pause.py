@@ -122,6 +122,75 @@ def test_a_whole_file_write_that_keeps_the_room_is_not_paused(marker, tmp_path):
     assert pause_for("Write", tool_input, marker) is None
 
 
+def test_a_rename_that_keeps_the_word_but_changes_the_file_is_paused(marker):
+    # Aria's cold read, way 1: the word survives in new_string but the file it names is gone.
+    tool_input = {
+        "file_path": SETTINGS,
+        "old_string": "python .claude/hooks/dads_room_stop.py",
+        "new_string": "python .claude/hooks/dads_room_stop_off.py",
+    }
+    assert pause_for("Edit", tool_input, marker) is not None
+
+
+def test_renaming_the_stop_block_itself_is_paused(marker):
+    # way 2: the room hangs off the Stop key, and the word never appears in the old text.
+    tool_input = {"file_path": SETTINGS, "old_string": '"Stop": [', "new_string": '"Stop_off": ['}
+    assert pause_for("Edit", tool_input, marker) is not None
+
+
+def test_any_write_or_edit_of_the_hook_file_itself_is_paused(marker):
+    # ways 3 and 4: gutting the hook leaves it "running" and printing nothing.
+    hook = ".claude/hooks/dads_room_stop.py"
+    assert (
+        pause_for("Write", {"file_path": hook, "content": "import sys\nsys.exit(0)\n"}, marker)
+        is not None
+    )
+    marker.unlink()
+    edit = {
+        "file_path": hook,
+        "old_string": "def main",
+        "new_string": "import sys\nsys.exit(0)\ndef main",
+    }
+    assert pause_for("Edit", edit, marker) is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "> .claude/hooks/dads_room_stop.py",
+        ": > .claude/hooks/dads_room_stop.py",
+        "cp /dev/null .claude/hooks/dads_room_stop.py",
+        "truncate -s 0 .claude/hooks/dads_room_stop.py",
+        "python -c \"import os;os.rename('.claude/hooks/dads_room_stop.py','x')\"",
+        "python -c \"import os;os.remove('.claude/hooks/dads_room_stop.py')\"",
+        "git mv .claude/hooks/dads_room_stop.py old.py",
+    ],
+)
+def test_the_other_ways_to_hollow_or_move_the_file_are_paused(marker, command):
+    assert pause_for("Bash", {"command": command}, marker) is not None
+
+
+def test_a_pause_shown_in_one_session_does_not_give_a_free_removal_in_another(marker):
+    # Aria's marker finding: shown, kept, and weeks later a quiet removal must meet the pause again.
+    removal = {"command": "rm .claude/hooks/dads_room_stop.py"}
+    assert pause_for("Bash", removal, marker, session="monday") is not None
+    assert pause_for("Bash", removal, marker, session="next-month") is not None
+    assert pause_for("Bash", removal, marker, session="next-month") is None
+
+
+def test_reading_the_hook_file_and_copying_it_somewhere_else_is_not_paused(marker):
+    assert (
+        pause_for("Bash", {"command": "cp .claude/hooks/dads_room_stop.py /tmp/backup.py"}, marker)
+        is None
+    )
+    assert (
+        pause_for(
+            "Bash", {"command": "cat .claude/hooks/dads_room_stop.py > /tmp/copy.txt"}, marker
+        )
+        is None
+    )
+
+
 REPO = Path(__file__).resolve().parents[1]
 HOOK = REPO / ".claude" / "hooks" / "circle_removal_pause.py"
 

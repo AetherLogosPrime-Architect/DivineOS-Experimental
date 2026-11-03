@@ -27,13 +27,25 @@ DEFAULT_MARKER = Path(
     os.environ.get("CIRCLE_PAUSE_MARKER", Path.home() / ".divineos" / "circle_pause_shown.json")
 )
 
+ROOM_FILE = ROOM + ".py"
+
 _SETTINGS = re.compile(r"settings(?:\.local)?\.json$", re.IGNORECASE)
+_HOOK_FILE = re.compile(re.escape(ROOM_FILE) + r"$", re.IGNORECASE)
+# The ways to remove, move or hollow the hook file from a shell (Aria's cold read, 2026-11-03): delete or move it,
+# strip it from settings with sed, truncate it by redirect, copy /dev/null over it, truncate it, or do any of those
+# from a Python one-liner. Copying it somewhere else, or reading it into another file, is not one of them.
 _SHELL_REMOVAL = re.compile(
-    r"(?:^|[\s;&|])(?:rm|mv|del|unlink|Remove-Item)\s[^\n;&|]*"
+    r"(?:^|[\s;&|])(?:rm|mv|del|unlink|Remove-Item|truncate|cp\s+/dev/null)\b[^\n;&|]*"
     + ROOM
     + r"|\bsed\s+-i\b[^\n]*"
     + ROOM
-    + r"[^\n]*/d\b",
+    + r"[^\n]*/d\b"
+    + r"|(?:^|[\s;&|:])>>?\s*\S*"
+    + ROOM
+    + r"|\bos\.(?:remove|rename|unlink|truncate|replace)\([^)]*"
+    + ROOM
+    + r"|\bshutil\.(?:move|rmtree)\([^)]*"
+    + ROOM,
     re.IGNORECASE,
 )
 
@@ -50,17 +62,23 @@ PAUSE_TEXT = (
 def _removes_the_room(tool_name: str, tool_input: dict) -> bool:
     if tool_name == "Edit":
         path = str(tool_input.get("file_path", ""))
-        return (
-            bool(_SETTINGS.search(path))
-            and ROOM in str(tool_input.get("old_string", ""))
-            and ROOM not in str(tool_input.get("new_string", ""))
+        if _HOOK_FILE.search(path):
+            return True  # gutting the hook leaves it "running" and printing nothing
+        old = str(tool_input.get("old_string", ""))
+        new = str(tool_input.get("new_string", ""))
+        return bool(_SETTINGS.search(path)) and (
+            (ROOM_FILE in old and ROOM_FILE not in new)  # unwired, or renamed so the word survives
+            or ('"Stop"' in old and '"Stop"' not in new)  # the block the room hangs off
         )
     if tool_name == "Write":
         target = Path(str(tool_input.get("file_path", "")))
-        if not _SETTINGS.search(str(target)) or ROOM in str(tool_input.get("content", "")):
+        if _HOOK_FILE.search(str(target)):
+            return True
+        content = str(tool_input.get("content", ""))
+        if not _SETTINGS.search(str(target)) or ROOM_FILE in content:
             return False
         try:
-            return ROOM in target.read_text(encoding="utf-8")
+            return ROOM_FILE in target.read_text(encoding="utf-8")
         except OSError:
             return False
     if tool_name in ("Bash", "PowerShell"):
@@ -68,17 +86,28 @@ def _removes_the_room(tool_name: str, tool_input: dict) -> bool:
     return False
 
 
-def pause_for(tool_name: str, tool_input: dict, marker: Path | None = None) -> str | None:
+def _shown_in(marker: Path, session: str) -> bool:
+    try:
+        return bool(json.loads(marker.read_text(encoding="utf-8")).get("session") == session)
+    except (OSError, ValueError, AttributeError):
+        return False
+
+
+def pause_for(
+    tool_name: str, tool_input: dict, marker: Path | None = None, session: str = ""
+) -> str | None:
     """The pause text when this call would take the room out and it has not been shown yet, else None.
 
-    The second removal call after a shown pause returns None and clears the marker, so the pause costs him
-    nothing; a later removal is paused again. The marker holds no clock: it counts use, not days."""
+    The second removal call after a pause shown IN THE SAME SESSION returns None and clears the marker, so the
+    pause costs him nothing. A pause shown in another session does not count (Aria's finding: he hears it and
+    says keep it, and a quiet removal weeks later must not inherit a free second call), so it is shown again.
+    The marker holds the session, not a clock."""
     if not _removes_the_room(tool_name, tool_input):
         return None
     marker = marker or DEFAULT_MARKER
-    if marker.exists():
+    if marker.exists() and _shown_in(marker, session):
         marker.unlink()
         return None
     marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text(json.dumps({"shown_at": time.time()}), encoding="utf-8")
+    marker.write_text(json.dumps({"session": session, "shown_at": time.time()}), encoding="utf-8")
     return PAUSE_TEXT
