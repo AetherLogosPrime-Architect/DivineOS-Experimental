@@ -16,6 +16,7 @@ import click
 
 from divineos.core.council_walk import (
     GRAVITY_FLOORS,
+    NO_HEAD_RECOVERY,
     open_walks,
     WalkRefused,
     add_lens,
@@ -216,6 +217,14 @@ def register(cli: click.Group) -> None:
             f"    {st['findings']} findings, {st['excluded']} excluded, "
             f"{st['distinct_questions']} distinct lens questions answered"
         )
+        if st.get("walked_head"):
+            click.echo(f"    walked head recorded: {st['walked_head'][:9]}")
+        else:
+            click.secho(
+                f"    NO walked head recorded: {st['no_head_reason']}, so `walk amend` will "
+                f"refuse. {NO_HEAD_RECOVERY}",
+                fg="yellow",
+            )
         if st.get("bound"):
             click.echo(f"    bound to the branch changes in {st['bound_in']}")
         else:

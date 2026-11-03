@@ -798,7 +798,45 @@ def close_walk(walk_id: str, repo: Path | None = None) -> dict[str, Any]:
     bound, bound_in = _bind_to_diff(walk_id, repo)
     result = status(walk_id)
     result["bound"], result["bound_in"] = bound, bound_in
+    result["walked_head"] = _walked_head_of(walk_id)
+    result["no_head_reason"] = None if result["walked_head"] else _why_no_head(walk_id, bound_in)
     return result
+
+
+# Said by `walk close` when it recorded no walked head, and by `walk amend` when it refuses for
+# the lack of one. One sentence so the two places cannot drift apart.
+NO_HEAD_RECOVERY = (
+    "To fix it: commit the change by exact path first, then close the walk from the main "
+    "checkout with --repo <work copy>."
+)
+
+
+def _walked_head_of(walk_id: str) -> str | None:
+    conn = _conn()
+    try:
+        row = conn.execute("SELECT walked_head FROM walks WHERE id = ?", (walk_id,)).fetchone()
+    finally:
+        conn.close()
+    return row[0] if row and row[0] else None
+
+
+def _why_no_head(walk_id: str, where: str) -> str:
+    """Plain reason a close recorded no walked head. Reads only; decides nothing."""
+    from divineos.core.council_required import push_choke
+
+    folder = Path(where)
+    status_out = push_choke._git(folder, "status", "--porcelain")
+    dirty = {
+        line[3:].strip().split(" -> ")[-1]
+        for line in (status_out or "").splitlines()
+        if len(line) > 3
+    }
+    if dirty & _scope_of(walk_id):
+        return "the work copy has uncommitted changes to the scoped files"
+    changed = push_choke.changed_files(folder)
+    if changed is not None and not changed:
+        return "there is no commit ahead of the base branch in that folder"
+    return "that folder's branch changes are not a non-empty subset of the walk's scope"
 
 
 def amend_walk(walk_id: str, finding: str, repo: Path | None = None) -> dict[str, Any]:
@@ -840,7 +878,8 @@ def amend_walk(walk_id: str, finding: str, repo: Path | None = None) -> dict[str
     if not origin:
         raise WalkRefused(
             f"{walk_id} was not closed against a branch diff (no walked head), so there is no "
-            "fixed origin to measure from; walk again from inside the work copy"
+            "fixed origin to measure from; walk again from inside the work copy. "
+            + NO_HEAD_RECOVERY
         )
     where = Path(repo) if repo is not None else Path.cwd()
     measured = push_choke.change_between(where, origin)
