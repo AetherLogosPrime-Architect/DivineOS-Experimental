@@ -437,7 +437,8 @@ def run_phase1(
         for name in ("archive", "commit", "extract", "sleep"):
             steps[name] = StepResult(
                 ran=False,
-                succeeded=True,
+                # Nothing ran, so nothing succeeded; "ran" alone says it was a dry run.
+                succeeded=False,
                 output_tail=f"[dry-run] {name} would run",
                 tokens_used_est=0,
                 duration_sec=0.0,

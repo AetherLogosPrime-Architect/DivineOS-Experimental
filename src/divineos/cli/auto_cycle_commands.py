@@ -246,7 +246,7 @@ def fire_cmd(dry_run: bool, force: bool) -> None:
 
     click.echo(f"[auto-cycle] cycle_id: {result.cycle_id}")
     for name, step in result.steps.items():
-        status_flag = "OK " if step.succeeded else "FAIL"
+        status_flag = "DRY" if not step.ran else "OK " if step.succeeded else "FAIL"
         click.echo(
             f"  [{status_flag}] {name}: {step.duration_sec}s, tokens_est={step.tokens_used_est}"
         )

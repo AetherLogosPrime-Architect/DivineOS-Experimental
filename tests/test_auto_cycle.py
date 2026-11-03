@@ -120,7 +120,7 @@ def test_run_phase1_dry_run_records_all_steps_would_run():
     assert set(result.steps.keys()) == {"archive", "commit", "extract", "sleep"}
     for step in result.steps.values():
         assert step.ran is False  # dry-run
-        assert step.succeeded is True  # would succeed
+        assert step.succeeded is False  # a step that did not run did not succeed
         assert "[dry-run]" in step.output_tail
 
 
@@ -153,6 +153,35 @@ def test_write_and_read_handshake_marker_roundtrip(tmp_path, monkeypatch):
     for step in payload["steps"].values():
         assert "duration_sec" in step
         assert "error_class" in step
+
+
+def test_dry_run_marker_never_reads_as_a_step_done(tmp_path, monkeypatch):
+    """A reader that counts a step done only when ran AND succeeded are both true must
+    read every dry-run step as not done, with no correction needed."""
+    monkeypatch.setattr("divineos.core.auto_cycle.marker_path", lambda: tmp_path / "marker.json")
+    write_handshake_marker(run_phase1(context_pct=0.85, dry_run=True))
+    payload = read_handshake_marker()
+    assert payload is not None
+    for name, step in payload["steps"].items():
+        assert step["ran"] is False, name
+        assert step["succeeded"] is False, name
+        assert not (step["ran"] and step["succeeded"]), name
+
+
+def test_fire_dry_run_prints_dry_not_ok_or_fail(tmp_path, monkeypatch):
+    from click.testing import CliRunner
+
+    from divineos.cli.auto_cycle_commands import auto_cycle_group
+
+    monkeypatch.setattr("divineos.core.auto_cycle.marker_path", lambda: tmp_path / "marker.json")
+    monkeypatch.setattr(
+        "divineos.core.auto_cycle.defer_state_path", lambda: tmp_path / "defer.json"
+    )
+    result = CliRunner().invoke(auto_cycle_group, ["fire", "--dry-run", "--force"])
+    assert result.exit_code == 0, result.output
+    assert "[DRY]" in result.output
+    assert "[OK ]" not in result.output
+    assert "[FAIL]" not in result.output
 
 
 def test_read_handshake_marker_missing_returns_none(tmp_path, monkeypatch):
