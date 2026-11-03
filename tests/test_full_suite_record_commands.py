@@ -161,6 +161,79 @@ def test_a_real_run_with_nothing_mapped_still_says_so(tmp_path, monkeypatch):
     assert "No changed file maps to a test file" in decide("pytest", repo=tmp_path)
 
 
+# --- the way out named is true for how the word arrived ----------------------
+
+
+def test_a_wrapped_run_with_files_named_is_not_told_to_name_the_files():
+    reason = decide('bash -c "pytest tests/test_a.py -q"')
+    assert reason and HEADER in reason
+    assert "not the problem" in reason  # the files it named are not what was refused
+    assert "unwrapped" in reason
+    assert "name the test files" not in reason
+
+
+def test_a_wrapper_without_files_does_not_claim_the_files_were_named():
+    reason = decide('bash -c "echo pytest"')
+    assert "not the problem" not in reason
+    assert "unwrapped" in reason
+
+
+def test_a_gh_body_is_told_to_use_a_body_file():
+    reason = decide('gh pr create --title t --body "ran pytest tests/test_a.py ok"')
+    assert reason and HEADER in reason
+    assert "--body-file" in reason
+    assert "name the test files" not in reason
+    assert "divineos learn" in reason
+
+
+def test_a_heredoc_body_is_text_not_a_run():
+    reason = decide("cat <<'EOF' | git commit -F -\nran pytest\nEOF")
+    assert reason and HEADER in reason
+    assert "here-document" in reason
+    assert "Write tool" in reason
+    assert "This runs every test in the house" not in reason
+
+
+def test_a_run_before_a_heredoc_is_still_a_run(tmp_path, monkeypatch):
+    import divineos.core.full_suite_by_hand as fs
+
+    monkeypatch.setattr(fs, "changed_tests", lambda repo: ["tests/test_a.py"])
+    reason = decide("pytest -q && cat <<'EOF'\nnotes\nEOF", repo=tmp_path)
+    assert "pytest tests/test_a.py -q" in reason
+
+
+def test_a_pipe_into_a_shell_is_told_not_to_pipe():
+    reason = decide("echo pytest | sh")
+    assert reason and "piped" in reason
+    assert "name the test files" not in reason
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        './.direnv/python-3.13.11/Scripts/divineos.exe learn "pytest tests/"',
+        '/usr/bin/divineos learn "pytest tests/"',
+        'C:/x/DIVINEOS.EXE decide "stop running pytest" --why "slow"',
+        '.venv/bin/divineos goal add "narrow the pytest door"',
+    ],
+)
+def test_a_record_command_is_exempt_whatever_the_spelling_of_the_program(cmd):
+    assert decide(cmd) is None
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        '/usr/bin/divineos ask "pytest tests/"',
+        './divineos-other learn "pytest"',
+        '/x/divineos.exe learn "$(pytest)"',
+    ],
+)
+def test_the_exemption_by_program_name_does_not_widen_what_is_exempt(cmd):
+    reason = decide(cmd)
+    assert reason and HEADER in reason
+
+
 # --- the pin: no command in the set executes its text ------------------------
 
 _SRC = Path(__file__).resolve().parents[1] / "src" / "divineos"
