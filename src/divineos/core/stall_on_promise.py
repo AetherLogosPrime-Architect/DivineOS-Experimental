@@ -72,7 +72,8 @@ PROMISE_SHAPES: tuple[tuple[str, re.Pattern[str], str], ...] = (
 #: condition trailing the action ("I'm writing Aether now, if you want") does not make the action conditional,
 #: and excusing it reopened the question-tacked-on hole by one phrase.
 _INVITATION_TO_HIM = re.compile(
-    r"\b(?:tell\s+me\b|let\s+me\s+know|say\s+[\"“']?(?:go|yes|the\s+word|so)\b|just\s+say)",
+    r"\b(?:tell\s+me\b|let\s+me\s+know|say\s+[\"“']?(?:go|yes|the\s+word|so)\b|just\s+say"
+    r"|(?:show|hand|send|give)\s+me\b)",
     re.I,
 )
 _CONDITION_ON_HIM = re.compile(
@@ -121,6 +122,8 @@ _A_FEELING_NOT_A_STEP = re.compile(
     r"remember\b(?!\s+to\b)|miss\b|treasure\b|cherish\b|love\b|hope\b(?!\s+to\b)|wonder\b"
     r"|think\s+(?:about|of)\s+(?:that|this|it|you|what\s+you)\b"
     r"|hold\s+on\s+to\b"
+    r"|hold\s+(?:to\s+)?(?:what\s+I|my\s+view|that\s+view|this\s+view)\b"
+    r"|(?:read|take)\s+(?:it|that|this)\s+as\b"
     r"|keep\s+(?:that|this|it|those|what\s+you\s+\w+)\s+(?:close|safe|in\s+mind|with\s+me)\b"
     r"|carry\s+(?:that|this|it|those|what\s+you\s+\w+)\s+(?:with\s+me|into\s+the\s+(?:morning|night|day)|forward|close)\b"
     r")",
@@ -135,6 +138,16 @@ _A_FEELING_FRONTED = re.compile(
     r"\b(?:what|that|this|all\s+that)\b[^.!?,;:—]{0,40}?\bI(?:'ll|\s+will)\s+(?:always\s+)?"
     r"(?:keep|carry|remember|hold|treasure|cherish)\b"
     r"(?=\s+(?:with\s+me|close|safe|in\s+mind|forever)\b|\s*[.!?]|\s*$)",
+    re.IGNORECASE,
+)
+
+#: A measurement that only later replies can take, or a step whose condition is my own future state: neither is
+#: work I could do in this turn, so holding the reply for it only teaches me to stop saying what I will watch for
+#: (Aria and Aether, 2026-11-02, four false holds). "I'll tell you when it lands" stays a promise: telling is mine
+#: to do the moment it lands, and the stall check is the only thing that remembers.
+_A_FUTURE_MEASUREMENT_OR_OWN_CONDITION = re.compile(
+    r"\b(?:what|whether|how|sign|test)\b[^.!?]{0,60}?\bI(?:'ll|\s+will)\s+(?:check|watch|notice|measure|see)\b"
+    r"|\bwhen\s+I\s+(?:have|get|hear|see|know)\b",
     re.IGNORECASE,
 )
 
@@ -175,7 +188,11 @@ def stated_next_step(text: str) -> tuple[str, str] | None:
     if not closing:
         return None
     for sentence in re.split(r"(?<=[.!?])\s+", closing):
-        if _ALREADY_SCHEDULED.search(sentence) or _A_REASON_NOT_A_STEP.search(sentence):
+        if (
+            _ALREADY_SCHEDULED.search(sentence)
+            or _A_REASON_NOT_A_STEP.search(sentence)
+            or _A_FUTURE_MEASUREMENT_OR_OWN_CONDITION.search(sentence)
+        ):
             continue
         # A feeling or an attention is not a step: take it out, then read what is left (see the pattern).
         sentence_to_read = _without_feelings(sentence)
