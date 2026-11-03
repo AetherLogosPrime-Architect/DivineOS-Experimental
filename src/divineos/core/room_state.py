@@ -21,7 +21,8 @@ session-start wrapper can run it by path.
 
 WHEN HE CHOSE IT: the removal pause (circle_removal_pause) leaves circle_removed_on_his_decision.json when his
 second "remove it" goes through. Then a room that is gone is not an alarm every session; it is named calmly once,
-and an unchanged state stays quiet. A DIFFERENT break after his decision alarms again.
+and an unchanged state stays quiet. A DIFFERENT break after his decision alarms again, and so does the SAME
+break after the room has stood in between: a standing room closes the decision.
 
 WHAT IT CANNOT SEE: the window between a change and the next run; and it proves the hook blocks one fixed
 reply, not that any circle is real talk (that is the stock-line check, a separate piece).
@@ -173,12 +174,15 @@ def report(repo_root: Path, python: str | None = None, removed_marker: Path | No
     If his decision is on record (the removal pause let a second call through) and the state is the one he
     decided, it is named calmly once and then quiet. A different state alarms again."""
     state = check(repo_root, python)
-    if state.standing:
-        return ""
     if removed_marker is not None:
         marker = Path(removed_marker)
     else:
         marker = Path(os.environ.get("CIRCLE_REMOVED_MARKER", str(DEFAULT_REMOVED_MARKER)))
+    if state.standing:
+        # His decision covers only the stretch it was made for (Aether's cold read, 2026-11-03): once the room
+        # stands again the marker goes, or it would hide a later quiet unplugging of the same kind.
+        marker.unlink(missing_ok=True)
+        return ""
     decided = _read_marker(marker)
     if decided is not None:
         now = list(state.problems)

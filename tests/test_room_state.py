@@ -107,11 +107,26 @@ def test_a_new_problem_after_his_decision_alarms_again(tmp_path):
     assert "NOT STANDING" in room_state.report(stub, removed_marker=marker)
 
 
-def test_a_standing_room_is_silent_and_leaves_his_decision_marker_alone(tmp_path):
+def test_a_standing_room_is_silent_and_closes_his_old_decision(tmp_path):
+    """Aether's cold read of 8d569c455: a decision covers only the stretch it was made for. Once the room
+    stands again the marker goes, so it cannot hide a later quiet unplugging."""
     marker = _decided(tmp_path)
-    before = marker.read_text(encoding="utf-8")
     assert room_state.report(REPO, removed_marker=marker) == ""
-    assert marker.read_text(encoding="utf-8") == before
+    assert not marker.exists()
+
+
+def test_an_old_decision_does_not_hide_a_later_quiet_unplugging_of_the_same_kind(tmp_path):
+    """The sequence that was silent: decided and told, restored, then unplugged the same way."""
+    gone = _house(tmp_path / "gone", settings={"hooks": {"Stop": []}})
+    marker = _decided(tmp_path)
+    assert "on his decision" in room_state.report(
+        gone, removed_marker=marker
+    )  # control: it can speak
+    assert room_state.report(gone, removed_marker=marker) == ""  # told once, quiet
+    assert room_state.report(REPO, removed_marker=marker) == ""  # he restored it: standing
+    assert "NOT STANDING" in room_state.report(
+        gone, removed_marker=marker
+    )  # a later unplugging alarms
 
 
 def test_no_marker_means_the_alarm(tmp_path):
