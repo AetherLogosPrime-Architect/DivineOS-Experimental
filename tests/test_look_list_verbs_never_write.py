@@ -39,8 +39,44 @@ _SQL_WRITE = re.compile(
     r"|\bREPLACE\s+INTO\b",
     re.IGNORECASE,
 )
-_WRITE_PREFIXES = ("record_", "store_", "save_", "file_", "set_", "delete_", "append_")
-_WRITE_CALL_NAMES = frozenset({"log_event", "write_text", "write_bytes", "eval", "exec"})
+_WRITE_PREFIXES = (
+    "record_",
+    "store_",
+    "save_",
+    "file_",
+    "set_",
+    "delete_",
+    "append_",
+    "update_",
+    "mark_",
+    "add_",
+    "write_",
+)
+# Names that start with a write prefix but only read or show. Exact names, so a
+# real writer that shares a prefix still counts.
+_READ_LOOKING = frozenset({"set_title", "file_size", "file_name", "file_path", "file_exists"})
+_WRITE_CALL_NAMES = frozenset(
+    {
+        "log_event",
+        "write_text",
+        "write_bytes",
+        "eval",
+        "exec",
+        "executemany",
+        "executescript",
+        "unlink",
+        "rmdir",
+        "mkdir",
+        "makedirs",
+        "rmtree",
+        "touch",
+        "rename",
+        "Popen",
+    }
+)
+# Any call on these modules: shutil copies, moves and deletes; os.remove deletes.
+# (A bare ``.remove(`` is not matched: list.remove is an in-memory edit.)
+_WRITE_MODULE_CALLS = {"shutil": None, "os": frozenset({"remove", "removedirs", "replace"})}
 _WRITE_MODE_CHARS = set("wax+")
 
 # Two lists, kept apart on purpose.
@@ -54,8 +90,12 @@ _GIT_READ = (
     "runs only read-only git/gh subcommands (show, log, status, diff, rev-parse, view, list)"
 )
 _STORE_PATH = "calls store_path(), which only builds a filesystem path"
-_SCHEMA = frozenset({".commit(", "sql-write"})
+_LAZY_FOLDER = "creates its own parent folder on first open; no user data changes"
+_SCRIPT = frozenset({"executescript("})
+_MKDIR = frozenset({"mkdir("})
+_SCHEMA = frozenset({".commit(", "sql-write", "executescript("})
 _COMMIT = frozenset({".commit("})
+_COMMIT_SCRIPT = _COMMIT | _SCRIPT
 _SUBPROC = frozenset({"subprocess"})
 _EXCUSED_FUNCTIONS: dict[tuple[str, str], tuple[str, frozenset[str]]] = {
     ("_schema.py", "init_watchmen_tables"): (_LAZY_SCHEMA, _COMMIT),
@@ -65,18 +105,33 @@ _EXCUSED_FUNCTIONS: dict[tuple[str, str], tuple[str, frozenset[str]]] = {
     ("andrew_request_repeats.py", "_conn"): (_LAZY_SCHEMA, _COMMIT),
     ("bio.py", "init_bio_table"): (_LAZY_SCHEMA, _COMMIT),
     ("claim_store.py", "init_claim_tables"): (_LAZY_SCHEMA, _SCHEMA),
+    # Folder creation, added when the detector learned mkdir. Keyed by file name
+    # and function only, so a file named db.py is excused by name alone: a
+    # weakness this list shares with every entry above.
+    ("_hud_io.py", "_ensure_hud_dir"): (_LAZY_FOLDER, _MKDIR),
+    ("_ledger_base.py", "get_connection"): (_LAZY_FOLDER, _MKDIR),
+    ("andrew_correction_tracker.py", "_db_path"): (_LAZY_FOLDER, _MKDIR),
+    ("andrew_given.py", "_db_path"): (_LAZY_FOLDER, _MKDIR),
+    ("andrew_request_repeats.py", "_db_path"): (_LAZY_FOLDER, _MKDIR),
+    ("council_walk.py", "_db_path"): (_LAZY_FOLDER, _MKDIR),
+    ("db.py", "get_family_connection"): (_LAZY_FOLDER, _MKDIR),
+    ("error_registry.py", "_ensure_home"): (_LAZY_FOLDER, _MKDIR),
+    ("motivation.py", "_path_for"): (_LAZY_FOLDER, _MKDIR),
+    ("must_read.py", "_dir"): (_LAZY_FOLDER, _MKDIR),
+    ("vector_drawer.py", "_conn"): (_LAZY_FOLDER, _MKDIR),
+    ("work_item_doorman.py", "_connect"): (_LAZY_SCHEMA, _SCRIPT),
     ("claim_store.py", "_migrate_add_confidence_basis"): (
         "one-time idempotent column backfill run by table setup",
         _SCHEMA,
     ),
-    ("council_walk.py", "_conn"): (_LAZY_SCHEMA, _COMMIT),
+    ("council_walk.py", "_conn"): (_LAZY_SCHEMA, _COMMIT_SCRIPT),
     ("decision_journal.py", "init_decision_journal"): (_LAZY_SCHEMA, _SCHEMA),
-    ("findings_ledger.py", "_get_connection"): (_LAZY_SCHEMA, _COMMIT),
+    ("findings_ledger.py", "_get_connection"): (_LAZY_SCHEMA, _COMMIT | _MKDIR),
     ("holding.py", "init_holding_table"): (_LAZY_SCHEMA, _COMMIT),
     ("memory.py", "init_memory_tables"): (_LAZY_SCHEMA, _SCHEMA),
     ("moral_compass.py", "init_compass"): (_LAZY_SCHEMA, _COMMIT),
     ("opinion_store.py", "init_opinion_table"): (_LAZY_SCHEMA, _COMMIT),
-    ("queue.py", "_ensure_schema"): (_LAZY_SCHEMA, _COMMIT),
+    ("queue.py", "_ensure_schema"): (_LAZY_SCHEMA, _COMMIT_SCRIPT),
     ("reach_check.py", "init_reach_tables"): (_LAZY_SCHEMA, _COMMIT),
     ("reflection_storage.py", "init_reflection_table"): (_LAZY_SCHEMA, _COMMIT),
     ("review_window.py", "_init"): (_LAZY_SCHEMA, _COMMIT),
@@ -114,6 +169,16 @@ _ALLOWED_WRITES: dict[tuple[str, str], str] = {
     ),
     ("work_item_commands.py::work_item_cmd.status", "sql-write"): (
         "FINDING: status closes a work item (UPDATE closed_at) when a commit has landed"
+    ),
+    ("emergency_completion_commands.py::ec_group.status", "unlink("): (
+        "FINDING (new with the wider detector): status deletes the arm file when it is "
+        "unreadable, malformed or expired"
+    ),
+    ("auto_cycle_commands.py::auto_cycle_group.status", "mkdir("): (
+        "FINDING: the same heartbeat stamp creates its folder"
+    ),
+    ("linkage_commands.py::linkage_group.status", "mkdir("): (
+        "FINDING: the same wall-resolution record creates its folder"
     ),
 }
 
@@ -201,12 +266,35 @@ def _opens_for_writing(call: ast.Call) -> bool:
     )
 
 
+def _flat_text(node: ast.expr) -> str | None:
+    """The text of an f-string or a ``+`` / ``%`` chain of strings, with ``{}`` where a
+    value goes, so ``f"UPDATE {t} SET a = 1"`` reads as one statement. None if the
+    node is neither."""
+    if isinstance(node, ast.Constant):
+        return node.value if isinstance(node.value, str) else None
+    if isinstance(node, ast.JoinedStr):
+        parts = []
+        for v in node.values:
+            parts.append(v.value if isinstance(v, ast.Constant) else "{}")
+        return "".join(parts)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Mod)):
+        left, right = _flat_text(node.left), _flat_text(node.right)
+        if left is None and right is None:
+            return None
+        return (left if left is not None else "{}") + (right if right is not None else "{}")
+    return None
+
+
 def find_writes(func: ast.AST, docstrings: set[int]) -> list[tuple[str, int]]:
     """(token, line) for every write-shaped thing in this function's own code."""
     hits: list[tuple[str, int]] = []
     for node in ast.walk(func):
         line = getattr(node, "lineno", 0)
-        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        if isinstance(node, (ast.JoinedStr, ast.BinOp)):
+            text = _flat_text(node)
+            if text and _SQL_WRITE.search(text):
+                hits.append(("sql-write", line))
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
             if id(node) not in docstrings and _SQL_WRITE.search(node.value):
                 hits.append(("sql-write", line))
         elif isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -234,7 +322,17 @@ def find_writes(func: ast.AST, docstrings: set[int]) -> list[tuple[str, int]]:
                 and node.func.value.id == "os"
             ):
                 hits.append(("os.system", line))
-            elif name.startswith(_WRITE_PREFIXES):
+            elif (
+                isinstance(node.func, ast.Attribute)
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id in _WRITE_MODULE_CALLS
+                and (
+                    _WRITE_MODULE_CALLS[node.func.value.id] is None
+                    or name in _WRITE_MODULE_CALLS[node.func.value.id]
+                )
+            ):
+                hits.append((f"{node.func.value.id}.{name}(", line))
+            elif name.startswith(_WRITE_PREFIXES) and name not in _READ_LOOKING:
                 hits.append((f"{name}(", line))
     return hits
 
@@ -437,6 +535,24 @@ def test_checker_follows_a_call_into_core(tmp_path: Path):
         ("def f():\n    log_event('x')", "log_event("),
         ("def f():\n    record_thing()", "record_thing("),
         ("def f():\n    append_row()", "append_row("),
+        ("def f():\n    update_row()", "update_row("),
+        ("def f():\n    mark_done()", "mark_done("),
+        ("def f():\n    add_item()", "add_item("),
+        ("def f():\n    write_state()", "write_state("),
+        ("def f(c):\n    c.executemany('x', [])", "executemany("),
+        ("def f(c):\n    c.executescript('x')", "executescript("),
+        ("def f(p):\n    p.unlink()", "unlink("),
+        ("def f(p):\n    p.mkdir()", "mkdir("),
+        ("def f(p):\n    p.rename('x')", "rename("),
+        ("def f():\n    shutil.rmtree('x')", "rmtree("),
+        ("def f():\n    shutil.copy('a', 'b')", "shutil.copy("),
+        ("def f():\n    os.remove('x')", "os.remove("),
+        ("def f():\n    Popen(['x'])", "Popen("),
+        ("def f(c, t):\n    c.execute(f'UPDATE {t} SET a = 1')", "sql-write"),
+        ("def f(c, t):\n    c.execute(f'INSERT INTO {t} VALUES (1)')", "sql-write"),
+        ("def f(c, t):\n    c.execute(f'DELETE FROM {t}')", "sql-write"),
+        ("def f(c, t):\n    c.execute('UPDATE ' + t + ' SET a = 1')", "sql-write"),
+        ("def f(c, t):\n    c.execute('UPDATE %s SET a = 1' % t)", "sql-write"),
     ],
 )
 def test_each_write_shape_is_detected(snippet: str, token: str):
@@ -451,6 +567,11 @@ def test_each_write_shape_is_detected(snippet: str, token: str):
         "def f(p):\n    return open(p, 'r')",
         "def f(c):\n    c.execute('SELECT * FROM t')",
         "def f():\n    print('click to update the view')",
+        "def f(w):\n    w.set_title('x')",
+        "def f(p):\n    return file_size(p)",
+        "def f(xs):\n    xs.remove(1)",
+        "def f(c, t):\n    c.execute(f'SELECT * FROM {t}')",
+        "def f(t):\n    print(f'update {t} to see more')",
     ],
 )
 def test_reads_are_not_flagged(snippet: str):
