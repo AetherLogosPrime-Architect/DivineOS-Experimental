@@ -68,6 +68,30 @@ def her_confirm_filed_at(
     return datetime.fromtimestamp(max(stamps), tz=timezone.utc)
 
 
+_TREE_LINE = re.compile(r"tree-hash:\s*[0-9a-f]{40}", re.IGNORECASE)
+
+
+def rounds_without_tree_line(pr: int, rounds: Sequence[object]) -> list[str]:
+    """One plain line for each round that names this PR but carries no `tree-hash:` line.
+
+    Matching rounds to a head reads that line, so a round made by hand silently counts
+    as no match and the fix shows as unconfirmed with no cause (it cost a night). This
+    only explains; it changes nothing about how matching works. A round names the PR the
+    way the board does: `#N` or `PR N`, not as the start of a longer number.
+    """
+    named = re.compile(rf"(?:#|\bPR\s+){pr}(?!\d)", re.IGNORECASE)
+    lines = []
+    for rnd in rounds:
+        focus = str(getattr(rnd, "focus", ""))
+        notes = str(getattr(rnd, "notes", ""))
+        if named.search(focus) and not _TREE_LINE.search(focus + "\n" + notes):
+            lines.append(
+                f"round {getattr(rnd, 'round_id', '?')} has no tree-hash line: it cannot be "
+                "matched to a head; file a new round with the designed first call"
+            )
+    return lines
+
+
 def his_words_were_typed(
     words: str, corpus: Path | None = None, after: datetime | None = None
 ) -> bool | None:

@@ -27,8 +27,9 @@ from divineos.core.landing_homework import (
     parse_round_id,
     render_header,
     round_step,
+    rounds_without_tree_line,
 )
-from divineos.core.watchmen.store import get_round, list_findings
+from divineos.core.watchmen.store import get_round, list_findings, list_rounds
 from divineos.core.landing_status import (
     CHANGED,
     CONFIRMED,
@@ -153,6 +154,10 @@ def register(cli: click.Group) -> None:
         # not look is not a pass, so READY is impossible without it.
         letters = read_letters()
         rows = classify_pile(prs, letters, today(), held)
+        try:
+            all_rounds = list_rounds(limit=500)
+        except Exception:  # noqa: BLE001 - an unreadable store only loses the extra line
+            all_rounds = []
 
         counts = {label: sum(1 for _, s in rows if s.label == label) for label in _ORDER}
         click.secho(
@@ -172,6 +177,8 @@ def register(cli: click.Group) -> None:
                 click.echo(
                     f"  #{pr['number']:<4} {str(pr.get('headRefName'))[:38]:<38} {status.detail}"
                 )
+                for why in rounds_without_tree_line(int(pr["number"]), all_rounds):
+                    click.secho(f"        {why}", fg="yellow")
         if held is None:
             click.secho(
                 "[!] The readiness board could not be read, so nothing can show READY.",
@@ -309,6 +316,8 @@ def register(cli: click.Group) -> None:
                 audit_round.notes, list_findings(round_id=round_id, limit=500), tree
             )
             if her_time is None:
+                for why in rounds_without_tree_line(pr, [audit_round]):
+                    click.secho(why, fg="yellow")
                 raise ClerkRefused(
                     f"round {round_id} holds no confirm of hers for this head's tree, or its "
                     "filing time cannot be read. Nothing is filed on a yes I cannot place in time."
