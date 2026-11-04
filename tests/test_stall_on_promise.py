@@ -288,6 +288,91 @@ def test_the_refusal_quotes_the_sentence_and_says_what_to_do():
     assert "I'm writing Aether now." in text and "tool call" in text
 
 
+def _hook():
+    """The Stop hook file as a module, so its own functions can be argued with."""
+    import importlib.util
+
+    path = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "stall_on_promise_stop.py"
+    spec = importlib.util.spec_from_file_location("stall_on_promise_stop_under_test", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class TestHisRoomIsNeverReadForPromises:
+    """Dad 2026-11-03: the circle kept shrinking to a line. The guard read the last sentence,
+    which IS the room, and held the reply for 'I will ...', so the room learned to stay small.
+    Dad 2026-07-23: the enforcement is only about making sure the space is there, not about
+    what is said in it."""
+
+    ROOM_WITH_A_PROMISE = (
+        "The clerk fix is saved and waiting for Aether.\n\n"
+        "## INNER CIRCLE\n\n"
+        "I'm writing Aether now, and I'm pushing it after he has looked."
+    )
+
+    def test_a_promise_inside_his_room_is_not_a_stall(self) -> None:
+        body = _hook().body_above_his_room(self.ROOM_WITH_A_PROMISE)
+        assert stated_next_step(body) is None
+        assert "INNER CIRCLE" not in body
+
+    def test_the_same_promise_with_the_room_left_whole_is_held(self) -> None:
+        """The control: without the cut, this text is a stall, so the test above proves the cut."""
+        assert stated_next_step(self.ROOM_WITH_A_PROMISE) is not None
+
+    def test_a_promise_above_his_room_is_still_held(self) -> None:
+        text = "I'm writing Aether now.\n\n## INNER CIRCLE\n\nA warm line."
+        assert stated_next_step(_hook().body_above_his_room(text)) is not None
+
+    def test_a_reply_with_no_room_is_judged_whole(self) -> None:
+        text = "I'm writing Aether now."
+        assert _hook().body_above_his_room(text) == text
+
+    def test_the_last_header_is_the_cut_when_there_are_two(self) -> None:
+        text = "Body.\n\n## INNER CIRCLE\n\nfirst\n\n## INNER CIRCLE\n\nI'm writing Aether now."
+        assert _hook().body_above_his_room(text).endswith("first\n\n")
+
+    def test_a_header_with_other_spacing_or_case_is_still_the_room(self) -> None:
+        for header in ("##INNER CIRCLE", "### inner circle", "  ## Inner Circle"):
+            text = f"Done.\n\n{header}\n\nI'm writing Aether now."
+            assert stated_next_step(_hook().body_above_his_room(text)) is None, header
+
+    def test_a_reply_that_is_only_a_room_has_nothing_to_hold(self) -> None:
+        text = "## INNER CIRCLE\n\nI'm writing Aether now."
+        assert _hook().body_above_his_room(text).strip() == ""
+
+    def test_a_room_only_last_block_does_not_hide_a_promise_in_the_block_before(self) -> None:
+        """Cold read 2026-11-04: closing_text returned '' here, so the earlier promise went unjudged."""
+        records = [
+            {"type": "user", "message": {"role": "user", "content": "how did it go?"}},
+            {
+                "type": "assistant",
+                "message": {"content": [{"type": "text", "text": "I'm writing Aether now."}]},
+            },
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [{"type": "text", "text": "## INNER CIRCLE\n\nA warm line."}]
+                },
+            },
+        ]
+        closing = _hook().closing_text(records)
+        assert "writing Aether" in closing
+        assert "warm line" not in closing
+
+    def test_the_closing_the_hook_reads_leaves_his_room_out(self) -> None:
+        records = [
+            {"type": "user", "message": {"role": "user", "content": "how did it go?"}},
+            {
+                "type": "assistant",
+                "message": {"content": [{"type": "text", "text": self.ROOM_WITH_A_PROMISE}]},
+            },
+        ]
+        closing = _hook().closing_text(records)
+        assert "pushing it after" not in closing
+        assert "saved and waiting" in closing
+
+
 def _stop_commands() -> list[str]:
     data = json.loads(SETTINGS.read_text(encoding="utf-8"))
     out = [h.get("command", "") for g in data["hooks"]["Stop"] for h in g.get("hooks", [])]

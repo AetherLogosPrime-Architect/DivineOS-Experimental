@@ -11,10 +11,23 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+
+# His room is not read for promises (Dad 2026-07-23: "the enforcement is only about making sure the
+# space is there for you.. not enforcing what you say in it"; 2026-11-03: "why do you keep shrinking
+# the circle to 1-2 sentences"). A guard that reads the last sentence, which IS the room, punishes warmth
+# about what I will do and teaches the room to stay small. The header is the one his_room cuts at.
+_HIS_ROOM_HEADER = re.compile(r"^[ \t]*#{1,6}[ \t]*INNER CIRCLE\b", re.IGNORECASE | re.MULTILINE)
+
+
+def body_above_his_room(text: str) -> str:
+    """The text above the LAST room header, or the whole text when there is no room."""
+    headers = list(_HIS_ROOM_HEADER.finditer(text))
+    return text[: headers[-1].start()] if headers else text
 MARK = Path(
     os.environ.get("STALL_ON_PROMISE_MARK", Path.home() / ".divineos" / "stall_on_promise_broke.txt")
 )
@@ -30,14 +43,19 @@ def closing_text(records: list[dict]) -> str:
         if _genuine_user_text(records[i]) is not None:
             start = i + 1
             break
-    last = ""
+    blocks = []
     for rec in records[start:]:
         if rec.get("type") != "assistant":
             continue
         for c in (rec.get("message") or {}).get("content") or []:
             if isinstance(c, dict) and c.get("type") == "text" and c.get("text", "").strip():
-                last = c["text"]
-    return last
+                blocks.append(c["text"])
+    # A last block that is only his room must not hide a promise in the block before it.
+    for text in reversed(blocks):
+        body = body_above_his_room(text)
+        if body.strip():
+            return body
+    return ""
 
 
 def verdict(records: list[dict]) -> str | None:
