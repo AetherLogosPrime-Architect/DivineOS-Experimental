@@ -452,7 +452,7 @@ def may_carry_arrival(line: str) -> bool:
 # over to a real notice further down and take the words between.
 _NOTICE_BLOCK = re.compile(
     r"^[ \t]*(?:<|&lt;)(system-reminder|task-notification)\b[^>\n]*?(?:>|&gt;)"
-    r"(?:(?!(?:<|&lt;)\1\b)[\s\S])*?(?:</|&lt;/)\1\s*(?:>|&gt;)[ \t]*(?=\n|\Z)",
+    r"(?:(?!(?:<|&lt;)\1\b)[\s\S])*?(?:</|&lt;/)\1\s*(?:>|&gt;)[ \t]*(?=\r?\n|\Z)",
     re.IGNORECASE | re.MULTILINE,
 )
 # "[SYSTEM NOTIFICATION - NOT USER INPUT] ..." is the banner LINE only, and only at a line start.

@@ -115,3 +115,10 @@ def test_a_banner_followed_directly_by_his_words_keeps_them():
 def test_a_mention_of_the_banner_inside_a_sentence_keeps_the_sentence():
     said = "why does it print [SYSTEM NOTIFICATION - NOT USER INPUT] before my words?"
     assert without_notices(said) == said
+
+
+def test_a_windows_line_ending_envelope_is_still_cut():
+    crlf = f"{ATTRIBUTION}\n{HIS}".replace("\n", "\r\n")
+    assert without_notices(crlf) == HIS
+    assert without_notices(f"{HIS}\n{ATTRIBUTION}".replace("\n", "\r\n")) == HIS
+    assert without_notices((TASK + "\n" + HIS).replace("\n", "\r\n")) == HIS
