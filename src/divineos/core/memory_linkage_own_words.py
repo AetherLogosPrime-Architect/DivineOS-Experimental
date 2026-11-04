@@ -21,6 +21,8 @@ from pathlib import Path
 
 import numpy as np
 
+from divineos.core.harness_envelopes import NOTICE_OPENERS
+
 MAX_SENTENCES = 8
 MIN_WORDS = 8
 MAX_LINES = 2
@@ -50,9 +52,8 @@ _NOT_HIM = (
     "stop hook feedback",
     "[request interrupted",
     "this session is being continued",
-    "<task-notification",
     "[system notification",
-)
+) + NOTICE_OPENERS
 
 
 @dataclass

@@ -41,7 +41,15 @@ _TAGS = (
 # two Stop gates did not know <ci-monitor-event>, so a CI notice read to them as him coming back
 # (Aether, #683).
 _NOTICE_TAGS = ("task-notification", "system-reminder", "ci-monitor-event", "agent-message")
-NOTICE_OPENERS = tuple("<" + tag for tag in _NOTICE_TAGS)
+NOTICE_TAGS = _NOTICE_TAGS  # public name for readers that build a pattern from the tags
+# Every reader composes NOTICE_OPENERS and adds only its own extras; a private copy of the common
+# part is what let the escaped spelling reach some readers and not others (#745, second reader).
+# tests/test_one_list_of_notice_openers.py fails when a new copy appears.
+# The opening bracket also arrives written as &lt; (sixteen such records in one 2026-11-02 session), so
+# a turn that opens with an escaped notice is still the machine in his seat.
+NOTICE_OPENERS = tuple("<" + tag for tag in _NOTICE_TAGS) + tuple(
+    "&lt;" + tag for tag in _NOTICE_TAGS
+)
 
 
 def opens_with_notice(text: str) -> bool:

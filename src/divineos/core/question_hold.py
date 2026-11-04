@@ -293,10 +293,30 @@ def is_away() -> dict[str, Any] | None:
 LIVE_CHAT_SECONDS = 10 * 60
 
 
+def _he_spoke_since(stepped: dict[str, Any]) -> bool:
+    """Whether a real message of his was filed AFTER the away file was written.
+
+    The file is cleared by his next message through ``came_back``, a hook. If that hook never ran,
+    the file would go on saying "away" with a newer message of his in the store, and the room gate
+    would stand down for a man who is typing (second reader of #745). His later message is the
+    evidence against the file, so the file is ignored and the ignoring is logged. Could-not-look (no
+    readable message, no usable time on the file) cannot show it stale, so the file stands.
+    """
+    try:
+        since = float(stepped.get("since"))
+    except (TypeError, ValueError):
+        return False  # both-empty: a file with no readable time cannot be shown stale, so it stands
+    latest = _his_latest()
+    if latest is None or latest[1] <= since:
+        return False  # both-empty: nothing readable after the file, or nothing newer than it
+    _log("stale_away_ignored", since=since, spoke_at=latest[1])
+    return True
+
+
 def _carry_now() -> str:
     """Why a closing question goes to the morning list right now, or "" when it is held as usual."""
     stepped = _stepped_away()
-    if stepped:
+    if stepped and not _he_spoke_since(stepped):
         return "his words"
     away = _scheduled_away() or _silent_away()
     if not away:
