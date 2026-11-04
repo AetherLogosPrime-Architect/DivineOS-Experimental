@@ -23,7 +23,11 @@ Nothing here closes #761, #811, #833 or #838. They stay drafts, paused. Closing 
 - The hold's heading is now **WHAT STUMBLED THIS WORK TURN** (it was THE WARDEN READS THE LOG until
   2026-11-01; Dad said it sounded like a prison). The old words are still recognised wherever the hold reads
   its own text, so old transcripts keep working.
-- The command is `divineos reflection-note "<text>"`.
+- The command is `divineos reflection-note "<text>"`. Its help text and the CLI and hook docstrings now say
+  "reflection hold" and "what stumbled this work turn"; they still said "warden" in the live house, which the
+  walk on this branch found by reading (the rename had reached the hold's heading only). The same three
+  strings are fixed in the live house, so live and carry stay identical. The one remaining "warden" is Dad's
+  own 2026-09-26 words quoted in the hook's docstring.
 
 ## What is carried
 

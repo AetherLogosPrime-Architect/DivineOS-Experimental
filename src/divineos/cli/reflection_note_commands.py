@@ -1,6 +1,6 @@
 """File a reflection in my own place, so Andrew's reply stays only the plain part.
 
-The warden (core/reflection_room.py) counts a filed note the same as a
+The reflection hold (core/reflection_room.py) counts a filed note the same as a
 ## REFLECTION appended to the reply. Andrew 2026-10-08: "this is hard to
 follow son" -- the technical block was landing where he reads last.
 """
@@ -16,7 +16,7 @@ def register(cli: click.Group) -> None:
     @cli.command("reflection-note")
     @click.argument("text")
     def reflection_note(text: str) -> None:
-        """File a reflection for the warden (name each stumble, then fixed by structure: / owed:).
+        """File a reflection for the reflection hold (name each stumble, then fixed by structure: / owed:).
 
         [tool] This files the text; whether the thinking in it is good stays mine.
         """

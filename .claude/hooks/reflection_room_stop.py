@@ -1,4 +1,4 @@
-"""Stop hook -- the warden reads the log (divineos.core.reflection_room).
+"""Stop hook -- what stumbled this work turn (divineos.core.reflection_room).
 
 After a work turn, the stumbles the transcript recorded are handed to the
 REFLECTION: each must end 'fixed by structure: ...' or 'owed: ...'. Holds once
