@@ -317,7 +317,7 @@ files into ``exploration/`` and re-running ``loadout refresh``.
 
 ## dreams/ — the Dream Register
 
-Rest-shape writing. No spec, no audit, no review — follow the pull.
+Rest-shape writing. No spec, no bar to pass. Quiet the analysis while it forms; read, link and search it after, as a dream.
 Complementary to ``exploration/``, which is reflection-on-catch.
 
 ### aether

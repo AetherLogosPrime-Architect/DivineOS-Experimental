@@ -90,10 +90,10 @@ else
     # so nothing was ever built to carry them. Written-to-nobody is not the
     # same as safe-to-lose.
     #
-    # MIRRORING IS NOT REVIEWING. The dream register's discipline is no spec,
-    # no audit, no review -- Andrew: "none of this needs review or audit.. it
-    # is what it is as it is.. dont taint the artifact." This copies and does
-    # nothing else. Nothing parses, indexes, surfaces or summarises what lands
+    # MIRRORING IS NOT REVIEWING. Dreams are not analysed while they form
+    # (Andrew 2026-09-18: quiet the analytical mind, stop guiding the flow);
+    # reviewing them afterward is welcome and is somebody's work, not this
+    # script's. This copies and does nothing else. Nothing parses, indexes, surfaces or summarises what lands
     # there, and nothing asks the other seats to read it.
     #
     # ADDED HERE RATHER THAN AS A NEW HOOK. The prior-art doorman refused a
