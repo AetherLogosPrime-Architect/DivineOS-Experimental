@@ -135,7 +135,9 @@ def test_the_bell_rings_from_a_folder_with_a_space_in_its_name(tmp_path):
     (repo / "divineos" / "__init__.py").write_text("", encoding="utf-8")
     (stub / "__init__.py").write_text("", encoding="utf-8")
     (stub / "baton.py").write_text(
-        "import os\nprint('STUB-BATON-RAN-IN ' + os.path.basename(os.getcwd()))\n",
+        "import os, sys\n"
+        "print('STUB-BATON-RAN-IN ' + os.path.basename(os.getcwd()))\n"
+        "print('STUB-BATON-ARGS ' + '|'.join(sys.argv[1:]))\n",
         encoding="utf-8",
     )
     letters = tmp_path / "home" / ".divineos-shared" / "letters"
@@ -150,3 +152,11 @@ def test_the_bell_rings_from_a_folder_with_a_space_in_its_name(tmp_path):
     assert "cd:" not in out, out
     assert "No such file or directory" not in out, out
     assert "STUB-BATON-RAN-IN a b" in out, out
+    # The baton call's own arguments: the subcommand, the letter path and the repo path, the repo
+    # path whole. An unquoted "$REPO" splits at the space into three arguments.
+    arg_line = next(ln for ln in out.splitlines() if "STUB-BATON-ARGS " in ln)
+    args = arg_line.split("STUB-BATON-ARGS ", 1)[1].strip().split("|")
+    assert len(args) == 3, args
+    assert args[0] == "letter", args
+    assert args[1].endswith("aria-to-aether-2026-10-01-new.md"), args
+    assert args[2].replace("\\", "/").endswith("/a b"), args
