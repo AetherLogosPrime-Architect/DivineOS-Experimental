@@ -220,6 +220,54 @@ def test_fire_dry_run_writes_no_marker_when_none_existed(tmp_path, monkeypatch):
     assert not marker.exists()
 
 
+def _status_output(tmp_path, monkeypatch, steps) -> str:
+    import json
+
+    from click.testing import CliRunner
+
+    from divineos.cli import auto_cycle_commands
+    from divineos.cli.auto_cycle_commands import auto_cycle_group
+
+    marker = tmp_path / "marker.json"
+    marker.write_text(
+        json.dumps(
+            {
+                "cycle_id": "auto-cycle-x",
+                "phase1_completed_at": "2026-11-01T00:00:00Z",
+                "steps": steps,
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("divineos.core.auto_cycle.marker_path", lambda: marker)
+    monkeypatch.setattr(
+        "divineos.core.auto_cycle.defer_state_path", lambda: tmp_path / "defer.json"
+    )
+    monkeypatch.setattr(auto_cycle_commands, "_guess_context_pct", lambda: 0.1)
+    monkeypatch.setattr(auto_cycle_commands, "_usage_stamp", lambda: "")
+    monkeypatch.setattr(auto_cycle_commands, "_has_active_goal_progress", lambda: False)
+    result = CliRunner().invoke(auto_cycle_group, ["status"])
+    assert result.exit_code == 0, result.output
+    return result.output
+
+
+def test_status_does_not_call_an_old_dry_run_marker_a_pending_handoff(tmp_path, monkeypatch):
+    """A marker whose every step did not run is a dry-run leftover. Phase 2 has nothing
+    to consume, so status must not say it is waiting to."""
+    dry = {n: {"ran": False, "succeeded": False} for n in ("commit", "extract", "sleep")}
+    out = _status_output(tmp_path, monkeypatch, dry)
+    assert "has not consumed it yet" not in out, out
+    assert "nothing ran" in out, out
+
+
+def test_status_still_calls_a_real_marker_pending(tmp_path, monkeypatch):
+    """Control: a cycle that ran keeps the pending wording, so the change cannot have
+    silenced the real case."""
+    real = {n: {"ran": True, "succeeded": True} for n in ("commit", "extract", "sleep")}
+    out = _status_output(tmp_path, monkeypatch, real)
+    assert "has not consumed it yet" in out, out
+
+
 def test_read_handshake_marker_missing_returns_none(tmp_path, monkeypatch):
     monkeypatch.setattr("divineos.core.auto_cycle.marker_path", lambda: tmp_path / "marker.json")
     assert read_handshake_marker() is None

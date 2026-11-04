@@ -188,6 +188,34 @@ def test_a_step_that_did_not_run_among_real_ones_is_named_not_hidden() -> None:
     assert "COMPLETED" not in line
 
 
+def test_a_marker_that_records_no_steps_is_not_called_completed() -> None:
+    """A marker with nothing in `steps` has no step that succeeded, so it cannot say
+    "all succeeded". It is the same shape as a dry run one level up: nothing recorded."""
+    empty = _marker()
+    empty["steps"] = {}
+    with tempfile.TemporaryDirectory() as tmp:
+        _write(Path(tmp), empty)
+        line = _run(Path(tmp))
+        _write(Path(tmp), _marker())
+        green = _run(Path(tmp))
+    assert "COMPLETED" not in line and "all succeeded" not in line, line
+    assert "NO STEPS" in line, line
+    assert line != green
+
+
+def test_a_step_that_contradicts_itself_or_has_an_unreadable_ran_is_not_a_success() -> None:
+    """ran=false with succeeded=true cannot both be true; ran as the text "false" or null
+    is not a yes/no. Neither may wear a completed run's words or be called a dry run."""
+    for bad_ran in (False, "false", None):
+        odd = _marker()
+        odd["steps"]["sleep"] = {"ran": bad_ran, "succeeded": True, "error_class": None}
+        with tempfile.TemporaryDirectory() as tmp:
+            _write(Path(tmp), odd)
+            line = _run(Path(tmp))
+        assert "COMPLETED" not in line and "dry run" not in line, (bad_ran, line)
+        assert "FAILED" in line and "sleep=" in line, (bad_ran, line)
+
+
 def test_the_four_states_are_pairwise_distinct() -> None:
     """This is the test the whole file exists for.
 

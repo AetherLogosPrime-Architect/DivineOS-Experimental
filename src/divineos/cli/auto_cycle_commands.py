@@ -206,7 +206,19 @@ def status_cmd() -> None:
         cycle_id = marker.get("cycle_id", "?")
         completed_at = marker.get("phase1_completed_at", "?")
         click.echo(f"  handshake marker present: {cycle_id} at {completed_at}")
-        click.echo("    (phase 2 has not consumed it yet)")
+        steps = marker.get("steps")
+        nothing_ran = (
+            isinstance(steps, dict)
+            and bool(steps)
+            and all(isinstance(s, dict) and s.get("ran") is False for s in steps.values())
+        )
+        if nothing_ran:
+            # A dry run used to overwrite the real marker; one may still be on disk.
+            # No step ran, so phase 2 has no handoff to consume.
+            click.echo("    (a leftover from a run where nothing ran, likely a dry run;")
+            click.echo("     there is no handoff for phase 2 to consume)")
+        else:
+            click.echo("    (phase 2 has not consumed it yet)")
     else:
         click.echo("  handshake marker: absent (no pending phase 2 handoff)")
 
