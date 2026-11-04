@@ -157,9 +157,12 @@ class TestALetterCannotHaveToldHerAboutADraftThatDidNotExistYet:
         got = told_dates_from_letters(letters, {781: "aether/x"}, created={781: date(2026, 11, 3)})
         assert got == {781: date(2026, 11, 3)}
 
-    def test_one_day_of_grace_for_the_clock_the_file_name_was_written_in(self) -> None:
+    def test_grace_of_one_day_exists_because_the_file_name_is_local_and_the_draft_is_utc(
+        self,
+    ) -> None:
         """The draft's date is UTC and the file name's is local; a real letter written after the
-        draft opened can carry the day before it."""
+        draft opened can carry the day before it. Do not tighten this to zero (Aether, 2026-11-03):
+        it would drop a real same-evening telling."""
         letters = {"aria-to-aletheia-2026-11-03-x.md": "please read #790"}
         got = told_dates_from_letters(letters, {790: "aether/y"}, created={790: date(2026, 11, 4)})
         assert got == {790: date(2026, 11, 3)}
@@ -169,8 +172,23 @@ class TestALetterCannotHaveToldHerAboutADraftThatDidNotExistYet:
         got = told_dates_from_letters(letters, {790: "aether/y"}, created={790: date(2026, 11, 4)})
         assert got == {}
 
-    def test_the_branch_name_in_an_old_letter_is_held_to_the_same_rule(self) -> None:
+    def test_a_branch_name_in_an_older_letter_still_counts_it_is_specific(self) -> None:
+        """Aether, same night: a number collides with correction, claim and row numbers; a branch
+        name does not. A letter that named the branch before the draft opened did tell her about
+        that work, so the date rule is for numbers only."""
         letters = {"aether-to-aletheia-2026-10-01-x.md": "branch fix/x is up"}
+        got = told_dates_from_letters(letters, {596: "fix/x"}, created={596: date(2026, 11, 3)})
+        assert got == {596: date(2026, 10, 1)}
+
+    def test_a_branch_name_counts_even_when_the_birth_date_is_unknown(self) -> None:
+        letters = {"aether-to-aletheia-2026-10-01-x.md": "branch fix/x is up"}
+        assert told_dates_from_letters(letters, {596: "fix/x"}, created={}) == {
+            596: date(2026, 10, 1)
+        }
+
+    def test_the_number_in_the_same_old_letter_does_not_count(self) -> None:
+        """Same letter, the number only: no."""
+        letters = {"aether-to-aletheia-2026-10-01-x.md": "see #596"}
         got = told_dates_from_letters(letters, {596: "fix/x"}, created={596: date(2026, 11, 3)})
         assert got == {}
 

@@ -234,13 +234,17 @@ def told_dates_from_letters(
     A letter names a fix by its number or its branch. The number must not run
     into a longer one (#5961 is not #596).
 
-    ``created`` is the day each PR was opened. When given, a letter dated more than
-    a day before that cannot have told her about it: a '#809' in October is a
-    correction number, not a pull request that did not exist until November (Aria,
-    2026-11-03). The one day of grace covers the file name's local day against the
-    PR's UTC day. A PR with no day in ``created`` is not told, because on doubt the
-    safe label is 'never told': an invented 'asked' hides the fix from the next
-    request. None keeps the old behaviour for callers that have no dates.
+    ``created`` is the day each PR was opened. When given, a NUMBER match in a letter
+    dated more than a day before that cannot have told her about it: a '#809' in
+    October is a correction number, not a pull request that did not exist until
+    November (Aria, 2026-11-03). Correction, claim and row numbers share the space of
+    PR numbers, which is the whole collision. A BRANCH name is specific, so a letter
+    that named the branch before the PR was opened did tell her about that work, and
+    the date rule does not apply to it (Aether's cold read, same night). The one day
+    of grace covers the file name's local day against the PR's UTC day. A number match
+    for a PR with no day in ``created`` is not told, because on doubt the safe label is
+    'never told': an invented 'asked' hides the fix from the next request. None keeps
+    the old behaviour for callers that have no dates.
     """
     told: dict[int, date] = {}
     for name, text in letters.items():
@@ -251,11 +255,12 @@ def told_dates_from_letters(
             continue
         day = date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
         for pr, branch in branches.items():
-            if created is not None:
+            by_number = re.search(rf"#{pr}(?!\d)", text)
+            if by_number and created is not None:
                 born = created.get(pr)
                 if born is None or day < born - timedelta(days=1):
-                    continue
-            named = re.search(rf"#{pr}(?!\d)", text) or (branch and branch in text)
+                    by_number = None
+            named = by_number or (branch and branch in text)
             if named and (pr not in told or day > told[pr]):
                 told[pr] = day
     return told
