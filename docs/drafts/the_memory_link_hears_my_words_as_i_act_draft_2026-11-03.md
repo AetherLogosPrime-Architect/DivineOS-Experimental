@@ -100,6 +100,31 @@ reaches me as it does from PreToolUse.
 - **The next replay** is per moment (transcript up to each moment only), with the 111-message
   dismissal family as a positive control that can say yes.
 
+## What the revision walk added (walk-1e2a92c753f4, eight lenses, each on its own question)
+
+- **Only verified items get the top kind tier** (Schneier): kind is a tag set when an item is stored,
+  so a forged "correction" would rank first. Only text found word for word in his own corpus (the
+  his-words door check) ranks as his correction; anything else ranks as ordinary knowledge, and every
+  shown line carries source and date.
+- **Two framings** (Einstein): the score is measured in the frame of my sentence (first person, about
+  what I did) while his corrections are in his (second person, about what I do); test restating my
+  sentence in his frame and search both if the right item rises.
+- **False alarms are measured too** (Kahneman): the next replay includes fifty sentences chosen with no
+  known relevant correction and records what the selector would have shown for them.
+- **Thresholds written before the data** (Sagan): disbelieve the design if the right family is in the
+  top three in fewer than four of five known cases, or if on the fifty no-known-relevant sentences it
+  would speak on more than one in five.
+- **Cheap to silence, so it is not ripped out** (Breaker): every item carries a one-line reason (why,
+  from where, how close); a mute I can set in one command; the ceiling is the off switch.
+- **The window has a budget** (Shannon): the reply-start window was found 8,200 of 10,000 bytes full;
+  measure the before-tool context's own budget as part of the payload check, since a full window
+  withholds the whole lane.
+- **Zero cases are tests** (Knuth): no result prints nothing; an empty index says "index empty", never
+  silence; an empty or first-step transcript searches nothing and says nothing; boundaries at one
+  passage and at the cap of two.
+- **The analogy breaks where the replay broke** (Hofstadter): the retriever finds what is close, not
+  what is relevant; kind ranking patches it and the shadow log is the standing check.
+
 ## Open for the walk
 
 Is two items the right cap, or one? What is the floor for "close to what I just said" when the
