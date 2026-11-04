@@ -79,7 +79,14 @@ _TREE_LINE = re.compile(re.escape(TREE_LINE_PREFIX) + r"[0-9a-f]{40}")
 
 def _names_pr(pr: int) -> re.Pattern[str]:
     """Every way a person writes a PR: `#7`, `PR 7`, `PR-7`, `pr7`, `pull 7`, `pull request 7`."""
-    return re.compile(rf"(?:#|\b(?:PR|pull(?:\s+request)?)[\s\-#:]*){pr}(?!\d)", re.IGNORECASE)
+    # The number must stand alone: not the start of a longer token (`7th`, `70`), not glued to a
+    # word before a bare `#` (`issue#7`), and not a count (`pull 5 commits`, `pr 5 files`).
+    counted = r"(?:commits?|files?|changes?|lines?|times?|minutes?|hours?|days?|issues?|items?)"
+    return re.compile(
+        rf"(?<!\w)#{pr}(?!\w)"
+        rf"|\b(?:PR|pull(?:[\s\-]request)?)(?:[\s\-#:./]|\bno\b\.?)*{pr}(?!\w)(?!\s+{counted}\b)",
+        re.IGNORECASE,
+    )
 
 
 def rounds_without_tree_line(
