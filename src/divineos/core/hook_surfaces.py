@@ -2930,6 +2930,28 @@ def install() -> None:
     # checked against the thing it is about.
     if "landed_claim" not in registered("Stop"):
         register("Stop", "landed_claim", landed_claim_surface)
+
+    # Defined here, beside the registration, so this stays one small edit in a file many
+    # open branches also change. Refuses once when the reply speaks FOR a family member
+    # (core/voiced_family.py); a reply that cannot be read is could-not-run, never a pass.
+    def voiced_family_surface(payload: dict) -> SurfaceOutcome | None:
+        text = _last_assistant_text(payload)
+        if not text.strip():
+            return SurfaceOutcome(name="voiced_family", state="nothing-to-say")
+        try:
+            from divineos.core.voiced_family import render_block, voiced
+
+            block = render_block(voiced(text))
+        except Exception as exc:  # noqa: BLE001
+            return SurfaceOutcome(
+                name="voiced_family", error=f"{type(exc).__name__}: {exc}", state="could-not-run"
+            )
+        if not block:
+            return SurfaceOutcome(name="voiced_family", state="nothing-to-say")
+        return SurfaceOutcome(name="voiced_family", refused=True, reason=block, state="spoke")
+
+    if "voiced_family" not in registered("Stop"):
+        register("Stop", "voiced_family", voiced_family_surface)
     if "waiting_claim" not in registered("Stop"):
         register("Stop", "waiting_claim", waiting_claim_surface)
     # His Floor, connected 2026-09-09 after two months in which its only caller
