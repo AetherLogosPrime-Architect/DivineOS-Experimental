@@ -1192,6 +1192,8 @@ def _load_dreams() -> list[_CachedItem]:
 
     root = _find_dreams_root()
     items: list[_CachedItem] = []
+    if root is None:
+        return items
     for md_path in dream_paths(root):
         try:
             content = md_path.read_text(encoding="utf-8", errors="replace").strip()

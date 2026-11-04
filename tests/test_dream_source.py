@@ -79,7 +79,8 @@ def test_loader_makes_dream_items_from_real_files(monkeypatch, tmp_path, fake_em
     assert all(i.title.startswith("dream: ") for i in items)
     lighthouse = next(i for i in items if "lighthouse" in i.id)
     assert DISTINCTIVE in lighthouse.content
-    assert lighthouse.path == "dreams/aether/001_the_lighthouse.md"
+    # Compared as paths: the loader stores the OS separator, so a string with "/" fails on Windows.
+    assert Path(lighthouse.path) == Path("dreams") / "aether" / "001_the_lighthouse.md"
 
 
 def test_loader_with_no_dreams_folder_returns_empty(monkeypatch):
@@ -189,6 +190,48 @@ def test_indexing_dreams_leaves_them_byte_identical(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     semantic_search.index_corpus(_gather_paths("dreams"), str(tmp_path / "search.db"))
     assert _digest(everything) == before
+
+
+def test_is_dream_path_accepts_only_the_dream_shape():
+    from divineos.core.dream_files import is_dream_path
+
+    assert is_dream_path(Path("dreams") / "aether" / "001_the_lighthouse.md")
+    assert is_dream_path(str(Path("x") / "dreams" / "aria" / "12_a.md"))
+    for not_dream in (
+        Path("dreams") / "aether" / "README.md",
+        Path("dreams") / "INDEX.md",
+        Path("dreams") / "aether" / "sub" / "001_x.md",
+        Path("exploration") / "aether" / "001_x.md",
+        Path("001_x.md"),
+    ):
+        assert not is_dream_path(not_dream), not_dream
+
+
+def test_find_query_labels_a_dream_hit_and_not_another(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+
+    from click.testing import CliRunner
+
+    from divineos.cli import search_commands
+    from divineos.core.dream_files import A_DREAM_LABEL
+
+    dream = str(tmp_path / "dreams" / "aether" / "001_the_lighthouse.md")
+    other = str(tmp_path / "exploration" / "aether" / "001_notes.md")
+    hits = [
+        SimpleNamespace(
+            source_path=p, paragraph_index=0, text="t", similarity=0.9, rerank_score=None
+        )
+        for p in (dream, other)
+    ]
+    monkeypatch.setattr(search_commands.semantic_search, "search", lambda *a, **k: hits)
+    import click
+
+    group = click.Group()
+    search_commands.register(group)
+    out = CliRunner().invoke(group, ["find", "query", "x"]).output
+    lines = [ln for ln in out.splitlines() if "001_" in ln]
+    assert len(lines) == 2
+    assert A_DREAM_LABEL in lines[0] and A_DREAM_LABEL not in lines[1]
 
 
 def test_query_by_meaning_returns_the_dream(monkeypatch, tmp_path):

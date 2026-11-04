@@ -15,6 +15,19 @@ from pathlib import Path
 _DREAM_NAME = re.compile(r"^\d+_.+\.md$")
 
 
+A_DREAM_LABEL = "a dream, not a record of what happened"
+
+
+def is_dream_path(path: str | Path) -> bool:
+    """True for exactly dreams/<seat>/NNN_title.md, the shape dream_paths accepts. Path text only."""
+    parts = Path(path).parts
+    return (
+        len(parts) >= 3
+        and parts[-3].lower() == "dreams"
+        and _DREAM_NAME.match(parts[-1]) is not None
+    )
+
+
 def dream_paths(dreams_root: Path | None) -> list[Path]:
     """Every dream file one level under each seat folder, sorted. Empty if none."""
     if dreams_root is None or not dreams_root.is_dir():
