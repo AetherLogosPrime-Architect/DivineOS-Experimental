@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (522 commands across 122 modules)
+  cli/                         CLI package (526 commands across 122 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -100,6 +100,7 @@ src/divineos/
     audit_commands.py          external validation (Watchmen)
     audit_artifact_commands.py  audit prepare-artifact — tree-hash-bound orphan-commit artifact for guardrail review (solves the commit-needs-round-needs-diff-on-origin loop)
     auto_cycle_commands.py     auto-cycle status/fire/defer-check — CLI for phase 1 mechanical pre-compaction pipeline (Andrew 2026-07-10)
+    auto_cycle_phase2_commands.py auto-cycle offer/close/audit — phase 2 rest menu, attached to phase 1's auto-cycle group
     doctor_commands.py         diagnostic verification (clone separation)
     bio_commands.py            Bio sheet — show, edit, history, write
     wiring_commands.py         wiring dark — standing dark-node query over graphify-out-code/.graphify_ast.json; Aletheia E4 realized (2026-07-13)
@@ -651,6 +652,7 @@ src/divineos/
     finding_backlog.py         Unfixed findings block work at the place or the moment they name. Built 2026-09-09 against the measurement that of the twenty blocking doors in the house, none reads the findings store — so filing a diagnosis costs nothing and ignoring one costs nothing. NOTE: not yet wired to a door; it is the scheduler role, and until it has a caller it is a module rather than a mechanism.
     foundational_truths_surface.py Foundational-truths surface — surfaces relevant kiln principles by trigger match.
     auto_cycle.py              Auto-cycle phase 1 — mechanical pipeline before compaction.
+    auto_cycle_phase2.py       Auto-cycle phase 2 — the invitational rest menu offered after phase 1's handshake; marker absence fails toward not-fired.
     closure_verification.py    Closure-shape citation verification — the substance-binding mechanism.
     gate_emit.py               Gate-emit noise-suppression primitive (Aletheia audit finding #2).
     wiring_dark.py             Standing dark-node query — reads graphify-out-code/.graphify_ast.json, reports in-degree-0 modules; powers `divineos wiring dark` and briefing surface (Aletheia E4, 2026-07-13).
