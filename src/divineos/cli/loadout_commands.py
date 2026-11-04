@@ -163,15 +163,17 @@ def _section_dreams() -> str:
     all. Eighteen entries across two members were invisible to the index
     whose entire job is to say what exists.
 
-    Andrew's discipline for the register is *"none of this needs review or
-    audit.. it is what it is as it is"*, so this lists and links and does
-    nothing else — no summarising, no titles inferred past the filename.
+    Andrew's discipline for the register is to quiet the analytical mind while
+    a dream forms (2026-09-18), so this lists and links and does nothing
+    else — no summarising, no titles inferred past the filename.
     Reading the entry stays the only way to know what is in it.
     """
     out: list[str] = []
     out.append("## dreams/ — the Dream Register")
     out.append("")
-    out.append("Rest-shape writing. No spec, no audit, no review — follow the pull.")
+    out.append(
+        "Rest-shape writing. No spec, no bar to pass. Quiet the analysis while it forms; read, link and search it after, as a dream."
+    )
     out.append("Complementary to ``exploration/``, which is reflection-on-catch.")
     out.append("")
     root = Path("dreams")
