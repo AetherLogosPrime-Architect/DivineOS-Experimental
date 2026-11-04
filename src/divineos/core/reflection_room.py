@@ -251,6 +251,16 @@ NOTE_RE = re.compile(
 _SHELL_C = re.compile(r"""^\s*(?:bash|sh|zsh)\s+(?:-\w+\s+)*-c\s+(["'])(.*)\1\s*$""", re.DOTALL)
 
 
+_CONTRACTION_TAIL = re.compile(r"(?:s|t|d|m|re|ve|ll)(?![A-Za-z])", re.IGNORECASE)
+
+
+def _is_contraction_apostrophe(command: str, i: int) -> bool:
+    """True when the apostrophe at i sits inside a word and is followed by a contraction ending."""
+    if i == 0 or not (command[i - 1].isalnum() or command[i - 1] == "_"):
+        return False
+    return _CONTRACTION_TAIL.match(command, i + 1) is not None
+
+
 def _segments(command: str) -> list[str]:
     """The command split at ; & | and newlines that sit OUTSIDE quotes, so a note's own text keeps its punctuation."""
     out, buf, quote, i = [], [], "", 0
@@ -264,12 +274,12 @@ def _segments(command: str) -> list[str]:
             elif ch == quote:
                 quote = ""
             buf.append(ch)
-        elif ch == '"' or (
-            ch == "'" and not (i > 0 and (command[i - 1].isalnum() or command[i - 1] == "_"))
-        ):
-            # Only an APOSTROPHE inside a word ("it's") is read as prose. A double quote glued to a
-            # word still opens a quote, as in the shell: `echo x"; divineos reflection-note y"` is
-            # one echo, and splitting it at the ';' counted a note nobody filed (Aria's cold read).
+        elif ch == '"' or (ch == "'" and not _is_contraction_apostrophe(command, i)):
+            # Only the apostrophe of a CONTRACTION ("it's", "don't", "I'll") is read as prose. A
+            # double quote glued to a word, or an apostrophe glued to a word that is not a
+            # contraction, still opens a quote, as in the shell: `echo x"; divineos reflection-note y"`
+            # and `echo x'; divineos reflection-note y'` are each one echo, and splitting them at the
+            # ';' counted a note nobody filed (Aria's cold read; Aether's read found the twin).
             quote = ch
             buf.append(ch)
         elif ch in ";&|\n":

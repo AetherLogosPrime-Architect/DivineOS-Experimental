@@ -202,6 +202,26 @@ def test_a_double_quote_glued_to_a_word_still_hides_the_semicolon_inside_it():
         assert _held(records) == ["work-item-doorman"], cmd
 
 
+def test_an_apostrophe_glued_to_a_word_that_is_not_a_contraction_opens_a_quote():
+    """Aether's read of #838: the single-quote twin of the double-quote case was still a false clear."""
+    for cmd in (
+        f"echo x'; divineos reflection-note {NOTE_TEXT}'",
+        f"echo x'; divineos reflection-note {NOTE_TEXT}",
+    ):
+        records = [_his("go"), _tool(), _error(REFUSAL_A), _call(cmd, "c1")]
+        assert _held(records) == ["work-item-doorman"], cmd
+
+
+def test_contraction_apostrophes_are_still_prose():
+    for cmd in (
+        f'echo it\'s fine; divineos reflection-note "{NOTE_TEXT}"',
+        f'echo don\'t stop; divineos reflection-note "{NOTE_TEXT}"',
+        f"echo I'll try, they're here, we've done it, I'd say so; divineos reflection-note \"{NOTE_TEXT}\"",
+    ):
+        records = [_his("go"), _tool(), _error(REFUSAL_A), _call(cmd, "c1")]
+        assert _held(records) == [], cmd
+
+
 def test_the_hook_is_registered_as_a_stop_hook():
     settings = json.loads((ROOT / ".claude" / "settings.json").read_text(encoding="utf-8"))
     commands = [
