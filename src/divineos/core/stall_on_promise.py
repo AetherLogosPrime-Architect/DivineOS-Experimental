@@ -189,6 +189,11 @@ _WINDOW_WORDS = 6
 
 def _delivered_in(what: str, sentence: str) -> bool:
     for mention in re.finditer(r"\b" + re.escape(what) + r"\b", sentence, re.IGNORECASE):
+        # "The careful part: the gate never fires" is a section being delivered; what follows the colon is its
+        # content, so a "never" in it is not a denial. Only a denial standing right after the colon is one.
+        label, colon, content = sentence[mention.end() :].partition(":")
+        if colon and len(label.split()) <= 3:
+            return not _NEGATION.search(" ".join(content.split()[:2]))
         near = (
             sentence[: mention.start()].split()[-_WINDOW_WORDS:]
             + sentence[mention.end() :].split()[:_WINDOW_WORDS]
@@ -214,11 +219,19 @@ def _after_said_lead_in(sentence: str, after: str) -> str | None:
     return sentence[: lead.start()] + " " + tail
 
 
-_MY_OWN_SAYING = re.compile(r"\bI(?:'ll|\s+will)\s+(?:just\s+)?say\b[^,.;!?]*", re.IGNORECASE)
+# The cut stops at the first word that starts a later clause ("and then push once you confirm"), so his
+# condition in that clause is still there to be read.
+_MY_OWN_SAYING = re.compile(
+    r"\bI(?:'ll|\s+will)\s+(?:just\s+)?say\b"
+    r"(?:(?!\s+(?:and|then|once|when|whenever|if|after|until|as\s+soon)\b)[^,.;!?])*",
+    re.IGNORECASE,
+)
 
+# "wait" and "again" after "then" are not work of mine ("then wait for you", "but then again").
 _THEN_BARE_VERB = re.compile(
     r"(\bI(?:'ll|\s+will)\b[^.!?]*?\bthen\s+)"
-    r"(?!(?:I|you|we|he|she|they|it|the|a|an|that|this|his|her|their|my|there|some|all|no)\b)(?=[a-z])",
+    r"(?!(?:I|you|we|he|she|they|it|the|a|an|that|this|his|her|their|my|there|some|all|no|wait|again)\b)"
+    r"(?=[a-z])",
     re.IGNORECASE,
 )
 

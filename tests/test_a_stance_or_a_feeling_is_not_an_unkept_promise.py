@@ -102,3 +102,46 @@ def test_a_later_sentence_saying_the_content_is_not_there_does_not_deliver_it():
 @pytest.mark.parametrize("text", ["I'll keep trying.", "I'll keep showing up for my share."])
 def test_the_bare_stances_are_still_let_through(text):
     assert stated_next_step("That is all of it. " + text) is None, text
+
+
+# Findings from the second reader on #806: honest sentences the repair held, which the base passed.
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I'll say the word and then push once you confirm.",
+        "I'll say go and then deploy when you say so.",
+        "I'll say the word then wait for you to say go.",
+        "I'll say what I think, then wait for you.",
+        "I'll be honest, but then again I might be wrong.",
+    ],
+)
+def test_a_saying_or_a_wait_that_rests_on_him_is_not_held(text):
+    assert stated_next_step("That is all of it. " + text) is None, text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I'll say the word, then deploy the service tonight.",
+        "I'll say go, then run the tests.",
+        "I'll be honest with you, then push the branch.",
+    ],
+)
+def test_a_saying_followed_by_real_work_is_still_held(text):
+    assert stated_next_step("That is all of it. " + text) is not None, text
+
+
+@pytest.mark.parametrize(
+    "later",
+    [
+        "The careful part: the gate never fires on reads.",
+        "The careful part is not hard: the check reads words.",
+    ],
+)
+def test_a_delivered_section_that_says_not_or_never_is_still_delivered(later):
+    assert stated_next_step("I'll add the careful part, since you asked.\n\n" + later) is None
+
+
+def test_a_label_followed_by_a_denial_is_not_a_delivery():
+    text = "I'll add the careful part, since you asked.\n\nThe careful part: not written yet."
+    assert stated_next_step(text) is not None
