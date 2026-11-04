@@ -59,6 +59,23 @@ def test_unknown_surfaces_sort_last_and_are_reported():
     assert hook_order.unlisted("Stop", ["brand_new_note", "summary_room"]) == ["brand_new_note"]
 
 
+def test_a_row_nobody_has_read_says_unread_and_never_looks_like_a_known_kind():
+    # Aria's cold read: heredoc_escape was filed as "other" when its way out is the Write tool.
+    # A placeholder kind that looks like a fact gets believed, so unread rows are named UNREAD.
+    assert hook_order.row_for("PreToolUse", "heredoc_escape").kind == hook_order.TOOL_CALL
+    unread = [r.name for r in hook_order.ROWS if r.kind == hook_order.UNREAD]
+    assert "waiting_claim" in unread and "pr_merge_gate" in unread
+    known = {
+        hook_order.READ_LETTER,
+        hook_order.WAIT,
+        hook_order.TOOL_CALL,
+        hook_order.APPEND_TEXT,
+        hook_order.UNREAD,
+        hook_order.RECORD_ONLY,
+    }
+    assert {r.kind for r in hook_order.ROWS} <= known
+
+
 def test_every_registered_surface_has_a_row():
     # The twenty-first person: a surface added to the router with no row in the table
     # is a new sticky note nobody ordered, and this fails until it joins.

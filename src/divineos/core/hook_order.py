@@ -28,11 +28,16 @@ READ_LETTER = "read_letter"
 WAIT = "wait"
 TOOL_CALL = "tool_call"
 APPEND_TEXT = "append_text"
-OTHER = "other"
+UNREAD = "unread"
 RECORD_ONLY = "record_only"
 
+# UNREAD is not a kind of remedy: it means nobody has read this surface's refusal text and
+# written down what it asks for. It stands where "other" stood, but says so, because a
+# placeholder kind that looks like a fact would be believed by anything that reads the table
+# (Aria's cold read, 2026-11-04, caught heredoc_escape filed as "other" when its remedy is a
+# tool call). A row leaves UNREAD only when someone has read its text.
 _KIND_ORDER = {
-    k: i for i, k in enumerate((READ_LETTER, WAIT, TOOL_CALL, APPEND_TEXT, OTHER, RECORD_ONLY))
+    k: i for i, k in enumerate((READ_LETTER, WAIT, TOOL_CALL, APPEND_TEXT, UNREAD, RECORD_ONLY))
 }
 
 
@@ -50,46 +55,54 @@ def _rows(event: str, kind: str, names: tuple[str, ...], start: int) -> list[Row
 
 ROWS: tuple[Row, ...] = tuple(
     # Stop: what the reply must do next, after it already reached him.
-    _rows("Stop", TOOL_CALL, ("landed_claim", "waiting_claim"), 10)
+    # READ, 2026-11-04, by me in a reply or a refusal I was handed: the first block of each event.
+    _rows("Stop", TOOL_CALL, ("landed_claim",), 10)
     + _rows(
         "Stop",
         APPEND_TEXT,
+        ("addressed_to_him", "voiced_family", "summary_room", "order_question"),
+        20,
+    )
+    # NOT READ: the refusal text of these has not been read and written down. They keep a rank
+    # so the order is stable, but their kind says so.
+    + _rows(
+        "Stop",
+        UNREAD,
         (
-            "addressed_to_him",
-            "voiced_family",
-            "summary_room",
-            "order_question",
+            "waiting_claim",
             "no_fix_claim",
             "self_demotion_stop",
             "translation_floor",
             "repeated_reply",
             "his_standing_verdict",
+            "close_reach",
+            "compaction_reach",
         ),
-        20,
+        30,
     )
-    + _rows("Stop", OTHER, ("close_reach", "compaction_reach"), 40)
     + _rows("Stop", RECORD_ONLY, ("hedge_audit", "theater_audit", "time_estimate"), 50)
     # PreToolUse: why this call was stopped. Reads first, then the rest.
     + _rows("PreToolUse", READ_LETTER, ("unread_letter",), 10)
-    + _rows("PreToolUse", TOOL_CALL, ("require_briefing", "must_read", "degraded_detectors"), 20)
+    + _rows("PreToolUse", TOOL_CALL, ("require_briefing", "must_read"), 20)
+    # heredoc_escape: its way out is the Write tool, per Aria's reading of its text; cd_drift and
+    # his_words: read as refusals handed to me (reissue without the cd; rewrite without the quote).
+    + _rows("PreToolUse", TOOL_CALL, ("his_words", "cd_drift", "heredoc_escape"), 25)
     + _rows(
         "PreToolUse",
-        OTHER,
+        UNREAD,
         (
-            "his_words",
+            "degraded_detectors",
             "deletion_discipline",
             "no_verify_cost",
             "full_suite_by_hand",
             "compound_branch_change",
-            "heredoc_escape",
-            "cd_drift",
             "slashed_ref_path",
             "trial_in_days",
             "pr_merge_gate",
             "pr_merge_freshness",
             "pr_create_gate",
         ),
-        30,
+        40,
     )
 )
 
