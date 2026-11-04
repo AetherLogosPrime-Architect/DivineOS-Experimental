@@ -119,6 +119,28 @@ def test_the_program_being_divineos_or_pytest_is_ours_in_each_launch_shape():
     assert {r.pid for r in rp.select_ours(real, REPO)} == {700, 701, 702, 703, 704}
 
 
+def test_a_trailing_path_named_divineos_or_pytest_does_not_make_a_process_ours():
+    decoys = [
+        _row(800, 1, 5, r"C:\Windows\explorer.exe C:\Users\me\divineos"),
+        _row(801, 1, 5, "/usr/bin/cat /var/log/divineos"),
+        _row(802, 1, 5, "/usr/bin/cp /src/pytest /dst/"),
+        _row(803, 1, 5, "/usr/bin/vim /home/u/pytest"),
+        _row(804, 1, 5, r"C:\Program Files\Microsoft VS Code\Code.exe c:\work\divineos"),
+        _row(805, 1, 5, "python -c divineos"),
+    ]
+    assert rp.select_ours(decoys, REPO) == []
+
+
+def test_xdist_workers_and_uv_or_poetry_runs_of_pytest_are_ours():
+    real = [
+        _row(900, 1, 5, 'python -c "import sys;from execnet import gateway_base;exec(1)"'),
+        _row(901, 1, 5, "uv run pytest tests -q"),
+        _row(902, 1, 5, "poetry run pytest -q"),
+        _row(903, 1, 5, "C:/Program Files/uv/uv.exe run --frozen pytest"),
+    ]
+    assert {r.pid for r in rp.select_ours(real, REPO)} == {900, 901, 902, 903}
+
+
 def test_the_command_lists_a_real_process_and_leaves_a_decoy_out(tmp_path):
     """A live control: both children are asserted alive before the command is read."""
     import subprocess

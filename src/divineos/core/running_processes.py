@@ -20,8 +20,16 @@ from pathlib import Path
 
 _NAMES = {"divineos", "pytest", "py.test"}
 # A folder path may hold spaces and hyphens, but a space followed by a hyphen starts a flag,
-# so the path ends there. A relative prefix may not hold spaces at all.
-_PATH = r"(?:(?:[A-Za-z]:)?/(?:(?!\s-).)*?/|\S*/)?"
+# so the path ends there. A space followed by another absolute path (`/x` or `C:/x`) starts
+# an argument, so the program path ends there too: `cat /var/log/divineos` is cat, not ours.
+# A relative prefix may not hold spaces at all.
+_PATH = r"(?:(?:[A-Za-z]:)?/(?:(?!\s-)(?!\s(?:[A-Za-z]:)?/).)*?/|\S*/)?"
+_LAUNCHER = re.compile(
+    "^"
+    + _PATH
+    + r"(?:uv|poetry)(?:\.exe)?\s+run\s+(?:-\S+\s+)*(?:divineos|pytest|py\.test)(?:\s|$)",
+    re.IGNORECASE,
+)
 _DIRECT_EXE = re.compile(
     "^" + _PATH + r"(?:divineos|pytest|py\.test)(?:\.exe)?(?:\s|$)", re.IGNORECASE
 )
@@ -90,7 +98,7 @@ def _runs_divineos_or_pytest(flat: str) -> bool:
     word only as an argument, so they are not ours. Ours: the executable itself, or a
     python interpreter whose ``-m`` module or first script is one of them.
     """
-    if _DIRECT_EXE.match(flat):
+    if _DIRECT_EXE.match(flat) or _LAUNCHER.match(flat):
         return True
     m = _PYTHON_EXE.match(flat)
     if not m:
@@ -98,6 +106,10 @@ def _runs_divineos_or_pytest(flat: str) -> bool:
     rest = (m.group("rest") or "").split()
     i = 0
     while i < len(rest) and rest[i].startswith("-"):
+        if rest[i] == "-c":
+            # The argument is code, not a script name. A pytest-xdist worker is the one such
+            # command that is ours: it carries execnet's bootstrap.
+            return "execnet" in " ".join(rest[i + 1 :]).lower()
         if rest[i] == "-m" and i + 1 < len(rest):
             return rest[i + 1].split(".")[0].lower() in _NAMES
         i += 2 if rest[i] in ("-W", "-X") else 1
