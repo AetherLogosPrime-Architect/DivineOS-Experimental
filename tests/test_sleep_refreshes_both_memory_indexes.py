@@ -175,6 +175,86 @@ def test_the_total_counts_the_explorations_not_every_row_in_the_database(tmp_pat
     assert out["chunks_total"] == out["chunks_seen"] - out["chunks_failed"]
 
 
+def test_find_index_from_a_subfolder_and_sleep_agree_on_the_root(tmp_path, monkeypatch):
+    """`find index` used to pass the folder it was run from as the root, so run from
+    a subfolder the ids fell back to absolute paths and each caller deleted the other's
+    rows by source path, then embedded them again."""
+    from click.testing import CliRunner
+
+    from divineos.cli import search_commands
+
+    monkeypatch.setattr(semantic_search, "embed", _stub_embed)
+    root, db = tmp_path / "repo", tmp_path / "search.db"
+    _corpus(root, "note.md")
+    monkeypatch.setattr(semantic_search, "default_repo_root", lambda: root)
+    monkeypatch.setattr(semantic_search, "default_db_path", lambda: str(db))
+    first = semantic_search.refresh_exploration_index(root, str(db))
+
+    group = _find_group(search_commands)
+    monkeypatch.chdir(root / "exploration")
+    result = CliRunner().invoke(group, ["index", "--corpus", "exploration"])
+    assert result.exit_code == 0, result.output
+    # Run from a subfolder it used to look for exploration/ inside that subfolder,
+    # find nothing, and print so while exiting 0 (a pass that checked nothing).
+    assert "no files found" not in result.output, result.output
+    assert "Indexing 1 file(s)" in result.output, result.output
+    again = semantic_search.refresh_exploration_index(root, str(db))
+    assert again["chunks_indexed"] == 0 and again["chunks_removed"] == 0, again
+    assert _chunk_count(db) == first["chunks_total"]
+
+
+def _find_group(search_commands):
+    import click
+
+    root = click.Group()
+    search_commands.register(root)
+    return root.commands["find"]
+
+
+def test_a_note_deleted_from_disk_loses_its_rows_in_the_next_refresh(tmp_path, monkeypatch):
+    """Only files still on disk were examined, so a deleted or renamed note kept its
+    rows and kept turning up in searches, while the total quietly left them out."""
+    monkeypatch.setattr(semantic_search, "embed", _stub_embed)
+    root, db = tmp_path / "repo", tmp_path / "search.db"
+    _corpus(root, "keep.md", "gone.md")
+    first = semantic_search.refresh_exploration_index(root, str(db))
+    (root / "exploration" / "aether" / "gone.md").unlink()
+    out = semantic_search.refresh_exploration_index(root, str(db))
+    assert out["chunks_removed"] > 0
+    assert _chunk_count(db) == out["chunks_total"] < first["chunks_total"]
+    assert not any("gone.md" in t for t in _stored_text(db))
+
+
+def test_an_empty_walk_deletes_nothing(tmp_path, monkeypatch):
+    """A folder that could not be read looks exactly like a folder with no notes, and
+    must not wipe every exploration row."""
+    monkeypatch.setattr(semantic_search, "embed", _stub_embed)
+    root, db = tmp_path / "repo", tmp_path / "search.db"
+    _corpus(root, "note.md")
+    semantic_search.refresh_exploration_index(root, str(db))
+    before = _chunk_count(db)
+    (root / "exploration" / "aether" / "note.md").unlink()
+    out = semantic_search.refresh_exploration_index(root, str(db))
+    assert out["chunks_removed"] == 0
+    assert _chunk_count(db) == before
+
+
+def test_deleting_a_note_does_not_touch_rows_of_other_corpora(tmp_path, monkeypatch):
+    """Control: the cleanup is for the exploration corpus only."""
+    monkeypatch.setattr(semantic_search, "embed", _stub_embed)
+    root, db = tmp_path / "repo", tmp_path / "search.db"
+    _corpus(root, "note.md", "keep.md")
+    letters = root / "family" / "letters"
+    letters.mkdir(parents=True)
+    (letters / "l.md").write_text(NOTE.format(name="letter"), encoding="utf-8")
+    semantic_search.refresh_exploration_index(root, str(db))
+    semantic_search.index_corpus(semantic_search.corpus_paths("letters", root), str(db), root=root)
+    before = _chunk_count(db)
+    (root / "exploration" / "aether" / "note.md").unlink()
+    semantic_search.refresh_exploration_index(root, str(db))
+    assert _chunk_count(db) == before - 2  # the note's two paragraphs only
+
+
 def test_old_absolute_path_rows_for_a_file_are_replaced_not_kept(tmp_path, monkeypatch):
     monkeypatch.setattr(semantic_search, "embed", _stub_embed)
     root, db = tmp_path / "repo", tmp_path / "search.db"

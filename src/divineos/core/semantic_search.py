@@ -51,6 +51,7 @@ existing serializer for cosine-search compatibility.
 
 from __future__ import annotations
 
+import os
 import re
 import sqlite3
 import time
@@ -320,6 +321,37 @@ def corpus_paths(corpus: str, repo_root: Path) -> list[str]:
     return sorted(paths)
 
 
+def _remove_rows_of_deleted_notes(paths: list[str], db_path: str, root: Path) -> int:
+    """Delete rows of exploration notes that are no longer on disk. Returns how many.
+
+    ``index_corpus`` only examines files it is handed, so a deleted or renamed note
+    kept its rows and kept turning up in searches. A row belongs to this corpus when
+    its id sits under this checkout's exploration folder, as a relative id or as the
+    older absolute one; any such row whose file is not among the files just walked
+    is stale. Letters and ids from other checkouts' absolute paths are not touched.
+
+    An empty walk deletes nothing: a folder that could not be read looks exactly
+    like a folder with no notes, and that must not wipe every exploration row. The
+    cost is that deleting the very last note leaves its rows until another remains.
+    """
+    if not paths:
+        return 0
+    walked = {_chunk_id(p, 0, root).rsplit(":", 1)[0] for p in paths}
+    relative_prefix = "exploration/aether/"
+    absolute_prefix = str(root / "exploration" / "aether") + os.sep
+    removed = 0
+    with _connect(db_path) as conn:
+        for (cid,) in conn.execute("SELECT chunk_id FROM semantic_search_chunks").fetchall():
+            file_part = cid.rsplit(":", 1)[0]
+            if file_part in walked:
+                continue
+            if file_part.startswith(relative_prefix) or file_part.startswith(absolute_prefix):
+                conn.execute("DELETE FROM semantic_search_chunks WHERE chunk_id = ?", (cid,))
+                removed += 1
+        conn.commit()
+    return removed
+
+
 def refresh_exploration_index(
     repo_root: Path | None = None, db_path: str | None = None
 ) -> dict[str, int]:
@@ -333,6 +365,7 @@ def refresh_exploration_index(
     db = db_path if db_path is not None else default_db_path()
     paths = corpus_paths("exploration", root)
     counts = index_corpus(paths, db, root=root)
+    counts["chunks_removed"] += _remove_rows_of_deleted_notes(paths, db, root)
     # The same set the "new" count is about: the paragraphs of THIS corpus's
     # files, not every row in the database (other corpora, other checkouts).
     counts["chunks_total"] = counts["chunks_present"]
