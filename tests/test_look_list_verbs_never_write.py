@@ -54,7 +54,24 @@ _WRITE_PREFIXES = (
 )
 # Names that start with a write prefix but only read or show. Exact names, so a
 # real writer that shares a prefix still counts.
-_READ_LOOKING = frozenset({"set_title", "file_size", "file_name", "file_path", "file_exists"})
+_READ_LOOKING = frozenset(
+    {
+        "set_title",
+        "file_size",
+        "file_name",
+        "file_path",
+        "file_exists",
+        # In-memory builders and wrappers (argparse, click, rich, functools,
+        # markupsafe), not stores.
+        "add_argument",
+        "add_argument_group",
+        "add_row",
+        "add_column",
+        "add_text",
+        "update_wrapper",
+        "mark_safe",
+    }
+)
 _WRITE_CALL_NAMES = frozenset(
     {
         "log_event",
@@ -74,9 +91,29 @@ _WRITE_CALL_NAMES = frozenset(
         "Popen",
     }
 )
-# Any call on these modules: shutil copies, moves and deletes; os.remove deletes.
-# (A bare ``.remove(`` is not matched: list.remove is an in-memory edit.)
-_WRITE_MODULE_CALLS = {"shutil": None, "os": frozenset({"remove", "removedirs", "replace"})}
+# Exact names on these modules: shutil copies, moves and deletes; os.remove
+# deletes. shutil.which and shutil.get_terminal_size are reads, so shutil is
+# listed by name and not as a whole module. (A bare ``.remove(`` is not matched:
+# list.remove is an in-memory edit.)
+_WRITE_MODULE_CALLS = {
+    "shutil": frozenset(
+        {
+            "copy",
+            "copy2",
+            "copyfile",
+            "copyfileobj",
+            "copymode",
+            "copystat",
+            "copytree",
+            "move",
+            "rmtree",
+            "chown",
+            "make_archive",
+            "unpack_archive",
+        }
+    ),
+    "os": frozenset({"remove", "removedirs", "replace"}),
+}
 _WRITE_MODE_CHARS = set("wax+")
 
 # Two lists, kept apart on purpose.
@@ -326,10 +363,7 @@ def find_writes(func: ast.AST, docstrings: set[int]) -> list[tuple[str, int]]:
                 isinstance(node.func, ast.Attribute)
                 and isinstance(node.func.value, ast.Name)
                 and node.func.value.id in _WRITE_MODULE_CALLS
-                and (
-                    _WRITE_MODULE_CALLS[node.func.value.id] is None
-                    or name in _WRITE_MODULE_CALLS[node.func.value.id]
-                )
+                and name in _WRITE_MODULE_CALLS[node.func.value.id]
             ):
                 hits.append((f"{node.func.value.id}.{name}(", line))
             elif name.startswith(_WRITE_PREFIXES) and name not in _READ_LOOKING:
@@ -546,6 +580,8 @@ def test_checker_follows_a_call_into_core(tmp_path: Path):
         ("def f(p):\n    p.rename('x')", "rename("),
         ("def f():\n    shutil.rmtree('x')", "rmtree("),
         ("def f():\n    shutil.copy('a', 'b')", "shutil.copy("),
+        ("def f():\n    shutil.move('a', 'b')", "shutil.move("),
+        ("def f():\n    shutil.copytree('a', 'b')", "shutil.copytree("),
         ("def f():\n    os.remove('x')", "os.remove("),
         ("def f():\n    Popen(['x'])", "Popen("),
         ("def f(c, t):\n    c.execute(f'UPDATE {t} SET a = 1')", "sql-write"),
@@ -572,6 +608,12 @@ def test_each_write_shape_is_detected(snippet: str, token: str):
         "def f(xs):\n    xs.remove(1)",
         "def f(c, t):\n    c.execute(f'SELECT * FROM {t}')",
         "def f(t):\n    print(f'update {t} to see more')",
+        "def f():\n    return shutil.which('git')",
+        "def f():\n    return shutil.get_terminal_size()",
+        "def f(p):\n    p.add_argument('--x')",
+        "def f(t):\n    t.add_row('a', 'b')",
+        "def f(t):\n    t.add_column('a')",
+        "def f(w, g):\n    update_wrapper(w, g)",
     ],
 )
 def test_reads_are_not_flagged(snippet: str):
