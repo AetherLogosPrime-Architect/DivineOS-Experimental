@@ -9,9 +9,11 @@ The idea: the warning finds a PR however a person writes it (`#7`, `PR 7`, `PR-7
 `pull 7`, `pull request 7`), and when the head's tree is known it also explains a round whose
 tree line is for a different tree, in its own sentence.
 
-Also covers, in the same walk, three small fixes to other pull requests' findings (the night
-letter door, the open-PR listing in `reach open`, the walked-head line of `walk close`); each is
-its own small commit on its own branch.
+This draft covers only the clerk warning (#807). It does not cover #802, #809 or #812; each of
+those has its own draft and its own branch (corrected 2026-11-04, the earlier text said it did).
+
+The number must stand alone: `pull 5 commits`, `pr 5 files`, `issue#7` and `pr 7th` do not name
+PR 5 or 7. `pull-request 7`, `PR No. 7`, `pr/7` and a `/pull/7` URL do.
 
 Falsifier: a form of naming above that stays silent, or an older-head round that is not explained
 when the tree is given.
