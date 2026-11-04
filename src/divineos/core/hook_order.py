@@ -95,9 +95,13 @@ ROWS: tuple[Row, ...] = tuple(
     # heredoc_escape: its way out is the Write tool, per Aria's reading of its text; cd_drift and
     # his_words: read as refusals handed to me (reissue without the cd; rewrite without the quote).
     + _rows("PreToolUse", TOOL_CALL, ("his_words", "cd_drift", "heredoc_escape"), 25)
+    # Aria read the refusal text of each of these ten on 2026-11-04 (her letter "the PreToolUse
+    # ten are read"): every one asks for a tool call. Nine of the remedies are Bash commands;
+    # only trial_in_days asks for a rewritten Write or Edit. Nothing is UNREAD any more; the kind
+    # stays for the next surface that registers before anyone has read its text.
     + _rows(
         "PreToolUse",
-        UNREAD,
+        TOOL_CALL,
         (
             "degraded_detectors",
             "deletion_discipline",

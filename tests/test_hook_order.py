@@ -63,11 +63,14 @@ def test_a_row_nobody_has_read_says_unread_and_never_looks_like_a_known_kind():
     # Aria's cold read: heredoc_escape was filed as "other" when its way out is the Write tool.
     # A placeholder kind that looks like a fact gets believed, so unread rows are named UNREAD.
     assert hook_order.row_for("PreToolUse", "heredoc_escape").kind == hook_order.TOOL_CALL
+    # Every refusal text was read on 2026-11-04 (Stop by me, PreToolUse by Aria): nothing is
+    # unread now. The kind stays for the next surface registered before anyone reads its text.
     unread = [r.name for r in hook_order.ROWS if r.kind == hook_order.UNREAD]
-    assert "pr_merge_gate" in unread
-    # Stop was read in full on 2026-11-04: nothing there is unread any more, and the four
-    # surfaces that never refuse (they record or report) are record-only, not text remedies.
-    assert not [r for r in hook_order.ROWS if r.event == "Stop" and r.kind == hook_order.UNREAD]
+    assert unread == [], unread
+    assert hook_order.row_for("PreToolUse", "pr_merge_gate").kind == hook_order.TOOL_CALL
+    assert hook_order.row_for("PreToolUse", "trial_in_days").kind == hook_order.TOOL_CALL
+    # The four Stop surfaces that never refuse (they record or report) are record-only, not
+    # text remedies.
     assert hook_order.row_for("Stop", "waiting_claim").kind == hook_order.TOOL_CALL
     for name in ("self_demotion_stop", "his_standing_verdict", "close_reach", "compaction_reach"):
         assert hook_order.row_for("Stop", name).kind == hook_order.RECORD_ONLY, name
