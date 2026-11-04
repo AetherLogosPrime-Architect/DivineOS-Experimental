@@ -447,6 +447,7 @@ from divineos.cli import (  # noqa: E402
     must_read_commands,
     his_commands,
     linkage_commands,
+    reflection_note_commands,
 )
 
 actor_registry_commands.register(cli)
@@ -581,6 +582,7 @@ check_similar_commands.register(cli)
 multiplex_commands.register(cli)
 foundations_commands.register(cli)
 wiring_commands.register(cli)
+reflection_note_commands.register(cli)
 
 # Mansion ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â functional internal space (optional, personal)
 try:
