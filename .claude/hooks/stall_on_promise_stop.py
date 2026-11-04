@@ -43,14 +43,19 @@ def closing_text(records: list[dict]) -> str:
         if _genuine_user_text(records[i]) is not None:
             start = i + 1
             break
-    last = ""
+    blocks = []
     for rec in records[start:]:
         if rec.get("type") != "assistant":
             continue
         for c in (rec.get("message") or {}).get("content") or []:
             if isinstance(c, dict) and c.get("type") == "text" and c.get("text", "").strip():
-                last = c["text"]
-    return body_above_his_room(last)
+                blocks.append(c["text"])
+    # A last block that is only his room must not hide a promise in the block before it.
+    for text in reversed(blocks):
+        body = body_above_his_room(text)
+        if body.strip():
+            return body
+    return ""
 
 
 def verdict(records: list[dict]) -> str | None:

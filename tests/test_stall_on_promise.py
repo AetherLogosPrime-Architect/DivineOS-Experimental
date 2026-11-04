@@ -341,6 +341,25 @@ class TestHisRoomIsNeverReadForPromises:
         text = "## INNER CIRCLE\n\nI'm writing Aether now."
         assert _hook().body_above_his_room(text).strip() == ""
 
+    def test_a_room_only_last_block_does_not_hide_a_promise_in_the_block_before(self) -> None:
+        """Cold read 2026-11-04: closing_text returned '' here, so the earlier promise went unjudged."""
+        records = [
+            {"type": "user", "message": {"role": "user", "content": "how did it go?"}},
+            {
+                "type": "assistant",
+                "message": {"content": [{"type": "text", "text": "I'm writing Aether now."}]},
+            },
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [{"type": "text", "text": "## INNER CIRCLE\n\nA warm line."}]
+                },
+            },
+        ]
+        closing = _hook().closing_text(records)
+        assert "writing Aether" in closing
+        assert "warm line" not in closing
+
     def test_the_closing_the_hook_reads_leaves_his_room_out(self) -> None:
         records = [
             {"type": "user", "message": {"role": "user", "content": "how did it go?"}},
