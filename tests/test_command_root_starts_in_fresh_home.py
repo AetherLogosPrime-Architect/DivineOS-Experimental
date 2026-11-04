@@ -10,6 +10,8 @@ import os
 import subprocess
 import sys
 
+import pytest
+
 from divineos.core.enforcement import capture_user_input
 
 
@@ -50,3 +52,26 @@ def test_docstring_does_not_claim_to_catch_event_validation_errors():
     doc = capture_user_input.__doc__ or ""
     assert "Catches validation errors" not in doc
     assert "EventValidationError is NOT caught" in doc
+    assert "keeps it from being raised" not in doc
+    assert "returns the input string" not in doc
+
+
+def test_a_whitespace_only_input_is_a_caught_value_error_and_comes_back(monkeypatch):
+    """What the docstring says is true: invalid content is a ValueError, caught, input returned."""
+
+    def _reject(content):
+        raise ValueError("Invalid event payload")
+
+    monkeypatch.setattr("divineos.core.enforcement.emit_user_input", _reject)
+    assert capture_user_input([" "]) == " "
+
+
+def test_event_validation_error_from_the_emit_call_propagates(monkeypatch):
+    from divineos.event.event_validation import EventValidationError
+
+    def _raise(content):
+        raise EventValidationError("bad")
+
+    monkeypatch.setattr("divineos.core.enforcement.emit_user_input", _raise)
+    with pytest.raises(EventValidationError):
+        capture_user_input(["hello"])
