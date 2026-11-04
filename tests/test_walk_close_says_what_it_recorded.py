@@ -159,6 +159,42 @@ def test_an_empty_scope(repo):
     assert "commit the change by exact path" not in out
 
 
+def test_an_uncommitted_scoped_file_in_a_brand_new_folder_gets_the_true_reason(repo):
+    (repo / "newdir").mkdir()
+    (repo / "newdir" / "a.py").write_text("x\n", encoding="utf-8")  # git status shows "newdir/"
+    out = _one_line(_close_via_cli(_walk_with_scope(("newdir/a.py",)), repo))
+    assert "the scoped files have uncommitted changes: newdir/a.py" in out
+
+
+def test_an_uncommitted_scoped_file_with_a_space_in_its_name_gets_the_true_reason(repo):
+    (repo / "my file.py").write_text("x\n", encoding="utf-8")
+    out = _one_line(_close_via_cli(_walk_with_scope(("my file.py",)), repo))
+    assert "the scoped files have uncommitted changes: my file.py" in out
+
+
+def test_the_amend_refusal_for_an_empty_scope_gives_that_reasons_fix(repo):
+    _commit_file(repo, "a.py")
+    walk = _walk_with_scope(())
+    cw.close_walk(walk, repo=repo)
+    with pytest.raises(cw.WalkRefused) as caught:
+        cw.amend_walk(walk, "a long enough sentence about what changed here", repo=repo)
+    text = " ".join(str(caught.value).split())
+    assert "this walk has no scope" in text
+    assert "commit the change by exact path" not in text
+
+
+def test_the_amend_refusal_for_an_out_of_scope_commit_gives_that_reasons_fix(repo):
+    _commit_file(repo, "b.py")
+    walk = _ready_walk()
+    cw.close_walk(walk, repo=repo)
+    with pytest.raises(cw.WalkRefused) as caught:
+        cw.amend_walk(walk, "a long enough sentence about what changed here", repo=repo)
+    text = " ".join(str(caught.value).split())
+    assert "outside this walk's scope (b.py)" in text
+    assert "Move b.py to its own branch" in text
+    assert "commit the change by exact path first" not in text
+
+
 def test_the_printed_fix_is_one_line_never_two(repo):
     out = _close_via_cli(_ready_walk(), repo)
     assert out.count("To fix it") + out.count("To bind it") <= 1
