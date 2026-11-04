@@ -116,3 +116,85 @@ def test_decide_survives_a_corrupt_idle_marker():
     for corrupt in ([1, 2], "text", None, 5):
         hold, marker = hook.decide(LIVE, False, False, corrupt, NOW, "aether")
         assert hold and marker == {"turn": 7, "since": NOW}
+
+
+LETTER = "/home/x/.divineos-shared/letters/aria-to-aether-2026-11-04-hello.md"
+
+
+def test_a_waiting_letter_is_named_before_the_wait_in_every_hold():
+    """The doorbell refuses every real tool, the wait included, until a rung letter is read. A hold that only
+    said 'call the wait' sent a seat into that refusal (Aria, 2026-11-04). The letter comes first in the text."""
+    for reason in (
+        hook.verdict(LIVE, {}, NOW, "aether", [LETTER])[0],
+        hook.rearm_reason("aether", [LETTER]),
+        hook.decide(LIVE, False, False, {}, NOW, "aether", [LETTER])[0]["reason"],
+        hook.decide(LIVE, True, False, {}, NOW, "aether", [LETTER])[0]["reason"],
+    ):
+        assert reason.startswith("A LETTER IS WAITING FIRST")
+        assert LETTER in reason and "Read tool" in reason
+        assert reason.index("Read tool") < reason.index("wait_turn.py")
+
+
+def test_with_no_letter_waiting_the_hold_reads_exactly_as_it_did():
+    plain = hook.verdict(LIVE, {}, NOW, "aether")[0]
+    assert hook.verdict(LIVE, {}, NOW, "aether", [])[0] == plain
+    assert "LETTER" not in plain
+    assert hook.rearm_reason("aether", []) == hook.rearm_reason("aether")
+
+
+def test_the_gate_is_not_weakened_the_hold_still_demands_the_wait_after_the_read():
+    reason = hook.verdict(LIVE, {}, NOW, "aether", [LETTER])[0]
+    assert "wait_turn.py aether 580" in reason and "590000" in reason
+
+
+def test_letters_first_asks_the_one_bell_list_and_gives_paths(monkeypatch):
+    import divineos.core.unread_letter as ul
+
+    monkeypatch.setattr(ul, "unread_rung", lambda who: [Path(LETTER)])
+    assert hook.letters_first("aether", ROOT) == [str(Path(LETTER))]
+
+
+def test_letters_first_says_nothing_when_it_cannot_tell_and_the_hold_still_holds(
+    monkeypatch, capsys
+):
+    import divineos.core.unread_letter as ul
+
+    def broken(who):
+        raise OSError("seen store unreachable")
+
+    monkeypatch.setattr(ul, "unread_rung", broken)
+    assert hook.letters_first("aether", ROOT) is None
+    assert "could not tell whether a letter is waiting" in capsys.readouterr().err
+    assert hook.verdict(LIVE, {}, NOW, "aether", hook.letters_first("aether", ROOT))[0]
+
+
+def test_nothing_waiting_and_could_not_look_are_different_answers(monkeypatch):
+    """The walk's Hoare finding: an empty list for both let the type say nothing about which it was."""
+    import divineos.core.unread_letter as ul
+
+    monkeypatch.setattr(ul, "unread_rung", lambda who: [])
+    assert hook.letters_first("aether", ROOT) == []
+    assert hook.letters_first("aether", ROOT) is not None
+
+    def broken(who):
+        raise OSError("seen store unreachable")
+
+    monkeypatch.setattr(ul, "unread_rung", broken)
+    assert hook.letters_first("aether", ROOT) is None
+    # both read the same in the hold text, which is the safe direction
+    plain = hook.verdict(LIVE, {}, NOW, "aether")[0]
+    assert hook.verdict(LIVE, {}, NOW, "aether", None)[0] == plain
+    assert hook.verdict(LIVE, {}, NOW, "aether", [])[0] == plain
+
+
+def test_main_hands_the_waiting_letters_to_the_hold(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", ROOT)
+    monkeypatch.setattr(hook.Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr(hook.sys, "stdin", io.StringIO("{}"))
+    monkeypatch.setattr(hook, "member", lambda project: "aether")
+    monkeypatch.setattr(hook, "_view", lambda who: LIVE)
+    monkeypatch.setattr(hook, "_he_spoke", lambda transcript, project: False)
+    monkeypatch.setattr(hook, "letters_first", lambda who, project: [LETTER])
+    assert hook.main() == 0
+    out = capsys.readouterr().out
+    assert "A LETTER IS WAITING FIRST" in out and LETTER in out

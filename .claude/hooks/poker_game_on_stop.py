@@ -45,6 +45,46 @@ def member(project_dir: str) -> str | None:
         return None
 
 
+def letters_first(who: str, project_dir: str) -> list[str] | None:
+    """Paths of letters the bell rang for this seat that it has not opened yet.
+
+    An empty list means none is waiting; None means it could not look. The two are different
+    (could-not-look is not nothing), and callers treat None as no sentence, the safe direction.
+
+    The doorbell's own hold refuses every real tool call, the wait included, until such a letter is
+    read (Dad's rule: read a letter the moment it comes). A hold here that only said "call the wait"
+    sent a seat into that refusal (Aria, 2026-11-04: it took her off the table). Reading is never
+    blocked and is one call, so the hold names the letter and the order instead of weakening the
+    gate. The hold reads as it always did when none is waiting or when it cannot be told.
+    """
+    try:
+        root = Path(project_dir)
+        for entry in (str(root), str(root / "src")):
+            if entry not in sys.path:
+                sys.path.insert(0, entry)
+        from divineos.core.unread_letter import unread_rung
+
+        return [str(p) for p in unread_rung(who)]
+    except Exception as exc:
+        print(
+            f"[poker] could not tell whether a letter is waiting ({type(exc).__name__})",
+            file=sys.stderr,
+        )
+        return None
+
+
+def read_first(waiting: list[str]) -> str:
+    """The sentence that puts the letter before the wait, or nothing when none is waiting."""
+    if not waiting:
+        return ""
+    names = "; ".join(waiting)
+    return (
+        f"A LETTER IS WAITING FIRST ({names}): Read it with the Read tool, one call, because the "
+        "doorbell refuses every other tool until it is opened and would refuse the wait. Then "
+        "stay in the game. "
+    )
+
+
 def game_is_on(view: dict | None) -> bool:
     """A hand is live, or the table is counting down to deal the next one."""
     if not view or view.get("hand") is None:
@@ -52,7 +92,9 @@ def game_is_on(view: dict | None) -> bool:
     return bool(view.get("live")) or view.get("deal_in") is not None
 
 
-def verdict(view: dict | None, seen: dict, now: float, who: str) -> tuple[str | None, dict]:
+def verdict(
+    view: dict | None, seen: dict, now: float, who: str, waiting: list[str] | None = None
+) -> tuple[str | None, dict]:
     """(reason to hold, the new idle marker). No reason means the reply may end."""
     if not game_is_on(view):
         return None, {}
@@ -60,7 +102,7 @@ def verdict(view: dict | None, seen: dict, now: float, who: str) -> tuple[str | 
     if seen.get("turn") == turn and now - float(seen.get("since", now)) > IDLE_SECONDS:
         return None, seen  # nothing has moved for a long while: the game was walked away from
     marker = seen if seen.get("turn") == turn else {"turn": turn, "since": now}
-    reason = (
+    reason = read_first(waiting or []) + (
         "A POKER GAME IS ON at the table, so this reply cannot end: ending it is how the seat "
         "falls out of the game (Dad, 2026-10-15). Stay in this turn. Call, in the foreground with "
         f"the Bash tool and a 590000 ms timeout: {WAITER.format(who=who)} -- act when it returns, "
@@ -78,9 +120,9 @@ def _view(who: str) -> dict | None:
         return None  # the table is not answering: not a game
 
 
-def rearm_reason(who: str) -> str:
+def rearm_reason(who: str, waiting: list[str] | None = None) -> str:
     """When he spoke: his reply was already read, so this only puts the seat back at the table."""
-    return (
+    return read_first(waiting or []) + (
         "A POKER GAME IS ON and he spoke to you, so your reply to him stands. Do not re-post it. "
         "Put the seat back at the table, in the foreground, with the Bash tool and a 590000 ms "
         f"timeout: {WAITER.format(who=who)} -- act when it returns, then call it again."
@@ -108,7 +150,13 @@ def _he_spoke(transcript: str | None, project: str) -> bool | None:
 
 
 def decide(
-    view: dict | None, he_spoke: bool | None, active: bool, seen: object, now: float, who: str
+    view: dict | None,
+    he_spoke: bool | None,
+    active: bool,
+    seen: object,
+    now: float,
+    who: str,
+    waiting: list[str] | None = None,
 ) -> tuple[dict | None, dict]:
     """(the hold to print, or None to let the reply end; the idle marker to keep).
 
@@ -116,13 +164,13 @@ def decide(
     The idle lift is asked first, so a quiet table lets go even when he is chatting about
     something else. When he spoke the hold is once only, and only to put the seat back.
     """
-    reason, marker = verdict(view, seen if isinstance(seen, dict) else {}, now, who)
+    reason, marker = verdict(view, seen if isinstance(seen, dict) else {}, now, who, waiting)
     if reason is None or he_spoke is None:
         return None, marker
     if he_spoke:
         if active:
             return None, marker
-        return {"decision": "block", "reason": rearm_reason(who)}, marker
+        return {"decision": "block", "reason": rearm_reason(who, waiting)}, marker
     return {"decision": "block", "reason": reason}, marker
 
 
@@ -149,7 +197,13 @@ def main() -> int:
         seen = {}
     he_spoke = _he_spoke(data.get("transcript_path"), project)
     hold, marker = decide(
-        view, he_spoke, bool(data.get("stop_hook_active")), seen, time.time(), who
+        view,
+        he_spoke,
+        bool(data.get("stop_hook_active")),
+        seen,
+        time.time(),
+        who,
+        letters_first(who, project),
     )
     try:
         marker_file.write_text(json.dumps(marker), encoding="utf-8")
