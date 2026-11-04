@@ -180,12 +180,19 @@ if ts < launched:
 
 cid = marker.get("cycle_id", "?")
 steps = marker.get("steps") or {}
+# A step with ran=false did not run: a dry run, or a step skipped. It is not a
+# failure of something that ran, and it must not be read as a success either.
+# (A dry run now writes no marker at all; an old one on disk can still be here.)
+not_run = [n for n, i in steps.items() if (i or {}).get("ran") is False]
 bad = [
     f"{name}={(info or {}).get('error_class') or 'not-succeeded'}"
     for name, info in steps.items()
-    if not (info or {}).get("succeeded")
+    if name not in not_run and not (info or {}).get("succeeded")
 ]
-if bad:
+if steps and len(not_run) == len(steps):
+    out(f"CYCLE {cid} DID NOT RUN -- {len(steps)} step(s) recorded as not run (a dry run)")
+elif bad or not_run:
+    bad += [f"{n}=not-run" for n in sorted(not_run)]
     out(f"CYCLE {cid} FAILED -- " + ", ".join(sorted(bad)))
 else:
     out(f"CYCLE {cid} COMPLETED -- {len(steps)} step(s), all succeeded")

@@ -241,8 +241,12 @@ def fire_cmd(dry_run: bool, force: bool) -> None:
             return
     click.echo(f"[auto-cycle] firing phase 1 at context {ctx_pct * 100:.1f}%...")
     result = auto_cycle.run_phase1(context_pct=ctx_pct, dry_run=dry_run)
-    marker_file = auto_cycle.write_handshake_marker(result)
-    auto_cycle.reset_defer_state()
+    # A dry run runs nothing, so it must leave nothing behind that a reader would
+    # take for a cycle: `fire --dry-run --force` used to overwrite a real marker,
+    # and the hook then reported the real cycle as FAILED.
+    marker_file = None if dry_run else auto_cycle.write_handshake_marker(result)
+    if not dry_run:
+        auto_cycle.reset_defer_state()
 
     click.echo(f"[auto-cycle] cycle_id: {result.cycle_id}")
     for name, step in result.steps.items():
@@ -252,7 +256,10 @@ def fire_cmd(dry_run: bool, force: bool) -> None:
         )
         if step.error_class:
             click.echo(f"      error: {step.error_class}")
-    click.echo(f"[auto-cycle] handshake marker written: {marker_file}")
+    if marker_file is None:
+        click.echo("[auto-cycle] dry run: no handshake marker written, defer state untouched")
+    else:
+        click.echo(f"[auto-cycle] handshake marker written: {marker_file}")
 
 
 @auto_cycle_group.command("defer-check")

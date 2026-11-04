@@ -161,6 +161,33 @@ def test_fresh_marker_with_a_failed_step_names_the_step() -> None:
     assert "COMPLETED" not in line
 
 
+def test_a_dry_run_marker_is_not_reported_as_a_failed_cycle() -> None:
+    """ran=false, succeeded=false on every step is a dry run: it did not run, so it
+    neither failed nor completed. The hook used to read the missing success as FAILED."""
+    dry = _marker()
+    dry["steps"] = {
+        name: {"ran": False, "succeeded": False, "error_class": None} for name in dry["steps"]
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        _write(Path(tmp), dry)
+        line = _run(Path(tmp))
+        _write(Path(tmp), _marker(steps_ok=False))
+        failed = _run(Path(tmp))
+    assert "DID NOT RUN" in line, line
+    assert "FAILED" not in line and "COMPLETED" not in line
+    assert line != failed
+
+
+def test_a_step_that_did_not_run_among_real_ones_is_named_not_hidden() -> None:
+    mixed = _marker()
+    mixed["steps"]["sleep"] = {"ran": False, "succeeded": False, "error_class": None}
+    with tempfile.TemporaryDirectory() as tmp:
+        _write(Path(tmp), mixed)
+        line = _run(Path(tmp))
+    assert "FAILED" in line and "sleep=not-run" in line, line
+    assert "COMPLETED" not in line
+
+
 def test_the_four_states_are_pairwise_distinct() -> None:
     """This is the test the whole file exists for.
 

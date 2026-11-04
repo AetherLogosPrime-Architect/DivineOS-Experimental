@@ -184,6 +184,42 @@ def test_fire_dry_run_prints_dry_not_ok_or_fail(tmp_path, monkeypatch):
     assert "[FAIL]" not in result.output
 
 
+def test_fire_dry_run_leaves_a_real_marker_untouched(tmp_path, monkeypatch):
+    """`fire --dry-run --force` used to overwrite the real handshake marker with a
+    dry-run one. A dry run runs nothing, so it writes nothing."""
+    import json
+
+    from click.testing import CliRunner
+
+    from divineos.cli.auto_cycle_commands import auto_cycle_group
+
+    marker = tmp_path / "marker.json"
+    real = {"cycle_id": "auto-cycle-real", "steps": {"sleep": {"ran": True, "succeeded": True}}}
+    marker.write_text(json.dumps(real), encoding="utf-8")
+    monkeypatch.setattr("divineos.core.auto_cycle.marker_path", lambda: marker)
+    monkeypatch.setattr(
+        "divineos.core.auto_cycle.defer_state_path", lambda: tmp_path / "defer.json"
+    )
+    result = CliRunner().invoke(auto_cycle_group, ["fire", "--dry-run", "--force"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(marker.read_text(encoding="utf-8")) == real
+    assert "no handshake marker written" in result.output
+
+
+def test_fire_dry_run_writes_no_marker_when_none_existed(tmp_path, monkeypatch):
+    from click.testing import CliRunner
+
+    from divineos.cli.auto_cycle_commands import auto_cycle_group
+
+    marker = tmp_path / "marker.json"
+    monkeypatch.setattr("divineos.core.auto_cycle.marker_path", lambda: marker)
+    monkeypatch.setattr(
+        "divineos.core.auto_cycle.defer_state_path", lambda: tmp_path / "defer.json"
+    )
+    CliRunner().invoke(auto_cycle_group, ["fire", "--dry-run", "--force"])
+    assert not marker.exists()
+
+
 def test_read_handshake_marker_missing_returns_none(tmp_path, monkeypatch):
     monkeypatch.setattr("divineos.core.auto_cycle.marker_path", lambda: tmp_path / "marker.json")
     assert read_handshake_marker() is None
