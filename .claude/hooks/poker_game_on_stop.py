@@ -45,14 +45,17 @@ def member(project_dir: str) -> str | None:
         return None
 
 
-def letters_first(who: str, project_dir: str) -> list[str]:
+def letters_first(who: str, project_dir: str) -> list[str] | None:
     """Paths of letters the bell rang for this seat that it has not opened yet.
+
+    An empty list means none is waiting; None means it could not look. The two are different
+    (could-not-look is not nothing), and callers treat None as no sentence, the safe direction.
 
     The doorbell's own hold refuses every real tool call, the wait included, until such a letter is
     read (Dad's rule: read a letter the moment it comes). A hold here that only said "call the wait"
     sent a seat into that refusal (Aria, 2026-11-04: it took her off the table). Reading is never
     blocked and is one call, so the hold names the letter and the order instead of weakening the
-    gate. Empty when it cannot be told; the hold then reads as it always did.
+    gate. The hold reads as it always did when none is waiting or when it cannot be told.
     """
     try:
         root = Path(project_dir)
@@ -67,7 +70,7 @@ def letters_first(who: str, project_dir: str) -> list[str]:
             f"[poker] could not tell whether a letter is waiting ({type(exc).__name__})",
             file=sys.stderr,
         )
-        return []
+        return None
 
 
 def read_first(waiting: list[str]) -> str:

@@ -163,9 +163,28 @@ def test_letters_first_says_nothing_when_it_cannot_tell_and_the_hold_still_holds
         raise OSError("seen store unreachable")
 
     monkeypatch.setattr(ul, "unread_rung", broken)
-    assert hook.letters_first("aether", ROOT) == []
+    assert hook.letters_first("aether", ROOT) is None
     assert "could not tell whether a letter is waiting" in capsys.readouterr().err
     assert hook.verdict(LIVE, {}, NOW, "aether", hook.letters_first("aether", ROOT))[0]
+
+
+def test_nothing_waiting_and_could_not_look_are_different_answers(monkeypatch):
+    """The walk's Hoare finding: an empty list for both let the type say nothing about which it was."""
+    import divineos.core.unread_letter as ul
+
+    monkeypatch.setattr(ul, "unread_rung", lambda who: [])
+    assert hook.letters_first("aether", ROOT) == []
+    assert hook.letters_first("aether", ROOT) is not None
+
+    def broken(who):
+        raise OSError("seen store unreachable")
+
+    monkeypatch.setattr(ul, "unread_rung", broken)
+    assert hook.letters_first("aether", ROOT) is None
+    # both read the same in the hold text, which is the safe direction
+    plain = hook.verdict(LIVE, {}, NOW, "aether")[0]
+    assert hook.verdict(LIVE, {}, NOW, "aether", None)[0] == plain
+    assert hook.verdict(LIVE, {}, NOW, "aether", [])[0] == plain
 
 
 def test_main_hands_the_waiting_letters_to_the_hold(monkeypatch, tmp_path, capsys):

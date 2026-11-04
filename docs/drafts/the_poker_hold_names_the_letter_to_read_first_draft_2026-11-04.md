@@ -23,18 +23,24 @@ close it off.
 ## What changed
 
 - `letters_first(who, project_dir)`: asks the bell's one list (`unread_letter.unread_rung`) for this seat's
-  rung, unread letters. Empty when it cannot tell, so the hold reads exactly as it always did.
+  rung, unread letters. An empty list means none is waiting; **None means it could not look** (the walk's Hoare
+  finding: the two had been the same value). The hold reads exactly as it always did in both cases.
 - `read_first(waiting)`: the sentence that puts the Read before the wait.
 - `verdict`, `rearm_reason`, `decide` take an optional `waiting` list; `main` passes `letters_first(...)`.
   Defaults are empty, so every existing caller and test is unchanged.
 
 ## Tests
 
-Six new tests in `tests/test_poker_game_on_stop.py`; all six fail on the old hook (run against it with the
-fix set aside) and pass now: the letter comes first in every hold (the verdict, the re-arm after he spoke, and
-both `decide` paths), the hold is unchanged with none waiting, the wait command is still demanded after the
-read, `letters_first` returns paths and says nothing when it cannot tell, and `main` hands them to the hold.
-23 tests pass in the file.
+Seven new tests in `tests/test_poker_game_on_stop.py`; the first six fail on the old hook (run against it with
+the fix set aside) and pass now: the letter comes first in every hold (the verdict, the re-arm after he spoke,
+and both `decide` paths), the hold is unchanged with none waiting, the wait command is still demanded after the
+read, `letters_first` returns paths and returns None (not an empty list) when it cannot tell, and `main` hands
+them to the hold. The seventh pins that nothing-waiting and could-not-look are different answers that read the
+same in the hold text. 24 tests pass in the file.
+
+**Untested live (flagged by Dillahunty and Peirce in the walk):** the unit tests prove the text and its
+order, not that a seat following it is not refused in the real loop. The cheapest proof is one live hand with a
+letter ringing, and nobody should start a game while Dad sleeps. Still owed.
 
 ## What it does not do
 
