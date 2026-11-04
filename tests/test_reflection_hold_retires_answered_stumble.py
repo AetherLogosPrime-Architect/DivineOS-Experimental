@@ -165,6 +165,33 @@ def test_a_real_note_inside_a_chained_command_still_counts():
     assert _held(records) == []
 
 
+def test_a_note_run_in_the_other_real_forms_counts():
+    for cmd in (
+        f'"C:/Program Files/p/divineos.exe" reflection-note "{NOTE_TEXT}"',
+        f'python -m divineos reflection-note "{NOTE_TEXT}"',
+        f'"C:/p/python.exe" -m divineos reflection-note "{NOTE_TEXT}"',
+        f'divineos --quiet reflection-note "{NOTE_TEXT}"',
+        f"bash -c 'divineos reflection-note \"{NOTE_TEXT}\"'",
+        f'time divineos reflection-note "{NOTE_TEXT}"',
+        f'if true; then divineos reflection-note "{NOTE_TEXT}"; fi',
+        f'(divineos reflection-note "{NOTE_TEXT}")',
+        f'echo it\'s fine; divineos reflection-note "{NOTE_TEXT}"',
+    ):
+        records = [_his("go"), _tool(), _error(REFUSAL_A), _call(cmd, "c1")]
+        assert _held(records) == [], cmd
+
+
+def test_carried_words_in_the_new_forms_are_still_not_a_note():
+    for cmd in (
+        f'echo python -m divineos reflection-note "{NOTE_TEXT}"',
+        f"echo it's fine, divineos reflection-note {NOTE_TEXT}",
+        f"bash -c 'echo \"divineos reflection-note {NOTE_TEXT}\"'",
+        f'git commit -m "bash -c divineos --quiet reflection-note {NOTE_TEXT}"',
+    ):
+        records = [_his("go"), _tool(), _error(REFUSAL_A), _call(cmd, "c1")]
+        assert _held(records) == ["work-item-doorman"], cmd
+
+
 def test_the_hook_is_registered_as_a_stop_hook():
     settings = json.loads((ROOT / ".claude" / "settings.json").read_text(encoding="utf-8"))
     commands = [

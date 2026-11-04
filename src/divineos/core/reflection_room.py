@@ -234,10 +234,21 @@ def still_open(reply: str, stumbles: list[Stumble]) -> list[Stumble]:
 
 # A command that RUNS the note: the segment's first word is divineos (after env assignments), not an echo, a
 # grep or a commit message that happens to carry the words.
+# The forms it is really run in: a plain or quoted path to the exe, `python -m divineos`, global flags before the
+# subcommand (--quiet), and a leading ( / time / then / do / else / exec. The segment must still START with the
+# command, so a carried copy of the words is not a note.
+_DIVINEOS_EXE = (
+    r"""(?:(?:"[^"\n]*[\\/])?(?:\S*python[\w.]*(?:\.exe)?"?\s+-m\s+)?divineos(?:\.exe)?"?"""
+    r"""|'[^'\n]*[\\/]divineos(?:\.exe)?'|(?:\S*[\\/])?divineos(?:\.exe)?)"""
+)
 NOTE_RE = re.compile(
-    r"^\s*(?:[A-Za-z_]\w*=\S*\s+)*(?:\S*[\\/])?divineos(?:\.exe)?\s+reflection-note\b(.*)",
+    r"^\s*(?:\(\s*)?(?:(?:time|then|do|else|exec)\s+)*(?:[A-Za-z_]\w*=\S*\s+)*"
+    + _DIVINEOS_EXE
+    + r"(?:\s+--?[\w-]+)*\s+reflection-note\b(.*)",
     re.DOTALL,
 )
+# `bash -c '<command>'`: the inner command is read as its own command line.
+_SHELL_C = re.compile(r"""^\s*(?:bash|sh|zsh)\s+(?:-\w+\s+)*-c\s+(["'])(.*)\1\s*$""", re.DOTALL)
 
 
 def _segments(command: str) -> list[str]:
@@ -253,7 +264,8 @@ def _segments(command: str) -> list[str]:
             elif ch == quote:
                 quote = ""
             buf.append(ch)
-        elif ch in "'\"":
+        elif ch in "'\"" and not (i > 0 and (command[i - 1].isalnum() or command[i - 1] == "_")):
+            # an apostrophe INSIDE a word ("it's") is not a quote, in the shell either
             quote = ch
             buf.append(ch)
         elif ch in ";&|\n":
@@ -292,11 +304,23 @@ def _notes(records: list[dict]) -> list[tuple[int, str]]:
                 continue
             if c.get("id") is not None and str(c["id"]) in failed:
                 continue
-            for segment in _segments(str((c.get("input") or {}).get("command", ""))):
-                m = NOTE_RE.match(segment)
-                if m:
-                    out.append((at, m.group(1).lower()))
+            for text in _note_texts(str((c.get("input") or {}).get("command", ""))):
+                out.append((at, text))
     return out
+
+
+def _note_texts(command: str, depth: int = 0) -> list[str]:
+    """The lowercased text of each reflection-note a command line runs, opening a `bash -c '...'` wrapper once."""
+    found = []
+    for segment in _segments(command):
+        m = NOTE_RE.match(segment)
+        if m:
+            found.append(m.group(1).lower())
+            continue
+        wrapped = _SHELL_C.match(segment)
+        if wrapped and depth < 2:
+            found.extend(_note_texts(wrapped.group(2), depth + 1))
+    return found
 
 
 def unanswered(records: list[dict], stumbles: list[Stumble]) -> list[Stumble]:
