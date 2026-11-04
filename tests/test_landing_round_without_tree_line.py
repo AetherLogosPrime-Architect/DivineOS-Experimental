@@ -39,13 +39,33 @@ def test_a_pr_with_no_round_gets_no_false_explanation() -> None:
 
 @pytest.mark.parametrize(
     "focus",
-    ["pull 5 commits", "pr 5 files", "issue#7 fixed", "pr 7th attempt", "pull 7 times"],
+    ["pull 5 commits", "issue#7 fixed", "pr 7th attempt", "pull 7 times"],
 )
 def test_a_number_that_does_not_stand_alone_does_not_name_the_pr(focus: str) -> None:
     from divineos.core.landing_homework import _names_pr
 
     for pr in (5, 7):
         assert not _names_pr(pr).search(focus), (focus, pr)
+
+
+@pytest.mark.parametrize(
+    "focus",
+    [
+        "PR 7 changes the clerk warning",
+        "PR 7 files a round",
+        "PR 7 issues a warning",
+        "pr 7 items are listed in the note",
+        "pull request 7 days later was merged",
+    ],
+)
+def test_a_count_word_after_pr_is_also_a_verb_so_it_never_hides_the_pr(focus: str) -> None:
+    """Aria's cold read of #832: the count exclusion dropped `PR 7 changes the clerk warning`, so a round
+    written like that was not found and the clerk went quiet, the direction that hides. After `PR` or
+    `pull request` the number names the PR whatever word follows; only the bare git word `pull` keeps
+    the count exclusion (`pull 5 commits`)."""
+    from divineos.core.landing_homework import _names_pr
+
+    assert _names_pr(7).search(focus), focus
 
 
 @pytest.mark.parametrize(
