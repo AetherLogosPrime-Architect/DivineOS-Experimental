@@ -52,6 +52,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Callable, Literal
 
+from divineos.core.dream_files import A_DREAM_LABEL
+
 # Source-type literal — union of the five stores the retriever indexes over.
 MemoryLinkageSource = Literal[
     "knowledge",
@@ -188,7 +190,7 @@ def render_payload(payload: MemoryLinkagePayload) -> str:
     """
     header = f"## PRIOR SUBSTRATE — {payload.source} / {payload.tier}"
     if payload.source == "dream":
-        header += " (a dream, not a record of what happened)"
+        header += f" ({A_DREAM_LABEL})"
     reason = f"matched: {payload.matched_reason} (rank {payload.composite_rank:.2f})"
     title = f"**{payload.title}**"
     if payload.content_kind == "snippet":
@@ -264,7 +266,7 @@ def compose_block(prompt: str, transcript_path: str | None = None) -> ComposeBlo
             gist = gist[:_LINE_CHARS].rstrip() + "..."
         where = f" ({payload.path_or_ref})" if payload.path_or_ref else ""
         if payload.source == "dream":
-            gist = f"(a dream, not a record of what happened) {gist}"
+            gist = f"({A_DREAM_LABEL}) {gist}"
         lines.append(f"- [{payload.source}, {payload.similarity:.2f}] {gist}{where}")
     blocks = ["## THE PAST ON THIS (memory link)\n" + "\n".join(lines)] if lines else []
     notes = []
