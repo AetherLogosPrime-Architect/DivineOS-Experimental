@@ -1,0 +1,68 @@
+"""One table orders every refusing surface, and a Stop that refuses several things says one first."""
+
+from divineos.core import hook_order, hook_router, hook_surfaces
+from divineos.core.hook_router import RouterResult, SurfaceOutcome
+
+
+def _refused(name: str, reason: str) -> SurfaceOutcome:
+    return SurfaceOutcome(name=name, refused=True, reason=reason, state="spoke")
+
+
+def test_a_tool_call_goes_before_appended_text():
+    first, rest = hook_order.first_and_rest(
+        "Stop",
+        [("summary_room", "add a summary"), ("landed_claim", "read the remote")],
+    )
+    assert first[0] == "landed_claim"
+    assert rest == ["summary_room"]
+
+
+def test_one_refusal_is_left_exactly_as_it_was():
+    result = RouterResult(event="Stop", refusals=[_refused("summary_room", "add a summary")])
+    assert "BLOCKED by summary_room: add a summary" in result.stderr()
+    assert "after that" not in result.stderr().lower()
+
+
+def test_several_stop_refusals_say_one_in_full_and_name_the_rest():
+    result = RouterResult(
+        event="Stop",
+        refusals=[
+            _refused("summary_room", "SUMMARY-TEXT add a summary"),
+            _refused("landed_claim", "LANDED-TEXT read the remote"),
+            _refused("voiced_family", "VOICED-TEXT take it back"),
+        ],
+    )
+    text = result.stderr()
+    assert "BLOCKED by landed_claim: LANDED-TEXT" in text
+    lower = text.lower()
+    assert "after that" in lower
+    tail = text[lower.index("after that") :]
+    assert "summary_room" in tail and "voiced_family" in tail
+    # the others are named, not told in full a second time
+    assert "SUMMARY-TEXT" not in text and "VOICED-TEXT" not in text
+
+
+def test_surfaces_with_no_row_are_left_alone_and_never_swallowed():
+    result = RouterResult(
+        event="Stop",
+        refusals=[_refused("brand_new_note", "NEW-TEXT"), _refused("summary_room", "SUM-TEXT")],
+    )
+    text = result.stderr()
+    assert "NEW-TEXT" in text and "SUM-TEXT" in text
+
+
+def test_unknown_surfaces_sort_last_and_are_reported():
+    first, rest = hook_order.first_and_rest(
+        "Stop", [("brand_new_note", "x"), ("summary_room", "y")]
+    )
+    assert first[0] == "summary_room"
+    assert hook_order.unlisted("Stop", ["brand_new_note", "summary_room"]) == ["brand_new_note"]
+
+
+def test_every_registered_surface_has_a_row():
+    # The twenty-first person: a surface added to the router with no row in the table
+    # is a new sticky note nobody ordered, and this fails until it joins.
+    hook_router.clear()
+    hook_surfaces.install()
+    for event in ("Stop", "PreToolUse"):
+        assert hook_order.unlisted(event, hook_router.registered(event)) == [], event

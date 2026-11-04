@@ -791,6 +791,7 @@ src/divineos/
     stall_on_promise.py        A promise to act is followed by the act, when no one is there to push.
     memory_linkage_own_words.py The memory link, read through what I said last turn, apart from what he said.
     voiced_family.py           Lines written in a family member's name that they never wrote.
+    hook_order.py              One table that orders every refusing hook surface, so a pile of notes becomes one voice.
 
   analysis/
     _session_types.py          Session analysis type definitions
