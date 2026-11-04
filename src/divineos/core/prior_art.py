@@ -106,6 +106,10 @@ def _matches(path: str, slug: str) -> bool:
     return slug in _slug(Path(path).name) or slug in _slug(path)
 
 
+#: A term of more words than this is a sentence, not a name being looked up.
+_MAX_NAME_WORDS = 3
+
+
 def find_commands(term: str) -> list[str]:
     """Registered CLI commands whose name resembles the term."""
     import click
@@ -115,10 +119,14 @@ def find_commands(term: str) -> list[str]:
     slug = _slug(term)
     if not slug:
         return []
+    # "A command's name appears inside the term" is a lookup by name, so it applies only to a
+    # short term. A whole sentence squashed into one string contains common command names (changes,
+    # find, context) by accident, even across the joins between words (2026-11-04).
+    is_name_lookup = len(term.split()) <= _MAX_NAME_WORDS
     out = []
     for n in cli.list_commands(click.Context(cli)):
         ns = _slug(n)
-        if slug in ns or (len(ns) >= 4 and ns in slug):
+        if slug in ns or (is_name_lookup and len(ns) >= 4 and ns in slug):
             out.append(n)
     return sorted(out)
 
