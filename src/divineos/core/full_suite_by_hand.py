@@ -116,6 +116,9 @@ _RECORD_COMMANDS = frozenset(
         ("goal", "add"),
     }
 )
+_PYTHON_PROGRAM = re.compile(r"python[\d.]*|py")
+# Where a line breaks into commands when the real splitter gives up on it.
+_CRUDE_CUT = re.compile(r"&&|\|\||[;&|\n]")
 # A quoted $( ), backtick or ${ } still runs inside double quotes, and <( ) and
 # >( ) run in a subshell, so any of these in the segment ends the exemption.
 _EXECUTING_MARKS = (*_SUBSTITUTION_MARKS, "<(", ">(")
@@ -126,9 +129,21 @@ def _is_record_segment(segment: str, tokens: list[str]) -> bool:
     segment with nothing in it the shell would execute."""
     # The program's name, not its spelling: ./.direnv/.../Scripts/divineos.exe and
     # DIVINEOS.EXE are the same program as bare divineos.
-    if not tokens or _program(tokens[0]) != "divineos":
+    if not tokens:
         return False
-    if not any(tuple(tokens[1 : 1 + len(key)]) == key for key in _RECORD_COMMANDS):
+    # The first word as typed: shlex eats the backslashes of an unquoted Windows
+    # path (C:\x\divineos.exe -> C:xdivineos.exe), so its name is read raw.
+    raw_first = (strip_prefixes_raw(segment).strip().split(None, 1) or [""])[0]
+    first = raw_first if "\\" in raw_first and raw_first[:1] not in "\"'" else tokens[0]
+    program = _program(first)
+    if program == "divineos":
+        rest = tokens[1:]
+    elif _PYTHON_PROGRAM.fullmatch(program) and tokens[1:3] == ["-m", "divineos"]:
+        # python -m divineos is the same program as bare divineos.
+        rest = tokens[3:]
+    else:
+        return False
+    if not any(tuple(rest[: len(key)]) == key for key in _RECORD_COMMANDS):
         return False
     if any(mark in segment for mark in _EXECUTING_MARKS):
         return False
@@ -398,7 +413,12 @@ def decide(command: str, repo: Path | None = None) -> str | None:
     # right for the gates it serves and is exactly the segment this one needs.
     segments = split_shell_segments(command)
     if segments is None:
-        segments = [command]
+        # The splitter gives up on some lines (arithmetic expansion, $(( ))).
+        # Judging the uncut line by its first word let `echo $((1+2)); <run>` pass
+        # because echo is a reader. Cut it crudely instead: a piece the cut breaks
+        # mid-quote fails to parse and is not a hit, so this can only make the
+        # door see more runs, never exempt one.
+        segments = [p.strip() for p in _CRUDE_CUT.split(command) if p.strip()]
     base = (repo or Path.cwd()).resolve()
     # Aria, 2026-10-04: "cd src && pytest ../tests" ran everything, because the
     # check read the target from the repository, not from where the cd left

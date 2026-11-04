@@ -234,6 +234,67 @@ def test_the_exemption_by_program_name_does_not_widen_what_is_exempt(cmd):
     assert reason and HEADER in reason
 
 
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        'python -m divineos learn "pytest tests/"',
+        'python3 -m divineos decide "stop running pytest" --why "slow"',
+        'C:\\x\\divineos.exe learn "pytest tests/"',
+        'C:\\x\\Scripts\\DIVINEOS.EXE goal add "narrow the pytest door"',
+    ],
+)
+def test_honest_record_commands_by_python_m_or_an_unquoted_windows_path_pass(cmd):
+    """The same program, spelled another way. shlex ate the backslashes of an
+    unquoted Windows path, and python -m divineos hid the program behind python."""
+    assert decide(cmd) is None
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        'python -m divineos ask "pytest tests/"',
+        'python -m other learn "pytest"',
+        'python -m divineos learn "$(pytest)"',
+        'C:\\x\\divineos-other.exe learn "pytest"',
+    ],
+)
+def test_python_m_and_windows_paths_do_not_widen_the_exemption(cmd):
+    reason = decide(cmd)
+    assert reason and HEADER in reason
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        "echo $((1+2)); pytest -q",
+        "echo $((2)) && pytest tests/",
+        "echo $(( 1 )); pytest",
+        "echo $((1<<2)); pytest -q",
+        "echo $((1+2))\npytest tests/",
+    ],
+)
+def test_a_line_the_splitter_cannot_cut_is_not_waved_through_by_its_first_word(cmd):
+    """Arithmetic expansion made split_shell_segments give up, and the door then
+    judged the whole line by its first word, echo, a reader. The run after it was
+    never looked at."""
+    reason = decide(cmd)
+    assert reason and HEADER in reason, cmd
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        "echo $((1+2)); pytest tests/test_a.py -q",
+        "echo $((1+2))",
+        "echo $((1+2)) && ls tests/",
+        'echo $((1+2)) && git commit -m "pytest tests/ belongs to the push"',
+    ],
+)
+def test_the_same_uncuttable_line_with_no_whole_suite_run_still_passes(cmd):
+    """Control: the crude cut must not start refusing honest lines."""
+    assert decide(cmd) is None, cmd
+
+
 # --- the pin: no command in the set executes its text ------------------------
 
 _SRC = Path(__file__).resolve().parents[1] / "src" / "divineos"
