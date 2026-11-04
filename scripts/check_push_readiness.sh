@@ -115,6 +115,21 @@ done <<< "$HOOK_STDIN"
 # Differentiated so the operator can distinguish failure-modes from the
 # pre-push exit code alone, without re-reading stderr.
 
+# Prepends a source dir to PYTHONPATH with the separator the python on this machine reads.
+# A bare ':' join mangled a PYTHONPATH that already held a Windows drive-letter entry
+# (C:\x;D:\y): the new dir fused with the first entry. On Git bash (Windows python) the list
+# is ';'-separated and the dir is given as a Windows path.
+_pythonpath_with() {
+    local dir="$1" sep=":"
+    case "$(uname -s 2>/dev/null)" in
+        MINGW*|MSYS*|CYGWIN*)
+            sep=";"
+            dir="$(cygpath -w "$dir" 2>/dev/null || echo "$dir")"
+            ;;
+    esac
+    echo "$dir${PYTHONPATH:+$sep$PYTHONPATH}"
+}
+
 # Reads a captured pytest log and prints "<failed|could_not_check> <exit code> <reason>".
 # Defaults to "failed 10" (the old behaviour) if the classifier itself cannot run, e.g. when
 # this script runs from a checkout old enough not to carry it.
@@ -605,7 +620,7 @@ else
         # it waits on) when nothing fits. The hard-floor refusal is unchanged.
         SLOT_OWNER="$(cat /proc/$$/winpid 2>/dev/null || echo $$)"
         LOAD_FLAG_FILE="$(mktemp)"
-        if ! PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+        if ! PYTHONPATH="$(_pythonpath_with "$REPO_ROOT/src")" \
              python -m divineos.core.suite_slot claim "$SLOT_OWNER" >"$LOAD_FLAG_FILE"; then
             rm -f "$LOAD_FLAG_FILE"
             echo "[push-readiness] BLOCKED — system_load_check refused pytest spawn." >&2
@@ -764,7 +779,7 @@ else
                     env | grep -E '^(GIT_|PYTEST|MSYS)' | sed 's/^/[gate-env] /'
                 } >"$PYTEST_LOG" 2>&1
                 # shellcheck disable=SC2086  # PYTEST_PARALLEL is intentionally word-split
-                (cd "$PYTEST_WORKTREE" && PYTHONPATH="$PYTEST_WORKTREE/src${PYTHONPATH:+:$PYTHONPATH}" $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest $PYTEST_TARGETS -q --tb=line $PYTEST_PARALLEL) >>"$PYTEST_LOG" 2>&1 || recover_if_only_crashes "$PYTEST_WORKTREE"
+                (cd "$PYTEST_WORKTREE" && PYTHONPATH="$(_pythonpath_with "$PYTEST_WORKTREE/src")" $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest $PYTEST_TARGETS -q --tb=line $PYTEST_PARALLEL) >>"$PYTEST_LOG" 2>&1 || recover_if_only_crashes "$PYTEST_WORKTREE"
                 PYTEST_RC=$?
                 # Normal-path cleanup — runs after pytest exits cleanly. The
                 # trap above covers the interrupt path; this call covers the
@@ -807,7 +822,7 @@ else
             $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest $PYTEST_TARGETS -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1 || recover_if_only_crashes "$PWD"
             PYTEST_RC=$?
         fi
-        PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+        PYTHONPATH="$(_pythonpath_with "$REPO_ROOT/src")" \
             python -m divineos.core.suite_slot release "$SLOT_OWNER"
         if [[ $PYTEST_RC -ne 0 ]]; then
             # Persist the full log to a stable path so the failures stay

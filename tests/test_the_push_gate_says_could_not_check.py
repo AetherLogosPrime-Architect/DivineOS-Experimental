@@ -122,6 +122,25 @@ def test_a_pythonpath_with_drive_letters_does_not_make_the_classifier_fall_back(
     assert "classifier could not run" not in out
 
 
+@pytest.mark.skipif(_BASH is None or os.name != "nt", reason="needs Git bash on Windows")
+def test_the_suite_runner_pythonpath_keeps_every_drive_letter_entry_whole(tmp_path):
+    """The runner's own PYTHONPATH join must not fuse the new dir with a drive-letter entry."""
+    out, err = _run_script_function(
+        tmp_path,
+        "_pythonpath_with",
+        "",
+        env_extra={"PYTHONPATH": r"C:\nonexistent_a;D:\nonexistent_b"},
+        arg="/tmp/worktree/src",
+    )
+    parts = out.strip().split(";")
+    assert parts[0].replace("\\", "/").endswith("/worktree/src"), parts
+    assert parts[1:] == [r"C:\nonexistent_a", r"D:\nonexistent_b"], parts
+
+
+def test_no_pythonpath_join_in_the_gate_uses_a_bare_colon():
+    assert "${PYTHONPATH:+:$PYTHONPATH}" not in _SCRIPT.read_text(encoding="utf-8")
+
+
 def test_the_cause_tells_a_missing_runner_from_nothing_collected():
     assert classify(RUNNER_MISSING).cause == "runner_missing"
     assert classify(NOTHING_COLLECTED).cause == "nothing_collected"
