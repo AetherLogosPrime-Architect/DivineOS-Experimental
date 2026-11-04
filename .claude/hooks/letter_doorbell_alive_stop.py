@@ -21,6 +21,7 @@ import time
 from pathlib import Path
 
 STALE_SECONDS = 60
+RANG_GRACE_SECONDS = 180  # how long a ring stands the check aside: three heartbeats' worth, then the bell is down
 
 
 def member(project_dir: str) -> str:
@@ -29,6 +30,14 @@ def member(project_dir: str) -> str:
 
 def verdict(beat: Path, now: float) -> str | None:
     if beat.exists() and now - beat.stat().st_mtime <= STALE_SECONDS:
+        return None
+    # A bell that RANG is not a bell that died. The ring deletes the heartbeat and leaves this mark, and the
+    # notice that it rang arrives on my next prompt, so holding this reply would be a second copy of a note that
+    # is guaranteed to come (2026-11-01). Arming clears the mark, so a bell that dies silently later is still held.
+    # Only for a short grace after the ring (2026-11-02): the mark stays until the bell is re-armed, so without a
+    # limit this stood aside forever and nothing held me to re-arming it (Dad saw the bell off).
+    rang = beat.with_name(beat.name.replace("_alive", "_rang"))
+    if rang.exists() and now - rang.stat().st_mtime <= RANG_GRACE_SECONDS:
         return None
     who = beat.name.split("_")[0].lstrip(".")
     return (
