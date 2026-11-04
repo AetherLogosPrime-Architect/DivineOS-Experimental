@@ -2939,9 +2939,18 @@ def install() -> None:
         if not text.strip():
             return SurfaceOutcome(name="voiced_family", state="nothing-to-say")
         try:
-            from divineos.core.voiced_family import render_block, voiced
+            from divineos.core.voiced_family import render_block, this_speaker, voiced
 
-            block = render_block(voiced(text))
+            speaker = this_speaker()
+            if speaker is None:
+                # Not knowing who is speaking is not a pass: guarding the wrong set would
+                # refuse my own name or miss someone else's.
+                return SurfaceOutcome(
+                    name="voiced_family",
+                    error="could not tell which seat is speaking",
+                    state="could-not-run",
+                )
+            block = render_block(voiced(text, speaker))
         except Exception as exc:  # noqa: BLE001
             return SurfaceOutcome(
                 name="voiced_family", error=f"{type(exc).__name__}: {exc}", state="could-not-run"
