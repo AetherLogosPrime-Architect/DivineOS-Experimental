@@ -192,6 +192,16 @@ def test_carried_words_in_the_new_forms_are_still_not_a_note():
         assert _held(records) == ["work-item-doorman"], cmd
 
 
+def test_a_double_quote_glued_to_a_word_still_hides_the_semicolon_inside_it():
+    """Cold read of #833: only the apostrophe in a word is prose; a glued double quote is a quote."""
+    for cmd in (
+        f'echo x"; divineos reflection-note {NOTE_TEXT}"',
+        f'echo x"; divineos reflection-note {NOTE_TEXT}',
+    ):
+        records = [_his("go"), _tool(), _error(REFUSAL_A), _call(cmd, "c1")]
+        assert _held(records) == ["work-item-doorman"], cmd
+
+
 def test_the_hook_is_registered_as_a_stop_hook():
     settings = json.loads((ROOT / ".claude" / "settings.json").read_text(encoding="utf-8"))
     commands = [

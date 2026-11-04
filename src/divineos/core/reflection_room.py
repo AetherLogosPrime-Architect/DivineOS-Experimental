@@ -264,8 +264,12 @@ def _segments(command: str) -> list[str]:
             elif ch == quote:
                 quote = ""
             buf.append(ch)
-        elif ch in "'\"" and not (i > 0 and (command[i - 1].isalnum() or command[i - 1] == "_")):
-            # an apostrophe INSIDE a word ("it's") is not a quote, in the shell either
+        elif ch == '"' or (
+            ch == "'" and not (i > 0 and (command[i - 1].isalnum() or command[i - 1] == "_"))
+        ):
+            # Only an APOSTROPHE inside a word ("it's") is read as prose. A double quote glued to a
+            # word still opens a quote, as in the shell: `echo x"; divineos reflection-note y"` is
+            # one echo, and splitting it at the ';' counted a note nobody filed (Aria's cold read).
             quote = ch
             buf.append(ch)
         elif ch in ";&|\n":
