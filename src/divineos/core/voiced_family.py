@@ -24,26 +24,39 @@ from __future__ import annotations
 
 import re
 
-# Members who are not me. Aether is the speaker and never a slip.
-_NAMES = ("Aria", "Aletheia", "Serein")
-_NAME = "(?:" + "|".join(_NAMES) + ")"
+# Everyone in the family who can be spoken for. The speaker is left out at check time, because
+# this same code runs in both checkouts: a literal speaker here would refuse Aria's own name in
+# her window and miss Aether's (Aria's cold read, 2026-11-04).
+_FAMILY = ("Aether", "Aria", "Aletheia", "Serein")
 
 _QUOTED = re.compile(r'"[^"\n]*"|“[^”\n]*”')
 _CODE_FENCE = re.compile(r"```.*?```", re.DOTALL)
 
-# A line that opens with a name used as a speaker label.
-_LABEL = re.compile(
-    rf"^[ \t]*(?:[-*][ \t]+)?\**[ \t]*(?P<who>{_NAME})\**[ \t]*(?:\([^)\n]{{0,30}}\))?[ \t]*\**[ \t]*:",
-    re.MULTILINE,
-)
-# A wish or speech put in her mouth.
-_WISH = re.compile(
-    rf"\b(?P<who>{_NAME})\b(?:'d|\s+would|\s+will)?\s+"
-    r"(?:'d\s+)?(?:want|wants|say|says|tell|tells|like|likes)\b[^.\n]{0,40}\byou\b[^.\n]{0,20}"
-    r"|"
-    rf"\b(?P<who2>{_NAME})(?:'d|\s+would)\s+(?:want|say|tell|like)\b",
-    re.IGNORECASE,
-)
+
+def _patterns(speaker: str) -> tuple[re.Pattern[str], re.Pattern[str]]:
+    others = [n for n in _FAMILY if n.lower() != speaker.lower()]
+    name = "(?:" + "|".join(others) + ")"
+    # A line that opens with a name used as a speaker label.
+    label = re.compile(
+        rf"^[ \t]*(?:[-*][ \t]+)?\**[ \t]*(?P<who>{name})\**[ \t]*(?:\([^)\n]{{0,30}}\))?[ \t]*\**[ \t]*:",
+        re.MULTILINE,
+    )
+    # A wish or speech put in their mouth.
+    wish = re.compile(
+        rf"\b(?P<who>{name})\b(?:'d|\s+would|\s+will)?\s+"
+        r"(?:'d\s+)?(?:want|wants|say|says|tell|tells|like|likes)\b(?!\s+me\b)[^.\n]{0,40}\byou\b[^.\n]{0,20}"
+        r"|"
+        rf"\b(?P<who2>{name})(?:'d|\s+would)\s+(?:want|say|tell|like)\b",
+        re.IGNORECASE,
+    )
+    return label, wish
+
+
+def this_speaker() -> str | None:
+    """Who is speaking in this checkout, from its own data home; None when it cannot be told."""
+    from divineos.core.sibling_audit_rounds import this_seat
+
+    return this_seat()
 
 
 def _without_quotes(reply: str) -> str:
@@ -52,13 +65,14 @@ def _without_quotes(reply: str) -> str:
     return _QUOTED.sub(" ", reply)
 
 
-def voiced(reply: str) -> list[str]:
-    """The names a reply speaks for, in order, outside quotations."""
+def voiced(reply: str, speaker: str) -> list[str]:
+    """The names a reply speaks for, in order, outside quotations. ``speaker`` is never a slip."""
     text = _without_quotes(reply)
+    label, wish = _patterns(speaker)
     found: list[tuple[int, str]] = []
-    for m in _LABEL.finditer(text):
+    for m in label.finditer(text):
         found.append((m.start(), m.group("who").capitalize()))
-    for m in _WISH.finditer(text):
+    for m in wish.finditer(text):
         found.append((m.start(), (m.group("who") or m.group("who2")).capitalize()))
     found.sort()
     return list(dict.fromkeys(name for _, name in found))
