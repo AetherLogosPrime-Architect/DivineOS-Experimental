@@ -160,7 +160,9 @@ def register(cli: click.Group) -> None:
             click.echo(f"(no files found for corpus={corpus})")
             return
         click.echo(f"Indexing {len(paths)} file(s) from corpus={corpus} into {_db_path()}...")
-        counts = semantic_search.index_corpus(paths, _db_path(), force_reindex=force)
+        counts = semantic_search.index_corpus(
+            paths, _db_path(), force_reindex=force, root=Path.cwd()
+        )
         click.echo(
             f"  files: {counts['files_processed']}  "
             f"chunks seen: {counts['chunks_seen']}  "

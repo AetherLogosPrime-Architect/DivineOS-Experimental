@@ -754,11 +754,21 @@ def format_memory_indexes_line(drawer_by_source: dict[str, int], search: dict[st
     """One line, both counts. Failed chunks are named so a run that embedded nothing is not clean."""
     drawer = ", ".join(f"{source} {n}" for source, n in sorted(drawer_by_source.items()))
     failed = search.get("chunks_failed", 0)
-    failed_note = f", {failed} failed" if failed else ""
+    updated = search.get("chunks_updated", 0)
+    removed = search.get("chunks_removed", 0)
+    # chunks_indexed counts every paragraph embedded this run; edited ones are a
+    # subset, named apart so an edit is not read as nothing happening.
+    new = search.get("chunks_indexed", 0) - updated
+    notes = f"{new} new"
+    if updated:
+        notes += f", {updated} edited"
+    if removed:
+        notes += f", {removed} removed"
+    if failed:
+        notes += f", {failed} failed"
     return (
         f"Memory indexes: drawer {{{drawer or 'empty'}}}; "
-        f"search index {search.get('chunks_total', 0)} chunks "
-        f"({search.get('chunks_indexed', 0)} new{failed_note})"
+        f"search index {search.get('chunks_total', 0)} chunks of the explorations ({notes})"
     )
 
 

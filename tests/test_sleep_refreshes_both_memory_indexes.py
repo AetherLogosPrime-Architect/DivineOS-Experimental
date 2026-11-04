@@ -108,3 +108,79 @@ def test_the_phase_fills_the_drawer_and_the_search_index_and_records_the_line(
     assert "exploration 2" in report.memory_indexes_line
     assert str(report.search_index_refresh["chunks_total"]) in report.memory_indexes_line
     assert report.memory_indexes_line in report.summary()
+
+
+# --- ids relative to the checkout, edits re-embedded, one meaning of "total" ---
+
+
+def _stored_text(db: Path) -> set[str]:
+    with sqlite3.connect(db) as conn:
+        return {r[0] for r in conn.execute("SELECT chunk_text FROM semantic_search_chunks")}
+
+
+def test_the_same_notes_indexed_from_two_checkouts_are_not_counted_twice(tmp_path, monkeypatch):
+    monkeypatch.setattr(semantic_search, "embed", _stub_embed)
+    db = tmp_path / "search.db"
+    one, two = tmp_path / "checkout_a", tmp_path / "checkout_b"
+    _corpus(one, "note.md")
+    _corpus(two, "note.md")
+    first = semantic_search.refresh_exploration_index(one, str(db))
+    second = semantic_search.refresh_exploration_index(two, str(db))
+    assert _chunk_count(db) == first["chunks_total"] > 0
+    assert second["chunks_total"] == first["chunks_total"]
+    assert second["chunks_indexed"] == 0  # nothing new: the same text at the same place
+    assert second["chunks_skipped"] == first["chunks_total"]
+
+
+def test_an_edited_paragraph_is_embedded_again_and_the_line_says_so(tmp_path, monkeypatch):
+    monkeypatch.setattr(semantic_search, "embed", _stub_embed)
+    root, db = tmp_path / "repo", tmp_path / "search.db"
+    _corpus(root, "note.md")
+    semantic_search.refresh_exploration_index(root, str(db))
+    note = root / "exploration" / "aether" / "note.md"
+    note.write_text(
+        note.read_text(encoding="utf-8").replace("Second paragraph", "Rewritten paragraph"),
+        encoding="utf-8",
+    )
+    out = semantic_search.refresh_exploration_index(root, str(db))
+    assert out["chunks_indexed"] == 1 and out["chunks_updated"] == 1
+    assert any(t.startswith("Rewritten paragraph") for t in _stored_text(db))
+    assert not any(t.startswith("Second paragraph") for t in _stored_text(db))
+    line = format_memory_indexes_line({"exploration": 1}, out)
+    assert "0 new" in line and "1 edited" in line
+
+
+def test_a_paragraph_removed_from_a_note_leaves_the_index_and_the_total(tmp_path, monkeypatch):
+    monkeypatch.setattr(semantic_search, "embed", _stub_embed)
+    root, db = tmp_path / "repo", tmp_path / "search.db"
+    _corpus(root, "note.md")
+    first = semantic_search.refresh_exploration_index(root, str(db))
+    note = root / "exploration" / "aether" / "note.md"
+    note.write_text(NOTE.format(name="note.md").split("\n\n")[1], encoding="utf-8")
+    out = semantic_search.refresh_exploration_index(root, str(db))
+    assert out["chunks_removed"] >= 1
+    assert out["chunks_total"] == _chunk_count(db) < first["chunks_total"]
+
+
+def test_the_total_counts_the_explorations_not_every_row_in_the_database(tmp_path, monkeypatch):
+    monkeypatch.setattr(semantic_search, "embed", _stub_embed)
+    root, db = tmp_path / "repo", tmp_path / "search.db"
+    _corpus(root, "note.md")
+    letters = root / "family" / "letters"
+    letters.mkdir(parents=True)
+    (letters / "l.md").write_text(NOTE.format(name="letter"), encoding="utf-8")
+    semantic_search.index_corpus(semantic_search.corpus_paths("letters", root), str(db), root=root)
+    out = semantic_search.refresh_exploration_index(root, str(db))
+    assert _chunk_count(db) > out["chunks_total"] > 0
+    assert out["chunks_total"] == out["chunks_seen"] - out["chunks_failed"]
+
+
+def test_old_absolute_path_rows_for_a_file_are_replaced_not_kept(tmp_path, monkeypatch):
+    monkeypatch.setattr(semantic_search, "embed", _stub_embed)
+    root, db = tmp_path / "repo", tmp_path / "search.db"
+    _corpus(root, "note.md")
+    paths = semantic_search.corpus_paths("exploration", root)
+    semantic_search.index_corpus(paths, str(db))  # no root: the old absolute ids
+    before = _chunk_count(db)
+    out = semantic_search.refresh_exploration_index(root, str(db))
+    assert _chunk_count(db) == before == out["chunks_total"]
