@@ -97,3 +97,68 @@ def test_the_amend_refusal_names_the_recovery(repo):
     assert "no walked head" in text
     assert "commit the change by exact path" in text
     assert "--repo <work copy>" in text
+
+
+def _walk_with_scope(scope: tuple[str, ...]) -> str:
+    opened = cw.open_walk("does this change hold across every file it touches", scope=scope)
+    for lens in opened["lenses"]:
+        apply_delivered(
+            cw, opened["walk_id"], lens, "a finding that is long enough to count: " + lens
+        )
+    return opened["walk_id"]
+
+
+def _one_line(out: str) -> str:
+    return " ".join(out.split())
+
+
+def _commit_file(repo: Path, name: str) -> None:
+    (repo / name).write_text("x\n", encoding="utf-8")
+    _git(repo, "add", name)
+    _git(repo, "commit", "-qm", f"add {name}")
+
+
+def test_a_scoped_file_uncommitted_while_an_outside_file_is_committed(repo):
+    _commit_file(repo, "b.py")
+    (repo / "a.py").write_text("x\n", encoding="utf-8")  # scoped, never committed
+    out = _one_line(_close_via_cli(_ready_walk(), repo))
+    assert "outside this walk's scope (b.py)" in out
+    assert "the scoped files have uncommitted changes" not in out
+    assert "Move b.py to its own branch" in out
+    assert "commit the scoped files by exact path" in out
+    assert "To bind it" not in out
+
+
+def test_only_an_unrelated_change_committed(repo):
+    _commit_file(repo, "b.py")
+    out = _one_line(_close_via_cli(_ready_walk(), repo))
+    assert "outside this walk's scope (b.py)" in out
+    assert "Move b.py to its own branch" in out
+    assert "commit the scoped files" not in out
+    assert "commit the change by exact path first" not in out
+
+
+def test_a_repo_that_is_not_a_git_repository(repo):
+    import tempfile
+
+    # The system temp folder, not tmp_path: pytest's tmp_path can sit inside this very checkout.
+    with tempfile.TemporaryDirectory() as plain:
+        nogit = Path(plain)
+        assert not (nogit / ".git").exists()
+        out = _one_line(_close_via_cli(_ready_walk(), nogit))
+    assert "is not a git repository" in out
+    assert "passing --repo <work copy>" in out
+    assert "not a non-empty subset" not in out
+
+
+def test_an_empty_scope(repo):
+    _commit_file(repo, "a.py")
+    out = _one_line(_close_via_cli(_walk_with_scope(()), repo))
+    assert "this walk has no scope" in out
+    assert "--scope" in out
+    assert "commit the change by exact path" not in out
+
+
+def test_the_printed_fix_is_one_line_never_two(repo):
+    out = _close_via_cli(_ready_walk(), repo)
+    assert out.count("To fix it") + out.count("To bind it") <= 1

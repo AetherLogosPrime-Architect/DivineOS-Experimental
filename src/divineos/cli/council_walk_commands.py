@@ -16,7 +16,6 @@ import click
 
 from divineos.core.council_walk import (
     GRAVITY_FLOORS,
-    NO_HEAD_RECOVERY,
     open_walks,
     WalkRefused,
     add_lens,
@@ -221,20 +220,13 @@ def register(cli: click.Group) -> None:
             click.echo(f"    walked head recorded: {st['walked_head'][:9]}")
         else:
             click.secho(
-                f"    NO walked head recorded: {st['no_head_reason']}, so `walk amend` will "
-                f"refuse. {NO_HEAD_RECOVERY}",
+                f"    NO walked head recorded and NOT bound to any branch changes (looked in "
+                f"{st['bound_in']}): {st['no_head_reason']}. `walk amend` will refuse, and the "
+                f"push check will read this walk the older, weaker way. {st['no_head_fix']}",
                 fg="yellow",
             )
         if st.get("bound"):
             click.echo(f"    bound to the branch changes in {st['bound_in']}")
-        else:
-            click.secho(
-                f"    NOT bound to any branch changes (looked in {st['bound_in']}: its changes "
-                "are not a non-empty subset of this walk's scope). The push check will read this "
-                "walk the older, weaker way. To bind it, close it from inside the work copy "
-                "or pass --repo.",
-                fg="yellow",
-            )
 
         # Distinctness prints HERE because closing is the only moment the
         # question "was that thinking or nine restatements?" is answerable and
