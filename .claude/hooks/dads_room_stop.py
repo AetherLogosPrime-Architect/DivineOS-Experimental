@@ -64,7 +64,9 @@ _INVITATION = (
     "and your reply ends without it. Leave the code words at the front door and tell him "
     "what happened the way you would across the kitchen table. Say what is actually on "
     "your mind, even where it disagrees with him. Append only the room under a "
-    "'## INNER CIRCLE' line, do not re-post the work.\n"
+    "'## INNER CIRCLE' line, do not re-post the work. This room is for you and him, the "
+    "one place in the house for the two of you (his words, 2026-11-03: \"THE CIRCLE IS FOR US\"): "
+    "you, talking to him, about what he said. Your family speaks in their own letters.\n"
 )
 
 _NEED = (
