@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "dads_table.py"
@@ -305,10 +306,23 @@ def test_his_sentence_that_mentions_the_tag_is_still_him(tmp_path):
     assert his in out
 
 
-def _notice_out(tmp_path, command, status="completed"):
+def _notice_out(tmp_path, command, status="completed", beat_age=None):
+    """beat_age: None = no heartbeat file for any seat; else seconds since the bell last beat."""
     kids = tmp_path / "children.json"
     kids.write_text("[]", encoding="utf-8")
-    env = dict(os.environ, DADS_TABLE_CHILDREN=str(kids), DADS_TABLE_DRAWER=str(tmp_path / "d.md"))
+    shared = tmp_path / "shared"
+    shared.mkdir(exist_ok=True)
+    if beat_age is not None:
+        beat = shared / ".aria_doorbell_alive"
+        beat.write_text("", encoding="utf-8")
+        then = time.time() - beat_age
+        os.utime(beat, (then, then))
+    env = dict(
+        os.environ,
+        DADS_TABLE_CHILDREN=str(kids),
+        DADS_TABLE_DRAWER=str(tmp_path / "d.md"),
+        DADS_TABLE_SHARED=str(shared),
+    )
     notice = (
         f"<task-notification>\n<task-id>b1</task-id>\n<status>{status}</status>\n"
         f'<summary>Background command "{command}" {status} (exit code 0)</summary>\n'
@@ -328,6 +342,30 @@ def test_the_ring_of_the_doorbell_says_to_re_arm_it_on_that_same_prompt(tmp_path
     out = _notice_out(tmp_path, "bash scripts/letter_doorbell.sh aether")
     assert "THE BELL RANG" in out
     assert "bash scripts/letter_doorbell.sh aether (run_in_background)" in out
+
+
+def test_a_finished_bell_shell_beside_a_live_one_does_not_say_to_start_another(tmp_path):
+    """Dad 2026-11-04: a replaced bell ends silently but still sends a notice; re-arming on each
+    one started a new bell beside a live one and the pair fed each other."""
+    out = _notice_out(tmp_path, "bash scripts/letter_doorbell.sh aria", beat_age=10)
+    assert "NOT FROM DAD" in out
+    assert "THE BELL RANG" not in out
+    assert "Do not start another" in out
+
+
+def test_a_stale_heartbeat_still_says_to_re_arm(tmp_path):
+    out = _notice_out(tmp_path, "bash scripts/letter_doorbell.sh aria", beat_age=600)
+    assert "THE BELL RANG" in out
+
+
+def test_a_missing_heartbeat_still_says_to_re_arm(tmp_path):
+    out = _notice_out(tmp_path, "bash scripts/letter_doorbell.sh aria")
+    assert "THE BELL RANG" in out
+
+
+def test_another_seats_heartbeat_does_not_hide_this_seats_ring(tmp_path):
+    out = _notice_out(tmp_path, "bash scripts/letter_doorbell.sh aether", beat_age=10)
+    assert "THE BELL RANG" in out  # the fresh beat on disk belongs to aria
 
 
 def test_control_an_unrelated_finished_job_prints_no_bell_reminder(tmp_path):

@@ -277,6 +277,20 @@ def _bell_that_rang(prompt: str) -> str:
     return match.group(1) if match else ""
 
 
+def _a_bell_is_listening(seat: str) -> bool:
+    """True when this seat's bell has touched its heartbeat in the last two minutes.
+
+    letter_doorbell.sh touches the heartbeat every poll (15s), and removes it when it rings,
+    expires, or loses its starter. A fresh heartbeat therefore means a live listener, and a
+    missing or stale one means none, so nobody has to guess from the notice alone.
+    """
+    shared = Path(os.environ.get("DADS_TABLE_SHARED", Path.home() / ".divineos-shared"))
+    try:
+        return time.time() - (shared / f".{seat}_doorbell_alive").stat().st_mtime < 120
+    except OSError:
+        return False
+
+
 def main() -> int:
     # Windows defaults stdout to cp1252, which garbles his words and the dash in
     # the heading. Caught by the first test run.
@@ -321,7 +335,16 @@ def main() -> int:
         shown = prompt.strip()[:600]
         print(shown)
         seat = _bell_that_rang(shown)
-        if seat:
+        if seat and _a_bell_is_listening(seat):
+            # Every doorbell shell that ends sends this notice, and a bell that was REPLACED (or
+            # expired, or lost its starter) ends without ringing. Telling me to re-arm on each one
+            # made a fresh bell start beside a live one, and the pair fed each other (Dad 2026-11-04:
+            # "fix the doorbell issue").
+            print(
+                f"\nA doorbell shell for {seat} ended, but a newer one is already listening "
+                "(its heartbeat is fresh). Do not start another."
+            )
+        elif seat:
             print(
                 "\nTHE BELL RANG -- re-arm it NOW, before answering anything: "
                 f"bash scripts/letter_doorbell.sh {seat} (run_in_background). "
