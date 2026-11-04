@@ -64,7 +64,13 @@ def test_a_row_nobody_has_read_says_unread_and_never_looks_like_a_known_kind():
     # A placeholder kind that looks like a fact gets believed, so unread rows are named UNREAD.
     assert hook_order.row_for("PreToolUse", "heredoc_escape").kind == hook_order.TOOL_CALL
     unread = [r.name for r in hook_order.ROWS if r.kind == hook_order.UNREAD]
-    assert "waiting_claim" in unread and "pr_merge_gate" in unread
+    assert "pr_merge_gate" in unread
+    # Stop was read in full on 2026-11-04: nothing there is unread any more, and the four
+    # surfaces that never refuse (they record or report) are record-only, not text remedies.
+    assert not [r for r in hook_order.ROWS if r.event == "Stop" and r.kind == hook_order.UNREAD]
+    assert hook_order.row_for("Stop", "waiting_claim").kind == hook_order.TOOL_CALL
+    for name in ("self_demotion_stop", "his_standing_verdict", "close_reach", "compaction_reach"):
+        assert hook_order.row_for("Stop", name).kind == hook_order.RECORD_ONLY, name
     known = {
         hook_order.READ_LETTER,
         hook_order.WAIT,

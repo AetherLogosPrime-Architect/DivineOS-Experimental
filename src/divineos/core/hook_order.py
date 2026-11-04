@@ -56,31 +56,39 @@ def _rows(event: str, kind: str, names: tuple[str, ...], start: int) -> list[Row
 ROWS: tuple[Row, ...] = tuple(
     # Stop: what the reply must do next, after it already reached him.
     # READ, 2026-11-04, by me in a reply or a refusal I was handed: the first block of each event.
-    _rows("Stop", TOOL_CALL, ("landed_claim",), 10)
+    # waiting_claim: its text says write the letter to her first, then say it (a tool call).
+    _rows("Stop", TOOL_CALL, ("landed_claim", "waiting_claim"), 10)
     + _rows(
         "Stop",
         APPEND_TEXT,
-        ("addressed_to_him", "voiced_family", "summary_room", "order_question"),
-        20,
-    )
-    # NOT READ: the refusal text of these has not been read and written down. They keep a rank
-    # so the order is stable, but their kind says so.
-    + _rows(
-        "Stop",
-        UNREAD,
         (
-            "waiting_claim",
+            "addressed_to_him",
+            "voiced_family",
+            "summary_room",
+            "order_question",
             "no_fix_claim",
-            "self_demotion_stop",
             "translation_floor",
             "repeated_reply",
+        ),
+        20,
+    )
+    # RECORD_ONLY, read 2026-11-04 in hook_surfaces: self_demotion_stop records spans and reports,
+    # his_standing_verdict never refuses by its own docstring, and the two reach detectors only
+    # write a marker for the next compose. None of them can hold a reply.
+    + _rows(
+        "Stop",
+        RECORD_ONLY,
+        (
+            "self_demotion_stop",
             "his_standing_verdict",
             "close_reach",
             "compaction_reach",
+            "hedge_audit",
+            "theater_audit",
+            "time_estimate",
         ),
-        30,
+        50,
     )
-    + _rows("Stop", RECORD_ONLY, ("hedge_audit", "theater_audit", "time_estimate"), 50)
     # PreToolUse: why this call was stopped. Reads first, then the rest.
     + _rows("PreToolUse", READ_LETTER, ("unread_letter",), 10)
     + _rows("PreToolUse", TOOL_CALL, ("require_briefing", "must_read"), 20)
