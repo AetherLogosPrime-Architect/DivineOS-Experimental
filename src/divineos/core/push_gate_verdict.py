@@ -21,6 +21,11 @@ from dataclasses import dataclass
 FAILED = "failed"
 COULD_NOT_CHECK = "could_not_check"
 
+# Causes of could-not-check. Only RUNNER_MISSING is cured by a newer main.
+RUNNER_MISSING = "runner_missing"
+NOTHING_COLLECTED = "nothing_collected"
+NO_OUTPUT = "no_output"
+
 EXIT_FAILED = 10
 EXIT_COULD_NOT_CHECK = 11
 
@@ -35,6 +40,7 @@ _NOTHING_COLLECTED = re.compile(r"no tests ran")
 class Verdict:
     kind: str
     reason: str
+    cause: str = "none"
 
     @property
     def exit_code(self) -> int:
@@ -50,18 +56,19 @@ def classify(log_text: str) -> Verdict:
             COULD_NOT_CHECK,
             f"the gate's runner module {missing.group(1)} is not in the pushed commit, "
             "so the suite could not be started there",
+            RUNNER_MISSING,
         )
     if _NOTHING_COLLECTED.search(log_text):
-        return Verdict(COULD_NOT_CHECK, "no tests ran: nothing was collected")
+        return Verdict(COULD_NOT_CHECK, "no tests ran: nothing was collected", NOTHING_COLLECTED)
     if not log_text.strip():
-        return Verdict(COULD_NOT_CHECK, "the run left no output to read")
+        return Verdict(COULD_NOT_CHECK, "the run left no output to read", NO_OUTPUT)
     return Verdict(FAILED, "the run ended badly in a way this does not recognise")
 
 
 def main(argv: list[str]) -> int:
     with open(argv[1], encoding="utf-8", errors="replace") as handle:
         verdict = classify(handle.read())
-    print(verdict.kind, verdict.exit_code, verdict.reason)
+    print(verdict.kind, verdict.exit_code, verdict.cause, verdict.reason)
     return 0
 
 

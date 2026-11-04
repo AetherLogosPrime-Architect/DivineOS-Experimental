@@ -118,13 +118,27 @@ done <<< "$HOOK_STDIN"
 # Reads a captured pytest log and prints "<failed|could_not_check> <exit code> <reason>".
 # Defaults to "failed 10" (the old behaviour) if the classifier itself cannot run, e.g. when
 # this script runs from a checkout old enough not to carry it.
+#
+# The classifier is stdlib-only, so it is run by file path: no PYTHONPATH join, which broke
+# whenever PYTHONPATH already held a Windows drive-letter entry (':' is not its separator).
+# Output: "<failed|could_not_check> <exit code> <cause> <reason...>".
 _gate_verdict_for_log() {
     local verdict
-    if verdict="$(PYTHONPATH="$(git rev-parse --show-toplevel)/src${PYTHONPATH:+:$PYTHONPATH}" \
-        python -m divineos.core.push_gate_verdict "$1" 2>/dev/null)" && [[ -n "$verdict" ]]; then
+    if verdict="$(python "$(git rev-parse --show-toplevel)/src/divineos/core/push_gate_verdict.py" "$1" 2>/dev/null)" \
+        && [[ -n "$verdict" ]]; then
         echo "$verdict"
     else
-        echo "failed 10 the classifier could not run"
+        echo "failed 10 classifier_unavailable the classifier could not run"
+    fi
+}
+
+# The "bring the branch up to date" advice fits only a missing runner module, the one cause
+# that a newer main fixes. Other could-not-check causes get no such advice.
+_gate_advice_for_cause() {
+    if [[ "$1" == "runner_missing" ]]; then
+        echo "Bring the branch up to date with main and push again, or bypass on purpose: DIVINEOS_SKIP_TESTS=1 git push"
+    else
+        echo "Look at the log above for why nothing ran; a newer main may not change that. Bypass on purpose: DIVINEOS_SKIP_TESTS=1 git push"
     fi
 }
 
@@ -859,7 +873,7 @@ else
             # Could-not-look is not found-a-fault: the same log may mean the suite failed,
             # or that the gate could not run it (a branch cut before the gate's own runner
             # module reached main). Different words and a different exit code for each.
-            read -r GATE_KIND GATE_CODE GATE_REASON < <(_gate_verdict_for_log "$LAST_LOG")
+            read -r GATE_KIND GATE_CODE GATE_CAUSE GATE_REASON < <(_gate_verdict_for_log "$LAST_LOG")
             if [[ "$GATE_KIND" == "could_not_check" ]]; then
                 echo "[push-readiness] BLOCKED — COULD NOT CHECK (exit $GATE_CODE). This is NOT a test failure." >&2
                 echo "[push-readiness] Why: $GATE_REASON." >&2
@@ -867,7 +881,7 @@ else
                 grep '^\[gate-env\]' "$LAST_LOG" >&2 \
                     || echo "[push-readiness] (the log carries no [gate-env] lines, so the non-isolated path ran)" >&2
                 echo "[push-readiness] Full log persisted: $LAST_LOG" >&2
-                echo "[push-readiness] Bring the branch up to date with main and push again, or bypass on purpose: DIVINEOS_SKIP_TESTS=1 git push" >&2
+                echo "[push-readiness] $(_gate_advice_for_cause "$GATE_CAUSE")" >&2
                 exit "$GATE_CODE"
             fi
             echo "[push-readiness] BLOCKED — tests failing (exit 10)." >&2

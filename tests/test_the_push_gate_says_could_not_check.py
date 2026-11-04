@@ -9,6 +9,7 @@ found-a-fault. These tests feed the decision fixed logs.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -19,7 +20,14 @@ from divineos.core.push_gate_verdict import COULD_NOT_CHECK, FAILED, classify
 
 _ROOT = Path(__file__).resolve().parents[1]
 _SCRIPT = _ROOT / "scripts" / "check_push_readiness.sh"
-_BASH = shutil.which("bash")
+_BASH = next(
+    (
+        c
+        for c in (r"C:\Program Files\Git\bin\bash.exe", r"C:\Program Files (x86)\Git\bin\bash.exe")
+        if Path(c).exists()
+    ),
+    shutil.which("bash"),
+)
 
 RUNNER_MISSING = (
     "/usr/bin/python: No module named divineos.core.subprocess_jobs\n"
@@ -32,7 +40,9 @@ REAL_FAILURE = (
     "FAILED tests/test_b.py::test_b_thing\n"
     "1 failed, 2 passed in 0.42s\n"
 )
-NOTHING_COLLECTED = "============================ no tests ran in 0.01s ============================\n"
+NOTHING_COLLECTED = (
+    "============================ no tests ran in 0.01s ============================\n"
+)
 OTHER_MISSING_MODULE = (
     "ModuleNotFoundError: No module named 'divineos.core.something_the_branch_needs'\n"
     "ERROR tests/test_x.py\n"
@@ -73,25 +83,61 @@ def test_an_empty_log_is_could_not_check_not_a_pass_or_a_fault():
     [
         (REAL_FAILURE, "failed", "10"),
         (RUNNER_MISSING, "could_not_check", "11"),
+        (NOTHING_COLLECTED, "could_not_check", "11"),  # exit 11 for "no tests ran"
     ],
 )
 def test_the_script_decides_from_the_log_with_distinct_words_and_exit_codes(
     tmp_path, log_text, expected_word, expected_code
 ):
+    out, err = _run_script_function(tmp_path, "_gate_verdict_for_log", log_text)
+    assert out.split()[:2] == [expected_word, expected_code], err
+
+
+def _run_script_function(tmp_path, func, log_text, env_extra=None, arg=None):
     log = tmp_path / "pytest.log"
     log.write_text(log_text, encoding="utf-8")
-    harness = (
-        f'eval "$(sed -n \'/^_gate_verdict_for_log()/,/^}}/p\' "{_SCRIPT.as_posix()}")"\n'
-        f'_gate_verdict_for_log "{log.as_posix()}"\n'
-    )
+    target = arg if arg is not None else log.as_posix()
+    harness = f'eval "$(sed -n \'/^{func}()/,/^}}/p\' "{_SCRIPT.as_posix()}")"\n{func} "{target}"\n'
     result = subprocess.run(
         [_BASH, "-c", harness],
         capture_output=True,
         text=True,
         cwd=str(_ROOT),
         timeout=60,
+        env={**os.environ, **(env_extra or {})},
     )
-    assert result.stdout.split()[:2] == [expected_word, expected_code], result.stderr
+    return result.stdout, result.stderr
+
+
+@pytest.mark.skipif(_BASH is None, reason="bash not available")
+def test_a_pythonpath_with_drive_letters_does_not_make_the_classifier_fall_back(tmp_path):
+    """A ':'-joined PYTHONPATH broke when it already held 'C:\\x;D:\\y'; it fell back to failed 10."""
+    out, err = _run_script_function(
+        tmp_path,
+        "_gate_verdict_for_log",
+        RUNNER_MISSING,
+        env_extra={"PYTHONPATH": r"C:\nonexistent_a;D:\nonexistent_b"},
+    )
+    assert out.split()[:2] == ["could_not_check", "11"], (out, err)
+    assert "classifier could not run" not in out
+
+
+def test_the_cause_tells_a_missing_runner_from_nothing_collected():
+    assert classify(RUNNER_MISSING).cause == "runner_missing"
+    assert classify(NOTHING_COLLECTED).cause == "nothing_collected"
+    assert classify("").cause == "no_output"
+
+
+@pytest.mark.skipif(_BASH is None, reason="bash not available")
+@pytest.mark.parametrize(
+    ("cause", "says_update_main"),
+    [("runner_missing", True), ("nothing_collected", False), ("no_output", False)],
+)
+def test_update_with_main_advice_is_printed_only_for_the_cause_it_fits(
+    tmp_path, cause, says_update_main
+):
+    out, err = _run_script_function(tmp_path, "_gate_advice_for_cause", "", arg=cause)
+    assert ("up to date with main" in out) is says_update_main, (out, err)
 
 
 def test_the_exit_code_convention_names_the_new_code():
