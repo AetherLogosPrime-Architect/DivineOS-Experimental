@@ -33,8 +33,19 @@ def test_both_holds_are_registered_as_stop_hooks_on_this_branch():
     commands = [
         h.get("command", "") for group in settings["hooks"]["Stop"] for h in group.get("hooks", [])
     ]
-    for name in ("dads_room_stop.py", "stall_on_promise_stop.py"):
-        assert any(name in c for c in commands), f"{name} is not a registered Stop hook"
+    assert any("dads_room_stop.py" in c for c in commands), (
+        "dads_room_stop.py is not a registered Stop hook"
+    )
+    # The stall hold was folded into the router on 2026-11-04 so Dad's holds arrive as one voice; it is
+    # registered there, and the router door itself must be wired or the surface is a note.
+    assert any("doorbell-stop.sh" in c for c in commands), (
+        "the router door is not a registered Stop hook"
+    )
+    from divineos.core import hook_router, hook_surfaces
+
+    hook_router.clear("Stop")
+    hook_surfaces.install()
+    assert "stall_on_promise" in hook_router.registered("Stop")
 
 
 def test_the_carve_out_does_not_weaken_the_delta_rule_for_the_work():

@@ -2009,6 +2009,39 @@ def landed_claim_surface(payload: dict) -> SurfaceOutcome | None:
     return SurfaceOutcome(name="landed_claim", refused=True, reason=block, state="spoke")
 
 
+def stall_on_promise_surface(payload: dict) -> SurfaceOutcome | None:
+    """A reply that ends on "I will do X next" is held once and told to do X.
+
+    Folded into the router on 2026-11-04 from the standalone script ``stall_on_promise_stop.py``, because
+    Dad's end-of-reply holds were arriving one after another: each was its own process with its own message
+    (24 Stop hooks were registered, one of them this router). The judgement is ``core/stall_hold.verdict``,
+    the same function the script now calls, so there is one copy. One hold per reply: a Stop that is
+    already a continuation (``stop_hook_active``) stands down. A transcript that cannot be read is
+    could-not-run, never a pass.
+    """
+    name = "stall_on_promise"
+    if payload.get("stop_hook_active"):
+        return SurfaceOutcome(name=name, state="nothing-to-say")
+    path = payload.get("transcript_path") or payload.get("transcript")
+    if not path:
+        return SurfaceOutcome(
+            name=name, error="no transcript path in the Stop payload", state="could-not-run"
+        )
+    try:
+        from pathlib import Path as _Path
+
+        from divineos.core.stall_hold import read_tail, verdict
+
+        reason = verdict(read_tail(_Path(path)), path)
+    except Exception as exc:  # noqa: BLE001 - could-not-run is said, never passed silently
+        return SurfaceOutcome(
+            name=name, error=f"{type(exc).__name__}: {exc}", state="could-not-run"
+        )
+    if not reason:
+        return SurfaceOutcome(name=name, state="nothing-to-say")
+    return SurfaceOutcome(name=name, refused=True, reason=reason, state="spoke")
+
+
 def waiting_claim_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse a reply that says a fix waits on Aletheia when no letter to her names it at its live head.
 
@@ -2961,6 +2994,10 @@ def install() -> None:
 
     if "voiced_family" not in registered("Stop"):
         register("Stop", "voiced_family", voiced_family_surface)
+    # Folded in from the standalone stall_on_promise_stop.py (2026-11-04); its registration in settings.json
+    # comes out in the same change, or both would fire.
+    if "stall_on_promise" not in registered("Stop"):
+        register("Stop", "stall_on_promise", stall_on_promise_surface)
     if "waiting_claim" not in registered("Stop"):
         register("Stop", "waiting_claim", waiting_claim_surface)
     # His Floor, connected 2026-09-09 after two months in which its only caller

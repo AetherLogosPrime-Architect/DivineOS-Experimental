@@ -380,9 +380,17 @@ def _stop_commands() -> list[str]:
     return out
 
 
-def test_the_hook_runs_when_a_reply_ends_and_fails_loud_when_missing():
-    wired = [c for c in _stop_commands() if "stall_on_promise_stop.py" in c]
-    assert wired and all("NOT RUNNING" in c for c in wired)
+def test_the_hold_runs_inside_the_router_and_is_not_also_wired_standalone():
+    # Folded into the router 2026-11-04 so Dad's end-of-reply holds arrive as one voice. Wired both ways it
+    # would fire twice; the router door must be there, and the standalone one must not.
+    commands = _stop_commands()
+    assert any("doorbell-stop.sh" in c for c in commands), "the router door is not wired"
+    assert not any("stall_on_promise_stop.py" in c for c in commands)
+    from divineos.core import hook_router, hook_surfaces
+
+    hook_router.clear("Stop")
+    hook_surfaces.install()
+    assert "stall_on_promise" in hook_router.registered("Stop")
 
 
 def test_the_reader_can_see_a_hook_that_is_not_wired():

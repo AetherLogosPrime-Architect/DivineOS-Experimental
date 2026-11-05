@@ -57,7 +57,8 @@ ROWS: tuple[Row, ...] = tuple(
     # Stop: what the reply must do next, after it already reached him.
     # READ, 2026-11-04, by me in a reply or a refusal I was handed: the first block of each event.
     # waiting_claim: its text says write the letter to her first, then say it (a tool call).
-    _rows("Stop", TOOL_CALL, ("landed_claim", "waiting_claim"), 10)
+    # stall_on_promise: its text says do the step now with the tool call itself (folded in 2026-11-04).
+    _rows("Stop", TOOL_CALL, ("landed_claim", "waiting_claim", "stall_on_promise"), 10)
     + _rows(
         "Stop",
         APPEND_TEXT,

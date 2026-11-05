@@ -792,6 +792,7 @@ src/divineos/
     memory_linkage_own_words.py The memory link, read through what I said last turn, apart from what he said.
     voiced_family.py           Lines written in a family member's name that they never wrote.
     hook_order.py              One table that orders every refusing hook surface, so a pile of notes becomes one voice.
+    stall_hold.py              The stall hold as a function the router can call.
 
   analysis/
     _session_types.py          Session analysis type definitions
