@@ -16,7 +16,9 @@ Two Stop doors pull against each other. `stall_on_promise_stop` says, after a re
 
 ## The change
 
-`stall_on_promise_stop.verdict` stands down when its closing text is his room (a line that opens with `## INNER CIRCLE`), and records the step it did not force as `follow_through / carried`. The heading must start a line: the words mentioned in passing mid-sentence do not count.
+`stall_on_promise_stop.verdict` stands down for a step named INSIDE his room (after the last line that opens with `## INNER CIRCLE`), and records it as `follow_through / carried`. A step named BEFORE the room is held exactly as before. The heading must start a line: the words mentioned in passing mid-sentence do not count.
+
+**Narrowed after Aria's attack (2026-11-05).** The first version stood down whenever the closing text contained a circle anywhere, so a promise in the work part followed by any circle was never held: "a circle after a promise does not do the promise". Three of her probe replies failed against it; they are now tests, and the stand-down is keyed on WHERE the step sits relative to the last room heading.
 
 ## What this does not do
 

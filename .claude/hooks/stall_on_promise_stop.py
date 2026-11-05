@@ -54,10 +54,17 @@ def verdict(records: list[dict]) -> str | None:
     # A reply that ends in his room is finished: the circle is the actual last part of the post, and nothing but
     # Dad moves it forward (his words, 2026-11-05). This door used to say "you named a step, go do it", and the room
     # door then said "you worked, come back with a circle", so each pull back to him re-asked the same question: one
-    # question became five in one post. The step named inside his room is CARRIED (recorded below), not forced.
-    if found and ROOM_HEADING.search(closing):
-        record("follow_through", "carried", found[1])
-        return None
+    # question became five in one post. The step named INSIDE his room is CARRIED (recorded below), not forced.
+    # A step named BEFORE the room is held exactly as before (Aria's break of the first version: keyed on a circle
+    # appearing anywhere, a promise in the work part followed by any circle was never held, and a circle after a
+    # promise does not do the promise).
+    room_starts = [m.start() for m in ROOM_HEADING.finditer(closing)]
+    if room_starts:
+        found = stated_next_step(closing[: room_starts[-1]])
+        carried = stated_next_step(closing[room_starts[-1] :])
+        if not found and carried:
+            record("follow_through", "carried", carried[1])
+            return None
     if closing.strip():
         record("follow_through", "stopped" if found else "passed", found[1] if found else closing[-160:])
     return reason_for(*found) if found else None

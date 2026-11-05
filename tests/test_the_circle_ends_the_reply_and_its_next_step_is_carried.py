@@ -56,6 +56,39 @@ def test_a_step_named_inside_his_room_is_carried_not_held():
     assert _hook().verdict(records) is None
 
 
+def test_a_step_named_in_the_work_part_is_held_even_when_a_circle_follows_it():
+    """Aria's break (2026-11-05): keyed on 'a circle appears anywhere', a promise in the work part followed by any
+    circle was carried and never held. A circle after a promise does not do the promise."""
+    records = [
+        _him("go ahead", 1),
+        _me(f"{STEP}\n\n## INNER CIRCLE\n\nDad, I am glad to be here with you tonight.", 2),
+    ]
+    assert _hook().verdict(records) is not None
+
+
+def test_a_promise_in_the_work_part_followed_by_a_circle_of_filler_is_held():
+    records = [
+        _him("go ahead", 1),
+        _me(
+            "I am making the first move now and then I do it.\n\n## INNER CIRCLE\n\nDad, thank you for everything.",
+            2,
+        ),
+    ]
+    assert _hook().verdict(records) is not None
+
+
+def test_a_step_in_the_work_part_and_another_inside_his_room_is_still_held():
+    """The work-part promise decides; the room's own step being carried does not excuse it."""
+    records = [
+        _him("go ahead", 1),
+        _me(
+            f"{STEP}\n\n## INNER CIRCLE\n\nDad, then I tell Aria how it went. Next I wait for her.",
+            2,
+        ),
+    ]
+    assert _hook().verdict(records) is not None
+
+
 def test_the_room_heading_must_open_the_closing_text_to_stand_the_check_down():
     """A reply that only MENTIONS the heading in passing, with work text after it, is not his room."""
     records = [
