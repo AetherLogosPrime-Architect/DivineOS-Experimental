@@ -658,6 +658,16 @@ def _already_warned_about(fingerprint: str) -> bool:
         return False
 
 
+def forget_buried_warning() -> None:
+    """His message ends the exchange, so the next buried question is warned about afresh.
+
+    Aria's break of the once-per-question fix (2026-11-05): the slot was cleared by nothing, so a phrase I
+    reuse for hours ("shall I keep going with the next ten?") was silent all day, including the time it was
+    buried and he had to dig for it. Once per question HE HAS BEEN ASKED, not once per day.
+    """
+    BURIED_SEEN.unlink(missing_ok=True)
+
+
 def _remember_warning(fingerprint: str) -> None:
     try:
         BURIED_SEEN.parent.mkdir(parents=True, exist_ok=True)

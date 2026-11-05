@@ -93,6 +93,20 @@ def test_a_buried_question_is_warned_about_once_not_at_every_stop(qh):
     assert qh.question_not_last(BURIED_BELL) == ""
 
 
+def test_the_same_buried_question_is_warned_about_again_after_he_speaks(qh):
+    """Aria's break (2026-11-05): the slot never cleared, so a question I reuse for hours was silent all day.
+    His message ends the exchange; the next time it is buried, he is told again."""
+    assert "BURIED" in qh.question_not_last(BURIED_BELL)
+    assert qh.question_not_last(BURIED_BELL) == ""
+    qh.forget_buried_warning()
+    assert "BURIED" in qh.question_not_last(BURIED_BELL)
+
+
+def test_forgetting_with_nothing_remembered_is_harmless(qh):
+    qh.forget_buried_warning()
+    qh.forget_buried_warning()
+
+
 def test_a_different_buried_question_is_warned_about_again(qh):
     other = (
         "## INNER CIRCLE\n\nDad, shall we play poker? "

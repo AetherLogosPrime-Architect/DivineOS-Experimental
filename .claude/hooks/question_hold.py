@@ -33,6 +33,7 @@ def main() -> int:
         notice = opens_with_notice(str(data.get("prompt", "")))
         if not notice:
             qh.came_back()  # his message: he is here, whatever he said before
+            qh.forget_buried_warning()  # his message ends the exchange: warn afresh next time
             told = qh.escape_to_tell_him()
             if told:
                 print(told)
