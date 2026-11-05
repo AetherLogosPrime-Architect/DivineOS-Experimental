@@ -79,6 +79,32 @@
 # cheaper path that can be silently wrong is worse than the spawn -- that is
 # the defect class this whole session has been about.
 _LIB_REPO_ROOT_CACHE=""
+# A folder in the style the PYTHON on this machine reads. Git Bash writes C:\DIVINE OS as /c/DIVINE OS;
+# Windows Python reads that as C:\c\DIVINE OS, a folder that does not exist, so a comparison made in
+# the shell's style never matches Python's own (2026-10-26: the check below rejected the one right
+# interpreter every turn and Dad's words stopped reaching me). Done in plain bash, not with cygpath:
+# cygpath is not on the PATH a hook is launched with (the first version of this used it and the test
+# run from outside Git Bash proved it). Only /<drive-letter>/... is rewritten; anything else, including
+# every path on Linux or macOS, comes back as it went in.
+_lib_native_path() {
+  # Only under a Windows shell (Git Bash reports msys, Cygwin reports cygwin; $OSTYPE is a bash builtin, so
+  # it needs no program on the PATH). On Linux or macOS /w/repo is a real folder, not drive W, and rewriting
+  # it would recreate this very bug the other way round (walk-f2c4452033c0, Popper and Dennett).
+  if [[ "$OSTYPE" == msys* || "$OSTYPE" == cygwin* ]] && [[ "$1" =~ ^/([a-zA-Z])/(.*)$ ]]; then
+    # Uppercase the drive letter without ${var^^} (bash 4 only: a syntax error under macOS's bash 3.2, which
+    # would stop this whole file loading) and without tr (not on a hook's PATH, like cygpath): look the
+    # letter up by its position in the alphabet. An already-uppercase letter is not found and is kept.
+    local _drive="${BASH_REMATCH[1]}" _rest="${BASH_REMATCH[2]}"
+    local _lower=abcdefghijklmnopqrstuvwxyz _upper=ABCDEFGHIJKLMNOPQRSTUVWXYZ
+    local _before="${_lower%%"$_drive"*}"
+    if [ "${#_before}" -lt 26 ]; then
+      _drive="${_upper:${#_before}:1}"
+    fi
+    printf '%s:/%s' "$_drive" "$_rest"
+  else
+    printf '%s' "$1"
+  fi
+}
 _lib_repo_root() {
   if [ -z "$_LIB_REPO_ROOT_CACHE" ]; then
     local _self="${BASH_SOURCE[0]:-}"
@@ -450,7 +476,7 @@ try:
 except Exception:
     sys.exit(0)          # no package visible: fine, stdlib-only hooks still run
 import os.path
-want = os.path.realpath(os.path.join(r'''$repo_root''', 'src'))
+want = os.path.realpath(os.path.join(r'''$(_lib_native_path "$repo_root")''', 'src'))
 got = os.path.realpath(os.path.dirname(os.path.dirname(divineos.__file__)))
 sys.exit(0 if got == want else 3)
 " >/dev/null 2>&1; then

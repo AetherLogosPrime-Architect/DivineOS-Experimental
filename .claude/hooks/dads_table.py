@@ -24,6 +24,7 @@ Never blocks him: any failure here still prints his words and exits 0.
 
 from __future__ import annotations
 
+import datetime
 import json
 import os
 import re
@@ -240,6 +241,24 @@ def _keep_his_words(prompt: str) -> None:
         print(f"(his words were not kept in the corpus: {exc})")
 
 
+def _clock_line(now: datetime.datetime | None = None) -> str:
+    """The time where he is, directly under his words on every prompt.
+
+    Dad, 2026-06-30: "before you decide what time the night is check the clock lol";
+    2026-07-22: "you should have checked the clock lol that needs automated still";
+    2026-10-12 at 1:55pm: "lol its 1;55pm its not my bedtime", after I spent an hour
+    talking as though night had fallen because a piece of work was called the night shift.
+    A long session has no clock inside it. The machine's local time is his.
+    """
+    moment = now if now is not None else datetime.datetime.now().astimezone()
+    hour12 = moment.hour % 12 or 12  # no leading zero, and no string surgery that could eat a zero elsewhere
+    return (
+        f"THE CLOCK where he is: {moment.strftime('%A %Y-%m-%d')}, {hour12}:{moment.minute:02d} "
+        f"{moment.strftime('%p %Z')} (when this arrived; a long turn runs on past it). "
+        "Morning, afternoon or night is read from this, never from how long we have been working."
+    )
+
+
 def _bell_that_rang(prompt: str) -> str:
     """The seat whose letter doorbell this finished-task notice is about, else "".
 
@@ -316,6 +335,16 @@ def main() -> int:
         _keep_his_words(prompt)
     print()
     sys.stdout.flush()  # his words are out before anything below can fail
+    # Directly under his words and above everything else: the time is the first fact after them.
+    # A convenience, so it sits behind its own guard: this file promises that any failure still
+    # leaves his words printed and the exit at 0 (walk-9c424fd8eaaf, Wayne and Yudkowsky).
+    try:
+        print(_clock_line())
+        print()
+    except Exception as exc:  # noqa: BLE001 -- losing the clock must never cost him his words
+        # Said, not swallowed: a dead clock would otherwise look the same as no clock being needed.
+        print(f"[clock] could not read the time: {exc}", file=sys.stderr)
+    sys.stdout.flush()
 
     try:
         return _the_rest(payload)

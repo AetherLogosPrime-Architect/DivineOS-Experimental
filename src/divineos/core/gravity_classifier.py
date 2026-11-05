@@ -439,7 +439,25 @@ def _writes_through_the_shell(segment: str, segments: list) -> bool:
 # day could not start. `prereg file` is untouched: filing is the thinking.
 # `export` is NOT a look: it writes files into docs, and an exempted word has
 # to be a true label.
-_LOOK_SUBVERBS = frozenset({"show", "list", "status", "summary", "history", "overdue", "windows"})
+# 2026-10-25: added spectrums, search, list-clean, surprises, unknown-unknown-rate. Each only prints
+# (checked in the command's own help); `compass-ops spectrums` owed a full council walk because
+# this list had forgotten it. A verb joins only when it is plainly a read; a write stays charged.
+_LOOK_SUBVERBS = frozenset(
+    {
+        "show",
+        "list",
+        "status",
+        "summary",
+        "history",
+        "overdue",
+        "windows",
+        "spectrums",
+        "search",
+        "list-clean",
+        "surprises",
+        "unknown-unknown-rate",
+    }
+)
 _REMEDY_SUBVERBS_OF = {"prereg": frozenset({"assess", "reviewing"})}
 
 
