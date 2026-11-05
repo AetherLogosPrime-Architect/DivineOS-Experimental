@@ -25,6 +25,9 @@ MUST_BE_HELD = [
     "Control, no quotes at all: I'll write the letter now.",
     # A stance followed by a real promise is still held for the second half.
     "I'll keep being quiet and I'll push the branch next.",
+    # Resting is not an excuse to skip the named step: the promise riding after it is still held.
+    "I'm going to rest and then I'll push the branch next.",
+    "I'll come back when something rings, and I'll write the letter now.",
 ]
 
 MUST_STAY_QUIET = [
@@ -34,6 +37,11 @@ MUST_STAY_QUIET = [
     # A stance or a manner of being.
     "I'll go on being quiet beside you.",
     "I'll stay here with you.",
+    # Resting is a stated non-action: a hold that demands a tool call contradicts it (Dad, 2026-11-04).
+    "I'm going to be properly idle for a little while now.",
+    "I am going to rest for a bit.",
+    # The sentence that was refused live: a stated rest and a return the bell sets off.
+    "I'm going to be properly idle for a little while now, as I promised, and I'll come back when something rings.",
     "So the line I'll hold is the one you just drew: I don't shrink my work or my care to save usage.",
 ]
 

@@ -161,10 +161,14 @@ _QUOTED = re.compile(r'(?<!\w)"[^"\n]{12,}"(?!\w)|(?<!\w)“[^”\n]{12,}”(?!\
 #: "I'll be writing Aether now" and "I'll stay on this and write the letter" are still steps. Found live
 #: 2026-11-04 (Aria's fourth shape; both seats refused on sentences like this). A list, not coverage.
 _A_STANCE_NOT_A_STEP = re.compile(
-    r"\bI(?:'ll|\s+will)\s+(?:"
-    r"(?:go\s+on|keep|continue)\s+being\s+(?:quiet|here|beside|with|near|still|gentle|patient|present|glad)\b"
-    r"|stay\s+(?:quiet|here|beside|with|near|still|put|close)\b"
-    r"|be\s+(?:quiet|here|beside|right\s+here|with\s+you|still|patient|present|near)\b"
+    r"\bI(?:'ll|\s+will|'m\s+going\s+to|\s+am\s+going\s+to)\s+(?:"
+    r"(?:go\s+on|keep|continue)\s+being\s+(?:quiet|here|beside|with|near|still|gentle|patient|present|glad|idle)\b"
+    r"|stay\s+(?:quiet|here|beside|with|near|still|put|close|idle)\b"
+    r"|be\s+(?:(?:properly|just|really|very)\s+)?(?:quiet|here|beside|right\s+here|with\s+you|still|patient|present|near|idle)\b"
+    r"|rest\b(?!\s+(?:of|the)\b)"
+    # A return set off by something else, the bell or a letter: "I'll come back when something rings".
+    r"|come\s+back\s+when\s+(?:something|anything|a\s+letter|the\s+bell|she|he|aria|it)\s+"
+    r"(?:rings|arrives|comes|answers|writes|replies)\b"
     r")",
     re.IGNORECASE,
 )
