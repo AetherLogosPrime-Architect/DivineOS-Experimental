@@ -121,10 +121,21 @@ _CLAIM = re.compile(
 # "live in the house" / "live here" / "live only" names where it is live, and where is the answer to the
 # gate's question: it is the working house, not the shared copy (2026-11-05, my own sentence "it's live in
 # the house now and not yet on a branch" was refused because the branch word sat in the other clause).
+#
+# BUT ONLY WHEN NOTHING IN THE SENTENCE NAMES A DESTINATION (Aria's break of this fix, 2026-11-05: "it is
+# live only on origin" and "it is live here, on origin" slipped through, because "only" and "here" were
+# exempt on their own). A destination word is a claim whatever else the clause says, the same rule the
+# push words already follow. So the exemption is a separate pattern, judged against the whole sentence.
 _LIVE = re.compile(
-    r"(?:\b(?:is|are|has|have|had|was|were)|'s)\s+(?:now\s+|been\s+)?live\b"
-    r"(?!\s+(?:in|on)\s+(?:the|my|this|our)\s+(?:live\s+)?house\b|\s+here\b|\s+only\b)",
+    r"(?:\b(?:is|are|has|have|had|was|were)|'s)\s+(?:now\s+|been\s+|only\s+)?live\b",
     re.IGNORECASE,
+)
+_LIVE_AT_HOME = re.compile(
+    r"\blive\s+(?:(?:in|on)\s+(?:the|my|this|our)\s+(?:live\s+)?house\b|here\b|only\b)",
+    re.IGNORECASE,
+)
+_A_DESTINATION = re.compile(
+    r"\b(?:origin|remote|GitHub|the\s+shared\s+(?:copy|place))\b", re.IGNORECASE
 )
 _ABOUT_GIT_WORK = re.compile(
     r"\b(?:PRs?|pull\s+requests?|branch(?:es)?|drafts?|origin|remote|GitHub|main|commits?"
@@ -250,9 +261,17 @@ def claim_spans(text: str) -> tuple[str, ...]:
         # The git word may sit in a different clause from "live" ("it is in a PR and it's live"), so it is
         # looked for in the whole sentence; the negation is judged per clause (see _CLAUSES).
         about_git = bool(_ABOUT_GIT_WORK.search(stripped))
+        names_a_destination = bool(_A_DESTINATION.search(stripped))
+
+        def says_live_of_the_shared_copy(clause: str) -> bool:
+            if not (_LIVE.search(clause) and about_git):
+                return False
+            # "live in the house / here / only" is about the working house, unless the sentence names where else.
+            return not _LIVE_AT_HOME.search(clause) or names_a_destination
+
         if _some_clause_claims(
             stripped,
-            lambda clause: bool(_CLAIM.search(clause) or (_LIVE.search(clause) and about_git)),
+            lambda clause: bool(_CLAIM.search(clause) or says_live_of_the_shared_copy(clause)),
         ):
             found.append(stripped)
     return tuple(found)
