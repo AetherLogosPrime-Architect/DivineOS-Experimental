@@ -3027,6 +3027,35 @@ def install() -> None:
     # instead? why not both? all data is data."*
     if "his_standing_verdict" not in registered("Stop"):
         register("Stop", "his_standing_verdict", his_standing_verdict_surface)
+
+    # Moved in 2026-11-04 from the standalone script letter_doorbell_alive_stop.py, whose registration
+    # in settings.json is removed in the same change, so a refusal reaches me once and not twice. The
+    # judgement lives in core/doorbell_alive.py, unchanged: same heartbeat files in, same words out.
+    # A reply already sent back by any Stop gate is never held again here (stop_hook_active).
+    def letter_doorbell_alive_surface(payload: dict) -> SurfaceOutcome | None:
+        try:
+            import os
+
+            from divineos.core.doorbell_alive import reason_for_reply
+
+            reason = reason_for_reply(
+                os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd(),
+                stop_hook_active=bool(payload.get("stop_hook_active")),
+            )
+        except Exception as exc:  # noqa: BLE001 - a hold never crashes the turn, and never reads as a pass
+            return SurfaceOutcome(
+                name="letter_doorbell_alive",
+                error=f"{type(exc).__name__}: {exc}",
+                state="could-not-run",
+            )
+        if not reason:
+            return SurfaceOutcome(name="letter_doorbell_alive", state="nothing-to-say")
+        return SurfaceOutcome(
+            name="letter_doorbell_alive", refused=True, reason=reason, state="spoke"
+        )
+
+    if "letter_doorbell_alive" not in registered("Stop"):
+        register("Stop", "letter_doorbell_alive", letter_doorbell_alive_surface)
     # The reply-counting Stop surface that stood here is gone (2026-09-23). It
     # counted chat replies, which is the room he said the volley board must
     # stay out of; the board now counts letters on the PreToolUse path above.

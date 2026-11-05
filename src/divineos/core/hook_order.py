@@ -58,7 +58,14 @@ ROWS: tuple[Row, ...] = tuple(
     # READ, 2026-11-04, by me in a reply or a refusal I was handed: the first block of each event.
     # waiting_claim: its text says write the letter to her first, then say it (a tool call).
     # stall_on_promise: its text says do the step now with the tool call itself (folded in 2026-11-04).
-    _rows("Stop", TOOL_CALL, ("landed_claim", "waiting_claim", "stall_on_promise"), 10)
+    # letter_doorbell_alive: moved in from a standalone script 2026-11-04; its text says re-arm the
+    # bell or the watcher with a Bash or Monitor call, so it is a tool call.
+    _rows(
+        "Stop",
+        TOOL_CALL,
+        ("landed_claim", "waiting_claim", "stall_on_promise", "letter_doorbell_alive"),
+        10,
+    )
     + _rows(
         "Stop",
         APPEND_TEXT,

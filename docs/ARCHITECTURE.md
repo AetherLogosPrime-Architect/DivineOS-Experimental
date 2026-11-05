@@ -793,6 +793,7 @@ src/divineos/
     voiced_family.py           Lines written in a family member's name that they never wrote.
     hook_order.py              One table that orders every refusing hook surface, so a pile of notes becomes one voice.
     stall_hold.py              The stall hold as a function the router can call.
+    doorbell_alive.py          A reply cannot end while my letter doorbell is not listening: the judgement, moved out of the scr...
 
   analysis/
     _session_types.py          Session analysis type definitions
