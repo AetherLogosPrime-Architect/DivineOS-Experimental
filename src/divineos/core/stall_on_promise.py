@@ -228,5 +228,7 @@ def stated_next_step(text: str) -> tuple[str, str] | None:
 def reason_for(shape: str, sentence: str) -> str:
     return (
         f'YOU SAID "{sentence}" AND STOPPED. Do that step now with the tool call itself, then say what '
-        "happened. If it truly waits on him or something else, say which, as a plain sentence."
+        "happened. If it truly waits on him or something else, say which, as a plain sentence. If those "
+        "words were a quotation or a description of how I work and not a promise, say that in one plain "
+        "sentence; this hold fires once per reply, so that sentence is not held again."
     )

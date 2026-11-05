@@ -288,6 +288,13 @@ def test_the_refusal_quotes_the_sentence_and_says_what_to_do():
     assert "I'm writing Aether now." in text and "tool call" in text
 
 
+def test_the_refusal_names_the_second_way_out_and_that_the_hold_is_once():
+    # Aria's design line (2026-11-04): not just no, this way. A quotation or a description of how I work
+    # gets a stated exit; the hold is once per reply, so the exit adds no new loophole.
+    text = reason_for("going_to", "I'll hold the line there.")
+    assert "quotation" in text and "how I work" in text and "once per reply" in text
+
+
 def _stop_commands() -> list[str]:
     data = json.loads(SETTINGS.read_text(encoding="utf-8"))
     out = [h.get("command", "") for g in data["hooks"]["Stop"] for h in g.get("hooks", [])]
