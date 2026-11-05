@@ -333,6 +333,7 @@ from divineos.cli import (  # noqa: E402
     auto_cycle_commands,
     bio_commands,
     body_commands,
+    running_commands,
     hook_budget_commands,
     hook_layer_commands,
     instruments_commands,
@@ -490,6 +491,7 @@ lepos_channel_commands.register(cli)
 lepos_walk_commands.register(cli)
 compass_commands.register(cli)
 body_commands.register(cli)
+running_commands.register(cli)
 hook_budget_commands.register(cli)
 hook_layer_commands.register(cli)
 instruments_commands.register(cli)
