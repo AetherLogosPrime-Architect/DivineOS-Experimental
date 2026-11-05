@@ -1377,6 +1377,13 @@ def warm(progress: Any = None) -> dict[str, int]:
     return vector_drawer.fill(texts, progress)
 
 
+def drawer_counts_by_source() -> dict[str, int]:
+    """How many items the lane can search now, by source, read fresh from the drawer."""
+    _EMBEDDING_CACHE.clear()
+    _ensure_cache()
+    return {source: len(items) for source, items in _EMBEDDING_CACHE.items()}
+
+
 def _cosine(a: Any, b: Any) -> float:
     """Cosine similarity between two embedding vectors.
 

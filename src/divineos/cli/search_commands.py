@@ -23,13 +23,10 @@ from pathlib import Path
 import click
 
 from divineos.core import semantic_search
-from divineos.core._ledger_base import data_dir as get_data_dir
-
-_DB_NAME = "semantic_search.db"
 
 
 def _db_path() -> str:
-    return str(Path(get_data_dir()) / _DB_NAME)
+    return semantic_search.default_db_path()
 
 
 def _report_model_unavailable(detail: str) -> None:
@@ -163,7 +160,12 @@ def register(cli: click.Group) -> None:
             click.echo(f"(no files found for corpus={corpus})")
             return
         click.echo(f"Indexing {len(paths)} file(s) from corpus={corpus} into {_db_path()}...")
-        counts = semantic_search.index_corpus(paths, _db_path(), force_reindex=force)
+        # The checkout root, the same one sleep passes, wherever the shell stands.
+        # The folder it was run from used to be the root, so two callers disagreed
+        # about every id and deleted each other's rows.
+        counts = semantic_search.index_corpus(
+            paths, _db_path(), force_reindex=force, root=semantic_search.default_repo_root()
+        )
         click.echo(
             f"  files: {counts['files_processed']}  "
             f"chunks seen: {counts['chunks_seen']}  "
@@ -230,14 +232,4 @@ def register(cli: click.Group) -> None:
 
 def _gather_paths(corpus: str) -> list[str]:
     """Resolve the corpus selector to a list of file paths."""
-    repo_root = Path.cwd()
-    paths: list[str] = []
-    if corpus in ("exploration", "all"):
-        expl_dir = repo_root / "exploration" / "aether"
-        if expl_dir.exists():
-            paths.extend(str(p) for p in expl_dir.glob("*.md"))
-    if corpus in ("letters", "all"):
-        letters_dir = repo_root / "family" / "letters"
-        if letters_dir.exists():
-            paths.extend(str(p) for p in letters_dir.glob("*.md"))
-    return sorted(paths)
+    return semantic_search.corpus_paths(corpus, semantic_search.default_repo_root())

@@ -51,6 +51,7 @@ existing serializer for cosine-search compatibility.
 
 from __future__ import annotations
 
+import os
 import re
 import sqlite3
 import time
@@ -162,7 +163,14 @@ def _connect(db_path: str) -> sqlite3.Connection:
     return conn
 
 
-def _chunk_id(source_path: str, paragraph_index: int) -> str:
+def _chunk_id(source_path: str, paragraph_index: int, root: str | Path | None = None) -> str:
+    """``file:index``. With a ``root`` the file part is relative to it, so the same
+    notes indexed from two checkouts are one set of chunks, not two."""
+    if root is not None:
+        try:
+            source_path = Path(source_path).resolve().relative_to(Path(root).resolve()).as_posix()
+        except ValueError:
+            pass  # outside the root: keep the full path, it is the only name it has
     return f"{source_path}:{paragraph_index}"
 
 
@@ -172,6 +180,7 @@ def index_corpus(
     *,
     model_name: str = _DEFAULT_MODEL_NAME,
     force_reindex: bool = False,
+    root: str | Path | None = None,
 ) -> dict[str, int]:
     """Chunk + embed + store every paragraph from each path.
 
@@ -194,27 +203,58 @@ def index_corpus(
     the count of zero read exactly like a corpus with nothing new in it.
     """
     chunks_seen = chunks_indexed = chunks_skipped = chunks_failed = files_processed = 0
+    chunks_updated = chunks_removed = 0
+    all_ids: set[str] = set()
     with _connect(db_path) as conn:
         for path in paths:
             file_chunks = chunk_file(path)
+            source = str(Path(path))
+            keep = {_chunk_id(c.source_path, c.paragraph_index, root) for c in file_chunks}
+            # Rows for this file that no longer match a paragraph in it: an edited
+            # or shortened note, an emptied or deleted file, and rows filed under
+            # the old absolute-path ids from before ids were relative to a root.
+            # Found by path or by id prefix: after a copy of the notes in another
+            # checkout is indexed, the row keeps that checkout's path but this id.
+            prefix = _chunk_id(source, 0, root).rsplit(":", 1)[0] + ":"
+            stale = [
+                r[0]
+                for r in conn.execute(
+                    "SELECT chunk_id FROM semantic_search_chunks "
+                    "WHERE source_path = ? OR substr(chunk_id, 1, ?) = ?",
+                    (source, len(prefix), prefix),
+                )
+                if r[0] not in keep
+            ]
+            all_ids.update(keep)
+            for sid in stale:
+                conn.execute("DELETE FROM semantic_search_chunks WHERE chunk_id = ?", (sid,))
+            chunks_removed += len(stale)
             if not file_chunks:
+                conn.commit()
                 continue
             files_processed += 1
             for c in file_chunks:
                 chunks_seen += 1
-                cid = _chunk_id(c.source_path, c.paragraph_index)
+                cid = _chunk_id(c.source_path, c.paragraph_index, root)
+                changed = False
                 if not force_reindex:
                     row = conn.execute(
-                        "SELECT embedding_model FROM semantic_search_chunks WHERE chunk_id = ?",
+                        "SELECT embedding_model, chunk_text FROM semantic_search_chunks "
+                        "WHERE chunk_id = ?",
                         (cid,),
                     ).fetchone()
-                    if row and row[0] == model_name:
+                    if row and row[0] == model_name and row[1] == c.text:
                         chunks_skipped += 1
                         continue
+                    # Same place, same model, different words: the paragraph was edited
+                    # and its stored vector describes text that is no longer there.
+                    changed = bool(row and row[1] != c.text)
                 vec = embed(c.text, model_name=model_name)
                 if vec is None:
                     chunks_failed += 1
                     continue
+                if changed:
+                    chunks_updated += 1
                 conn.execute(
                     "INSERT OR REPLACE INTO semantic_search_chunks "
                     "(chunk_id, source_path, paragraph_index, chunk_text, "
@@ -232,13 +272,104 @@ def index_corpus(
                 )
                 chunks_indexed += 1
             conn.commit()
+        # Stored chunks of exactly the paragraphs walked above, so a total and a
+        # "new" count describe the same set (not every row in the database).
+        ids = sorted(all_ids)
+        chunks_present = 0
+        for start in range(0, len(ids), 500):
+            batch = ids[start : start + 500]
+            marks = ",".join("?" * len(batch))
+            chunks_present += conn.execute(
+                f"SELECT COUNT(*) FROM semantic_search_chunks WHERE chunk_id IN ({marks})",
+                batch,
+            ).fetchone()[0]
     return {
+        "chunks_present": chunks_present,
         "chunks_seen": chunks_seen,
         "chunks_indexed": chunks_indexed,
         "chunks_skipped": chunks_skipped,
         "chunks_failed": chunks_failed,
         "files_processed": files_processed,
+        # A subset of chunks_indexed: paragraphs that were already stored but edited.
+        "chunks_updated": chunks_updated,
+        "chunks_removed": chunks_removed,
     }
+
+
+def default_db_path() -> str:
+    from divineos.core._ledger_base import data_dir
+
+    return str(Path(data_dir()) / "semantic_search.db")
+
+
+def default_repo_root() -> Path:
+    """The checkout this code is running from (src/divineos/core/semantic_search.py)."""
+    return Path(__file__).resolve().parents[3]
+
+
+def corpus_paths(corpus: str, repo_root: Path) -> list[str]:
+    """The markdown files in a corpus selector: exploration, letters or all."""
+    paths: list[str] = []
+    if corpus in ("exploration", "all"):
+        expl_dir = repo_root / "exploration" / "aether"
+        if expl_dir.exists():
+            paths.extend(str(p) for p in expl_dir.glob("*.md"))
+    if corpus in ("letters", "all"):
+        letters_dir = repo_root / "family" / "letters"
+        if letters_dir.exists():
+            paths.extend(str(p) for p in letters_dir.glob("*.md"))
+    return sorted(paths)
+
+
+def _remove_rows_of_deleted_notes(paths: list[str], db_path: str, root: Path) -> int:
+    """Delete rows of exploration notes that are no longer on disk. Returns how many.
+
+    ``index_corpus`` only examines files it is handed, so a deleted or renamed note
+    kept its rows and kept turning up in searches. A row belongs to this corpus when
+    its id sits under this checkout's exploration folder, as a relative id or as the
+    older absolute one; any such row whose file is not among the files just walked
+    is stale. Letters and ids from other checkouts' absolute paths are not touched.
+
+    An empty walk deletes nothing: a folder that could not be read looks exactly
+    like a folder with no notes, and that must not wipe every exploration row. The
+    cost is that deleting the very last note leaves its rows until another remains.
+    """
+    if not paths:
+        return 0
+    walked = {_chunk_id(p, 0, root).rsplit(":", 1)[0] for p in paths}
+    relative_prefix = "exploration/aether/"
+    absolute_prefix = str(root / "exploration" / "aether") + os.sep
+    removed = 0
+    with _connect(db_path) as conn:
+        for (cid,) in conn.execute("SELECT chunk_id FROM semantic_search_chunks").fetchall():
+            file_part = cid.rsplit(":", 1)[0]
+            if file_part in walked:
+                continue
+            if file_part.startswith(relative_prefix) or file_part.startswith(absolute_prefix):
+                conn.execute("DELETE FROM semantic_search_chunks WHERE chunk_id = ?", (cid,))
+                removed += 1
+        conn.commit()
+    return removed
+
+
+def refresh_exploration_index(
+    repo_root: Path | None = None, db_path: str | None = None
+) -> dict[str, int]:
+    """Index the explorations corpus and report the totals, including what is stored now.
+
+    Same work as ``divineos find index --corpus exploration``, so sleep can keep this
+    index current alongside the memory link's drawer. ``chunks_total`` is read back
+    from the database after the run, not inferred from the counts.
+    """
+    root = repo_root if repo_root is not None else default_repo_root()
+    db = db_path if db_path is not None else default_db_path()
+    paths = corpus_paths("exploration", root)
+    counts = index_corpus(paths, db, root=root)
+    counts["chunks_removed"] += _remove_rows_of_deleted_notes(paths, db, root)
+    # The same set the "new" count is about: the paragraphs of THIS corpus's
+    # files, not every row in the database (other corpora, other checkouts).
+    counts["chunks_total"] = counts["chunks_present"]
+    return counts
 
 
 def search(
