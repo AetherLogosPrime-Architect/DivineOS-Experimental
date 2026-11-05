@@ -137,6 +137,120 @@ class TestToldDatesComeFromMyLettersToHer:
         assert told_dates_from_letters(letters, {596: "fix/x"}) == {}
 
 
+class TestALetterCannotHaveToldHerAboutADraftThatDidNotExistYet:
+    """Aria, 2026-11-03 (walk in the shared workbench, consult-7be536f523ae). The clerk read any
+    '#809' in a letter as naming PR 809, so a letter that said 'filed as correction #809' made a
+    draft opened today read 'asked 2026-10-01, 33 days, no confirm'. A false 'asked' hides the
+    draft from the next confirm request and tells Dad it was already carried. A number is not a
+    reference until the thing it refers to exists."""
+
+    OLD_LETTER = {"aether-to-aletheia-2026-10-01-x.md": "filed as correction #809"}
+
+    def test_a_letter_older_than_the_draft_does_not_tell_her_about_it(self) -> None:
+        got = told_dates_from_letters(
+            self.OLD_LETTER, {809: "claude/fix-773"}, created={809: date(2026, 11, 3)}
+        )
+        assert got == {}
+
+    def test_a_letter_on_the_day_the_draft_opened_counts(self) -> None:
+        letters = {"aria-to-aletheia-2026-11-03-x.md": "please read #781"}
+        got = told_dates_from_letters(letters, {781: "aether/x"}, created={781: date(2026, 11, 3)})
+        assert got == {781: date(2026, 11, 3)}
+
+    def test_grace_of_one_day_exists_because_the_file_name_is_local_and_the_draft_is_utc(
+        self,
+    ) -> None:
+        """The draft's date is UTC and the file name's is local; a real letter written after the
+        draft opened can carry the day before it. Do not tighten this to zero (Aether, 2026-11-03):
+        it would drop a real same-evening telling."""
+        letters = {"aria-to-aletheia-2026-11-03-x.md": "please read #790"}
+        got = told_dates_from_letters(letters, {790: "aether/y"}, created={790: date(2026, 11, 4)})
+        assert got == {790: date(2026, 11, 3)}
+
+    def test_two_days_older_is_not_grace(self) -> None:
+        letters = {"aria-to-aletheia-2026-11-02-x.md": "please read #790"}
+        got = told_dates_from_letters(letters, {790: "aether/y"}, created={790: date(2026, 11, 4)})
+        assert got == {}
+
+    def test_a_branch_name_in_an_older_letter_still_counts_it_is_specific(self) -> None:
+        """Aether, same night: a number collides with correction, claim and row numbers; a branch
+        name does not. A letter that named the branch before the draft opened did tell her about
+        that work, so the date rule is for numbers only."""
+        letters = {"aether-to-aletheia-2026-10-01-x.md": "branch fix/x is up"}
+        got = told_dates_from_letters(letters, {596: "fix/x"}, created={596: date(2026, 11, 3)})
+        assert got == {596: date(2026, 10, 1)}
+
+    def test_a_branch_name_counts_even_when_the_birth_date_is_unknown(self) -> None:
+        letters = {"aether-to-aletheia-2026-10-01-x.md": "branch fix/x is up"}
+        assert told_dates_from_letters(letters, {596: "fix/x"}, created={}) == {
+            596: date(2026, 10, 1)
+        }
+
+    def test_the_number_in_the_same_old_letter_does_not_count(self) -> None:
+        """Same letter, the number only: no."""
+        letters = {"aether-to-aletheia-2026-10-01-x.md": "see #596"}
+        got = told_dates_from_letters(letters, {596: "fix/x"}, created={596: date(2026, 11, 3)})
+        assert got == {}
+
+    def test_a_draft_whose_birth_date_is_unknown_is_never_told_not_asked(self) -> None:
+        """On doubt, fail toward 'never told': an invented 'asked' costs Dad a carry."""
+        letters = {"aria-to-aletheia-2026-11-03-x.md": "please read #781"}
+        assert told_dates_from_letters(letters, {781: "aether/x"}, created={}) == {}
+
+    def test_without_a_birth_date_map_nothing_changes(self) -> None:
+        got = told_dates_from_letters(self.OLD_LETTER, {809: "claude/fix-773"})
+        assert got == {809: date(2026, 10, 1)}
+
+    def test_the_pile_labels_an_old_number_as_never_told(self) -> None:
+        prs = [
+            {
+                "number": 809,
+                "headRefName": "claude/fix-773",
+                "headRefOid": HEAD,
+                "createdAt": "2026-11-03T19:40:00Z",
+            }
+        ]
+        ((_, status),) = classify_pile(prs, self.OLD_LETTER, date(2026, 11, 4), {809: ()})
+        assert status.label == NEVER_TOLD
+
+    def test_the_pile_still_counts_a_real_telling(self) -> None:
+        """The control: a letter written after the draft opened, naming it, still reads as asked."""
+        prs = [
+            {
+                "number": 781,
+                "headRefName": "aether/x",
+                "headRefOid": HEAD,
+                "createdAt": "2026-11-03T12:00:00Z",
+            }
+        ]
+        letters = {"aether-to-aletheia-2026-11-03-x.md": "please read #781"}
+        ((_, status),) = classify_pile(prs, letters, date(2026, 11, 4), {781: ()})
+        assert status.label == NO_ANSWER
+
+    def test_a_draft_with_no_birth_date_in_the_list_is_never_told(self) -> None:
+        prs = [{"number": 781, "headRefName": "aether/x", "headRefOid": HEAD}]
+        letters = {"aether-to-aletheia-2026-11-03-x.md": "please read #781"}
+        ((_, status),) = classify_pile(prs, letters, date(2026, 11, 4), {781: ()})
+        assert status.label == NEVER_TOLD
+
+    def test_the_list_of_open_prs_asks_for_the_birth_date(self, monkeypatch) -> None:
+        """Breaker on the walk: a fix that only changes the function and never asks for the
+        date ships dead. This pins the call that feeds it."""
+        asked: list[list[str]] = []
+
+        class _Run:
+            stdout = "[]"
+
+        def fake_run(args, **kwargs):
+            asked.append(list(args))
+            return _Run()
+
+        monkeypatch.setattr(landing_status.subprocess, "run", fake_run)
+        assert landing_status.open_prs() == []
+        fields = asked[0][asked[0].index("--json") + 1]
+        assert "createdAt" in fields.split(",")
+
+
 class TestBothSeatsAreRead:
     """Aria, 2026-10-26 (walk-29a4e57b49ce). The board matched only the file names
     aletheia-to-aether and aether-to-aletheia, so from Aria's seat it read nothing
@@ -192,7 +306,14 @@ class TestBothSeatsAreRead:
 
     def test_the_pile_reads_as_one_from_either_seat(self) -> None:
         """Her confirm came in a letter to Aria; the telling was my letter to her."""
-        prs = [{"number": 596, "headRefName": "fix/x", "headRefOid": HEAD}]
+        prs = [
+            {
+                "number": 596,
+                "headRefName": "fix/x",
+                "headRefOid": HEAD,
+                "createdAt": "2026-10-01T00:00:00Z",
+            }
+        ]
         letters = {
             "aria-to-aletheia-2026-10-06-a.md": "please read #596",
             "aletheia-to-aria-2026-10-08-b.md": HER_CONFIRM,
