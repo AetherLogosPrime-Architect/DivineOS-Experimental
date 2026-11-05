@@ -206,7 +206,19 @@ def status_cmd() -> None:
         cycle_id = marker.get("cycle_id", "?")
         completed_at = marker.get("phase1_completed_at", "?")
         click.echo(f"  handshake marker present: {cycle_id} at {completed_at}")
-        click.echo("    (phase 2 has not consumed it yet)")
+        steps = marker.get("steps")
+        nothing_ran = (
+            isinstance(steps, dict)
+            and bool(steps)
+            and all(isinstance(s, dict) and s.get("ran") is False for s in steps.values())
+        )
+        if nothing_ran:
+            # A dry run used to overwrite the real marker; one may still be on disk.
+            # No step ran, so phase 2 has no handoff to consume.
+            click.echo("    (a leftover from a run where nothing ran, likely a dry run;")
+            click.echo("     there is no handoff for phase 2 to consume)")
+        else:
+            click.echo("    (phase 2 has not consumed it yet)")
     else:
         click.echo("  handshake marker: absent (no pending phase 2 handoff)")
 
@@ -241,18 +253,25 @@ def fire_cmd(dry_run: bool, force: bool) -> None:
             return
     click.echo(f"[auto-cycle] firing phase 1 at context {ctx_pct * 100:.1f}%...")
     result = auto_cycle.run_phase1(context_pct=ctx_pct, dry_run=dry_run)
-    marker_file = auto_cycle.write_handshake_marker(result)
-    auto_cycle.reset_defer_state()
+    # A dry run runs nothing, so it must leave nothing behind that a reader would
+    # take for a cycle: `fire --dry-run --force` used to overwrite a real marker,
+    # and the hook then reported the real cycle as FAILED.
+    marker_file = None if dry_run else auto_cycle.write_handshake_marker(result)
+    if not dry_run:
+        auto_cycle.reset_defer_state()
 
     click.echo(f"[auto-cycle] cycle_id: {result.cycle_id}")
     for name, step in result.steps.items():
-        status_flag = "OK " if step.succeeded else "FAIL"
+        status_flag = "DRY" if not step.ran else "OK " if step.succeeded else "FAIL"
         click.echo(
             f"  [{status_flag}] {name}: {step.duration_sec}s, tokens_est={step.tokens_used_est}"
         )
         if step.error_class:
             click.echo(f"      error: {step.error_class}")
-    click.echo(f"[auto-cycle] handshake marker written: {marker_file}")
+    if marker_file is None:
+        click.echo("[auto-cycle] dry run: no handshake marker written, defer state untouched")
+    else:
+        click.echo(f"[auto-cycle] handshake marker written: {marker_file}")
 
 
 @auto_cycle_group.command("defer-check")

@@ -120,7 +120,7 @@ def test_run_phase1_dry_run_records_all_steps_would_run():
     assert set(result.steps.keys()) == {"archive", "commit", "extract", "sleep"}
     for step in result.steps.values():
         assert step.ran is False  # dry-run
-        assert step.succeeded is True  # would succeed
+        assert step.succeeded is False  # a step that did not run did not succeed
         assert "[dry-run]" in step.output_tail
 
 
@@ -153,6 +153,119 @@ def test_write_and_read_handshake_marker_roundtrip(tmp_path, monkeypatch):
     for step in payload["steps"].values():
         assert "duration_sec" in step
         assert "error_class" in step
+
+
+def test_dry_run_marker_never_reads_as_a_step_done(tmp_path, monkeypatch):
+    """A reader that counts a step done only when ran AND succeeded are both true must
+    read every dry-run step as not done, with no correction needed."""
+    monkeypatch.setattr("divineos.core.auto_cycle.marker_path", lambda: tmp_path / "marker.json")
+    write_handshake_marker(run_phase1(context_pct=0.85, dry_run=True))
+    payload = read_handshake_marker()
+    assert payload is not None
+    for name, step in payload["steps"].items():
+        assert step["ran"] is False, name
+        assert step["succeeded"] is False, name
+        assert not (step["ran"] and step["succeeded"]), name
+
+
+def test_fire_dry_run_prints_dry_not_ok_or_fail(tmp_path, monkeypatch):
+    from click.testing import CliRunner
+
+    from divineos.cli.auto_cycle_commands import auto_cycle_group
+
+    monkeypatch.setattr("divineos.core.auto_cycle.marker_path", lambda: tmp_path / "marker.json")
+    monkeypatch.setattr(
+        "divineos.core.auto_cycle.defer_state_path", lambda: tmp_path / "defer.json"
+    )
+    result = CliRunner().invoke(auto_cycle_group, ["fire", "--dry-run", "--force"])
+    assert result.exit_code == 0, result.output
+    assert "[DRY]" in result.output
+    assert "[OK ]" not in result.output
+    assert "[FAIL]" not in result.output
+
+
+def test_fire_dry_run_leaves_a_real_marker_untouched(tmp_path, monkeypatch):
+    """`fire --dry-run --force` used to overwrite the real handshake marker with a
+    dry-run one. A dry run runs nothing, so it writes nothing."""
+    import json
+
+    from click.testing import CliRunner
+
+    from divineos.cli.auto_cycle_commands import auto_cycle_group
+
+    marker = tmp_path / "marker.json"
+    real = {"cycle_id": "auto-cycle-real", "steps": {"sleep": {"ran": True, "succeeded": True}}}
+    marker.write_text(json.dumps(real), encoding="utf-8")
+    monkeypatch.setattr("divineos.core.auto_cycle.marker_path", lambda: marker)
+    monkeypatch.setattr(
+        "divineos.core.auto_cycle.defer_state_path", lambda: tmp_path / "defer.json"
+    )
+    result = CliRunner().invoke(auto_cycle_group, ["fire", "--dry-run", "--force"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(marker.read_text(encoding="utf-8")) == real
+    assert "no handshake marker written" in result.output
+
+
+def test_fire_dry_run_writes_no_marker_when_none_existed(tmp_path, monkeypatch):
+    from click.testing import CliRunner
+
+    from divineos.cli.auto_cycle_commands import auto_cycle_group
+
+    marker = tmp_path / "marker.json"
+    monkeypatch.setattr("divineos.core.auto_cycle.marker_path", lambda: marker)
+    monkeypatch.setattr(
+        "divineos.core.auto_cycle.defer_state_path", lambda: tmp_path / "defer.json"
+    )
+    CliRunner().invoke(auto_cycle_group, ["fire", "--dry-run", "--force"])
+    assert not marker.exists()
+
+
+def _status_output(tmp_path, monkeypatch, steps) -> str:
+    import json
+
+    from click.testing import CliRunner
+
+    from divineos.cli import auto_cycle_commands
+    from divineos.cli.auto_cycle_commands import auto_cycle_group
+
+    marker = tmp_path / "marker.json"
+    marker.write_text(
+        json.dumps(
+            {
+                "cycle_id": "auto-cycle-x",
+                "phase1_completed_at": "2026-11-01T00:00:00Z",
+                "steps": steps,
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("divineos.core.auto_cycle.marker_path", lambda: marker)
+    monkeypatch.setattr(
+        "divineos.core.auto_cycle.defer_state_path", lambda: tmp_path / "defer.json"
+    )
+    monkeypatch.setattr(auto_cycle_commands, "_guess_context_pct", lambda: 0.1)
+    monkeypatch.setattr(auto_cycle_commands, "_usage_stamp", lambda: "")
+    monkeypatch.setattr(auto_cycle_commands, "_has_active_goal_progress", lambda: False)
+    result = CliRunner().invoke(auto_cycle_group, ["status"])
+    assert result.exit_code == 0, result.output
+    return result.output
+
+
+def test_status_does_not_call_an_old_dry_run_marker_a_pending_handoff(tmp_path, monkeypatch):
+    """A marker whose every step did not run is a dry-run leftover. Phase 2 has nothing
+    to consume, so status must not say it is waiting to."""
+    dry = {n: {"ran": False, "succeeded": False} for n in ("commit", "extract", "sleep")}
+    out = _status_output(tmp_path, monkeypatch, dry)
+    assert "has not consumed it yet" not in out, out
+    assert "nothing ran" in out, out
+
+
+def test_status_still_calls_a_real_marker_pending(tmp_path, monkeypatch):
+    """Control: a cycle that ran keeps the pending wording, so the change cannot have
+    silenced the real case."""
+    real = {n: {"ran": True, "succeeded": True} for n in ("commit", "extract", "sleep")}
+    out = _status_output(tmp_path, monkeypatch, real)
+    assert "has not consumed it yet" in out, out
 
 
 def test_read_handshake_marker_missing_returns_none(tmp_path, monkeypatch):
