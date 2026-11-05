@@ -293,6 +293,27 @@ def _what_the_bell_found(prompt: str) -> tuple[str, list[str]]:
     return armed.group(1), names
 
 
+_BELL_DIED_OF_ITSELF = re.compile(r"DOORBELL (?:FAULT|EXPIRED|NOT ARMED)")
+
+
+def _the_bell_died_of_itself(prompt: str) -> bool:
+    """True when the finished bell's own output says it faulted, expired or never armed.
+
+    Aria, 2026-11-05: a bell that exits on a fault leaves its own fresh heartbeat behind, so the shared
+    heartbeat alone read it as "another bell is listening" and the notice said do NOT re-arm for a seat with
+    no bell. The bell's printed ending is the one witness that knows which bell exited. Unreadable answers
+    False, and the caller then falls back to the heartbeat as before.
+    """
+    match = re.search(r"<output-file>(.*?)</output-file>", prompt, re.S)
+    if not match:
+        return False
+    try:
+        text = Path(match.group(1).strip()).read_text(encoding="utf-8", errors="replace")[:4000]
+    except OSError:
+        return False
+    return bool(_BELL_DIED_OF_ITSELF.search(text))
+
+
 def _another_bell_is_listening(seat: str) -> bool:
     """True when this seat's bell heartbeat is fresh (the bell touches it every 15 seconds; 60 is the alive bar).
 
@@ -378,7 +399,7 @@ def main() -> int:
         seat = seat or found_seat
         if seat and arrived and _another_bell_is_listening(seat):
             print(f"\nA bell is already listening for {seat} (re-armed), so no re-arm is needed.")
-        elif seat and _another_bell_is_listening(seat):
+        elif seat and _another_bell_is_listening(seat) and not _the_bell_died_of_itself(prompt):
             # Aria, 2026-11-05: a bell REPLACED by a newer one exits like any bell and the harness reports it as
             # a completion, so a retired bell reads like a ring. Telling me to re-arm then kills the live bell,
             # whose exit makes the next notice: a chain of false alarms. Dad: "there is only one reason the bell

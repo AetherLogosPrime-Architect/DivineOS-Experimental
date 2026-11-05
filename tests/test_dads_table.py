@@ -430,6 +430,26 @@ def test_a_replaced_bell_with_a_live_bell_beside_it_says_do_not_re_arm(tmp_path)
     assert "THE BELL RANG" not in out and "A LETTER ARRIVED" not in out
 
 
+import pytest  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    "dying_words",
+    ["DOORBELL FAULT: read failed", "DOORBELL EXPIRED after 8h", "DOORBELL NOT ARMED: no seat"],
+)
+def test_a_bell_that_died_of_itself_is_never_told_to_stay_dead(tmp_path, dying_words):
+    """Aria's break (2026-11-05): a bell that dies of a fault leaves its own fresh heartbeat behind, so the
+    notice read it as 'another bell is listening' and said do NOT re-arm, for a seat with no bell at all.
+    The bell's own printed ending outranks the shared heartbeat."""
+    out = _notice_with_output_file(
+        tmp_path,
+        f"doorbell armed for aether 2026-11-05T15:06:07Z\n{dying_words}\n",
+        live_bell_for="aether",
+    )
+    assert "do NOT re-arm" not in out
+    assert "THE BELL RANG" in out and "letter_doorbell.sh aether (run_in_background)" in out
+
+
 def test_a_real_ring_with_no_other_bell_still_says_re_arm(tmp_path):
     out = _notice_with_output_file(tmp_path, RANG)
     assert "THE BELL RANG" in out and "do NOT re-arm" not in out
