@@ -138,9 +138,108 @@ _A_FEELING_FRONTED = re.compile(
     re.IGNORECASE,
 )
 
+#: A stance, a figure of speech or a feeling about my own conduct: nothing a tool could do (2026-11-03, real replies
+#: held as stalls: "I'll keep showing up for my share.", "I'll leave the questions alone for a bit.", "I'll take
+#: what's true in what you said.", "I'll make it worth living.", "I'll hold the table."). Same treatment as the
+#: feelings above: the span is removed and the rest of the sentence is read again. An explicit list on purpose,
+#: anchored on the OBJECT so the same verb with work on it stays a step ("I'll hold the push until Aether reads it",
+#: "I'll leave the file open and fix it next"). A stance worded some new way is held until it becomes a row here.
+_A_STANCE_NOT_A_STEP = re.compile(
+    r"\bI(?:'ll|\s+will)\s+(?:"
+    # Bare, or a short "for my share" tail: "keep trying the push" has an object and stays a step.
+    r"keep\s+showing\s+up(?:\s+for\s+\w+(?:\s+\w+){0,2})?(?=\s*[.!?,;—]|\s*$)"
+    r"|keep\s+(?:trying|listening)(?=\s*[.!?,;—]|\s*$)"
+    r"|keep\s+(?:being|caring|holding\s+(?:on|space))(?:\s+\w+){0,3}(?=\s*[.!?,;—]|\s*$)"
+    r"|leave\s+(?:the\s+\w+|that|this|it|them|those|these)\s+(?:\w+\s+)?alone\b"
+    r"|take\s+what(?:'s|\s+is)\s+true\b"
+    r"|make\s+(?:it|that|this|them)\s+worth\s+(?:living|while|it|the\s+(?:wait|trip|time|effort)"
+    r"|your\s+(?:time|while|trust))(?=\s*[.!?,;—]|\s*$)"
+    r"|hold\s+the\s+(?:table|room|space)\b"
+    r")",
+    re.IGNORECASE,
+)
+
+#: "I owe no proof", "I owe you nothing": the absence of a debt, not a debt. The glad/grateful clause that
+#: carries it is a feeling, and has no verb of work either.
+# "I owe you nothing less than the fix" is the opposite of no debt, so it is not cut out.
+_NO_DEBT = re.compile(
+    r"\bI\s+owe\s+(?:\w+\s+)?(?:no|nothing)\b(?!\s+(?:less|more|fewer|short)\b)", re.IGNORECASE
+)
+
+#: A lead-in that names what it is about to SAY ("I'll add the careful part, ...") is kept when the same reply then
+#: says it. Only verbs whose act is the saying itself: "I'll write the letter" or "I'll push it" are never excused
+#: by the noun turning up again, since the act is a tool's, not a sentence's.
+_A_LEAD_IN_NAMING_ITS_CONTENT = re.compile(
+    r"\bI(?:'ll|\s+will)\s+(?:add|give\s+you|say|state|name|spell\s+out)\s+(?:the|a|an|my|our)\s+"
+    r"(?P<what>\w+(?:\s+\w+){0,3}?)(?=\s*[,.;:!?—]|\s+(?:since|because|so|and|that|which|for|now|here|below)\b|$)",
+    re.IGNORECASE,
+)
+
+
 _BARE_SECOND_VERB = re.compile(
     r"^((?:\s+\w+){0,4}?\s*,?\s*(?:and|then)\s+)(?!I\b)(?=\w)", re.IGNORECASE
 )
+
+#: A mention of the promised content that says it is NOT there ("the careful part isn't written yet") does not
+#: deliver it. Read in a window of words either side of the mention, so an unrelated "no" elsewhere in the same
+#: sentence ("... a promise it has no row for") does not cancel a real delivery.
+_NEGATION = re.compile(r"\b(?:not|never|nothing|without)\b|n['’]t\b", re.IGNORECASE)
+_WINDOW_WORDS = 6
+
+
+def _delivered_in(what: str, sentence: str) -> bool:
+    for mention in re.finditer(r"\b" + re.escape(what) + r"\b", sentence, re.IGNORECASE):
+        # "The careful part: the gate never fires" is a section being delivered; what follows the colon is its
+        # content, so a "never" in it is not a denial. Only a denial standing right after the colon is one.
+        label, colon, content = sentence[mention.end() :].partition(":")
+        if colon and len(label.split()) <= 3:
+            return not _NEGATION.search(" ".join(content.split()[:2]))
+        near = (
+            sentence[: mention.start()].split()[-_WINDOW_WORDS:]
+            + sentence[mention.end() :].split()[:_WINDOW_WORDS]
+        )
+        if not _NEGATION.search(" ".join(near)):
+            return True
+    return False
+
+
+def _after_said_lead_in(sentence: str, after: str) -> str | None:
+    """None when the sentence has no kept lead-in; else the sentence with the kept lead-in cut out.
+
+    The rest is still read: "I'll add the careful part, and then push it tonight" keeps its second step.
+    The content must turn up as whole words (not "fix" inside "prefix") in a later sentence that does not
+    deny it."""
+    lead = _A_LEAD_IN_NAMING_ITS_CONTENT.search(sentence)
+    if lead is None:
+        return None
+    what = lead.group("what")
+    if not any(_delivered_in(what, later) for later in re.split(r"(?<=[.!?])\s+", after)):
+        return None
+    tail = _BARE_SECOND_VERB.sub(r"\1I'll ", sentence[lead.end() :], count=1)
+    return sentence[: lead.start()] + " " + tail
+
+
+# The cut stops at the first word that starts a later clause ("and then push once you confirm"), so his
+# condition in that clause is still there to be read.
+_MY_OWN_SAYING = re.compile(
+    r"\bI(?:'ll|\s+will)\s+(?:just\s+)?say\b"
+    r"(?:(?!\s+(?:and|then|once|when|whenever|if|after|until|as\s+soon)\b)[^,.;!?])*",
+    re.IGNORECASE,
+)
+
+# "wait" and "again" after "then" are not work of mine ("then wait for you", "but then again").
+_THEN_BARE_VERB = re.compile(
+    r"(\bI(?:'ll|\s+will)\b[^.!?]*?\bthen\s+)"
+    r"(?!(?:I|you|we|he|she|they|it|the|a|an|that|this|his|her|their|my|there|some|all|no|wait|again)\b)"
+    r"(?=[a-z])",
+    re.IGNORECASE,
+)
+
+
+def _with_then_verb_owned(sentence: str) -> str:
+    """ "I'll say the word, and then deploy it tonight": the second verb is a step of mine with its subject left
+    out, and a first clause with an excluded verb (say, be) must not excuse the whole sentence."""
+    return _THEN_BARE_VERB.sub(r"\1I'll ", sentence, count=1)
 
 
 def _without_feelings(sentence: str) -> str:
@@ -149,8 +248,13 @@ def _without_feelings(sentence: str) -> str:
     A bare verb that follows ("I'll remember this AND push it tonight", "I'll carry that forward AND file
     the walk later") is a second step with its subject left out, so it gets its I'll back before the
     promise shapes run (Aether, 4823c6f8e: "carry that forward" is a way of saying defer this)."""
+    sentence = _NO_DEBT.sub(" ", sentence)
     for _ in range(5):
-        found = _A_FEELING_NOT_A_STEP.search(sentence) or _A_FEELING_FRONTED.search(sentence)
+        found = (
+            _A_FEELING_NOT_A_STEP.search(sentence)
+            or _A_FEELING_FRONTED.search(sentence)
+            or _A_STANCE_NOT_A_STEP.search(sentence)
+        )
         if found is None:
             break
         tail = _BARE_SECOND_VERB.sub(r"\1I'll ", sentence[found.end() :], count=1)
@@ -174,16 +278,22 @@ def stated_next_step(text: str) -> tuple[str, str] | None:
     closing = _closing(text)
     if not closing:
         return None
-    for sentence in re.split(r"(?<=[.!?])\s+", closing):
+    sentences = re.split(r"(?<=[.!?])\s+", closing)
+    for index, sentence in enumerate(sentences):
         if _ALREADY_SCHEDULED.search(sentence) or _A_REASON_NOT_A_STEP.search(sentence):
             continue
+        kept = _after_said_lead_in(sentence, " ".join(sentences[index + 1 :]))
+        if kept is not None:
+            sentence = kept
         # A feeling or an attention is not a step: take it out, then read what is left (see the pattern).
-        sentence_to_read = _without_feelings(sentence)
+        sentence_to_read = _with_then_verb_owned(_without_feelings(sentence))
+        # "I'll say the word" is MY saying, not an invitation for him to say it: cut before looking for his markers.
+        his_part = _MY_OWN_SAYING.sub(" ", sentence_to_read)
         markers = [
             marker
             for marker in (
-                _INVITATION_TO_HIM.search(sentence_to_read),
-                _CONDITION_ON_HIM.search(sentence_to_read),
+                _INVITATION_TO_HIM.search(his_part),
+                _CONDITION_ON_HIM.search(his_part),
             )
             if marker is not None
         ]
