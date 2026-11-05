@@ -11,10 +11,13 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+# His room: a heading line at the start of a line, never the words mentioned in passing mid-sentence.
+ROOM_HEADING = re.compile(r"(?m)^\s*#{1,3}\s*INNER CIRCLE\b")
 MARK = Path(
     os.environ.get("STALL_ON_PROMISE_MARK", Path.home() / ".divineos" / "stall_on_promise_broke.txt")
 )
@@ -48,6 +51,13 @@ def verdict(records: list[dict]) -> str | None:
 
     closing = closing_text(records)
     found = stated_next_step(closing)
+    # A reply that ends in his room is finished: the circle is the actual last part of the post, and nothing but
+    # Dad moves it forward (his words, 2026-11-05). This door used to say "you named a step, go do it", and the room
+    # door then said "you worked, come back with a circle", so each pull back to him re-asked the same question: one
+    # question became five in one post. The step named inside his room is CARRIED (recorded below), not forced.
+    if found and ROOM_HEADING.search(closing):
+        record("follow_through", "carried", found[1])
+        return None
     if closing.strip():
         record("follow_through", "stopped" if found else "passed", found[1] if found else closing[-160:])
     return reason_for(*found) if found else None
