@@ -105,6 +105,8 @@ _CLAIM = re.compile(
     r"|on\s+(?:me|him|you|us|them)\b"
     r"|as\s+(?!(?:expected|planned|intended|designed|hoped|promised)\b)))"
     r"|landed\s+on\s+(?:origin|the\s+remote|the\s+shared\s+copy)"
+    # "it is on the shared place now": a claim the word list used to miss (2026-11-05).
+    r"|(?:is|are|has\s+been|have\s+been)\s+(?:now\s+)?on\s+(?:origin|the\s+remote|the\s+shared\s+(?:copy|place))"
     r"|pushed\s+(?:to|up\s+to)\s+(?:origin|the\s+remote)"
     r"|reached\s+the\s+(?:remote|shared\s+copy)"
     r")\b",
@@ -128,7 +130,11 @@ _ABOUT_GIT_WORK = re.compile(
 # 2026-10-31 after the gate fired on "Nothing is live yet; I will switch it on tomorrow" ("will" is in the
 # list, but the sentence split on the semicolon put the negation in its own clause).
 _NOT_YET = re.compile(
-    r"\b(will|when|once|if|until|still\s+(?:running|going)|not\s+(?:yet\s+)?landed"
+    # A sentence ABOUT the check or about not claiming is a mention, not a report (2026-11-05, Dad: "crying
+    # wolf"): "the check that asks whether I looked before saying it landed", "I wasnt saying it reached it".
+    r"\b(will|when|once|if|until|whether|before\s+(?:saying|claiming|telling|writing|calling)"
+    r"|(?:wasn'?t|was\s+not|isn'?t|is\s+not|never|not)\s+(?:saying|claiming)"
+    r"|still\s+(?:running|going)|not\s+(?:yet\s+)?landed"
     r"|has\s+not\s+landed|nothing\s+(?:\w+\s+)?(?:is|was)\s+(?:\w+\s+)?(?:live|up|out|shipped|deployed)"
     r"|none\s+of\s+(?:\w+\s+){1,3}?(?:is|are|was|were)\s+(?:\w+\s+)?(?:live|up|out|shipped|deployed)"
     r"|(?:is|are|was|were|has|have)\s*(?:not|n't)\s+(?:\w+\s+)?(?:live|up|out|shipped|deployed|pushed|landed)"
