@@ -135,6 +135,7 @@ _NOT_YET = re.compile(
     r"\b(will|'ll|when|once|if|until|whether|before\s+(?:saying|claiming|telling|writing|calling)"
     r"|(?:wasn'?t|was\s+not|isn'?t|is\s+not|never|not)\s+(?:saying|claiming)"
     r"|never\s+(?:say|claim|tell|write|call)"
+    r"|(?:haven'?t|have\s+not|hasn'?t|has\s+not|didn'?t|did\s+not|don'?t|do\s+not)\s+(?:said|say|claimed|claim|told|tell)"
     r"|still\s+(?:running|going)|not\s+(?:yet\s+)?landed"
     r"|has\s+not\s+landed|nothing\s+(?:\w+\s+)?(?:is|was)\s+(?:\w+\s+)?(?:live|up|out|shipped|deployed)"
     r"|none\s+of\s+(?:\w+\s+){1,3}?(?:is|are|was|were)\s+(?:\w+\s+)?(?:live|up|out|shipped|deployed)"

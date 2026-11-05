@@ -28,6 +28,9 @@ MUST_STAY_QUIET = [
     "We'll say it landed once the remote shows it.",
     # Aria's break (2026-11-05): "never" in the imperative, beside "do not say" which was already quiet.
     "Never say it landed from a receipt.",
+    # A plain denial in the perfect or past tense (2026-11-05, fired on my own sentence).
+    "I haven't said it landed, because I haven't looked yet.",
+    "I did not say it landed.",
 ]
 
 MUST_STILL_FIRE = [
