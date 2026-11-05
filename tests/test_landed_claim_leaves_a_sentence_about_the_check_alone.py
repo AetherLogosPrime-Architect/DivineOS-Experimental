@@ -23,6 +23,9 @@ MUST_STAY_QUIET = [
     "I was not claiming the fix landed on origin.",
     "Before saying it landed I read the remote.",
     "The gate asks whether the push landed.",
+    # A promise about the future carries "'ll" as well as "will" (2026-11-05, fired on my own sentence).
+    "I'll tell you it landed only after I've looked.",
+    "We'll say it landed once the remote shows it.",
 ]
 
 MUST_STILL_FIRE = [

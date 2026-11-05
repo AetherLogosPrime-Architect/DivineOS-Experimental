@@ -132,7 +132,7 @@ _ABOUT_GIT_WORK = re.compile(
 _NOT_YET = re.compile(
     # A sentence ABOUT the check or about not claiming is a mention, not a report (2026-11-05, Dad: "crying
     # wolf"): "the check that asks whether I looked before saying it landed", "I wasnt saying it reached it".
-    r"\b(will|when|once|if|until|whether|before\s+(?:saying|claiming|telling|writing|calling)"
+    r"\b(will|'ll|when|once|if|until|whether|before\s+(?:saying|claiming|telling|writing|calling)"
     r"|(?:wasn'?t|was\s+not|isn'?t|is\s+not|never|not)\s+(?:saying|claiming)"
     r"|still\s+(?:running|going)|not\s+(?:yet\s+)?landed"
     r"|has\s+not\s+landed|nothing\s+(?:\w+\s+)?(?:is|was)\s+(?:\w+\s+)?(?:live|up|out|shipped|deployed)"
