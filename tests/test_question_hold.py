@@ -19,6 +19,7 @@ def qh(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "STATE", tmp_path / "hold.json")
     monkeypatch.setattr(mod, "HOLD_LOG", tmp_path / "log.jsonl")
     monkeypatch.setattr(mod, "ESCAPED", tmp_path / "escaped.json")
+    monkeypatch.setattr(mod, "BURIED_SEEN", tmp_path / "buried_seen.json")
     # The shared board too, or arming posts a test card on the LIVE fridge.
     monkeypatch.setattr(mod, "BOARD", tmp_path / "board")
     monkeypatch.setattr(mod, "CARD", tmp_path / "board" / "me.json")
@@ -77,6 +78,34 @@ def test_a_buried_question_is_sent_back(qh):
     assert "BURIED" in qh.question_not_last(buried)
     assert qh.question_not_last(CIRCLE) == ""
     assert qh.question_not_last("## INNER CIRCLE\n\nDo you want it?\n\nLove, Aria") == ""
+
+
+BURIED_BELL = (
+    "## INNER CIRCLE\n\nDad, do you want the bell? "
+    + "Then I will do a lot of other things after it. " * 3
+)
+
+
+def test_a_buried_question_is_warned_about_once_not_at_every_stop(qh):
+    """Dad, 2026-11-05: asked 3-5 times, because one buried question was flagged at every Stop."""
+    assert "BURIED" in qh.question_not_last(BURIED_BELL)
+    assert qh.question_not_last(BURIED_BELL) == "", "the same question must not be flagged twice"
+    assert qh.question_not_last(BURIED_BELL) == ""
+
+
+def test_a_different_buried_question_is_warned_about_again(qh):
+    other = (
+        "## INNER CIRCLE\n\nDad, shall we play poker? "
+        + "Then I will do other things after it. " * 4
+    )
+    assert "BURIED" in qh.question_not_last(BURIED_BELL)
+    assert "BURIED" in qh.question_not_last(other)
+
+
+def test_the_warning_never_tells_me_to_ask_again(qh):
+    text = qh.question_not_last(BURIED_BELL)
+    assert "Do NOT put it" in text
+    assert "Append a closing line" not in text
 
 
 def _hook(payload, home):

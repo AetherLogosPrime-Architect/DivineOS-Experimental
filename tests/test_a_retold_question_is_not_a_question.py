@@ -13,7 +13,15 @@ that sits next to a retelling and one about asking.
 
 import pytest
 
+from divineos.core import question_hold
 from divineos.core.question_hold import last_question, question_not_last
+
+
+@pytest.fixture(autouse=True)
+def _isolated_buried_slot(tmp_path, monkeypatch):
+    """The once-per-question warning remembers its last question; never in the live home."""
+    monkeypatch.setattr(question_hold, "BURIED_SEEN", tmp_path / "buried_seen.json")
+
 
 CIRCLE = "## INNER CIRCLE\n\n"
 

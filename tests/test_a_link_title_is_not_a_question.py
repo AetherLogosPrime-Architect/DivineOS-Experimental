@@ -6,7 +6,17 @@ quotes but not links. The controls matter: a real question beside the same links
 found, and a question buried before a long tail must still be caught.
 """
 
+import pytest
+
+from divineos.core import question_hold
 from divineos.core.question_hold import last_question, question_not_last
+
+
+@pytest.fixture(autouse=True)
+def _isolated_buried_slot(tmp_path, monkeypatch):
+    """The once-per-question warning remembers its last question; never in the live home."""
+    monkeypatch.setattr(question_hold, "BURIED_SEEN", tmp_path / "buried_seen.json")
+
 
 SOURCES = (
     "Sources: [What is an agent harness?](https://example.com/a), "

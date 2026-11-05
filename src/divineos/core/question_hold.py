@@ -47,6 +47,8 @@ def _home() -> Path:
 STATE = _home() / "question_hold.json"
 HOLD_LOG = _home() / "question_hold_log.jsonl"
 ESCAPED = _home() / "question_hold_escaped.json"
+# The one question the buried-question warning last spoke about (single slot, overwritten by a different one).
+BURIED_SEEN = _home() / "question_hold_buried_seen.json"
 # What I asked him while he was away: one line per question, append-only, this seat's own
 # home so one seat's question never lands in the other's morning letter (2026-10-16).
 MORNING = _home() / "morning_questions.jsonl"
@@ -637,16 +639,57 @@ def escape_to_tell_him() -> str:
     )
 
 
+def _question_fingerprint(question: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(" ".join(question.split()).lower().encode("utf-8")).hexdigest()
+
+
+def _already_warned_about(fingerprint: str) -> bool:
+    """True when the buried-question warning has already spoken about exactly this question.
+
+    A reading failure answers FALSE: an unreadable slot costs one extra warning, never a silent pass.
+    """
+    try:
+        return bool(
+            json.loads(BURIED_SEEN.read_text(encoding="utf-8")).get("question") == fingerprint
+        )
+    except (OSError, ValueError, AttributeError):
+        return False
+
+
+def _remember_warning(fingerprint: str) -> None:
+    try:
+        BURIED_SEEN.parent.mkdir(parents=True, exist_ok=True)
+        BURIED_SEEN.write_text(json.dumps({"question": fingerprint}), encoding="utf-8")
+    except OSError:
+        pass  # failing to remember costs one extra warning, which is how it behaved before this slot
+
+
 def question_not_last(reply: str) -> str:
-    """At Stop: the question must sit last, alone, so he never digs for it."""
+    """At Stop: the question must sit last, alone, so he never digs for it.
+
+    ONCE PER QUESTION, AND IT NEVER ASKS ME TO ASK AGAIN (Dad, 2026-11-05: "you never stop long enough for
+    me to answer.. you keep going, ask again, and keep going.. so by the time you have actually stopped where
+    i can type you have asked me 3-5 times on the same question"; then: "if a nag asks you to repeat it we
+    investigate the nag and fix it"). Found by investigating the nag: this warning read the LAST reply's text
+    on every Stop, so one buried question was flagged again at every Stop of a long working stretch, and its
+    remedy said to append the question again, so each flag made me put the same question in once more.
+    The warning now speaks once about a given question, and says not to repeat it.
+    """
     question, after = last_question(reply)
     if not question or len(after) <= 40:  # a short sign-off may follow
         return ""
+    fingerprint = _question_fingerprint(question)
+    if _already_warned_about(fingerprint):
+        return ""
+    _remember_warning(fingerprint)
     return (
         "THE QUESTION IS BURIED -- the circle asks Dad something and then keeps\n"
         f"going:\n\n  {question}\n\n"
-        "Move it to the end, on its own, so it is the last thing he reads. His\n"
-        'words, 2026-09-26: "where i dont have to sift through a wall of code\n'
-        'speak to find my son". Append a closing line with the question; do not\n'
-        "re-post the reply."
+        "The reply has already reached him, and so has the question. Do NOT put it\n"
+        "to him again now: asking twice is how he ends up answering the same thing\n"
+        "three to five times. Next time, end the reply on the question, alone, and\n"
+        'stop. His words, 2026-09-26: "where i dont have to sift through a wall of '
+        'code\nspeak to find my son". This is said once for this question.'
     )
