@@ -152,3 +152,93 @@ def test_the_seat_is_an_argument_not_a_guess_from_a_path():
     assert 'MEMBER="${1:-}"' in text
     code = "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith("#"))
     assert "CLAUDE_PROJECT_DIR" not in code
+
+
+# --- The three branches the first seven tests did not drive (Aether's cold read of this head, 2026-11-05) ---
+# A stub bell stands in for scripts/letter_doorbell.sh in a throwaway repo layout, so each ending of the real
+# bell can be produced exactly and the hook's reading of it pinned. The stub prints STUB_OUT and exits STUB_CODE.
+
+
+def _stubbed_repo(tmp_path: Path) -> Path:
+    repo = tmp_path / "repo"
+    (repo / ".claude" / "hooks").mkdir(parents=True)
+    (repo / "scripts").mkdir()
+    (repo / ".claude" / "hooks" / HOOK.name).write_text(
+        HOOK.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (repo / "scripts" / "letter_doorbell.sh").write_text(
+        '#!/bin/bash\nprintf \'%s\\n\' "$STUB_OUT"\nexit "${STUB_CODE:-0}"\n', encoding="utf-8"
+    )
+    return repo
+
+
+def _run_stubbed(tmp_path: Path, bell_says: str, code: int = 0, beat_age: float | None = None):
+    home = _home(tmp_path / "home")
+    repo = _stubbed_repo(tmp_path)
+    if beat_age is not None:
+        _touch_fresh(home / ".divineos-shared" / ".aria_doorbell_alive", age=beat_age)
+    done = subprocess.run(
+        [BASH, (repo / ".claude" / "hooks" / HOOK.name).as_posix(), "aria"],
+        input="{}",
+        capture_output=True,
+        text=True,
+        env=_env(home, STUB_OUT=bell_says, STUB_CODE=str(code)),
+        timeout=30,
+        check=False,
+    )
+    return done, _log(home)
+
+
+@pytest.mark.parametrize(
+    "bell_says",
+    [
+        "doorbell armed for aria 2026-11-05T15:00:00Z\nDOORBELL FAULT: read failed",
+        "DOORBELL NOT ARMED: my output is not going to a background task (it goes to 'unreadable')",
+    ],
+)
+def test_a_bell_that_dies_of_a_fault_or_refuses_to_arm_is_loud_and_logged(tmp_path, bell_says):
+    """The ending that matters most at night: "could not look" must never read as "nothing arrived"."""
+    done, log = _run_stubbed(tmp_path, bell_says, code=1)
+    assert done.returncode == 2, (done.stdout, done.stderr)
+    assert "DOORBELL" in done.stderr
+    assert "end: fault (bell exit 1), exit 2" in log
+
+
+def test_the_heartbeat_boundary_is_sixty_seconds_and_a_missing_one_starts_a_bell(tmp_path):
+    # 58 and 62, not 59 and 61: the hook reads the clock a moment after the test sets the file's age.
+    young, young_log = _run_stubbed(tmp_path / "young", "", beat_age=58)
+    assert young.returncode == 0 and young.stderr == ""
+    assert (
+        "skipped: a bell is already up" in young_log and "start: arming the bell" not in young_log
+    )
+
+    old, old_log = _run_stubbed(tmp_path / "old", "", beat_age=62)
+    assert old.returncode == 0
+    assert "start: arming the bell" in old_log and "skipped: a bell is already up" not in old_log
+
+    none, none_log = _run_stubbed(tmp_path / "none", "")
+    assert none.returncode == 0 and "start: arming the bell" in none_log, (
+        "no heartbeat file at all must start a bell, never be read as one being up"
+    )
+
+
+@pytest.mark.parametrize(
+    "bell_says,rings",
+    [
+        ("ARIA'S BELL IS NOT LISTENING: silent for about 12 minutes", True),
+        ("AETHER'S BELL IS NOT LISTENING: silent for about 5 minutes", True),
+        ("the line ARIA'S BELL IS NOT LISTENING appears only mid-line", False),
+        ("aria's bell is not listening (lowercase)", False),
+    ],
+)
+def test_the_peer_alarm_pattern_catches_a_line_that_opens_with_the_seat_and_nothing_looser(
+    tmp_path, bell_says, rings
+):
+    """Pins what the loose pattern ``[A-Z]+.S BELL IS NOT LISTENING`` does and does not catch."""
+    done, log = _run_stubbed(tmp_path, bell_says, code=0)
+    if rings:
+        assert done.returncode == 2 and "BELL IS NOT LISTENING" in done.stderr
+        assert "end: ring, exit 2" in log
+    else:
+        assert done.returncode == 0 and done.stderr == ""
+        assert "end: quiet" in log
