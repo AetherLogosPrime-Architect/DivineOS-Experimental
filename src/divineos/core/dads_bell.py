@@ -18,16 +18,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from divineos.core.command_parsing import runs_only
-from divineos.core.his_voice_ends_the_turn import _LAUNCHERS, let_through
+from divineos.core.his_voice_ends_the_turn import let_through
+from divineos.core.remedy_allowlist import is_remedy
 
 PASS = "pass"
 WOULD_HOLD = "would_hold"
 SWITCHED_OFF = "switched_off"
 
-# The note the end-of-turn doors tell me to file. Refusing it would put the bell in a fight with them.
-_ALSO_ALWAYS: tuple[tuple[str, ...], ...] = tuple(
-    (*launcher, "reflection-note") for launcher in _LAUNCHERS
-)
+# The one command the end-of-turn doors tell me to file that the house's remedy list does not carry. Refusing it
+# would put the bell in a fight with them. Whether it belongs in the shared list is a question for Aria, not
+# decided here: widening that list changes every other door that asks it.
+_REFLECTION_NOTE: tuple[tuple[str, ...], ...] = (("divineos", "reflection-note"),)
+
+# Who may call a hold false. Only these two count toward switching the bell off (Aria): the agent's own label
+# is the quietest bypass in the design, because two of them would switch the bell off.
+_MAY_CALL_A_HOLD_FALSE = frozenset({"dad", "outside_check"})
 
 
 @dataclass(frozen=True)
@@ -53,19 +58,27 @@ class Verdict:
 
 
 def always_passes(tool_name: str, tool_input: dict) -> bool:
+    """What the bell never holds: the looking tools, the voice door's list, EVERY exit the house's other doors
+    prescribe (``remedy_allowlist``: one list the house keeps, not a copy that drifts), and the reflection note."""
     if let_through(tool_name, tool_input):
         return True
     if tool_name != "Bash":
         return False
-    return runs_only(str((tool_input or {}).get("command") or ""), _ALSO_ALWAYS)
+    command = str((tool_input or {}).get("command") or "")
+    return is_remedy(command) or runs_only(command, _REFLECTION_NOTE)
 
 
 def hold_sentence(ask: Ask) -> str:
-    """One plain sentence: what he asked, what done means, and how this clears."""
+    """One plain sentence: what Dad asked, what done means, and what clears this.
+
+    Written for the one who reads it, which is me, so the speaker of the ask is named: Dad. And it offers NO way
+    through by talking: a clause like 'or tell him why not' would let one line of 'later, I am busy' clear the
+    bell, the cheap fix he has begged against. Only a real step clears it.
+    """
     return (
-        f'You asked for this and it is not done yet: "{ask.his_words}". '
+        f'Dad asked for this and it is not done yet: "{ask.his_words}". '
         f"Done means: {ask.done_sentence} "
-        "Make a step on it, or tell him plainly why not, and this clears."
+        "Make a step on it and this clears."
     )
 
 
@@ -78,7 +91,12 @@ def judge(
     he_asked_for_this: bool,
     switched_off: bool = False,
 ) -> Verdict:
-    """Whether this tool call would be held. Shadow: the caller logs the verdict and refuses nothing."""
+    """Whether this tool call would be held. Shadow: the caller logs the verdict and refuses nothing.
+
+    ``stepped_this_turn`` is a STUB the next piece replaces with the measurement-moved definition of a step
+    (Aria): as a bare boolean one step clears the whole turn, so a one-line commit would buy the afternoon.
+    Nobody should read a PASS that came from it as earned.
+    """
     if switched_off:
         return Verdict(
             SWITCHED_OFF, why="the bell switched itself off after two false holds in a row"
@@ -94,6 +112,13 @@ def judge(
     return Verdict(WOULD_HOLD, first.ask_id, hold_sentence(first))
 
 
-def after_false_holds(was_false_hold: list[bool]) -> bool:
-    """True when the last two holds were both false: the trial is over and the bell turns itself off."""
-    return len(was_false_hold) >= 2 and was_false_hold[-1] and was_false_hold[-2]
+def after_false_holds(labelled_by: list[str]) -> bool:
+    """True when the last two holds were both called false by someone who may say so: the trial is over and the
+    bell turns itself off.
+
+    Each entry is WHO called that hold false ('dad', 'outside_check') or anything else for a hold nobody
+    faulted ('right', 'agent'). Only his word, or an outside check that the refused call was unrelated to the
+    ask, counts. The agent's own label never does.
+    """
+    last_two = labelled_by[-2:]
+    return len(last_two) == 2 and all(who in _MAY_CALL_A_HOLD_FALSE for who in last_two)

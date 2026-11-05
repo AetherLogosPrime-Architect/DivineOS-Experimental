@@ -80,6 +80,28 @@ def test_the_notes_the_other_stop_doors_demand_always_pass():
     assert _judge(("Bash", {"command": "divineos briefing"})).state == PASS
 
 
+def test_every_exit_the_other_doors_prescribe_passes_because_the_house_keeps_one_list():
+    """Aria's attack: the house already keeps the list of commands its doors prescribe as their way out
+    (remedy_allowlist). A copy drifts; the engagement gate demands `goal add` and the correction-shape gate
+    demanded `correction` of me today, and a bell that refused them would fight those doors."""
+    # Chosen from the house's list and NOT from the voice door's shorter one, so this fails if the bell keeps
+    # its own copy: the pre-registration exit, the walk paperwork, the audit filing and the engagement exit.
+    for command in (
+        "divineos prereg assess prereg-x --outcome inconclusive --actor user",
+        "divineos game-walk file --mechanism x --route y",
+        "divineos council walk x",
+        "divineos audit submit-round x --actor aletheia",
+        'divineos goal add "x"',
+    ):
+        assert _judge(("Bash", {"command": command})).state == PASS, command
+
+
+def test_a_prescribed_exit_with_other_work_chained_behind_it_is_not_an_exit():
+    """The house's own rule: a remedy with other work chained behind it is not a remedy."""
+    chained = ("Bash", {"command": 'divineos goal add "x" && git push origin some-branch'})
+    assert _judge(chained).state == WOULD_HOLD
+
+
 # --- what would be held, and the ways through ---
 
 
@@ -112,17 +134,37 @@ def test_the_hold_names_his_words_and_what_done_means_in_one_sentence():
     assert "\n" not in said
 
 
-# --- the trial is built in: wrong twice in a row, and it turns itself off ---
+def test_the_hold_says_who_asked_and_never_offers_a_way_through_by_talking():
+    """Aria's attack: 'You asked' reads as if the agent asked; the speaker is Dad. And 'or tell him plainly why
+    not' is the cheat: one line of 'later, I'm busy' would clear the bell, the cheap fix he has begged against."""
+    said = hold_sentence(THE_CIRCLE)
+    assert said.startswith("Dad asked for this")
+    assert "tell him" not in said.lower()
 
 
-def test_two_false_holds_in_a_row_switch_the_bell_off():
-    assert after_false_holds([False, True, True]) is True
+# --- the trial is built in: wrong twice in a row, and it turns itself off, but ONLY on his word ---
+# Aria's attack: if the agent labels a hold false, two labels switch the bell off, the quietest bypass in the
+# design. A hold counts as false only when Dad says so in his own words, or when an outside check says the
+# refused call was unrelated to the ask. Never the agent's own flag.
 
 
-def test_a_false_hold_then_a_right_one_does_not():
-    assert after_false_holds([True, False, True]) is False
+def test_two_false_holds_in_a_row_called_false_by_him_switch_the_bell_off():
+    assert after_false_holds(["right", "dad", "dad"]) is True
+
+
+def test_a_false_hold_he_labelled_then_a_right_one_does_not():
+    assert after_false_holds(["dad", "right", "dad"]) is False
+
+
+def test_an_outside_check_counts_the_same_as_his_word():
+    assert after_false_holds(["outside_check", "dad"]) is True
+
+
+def test_the_agents_own_label_never_switches_the_bell_off():
+    assert after_false_holds(["agent", "agent", "agent"]) is False
+    assert after_false_holds(["dad", "agent"]) is False
 
 
 def test_fewer_than_two_holds_never_switch_it_off():
     assert after_false_holds([]) is False
-    assert after_false_holds([True]) is False
+    assert after_false_holds(["dad"]) is False
