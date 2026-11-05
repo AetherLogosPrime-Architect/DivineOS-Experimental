@@ -405,6 +405,13 @@ def test_a_bare_bell_notice_now_names_the_letter_that_rang(tmp_path):
     assert "THE BELL RANG" in out and "letter_doorbell.sh aether (run_in_background)" in out
 
 
+def test_the_harness_exit_line_is_never_read_as_a_letter_name(tmp_path):
+    """Found by running the live hook on a real notice: the task file ends with '[exited with code 0]'."""
+    out = _notice_with_output_file(tmp_path, RANG + "\n[exited with code 0]\n")
+    assert "a-real-letter.md" in out
+    assert "exited with code" not in out.split("A LETTER ARRIVED", 1)[1].split("Read it now")[0]
+
+
 def test_a_bell_that_ended_without_a_letter_says_to_re_arm_but_names_no_letter(tmp_path):
     out = _notice_with_output_file(
         tmp_path, "doorbell armed for aether 2026-11-05T15:05:00Z\nDOORBELL EXPIRED after 8h\n"

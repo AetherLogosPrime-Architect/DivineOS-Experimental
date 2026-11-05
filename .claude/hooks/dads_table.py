@@ -287,7 +287,7 @@ def _what_the_bell_found(prompt: str) -> tuple[str, list[str]]:
             line = line.strip()
             if not line:
                 continue
-            if line.startswith("BATON") or line.startswith("DOORBELL") or line.startswith("doorbell"):
+            if line.startswith(("BATON", "DOORBELL", "doorbell", "[")):  # "[exited with code 0]" ends the list
                 break
             names.append(Path(line.replace("\\", "/")).name)
     return armed.group(1), names
