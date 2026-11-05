@@ -130,6 +130,22 @@ def _genuine_user_text(rec: dict) -> str | None:
     return heard.text if heard.text.strip() else None
 
 
+def _record_text(rec: dict) -> str:
+    """The text a non-assistant record carries, in either shape the harness writes a notice: a user-role turn, or a
+    queued command attachment. '' for anything else, so a tool result is never read as a notice."""
+    if rec.get("type") == "attachment":
+        attachment = rec.get("attachment") or {}
+        return str(attachment.get("prompt") or "") if attachment.get("type") == "queued_command" else ""
+    content = (rec.get("message") or {}).get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(
+            str(p.get("text", "")) for p in content if isinstance(p, dict) and p.get("type") == "text"
+        )
+    return ""
+
+
 def verdict(records: list[dict]) -> str | None:
     """Return the block reason, or None if the reply may go."""
     last_user = None
@@ -150,9 +166,24 @@ def verdict(records: list[dict]) -> str | None:
     if opens_with_notice(his):
         return None
 
+    # One home for what counts as his room (Aletheia's hold on #560): asked of
+    # his_room, never re-decided here, so the two cannot drift apart. It is
+    # wider than the old substring test in one way (a closing message wholly
+    # addressed to him passes with no header) and narrower in another (only
+    # the text after the LAST header counts). Walk council for this edit.
+    from divineos.core.his_room import check_his_room, room_of
+    from divineos.core.hold_log import record
+
     worked, last_text = False, ""
+    room_written, notice_after_room = False, False
     for rec in records[idx + 1 :]:
         if rec.get("type") != "assistant":
+            # A notice (a bell, a finished push) that arrives AFTER his room was written is the machine waking
+            # me, not him speaking. It must not owe him a second room: Dad, 2026-11-05, the circle is the actual
+            # last part of the post and nothing but him moves it forward. Read from the record shapes the rest
+            # of the house reads, never from my own words.
+            if room_written and opens_with_notice(_record_text(rec)):
+                notice_after_room = True
             continue
         for c in (rec.get("message") or {}).get("content") or []:
             if not isinstance(c, dict):
@@ -161,15 +192,13 @@ def verdict(records: list[dict]) -> str | None:
                 worked = True
             elif c.get("type") == "text" and c.get("text", "").strip():
                 last_text = c["text"]
+                if room_of(last_text):
+                    room_written, notice_after_room = True, False
     if not worked:
         return None
-    # One home for what counts as his room (Aletheia's hold on #560): asked of
-    # his_room, never re-decided here, so the two cannot drift apart. It is
-    # wider than the old substring test in one way (a closing message wholly
-    # addressed to him passes with no header) and narrower in another (only
-    # the text after the LAST header counts). Walk council for this edit.
-    from divineos.core.his_room import check_his_room, room_of
-    from divineos.core.hold_log import record
+    if notice_after_room:
+        record("room", "stood_down", "a notice woke me after the room was written; no second room owed")
+        return None
 
     missing = check_his_room(last_text, started_by_him=True)
     record("room", "stopped" if missing else "passed", last_text if missing else (room_of(last_text) or ""))
