@@ -18,6 +18,7 @@ Prereg: prereg-251b15df9461.
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from typing import Any
@@ -84,6 +85,101 @@ def _rm_targets_all_ephemeral(command: str) -> bool:
     return all(_EPHEMERAL.search(t) for t in tokens)
 
 
+# Anything in a target that the shell would expand before rm sees it. A path with one of
+# these is not a path this check can read, so it is never proved missing.
+_UNREADABLE_TARGET = re.compile(r"[*?\[\]{}$`()!]")
+
+
+def _rm_targets_all_missing(command: str) -> bool:
+    """True only when the command is plain ``rm`` clauses and EVERY target is absent.
+
+    Deleting nothing is not a deletion: a justification asked for removing a folder
+    that is already gone records a judgment about nothing. The proof has to be
+    complete, so every doubt answers False and the door stays shut:
+
+    - a clause that is not a bare ``rm`` (a ``cd`` that moves relative targets, a
+      ``sudo`` or ``xargs`` wrapper, a line that could create the target first),
+    - a command the shared splitter cannot read safely (it refuses substitutions),
+    - an ``rm`` with no target to check,
+    - a target that is a glob, variable, or brace list,
+    - a target that exists, including a dangling symlink (``lexists``).
+
+    Relative targets are read against the working directory. Written for the one
+    ``rm -rf <gone folder>`` false alarm; it widens nothing else.
+    """
+    import shlex
+
+    from divineos.core.command_parsing import program_name, split_shell_segments
+
+    segments = split_shell_segments(command)
+    if not segments:
+        return (
+            False  # both-empty: unreadable and not-provably-missing both mean the door stays shut
+        )
+    targets: list[str] = []
+    for segment in segments:
+        try:
+            tokens = shlex.split(segment, posix=True)
+        except ValueError:
+            return False  # both-empty: a clause that cannot be read is not proven missing
+        if not tokens or program_name(tokens[0]) != "rm":
+            return False
+        rest = tokens[1:]
+        if "--" in rest:
+            split_at = rest.index("--")
+            clause_targets = [t for t in rest[:split_at] if not t.startswith("-")] + rest[
+                split_at + 1 :
+            ]
+        else:
+            clause_targets = [t for t in rest if not t.startswith("-")]
+        if not clause_targets:
+            return False
+        targets.extend(clause_targets)
+    windows = _running_on_windows()
+    for target in targets:
+        if _UNREADABLE_TARGET.search(target):
+            return False
+        native = _native_path(target, windows)
+        if native is None:
+            return False  # both-empty: a spelling this platform cannot read is not proven missing
+        try:
+            if os.path.lexists(native):
+                return False
+        except (OSError, ValueError):
+            return False  # both-empty: a path that cannot be looked at is not proven missing
+        if target.startswith("~") and native == target:
+            return False
+    return True
+
+
+def _running_on_windows() -> bool:
+    return os.name == "nt"
+
+
+_GIT_BASH_DRIVE = re.compile(r"^/(?:cygdrive/)?([A-Za-z])(?:/(.*))?$")
+
+
+def _native_path(target: str, windows: bool) -> str | None:
+    """The spelling to ask the disk about, or None when this platform cannot read it.
+
+    Git Bash writes drive C as ``/c/...`` (or ``/cygdrive/c/...``); native Windows
+    Python does not know that spelling, so asking it about ``/c/x`` answers "absent"
+    for a folder that is there. Any other leading-slash path (``/tmp``, ``//server``)
+    lives behind Git Bash's own mounts, which this process cannot see, so it is not
+    readable either. Off Windows nothing changes.
+    """
+    expanded = os.path.expanduser(target)
+    if not windows:
+        return expanded
+    forward = expanded.replace("\\", "/")
+    if not forward.startswith("/"):
+        return expanded
+    drive = _GIT_BASH_DRIVE.match(forward)
+    if drive is None:
+        return None
+    return f"{drive.group(1).upper()}:/{drive.group(2) or ''}"
+
+
 def is_destructive_deletion(command: str) -> tuple[bool, str | None]:
     """Classify a shell command. Returns (is_destructive, target-hint).
 
@@ -104,7 +200,11 @@ def is_destructive_deletion(command: str) -> tuple[bool, str | None]:
         return True, "git rm"
     # Ephemeral check runs on the ORIGINAL — it needs the real (possibly
     # quoted) paths to tell rm of /tmp from rm of src/.
-    if _RM_RECURSIVE_OR_FORCE.search(scan) and not _rm_targets_all_ephemeral(cmd):
+    if (
+        _RM_RECURSIVE_OR_FORCE.search(scan)
+        and not _rm_targets_all_ephemeral(cmd)
+        and not _rm_targets_all_missing(cmd)
+    ):
         return True, "rm recursive/force"
     return False, None
 
