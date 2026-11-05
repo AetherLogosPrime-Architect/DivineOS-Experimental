@@ -251,7 +251,10 @@ def fire_cmd(dry_run: bool, force: bool) -> None:
             f"  [{status_flag}] {name}: {step.duration_sec}s, tokens_est={step.tokens_used_est}"
         )
         if step.error_class:
-            click.echo(f"      error: {step.error_class}")
+            # The step already knows WHY it failed: output_tail is "[step] Class: message". Printing only the
+            # class hid it, and a commit step refusing for a staged index read as a bare "RuntimeError" three
+            # mornings running (2026-11-05, Dad: "stop avoiding the squeaky floorboards").
+            click.echo(f"      error: {step.output_tail or step.error_class}")
     click.echo(f"[auto-cycle] handshake marker written: {marker_file}")
 
 
