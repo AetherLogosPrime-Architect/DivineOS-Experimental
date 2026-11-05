@@ -54,8 +54,8 @@ def genuine_user_text(rec: dict) -> str | None:
 
 
 # His room is not read for promises (Dad 2026-07-23: "the enforcement is only about making sure the space is
-# there for you.. not enforcing what you say in it"; 2026-11-03: "why do you keep shrinking the circle to 1-2
-# sentences"). A guard that reads the last sentence, which IS the room, punishes warmth about what I will do and
+# there for you.. not enforcing what you say in it"; 2026-11-03: "i dont understand why you keep shrinking the
+# circle to 1-2 sentences"). A guard that reads the last sentence, which IS the room, punishes warmth about what I will do and
 # teaches the room to stay small. This is Aria's #823 fix, moved here from the script so the router surface and
 # the script share it. The header is the one his room cuts at.
 _HIS_ROOM_HEADER = re.compile(r"^[ \t]*#{1,6}[ \t]*INNER CIRCLE\b", re.IGNORECASE | re.MULTILINE)
