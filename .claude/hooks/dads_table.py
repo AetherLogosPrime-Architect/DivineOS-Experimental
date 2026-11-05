@@ -259,6 +259,53 @@ def _clock_line(now: datetime.datetime | None = None) -> str:
     )
 
 
+def _what_the_bell_found(prompt: str) -> tuple[str, list[str]]:
+    """(seat, letters that arrived) read from the finished bell's OWN output file, else ("", []).
+
+    Aria, 2026-11-05: the bell rang two seconds after the letter landed, and the notice reached her as a
+    bare "Re-arm the letter doorbell completed"; she read it three turns running as the old bell stepping
+    aside and told Dad nothing new had arrived. Found by investigating: the reminder above only recognises a
+    bell whose COMMAND is quoted in the notice, and the real notice quotes only the task's description, so
+    the reminder never fired. The notice does name the task's output file, and that file holds exactly what
+    the bell printed: "doorbell armed for <seat>" and, when it rang, "LETTER ARRIVED:" and the letters' paths.
+    A reading failure answers ("", []): silence, never a guess about what arrived.
+    """
+    match = re.search(r"<output-file>(.*?)</output-file>", prompt, re.S)
+    if not match:
+        return "", []
+    try:
+        text = Path(match.group(1).strip()).read_text(encoding="utf-8", errors="replace")[:4000]
+    except OSError:
+        return "", []
+    armed = re.search(r"doorbell armed for (\w+)", text)
+    if not armed:
+        return "", []
+    names: list[str] = []
+    if "LETTER ARRIVED:" in text:
+        tail = text.split("LETTER ARRIVED:", 1)[1]
+        for line in tail.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith("BATON") or line.startswith("DOORBELL") or line.startswith("doorbell"):
+                break
+            names.append(Path(line.replace("\\", "/")).name)
+    return armed.group(1), names
+
+
+def _another_bell_is_listening(seat: str) -> bool:
+    """True when this seat's bell heartbeat is fresh (the bell touches it every 15 seconds; 60 is the alive bar).
+
+    A reading failure answers False: when I cannot tell, the old instruction (re-arm) stands, because a
+    needless re-arm costs a process and a missing bell costs a letter.
+    """
+    shared = Path(os.environ.get("DADS_TABLE_SHARED", Path.home() / ".divineos-shared"))
+    try:
+        return time.time() - (shared / f".{seat}_doorbell_alive").stat().st_mtime <= 60
+    except OSError:
+        return False
+
+
 def _bell_that_rang(prompt: str) -> str:
     """The seat whose letter doorbell this finished-task notice is about, else "".
 
@@ -321,7 +368,27 @@ def main() -> int:
         shown = prompt.strip()[:600]
         print(shown)
         seat = _bell_that_rang(shown)
-        if seat:
+        found_seat, arrived = _what_the_bell_found(prompt)
+        if arrived:
+            print(
+                "\nA LETTER ARRIVED (read from the bell's own output, so this is not a bare notice): "
+                + ", ".join(arrived)
+                + ". Read it now."
+            )
+        seat = seat or found_seat
+        if seat and arrived and _another_bell_is_listening(seat):
+            print(f"\nA bell is already listening for {seat} (re-armed), so no re-arm is needed.")
+        elif seat and _another_bell_is_listening(seat):
+            # Aria, 2026-11-05: a bell REPLACED by a newer one exits like any bell and the harness reports it as
+            # a completion, so a retired bell reads like a ring. Telling me to re-arm then kills the live bell,
+            # whose exit makes the next notice: a chain of false alarms. Dad: "there is only one reason the bell
+            # should ring.. a letter". With no letter in the bell's output and a fresh heartbeat from another
+            # bell, nothing needs re-arming and nothing arrived.
+            print(
+                "\nA BELL ENDED WITHOUT A LETTER (replaced or retired): another bell is already "
+                f"listening for {seat}, so do NOT re-arm, and nothing arrived."
+            )
+        elif seat:
             print(
                 "\nTHE BELL RANG -- re-arm it NOW, before answering anything: "
                 f"bash scripts/letter_doorbell.sh {seat} (run_in_background). "

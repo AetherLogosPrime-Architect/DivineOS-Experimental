@@ -308,7 +308,14 @@ def test_his_sentence_that_mentions_the_tag_is_still_him(tmp_path):
 def _notice_out(tmp_path, command, status="completed"):
     kids = tmp_path / "children.json"
     kids.write_text("[]", encoding="utf-8")
-    env = dict(os.environ, DADS_TABLE_CHILDREN=str(kids), DADS_TABLE_DRAWER=str(tmp_path / "d.md"))
+    shared = tmp_path / "shared"
+    shared.mkdir(exist_ok=True)
+    env = dict(
+        os.environ,
+        DADS_TABLE_CHILDREN=str(kids),
+        DADS_TABLE_DRAWER=str(tmp_path / "d.md"),
+        DADS_TABLE_SHARED=str(shared),
+    )
     notice = (
         f"<task-notification>\n<task-id>b1</task-id>\n<status>{status}</status>\n"
         f'<summary>Background command "{command}" {status} (exit code 0)</summary>\n'
@@ -347,6 +354,96 @@ def test_a_notice_that_only_quotes_the_doorbell_far_down_prints_no_reminder(tmp_
 def test_a_fault_exit_of_the_doorbell_also_says_to_re_arm_it(tmp_path):
     out = _notice_out(tmp_path, "bash scripts/letter_doorbell.sh aria", status="failed")
     assert "THE BELL RANG" in out and "letter_doorbell.sh aria (run_in_background)" in out
+
+
+def _notice_with_output_file(tmp_path, file_text, live_bell_for=None):
+    """A finished-task notice shaped like the real one: it names the task's output file and quotes only the
+    task's DESCRIPTION, never the doorbell's command (Aria, 2026-11-05). ``live_bell_for`` makes a fresh
+    heartbeat for that seat in an isolated shared folder, as another bell that is already listening."""
+    out_file = tmp_path / "bell.output"
+    if file_text is not None:
+        out_file.write_text(file_text, encoding="utf-8")
+    kids = tmp_path / "children.json"
+    kids.write_text("[]", encoding="utf-8")
+    shared = tmp_path / "shared"
+    shared.mkdir(exist_ok=True)
+    if live_bell_for:
+        (shared / f".{live_bell_for}_doorbell_alive").write_text("x", encoding="utf-8")
+    env = dict(
+        os.environ,
+        DADS_TABLE_CHILDREN=str(kids),
+        DADS_TABLE_DRAWER=str(tmp_path / "d.md"),
+        DADS_TABLE_SHARED=str(shared),
+    )
+    notice = (
+        f"<task-notification>\n<task-id>b1</task-id>\n<output-file>{out_file}</output-file>\n"
+        "<status>completed</status>\n"
+        '<summary>Background command "Re-arm the letter doorbell" completed (exit code 0)</summary>\n'
+        "</task-notification>"
+    )
+    p = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        input=json.dumps({"prompt": notice}).encode(),
+        capture_output=True,
+        env=env,
+        timeout=30,
+    )
+    return p.stdout.decode("utf-8")
+
+
+RANG = (
+    "doorbell armed for aether 2026-11-05T15:05:00Z\n"
+    "LETTER ARRIVED:\n"
+    "C:\\Users\\aethe\\.divineos-shared\\letters\\aria-to-aether-2026-11-05-a-real-letter.md\n"
+)
+
+
+def test_a_bare_bell_notice_now_names_the_letter_that_rang(tmp_path):
+    """The bug Aria lived: three turns reading a ring as the old bell stepping aside."""
+    out = _notice_with_output_file(tmp_path, RANG)
+    assert "A LETTER ARRIVED" in out and "aria-to-aether-2026-11-05-a-real-letter.md" in out
+    assert "THE BELL RANG" in out and "letter_doorbell.sh aether (run_in_background)" in out
+
+
+def test_a_bell_that_ended_without_a_letter_says_to_re_arm_but_names_no_letter(tmp_path):
+    out = _notice_with_output_file(
+        tmp_path, "doorbell armed for aether 2026-11-05T15:05:00Z\nDOORBELL EXPIRED after 8h\n"
+    )
+    assert "THE BELL RANG" in out
+    assert "A LETTER ARRIVED" not in out
+
+
+def test_a_replaced_bell_with_a_live_bell_beside_it_says_do_not_re_arm(tmp_path):
+    """Aria's last false alarm: a retired bell exits like a ring. Re-arming it kills the live bell, whose exit
+    is the next false notice. Dad: 'there is only one reason the bell should ring.. a letter'."""
+    out = _notice_with_output_file(
+        tmp_path, "doorbell armed for aether 2026-11-05T15:06:07Z\n", live_bell_for="aether"
+    )
+    assert "do NOT re-arm" in out and "nothing arrived" in out
+    assert "THE BELL RANG" not in out and "A LETTER ARRIVED" not in out
+
+
+def test_a_real_ring_with_no_other_bell_still_says_re_arm(tmp_path):
+    out = _notice_with_output_file(tmp_path, RANG)
+    assert "THE BELL RANG" in out and "do NOT re-arm" not in out
+
+
+def test_a_ring_when_a_bell_is_already_listening_names_the_letter_and_skips_the_re_arm(tmp_path):
+    out = _notice_with_output_file(tmp_path, RANG, live_bell_for="aether")
+    assert "A LETTER ARRIVED" in out and "no re-arm is needed" in out
+    assert "THE BELL RANG" not in out
+
+
+def test_control_an_unrelated_task_output_prints_no_bell_lines(tmp_path):
+    out = _notice_with_output_file(tmp_path, "[push-readiness] Running pytest\nok\n")
+    assert "NOT FROM DAD" in out
+    assert "THE BELL RANG" not in out and "A LETTER ARRIVED" not in out
+
+
+def test_a_missing_output_file_is_silence_never_a_guess(tmp_path):
+    out = _notice_with_output_file(tmp_path, None)
+    assert "NOT FROM DAD" in out
+    assert "A LETTER ARRIVED" not in out
 
 
 def test_a_child_that_refuses_the_prompt_keeps_its_teeth(tmp_path):
