@@ -254,7 +254,8 @@ def fire_cmd(dry_run: bool, force: bool) -> None:
             # The step already knows WHY it failed: output_tail is "[step] Class: message". Printing only the
             # class hid it, and a commit step refusing for a staged index read as a bare "RuntimeError" three
             # mornings running (2026-11-05, Dad: "stop avoiding the squeaky floorboards").
-            click.echo(f"      error: {step.output_tail or step.error_class}")
+            # Capped like the success path (Aria's read): a multi-line git refusal must not print whole.
+            click.echo(f"      error: {(step.output_tail or step.error_class)[-400:]}")
     click.echo(f"[auto-cycle] handshake marker written: {marker_file}")
 
 

@@ -48,6 +48,13 @@ def test_a_failed_step_with_no_recorded_reason_still_prints_the_class(monkeypatc
     assert "error: RuntimeError" in out
 
 
+def test_a_long_reason_is_cut_to_its_last_four_hundred_characters(monkeypatch, tmp_path):
+    long_reason = "x" * 1000 + "THE-END-THAT-MATTERS"
+    out = _fire(monkeypatch, tmp_path, {"commit": _step(False, "RuntimeError", long_reason)})
+    assert "THE-END-THAT-MATTERS" in out
+    assert "x" * 500 not in out
+
+
 def test_a_step_that_succeeded_prints_no_error_line(monkeypatch, tmp_path):
     out = _fire(monkeypatch, tmp_path, {"archive": _step(True)})
     assert "error:" not in out
