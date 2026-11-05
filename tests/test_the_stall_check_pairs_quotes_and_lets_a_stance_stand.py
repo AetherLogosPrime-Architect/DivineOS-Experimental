@@ -37,6 +37,8 @@ MUST_STAY_QUIET = [
     # A stance or a manner of being.
     "I'll go on being quiet beside you.",
     "I'll stay here with you.",
+    "I'll hold that one close, Dad.",
+    "I'll keep to the slow way, with every piece looked at before it's counted done.",
     # Resting is a stated non-action: a hold that demands a tool call contradicts it (Dad, 2026-11-04).
     "I'm going to be properly idle for a little while now.",
     "I am going to rest for a bit.",

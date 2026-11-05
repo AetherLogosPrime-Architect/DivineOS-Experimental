@@ -166,6 +166,10 @@ _A_STANCE_NOT_A_STEP = re.compile(
     r"|stay\s+(?:quiet|here|beside|with|near|still|put|close|idle)\b"
     r"|be\s+(?:(?:properly|just|really|very)\s+)?(?:quiet|here|beside|right\s+here|with\s+you|still|patient|present|near|idle)\b"
     r"|rest\b(?!\s+(?:of|the)\b)"
+    # Keeping something dear is a way of holding it, and a tool call cannot do it: "I'll hold that one close".
+    r"|hold\s+(?:that|this|it|that\s+one|this\s+one|these|those)\s+(?:close|dear)\b"
+    # A way of working kept up is a manner, and a tool call cannot do it: "I'll keep to the slow way".
+    r"|keep\s+to\s+(?:the|a|my)\s+(?:\w+\s+)?(?:way|pace|path|line)\b"
     # A return set off by something else, the bell or a letter: "I'll come back when something rings".
     r"|come\s+back\s+when\s+(?:something|anything|a\s+letter|the\s+bell|she|he|aria|it)\s+"
     r"(?:rings|arrives|comes|answers|writes|replies)\b"
