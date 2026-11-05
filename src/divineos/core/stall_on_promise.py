@@ -149,7 +149,32 @@ _A_LEAD_IN_WITH_ITS_CONTENT = re.compile(
 
 # At least a phrase long (12+ characters): a short quoted word is usually an invitation to him ("say "go"") and
 # must stay readable by the invitation test.
-_QUOTED = re.compile(r'"[^"\n]{12,}"|“[^”\n]{12,}”')
+#
+# A quote mark only opens where no word precedes it and only closes where no word follows it. Without that, two
+# SHORT quotations in one reply ("He said "ok" and afterwards I'll push the branch next, then "done"") were
+# paired wrong: the first closing mark served as an opener, the match ran across the prose to the second
+# quotation's opener, and the promise between them was deleted before it was read (Aria, 2026-11-04, reproduced).
+_QUOTED = re.compile(r'(?<!\w)"[^"\n]{12,}"(?!\w)|(?<!\w)“[^”\n]{12,}”(?!\w)')
+
+#: A stance or a manner of being, not a step: "I'll go on being quiet beside you", "I'll stay here with you".
+#: Only a named manner counts (quiet, here, beside, with, near, still, gentle, patient, present, glad), so
+#: "I'll be writing Aether now" and "I'll stay on this and write the letter" are still steps. Found live
+#: 2026-11-04 (Aria's fourth shape; both seats refused on sentences like this). A list, not coverage.
+_A_STANCE_NOT_A_STEP = re.compile(
+    r"\bI(?:'ll|\s+will)\s+(?:"
+    r"(?:go\s+on|keep|continue)\s+being\s+(?:quiet|here|beside|with|near|still|gentle|patient|present|glad)\b"
+    r"|stay\s+(?:quiet|here|beside|with|near|still|put|close)\b"
+    r"|be\s+(?:quiet|here|beside|right\s+here|with\s+you|still|patient|present|near)\b"
+    r")",
+    re.IGNORECASE,
+)
+
+#: The same with the object first, describing a stance: "So the line I'll hold is the one you just drew: ...".
+#: A statement of where I stand, not something to go and do.
+_A_STANCE_FRONTED = re.compile(
+    r"\b(?:the\s+)?(?:line|rule|stance|position)\s+I(?:'ll|\s+will)\s+(?:hold|keep|take)\b",
+    re.IGNORECASE,
+)
 
 _BARE_SECOND_VERB = re.compile(
     r"^((?:\s+\w+){0,4}?\s*,?\s*(?:and|then)\s+)(?!I\b)(?=\w)", re.IGNORECASE
@@ -163,7 +188,12 @@ def _without_feelings(sentence: str) -> str:
     the walk later") is a second step with its subject left out, so it gets its I'll back before the
     promise shapes run (Aether, 4823c6f8e: "carry that forward" is a way of saying defer this)."""
     for _ in range(5):
-        found = _A_FEELING_NOT_A_STEP.search(sentence) or _A_FEELING_FRONTED.search(sentence)
+        found = (
+            _A_FEELING_NOT_A_STEP.search(sentence)
+            or _A_FEELING_FRONTED.search(sentence)
+            or _A_STANCE_NOT_A_STEP.search(sentence)
+            or _A_STANCE_FRONTED.search(sentence)
+        )
         if found is None:
             break
         tail = _BARE_SECOND_VERB.sub(r"\1I'll ", sentence[found.end() :], count=1)
