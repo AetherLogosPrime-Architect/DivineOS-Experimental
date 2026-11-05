@@ -26,6 +26,8 @@ MUST_STAY_QUIET = [
     # A promise about the future carries "'ll" as well as "will" (2026-11-05, fired on my own sentence).
     "I'll tell you it landed only after I've looked.",
     "We'll say it landed once the remote shows it.",
+    # Aria's break (2026-11-05): "never" in the imperative, beside "do not say" which was already quiet.
+    "Never say it landed from a receipt.",
 ]
 
 MUST_STILL_FIRE = [
@@ -34,6 +36,10 @@ MUST_STILL_FIRE = [
     "Everything is committed and it landed.",
     "It is on the shared place now and matches my local copy.",
     "The fix is now on origin.",
+    # Aria's breaks (2026-11-05): "has been pushed" was a free arrival, and a denial beside a real claim passed.
+    "It has been pushed.",
+    "The branch has been landed on origin.",
+    "I was not saying it landed, it did land.",
 ]
 
 

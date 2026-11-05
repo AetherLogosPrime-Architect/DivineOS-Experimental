@@ -96,11 +96,11 @@ from dataclasses import dataclass
 # subject has to be work reaching somewhere, not any use of the word.
 _CLAIM = re.compile(
     r"\b("
-    r"(?:is|are|has|have|had|was|were)\s+(?:now\s+)?(?:pushed|landed)"
+    r"(?:is|are|has|have|had|was|were)\s+(?:now\s+)?(?:been\s+)?(?:pushed|landed)"
     # "landed as 'ew'", "landed with me", "landed on me" is how something HIT me, not where work
     # arrived (Dad 2026-10-26, after a talk about taste). "landed as expected/planned" still
     # describes a result of the work, so it stays a claim.
-    r"|(?:it|they|both|everything|all\s+of\s+it)\s+landed"
+    r"|(?:it|they|both|everything|all\s+of\s+it)\s+(?:did\s+land|landed)"
     r"(?!\s+(?:with\s+(?:me|him|you|us|them)\b"
     r"|on\s+(?:me|him|you|us|them)\b"
     r"|as\s+(?!(?:expected|planned|intended|designed|hoped|promised)\b)))"
@@ -134,6 +134,7 @@ _NOT_YET = re.compile(
     # wolf"): "the check that asks whether I looked before saying it landed", "I wasnt saying it reached it".
     r"\b(will|'ll|when|once|if|until|whether|before\s+(?:saying|claiming|telling|writing|calling)"
     r"|(?:wasn'?t|was\s+not|isn'?t|is\s+not|never|not)\s+(?:saying|claiming)"
+    r"|never\s+(?:say|claim|tell|write|call)"
     r"|still\s+(?:running|going)|not\s+(?:yet\s+)?landed"
     r"|has\s+not\s+landed|nothing\s+(?:\w+\s+)?(?:is|was)\s+(?:\w+\s+)?(?:live|up|out|shipped|deployed)"
     r"|none\s+of\s+(?:\w+\s+){1,3}?(?:is|are|was|were)\s+(?:\w+\s+)?(?:live|up|out|shipped|deployed)"
