@@ -67,6 +67,7 @@ def adjacency_lines_for_goal(
     try:
         from divineos.core import semantic_search
         from divineos.core._ledger_base import data_dir
+        from divineos.core.dream_files import A_DREAM_LABEL, is_dream_path
     except ImportError:
         return []
 
@@ -95,6 +96,7 @@ def adjacency_lines_for_goal(
             rel_path = str(Path(h.source_path).relative_to(Path.cwd()))
         except ValueError:
             pass
-        lines.append(f"  [{h.similarity:.3f}] {rel_path}:{h.paragraph_index}")
+        tag = f" ({A_DREAM_LABEL})" if is_dream_path(h.source_path) else ""
+        lines.append(f"  [{h.similarity:.3f}] {rel_path}:{h.paragraph_index}{tag}")
     lines.append('  (full: divineos find query "<your goal text>")')
     return lines

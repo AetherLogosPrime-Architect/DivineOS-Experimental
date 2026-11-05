@@ -94,6 +94,9 @@ _SOURCE_THRESHOLDS: dict[str, dict[str, Any]] = {
     "knowledge": {"target_k": 2, "floor": 0.30, "steepness": 0.30},
     "wall": {"target_k": 5, "floor": 0.25, "steepness": 0.10},
     "letter": {"target_k": 1, "floor": 0.40, "steepness": 0.30},
+    # Dreams are unbidden and wild, not fact: fewer than explorations (2 vs 3) and a
+    # slightly higher floor (0.38 vs 0.35), so one only surfaces on a real match.
+    "dream": {"target_k": 2, "floor": 0.38, "steepness": 0.20},
     # Set from real changes, not believed (Dillahunty, walk-4d8b06a54e67). Was
     # 0.40: live, it labelled corrections about dreams "fits" on an unrelated
     # edit. Raising it hides nothing -- UNSURE still shows the guesses -- it
@@ -1170,6 +1173,65 @@ def _load_exploration() -> list[_CachedItem]:
     return items
 
 
+def _find_dreams_root() -> Path | None:
+    for root in _PROJECT_ROOTS:
+        candidate = root / "dreams"
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
+def _load_dreams() -> list[_CachedItem]:
+    """Scan dreams/<seat>/NNN_*.md, read-only, same head-window embedding as explorations.
+
+    Which files count is decided by ``dream_files.dream_paths``, shared with
+    ``divineos find index``. Nothing here opens a dream for writing.
+    Empty list when there is no dreams folder.
+    """
+    from divineos.core.dream_files import dream_paths
+
+    root = _find_dreams_root()
+    items: list[_CachedItem] = []
+    if root is None:
+        return items
+    for md_path in dream_paths(root):
+        try:
+            content = md_path.read_text(encoding="utf-8", errors="replace").strip()
+        except Exception:  # noqa: BLE001 - filesystem boundary
+            continue
+        if not content:
+            continue
+        head = content[:_EXPLORATION_HEAD_CHARS]
+        embedding = _embed_text_impl(head)
+        if embedding is None:
+            continue
+        try:
+            mtime = md_path.stat().st_mtime
+        except Exception:  # noqa: BLE001 - filesystem boundary
+            mtime = 0.0
+        stem = md_path.stem
+        title = stem.lstrip("0123456789_-").replace("_", " ").strip() or stem
+        title = "dream: " + title[:60] + ("..." if len(title) > 60 else "")
+        try:
+            rel_path = str(md_path.relative_to(root.parent))
+        except ValueError:
+            rel_path = str(md_path)
+        items.append(
+            _CachedItem(
+                id=f"dream-{md_path.parent.name}-{stem}",
+                source="dream",
+                tier="topic",
+                title=title,
+                content=head,
+                path=rel_path,
+                filed_at_unix=mtime,
+                importance_score=0.4,
+                embedding=embedding,
+            )
+        )
+    return items
+
+
 def _find_letters_roots() -> list[Path]:
     roots: list[Path] = []
     for project in _PROJECT_ROOTS:
@@ -1267,6 +1329,7 @@ def _ensure_cache() -> None:
     _EMBEDDING_CACHE["letter"] = _load_letters()
     _EMBEDDING_CACHE["worklist"] = _load_worklist()
     _EMBEDDING_CACHE["moment"] = _load_moments()
+    _EMBEDDING_CACHE["dream"] = _load_dreams()
 
 
 # WHERE ITEM VECTORS COME FROM (2026-09-24). They used to be computed here with
@@ -1367,6 +1430,7 @@ def warm(progress: Any = None) -> dict[str, int]:
             _load_letters,
             _load_worklist,
             _load_moments,
+            _load_dreams,
         ):
             loader()
     finally:
@@ -1435,7 +1499,7 @@ def _shape_content(
             return "full", raw_content, ""
         snippet = " ".join(raw_content.split()[:60]) + " …"
         return "snippet", snippet, path
-    # exploration, letter
+    # exploration, letter, dream
     snippet = " ".join(raw_content.split()[:60]) + " …"
     return "snippet", snippet, path
 

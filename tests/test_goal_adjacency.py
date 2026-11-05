@@ -93,3 +93,23 @@ def test_hit_lines_carry_source_pointer(corpus_dir: Path, tmp_path: Path):
     # the reader can navigate from the surface to the source.
     has_source_pointer = any("01_gates.md" in line for line in lines[1:])
     assert has_source_pointer
+
+
+def test_a_dream_hit_carries_the_dream_label_and_a_plain_hit_does_not(tmp_path: Path, monkeypatch):
+    """The index also holds dreams; a dream hit must say it is a dream."""
+    from types import SimpleNamespace
+
+    from divineos.core.dream_files import A_DREAM_LABEL
+
+    db = tmp_path / "search.db"
+    db.write_bytes(b"")
+    hits = [
+        SimpleNamespace(source_path="dreams/aether/001_x.md", similarity=0.5, paragraph_index=2),
+        SimpleNamespace(source_path="exploration/01_x.md", similarity=0.4, paragraph_index=1),
+    ]
+    monkeypatch.setattr(semantic_search, "search", lambda *a, **k: hits)
+    lines = goal_adjacency.adjacency_lines_for_goal("anything", db_path=str(db))
+    dream_line = next(line for line in lines if "001_x.md" in line)
+    plain_line = next(line for line in lines if "exploration/01_x.md" in line)
+    assert A_DREAM_LABEL in dream_line
+    assert A_DREAM_LABEL not in plain_line
