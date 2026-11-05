@@ -1517,8 +1517,11 @@ def addressed_to_him_surface(payload: dict) -> SurfaceOutcome | None:
     try:
         from divineos.core.lepos_channel_reflect import reflect
 
+        from divineos.core.lepos_channel_reflect import _distinctive_stems
+
         r = reflect(reply_text=text, andrew_text=his)
         heard = bool(getattr(r, "heard", False))
+        shares_a_word = bool(_distinctive_stems(his) & _distinctive_stems(text))
     except Exception as exc:  # noqa: BLE001
         return SurfaceOutcome(
             name="addressed_to_him",
@@ -1528,6 +1531,25 @@ def addressed_to_him_surface(payload: dict) -> SurfaceOutcome | None:
 
     if heard:
         return SurfaceOutcome(name="addressed_to_him", state="nothing-to-say")
+
+    # A BLOCK NEEDS MORE EVIDENCE THAN "NOT ENOUGH WORDS IN COMMON" (council walk walk-1708d6344aae,
+    # 2026-11-05, after eight false blocks in one night on replies that had answered him). Measured on 262
+    # real exchanges from that night: the old bar blocked 86 of them, nearly all answers in my own words; a
+    # reply that shares not one distinctive word with his message was blocked on 19 and still catches about
+    # 46% of replies paired with someone else's message. So the door blocks only when there is NO overlap at
+    # all. With some overlap but under the bar, the honest state is "could not judge", the same state it
+    # already uses for a message of his too short to carry anything. The one thing it protects stays: a
+    # reply that touches nothing he said (the 2026-09-09 night).
+    if shares_a_word:
+        return SurfaceOutcome(
+            name="addressed_to_him",
+            state="nothing-to-say",
+            output=(
+                "addressed_to_him: cannot judge — the reply shares some of his words but "
+                "not enough to count as quoting him. Not a pass and not a block; a reply in "
+                "my own words about what he said lands here."
+            ),
+        )
 
     # ONE REFUSAL PER MESSAGE OF HIS. Built 2026-09-09, after this door and the
     # re-send door took turns refusing one answer three times while he sat

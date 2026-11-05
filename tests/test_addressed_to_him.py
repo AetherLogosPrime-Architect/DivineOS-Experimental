@@ -415,9 +415,11 @@ def test_THE_LIVE_FAILURE_a_reply_that_answers_him_without_quoting_him(tmp_path,
     a fully green suite sat beside six live false refusals without either one
     contradicting the other.
 
-    This asserts the DEFECT, deliberately, so the suite stays honest while the
-    hole stays visible. When the door learns to tell answering from vocabulary,
-    this test starts failing and its message says what to do.
+    INVERTED 2026-11-05, as this docstring asked it to be when the door could tell
+    answering from vocabulary. It does not read meaning (it cannot), but it now
+    blocks only when a reply shares NOT ONE distinctive word with his message, so a
+    reply that answers him in my own words is no longer blocked. See
+    ``test_a_reply_that_shares_a_word_is_never_blocked`` below for the real cases.
     """
     import divineos.core.hook_surfaces as hs
 
@@ -436,11 +438,8 @@ def test_THE_LIVE_FAILURE_a_reply_that_answers_him_without_quoting_him(tmp_path,
     payload = _transcript(tmp_path, [("user", his), ("assistant", answers_him_in_my_own_words)])
     out = addressed_to_him_surface(payload)
 
-    assert out.refused, (
-        "THE DOOR NOW PASSES A REPLY THAT ANSWERS WITHOUT QUOTING — which is the "
-        "repair this test was written to wait for. Invert it: the defect it "
-        "documents is gone."
-    )
+    assert not out.refused, "a reply that answers him in my own words must not be blocked"
+    assert "cannot judge" in out.output
 
 
 THIRD_PERSON_REPORT = (
