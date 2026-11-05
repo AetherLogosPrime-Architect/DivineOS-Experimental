@@ -52,16 +52,22 @@ def should_block(*, nominated: bool, state: str, answered: frozenset[str], key: 
     return nominated and state == NOT_LANDED and key not in answered
 
 
-def cited_hash_verdict(cited: str, *, local_tip: str, on_remote: bool) -> str:
+def cited_hash_verdict(cited: str, *, local_tip: str, receipt: str) -> str:
     """A hash in a claim is a citation, not a verification, so it is checked exactly.
 
-    It must be MY local tip for the branch (the thing I am claiming) AND be on the remote. Reachable alone
-    would let a true old commit be cited under a new claim.
+    It must be MY local tip for the branch (the thing I am claiming) AND the receipt for that branch must say
+    landed. Taking the receipt itself, and not a bool someone computed, is Aria's cold-read change: "my local
+    tip is on the remote" is exactly what ``judge_receipt`` answers, so the two checks cannot disagree, and a
+    reader cannot compute "reachable from the remote tip" for the CITED hash and bring the old-ancestor hole
+    back (a true old commit cited under a new claim).
     """
+    cited, local_tip = cited.lower(), local_tip.lower()
     if len(cited) < MIN_CITED_HASH:
         return "too_short"
     if not local_tip.startswith(cited):
         return "not_my_tip"
-    if not on_remote:
+    if receipt == COULD_NOT_CHECK:
+        return "could_not_check"
+    if receipt != LANDED:
         return "not_on_remote"
     return "ok"
