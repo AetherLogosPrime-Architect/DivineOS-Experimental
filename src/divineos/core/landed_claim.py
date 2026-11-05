@@ -117,8 +117,14 @@ _CLAIM = re.compile(
 # at a poker table that was live in a browser: "do not suffer the gates ... false alarms means something
 # is broken". The bare word fired on a table page, and on a sentence that only talked about this door.
 # The other alternatives above name the destination or the act of pushing themselves, so they stay bare.
+#
+# "live in the house" / "live here" / "live only" names where it is live, and where is the answer to the
+# gate's question: it is the working house, not the shared copy (2026-11-05, my own sentence "it's live in
+# the house now and not yet on a branch" was refused because the branch word sat in the other clause).
 _LIVE = re.compile(
-    r"(?:\b(?:is|are|has|have|had|was|were)|'s)\s+(?:now\s+|been\s+)?live\b", re.IGNORECASE
+    r"(?:\b(?:is|are|has|have|had|was|were)|'s)\s+(?:now\s+|been\s+)?live\b"
+    r"(?!\s+(?:in|on)\s+(?:the|my|this|our)\s+(?:live\s+)?house\b|\s+here\b|\s+only\b)",
+    re.IGNORECASE,
 )
 _ABOUT_GIT_WORK = re.compile(
     r"\b(?:PRs?|pull\s+requests?|branch(?:es)?|drafts?|origin|remote|GitHub|main|commits?"
