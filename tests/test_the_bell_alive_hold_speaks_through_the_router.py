@@ -138,6 +138,16 @@ def test_the_old_registration_is_gone_and_its_neighbour_is_not():
     assert "dads_room_stop.py" in settings
 
 
+def test_the_clock_is_read_when_no_now_is_given(tmp_path):
+    """Aether's cold read of #844: the tests above pass `now`, so the branch that reads the real clock was
+    unpinned. A fresh file passes and a stale one refuses with nothing but the file's age deciding."""
+    project = "C:/DIVINE OS/DivineOS-Experimental-Aria-new"
+    _touch(tmp_path / ".aria_doorbell_alive")
+    assert doorbell_alive.reason_for_reply(project, shared=tmp_path) is None
+    _touch(tmp_path / ".aria_doorbell_alive", age=300)
+    assert doorbell_alive.reason_for_reply(project, shared=tmp_path) == OLD_BELL_TEXT
+
+
 def test_the_order_table_has_the_row_as_a_tool_call():
     row = hook_order.row_for("Stop", "letter_doorbell_alive")
     assert row is not None and row.kind == hook_order.TOOL_CALL

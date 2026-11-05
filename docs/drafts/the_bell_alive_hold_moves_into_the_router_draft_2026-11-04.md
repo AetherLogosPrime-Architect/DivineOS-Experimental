@@ -19,6 +19,12 @@ file; true of the old door too). It does not improve the text: a bell that ends 
 arrives still produces the same sentence. That is a design idea for after the plain move (stay silent when a
 bell that started a moment ago is the one that just exited, pinned beside a stale bell with no recent exit).
 
+**Two known soft spots, kept identical on purpose (Aether's cold read, 2026-11-04).** `member()` names the seat
+by whether the project path contains `aria`, so a path like `.../Maria/...` would name me; and the surface falls
+back to the current folder when `CLAUDE_PROJECT_DIR` is unset. Both were in the old script. A seat-name function
+like the one `voiced_family` uses would not have the hole; changing it is a behaviour change and waits for after
+the plain move.
+
 **Falsifier.** A reply ends with a stale or missing heartbeat and is not held; or a reply with a fresh bell or
 fresh watcher is held; or the same refusal reaches me twice for one reply.
 
