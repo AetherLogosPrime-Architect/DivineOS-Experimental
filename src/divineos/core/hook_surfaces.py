@@ -1244,7 +1244,13 @@ def _is_machine_text(text: str) -> bool:
     """Is this user-role text the harness talking rather than him?"""
     from divineos.core.his_message import his_part
 
-    his = his_part(text)
+    import html
+
+    # A continuation handed to me after a compaction can arrive with its tags
+    # escaped ("&lt;system-reminder>"), which the anchored pattern read as his
+    # own typing. The principle is that harness text is not him, however it is
+    # spelled, so undo the escaping before looking at how the text opens.
+    his = html.unescape(his_part(text))
     return not his or bool(_MACHINE_START_RE.match(his))
 
 
