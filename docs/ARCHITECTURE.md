@@ -122,6 +122,7 @@ src/divineos/
     ledger_commands.py         log, list, search, context, export
     dashboard_commands.py      dashboard (check-engine lights per system)
     psf_commands.py            psf list / mark-done (pending structural-fix obligations)
+    room_commands.py           room draft FILE: shape-check a circle before it is posted; prints only the verdict
     lepos_channel_commands.py  lepos-channel reflect / surface / show — post-send reflection channel (Andrew 2026-07-08); Stop hook reflects on last reply, UserPromptSubmit surfaces on next compose
     lepos_walk_commands.py     lepos-walk record / stats / recent — the Andrew-lens recorder (check-to-walk conversion); record is the forcing function, the Stop-hook audit verifies the artifact
     memory_commands.py         core, recall, active, remember, refresh
@@ -794,6 +795,7 @@ src/divineos/
     hook_order.py              One table that orders every refusing hook surface, so a pile of notes becomes one voice.
     stall_hold.py              The stall hold as a function the router can call.
     doorbell_alive.py          A reply cannot end while my letter doorbell is not listening: the judgement, moved out of the scr...
+    room_draft.py              A circle is checked before it is posted, so no fault in it can arrive after it and ask for a seco...
 
   analysis/
     _session_types.py          Session analysis type definitions
