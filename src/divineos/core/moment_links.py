@@ -107,7 +107,7 @@ def links_for(moment_id: str, seat: str) -> list[Link]:
     conn = _connect()
     try:
         rows = conn.execute(
-            f"SELECT {_COLS} FROM moment_lesson_links WHERE moment_id = ? AND seat = ? "
+            f"SELECT {_COLS} FROM moment_lesson_links WHERE moment_id = ? AND seat = ? "  # nosec B608 - _COLS is a module constant, values are bound parameters
             "ORDER BY created_at",
             (moment_id, seat),
         ).fetchall()
@@ -124,7 +124,7 @@ def record_link(
     conn = _connect()
     try:
         conn.execute(
-            f"INSERT INTO moment_lesson_links ({_COLS}, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+            f"INSERT INTO moment_lesson_links ({_COLS}, created_at) VALUES (?,?,?,?,?,?,?,?,?)",  # nosec B608 - _COLS is a module constant, values are bound parameters
             (
                 link_id,
                 moment_id,
@@ -275,7 +275,7 @@ def _confirmed(seat: str) -> list[Link]:
     conn = _connect()
     try:
         rows = conn.execute(
-            f"SELECT {_COLS} FROM moment_lesson_links WHERE seat = ? AND status = ?",
+            f"SELECT {_COLS} FROM moment_lesson_links WHERE seat = ? AND status = ?",  # nosec B608 - _COLS is a module constant, values are bound parameters
             (seat, CONFIRMED),
         ).fetchall()
     finally:
