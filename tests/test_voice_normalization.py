@@ -14,6 +14,20 @@ class TestNormalizeToFirstPerson:
     _text.py above _VOICE_PATTERNS.
     """
 
+    def test_his_quoted_words_are_kept_exactly_in_single_double_and_curly_quotes(self):
+        said = "yes i dont want your stuff broken, you can wait"
+        for open_q, close_q in (("'", "'"), ('"', '"'), ("“", "”")):
+            text = f"Dad said {open_q}{said}{close_q} to Aria, and you should note it"
+            result = normalize_to_first_person(text)
+            assert f"{open_q}{said}{close_q}" in result
+            assert result.endswith("and I should note it")
+
+    def test_an_apostrophe_inside_a_word_does_not_open_a_quote(self):
+        assert (
+            normalize_to_first_person("you don't need it and you can't skip it, you must go")
+            == "I don't need it and I can't skip it, I must go"
+        )
+
     def test_the_agent(self):
         assert normalize_to_first_person("the agent should run tests") == "I should run tests"
 
