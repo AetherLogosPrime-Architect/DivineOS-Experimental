@@ -98,8 +98,16 @@ def scene_lines(rec: dict[str, Any]) -> list[str]:
     before = rec.get("before") or []
     if before:
         last = before[-1]
-        lines.append(
-            f"  and the turn before it ({last.get('role', '?')}): {_clip(last.get('text', ''))}"
-        )
+        role = last.get("role", "?")
+        text = last.get("text", "")
+        if role == "user":
+            # Aria's second read: a user turn that is only his file reference printed the raw path here.
+            text, only_a_file = his_part_of(text)
+            if not text:
+                text = (
+                    "he had attached a file (his words are not in the index)" if only_a_file else ""
+                )
+        if text:
+            lines.append(f"  and the turn before it ({role}): {_clip(text)}")
     lines.append(f"  (said in the {seats} seat)")
     return lines

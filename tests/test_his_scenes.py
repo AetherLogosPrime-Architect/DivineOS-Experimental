@@ -98,6 +98,16 @@ def test_his_own_words_in_the_room_are_kept_whole():
     assert mine == "ok go ahead.. and use powershell if you cant get around it" and not only_a_file
 
 
+def test_a_user_turn_before_that_is_only_a_file_reference_prints_no_path():
+    rec = {
+        "seats": ["aether"],
+        "before": [{"role": "user", "text": '@"C:\\Users\\aethe\\Downloads\\letter_x.md"'}],
+    }
+    text = "\n".join(scenes.scene_lines(rec))
+    assert "Downloads" not in text and "letter_x" not in text
+    assert "he had attached a file" in text
+
+
 def test_a_long_turn_is_clipped_never_summarised():
     long = {"seats": ["aria"], "before": [{"role": "assistant", "text": "word " * 200}]}
     line = [x for x in scenes.scene_lines(long) if "turn before" in x][0]
