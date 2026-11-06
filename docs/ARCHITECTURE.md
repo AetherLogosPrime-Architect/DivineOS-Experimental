@@ -791,6 +791,7 @@ src/divineos/
     stall_on_promise.py        A promise to act is followed by the act, when no one is there to push.
     memory_linkage_own_words.py The memory link, read through what I said last turn, apart from what he said.
     dads_bell.py               The bell for Dad: his open asks, and what would hold my other work until I move on them.
+    read_only_shell.py         One public home for "a shell command that only looks".
 
   analysis/
     _session_types.py          Session analysis type definitions

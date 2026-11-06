@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 from divineos.core.command_parsing import runs_only
 from divineos.core.his_voice_ends_the_turn import let_through
+from divineos.core.read_only_shell import BELL_EXTRA_COMMANDS, BELL_EXTRA_PREFIXES, is_read_only
 from divineos.core.remedy_allowlist import is_remedy
 
 PASS = "pass"
@@ -65,7 +66,13 @@ def always_passes(tool_name: str, tool_input: dict) -> bool:
     if tool_name != "Bash":
         return False
     command = str((tool_input or {}).get("command") or "")
-    return is_remedy(command) or runs_only(command, _REFLECTION_NOTE)
+    # A plain command that only looks is left alone (Aria's break): the voice door's list is deliberately narrow
+    # because it stops everything when he speaks mid-turn, but the bell's first false hold ends it, so harmless
+    # work must pass. The base is the engagement gate's own list; the extras are the bell's, named in one place.
+    looks_only = is_read_only(
+        command, extra_commands=BELL_EXTRA_COMMANDS, extra_prefixes=BELL_EXTRA_PREFIXES
+    )
+    return looks_only or is_remedy(command) or runs_only(command, _REFLECTION_NOTE)
 
 
 def hold_sentence(ask: Ask) -> str:

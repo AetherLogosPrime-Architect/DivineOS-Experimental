@@ -96,6 +96,44 @@ def test_every_exit_the_other_doors_prescribe_passes_because_the_house_keeps_one
         assert _judge(("Bash", {"command": command})).state == PASS, command
 
 
+def test_plain_commands_that_only_look_are_never_held():
+    """Aria's break, the one that would end the bell: every plain looking-only shell command was held, because the
+    bell took its looking tools from the voice door, which is deliberately narrow (it stops EVERYTHING when he
+    speaks mid-turn). The bell's job is the opposite: the first false hold ends it, so harmless work is left alone.
+    I ran these dozens of times today."""
+    for command in (
+        "ls -l /tmp",
+        "git status",
+        "git log --oneline -3",
+        "git diff --stat",
+        "git show HEAD",
+        "grep x file",
+        "head -5 file",
+        "wc -l file",
+        "date",
+        "tail -20 file",
+        "pwd",
+        "gh pr list",
+        "gh pr view 842",
+        "git ls-remote origin",
+        "git fetch origin",
+        "git worktree list",
+        "git branch -a",
+        "divineos linkage warm",
+    ):
+        assert _judge(("Bash", {"command": command})).state == PASS, command
+
+
+def test_a_command_that_changes_something_is_still_held_even_dressed_as_looking():
+    for command in (
+        "date && git push origin some-branch",
+        "ls > out.txt",
+        "gh pr merge 842",
+        "git worktree remove C:/x",
+    ):
+        assert _judge(("Bash", {"command": command})).state == WOULD_HOLD, command
+
+
 def test_a_prescribed_exit_with_other_work_chained_behind_it_is_not_an_exit():
     """The house's own rule: a remedy with other work chained behind it is not a remedy."""
     chained = ("Bash", {"command": 'divineos goal add "x" && git push origin some-branch'})
