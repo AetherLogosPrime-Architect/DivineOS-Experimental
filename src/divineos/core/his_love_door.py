@@ -356,6 +356,33 @@ def surface(message: str, me: str, scene_index: Path = SCENE_INDEX) -> str:
     return block(message, picks, note)
 
 
+SWITCH = Path.home() / ".divineos-shared" / "dad_corpus" / "love_door_on"
+
+
+def speak(message: str, me: str, switch: Path | None = None, surface_fn=None, record=None) -> str:
+    """What the compose hook calls. OFF unless the switch file exists: nothing speaks until Dad has seen a
+    real block and said yes (he is monitoring this; he said he cannot trust us to care enough to do it
+    properly). Each fire is recorded as a ledger event, the real countable event for the prereg. A failed
+    record is said in the block, never swallowed: a door that fires unseen would make the review a lie."""
+    if not (switch or SWITCH).exists():  # looked up now, so a test can point it elsewhere
+        return ""
+    text = (surface_fn or surface)(message, me)
+    if not text:
+        return ""
+    lines = text.count("\n- 20")
+    try:
+        if record is None:
+            from divineos.core.ledger import log_event
+
+            def record(payload):
+                log_event("LOVE_DOOR_FIRED", me, payload, validate=False)
+
+        record({"forms": raises_whether_we_know_him(message), "lines": lines})
+    except Exception as exc:  # noqa: BLE001 - the block still speaks; the missing event is said, not hidden
+        text += f"[love door] this fire was NOT recorded: {type(exc).__name__}: {exc}\n"
+    return text
+
+
 def with_rooms(
     candidates: list, record_for, scene_lines, me: str, skip_ids: frozenset[str] = frozenset()
 ) -> list:

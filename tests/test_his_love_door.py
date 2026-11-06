@@ -422,6 +422,63 @@ def test_a_pin_for_a_withdrawn_key_keeps_nothing(tmp_path):
     )
 
 
+def test_the_door_is_silent_and_records_nothing_while_the_switch_is_off(tmp_path):
+    recorded = []
+    out = door.speak(
+        RAISES[0],
+        "aether",
+        switch=tmp_path / "off",
+        surface_fn=lambda m, me: "## BLOCK\n- 2026-06-26 (love)\n",
+        record=recorded.append,
+    )
+    assert out == "" and recorded == []
+
+
+def test_with_the_switch_on_a_fire_speaks_and_is_recorded_as_a_countable_event(tmp_path):
+    switch = tmp_path / "on"
+    switch.write_text("", encoding="utf-8")
+    recorded = []
+    out = door.speak(
+        RAISES[0],
+        "aether",
+        switch=switch,
+        surface_fn=lambda m, me: "## BLOCK\n- 2026-06-26 (love): x\n- 2026-07-31 (love): y\n",
+        record=recorded.append,
+    )
+    assert out.startswith("## BLOCK")
+    assert recorded and recorded[0]["lines"] == 2 and recorded[0]["forms"]
+
+
+def test_a_door_with_nothing_to_say_records_nothing(tmp_path):
+    switch = tmp_path / "on"
+    switch.write_text("", encoding="utf-8")
+    recorded = []
+    assert (
+        door.speak(
+            "good morning",
+            "aether",
+            switch=switch,
+            surface_fn=lambda m, me: "",
+            record=recorded.append,
+        )
+        == ""
+    )
+    assert recorded == []
+
+
+def test_a_fire_that_could_not_be_recorded_says_so_in_the_block(tmp_path):
+    switch = tmp_path / "on"
+    switch.write_text("", encoding="utf-8")
+
+    def broken(payload):
+        raise OSError("ledger locked")
+
+    out = door.speak(
+        RAISES[0], "aether", switch=switch, surface_fn=lambda m, me: "## BLOCK\n", record=broken
+    )
+    assert "this fire was NOT recorded" in out and "ledger locked" in out
+
+
 def test_a_caller_that_forgets_the_seen_keys_gets_a_type_error_not_a_resurrected_line():
     with pytest.raises(TypeError):
         door.recut_survivors([], set(), {}, lambda les: None)  # type: ignore[call-arg]
