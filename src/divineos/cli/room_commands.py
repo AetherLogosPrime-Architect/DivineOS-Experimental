@@ -29,6 +29,13 @@ def register(cli: click.Group) -> None:
         shape = record_draft(text, DRAFT_RECORD, now=time.time())
         if not shape.ok:
             raise click.ClickException(f"not cleared: {shape.problem}")
+        # A real, ledger-visible use: a review that counts by this event cannot run on automated notices.
+        from divineos.core.ledger import log_event
+        from divineos.core.room_draft import fingerprint
+
+        log_event(
+            "ROOM_DRAFT_CLEARED", "aether", {"fingerprint": fingerprint(text)}, validate=False
+        )
         click.echo(
             "cleared: post it as written (whitespace and quote marks may differ, words may not)"
         )
