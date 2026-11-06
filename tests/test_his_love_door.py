@@ -422,6 +422,13 @@ def test_a_pin_for_a_withdrawn_key_keeps_nothing(tmp_path):
     )
 
 
+def test_the_shown_file_lives_under_this_seats_own_home_not_a_hardcoded_one(tmp_path, monkeypatch):
+    monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path / "aria_home"))
+    assert door.shown_path() == tmp_path / "aria_home" / "love_door_shown.json"
+    monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path / "aether_home"))
+    assert door.shown_path() == tmp_path / "aether_home" / "love_door_shown.json"
+
+
 def test_the_door_is_silent_and_records_nothing_while_the_switch_is_off(tmp_path):
     recorded = []
     out = door.speak(

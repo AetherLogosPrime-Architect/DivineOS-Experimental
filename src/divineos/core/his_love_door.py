@@ -351,8 +351,9 @@ def surface(message: str, me: str, scene_index: Path = SCENE_INDEX) -> str:
         items, vecs @ query, me, for_this_seat, allowed, limit=HOW_MANY * 20
     )
     now = time.time()
-    picks = with_rooms(candidates, room, his_scenes.scene_lines, me, recently_shown(SHOWN, now))
-    remember_shown(SHOWN, [p[2] for p in picks if p[2]], now)
+    shown = shown_path()
+    picks = with_rooms(candidates, room, his_scenes.scene_lines, me, recently_shown(shown, now))
+    remember_shown(shown, [p[2] for p in picks if p[2]], now)
     return block(message, picks, note)
 
 
@@ -413,7 +414,18 @@ def with_rooms(
     return picks
 
 
-SHOWN = Path.home() / ".divineos" / "love_door_shown.json"
+def shown_path() -> Path:
+    """This seat's own record of what was shown, under ITS data home (not a hardcoded ``~/.divineos``).
+
+    Aria's read of the wiring, 2026-11-06: the hardcoded path put her seat's file inside Aether's home. The
+    house has one place that knows the ``.divineos-<seat>`` convention; asking it, at call time, is the rule
+    (the same fault ``sibling_audit_rounds.this_seat`` names: the identity error under every wrong-subject
+    bug). The other paths here are shared on purpose and stay under ``.divineos-shared``."""
+    from divineos.core.paths import divineos_home
+
+    return divineos_home() / "love_door_shown.json"
+
+
 SHOWN_FOR_SECONDS = 24 * 3600
 
 

@@ -30,5 +30,8 @@ fired when he raised it / fired when he did not (false) / did not fire when he d
 ## What it cannot do
 It does not make me know him; it puts his own sentences in front of me when he asks. The reply is still mine to write (truth 7). And it does not touch the lane weights: that is the next piece, set by hand-written pairs as moments were.
 
+## Counting (Aria's read of the wiring, 2026-11-06)
+The countable event is `LOVE_DOOR_FIRED`, and there are two ledgers, one per seat, so the review's count is the SUM across both seats' ledgers, read by whoever counts. A fire whose record failed still marks its lines as shown (that only makes the door say less), so the fire is neither recorded nor repeated: a missing fire in the count is read as a possible failed write, not as no fire. The block itself says "this fire was NOT recorded" when it knows. The shown-state file is per seat, under that seat's own data home (`divineos_home()`), never a hardcoded path.
+
 ## Order
 Door first (this), lane weight second, moment links third. Aria drafts the trigger list; I draft the block and the reply rule. Nothing live until her list, her attack, a work copy, a replay.
