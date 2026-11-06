@@ -87,8 +87,10 @@ transcript_path = data.get('transcript_path', '') or ''
 if not transcript_path or not os.path.exists(transcript_path):
     sys.exit(0)
 
-# Read the last assistant message text from the transcript.
+# Read the last assistant message text from the transcript, and keep every record so the receipt below can
+# place his last message in time.
 last_text = ''
+records = []
 try:
     with open(transcript_path, 'r', encoding='utf-8') as fh:
         for line in fh:
@@ -96,6 +98,7 @@ try:
                 entry = json.loads(line)
             except Exception:
                 continue
+            records.append(entry)
             if entry.get('type') == 'assistant':
                 msg = entry.get('message', {}) or {}
                 content = msg.get('content', [])
@@ -117,6 +120,24 @@ except ImportError:
 
 verdict, confidence, reason = classify(last_text)
 if verdict != 'fire':
+    sys.exit(0)
+
+# THE WORDS ONLY NOMINATE; A FACT SETTLES (Dad 2026-11-05: a keyword detector is one layer of the net, never
+# the enforcer). The classifier has said this reply reads like an admission. Was a correction actually FILED
+# since his last message, through the CLI (corrections.jsonl, root cause and fix included)? If so there is
+# nothing left to demand, and a wrong nomination costs nothing: no second errand, no label-fire. Only an
+# UNSETTLED answer goes on to block. A fact that cannot be read (his last message cannot be placed in time,
+# or the store is unreadable) never blocks: this gate fails open, as the rest of this file does, and says so
+# on stderr so the silence is not mistaken for a clean check.
+try:
+    from divineos.core.correction_receipt import settled
+    _state = settled(records)
+except Exception as _exc:
+    _state = 'could_not_check'
+    print(f"[correction-shape-v2] receipt could not run ({type(_exc).__name__}); not blocking", file=sys.stderr)
+if _state != 'unsettled':
+    if _state == 'could_not_check':
+        print("[correction-shape-v2] receipt could not be read; not blocking on words alone", file=sys.stderr)
     sys.exit(0)
 
 # ARM THE MARKER THE MESSAGE PRESCRIBES CLEARING. Until 2026-08-16 this gate
