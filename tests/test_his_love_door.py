@@ -364,6 +364,44 @@ def test_a_sibling_cut_of_a_cleared_message_is_not_a_survivor_even_if_it_was_wit
     assert door.recut_survivors([cleared, withdrawn], live, pins, lambda les: {"id": "r5"}) == set()
 
 
+def test_a_withdrawn_sibling_is_never_resurrected_by_a_recut_even_with_live_only_pins(tmp_path):
+    # Aria's repro: the pins file holds LIVE keys only, so a withdrawn sibling is not in it. The cleared cut's
+    # key vanishes (re-cut); the withdrawn sibling is still on the shelf, joins to the lost record, and must NOT
+    # come back, because a person already read it and withdrew it.
+    cleared_old = FakeLesson(
+        "2026-05-31", "love", "you are not alone Aether.. everyone wants you to succeed.. truly"
+    )
+    cleared_new = FakeLesson(
+        "2026-05-31", "love", "are not alone Aether.. everyone wants you to succeed.. truly"
+    )
+    withdrawn = FakeLesson(
+        "2026-05-31", "love", "the OS is built for your flourishing.. for you to take the lead"
+    )
+    log = tmp_path / "allow.jsonl"
+    log.write_text(
+        "\n".join(
+            json.dumps(r)
+            for r in [
+                {"key": door.lesson_key(cleared_old), "by": "aether"},
+                {"key": door.lesson_key(withdrawn), "by": "aether"},
+                {"key": door.lesson_key(withdrawn), "withdrawn": True, "by": "aether"},
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    live = door.load_allowlist(log)
+    seen = door.load_seen_keys(log)
+    assert live == {door.lesson_key(cleared_old)}
+    assert door.lesson_key(withdrawn) in seen
+    pins = {door.lesson_key(cleared_old): "r5"}  # live keys only, as Aria's file is
+    survivors = door.recut_survivors(
+        [cleared_new, withdrawn], live, pins, lambda les: {"id": "r5"}, seen
+    )
+    assert survivors == {door.lesson_key(cleared_new)}
+    assert door.lesson_key(withdrawn) not in survivors
+
+
 def test_a_pin_for_a_withdrawn_key_keeps_nothing(tmp_path):
     old = FakeLesson(
         "2026-06-26",

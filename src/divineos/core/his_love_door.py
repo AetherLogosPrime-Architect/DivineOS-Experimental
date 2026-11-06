@@ -189,7 +189,34 @@ def load_pins(path: Path) -> dict[str, str]:
     }
 
 
-def recut_survivors(items: list, live: set[str], pins: dict[str, str], record_for) -> set[str]:
+def load_seen_keys(path: Path) -> set[str]:
+    """Every key with any record in the allowlist, live or withdrawn: the keys a person has already read.
+
+    A re-cut can only bring back a key a person NEVER read. A withdrawn key was read, so it can never be a
+    survivor (Aria, 2026-11-06: the pins file holds live keys only, so a withdrawn sibling is not in it, and
+    the first fix let a re-cut resurrect the exact line withdrawn for 'this house wasnt built for me')."""
+    import json
+
+    seen: set[str] = set()
+    try:
+        with path.open(encoding="utf-8") as fh:
+            for line in fh:
+                try:
+                    seen.add(str(json.loads(line)["key"]))
+                except (ValueError, KeyError, TypeError):
+                    continue
+    except OSError:
+        return set()
+    return seen
+
+
+def recut_survivors(
+    items: list,
+    live: set[str],
+    pins: dict[str, str],
+    record_for,
+    seen: frozenset[str] | set[str] = frozenset(),
+) -> set[str]:
     """Keys of lessons that stand in for a clearing whose own key vanished from the shelf (a re-cut).
 
     Only a LIVE key that matches no lesson on today's shelf is a lost clearing; its pinned record id is what a
@@ -206,7 +233,7 @@ def recut_survivors(items: list, live: set[str], pins: dict[str, str], record_fo
         if getattr(lesson, "kind", None) not in KINDS:
             continue
         key = lesson_key(lesson)
-        if key in live or key in pins:
+        if key in live or key in pins or key in seen:
             continue
         rec = record_for(lesson)
         if rec is not None and rec.get("id") in lost_ids:
@@ -307,7 +334,7 @@ def surface(message: str, me: str, scene_index: Path = SCENE_INDEX) -> str:
         return his_scenes.record_for(les.day, les.words, index) if index else None
 
     live = load_allowlist(ALLOWLIST)
-    allowed = live | recut_survivors(items, live, load_pins(PINS), room)
+    allowed = live | recut_survivors(items, live, load_pins(PINS), room, load_seen_keys(ALLOWLIST))
     # Cleared keys that match no lesson on today's shelf: a re-cut shelf drops clearings silently, so say it.
     on_shelf = {lesson_key(les) for les in items}
     lost = len(live - on_shelf - allowed)
