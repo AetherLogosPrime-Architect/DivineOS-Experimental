@@ -5,6 +5,32 @@ from divineos.core.knowledge import _is_extraction_noise, _is_vacuous_summary
 from divineos.core.knowledge._text import _is_conversational_deliberation
 
 
+class TestHookComplaintIsNotKnowledge:
+    """2026-11-06: a hook's complaint text arrives in the user channel and was filed as 32 lessons, which then came
+    back at the top of his turns as noise. The gate's own text lives in the gate; it is not knowledge."""
+
+    def test_a_stop_hook_complaint_is_noise(self):
+        text = "Stop hook feedback: SUMMARY ROOM MISSING -- this reply's work section runs 2969 characters"
+        for kind in ("OBSERVATION", "DIRECTION", "PRINCIPLE", "BOUNDARY"):
+            assert _is_extraction_noise(text, kind)
+
+    def test_a_plain_hook_feedback_line_is_noise_with_a_leading_prefix_too(self):
+        assert _is_extraction_noise("Hook feedback: THIS IS my ROOM, AFTER WORK", "OBSERVATION")
+        assert _is_extraction_noise(
+            "I should: Stop hook feedback: THE STAMP -- not this one", "DIRECTION"
+        )
+
+    def test_real_knowledge_that_only_mentions_a_hook_still_passes(self):
+        """The new pattern anchors at the start of the text: a sentence that mentions a hook's feedback in the
+        middle is not caught by it (other filters judge such sentences on their own terms)."""
+        from divineos.core.knowledge._text import _SYSTEM_ARTIFACT
+
+        keep = (
+            "A gate that sends hook feedback without a reason is mine to fix by adding the reason."
+        )
+        assert not _SYSTEM_ARTIFACT.search(keep)
+
+
 class TestConversationalDeliberation:
     """Council/Wittgenstein 2026-05-25, prereg-1f898dbadfc8: dialogue-moves
     mis-typed as PRINCIPLE must be flagged; portable claims must survive.
