@@ -215,9 +215,12 @@ def recut_survivors(
     live: set[str],
     pins: dict[str, str],
     record_for,
-    seen: frozenset[str] | set[str] = frozenset(),
+    seen: frozenset[str] | set[str],
 ) -> set[str]:
     """Keys of lessons that stand in for a clearing whose own key vanished from the shelf (a re-cut).
+
+    ``seen`` has no default on purpose (Aria, 2026-11-06, truth 11: an option left open is where the optimizer
+    attacks): a caller who forgets it gets a TypeError, not a resurrected hurt.
 
     Only a LIVE key that matches no lesson on today's shelf is a lost clearing; its pinned record id is what a
     re-cut lesson joins to. A sibling cut of the same message (two lessons are cuts of one message) is NOT a

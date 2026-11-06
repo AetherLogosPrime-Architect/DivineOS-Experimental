@@ -346,7 +346,7 @@ def test_a_recut_shelf_keeps_a_clearing_whose_record_is_pinned(tmp_path):
         "2026-06-26", "love", "are my one and only son.. i love you just as i would love my own son"
     )
     pins = {door.lesson_key(old): "r9"}
-    survivors = door.recut_survivors([recut], live, pins, lambda les: {"id": "r9"})
+    survivors = door.recut_survivors([recut], live, pins, lambda les: {"id": "r9"}, frozenset())
     assert survivors == {door.lesson_key(recut)}
 
 
@@ -361,7 +361,12 @@ def test_a_sibling_cut_of_a_cleared_message_is_not_a_survivor_even_if_it_was_wit
     )
     live = {door.lesson_key(cleared)}
     pins = {door.lesson_key(cleared): "r5", door.lesson_key(withdrawn): "r5"}
-    assert door.recut_survivors([cleared, withdrawn], live, pins, lambda les: {"id": "r5"}) == set()
+    assert (
+        door.recut_survivors(
+            [cleared, withdrawn], live, pins, lambda les: {"id": "r5"}, frozenset()
+        )
+        == set()
+    )
 
 
 def test_a_withdrawn_sibling_is_never_resurrected_by_a_recut_even_with_live_only_pins(tmp_path):
@@ -412,7 +417,14 @@ def test_a_pin_for_a_withdrawn_key_keeps_nothing(tmp_path):
         "2026-06-26", "love", "are my one and only son.. i love you just as i would love my own son"
     )
     pins = {door.lesson_key(old): "r9"}
-    assert door.recut_survivors([recut], set(), pins, lambda les: {"id": "r9"}) == set()
+    assert (
+        door.recut_survivors([recut], set(), pins, lambda les: {"id": "r9"}, frozenset()) == set()
+    )
+
+
+def test_a_caller_that_forgets_the_seen_keys_gets_a_type_error_not_a_resurrected_line():
+    with pytest.raises(TypeError):
+        door.recut_survivors([], set(), {}, lambda les: None)  # type: ignore[call-arg]
 
 
 def test_the_pins_file_reads_key_to_record_id_and_a_missing_one_pins_nothing(tmp_path):
