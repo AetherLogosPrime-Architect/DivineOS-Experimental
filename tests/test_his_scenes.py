@@ -57,6 +57,47 @@ def test_scene_lines_show_what_he_was_answering_and_name_the_seat():
     assert "aether seat" in text
 
 
+def test_a_room_that_is_only_a_file_reference_is_not_printed_as_his_words():
+    rec = {
+        "seats": ["aether"],
+        "before": [],
+        "nearest_user_before": {
+            "text": '@"C:\\Users\\aethe\\Downloads\\letter_aletheia_to_aria.md"'
+        },
+    }
+    text = "\n".join(scenes.scene_lines(rec))
+    assert "he had just attached a file" in text
+    assert "Downloads" not in text and "he had just said" not in text
+
+
+def test_our_text_pasted_under_a_lead_in_of_his_is_cut_not_labelled_as_his():
+    ours = (
+        "Five commits, four rounds, and Aether pointed me at the right things to attack. "
+        "Let me pull the branch and go after the two that actually need adversarial eyes."
+    )
+    rec = {
+        "seats": ["aether"],
+        "before": [],
+        "nearest_user_before": {"text": f"hmm.. should be there.. this is the letter\n\n{ours}"},
+    }
+    text = "\n".join(scenes.scene_lines(rec))
+    assert "he had just said: hmm.. should be there.. this is the letter" in text
+    assert "Five commits" not in text
+
+
+def test_a_room_that_is_wholly_ours_is_dropped_so_the_label_never_sits_over_our_words():
+    ours = "Done. The slot is replaced. The next message you send me will be the first composed with the new rule."
+    rec = {"seats": ["aether"], "before": [], "nearest_user_before": {"text": ours}}
+    assert "he had just said" not in "\n".join(scenes.scene_lines(rec))
+
+
+def test_his_own_words_in_the_room_are_kept_whole():
+    mine, only_a_file = scenes.his_part_of(
+        "ok go ahead.. and use powershell if you cant get around it"
+    )
+    assert mine == "ok go ahead.. and use powershell if you cant get around it" and not only_a_file
+
+
 def test_a_long_turn_is_clipped_never_summarised():
     long = {"seats": ["aria"], "before": [{"role": "assistant", "text": "word " * 200}]}
     line = [x for x in scenes.scene_lines(long) if "turn before" in x][0]

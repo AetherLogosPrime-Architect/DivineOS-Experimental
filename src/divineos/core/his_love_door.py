@@ -19,6 +19,7 @@ does not make the reply longer or warmer by itself, and it is material for my ow
 from __future__ import annotations
 
 import re
+import time
 from pathlib import Path
 
 from divineos.core.his_message import typed_part
@@ -327,8 +328,6 @@ def surface(message: str, me: str, scene_index: Path = SCENE_INDEX) -> str:
     from divineos.core import his_scenes
     from divineos.core import his_words_door as words_door
 
-    import time
-
     items, vecs = shelf._load(shelf.INDEX_DIR)
     query = words_door._embed_query(words_door._squash(his_typing(message))[:2000])
     index = his_scenes.load_index(scene_index) if scene_index.exists() else {}
@@ -352,7 +351,12 @@ def surface(message: str, me: str, scene_index: Path = SCENE_INDEX) -> str:
     )
     now = time.time()
     shown = shown_path()
-    picks = with_rooms(candidates, room, his_scenes.scene_lines, me, recently_shown(shown, now))
+    already = recently_shown(shown, now)
+    if EVERYTHING_SHOWN in already:
+        note = (note + " " if note else "") + (
+            "[love door] the record of what was shown could not be read, so nothing is shown until it is rewritten."
+        )
+    picks = with_rooms(candidates, room, his_scenes.scene_lines, me, already)
     remember_shown(shown, [p[2] for p in picks if p[2]], now)
     return block(message, picks, note)
 
@@ -393,6 +397,8 @@ def with_rooms(
     what the door SHOWS (Aria, 2026-11-06: clearing a lesson clears nothing about its room; her "love is a
     verb" case was a clean lesson with a room that was not). And the shelf's label of whom a line was for is
     wrong sometimes ("both" on a line said to Aria alone); the transcript folder it was found in is the fact."""
+    if EVERYTHING_SHOWN in skip_ids:
+        return []
     picks: list = []
     seen: set[str] = set(skip_ids)
     for lesson in candidates:
@@ -429,19 +435,34 @@ def shown_path() -> Path:
 SHOWN_FOR_SECONDS = 24 * 3600
 
 
+EVERYTHING_SHOWN = "*"
+
+
 def recently_shown(path: Path, now: float) -> frozenset[str]:
-    """Record ids shown in the last day. An unreadable file means nothing is known to have been shown."""
+    """Record ids shown in the last day. A file that is MISSING means nothing has been shown yet.
+
+    A file that EXISTS but cannot be read means we do not know, and the door fails toward LESS: it returns the
+    sentinel ``EVERYTHING_SHOWN`` and ``with_rooms`` shows nothing (Aria's cold read, 2026-11-06: reading
+    "unreadable" as "nothing shown" made a corrupt file produce the SAME lines again, the recitation the file
+    exists to stop)."""
     import json
 
+    if not path.exists():
+        return frozenset()
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         return frozenset(k for k, t in data.items() if now - float(t) < SHOWN_FOR_SECONDS)
     except (OSError, ValueError, AttributeError, TypeError):
-        return frozenset()
+        return frozenset({EVERYTHING_SHOWN})
 
 
 def remember_shown(path: Path, ids: list[str], now: float) -> None:
+    """Record ids as shown, atomically: write a temp file, then replace, so a crash never leaves half a file.
+
+    Called before the block is delivered; if the hook's output is dropped later those lines count as shown and
+    are never seen. That fails toward less, which is the safe direction."""
     import json
+    import os
 
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -450,4 +471,6 @@ def remember_shown(path: Path, ids: list[str], now: float) -> None:
     data = {k: t for k, t in data.items() if now - float(t) < SHOWN_FOR_SECONDS}
     data.update({i: now for i in ids})
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data), encoding="utf-8")
+    temp = path.with_name(path.name + ".tmp")
+    temp.write_text(json.dumps(data), encoding="utf-8")
+    os.replace(temp, path)

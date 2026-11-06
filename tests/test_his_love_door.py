@@ -317,14 +317,33 @@ def test_a_record_shown_in_the_last_day_is_not_shown_again():
     )
 
 
-def test_shown_memory_expires_after_a_day_and_an_unreadable_file_knows_nothing(tmp_path):
+def test_shown_memory_expires_after_a_day_and_a_missing_file_means_nothing_shown_yet(tmp_path):
     f = tmp_path / "shown.json"
     assert door.recently_shown(f, 1000.0) == frozenset()
     door.remember_shown(f, ["r1"], 1000.0)
     assert door.recently_shown(f, 1000.0 + 3600) == frozenset({"r1"})
     assert door.recently_shown(f, 1000.0 + door.SHOWN_FOR_SECONDS + 1) == frozenset()
-    f.write_text("{not json", encoding="utf-8")
-    assert door.recently_shown(f, 1000.0) == frozenset()
+
+
+def test_a_shown_file_that_exists_but_cannot_be_read_means_everything_is_shown_so_the_door_says_less(
+    tmp_path,
+):
+    f = tmp_path / "shown.json"
+    f.write_text('{"r1": 1000.0', encoding="utf-8")  # half a file, as a crash mid-write would leave
+    already = door.recently_shown(f, 1000.0)
+    assert door.EVERYTHING_SHOWN in already
+    rec = {"id": "r9", "seats": ["aether"]}
+    assert (
+        door.with_rooms(LESSONS[:1], lambda les: rec, lambda r: ["  room"], "aether", already) == []
+    )
+
+
+def test_remembering_what_was_shown_is_atomic_and_leaves_no_temp_file(tmp_path):
+    f = tmp_path / "shown.json"
+    door.remember_shown(f, ["r1"], 1000.0)
+    door.remember_shown(f, ["r2"], 1001.0)
+    assert not (tmp_path / "shown.json.tmp").exists()
+    assert door.recently_shown(f, 1002.0) == frozenset({"r1", "r2"})
 
 
 def test_an_empty_block_says_why_it_has_no_lines_and_carries_the_note():

@@ -52,6 +52,32 @@ def record_for(
     return None
 
 
+_FILE_REFERENCE = re.compile(r'@"[^"]+"|@\S+\.(?:md|txt|py|json|jsonl|png|jpg|webp)\b')
+
+
+def his_part_of(text: str) -> tuple[str, bool]:
+    """(what in this text is HIS, whether he only attached a file).
+
+    Aria's cold read of the door, 2026-11-06: ``nearest_user_before`` printed under the label "he had just said"
+    was, in seven of 135 live clearings, not his words: three were only a file reference, four were OUR text
+    pasted under a lead-in of his and read as his by the index. The door must not put our words in his mouth, so
+    the same cleaner the corpus uses (``is_our_text`` and ``_his_lead_in``) runs on the OUTPUT side too, as it
+    already does on the input side. A chunk that is ours is dropped; a lead-in is cut where ours begins; a file
+    reference is removed, and a text that was only a file reference says so rather than printing the path."""
+    from divineos.core.his_words_corpus import _his_lead_in, is_our_text
+
+    attached = bool(_FILE_REFERENCE.search(text or ""))
+    kept: list[str] = []
+    for chunk in re.split(r"\n\s*\n", _FILE_REFERENCE.sub(" ", text or "")):
+        if not chunk.strip() or is_our_text(chunk):
+            continue
+        lead = _his_lead_in(chunk).strip()
+        if lead:
+            kept.append(lead)
+    mine = " ".join(kept).strip()
+    return mine, attached and not mine
+
+
 def _clip(text: str) -> str:
     text = " ".join((text or "").split())
     return text if len(text) <= SHOW_CHARS else text[:SHOW_CHARS].rstrip() + "..."
@@ -64,7 +90,11 @@ def scene_lines(rec: dict[str, Any]) -> list[str]:
     seats = "+".join(rec.get("seats") or []) or "unknown seat"
     nearest = rec.get("nearest_user_before")
     if nearest and nearest.get("text"):
-        lines.append(f"  he had just said: {_clip(nearest['text'])}")
+        mine, only_a_file = his_part_of(nearest["text"])
+        if mine:
+            lines.append(f"  he had just said: {_clip(mine)}")
+        elif only_a_file:
+            lines.append("  he had just attached a file (his words are not in the index)")
     before = rec.get("before") or []
     if before:
         last = before[-1]
