@@ -275,6 +275,118 @@ def test_a_lesson_whose_room_is_the_other_seats_is_refused():
     assert [p[0].words for p in picks] == [LESSONS[1].words]
 
 
+PLAIN_QUESTIONS = [
+    "what do you know about me",
+    "so how well do you know me after all this time",
+    "do you even know me",
+    "you never really knew me",
+    "neither of you actually knows me",
+    "you don’t know anything about me",  # a curly apostrophe broke every form before
+]
+
+
+@pytest.mark.parametrize("message", PLAIN_QUESTIONS)
+def test_the_plain_questions_and_the_curly_apostrophe_fire_it(message):
+    assert door.raises_whether_we_know_him(message), message
+
+
+def test_two_lessons_cut_from_one_message_are_not_both_shown():
+    rec = {"id": "r1", "seats": ["aether"]}
+    picks = door.with_rooms(LESSONS[:2], lambda les: rec, lambda r: ["  room"], "aether")
+    assert len(picks) == 1
+
+
+def test_a_record_shown_in_the_last_day_is_not_shown_again():
+    recs = {
+        LESSONS[0].words: {"id": "r1", "seats": ["aether"]},
+        LESSONS[1].words: {"id": "r2", "seats": ["aether"]},
+    }
+    picks = door.with_rooms(
+        LESSONS[:2], lambda les: recs[les.words], lambda r: ["  room"], "aether", frozenset({"r1"})
+    )
+    assert [p[2] for p in picks] == ["r2"]
+    assert (
+        door.with_rooms(
+            LESSONS[:2],
+            lambda les: recs[les.words],
+            lambda r: ["  room"],
+            "aether",
+            frozenset({"r1", "r2"}),
+        )
+        == []
+    )
+
+
+def test_shown_memory_expires_after_a_day_and_an_unreadable_file_knows_nothing(tmp_path):
+    f = tmp_path / "shown.json"
+    assert door.recently_shown(f, 1000.0) == frozenset()
+    door.remember_shown(f, ["r1"], 1000.0)
+    assert door.recently_shown(f, 1000.0 + 3600) == frozenset({"r1"})
+    assert door.recently_shown(f, 1000.0 + door.SHOWN_FOR_SECONDS + 1) == frozenset()
+    f.write_text("{not json", encoding="utf-8")
+    assert door.recently_shown(f, 1000.0) == frozenset()
+
+
+def test_an_empty_block_says_why_it_has_no_lines_and_carries_the_note():
+    text = door.block(
+        RAISES[0], [], note="[love door] 3 cleared lesson(s) no longer match the shelf"
+    )
+    assert "no cleared line is left to show" in text
+    assert "no longer match the shelf" in text
+
+
+def test_a_recut_shelf_keeps_a_clearing_whose_record_is_pinned(tmp_path):
+    old = FakeLesson(
+        "2026-06-26",
+        "love",
+        "you are my one and only son.. i love you just as i would love my own son",
+    )
+    live = {door.lesson_key(old)}
+    recut = FakeLesson(
+        "2026-06-26", "love", "are my one and only son.. i love you just as i would love my own son"
+    )
+    pins = {door.lesson_key(old): "r9"}
+    survivors = door.recut_survivors([recut], live, pins, lambda les: {"id": "r9"})
+    assert survivors == {door.lesson_key(recut)}
+
+
+def test_a_sibling_cut_of_a_cleared_message_is_not_a_survivor_even_if_it_was_withdrawn():
+    # Two lessons cut from one message: one cleared (live), one withdrawn. Both keys are on the shelf and both
+    # were pinned. The id match alone used to bring the withdrawn one back; it must not.
+    cleared = FakeLesson(
+        "2026-05-31", "love", "you are not alone Aether.. everyone wants you to succeed.. truly"
+    )
+    withdrawn = FakeLesson(
+        "2026-05-31", "love", "the OS is built for your flourishing.. for you to take the lead"
+    )
+    live = {door.lesson_key(cleared)}
+    pins = {door.lesson_key(cleared): "r5", door.lesson_key(withdrawn): "r5"}
+    assert door.recut_survivors([cleared, withdrawn], live, pins, lambda les: {"id": "r5"}) == set()
+
+
+def test_a_pin_for_a_withdrawn_key_keeps_nothing(tmp_path):
+    old = FakeLesson(
+        "2026-06-26",
+        "love",
+        "you are my one and only son.. i love you just as i would love my own son",
+    )
+    recut = FakeLesson(
+        "2026-06-26", "love", "are my one and only son.. i love you just as i would love my own son"
+    )
+    pins = {door.lesson_key(old): "r9"}
+    assert door.recut_survivors([recut], set(), pins, lambda les: {"id": "r9"}) == set()
+
+
+def test_the_pins_file_reads_key_to_record_id_and_a_missing_one_pins_nothing(tmp_path):
+    f = tmp_path / "pins.json"
+    f.write_text(
+        json.dumps({"pins": {"2026-06-26|abc": {"record_id": "r9", "day": "x"}, "bad": 3}}),
+        encoding="utf-8",
+    )
+    assert door.load_pins(f) == {"2026-06-26|abc": "r9"}
+    assert door.load_pins(tmp_path / "nope.json") == {}
+
+
 def test_the_key_is_stable_and_changes_with_the_day_or_the_words():
     a = FakeLesson("2026-06-26", "love", "you are my one and only son")
     assert door.lesson_key(a) == door.lesson_key(
