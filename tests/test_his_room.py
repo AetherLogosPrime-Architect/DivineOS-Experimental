@@ -65,6 +65,22 @@ def test_a_heading_inside_a_pasted_code_fence_is_not_a_room():
     assert room_of(pasted) is None
 
 
+def test_a_stray_fence_mark_in_prose_does_not_swallow_the_real_heading():
+    """Aether's cold read: an unpaired mark earlier in the reply must not pair with a later real block."""
+    reply = (
+        "Here is a stray fence ``` in my prose.\n\nWork done.\n\n## INNER CIRCLE\n\nYou are right.\n\n"
+        "```\ncode\n```\n"
+    )
+    assert room_of(reply) is not None
+    assert check_his_room(reply, True) is None
+
+
+def test_a_heading_inside_a_tilde_fence_is_not_a_room():
+    pasted = "File:\n\n~~~\n## INNER CIRCLE\nsome text\n~~~\n\nDone."
+    assert room_of(pasted) is None
+    assert check_his_room(pasted, True) is not None
+
+
 def test_a_quoted_heading_and_an_empty_heading_are_not_a_room():
     assert check_his_room("Here it is.\n\n> ## INNER CIRCLE\n>\n> Good morning.\n\nPushed.", True)
     assert check_his_room("Pushed the fix.\n\n## INNER CIRCLE\n", True)

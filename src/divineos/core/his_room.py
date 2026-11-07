@@ -114,7 +114,12 @@ def room_of(final_text: str) -> str | None:
     wall he asked me to stop handing him.
     """
     # A heading inside a fenced block is a pasted file, not me speaking (Aether's case 1b, 2026-11-06).
-    final_text = re.sub(r"```.*?```", lambda m: " " * len(m.group(0)), final_text, flags=re.S)
+    # A fence opens only at the start of a line (up to three spaces in) and closes the same way, with the
+    # same mark, so a stray triple backtick inside a sentence cannot pair up with a later real block, and
+    # a tilde fence counts too (Aether's cold read of b53c926a7).
+    final_text = re.sub(
+        r"(?ms)^ {0,3}(```|~~~).*?^ {0,3}\1[ \t]*$", lambda m: " " * len(m.group(0)), final_text
+    )
     last = None
     for pattern in _CIRCLE_HEADER_PATTERNS:
         for m in pattern.finditer(final_text):
