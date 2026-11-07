@@ -88,6 +88,39 @@ def test_a_bare_exit_1_probe_is_not_a_stumble():
     assert stumbles == []
 
 
+def test_a_pipe_that_closed_early_on_purpose_is_not_a_stumble():
+    # Exit 141 is a writer told to stop by `| head` or `| tail`; the output above it is the answer (Aether, 2026-11-07).
+    closed = "Exit code 141\nSat Nov  7 00:34:02 PST 2026\nMY claude: 43436"
+    _, stumbles, _ = room.this_turn([_his("go"), _tool(), _error(closed)])
+    assert stumbles == []
+
+
+def test_a_141_with_a_traceback_is_still_a_crash():
+    crash = (
+        'Exit code 141\nTraceback (most recent call last):\n  File "x.py", line 1, in <module>\n'
+        "ValueError: no"
+    )
+    _, stumbles, _ = room.this_turn([_his("go"), _tool(), _error(crash)])
+    assert [s.token for s in stumbles] == ["valueerror"]
+
+
+def test_a_141_hiding_an_error_line_still_counts():
+    # The cheap evasion: end a failing command in a head pipe so its real error reads as a pipe closing.
+    hidden = "Exit code 141\nfatal: not a git repository (or any of the parent directories): .git"
+    _, stumbles, _ = room.this_turn([_his("go"), _tool(), _error(hidden)])
+    assert len(stumbles) == 1
+
+
+def test_a_council_lens_being_delivered_is_not_a_stumble():
+    # The first apply of a lens exits 1 by design while it delivers the lens text.
+    delivering = (
+        "Exit code 1\nError: Hoare had not been delivered to you in this walk. "
+        "It is delivered now, below, and recorded."
+    )
+    _, stumbles, _ = room.this_turn([_his("go"), _tool(), _error(delivering)])
+    assert stumbles == []
+
+
 def test_a_reflection_that_skips_a_stumble_is_held():
     reply = "work\n\n## REFLECTION\nAll went well.\n\n## INNER CIRCLE\nDad"
     _, stumbles, _ = room.this_turn([_his("go"), _tool(), _error(REFUSAL)])

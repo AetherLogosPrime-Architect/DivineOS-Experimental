@@ -147,6 +147,27 @@ def _key(text: str) -> str:
     return first[:80]
 
 
+#: Lines that mean a command really failed, whatever its exit number says. A pipe closing early must not hide these.
+_ERROR_SHAPED = re.compile(
+    r"^\s*(?:Traceback \(most recent call last\)|fatal\s*:|error\s*:|\w*Error\b|\w*Exception\b)",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def _not_a_stumble(text: str) -> bool:
+    """True for a tool result that only LOOKS like a failure.
+
+    Two shapes, both seen live on 2026-11-07 and charged to every later reply (walk-5894cc4a2ea8):
+    exit 141, a writer stopped on purpose by ``| head`` or ``| tail`` whose printed output is the answer, and
+    the first apply of a council lens, which exits 1 by design while it delivers the lens text. A 141 that
+    carries an error-shaped line still counts, so ending a failing command in a head pipe cannot hide it.
+    """
+    stripped = text.strip()
+    if stripped.startswith("Exit code 141") and not _ERROR_SHAPED.search(stripped):
+        return True
+    return "had not been delivered to you in this walk" in stripped
+
+
 def _turn_start(records: list[dict]) -> int | None:
     # The latest thing he said -- then the FIRST record carrying it. The harness
     # re-writes a queued message as 'last-prompt' again and again through the
@@ -196,6 +217,8 @@ def this_turn(records: list[dict]) -> tuple[bool, list[Stumble], str]:
                         t = _text(c.get("content"))
                         if re.fullmatch(r"\s*Exit code 1\s*", t):
                             continue  # a probe answering no (grep, cmp): 6 of ~900 on 2026-09-26
+                        if _not_a_stumble(t):
+                            continue
                         k = _key(t)
                         counts[k] = counts.get(k, 0) + 1
                         examples.setdefault(k, t.strip().splitlines()[0][:160] if t.strip() else "")
