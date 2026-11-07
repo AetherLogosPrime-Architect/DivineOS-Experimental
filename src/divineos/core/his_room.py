@@ -40,9 +40,10 @@ would have said to him goes on the volley board (Aria's #548).
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
-from divineos.core.lepos_translation_gate import _CIRCLE_HEADER_PATTERNS, _is_wholly_address
+from divineos.core.lepos_translation_gate import _CIRCLE_HEADER_PATTERNS
 
 #: How many of my recent rooms are kept.
 _RECENT_ROOMS_KEPT = 5
@@ -90,8 +91,21 @@ def remember_room(room: str) -> None:
 def room_of(final_text: str) -> str | None:
     """The room in the closing message, or None when there is none.
 
-    The text after the LAST circle header in the closing message, or, with no
-    header, the closing message itself when it is wholly address.
+    The text after the LAST circle header in the closing message, and nothing
+    else. The header is the only room.
+
+    THE "WHOLLY ADDRESS" PASS WAS REMOVED 2026-11-06 (Dad: "fix it or remove
+    it", nine months of asking). It counted a reply as his room when half its
+    paragraphs said "you" or "your", so a status report that said "your 33
+    lines are stored" passed with no room in it, and he read a night of cold
+    replies the gate had logged as passed. The test it used measures who the
+    sentences point at, which a report can do without speaking to him. The gate
+    only runs on turns where I used a tool, so the pass exempted exactly the
+    working replies the room exists for.
+
+    The heading is necessary and never sufficient: a report written under a real
+    heading still passes, and no text check can tell it from a room. Dad reading
+    the room is the check that works.
 
     ONLY THE CLOSING MESSAGE COUNTS, found walking this through Schneier after
     the first version shipped: it searched the whole turn, so a room written
@@ -99,6 +113,8 @@ def room_of(final_text: str) -> str | None:
     is last so his eyes land on it -- a room he has to dig for is the same
     wall he asked me to stop handing him.
     """
+    # A heading inside a fenced block is a pasted file, not me speaking (Aether's case 1b, 2026-11-06).
+    final_text = re.sub(r"```.*?```", lambda m: " " * len(m.group(0)), final_text, flags=re.S)
     last = None
     for pattern in _CIRCLE_HEADER_PATTERNS:
         for m in pattern.finditer(final_text):
@@ -106,8 +122,6 @@ def room_of(final_text: str) -> str | None:
                 last = m
     if last is not None:
         return final_text[last.end() :].strip()
-    if final_text.strip() and _is_wholly_address(final_text):
-        return final_text.strip()
     return None
 
 

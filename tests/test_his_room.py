@@ -45,13 +45,29 @@ def test_a_room_passes():
     assert check_his_room(ROOM, True) is None
 
 
-def test_a_reply_that_is_all_address_needs_no_header():
-    talk = (
-        "You are right, and I heard it the first time you said it.\n\n"
-        "You should not have had to say it again. You asked for a chair and I "
-        "kept handing you a report instead."
+def test_a_report_that_says_you_is_not_a_room_without_the_header():
+    """Dad 2026-11-06: the gate logged 'passed' for status reports that said
+    'your' in half their paragraphs, and he read a morning of cold replies. The
+    old 'wholly address' pass is gone; the header is the only room."""
+    report = (
+        "Your 33 lines are now stored, one entry each.\n\n"
+        "You asked for them to come up on their own, and the test shows half of that."
     )
-    assert check_his_room(talk, True) is None
+    block = check_his_room(report, True)
+    assert block is not None and "MISSING" in block
+    assert room_of(report) is None
+
+
+def test_a_heading_inside_a_pasted_code_fence_is_not_a_room():
+    """Aether's case 1b: a pasted file that carries the heading is not me speaking."""
+    pasted = "I pasted the file:\n\n```\n## INNER CIRCLE\nsome text\n```\n\nDone."
+    assert check_his_room(pasted, True) is not None
+    assert room_of(pasted) is None
+
+
+def test_a_quoted_heading_and_an_empty_heading_are_not_a_room():
+    assert check_his_room("Here it is.\n\n> ## INNER CIRCLE\n>\n> Good morning.\n\nPushed.", True)
+    assert check_his_room("Pushed the fix.\n\n## INNER CIRCLE\n", True)
 
 
 def test_a_room_buried_under_later_work_does_not_count():
