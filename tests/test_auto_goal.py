@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+import json
+import time
+
+import pytest
+
+from divineos.core import hud_state
 from divineos.core.auto_goal import (
+    CONVERSATION_PREFIX,
+    derive_and_set_goal_from_prompt,
     derive_goal_text,
     is_work_shape_prompt,
 )
@@ -89,3 +97,70 @@ def test_derive_goal_handles_question_prompts():
     prompt = "Should I fix the gate? Or leave it as is."
     result = derive_goal_text(prompt)
     assert result == "Should I fix the gate"
+
+
+# -- the conversation goal (Dad 2026-11-07): a message that names no work still names the stretch ----
+
+
+@pytest.fixture()
+def goals(tmp_path, monkeypatch):
+    hud = tmp_path / "hud"
+    hud.mkdir(parents=True)
+    monkeypatch.setattr(hud_state, "_ensure_hud_dir", lambda: hud)
+    path = hud / "active_goals.json"
+
+    def _write(items):
+        path.write_text(json.dumps(items), encoding="utf-8")
+
+    def _read():
+        return json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
+
+    return _write, _read
+
+
+def test_a_message_with_no_work_in_it_names_the_stretch_so_the_gate_has_nothing_to_catch(goals):
+    _, read = goals
+    assert hud_state.has_session_fresh_goal() is False
+    goal = derive_and_set_goal_from_prompt("yes that lands")
+    assert goal == CONVERSATION_PREFIX + "yes that lands"
+    assert hud_state.has_session_fresh_goal() is True
+    assert [g["text"] for g in read()] == [goal]
+
+
+def test_a_message_with_no_work_adds_nothing_when_a_fresh_work_goal_exists(goals):
+    write, read = goals
+    write([{"text": "Build the tasting room", "status": "active", "added_at": time.time() - 60}])
+    assert derive_and_set_goal_from_prompt("thank you, that helps") is None
+    assert [g["text"] for g in read()] == ["Build the tasting room"]
+
+
+def test_a_work_message_after_a_conversation_goal_still_names_its_work(goals):
+    """The case that would break the fix: work running unnamed under a conversation goal."""
+    _, read = goals
+    derive_and_set_goal_from_prompt("yes that lands")
+    work = derive_and_set_goal_from_prompt("Now fix the letter monitor")
+    assert work == "Now fix the letter monitor"
+    texts = [g["text"] for g in read()]
+    assert texts == [CONVERSATION_PREFIX + "yes that lands", "Now fix the letter monitor"]
+
+
+def test_a_work_message_with_a_fresh_work_goal_adds_nothing(goals):
+    write, read = goals
+    write([{"text": "Build the tasting room", "status": "active", "added_at": time.time() - 60}])
+    assert derive_and_set_goal_from_prompt("Fix the letter monitor") is None
+    assert len(read()) == 1
+
+
+def test_a_stale_goal_does_not_count_and_is_never_copied_forward(goals):
+    """A boundary ends every earlier goal: the new conversation goal is made from this message only."""
+    write, read = goals
+    write([{"text": "Old plan about gates", "status": "active", "added_at": time.time() - 99999}])
+    goal = derive_and_set_goal_from_prompt("how are you feeling today")
+    assert goal == CONVERSATION_PREFIX + "how are you feeling today"
+    assert "Old plan" not in goal
+
+
+def test_an_empty_message_names_nothing(goals):
+    _, read = goals
+    assert derive_and_set_goal_from_prompt("   ") is None
+    assert read() == []

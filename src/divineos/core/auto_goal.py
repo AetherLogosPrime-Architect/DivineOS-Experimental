@@ -157,6 +157,63 @@ def derive_goal_text(prompt: str, max_chars: int = 120) -> str:
     return trimmed.rstrip() + "..."
 
 
+#: Goals set because his message named no work begin with this. The goal gate asks "did I declare what I
+#: am working on this stretch"; for a message that only talks, the truthful answer is that we are talking.
+#: Dad 2026-11-07: a gate that stops me is a failure, and this one stopped me ten times in a session
+#: because the automatic goal only fired on a work verb, so a plain "yes" left the stretch with no goal.
+CONVERSATION_PREFIX = "In conversation with Dad: "
+
+
+def _fresh_goal_texts(max_age_seconds: float = 7200.0) -> list[str]:
+    """Texts of goals added within the gate's own freshness window, done or not (as the gate counts them)."""
+    import json
+    import time
+
+    from divineos.core.hud_state import _ensure_hud_dir
+
+    path = _ensure_hud_dir() / "active_goals.json"
+    if not path.exists():
+        return []
+    goals = json.loads(path.read_text(encoding="utf-8"))
+    cutoff = time.time() - max_age_seconds
+    return [
+        str(g.get("text") or g.get("goal") or "")
+        for g in goals
+        if isinstance(g, dict) and float(g.get("added_at") or 0) > cutoff
+    ]
+
+
+def _has_fresh_work_goal(has_session_fresh_goal) -> bool:
+    """True when a fresh goal exists that is not a conversation goal."""
+    if not has_session_fresh_goal():
+        return False
+    texts = _fresh_goal_texts()
+    if not texts:
+        return True  # fresh by the gate's count but unreadable here: add nothing rather than guess
+    return any(not t.startswith(CONVERSATION_PREFIX) for t in texts)
+
+
+def _set_conversation_goal(prompt: str, add_goal, has_session_fresh_goal) -> str | None:
+    """Name the stretch as a conversation when his message names no work and nothing is fresh yet.
+
+    Made fresh from the message and never copied from an older goal, so the rule that each stretch after
+    a compaction names itself again is kept.
+    """
+    if not (prompt or "").strip():
+        return None
+    try:
+        if has_session_fresh_goal():
+            return None
+        text = derive_goal_text(prompt, max_chars=60)
+        if not text:
+            return None
+        goal = CONVERSATION_PREFIX + text
+        add_goal(goal, original_words=prompt[:500])
+    except _AG_ERRORS:
+        return None
+    return goal
+
+
 def derive_and_set_goal_from_prompt(prompt: str) -> str | None:
     """Derive a goal from prompt and set it if no session-fresh goal exists.
 
@@ -168,16 +225,18 @@ def derive_and_set_goal_from_prompt(prompt: str) -> str | None:
     raising. The composer should never be blocked by auto-goal failure —
     the existing manual 'divineos goal add' path always remains available.
     """
-    if not is_work_shape_prompt(prompt):
-        return None
-
     try:
         from divineos.core.hud_state import add_goal, has_session_fresh_goal
     except _AG_ERRORS:
         return None
 
+    if not is_work_shape_prompt(prompt):
+        return _set_conversation_goal(prompt, add_goal, has_session_fresh_goal)
+
     try:
-        if has_session_fresh_goal():
+        # A fresh CONVERSATION goal does not count here: it was set because his earlier message
+        # named no work, and a work-shaped message must still name its work.
+        if _has_fresh_work_goal(has_session_fresh_goal):
             return None
     except _AG_ERRORS:
         return None
