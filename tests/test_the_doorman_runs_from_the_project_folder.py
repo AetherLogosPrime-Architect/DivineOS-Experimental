@@ -54,7 +54,9 @@ def _stand_in_cli(folder: Path, exit_code: int, message: str = "") -> Path:
     script = bin_dir / "divineos"
     script.write_text(
         "#!/usr/bin/env bash\n"
-        f'pwd > "{marker.as_posix()}"\n'
+        # `pwd -W` is the Windows spelling of the folder under Git bash (the same place can also be spelled
+        # /tmp/x or /c/Users/.../Temp/x); on other platforms it does not exist and plain pwd is right.
+        f'(pwd -W 2>/dev/null || pwd) > "{marker.as_posix()}"\n'
         f'[ -n "{message}" ] && echo "{message}"\n'
         f"exit {exit_code}\n",
         encoding="utf-8",
@@ -86,8 +88,8 @@ def _run(tmp_path: Path, exit_code: int, message: str = ""):
 
 
 def _same_folder(reported_by_bash: str) -> bool:
-    """Compare the folder bash reports (/c/x) with ROOT (C:/x), whatever the platform spells it."""
-    return reported_by_bash.rstrip("/") == _as_bash_path(ROOT).rstrip("/")
+    """Is the reported folder the project folder? Compared as real folders, never as strings."""
+    return Path(reported_by_bash).resolve() == ROOT.resolve()
 
 
 def test_the_gate_is_called_from_the_project_folder_not_the_wandering_shell(tmp_path):
