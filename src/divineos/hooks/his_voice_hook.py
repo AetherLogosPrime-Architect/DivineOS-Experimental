@@ -15,6 +15,7 @@ import json
 import sys
 
 from divineos.core import his_voice_ends_the_turn as hv
+from divineos.core import refused_while_he_spoke as rw
 
 REFUSE = 2
 
@@ -46,7 +47,23 @@ def main() -> int:
         _say(f"could not read {path}; could not look whether he spoke")
         return 0
     if verdict.state != hv.SPOKE:
+        # He has been answered (or never spoke): hand back whatever the door set aside, whole.
+        try:
+            handed_back = rw.release()
+        except OSError as exc:
+            _say(
+                f"could not read what was set aside while he spoke ({type(exc).__name__}); look in ~/.divineos/refused_while_he_spoke"
+            )
+            return 0
+        if handed_back:
+            sys.stdout.write(handed_back)
         return 0
+    try:
+        rw.record(tool_name, tool_input)
+    except OSError as exc:
+        _say(
+            f"could not save the refused call ({type(exc).__name__}); redo it by hand after answering him"
+        )
     sys.stdout.write(hv.refusal(verdict.his_words))
     return REFUSE
 

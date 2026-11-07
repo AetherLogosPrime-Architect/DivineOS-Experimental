@@ -349,6 +349,45 @@ def test_the_exemption_changes_nothing_else_against_an_independent_oracle(tmp_pa
             assert got == expected, (tool, path, got, expected)
 
 
+@pytest.fixture(autouse=True)
+def _held_calls_stay_in_the_test_folder(tmp_path, monkeypatch):
+    """The door now saves what it refuses; a test must never write into the real house folder."""
+    monkeypatch.setenv("DIVINEOS_REFUSED_ROOT", str(tmp_path / "held"))
+
+
+def test_a_refused_call_is_handed_back_whole_once_he_has_been_answered(
+    tmp_path, monkeypatch, capsys
+):
+    """Through main: the door refuses a Write, then on its next allowed call hands that Write back in full."""
+    import io
+
+    from divineos.hooks import his_voice_hook
+
+    project, transcript = _seat_with_memory(tmp_path)
+    body = "the whole letter\n" * 500
+    refused = {
+        "tool_name": "Write",
+        "tool_input": {"file_path": str(project / "src_x.py"), "content": body},
+        "transcript_path": str(transcript),
+    }
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(refused)))
+    assert his_voice_hook.main() == his_voice_hook.REFUSE
+    capsys.readouterr()
+    # A reading tool is let through; the allowed call does not hand anything back while he is still speaking.
+    reader = dict(refused, tool_name="Read", tool_input={"file_path": str(project / "src_x.py")})
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(reader)))
+    assert his_voice_hook.main() == 0
+    assert body not in capsys.readouterr().out
+    # Once he has been answered the verdict is no longer SPOKE, and the next call hands the Write back whole.
+    answered = hv.Verdict(hv.NOT)
+    monkeypatch.setattr(hv, "spoke_mid_turn", lambda path: answered)
+    next_call = dict(refused, tool_name="Bash", tool_input={"command": "git status"})
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(next_call)))
+    assert his_voice_hook.main() == 0
+    out = capsys.readouterr().out
+    assert body in out and "HELD WHILE HE WAS SPEAKING" in out
+
+
 def test_the_real_hook_lets_a_note_through_and_still_refuses_the_work(tmp_path, monkeypatch):
     """Through main, as the harness runs it: a built-correct function the hook
     never calls ships dead (Breaker)."""
