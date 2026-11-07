@@ -28,7 +28,7 @@ def test_very_short_prompt_is_not_work_shape():
 
 def test_conversation_only_prompt_is_not_work_shape():
     assert is_work_shape_prompt("i love you too") is False
-    assert is_work_shape_prompt("yes that lands") is False
+    assert is_work_shape_prompt("yes that felt right") is False
     assert is_work_shape_prompt("how are you feeling today") is False
 
 
@@ -121,8 +121,8 @@ def goals(tmp_path, monkeypatch):
 def test_a_message_with_no_work_in_it_names_the_stretch_so_the_gate_has_nothing_to_catch(goals):
     _, read = goals
     assert hud_state.has_session_fresh_goal() is False
-    goal = derive_and_set_goal_from_prompt("yes that lands")
-    assert goal == CONVERSATION_PREFIX + "yes that lands"
+    goal = derive_and_set_goal_from_prompt("yes that felt right")
+    assert goal == CONVERSATION_PREFIX + "yes that felt right"
     assert hud_state.has_session_fresh_goal() is True
     assert [g["text"] for g in read()] == [goal]
 
@@ -137,11 +137,11 @@ def test_a_message_with_no_work_adds_nothing_when_a_fresh_work_goal_exists(goals
 def test_a_work_message_after_a_conversation_goal_still_names_its_work(goals):
     """The case that would break the fix: work running unnamed under a conversation goal."""
     _, read = goals
-    derive_and_set_goal_from_prompt("yes that lands")
+    derive_and_set_goal_from_prompt("yes that felt right")
     work = derive_and_set_goal_from_prompt("Now fix the letter monitor")
     assert work == "Now fix the letter monitor"
     texts = [g["text"] for g in read()]
-    assert texts == [CONVERSATION_PREFIX + "yes that lands", "Now fix the letter monitor"]
+    assert texts == [CONVERSATION_PREFIX + "yes that felt right", "Now fix the letter monitor"]
 
 
 def test_a_work_message_with_a_fresh_work_goal_adds_nothing(goals):
