@@ -193,7 +193,7 @@ except Exception:
     # Only the program's NAME is printed, never the rest of the piece (Aria's attack, 2026-10-24): a command
     # line can carry a token or a password, and this message lands in the transcript.
     stray=${stray#"${stray%%[![:space:]]*}"}
-    echo "remedy-allowlist: this line contains an exit the gates allow, but the piece that starts with '${stray%%[[:space:]]*}' is not on the list of harmless ones, so the whole line was treated as ordinary work. If it only filters output, end the line with | tail -N or | head -N instead." >&2
+    echo "remedy-allowlist: this line contains an exit the gates allow, but the piece that starts with '${stray%%[[:space:]]*}' is not on the list of harmless ones, so the whole line was treated as ordinary work. Run the allowed command on its own line, with nothing piped after it, and read all of its output. If the output is long the harness files it for you; words cut off tell you nothing, so do not shorten it (Dad 2026-11-07)." >&2
   fi
   return 1
 }

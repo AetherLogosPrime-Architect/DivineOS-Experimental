@@ -526,7 +526,11 @@ class TestAGrepFilterDoesNotDisarmAnExit:
         assert "'cut'" in proc.stderr
         # Only the program's name is printed, never the rest of the piece: a command line can carry a token.
         assert "-c1-5" not in proc.stderr
-        assert "tail" in proc.stderr
+        # This used to assert that the message named `tail` as the way out, which taught the cut: Dad
+        # 2026-11-07, "words cut off tells you nothing". The way out is to run the allowed command alone.
+        assert "on its own line" in proc.stderr
+        assert "tail" not in proc.stderr
+        assert "head" not in proc.stderr
 
     def test_ordinary_work_with_no_exit_in_it_gets_no_such_message(self):
         """The control: the message is for a near-miss, not for every refusal."""
