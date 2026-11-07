@@ -47,11 +47,16 @@ command -v divineos >/dev/null 2>&1 || exit 0
 # refusing, every pass would write nothing and the map would call a working
 # doorman SILENT. So: load early for the record, and let a failed load cost the
 # footer and the record -- never the hold. walk-126cf863fe02.
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+# THE GATE RUNS FROM THE PROJECT FOLDER, never from wherever the shell happens to stand (Dad 2026-11-07,
+# correction #419). My shell once wandered into a folder that was not a checkout; the `divineos` wrapper then
+# could not find its marker, exited 2, and exit 2 reads as a hold (the overlap named at the bottom). The hold
+# covered every command, including the `cd` that would have fixed it: a trap with no door. The harness sets
+# CLAUDE_PROJECT_DIR; git is the fallback. A real failure of the CLI inside the project folder still holds.
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo ".")}"
 # shellcheck disable=SC1091
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || true  # fail-soft: a missing library may cost the footer and the timing record, and must never cost the hold -- the decision below is the CLI's
 
-OUT="$(printf '%s' "$INPUT" | divineos work-item gate 2>&1)"
+OUT="$(cd "$REPO_ROOT" 2>/dev/null || true; printf '%s' "$INPUT" | divineos work-item gate 2>&1)"
 RC=$?
 
 if [ "$RC" -eq 2 ]; then
