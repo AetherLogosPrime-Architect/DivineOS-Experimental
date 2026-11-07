@@ -76,6 +76,26 @@ def test_a_confirm_that_carries_his_words_takes_effect(tmp_path):
     assert asks[0].confirmed_by_him is True and asks[0].closed is False
 
 
+def test_rewriting_the_done_sentence_after_he_confirmed_makes_it_unconfirmed(tmp_path):
+    """His yes belongs to the sentence he saw; a quieter later line must not swap the sentence under it (Aria)."""
+    path = tmp_path / "r.jsonl"
+    _write(
+        path,
+        CIRCLE,
+        CONFIRM,
+        {"ask_id": "circle", "done_sentence": "Circles are mostly last."},
+    )
+    asks, _ = load_register(path)
+    assert asks[0].done_sentence == "Circles are mostly last." and asks[0].confirmed_by_him is False
+
+
+def test_a_confirm_after_the_rewrite_confirms_the_new_sentence(tmp_path):
+    path = tmp_path / "r.jsonl"
+    _write(path, CIRCLE, CONFIRM, {"ask_id": "circle", "done_sentence": "New sentence."}, CONFIRM)
+    asks, _ = load_register(path)
+    assert asks[0].done_sentence == "New sentence." and asks[0].confirmed_by_him is True
+
+
 def test_closing_needs_his_words_too_and_a_later_record_wins(tmp_path):
     path = tmp_path / "r.jsonl"
     _write(

@@ -58,9 +58,13 @@ def load_register(path: Path | str) -> tuple[list[Ask], str | None]:
             str(rec["ask_id"]),
             {"his_words": "", "done_sentence": "", "confirmed_by_him": False, "closed": False},
         )
+        before = cur["done_sentence"]
         for field in ("his_words", "done_sentence"):
             if field in rec:
                 cur[field] = str(rec[field])
+        if cur["done_sentence"] != before:
+            # A confirm belongs to the sentence he saw. Any other sentence is unconfirmed until he confirms it (Aria, cold read).
+            cur["confirmed_by_him"] = False
         if "confirmed_by_him" in rec and _witnessed(rec):
             cur["confirmed_by_him"] = bool(rec["confirmed_by_him"])
         if "closed" in rec and _witnessed(rec):
