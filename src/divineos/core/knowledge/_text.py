@@ -1159,16 +1159,22 @@ def normalize_to_first_person(text: str) -> str:
     """
     if not text or len(text) < 10:
         return text
+    # Two private-use characters that are NOT in the text, so a stray one can never be mistaken for a placeholder
+    # (Aria's attack, 2026-11-07). If the text uses all of them, nothing is lifted and nothing is rewritten.
+    free = [chr(c) for c in range(0xE000, 0xE100) if chr(c) not in text]
+    if len(free) < 2:
+        return text
+    open_mark, close_mark = free[0], free[1]
     quotes: list[str] = []
 
     def lift(match: re.Match[str]) -> str:
         quotes.append(match.group(0))
-        return f"{len(quotes) - 1}"
+        return f"{open_mark}{len(quotes) - 1}{close_mark}"
 
     result = _rewrite_voice(_QUOTED_SPAN.sub(lift, text))
-    for index, quoted in enumerate(quotes):
-        result = result.replace(f"{index}", quoted)
-    return result
+    # One pass: a quote pasted back is never re-scanned for placeholders.
+    restore = re.compile(re.escape(open_mark) + r"(\d+)" + re.escape(close_mark))
+    return restore.sub(lambda m: quotes[int(m.group(1))], result)
 
 
 def _rewrite_voice(text: str) -> str:

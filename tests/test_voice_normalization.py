@@ -137,3 +137,14 @@ class TestStorageWiring:
             conn.close()
             assert "the agent" not in row[0]
             assert row[0].startswith("I noticed")
+
+
+def test_text_that_already_holds_the_placeholder_characters_is_not_corrupted():
+    """Aria's attack: a stray private-use placeholder in the input pasted one quote inside another."""
+    from divineos.core.knowledge._text import normalize_to_first_person
+
+    text = 'He wrote "first one here" then 1 stray and "second one here" end of the line.'
+    out = normalize_to_first_person(text)
+    assert '"first one here"' in out and '"second one here"' in out
+    assert "1" in out  # the stray characters stay exactly where they were
+    assert '"first "second' not in out  # the shape of the corruption she proved
