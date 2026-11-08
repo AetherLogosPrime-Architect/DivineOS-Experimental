@@ -58,17 +58,19 @@ def load_register(path: Path | str) -> tuple[list[Ask], str | None]:
             str(rec["ask_id"]),
             {"his_words": "", "done_sentence": "", "confirmed_by_him": False, "closed": False},
         )
-        before = cur["done_sentence"]
+        before = (cur["done_sentence"], cur["his_words"])
         for field in ("his_words", "done_sentence"):
-            if field in rec:
+            if rec.get(field) is not None:  # a null is no value, never the text "None"
                 cur[field] = str(rec[field])
-        if cur["done_sentence"] != before:
-            # A confirm belongs to the sentence he saw. Any other sentence is unconfirmed until he confirms it (Aria, cold read).
+        if (cur["done_sentence"], cur["his_words"]) != before:
+            # A confirm belongs to the sentence he saw about the words he said. Any change to either is unconfirmed
+            # until he confirms it again (Aria's cold read: first the sentence, then his words).
             cur["confirmed_by_him"] = False
-        if "confirmed_by_him" in rec and _witnessed(rec):
-            cur["confirmed_by_him"] = bool(rec["confirmed_by_him"])
-        if "closed" in rec and _witnessed(rec):
-            cur["closed"] = bool(rec["closed"])
+        # Only a real true or false counts: bool("false") is True, which would confirm or close on a string.
+        if isinstance(rec.get("confirmed_by_him"), bool) and _witnessed(rec):
+            cur["confirmed_by_him"] = rec["confirmed_by_him"]
+        if isinstance(rec.get("closed"), bool) and _witnessed(rec):
+            cur["closed"] = rec["closed"]
     asks = [
         Ask(
             ask_id=key,

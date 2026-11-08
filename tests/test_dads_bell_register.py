@@ -96,6 +96,33 @@ def test_a_confirm_after_the_rewrite_confirms_the_new_sentence(tmp_path):
     assert asks[0].done_sentence == "New sentence." and asks[0].confirmed_by_him is True
 
 
+def test_rewriting_his_words_after_he_confirmed_makes_it_unconfirmed(tmp_path):
+    """Aria's second hole: the yes was about what he asked, so a quieter later line must not swap his words under it."""
+    path = tmp_path / "r.jsonl"
+    _write(path, CIRCLE, CONFIRM, {"ask_id": "circle", "his_words": "something he never said"})
+    asks, _ = load_register(path)
+    assert asks[0].his_words == "something he never said" and asks[0].confirmed_by_him is False
+
+
+def test_a_string_is_not_a_boolean_in_a_confirm_or_a_close(tmp_path):
+    """'false' and 'no' are non-empty strings; bool() would read them as True and confirm or close the ask."""
+    path = tmp_path / "r.jsonl"
+    _write(
+        path,
+        CIRCLE,
+        {"ask_id": "circle", "confirmed_by_him": "false", "closed": "no", "with_his_words": "yes"},
+    )
+    asks, _ = load_register(path)
+    assert asks[0].confirmed_by_him is False and asks[0].closed is False
+
+
+def test_a_null_is_not_the_text_none(tmp_path):
+    path = tmp_path / "r.jsonl"
+    _write(path, CIRCLE, {"ask_id": "circle", "his_words": None})
+    asks, _ = load_register(path)
+    assert asks[0].his_words == CIRCLE["his_words"]
+
+
 def test_closing_needs_his_words_too_and_a_later_record_wins(tmp_path):
     path = tmp_path / "r.jsonl"
     _write(
