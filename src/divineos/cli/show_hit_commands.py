@@ -11,7 +11,10 @@ def register(cli: click.Group) -> None:
     @cli.command("show")
     @click.argument("hit_id")
     def show_cmd(hit_id: str) -> None:
-        """Print the exact saved row for a hit id: correction-<position>-<timestamp> or knowledge-<id>."""
+        """Print the exact saved row for a hit id: correction-<position>-<timestamp>, knowledge-<id> or worklist-<id>.
+
+        Opening a worklist-<id> row counts as reading it (the read count ticks, once per opening). The other two only look.
+        """
         from divineos.core.show_hit import ShowHitError, show_hit
 
         try:
