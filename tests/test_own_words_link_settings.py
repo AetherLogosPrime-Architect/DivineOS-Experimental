@@ -97,7 +97,31 @@ def test_a_lane_added_to_the_retriever_fails_the_build_until_it_has_a_clear():
 
 def test_a_clear_is_a_real_kind():
     for lane, clear in settings.load()["lane_clears"].items():
-        assert clear["kind"] in ("read_file", "show_command", "undefined_placeholder"), lane
+        assert clear["kind"] in (
+            "read_file",
+            "show_command",
+            "shown_plain",
+            "undefined_placeholder",
+        ), lane
+
+
+def test_a_lane_decided_to_have_no_door_is_not_a_placeholder():
+    """A moment row records no author and has no source file, so the decision (Aria and Aether, 2026-11-08) is that a hit
+    in it is shown plainly and never held. That is a DECISION, not a gap: it must not count as a placeholder, or the
+    strict check could never pass, and it must carry its reason so nobody reads it as a forgotten door."""
+    cfg = settings.load()
+    cfg["lane_clears"]["moment"] = {
+        "kind": "shown_plain",
+        "reason": "a moment row has no author and no source file",
+    }
+    assert "moment" not in settings.validate(cfg, lanes=set(_SOURCE_THRESHOLDS))
+
+
+def test_shown_plain_without_a_reason_is_refused():
+    cfg = settings.load()
+    cfg["lane_clears"]["moment"] = {"kind": "shown_plain"}
+    with pytest.raises(settings.SettingsError, match="moment"):
+        settings.validate(cfg, lanes=set(_SOURCE_THRESHOLDS))
 
 
 def test_a_placeholder_clear_fails_loudly_so_nothing_passes_on_a_guess():

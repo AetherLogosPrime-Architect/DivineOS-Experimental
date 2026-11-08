@@ -9,6 +9,6 @@
     "knowledge": {"kind": "undefined_placeholder", "note": "Aria names the show command that prints the row"},
     "worklist": {"kind": "undefined_placeholder", "note": "a correction-shaped row; same door as correction"},
     "wall": {"kind": "undefined_placeholder", "note": "undecided: what a wall hit opens"},
-    "moment": {"kind": "undefined_placeholder", "note": "a moment row records no author; shown plainly, door undecided"}
+    "moment": {"kind": "shown_plain", "reason": "a moment row records no author and has no source file, so a hit is shown plainly as a moment from the drawer and never held (decided with Aria, 2026-11-08)"}
   }
 }

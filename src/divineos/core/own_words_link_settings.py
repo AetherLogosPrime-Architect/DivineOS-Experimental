@@ -18,7 +18,7 @@ from pathlib import Path
 
 MODES = ("off", "log", "block")
 CHUNK_RULES = ("first", "last", "per_paragraph")
-CLEAR_KINDS = ("read_file", "show_command", "undefined_placeholder")
+CLEAR_KINDS = ("read_file", "show_command", "shown_plain", "undefined_placeholder")
 
 SETTINGS_FILE = Path(__file__).resolve().parents[3] / ".claude" / "own_words_link.json"
 
@@ -60,6 +60,10 @@ def validate(cfg: dict, lanes: set[str] | None = None, strict: bool = False) -> 
     for lane, clear in clears.items():
         if not isinstance(clear, dict) or clear.get("kind") not in CLEAR_KINDS:
             raise SettingsError(f"lane {lane!r}: clear kind must be one of {CLEAR_KINDS}")
+        # 'shown_plain' is a decision that a lane has no door: a hit is shown and never held. It is not a gap, so it is
+        # not a placeholder, and it must say why so nobody reads it as a door that was forgotten.
+        if clear["kind"] == "shown_plain" and not str(clear.get("reason", "")).strip():
+            raise SettingsError(f"lane {lane!r}: shown_plain needs a reason for having no door")
     placeholders = sorted(
         lane for lane, c in clears.items() if c["kind"] == "undefined_placeholder"
     )
