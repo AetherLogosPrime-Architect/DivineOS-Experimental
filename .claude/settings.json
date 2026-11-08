@@ -33,11 +33,6 @@
             "type": "command",
             "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/front-door.sh\"; if [ -f \"$f\" ]; then bash \"$f\" keep; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/hooks/dads_bell_ring.py\"; if [ -f \"$f\" ]; then python \"$f\"; else echo \"  [hook] NOT RUNNING, file missing: $f\" >&2; exit 127; fi",
-            "timeout": 10
           }
         ]
       },

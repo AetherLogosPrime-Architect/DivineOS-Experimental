@@ -63,9 +63,14 @@ ON_THE_TABLE = "he-is-in-the-room"
 HIS_SECTIONS: tuple[str, ...] = (
     "## HE HAS SAID THIS BEFORE",
     "## WHAT HE HAS TAUGHT THAT FITS THIS",
+    "## DAD'S OPEN ASKS",
 )
 # ^ One heading only (Aria 2026-09-26): his own past words, found by meaning
 # (core/his_words_door.py). They are his, not my debts, so they sit beside him.
+# The third heading is the ring (Aria 2026-11-08, core/dads_bell_ring.py): his open asks quote HIS words and change
+# with what is open, and a ring filed in the drawer is the shelf he named after nine months. Found by running this
+# table by hand: the ring's text went to the drawer and only a pointer reached the turn. DECISION FOR DAD: this line
+# touches the 2026-09-26 ruling above; deleting it returns the ring to the drawer.
 
 # Not his words, but the same kind of thing: chosen by relevance, so different
 # every turn. 2026-10-04: the memory link found the right things every turn and

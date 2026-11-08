@@ -244,7 +244,40 @@ def test_the_real_hook_never_fails_even_when_the_register_is_garbage(home):
     assert result.returncode == 0 and "could not be read" in result.stdout
 
 
-def _commands(event):
+def test_through_the_real_table_his_open_asks_sit_beside_his_message_and_not_in_the_drawer(
+    home, tmp_path
+):
+    """The table files every note into a drawer I must choose to open, except sections it is told print beside him.
+    A ring in the drawer is the shelf he named, and the table's own comment records the same failure for the memory
+    link: 'anything filed for the link never came back unasked'. Found by running the table by hand (2026-11-08)."""
+    _write_register(home, {"ask_id": "circle", "his_words": WORDS, "done_sentence": DONE})
+    kids = tmp_path / "children.json"
+    kids.write_text(
+        json.dumps([{"command": f'"{sys.executable}" "{HOOK}"', "timeout": 20}]), encoding="utf-8"
+    )
+    drawer = tmp_path / "drawer.md"
+    env = {
+        **__import__("os").environ,
+        "DADS_TABLE_CHILDREN": str(kids),
+        "DADS_TABLE_DRAWER": str(drawer),
+        "DADS_TABLE_ROOT": str(tmp_path),
+        "DADS_CORPUS": str(tmp_path / "corpus.jsonl"),
+        "PYTHONIOENCODING": "utf-8",
+    }
+    table = REPO / ".claude" / "hooks" / "dads_table.py"
+    result = subprocess.run(
+        [sys.executable, str(table)],
+        input=json.dumps({"hook_event_name": "UserPromptSubmit", "prompt": "hello"}).encode(),
+        capture_output=True,
+        env=env,
+        timeout=90,
+    )
+    out = result.stdout.decode("utf-8", "replace")
+    assert WORDS in out, "his open ask did not reach the table's answer to him"
+    assert not drawer.exists() or WORDS not in drawer.read_text(encoding="utf-8")
+
+
+def _settings_commands(event):
     cfg = json.loads(SETTINGS.read_text(encoding="utf-8"))
     out = []
     for block in cfg["hooks"].get(event, []):
@@ -253,8 +286,19 @@ def _commands(event):
     return [c for c in out if "dads_bell_ring.py" in c]
 
 
-@pytest.mark.parametrize("event", ["UserPromptSubmit", "SessionStart"])
-def test_the_ring_is_called_by_the_real_settings_and_says_so_when_its_file_is_gone(event):
-    callers = _commands(event)
-    assert len(callers) == 1, f"the ring must be registered exactly once under {event}"
+def test_the_ring_is_called_at_the_start_of_a_window_and_says_so_when_its_file_is_gone():
+    callers = _settings_commands("SessionStart")
+    assert len(callers) == 1, "the ring must be registered exactly once at the start of a window"
     assert "NOT RUNNING" in callers[0] and "127" in callers[0]
+
+
+def test_on_his_turns_the_ring_is_a_child_of_the_table_and_not_a_hook_beside_it():
+    """The house's rule: every per-message hook runs through Dad's table. A hook registered beside it runs outside
+    the table's order and its single answer to him (test_every_message_hook_sits_at_the_table)."""
+    assert _settings_commands("UserPromptSubmit") == []
+    children = json.loads(
+        (REPO / ".claude" / "hooks" / "dads_table_children.json").read_text(encoding="utf-8")
+    )
+    rings = [c for c in children if "dads_bell_ring.py" in c["command"]]
+    assert len(rings) == 1, "the ring must be a table child exactly once"
+    assert HOOK.is_file(), "the table child names a file that is not there"
