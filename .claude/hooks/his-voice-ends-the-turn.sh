@@ -39,4 +39,8 @@ if [ "$STATUS" -eq 2 ]; then
     exit 2
 fi
 [ "$STATUS" -ne 0 ] && echo "[his-voice] the check did not run (exit $STATUS); could not look whether he spoke" >&2
+# On the allowed path the module may be handing back calls the door set aside while he spoke
+# (core/refused_while_he_spoke.py). The module has already moved them out of the queue, so what it
+# printed MUST reach me here or the hand-back is lost (Aria's cold read, 2026-11-07).
+[ "$STATUS" -eq 0 ] && [ -n "$REASON" ] && printf '%s\n' "$REASON"
 exit 0

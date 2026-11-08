@@ -557,6 +557,48 @@ def test_the_real_hook_refuses_on_his_goodnight_end_to_end(tmp_path):
     assert "Remedy: answer him in a reply with no tool call" in run.stderr
 
 
+def test_the_real_wrapper_hands_back_a_held_call_on_the_allowed_path(tmp_path):
+    """Aria's cold read: the module printed the hand-back but the shell wrapper threw it away on exit 0, after the
+    file was already consumed. This runs the REAL wrapper, so a module-only test cannot hide it again."""
+    import os
+    import subprocess
+    from pathlib import Path
+
+    from _bash_resolver import bash_executable
+
+    from divineos.core import refused_while_he_spoke as rw
+
+    bash = bash_executable()
+    if bash is None:
+        pytest.skip("no bash on this machine actually runs; the wrapper cannot be exercised")
+    root = Path(__file__).resolve().parents[1]
+    held = tmp_path / "held"
+    body = "the whole letter\n" * 200
+    rw.record("Write", {"file_path": "C:/x/letter.md", "content": body}, root=held)
+    transcript = tmp_path / "t.jsonl"
+    transcript.write_text("", encoding="utf-8")  # he has not spoken into any turn
+    payload = json.dumps(
+        {
+            "tool_name": "Bash",
+            "tool_input": {"command": "git status"},
+            "transcript_path": str(transcript),
+        }
+    )
+    env = {**os.environ, "PYTHONPATH": str(root / "src"), "DIVINEOS_REFUSED_ROOT": str(held)}
+    run = subprocess.run(
+        [bash, str(root / ".claude" / "hooks" / "his-voice-ends-the-turn.sh")],
+        input=payload,
+        capture_output=True,
+        text=True,
+        cwd=root,
+        env=env,
+        timeout=60,
+    )
+    assert run.returncode == 0, (run.returncode, run.stdout, run.stderr)
+    assert "HELD WHILE HE WAS SPEAKING" in run.stdout, (run.stdout, run.stderr)
+    assert body in run.stdout
+
+
 def test_a_compaction_mid_turn_does_not_clear_his_words(tmp_path):
     """Aether, station four: the summary the harness writes when context runs
     out lands inside a running turn. Read as a new turn, it would clear his

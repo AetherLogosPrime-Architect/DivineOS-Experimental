@@ -88,6 +88,7 @@ def release(root: Path | None = None) -> str:
         path.replace(released / path.name)
     head = (
         f"HELD WHILE HE WAS SPEAKING -- {len(files)} call(s) the door set aside so his words came first. "
-        "He has been answered. Nothing was lost: redo each one now, whole, in this order."
+        "He has been answered. Nothing was lost. He often speaks to stop a thing, so check each one against what "
+        "he said first, then redo what still stands, whole, in this order."
     )
     return head + "\n\n" + "\n\n".join(blocks)
