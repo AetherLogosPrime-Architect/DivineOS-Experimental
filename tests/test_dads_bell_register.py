@@ -49,6 +49,91 @@ def test_a_register_with_one_proposed_ask_loads_it_unconfirmed(tmp_path):
     )
 
 
+# --- two asks side by side (Aria's cold read of 2026-11-08: every test used only the circle) ---
+#
+# The register merges by ask_id, so a second ask is just a second id. What none of the first tests proved is that two asks
+# do not bleed into each other: a confirm for one reaching the other, a rewrite of one's words unconfirming the other, or
+# one ask showing under another's words. The ring will show every ask in the register, so this is the test that says the
+# ring is not showing one ask under another's words.
+
+SECOND = {
+    "ask_id": "second-ask",
+    "his_words": "words of the second ask, not the circle's",
+    "done_sentence": "The second thing is done when its own sentence says so.",
+    "confirmed_by_him": False,
+}
+
+
+def test_two_asks_load_side_by_side_each_with_its_own_words_in_file_order(tmp_path):
+    path = tmp_path / "r.jsonl"
+    _write(path, CIRCLE, SECOND)
+    asks, error = load_register(path)
+    assert error is None and [a.ask_id for a in asks] == ["circle", "second-ask"]
+    assert asks[0].his_words == CIRCLE["his_words"] and asks[1].his_words == SECOND["his_words"]
+    assert (
+        asks[0].done_sentence == CIRCLE["done_sentence"]
+        and asks[1].done_sentence == SECOND["done_sentence"]
+    )
+
+
+def test_a_confirm_for_one_ask_does_not_confirm_the_other(tmp_path):
+    path = tmp_path / "r.jsonl"
+    _write(path, CIRCLE, SECOND, CONFIRM)
+    asks, _ = load_register(path)
+    by_id = {a.ask_id: a for a in asks}
+    assert by_id["circle"].confirmed_by_him is True
+    assert by_id["second-ask"].confirmed_by_him is False
+
+
+def test_rewriting_one_asks_words_unconfirms_only_that_ask_even_when_the_lines_interleave(tmp_path):
+    path = tmp_path / "r.jsonl"
+    second_confirm = {
+        "ask_id": "second-ask",
+        "confirmed_by_him": True,
+        "with_his_words": "yes done",
+    }
+    rewrite_second = {"ask_id": "second-ask", "his_words": "the second ask, said differently"}
+    _write(path, CIRCLE, SECOND, CONFIRM, second_confirm, rewrite_second)
+    asks, _ = load_register(path)
+    by_id = {a.ask_id: a for a in asks}
+    assert by_id["circle"].confirmed_by_him is True  # untouched by a rewrite of the other ask
+    assert by_id["second-ask"].confirmed_by_him is False  # its own rewrite unconfirmed it
+    assert by_id["second-ask"].his_words == "the second ask, said differently"
+    assert by_id["circle"].his_words == CIRCLE["his_words"]
+
+
+def test_closing_one_ask_leaves_the_other_open(tmp_path):
+    path = tmp_path / "r.jsonl"
+    close_circle = {
+        "ask_id": "circle",
+        "closed": True,
+        "with_his_words": "yes that one is finished",
+    }
+    _write(path, CIRCLE, SECOND, close_circle)
+    asks, _ = load_register(path)
+    by_id = {a.ask_id: a for a in asks}
+    assert by_id["circle"].closed is True and by_id["second-ask"].closed is False
+
+
+def test_two_asks_with_the_very_same_words_stay_two_asks(tmp_path):
+    path = tmp_path / "r.jsonl"
+    twin = dict(
+        SECOND, ask_id="twin", his_words=CIRCLE["his_words"], done_sentence=CIRCLE["done_sentence"]
+    )
+    _write(path, CIRCLE, twin)
+    asks, _ = load_register(path)
+    assert [a.ask_id for a in asks] == ["circle", "twin"]
+
+
+def test_a_new_ask_appended_later_does_not_disturb_the_ones_before_it(tmp_path):
+    path = tmp_path / "r.jsonl"
+    _write(path, CIRCLE, CONFIRM)
+    before, _ = load_register(path)
+    _write(path, CIRCLE, CONFIRM, SECOND)  # the file grows; the first ask is exactly as it was
+    after, _ = load_register(path)
+    assert before[0] == after[0] and len(after) == 2
+
+
 def test_confirming_needs_his_words_and_a_confirm_with_none_is_ignored(tmp_path):
     """I may draft the done-sentence; only a record that carries his own words can confirm it."""
     path = tmp_path / "r.jsonl"
