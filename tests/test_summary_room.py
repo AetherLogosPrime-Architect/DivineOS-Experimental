@@ -174,6 +174,9 @@ def test_the_missing_summary_refusal_says_his_circle_still_comes_last():
     text = sr.render_block(sr.assess(reply))
     assert text.startswith("SUMMARY ROOM MISSING")
     assert "INNER CIRCLE" in text and "LAST" in text
+    # Aria's cold read, 2026-11-07: the only imperative in the message was "append the summary", so the circle was
+    # merely described. The circle must be commanded the same way: "write a fresh full inner circle".
+    assert "write a fresh full `## INNER CIRCLE`" in text
 
 
 def test_uppercase_headers_still_work():

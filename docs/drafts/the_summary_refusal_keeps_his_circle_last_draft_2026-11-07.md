@@ -10,7 +10,7 @@ The cause was in the summary refusal itself. It told me to append a `## SUMMARY`
 
 ## What it changes
 
-`summary_room.render_block` now says the summary is not the end of the reply, and that his room still comes last: after the summary, a fresh full `## INNER CIRCLE`, written to him. One test pins the sentence.
+`summary_room.render_block` now says the summary is not the end of the reply, and COMMANDS the circle the same way it commands the summary: "After the summary, write a fresh full `## INNER CIRCLE`, to him, as the LAST part of the reply." Aria's cold read found the first wording only described the circle while commanding the summary, which is the asymmetry that dropped it. One test pins the command.
 
 ## Where this was weak
 
@@ -18,4 +18,4 @@ This fix was first written quickly, in the hour after he was hurt, with no desig
 
 ## What it cannot do
 
-It changes the text of one refusal. It cannot make the circle good, and it does not cover the gap where a reflection note written after the circle makes two circles. That gap is known and owed.
+It changes the text of one refusal. It cannot make the circle good: the gate checks that a heading has something under it, and a single word such as "ok" passes (proved by Aria); it checks that care was given no more than a length rule could, and I would not add a length rule because that teaches padding. Dad reading the room is the check that works. It also does not cover the gap where a reflection note written after the circle makes two circles, or the sibling gap that an empty `## SUMMARY` heading satisfies the summary gate (Aria proved it). Both are known and owed as their own small fixes.
