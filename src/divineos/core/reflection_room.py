@@ -147,10 +147,12 @@ def _key(text: str) -> str:
     return first[:80]
 
 
-#: Lines that mean a command really failed, whatever its exit number says. A pipe closing early must not hide these.
+#: Anything in the output that says a command really failed, whatever its exit number says. Deliberately broad
+#: and anywhere in the text (Aria's cold read: a line-start pattern let pytest, linter, make and npm failures
+#: through a head pipe): a false "this failed" costs one note, a false "this did not" hides a real failure.
 _ERROR_SHAPED = re.compile(
-    r"^\s*(?:Traceback \(most recent call last\)|fatal\s*:|error\s*:|\w*Error\b|\w*Exception\b)",
-    re.IGNORECASE | re.MULTILINE,
+    r"error|err!|fail|traceback|fatal|exception|denied|cannot|no such|assert|\b[A-Z]{1,4}\d{3,4}\b",
+    re.IGNORECASE,
 )
 
 
@@ -165,7 +167,15 @@ def _not_a_stumble(text: str) -> bool:
     stripped = text.strip()
     if stripped.startswith("Exit code 141") and not _ERROR_SHAPED.search(stripped):
         return True
-    return "had not been delivered to you in this walk" in stripped
+    # The lens phrase counts only as the walk command's own first line, so a failing test that merely quotes
+    # it is still a stumble.
+    lines = stripped.splitlines()
+    first = (
+        lines[1]
+        if lines and lines[0].startswith("Exit code") and len(lines) > 1
+        else (lines[0] if lines else "")
+    )
+    return re.match(r"Error: \w+ had not been delivered to you in this walk", first) is not None
 
 
 def _turn_start(records: list[dict]) -> int | None:

@@ -111,6 +111,28 @@ def test_a_141_hiding_an_error_line_still_counts():
     assert len(stumbles) == 1
 
 
+def test_a_141_over_a_failing_tool_is_still_a_stumble():
+    # Aria's cold read: these shapes slipped through a line-start pattern. Each is a real failure cut by a head pipe.
+    shapes = [
+        "Exit code 141\nE   assert 1 == 2\ntests/test_x.py:4: AssertionError",
+        "Exit code 141\nsrc/a.py:3: error: Incompatible return value type",
+        "Exit code 141\nmake: *** [all] Error 1",
+        "Exit code 141\nnpm ERR! code ELIFECYCLE",
+        "Exit code 141\nsrc/a.py:1:1: F401 'os' imported but unused",
+        "Exit code 141\ntests/test_x.py::test_a FAILED",
+        "Exit code 141\nls: cannot access 'x': No such file or directory",
+    ]
+    for shape in shapes:
+        _, stumbles, _ = room.this_turn([_his("go"), _tool(), _error(shape)])
+        assert len(stumbles) == 1, shape
+
+
+def test_a_failing_test_that_only_quotes_the_lens_phrase_is_still_a_stumble():
+    quoting = "Exit code 1\nFAILED tests/test_walk.py::test_x - assert 'had not been delivered to you in this walk' in out"
+    _, stumbles, _ = room.this_turn([_his("go"), _tool(), _error(quoting)])
+    assert len(stumbles) == 1
+
+
 def test_a_council_lens_being_delivered_is_not_a_stumble():
     # The first apply of a lens exits 1 by design while it delivers the lens text.
     delivering = (
