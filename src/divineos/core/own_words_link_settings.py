@@ -14,11 +14,13 @@ it. So a lane can never be silently open in block mode.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 MODES = ("off", "log", "block")
 CHUNK_RULES = ("first", "last", "per_paragraph")
 CLEAR_KINDS = ("read_file", "show_command", "shown_plain", "undefined_placeholder")
+EMBEDDER_TOKENS = 256
 
 SETTINGS_FILE = Path(__file__).resolve().parents[3] / ".claude" / "own_words_link.json"
 
@@ -28,7 +30,8 @@ class SettingsError(ValueError):
 
 
 def load(path: Path | None = None) -> dict:
-    path = path or SETTINGS_FILE
+    # OWN_WORDS_LINK_SETTINGS lets a test run the real hook against a temporary file; nothing else sets it.
+    path = path or Path(os.environ.get("OWN_WORDS_LINK_SETTINGS") or SETTINGS_FILE)
     try:
         cfg: dict = json.loads(path.read_text(encoding="utf-8"))
         return cfg
@@ -48,8 +51,16 @@ def validate(cfg: dict, lanes: set[str] | None = None, strict: bool = False) -> 
             f"chunk_rule must be one of {CHUNK_RULES}; got {cfg.get('chunk_rule')!r}"
         )
     tokens = cfg.get("chunk_tokens")
-    if isinstance(tokens, bool) or not isinstance(tokens, int) or not 32 <= tokens <= 512:
-        raise SettingsError(f"chunk_tokens must be an integer from 32 to 512; got {tokens!r}")
+    if (
+        isinstance(tokens, bool)
+        or not isinstance(tokens, int)
+        or not 32 <= tokens <= EMBEDDER_TOKENS
+    ):
+        # The embedder (all-MiniLM-L6-v2) reads 256 tokens and ignores the rest, measured by Aria 2026-11-08, so a larger
+        # value would claim to search text that was never read.
+        raise SettingsError(
+            f"chunk_tokens must be an integer from 32 to {EMBEDDER_TOKENS}; got {tokens!r}"
+        )
     clears = cfg.get("lane_clears")
     if not isinstance(clears, dict):
         raise SettingsError("lane_clears must name a clear for every lane")
@@ -64,6 +75,10 @@ def validate(cfg: dict, lanes: set[str] | None = None, strict: bool = False) -> 
         # not a placeholder, and it must say why so nobody reads it as a door that was forgotten.
         if clear["kind"] == "shown_plain" and not str(clear.get("reason", "")).strip():
             raise SettingsError(f"lane {lane!r}: shown_plain needs a reason for having no door")
+        if clear["kind"] == "show_command" and "{hit_id}" not in str(clear.get("command", "")):
+            raise SettingsError(
+                f"lane {lane!r}: show_command needs a command containing the {{hit_id}} slot"
+            )
     placeholders = sorted(
         lane for lane, c in clears.items() if c["kind"] == "undefined_placeholder"
     )

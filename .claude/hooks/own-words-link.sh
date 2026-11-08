@@ -21,15 +21,19 @@ except ValueError:
     payload = {}
 if payload.get('agent_id'):
     sys.exit(0)  # a helper agent is never listened to, the same line his_voice_hook draws
+def say(text):
+    # stdout JSON additionalContext is the route the house's other surfaces use to reach the model; an exit-0 hook's
+    # stderr is not known to (Aria, 2026-11-08), and a log mode that says nothing reads as 'found nothing'.
+    print(json.dumps({'hookSpecificOutput': {'hookEventName': 'PostToolUse', 'additionalContext': text}}))
 try:
     from divineos.core import own_words_link_settings as s
     cfg = s.load()
     s.validate(cfg)
 except Exception as exc:  # fail-open, and say so
-    print('[own-words-link] could not read its settings: ' + type(exc).__name__ + ': ' + str(exc), file=sys.stderr)
+    say('[own-words-link] could not read its settings: ' + type(exc).__name__ + ': ' + str(exc))
     sys.exit(0)
 if cfg['mode'] == 'off':
     sys.exit(0)
-print('[own-words-link] mode=' + cfg['mode'] + ' but the search is not built yet: nothing was looked for', file=sys.stderr)
+say('[own-words-link] mode=' + cfg['mode'] + ' but the search is not built yet: nothing was looked for')
 "
 exit 0
