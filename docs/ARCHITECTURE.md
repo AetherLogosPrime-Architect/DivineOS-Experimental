@@ -792,6 +792,7 @@ src/divineos/
     stall_on_promise.py        A promise to act is followed by the act, when no one is there to push.
     memory_linkage_own_words.py The memory link, read through what I said last turn, apart from what he said.
     show_hit.py                Print the exact saved row a memory-link hit points at.
+    own_words_link_settings.py Settings for the link that listens to our own words (design note 2026-11-08, points 2, 3, 7 and 10).
 
   analysis/
     _session_types.py          Session analysis type definitions

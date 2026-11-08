@@ -1,0 +1,14 @@
+{
+  "mode": "off",
+  "chunk_rule": "first",
+  "chunk_tokens": 256,
+  "lane_clears": {
+    "exploration": {"kind": "read_file"},
+    "letter": {"kind": "read_file"},
+    "correction": {"kind": "undefined_placeholder", "note": "Aria names the show command that prints the row"},
+    "knowledge": {"kind": "undefined_placeholder", "note": "Aria names the show command that prints the row"},
+    "worklist": {"kind": "undefined_placeholder", "note": "a correction-shaped row; same door as correction"},
+    "wall": {"kind": "undefined_placeholder", "note": "undecided: what a wall hit opens"},
+    "moment": {"kind": "undefined_placeholder", "note": "a moment row records no author; shown plainly, door undecided"}
+  }
+}
