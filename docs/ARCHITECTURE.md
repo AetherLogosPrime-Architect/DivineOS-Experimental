@@ -793,6 +793,7 @@ src/divineos/
     dads_bell.py               The bell for Dad: his open asks, and what would hold my other work until I move on them.
     dads_bell_register.py      The bell for Dad, register and shadow: reads his open asks; logs what it would hold, refuses nothing.
     read_only_shell.py         One public home for "a shell command that only looks".
+    dads_bell_ring.py          The ring: his open asks, in front of me when I choose what to do (walk-655e576c9972).
 
   analysis/
     _session_types.py          Session analysis type definitions
