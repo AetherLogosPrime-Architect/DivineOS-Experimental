@@ -108,8 +108,10 @@ def test_the_expectation_is_required_not_optional(cli):
     assert _status(cid) == "OPEN"
 
 
-@pytest.mark.parametrize("too_short", ["", "abc", "short one", "12345678901"])
-def test_an_expectation_under_twelve_letters_or_digits_is_refused(cli, too_short):
+@pytest.mark.parametrize(
+    "too_short", ["", "abc", "short one", "12345678901", "you are literally floo"]
+)
+def test_an_expectation_under_twenty_letters_or_digits_is_refused(cli, too_short):
     cid = act.file_correction(ROW_A)
     result = _run(
         cli,
@@ -121,8 +123,115 @@ def test_an_expectation_under_twelve_letters_or_digits_is_refused(cli, too_short
         too_short,
     )
     assert result.exit_code != 0
-    assert "12" in result.output
+    assert "20" in result.output
     assert _status(cid) == "OPEN"
+
+
+# Aether's cold read, 2026-11-09: counting the first twelve letters and digits of all
+# 857 rows in his store, 430 rows share their opening with at least one other row
+# (54 shared openings; the biggest is 96 rows of templated gate text, then 41 rows
+# beginning "Andrew 2026-08"). So what a person pastes proved the date and the
+# speaker, not the row. The speaker, date and marker are now set aside first, the
+# floor applies to what is left, and the words must point at ONE row in the store.
+TWIN_A = "Andrew 2026-08-09: you are literally flooding me in information at once"
+TWIN_B = "Andrew 2026-08-09: i have never punished either of you for failure at all"
+
+
+def test_a_speaker_and_date_alone_prove_nothing(cli):
+    cid = act.file_correction(TWIN_A)
+    act.file_correction(TWIN_B)
+    result = _run(
+        cli,
+        "integrate",
+        str(cid),
+        "--evidence",
+        "Landed in tests/test_cli.py to prove it",
+        "--expect-text",
+        "Andrew 2026-08-09: and a little more",
+    )
+    assert result.exit_code != 0
+    assert _status(cid) == "OPEN"
+
+
+def test_the_speaker_and_date_are_set_aside_before_the_floor_is_counted(cli):
+    cid = act.file_correction(TWIN_A)
+    act.file_correction(TWIN_B)
+    result = _run(
+        cli,
+        "integrate",
+        str(cid),
+        "--evidence",
+        "Landed in tests/test_cli.py to prove it",
+        "--expect-text",
+        "Andrew 2026-08-09: you are literally flooding me",
+    )
+    assert result.exit_code == 0, result.output
+
+
+def test_words_that_also_begin_another_row_are_refused_with_the_count(cli):
+    first = act.file_correction("the gate said stop and this one was about the buffer limit")
+    act.file_correction("the gate said stop and this one was about the doorman instead")
+    result = _run(
+        cli,
+        "integrate",
+        str(first),
+        "--evidence",
+        "Landed in tests/test_cli.py to prove it",
+        "--expect-text",
+        "the gate said stop and this one",
+    )
+    assert result.exit_code != 0
+    assert "1 other" in result.output
+    assert _status(first) == "OPEN"
+
+
+def test_more_of_the_row_tells_it_apart_from_its_twin(cli):
+    first = act.file_correction("the gate said stop and this one was about the buffer limit")
+    act.file_correction("the gate said stop and this one was about the doorman instead")
+    result = _run(
+        cli,
+        "integrate",
+        str(first),
+        "--evidence",
+        "Landed in tests/test_cli.py to prove it",
+        "--expect-text",
+        "the gate said stop and this one was about the buffer",
+    )
+    assert result.exit_code == 0, result.output
+
+
+def test_two_rows_with_identical_words_may_be_closed_by_their_opening(cli):
+    """Aether's store has 93 rows with an identical twin; making each paste its whole
+    text (the longest is over a thousand letters) would punish a harmless case."""
+    words = "the same words filed twice by two gates, nothing different at all"
+    first = act.file_correction(words)
+    act.file_correction(words)
+    result = _run(
+        cli,
+        "integrate",
+        str(first),
+        "--evidence",
+        "Landed in tests/test_cli.py to prove it",
+        "--expect-text",
+        "the same words filed twice by two gates",
+    )
+    assert result.exit_code == 0, result.output
+
+
+def test_two_rows_with_identical_words_may_be_closed_by_the_whole_text(cli):
+    words = "the same words filed twice by two gates, nothing different at all"
+    first = act.file_correction(words)
+    act.file_correction(words)
+    result = _run(
+        cli,
+        "integrate",
+        str(first),
+        "--evidence",
+        "Landed in tests/test_cli.py to prove it",
+        "--expect-text",
+        words,
+    )
+    assert result.exit_code == 0, result.output
 
 
 def test_case_spacing_and_punctuation_do_not_fail_a_true_match(cli):

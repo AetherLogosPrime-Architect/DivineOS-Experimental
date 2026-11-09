@@ -179,7 +179,7 @@ def test_the_command_never_prints_a_blank_refusal():
             "--evidence",
             "Sorted in .claude/hooks/nothing_here_at_all.sh ok",
             "--expect-text",
-            "a row to refuse through",
+            "a row to refuse through the command",
         ],
     )
     assert result.exit_code != 0

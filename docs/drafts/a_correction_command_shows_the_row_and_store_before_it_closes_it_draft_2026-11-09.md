@@ -33,6 +33,14 @@ He found the commands by searching the source for the UPDATE statements, not fro
 - **The reopen path for deferred rows** sets a row back to OPEN when its unblock condition fires. That direction is benign, and it runs without anyone looking at the row. Named, not changed.
 - The three store names stand alone as a separate change; this one already puts the path in every success line.
 
+## The floor was too low (Aether's second cold read, same day)
+
+He counted, on his own store of 857 rows, the first twelve letters and digits of every row: 430 rows share their opening with at least one other row (54 shared openings, the biggest of 96 templated gate rows, then 41 beginning "Andrew 2026-08"). So what a person pasted proved the speaker and the date and not the row, and the incident I repaired is exactly that shape.
+
+Changed: the leading speaker, date and marker are set aside first (`Andrew 2026-08-09:`, `[correction-shape-v2 ...]`, `VERBATIM:`); the floor is **20** letters or digits of what is left; and the words must point at ONE row in the store. If they also begin other rows, the command refuses with the count and prints the first 600 characters of the row to copy more from. A row with exactly the same words as another is not a rival (closing either says the same thing about his words), so its opening is enough.
+
+Measured read-only on both real stores with this rule: in Aether's 857 rows, 653 need 20 letters or fewer to be unique, 42 need 41 to 80, 35 need 21 to 40, and 127 need more than 80 (the longest is over a thousand); in mine, 331 of 425 need 20 or fewer and 84 need more than 80. The long ones are templated gate text that differs only deep inside, which is why the refusal now prints 600 characters and not 120. Honest limit: a row that needs over 600 letters to tell apart cannot be closed by pasting, and for those the right question is whether it was ever his words at all.
+
 ## Built (branch aria/closing-a-row-shows-the-row, stacked on aria/integrate-reads-dot-directories-and-says-why)
 
 `describe_row`, `check_expected_text` and a letters-and-digits comparison in the tracker; `--expect-text` required on integrate, misfiled, defer, propose-hold, confirm-hold and unhold, each calling one shared `_show_and_check_row` first; the commit route prints store and words; the teaching text in the briefing block and the attestation hook now shows `--expect-text`. One thing the tests found on the way: a different helper called `_squash` already existed further down the same file and silently replaced mine, so mine is named `_letters_and_digits`.

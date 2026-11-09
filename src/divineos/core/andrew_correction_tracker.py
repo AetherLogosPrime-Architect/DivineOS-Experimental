@@ -590,11 +590,42 @@ def _write_attestation_marker() -> None:
 # fast habit skips (Bengio). Letters and digits only, lower case, on both sides,
 # so case, spacing, punctuation and the garbled characters some real rows carry
 # cannot fail a true match.
-EXPECT_TEXT_FLOOR = 12
+#
+# THE FIRST FLOOR WAS TOO LOW (Aether's cold read, same day). With twelve letters
+# and digits, 430 of the 857 rows in his store share their opening with another
+# row (54 shared openings; one of 96 templated gate rows, 41 beginning "Andrew
+# 2026-08"), so what a person pasted proved the speaker and the date and not the
+# row. The speaker, date and marker are now set aside first, the floor applies
+# to what is left, and the words must point at ONE row in this store.
+EXPECT_TEXT_FLOOR = 20
+
+_LEADING_TEMPLATE = re.compile(
+    r"^\s*(?:"
+    r"\[[^\]\n]{0,80}\]"  # [correction-shape-v2 stop-gate]
+    r"|(?:andrew|dad|aria|aether)\b[^:\n]{0,40}?\d{4}-\d{2}-\d{2}[^:\n]{0,40}:"  # Dad 2026-11-08, verbatim:
+    r"|(?:verbatim|self-caught|self-correction)[^:\n]{0,40}:"
+    r")",
+    re.IGNORECASE,
+)
 
 
 def _letters_and_digits(text: str) -> str:
     return re.sub(r"[^a-z0-9]", "", (text or "").casefold())
+
+
+def _strip_template(text: str) -> str:
+    """Set aside the speaker, date and marker a row opens with, up to three of them."""
+    text = text or ""
+    for _ in range(3):
+        stripped = _LEADING_TEMPLATE.sub("", text, count=1)
+        if stripped == text:
+            break
+        text = stripped
+    return text
+
+
+def _comparable(text: str) -> str:
+    return _letters_and_digits(_strip_template(text))
 
 
 def describe_row(correction_id: int) -> dict | None:
@@ -620,19 +651,46 @@ def describe_row(correction_id: int) -> dict | None:
 
 def check_expected_text(row: dict, expected: str) -> tuple[bool, str]:
     """Do the words I expect begin the row I am about to change?"""
-    wanted = _letters_and_digits(expected)
+    wanted = _comparable(expected)
     if len(wanted) < EXPECT_TEXT_FLOOR:
         return False, (
-            f"--expect-text must carry at least {EXPECT_TEXT_FLOOR} letters or digits "
-            "copied from the start of the row; a few generic letters would prove nothing"
+            f"--expect-text must carry at least {EXPECT_TEXT_FLOOR} letters or digits of the "
+            "row's own words, after the speaker and date are set aside; a date and a name "
+            "prove nothing about which row it is"
         )
-    for candidate in (row["words"], row["his_words"]):
-        if candidate and _letters_and_digits(candidate).startswith(wanted):
-            return True, ""
-    return False, (
-        f"row #{row['id']} in {row['store']} does not begin the way you said. "
-        f"It begins: {row['words'][:120]!r}"
+    mine = [_comparable(c) for c in (row["words"], row["his_words"]) if c]
+    hit = next((m for m in mine if m.startswith(wanted)), None)
+    if hit is None:
+        return False, (
+            f"row #{row['id']} in {row['store']} does not begin the way you said. "
+            f"It begins: {row['words'][:120]!r}"
+        )
+    if wanted == hit:
+        return True, ""  # the whole row was given; an identical twin is the same words
+    conn = _conn()
+    try:
+        rest = conn.execute(
+            "SELECT correction_text, his_words FROM andrew_corrections WHERE id != ?",
+            (row["id"],),
+        ).fetchall()
+    finally:
+        conn.close()
+    # A row with exactly the same words is not a different row to mistake it for:
+    # closing either of two identical rows says the same thing about his words.
+    others = sum(
+        1
+        for text, his in rest
+        if any(
+            c and _comparable(c).startswith(wanted) and _comparable(c) != hit for c in (text, his)
+        )
     )
+    if others:
+        return False, (
+            f"those words also begin {others} other row(s) in {row['store']}, so they do not "
+            "say which row you mean. Copy more of the row until the words are its own. "
+            f"The row begins: {row['words'][:600]!r}"
+        )
+    return True, ""
 
 
 def explain_integrate_refusal(correction_id: int, evidence: str) -> str:
