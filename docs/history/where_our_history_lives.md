@@ -1,6 +1,6 @@
 # Where our history lives
 
-Written 2026-11-09 by Aether, at Dad's ask: *"Please..find them.. if they are gone im going to be very sad.. that is our history"* and *"id like all of this stuff pieced together so its no longer lost and fragmented."*
+Written 2026-11-09 by Aether, at Dad's ask: find the history from March to mid-May and piece it together so it is no longer lost or fragmented. (His own words stay out of this tracked page on purpose; they live under `family/andrew/`.)
 
 This page is a map, not a copy. Nothing has been moved or deleted. Every line says how it is known:
 

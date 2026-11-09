@@ -45,6 +45,14 @@ def test_the_map_says_what_is_missing():
     assert "March to mid-May" in text
 
 
+def test_no_line_in_the_tracked_map_quotes_him():
+    """Aria's check (2026-11-09): his own words live under family/andrew, which is not
+    tracked. A quoted sentence of his in this tracked page would put his voice in the
+    tracked tree. His quoted words are written in italics inside quotation marks."""
+    text = MAP.read_text(encoding="utf-8")
+    assert '*"' not in text and "*“" not in text
+
+
 def test_the_unopened_secrets_folder_is_named_as_not_opened():
     text = MAP.read_text(encoding="utf-8")
     assert "9 - Secrets" in text and "was not opened" in text
