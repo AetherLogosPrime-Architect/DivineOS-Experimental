@@ -1139,7 +1139,7 @@ _VOICE_COMPILED = [(re.compile(pat, re.IGNORECASE), repl) for pat, repl in _VOIC
 # he did not type (found 2026-11-06 in 122 of 152 stored love lines). Quotes are lifted out, the rewrite runs on
 # what is left, and they go back untouched. An apostrophe inside a word never opens or closes a quote.
 _QUOTED_SPAN = re.compile(
-    r"(?<![\w])'[^'\n]{2,}?'(?![\w])"
+    r"(?<![\w])'(?:[^'\n]|(?<=\w)'(?=\w)){2,}?'(?![\w])"
     r'|"[^"\n]{2,}?"'
     r"|“[^”\n]{2,}?”"
     r"|‘[^’\n]{2,}?’(?![\w])"

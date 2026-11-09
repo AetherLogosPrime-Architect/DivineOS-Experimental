@@ -28,6 +28,21 @@ class TestNormalizeToFirstPerson:
             == "I don't need it and I can't skip it, I must go"
         )
 
+    def test_a_single_quoted_span_holding_a_contraction_is_kept_exactly(self):
+        # Found 2026-11-09 by running the note's own claim: the apostrophe in "can't" closed the lifted span
+        # early, so "you" inside his single quotes came back as "I".
+        said = "you dont know what you can't do"
+        text = f"Dad said '{said}' and you should note it"
+        result = normalize_to_first_person(text)
+        assert f"'{said}'" in result
+        assert result.endswith("and I should note it")
+
+    def test_an_unmatched_opening_quote_is_a_known_limit_and_is_still_rewritten(self):
+        # Pinned so the limit is visible: a quote with no closing mark is not lifted. If this starts failing
+        # because the quote is now kept, that is an improvement, and the design note should be updated.
+        result = normalize_to_first_person('He said "your stuff is fine and you agreed to wait')
+        assert "my stuff" in result
+
     def test_the_agent(self):
         assert normalize_to_first_person("the agent should run tests") == "I should run tests"
 
