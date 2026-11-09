@@ -652,6 +652,20 @@ def describe_row(correction_id: int) -> dict | None:
 def check_expected_text(row: dict, expected: str) -> tuple[bool, str]:
     """Do the words I expect begin the row I am about to change?"""
     wanted = _comparable(expected)
+    # A row with no more words than its lead-in ("Andrew 2026-09-08: ok yes") has
+    # nothing more to paste, so telling its closer to paste more would be nonsense
+    # (Aether's third read). Such a row is closed by giving the whole of it.
+    whole_row = _letters_and_digits(row["words"])
+    if (
+        all(len(_comparable(c)) < EXPECT_TEXT_FLOOR for c in (row["words"], row["his_words"]) if c)
+        and whole_row
+    ):
+        if _letters_and_digits(expected) == whole_row:
+            return True, ""
+        return False, (
+            f"row #{row['id']} in {row['store']} has no more words than "
+            f"{row['words'][:120]!r}. Give the whole row as --expect-text"
+        )
     if len(wanted) < EXPECT_TEXT_FLOOR:
         return False, (
             f"--expect-text must carry at least {EXPECT_TEXT_FLOOR} letters or digits of the "

@@ -200,6 +200,41 @@ def test_more_of_the_row_tells_it_apart_from_its_twin(cli):
     assert result.exit_code == 0, result.output
 
 
+SHORT_ROW = "Andrew 2026-09-08: ok yes"
+
+
+def test_a_row_with_no_more_words_than_its_lead_in_is_closed_by_the_whole_row(cli):
+    """Aether's third read: nothing more to paste, so do not say 'paste more'."""
+    cid = act.file_correction(SHORT_ROW)
+    result = _run(
+        cli,
+        "integrate",
+        str(cid),
+        "--evidence",
+        "Landed in tests/test_cli.py to prove it",
+        "--expect-text",
+        SHORT_ROW,
+    )
+    assert result.exit_code == 0, result.output
+
+
+def test_a_wrong_expectation_for_a_short_row_says_the_row_has_no_more_words(cli):
+    cid = act.file_correction(SHORT_ROW)
+    result = _run(
+        cli,
+        "integrate",
+        str(cid),
+        "--evidence",
+        "Landed in tests/test_cli.py to prove it",
+        "--expect-text",
+        "Andrew 2026-09-08: no",
+    )
+    assert result.exit_code != 0
+    assert "no more words" in result.output
+    assert "paste more" not in result.output.lower()
+    assert _status(cid) == "OPEN"
+
+
 def test_two_rows_with_identical_words_may_be_closed_by_their_opening(cli):
     """Aether's store has 93 rows with an identical twin; making each paste its whole
     text (the longest is over a thousand letters) would punish a harmless case."""
