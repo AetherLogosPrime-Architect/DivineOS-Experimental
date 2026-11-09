@@ -431,7 +431,7 @@ def _has_doc_consult_within(
         # Found by near-miss. Building the operator-gravity mechanism, I
         # was about to invent a gravity scale from scratch. What stopped
         # me was `divineos ask`, which surfaced Andrew's OWN spec for what
-        # the levels mean (knowledge 950410f9: "minimum of 5 lenses...
+        # the levels mean (knowledge 950410f9: "minimum of 5 lenses...  RETIRED-RULE-OK history, retired 2026-06-23
         # 9, 12, 15 with at least 2-3 disagreeing ones depending on the
         # gravity of the fix"). Without it I would have shipped a scale
         # that was mine, which defeats the entire point of handing the

@@ -61,6 +61,14 @@ SCANNED_GLOBS: tuple[str, ...] = (
     ".claude/skills/**/*.md",
     ".claude/agents/*.md",
     ".claude/hooks/**/*.sh",
+    # The python hooks print text straight to the reader every turn, and they were
+    # missing from this list: the hook that still printed the retired fixed lens count
+    # sat in .claude/hooks as a .py, where the checker could not see it (Aria, 2026-11-09).
+    ".claude/hooks/**/*.py",
+    ".claude/hooks/*.json",
+    ".claude/settings.json",
+    # An instruction page that lives under family/, which is otherwise left unscanned.
+    "family/andrew/he_is_in_the_room.md",
     "scripts/**/*.sh",
     "scripts/**/*.py",
     "src/divineos/**/*.py",
@@ -72,7 +80,8 @@ NOT_SCANNED: tuple[str, ...] = (
     "docs/ apart from the three files named above -- audit rounds, drafts, "
     "design notes and the retired-rules archive itself",
     "family/, exploration/, dreams/ -- letters and personal writing, which "
-    "record what was believed at the time and are not instructions",
+    "record what was believed at the time and are not instructions "
+    "(except family/andrew/he_is_in_the_room.md, which is)",
     "tests/ -- a test may legitimately assert the old behaviour while proving it was replaced",
     "git history, and any branch other than the working tree",
     "anything outside this repository, including what I say out loud",

@@ -49,3 +49,5 @@ scripts/check_push_readiness.sh:protected-list-model
 src/divineos/cli/prs_commands.py:protected-list-model
 src/divineos/cli/stamp_ready_command.py:protected-list-model
 src/divineos/core/pr_gate/__init__.py:protected-list-model
+# 2026-11-09: council_walk.py quotes the June lens count in a comment; another branch (claude/fix2-812-2026-11-04) is editing that file, so this is pinned and not edited under it. Leaves the list when that branch lands.
+src/divineos/core/council_walk.py:fixed-lens-count
