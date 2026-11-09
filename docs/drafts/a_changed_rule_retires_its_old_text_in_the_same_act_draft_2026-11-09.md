@@ -29,3 +29,7 @@ Whether the memory link should be told what is retired, so it stops returning re
 ## Falsifier
 
 If, after this, the old number is still found on any scanned surface at the next run of the checker, or the memory link returns a retired sentence after the archive entry exists, the build is wrong and reopens.
+
+## Addendum 2026-11-09 (morning): the skill that teaches the rule still cites the superseded entry
+
+Aria superseded the knowledge entry 950410f9 (successor 9f4d11c9) and found that .claude/skills/council-round/SKILL.md section 2 still says the refined standard came "per knowledge 950410f9". That points a reader at a superseded entry as if it were the source. The fix is one clause: say the standard replaced the June counts, that the old entry is superseded, and point at the archive entry. Small change, so a short walk. Falsifier: the checker or a reader finds the skill still naming 950410f9 as the current source.

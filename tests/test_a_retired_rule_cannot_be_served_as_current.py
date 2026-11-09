@@ -79,6 +79,20 @@ def test_a_deliberate_mention_is_allowed(checker, one_rule, tmp_path):
     assert hits == []
 
 
+def test_the_marker_works_inside_a_json_string(checker, one_rule, tmp_path):
+    """Aria 2026-11-09: settings.json is scanned now and JSON has no comments, so a
+    deliberate mention there has to carry the marker inside a string value. The
+    checker reads lines, so the marker works anywhere on the line."""
+    settings = tmp_path / "settings.json"
+    settings.write_text(
+        '{"note": "we no longer do it the old way  RETIRED-RULE-OK"}\n'
+        '{"note": "we always do it the old way"}\n',
+        encoding="utf-8",
+    )
+    hits, _ = checker.find_hits(one_rule, [settings])
+    assert [h.lineno for h in hits] == [2]
+
+
 def test_a_surface_saying_nothing_of_the_kind_is_clean(checker, one_rule, tmp_path):
     surface = tmp_path / "instructions.md"
     surface.write_text("Do the thing that is currently correct.\n", encoding="utf-8")
