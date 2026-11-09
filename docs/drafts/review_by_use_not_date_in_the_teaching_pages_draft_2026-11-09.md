@@ -22,6 +22,12 @@ Six places in `.claude/skills/prereg/SKILL.md`, one in `.claude/skills/briefing-
 
 If any of those three files still says a review is set by a date, a `--review-days` command, or "over N days" as a falsifier after this lands, the fix is incomplete. Aether's register entry (in his tree) is meant to catch the phrases afterwards, and lands after this branch so it does not fail a tree that still teaches the old wording.
 
+## Refined by Dad, same day
+
+> *"Let me correct it as well.. its not that time cant be used as a metric..its that it cant be used as the only metric.. lets say you build X and over 30 days you are recording all X does.. and after those 30 days you find out it didnt fire one time.. what does that tell you?"*
+
+Nothing, by itself: either X works and nothing needed it, or X is broken and nobody knows. Time tells how long we watched, not how many chances there were. So the wording above is loosened from "never a date" to "never the only measure": time may sit beside the count of uses and chances. This is the same shape as the passed-over rate in the gap-count draft, which counts chances and not days. I had over-broadened a narrow correction into a total ban.
+
 ## Open
 
 The few lens cards that ask "how long" (Meadows, Kahneman, Yudkowsky) are left alone pending Dad's answer.

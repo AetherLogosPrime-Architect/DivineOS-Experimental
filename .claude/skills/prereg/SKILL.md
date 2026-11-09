@@ -22,7 +22,7 @@ New detectors can game their own metrics in ways that look like success but aren
 - **Success criterion** — what observable output would indicate the mechanism works
 - **Falsifier** — what would prove it doesn't work or has drifted
 - **Embarrassing reading** — the reading this mechanism could produce that would make you sorry you built it (not the same question as the falsifier; the command requires it)
-- **Review trigger** — how many uses of which ledger event before you come back and check (never a date)
+- **Review trigger** — how many uses of which ledger event before you come back and check (time may be recorded beside it, never as the only measure)
 
 ## Filing
 
@@ -35,7 +35,7 @@ divineos prereg file "<mechanism>" \
   --review-after-uses 3 --uses-of <LEDGER_EVENT_TYPE>
 ```
 
-Reviews go by USE, never by date (Andrew 2026-10-16): the review is due once the ledger has recorded N more events of the type you name. The type must have happened at least once. The machinery is deterministic, so a few uses tell you whether it works; a calendar would make a vacation look like a verdict.
+Reviews go by USE, never by date (Andrew 2026-10-16): the review is due once the ledger has recorded N more events of the type you name. The type must have happened at least once. The machinery is deterministic, so a few uses tell you whether it works; a calendar would make a vacation look like a verdict. Dad refined it 2026-11-09: time is not banned, it just cannot be the only measure, because "it never fired in 30 days" tells you nothing until you also know how many chances it had to fire. Zero fires out of zero chances is no information; zero fires out of fifty chances is a lot. Record the chances beside any elapsed time.
 
 For mechanisms whose reviews needs specific actors, add `--review-actor aria` or similar.
 
@@ -44,7 +44,7 @@ For mechanisms whose reviews needs specific actors, add `--review-actor aria` or
 1. **Name the mechanism** precisely — not "the new detector" but "the identity-drift detector in family_member_ledger that checks for third-person narration and daughter-framing"
 2. **State the claim** — what do we believe this will do in practice?
 3. **Name the success criterion** — how would we KNOW it's working? Be observable and specific. "Drifts detected before write to family_interactions" is better than "drifts caught."
-4. **Name the falsifier** — what would prove it wrong? "Zero drift events logged across the next 20 subagent invocations AND we observe drift in subagent output" would mean the detector is silent, not that drifts stopped. Count uses, never days.
+4. **Name the falsifier** — what would prove it wrong? "Zero drift events logged across the next 20 subagent invocations AND we observe drift in subagent output" would mean the detector is silent, not that drifts stopped. Count uses and chances; elapsed time may sit beside them but is never the only measure.
 5. **Review trigger** — name the event that counts a use and how many of them. Larger N for mechanisms expected to see rare events.
 6. **File.**
 
