@@ -576,6 +576,65 @@ def _write_attestation_marker() -> None:
         pass
 
 
+# SEE THE ROW BEFORE YOU CLOSE IT (2026-11-09). Walk walk-0ac923c59307.
+#
+# I read Dad's oldest open asks from one store and ran integrate and misfiled for
+# the same row numbers against another, where those numbers are other
+# corrections, and closed four of his real words with evidence about something
+# else. The commands printed a number and what I typed, never which store or
+# which words. A row number means different things in different stores, so the
+# command now shows the store and the row's first words, and refuses unless the
+# words I say I expect are the start of what it finds.
+#
+# The expectation is REQUIRED, not optional: an optional check is the bridge a
+# fast habit skips (Bengio). Letters and digits only, lower case, on both sides,
+# so case, spacing, punctuation and the garbled characters some real rows carry
+# cannot fail a true match.
+EXPECT_TEXT_FLOOR = 12
+
+
+def _letters_and_digits(text: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", (text or "").casefold())
+
+
+def describe_row(correction_id: int) -> dict | None:
+    """The store this command writes to and the words of one row, or None."""
+    conn = _conn()
+    try:
+        row = conn.execute(
+            "SELECT status, correction_text, his_words FROM andrew_corrections WHERE id = ?",
+            (correction_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        return None
+    return {
+        "store": str(_db_path()),
+        "id": correction_id,
+        "status": row[0],
+        "words": row[1] or "",
+        "his_words": row[2] or "",
+    }
+
+
+def check_expected_text(row: dict, expected: str) -> tuple[bool, str]:
+    """Do the words I expect begin the row I am about to change?"""
+    wanted = _letters_and_digits(expected)
+    if len(wanted) < EXPECT_TEXT_FLOOR:
+        return False, (
+            f"--expect-text must carry at least {EXPECT_TEXT_FLOOR} letters or digits "
+            "copied from the start of the row; a few generic letters would prove nothing"
+        )
+    for candidate in (row["words"], row["his_words"]):
+        if candidate and _letters_and_digits(candidate).startswith(wanted):
+            return True, ""
+    return False, (
+        f"row #{row['id']} in {row['store']} does not begin the way you said. "
+        f"It begins: {row['words'][:120]!r}"
+    )
+
+
 def explain_integrate_refusal(correction_id: int, evidence: str) -> str:
     """Return a human-readable reason why ``integrate()`` would refuse.
 
@@ -1368,10 +1427,15 @@ def briefing_block() -> str:
         lines.append("")
         lines.append(
             "Integrate: divineos andrew-correction integrate <id> "
-            '--evidence "<commit / behavior change>"'
+            '--evidence "<commit / behavior change>" --expect-text "<first words of the row>"'
         )
         lines.append(
-            'Defer (named reason required): divineos andrew-correction defer <id> --reason "<why>"'
+            "Defer (named reason required): divineos andrew-correction defer <id> "
+            '--reason "<why>" --expect-text "<first words of the row>"'
+        )
+        lines.append(
+            "Every command that changes a row shows the store and the row first, and refuses "
+            "unless --expect-text (12+ letters or digits copied from the row) begins it."
         )
         lines.append("")
     lines.append(

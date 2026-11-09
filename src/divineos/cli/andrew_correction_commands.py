@@ -12,9 +12,11 @@ import click
 
 from divineos.core.andrew_correction_tracker import (
     auto_integrate_from_commit,
+    check_expected_text,
     confirm_hold,
     confirm_phrase,
     defer,
+    describe_row,
     integrate,
     integration_rate,
     list_held,
@@ -23,6 +25,38 @@ from divineos.core.andrew_correction_tracker import (
     propose_hold,
     unhold,
 )
+
+
+def _expects_text(command):
+    """Every command that changes a row takes the row's opening words, required."""
+    return click.option(
+        "--expect-text",
+        "expect_text",
+        required=True,
+        help="The first words of the row you mean to change, copied from the row "
+        "(at least 12 letters or digits). The command shows the store and the row, "
+        "and refuses unless these words begin it.",
+    )(command)
+
+
+def _show_and_check_row(correction_id: int, expect_text: str) -> None:
+    """Show which store and which words, then refuse a mismatch. Nothing is changed here."""
+    row = describe_row(correction_id)
+    if row is None:
+        click.secho(
+            f"Refused: correction #{correction_id} not found in the store this command writes to.",
+            fg="red",
+            err=True,
+        )
+        raise click.exceptions.Exit(1)
+    click.secho(f"store: {row['store']}", fg="bright_black")
+    click.secho(
+        f"row #{row['id']} [{row['status']}] begins: {row['words'][:120]}", fg="bright_black"
+    )
+    ok, why = check_expected_text(row, expect_text)
+    if not ok:
+        click.secho(f"Refused: {why}", fg="red", err=True)
+        raise click.exceptions.Exit(1)
 
 
 def register(cli: click.Group) -> None:
@@ -69,8 +103,10 @@ def register(cli: click.Group) -> None:
         required=True,
         help="Commit / behavior change / where the correction landed (>= 20 chars).",
     )
-    def integrate_cmd(correction_id: int, evidence: str) -> None:
+    @_expects_text
+    def integrate_cmd(correction_id: int, evidence: str, expect_text: str) -> None:
         """Mark a correction INTEGRATED with evidence pointer."""
+        _show_and_check_row(correction_id, expect_text)
         ok = integrate(correction_id, evidence)
         if ok:
             click.secho(f"[+] Correction #{correction_id} marked INTEGRATED.", fg="green")
@@ -153,6 +189,12 @@ def register(cli: click.Group) -> None:
                     f"[+] Correction #{r['id']} auto-integrated from commit {commit_hash[:8]}.",
                     fg="green",
                 )
+                # A commit message carries no row words to check, so show them: the
+                # id means different rows in different stores (2026-11-09).
+                closed = describe_row(r["id"])
+                if closed is not None:
+                    click.secho(f"    store: {closed['store']}", fg="bright_black")
+                    click.secho(f"    row begins: {closed['words'][:60]}", fg="bright_black")
             else:
                 click.secho(
                     f"[!] Correction #{r['id']} reference in commit message did not integrate "
@@ -167,7 +209,8 @@ def register(cli: click.Group) -> None:
         required=True,
         help="Where this row actually belongs. Refused under 20 characters.",
     )
-    def misfiled_cmd(correction_id: int, belongs: str) -> None:
+    @_expects_text
+    def misfiled_cmd(correction_id: int, belongs: str, expect_text: str) -> None:
         """Mark a row as NOT A CORRECTION, naming where it belongs instead.
 
         For a row that was never a failure of mine. The moment Andrew called
@@ -182,6 +225,7 @@ def register(cli: click.Group) -> None:
         """
         from divineos.core.andrew_correction_tracker import misfile
 
+        _show_and_check_row(correction_id, expect_text)
         try:
             ok = misfile(correction_id, belongs)
         except ValueError as exc:
@@ -217,8 +261,12 @@ def register(cli: click.Group) -> None:
         "When the condition fires, check_and_reopen_unblocked() reopens the "
         "correction at the next session-start sweep.",
     )
-    def defer_cmd(correction_id: int, reason: str, unblock_condition: str | None) -> None:
+    @_expects_text
+    def defer_cmd(
+        correction_id: int, reason: str, unblock_condition: str | None, expect_text: str
+    ) -> None:
         """Mark a correction DEFERRED with named reason."""
+        _show_and_check_row(correction_id, expect_text)
         ok = defer(correction_id, reason, unblock_condition=unblock_condition)
         if ok:
             click.secho(f"[*] Correction #{correction_id} marked DEFERRED.", fg="yellow")
@@ -241,8 +289,10 @@ def register(cli: click.Group) -> None:
         required=True,
         help="Why this looks like grief rather than a task (>= 20 chars).",
     )
-    def propose_hold_cmd(correction_id: int, why: str) -> None:
+    @_expects_text
+    def propose_hold_cmd(correction_id: int, why: str, expect_text: str) -> None:
         """Propose a row for the held shelf. It stays OPEN until he confirms it."""
+        _show_and_check_row(correction_id, expect_text)
         if propose_hold(correction_id, why):
             click.secho(
                 f"[*] #{correction_id} is proposed for the held shelf. It stays OPEN, on "
@@ -260,8 +310,10 @@ def register(cli: click.Group) -> None:
 
     @andrew_group.command("confirm-hold")
     @click.argument("correction_id", type=int)
-    def confirm_hold_cmd(correction_id: int) -> None:
+    @_expects_text
+    def confirm_hold_cmd(correction_id: int, expect_text: str) -> None:
         """Move a proposed row to HELD only if he typed the line "hold <number>"."""
+        _show_and_check_row(correction_id, expect_text)
         if confirm_hold(correction_id):
             click.secho(f"[*] #{correction_id} is held on his word.")
             return
@@ -275,8 +327,10 @@ def register(cli: click.Group) -> None:
 
     @andrew_group.command("unhold")
     @click.argument("correction_id", type=int)
-    def unhold_cmd(correction_id: int) -> None:
+    @_expects_text
+    def unhold_cmd(correction_id: int, expect_text: str) -> None:
         """Return a held or proposed row to the worklist."""
+        _show_and_check_row(correction_id, expect_text)
         if unhold(correction_id):
             click.secho(f"[*] #{correction_id} is back on the worklist as OPEN.")
             return

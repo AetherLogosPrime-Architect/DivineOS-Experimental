@@ -178,6 +178,8 @@ def test_the_command_never_prints_a_blank_refusal():
             str(cid),
             "--evidence",
             "Sorted in .claude/hooks/nothing_here_at_all.sh ok",
+            "--expect-text",
+            "a row to refuse through",
         ],
     )
     assert result.exit_code != 0

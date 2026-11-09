@@ -95,7 +95,7 @@ cat <<JSON
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "deny",
-    "permissionDecisionReason": "BLOCKED by andrew-correction-attestation gate. ${OPEN_COUNT} OPEN Andrew-corrections require attestation before substantive tool use today. Address one of them with: \n  divineos andrew-correction integrate <id> --evidence \\\"<commit/behavior/where it landed>\\\" \nOR explicitly defer with: \n  divineos andrew-correction defer <id> --reason \\\"<named reason >= 20 chars>\\\" \nNo env-var bypass exists (Andrew 2026-05-19: agent-settable bypasses defeat the gate's purpose). To genuinely override, edit the hook in a visible commit. Reading the open corrections: divineos andrew-correction list."
+    "permissionDecisionReason": "BLOCKED by andrew-correction-attestation gate. ${OPEN_COUNT} OPEN Andrew-corrections require attestation before substantive tool use today. Address one of them with: \n  divineos andrew-correction integrate <id> --evidence \\\"<commit/behavior/where it landed>\\\" --expect-text \\\"<first words of the row>\\\" \nOR explicitly defer with: \n  divineos andrew-correction defer <id> --reason \\\"<named reason >= 20 chars>\\\" --expect-text \\\"<first words of the row>\\\" \nThe command shows the store and the row first and refuses unless --expect-text (12+ letters or digits, copied from the row) begins it. No env-var bypass exists (Andrew 2026-05-19: agent-settable bypasses defeat the gate's purpose). To genuinely override, edit the hook in a visible commit. Reading the open corrections: divineos andrew-correction list."
   }
 }
 JSON
