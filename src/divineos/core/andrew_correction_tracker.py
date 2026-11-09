@@ -38,13 +38,22 @@ from divineos.core.paths import divineos_home
 # integration claim must point at a verifiable artifact, not prose alone.
 # Same shape as the substance-binding tree-hash on External-Review
 # trailers — the claim is honored only when bound to a checkable thing.
+# ONE DEFINITION OF A FILE PATH (2026-11-09), used by the shape check below and
+# by the existence check further down. It used to be typed twice, opening with
+# `\b`, which needs a word character beside it -- and a leading `.` has none,
+# so `.claude/hooks/x.sh` was read as `claude/hooks/x.sh`, a path that does not
+# exist, and true evidence was refused as absent. 203 tracked files live under
+# `.claude/`. A token now starts wherever the previous character is not part
+# of a path, and may open with a dot. Walk walk-3dcd78d91542.
+_FILE_PATH_PATTERN = r"(?<![\w/\\.-])[\w/\\._-]+\.(?:py|md|sh|sql|toml|yaml|yml|json)\b"
+
 _ARTIFACT_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\b[0-9a-f]{7,40}\b"),  # commit hash (short or full)
     re.compile(r"#\d{1,6}\b"),  # PR / issue number
     re.compile(r"\b(?:PR|pr)\s*#?\s*\d+\b"),  # PR #N
     re.compile(r"\bclaim[-_\s]?[0-9a-f]{6,}\b", re.IGNORECASE),  # claim id
     re.compile(r"\bprereg[-_\s]?[0-9a-f]{6,}\b", re.IGNORECASE),  # prereg id
-    re.compile(r"\b[\w/\\._-]+\.(?:py|md|sh|sql|toml|yaml|yml|json)\b"),  # file path
+    re.compile(_FILE_PATH_PATTERN),  # file path
     re.compile(r"\btests?[/\\][\w/\\._-]+", re.IGNORECASE),  # test path
     re.compile(r"\btest_\w+\b"),  # test function name
 )
@@ -100,7 +109,7 @@ def _candidate_pointers(evidence: str) -> list[str]:
     # off its own tail came back absent, and absent outvoted unanswered.
     spans: list[tuple[int, int]] = []
     for pattern in (
-        r"\b[\w/\\._-]+\.(?:py|md|sh|sql|toml|yaml|yml|json)\b",
+        _FILE_PATH_PATTERN,
         r"\b(?:prereg|round|claim|psf|task|find|consult)-[a-f0-9]{6,}\b",
         r"\btest_\w+\b",
         r"\b[0-9a-f]{7,40}\b",
@@ -564,20 +573,50 @@ def explain_integrate_refusal(correction_id: int, evidence: str) -> str:
     the specific reason lands in the error message. Preserves the bool
     return type for backward-compat with existing tests and callers.
 
-    Returns "" on the happy path (integrate would succeed) — callers only
-    invoke this after integrate() already returned False, so a non-empty
-    return is the useful case.
+    NEVER RETURNS "" (2026-11-09). It used to, on the happy path, and it also
+    returned "" for the one refusal it did not know how to name -- the
+    existence check -- so a true pointer under `.claude/` was refused with the
+    line `Refused correction #287:` and nothing after the colon. Empty meant
+    both "all good" and "I do not know why". The decision now lives in one
+    place, ``integrate_verdict``, which integrate() uses too, so this can no
+    longer disagree with the thing it explains. If the verdict says yes and
+    integrate() still refused, the row changed under it, and it says so.
+    """
+    ok, reason = integrate_verdict(correction_id, evidence)
+    if not ok:
+        return reason
+    return (
+        "refused for a reason this explainer could not name: the checks pass now, "
+        "so the row probably changed while the command ran"
+    )
+
+
+_SHAPE_REFUSAL = (
+    "evidence has no structural-artifact pointer — needs one of: "
+    "commit hash (7-40 hex chars), PR/issue number (#N or PR #N), "
+    "claim/prereg id (claim-XXX / prereg-XXX), file path with "
+    "extension (.py/.md/.sh/...), or test name (test_XXX). "
+    "Prose-only 'I learned and will do better' is refused per "
+    "Andrew 2026-06-13 root-cause-fix discipline."
+)
+
+
+def integrate_verdict(correction_id: int, evidence: str) -> tuple[bool, str]:
+    """Would integrate() accept this, and if not, exactly why not.
+
+    The one place the decision is made. ``(True, "")`` means every check
+    passes; ``(False, reason)`` always carries a non-empty reason that names
+    the check that failed and, for a missing pointer, the tokens it looked up.
     """
     if not evidence or len(evidence.strip()) < 20:
-        return "evidence too short (< 20 chars)"
+        return False, "evidence too short (< 20 chars)"
     if not _has_structural_artifact(evidence):
-        return (
-            "evidence has no structural-artifact pointer — needs one of: "
-            "commit hash (7-40 hex chars), PR/issue number (#N or PR #N), "
-            "claim/prereg id (claim-XXX / prereg-XXX), file path with "
-            "extension (.py/.md/.sh/...), or test name (test_XXX). "
-            "Prose-only 'I learned and will do better' is refused per "
-            "Andrew 2026-06-13 root-cause-fix discipline."
+        return False, _SHAPE_REFUSAL
+    reality, detail = artifact_reality(evidence)
+    if reality == "not-found":
+        return False, (
+            f"the pointer names nothing that exists ({detail}). Paths are looked up "
+            "from the repository root, so run the command there."
         )
     conn = _conn()
     try:
@@ -588,11 +627,11 @@ def explain_integrate_refusal(correction_id: int, evidence: str) -> str:
     finally:
         conn.close()
     if row is None:
-        return f"correction #{correction_id} not found"
+        return False, f"correction #{correction_id} not found"
     status = row[0] if not hasattr(row, "keys") else row["status"]
     if status != "OPEN":
-        return f"correction #{correction_id} already {status}"
-    return ""
+        return False, f"correction #{correction_id} already {status}"
+    return True, ""
 
 
 def integrate(correction_id: int, evidence: str) -> bool:
@@ -610,18 +649,15 @@ def integrate(correction_id: int, evidence: str) -> bool:
     docstring already said ("name commit / behavior change") but the
     length-only gate failed to enforce.
     """
-    if not evidence or len(evidence.strip()) < 20:
+    # One decision, shared with explain_integrate_refusal. The shape check is
+    # the cheap first pass; the existence check cannot be satisfied by typing.
+    # A pointer nobody can resolve is refused; a pointer nobody could look up
+    # is admitted and RECORDED AS UNVERIFIED, so the rate can be read both
+    # ways instead of one passing for the other.
+    verdict_ok, _ = integrate_verdict(correction_id, evidence)
+    if not verdict_ok:
         return False
-    if not _has_structural_artifact(evidence):
-        return False
-    # The shape check above stays as the cheap first pass; this is the one
-    # that cannot be satisfied by typing. A pointer nobody can resolve is
-    # refused; a pointer nobody could look up is admitted and RECORDED AS
-    # UNVERIFIED, so the rate can be read both ways instead of one passing
-    # for the other.
     reality, detail = artifact_reality(evidence)
-    if reality == "not-found":
-        return False
     conn = _conn()
     try:
         cur = conn.execute(

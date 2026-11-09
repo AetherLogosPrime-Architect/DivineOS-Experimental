@@ -85,7 +85,12 @@ def register(cli: click.Group) -> None:
                 explain_integrate_refusal,
             )
 
-            reason = explain_integrate_refusal(correction_id, evidence)
+            # A blank reason must never reach him (2026-11-09: "Refused
+            # correction #287:" and nothing after it). The explainer no longer
+            # returns one; this is the last line if it ever does again.
+            reason = explain_integrate_refusal(correction_id, evidence).strip() or (
+                "no reason could be named; the refusal itself is the fault to report"
+            )
             click.secho(
                 f"Refused correction #{correction_id}: {reason}",
                 fg="red",

@@ -106,8 +106,12 @@ class VerificationResult:
 # Pattern classifiers — each returns the citation type if it matches,
 # else None. Order matters: substrate ids checked before commit hashes
 # because both can look like hex strings.
+# The class includes `.` (2026-11-09): without it a path under `.claude/` or any
+# dotted folder was "not a file-citation form" and true evidence was refused as
+# absent. A `..` segment is refused outright, since allowing dots would
+# otherwise let a citation climb out of the repository and be reported found.
 _RE_FILE = re.compile(
-    r"^([\w/_-]+\.(?:py|md|json|yaml|yml|toml|sh|js|ts|sql))(?::(\d+))?$",
+    r"^(?!(?:.*/)?\.\.(?:/|:|$))([\w/_.-]+\.(?:py|md|json|yaml|yml|toml|sh|js|ts|sql))(?::(\d+))?$",
 )
 _RE_SUBSTRATE_ID = re.compile(
     r"^(?:prereg|round|claim|psf|task|find|consult)-[a-f0-9]{6,}$",
