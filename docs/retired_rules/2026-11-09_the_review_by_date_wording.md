@@ -14,11 +14,13 @@ pattern: \bReviews whose date has passed\b
 
 ## What it said
 
-A pre-registration is filed with a review date: `divineos prereg file ... --review-days 30`, "scheduled review date", "review clock", "over 30 days", and `prereg overdue` described as "reviews whose date has passed".
+A pre-registration is filed with a review date: `divineos prereg file ... --review-days 30`, "scheduled review date", "review clock", and `prereg overdue` described as "Reviews whose date has passed". The `--review-days` option no longer exists.
 
 ## Why it was retired
 
 Andrew, 2026-08-12: *"at no point should time duration be used as a falsifier.. it should all be based on N-events or something similar."* A duration is a decay an agent cannot observe from inside; a clock can be consumed by the very defect it was meant to bound. The code followed on 2026-10-16 with `--review-after-uses` and `--uses-of`. The teaching pages kept the old wording: CLAUDE.md, the prereg skill and the briefing-fresh skill. On 2026-11-09 he said time keeps appearing as a metric and asked whether the council was why. Aria checked the lens cards instead of agreeing: none prescribes a test by date. The habit was in the pages that teach.
+
+**He then narrowed it, the same day, and this entry must not teach the wider version:** *"its not that time cant be used as a metric..its that it cant be used as the only metric.. lets say you build X and over 30 days you are recording all X does.. and after those 30 days you find out it didnt fire one time.. what does that tell you?"* Time is allowed beside the uses and the chances; it is wrong alone. So this entry bans only wording that names something that does not exist (a `--review-days` option, a "review clock") and never a phrase like "over 30 days", which a checker cannot tell from an honest one.
 
 ## What replaced it
 
