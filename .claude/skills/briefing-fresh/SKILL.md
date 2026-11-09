@@ -48,7 +48,7 @@ middle ignored — parallel panels each read front-to-back.
 ## How to read the output
 
 **If any of these appear, address them first:**
-- *Overdue pre-registrations* — a mechanism's review date has passed
+- *Overdue pre-registrations* — a mechanism has reached the number of uses its review was set for
 - *External-audit cadence warning* — no recent audit round filed
 - *Tier overrides surface with red entries* — verify legitimacy
 - *Compass drift warnings* — virtue spectrums moving toward deficiency or excess
