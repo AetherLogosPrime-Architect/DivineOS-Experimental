@@ -491,7 +491,13 @@ def close_cycle(
     except (ValueError, TypeError):
         offered_ts = time.time()
         duration_known = False
-    if not duration_known:
+    elapsed = time.time() - offered_ts
+    if duration_known and elapsed < 0:
+        # A clock set backwards between offer and close: "closed instantly" would be a
+        # measurement nobody made, so it reads as unknown (Aether's cold read, 2026-11-09).
+        duration_known = False
+        notes = (notes + " " if notes else "") + "[clock went backwards; duration not measured]"
+    elif not duration_known:
         notes = (notes + " " if notes else "") + "[offered_at unreadable; duration not measured]"
 
     record = CloseOutcome(
@@ -499,12 +505,16 @@ def close_cycle(
         closed_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         outcome=outcome,
         chosen_key=chosen_key,
-        duration_sec=max(0.0, time.time() - offered_ts) if duration_known else None,
+        duration_sec=elapsed if duration_known else None,
         real_shift=real_shift,
         notes=notes,
     )
 
-    _append_audit_log(pending, record)  # raises on failure; nothing is cleared
+    # Safe to repeat: the order is audit line, then handshake, then pending. A crash after
+    # the first leaves pending behind, and the next close used to append a second line for
+    # the same cycle. A cycle already in the audit is not written again.
+    if not any(str(e.get("cycle_id", "")) == cycle_id for e in _audit_entries()):
+        _append_audit_log(pending, record)  # raises on failure; nothing is cleared
 
     current = read_handshake_marker()
     if isinstance(current, dict) and str(current.get("cycle_id", "")) == cycle_id:

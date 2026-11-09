@@ -125,6 +125,60 @@ def test_the_handshake_the_pending_offering_and_the_audit_live_in_one_home(tmp_p
     assert all(tmp_path in p.parents for p in written)
 
 
+# Aether's cold read of the merged branch (2026-11-09) left two rare things open. Both fail
+# toward more or odd evidence and neither blocks, but the head is not yet confirmed by
+# Aletheia, so they are cheaper to close now than after.
+
+
+def _audit_lines(tmp_path) -> list[dict]:
+    files = [p for p in tmp_path.rglob("*") if p.is_file() and "audit" in p.name]
+    assert files, "no audit file was written"
+    return [
+        json.loads(line)
+        for line in files[0].read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+
+def test_a_close_repeated_after_a_crash_logs_the_cycle_once(monkeypatch, tmp_path):
+    """The audit line is written first, then the handshake cleared, then pending removed.
+    A crash between the first and the last used to leave pending behind, so the next close
+    appended a second line for the same cycle."""
+    _marker_for()
+    record, _ = p2.offer_cycle()
+    assert record is not None
+
+    real_clear = p2.clear_handshake_marker
+
+    def crash(*args, **kwargs):
+        raise OSError("disk went away")
+
+    monkeypatch.setattr(p2, "clear_handshake_marker", crash)
+    with pytest.raises(OSError):
+        p2.close_cycle("no-pull-honest")
+
+    monkeypatch.setattr(p2, "clear_handshake_marker", real_clear)
+    p2.close_cycle("no-pull-honest")
+
+    lines = [e for e in _audit_lines(tmp_path) if e.get("cycle_id") == record.cycle_id]
+    assert len(lines) == 1, f"the cycle was logged {len(lines)} times"
+
+
+def test_a_clock_set_backwards_reads_unknown_not_instant():
+    _marker_for()
+    record, _ = p2.offer_cycle()
+    assert record is not None
+    pending = p2._pending_path()
+    data = json.loads(pending.read_text(encoding="utf-8"))
+    data["offered_at"] = "2999-01-01T00:00:00Z"
+    pending.write_text(json.dumps(data), encoding="utf-8")
+
+    closed = p2.close_cycle("no-pull-honest")
+    assert closed is not None
+    assert closed.duration_sec is None
+    assert "duration not measured" in closed.notes
+
+
 def _menu(steps: dict) -> str:
     _marker_for(steps=steps)
     result = p2.read_handshake()
