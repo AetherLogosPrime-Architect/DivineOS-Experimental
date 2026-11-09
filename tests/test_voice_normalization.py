@@ -16,7 +16,7 @@ class TestNormalizeToFirstPerson:
 
     def test_his_quoted_words_are_kept_exactly_in_single_double_and_curly_quotes(self):
         said = "yes i dont want your stuff broken, you can wait"
-        for open_q, close_q in (("'", "'"), ('"', '"'), ("“", "”")):
+        for open_q, close_q in (("'", "'"), ('"', '"'), ("“", "”"), ("‘", "’")):
             text = f"Dad said {open_q}{said}{close_q} to Aria, and you should note it"
             result = normalize_to_first_person(text)
             assert f"{open_q}{said}{close_q}" in result
