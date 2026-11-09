@@ -130,6 +130,36 @@ def test_integrate_and_its_verdict_never_disagree_on_a_pass():
     assert act.integrate(cid, evidence) is True
 
 
+def test_an_absolute_path_under_the_real_checkout_is_found():
+    """Aether's cold read, 2026-11-09: the real root, not a made-up one."""
+    posix = REPO.as_posix()
+    for root in (posix, str(REPO)):
+        state, detail = act.artifact_reality(
+            f"changed {root}/src/divineos/core/closure_verification.py to read dots"
+        )
+        assert state == "found", (root, detail)
+
+
+def test_an_absolute_path_through_a_folder_name_with_a_space_is_found(tmp_path, monkeypatch):
+    """This machine's own root is 'C:/DIVINE OS/...'; the token was cut at the space."""
+    checkout = tmp_path / "A FOLDER WITH SPACES" / "Some-Checkout"
+    target = checkout / "src" / "pkg" / "thing.py"
+    target.parent.mkdir(parents=True)
+    target.write_text("x = 1\n", encoding="utf-8")
+    monkeypatch.chdir(checkout)
+    for root in (checkout.as_posix(), str(checkout)):
+        state, detail = act.artifact_reality(f"changed {root}/src/pkg/thing.py to fix it")
+        assert state == "found", (root, detail)
+
+
+def test_the_root_is_only_stripped_from_the_front_of_a_path(tmp_path, monkeypatch):
+    """A made-up file under the real root is still not found, with the tokens named."""
+    monkeypatch.chdir(tmp_path)
+    state, detail = act.artifact_reality(f"changed {tmp_path.as_posix()}/src/not_there.py to fix")
+    assert state == "not-found"
+    assert "not_there.py" in detail
+
+
 def test_the_command_never_prints_a_blank_refusal():
     """What Dad saw: 'Refused correction #287:' and nothing after it."""
     import click

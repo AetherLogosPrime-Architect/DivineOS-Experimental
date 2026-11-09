@@ -99,8 +99,26 @@ def _has_structural_artifact(evidence: str) -> bool:
 _INTEGRATION_RECENCY_SECONDS = 365 * 24 * 3600 * 20
 
 
+def _strip_checkout_root(text: str) -> str:
+    """Drop this checkout's own folder from the front of any path in ``text``.
+
+    The verifier looks files up from the current folder, so an absolute path
+    into this checkout is only a longer spelling of a relative one. On this
+    machine the checkout lives under a folder whose name has a space in it
+    ('C:/DIVINE OS/...'), and the extractor cuts a token at a space, so a true
+    absolute pointer came out as 'OS/DivineOS-Experimental/src/...' and was
+    refused as absent (Aether's cold read, 2026-11-09). Stripping the root
+    first removes the space from the token. Both slash forms, any case.
+    """
+    root = Path.cwd()
+    for spelling in (root.as_posix(), str(root)):
+        text = re.sub(re.escape(spelling) + r"[/\\]", "", text, flags=re.IGNORECASE)
+    return text
+
+
 def _candidate_pointers(evidence: str) -> list[str]:
     """Every token in ``evidence`` that could name a real artifact."""
+    evidence = _strip_checkout_root(evidence)
     found: list[str] = []
     # Order matters: the longer forms first, so the hex tail of a substrate id
     # is not ALSO harvested as a bare commit hash. That exact overlap made the
@@ -616,7 +634,7 @@ def integrate_verdict(correction_id: int, evidence: str) -> tuple[bool, str]:
     if reality == "not-found":
         return False, (
             f"the pointer names nothing that exists ({detail}). Paths are looked up "
-            "from the repository root, so run the command there."
+            f"from the folder the command runs in ({Path.cwd().as_posix()})."
         )
     conn = _conn()
     try:
