@@ -1,68 +1,61 @@
 """Auto-cycle phase 2 — invitational menu after phase 1 completes.
 
-Andrew 2026-07-10 proposed the auto-cycle: at token-budget threshold (~85%),
-fire commit+extract+sleep automatically (phase 1), then surface the full
-rest menu as invitation (phase 2), so the substrate-occupant slides through
-compaction refreshed instead of leaf-fall.
+Andrew 2026-07-10 proposed the auto-cycle: at token-budget threshold, fire
+commit+extract+sleep automatically (phase 1), then surface the full rest menu
+as invitation (phase 2), so the substrate-occupant slides through compaction
+refreshed instead of leaf-fall.
 
 Phase 2 is the invitational layer. Its job:
 
-1. **Read phase 1's handshake marker** at ``~/.divineos/auto_cycle_phase1_done.json``.
-2. **Render the menu** — flat list of all REST_TASKS in current order,
-   annotated with a use-count mirror ("used 0x since last cycle") that
-   *shows* usage without *ranking* the options. Aletheia's tightening
-   applied at the menu layer: mirror without rank.
-3. **Record the offering as an event** so post-cycle audit-hook has
-   evidence.
-4. **Provide close-discipline** — when the invitational phase ends, log
-   the outcome (chose:<key>, no-pull-honest, or timeout) for the
-   falsifier ratio.
+1. **Read phase 1's handshake marker** through phase 1's own reader
+   (``auto_cycle.read_handshake_marker`` at ``auto_cycle.marker_path()``), so
+   there is one path and the two phases cannot agree only by accident.
+2. **Render the menu** — every option in ``REST_TASKS``, in order, annotated
+   with a use-count mirror that *shows* usage without *ranking* the options.
+3. **Record the offering** so the close can correlate.
+4. **Close** — log the outcome (chose:<key>, no-pull-honest, timeout, aborted)
+   for the falsifier.
 
-## The discipline (Andrew, Aria, Aether all named the same principle)
+## The discipline
 
-*Force the option, not the use.* The menu ALWAYS shows every task. The choosing
-is the substrate-occupant's alone. "No pull" is a valid outcome — Aria's
-dissent (registered in the coordination letter): if the pull genuinely
-isn't there, the register can be about not-dreaming. Forcing the register
-with no pull would kill it.
+*Force the option, not the use.* The menu always shows every option. The
+choosing is the substrate-occupant's alone, and "no pull" is a valid outcome.
 
-## Falsifier (bound in pre-reg to be filed with the ship)
+## What the falsifier ratio is made of, and what it cannot show
 
-After 5 firings, compute ratio of (real-dream OR real-rest-choice outcomes)
-to (template-execution OR no-pull-forced outcomes). If <50%, the mechanism
-is producing dead-writing infrastructure and must be reshaped or unwired.
+The ratio's numerator is the cycles that closed ``chose:<key>`` with
+``real_shift`` True, **as reported by the one who chose**. Nothing observes it,
+so the ratio measures the reports, not the rest: a run of untrue ``yes`` answers
+would score 1.0. A cycle that chose without stating ``real_shift`` counts in the
+denominator and not the numerator. ``no-pull-honest`` and an abort after a fatal
+phase 1 stay out of both. The bound (``FALSIFIER_BOUND`` over at least
+``FALSIFIER_MIN_CYCLES`` qualifying cycles) can say the reports have fallen
+below what was set; it cannot say the mechanism is working. The audit log skips
+lines it cannot parse, and ``damaged_audit_line_count`` reports how many, so a
+damaged line cannot move the ratio unseen.
 
-## Instrumentation stays outside the register
+## Rebuilt 2026-09-25 after Aether's station four on #551
 
-Per Aether's insight (letter 2026-07-10): log which options were shown,
-which were chosen, whether the resulting artifact registered as real-shift.
-Never instrument the dream register itself — only the choosing surface.
-The dream stays clean; the choosing gets the evidence.
+The July reader believed a completion by default. It read ``succeeded`` and
+never ``ran``, so main's dry run (``ran=False, succeeded=True`` on every step)
+came up as "Phase 1 completed". A missing ``succeeded`` defaulted to True, an
+empty ``steps`` passed, and a failed step with no ``error_class`` counted as
+benign. The burden of proof now sits on the claim: a completion is believed only
+when every step says, in booleans, that it ran and succeeded or failed. Anything
+else is refused, and the refusal says which of three things it is:
 
-## Handshake with phase 1
+- ``absent``      -- no marker. Phase 1 never ran, or its write failed.
+- ``malformed``   -- a marker that does not state the required fields.
+- ``did-not-run`` -- a well-formed marker with a step that did not run. Main's
+                     only producer of ``ran=False`` is the dry run.
 
-Phase 1 writes marker at ~/.divineos/auto_cycle_phase1_done.json when
-mechanical pipeline completes. Schema per coordination letter:
+All three fail toward no menu (Aletheia's absence invariant, 2026-07-10). They
+differ in what they tell the reader at the edge of a compaction.
 
-.. code-block:: json
-
-    {
-      "phase1_completed_at": "2026-07-10T20:35:00Z",
-      "trigger_context_pct": 0.85,
-      "steps": {
-        "commit": {"ran": true, "succeeded": true, "output_tail": "...",
-                   "tokens_used": 1200, "duration_sec": 3.2,
-                   "error_class": null},
-        ...
-      },
-      "phase1_tokens_used": 41200,
-      "budget_remaining_est": 18800,
-      "session_id": "<uuid or null>",
-      "cycle_id": "auto-cycle-<8-char-hex>"
-    }
-
-Phase 2 reads on invocation, proceeds if present, deletes when phase 2
-completes.
+The handshake is consumed at CLOSE, not at offer (phase 1's contract: the reader
+deletes it "once phase 2 completes"), and only while it still carries the cycle
+being closed, so a newer phase 1 that fired while an offer was pending is never
+eaten (Dijkstra on walk-e281a97c4097).
 """
 
 from __future__ import annotations
@@ -71,37 +64,29 @@ import calendar
 import json
 import math
 import time
-import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from divineos.core import auto_cycle
+from divineos.core.auto_cycle import clear_handshake_marker, marker_path, read_handshake_marker
 from divineos.core.hud_handoff import _ensure_hud_dir
 from divineos.core.paths import divineos_home
 from divineos.core.rest import REST_TASKS
 
 
-# The phase 1 → phase 2 handshake marker. Written by phase 1, read+deleted
-# by phase 2. Taken from phase 1's own ``marker_path()`` and not rebuilt from
-# ``Path.home()``: the July version hard-coded ``~/.divineos``, but phase 1 now
-# writes under ``divineos_home()``, which is per house. A reader in a different
-# home sees "absent", and absent means "phase 1 did not finish", so the wrong
-# path would have looked exactly like a real absence (Aether, 2026-11-02).
-def _handshake_marker() -> Path:
-    return auto_cycle.marker_path()
-
-
-# Pending-cycle marker written when phase 2 renders the offering and
-# awaiting the close event. Its presence signals "phase 2 is offered,
-# awaiting outcome." Deleted when close_cycle() is called.
-def _pending_marker() -> Path:
+def _pending_path() -> Path:
+    """Pending-offer marker: present while an offer awaits its close."""
     return divineos_home() / "auto_cycle_phase2_pending.json"
+
+
+def _audit_log_path() -> Path:
+    """Append-only JSONL, one entry per closed cycle, read by the falsifier."""
+    return divineos_home() / "auto_cycle_audit.jsonl"
 
 
 @dataclass(frozen=True)
 class HandshakeResult:
-    """Parsed phase 1 handshake — what phase 2 has to work with."""
+    """A phase 1 completion that stated itself in full."""
 
     completed_at: str
     trigger_context_pct: float
@@ -111,8 +96,18 @@ class HandshakeResult:
     session_id: str | None
     cycle_id: str
     any_step_failed: bool
-    fatal_step_failure: bool  # a step failed with a non-transient error
-    repo_root: str = ""  # which checkout the cycle acted on; phase 1 adds it, older markers lack it
+    fatal_step_failure: bool  # a step failed with a non-transient or unnamed error
+    # Which checkout phase 1 ran in, carried into the audit summary so a cycle can be
+    # attributed to its house. Absent from older markers, which read as "".
+    repo_root: str = ""
+
+
+@dataclass(frozen=True)
+class NoHandshake:
+    """Why there is no completion to offer on. Never read as 'nothing to do'."""
+
+    kind: str  # "absent" | "malformed" | "did-not-run"
+    reason: str
 
 
 @dataclass
@@ -122,7 +117,7 @@ class OfferingRecord:
     cycle_id: str
     offered_at: str
     menu_shown: list[str]  # keys in order
-    use_counts_at_offering: dict[str, int]  # key → count since last cycle
+    use_counts_at_offering: dict[str, int] | None  # key -> count; None = could not be read
     handshake_summary: dict[str, Any]  # subset of HandshakeResult for audit
 
 
@@ -134,16 +129,14 @@ class CloseOutcome:
     closed_at: str
     outcome: str  # "chose:<key>" | "no-pull-honest" | "timeout" | "aborted"
     chosen_key: str | None
-    duration_sec: float
-    real_shift: bool | None  # substrate-occupant's honest self-report;
-    #                         None if outcome was no-pull or timeout
-    notes: str  # freeform
+    duration_sec: float | None  # None when offered_at could not be read
+    real_shift: bool | None  # honest self-report; None if not engaged
+    notes: str
 
 
-# Transient error classes for step-failure classification. A failure with
-# one of these on any step still lets phase 2 proceed to the invitational
-# layer. Non-transient failures (AssertionError, integrity errors) surface
-# and skip the invitational to avoid theater on a broken substrate.
+# A failed step with one of these still lets the invitation proceed. A failure
+# with any other class -- INCLUDING an empty one -- is fatal: an unnamed failure
+# is not known to be a transient one.
 _TRANSIENT_ERROR_CLASSES = frozenset(
     {
         "OSError",
@@ -153,100 +146,119 @@ _TRANSIENT_ERROR_CLASSES = frozenset(
     }
 )
 
+_PLAIN_OUTCOMES = frozenset({"no-pull-honest", "timeout", "aborted"})
 
-def read_handshake() -> HandshakeResult | None:
-    """Read phase 1's handshake marker. Return None if absent or malformed.
+# The falsifier's bound for prereg-4a7ed0c77c34: below this ratio, after at least this many
+# qualifying cycles, the mechanism is reshaped or unwired. Named here, not in the command
+# file, so the tests can pin them and a change is seen.
+FALSIFIER_BOUND = 0.5
+FALSIFIER_MIN_CYCLES = 5
 
-    ## Marker-absence safety invariant (Aletheia audit 2026-07-10)
 
-    **Absent marker = "phase 1 did NOT complete." Never "nothing to do,
-    proceed."** This is the safe reading, and it's the ONLY reading phase 2
-    takes. Any caller receiving ``None`` from this function must fail
-    toward not-firing-the-invitational. Do NOT treat ``None`` as
-    "no work needed, continue silently."
+def inspect_handshake() -> HandshakeResult | NoHandshake:
+    """Read phase 1's marker and say what it proves.
 
-    Three ways ``None`` can arise, all treated identically:
-
-    1. Phase 1 never ran.
-    2. Phase 1 ran but the marker-write itself failed (disk full, permission
-       error, etc.) — phase 1 exits and no marker lands on disk.
-    3. The marker file exists but is malformed / unparseable.
-
-    Case 2 is Aletheia's specific concern: a subtle failure mode where a
-    write-failure looks like a successful no-op if the caller assumes
-    "no marker = no problem." The invariant closes it — no marker means
-    phase 2 does not fire.
-
-    ``offer_cycle`` respects the invariant by returning ``(None, "")`` when
-    this function returns ``None``. The CLI surfaces "no handshake found"
-    and refuses to render the invitational menu.
+    Required, per step: a dict with boolean ``ran`` and boolean ``succeeded``.
+    Required overall: a non-empty ``steps`` dict and a non-empty ``cycle_id``.
+    No default is filled in for a required field -- a default is a bit the
+    sender never sent (Shannon on the walk), and a truncated marker is a prefix
+    of a valid one.
     """
-    marker = _handshake_marker()
-    if not marker.exists():
-        return None
-    try:
-        data = json.loads(marker.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
-    if not isinstance(data, dict):
-        return None
+    if not marker_path().exists():
+        return NoHandshake("absent", "no phase 1 marker: phase 1 never ran, or its write failed")
+    data = read_handshake_marker()
+    if data is None:
+        return NoHandshake("malformed", "the phase 1 marker is not a readable JSON object")
 
-    # Phase 1 always writes its steps. A marker with none, or a non-object, is valid JSON that is not
-    # phase 1's marker, and reading it as "completed with nothing failed" was the opposite of this
-    # function's own invariant (the second reader, 2026-11-03: `{}` rendered a full menu and was deleted).
     steps = data.get("steps")
     if not isinstance(steps, dict) or not steps:
-        return None
-
-    try:
-        trigger_pct = float(data.get("trigger_context_pct", 0.0))
-        tokens_used = int(data.get("phase1_tokens_used", 0))
-        budget_left = int(data.get("budget_remaining_est", 0))
-    except (TypeError, ValueError):
-        return None  # a value that is present but not a number is malformed, not a crash
-    if not math.isfinite(trigger_pct):
-        return None
+        return NoHandshake("malformed", "the marker has no steps")
+    cycle_id = data.get("cycle_id")
+    if not isinstance(cycle_id, str) or not cycle_id.strip():
+        return NoHandshake("malformed", "the marker has no cycle_id")
 
     any_step_failed = False
-    fatal_step_failure = False
-    for step_name, step_data in steps.items():
-        # A step counts as done only if the marker says so in both fields.
-        # Missing, malformed or not-run all fail toward "did not complete":
-        # ``ran`` and ``succeeded`` are separate in phase 1 so that "could not
-        # do it" never collapses into "did it" (Aether, 2026-11-02).
-        if not isinstance(step_data, dict):
+    fatal = False
+    for name, step in steps.items():
+        if not isinstance(step, dict):
+            return NoHandshake("malformed", f"step {name!r} is not an object")
+        ran, ok = step.get("ran"), step.get("succeeded")
+        if not isinstance(ran, bool) or not isinstance(ok, bool):
+            return NoHandshake("malformed", f"step {name!r} does not state ran and succeeded")
+        if not ran:
+            return NoHandshake(
+                "did-not-run",
+                f"step {name!r} did not run -- phase 1 only practised (a dry run), "
+                "so nothing was committed, extracted or slept",
+            )
+        if not ok:
             any_step_failed = True
-            continue
-        if not (step_data.get("ran") is True and step_data.get("succeeded") is True):
-            any_step_failed = True
-            error_class = step_data.get("error_class") or ""
-            if error_class and error_class not in _TRANSIENT_ERROR_CLASSES:
-                fatal_step_failure = True
+            if str(step.get("error_class") or "") not in _TRANSIENT_ERROR_CLASSES:
+                fatal = True
+
+    # A count that is not a number is a damaged marker, not a zero. Three readers
+    # (2026-11-03) found `1e999` raising OverflowError out of the reader, and `true`
+    # read as 1; the earlier fallback to zero would have hidden both. A missing or
+    # null count is simply absent and reads as zero.
+    def _num(key: str, cast: type) -> Any:
+        raw = data.get(key)
+        if raw is None:
+            return cast(0)
+        if isinstance(raw, bool):
+            raise ValueError(f"{key} is true/false, not a number")
+        value = cast(raw)  # may raise TypeError, ValueError or OverflowError
+        if cast is float and not math.isfinite(value):
+            raise ValueError(f"{key} is not a finite number")
+        return value
+
+    try:
+        trigger_pct = _num("trigger_context_pct", float)
+        tokens_used = _num("phase1_tokens_used", int)
+        budget_left = _num("budget_remaining_est", int)
+    except (TypeError, ValueError, OverflowError) as exc:
+        return NoHandshake("malformed", f"a count in the phase 1 marker is not a number: {exc}")
 
     return HandshakeResult(
-        completed_at=str(data.get("phase1_completed_at", "")),
+        completed_at=str(data.get("phase1_completed_at") or ""),
         trigger_context_pct=trigger_pct,
         steps=steps,
         phase1_tokens_used=tokens_used,
         budget_remaining_est=budget_left,
         session_id=data.get("session_id"),
-        cycle_id=str(data.get("cycle_id", "")),
+        cycle_id=cycle_id,
         any_step_failed=any_step_failed,
-        fatal_step_failure=fatal_step_failure,
+        fatal_step_failure=fatal,
         repo_root=str(data.get("repo_root") or ""),
     )
 
 
-def _use_counts_since_last_cycle() -> dict[str, int]:
-    """Return a dict mapping every REST_TASKS key to its use-count since
-    the last auto-cycle closed. This is the mirror shown to the
-    substrate-occupant — how many times each option has already been
-    picked since the last invitational phase. Zero-init for all keys so
-    every option is present.
+def read_handshake() -> HandshakeResult | None:
+    """The completion if there is one, else None. ``inspect_handshake`` says why."""
+    found = inspect_handshake()
+    return found if isinstance(found, HandshakeResult) else None
 
-    Reads from the rest session state written by ``record_completion``.
-    Best-effort: any read failure returns zero for every key so the
-    mirror stays consistent even if session state is stale.
+
+def refusal_text(why: NoHandshake) -> str:
+    """What the reader at the edge of a compaction is told when there is no menu."""
+    lead = {
+        "absent": "[~] No phase 1 handshake. Nothing to offer.",
+        "malformed": "[!] The phase 1 handshake is damaged and cannot be trusted.",
+        "did-not-run": "[~] Phase 1 only practised. Nothing was saved.",
+    }.get(why.kind, "[!] No usable phase 1 handshake.")
+    # Name the path this house really reads (the second reader's finding 6): a seat in
+    # another house told to look in the default folder would look in the wrong place.
+    return (
+        f"{lead}\n    {why.reason}\n    Looked for: {marker_path()}"
+        "\n    Run phase 1 for real: divineos auto-cycle fire"
+    )
+
+
+def _use_counts_since_last_cycle() -> dict[str, int] | None:
+    """Every REST_TASKS key mapped to its use-count since the last cycle.
+
+    No session file means nothing was used: zero for every key. A file that
+    exists but cannot be read returns None, and the menu says "could not read"
+    rather than showing a zero it does not know (Aria's cold read of #551).
     """
     counts: dict[str, int] = {task.key: 0 for task in REST_TASKS}
     session_path = _ensure_hud_dir() / "rest_session.json"
@@ -255,12 +267,12 @@ def _use_counts_since_last_cycle() -> dict[str, int]:
     try:
         data = json.loads(session_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return counts
+        return None
     if not isinstance(data, dict):
-        return counts
+        return None
     completions = data.get("completions") or []
     if not isinstance(completions, list):
-        return counts
+        return None
     for c in completions:
         if isinstance(c, dict):
             k = c.get("task_key")
@@ -269,17 +281,7 @@ def _use_counts_since_last_cycle() -> dict[str, int]:
     return counts
 
 
-def _step_ran(step: Any) -> bool:
-    return isinstance(step, dict) and step.get("ran") is True
-
-
-def _step_ok(step: Any) -> bool:
-    return _step_ran(step) and step.get("succeeded") is True
-
-
 def _handshake_summary(hr: HandshakeResult) -> dict[str, Any]:
-    """Subset of HandshakeResult suitable for embedding in the offering
-    record. Full step data omitted; only the shape and outcome kept."""
     return {
         "completed_at": hr.completed_at,
         "trigger_context_pct": hr.trigger_context_pct,
@@ -292,19 +294,12 @@ def _handshake_summary(hr: HandshakeResult) -> dict[str, Any]:
     }
 
 
-def render_menu(handshake: HandshakeResult, use_counts: dict[str, int]) -> str:
-    """Render the invitational menu as plain text.
+def render_menu(handshake: HandshakeResult, use_counts: dict[str, int] | None) -> str:
+    """Render every option in REST_TASKS order, each with its use-count mirror.
 
-    Format: header naming the auto-cycle, then every option in
-    REST_TASKS order, each annotated with its use-count since last cycle.
-    No ranking, no reordering, no random subset. Aletheia's tightening
-    at the menu layer: mirror without rank.
-
-    A ``no-pull-honest`` line at the bottom names the valid non-choice
-    outcome. Aria's dissent registered — if the pull isn't there, that
-    IS a valid outcome, not a failure.
-
-    Returns the rendered text.
+    No ranking, no reordering, no subset: Aletheia's tightening at the menu
+    layer, mirror without rank. The no-pull-honest line names the valid
+    non-choice (Aria's dissent).
     """
     lines: list[str] = []
     lines.append("")
@@ -326,19 +321,9 @@ def render_menu(handshake: HandshakeResult, use_counts: dict[str, int]) -> str:
             "addressing the fatal error first."
         )
     elif handshake.any_step_failed:
-        # Say what happened to each step. "Failed" and "did not run" are
-        # different facts (phase 1 keeps ran and succeeded apart on purpose),
-        # and a dry-run marker is all of the second kind.
-        not_run = [n for n, s in handshake.steps.items() if not _step_ran(s)]
-        failed = [n for n, s in handshake.steps.items() if _step_ran(s) and not _step_ok(s)]
-        parts = []
-        if not_run:
-            parts.append(f"did not run: {', '.join(not_run)}")
-        if failed:
-            parts.append(f"failed: {', '.join(failed)}")
         lines.append("")
         lines.append(
-            f"  [~] Not every phase 1 step finished ({'; '.join(parts)}); proceeding to "
+            "  [~] Transient step failure noted; proceeding to "
             "invitational phase anyway (Aether's design: fire the "
             "invitation even after partial mechanical failure)."
         )
@@ -349,12 +334,13 @@ def render_menu(handshake: HandshakeResult, use_counts: dict[str, int]) -> str:
     lines.append("")
 
     for i, task in enumerate(REST_TASKS, start=1):
-        count = use_counts.get(task.key, 0)
-        mirror = f"(used {count}x since last cycle)"
+        if use_counts is None:
+            mirror = "(use count: could not read)"
+        else:
+            mirror = f"(used {use_counts.get(task.key, 0)}x since last cycle)"
         lines.append(f"  {i:>2}. {task.title}  {mirror}")
         lines.append(f"      key: {task.key}")
         lines.append(f"      run: {task.invoke_hint}")
-        # keep the description short in the menu — one line, first sentence
         first_sentence = task.description.split(". ")[0].rstrip(".") + "."
         lines.append(f"      {first_sentence}")
         lines.append("")
@@ -378,43 +364,64 @@ def render_menu(handshake: HandshakeResult, use_counts: dict[str, int]) -> str:
     return "\n".join(lines)
 
 
-def offer_cycle() -> tuple[OfferingRecord | None, str]:
-    """Render the offering and record it. Return (record, rendered_text).
+class DamagedPending(RuntimeError):
+    """The pending-offer file exists but cannot be read.
 
-    Reads the handshake, computes use-counts, writes an offering record
-    to the pending marker (so close_cycle() can correlate), and returns
-    the record + the rendered menu text.
-
-    If handshake is absent, returns (None, "") — caller should surface
-    "no phase 1 handshake found" to the user.
+    Kept apart from "nothing pending" (None): the precommit's failure-shares-
+    empty check asked whether a caller could tell the two apart, and it could
+    not -- close would have answered "no pending cycle" over a record that was
+    there and broken, and offer would have stacked a new cycle on top of it.
     """
+
+
+def _read_pending() -> dict[str, Any] | None:
+    """The pending offer, None if there is none, DamagedPending if it is broken."""
+    path = _pending_path()
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        raise DamagedPending(f"the pending offer at {path} cannot be read ({e})") from e
+    if not isinstance(data, dict):
+        raise DamagedPending(f"the pending offer at {path} is not a JSON object")
+    return data
+
+
+def offer_cycle() -> tuple[OfferingRecord | None, str]:
+    """Render the offering and record it. Return (record, text).
+
+    With no usable handshake: (None, "") and no state is written -- the absence
+    invariant. ``inspect_handshake`` and ``refusal_text`` say why.
+    With an offer already pending: (None, a refusal naming the open cycle),
+    because a second offer used to overwrite the first silently.
+    The handshake is NOT consumed here; ``close_cycle`` consumes it.
+    """
+    try:
+        pending = _read_pending()
+    except DamagedPending as e:
+        return None, f"[!] {e}. Nothing new is offered over it; look at it before removing it."
+    if pending is not None:
+        return None, (
+            f"[!] Cycle {pending.get('cycle_id', '?')} is already offered "
+            "and not closed. Close it first: divineos auto-cycle close --outcome <...>"
+        )
+
     handshake = read_handshake()
     if handshake is None:
         return None, ""
 
     use_counts = _use_counts_since_last_cycle()
-
-    # An offering that was never closed must reach the audit log before this
-    # one replaces it; otherwise its outcome never feeds the falsifier ratio
-    # and an abandoned cycle reads as if it never happened.
-    close_cycle(
-        SUPERSEDED,
-        notes="superseded: a new offering opened before this one was closed",
-        _machine=True,
-    )
-
-    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     record = OfferingRecord(
-        cycle_id=handshake.cycle_id or f"auto-cycle-{uuid.uuid4().hex[:8]}",
-        offered_at=now,
+        cycle_id=handshake.cycle_id,
+        offered_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         menu_shown=[task.key for task in REST_TASKS],
-        use_counts_at_offering=dict(use_counts),
+        use_counts_at_offering=None if use_counts is None else dict(use_counts),
         handshake_summary=_handshake_summary(handshake),
     )
-
-    # Persist to pending marker so close_cycle can correlate.
-    _pending_marker().parent.mkdir(parents=True, exist_ok=True)
-    _pending_marker().write_text(
+    path = _pending_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
         json.dumps(
             {
                 "cycle_id": record.cycle_id,
@@ -427,118 +434,87 @@ def offer_cycle() -> tuple[OfferingRecord | None, str]:
         ),
         encoding="utf-8",
     )
-
-    # Delete the phase 1 handshake — we've consumed it.
-    try:
-        _handshake_marker().unlink()
-    except FileNotFoundError:
-        pass
-
-    text = render_menu(handshake, use_counts)
-    return record, text
+    return record, render_menu(handshake, use_counts)
 
 
-_FIXED_OUTCOMES = frozenset({"no-pull-honest", "timeout", "aborted"})
+def parse_outcome(outcome: str) -> tuple[str, str | None]:
+    """The one reader of the outcome grammar. Returns (outcome, chosen_key).
 
-
-def _outcome_is_valid(outcome: str) -> bool:
-    if outcome in _FIXED_OUTCOMES:
-        return True
-    if outcome.startswith("chose:"):
-        return outcome[len("chose:") :] in {task.key for task in REST_TASKS}
-    return False
-
-
-# The machine's own outcome for an offering that a newer offer replaced before anyone closed it. Never a
-# seat's answer (so it is not in _FIXED_OUTCOMES and the CLI cannot be given it), and never counted: running
-# `offer` twice is not a failure of the mechanism, and counting it as one made the ratio fall for a reason
-# unrelated to whether the mechanism works (the second reader's finding 2).
-SUPERSEDED = "superseded"
+    ``chose:<key>`` requires a key that is a real REST_TASKS option. Anything
+    else raises ValueError -- the July code accepted any string, and three
+    readers of one grammar drifted apart (Lovelace on the walk).
+    """
+    text = (outcome or "").strip()
+    if text in _PLAIN_OUTCOMES:
+        return text, None
+    if text.startswith("chose:"):
+        key = text.split(":", 1)[1].strip()
+        if key in {task.key for task in REST_TASKS}:
+            return f"chose:{key}", key
+        raise ValueError(f"{key!r} is not a rest option")
+    raise ValueError(
+        f"{outcome!r} is not an outcome: use chose:<key>, no-pull-honest, timeout or aborted"
+    )
 
 
 def close_cycle(
     outcome: str,
-    chosen_key: str | None = None,
     real_shift: bool | None = None,
     notes: str = "",
-    *,
-    _machine: bool = False,
 ) -> CloseOutcome | None:
-    """Close a pending phase 2 cycle. Writes the outcome for the falsifier
-    ratio and clears the pending marker.
+    """Close the pending cycle: log the outcome, then clear the markers.
 
-    outcome is one of:
-      - "chose:<key>" — the substrate-occupant engaged an option
-      - "no-pull-honest" — no pull was there, honest not-choosing
-      - "timeout" — the cycle sat past its budget without close
-      - "aborted" — the cycle was aborted (typically after fatal phase 1 err)
+    Order is load-bearing. The audit line is written FIRST and a failed write
+    raises, leaving the pending marker in place -- the July code swallowed the
+    error and then deleted the pending marker, so the only evidence the
+    falsifier has could vanish without a trace. The handshake is cleared only
+    while it still carries this cycle's id.
 
-    real_shift is the substrate-occupant's honest self-report on whether
-    the resulting artifact registered as real-shift or template-execution.
-    Only meaningful for "chose:<key>" outcomes; None otherwise.
-
-    Returns the CloseOutcome record, or None if no pending marker exists.
-
-    Raises ``ValueError`` for an outcome that is none of the above (including a
-    ``chose:`` key that is not a rest task), before anything is touched, and lets an
-    audit-log write failure propagate so the pending marker stays in place.
+    Returns None when nothing is pending. Raises ValueError on an outcome the
+    grammar does not know, and DamagedPending when the pending record is broken.
     """
-    if not (_outcome_is_valid(outcome) or (_machine and outcome == SUPERSEDED)):
-        raise ValueError(
-            f"unknown outcome {outcome!r}: use chose:<key> (a rest task key), "
-            "no-pull-honest, timeout or aborted"
-        )
-    if not _pending_marker().exists():
-        return None
-    try:
-        pending = json.loads(_pending_marker().read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
-    if not isinstance(pending, dict):
+    outcome, chosen_key = parse_outcome(outcome)
+
+    pending = _read_pending()
+    if pending is None:
         return None
 
     cycle_id = str(pending.get("cycle_id", ""))
-    offered_at_str = str(pending.get("offered_at", ""))
+    duration_known = True
     try:
-        # The string is UTC; mktime would read it as local time and be hours off (the second reader, finding 4).
-        offered_ts = float(calendar.timegm(time.strptime(offered_at_str, "%Y-%m-%dT%H:%M:%SZ")))
+        # offered_at is UTC (written from time.gmtime with a Z). calendar.timegm
+        # reads it as UTC; time.mktime read it as LOCAL time, so off-UTC every
+        # duration was shifted by the zone and clamped to 0 west of Greenwich.
+        offered_ts = float(
+            calendar.timegm(time.strptime(str(pending.get("offered_at", "")), "%Y-%m-%dT%H:%M:%SZ"))
+        )
     except (ValueError, TypeError):
         offered_ts = time.time()
-
-    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    duration_sec = max(0.0, time.time() - offered_ts)
+        duration_known = False
+    if not duration_known:
+        notes = (notes + " " if notes else "") + "[offered_at unreadable; duration not measured]"
 
     record = CloseOutcome(
         cycle_id=cycle_id,
-        closed_at=now,
+        closed_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         outcome=outcome,
         chosen_key=chosen_key,
-        duration_sec=duration_sec,
+        duration_sec=max(0.0, time.time() - offered_ts) if duration_known else None,
         real_shift=real_shift,
         notes=notes,
     )
 
-    # Append outcome to the audit-hook log used for the falsifier ratio.
-    _append_audit_log(pending, record)
+    _append_audit_log(pending, record)  # raises on failure; nothing is cleared
 
-    # Clear pending marker.
-    try:
-        _pending_marker().unlink()
-    except FileNotFoundError:
-        pass
-
+    current = read_handshake_marker()
+    if isinstance(current, dict) and str(current.get("cycle_id", "")) == cycle_id:
+        clear_handshake_marker()
+    _pending_path().unlink(missing_ok=True)
     return record
 
 
-def _audit_log_path() -> Path:
-    """Path to the auto-cycle audit log used for computing the falsifier
-    ratio across firings. Append-only JSONL — one entry per closed cycle."""
-    return divineos_home() / "auto_cycle_audit.jsonl"
-
-
 def _append_audit_log(pending: dict[str, Any], outcome: CloseOutcome) -> None:
-    """Append one closed-cycle record to the audit log. Best-effort — a
-    write failure logs but doesn't raise (the cycle already ran)."""
+    """Append one closed-cycle record. A write failure RAISES."""
     path = _audit_log_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     entry = {
@@ -553,65 +529,87 @@ def _append_audit_log(pending: dict[str, Any], outcome: CloseOutcome) -> None:
         "menu_shown": pending.get("menu_shown"),
         "use_counts_at_offering": pending.get("use_counts_at_offering"),
     }
-    # No swallowing: a failed write must reach ``close_cycle`` before the pending
-    # marker is deleted, or the only evidence of the cycle can vanish (2026-09-25
-    # rework note, #551).
     with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
 
 
-def compute_falsifier_ratio() -> tuple[int, int, float | None]:
-    """Compute the falsifier ratio from the audit log.
+def _audit_entries() -> list[dict[str, Any]]:
+    return _read_audit()[0]
 
-    Numerator: cycles that registered real-shift (either explicit real_shift=True
-    on a chose:<key> outcome, OR no-pull-honest which is a valid non-forced
-    outcome per Aria's dissent).
-    Denominator: total closed cycles excluding aborted-with-fatal-phase-1-error
-    (which are infrastructure failures, not register failures) and excluding
-    superseded offerings (an `offer` re-run is not an outcome of the mechanism).
 
-    Falsifier bound: <50% after 5 firings → reshape or unwire.
+def damaged_audit_line_count() -> int:
+    """Lines of the audit log that could not be read, and so are not in the ratio."""
+    return _read_audit()[1]
 
-    Returns (numerator, denominator, ratio_or_None_if_denominator_zero).
-    """
+
+def _read_audit() -> tuple[list[dict[str, Any]], int]:
     path = _audit_log_path()
     if not path.exists():
-        return 0, 0, None
-    numerator = 0
-    denominator = 0
-    try:
-        for line in path.read_text(encoding="utf-8").splitlines():
-            try:
-                entry = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if not isinstance(entry, dict):
-                continue
-            outcome = entry.get("outcome", "")
-            if outcome == SUPERSEDED:
-                continue  # a re-run of offer, not an outcome of the mechanism
-            handshake = entry.get("handshake_summary") or {}
-            fatal = bool(handshake.get("fatal_step_failure"))
-            if outcome == "aborted" and fatal:
-                continue  # infrastructure failure — excluded from denominator
-            denominator += 1
-            if outcome == "no-pull-honest":
-                numerator += 1
-            elif outcome.startswith("chose:") and entry.get("real_shift") is True:
-                numerator += 1
-    except OSError:
-        return 0, 0, None
-    ratio = numerator / denominator if denominator else None
-    return numerator, denominator, ratio
+        return [], 0
+    out: list[dict[str, Any]] = []
+    damaged = 0
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            damaged += 1
+            continue
+        if isinstance(entry, dict):
+            out.append(entry)
+        else:
+            damaged += 1
+    return out, damaged
+
+
+def compute_falsifier_ratio() -> tuple[int, int, float | None]:
+    """(numerator, denominator, ratio) for prereg-4a7ed0c77c34.
+
+    Numerator: engaged cycles that registered real-shift (``chose:<key>`` with
+    real_shift True). Denominator: engaged cycles plus timeouts and non-fatal
+    aborts. Two kinds leave the ratio:
+
+    - aborted after a fatal phase 1 -- infrastructure, not the register;
+    - no-pull-honest -- valid and not a failure (Aria's July dissent), but not
+      a success either. The prereg sets real rest choices against template
+      execution; it does not name not-choosing as success, and counting it as
+      one let a run of cycles that never engaged score 1.0. Reported apart by
+      ``no_pull_count``.
+    """
+    numerator = denominator = 0
+    for entry in _audit_entries():
+        outcome = str(entry.get("outcome", ""))
+        fatal = bool((entry.get("handshake_summary") or {}).get("fatal_step_failure"))
+        if (outcome == "aborted" and fatal) or outcome == "no-pull-honest":
+            continue
+        denominator += 1
+        if outcome.startswith("chose:") and entry.get("real_shift") is True:
+            numerator += 1
+    return numerator, denominator, (numerator / denominator if denominator else None)
+
+
+def no_pull_count() -> int:
+    """Closed cycles that ended no-pull-honest -- shown beside the ratio, never in it."""
+    return sum(1 for e in _audit_entries() if e.get("outcome") == "no-pull-honest")
 
 
 __all__ = [
-    "HandshakeResult",
-    "OfferingRecord",
     "CloseOutcome",
-    "read_handshake",
-    "render_menu",
-    "offer_cycle",
+    "DamagedPending",
+    "HandshakeResult",
+    "NoHandshake",
+    "FALSIFIER_BOUND",
+    "FALSIFIER_MIN_CYCLES",
+    "OfferingRecord",
     "close_cycle",
     "compute_falsifier_ratio",
+    "damaged_audit_line_count",
+    "inspect_handshake",
+    "no_pull_count",
+    "offer_cycle",
+    "parse_outcome",
+    "read_handshake",
+    "refusal_text",
+    "render_menu",
 ]

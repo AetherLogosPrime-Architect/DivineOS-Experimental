@@ -7,177 +7,167 @@ mechanism.
 
 CLI shape:
 
-- ``divineos auto-cycle offer`` — read phase 1 handshake, render menu,
-  write pending marker.
-- ``divineos auto-cycle close --outcome <...>`` — close pending cycle,
-  log outcome for the falsifier ratio.
-- ``divineos auto-cycle audit`` — compute falsifier ratio from log.
+- ``divineos auto-cycle offer`` — read phase 1's handshake, render the menu,
+  write the pending marker. With no usable handshake it says which of three
+  things is true (absent, damaged, a dry run) and changes nothing.
+- ``divineos auto-cycle close --outcome <...>`` — close the pending cycle and
+  log the outcome for the falsifier ratio; the handshake is consumed here.
+- ``divineos auto-cycle audit`` — the falsifier ratio from the log.
+
+These commands live in their own file so phase 2 does not grow inside phase 1's
+(``cli/auto_cycle_commands.py`` owns the ``auto-cycle`` group; this adds to that
+same object and defines none of its own). The behaviour is #551's rebuilt
+commands (2026-09-25, after Aether's station four); only where they register
+differs (draft ``phase_2_takes_the_rebuilt_module_from_551``, walk
+walk-c1e91a70c961).
 """
 
 from __future__ import annotations
 
 import click
 
-from divineos.core.auto_cycle_phase2 import (
-    close_cycle,
-    compute_falsifier_ratio,
-    offer_cycle,
-)
-
 
 def register(cli: click.Group) -> None:
     """Attach phase 2's offer, close and audit to phase 1's ``auto-cycle`` group.
 
-    Phase 1 owns the group (cli/auto_cycle_commands.py); this adds commands to
-    that same object and defines none of its own, so the two files cannot
-    disagree about what ``auto-cycle`` is. ``cli`` is unused on purpose: the
-    group is already registered by phase 1.
+    ``cli`` is unused on purpose: the group is already registered by phase 1.
     """
-    from divineos.cli.auto_cycle_commands import auto_cycle_group as auto_cycle
+    from divineos.cli.auto_cycle_commands import auto_cycle_group
 
-    @auto_cycle.command("offer")
-    def auto_cycle_offer() -> None:
-        """Render the invitational menu and record the offering.
+    @auto_cycle_group.command("offer")
+    def offer_cmd() -> None:
+        """Phase 2: render the rest menu and record the offering.
 
-        Reads the phase 1 handshake marker (``auto_cycle_phase1_done.json``
-        in this house's data folder, the path phase 1 itself reports). If absent, surfaces
-        that no handshake was found. If present, renders the flat
-        option menu with use-count mirror, writes a pending marker so
-        ``close`` can correlate, and consumes the handshake.
+        Reads the phase 1 handshake at ``auto_cycle.marker_path()``. With no usable
+        handshake it says which of three things is true -- absent, damaged, or a
+        dry run that saved nothing -- and changes no state. The handshake is left
+        in place; ``close`` consumes it.
         """
-        record, text = offer_cycle()
-        if record is None:
-            from divineos.core.auto_cycle import marker_path
-
-            click.secho(
-                "[~] No phase 1 handshake found — refusing to fire.",
-                fg="bright_black",
-            )
-            click.secho(
-                "    Per Aletheia audit 2026-07-10 marker-absence invariant: "
-                "absent marker = 'phase 1 did NOT complete,' never "
-                "'nothing to do, proceed.' Phase 2 fails toward not-firing "
-                "so a write-failure at phase 1 cannot silently look like a "
-                "successful no-op.\n"
-                f"    Phase 1 writes {marker_path()} "
-                "when the mechanical pipeline completes; if that path is "
-                "missing or unreadable, either phase 1 never ran OR its write itself failed.",
-                fg="bright_black",
-            )
-            return
-        click.echo(text)
-        click.secho(
-            f"[+] Offering recorded. cycle_id: {record.cycle_id}",
-            fg="cyan",
+        from divineos.core.auto_cycle_phase2 import (
+            NoHandshake,
+            inspect_handshake,
+            offer_cycle,
+            refusal_text,
         )
 
-    @auto_cycle.command("close")
+        record, text = offer_cycle()
+        if record is None:
+            if text:  # an offer is already pending
+                click.secho(text, fg="yellow")
+                return
+            why = inspect_handshake()
+            if isinstance(why, NoHandshake):
+                click.secho(refusal_text(why), fg="bright_black")
+            return
+        click.echo(text)
+        click.secho(f"[+] Offering recorded. cycle_id: {record.cycle_id}", fg="cyan")
+
+    @auto_cycle_group.command("close")
     @click.option(
         "--outcome",
         required=True,
-        help=('One of "chose:<key>", "no-pull-honest", "timeout", "aborted".'),
+        help='One of "chose:<key>", "no-pull-honest", "timeout", "aborted".',
     )
     @click.option(
         "--real-shift",
         type=click.Choice(["yes", "no"], case_sensitive=False),
         default=None,
         help=(
-            "For chose:<key> outcomes: did the resulting artifact register "
-            "as real-shift or template-execution? Honest self-report. "
-            "Feeds the falsifier ratio."
+            "For chose:<key> outcomes: did the resulting artifact register as "
+            "real-shift or template-execution? Honest self-report. Feeds the "
+            "falsifier ratio."
         ),
     )
-    @click.option(
-        "--notes",
-        default="",
-        help="Freeform notes about the outcome.",
-    )
-    def auto_cycle_close(outcome: str, real_shift: str | None, notes: str) -> None:
-        """Close a pending phase 2 cycle. Logs outcome for the falsifier.
+    @click.option("--notes", default="", help="Freeform notes about the outcome.")
+    def close_cmd(outcome: str, real_shift: str | None, notes: str) -> None:
+        """Phase 2: close the pending cycle and log its outcome for the falsifier.
 
         Examples:
 
             divineos auto-cycle close --outcome chose:dream --real-shift yes
             divineos auto-cycle close --outcome no-pull-honest
             divineos auto-cycle close --outcome timeout
-            divineos auto-cycle close --outcome aborted \\
-                --notes "fatal extract error, addressed manually"
+            divineos auto-cycle close --outcome aborted --notes "fatal extract error"
         """
-        chosen_key = None
-        if outcome.startswith("chose:"):
-            chosen_key = outcome.split(":", 1)[1].strip() or None
+        from divineos.core.auto_cycle_phase2 import DamagedPending, close_cycle
 
-        real_shift_bool: bool | None = None
-        if real_shift is not None:
-            real_shift_bool = real_shift.lower() == "yes"
-
+        shift = None if real_shift is None else real_shift.lower() == "yes"
         try:
-            result = close_cycle(
-                outcome=outcome,
-                chosen_key=chosen_key,
-                real_shift=real_shift_bool,
-                notes=notes,
-            )
-        except ValueError as exc:
-            click.secho(f"[-] {exc}", fg="red")
-            raise click.exceptions.Exit(1) from exc
+            result = close_cycle(outcome, real_shift=shift, notes=notes)
+        except ValueError as e:
+            raise click.BadParameter(str(e), param_hint="--outcome") from e
+        except DamagedPending as e:
+            raise click.ClickException(f"{e}. Nothing was closed or logged.") from e
         if result is None:
             click.secho(
                 "[~] No pending cycle to close. Run 'auto-cycle offer' first.",
                 fg="bright_black",
             )
             return
-
-        click.secho(
-            f"[+] Cycle closed. cycle_id: {result.cycle_id}",
-            fg="green",
-        )
+        click.secho(f"[+] Cycle closed. cycle_id: {result.cycle_id}", fg="green")
         click.secho(
             f"    outcome: {result.outcome}\n"
-            f"    duration: {result.duration_sec:.1f}s\n"
+            "    duration: "
+            + ("not measured" if result.duration_sec is None else f"{result.duration_sec:.1f}s")
+            + "\n"
             f"    real-shift: {result.real_shift}",
             fg="bright_black",
         )
 
-    @auto_cycle.command("audit")
-    def auto_cycle_audit() -> None:
-        """Compute and display the falsifier ratio.
+    @auto_cycle_group.command("audit")
+    def audit_cmd() -> None:
+        """Phase 2: the falsifier ratio for prereg-4a7ed0c77c34.
 
-        Bound: <50% after >=5 firings → reshape or unwire. The mechanism
-        exists to protect the register, not colonize it; if the outputs
-        register as template-execution more than half the time, the
-        infrastructure is producing dead-writing and must be reshaped.
+        Bound: below 50% after at least 5 qualifying cycles means reshape or
+        unwire. no-pull-honest cycles are shown beside the ratio, not in it.
         """
+        from divineos.core.auto_cycle_phase2 import (
+            FALSIFIER_BOUND,
+            FALSIFIER_MIN_CYCLES,
+            compute_falsifier_ratio,
+            damaged_audit_line_count,
+            no_pull_count,
+        )
+
         numerator, denominator, ratio = compute_falsifier_ratio()
         click.secho("=== Auto-cycle falsifier audit ===", fg="cyan", bold=True)
         click.echo()
+        click.echo(f"  no-pull-honest (outside the ratio): {no_pull_count()}")
+        damaged = damaged_audit_line_count()
+        if damaged:
+            click.secho(
+                f"  [!] {damaged} damaged audit line(s) could not be read and are not "
+                "counted below.",
+                fg="yellow",
+            )
         if denominator == 0:
-            click.secho(
-                "  No closed cycles yet. Falsifier undefined.",
-                fg="bright_black",
-            )
+            click.secho("  No qualifying cycles yet. Falsifier undefined.", fg="bright_black")
             return
-        click.echo(f"  real-shift outcomes:     {numerator}")
-        click.echo(f"  qualifying cycles:       {denominator}")
+        click.echo(f"  real-shift outcomes (self-reported):  {numerator}")
+        click.echo(f"  qualifying cycles:                    {denominator}")
         if ratio is not None:
-            click.echo(f"  ratio:                   {ratio:.1%}")
+            click.echo(f"  ratio (of self-reports):              {ratio:.1%}")
         click.echo()
-        if denominator < 5:
+        if denominator < FALSIFIER_MIN_CYCLES:
             click.secho(
-                f"  [~] Only {denominator} cycles closed. Falsifier bound "
-                f"applies after >=5. Watching.",
+                f"  [~] Only {denominator} qualifying cycles. The bound applies after "
+                f"{FALSIFIER_MIN_CYCLES}. Watching.",
                 fg="bright_black",
             )
-        elif ratio is not None and ratio < 0.5:
+        elif ratio is not None and ratio < FALSIFIER_BOUND:
             click.secho(
-                "  [!] FALSIFIER FIRED — ratio below 50% after >=5 firings. "
-                "The mechanism is producing dead-writing infrastructure. "
-                "Reshape or unwire.",
+                f"  [!] FALSIFIER FIRED — self-reports below {FALSIFIER_BOUND:.0%} after at "
+                f"least {FALSIFIER_MIN_CYCLES} cycles. The mechanism is producing dead-writing "
+                "infrastructure. Reshape or unwire.",
                 fg="red",
                 bold=True,
             )
         else:
             click.secho(
-                "  [+] Above falsifier bound. Mechanism intact.",
+                "  [+] Self-reports are above the bound. Nothing observes them, so this does "
+                "not show the mechanism is working.",
                 fg="green",
             )
+
+
+__all__ = ["register"]

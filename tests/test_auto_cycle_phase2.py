@@ -4,8 +4,11 @@ Andrew 2026-07-10 auto-cycle proposal. Phase 2 is the invitational
 layer: read phase 1 handshake, render menu, record offering + close
 outcome, compute falsifier ratio.
 
-Tests use tmp_path for the ~/.divineos markers via monkeypatching so
-each test runs in isolation.
+Every path resolves through DIVINEOS_HOME, pointed at tmp_path, so the tests
+exercise the same path resolution the product uses. The July tests patched
+phase 2's own hardcoded ``~/.divineos`` constants instead -- which is how a
+phase 2 reading a different file from the one phase 1 writes stayed green
+(Aether, station four on #551, 2026-09-25).
 """
 
 from __future__ import annotations
@@ -16,56 +19,71 @@ from pathlib import Path
 import pytest
 
 from divineos.core import auto_cycle_phase2 as ac
+from divineos.core.auto_cycle import marker_path, run_phase1, write_handshake_marker
 from divineos.core.auto_cycle_phase2 import (
+    NoHandshake,
     close_cycle,
     compute_falsifier_ratio,
+    inspect_handshake,
+    no_pull_count,
     offer_cycle,
+    parse_outcome,
     read_handshake,
     render_menu,
 )
+from divineos.core.rest import REST_TASKS
 
 
 @pytest.fixture
-def marker_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Redirect all markers under tmp_path so tests don't touch ~/.divineos."""
-    handshake = tmp_path / "auto_cycle_phase1_done.json"
-    pending = tmp_path / "auto_cycle_phase2_pending.json"
-    audit = tmp_path / "auto_cycle_audit.jsonl"
-    monkeypatch.setattr(ac, "_handshake_marker", lambda: handshake)
-    monkeypatch.setattr(ac, "_pending_marker", lambda: pending)
-    monkeypatch.setattr(ac, "_audit_log_path", lambda: audit)
-    # Also isolate the rest_session.json read
+def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Point DIVINEOS_HOME at tmp_path so phase 1 and phase 2 share it."""
+    monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
     hud_dir = tmp_path / "hud"
     hud_dir.mkdir()
     monkeypatch.setattr(ac, "_ensure_hud_dir", lambda: hud_dir)
     return tmp_path
 
 
-def _write_handshake(path: Path, **overrides) -> dict:
+def _step(ran: bool = True, succeeded: bool = True, error_class: str | None = None) -> dict:
+    return {"ran": ran, "succeeded": succeeded, "error_class": error_class}
+
+
+def _write_handshake(**overrides) -> dict:
     payload = {
         "phase1_completed_at": "2026-07-10T20:35:00Z",
         "trigger_context_pct": 0.85,
-        "steps": {
-            "commit": {"ran": True, "succeeded": True, "tokens_used": 1200},
-            "extract": {"ran": True, "succeeded": True, "tokens_used": 18000},
-            "sleep": {"ran": True, "succeeded": True, "tokens_used": 22000},
-        },
+        "steps": {"commit": _step(), "extract": _step(), "sleep": _step()},
         "phase1_tokens_used": 41200,
         "budget_remaining_est": 18800,
         "session_id": "test-session",
         "cycle_id": "auto-cycle-abc12345",
     }
     payload.update(overrides)
-    path.write_text(json.dumps(payload), encoding="utf-8")
+    marker_path().parent.mkdir(parents=True, exist_ok=True)
+    marker_path().write_text(json.dumps(payload), encoding="utf-8")
     return payload
 
 
-class TestReadHandshake:
-    def test_absent_returns_none(self, marker_paths: Path):
-        assert read_handshake() is None
+def _pending() -> Path:
+    return ac._pending_path()
 
-    def test_valid_parses(self, marker_paths: Path):
-        _write_handshake(ac._handshake_marker())
+
+class TestOnePath:
+    def test_both_phases_resolve_the_same_marker(self, home: Path):
+        """The fault Aether found: phase 2 read a path of its own."""
+        assert marker_path().parent == home
+        assert ac._pending_path().parent == home
+        assert ac._audit_log_path().parent == home
+
+
+class TestReadHandshake:
+    def test_absent_is_named_absent(self, home: Path):
+        assert read_handshake() is None
+        found = inspect_handshake()
+        assert isinstance(found, NoHandshake) and found.kind == "absent"
+
+    def test_valid_parses(self, home: Path):
+        _write_handshake()
         hs = read_handshake()
         assert hs is not None
         assert hs.cycle_id == "auto-cycle-abc12345"
@@ -74,663 +92,458 @@ class TestReadHandshake:
         assert hs.any_step_failed is False
         assert hs.fatal_step_failure is False
 
-    def test_malformed_json_returns_none(self, marker_paths: Path):
-        ac._handshake_marker().write_text("{not-json", encoding="utf-8")
-        assert read_handshake() is None
+    def test_malformed_json_is_named_malformed(self, home: Path):
+        marker_path().write_text("{not-json", encoding="utf-8")
+        found = inspect_handshake()
+        assert isinstance(found, NoHandshake) and found.kind == "malformed"
 
-    _OK_STEPS = '"steps": {"commit": {"ran": true, "succeeded": true}}'
+    def test_a_real_dry_run_is_refused_as_did_not_run(self, home: Path):
+        """The headline fault. Main's own dry run writes ran=False and
+        succeeded=True on every step; the July reader read only succeeded and
+        offered the menu for a phase 1 that did nothing. This uses the real
+        producer, not a hand-built dict, so it breaks if either side drifts."""
+        write_handshake_marker(run_phase1(0.9, dry_run=True))
+        assert read_handshake() is None
+        found = inspect_handshake()
+        assert isinstance(found, NoHandshake) and found.kind == "did-not-run"
+        record, text = offer_cycle()
+        assert record is None and text == ""
+        assert not _pending().exists()
 
     @pytest.mark.parametrize(
-        "raw",
+        "steps",
         [
-            "{}",
-            '{"cycle_id": "x"}',
-            '{"steps": "oops"}',
-            '{"steps": null}',
-            '{"steps": {}}',
-            '{"steps": ["commit"]}',
-            "{" + _OK_STEPS + ', "trigger_context_pct": "abc"}',
-            "{" + _OK_STEPS + ', "trigger_context_pct": null}',
-            "{" + _OK_STEPS + ', "trigger_context_pct": NaN}',
-            "{" + _OK_STEPS + ', "phase1_tokens_used": "12.5"}',
-            "{" + _OK_STEPS + ', "budget_remaining_est": null}',
+            {},
+            {"commit": {}},
+            {"commit": {"ran": True}},
+            {"commit": {"succeeded": True}},
+            {"commit": {"ran": "yes", "succeeded": True}},
+            {"commit": "done"},
         ],
     )
-    def test_a_marker_that_is_not_a_real_marker_reads_as_did_not_complete(
-        self, marker_paths: Path, raw: str
-    ):
-        """The second reader's finding 1 and 3: valid JSON is not a valid marker. Phase 1 always writes steps
-        and numbers, so a marker without steps, or with a value that is not a number, is 'did not complete'
-        (None), not a completed phase 1 and not a traceback."""
-        ac._handshake_marker().write_text(raw, encoding="utf-8")
-        assert read_handshake() is None
+    def test_a_marker_that_does_not_state_itself_is_malformed(self, home: Path, steps):
+        """A missing field used to default to success; a truncated marker is a
+        prefix of a valid one and must not read as one."""
+        _write_handshake(steps=steps)
+        found = inspect_handshake()
+        assert isinstance(found, NoHandshake) and found.kind == "malformed"
 
-    def test_offering_on_a_marker_with_no_steps_refuses_and_keeps_the_marker(
-        self, marker_paths: Path
-    ):
-        ac._handshake_marker().write_text("{}", encoding="utf-8")
-        record, text = ac.offer_cycle()
-        assert record is None and text == ""
-        assert ac._handshake_marker().exists()
+    @pytest.mark.parametrize("cycle_id", [None, "", "   ", 7])
+    def test_no_cycle_id_is_malformed(self, home: Path, cycle_id):
+        _write_handshake(cycle_id=cycle_id)
+        found = inspect_handshake()
+        assert isinstance(found, NoHandshake) and found.kind == "malformed"
 
-    def test_the_duration_does_not_depend_on_the_local_timezone(
-        self, marker_paths: Path, monkeypatch: pytest.MonkeyPatch
-    ):
-        """The second reader's finding 4: the offered time is a UTC string; mktime reads it as LOCAL time."""
-        import calendar
-        import time as _time
-
-        offered = _time.strftime("%Y-%m-%dT%H:%M:%SZ", _time.gmtime())
-        ac._pending_marker().write_text(
-            json.dumps({"cycle_id": "tz-1", "offered_at": offered}), encoding="utf-8"
-        )
-        # a seat nine hours east of UTC: the old code read the UTC string as local, nine hours off
-        monkeypatch.setattr(_time, "mktime", lambda tup: calendar.timegm(tup) - 9 * 3600)
-        record = ac.close_cycle("no-pull-honest")
-        assert record is not None and record.duration_sec < 60
-
-    def test_transient_step_failure_flagged_but_not_fatal(self, marker_paths: Path):
+    def test_transient_step_failure_flagged_but_not_fatal(self, home: Path):
         _write_handshake(
-            ac._handshake_marker(),
             steps={
-                "commit": {"ran": True, "succeeded": True},
-                "extract": {
-                    "ran": True,
-                    "succeeded": False,
-                    "error_class": "OSError",
-                },
-                "sleep": {"ran": True, "succeeded": True},
-            },
+                "commit": _step(),
+                "extract": _step(succeeded=False, error_class="OSError"),
+                "sleep": _step(),
+            }
         )
         hs = read_handshake()
         assert hs is not None
         assert hs.any_step_failed is True
         assert hs.fatal_step_failure is False
 
-    def test_fatal_step_failure_flagged(self, marker_paths: Path):
+    def test_fatal_step_failure_flagged(self, home: Path):
         _write_handshake(
-            ac._handshake_marker(),
             steps={
-                "commit": {"ran": True, "succeeded": True},
-                "extract": {
-                    "ran": True,
-                    "succeeded": False,
-                    "error_class": "AssertionError",
-                },
-                "sleep": {"ran": False, "succeeded": False},
-            },
+                "commit": _step(),
+                "extract": _step(succeeded=False, error_class="AssertionError"),
+            }
         )
         hs = read_handshake()
         assert hs is not None
         assert hs.any_step_failed is True
         assert hs.fatal_step_failure is True
 
+    @pytest.mark.parametrize("error_class", [None, ""])
+    def test_an_unnamed_failure_is_fatal(self, home: Path, error_class):
+        """July counted a failure with no error_class as benign."""
+        _write_handshake(steps={"extract": _step(succeeded=False, error_class=error_class)})
+        hs = read_handshake()
+        assert hs is not None
+        assert hs.fatal_step_failure is True
+
 
 class TestRenderMenu:
-    def test_lists_every_rest_task(self, marker_paths: Path):
-        _write_handshake(ac._handshake_marker())
+    def test_lists_every_rest_option(self, home: Path):
+        """Every option appears, however many there are.
+
+        This asserted exactly eleven when it was written on 2026-07-10, and
+        salvaging the branch on 2026-09-22 it failed at ten -- not because the
+        code had rotted but because the LIST had: `family` and `hold` left it,
+        `savor` joined. A count pinned to a number turns ordinary evolution
+        into a red test, and a branch that looks broken is a branch nobody
+        lands. That is part of how this one sat parked for two months.
+
+        What the test is for is that the menu shows everything, so that is
+        what it now asserts.
+        """
+        _write_handshake()
         hs = read_handshake()
         assert hs is not None
         text = render_menu(hs, {})
-        # Every REST_TASKS entry should appear by key. The count is read from
-        # the registry and not pinned: it was 11 in July and is 10 now, and a
-        # pinned number made this test about the registry's size, not the menu.
-        from divineos.core.rest import REST_TASKS
-
-        assert len(REST_TASKS) >= 1
+        assert REST_TASKS, "an empty list would pass the loop below vacuously"
         for task in REST_TASKS:
             assert task.key in text, f"missing task {task.key!r}"
 
-    def test_shows_use_count_mirror(self, marker_paths: Path):
-        _write_handshake(ac._handshake_marker())
+    def test_shows_use_count_mirror(self, home: Path):
+        _write_handshake()
         hs = read_handshake()
         assert hs is not None
         text = render_menu(hs, {"dream": 3, "kin": 1})
         assert "used 3x" in text
         assert "used 1x" in text
-        assert "used 0x" in text  # all other keys default to 0 via the mirror
+        assert "used 0x" in text
 
-    def test_names_no_pull_honest_outcome(self, marker_paths: Path):
-        _write_handshake(ac._handshake_marker())
+    def test_names_no_pull_honest_outcome(self, home: Path):
+        _write_handshake()
         hs = read_handshake()
         assert hs is not None
         text = render_menu(hs, {})
         assert "no-pull-honest" in text
         assert "not-choosing IS a choice" in text
 
-    def test_shows_fatal_warning_when_phase1_fatal(self, marker_paths: Path):
-        _write_handshake(
-            ac._handshake_marker(),
-            steps={
-                "extract": {
-                    "ran": True,
-                    "succeeded": False,
-                    "error_class": "AssertionError",
-                },
-            },
-        )
+    def test_shows_fatal_warning_when_phase1_fatal(self, home: Path):
+        _write_handshake(steps={"extract": _step(succeeded=False, error_class="AssertionError")})
         hs = read_handshake()
         assert hs is not None
-        text = render_menu(hs, {})
-        assert "Fatal step failure" in text
+        assert "Fatal step failure" in render_menu(hs, {})
 
-    def test_force_the_option_line_present(self, marker_paths: Path):
+    def test_force_the_option_line_present(self, home: Path):
         """The load-bearing discipline line must be visible in every menu."""
-        _write_handshake(ac._handshake_marker())
+        _write_handshake()
         hs = read_handshake()
         assert hs is not None
-        text = render_menu(hs, {})
-        assert "Force the option, not the use" in text
+        assert "Force the option, not the use" in render_menu(hs, {})
 
 
 class TestOfferCycle:
-    def test_no_handshake_returns_none(self, marker_paths: Path):
+    def test_no_handshake_returns_none(self, home: Path):
         record, text = offer_cycle()
         assert record is None
         assert text == ""
 
-    def test_valid_handshake_records_and_returns_menu(self, marker_paths: Path):
-        _write_handshake(ac._handshake_marker())
+    def test_valid_handshake_records_and_returns_menu(self, home: Path):
+        _write_handshake()
         record, text = offer_cycle()
         assert record is not None
         assert record.cycle_id == "auto-cycle-abc12345"
         assert "dream" in record.menu_shown
-        from divineos.core.rest import REST_TASKS
-
         assert len(record.menu_shown) == len(REST_TASKS)
-        assert text  # non-empty rendered menu
+        assert text
 
-    def test_offer_deletes_handshake_marker(self, marker_paths: Path):
-        _write_handshake(ac._handshake_marker())
-        assert ac._handshake_marker().exists()
+    def test_offer_leaves_the_handshake_for_the_close(self, home: Path):
+        """Phase 1's contract: the reader deletes it once phase 2 completes.
+        July deleted it at offer, so a crash between offer and close lost it."""
+        _write_handshake()
         offer_cycle()
-        assert not ac._handshake_marker().exists()
+        assert marker_path().exists()
 
-    def test_offer_writes_pending_marker(self, marker_paths: Path):
-        _write_handshake(ac._handshake_marker())
-        assert not ac._pending_marker().exists()
+    def test_offer_writes_pending_marker(self, home: Path):
+        _write_handshake()
+        assert not _pending().exists()
         offer_cycle()
-        assert ac._pending_marker().exists()
-        data = json.loads(ac._pending_marker().read_text(encoding="utf-8"))
+        data = json.loads(_pending().read_text(encoding="utf-8"))
         assert data["cycle_id"] == "auto-cycle-abc12345"
         assert "menu_shown" in data
         assert "handshake_summary" in data
 
+    def test_a_second_offer_is_refused_and_names_the_open_cycle(self, home: Path):
+        """July overwrote a pending offer silently."""
+        _write_handshake()
+        offer_cycle()
+        before = _pending().read_text(encoding="utf-8")
+        record, text = offer_cycle()
+        assert record is None
+        assert "auto-cycle-abc12345" in text
+        assert _pending().read_text(encoding="utf-8") == before
+
 
 class TestMarkerAbsenceSafety:
     """Aletheia audit 2026-07-10: absent marker = phase 1 did NOT complete;
-    never treated as 'nothing to do, proceed.' These tests pin the
-    invariant in code so a regression can't silently return.
+    never treated as 'nothing to do, proceed.' Phase 2 leaves no state
+    changes when there is no usable handshake.
     """
 
-    def test_no_marker_from_never_ran(self, marker_paths: Path):
-        """Case 1: phase 1 never ran. Marker never existed."""
-        assert not ac._handshake_marker().exists()
-        record, text = offer_cycle()
-        assert record is None, "must NOT fire invitational when phase 1 never ran"
-        assert text == ""
-        # Pending marker also must not be written — the invariant is that
-        # phase 2 leaves no state changes when the handshake is absent.
-        assert not ac._pending_marker().exists()
-
-    def test_no_marker_from_write_failure(self, marker_paths: Path):
-        """Case 2 (Aletheia's specific concern): phase 1 ran but the
-        marker-write itself failed (disk full, permission error). Phase 1
-        exits, no marker on disk, phase 2 must NOT fire silently."""
-        # Simulate: phase 1 ran but no marker landed. Indistinguishable from
-        # case 1 by design — both must fail toward not-firing.
-        assert not ac._handshake_marker().exists()
-        record, text = offer_cycle()
-        assert record is None, (
-            "marker-write-failure must NOT be treated as successful no-op — "
-            "phase 2 must fail toward not-firing-the-invitational"
-        )
-        assert text == ""
-        assert not ac._pending_marker().exists()
-
-    def test_no_marker_from_malformed_content(self, marker_paths: Path):
-        """Case 3: marker exists but is malformed. Same treatment."""
-        ac._handshake_marker().write_text("{not json at all", encoding="utf-8")
+    @pytest.mark.parametrize("content", [None, "{not json at all", "[1, 2, 3]"])
+    def test_no_usable_marker_fires_nothing(self, home: Path, content):
+        if content is not None:
+            marker_path().write_text(content, encoding="utf-8")
         record, text = offer_cycle()
         assert record is None
         assert text == ""
-        assert not ac._pending_marker().exists()
+        assert not _pending().exists()
 
-    def test_no_marker_from_wrong_top_level_type(self, marker_paths: Path):
-        """Case 3-adjacent: valid JSON but not a dict."""
-        ac._handshake_marker().write_text("[1, 2, 3]", encoding="utf-8")
-        record, text = offer_cycle()
-        assert record is None
-        assert text == ""
-        assert not ac._pending_marker().exists()
+
+class TestParseOutcome:
+    @pytest.mark.parametrize("plain", ["no-pull-honest", "timeout", "aborted"])
+    def test_plain_outcomes(self, plain):
+        assert parse_outcome(plain) == (plain, None)
+
+    def test_chose_a_real_key(self):
+        key = REST_TASKS[0].key
+        assert parse_outcome(f"chose:{key}") == (f"chose:{key}", key)
+
+    @pytest.mark.parametrize("bad", ["", "chose:", "chose:not-a-rest-option", "dream", "done"])
+    def test_anything_else_is_refused(self, bad):
+        with pytest.raises(ValueError):
+            parse_outcome(bad)
 
 
 class TestCloseCycle:
-    def test_no_pending_returns_none(self, marker_paths: Path):
+    def test_no_pending_returns_none(self, home: Path):
         assert close_cycle("no-pull-honest") is None
 
-    def test_close_after_offer_records_and_clears_pending(self, marker_paths: Path):
-        _write_handshake(ac._handshake_marker())
+    def test_the_duration_is_real_time_whatever_the_local_zone(self, home: Path):
+        # Review finding 2026-10-01: offered_at is written in UTC and was read
+        # back with time.mktime, which assumes LOCAL time. West of UTC the
+        # start lands in the future and the duration clamps to 0; east of it,
+        # the duration is inflated. This machine runs UTC-7, so the bug shows
+        # here without touching the zone.
+        import time as _time
+
+        _write_handshake()
         offer_cycle()
-        assert ac._pending_marker().exists()
-        result = close_cycle(
-            outcome="chose:dream",
-            chosen_key="dream",
-            real_shift=True,
-            notes="nautilus dream landed",
+        pending = json.loads(_pending().read_text(encoding="utf-8"))
+        pending["offered_at"] = _time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", _time.gmtime(_time.time() - 600)
         )
+        _pending().write_text(json.dumps(pending), encoding="utf-8")
+
+        result = close_cycle("timeout")
+
+        assert result is not None
+        assert 590 <= result.duration_sec <= 660, result.duration_sec
+
+    def test_close_records_clears_pending_and_consumes_the_handshake(self, home: Path):
+        _write_handshake()
+        offer_cycle()
+        result = close_cycle("chose:dream", real_shift=True, notes="nautilus dream landed")
         assert result is not None
         assert result.outcome == "chose:dream"
         assert result.chosen_key == "dream"
         assert result.real_shift is True
-        assert not ac._pending_marker().exists()
+        assert not _pending().exists()
+        assert not marker_path().exists()
 
-    def test_close_appends_to_audit_log(self, marker_paths: Path):
-        _write_handshake(ac._handshake_marker())
+    def test_a_bad_outcome_changes_nothing(self, home: Path):
+        _write_handshake()
+        offer_cycle()
+        with pytest.raises(ValueError):
+            close_cycle("chose:nonsense")
+        assert _pending().exists()
+        assert marker_path().exists()
+        assert not ac._audit_log_path().exists()
+
+    def test_close_leaves_a_newer_cycles_handshake_alone(self, home: Path):
+        """A phase 1 that fired while an offer was pending wrote a new marker;
+        closing the old cycle must not eat it."""
+        _write_handshake(cycle_id="old")
+        offer_cycle()
+        _write_handshake(cycle_id="new")
+        close_cycle("timeout")
+        assert json.loads(marker_path().read_text(encoding="utf-8"))["cycle_id"] == "new"
+
+    def test_a_failed_audit_write_raises_and_keeps_the_pending_offer(
+        self, home: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """July swallowed this and then deleted the pending marker."""
+        _write_handshake()
+        offer_cycle()
+        blocked = home / "not-a-dir"
+        blocked.write_text("a file where a directory must be", encoding="utf-8")
+        monkeypatch.setattr(ac, "_audit_log_path", lambda: blocked / "audit.jsonl")
+        with pytest.raises(OSError):
+            close_cycle("no-pull-honest")
+        assert _pending().exists()
+        assert marker_path().exists()
+
+    def test_a_damaged_pending_offer_is_not_no_offer(self, home: Path):
+        """Close used to answer "nothing pending" over a broken record, and
+        offer used to stack a new cycle on top of it."""
+        _write_handshake()
+        _pending().write_text("{half a rec", encoding="utf-8")
+        with pytest.raises(ac.DamagedPending):
+            close_cycle("timeout")
+        record, text = offer_cycle()
+        assert record is None
+        assert "cannot be read" in text
+        assert _pending().read_text(encoding="utf-8") == "{half a rec"
+        assert not ac._audit_log_path().exists()
+
+    def test_close_appends_to_audit_log(self, home: Path):
+        _write_handshake()
         offer_cycle()
         close_cycle("no-pull-honest")
-        log_path = ac._audit_log_path()
-        assert log_path.exists()
         entries = [
-            json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines() if line
+            json.loads(line)
+            for line in ac._audit_log_path().read_text(encoding="utf-8").splitlines()
+            if line
         ]
         assert len(entries) == 1
         assert entries[0]["outcome"] == "no-pull-honest"
         assert entries[0]["cycle_id"] == "auto-cycle-abc12345"
 
 
+class TestCommands:
+    """The July CLI was lost in salvage, leaving phase 2 with no caller."""
+
+    def _run(self, *args: str):
+        """Through the root command, so a group that is never registered fails here."""
+        from click.testing import CliRunner
+
+        from divineos.cli import cli
+
+        return CliRunner().invoke(cli, list(args))
+
+    def test_offer_after_a_real_dry_run_says_nothing_was_saved(self, home: Path):
+        write_handshake_marker(run_phase1(0.9, dry_run=True))
+        result = self._run("auto-cycle", "offer")
+        assert result.exit_code == 0
+        assert "only practised" in result.output
+        assert "room is open" not in result.output
+        assert not _pending().exists()
+
+    def test_offer_close_audit_round_trip(self, home: Path):
+        _write_handshake()
+        assert "room is open" in self._run("auto-cycle", "offer").output
+        closed = self._run("auto-cycle", "close", "--outcome", "chose:dream", "--real-shift", "yes")
+        assert closed.exit_code == 0, closed.output
+        assert "Cycle closed" in closed.output
+        audit = self._run("auto-cycle", "audit")
+        assert "real-shift outcomes (self-reported):  1" in audit.output
+        # The audit may not say the mechanism works on the strength of reports alone.
+        assert "Mechanism intact" not in audit.output
+
+    def test_close_refuses_an_unknown_outcome(self, home: Path):
+        _write_handshake()
+        self._run("auto-cycle", "offer")
+        result = self._run("auto-cycle", "close", "--outcome", "chose:nonsense")
+        assert result.exit_code != 0
+        assert _pending().exists()
+
+
 class TestComputeFalsifierRatio:
-    def test_no_log_returns_none(self, marker_paths: Path):
-        n, d, r = compute_falsifier_ratio()
-        assert n == 0
-        assert d == 0
-        assert r is None
+    def test_no_log_returns_none(self, home: Path):
+        assert compute_falsifier_ratio() == (0, 0, None)
 
     def _run_cycle(
         self,
-        marker_paths: Path,
         outcome: str,
         real_shift: bool | None = None,
         fatal: bool = False,
         cycle_id: str = "test-cycle",
     ):
         _write_handshake(
-            ac._handshake_marker(),
             cycle_id=cycle_id,
             steps=(
-                {"extract": {"ran": True, "succeeded": False, "error_class": "AssertionError"}}
+                {"extract": _step(succeeded=False, error_class="AssertionError")}
                 if fatal
-                else {"commit": {"ran": True, "succeeded": True}}
+                else {"commit": _step()}
             ),
         )
-        offer_cycle()
-        close_cycle(
-            outcome=outcome,
-            real_shift=real_shift,
-            chosen_key=outcome.split(":", 1)[1] if outcome.startswith("chose:") else None,
-        )
+        record, _ = offer_cycle()
+        assert record is not None
+        close_cycle(outcome, real_shift=real_shift)
 
-    def test_ratio_computed_across_cycles(self, marker_paths: Path):
-        # 3 real-shift + 1 template-execution + 1 no-pull-honest = 4/5 = 80%
-        self._run_cycle(marker_paths, "chose:dream", real_shift=True, cycle_id="c1")
-        self._run_cycle(marker_paths, "chose:kin", real_shift=True, cycle_id="c2")
-        self._run_cycle(marker_paths, "chose:exploration", real_shift=True, cycle_id="c3")
-        self._run_cycle(marker_paths, "chose:web", real_shift=False, cycle_id="c4")
-        self._run_cycle(marker_paths, "no-pull-honest", cycle_id="c5")
-
+    def test_ratio_computed_across_cycles(self, home: Path):
+        # 3 real-shift + 1 template-execution = 3/4; the no-pull sits outside.
+        self._run_cycle("chose:dream", real_shift=True, cycle_id="c1")
+        self._run_cycle("chose:kin", real_shift=True, cycle_id="c2")
+        self._run_cycle("chose:exploration", real_shift=True, cycle_id="c3")
+        self._run_cycle("chose:web", real_shift=False, cycle_id="c4")
+        self._run_cycle("no-pull-honest", cycle_id="c5")
         n, d, r = compute_falsifier_ratio()
-        assert d == 5
-        assert n == 4  # 3 real-shift + 1 no-pull-honest
-        assert r == pytest.approx(0.8)
+        assert (n, d) == (3, 4)
+        assert r == pytest.approx(0.75)
+        assert no_pull_count() == 1
 
-    def test_fatal_aborted_excluded_from_denominator(self, marker_paths: Path):
-        # 1 real-shift + 1 aborted-fatal (excluded) = 1/1 = 100%
-        self._run_cycle(marker_paths, "chose:dream", real_shift=True, cycle_id="c1")
-        self._run_cycle(marker_paths, "aborted", fatal=True, cycle_id="c2")
+    def test_no_pull_alone_cannot_pass_the_falsifier(self, home: Path):
+        """July counted no-pull-honest as success: five cycles that never
+        engaged scored 1.0."""
+        for i in range(5):
+            self._run_cycle("no-pull-honest", cycle_id=f"c{i}")
+        assert compute_falsifier_ratio() == (0, 0, None)
+        assert no_pull_count() == 5
+
+    def test_fatal_aborted_excluded_from_denominator(self, home: Path):
+        self._run_cycle("chose:dream", real_shift=True, cycle_id="c1")
+        self._run_cycle("aborted", fatal=True, cycle_id="c2")
         n, d, r = compute_falsifier_ratio()
-        assert d == 1  # fatal aborted excluded
-        assert n == 1
+        assert (n, d) == (1, 1)
         assert r == pytest.approx(1.0)
 
-    def test_below_bound_after_5_cycles(self, marker_paths: Path):
-        # 1 real-shift, 4 template = 20% < 50%. Post-5-cycle bound fires.
-        self._run_cycle(marker_paths, "chose:dream", real_shift=True, cycle_id="c1")
+    def test_below_bound_after_5_cycles(self, home: Path):
+        self._run_cycle("chose:dream", real_shift=True, cycle_id="c1")
         for i, k in enumerate(["kin", "web", "council", "letters"], start=2):
-            self._run_cycle(marker_paths, f"chose:{k}", real_shift=False, cycle_id=f"c{i}")
+            self._run_cycle(f"chose:{k}", real_shift=False, cycle_id=f"c{i}")
         n, d, r = compute_falsifier_ratio()
         assert d == 5
-        assert r is not None
-        assert r < 0.5
+        assert r is not None and r < 0.5
 
 
-class TestPhase2ReadsWhereReaderPhase1Writes:
-    """Phase 2 must look in the folder phase 1 writes to (2026-11-02).
+class TestWhatTheNumbersCannotHide:
+    """Aria's cold read of #551 (2026-10-12): a damaged audit line, an unreadable use
+    count and an unreadable offered_at each used to look like an ordinary value."""
 
-    The July version built ``Path.home() / ".divineos"`` itself. Phase 1 now
-    writes under ``divineos_home()``, which is per house, so a reader in a
-    different home would see "absent" and absent means "phase 1 did not
-    finish": the wrong folder looks exactly like a real absence.
-    """
+    def test_the_bound_is_pinned(self):
+        assert ac.FALSIFIER_BOUND == 0.5
+        assert ac.FALSIFIER_MIN_CYCLES == 5
 
-    def test_handshake_path_is_phase_ones_own_marker_path(self):
-        from divineos.core import auto_cycle
-
-        assert ac._handshake_marker() == auto_cycle.marker_path()
-
-    def test_pending_and_audit_live_in_the_same_home(self):
-        from divineos.core.paths import divineos_home
-
-        assert ac._pending_marker().parent == divineos_home()
-        assert ac._audit_log_path().parent == divineos_home()
-
-    def test_a_marker_phase_one_wrote_is_found_by_phase_two(self, tmp_path, monkeypatch):
-        from divineos.core import auto_cycle
-
-        monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
-        written = tmp_path / "auto_cycle_phase1_done.json"
-        written.write_text(
-            json.dumps(
-                {
-                    "cycle_id": "auto-cycle-abc",
-                    # phase 1 always writes its steps; this test is about WHERE the marker is read, not
-                    # about an empty one (which is now, rightly, "did not complete")
-                    "steps": {"commit": {"ran": True, "succeeded": True}},
-                    "repo_root": "x",
-                }
-            ),
+    def test_a_damaged_audit_line_is_counted_not_skipped_silently(self, home: Path):
+        ac._audit_log_path().write_text(
+            json.dumps({"outcome": "chose:dream", "real_shift": True})
+            + "\nthis line is not json\n[1, 2]\n",
             encoding="utf-8",
         )
-        assert auto_cycle.marker_path() == written
-        found = read_handshake()
-        assert found is not None
-        assert found.cycle_id == "auto-cycle-abc"
+        assert ac.damaged_audit_line_count() == 2
+        assert compute_falsifier_ratio()[:2] == (1, 1)
 
+    def test_an_intact_log_reports_no_damage(self, home: Path):
+        ac._audit_log_path().write_text(json.dumps({"outcome": "timeout"}) + "\n", encoding="utf-8")
+        assert ac.damaged_audit_line_count() == 0
 
-class TestTheRefusalNamesThePathItReallyReads:
-    def test_the_message_names_this_houses_marker_not_the_default_one(self, tmp_path, monkeypatch):
-        """The second reader's finding 6: the text said ~/.divineos/... while the code reads divineos_home()."""
-        import click
-        from click.testing import CliRunner
+    def test_an_unreadable_use_count_file_is_not_shown_as_zero(self, home: Path):
+        (home / "hud" / "rest_session.json").write_text("not json", encoding="utf-8")
+        assert ac._use_counts_since_last_cycle() is None
 
-        from divineos.cli import auto_cycle_phase2_commands as cmds
-        from divineos.cli.auto_cycle_commands import auto_cycle_group
-        from divineos.core import auto_cycle
+    def test_a_missing_use_count_file_is_zero(self, home: Path):
+        counts = ac._use_counts_since_last_cycle()
+        assert counts is not None and set(counts.values()) == {0}
 
-        monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
-        cmds.register(click.Group())
-        out = CliRunner().invoke(auto_cycle_group, ["offer"]).output
-        assert str(auto_cycle.marker_path()) in out
-        assert "~/.divineos" not in out
+    def test_the_menu_says_could_not_read_for_an_unreadable_count(self, home: Path):
+        _write_handshake()
+        handshake = read_handshake()
+        assert handshake is not None
+        text = render_menu(handshake, None)
+        assert "could not read" in text
+        assert "used 0x" not in text
 
+    def test_an_unreadable_offered_at_is_marked_in_the_notes(self, home: Path):
+        _write_handshake()
+        record, _ = offer_cycle()
+        assert record is not None
+        pending = json.loads(_pending().read_text(encoding="utf-8"))
+        pending["offered_at"] = "garbage"
+        _pending().write_text(json.dumps(pending), encoding="utf-8")
+        closed = close_cycle("timeout", notes="late")
+        assert closed is not None
+        assert "duration not measured" in closed.notes
+        assert closed.notes.startswith("late")
+        # Aria's second look: a reader of the number alone must not take a fallback for a time.
+        assert closed.duration_sec is None
 
-class TestMissingMeansNotCompleted:
-    """A step the marker does not vouch for counts as failed (Aether's cold read, 2026-11-02).
-
-    The invariant is that absence fails toward "phase 1 did not finish". It was
-    held for the whole marker and not for the pieces inside it: a step entry
-    without ``succeeded`` read as a success, ``ran`` was never read, and a step
-    that was not even a mapping was skipped.
-    """
-
-    def _read(self, marker_paths: Path, steps: dict):
-        ac._handshake_marker().write_text(
-            json.dumps({"cycle_id": "auto-cycle-x", "steps": steps}), encoding="utf-8"
-        )
-        hs = read_handshake()
-        assert hs is not None
-        return hs
-
-    def test_a_well_formed_step_is_clean(self, marker_paths: Path):
-        hs = self._read(marker_paths, {"commit": {"ran": True, "succeeded": True}})
-        assert hs.any_step_failed is False
-
-    def test_a_step_without_succeeded_counts_as_failed(self, marker_paths: Path):
-        hs = self._read(marker_paths, {"commit": {"ran": True}})
-        assert hs.any_step_failed is True
-
-    def test_a_step_that_did_not_run_counts_as_failed_whatever_succeeded_says(
-        self, marker_paths: Path
+    def test_an_unreadable_use_count_file_is_recorded_as_none_not_an_empty_mapping(
+        self, home: Path
     ):
-        hs = self._read(marker_paths, {"sleep": {"ran": False, "succeeded": True}})
-        assert hs.any_step_failed is True
-
-    def test_a_step_without_ran_counts_as_failed(self, marker_paths: Path):
-        hs = self._read(marker_paths, {"extract": {"succeeded": True}})
-        assert hs.any_step_failed is True
-
-    def test_a_step_that_is_not_a_mapping_counts_as_failed(self, marker_paths: Path):
-        hs = self._read(marker_paths, {"commit": "done"})
-        assert hs.any_step_failed is True
-
-    def test_repo_root_is_carried_into_the_audit_summary(self, marker_paths: Path):
-        ac._handshake_marker().write_text(
-            json.dumps(
-                {
-                    "cycle_id": "auto-cycle-y",
-                    "repo_root": "C:/some/checkout",
-                    "steps": {"commit": {"ran": True, "succeeded": True}},
-                }
-            ),
-            encoding="utf-8",
-        )
-        hs = read_handshake()
-        assert hs is not None
-        assert hs.repo_root == "C:/some/checkout"
-        assert ac._handshake_summary(hs)["repo_root"] == "C:/some/checkout"
-
-    def test_an_older_marker_without_repo_root_still_reads(self, marker_paths: Path):
-        hs = self._read(marker_paths, {"commit": {"ran": True, "succeeded": True}})
-        assert hs.repo_root == ""
-
-
-class TestAnUnclosedOfferingIsNotSilentlyOverwritten:
-    """A second offering before the first is closed must account for the first.
-
-    Found in the finishing walk (Lovelace, 2026-11-02): ``offer_cycle`` wrote
-    the pending marker over an older one, so the older cycle never reached the
-    audit log and its outcome never fed the falsifier ratio.
-    """
-
-    def _handshake(self, cycle_id: str) -> None:
-        ac._handshake_marker().write_text(
-            json.dumps(
-                {
-                    "cycle_id": cycle_id,
-                    "steps": {"commit": {"ran": True, "succeeded": True}},
-                }
-            ),
-            encoding="utf-8",
-        )
-
-    def test_the_older_cycle_is_logged_as_superseded_and_the_new_one_is_pending(
-        self, marker_paths: Path
-    ):
-        self._handshake("auto-cycle-first")
-        offer_cycle()
-        self._handshake("auto-cycle-second")
-        offer_cycle()
-
-        log = [
-            json.loads(line)
-            for line in ac._audit_log_path().read_text(encoding="utf-8").splitlines()
-        ]
-        assert [e["cycle_id"] for e in log] == ["auto-cycle-first"]
-        # Its own outcome, not "aborted": a re-run of offer is not a failure of the mechanism
-        # (the second reader's finding 2; Aether agreed, 2026-11-03).
-        assert log[0]["outcome"] == "superseded"
-        assert "superseded" in log[0]["notes"]
-        pending = json.loads(ac._pending_marker().read_text(encoding="utf-8"))
-        assert pending["cycle_id"] == "auto-cycle-second"
-
-    def test_offering_twice_does_not_move_the_ratio(self, marker_paths: Path):
-        """The measure of whether the mechanism works must not change because someone re-ran offer."""
-        self._handshake("auto-cycle-one")
-        offer_cycle()
-        close_cycle("no-pull-honest")
-        before = ac.compute_falsifier_ratio()
-        assert before == (1, 1, 1.0)
-
-        self._handshake("auto-cycle-two")
-        offer_cycle()
-        self._handshake("auto-cycle-three")
-        offer_cycle()  # supersedes cycle two
-
-        assert ac.compute_falsifier_ratio() == before
-
-    def test_control_a_real_abort_still_counts_against_the_mechanism(self, marker_paths: Path):
-        self._handshake("auto-cycle-one")
-        offer_cycle()
-        close_cycle("aborted", notes="walked away")
-        assert ac.compute_falsifier_ratio() == (0, 1, 0.0)
-
-    def test_superseded_is_not_something_a_seat_can_choose(self, marker_paths: Path):
-        """It is the machine's outcome for a re-run; the CLI must not offer it as an answer."""
-        self._handshake("auto-cycle-one")
-        offer_cycle()
-        with pytest.raises(ValueError):
-            close_cycle("superseded")
-
-    def test_a_first_offering_logs_nothing(self, marker_paths: Path):
-        self._handshake("auto-cycle-only")
-        offer_cycle()
-        assert not ac._audit_log_path().exists()
-
-
-class TestTheRealCommandLayer:
-    """The module tests above never touch click; these do (finishing walk, Holmes)."""
-
-    def test_the_auto_cycle_group_holds_phase_one_and_phase_two_commands(self):
-        from divineos.cli import cli
-
-        group = cli.commands["auto-cycle"]
-        assert {"status", "fire", "defer-check", "offer", "close", "audit"} <= set(group.commands)
-
-    def test_offer_through_the_cli_reads_the_marker_and_reports_it(self, marker_paths: Path):
-        from click.testing import CliRunner
-
-        from divineos.cli import cli
-
-        ac._handshake_marker().write_text(
-            json.dumps(
-                {
-                    "cycle_id": "auto-cycle-cli",
-                    "steps": {"commit": {"ran": True, "succeeded": True}},
-                }
-            ),
-            encoding="utf-8",
-        )
-        result = CliRunner().invoke(cli, ["auto-cycle", "offer"])
-        assert result.exit_code == 0, result.output
-        assert "auto-cycle-cli" in result.output
-
-    def test_offer_through_the_cli_with_no_marker_refuses_to_fire(self, marker_paths: Path):
-        from click.testing import CliRunner
-
-        from divineos.cli import cli
-
-        result = CliRunner().invoke(cli, ["auto-cycle", "offer"])
-        assert result.exit_code == 0, result.output
-        assert "No phase 1 handshake found" in result.output
-        assert not ac._pending_marker().exists()
-
-
-class TestTheMenuSaysWhatActuallyHappened:
-    """Found by running a real dry-run marker through phase 2 (2026-11-02).
-
-    A dry run writes every step as ran false, succeeded true. The menu then said
-    "Transient step failure noted", which describes a step that ran and failed,
-    not one that never ran. The line now names the steps and what happened to each.
-    """
-
-    def _text(self, marker_paths: Path, steps: dict) -> str:
-        _write_handshake(ac._handshake_marker(), steps=steps)
-        hs = read_handshake()
-        assert hs is not None
-        return render_menu(hs, {})
-
-    def test_steps_that_did_not_run_are_named_as_not_run(self, marker_paths: Path):
-        text = self._text(
-            marker_paths,
-            {
-                "commit": {"ran": False, "succeeded": True},
-                "sleep": {"ran": False, "succeeded": True},
-            },
-        )
-        assert "did not run: commit, sleep" in text
-        assert "Transient" not in text
-
-    def test_a_step_that_ran_and_failed_is_named_as_failed(self, marker_paths: Path):
-        text = self._text(
-            marker_paths,
-            {
-                "commit": {"ran": True, "succeeded": True},
-                "extract": {"ran": True, "succeeded": False, "error_class": "OSError"},
-            },
-        )
-        assert "failed: extract" in text
-        assert "did not run" not in text
-
-    def test_a_clean_cycle_prints_no_warning_line(self, marker_paths: Path):
-        text = self._text(marker_paths, {"commit": {"ran": True, "succeeded": True}})
-        assert "[~]" not in text
-
-
-class TestCloseOnlyAcceptsRealOutcomesAndKeepsTheEvidence:
-    """From the 2026-09-25 rework note (#551's draft), found missing from this port.
-
-    ``close_cycle("banana")`` was accepted and logged as if it meant something, and an
-    audit write that failed was swallowed before the pending marker was deleted, so the
-    only evidence of the cycle could vanish.
-    """
-
-    def _open_one(self, cycle_id: str = "auto-cycle-close") -> None:
-        ac._handshake_marker().write_text(
-            json.dumps(
-                {"cycle_id": cycle_id, "steps": {"commit": {"ran": True, "succeeded": True}}}
-            ),
-            encoding="utf-8",
-        )
-        offer_cycle()
-
-    @pytest.mark.parametrize(
-        "bad", ["banana", "", "chose:", "chose:not-a-rest-task", "CHOSE:dream"]
-    )
-    def test_a_made_up_outcome_raises_and_leaves_the_cycle_open(self, marker_paths: Path, bad):
-        self._open_one()
-        with pytest.raises(ValueError):
-            close_cycle(bad)
-        assert ac._pending_marker().exists()
-        assert not ac._audit_log_path().exists()
-
-    @pytest.mark.parametrize("good", ["no-pull-honest", "timeout", "aborted", "chose:dream"])
-    def test_every_real_outcome_is_accepted(self, marker_paths: Path, good):
-        self._open_one()
-        closed = close_cycle(good)
-        assert closed is not None and closed.outcome == good
-        assert not ac._pending_marker().exists()
-
-    def test_a_failed_audit_write_raises_and_keeps_the_pending_marker(
-        self, marker_paths: Path, monkeypatch: pytest.MonkeyPatch
-    ):
-        self._open_one()
-        # The log path is a folder, so the parent exists and only the write itself fails,
-        # which is the step that used to be swallowed.
-        unwritable = marker_paths / "audit.jsonl"
-        unwritable.mkdir()
-        monkeypatch.setattr(ac, "_audit_log_path", lambda: unwritable)
-        with pytest.raises(OSError):
-            close_cycle("no-pull-honest")
-        assert ac._pending_marker().exists()
-
-    def test_the_close_command_refuses_a_made_up_outcome_with_a_plain_message(
-        self, marker_paths: Path
-    ):
-        from click.testing import CliRunner
-
-        from divineos.cli import cli
-
-        self._open_one()
-        result = CliRunner().invoke(cli, ["auto-cycle", "close", "--outcome", "banana"])
-        assert result.exit_code == 1
-        assert "unknown outcome" in result.output
-        assert ac._pending_marker().exists()
+        (home / "hud" / "rest_session.json").write_text("not json", encoding="utf-8")
+        _write_handshake()
+        record, _ = offer_cycle()
+        assert record is not None
+        assert record.use_counts_at_offering is None
+        pending = json.loads(_pending().read_text(encoding="utf-8"))
+        assert pending["use_counts_at_offering"] is None
