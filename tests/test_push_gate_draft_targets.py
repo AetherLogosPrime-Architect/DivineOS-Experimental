@@ -109,12 +109,17 @@ def fake_bin(tmp_path: Path) -> Path:
 
 
 def _push(
-    repo: Path, fake_bin: Path, *, pr: str = "true\\n", branches: int = 1
+    repo: Path,
+    fake_bin: Path,
+    *,
+    pr: str = "true\\n",
+    branches: int = 1,
+    to_main: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     """Run the real gate for `refs/heads/work` at the repo's current commit. `pr` is what the fake gh says.
-    `branches` > 1 adds more branch refs to the same push."""
+    `branches` > 1 adds more branch refs to the same push. `to_main` pushes to main instead: the merge itself."""
     sha = _git(repo, "rev-parse", "HEAD")
-    names = ["work"] + [f"other{i}" for i in range(1, branches)]
+    names = ["main"] if to_main else ["work"] + [f"other{i}" for i in range(1, branches)]
     stdin = "".join(f"refs/heads/{n} {sha} refs/heads/{n} {_ZERO}\n" for n in names)
     # No PYTHONPATH either: inside the real gate it is the pushed copy's src, and the toy gate would join its own
     # onto it with a colon that a Windows drive letter breaks, hiding the toy project's code (found 2026-10-22,
@@ -178,7 +183,7 @@ def test_a_test_file_changed_on_a_draft_is_run(repo, fake_bin):
 def test_a_change_no_test_names_is_skipped_and_said_out_loud(repo, fake_bin):
     _commit(repo, "src/pkg/lonely.py", "NOBODY_TESTS_ME = 2\n")
     said = _said(_push(repo, fake_bin))
-    assert "Draft path:" in said
+    assert "Targeted path:" in said
     assert "NO TEST NAMES src/pkg/lonely.py" in said
     assert "tests failing" not in said
 
@@ -267,9 +272,20 @@ def test_a_nonempty_list_still_exits_zero_with_a_selector_that_can_read_the_repo
     assert "tests/test_mod.py" in done.stdout
 
 
-def test_a_push_bound_for_merge_still_runs_everything(repo, fake_bin):
-    """The control for all of the above: a ready pull request is the merge-bound push, and it runs the whole suite."""
+def test_a_push_to_main_still_runs_everything(repo, fake_bin):
+    """The control for all of the above: main is the merge itself, so it runs the whole suite (the always-failing
+    test is reached and the push is stopped). A ready pull request used to be this control too; Dad 2026-11-09
+    ended that, because GitHub runs the whole suite on the pull request and a second local run is the duplicate."""
     _commit(repo, "src/pkg/mod.py", "def value():\n    return 1  # reworded\n")
-    result = _push(repo, fake_bin, pr="false\\n")
+    result = _push(repo, fake_bin, to_main=True)
     assert result.returncode == 10, _said(result)[-2500:]
     assert "only the tests that touch the change run" not in _said(result)
+
+
+def test_a_ready_pr_branch_runs_only_the_tests_that_touch_the_change(repo, fake_bin):
+    """Dad 2026-11-09: only the build and what touches it, never the entire system. The always-failing test is NOT
+    reached, so the push passes; the same change on a ready pull request used to be stopped by it."""
+    _commit(repo, "src/pkg/mod.py", "def value():\n    return 1  # reworded\n")
+    result = _push(repo, fake_bin, pr="false\\n")
+    assert result.returncode == 0, _said(result)[-2500:]
+    assert "only the tests that touch the change run" in _said(result)
