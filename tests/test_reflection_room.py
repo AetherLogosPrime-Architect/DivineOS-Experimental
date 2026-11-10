@@ -9,7 +9,8 @@ REFUSAL = (
 
 
 def _his(text):
-    return {"type": "user", "message": {"content": text}}
+    # A real record carries the role; the one reader of his words requires it (his_message.hear).
+    return {"type": "user", "message": {"role": "user", "content": text}}
 
 
 def _queued(text):
@@ -115,7 +116,10 @@ def test_the_rooms_own_hold_is_not_a_stumble():
         _tool(),
         {
             "type": "user",
-            "message": {"content": "Stop hook feedback:\n" + room.ROOM_MARK + ". held"},
+            "message": {
+                "role": "user",
+                "content": "Stop hook feedback:\n" + room.ROOM_MARK + ". held",
+            },
         },
     ]
     _, stumbles, _ = room.this_turn(recs)

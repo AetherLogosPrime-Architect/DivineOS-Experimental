@@ -20,7 +20,8 @@ NOTE = "work-item-doorman stopped me. fixed by structure: flow first"
 
 
 def _his(text, ts="2026-10-08T10:00:00.000Z"):
-    return {"type": "user", "timestamp": ts, "message": {"content": text}}
+    # A real record carries the role; the one reader of his words requires it (his_message.hear).
+    return {"type": "user", "timestamp": ts, "message": {"role": "user", "content": text}}
 
 
 def _tool(ts="2026-10-08T10:01:00.000Z"):
