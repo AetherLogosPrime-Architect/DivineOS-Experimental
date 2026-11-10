@@ -87,6 +87,32 @@ def test_work_I_add_after_the_room_with_no_notice_between_is_still_held():
     assert room.verdict(records)
 
 
+def test_work_after_a_notice_is_excused_however_much_of_it_there_is_a_known_limit():
+    """PINNED AS A LIMIT, NOT AS THE GOAL (Aria's cold read of 860, replayed 2026-11-09).
+
+    A room, then a notice, then a whole new chunk of work and a final line with no room, passes: the stand-down
+    is a flag a notice sets and only a NEW room clears. That is Dad's 2026-11-05 model ("nothing but me moves it
+    forward"). His 2026-11-09 words are newer and differ exactly here: finish all the work, then ONE circle, current,
+    at the true end. Under this door the first room can go stale and the true end ship with none. The build that
+    closes it replaces the flag with a read of what is still pending (docs/drafts/one_circle_at_the_true_end_of_a_post).
+    If this test starts failing because such a post is now held, that is the improvement it was waiting for."""
+    records = [
+        _user("fix it"),
+        _tool(),
+        _tool_result(),
+        _said(THE_ROOM),
+        _notice_as_user_turn(),
+        _tool(),
+        _tool_result(),
+        _tool(),
+        _tool_result(),
+        _tool(),
+        _tool_result(),
+        _said("A great deal more work after the room, and no new room."),
+    ]
+    assert room.verdict(records) is None
+
+
 def test_a_notice_before_any_room_is_written_still_owes_the_room():
     """A notice must not excuse a room I never wrote: it only excuses a SECOND one."""
     records = [

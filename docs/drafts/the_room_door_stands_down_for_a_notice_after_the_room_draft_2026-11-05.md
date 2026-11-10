@@ -18,6 +18,7 @@ After the room is written, a notice wakes me: a bell, a finished push. I read it
 
 - It does not loosen Dad's rule that the room is the last words. Work I add myself after a room, with no notice between, is still held (`test_the_room_must_be_in_the_last_words` still passes).
 - It does not excuse a room never written: a notice before any room still owes the room.
+- **A known limit (Aria's cold read, replayed 2026-11-09): work after a notice is excused, however much of it there is.** The stand-down is a flag a notice sets and only a NEW room clears. So a room, then a notice, then a whole new chunk of work and a final line with no room, passes. That is Dad's 2026-11-05 model (nothing but him moves the circle forward). His 2026-11-09 words are newer and differ exactly here: finish all the work, then ONE circle, current, at the true end; under this door the first room can go stale and the true end ship with none. It is pinned by a test as a limit, not as the goal, and is closed by the one-circle build (what is still pending decides, not a flag), which this change is a stepping stone toward and must not be merged into without Dad choosing between the two models.
 - It does not hold me still after the room. The held state (a notice wakes me, I may read and stage but not write or send) is separate and not built.
 - It does not surface the steps carried by the stall door. That is a third piece.
 
