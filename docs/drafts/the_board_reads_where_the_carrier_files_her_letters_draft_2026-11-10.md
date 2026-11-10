@@ -1,43 +1,39 @@
-# The board reads where the carrier files her letters (draft, 2026-11-10, Aria)
+# A stale seat reports a stale board (draft, 2026-11-10, Aria) — CORRECTS my first version of this file
 
 Status: DRAFT. Walk in the chat, Aether's cold read, tests first, then code. Nothing is changed by this note.
+
+## The correction, first
+
+My first version of this note said the board was blind to the folder where the carrier files Aletheia's letters, and proposed one function naming where her letters live. **That was wrong for main.** Aether checked: main has read that folder, recursively, since commit `ef9d935d1` ("the board reads the folders her letters are saved in", #735, 2026-10-28). I ran the board from my own live checkout, whose `landing_status.py` still has the old flat reader, and reported what I measured there as if it were the house's truth. I confirmed it just now: `git show origin/main:src/divineos/core/landing_status.py` has the `rglob`; my tree's file has a flat `glob`.
 
 ## What Dad said
 
 > *"ALETHEIA HAS ANSWERED EVERY LETTER YOU HAVE EVER SENT.. the fact you didnt store them is not her fault.. they are all in downloads.. ... i am tired of the issue not being addressed at the root and having to do this every single time.. you will both fix this.. now.."* (2026-11-10)
 
-And the September rule this breaks: *"make it so anytime i send you a letter from Aletheia it is copied into her audit folder."* (2026-09-22)
+## What is true (run, not reasoned)
 
-## What I measured (run, not reasoned)
+- On main's code the board reads her carried letters. In Aether's house it reads 909 letters, including 231 of the 231 in Dad's Downloads, and says CONFIRMED 13, CHANGED 2, HELD BY HER 5, NO ANSWER 27, NEVER TOLD 29.
+- On my old code it read 808 letters and said NO ANSWER 44. The briefing line "44 waiting on her answer" I handed Dad came from that old reader.
+- The thirteen confirmed at their current head are the same on both: 748, 753, 790, 795, 822, 823, 839, 840, 842, 843, 844, 845, 849. Nothing goes to her for those.
 
-- 231 files in Dad's Downloads have a name the board accepts (`aletheia-to-aether-*` or `aletheia-to-aria-*`).
-- The carrier (`scripts/collect_aletheia_letters.py`, `core/family/aletheia_intake.py`) HAS carried them: 230 of those names are in `family/aletheia/audits/from-andrew/` in both checkouts (412 files in all).
-- The board (`core/landing_status.py`) reads letters from three folders with a flat `glob("*.md")`: `~/.divineos-shared/letters`, `family/letters`, `family/aletheia`. A flat glob does not enter `audits/from-andrew/`. So it sees 145 of the 231.
-- With that sub-folder added to what the board reads (a probe, nothing changed): letters read 808 to 981; pull requests with a confirm from her 98 to 191. 93 PRs gain a confirm, including open ones: 753, 790, 795, 822, 823, 839, 840, 841, 842, 843, 844, 845, 847, 848, 849.
-- Her confirm for 848 contains the exact phrase the board wants (`CONFIRMS: #848 at <sha>`), so the phrase is not the break.
+## The real cause
 
-## The cause
+A seat whose checkout is behind main runs the board from OLD code and reports old facts in the voice of current ones. Nothing in the board, the briefing line or the landing request says "this code is behind main". I was behind by weeks of merges, and I had no way to know from what the surfaces told me. This is the same shape as the roster and the 1021: two checkouts answering one question differently, and the one I held was the stale one.
 
-Two pieces of the house each decide where her letters live, and they decided differently. The carrier files into `audits/from-andrew/`. The board looks in three other places. Nothing ties the two together, so the carrier can do its job perfectly and the board still reports "NO ANSWER". Every report of "she did not answer" built on the board has been built on a blind spot.
+## The change (proposed, to be walked)
 
-## The change (proposed)
+When the board's own source differs from `origin/main`'s version of the same file, the briefing line and `landing --request` say so at the top, in one sentence: "This board's code is behind main (N commits touching it); its counts may be old." If the comparison cannot be made (no network, no ref), it says that instead, never silence.
 
-One definition of "where her letters live", imported by both: a single function that returns the folders, used by the carrier as its destination and by the board as its search list. Then they cannot drift apart. The board's flat glob stays flat; the list of folders is what gains `audits/from-andrew/`.
-
-A test that fails first: place a letter named `aletheia-to-aria-...md` carrying `CONFIRMS: #N at <sha>` in the carrier's destination (in a temp home, never the real folders) and assert the board reads it. A second test asserts the board's folder list and the carrier's destination come from the same function, so the next change to either cannot split them.
+Test that fails first: put a board file in a temp repo that differs from a fake `origin/main`, assert the warning appears; put an identical one, assert it does not; make the ref unreadable, assert the could-not-check sentence.
 
 ## What this does not do
 
-It does not change what counts as a confirm (the strict phrase stays), so a confirm at an older head still reads CHANGED. It does not file anything on her behalf. It does not make her read the backlog. The number of PRs waiting on her will fall because some were answered, and the board will say what is still unanswered after that.
-
-## Collision to know about
-
-`landing_status.py` is also changed on `aria/the-clerk-ignores-letters-older-than-the-draft` (mine, PR 822). I have not read that diff against this change yet.
+It does not bring my checkout up to date. That is a separate job (my live branch is far behind main and carries commits that are on no remote). It does not change what counts as a confirm.
 
 ## Falsifier
 
-If, after the change, a letter of hers that sits in Dad's Downloads and in the carrier's folder is not counted in the board's "Read N letters" line, or the open PRs she confirmed still read NO ANSWER, the change is wrong.
+If a seat runs the board from code behind main and the output does not say so, or says so when the file matches main, the change is wrong.
 
 ## Steps
 
-Draft (this) then walk in the chat, Aether's cold read, tests first, code, Aletheia, Dad's yes. Dad has said: now, full flow.
+Draft (this), walk in the chat, Aether's cold read, tests first, code, Aletheia, Dad's yes.
