@@ -1,0 +1,14 @@
+{
+  "mode": "off",
+  "chunk_rule": "first",
+  "chunk_tokens": 256,
+  "lane_clears": {
+    "exploration": {"kind": "read_file"},
+    "letter": {"kind": "read_file"},
+    "correction": {"kind": "show_command", "command": "divineos show {hit_id}"},
+    "knowledge": {"kind": "show_command", "command": "divineos show {hit_id}"},
+    "worklist": {"kind": "undefined_placeholder", "note": "divineos show opens only correction and knowledge ids; Aria extends it to worklist ids, then this lane names it"},
+    "wall": {"kind": "read_file", "note": "the wall file at the entry the hit names (decided with Aria, 2026-11-08)"},
+    "moment": {"kind": "shown_plain", "reason": "a moment row records no author and has no source file, so a hit is shown plainly as a moment from the drawer and never held (decided with Aria, 2026-11-08)"}
+  }
+}
