@@ -128,6 +128,7 @@ src/divineos/
     motivation_commands.py     motivation tier — needs/wants/desires/ambitions/dreams with explicit detector-bindings (per omni-mantra walk Pillar III+IV, 2026-06-28)
     rt_commands.py             Resonant Truth protocol (load, invoke, deactivate)
     correction_commands.py     correction (log raw), corrections (read)
+    show_hit_commands.py       show (print the one saved row a memory-link hit id names)
     empirica_commands.py       corroborate (record provenance event), kappa (classifier agreement)
     family_member_commands.py  family-member init / opinion / letter / respond / affect / interaction — activation surface for family members (takes --member <name>). affect / interaction are direct-write (no editorial commit-step); Phase 1b operators still apply on narrative content.
     family_queue_commands.py   family-queue write / list / mark / stats / supersede — async write-channel CLI between family members
@@ -790,6 +791,7 @@ src/divineos/
     hold_log.py                A record of each time the room hold and the follow-through hold stopped a reply or let one pass.
     stall_on_promise.py        A promise to act is followed by the act, when no one is there to push.
     memory_linkage_own_words.py The memory link, read through what I said last turn, apart from what he said.
+    show_hit.py                Print the exact saved row a memory-link hit points at.
 
   analysis/
     _session_types.py          Session analysis type definitions
