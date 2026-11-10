@@ -112,6 +112,126 @@ def test_it_fires_on_its_own_description_and_that_is_recorded_not_suppressed() -
     assert claim_spans(describing_the_door) != ()
 
 
+def test_live_about_something_that_is_not_git_work_is_not_an_arrival_claim() -> None:
+    """Dad 2026-10-30: "do not suffer the gates ... false alarms means something is broken".
+
+    The bare word fired on a poker table page that was live in a browser, and on a sentence that only talked
+    about this door. A page, a table or a game being live says nothing about the shared copy.
+    """
+    for sentence in (
+        "The chat addressing is live on your table.",
+        "It is live on the page now.",
+        'The one that flagged a "this is live" claim right after I had checked it was live.',
+        "The scratch table was live on port 8792.",
+    ):
+        assert claim_spans(sentence) == (), sentence
+
+
+def test_live_about_git_work_is_still_a_claim_and_still_refused() -> None:
+    """The narrowing keeps the real shape: work reaching the shared copy, said with a git word."""
+    for sentence in (
+        "PR #741 is live on GitHub.",
+        "The branch is now live.",
+        "The draft has been live on origin since this morning.",
+        "The commit is live on main.",
+    ):
+        assert claim_spans(sentence) != (), sentence
+    assert assess("The branch is live.", RECEIPT_ONLY).refuses
+
+
+def test_the_other_arrival_phrases_stay_bare() -> None:
+    """Only the word live needed a git word; pushed, landed and reached the remote name the destination."""
+    for sentence in ("It is pushed.", "Everything landed.", "It reached the remote."):
+        assert claim_spans(sentence) != (), sentence
+
+
+PUSH_TURN = "Bash: git push -u origin work/thing\n[exited with code 0]"
+
+
+def test_in_a_turn_that_ran_a_push_other_arrival_words_are_claims() -> None:
+    """Aria's cold read 2026-10-30: the word list is always one word short, so a push turn reads the act.
+
+    "went live", "the patch is out", "it has shipped" and "is on GitHub now" sit outside the word list; in a
+    turn that ran a push they are a claim about that push, and the gate asks for the destination to be read.
+    """
+    for sentence in (
+        "The fix went live.",
+        "The patch is out.",
+        "It has shipped.",
+        "The fix has been deployed.",
+        "It is on GitHub now.",
+        "It is live now.",
+    ):
+        assert assess(sentence, PUSH_TURN).refuses, sentence
+
+
+def test_the_same_sentences_in_a_turn_with_no_push_are_left_alone() -> None:
+    """Control for the push-turn path: without a push, a poker page that is live must not fire."""
+    for sentence in (
+        "The chat addressing is live on your table.",
+        "It is live now.",
+        "The patch is out.",
+    ):
+        assert not assess(sentence, "Bash: python seat.py aether state").refuses, sentence
+
+
+def test_up_to_date_and_out_of_date_are_not_arrivals_and_the_contraction_is_one() -> None:
+    """Aria's break of f8776ff5e: "is up" matched inside "up to date"; "it's live" slipped past "is live"."""
+    for innocent in ("Everything is up to date.", "The build is out of date."):
+        assert not assess(innocent, PUSH_TURN).refuses, innocent
+    for contraction in ("It's live.", "It's up.", "That's out.", "The PR's live on GitHub."):
+        assert assess(contraction, PUSH_TURN).refuses, contraction
+    assert claim_spans("The PR's live.") != ()  # the git-word path takes the contraction too
+    assert claim_spans("The table's live.") == ()  # and still needs the git word
+
+
+def test_a_negation_cancels_only_its_own_clause() -> None:
+    """Aria's break of a0280d2a0 (2026-10-31): a negation word elsewhere in the sentence hid a real claim.
+
+    Controls first: the plain claims fire. Then the sentences where a claim sits beside a negation.
+    """
+    for control in ("The branch is live.", "It's live.", "The PR is live now."):
+        assert assess(control, PUSH_TURN).refuses, control
+    for hidden in (
+        "The PR is live, nothing is out of date.",
+        "It is not live yet, but the other one is live.",
+        "It was not live before, now it is live.",
+        "The PR is live and nothing is wrong.",
+    ):
+        assert assess(hidden, PUSH_TURN).refuses, hidden
+    assert (
+        claim_spans("It is not live yet, but the PR is live.") != ()
+    )  # the git-word path judges per clause too
+    assert (
+        claim_spans("It is in a PR and it's live.") != ()
+    )  # the git word may sit in another clause
+
+
+def test_a_negation_is_not_an_arrival_claim_even_in_a_push_turn() -> None:
+    """The gate fired on "Nothing is live yet; I'll switch it on between hands tomorrow" (2026-10-31).
+
+    Saying that something has NOT arrived is the honest waiting sentence; refusing it teaches me to stop saying it.
+    """
+    for sentence in (
+        "Nothing is live yet.",
+        "Nothing is live yet; I'll switch it on between hands tomorrow, with you at the table.",
+        "The fix isn't live.",
+        "The PR is not live on GitHub.",
+        "The branch has not been pushed.",
+        "None of it is out yet, nothing is shipped.",
+    ):
+        assert not assess(sentence, PUSH_TURN).refuses, sentence
+        assert claim_spans(sentence) == (), sentence
+    assert assess(
+        "The branch is live.", PUSH_TURN
+    ).refuses  # control: the plain claim still refuses
+
+
+def test_a_push_turn_that_read_the_remote_is_clear_and_the_waiting_sentence_is_free() -> None:
+    assert not assess("The fix went live.", PUSH_TURN + "\n" + READ_THE_REMOTE).refuses
+    assert not assess("It will be live once the push finishes.", PUSH_TURN).refuses
+
+
 def test_the_detector_is_not_matching_everything() -> None:
     """Control, in both directions.
 

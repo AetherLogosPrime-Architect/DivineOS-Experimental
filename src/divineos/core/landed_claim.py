@@ -71,6 +71,15 @@ And on that first firing the reading was not academic: the prescribed script
 answered that the remote did NOT carry the commit. The door fired for the wrong
 reason and was right about the world.
 
+## 2026-10-30: THE BARE WORD "LIVE" IS NARROWED, THE SUPPRESSOR STILL IS NOT ADDED
+
+It fired on "the chat addressing is live on your table" (a poker page in a browser) and on a sentence
+that only discussed this door. The first needed no suppressor, only the subject the module already
+claims for itself: "is live" now counts only when the sentence also carries a git word (PR, branch,
+draft, origin, remote, GitHub, main, commit, push, merge, repo). The phrases that name the destination
+or the act of pushing themselves stay bare, and the description case above still fires, by design.
+Dad: "do not suffer the gates ... false alarms means something is broken".
+
 ## Three-valued
 
 An unreadable action stream is NOT a clean turn. It returns could-not-check, and
@@ -87,7 +96,7 @@ from dataclasses import dataclass
 # subject has to be work reaching somewhere, not any use of the word.
 _CLAIM = re.compile(
     r"\b("
-    r"(?:is|are|has|have|had|was|were)\s+(?:now\s+)?(?:pushed|landed|live)"
+    r"(?:is|are|has|have|had|was|were)\s+(?:now\s+)?(?:pushed|landed)"
     # "landed as 'ew'", "landed with me", "landed on me" is how something HIT me, not where work
     # arrived (Dad 2026-10-26, after a talk about taste). "landed as expected/planned" still
     # describes a result of the work, so it stays a claim.
@@ -102,10 +111,28 @@ _CLAIM = re.compile(
     re.IGNORECASE,
 )
 
-# A claim in the future or conditional is not an arrival claim.
+# "is live" is a claim about the shared copy ONLY when the sentence is about git work. Dad, 2026-10-30,
+# at a poker table that was live in a browser: "do not suffer the gates ... false alarms means something
+# is broken". The bare word fired on a table page, and on a sentence that only talked about this door.
+# The other alternatives above name the destination or the act of pushing themselves, so they stay bare.
+_LIVE = re.compile(
+    r"(?:\b(?:is|are|has|have|had|was|were)|'s)\s+(?:now\s+|been\s+)?live\b", re.IGNORECASE
+)
+_ABOUT_GIT_WORK = re.compile(
+    r"\b(?:PRs?|pull\s+requests?|branch(?:es)?|drafts?|origin|remote|GitHub|main|commits?"
+    r"|push(?:ed)?|merged?|repo|repository)\b",
+    re.IGNORECASE,
+)
+
+# A claim in the future, a conditional or a negation is not an arrival claim. The negations were added
+# 2026-10-31 after the gate fired on "Nothing is live yet; I will switch it on tomorrow" ("will" is in the
+# list, but the sentence split on the semicolon put the negation in its own clause).
 _NOT_YET = re.compile(
     r"\b(will|when|once|if|until|still\s+(?:running|going)|not\s+(?:yet\s+)?landed"
-    r"|has\s+not\s+landed)\b",
+    r"|has\s+not\s+landed|nothing\s+(?:\w+\s+)?(?:is|was)\s+(?:\w+\s+)?(?:live|up|out|shipped|deployed)"
+    r"|none\s+of\s+(?:\w+\s+){1,3}?(?:is|are|was|were)\s+(?:\w+\s+)?(?:live|up|out|shipped|deployed)"
+    r"|(?:is|are|was|were|has|have)\s*(?:not|n't)\s+(?:\w+\s+)?(?:live|up|out|shipped|deployed|pushed|landed)"
+    r"|isn't\s+(?:\w+\s+)?(?:live|up|out)|aren't\s+(?:\w+\s+)?(?:live|up|out))\b",
     re.IGNORECASE,
 )
 
@@ -136,6 +163,52 @@ _A_PUSH = (
 )
 
 
+# Aria's cold read of this fix (2026-10-30): the word list will always be one word short ("went live", "it
+# has shipped", "the patch is out"). In a turn that ran a push or opened a pull request, an arrival word in
+# the reply is a claim about that push whatever git word the sentence carries; in a turn with no push the
+# same sentence (a poker page that is live) is left alone. This reads what I did, not only which word I chose.
+_A_PUSH_TURN = (
+    re.compile(r"\bgit\s+push\b"),
+    re.compile(r"\bgh\s+pr\s+(?:create|ready)\b"),
+    re.compile(r"divineos_push\.sh"),
+)
+# "up" and "out" are in "up to date" and "out of date", which are not arrivals (Aria's break, same night);
+# "'s" is the contraction of "is" ("it's live"), the cheapest way round the plain form.
+_ARRIVAL_WORD = re.compile(
+    r"(?:\b(?:is|are|was|were|has\s+been|have\s+been|went|gone)|'s)\s+(?:now\s+)?"
+    r"(?:live|up(?!\s+to\b)|out(?!\s+of\b)|shipped|deployed)\b"
+    r"|\b(?:has|have)\s+(?:now\s+)?(?:shipped|deployed)\b|\bon\s+GitHub\b",
+    re.IGNORECASE,
+)
+
+
+# A negation only cancels the clause it sits in. Aria's break of a0280d2a0 (2026-10-31): "the PR is live, nothing is
+# out of date" and "it is not live yet, but the PR is live" were free because the negation was judged on the whole
+# sentence. Clauses split on a comma, a semicolon, a dash, "but" and "and".
+_CLAUSES = re.compile(r"[,;]|[—–]|\s+but\s+|\s+and\s+", re.IGNORECASE)
+
+
+def _some_clause_claims(sentence: str, claims_in) -> bool:
+    """True when any clause holds a claim and carries no negation or future word of its own."""
+    return any(
+        claims_in(clause) and not _NOT_YET.search(clause)
+        for clause in _CLAUSES.split(sentence)
+        if clause.strip()
+    )
+
+
+def push_turn_spans(text: str) -> tuple[str, ...]:
+    """Sentences using an arrival word; only meaningful when this turn ran a push (see assess)."""
+    found: list[str] = []
+    for sentence in re.split(r"(?<=[.!?])\s+|\n", text):
+        stripped = sentence.strip()
+        if stripped and _some_clause_claims(
+            stripped, lambda clause: bool(_ARRIVAL_WORD.search(clause))
+        ):
+            found.append(stripped)
+    return tuple(found)
+
+
 def _after_the_last_push(action_stream: str) -> str:
     """The part of the stream that follows the last push command; the whole stream if none."""
     ends = [m.end() for rx in _A_PUSH for m in rx.finditer(action_stream)]
@@ -160,13 +233,21 @@ def claim_spans(text: str) -> tuple[str, ...]:
         stripped = sentence.strip()
         if not stripped:
             continue
-        if _CLAIM.search(stripped) and not _NOT_YET.search(stripped):
+        # The git word may sit in a different clause from "live" ("it is in a PR and it's live"), so it is
+        # looked for in the whole sentence; the negation is judged per clause (see _CLAUSES).
+        about_git = bool(_ABOUT_GIT_WORK.search(stripped))
+        if _some_clause_claims(
+            stripped,
+            lambda clause: bool(_CLAIM.search(clause) or (_LIVE.search(clause) and about_git)),
+        ):
             found.append(stripped)
     return tuple(found)
 
 
 def assess(reply_text: str, action_stream: str | None) -> Verdict:
     claimed = claim_spans(reply_text)
+    if action_stream is not None and any(rx.search(action_stream) for rx in _A_PUSH_TURN):
+        claimed = claimed + tuple(s for s in push_turn_spans(reply_text) if s not in claimed)
     if action_stream is None:
         return Verdict(
             claimed=claimed,
