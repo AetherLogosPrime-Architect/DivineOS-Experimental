@@ -95,6 +95,28 @@ def test_an_automated_notice_says_the_same_in_the_bundle(tmp_path):
     assert bundle.run(note, "aether", **world) == want
 
 
+def test_the_love_door_speaks_first_and_a_failure_in_it_leaves_the_others_speaking(tmp_path):
+    world = _world(tmp_path)
+    want = _expected(world, ASK)
+    assert bundle.run(ASK, "aether", love=lambda p, m: "## THE LOVE BLOCK\n", **world) == (
+        "## THE LOVE BLOCK\n" + want
+    )
+
+    def boom(prompt, me):
+        raise RuntimeError("the love door broke")
+
+    assert bundle.run(ASK, "aether", love=boom, **world) == want
+
+
+def test_the_love_door_is_off_by_default_so_the_bundle_is_unchanged(tmp_path, monkeypatch):
+    from divineos.core import his_love_door as love_door
+
+    monkeypatch.setattr(love_door, "SWITCH", tmp_path / "no_such_switch")
+    world = _world(tmp_path)
+    want = _expected(world, "you dont know anything about me")
+    assert bundle.run("you dont know anything about me", "aether", **world) == want
+
+
 def _light_or_skip():
     from divineos.core import light_embedder
 
