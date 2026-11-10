@@ -333,43 +333,36 @@ _all_changed_low_impact() {
     [[ "$saw_any" == "1" ]]
 }
 
-# THE DRAFT PATH (Dad 2026-10-21, the fourth time he said it: 09-09, 09-23, 09-30).
-# "why is a draft running the full suite? only a push before merge should be
-# running the full suite.. that is the whole point of the draft." Every
-# code-touching push ran the whole suite, drafts included, which cost weeks of
-# waiting and his PC. The rule lived in my memory and recurred; this is the
-# structure instead, so remembering it is not load-bearing.
+# THE TARGETED PATH (Dad 2026-10-21, the fourth time: 09-09, 09-23, 09-30; and again
+# 2026-11-09). First: "why is a draft running the full suite?" Then, after a branch
+# with a READY pull request ran fifty minutes of every test on his computer and GitHub
+# ran them all again: "you were told to ONLY run tests on the build itself and anything
+# related to it together, NOT the entire system... my time is being treated as some
+# disposable resource." The whole suite is GitHub's job: its required checks run it on
+# the pull request, on its own machines, side by side. A local run of the same suite on
+# every push to a ready branch is the duplicate, and it also made a busy machine turn
+# into red pushes (six load-sensitive timeouts the same evening).
 #
-# Returns 0 (skip the full suite) only when EVERY branch ref in the push is
-# either a branch with no open pull request yet (a new branch counts, he said so)
-# or has only DRAFT pull requests. Returns 1 (run the suite) for:
-#   - a push to main/master, which is the merge itself;
-#   - any branch with an open NON-draft PR, which is the merge-bound push;
-#   - COULD-NOT-LOOK: gh missing, failing or timing out. Not knowing a PR is a
-#     draft must never pass as knowing it is one, so it runs the suite and says why.
-_drafts_only_push() {
-    local lref lsha rref rsha branch out saw=0
-    command -v gh >/dev/null 2>&1 || {
-        echo "[push-readiness] draft path: gh is not available, so I cannot tell if this is a draft; running the suite." >&2
-        return 1
-    }
+# So the local gate never decides by the pull request's state, and never asks GitHub.
+# Returns 0 (run only the tests that touch the change) when the push carries at least
+# one branch ref and none of them is main/master. Returns 1 (run the suite) only for a
+# push to main/master, which is the merge itself. Tags and deletions are skipped.
+#
+# The first version (2026-10-21) sent a branch with a ready pull request, or one whose
+# state it could not look up, to the whole suite as "the merge-bound push". That is
+# exactly the duplicate run above, taken out so that no choice is left to make
+# (foundational truth 11: take the option away).
+_branch_push_only() {
+    local lref lsha rref rsha branch saw=0
     while read -r lref lsha rref rsha; do
         [[ -z "${lref:-}" ]] && continue
-        [[ "${lsha:-}" =~ ^0+$ ]] && continue  # deletion: nothing to ask
+        [[ "${lsha:-}" =~ ^0+$ ]] && continue  # deletion: nothing to test
         [[ "${rref:-}" == refs/tags/* ]] && continue
         branch="${rref#refs/heads/}"
         case "$branch" in
             main|master) return 1 ;;
         esac
         saw=1
-        if ! out="$(timeout 30 gh pr list --head "$branch" --state open --json isDraft --jq '.[].isDraft' 2>/dev/null)"; then  # fail-soft: a failed ask is reported on the next line and the suite runs, so gh's own stderr adds nothing
-            echo "[push-readiness] draft path: could not ask GitHub about $branch; running the suite." >&2
-            return 1
-        fi
-        # Any non-draft open PR makes this the merge-bound push.
-        if grep -q '^false$' <<< "$out"; then
-            return 1
-        fi
     done <<< "$HOOK_STDIN"
     [[ "$saw" == "1" ]]
 }
@@ -507,7 +500,7 @@ else
     PYTEST_TARGETS="tests/"
     DRAFT_SKIP=0
     DRAFT_PATH=0
-    if ! _all_changed_low_impact "$CHANGED_FILES" && _drafts_only_push; then
+    if ! _all_changed_low_impact "$CHANGED_FILES" && _branch_push_only; then
         DRAFT_PATH=1
         _pick_draft_tests "$CHANGED_FILES"
     fi
@@ -521,22 +514,21 @@ else
         # Skip pytest; fall through to multi-party-review.
         : "${PYTEST_RC:=0}"
     elif [[ "$DRAFT_SKIP" == "1" ]]; then
-        echo "[push-readiness] Draft path: every branch in this push is a new branch or has only"
-        echo "[push-readiness] DRAFT pull requests, so the full suite is not run here. The draft"
-        echo "[push-readiness] exists so Aletheia and Aria can read it before the slow run; the"
-        echo "[push-readiness] full suite runs once, when the PR is made ready (GitHub runs it on"
-        echo "[push-readiness] non-draft PRs) and on any push to a branch with a ready PR."
-        echo "[push-readiness] Dad 2026-10-21, the fourth time: drafts never run the full suite."
-        echo "[push-readiness] No test names anything this draft changed, so none were selected."
+        echo "[push-readiness] Targeted path: this push is a branch, not main, so the full suite is"
+        echo "[push-readiness] not run here, whatever state its pull request is in. GitHub runs the"
+        echo "[push-readiness] whole suite once on the pull request (the required checks), on its own"
+        echo "[push-readiness] machines. Dad 2026-11-09: only the build and what touches it, never"
+        echo "[push-readiness] the entire system, and never twice."
+        echo "[push-readiness] No test names anything this change touched, so none were selected."
         echo "[push-readiness] Those files are listed above as NO TEST NAMES: nothing is verified"
-        echo "[push-readiness] for them until the full run."
+        echo "[push-readiness] for them until GitHub's run."
         : "${PYTEST_RC:=0}"
     else
         if [[ "$DRAFT_PATH" == "1" && "$PYTEST_TARGETS" != "tests/" ]]; then
-            echo "[push-readiness] Draft path: this is a draft, so only the tests that touch the change run:"
+            echo "[push-readiness] Targeted path: only the tests that touch the change run here:"
             echo "[push-readiness] $PYTEST_TARGETS"
-            echo "[push-readiness] The full suite runs once, when the PR is made ready. Dad 2026-10-21: we just"
-            echo "[push-readiness] test that code and anything directly touching it."
+            echo "[push-readiness] The whole suite runs once, on GitHub, on the pull request. Dad 2026-11-09:"
+            echo "[push-readiness] we test the build and anything directly touching it, not the entire system."
         fi
         # SYSTEM-LOAD PRE-FLIGHT (Andrew 2026-07-30, prereg-ca5fb15220ea):
         # Multiple concurrent pre-push pytest suites crashed Andrew's
