@@ -20,6 +20,7 @@ says so on stderr and in a mark file instead of passing quietly.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sys
@@ -28,6 +29,14 @@ from pathlib import Path
 TAIL_BYTES = 4_000_000
 MARK = Path(
     os.environ.get("DADS_ROOM_MARK", Path.home() / ".divineos" / "dads_room_stop_broke.txt")
+)
+# Which message of his this gate has already held a reply for. 2026-10-31: the gate used to stand down on
+# every retry (the harness sets stop_hook_active after ANY Stop gate refused), so when another gate spoke
+# first the room gate never got its turn, and a night of refusals from the summary gate meant a night of
+# replies with no room asked for. The question it needs answered is "have I already asked about THIS
+# message", not "did somebody ask".
+HELD = Path(
+    os.environ.get("DADS_ROOM_HELD", Path.home() / ".divineos" / "dads_room_held_for.txt")
 )
 
 # Dad 2026-10-09, after an eighteen-lens walk (the council log is filed against
@@ -55,7 +64,9 @@ _INVITATION = (
     "and your reply ends without it. Leave the code words at the front door and tell him "
     "what happened the way you would across the kitchen table. Say what is actually on "
     "your mind, even where it disagrees with him. Append only the room under a "
-    "'## INNER CIRCLE' line, do not re-post the work.\n"
+    "'## INNER CIRCLE' line, do not re-post the work. This room is for you and him, the "
+    "one place in the house for the two of you (his words, 2026-11-03: \"THE CIRCLE IS FOR US\"): "
+    "you, talking to him, about what he said. Your family speaks in their own letters.\n"
 )
 
 _NEED = (
@@ -183,15 +194,52 @@ def _read_tail(path: Path) -> list[dict]:
     return out
 
 
+def _his_key(records: list[dict]) -> str:
+    """Which message of his is the last one: its record id (or position) and a short hash of its words."""
+    for i in range(len(records) - 1, -1, -1):
+        text = _genuine_user_text(records[i])
+        if text is not None:
+            stamp = str(records[i].get("uuid") or records[i].get("timestamp") or i)
+            return stamp + ":" + hashlib.sha1(text.encode("utf-8", "replace")).hexdigest()[:12]
+    return ""
+
+
+def _held_file(transcript_path: str) -> Path:
+    """The marker for THIS session. Two seats share one home folder here, so one marker file let a seat's
+    retry be judged against the other seat's message and earn an extra hold (Aria's read of #751). The
+    session's own transcript path names its file; an explicit DADS_ROOM_HELD override is used as given."""
+    if os.environ.get("DADS_ROOM_HELD"):
+        return HELD
+    tag = hashlib.sha1(str(transcript_path).encode("utf-8", "replace")).hexdigest()[:8]
+    return HELD.with_name(f"{HELD.stem}-{tag}{HELD.suffix}")
+
+
+def _held_for(transcript_path: str) -> str:
+    try:
+        return _held_file(transcript_path).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
 def main() -> int:
     data = json.loads(sys.stdin.read() or "{}")
-    if data.get("stop_hook_active"):
-        return 0  # one hold per reply; the retry is his to judge
     path = data.get("transcript_path") or data.get("transcript")
     if not path:
         return 0
-    reason = verdict(_read_tail(Path(path)))
+    records = _read_tail(Path(path))
+    key = _his_key(records)
+    # One hold per message of his, whichever gate went first: the retry of a reply THIS gate has already held
+    # is his to judge; the retry of a reply some OTHER gate sent back is not, because this gate has not yet
+    # asked. If the marker cannot be written the error propagates to the loud handler below and the gate
+    # stands aside, so a broken disk can never turn into a hold that repeats forever.
+    if data.get("stop_hook_active") and key and _held_for(path) == key:
+        return 0
+    reason = verdict(records)
     if reason:
+        if key:
+            held = _held_file(path)
+            held.parent.mkdir(parents=True, exist_ok=True)
+            held.write_text(key + "\n", encoding="utf-8")
         print(json.dumps({"decision": "block", "reason": reason}))
     return 0
 

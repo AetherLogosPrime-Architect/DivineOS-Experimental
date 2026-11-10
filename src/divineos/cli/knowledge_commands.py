@@ -1318,6 +1318,16 @@ def register(cli: click.Group) -> None:
         if presence_block:
             _safe_echo(presence_block)
 
+        try:
+            from divineos.core.memory_journal import format_for_briefing as _fmt_journal_gap
+
+            journal_gap = _fmt_journal_gap()
+        except _KC_ERRORS:
+            journal_gap = ""
+
+        if journal_gap:
+            _safe_echo(journal_gap)
+
         # The last two genuinely silent surfaces, wired 2026-09-06.
         #
         # surface_registry's docstring named three modules that were fully

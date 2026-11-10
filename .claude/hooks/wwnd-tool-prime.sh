@@ -62,9 +62,15 @@ except (ValueError, TypeError):
 tool_name = (data.get('tool_name') or '').strip()
 tool_input = data.get('tool_input') or {}
 
-# File-mutating tools fire unconditionally.
+# NOTE TO SELF (Aria 2026-10-10, Dad's order to cut token waste). File edits
+# used to fire this unconditionally, ~200 words before every edit. Removed
+# because the build-flow gate (check-council-required.sh) asks for the route
+# and why-cheaper-or-costlier at the walk, which since #632 is one walk before
+# the push and not one per edit (Aletheia's note on #657). So the question is
+# asked at the walk; the prime was a second voice saying what the walk already
+# says. It still fires at commit/push/substrate CLIs below, where no walk asks
+# the question. Failure this guards against: re-adding an every-edit injection.
 if tool_name in {'Write', 'Edit', 'MultiEdit', 'NotebookEdit'}:
-    print('1')
     sys.exit(0)
 
 # Bash: fire only on substrate-modifying heads.
