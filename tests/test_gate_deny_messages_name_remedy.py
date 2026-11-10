@@ -60,6 +60,12 @@ _HOOKS_DIR = _PROJECT_ROOT / ".claude" / "hooks"
 _NON_GATING_HOOKS: frozenset[str] = frozenset(
     {
         "_lib.sh",
+        # Reports whether Dad's room still stands (wired, present, blocks) at session
+        # start. It cannot refuse: every path exits 0 and a check that cannot run says
+        # so on screen, because a start-up check that could hold the session shut would
+        # be the first thing someone turned off. Declared here with that reason stated
+        # (prereg-7a0691d3eb8c), not slipped into the unexamined baseline.
+        "session-start-verify-room.sh",
         # Shows Andrew's own past words and lessons at the table. Every exit is
         # `exit 0`; a failed search is spoken on stdout as could-not-be-searched,
         # never a refusal. Read exit-by-exit before declaring (walk
