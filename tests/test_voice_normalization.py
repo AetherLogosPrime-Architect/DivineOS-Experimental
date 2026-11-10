@@ -37,6 +37,26 @@ class TestNormalizeToFirstPerson:
         assert f"'{said}'" in result
         assert result.endswith("and I should note it")
 
+    def test_a_curly_single_quoted_span_holding_a_curly_apostrophe_is_kept_exactly(self):
+        # Found 2026-11-10 by Aria running the branch: the curly apostrophe is the same character as the
+        # closing curly quote, so a contraction typed on a phone keyboard cut the span short and "you"
+        # inside his quote came back as "I". Same bug as the straight-quote case, in the curly shape.
+        said = "you dont know what you can’t do"
+        text = f"Dad said ‘{said}’ and you should note it"
+        result = normalize_to_first_person(text)
+        assert f"‘{said}’" in result
+        assert result.endswith("and I should note it")
+
+    def test_a_plural_possessive_inside_single_quotes_is_a_known_limit_and_is_still_rewritten(self):
+        # Pinned so the limit is visible (Aria's cold read, 2026-11-10; probed on the branch): the
+        # apostrophe after "dogs" is followed by a space, so it closes the span and "you should wait"
+        # inside his single quotes is rewritten. If this starts failing because the quote is now kept,
+        # that is an improvement, and the design note should be updated.
+        result = normalize_to_first_person(
+            "Dad said 'the dogs' bowls are fine and you should wait' and then you should go"
+        )
+        assert "and I should wait'" in result
+
     def test_an_unmatched_opening_quote_is_a_known_limit_and_is_still_rewritten(self):
         # Pinned so the limit is visible: a quote with no closing mark is not lifted. If this starts failing
         # because the quote is now kept, that is an improvement, and the design note should be updated.
