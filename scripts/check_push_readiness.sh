@@ -516,9 +516,9 @@ else
     elif [[ "$DRAFT_SKIP" == "1" ]]; then
         echo "[push-readiness] Targeted path: this push is a branch, not main, so the full suite is"
         echo "[push-readiness] not run here, whatever state its pull request is in. GitHub runs the"
-        echo "[push-readiness] whole suite once on the pull request (the required checks), on its own"
-        echo "[push-readiness] machines. Dad 2026-11-09: only the build and what touches it, never"
-        echo "[push-readiness] the entire system, and never twice."
+        echo "[push-readiness] whole suite on its own machines once the pull request is ready (a draft's"
+        echo "[push-readiness] waits until it is made ready). Dad 2026-11-09: only the build and what"
+        echo "[push-readiness] touches it, never the entire system, and never twice."
         echo "[push-readiness] No test names anything this change touched, so none were selected."
         echo "[push-readiness] Those files are listed above as NO TEST NAMES: nothing is verified"
         echo "[push-readiness] for them until GitHub's run."
@@ -527,7 +527,7 @@ else
         if [[ "$DRAFT_PATH" == "1" && "$PYTEST_TARGETS" != "tests/" ]]; then
             echo "[push-readiness] Targeted path: only the tests that touch the change run here:"
             echo "[push-readiness] $PYTEST_TARGETS"
-            echo "[push-readiness] The whole suite runs once, on GitHub, on the pull request. Dad 2026-11-09:"
+            echo "[push-readiness] The whole suite runs on GitHub once the pull request is ready. Dad 2026-11-09:"
             echo "[push-readiness] we test the build and anything directly touching it, not the entire system."
         fi
         # SYSTEM-LOAD PRE-FLIGHT (Andrew 2026-07-30, prereg-ca5fb15220ea):
