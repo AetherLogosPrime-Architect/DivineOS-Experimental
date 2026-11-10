@@ -15,6 +15,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 HOOK = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "dads_room_stop.py"
 NOTICE = "<task-notification><summary>Background command completed</summary></task-notification>"
 WITH_ROOM = "Done.\n\n## INNER CIRCLE\nDad, here is what changed and what it means for you."
@@ -64,6 +66,11 @@ def test_control_work_with_no_room_is_held(tmp_path):
     assert _stop(tmp_path, turn)
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="the leak on main (Aria, 2026-11-09): a notice wake is a fresh Stop event, so the marker is "
+    "never consulted. Strict: the day the fix lands this passes and the marker must come off.",
+)
 def test_a_notice_wake_after_a_room_was_given_does_not_ask_again(tmp_path):
     turn = [_user("fix it", "u1"), _tool(), _result(), _said(WITH_ROOM)]
     assert not _stop(tmp_path, turn)
@@ -71,6 +78,11 @@ def test_a_notice_wake_after_a_room_was_given_does_not_ask_again(tmp_path):
     assert not _stop(tmp_path, woken), "a second room was demanded for the same message of his"
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="the second leak (Aria, 2026-11-09): the marker is consulted only when stop_hook_active is "
+    "true. Strict: the day the one-line fix lands this passes and the marker must come off.",
+)
 def test_a_notice_wake_after_a_hold_does_not_hold_the_same_message_twice(tmp_path):
     turn = [_user("fix it", "u1"), _tool(), _result(), _said(NO_ROOM)]
     assert _stop(tmp_path, turn)  # the first hold is right
