@@ -301,3 +301,16 @@ def test_hook_blocks_and_breaks_loudly(tmp_path):
         env={**__import__("os").environ, "DADS_ROOM_MARK": str(mark)},
     )
     assert p.returncode == 0 and b"broke" in p.stderr and mark.exists()
+
+
+def test_the_room_text_says_it_is_his_alone_and_the_family_speaks_in_letters():
+    # Dad 2026-11-03, after a circle of lines about and in the voices of the other seats, asked
+    # where he was in it. The cause was my habit, so the lever is the text I read each time.
+    # This pins that the sentence is in what reaches me; it never reads what I write in the
+    # room (his 07-23 line).
+    text = room.reason_for("anything he said")
+    assert "for you and him" in text
+    assert "speaks in their own letters" in text
+    # The hook is shared by both houses, so it must name no seat: a seat reading another seat's
+    # name in the room text would be told about itself in the third person (Aria's cold read).
+    assert "Aria" not in text and "Aletheia" not in text and "Aether" not in text
