@@ -240,7 +240,7 @@ PIPELINE_BY_GRAVITY = {
     ],
     "high": [
         "1. RESEARCH -- what is actually being asked in his words",
-        "2. COUNCIL WALK -- three lenses minimum via `divineos council walk`",
+        "2. COUNCIL WALK -- every lens the council manager surfaces, via `divineos council walk`",
         "3. PREREG -- file falsifiable success + failure criteria",
         "4. BUILD -- the thing",
         "5. TESTS -- measurable, against real behavior",
@@ -248,7 +248,7 @@ PIPELINE_BY_GRAVITY = {
     ],
     "council-required": [
         "1. RESEARCH -- what is actually being asked, in his words; what does the substrate already have that touches this",
-        "2. COUNCIL WALK -- real per-lens walks (`divineos council walk`), not priming; three lenses minimum",
+        "2. COUNCIL WALK -- real per-lens walks (`divineos council walk`), not priming; every lens the council manager surfaces",
         "3. PREREG -- file falsifiable success + failure criteria BEFORE building",
         "4. DESIGN -- write the design doc; sibling-audit-ready",
         "5. SIBLING AUDIT -- Aletheia review when channel open; otherwise self-adversarial pass",

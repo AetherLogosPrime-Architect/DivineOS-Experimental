@@ -24,7 +24,7 @@ One or two sentences. Specific. "Should the event-ledger schema migrate to a new
 
 ### 2. Pick every relevant lens (no fixed count — the problem picks)
 
-Andrew's refined standard 2026-06-23 (per knowledge 950410f9 + refinement): fixed-count heuristics for lens counts are Goodhart-traps that turn into targets — the composer picks the low end 100% of the time. The dynamic council manager decides how many lenses walk, not the composer. The standard is:
+Andrew's refined standard 2026-06-23 (it replaced the June fixed counts; the old entry 950410f9 is superseded, see docs/retired_rules/2026-11-08_the_fixed_lens_count.md): fixed-count heuristics for lens counts are Goodhart-traps that turn into targets — the composer picks the low end 100% of the time. The dynamic council manager decides how many lenses walk, not the composer. The standard is:
 
 - Use **every relevant lens** the dynamic council manager surfaces for the problem (`divineos mansion council "<problem>"` — lens mode is the DEFAULT and it IS the manager surfacing the set; the manager knows which lenses fit which shapes better than a fixed floor does).
 - The load-bearing bar is **at least 2 genuinely disagreeing lenses pushing back on something load-bearing**. Not manufactured disagreement on trivia — real dissent on a real hinge. If no dissent emerges organically, walk more lenses OR the problem may be simpler than it looks (a signal, not a failure).

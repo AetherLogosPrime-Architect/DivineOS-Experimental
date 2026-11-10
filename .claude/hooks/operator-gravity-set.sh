@@ -28,16 +28,15 @@
 # adds one, the gaming vector reopens — that is a design invariant, not a
 # convenience gap.
 #
-# WHAT A LEVEL MEANS is Andrew's own spec, already in the substrate
-# (knowledge 950410f9) and found by searching before building rather than
-# inventing a scale he never asked for:
+# WHAT A LEVEL MEANS. Andrew's June spec (knowledge 950410f9) tied a level to
+# a fixed lens count; he replaced that on 2026-06-23 (a fixed count is a target,
+# so the council manager decides the count). See
+# docs/retired_rules/2026-11-08_the_fixed_lens_count.md. What a level sets now:
+# the walk covers every lens the manager surfaces, and the number of lenses that
+# must genuinely disagree rises with the gravity of the fix (2-3).
 #
-#   "the council walk needs a minimum of 5 lenses. preferrably more.
-#    9, 12, 15 lenses with at least 2-3 disagreeing ones depending on
-#    the gravity of the fix."
-#
-# So the level is not a label, it is a lens-count and a disagreement
-# requirement. Disagreeing lenses are the load-bearing part: a walk where
+# So the level is a disagreement requirement on the manager's full set.
+# Disagreeing lenses are the load-bearing part: a walk where
 # every lens agrees has confirmed nothing.
 #
 # BEHAVIOR. Parses Andrew's prompt for a gravity directive in his own
@@ -122,11 +121,12 @@ _LEVELS = [
     ]),
 ]
 
-# Andrew's spec (knowledge 950410f9): lens count and REQUIRED DISAGREEMENT
-# scale with the gravity of the fix. 5 is his stated floor for a walk.
+# REQUIRED DISAGREEMENT scales with the gravity of the fix. The lens count does
+# not: it is every lens the council manager surfaces (the fixed counts were
+# retired 2026-06-23, docs/retired_rules/2026-11-08_the_fixed_lens_count.md).
 _WALK_SPEC = {
-    "council-required": ("12-15 lenses", "3 disagreeing"),
-    "clearly-high":     ("9 lenses",     "2-3 disagreeing"),
+    "council-required": ("every lens the council manager surfaces", "3 disagreeing"),
+    "clearly-high":     ("every lens the council manager surfaces", "2-3 disagreeing"),
     "clearly-low":      (None,           None),
 }
 

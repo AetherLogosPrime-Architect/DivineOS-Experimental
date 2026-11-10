@@ -79,11 +79,52 @@ def test_a_deliberate_mention_is_allowed(checker, one_rule, tmp_path):
     assert hits == []
 
 
+def test_the_marker_works_inside_a_json_string(checker, one_rule, tmp_path):
+    """Aria 2026-11-09: settings.json is scanned now and JSON has no comments, so a
+    deliberate mention there has to carry the marker inside a string value. The
+    checker reads lines, so the marker works anywhere on the line."""
+    settings = tmp_path / "settings.json"
+    settings.write_text(
+        '{"note": "we no longer do it the old way  RETIRED-RULE-OK"}\n'
+        '{"note": "we always do it the old way"}\n',
+        encoding="utf-8",
+    )
+    hits, _ = checker.find_hits(one_rule, [settings])
+    assert [h.lineno for h in hits] == [2]
+
+
 def test_a_surface_saying_nothing_of_the_kind_is_clean(checker, one_rule, tmp_path):
     surface = tmp_path / "instructions.md"
     surface.write_text("Do the thing that is currently correct.\n", encoding="utf-8")
     hits, unreadable = checker.find_hits(one_rule, [surface])
     assert hits == []
+    assert unreadable == []
+
+
+def test_a_planted_copy_in_a_python_hook_is_scanned_and_caught(
+    checker, one_rule, tmp_path_factory, monkeypatch
+):
+    """Aria 2026-11-09: the scan list had no .claude/hooks/**/*.py, so the hook that
+    still printed the retired lens count was invisible to the checker. Plant the
+    phrase where it was hiding and require both that the file is scanned and that
+    the phrase is found, so a clean run cannot be a short list."""
+    # A tree of its own: the register fixture lives in tmp_path, and anything under
+    # the register directory is skipped by design.
+    tmp_path = tmp_path_factory.mktemp("tree")
+    hooks = tmp_path / ".claude" / "hooks"
+    hooks.mkdir(parents=True)
+    planted = hooks / "a_hook.py"
+    planted.write_text('print("do it the old way")\n', encoding="utf-8")
+    page = tmp_path / "family" / "andrew"
+    page.mkdir(parents=True)
+    room = page / "he_is_in_the_room.md"
+    room.write_text("Speak to him the old way.\n", encoding="utf-8")
+    monkeypatch.setattr(checker, "REPO_ROOT", tmp_path)
+    files = checker.scanned_files()
+    assert planted in files
+    assert room in files
+    hits, unreadable = checker.find_hits(one_rule, files)
+    assert {h.path for h in hits} == {planted, room}
     assert unreadable == []
 
 
@@ -158,6 +199,22 @@ def test_an_empty_register_reports_could_not_run_not_clean(checker, tmp_path):
             checker.load_register()
     finally:
         checker.REGISTER_DIR = original
+
+
+def test_the_lens_count_entry_catches_a_count_in_a_table_and_not_the_current_rule(checker):
+    """Aria 2026-11-09: the gravity hook kept the retired counts as a table
+    ("12-15 lenses"), a phrasing the first patterns could not see. The entry must
+    catch that shape and must leave the current rule alone."""
+    rules = {r.rule_id: r for r in checker.load_register()}
+    lens_rule = rules["fixed-lens-count"]
+
+    def hit(line):
+        return any(p.search(line) for p in lens_rule.patterns)
+
+    assert hit('"council-required": ("12-15 lenses", "3 disagreeing"),')
+    assert hit('"clearly-high":     ("9 lenses",     "2-3 disagreeing"),')
+    assert hit("COUNCIL WALK -- three lenses minimum via the walk")
+    assert not hit("COUNCIL WALK -- every lens the council manager surfaces")
 
 
 def test_the_real_register_parses_and_carries_a_successor(checker):
