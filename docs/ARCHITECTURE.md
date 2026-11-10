@@ -790,6 +790,9 @@ src/divineos/
     hold_log.py                A record of each time the room hold and the follow-through hold stopped a reply or let one pass.
     stall_on_promise.py        A promise to act is followed by the act, when no one is there to push.
     memory_linkage_own_words.py The memory link, read through what I said last turn, apart from what he said.
+    dads_bell.py               The bell for Dad: his open asks, and what would hold my other work until I move on them.
+    dads_bell_register.py      The bell for Dad, register and shadow: reads his open asks; logs what it would hold, refuses nothing.
+    read_only_shell.py         One public home for "a shell command that only looks".
 
   analysis/
     _session_types.py          Session analysis type definitions
