@@ -188,6 +188,38 @@ class RouterResult:
             used += cost
         return "\n".join(kept), withheld
 
+    def _refusal_lines(self) -> list[str]:
+        """The refusals as lines. At Stop, several ordered refusals become one voice.
+
+        When two or more Stop refusals have a row in the order table, the first is told in
+        full and the rest are named under "after that", so the reply is not handed three
+        different instructions at once (Dad 2026-11-04: twenty people with one sticky note
+        each, when it should be one person with twenty). A surface with no row is left as
+        it was, in full, after them: it is never swallowed.
+        """
+        plain = [f"BLOCKED by {o.name}: {o.reason}" for o in self.refusals]
+        if self.event != "Stop":
+            return plain
+        from divineos.core.hook_order import first_and_rest, row_for
+
+        listed = [o for o in self.refusals if row_for("Stop", o.name) is not None]
+        if len(listed) < 2:
+            return plain
+        first, rest = first_and_rest("Stop", [(o.name, o.reason) for o in listed])
+        assert first is not None
+        lines = [f"BLOCKED by {first[0]}: {first[1]}"]
+        lines.append(
+            "After that, in this order, one at a time: "
+            + ", ".join(rest)
+            + ". Each will say its own piece when it is the one in front; do not try to answer them together."
+        )
+        lines.extend(
+            f"BLOCKED by {o.name}: {o.reason}"
+            for o in self.refusals
+            if row_for("Stop", o.name) is None
+        )
+        return lines
+
     def stderr(self) -> str:
         """Refusals first, then any surface that could not run.
 
@@ -196,8 +228,7 @@ class RouterResult:
         a check that passed.
         """
         parts: list[str] = []
-        for o in self.refusals:
-            parts.append(f"BLOCKED by {o.name}: {o.reason}")
+        parts.extend(self._refusal_lines())
         if self.refusals and self.event == "Stop":
             # A Stop refusal arrives after the reply already reached him, so
             # every one carries the append-only instruction -- appended here,
