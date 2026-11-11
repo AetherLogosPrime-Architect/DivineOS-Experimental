@@ -798,7 +798,109 @@ def close_walk(walk_id: str, repo: Path | None = None) -> dict[str, Any]:
     bound, bound_in = _bind_to_diff(walk_id, repo)
     result = status(walk_id)
     result["bound"], result["bound_in"] = bound, bound_in
+    result["walked_head"] = _walked_head_of(walk_id)
+    reason, fix = (None, None) if result["walked_head"] else _why_no_head(walk_id, bound_in)
+    result["no_head_reason"], result["no_head_fix"] = reason, fix
     return result
+
+
+# Said by `walk close` when it recorded no walked head, and by `walk amend` when it refuses for
+# the lack of one. One sentence so the two places cannot drift apart.
+NO_HEAD_RECOVERY = (
+    "To fix it: commit the change by exact path first, then close a new walk from the work "
+    "copy (or from another checkout with --repo <work copy>)."
+)
+
+
+def _walked_head_of(walk_id: str) -> str | None:
+    conn = _conn()
+    try:
+        row = conn.execute("SELECT walked_head FROM walks WHERE id = ?", (walk_id,)).fetchone()
+    finally:
+        conn.close()
+    return row[0] if row and row[0] else None
+
+
+def _unquote_git_path(raw: str) -> str:
+    """Undo git's C-style quoting of a path ("a b.py", escapes, octal bytes); plain paths pass."""
+    if len(raw) < 2 or not (raw.startswith('"') and raw.endswith('"')):
+        return raw
+    body = raw[1:-1]
+    out = bytearray()
+    i = 0
+    simple = {"n": 10, "t": 9, "r": 13, "a": 7, "b": 8, "f": 12, "v": 11, '"': 34, "\\": 92}
+    while i < len(body):
+        ch = body[i]
+        if ch != "\\" or i + 1 >= len(body):
+            out += ch.encode("utf-8")
+            i += 1
+        elif body[i + 1] in simple:
+            out.append(simple[body[i + 1]])
+            i += 2
+        elif body[i + 1 : i + 4].isdigit():
+            out.append(int(body[i + 1 : i + 4], 8) & 0xFF)
+            i += 4
+        else:
+            out += body[i : i + 2].encode("utf-8")
+            i += 2
+    return out.decode("utf-8", errors="replace")
+
+
+def _why_no_head(walk_id: str, where: str) -> tuple[str, str]:
+    """The true reason a close recorded no walked head, and the ONE fix for that reason.
+
+    Reads only; decides nothing. Mirrors the conditions of ``_bind_to_diff`` so each reason is
+    the condition that actually stopped the binding, not a nearby one.
+    """
+    from divineos.core.council_required import push_choke
+
+    folder = Path(where)
+    scope = _scope_of(walk_id)
+    if not scope:
+        return (
+            "this walk has no scope: no files were named when it was opened",
+            "Open a new walk that names the files it covers with --scope, and close that one.",
+        )
+    inside = push_choke._git(folder, "rev-parse", "--is-inside-work-tree")
+    if not folder.is_dir() or (inside or "").strip() != "true":
+        return (
+            f"{folder} is not a git repository",
+            "Close a new walk by passing --repo <work copy>, the folder the change lives in.",
+        )
+    # -uall lists each untracked file, not just its new folder; git quotes names it considers
+    # unusual (a space, a quote, non-ASCII), so the quotes are undone before comparing to scope.
+    status_out = push_choke._git(folder, "status", "--porcelain", "-uall")
+    dirty = {
+        _unquote_git_path(part)
+        for line in (status_out or "").splitlines()
+        if len(line) > 3
+        for part in line[3:].strip().split(" -> ")[-1:]
+    }
+    uncommitted = sorted(dirty & scope)
+    changed = push_choke.changed_files(folder)
+    if changed is None:
+        return (
+            "git could not list this branch's changes against the base branch",
+            "Fetch the base branch (origin/main) in that folder, then close a new walk.",
+        )
+    outside = sorted(set(changed) - scope)
+    if outside:
+        first = ", ".join(outside[:3]) + (" and more" if len(outside) > 3 else "")
+        fix = f"Move {first} to its own branch, or open a new walk that names it in --scope"
+        if uncommitted:
+            fix += "; and commit the scoped files by exact path"
+        return (
+            f"the branch's commits change files outside this walk's scope ({first})",
+            fix + ", then close the new walk from the work copy.",
+        )
+    if uncommitted:
+        return (
+            "the scoped files have uncommitted changes: " + ", ".join(uncommitted[:3]),
+            NO_HEAD_RECOVERY,
+        )
+    if not changed:
+        return ("there is no commit ahead of the base branch in that folder", NO_HEAD_RECOVERY)
+    return ("git could not read the branch's head or diff in that folder", NO_HEAD_RECOVERY)
 
 
 def amend_walk(walk_id: str, finding: str, repo: Path | None = None) -> dict[str, Any]:
@@ -837,12 +939,13 @@ def amend_walk(walk_id: str, finding: str, repo: Path | None = None) -> dict[str
     # for a walk that lacks the origin: the fallback IS the stepwise route.
     origin = row[1] if row else None
     bound_head = row[2] if row else None
-    if not origin:
-        raise WalkRefused(
-            f"{walk_id} was not closed against a branch diff (no walked head), so there is no "
-            "fixed origin to measure from; walk again from inside the work copy"
-        )
     where = Path(repo) if repo is not None else Path.cwd()
+    if not origin:
+        reason, fix = _why_no_head(walk_id, str(where))
+        raise WalkRefused(
+            f"{walk_id} was not closed against a branch diff (no walked head): {reason}. There "
+            "is no fixed origin to measure from, and a closed walk cannot be closed again. " + fix
+        )
     measured = push_choke.change_between(where, origin)
     if measured is None:
         raise WalkRefused("could not compare the changes with the walk; walk again")

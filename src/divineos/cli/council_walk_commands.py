@@ -216,16 +216,17 @@ def register(cli: click.Group) -> None:
             f"    {st['findings']} findings, {st['excluded']} excluded, "
             f"{st['distinct_questions']} distinct lens questions answered"
         )
-        if st.get("bound"):
-            click.echo(f"    bound to the branch changes in {st['bound_in']}")
+        if st.get("walked_head"):
+            click.echo(f"    walked head recorded: {st['walked_head'][:9]}")
         else:
             click.secho(
-                f"    NOT bound to any branch changes (looked in {st['bound_in']}: its changes "
-                "are not a non-empty subset of this walk's scope). The push check will read this "
-                "walk the older, weaker way. To bind it, close it from inside the work copy "
-                "or pass --repo.",
+                f"    NO walked head recorded and NOT bound to any branch changes (looked in "
+                f"{st['bound_in']}): {st['no_head_reason']}. `walk amend` will refuse, and the "
+                f"push check will read this walk the older, weaker way. {st['no_head_fix']}",
                 fg="yellow",
             )
+        if st.get("bound"):
+            click.echo(f"    bound to the branch changes in {st['bound_in']}")
 
         # Distinctness prints HERE because closing is the only moment the
         # question "was that thinking or nine restatements?" is answerable and
