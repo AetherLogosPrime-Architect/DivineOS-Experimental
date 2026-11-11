@@ -136,7 +136,10 @@ def register(cli: click.Group) -> None:
                 score_str = f"[r={h.rerank_score:+.3f} s={h.similarity:.3f}]"
             else:
                 score_str = f"[{h.similarity:.3f}]"
-            click.echo(f"  {score_str} {rel_path}:{h.paragraph_index}")
+            from divineos.core.dream_files import A_DREAM_LABEL, is_dream_path
+
+            tag = f" ({A_DREAM_LABEL})" if is_dream_path(h.source_path) else ""
+            click.echo(f"  {score_str} {rel_path}:{h.paragraph_index}{tag}")
             preview = h.text[:200].replace("\n", " ")
             if len(h.text) > 200:
                 preview += "..."
@@ -146,7 +149,7 @@ def register(cli: click.Group) -> None:
     @search_group.command("index")
     @click.option(
         "--corpus",
-        type=click.Choice(["exploration", "letters", "all"]),
+        type=click.Choice(["exploration", "letters", "dreams", "all"]),
         default="exploration",
         help="Which corpus to index (default: exploration)",
     )
@@ -240,4 +243,8 @@ def _gather_paths(corpus: str) -> list[str]:
         letters_dir = repo_root / "family" / "letters"
         if letters_dir.exists():
             paths.extend(str(p) for p in letters_dir.glob("*.md"))
+    if corpus in ("dreams", "all"):
+        from divineos.core.dream_files import dream_paths
+
+        paths.extend(str(p) for p in dream_paths(repo_root / "dreams"))
     return sorted(paths)

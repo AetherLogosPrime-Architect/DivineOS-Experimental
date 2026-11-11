@@ -146,6 +146,7 @@ def test_warm_embeds_exactly_the_texts_the_loaders_will_look_up(monkeypatch):
         "_load_wall",
         "_load_exploration",
         "_load_letters",
+        "_load_dreams",
     ):
         monkeypatch.setattr(v1, name, fake_loader if name == "_load_corrections" else list)
     monkeypatch.setattr(vector_drawer, "_bulk_encoder", lambda: _fake_encode_many)
