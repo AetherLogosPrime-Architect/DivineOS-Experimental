@@ -81,9 +81,15 @@ class WorkCopyRefused(RuntimeError):
 
 PrInfo = Callable[[str], "tuple[str, str] | None"]
 
+# The lookup worked and no pull request exists from this branch. Not the same answer as "could not look"
+# (None): one is a fact about the branch, the other is an outage, and the two used to share a value, so a
+# branch that never had a PR read as an outage and a real outage hid among them (2026-11-12).
+NO_PULL_REQUEST = ("NONE", "")
+
 
 def gh_pr_info(branch: str) -> tuple[str, str] | None:
-    """(state, head_oid) of the newest pull request from this branch, or None if it could not be read."""
+    """(state, head_oid) of the newest pull request from this branch; NO_PULL_REQUEST if the lookup worked and
+    there is none; None only if it could not be read (gh failed, the output was not usable, it timed out)."""
     try:
         done = subprocess.run(
             [
@@ -109,8 +115,11 @@ def gh_pr_info(branch: str) -> tuple[str, str] | None:
     except (OSError, ValueError, subprocess.TimeoutExpired):
         return None
     if not rows:
-        return None
-    return str(rows[0].get("state", "")), str(rows[0].get("headRefOid", ""))
+        return NO_PULL_REQUEST
+    state = str(rows[0].get("state", ""))
+    if not state:
+        return None  # a row with no state is not an answer
+    return state, str(rows[0].get("headRefOid", ""))
 
 
 def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess:
@@ -348,6 +357,10 @@ def _assess_copy(
         reasons.append(
             pr_note
             or "could not read the pull request state, so the branch is not known to be finished"
+        )
+    elif pr == NO_PULL_REQUEST:
+        reasons.append(
+            "this branch has never had a pull request, so nothing says it landed (not finished)"
         )
     elif pr[0] in ("MERGED", "CLOSED"):
         if pr[1] == state.head or state.published:
