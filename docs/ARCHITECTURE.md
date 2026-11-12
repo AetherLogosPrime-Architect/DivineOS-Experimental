@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (522 commands across 122 modules)
+  cli/                         CLI package (526 commands across 122 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -114,6 +114,7 @@ src/divineos/
     operator_ask_commands.py   `divineos ask-andrew` / `asks` / `ask-resolve` — the reachable surface for core/operator_asks.py, which had a store and no command from 2026-08-19 until 2026-09-16 and so sat empty, indistinguishable from nothing needing him. An open ask now HOLDS new substrate work (.claude/hooks/an-open-ask-holds-the-work.sh), which is the half of his correction the re-raise never covered: *"when you ask me something, and never wait for my reply.. why bother asking?"*
     psf_commands.py            pending structural-fix obligations (list, mark-done)
     question_hold_commands.py  question-hold / release: see or escape the wait a question to Dad opens
+    volley_commands.py         volley start / stop / status: the front door to the stepped-away path; start needs his going-to-bed words, checked against his latest filed message
     reach_commands.py          reach-check — surface prior work, then prove it was opened
     obligation_commands.py     obligations check / is-write / list / disabled — substrate-write CLI surface for the obligation gate (#33 + #42 unified hook)
     synchronicity_commands.py  synchronicity — temporal co-occurrence detector (Pillar VI)
