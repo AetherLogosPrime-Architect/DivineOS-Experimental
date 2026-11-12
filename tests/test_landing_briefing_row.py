@@ -25,6 +25,7 @@ def _pr(n: int, head: str = HEAD, branch: str | None = None) -> dict:
         "headRefName": branch or f"fix/thing-{n}",
         "headRefOid": head,
         "title": f"title {n}",
+        "createdAt": "2026-10-01T00:00:00Z",
     }
 
 
