@@ -161,7 +161,21 @@ def test_the_questions_block_does_not_count_as_template_text():
     """The questions are printed in the refusal and were the only part read; only methodology text proves contact."""
     w = cw.open_walk(PROBLEM)
     lens, wisdom = _delivered(w)
-    question = next(q for q in wisdom.characteristic_questions if len(_words(q)) >= 5)
+    # The lens is drawn by lot. A question that happens to repeat four words of the methodology text WOULD be contact,
+    # so only a question with no such run can show that questions alone do not count (found when this failed on a draw).
+    # contact_match only looks under a methodology the finding names, so the probe names every one of them.
+    named = " ".join(f"[{x.name}]" for x in wisdom.core_methodologies)
+    question = next(
+        (
+            q
+            for q in wisdom.characteristic_questions
+            if len(_words(q)) >= 5
+            and cw.contact_match(f"{named} {q}", wisdom, cw.CONTACT_RUN_WORDS) is None
+        ),
+        None,
+    )
+    if question is None:
+        pytest.skip("every question on this lens repeats its methodology text")
     m = wisdom.core_methodologies[0]
     with pytest.raises(cw.WalkRefused, match="contact"):
         cw.apply_lens(w["walk_id"], lens, f'[{m.name}] "{question}" {PADDING}', question=1)
