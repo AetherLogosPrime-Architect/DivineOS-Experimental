@@ -108,7 +108,16 @@ def test_three_words_are_not_enough_and_five_are():
     lens, wisdom = _delivered(w)
     m, unit = _long_unit(wisdom)
     with pytest.raises(cw.WalkRefused, match="contact"):
-        cw.apply_lens(w["walk_id"], lens, f'[{m.name}] "{_quote(unit, 3)}" {PADDING}', question=1)
+        # zzqx marks both ends so the three words cannot join the padding into a fourth shared word (that was a draw-
+        # dependent failure: a unit whose next word was "and" made three words plus the padding's first word a run).
+        # And three whitespace tokens are not always three WORDS ("self-audit" is two), which made this a draw-dependent
+        # failure too: take the first three-token stretch that really is three words.
+        three = next(
+            _quote(unit, 3, i)
+            for i in range(len(unit.split()))
+            if len(_words(_quote(unit, 3, i))) == 3
+        )
+        cw.apply_lens(w["walk_id"], lens, f'[{m.name}] zzqx "{three}" zzqx {PADDING}', question=1)
     cw.apply_lens(w["walk_id"], lens, f'[{m.name}] "{_quote(unit, 5)}" {PADDING}', question=1)
     assert _row(w, lens)["state"] == "APPLIED"
 
