@@ -1148,7 +1148,7 @@ def _last_user_text(payload: dict) -> str:
     nothing to read, which callers must treat as could-not-look rather than as
     he-said-nothing.
     """
-    from divineos.core.his_message import NOTICE, SCHEDULED, opener_kind
+    from divineos.core.his_message import NOTICE, SCHEDULED, opener_kind, without_notices
 
     path = _transcript_file(payload)
     if path is None:
@@ -1178,6 +1178,7 @@ def _last_user_text(payload: dict) -> str:
                 # enumeration standing in for a principle, mine, minutes old, in
                 # the thing built to stop that. The principle: text the harness
                 # generated is not him, whatever it is wearing.
+                text = without_notices(text)
                 if _is_machine_text(text):
                     continue
                 if text.strip():
