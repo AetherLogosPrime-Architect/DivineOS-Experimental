@@ -629,6 +629,13 @@ def test_the_lookup_gives_three_answers_and_an_empty_state_is_not_one(
     assert ws.gh_pr_info("some-branch") == expected
 
 
+def test_the_no_pull_request_marker_can_never_equal_a_real_github_state():
+    # Aether's cold read: the sentinel is safe only while GitHub's states stay OPEN, CLOSED and MERGED. Pinned so
+    # a future state that happened to be spelled NONE would fail here and not collide quietly in the sweep.
+    assert ws.NO_PULL_REQUEST[0] not in {"OPEN", "CLOSED", "MERGED"}
+    assert ws.NO_PULL_REQUEST != ("", "")  # and it is not the empty answer either
+
+
 def test_a_branch_that_never_had_a_pull_request_says_so_and_is_still_not_removable(world):
     wt, name = world.copy(commits=1, push=True)
     world.prs[name] = ("NONE", "")  # asked, and there is no pull request
