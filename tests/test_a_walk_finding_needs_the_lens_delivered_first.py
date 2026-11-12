@@ -24,6 +24,9 @@ FINDING = "a real finding of sufficient length to be stored against this lens"
 @pytest.fixture(autouse=True)
 def _isolated(tmp_path, monkeypatch):
     monkeypatch.setattr(cw, "divineos_home", lambda: tmp_path)
+    # This file pins the DELIVERY rule on its own. The contact rule (a finding must quote the lens's own text) has its
+    # own file, test_a_walk_finding_must_show_contact_with_the_template.py; walks "opened before the rule" are exempt.
+    monkeypatch.setattr(cw, "CONTACT_RULE_FROM", float("inf"))
     yield
 
 

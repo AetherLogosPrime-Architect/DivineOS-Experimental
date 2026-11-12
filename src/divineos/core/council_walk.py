@@ -37,6 +37,7 @@ Append-only: state transitions insert rows; nothing is rewritten.
 from __future__ import annotations
 
 import hashlib
+import re
 import sqlite3
 import time
 from dataclasses import dataclass
@@ -47,6 +48,21 @@ from divineos.core.paths import divineos_home
 
 MIN_FINDING_CHARS = 40
 MIN_EXCLUSION_CHARS = 60  # deliberately higher: excluding is the cheap move
+
+# THE CONTACT RULE. Dad, 2026-11-12: "the issue is that you loaded lenses from memory vs the templates.. so that needs
+# to be made impossible first.. the templates must be enforced.. otherwise its no different than me just saying ask an
+# expert and you just make one up on the spot that agrees with me". Delivery was already enforced; reading was not, and
+# both seats filtered the delivered text through grep and tail before writing (me 26 of 26 findings that day, Aether 17
+# of 25). A finding (and a written exclusion) must now carry CONTACT with the lens's own methodology text: a run of
+# CONTACT_RUN_WORDS consecutive words from the description or one step of a methodology it names in square brackets.
+# Four, not three: measured on 2,792 findings, a run of four appears by chance in 0.1 percent (a finding checked against
+# a random OTHER lens) and a run of three in 3 percent. This proves CONTACT, not reading and not use: a pasted run with
+# a body from memory passes, and the other seat's sampled read is the layer that can tell. Design:
+# docs/drafts/a_walk_finding_must_show_contact_with_the_template_draft_2026-11-12.md (walk-05edc42dfe10).
+CONTACT_RUN_WORDS = 4
+# Walks opened before this are read-only history and are never re-judged: 94 percent of past findings would fail, and
+# the failure was the system's (the gate let the free path stand), not the author's.
+CONTACT_RULE_FROM = 1794447559.0
 
 
 class WalkRefused(RuntimeError):
@@ -482,6 +498,7 @@ def deliver_lens(lens: str, walk_id: str | None = None) -> str:
     from divineos.core.ledger import log_event
 
     wisdom = _expert_for(lens)
+    text = lens_plain(wisdom)
     try:
         log_event(
             "COUNCIL_LENS_LOADED",
@@ -492,11 +509,14 @@ def deliver_lens(lens: str, walk_id: str | None = None) -> str:
                 "question_count": len(wisdom.characteristic_questions or []),
                 "how": "delivered by the walk",
                 "walk_id": walk_id,
+                # The exact text delivered, as a hash: the text itself is recomputed from the roster, so a later
+                # roster edit must give could-not-verify on an old walk and never a refusal (Knuth, Dijkstra).
+                "text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
             },
         )
     except Exception as exc:  # noqa: BLE001 - an unrecorded delivery must refuse loudly, not read as delivered
         raise WalkRefused(f"the delivery of {lens} could not be recorded: {exc}") from exc
-    return lens_plain(wisdom)
+    return text
 
 
 def _delivery_time(lens: str, opened_at: float, walk_id: str) -> float | None:
@@ -522,6 +542,120 @@ def _delivery_time(lens: str, opened_at: float, walk_id: str) -> float | None:
         ):
             return stamp
     return None
+
+
+def _delivered_hash(lens: str, opened_at: float, walk_id: str) -> str | None:
+    """The hash of the exact text delivered for this lens in this walk, or None when none was recorded."""
+    import json
+
+    from divineos.core.ledger import get_events
+
+    wanted = lens.strip().lower()
+    for ev in get_events(limit=500, order="desc", event_type="COUNCIL_LENS_LOADED"):
+        if float(ev.get("timestamp") or 0) < opened_at:
+            return None
+        payload = ev.get("payload") or {}
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except ValueError:
+                continue
+        if (
+            str(payload.get("expert_name", "")).lower() == wanted
+            and payload.get("walk_id") == walk_id
+        ):
+            return payload.get("text_sha256")
+    return None
+
+
+def _contact_words(text: str) -> list[str]:
+    """Lower-case words with an apostrophe kept only INSIDE a word (don't), never at its edge: a quote wrapped in single
+    quotes must not glue the quote mark onto its first and last word and so hide a correct run (found by a test, on a
+    finding written as 'quote of five words')."""
+    return re.findall(r"[a-z0-9]+(?:'[a-z0-9]+)*", (text or "").lower().replace("’", "'"))
+
+
+def _cited_methodologies(finding: str, wisdom: Any) -> list[Any]:
+    """The methodologies of this lens that the finding names in square brackets, as the lens spells them. A bracket
+    that is not a methodology name (a question number, say) is ignored, not an error (Wittgenstein)."""
+    by_name = {" ".join(_contact_words(m.name)): m for m in wisdom.core_methodologies}
+    cited: list[Any] = []
+    for raw in re.findall(r"\[([^\]\n]{1,120})\]", finding or ""):
+        m = by_name.get(" ".join(_contact_words(raw)))
+        if m is not None and m not in cited:
+            cited.append(m)
+    return cited
+
+
+def contact_match(
+    finding: str, wisdom: Any, run_words: int = CONTACT_RUN_WORDS
+) -> tuple[str, int, str] | None:
+    """(methodology name, unit number, the run) for the first run of `run_words` consecutive words that the finding
+    shares with the description (unit 0) or a step (unit 1..) of a methodology it names in square brackets; None if
+    there is none. A run never crosses from one step into the next, and the questions block does not count (it is
+    printed in every refusal and was the only part either of us read). This is CONTACT with the template, not
+    comprehension of it: nothing computable here can certify reading."""
+    words = _contact_words(finding)
+    if len(words) < run_words:
+        return None
+    runs = {" ".join(words[i : i + run_words]) for i in range(len(words) - run_words + 1)}
+    for m in _cited_methodologies(finding, wisdom):
+        for number, unit in enumerate((m.description, *(getattr(m, "steps", None) or []))):
+            uw = _contact_words(unit)
+            for i in range(len(uw) - run_words + 1):
+                run = " ".join(uw[i : i + run_words])
+                if run in runs:
+                    return (m.name, number, run)
+    return None
+
+
+def has_contact(finding: str, wisdom: Any, run_words: int = CONTACT_RUN_WORDS) -> bool:
+    return contact_match(finding, wisdom, run_words) is not None
+
+
+def _no_contact_refusal(lens: str, finding: str, wisdom: Any) -> str:
+    """Two different mistakes need two different messages: no methodology named, or one named with nothing quoted from
+    under it. The methodologies are listed, a ready-made quote is not (a printed example is a paste)."""
+    names = ", ".join(f"[{m.name}]" for m in wisdom.core_methodologies)
+    if not _cited_methodologies(finding, wisdom):
+        head = (
+            f"{lens}: this names no methodology of the lens, so there is no contact to find. Put the name of ONE "
+            f"methodology in square brackets, as spelled here: {names}."
+        )
+    else:
+        head = (
+            f"{lens}: this shows no contact with the methodology it names. Quote at least {CONTACT_RUN_WORDS} "
+            f"consecutive words, exactly as printed, from the description or one step under that name. "
+            f"The methodologies are: {names}."
+        )
+    return (
+        f"{head} The questions list does not count, and a quote from another lens does not count. This proves "
+        "contact with the template, nothing more: the other seat reads a sample of findings against their lens."
+    )
+
+
+def _record_contact(
+    walk_id: str, lens: str, outcome: str, match: tuple[str, int, str] | None
+) -> None:
+    """One ledger event per refusal and per acceptance, so first-try refusals, rewrites and the laziest route can be
+    counted by event after release (Bengio, Peirce). Never allowed to block a walk."""
+    try:
+        from divineos.core.ledger import log_event
+
+        log_event(
+            "COUNCIL_CONTACT",
+            "aether",
+            {
+                "walk_id": walk_id,
+                "lens": lens.lower(),
+                "outcome": outcome,
+                "methodology": match[0] if match else None,
+                "unit": match[1] if match else None,
+                "run_words": CONTACT_RUN_WORDS,
+            },
+        )
+    except Exception:  # noqa: BLE001 - a counting failure must not stop the work it counts
+        pass
 
 
 def apply_lens(walk_id: str, lens: str, finding: str, question: int | None = None) -> None:
@@ -580,9 +714,30 @@ def _delivered_and_questioned(
         )
     seconds = max(0, int(time.time() - delivered_at))
     label = "answers" if verb == "answers" else "does not apply to"
-    return (
-        f"[{label} Q{question}: {questions[question - 1]}] [lens delivered {seconds}s before this]"
-    )
+    contact = _check_contact(walk_id, lens, text, float(row[0]))
+    return f"[{label} Q{question}: {questions[question - 1]}] [lens delivered {seconds}s before this]{contact}"
+
+
+def _check_contact(walk_id: str, lens: str, text: str, opened_at: float) -> str:
+    """The contact rule at the one door apply and exclude share. Returns the record suffix; raises WalkRefused when
+    the finding shows no contact. A walk opened before the rule is read-only history and is never judged. When the
+    lens text has changed since delivery (a roster edit), contact cannot be verified, which is said in the record and
+    never turned into a refusal (Knuth, Dijkstra)."""
+    if opened_at < CONTACT_RULE_FROM:
+        return ""
+    from divineos.core.council.lens_text import lens_plain
+
+    wisdom = _expert_for(lens)
+    stored = _delivered_hash(lens, opened_at, walk_id)
+    if stored is None or stored != hashlib.sha256(lens_plain(wisdom).encode("utf-8")).hexdigest():
+        _record_contact(walk_id, lens, "unverified", None)
+        return " [contact not verified: the lens text changed after it was delivered]"
+    match = contact_match(text, wisdom)
+    if match is None:
+        _record_contact(walk_id, lens, "refused", None)
+        raise WalkRefused(_no_contact_refusal(lens, text, wisdom))
+    _record_contact(walk_id, lens, "accepted", match)
+    return f' [contact: [{match[0]}] unit {match[1]}: "{match[2]}"]'
 
 
 def exclude_lens(walk_id: str, lens: str, reason: str, question: int | None = None) -> None:
@@ -723,7 +878,45 @@ def status(walk_id: str) -> dict[str, Any]:
         "findings": sum(1 for row in lenses if row["state"] == "APPLIED"),
         "excluded": sum(1 for row in lenses if row["state"] == "EXCLUDED"),
         "distinct_questions": len(numbers),
+        # What was asked is not what the code can do: Dad asked for writing from memory to be impossible and this
+        # shows CONTACT, nothing more, so the count says contact and never read (Kahneman, Penrose). Only walks opened
+        # after the rule are counted; an older walk has no contact to show and is not judged.
+        "contact_rule": float(walk[1]) >= CONTACT_RULE_FROM,
+        "contact_shown": sum(1 for row in settled if _has_generated_contact_marker(row["content"])),
+        "contact_refused": _contact_refusals(walk_id),
+        "settled": len(settled),
     }
+
+
+# The generated prefix, matched from the START of the stored content: an author who types the marker text into a
+# finding must not be counted as having shown contact (Lovelace, walk-90da0c84fe89).
+_GENERATED_CONTACT = re.compile(
+    r"\A\[(?:answers|does not apply to) Q\d+: [^\]]*\] \[lens delivered \d+s before this\] \[contact: \["
+)
+
+
+def _has_generated_contact_marker(content: str | None) -> bool:
+    return bool(_GENERATED_CONTACT.match(str(content or "")))
+
+
+def _contact_refusals(walk_id: str) -> int | None:
+    """How many findings this walk had refused for no contact, from the events the check writes; None when the
+    count could not be made, which is not zero (Hoare)."""
+    try:
+        import json
+
+        from divineos.core.ledger import get_events
+
+        n = 0
+        for ev in get_events(limit=5000, order="desc", event_type="COUNCIL_CONTACT"):
+            payload = ev.get("payload") or {}
+            if isinstance(payload, str):
+                payload = json.loads(payload)
+            if payload.get("walk_id") == walk_id and payload.get("outcome") == "refused":
+                n += 1
+        return n
+    except Exception:  # noqa: BLE001 - could-not-count must read as unknown, never as zero
+        return None
 
 
 def _scope_of(walk_id: str) -> set[str]:
