@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -53,8 +54,11 @@ def test_a_letter_not_yet_announced_rings(tmp_path):
     letters = tmp_path / ".divineos-shared" / "letters"
     letters.mkdir(parents=True)
     (letters / "aria-to-aether-2026-10-01-old.md").write_text("x", encoding="utf-8")
-    (letters / "aria-to-aether-2026-10-01-new.md").write_text("x", encoding="utf-8")
     (letters / "aether-to-aria-2026-10-01-mine.md").write_text("x", encoding="utf-8")
+    # The new letter ARRIVES after my reply (created later, so the kernel stamps it later): unread.
+    # A letter that arrived before my reply to the same sender counts as answered and does not ring.
+    time.sleep(0.05)
+    (letters / "aria-to-aether-2026-10-01-new.md").write_text("x", encoding="utf-8")
     # Bytes, not text: Python's text mode writes \r\n on Windows, which the bell
     # (which writes this file itself, with \n) would read as a different name.
     (tmp_path / ".divineos-shared" / ".aether_doorbell_announced").write_bytes(
