@@ -586,3 +586,62 @@ def test_a_sweep_that_cannot_run_says_so_and_never_reads_as_clean(monkeypatch):
     monkeypatch.setattr(ws, "sweep", refuse)
     result = body_awareness.sweep_work_copies()
     assert "could not sweep work copies" in result["summary"] and "error" in result
+
+
+# ---- 2026-11-12: a branch that never had a pull request is not an outage -------------------------------------
+# gh_pr_info returned None for "gh could not be asked" AND for "asked, and no pull request exists from this
+# branch", so 19 copies on Dad's disk read as "could not read" and the count hid any real outage among them
+# (walk-18c6b3630142; Aria and Aether found it the same morning). The specification, one row per case:
+#   gh exits non-zero ................ could not look   (None)
+#   output does not parse ............ could not look   (None)
+#   the call times out ............... could not look   (None)
+#   parses, no rows .................. no pull request  (("NONE", ""))
+#   parses, a row with no state ...... could not look   (None): an empty state is not an answer
+#   parses, a row with a state ....... that pull request (state, head)
+
+
+def _fake_gh(monkeypatch, *, returncode=0, stdout="[]", raises=None):
+    def run(cmd, **kw):
+        if raises is not None:
+            raise raises
+        return subprocess.CompletedProcess(cmd, returncode, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(ws.subprocess, "run", run)
+
+
+@pytest.mark.parametrize(
+    "kwargs, expected",
+    [
+        ({"returncode": 1, "stdout": ""}, None),
+        ({"stdout": "not json"}, None),
+        ({"raises": subprocess.TimeoutExpired("gh", 60)}, None),
+        ({"stdout": "[]"}, ("NONE", "")),
+        ({"stdout": "[]\n"}, ("NONE", "")),
+        ({"stdout": '[{"headRefOid": "abc"}]'}, None),
+        ({"stdout": '[{"state": "", "headRefOid": "abc"}]'}, None),
+        ({"stdout": '[{"state": "MERGED", "headRefOid": "abc"}]'}, ("MERGED", "abc")),
+    ],
+)
+def test_the_lookup_gives_three_answers_and_an_empty_state_is_not_one(
+    monkeypatch, kwargs, expected
+):
+    _fake_gh(monkeypatch, **kwargs)
+    assert ws.gh_pr_info("some-branch") == expected
+
+
+def test_a_branch_that_never_had_a_pull_request_says_so_and_is_still_not_removable(world):
+    wt, name = world.copy(commits=1, push=True)
+    world.prs[name] = ("NONE", "")  # asked, and there is no pull request
+    verdict, _state, reasons = world.assess(wt)
+    assert verdict == ws.Verdict.SHOW  # nothing in this change makes a copy easier to remove
+    assert any("never had a pull request" in r for r in reasons)
+    assert not any(r.startswith("could not read") for r in reasons)
+
+
+def test_the_could_not_read_count_counts_only_real_failures(world):
+    never, never_name = world.copy(commits=1, push=True)
+    world.prs[never_name] = ("NONE", "")
+    blind, _blind_name = world.copy(commits=1, push=True)  # no entry: the host could not be read
+    report = ws.sweep(world.main, pr_info=world.pr, now=__import__("time").time() + LONG_AGO)
+    assert report.could_not_read == 1
+    assert "never had a pull request" in "".join(r for e in report.shown for r in e["reasons"])
