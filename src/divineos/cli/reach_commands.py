@@ -13,6 +13,7 @@ from __future__ import annotations
 import click
 
 from divineos.core import reach_check
+from divineos.core import reach_open_prs as open_prs
 from divineos.core.reach_check import ReachCheckError
 
 
@@ -67,6 +68,9 @@ def register(cli: click.Group) -> None:
             for artifact in gaps:
                 click.echo(f"  {artifact}")
             click.echo("  Fix: divineos loadout refresh")
+
+        click.echo()
+        click.echo(open_prs.format_open_pr_section(symptom))
 
     @reach_group.command("status")
     def reach_status_cmd() -> None:
