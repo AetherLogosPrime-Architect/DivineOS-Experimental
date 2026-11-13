@@ -32,3 +32,29 @@ def contact_finding(cw, lens: str, finding: str) -> str:
 def apply_delivered(cw, walk_id: str, lens: str, finding: str) -> None:
     cw.deliver_lens(lens, walk_id)
     cw.apply_lens(walk_id, lens, contact_finding(cw, lens, finding), question=1)
+
+
+def close_with_breaking_round(cw, walk_id: str, repo=None):
+    """Close a walk that is FOR files after giving it the breaking round the close now requires.
+
+    Dad, 2026-11-13: a walk is not closed until it has been broken on purpose (the Breaker plus at least two other
+    scrutiny lenses). These tests are about other rules, so they supply the round the same honest way a person would:
+    add the lenses with a reason, walk them, then close. The rule itself is pinned in
+    tests/test_a_scoped_walk_does_not_close_without_a_breaking_round.py.
+    """
+    present = {row["lens"] for row in cw.status(walk_id)["lenses"]}
+    for name in (cw.REQUIRED_BREAKER, "Popper", "Schneier"):
+        if name not in present:
+            cw.add_lens(
+                walk_id,
+                name,
+                "added so the breaking round exists; a free addition would be a picked council",
+            )
+    for lens in cw.status(walk_id)["open_lenses"]:
+        apply_delivered(
+            cw,
+            walk_id,
+            lens,
+            "a finding written so the walk can close in a test about something else",
+        )
+    return cw.close_walk(walk_id, repo=repo) if repo is not None else cw.close_walk(walk_id)

@@ -60,6 +60,26 @@ MIN_EXCLUSION_CHARS = 60  # deliberately higher: excluding is the cheap move
 # a body from memory passes, and the other seat's sampled read is the layer that can tell. Design:
 # docs/drafts/a_walk_finding_must_show_contact_with_the_template_draft_2026-11-12.md (walk-05edc42dfe10).
 CONTACT_RUN_WORDS = 4
+# THE BREAKING ROUND (Dad, 2026-11-13): "overlap is not a metric to meet.. you do not create disagreements, instead you
+# just go harder on the breaking council phase.. that tear it apart, demand proof, or falsification". A walk that is FOR
+# some files cannot close until the Breaker (the lens built for adversarial self-review) and at least this many other
+# lenses from the scrutiny set have a finding. Read from the roster 2026-11-13: names and domains of all 46 lenses, full
+# methodologies of five of them; the groups are by domain. This never reads overlap and never forces a disagreement; it
+# makes a walk with no breaking at all impossible. Whether the breaking was real stays his to see.
+SCRUTINY_LENSES: tuple[str, ...] = (
+    # prove it or drop it
+    "Popper", "Dillahunty", "Feynman", "Sagan", "Turing", "Polya", "Pearl",
+    # break it
+    "Breaker", "Schneier", "Taleb", "Dekker", "Yudkowsky",
+    # distrust my own judgement
+    "Kahneman", "Hinton",
+    # spec versus reality, correctness
+    "Wayne", "Knuth", "Dijkstra", "Hoare", "Godel",
+    # does the whole survive
+    "Beer", "Meadows",
+)  # fmt: skip
+REQUIRED_BREAKER = "Breaker"
+MIN_SCRUTINY_BESIDES_BREAKER = 2
 # Walks opened before this are read-only history and are never re-judged: 94 percent of past findings would fail, and
 # the failure was the system's (the gate let the free path stand), not the author's.
 CONTACT_RULE_FROM = 1794447559.0
@@ -982,6 +1002,24 @@ def close_walk(walk_id: str, repo: Path | None = None) -> dict[str, Any]:
             "every lens was excluded and nothing was applied: a walk that said nothing is not a walk. "
             "Aria counted three such walks among 223 closed ones (a count, not a judgment of words)."
         )
+    if _scope_of(walk_id):
+        applied = {row["lens"] for row in st["lenses"] if row["state"] == "APPLIED"}
+        beside = sorted(applied & set(SCRUTINY_LENSES) - {REQUIRED_BREAKER})
+        missing = []
+        if REQUIRED_BREAKER not in applied:
+            missing.append(f"{REQUIRED_BREAKER} has no finding")
+        if len(beside) < MIN_SCRUTINY_BESIDES_BREAKER:
+            missing.append(
+                f"only {len(beside)} other scrutiny lens(es) have a finding, {MIN_SCRUTINY_BESIDES_BREAKER} are needed"
+            )
+        if missing:
+            raise WalkRefused(
+                "a walk that is FOR files is not closed until it has been broken on purpose: "
+                + "; ".join(missing)
+                + f". Scrutiny lenses: {', '.join(SCRUTINY_LENSES)}. Add the ones the manager did not seat with "
+                "`divineos walk add <walk> <Lens> --why ...` and walk them. This does not read overlap and never asks "
+                "for a disagreement; it asks that the breaking happened (Dad, 2026-11-13)."
+            )
     conn = _conn()
     try:
         conn.execute("UPDATE walks SET closed_at = ? WHERE id = ?", (time.time(), walk_id))
