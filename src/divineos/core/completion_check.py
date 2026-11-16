@@ -30,6 +30,8 @@ from __future__ import annotations
 
 import re
 import subprocess
+import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -89,13 +91,66 @@ class Unfinished:
     questions: list[str]
 
 
+def _is_shallow(repo_root: Path) -> bool:
+    """True only when git itself says this checkout is shallow; False when git cannot be asked.
+
+    GitHub's test jobs check out at depth 1, where the only commit has no parent, so `git log
+    --diff-filter=A` lists EVERY file as added by it (928 against 4 on the public repo, measured by
+    Aether 2026-11-15) and the batch grep over that many stems stalled the slow test. Whether a checkout is
+    shallow is its own question, asked on its own, so it can be tested alone. walk-45fc51c7e6c5.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(repo_root), "rev-parse", "--is-shallow-repository"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return out.returncode == 0 and out.stdout.strip() == "true"
+
+
+SLOW_GREP_SECONDS = 10.0
+
+
+def _say_if_slow(started: float, stems: int, repo_root: Path, timed_out: bool) -> None:
+    """One stderr line when a batch grep runs long, so a stall that is NOT only the shallow input names
+    its own cause (git version, shallow flag, how many stems, how long) instead of costing another
+    evening. The 30 second cap is deliberately untouched: the right cap is chosen once the input is right."""
+    elapsed = time.monotonic() - started
+    if not timed_out and elapsed < SLOW_GREP_SECONDS:
+        return
+    try:
+        version = subprocess.run(
+            ["git", "--version"], capture_output=True, text=True, timeout=10, check=False
+        ).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        version = "git version unknown"
+    print(
+        f"[completion-check] slow git grep: {elapsed:.1f}s over {stems} stems"
+        f"{' (timed out)' if timed_out else ''}; {version}; shallow={_is_shallow(repo_root)}",
+        file=sys.stderr,
+    )
+
+
 def _recently_added_files(days: int, repo_root: Path) -> list[str]:
     """Return repo-relative paths added within the last `days` days.
 
     Uses `git log --diff-filter=A` for added-only files. Quiet on
     git errors (returns []) so the probe doesn't break the compass
-    on a non-git checkout or shallow clone.
+    on a non-git checkout. On a SHALLOW checkout it returns [] too, because "added in the last day"
+    cannot be answered without history, and it says so once on stderr: an empty list reads as "nothing
+    unfinished", and quiet must never pass for clean.
     """
+    if _is_shallow(repo_root):
+        print(
+            "[completion-check] shallow checkout: recent history is not available, "
+            "so recently added files were not probed.",
+            file=sys.stderr,
+        )
+        return []
     try:
         out = subprocess.run(
             [
@@ -341,6 +396,7 @@ def _batch_has_wiring_for(paths: list[str], repo_root: Path) -> dict[str, bool]:
             pattern = rf"\b({'|'.join(escaped)})\b"
         else:  # "sh_suffix"
             pattern = rf"({'|'.join(escaped)})\.sh"
+        started = time.monotonic()
         try:
             out = subprocess.run(
                 [
@@ -363,7 +419,9 @@ def _batch_has_wiring_for(paths: list[str], repo_root: Path) -> dict[str, bool]:
                 check=False,
             )
         except (OSError, subprocess.TimeoutExpired):
+            _say_if_slow(started, len(stems), repo_root, timed_out=True)
             return {}
+        _say_if_slow(started, len(stems), repo_root, timed_out=False)
         if out.returncode not in (0, 1):
             return {}
         hits: dict[str, set[str]] = {s: set() for s in stems}
