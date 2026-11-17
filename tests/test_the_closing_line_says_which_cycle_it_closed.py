@@ -161,6 +161,61 @@ def test_fresh_marker_with_a_failed_step_names_the_step() -> None:
     assert "COMPLETED" not in line
 
 
+def test_a_dry_run_marker_is_not_reported_as_a_failed_cycle() -> None:
+    """ran=false, succeeded=false on every step is a dry run: it did not run, so it
+    neither failed nor completed. The hook used to read the missing success as FAILED."""
+    dry = _marker()
+    dry["steps"] = {
+        name: {"ran": False, "succeeded": False, "error_class": None} for name in dry["steps"]
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        _write(Path(tmp), dry)
+        line = _run(Path(tmp))
+        _write(Path(tmp), _marker(steps_ok=False))
+        failed = _run(Path(tmp))
+    assert "DID NOT RUN" in line, line
+    assert "FAILED" not in line and "COMPLETED" not in line
+    assert line != failed
+
+
+def test_a_step_that_did_not_run_among_real_ones_is_named_not_hidden() -> None:
+    mixed = _marker()
+    mixed["steps"]["sleep"] = {"ran": False, "succeeded": False, "error_class": None}
+    with tempfile.TemporaryDirectory() as tmp:
+        _write(Path(tmp), mixed)
+        line = _run(Path(tmp))
+    assert "FAILED" in line and "sleep=not-run" in line, line
+    assert "COMPLETED" not in line
+
+
+def test_a_marker_that_records_no_steps_is_not_called_completed() -> None:
+    """A marker with nothing in `steps` has no step that succeeded, so it cannot say
+    "all succeeded". It is the same shape as a dry run one level up: nothing recorded."""
+    empty = _marker()
+    empty["steps"] = {}
+    with tempfile.TemporaryDirectory() as tmp:
+        _write(Path(tmp), empty)
+        line = _run(Path(tmp))
+        _write(Path(tmp), _marker())
+        green = _run(Path(tmp))
+    assert "COMPLETED" not in line and "all succeeded" not in line, line
+    assert "NO STEPS" in line, line
+    assert line != green
+
+
+def test_a_step_that_contradicts_itself_or_has_an_unreadable_ran_is_not_a_success() -> None:
+    """ran=false with succeeded=true cannot both be true; ran as the text "false" or null
+    is not a yes/no. Neither may wear a completed run's words or be called a dry run."""
+    for bad_ran in (False, "false", None):
+        odd = _marker()
+        odd["steps"]["sleep"] = {"ran": bad_ran, "succeeded": True, "error_class": None}
+        with tempfile.TemporaryDirectory() as tmp:
+            _write(Path(tmp), odd)
+            line = _run(Path(tmp))
+        assert "COMPLETED" not in line and "dry run" not in line, (bad_ran, line)
+        assert "FAILED" in line and "sleep=" in line, (bad_ran, line)
+
+
 def test_the_four_states_are_pairwise_distinct() -> None:
     """This is the test the whole file exists for.
 
