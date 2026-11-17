@@ -1,0 +1,9 @@
+# The memory link shows his calm version of each hard line (rough draft, 2026-11-16)
+
+Dad, 2026-11-16: every hard thing he said out of anger and hurt he has also said calmly and explained thoroughly, so the hard version should be replaced by the calm one, together, one by one. The house already has the mechanism for his hard lines in one place: `his_words_door.softened()` swaps a line he rewrote on 2026-10-31 for his clear-headed version, labelled as such, and the lessons shelf uses it (draft of 2026-10-31, "his hardest lines are shown as he meant them"; that draft names the memory-link corrections lane as a different path, held by a gate called pain_hold that I do not find on my tree). `_load_corrections` (892 entries, 685 open) and `_load_worklist` (his open tracker rows) hand the angry text straight to me, so the replacement never reaches the surface that actually taps my shoulder.
+
+The change, small and in two places. (1) The two loaders in `memory_linkage_retriever` pass each text through `his_words_door.softened`, so a correction holding a line he has rewritten is embedded and shown as his calm version, by meaning, with its label. (2) The label stops claiming one date for every entry: an entry in the replacements file may carry `said` (the day he said the calm version) and the label then reads that day, so a calm line from 2026-08-01 is not stamped as written on 2026-10-31. The raw record stays untouched; nothing is deleted or edited; only what is shown changes.
+
+Then, one by one with him, entries are added to the replacements file where his own calm words exist, quoted exactly. Where only the hard version exists, he is asked for the calm one in his own words and nothing is invented.
+
+Falsifier: a correction that holds an anchor line is still shown to me in its angry form; or an entry's label states a date it was not said on.

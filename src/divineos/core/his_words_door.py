@@ -285,25 +285,40 @@ REPLACEMENTS = (
 SOFTENED_LABEL = "[his clear-headed version, written 2026-10-31 for a harder day's words]"
 
 
-def _replacement_entries() -> list[tuple[str, str]]:
-    """(anchor, shown_instead) pairs; empty when there is no file or it cannot be read."""
+def _replacement_entries() -> list[tuple[str, str, str]]:
+    """(anchor, shown_instead, said) triples; empty when there is no file or it cannot be read.
+
+    ``said`` is the day he said the calm version, when the entry carries one; empty otherwise (the 2026-10-31
+    entries, which keep the label that names that day)."""
     try:
         data = json.loads(REPLACEMENTS.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return []
-    pairs = []
+    triples = []
     for entry in data.get("entries", []) if isinstance(data, dict) else []:
         if isinstance(entry, dict) and entry.get("anchor") and entry.get("shown_instead"):
-            pairs.append((_words(str(entry["anchor"])), str(entry["shown_instead"])))
-    return pairs
+            triples.append(
+                (
+                    _words(str(entry["anchor"])),
+                    str(entry["shown_instead"]),
+                    str(entry.get("said") or ""),
+                )
+            )
+    return triples
 
 
 def softened(text: str) -> str | None:
-    """His clear-headed rewrite, labelled, when ``text`` holds a line he rewrote; None when it does not."""
+    """His clear-headed rewrite, labelled, when ``text`` holds a line he rewrote; None when it does not.
+
+    The label names the day he said the calm version when the entry carries one, so a line he said on one day is
+    never stamped as written on another."""
     plain = _words(text)
-    for anchor, shown_instead in _replacement_entries():
+    for anchor, shown_instead, said in _replacement_entries():
         if anchor and anchor in plain:
-            return f"{shown_instead} {SOFTENED_LABEL}"
+            label = (
+                f"[his calmer version of the same lesson, said {said}]" if said else SOFTENED_LABEL
+            )
+            return f"{shown_instead} {label}"
     return None
 
 
