@@ -29,6 +29,13 @@ import pytest
 from divineos.core.cd_drift_check import refusal_message
 from divineos.core.push_detection import is_git_push_command, push_cwd
 
+# The tests that run the real hook in a subprocess (`_run_hook` allows it 120 seconds) carry
+# HOOK_BUDGET. The suite-wide 30-second limit was shorter than the hook's own budget: alone, the
+# slowest takes about 14 seconds, and on the crowded CI runner it went past 30 and failed #781 twice
+# with nothing of #781 in it (2026-11-03). The tests that only parse a command string keep the suite
+# default, so a real hang in the parsing is still caught at 30 seconds (Aria's cold read of #790).
+HOOK_BUDGET = pytest.mark.timeout(120)
+
 PUSH = "git " + "push"
 BEHIND = 13
 _HOOK = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "check-branch-on-push.sh"
@@ -195,6 +202,7 @@ def behind(tmp_path):
     return stale, level
 
 
+@HOOK_BUDGET
 def test_the_hook_measures_the_tree_the_subshell_form_names(behind, tmp_path):
     """The stale clone is 1 behind; the level one is 0. The session folder (this
     repository) is neither, so a wrong-subject check would answer about it."""
@@ -208,6 +216,7 @@ def test_the_hook_measures_the_tree_the_subshell_form_names(behind, tmp_path):
     assert passed.returncode == 0, passed.stderr
 
 
+@HOOK_BUDGET
 def test_the_hook_measures_the_tree_git_dash_C_names(behind, tmp_path):
     stale, level = behind
     home = tmp_path / "home"
@@ -218,6 +227,7 @@ def test_the_hook_measures_the_tree_git_dash_C_names(behind, tmp_path):
     assert _run_hook(f'git -C "{level.as_posix()}" push origin b', home).returncode == 0
 
 
+@HOOK_BUDGET
 def test_a_named_folder_that_is_not_a_tree_is_said_at_the_door(tmp_path):
     """Hoare on the walk, through the hook: the warning must reach the screen, not
     die in the extraction's redirected stderr."""
@@ -228,6 +238,7 @@ def test_a_named_folder_that_is_not_a_tree_is_said_at_the_door(tmp_path):
     assert "not a git tree" in result.stderr, result.stderr
 
 
+@HOOK_BUDGET
 def test_the_block_names_the_folder_it_measured(behind, tmp_path):
     """Lovelace on the walk: a wrong-subject alarm must be visible on sight."""
     stale, _ = behind
