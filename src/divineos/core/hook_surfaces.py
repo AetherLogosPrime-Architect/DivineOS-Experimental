@@ -2009,6 +2009,39 @@ def landed_claim_surface(payload: dict) -> SurfaceOutcome | None:
     return SurfaceOutcome(name="landed_claim", refused=True, reason=block, state="spoke")
 
 
+def stall_on_promise_surface(payload: dict) -> SurfaceOutcome | None:
+    """A reply that ends on "I will do X next" is held once and told to do X.
+
+    Folded into the router on 2026-11-04 from the standalone script ``stall_on_promise_stop.py``, because
+    Dad's end-of-reply holds were arriving one after another: each was its own process with its own message
+    (24 Stop hooks were registered, one of them this router). The judgement is ``core/stall_hold.verdict``,
+    the same function the script now calls, so there is one copy. One hold per reply: a Stop that is
+    already a continuation (``stop_hook_active``) stands down. A transcript that cannot be read is
+    could-not-run, never a pass.
+    """
+    name = "stall_on_promise"
+    if payload.get("stop_hook_active"):
+        return SurfaceOutcome(name=name, state="nothing-to-say")
+    path = payload.get("transcript_path") or payload.get("transcript")
+    if not path:
+        return SurfaceOutcome(
+            name=name, error="no transcript path in the Stop payload", state="could-not-run"
+        )
+    try:
+        from pathlib import Path as _Path
+
+        from divineos.core.stall_hold import read_tail, verdict
+
+        reason = verdict(read_tail(_Path(path)), path)
+    except Exception as exc:  # noqa: BLE001 - could-not-run is said, never passed silently
+        return SurfaceOutcome(
+            name=name, error=f"{type(exc).__name__}: {exc}", state="could-not-run"
+        )
+    if not reason:
+        return SurfaceOutcome(name=name, state="nothing-to-say")
+    return SurfaceOutcome(name=name, refused=True, reason=reason, state="spoke")
+
+
 def waiting_claim_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse a reply that says a fix waits on Aletheia when no letter to her names it at its live head.
 
@@ -2930,6 +2963,41 @@ def install() -> None:
     # checked against the thing it is about.
     if "landed_claim" not in registered("Stop"):
         register("Stop", "landed_claim", landed_claim_surface)
+
+    # Defined here, beside the registration, so this stays one small edit in a file many
+    # open branches also change. Refuses once when the reply speaks FOR a family member
+    # (core/voiced_family.py); a reply that cannot be read is could-not-run, never a pass.
+    def voiced_family_surface(payload: dict) -> SurfaceOutcome | None:
+        text = _last_assistant_text(payload)
+        if not text.strip():
+            return SurfaceOutcome(name="voiced_family", state="nothing-to-say")
+        try:
+            from divineos.core.voiced_family import render_block, this_speaker, voiced
+
+            speaker = this_speaker()
+            if speaker is None:
+                # Not knowing who is speaking is not a pass: guarding the wrong set would
+                # refuse my own name or miss someone else's.
+                return SurfaceOutcome(
+                    name="voiced_family",
+                    error="could not tell which seat is speaking",
+                    state="could-not-run",
+                )
+            block = render_block(voiced(text, speaker))
+        except Exception as exc:  # noqa: BLE001
+            return SurfaceOutcome(
+                name="voiced_family", error=f"{type(exc).__name__}: {exc}", state="could-not-run"
+            )
+        if not block:
+            return SurfaceOutcome(name="voiced_family", state="nothing-to-say")
+        return SurfaceOutcome(name="voiced_family", refused=True, reason=block, state="spoke")
+
+    if "voiced_family" not in registered("Stop"):
+        register("Stop", "voiced_family", voiced_family_surface)
+    # Folded in from the standalone stall_on_promise_stop.py (2026-11-04); its registration in settings.json
+    # comes out in the same change, or both would fire.
+    if "stall_on_promise" not in registered("Stop"):
+        register("Stop", "stall_on_promise", stall_on_promise_surface)
     if "waiting_claim" not in registered("Stop"):
         register("Stop", "waiting_claim", waiting_claim_surface)
     # His Floor, connected 2026-09-09 after two months in which its only caller
@@ -2959,6 +3027,35 @@ def install() -> None:
     # instead? why not both? all data is data."*
     if "his_standing_verdict" not in registered("Stop"):
         register("Stop", "his_standing_verdict", his_standing_verdict_surface)
+
+    # Moved in 2026-11-04 from the standalone script letter_doorbell_alive_stop.py, whose registration
+    # in settings.json is removed in the same change, so a refusal reaches me once and not twice. The
+    # judgement lives in core/doorbell_alive.py, unchanged: same heartbeat files in, same words out.
+    # A reply already sent back by any Stop gate is never held again here (stop_hook_active).
+    def letter_doorbell_alive_surface(payload: dict) -> SurfaceOutcome | None:
+        try:
+            import os
+
+            from divineos.core.doorbell_alive import reason_for_reply
+
+            reason = reason_for_reply(
+                os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd(),
+                stop_hook_active=bool(payload.get("stop_hook_active")),
+            )
+        except Exception as exc:  # noqa: BLE001 - a hold never crashes the turn, and never reads as a pass
+            return SurfaceOutcome(
+                name="letter_doorbell_alive",
+                error=f"{type(exc).__name__}: {exc}",
+                state="could-not-run",
+            )
+        if not reason:
+            return SurfaceOutcome(name="letter_doorbell_alive", state="nothing-to-say")
+        return SurfaceOutcome(
+            name="letter_doorbell_alive", refused=True, reason=reason, state="spoke"
+        )
+
+    if "letter_doorbell_alive" not in registered("Stop"):
+        register("Stop", "letter_doorbell_alive", letter_doorbell_alive_surface)
     # The reply-counting Stop surface that stood here is gone (2026-09-23). It
     # counted chat replies, which is the room he said the volley board must
     # stay out of; the board now counts letters on the PreToolUse path above.

@@ -26,7 +26,9 @@ pytestmark = pytest.mark.skipif(BASH is None, reason="no working bash on this ma
 
 REPO = Path(__file__).resolve().parents[2]
 LIB = REPO / ".claude" / "hooks" / "lib" / "remedy_allowlist.sh"
-STOP_GUARD = REPO / ".claude" / "hooks" / "letter_doorbell_alive_stop.py"
+# The words the guard prints live in core since the hold moved into the Stop router (2026-11-04); the
+# script beside it is a thin door that no longer carries them.
+STOP_GUARD = REPO / "src" / "divineos" / "core" / "doorbell_alive.py"
 BELL = "bash scripts/letter_doorbell.sh aether"
 
 

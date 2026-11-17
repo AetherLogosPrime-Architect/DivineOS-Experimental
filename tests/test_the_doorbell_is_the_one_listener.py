@@ -35,11 +35,23 @@ def _hook_commands() -> list[tuple[str, str]]:
 
 
 def test_the_doorbell_guard_is_wired_at_stop() -> None:
+    """Wired through the Stop router since 2026-11-04 (it was a standalone script before, whose
+    refusal reached me twice). Two things must both be true, or nothing holds a reply while no bell
+    is listening: the router's own door is registered at Stop in settings, and the router has the
+    surface registered under the guard's name."""
+    from divineos.core import hook_router, hook_surfaces
+
     stops = [cmd for event, cmd in _hook_commands() if event == "Stop"]
-    assert any("letter_doorbell_alive_stop.py" in cmd for cmd in stops), (
-        "the doorbell's Stop guard is not wired -- with the watch retired, "
+    assert any("doorbell-stop.sh" in cmd for cmd in stops), (
+        "the Stop router's door is not wired -- nothing would run the doorbell guard"
+    )
+    hook_router.clear("Stop")
+    hook_surfaces.install()
+    assert "letter_doorbell_alive" in hook_router.registered("Stop"), (
+        "the router does not carry the doorbell guard -- with the watch retired, "
         "nothing would hold a reply while no bell is listening"
     )
+    # The old script stays as a thin door the dashboard check and the older tests load by path.
     assert (ROOT / ".claude" / "hooks" / "letter_doorbell_alive_stop.py").is_file()
     assert (ROOT / "scripts" / "letter_doorbell.sh").is_file()
 
