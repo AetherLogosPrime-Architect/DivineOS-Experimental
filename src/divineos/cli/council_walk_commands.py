@@ -31,6 +31,25 @@ from divineos.core.council_walk import (
 )
 
 
+def _contact_line(st: dict, indent: str) -> str:
+    """One report in words, not a score (Wittgenstein): how many settled findings quote the lens, how many were
+    refused first, what that does not prove, and who the independent measure is (Einstein). Empty for a walk opened
+    before the rule, which is read-only history and is not judged."""
+    if not st.get("contact_rule"):
+        return ""
+    refused = st.get("contact_refused")
+    first = (
+        "refusals before acceptance: unknown (could not be counted)"
+        if refused is None
+        else f"{refused} refused first"
+    )
+    return (
+        f"{indent}{st['contact_shown']} of the {st['settled']} settled findings quote the lens's own text; {first}. "
+        "This is contact with the template, counted by the check itself, and not proof it was used: "
+        "the other seat's sampled read is the independent measure."
+    )
+
+
 def register(cli: click.Group) -> None:
     @cli.group("walk", invoke_without_command=True)
     @click.pass_context
@@ -153,12 +172,14 @@ def register(cli: click.Group) -> None:
             # What was recorded, readable by him and not only by me (he asked to be shown the walk, 2026-10-24).
             content = str(row.get("content") or "").strip()
             if content and row["state"] in ("APPLIED", "EXCLUDED"):
-                click.echo(f"      {content[:320]}{'...' if len(content) > 320 else ''}")
+                # 520, not 320: a long lens question plus the delivery stamp must not push the matched run past the cut
+                click.echo(f"      {content[:520]}{'...' if len(content) > 520 else ''}")
         click.echo(
             f"\n  {st['findings']} findings, {st['excluded']} excluded, "
             f"{st['distinct_questions']} distinct lens questions answered "
             "(eight findings on one question is the free move; a walk that moves its lenses to excluded has moved the gaming)"
         )
+        click.echo(_contact_line(st, indent="  "))
         if st["open_lenses"]:
             click.echo(f"\n{len(st['open_lenses'])} still unaccounted for.")
 
@@ -216,6 +237,7 @@ def register(cli: click.Group) -> None:
             f"    {st['findings']} findings, {st['excluded']} excluded, "
             f"{st['distinct_questions']} distinct lens questions answered"
         )
+        click.echo(_contact_line(st, indent="    "))
         if st.get("bound"):
             click.echo(f"    bound to the branch changes in {st['bound_in']}")
         else:
