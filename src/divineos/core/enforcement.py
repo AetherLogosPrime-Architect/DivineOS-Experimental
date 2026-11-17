@@ -124,10 +124,15 @@ def capture_user_input(command_args: list[str]) -> str:
     3. Returns input for processing
 
     Error Handling:
-    - Catches validation errors during event emission
-    - Catches ledger errors during storage
-    - Logs errors without crashing
-    - Returns input string even if event capture fails
+    - Empty input is returned without emitting anything (nothing to record)
+    - Catches ValueError and the ledger/storage errors in _ENFORCEMENT_ERRORS
+    - An invalid payload such as whitespace-only input reaches the ledger as a
+      ValueError, which is caught here (the empty-input early return does not
+      cover that case, only truly empty input)
+    - EventValidationError is NOT caught here: it is not a ValueError, so if
+      emit_user_input raises it, it propagates to the caller
+    - Logs errors caught around the emit call and still hands back the input text;
+      an enforcement error raised outside that call returns "" instead
 
     Args:
         command_args: Command line arguments (sys.argv[1:])
@@ -146,6 +151,11 @@ def capture_user_input(command_args: list[str]) -> str:
         try:
             # Convert command args to input string
             input_str = " ".join(command_args) if command_args else ""
+
+            if not input_str:
+                # Started from inside another program, argv carries no arguments;
+                # an empty input is nothing to record, not an error.
+                return input_str
 
             logger.debug(f"Capturing user input: {input_str[:100]}...")
 
