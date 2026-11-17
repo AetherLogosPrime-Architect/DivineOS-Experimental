@@ -572,7 +572,15 @@ _CONVERSATIONAL_NOISE = re.compile(
 )
 
 # Content that is a task-notification XML tag or system artifact
-_SYSTEM_ARTIFACT = re.compile(r"<task-notification|<tool-use-id|<task-id", re.IGNORECASE)
+#
+# A hook's complaint text arrives in the user channel, so the extractor read it as something he said and filed 32
+# of them as OBSERVATION/DIRECTION/PRINCIPLE knowledge (found 2026-11-06). They then came back at the top of my
+# turns as noise ("Stop hook feedback: SUMMARY ROOM MISSING..."), which Dad named: a memory that brings something
+# not useful gets fixed at the link, never ignored. The gate's own text lives in the gate; it is not a lesson.
+_SYSTEM_ARTIFACT = re.compile(
+    r"<task-notification|<tool-use-id|<task-id|^\s*(?:stop\s+)?hook feedback\s*:",
+    re.IGNORECASE,
+)
 
 # Session-telemetry tag: "(session XXXXXXXX-XXX)" suffix in extracted
 # content is the giveaway that an auto-generated session statistic was
