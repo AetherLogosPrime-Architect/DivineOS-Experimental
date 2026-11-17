@@ -110,6 +110,9 @@ class DreamReport:
     # Phase: memory-link refill (2026-09-24). Counts from the vector drawer's
     # fill: items asked about, already stored, computed now.
     memory_link_refill: dict[str, Any] = field(default_factory=dict)
+    # The same phase also refreshes the exploration search index; the line says both counts.
+    search_index_refresh: dict[str, Any] = field(default_factory=dict)
+    memory_indexes_line: str = ""
 
     # Phase: Integrity check (F14/F52 auto-verify per prereg-be0c8dee184a).
     # The ledger has tamper-evidence via hash-chained events; without an
@@ -368,6 +371,9 @@ class DreamReport:
                     lines.append(f"    {cat}")
             else:
                 lines.append("    Nothing to prune")
+
+        if self.memory_indexes_line and shows("memory_link_refill"):
+            lines.append("\n  " + self.memory_indexes_line)
 
         # Errors
         if self.phase_errors:
@@ -732,9 +738,38 @@ def _phase_memory_link_refill(report: DreamReport) -> None:
     In-process: the fill is its own batched write to its own small database,
     and it runs on the GPU when there is one.
     """
-    from divineos.core.memory_linkage_retriever import warm
+    from divineos.core import semantic_search
+    from divineos.core.memory_linkage_retriever import drawer_counts_by_source, warm
 
     report.memory_link_refill = warm()
+    # The search index is a second store the drawer fill does not touch: without this a
+    # new exploration is found by one and invisible to the other until a second command.
+    report.search_index_refresh = semantic_search.refresh_exploration_index()
+    report.memory_indexes_line = format_memory_indexes_line(
+        drawer_counts_by_source(), report.search_index_refresh
+    )
+
+
+def format_memory_indexes_line(drawer_by_source: dict[str, int], search: dict[str, int]) -> str:
+    """One line, both counts. Failed chunks are named so a run that embedded nothing is not clean."""
+    drawer = ", ".join(f"{source} {n}" for source, n in sorted(drawer_by_source.items()))
+    failed = search.get("chunks_failed", 0)
+    updated = search.get("chunks_updated", 0)
+    removed = search.get("chunks_removed", 0)
+    # chunks_indexed counts every paragraph embedded this run; edited ones are a
+    # subset, named apart so an edit is not read as nothing happening.
+    new = search.get("chunks_indexed", 0) - updated
+    notes = f"{new} new"
+    if updated:
+        notes += f", {updated} edited"
+    if removed:
+        notes += f", {removed} removed"
+    if failed:
+        notes += f", {failed} failed"
+    return (
+        f"Memory indexes: drawer {{{drawer or 'empty'}}}; "
+        f"search index {search.get('chunks_total', 0)} chunks of the explorations ({notes})"
+    )
 
 
 # ─── Phase: Integrity check (F14/F52 auto-verify) ─────────────────────
