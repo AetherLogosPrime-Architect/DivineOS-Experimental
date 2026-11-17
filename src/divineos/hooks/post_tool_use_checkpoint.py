@@ -62,6 +62,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from divineos.core.read_only_shell import is_read_only
+
 
 # Match a Bash command that invokes `divineos <subcmd>` as its primary
 # operation. Anchored at the start (after optional whitespace and an
@@ -78,92 +80,20 @@ _DIVINEOS_BASH_RE = re.compile(
 )
 
 
-# Commands that only LOOK. Small on purpose: anything not here counts, so the
-# failure direction is "the gate fires slightly too often", never "a write
-# slipped past". Andrew's cost-landscape rule read the other way round — I am
-# pricing an exemption, so the exemption must be the expensive thing to obtain.
-_READ_ONLY_COMMANDS = frozenset(
-    {
-        "grep",
-        "rg",
-        "ls",
-        "cat",
-        "head",
-        "tail",
-        "find",
-        "wc",
-        "echo",
-        "printf",
-        "pwd",
-        "stat",
-        "file",
-        "diff",
-        "which",
-        "basename",
-        "dirname",
-        "sort",
-        "uniq",
-        "cut",
-        "tr",
-        "column",
-        "true",
-        "test",
-        "[",
-    }
-)
-
-# git subcommands that only read. `git add`, `git commit`, `git checkout` and
-# friends are absent deliberately.
-_READ_ONLY_GIT = frozenset(
-    {"log", "show", "status", "diff", "branch", "ls-files", "ls-tree", "rev-parse", "grep", "blame"}
-)
-
-_WRITE_MARKERS = (">", ">>", "|&", "tee ", "sed -i", "sed --in-place")
+# The commands that only LOOK now live in core.read_only_shell (2026-11-05), small on purpose: anything not there
+# counts, so the failure direction is "the gate fires slightly too often", never "a write slipped past". Andrew's
+# cost-landscape rule read the other way round: I am pricing an exemption, so the exemption must be the
+# expensive thing to obtain.
 
 
 def _is_read_only_command(command: str) -> bool:
     """True only if EVERY segment of this shell command merely looks.
 
-    Reading is thinking, and the engagement counter's own docstring says so.
-    It counted exploration anyway (2026-08-14), so four greps into an
-    investigation the gate would interrupt to demand the thinking that the
-    greps were.
-
-    Conservative by construction. Any redirection, any unrecognised program,
-    any in-place edit, and the whole command counts. A compound like
-    ``grep x && python write.py`` counts, because the cheap route out of a
-    read-exemption is dressing a write as a read.
+    Moved to ``core.read_only_shell`` (2026-11-05) so the engagement gate and the bell for Dad share one base
+    instead of two copies. The gate reads the BASE only, unchanged: small on purpose, so it fires slightly too
+    often rather than let a write slip by. The bell passes its own wider extras to the same function.
     """
-    if not command or not command.strip():
-        return False
-    lowered = command.lower()
-    if any(marker in lowered for marker in _WRITE_MARKERS):
-        return False
-    # Heredocs carry arbitrary payloads; never exempt one.
-    if "<<" in command:
-        return False
-    segments = re.split(r"&&|\|\||;|\||\n", command)
-    saw_one = False
-    for raw in segments:
-        seg = raw.strip()
-        if not seg:
-            continue
-        parts = seg.split()
-        head = parts[0]
-        if head == "cd":
-            continue  # positional, not an action
-        if head == "git":
-            if len(parts) < 2 or parts[1] not in _READ_ONLY_GIT:
-                return False
-        elif head == "sed":
-            # sed prints unless asked to edit; -i was already rejected above,
-            # but require the explicit print flag rather than assuming.
-            if "-n" not in parts:
-                return False
-        elif head not in _READ_ONLY_COMMANDS:
-            return False
-        saw_one = True
-    return saw_one
+    return is_read_only(command)
 
 
 def _is_divineos_command(command: str) -> bool:
