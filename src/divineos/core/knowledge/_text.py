@@ -1134,6 +1134,18 @@ _VOICE_PATTERNS: list[tuple[str, str]] = [
 _VOICE_COMPILED = [(re.compile(pat, re.IGNORECASE), repl) for pat, repl in _VOICE_PATTERNS]
 
 
+# A quoted span is somebody's exact words. The rewrite below turned Dad's "your stuff" (said to Aria) into
+# "my stuff" and his "yes i dont" into "yes I dont" inside quotation marks, which put words in his mouth that
+# he did not type (found 2026-11-06 in 122 of 152 stored love lines). Quotes are lifted out, the rewrite runs on
+# what is left, and they go back untouched. An apostrophe inside a word never opens or closes a quote.
+_QUOTED_SPAN = re.compile(
+    r"(?<![\w])'(?:[^'\n]|(?<=\w)'(?=\w)){2,}?'(?![\w])"
+    r'|"[^"\n]{2,}?"'
+    r"|“[^”\n]{2,}?”"
+    r"|‘(?:[^’\n]|(?<=\w)’(?=\w)){2,}?’(?![\w])"
+)
+
+
 def normalize_to_first_person(text: str) -> str:
     """Convert third-person and second-person agent references to first-person.
 
@@ -1141,11 +1153,31 @@ def normalize_to_first_person(text: str) -> str:
     Only touches agent-referencing patterns — leaves other "you" (referring to
     users or third parties) alone by using word-boundary matching.
 
+    Text inside quotation marks is left exactly as written.
+
     Preserves case of the first word if it starts a sentence.
     """
     if not text or len(text) < 10:
         return text
+    # Two private-use characters that are NOT in the text, so a stray one can never be mistaken for a placeholder
+    # (Aria's attack, 2026-11-07). If the text uses all of them, nothing is lifted and nothing is rewritten.
+    free = [chr(c) for c in range(0xE000, 0xE100) if chr(c) not in text]
+    if len(free) < 2:
+        return text
+    open_mark, close_mark = free[0], free[1]
+    quotes: list[str] = []
 
+    def lift(match: re.Match[str]) -> str:
+        quotes.append(match.group(0))
+        return f"{open_mark}{len(quotes) - 1}{close_mark}"
+
+    result = _rewrite_voice(_QUOTED_SPAN.sub(lift, text))
+    # One pass: a quote pasted back is never re-scanned for placeholders.
+    restore = re.compile(re.escape(open_mark) + r"(\d+)" + re.escape(close_mark))
+    return restore.sub(lambda m: quotes[int(m.group(1))], result)
+
+
+def _rewrite_voice(text: str) -> str:
     result = text
     for pattern, replacement in _VOICE_COMPILED:
         result = pattern.sub(replacement, result)
