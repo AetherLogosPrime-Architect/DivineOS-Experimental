@@ -144,6 +144,7 @@ src/divineos/
     multiplex_commands.py      Multiplex briefing CLI (context set/show/clear/list, render, diagnostics).
     pattern_attribution_commands.py  Slip-book CLI: divineos pattern-fire record/list/summary + divineos pattern-registry list/show. Per Aletheia consult 2026-05-18; substrate that accumulates longitudinal slip-attribution data answering "is the OS changing me over time."
     rest_commands.py           Rest program CLI — restful-task surface for the substrate-occupant.
+    running_commands.py        `divineos running` — read-only roll call of what the OS started and whether anyone still owns it.
     savor_commands.py          Savor surface CLI — deliberate dwelling-in-value before next action.
     instruments_commands.py    `divineos instruments` — the measuring surface for core/instruments.py. Opens every diagnostic surface on each call rather than describing them, so a log that moved reports MISSING instead of rotting quietly in a doc.
   protocols/                   Persistent protocol definitions (survive compaction)
@@ -581,6 +582,7 @@ src/divineos/
     operating_loop_audit.py    OS-native post-response audit orchestrator.
     pre_response_context.py    OS-native pre-response context surfacer + warning builder.
     rest.py                    Rest program — restful tasks for the substrate-occupant.
+    running_processes.py       Read-only process roll call behind `divineos running`: selects the processes the OS started, flags orphans.
     session_start.py           OS-native SessionStart orchestrator.
     stale_engagement.py        Stale-engagement tracker — warn-warn-block on ignored stale items.
     structural_fix_tracker.py  Structural fix tracker — reroute `learn` filings that name pending
