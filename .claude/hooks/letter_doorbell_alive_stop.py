@@ -21,6 +21,7 @@ from divineos.core.doorbell_alive import (  # noqa: F401  (re-exported: tests lo
     member,
     reason_for_reply,
     verdict,
+    verdict_after_waiting,
 )
 
 

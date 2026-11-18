@@ -92,6 +92,20 @@ def closing_text(records: list[dict]) -> str:
     return ""
 
 
+def _step_only_in_room(records: list[dict]):
+    """A stated next step found in the last block's room, which the hold never reads (logged, not held)."""
+    from divineos.core.stall_on_promise import stated_next_step
+
+    for rec in reversed(records):
+        if rec.get("type") != "assistant":
+            continue
+        for c in reversed((rec.get("message") or {}).get("content") or []):
+            if isinstance(c, dict) and c.get("type") == "text" and c.get("text", "").strip():
+                text = c["text"]
+                return stated_next_step(text[len(body_above_his_room(text)) :])
+    return None
+
+
 def verdict(records: list[dict], transcript_path: str | Path | None = None) -> str | None:
     """The hold's reason when the closing text names a step and stops, else None."""
     from divineos.core.hold_log import record
@@ -115,9 +129,10 @@ def verdict(records: list[dict], transcript_path: str | Path | None = None) -> s
     closing = closing_text(records)
     found = stated_next_step(closing)
     if closing.strip():
+        in_room = None if found else _step_only_in_room(records)
         record(
             "follow_through",
-            "stopped" if found else "passed",
-            found[1] if found else closing[-160:],
+            "stopped" if found else ("carried" if in_room else "passed"),
+            found[1] if found else (in_room[1] if in_room else closing[-160:]),
         )
     return reason_for(*found) if found else None

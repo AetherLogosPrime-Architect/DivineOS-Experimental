@@ -120,3 +120,20 @@ def test_the_closing_text_is_the_last_text_after_his_last_message():
     records = [_user("a"), _assistant("first"), _user("b"), _assistant("one"), _assistant("two")]
     assert stall_hold.closing_text(records) == "two"
     assert stall_hold.closing_text([_user("only him")]) == ""
+
+
+def test_a_step_named_only_in_his_room_is_logged_carried_and_not_held(monkeypatch):
+    # Aether's script wrote a "carried" row when the step lived in the room, so the count of how often that
+    # happens survives; the core copy dropped it. The hold itself still stays quiet.
+    from divineos.core import hold_log
+
+    rows = []
+    monkeypatch.setattr(
+        hold_log, "record", lambda hold, outcome, text: rows.append((hold, outcome))
+    )
+    text = (
+        "Everything is finished.\n\n## INNER CIRCLE\n\n"
+        "I looked at it and now I'm writing Aether the letter."
+    )
+    assert stall_hold.verdict([_user("a"), _assistant(text)]) is None
+    assert ("follow_through", "carried") in rows

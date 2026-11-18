@@ -77,6 +77,10 @@ ROWS: tuple[Row, ...] = tuple(
             "no_fix_claim",
             "translation_floor",
             "repeated_reply",
+            # READ 2026-11-17 in the merge of the bell branch: both of these end "append one short line", so
+            # each is appended text. They arrived on main after the table was made.
+            "dismissal_stamp",
+            "family_words",
         ),
         20,
     )
@@ -99,6 +103,9 @@ ROWS: tuple[Row, ...] = tuple(
     )
     # PreToolUse: why this call was stopped. Reads first, then the rest.
     + _rows("PreToolUse", READ_LETTER, ("unread_letter",), 10)
+    # READ 2026-11-17: wwnd_tool_prime and pre_tool_context return `output=` and never `refused=`, so
+    # neither can hold a call; they speak a prime or context and nothing is asked of me.
+    + _rows("PreToolUse", RECORD_ONLY, ("wwnd_tool_prime", "pre_tool_context"), 60)
     + _rows("PreToolUse", TOOL_CALL, ("require_briefing", "must_read"), 20)
     # heredoc_escape: its way out is the Write tool, per Aria's reading of its text; cd_drift and
     # his_words: read as refusals handed to me (reissue without the cd; rewrite without the quote).

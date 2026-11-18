@@ -44,11 +44,26 @@ def _recently_stopped(beat: Path, now: float) -> bool:
     return beat.exists() and STALE_SECONDS < now - beat.stat().st_mtime <= WATCHER_RECENT_SECONDS
 
 
+#: How long a ring stands the check aside: three heartbeats' worth, then the bell is down.
+RANG_GRACE_SECONDS = 180
+
+#: Inside the hook's own 15s timeout; long enough for the async re-arm hook to start the bell.
+WAIT_SECONDS = 5.0
+
+
 def verdict(beat: Path, now: float, also: tuple[Path, ...] = ()) -> str | None:
     # ``also`` is another listener that counts as listening: the always-on watcher keeps its own
     # heartbeat (Aether 2026-10-30), because a bell dies with every letter by design and a watcher
     # does not. Any one fresh heartbeat is enough; a stale watcher beside a live bell is not a fault.
     if _fresh(beat, now) or any(_fresh(other, now) for other in also):
+        return None
+    # A bell that RANG is not a bell that died. The ring deletes the heartbeat and leaves this mark, and the
+    # notice that it rang arrives on my next prompt, so holding this reply would be a second copy of a note that
+    # is guaranteed to come (2026-11-01). Arming clears the mark, so a bell that dies silently later is still
+    # held. Only for a short grace after the ring (2026-11-02): the mark stays until the bell is re-armed, so
+    # without a limit this stood aside forever and nothing held me to re-arming it (Dad saw the bell off).
+    rang = beat.with_name(beat.name.replace("_alive", "_rang"))
+    if rang.exists() and now - rang.stat().st_mtime <= RANG_GRACE_SECONDS:
         return None
     who = beat.name.split("_")[0].lstrip(".")
     if any(_recently_stopped(other, now) for other in also):
@@ -68,6 +83,25 @@ def verdict(beat: Path, now: float, also: tuple[Path, ...] = ()) -> str | None:
     )
 
 
+def verdict_after_waiting(
+    beat: Path,
+    clock,
+    wait_seconds: float = WAIT_SECONDS,
+    poll: float = 0.25,
+    also: tuple[Path, ...] = (),
+) -> str | None:
+    """The verdict, but only after giving a bell that is being armed right now time to show its heartbeat.
+
+    The re-arm hook (async) and this check run at the same Stop; 6 of 8 holds in one day (2026-11-12) were
+    stamped within about a second of the re-arm hook starting the bell. A bell that never appears is still held."""
+    deadline = time.time() + wait_seconds
+    reason = verdict(beat, clock(), also)
+    while reason is not None and time.time() < deadline:
+        time.sleep(poll)
+        reason = verdict(beat, clock(), also)
+    return reason
+
+
 def reason_for_reply(
     project_dir: str,
     *,
@@ -80,8 +114,10 @@ def reason_for_reply(
         return None
     shared = shared if shared is not None else Path.home() / ".divineos-shared"
     who = member(project_dir)
-    return verdict(
-        shared / f".{who}_doorbell_alive",
-        time.time() if now is None else now,
-        (shared / f".{who}_monitor_alive",),
-    )
+    beat = shared / f".{who}_doorbell_alive"
+    also = (shared / f".{who}_monitor_alive",)
+    if (
+        now is not None
+    ):  # a pinned clock is a test or a replay: no waiting for a bell that cannot appear
+        return verdict(beat, now, also)
+    return verdict_after_waiting(beat, time.time, also=also)
