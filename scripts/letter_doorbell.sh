@@ -54,6 +54,50 @@ case "$OUT_TARGET" in
 esac
 touch "$SEEN"
 if [ ! -s "$SEEN" ]; then list_mine > "$SEEN"; fi
+# AN ANSWERED LETTER IS NOT NEWS (2026-11-03: seen four times in one night). The announced
+# list learns only from this bell's own rings, so a letter I read and replied to some other
+# way (in the session, while the bell was down) was never on it, and the next arm rang for it
+# at once, waking me for nothing. So at arm time, for letters already present, a letter is
+# marked announced when I have since written to THAT SAME SENDER. Two readers found two holes
+# in the first version, both closed here:
+#  - ANSWERED MEANS A REPLY TO THE SAME SENDER. My newest letter to Aria says nothing about an
+#    unread letter from Aletheia, so replies are tracked per sender, never as one newest-of-all.
+#  - THE AUTHOR'S TIME IS NOT THE ARRIVAL TIME. cp -p keeps the author's modification time, so a
+#    letter written before my reply but delivered after it looked answered by mtime alone. The
+#    kernel stamps when a file landed here (ctime) and a copy cannot set it, so a letter is
+#    answered only when it ARRIVED before my reply did, and was also written before it.
+# Anything unreadable or equal counts as NOT answered, so the bell rings: wrongly waking me is
+# cheap, a dropped letter is not. Letters that land after arming are never touched by this.
+ts_ns() {  # $1 = file, $2 = find time directive (C = arrival, T = author's mtime); nanoseconds, or fail
+  local t sec frac
+  t=$(find "$1" -maxdepth 0 -printf "%${2}@" 2>/dev/null) || return 1
+  [ -n "$t" ] || return 1
+  sec="${t%%.*}"
+  frac="${t#*.}"
+  [ "$frac" != "$t" ] || frac=0
+  frac="${frac}000000000"
+  echo $(( 10#$sec * 1000000000 + 10#${frac:0:9} ))
+}
+declare -A reply_arrived  # sender -> arrival time of my newest letter to that sender
+for f in "$DIR"/"${MEMBER}"-to-*; do
+  [ -e "$f" ] || continue  # an unmatched glob stays literal
+  rest="${f##*/}"
+  rest="${rest#"${MEMBER}"-to-}"
+  to="${rest%%-*}"
+  t=$(ts_ns "$f" C) || continue  # unreadable arrival time: this reply answers nothing
+  if [ -z "${reply_arrived[$to]:-}" ] || [ "$t" -gt "${reply_arrived[$to]}" ]; then reply_arrived[$to]="$t"; fi
+done
+while IFS= read -r name; do
+  [ -n "$name" ] || continue
+  grep -qxF "$name" "$SEEN" && continue
+  from="${name%%-to-*}"
+  [ -n "${reply_arrived[$from]:-}" ] || continue  # no reply to this sender: unanswered
+  came=$(ts_ns "$DIR/$name" C) || continue
+  wrote=$(ts_ns "$DIR/$name" T) || continue
+  if [ "$came" -lt "${reply_arrived[$from]}" ] && [ "$wrote" -lt "${reply_arrived[$from]}" ]; then
+    echo "$name" >> "$SEEN"
+  fi
+done < <(list_mine)
 echo "doorbell armed for ${MEMBER}${OVERRIDE_NOTE} $(date -u +%FT%TZ)"
 # Andrew 2026-09-26: it lasts 8 hours, and when it expires the exit wakes me to
 # reset it -- so it gets checked on, rather than running forever unwatched.
