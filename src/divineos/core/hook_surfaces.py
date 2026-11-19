@@ -2368,6 +2368,39 @@ def slashed_ref_path_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def night_letter_overwrite_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a Write over an existing shared night letter (two seats append to it).
+
+    Fails soft: a broken check here says so and lets the write through, since
+    walling every Write behind a broken guard costs more than one letter.
+    """
+    if (payload.get("tool_name") or "").lower() != "write":
+        return SurfaceOutcome(name="night_letter_overwrite", state="nothing-to-say")
+    tool_input = payload.get("tool_input") or {}
+    file_path = tool_input.get("file_path") or tool_input.get("path") or ""
+    try:
+        from divineos.core import night_letter_overwrite_check as check
+
+        refuse = check.should_refuse("Write", file_path)
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="night_letter_overwrite",
+            error=(
+                f"{type(exc).__name__}: {exc} — night-letter overwrites are currently "
+                "unguarded. Absent, not satisfied."
+            ),
+            state="could-not-run",
+        )
+    if not refuse:
+        return SurfaceOutcome(name="night_letter_overwrite", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="night_letter_overwrite",
+        refused=True,
+        reason=check.refusal_message(file_path),
+        state="spoke",
+    )
+
+
 # --------------------------------------------------------------------------
 # Stop, second batch — the reach detectors, 2026-09-08.
 #
@@ -2829,6 +2862,9 @@ def install() -> None:
         register("PreToolUse", "cd_drift", cd_drift_surface)
     if "slashed_ref_path" not in registered("PreToolUse"):
         register("PreToolUse", "slashed_ref_path", slashed_ref_path_surface)
+    # Registered in the same change as the surface: Write replaced a shared night letter.
+    if "night_letter_overwrite" not in registered("PreToolUse"):
+        register("PreToolUse", "night_letter_overwrite", night_letter_overwrite_surface)
     # 2026-09-23, registered in the same change that adds it. Andrew found words
     # in his mouth he never said, one of them a rule that held drafts still for
     # weeks. This is the door on every path a quote of him is written through.
