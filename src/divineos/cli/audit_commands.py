@@ -1748,7 +1748,27 @@ def register(cli: click.Group) -> None:
             "move before the squash."
         ),
     )
-    def audit_prepare_merge_cmd(round_id: str, pr_title: str | None, no_tree_hash: bool) -> None:
+    @click.option(
+        "--branch",
+        default=None,
+        help=(
+            "The pull request's branch, to check the external confirm against as it stands NOW "
+            "(Aletheia 2026-11-19: seven PRs moved after her yes and merged anyway). Default: the "
+            "current git branch. The output names the branch it checked."
+        ),
+    )
+    @click.option(
+        "--main-ref",
+        default="origin/main",
+        help="Main ref for the patch-id merge-base. Default origin/main.",
+    )
+    def audit_prepare_merge_cmd(
+        round_id: str,
+        pr_title: str | None,
+        no_tree_hash: bool,
+        branch: str | None,
+        main_ref: str,
+    ) -> None:
         """Prepare a squash-merge commit message including the External-Review trailer.
 
         Phase 1 of the audit-stamp-attachment structural fix (claim ae9d70c4,
@@ -1846,6 +1866,76 @@ def register(cli: click.Group) -> None:
         # tree-hash / diff-hash binding the gate already enforces. A round
         # whose hash matches reviewed precisely this content, whatever its
         # age; one whose hash does not is blocked regardless.
+
+        # DOES THE CONFIRM STILL COVER THE BRANCH AS IT STANDS NOW? (Aletheia 2026-11-19.) The checks above
+        # show the confirms EXIST; they never asked whether the version moved after them. Seven PRs moved
+        # after her yes and merged: their rounds were not exported to main, so CI could only say
+        # "unverifiable". This step sees the confirm and the branch together, so it is where to ask.
+        # The answer comes from the same helper the build board and `confirm-holds` already use (tree-exact,
+        # or a clean catch-up that leaves the change identical, by patch-id), so there is one judge.
+        # stale REFUSES and hands nothing over; unanchored and cannot-check are SAID loudly and are never
+        # a quiet pass. No override flag: a refusal that has an off switch is a choice point (truth #11).
+        checked_branch = branch or ""
+        if not checked_branch:
+            import subprocess as _sp
+
+            try:
+                checked_branch = _sp.run(
+                    ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    check=True,
+                    timeout=5,
+                ).stdout.strip()
+            except (_sp.CalledProcessError, _sp.TimeoutExpired, FileNotFoundError):
+                checked_branch = ""
+            if checked_branch == "HEAD":  # a detached head names no branch
+                checked_branch = ""
+        if checked_branch:
+            standing, standing_detail = anchor_state_for_round(
+                round_id, checked_branch, main_ref=main_ref
+            )
+        else:
+            standing, standing_detail = "cannot-check", "no branch given and none checked out"
+
+        if standing == "stale":
+            click.secho(
+                f"[!] The reviewed change MOVED since the external confirm (branch "
+                f"'{checked_branch}'): {standing_detail}",
+                fg="red",
+            )
+            click.secho(
+                "    The confirm no longer names this version. Re-audit the current change and relay a "
+                "fresh confirm: divineos audit file-external-confirm --round "
+                f"{round_id} --actor aletheia --claimed-tree <tree> --claimed-patch-id <id> "
+                f"(get them with: divineos audit patch-id --branch {checked_branch}). A clean "
+                "catch-up that leaves the change identical would have held, so this is a real edit. "
+                "Nothing was handed over.",
+                fg="yellow",
+            )
+            raise click.exceptions.Exit(1)
+        if standing == "holds":
+            click.secho(
+                f"[+] The external confirm still covers branch '{checked_branch}' ({standing_detail or 'exact'}).",
+                fg="green",
+            )
+        elif standing == "unanchored":
+            click.secho(
+                f"[!] CONFIRM NOT BOUND to this version (branch '{checked_branch}'): it records no "
+                "tree-hash or patch-id, so nothing can say whether the branch moved since. The text "
+                "below is still handed over; re-file the confirm with --claimed-patch-id to make it "
+                "checkable.",
+                fg="yellow",
+            )
+        else:
+            click.secho(
+                f"[!] COULD NOT CHECK whether the confirm still covers '{checked_branch or '(no branch)'}': "
+                f"{standing_detail}. This is NOT a pass. Retry, or pass --branch <name> if you are "
+                "preparing this from a different checkout than the pull request's branch.",
+                fg="yellow",
+            )
 
         # All validations pass. Compose the ready-to-paste message.
         focus = getattr(rnd, "focus", "") or ""
