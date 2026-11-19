@@ -56,13 +56,12 @@ import json
 import re
 from dataclasses import dataclass
 
-_NOTICE_OPENERS = (
-    "<task-notification",
-    "<system-reminder",
-    "<ci-monitor-event",
+from divineos.core.harness_envelopes import NOTICE_OPENERS
+
+# The shared list (both spellings of every harness notice) plus what only this reader refuses.
+_NOTICE_OPENERS = NOTICE_OPENERS + (
     "<local-command",
     "<command-name>",
-    "<agent-message",
     "Stop hook feedback",
     # Hook output with no envelope of its own. Behind a peeled envelope these
     # were heard as him (Aletheia, reading #507 on 2026-09-30): zero in 72

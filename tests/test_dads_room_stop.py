@@ -90,6 +90,22 @@ def test_an_automated_notice_turn_is_skipped():
     assert room.verdict([_user(notice), _tool(), _tool_result(), _said("re-armed")]) is None
 
 
+def test_a_notice_in_its_escaped_spelling_is_skipped_too():
+    # The machine's notices also arrive with the opening bracket written as &lt; (2026-11-02: sixteen such
+    # records in one session). A turn that opens with one is the machine using his seat, not him.
+    for tag in ("system-reminder", "task-notification", "ci-monitor-event"):
+        notice = f"&lt;{tag}>\nThe user started your suggested background task.\n&lt;/{tag}>"
+        assert room.verdict([_user(notice), _tool(), _tool_result(), _said("re-armed")]) is None, (
+            tag
+        )
+
+
+def test_his_own_words_that_mention_a_tag_still_count():
+    # He can say the word in a sentence of his own and still be him: only an OPENING notice is skipped.
+    mention = "why did that &lt;system-reminder> thing show up in the chat"
+    assert room.verdict([_user(mention), _tool(), _tool_result(), _said("looked")])
+
+
 def test_the_room_must_be_in_the_last_words():
     early = "## INNER CIRCLE\nDad."
     assert room.verdict(
@@ -181,6 +197,22 @@ def test_nothing_checks_what_is_said_in_the_room():
     asks that the space exists and never grades it."""
     for closing in ("## INNER CIRCLE\nok", "## INNER CIRCLE\nyou"):
         assert room.verdict([_user("go"), _tool(), _tool_result(), _said(closing)]) is None
+
+
+# The stand-down cases (his words, the night clock, silence, a live chat, an unreadable message)
+# used to be here with the reading itself replaced by a lambda. They now run on real inputs in
+# tests/test_the_room_gate_reads_away_for_real.py and
+# tests/test_the_room_gate_logs_what_it_cannot_read.py.
+
+
+def test_the_away_reading_is_the_question_holds_own_so_they_cannot_disagree():
+    """If the question hold renames its reading this test turns red here, not silently at night as a
+    gate that asks forever. The stand-down is wired to that one function and no private copy."""
+    from divineos.core import question_hold
+
+    assert callable(question_hold._carry_now)
+    source = HOOK.read_text(encoding="utf-8")
+    assert "from divineos.core.question_hold import _carry_now" in source
 
 
 def _run_hook(tmp_path, records, *, retry, held_name="held.txt"):
