@@ -80,9 +80,11 @@ def record_briefing_render(stale_areas: list[str]) -> None:
     except Exception:  # noqa: BLE001
         return
     try:
+        from divineos.core.sibling_audit_rounds import acting_seat
+
         log_event(
             event_type="STALE_SURFACED",
-            actor="aether",
+            actor=acting_seat(),
             payload={"areas": list(stale_areas)},
         )
     except Exception:  # noqa: BLE001

@@ -1272,8 +1272,10 @@ def register(cli: click.Group) -> None:
         )
 
         try:
+            from divineos.core.sibling_audit_rounds import acting_seat
+
             new_round_id = submit_round(
-                actor="aether",
+                actor=acting_seat(),
                 focus=focus_text,
                 expert_count=0,
                 notes=f"Auto-rebind from {prior_round_id}. Classifier confirmed "

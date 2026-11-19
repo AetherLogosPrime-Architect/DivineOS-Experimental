@@ -376,8 +376,10 @@ def hook_main() -> int:
     if not text.strip():
         return 0
     try:
+        from divineos.core.sibling_audit_rounds import acting_seat
+
         for est in detect_estimates(text):
-            record_prediction(est, actor="aether", task_hint=est.context[:120])
+            record_prediction(est, actor=acting_seat(), task_hint=est.context[:120])
     except Exception:  # noqa: BLE001
         pass
     return 0

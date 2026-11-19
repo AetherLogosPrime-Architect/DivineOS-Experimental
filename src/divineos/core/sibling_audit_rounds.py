@@ -176,6 +176,20 @@ def this_seat() -> str | None:
     return None
 
 
+def acting_seat() -> str:
+    """The seat that is acting, for the ``actor`` field of an event: ``this_seat()`` or ``"unknown-seat"``.
+
+    THE ONE FUNCTION for it. Thirteen places in eleven files typed Aether's own name as the actor, copied because
+    copying was the easiest thing to write, so on the other seat every one of those events was attributed to Aether
+    (Aria 2026-11-19, letter 1072; she fixed her two in council_walk with this same expression, and points that
+    at this once it exists). Never a guess: when the data home matches no seat the answer is the explicit
+    ``"unknown-seat"``, so a failed resolution is visible in the ledger and does not pass as a plausible name.
+    Events already written keep their old actor (the ledger is append-only), so history from the other seat
+    before 2026-11-19 stays attributed to aether.
+    """
+    return this_seat() or "unknown-seat"
+
+
 def read_other_seats(
     mine: str | None, home_overrides: dict[str, str] | None = None
 ) -> list[SiblingRounds]:

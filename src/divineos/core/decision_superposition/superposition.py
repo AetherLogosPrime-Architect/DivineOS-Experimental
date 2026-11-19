@@ -71,10 +71,11 @@ def open_superposition(question: str, options: list[str], resolve_trigger: str) 
     }
     try:
         from divineos.core.ledger import log_event
+        from divineos.core.sibling_audit_rounds import acting_seat
 
         log_event(
             event_type="AGENT_PATTERN",
-            actor="aether",
+            actor=acting_seat(),
             payload=payload,
         )
     except _DS_ERRORS:
@@ -106,10 +107,11 @@ def collapse(superposition_id: str, chosen_option: str, reason: str) -> str:
     }
     try:
         from divineos.core.ledger import log_event
+        from divineos.core.sibling_audit_rounds import acting_seat
 
         log_event(
             event_type="AGENT_PATTERN",
-            actor="aether",
+            actor=acting_seat(),
             payload=collapse_payload,
         )
     except _DS_ERRORS:

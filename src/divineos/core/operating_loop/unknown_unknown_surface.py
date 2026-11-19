@@ -143,9 +143,11 @@ def record_self_audit_prediction(round_id: str, topics: list[str]) -> str:
         "ts": time.time(),
     }
     try:
+        from divineos.core.sibling_audit_rounds import acting_seat
+
         ev_id = log_event(
             event_type="AGENT_PATTERN",
-            actor="aether",
+            actor=acting_seat(),
             payload=payload,
         )
         return str(ev_id or "")

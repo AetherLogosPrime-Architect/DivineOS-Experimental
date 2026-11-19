@@ -54,8 +54,9 @@ def _ledger_log(event_type: str, payload: dict[str, Any]) -> None:
     """Best-effort ledger emission. Never raises into the caller."""
     try:
         from divineos.core.ledger import log_event
+        from divineos.core.sibling_audit_rounds import acting_seat
 
-        log_event(event_type=event_type, actor="aether", payload=payload)
+        log_event(event_type=event_type, actor=acting_seat(), payload=payload)
     except (ImportError, OSError, KeyError, TypeError, ValueError, RuntimeError):
         pass
 
