@@ -246,6 +246,28 @@ READING_DECLARATION = "**Reading:**"
 NO_READING = "none"
 
 
+_FRONT_MATTER_KEY_VALUE = re.compile(r"[A-Za-z0-9_-]+:(\s.*)?")
+_FRONT_MATTER_MAX_CLOSE = 12
+
+
+def _front_matter_end(lines: list[str]) -> int:
+    """Where the header starts: 0, or the line after a leading front-matter block.
+
+    A block counts only when line 1 is exactly `---`, a closing `---` follows within 12
+    lines, and every line between is `key: value`. Anything else is not front matter and
+    the header starts at 0 as it always did. The block is skipped, never read, so a
+    `Reading` inside it credits nothing.
+    """
+    if not lines or lines[0].strip() != "---":
+        return 0
+    for index in range(1, min(len(lines), _FRONT_MATTER_MAX_CLOSE + 1)):
+        if lines[index].strip() == "---":
+            return index + 1
+        if not _FRONT_MATTER_KEY_VALUE.fullmatch(lines[index].strip()):
+            return 0
+    return 0
+
+
 def header_lines(text: str) -> Iterator[str]:
     """The stripped lines of a letter's HEADER, under the one set of line rules the house uses.
 
@@ -257,7 +279,8 @@ def header_lines(text: str) -> Iterator[str]:
     (Aletheia's ask on the baton, 2026-10-16: a private copy had missed the indent and fence rules).
     """
     in_fence = False
-    for line in text.splitlines():
+    lines = text.splitlines()
+    for line in lines[_front_matter_end(lines) :]:
         stripped = line.strip()
         if stripped == "---":
             return
