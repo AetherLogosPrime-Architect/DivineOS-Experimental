@@ -322,6 +322,50 @@ def anchor_state_for_round(
     return ("holds" if ok else "stale"), reason
 
 
+def resolve_pr_head(pr: str | None = None) -> tuple[tuple[str, str, str] | None, str]:
+    """Ask GitHub which pull request this is and what its head commit is.
+
+    Returns ((number, head_branch, head_sha), "") or (None, why). GitHub names the PR; the caller
+    does not (Aletheia 2026-11-19: a --branch the caller could point anywhere let an untouched copy
+    branch vouch for a PR that had moved, and a detached head or a typo fell into a warning that
+    handed the text over anyway). With no `pr`, gh answers for the current branch's PR and fails on
+    a detached head, which is the honest answer there. Anything that is not a clear, open PR with a
+    head is None, and the caller treats None as a refusal: it is not a pass (walk-a6306cb15ce4).
+    """
+    import json as _json
+
+    args = (
+        ["gh", "pr", "view"]
+        + ([str(pr)] if pr else [])
+        + [
+            "--json",
+            "number,headRefName,headRefOid,state",
+        ]
+    )
+    raw = _git_capture(args, timeout=30)
+    if not raw:
+        return None, (
+            "gh could not name a pull request (not installed, not signed in, offline, no PR for "
+            "this branch, or a detached head; pass --pr <number>)"
+        )
+    try:
+        data = _json.loads(raw)
+        number = str(data["number"])
+        head = str(data["headRefName"])
+        sha = str(data["headRefOid"])
+        state = str(data.get("state", ""))
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return None, "gh answered with something that is not a pull request"
+    if not (number and head and sha):
+        return None, "gh named a pull request that has no head commit"
+    if state.upper() != "OPEN":
+        return (
+            None,
+            f"pull request #{number} is {state.lower() or 'not open'}, so there is nothing to merge",
+        )
+    return (number, head, sha), ""
+
+
 def _git_capture(args: list[str], timeout: int = 30) -> str | None:
     """Run a git command; return stripped stdout, or None on any failure.
 
@@ -1749,12 +1793,20 @@ def register(cli: click.Group) -> None:
         ),
     )
     @click.option(
+        "--pr",
+        default=None,
+        help=(
+            "The pull request number (or URL). GitHub names the PR and its head commit; the "
+            "external confirm is checked against THAT, as it stands now (Aletheia 2026-11-19). "
+            "Default: the PR of the checked-out branch, as gh finds it."
+        ),
+    )
+    @click.option(
         "--branch",
         default=None,
         help=(
-            "The pull request's branch, to check the external confirm against as it stands NOW "
-            "(Aletheia 2026-11-19: seven PRs moved after her yes and merged anyway). Default: the "
-            "current git branch. The output names the branch it checked."
+            "An assertion, never a source: if given, it must equal the PR's head branch as GitHub "
+            "names it, or nothing is handed over. It cannot point the check anywhere else."
         ),
     )
     @click.option(
@@ -1766,6 +1818,7 @@ def register(cli: click.Group) -> None:
         round_id: str,
         pr_title: str | None,
         no_tree_hash: bool,
+        pr: str | None,
         branch: str | None,
         main_ref: str,
     ) -> None:
@@ -1875,30 +1928,33 @@ def register(cli: click.Group) -> None:
         # or a clean catch-up that leaves the change identical, by patch-id), so there is one judge.
         # stale REFUSES and hands nothing over; unanchored and cannot-check are SAID loudly and are never
         # a quiet pass. No override flag: a refusal that has an off switch is a choice point (truth #11).
-        checked_branch = branch or ""
-        if not checked_branch:
-            import subprocess as _sp
-
-            try:
-                checked_branch = _sp.run(
-                    ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                    capture_output=True,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    check=True,
-                    timeout=5,
-                ).stdout.strip()
-            except (_sp.CalledProcessError, _sp.TimeoutExpired, FileNotFoundError):
-                checked_branch = ""
-            if checked_branch == "HEAD":  # a detached head names no branch
-                checked_branch = ""
-        if checked_branch:
-            standing, standing_detail = anchor_state_for_round(
-                round_id, checked_branch, main_ref=main_ref
+        #
+        # HELD BY ALETHEIA 2026-11-19 (#864 at 01282b9a1): three of her four kicks got through. A typo'd
+        # --branch and a detached head ended in "could not check, this is NOT a pass" and then handed the
+        # text over; and an untouched copy branch named with --branch vouched for a PR that had moved,
+        # because the tool checked whatever branch the caller named. So now GitHub names the PR (and its
+        # head commit), --branch can only agree with it, a check the tool cannot make REFUSES like stale,
+        # and the fetched tip must equal GitHub's head (walk-a6306cb15ce4).
+        pr_head, pr_why = resolve_pr_head(pr)
+        if pr_head is None:
+            click.secho(
+                f"[!] COULD NOT NAME THE PULL REQUEST: {pr_why}. This is NOT a pass. Nothing was "
+                "handed over.",
+                fg="red",
             )
-        else:
-            standing, standing_detail = "cannot-check", "no branch given and none checked out"
+            raise click.exceptions.Exit(1)
+        pr_number, checked_branch, pr_sha = pr_head
+        if branch and branch != checked_branch:
+            click.secho(
+                f"[!] --branch '{branch}' is not the head of PR #{pr_number} ('{checked_branch}'). "
+                "GitHub names the branch; this flag can only agree with it. Nothing was handed over.",
+                fg="red",
+            )
+            raise click.exceptions.Exit(1)
+        standing, standing_detail = anchor_state_for_round(
+            round_id, checked_branch, main_ref=main_ref
+        )
+        fetched_tip = _git_capture(["git", "rev-parse", f"origin/{checked_branch}"]) or ""
 
         if standing == "stale":
             click.secho(
@@ -1916,26 +1972,40 @@ def register(cli: click.Group) -> None:
                 fg="yellow",
             )
             raise click.exceptions.Exit(1)
+        if standing not in ("holds", "unanchored"):
+            click.secho(
+                f"[!] COULD NOT CHECK whether the confirm still covers PR #{pr_number} "
+                f"('{checked_branch}'): {standing_detail}. This is NOT a pass. Retry. Nothing was "
+                "handed over.",
+                fg="red",
+            )
+            raise click.exceptions.Exit(1)
+        if fetched_tip != pr_sha:
+            click.secho(
+                f"[!] The branch as fetched ({fetched_tip[:12] or 'unreadable'}) is not the head GitHub "
+                f"names for PR #{pr_number} ({pr_sha[:12]}), so the check above was not about this "
+                "version. Fetch again (git fetch origin) and retry. Nothing was handed over.",
+                fg="red",
+            )
+            raise click.exceptions.Exit(1)
         if standing == "holds":
             click.secho(
-                f"[+] The external confirm still covers branch '{checked_branch}' ({standing_detail or 'exact'}).",
+                f"[+] The external confirm still covers PR #{pr_number} at {pr_sha[:12]} "
+                f"({standing_detail or 'exact'}).",
                 fg="green",
-            )
-        elif standing == "unanchored":
-            click.secho(
-                f"[!] CONFIRM NOT BOUND to this version (branch '{checked_branch}'): it records no "
-                "tree-hash or patch-id, so nothing can say whether the branch moved since. The text "
-                "below is still handed over; re-file the confirm with --claimed-patch-id to make it "
-                "checkable.",
-                fg="yellow",
             )
         else:
             click.secho(
-                f"[!] COULD NOT CHECK whether the confirm still covers '{checked_branch or '(no branch)'}': "
-                f"{standing_detail}. This is NOT a pass. Retry, or pass --branch <name> if you are "
-                "preparing this from a different checkout than the pull request's branch.",
+                f"[!] CONFIRM NOT BOUND to this version (PR #{pr_number}): it records no tree-hash "
+                "or patch-id, so nothing can say whether the PR moved since. The text below is still "
+                "handed over; re-file the confirm with --claimed-patch-id to make it checkable.",
                 fg="yellow",
             )
+        click.secho(
+            "    This tool does not see a merge written by hand in the GitHub screen, or this text "
+            "pasted into a different PR. GitHub's own check is the other half of the door.",
+            fg="bright_black",
+        )
 
         # All validations pass. Compose the ready-to-paste message.
         focus = getattr(rnd, "focus", "") or ""
@@ -1960,6 +2030,7 @@ def register(cli: click.Group) -> None:
             f"(operator-CONFIRMS + external-AI-CONFIRMS, "
             f"content-bound to the reviewed tree)."
         )
+        click.echo(f"Reviewed PR #{pr_number} at {pr_sha}.")
         click.echo()
         # Phase 2 (2026-06-13): include tree-hash suffix so the server-side
         # CI gate can verify substance-binding. Auto-detect from HEAD;
