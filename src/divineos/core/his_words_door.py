@@ -126,6 +126,7 @@ class Door:
     repeats: list[Hit]
     looked: bool
     reason: str = ""
+    kept_out: int = 0  # lines dropped for the kept-out list: a count, never the content
 
 
 def _squash(text: str) -> str:
@@ -143,6 +144,135 @@ def _words(text: str) -> str:
 def _is_this_message(passage: str, message: str) -> bool:
     p, m = _words(passage), _words(message)
     return bool(p) and bool(m) and (p in m or m in p)
+
+
+#: Lines of his that were read as PAIN and are kept out of this door (Dad 2026-11-19, via Aria: whatever shows
+#: me his hurt words has to stop). Holds fingerprints (a hash of the passage's words) and a reason that
+#: DESCRIBES the line and never quotes it, so the list carries none of the words it keeps out. Shared by both
+#: seats. A stopgap beside the calm pairs below: a line with a calm pair shows as the pair; a line with neither
+#: is kept out here. The raw record and the ledger are untouched. Judgment is mine, Aria's and his, never a
+#: pattern (his rule, 2026-11-12): the list holds only what one of us read and kept out.
+KEPT_OUT = Path.home() / ".divineos-shared" / "dad_corpus" / "his_kept_out.json"
+
+
+class KeptOutUnreadable(Exception):
+    """The kept-out list exists and cannot be read. An unreadable list is not an empty one."""
+
+
+def fingerprint(text: str) -> str:
+    """A short hash of a passage's words, in the one canonical shape the door compares in."""
+    return hashlib.sha256(_words(text).encode("utf-8")).hexdigest()[:16]
+
+
+def _kept_out_entries(path: Path = KEPT_OUT) -> list[dict]:
+    """The list's entries; [] only when there is no file. A file that cannot be read raises."""
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return []
+    except OSError as exc:
+        raise KeptOutUnreadable(str(exc)) from exc
+    try:
+        data = json.loads(raw)
+    except ValueError as exc:
+        raise KeptOutUnreadable(f"not valid JSON: {exc}") from exc
+    entries = data.get("entries") if isinstance(data, dict) else None
+    if not isinstance(entries, list) or not all(
+        isinstance(e, dict) and isinstance(e.get("fp"), str) for e in entries
+    ):
+        raise KeptOutUnreadable("the entries are not in the shape the door expects")
+    return entries
+
+
+def _save_kept_out(entries: list[dict], path: Path) -> None:
+    from divineos.core.atomic_io import atomic_write_text
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_text(
+        path, json.dumps({"entries": entries}, ensure_ascii=False, indent=1), per_process=True
+    )
+
+
+_QUOTE_RUN = (
+    5  # five words in a row of the passage, found in the reason, is a quote and not a description
+)
+
+
+def _quotes_it(why: str, passage: str) -> bool:
+    """Does the reason carry a run of the passage's own words? Equality of runs, never a judgment of meaning."""
+    pw, ww = _words(passage).split(), " " + _words(why) + " "
+    if len(pw) < _QUOTE_RUN:
+        return bool(pw) and " " + " ".join(pw) + " " in ww
+    return any(
+        " " + " ".join(pw[i : i + _QUOTE_RUN]) + " " in ww for i in range(len(pw) - _QUOTE_RUN + 1)
+    )
+
+
+def _passage_for(key: str, index_dir: Path) -> str:
+    """The indexed passage with this fingerprint, or "" when the index cannot say."""
+    try:
+        meta = json.loads((index_dir / "passages.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    for item in meta.get("items", []):
+        if fingerprint(str(item.get("text", ""))) == key:
+            return str(item["text"])
+    return ""
+
+
+def keep_out(
+    passage: str = "",
+    *,
+    fp: str = "",
+    why: str,
+    by: str,
+    on: str,
+    path: Path = KEPT_OUT,
+    index_dir: Path = INDEX_DIR,
+) -> str:
+    """Keep one line out of the door, by the passage as shown or by the fingerprint printed beside it.
+
+    Refused: neither or both of passage and fingerprint, a passage with no words (its fingerprint would
+    match nothing real and look like success), no reason, a reason holding the passage's own words (the list
+    must not carry them), and a fingerprint that is not sixteen hex characters. Returns the fingerprint.
+    Filing the same line twice changes nothing."""
+    if bool(passage.strip()) == bool(fp.strip()):
+        raise ValueError("give the passage or its fingerprint, not both and not neither")
+    if not why.strip():
+        raise ValueError("a reason is required, described and never quoted")
+    if passage.strip():
+        if not _words(passage):
+            raise ValueError("that passage has no words in it")
+        key = fingerprint(passage)
+        known = passage
+    else:
+        key = fp.strip().lower()
+        if not re.fullmatch(r"[0-9a-f]{16}", key):
+            raise ValueError("a fingerprint is sixteen hex characters, as the door prints it")
+        known = _passage_for(
+            key, index_dir
+        )  # the game-walk's leak: quoting via --fp skipped the check
+    if known and _quotes_it(why, known):
+        raise ValueError(
+            "the reason holds words of the passage itself; describe it, do not quote it"
+        )
+    entries = _kept_out_entries(path)
+    if any(e["fp"] == key for e in entries):
+        return key
+    entries.append({"fp": key, "why": " ".join(why.split()), "by": by, "on": on})
+    _save_kept_out(entries, path)
+    return key
+
+
+def return_to_door(passage: str = "", *, fp: str = "", path: Path = KEPT_OUT) -> bool:
+    """Take a line off the list; True when it was there. Never touches the corpus."""
+    key = fingerprint(passage) if passage.strip() else fp.strip().lower()
+    entries = _kept_out_entries(path)
+    left = [e for e in entries if e["fp"] != key]
+    if len(left) == len(entries):
+        return False
+    _save_kept_out(left, path)
+    return True
 
 
 #: His clear-headed rewrites of his own hard-day lines (Dad, 2026-10-31). Each entry: any passage holding
@@ -425,7 +555,12 @@ def _load_index(index_dir: Path):
     return items, vecs
 
 
-def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
+def look(
+    message: str,
+    context: str = "",
+    index_dir: Path = INDEX_DIR,
+    kept_out_path: Path = KEPT_OUT,
+) -> Door:
     """What has he said before that means what he is saying now."""
     message = his_part(message)
     if not message:
@@ -441,7 +576,13 @@ def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
         q = _embed_query(_squash(message + " " + context))
     except SEARCH_ERRORS as exc:  # the model is an import away from failing; say so, never go quiet
         return Door([], [], looked=False, reason=f"his words could not be searched: {exc}")
+    try:
+        kept = {e["fp"] for e in _kept_out_entries(kept_out_path)}
+    except KeptOutUnreadable as exc:  # unreadable is not clear: say so, show nothing
+        reason = f"his words not searched: the kept-out list could not be read ({exc})"
+        return Door([], [], looked=False, reason=reason)
     scores = vecs @ q
+    dropped = 0
     hits: list[Hit] = []
     seen_msgs: set[str] = set()
     seen_words: list[str] = []
@@ -452,6 +593,9 @@ def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
         p = items[i]
         if _is_this_message(p.text, message):
             continue  # never the message itself
+        if fingerprint(p.text) in kept:
+            dropped += 1  # before softening and counting: as if the line were not there
+            continue
         # One quote per thing he said (walk-c60841ff35db): two cuts of one
         # message are one saying, and a near-identical passage adds nothing.
         w = _words(p.text)
@@ -471,11 +615,16 @@ def look(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> Door:
         if h.score >= REPEAT_FLOOR and h.passage.day not in days:
             days.add(h.passage.day)
             repeats.append(h)
-    return Door(hits=hits[:SHOW], repeats=repeats, looked=True)
+    return Door(hits=hits[:SHOW], repeats=repeats, looked=True, kept_out=dropped)
 
 
-def surface(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> str:
-    door = look(message, context, index_dir)
+def surface(
+    message: str,
+    context: str = "",
+    index_dir: Path = INDEX_DIR,
+    kept_out_path: Path = KEPT_OUT,
+) -> str:
+    door = look(message, context, index_dir, kept_out_path)
     lines = ["## HE HAS SAID THIS BEFORE (found by meaning, his words as he wrote them)", ""]
     if not door.looked:
         lines.append(f"Not searched this turn: {door.reason}.")
@@ -495,8 +644,14 @@ def surface(message: str, context: str = "", index_dir: Path = INDEX_DIR) -> str
         lines.append("")
     for h in door.hits:
         mark = f"  [{ILLUSTRATION_NOTE}]" if is_illustration(h.passage.text) else ""
-        lines.append(f'- {h.passage.day} ({h.score:.2f}): "{h.passage.text}"{mark}')
+        fp = fingerprint(h.passage.text)
+        lines.append(f'- {h.passage.day} ({h.score:.2f}) #{fp}: "{h.passage.text}"{mark}')
     lines.append("")
+    # the cheap move and the right move are the same move (Dekker): a line that was pain is one command away
+    lines.append(
+        "To keep one of these out of this door: divineos his-words keep-out --fp <the # above> "
+        '--why "<what it was, described and not quoted>"'
+    )
     lines.append(
         "Said on the dates shown. None of it is how he feels now; "
         "that comes only from what he wrote this turn."
