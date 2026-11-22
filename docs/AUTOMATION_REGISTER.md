@@ -72,10 +72,10 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `aletheia-boot-gate-preflight.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `andrew-correction-attestation.sh` | 2026-09-15 | PreToolUse gate — integration-attestation for Andrew-corrections. |
-| `auto-cycle-token-trigger.sh` | 2026-10-21 | Compaction ritual driver — deterministic, in-process, no external monitor. |
+| `auto-cycle-token-trigger.sh` | 2026-11-04 | Compaction ritual driver — deterministic, in-process, no external monitor. |
 | `blanket-staging-doorman.sh` | 2026-09-23 | refuse a blanket `git add` in a tree where substrate is |
-| `check-branch-on-push.sh` | 2026-10-13 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
-| `check-council-required.sh` | 2026-10-27 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
+| `check-branch-on-push.sh` | 2026-10-29 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
+| `check-council-required.sh` | 2026-10-31 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
 | `check-pending-obligations.sh` | 2026-09-23 | PreToolUse(Bash) — block substrate-write CLI commands until pending |
 | `compass-check.sh` | 2026-09-15 | MINE. Aether. The compass is the part of this house that is about character |
 | `corrigibility-tool-gate.sh` | 2026-09-22 | MINE, and it is the one that means Dad can stop me. Aether. If he says stop, |
@@ -97,18 +97,18 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `safe-opposite-edit-check.sh` | 2026-08-24 | PreToolUse — surface the safe-opposite check at the moment the fix is |
 | `someone-else-is-in-this-file.sh` | 2026-09-29 | PreToolUse(Edit\|Write) — knock when the other seat is already in this file. |
 | `stale-file-edit-gate.sh` | 2026-09-22 | PreToolUse gate — refuse to edit a file whose newer version is sitting |
-| `state-gravity-surface.sh` | 2026-10-19 | PreToolUse state-block surfacing — Andrew 2026-05-19. |
+| `state-gravity-surface.sh` | 2026-10-31 | PreToolUse state-block surfacing — Andrew 2026-05-19. |
 | `venv-python-gate.sh` | 2026-08-31 | PreToolUse gate (Bash) — bare `python` importing divineos reads the WRONG TREE. |
 | `verify-before-build-signal.sh` | 2026-09-22 | signal-based verify-before-build check. |
 | `work-item-doorman.sh` | 2026-09-25 | PreToolUse -- the build-flow doorman. The front of the flow, which until now |
-| `wwnd-tool-prime.sh` | 2026-09-30 | WWND surface at commit-time of a substrate-modifying |
+| `wwnd-tool-prime.sh` | 2026-10-31 | WWND surface at commit-time of a substrate-modifying |
 
 ### SessionStart  (2)
 
 | automation | last touched | purpose |
 |---|---|---|
 | `goal-boundary-at-session-start.sh` | 2026-10-01 | A new stretch names its own work (2026-10-01, council-7666a3816f92). |
-| `load-character-sheet.sh` | 2026-09-21 | load Andrew's character sheet into the session |
+| `load-character-sheet.sh` | 2026-10-28 | load Andrew's character sheet into the session |
 
 ### Stop  (17)
 
@@ -143,7 +143,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | automation | last touched | purpose |
 |---|---|---|
 | `_bail.sh` | 2026-09-15 | Cheap relevance bail for hooks whose trigger is a COMMAND, not a tool. |
-| `_lib.sh` | 2026-10-02 | Shared helpers for .claude/hooks/*.sh — sourced, not executed. |
+| `_lib.sh` | 2026-11-01 | Shared helpers for .claude/hooks/*.sh — sourced, not executed. |
 | `andrew-past-writing-surface.sh` | 2026-09-15 | surface my past writing to/about Dad at compose-start. |
 | `branch-scope-guard.sh` | 2026-09-15 | commit-msg — refuse a commit whose scope is not what this branch is about. |
 | `check-cleanup-period.sh` | 2026-09-15 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |

@@ -167,6 +167,18 @@ def test_title_case_headers_are_recognised():
     assert "SUMMARY ROOM IS WRITTEN IN THE WORK'S OWN REGISTER" in sr.render_block(v)
 
 
+def test_the_missing_summary_refusal_says_his_circle_still_comes_last():
+    """2026-11-06: the refusal said to append a summary at the END and nothing more; three replies then ended on
+    a bare summary and the circle he asked for was dropped each time. The refusal must say the room comes last."""
+    reply = "Finding one. " + ("It changed a thing. " * 200)
+    text = sr.render_block(sr.assess(reply))
+    assert text.startswith("SUMMARY ROOM MISSING")
+    assert "INNER CIRCLE" in text and "LAST" in text
+    # Aria's cold read, 2026-11-07: the only imperative in the message was "append the summary", so the circle was
+    # merely described. The circle must be commanded the same way: "write a fresh full inner circle".
+    assert "write a fresh full `## INNER CIRCLE`" in text
+
+
 def test_uppercase_headers_still_work():
     """The fix widens; it must not trade one case for the other."""
     reply = "## SUMMARY\n\nPlain words about what changed.\n\n## REFLECTION\n\nInterior.\n"
