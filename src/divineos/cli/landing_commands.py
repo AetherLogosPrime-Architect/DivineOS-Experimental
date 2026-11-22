@@ -327,7 +327,7 @@ def register(cli: click.Group) -> None:
                 audit_round.notes, list_findings(round_id=round_id, limit=500), tree
             )
             if her_time is None:
-                for why in rounds_without_tree_line(pr, [audit_round]):
+                for why in rounds_without_tree_line(pr, [audit_round], tree):
                     click.secho(why, fg="yellow")
                 raise ClerkRefused(
                     f"round {round_id} holds no confirm of hers for this head's tree, or its "

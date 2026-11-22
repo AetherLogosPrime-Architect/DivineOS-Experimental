@@ -77,23 +77,42 @@ def her_confirm_filed_at(
 _TREE_LINE = re.compile(re.escape(TREE_LINE_PREFIX) + r"[0-9a-f]{40}")
 
 
-def rounds_without_tree_line(pr: int, rounds: Sequence[object]) -> list[str]:
-    """One plain line for each round that names this PR but carries no `tree-hash:` line.
+def _names_pr(pr: int) -> re.Pattern[str]:
+    """Every way a person writes a PR: `#7`, `PR 7`, `PR-7`, `pr7`, `pull 7`, `pull request 7`."""
+    return re.compile(rf"(?:#|\b(?:PR|pull(?:\s+request)?)[\s\-#:]*){pr}(?!\d)", re.IGNORECASE)
 
-    Matching rounds to a head reads that line, so a round made by hand silently counts
-    as no match and the fix shows as unconfirmed with no cause (it cost a night). This
+
+def rounds_without_tree_line(
+    pr: int, rounds: Sequence[object], tree: str | None = None
+) -> list[str]:
+    """One plain line for each round that names this PR but cannot be matched to its head.
+
+    Matching rounds to a head reads the `tree-hash:` line, so a round made by hand silently
+    counts as no match and the fix shows as unconfirmed with no cause (it cost a night). This
     only explains; it changes nothing about how matching works. A round names the PR the
-    way the board does: `#N` or `PR N`, not as the start of a longer number.
+    way people write it (see `_names_pr`), not as the start of a longer number. When the
+    head's `tree` is given, a round whose line names a different tree (an older head) is
+    explained too, because the matcher rejects it just the same. Without `tree`, a round
+    that carries some tree line cannot be judged and is not reported.
     """
-    named = re.compile(rf"(?:#|\bPR\s+){pr}(?!\d)", re.IGNORECASE)
+    named = _names_pr(pr)
     lines = []
     for rnd in rounds:
         focus = str(getattr(rnd, "focus", ""))
         notes = str(getattr(rnd, "notes", ""))
-        if named.search(focus) and not _TREE_LINE.search(notes):
+        if not named.search(focus):
+            continue
+        rid = getattr(rnd, "round_id", "?")
+        if not _TREE_LINE.search(notes):
             lines.append(
-                f"round {getattr(rnd, 'round_id', '?')} has no tree-hash line: it cannot be "
+                f"round {rid} has no tree-hash line: it cannot be "
                 "matched to a head; file a new round with the designed first call"
+            )
+        elif tree is not None and f"{TREE_LINE_PREFIX}{tree}" not in notes:
+            lines.append(
+                f"round {rid} has a tree-hash line, but for a different tree than this head's "
+                f"({tree[:9]}): it is an older head's round and cannot be matched to this one; "
+                "file a new round with the designed first call"
             )
     return lines
 

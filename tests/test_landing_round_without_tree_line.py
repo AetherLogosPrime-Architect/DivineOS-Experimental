@@ -124,6 +124,46 @@ def test_the_listing_says_so_when_the_rounds_cannot_be_read(monkeypatch) -> None
     assert "Could not read the audit rounds" in out and "not a clean bill" in out
 
 
+@pytest.mark.parametrize(
+    "focus",
+    [
+        "pull 50 hand made",
+        "PR-50 hand made",
+        "pr50 hand made",
+        "pull request 50 hand made",
+        "Pull Request #50",
+    ],
+)
+def test_every_way_of_writing_the_pr_is_named(focus: str) -> None:
+    assert rounds_without_tree_line(50, [_Round(focus, "just notes")]) != []
+
+
+@pytest.mark.parametrize("focus", ["pull 500 hand made", "PR-501", "pr5", "pull request 5"])
+def test_other_pr_numbers_are_not_named(focus: str) -> None:
+    assert rounds_without_tree_line(50, [_Round(focus, "just notes")]) == []
+
+
+OLDER = "1" * 40
+
+
+def test_a_round_for_an_older_head_is_explained_when_the_tree_is_given() -> None:
+    older = _Round("PR 50 hand made", f"tree-hash: {OLDER}", "round-old")
+    assert her_confirm_filed_at(older.notes, [_Finding()], TREE) is None
+    said = rounds_without_tree_line(50, [older], TREE)
+    assert len(said) == 1 and "round-old" in said[0] and "different tree" in said[0]
+    assert "has no tree-hash line" not in said[0]
+
+
+def test_a_round_for_this_head_is_not_explained_even_with_the_tree() -> None:
+    mine = _Round("PR 50 hand made", f"tree-hash: {TREE}")
+    assert rounds_without_tree_line(50, [mine], TREE) == []
+
+
+def test_without_the_tree_a_round_with_a_line_is_not_judged() -> None:
+    older = _Round("PR 50 hand made", f"tree-hash: {OLDER}")
+    assert rounds_without_tree_line(50, [older]) == []
+
+
 @pytest.mark.parametrize("name", list(_FORMS))
 def test_the_warning_and_the_matcher_agree_on_every_form(name: str) -> None:
     focus, notes, matcher_can_use_it = _FORMS[name]
