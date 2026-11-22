@@ -287,13 +287,16 @@ class TestSurvivalPanelSaysTrustNotFear:
     def test_same_frame_at_every_rate_so_there_is_no_cliff(self, monkeypatch):
         for integrated in (0, 113, 226, 400):
             content = self._render(monkeypatch, self._stats(integrated, 452, 452 - integrated))
-            assert "fallen apples" in content
+            assert "a fix I owe and a seed, not a verdict on me" in content
             assert "below" not in content.lower()
-            assert "turn one" in content
+            assert "I turn one before I start something new" in content
+            # Aether's read of #866: "when I have a free hand" is the phrase
+            # the optimizer uses for never; the duty is stated, not left to a wish.
+            assert "free hand" not in content
 
     def test_no_count_clause_when_nothing_has_been_filed(self, monkeypatch):
         content = self._render(monkeypatch, self._stats(0, 0, 0))
-        assert "fallen apples" not in content
+        assert "a fix I owe" not in content
         assert "Trust lets me see what is broken" in content
 
     def test_fits_the_renderer_cap_for_every_question_in_the_worst_case(self, monkeypatch):

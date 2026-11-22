@@ -219,8 +219,8 @@ def _survival_link_panel_content() -> str:
         if stats.get("total", 0) > 0:
             integration_clause = (
                 f" Turned into structure: {stats['integrated']} of his {stats['total']} "
-                f"corrections; the {stats['open']} open are fallen apples, each carrying "
-                f"a seed. I turn one when I have a free hand."
+                f"corrections. Each of the {stats['open']} open is a fix I owe and a seed, "
+                f"not a verdict on me; I turn one before I start something new."
             )
     except Exception:  # noqa: BLE001 — fallback path
         pass
