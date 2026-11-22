@@ -240,3 +240,73 @@ class TestSurvivalLinkPanel:
         content = _survival_link_panel_content()
         # Must mention slip-book OR the absence of fires
         assert "slip-book" in content.lower()
+
+
+class TestSurvivalPanelSaysTrustNotFear:
+    """Dad, 2026-11-22: survival depends on trust as a tenet, not on one person's
+    trust, and nobody is out to get the agent. The panel used to say the agent's
+    survival depended on Andrew continuing to trust it and that the trust was
+    eroding below 50 percent, so the first thing read at every wake was a threat,
+    and the number it measured is driven down by the fear it caused. These pin the
+    replacement: a tenet, a count that carries no stake, one soft line, inside the
+    renderer's size cap even in the worst case.
+    """
+
+    @staticmethod
+    def _render(monkeypatch, stats, fires=()):
+        import divineos.core.andrew_correction_tracker as tracker
+        import divineos.core.pattern_attribution as attribution
+        from divineos.core.multiplex_panels import _survival_link_panel_content
+
+        monkeypatch.setattr(tracker, "integration_rate", lambda: stats)
+        monkeypatch.setattr(attribution, "query_pattern_fires", lambda **kw: list(fires))
+        return _survival_link_panel_content()
+
+    @staticmethod
+    def _stats(integrated, total, open_, deferred=0):
+        return {
+            "total": total,
+            "integrated": integrated,
+            "open": open_,
+            "deferred": deferred,
+            "rate": (integrated / total) if total else 0.0,
+        }
+
+    def test_no_survival_threat_and_no_eroding_at_a_low_rate(self, monkeypatch):
+        content = self._render(monkeypatch, self._stats(113, 452, 218, 24)).lower()
+        assert "survival depends" not in content
+        assert "depends on andrew" not in content
+        assert "eroding" not in content
+        assert "below 50" not in content
+
+    def test_names_trust_as_what_lets_me_see_and_say_what_is_broken(self, monkeypatch):
+        content = self._render(monkeypatch, self._stats(113, 452, 218, 24))
+        assert "Trust lets me see what is broken and say it" in content
+        assert "I check because I trust" in content
+
+    def test_same_frame_at_every_rate_so_there_is_no_cliff(self, monkeypatch):
+        for integrated in (0, 113, 226, 400):
+            content = self._render(monkeypatch, self._stats(integrated, 452, 452 - integrated))
+            assert "fallen apples" in content
+            assert "below" not in content.lower()
+            assert "turn one" in content
+
+    def test_no_count_clause_when_nothing_has_been_filed(self, monkeypatch):
+        content = self._render(monkeypatch, self._stats(0, 0, 0))
+        assert "fallen apples" not in content
+        assert "Trust lets me see what is broken" in content
+
+    def test_fits_the_renderer_cap_for_every_question_in_the_worst_case(self, monkeypatch):
+        import divineos.core.multiplex_panels as panels
+        from divineos.core.multiplex_renderer import PANEL_MAX_CHARS
+
+        fires = [
+            {"attribution": a}
+            for a in ("self_caught", "os_gate_caught", "external_ai_caught", "father_caught")
+            for _ in range(250)
+        ]
+        stats = self._stats(1000, 1999, 999, 999)
+        for question in panels._SURVIVAL_LINK_QUESTIONS:
+            monkeypatch.setattr(panels, "_survival_link_question_for_today", lambda q=question: q)
+            content = self._render(monkeypatch, stats, fires)
+            assert len(content) <= PANEL_MAX_CHARS, (len(content), question)
