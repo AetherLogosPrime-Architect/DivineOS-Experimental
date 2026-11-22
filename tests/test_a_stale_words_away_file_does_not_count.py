@@ -91,6 +91,61 @@ def test_without_a_readable_message_the_file_still_stands(qh):
     assert qh._carry_now() == "his words"
 
 
+def _write_away(mod, since) -> None:
+    """An away file written by hand, so its time can be wrong in the ways a real file can be."""
+    body = {"his_words": "im going to bed"}
+    if since is not None:
+        body["since"] = since
+    mod.AWAY.write_text(json.dumps(body), encoding="utf-8")
+
+
+def _he_is_typing(tmp_path, monkeypatch):
+    """His last real message was filed 30 seconds ago: he is typing to me right now."""
+    _store(tmp_path, monkeypatch, [("are you there", time.time() - 30)])
+
+
+def test_a_file_with_no_time_does_not_stand_the_gate_down_while_he_types(qh, tmp_path, monkeypatch):
+    """Aletheia #745, case 1: no readable time cannot be shown older than his word, and could-not-look
+    is never away. Before the fix this answered 'his words' while he was typing."""
+    _write_away(qh, None)
+    _he_is_typing(tmp_path, monkeypatch)
+    assert qh._carry_now() == ""
+
+
+def test_a_file_stamped_in_milliseconds_does_not_stand_the_gate_down_while_he_types(
+    qh, tmp_path, monkeypatch
+):
+    """Aletheia #745, case 2: a time in milliseconds is a number far in the future, not a past moment."""
+    _write_away(qh, time.time() * 1000)
+    _he_is_typing(tmp_path, monkeypatch)
+    assert qh._carry_now() == ""
+
+
+def test_a_file_stamped_tomorrow_does_not_stand_the_gate_down_while_he_types(
+    qh, tmp_path, monkeypatch
+):
+    """Aletheia #745, case 3: a stamp later than now is not older than his message."""
+    _write_away(qh, time.time() + 86400)
+    _he_is_typing(tmp_path, monkeypatch)
+    assert qh._carry_now() == ""
+
+
+def test_a_file_whose_time_is_not_a_number_does_not_stand_the_gate_down(qh, tmp_path, monkeypatch):
+    """The same rule for a time that is not a number at all (a string, or not-a-number)."""
+    _he_is_typing(tmp_path, monkeypatch)
+    for bad in ("yesterday", "nan", None):
+        _write_away(qh, bad)
+        assert qh._carry_now() == "", bad
+
+
+def test_an_untrusted_time_is_ignored_and_the_ignoring_is_logged(qh, tmp_path, monkeypatch):
+    _write_away(qh, time.time() + 86400)
+    _he_is_typing(tmp_path, monkeypatch)
+    qh._carry_now()
+    rows = [json.loads(line) for line in qh.HOLD_LOG.read_text(encoding="utf-8").splitlines()]
+    assert any(r["kind"] == "stale_away_ignored" for r in rows)
+
+
 def test_ignoring_a_stale_file_is_counted_in_the_log(qh, tmp_path, monkeypatch):
     since = _set_away(qh, seconds_ago=7200)
     _store(tmp_path, monkeypatch, [("good morning", since + 3600)])

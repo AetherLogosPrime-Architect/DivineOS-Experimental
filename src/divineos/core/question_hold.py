@@ -25,6 +25,7 @@ after this ships, the build is wrong and comes back for revision.
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import time
@@ -299,13 +300,22 @@ def _he_spoke_since(stepped: dict[str, Any]) -> bool:
     The file is cleared by his next message through ``came_back``, a hook. If that hook never ran,
     the file would go on saying "away" with a newer message of his in the store, and the room gate
     would stand down for a man who is typing (second reader of #745). His later message is the
-    evidence against the file, so the file is ignored and the ignoring is logged. Could-not-look (no
-    readable message, no usable time on the file) cannot show it stale, so the file stands.
+    evidence against the file, so the file is ignored and the ignoring is logged. A file whose own
+    time cannot be trusted is stale too (Aletheia, #745, 2026-11-22): no readable time, not a finite
+    number, or a time later than now (a clock slip, or a stamp in milliseconds) cannot be shown to be
+    older than his next word, and "could-not-look is never away" holds here as it does in `_carry_now`
+    below, so the file is ignored and the ignoring is logged. Only a file with a good time and no
+    readable message after it stands.
     """
+    raw: Any = stepped.get("since")
     try:
-        since = float(stepped.get("since"))
+        since = float(raw)
     except (TypeError, ValueError):
-        return False  # both-empty: a file with no readable time cannot be shown stale, so it stands
+        _log("stale_away_ignored", since=None, why="the away file has no readable time")
+        return True
+    if not math.isfinite(since) or since > time.time():
+        _log("stale_away_ignored", since=since, why="the away file's time is not a past moment")
+        return True
     latest = _his_latest()
     if latest is None or latest[1] <= since:
         return False  # both-empty: nothing readable after the file, or nothing newer than it
