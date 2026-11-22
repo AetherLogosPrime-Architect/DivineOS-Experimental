@@ -1138,10 +1138,12 @@ _VOICE_COMPILED = [(re.compile(pat, re.IGNORECASE), repl) for pat, repl in _VOIC
 # "my stuff" and his "yes i dont" into "yes I dont" inside quotation marks, which put words in his mouth that
 # he did not type (found 2026-11-06 in 122 of 152 stored love lines). Quotes are lifted out, the rewrite runs on
 # what is left, and they go back untouched. An apostrophe inside a word never opens or closes a quote.
+# A double or curly quote may run across ONE line break (Aletheia on #847, 2026-11-22: his words wrapped at a
+# line end were still being rewritten); two or more line breaks inside an open quote is still not lifted.
 _QUOTED_SPAN = re.compile(
     r"(?<![\w])'(?:[^'\n]|(?<=\w)'(?=\w)){2,}?'(?![\w])"
-    r'|"[^"\n]{2,}?"'
-    r"|“[^”\n]{2,}?”"
+    r'|"(?=[^"]{2})[^"\n]*(?:\n[^"\n]*)?"'
+    r"|“(?=[^”]{2})[^”\n]*(?:\n[^”\n]*)?”"
     r"|‘(?:[^’\n]|(?<=\w)’(?=\w)){2,}?’(?![\w])"
 )
 

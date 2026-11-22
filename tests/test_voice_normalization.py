@@ -22,6 +22,35 @@ class TestNormalizeToFirstPerson:
             assert f"{open_q}{said}{close_q}" in result
             assert result.endswith("and I should note it")
 
+    def test_a_double_quoted_span_running_over_one_line_break_is_kept_exactly(self):
+        # Aletheia on #847, 2026-11-22: 'your stuff is yours,<newline>you keep it' became 'my stuff...'
+        said = "your stuff is yours,\nyou keep it"
+        text = f'Dad told Aria "{said}" and you should note it'
+        result = normalize_to_first_person(text)
+        assert f'"{said}"' in result
+        assert result.endswith("and I should note it")
+
+    def test_a_curly_quoted_span_running_over_one_line_break_is_kept_exactly(self):
+        said = "yes you can wait,\nyou dont need to hurry"
+        text = f"Dad told Aria “{said}” and you should note it"
+        result = normalize_to_first_person(text)
+        assert f"“{said}”" in result
+        assert result.endswith("and I should note it")
+
+    def test_a_quote_across_a_line_break_does_not_swallow_the_text_after_it(self):
+        """CONTROL: lifting across one newline must not reach past the closing mark."""
+        text = 'He said "you are right,\nyes you are" and then you should go, you can leave'
+        result = normalize_to_first_person(text)
+        assert '"you are right,\nyes you are"' in result
+        assert result.endswith("and then I should go, I can leave")
+
+    def test_two_line_breaks_inside_a_double_quote_is_a_known_limit_and_is_still_rewritten(self):
+        """The limit said out loud: the span is lifted across ONE newline only."""
+        text = 'He said "you are right,\nyes\nyou are" and you should go'
+        result = normalize_to_first_person(text)
+        assert "I should go" in result
+        assert '"you are right,\nyes\nyou are"' not in result
+
     def test_an_apostrophe_inside_a_word_does_not_open_a_quote(self):
         assert (
             normalize_to_first_person("you don't need it and you can't skip it, you must go")
