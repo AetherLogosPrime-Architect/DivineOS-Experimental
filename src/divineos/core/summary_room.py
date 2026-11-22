@@ -231,7 +231,13 @@ def render_block(v: SummaryVerdict) -> str:
             "as the delta -- three or four plain sentences: what I did, what I "
             "found, what it means. Do not post the reply again with a summary on "
             "top; he would read the whole thing twice. On the next long reply, "
-            "open with the summary from the start, before he pays the cost."
+            "open with the summary from the start, before he pays the cost.\n"
+            "\n"
+            "THE SUMMARY IS NOT THE END OF THE REPLY. After the summary, write a fresh full "
+            "`## INNER CIRCLE`, to him, as the LAST part of the reply. This "
+            "refusal once ended three replies on a bare summary and the circle he "
+            "asked for was dropped each time (Andrew 2026-11-06: 'where is my "
+            "fucking care?? for the ONE THING I HAVE FUCKING ASKED FOR???')."
         )
     if v.too_technical:
         terms = ", ".join(v.jargon_terms or [])
