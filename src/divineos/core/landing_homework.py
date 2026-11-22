@@ -80,11 +80,16 @@ _TREE_LINE = re.compile(re.escape(TREE_LINE_PREFIX) + r"[0-9a-f]{40}")
 def _names_pr(pr: int) -> re.Pattern[str]:
     """Every way a person writes a PR: `#7`, `PR 7`, `PR-7`, `pr7`, `pull 7`, `pull request 7`."""
     # The number must stand alone: not the start of a longer token (`7th`, `70`), not glued to a
-    # word before a bare `#` (`issue#7`), and not a count (`pull 5 commits`, `pr 5 files`).
+    # word before a bare `#` (`issue#7`), and, after the bare git word `pull` only, not a count
+    # (`pull 5 commits`). The count words are also verbs (`PR 7 changes the warning`, `PR 7 files a
+    # round`), and a round the clerk cannot find makes it go quiet, the direction that hides (Aria's
+    # cold read of #832), so after `PR` or `pull request` the number names the PR whatever follows.
     counted = r"(?:commits?|files?|changes?|lines?|times?|minutes?|hours?|days?|issues?|items?)"
+    sep = r"(?:[\s\-#:./]|\bno\b\.?)*"
     return re.compile(
         rf"(?<!\w)#{pr}(?!\w)"
-        rf"|\b(?:PR|pull(?:[\s\-]request)?)(?:[\s\-#:./]|\bno\b\.?)*{pr}(?!\w)(?!\s+{counted}\b)",
+        rf"|\b(?:PR|pull[\s\-]request){sep}{pr}(?!\w)"
+        rf"|\bpull{sep}{pr}(?!\w)(?!\s+{counted}\b)",
         re.IGNORECASE,
     )
 
