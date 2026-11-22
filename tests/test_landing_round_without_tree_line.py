@@ -37,6 +37,38 @@ def test_a_pr_with_no_round_gets_no_false_explanation() -> None:
     assert _says(814) == []
 
 
+@pytest.mark.parametrize(
+    "focus",
+    ["pull 5 commits", "pr 5 files", "issue#7 fixed", "pr 7th attempt", "pull 7 times"],
+)
+def test_a_number_that_does_not_stand_alone_does_not_name_the_pr(focus: str) -> None:
+    from divineos.core.landing_homework import _names_pr
+
+    for pr in (5, 7):
+        assert not _names_pr(pr).search(focus), (focus, pr)
+
+
+@pytest.mark.parametrize(
+    "focus",
+    [
+        "pull-request 7",
+        "PR No. 7",
+        "pr/7",
+        "https://github.com/o/r/pull/7",
+        "#7",
+        "PR 7",
+        "PR-7",
+        "pr7",
+        "pull request 7: fix",
+        "(#7)",
+    ],
+)
+def test_every_way_of_writing_the_pr_still_names_it(focus: str) -> None:
+    from divineos.core.landing_homework import _names_pr
+
+    assert _names_pr(7).search(focus), focus
+
+
 def test_a_longer_pr_number_is_not_this_pr() -> None:
     submit_round("user", "PR 8120 hand made")
     assert _says(812) == []
