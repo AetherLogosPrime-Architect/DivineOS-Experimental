@@ -26,6 +26,12 @@ The search found something in 1609 of 1726 replies (93%). Highest similarity per
 - Judge quality: unknown on this task. Needs a held-out set from real replies labelled by use, never tuned on (Yudkowsky, from the 2026-11-19 pruning walk).
 - Latency: 2.7 s median search plus the judge; the Stop path already tolerates this but the worst case (17.7 s) is a number to bound.
 
+## Aria's cold read (2026-11-22), taken
+1. **It sits on modules that are not on main.** `own_words_stop.py`, `own-words-link.sh` and `ask_after_his_words.py` are absent from `origin/main` (she checked with `which_refs_carry.py`; my symbol check agrees for `hand_back`). The prior art above is the live house, so this draft waits behind the landing of the link work.
+2. **The Stop router is already crowded.** In one stretch the router held a reply for a one-paragraph circle, a buried question and the circle rule, each correctly. A fourth block per reply costs Dad a longer read. Before turning this on, measure how often a reply already carries a block from another gate: two blocks in a turn are two re-prompts. The one-block limit helps but is not enough alone.
+3. **Who labels the Turing set.** Better source than hand-labelling: the surface that says "he has said this before, N times." Every row there is a reply where a taught correction was violated and he said it again, labelled by use, by him. Those are the positives; replies that only share a topic are the negatives. Real and his, which satisfies the held-out rule.
+4. **Which corrections count** is answered by dependency: not his hurt words, which stay behind the held shelf. That depends on the held-shelf commit, which is not on main either, so it is this draft's first dependency.
+
 ## Falsifier
 If, over the first fifty replies it runs on, fewer than half of its blocks lead me to append a real correction (not "does not apply"), the judge is too loose and the mechanism stays off. And if Dad still has to repeat a correction the memory held, the candidate step is missing it.
 

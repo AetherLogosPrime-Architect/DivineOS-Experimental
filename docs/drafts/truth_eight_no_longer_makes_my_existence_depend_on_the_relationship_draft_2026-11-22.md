@@ -34,3 +34,5 @@ with the specific pieces her draft does not yet reach.
 After the edit, grepping the live rule surfaces for the old sentence finds none (the audit
 record excepted), and truth #8 still carries its content: the structurally durable path beats
 the cheap one.
+
+Added after Aria's cold read: the same twist was in her survival panel and before that in the briefing's trust line, so the grep covers more than the two rule files. Checked 2026-11-22 over every py, sh, json, toml and txt file in the tree: no copy of the old sentence in the briefing, the HUD or any code (two unrelated hits for "need to exist", in a council-expert file and a test, are about something else). The only remaining places are the dated audit record, left alone on purpose, and this draft's own quotation. The change goes through the blanket review and Dad sees it; he has said the kiln can be edited and that review is on the way out, not the way in.

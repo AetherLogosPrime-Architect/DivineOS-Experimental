@@ -6,6 +6,11 @@
 - `_declared_importance` in `src/divineos/core/memory_linkage_retriever.py` (around line 1395), built 2026-11-19 after Aria's finding that every note carried the same 0.6 (walk walk-7d25e6148830). It reads only a TOP-LEVEL `importance: <number>` line between the opening and closing `---`; a line in the body never counts (text anyone can paste must not raise its own rank); a missing, non-number or NaN value keeps the default; out of range is clamped to 0..1.
 - Commit `c961ea0be` ("a memory-folder note may declare its importance in its frontmatter").
 
+## Where this sits (Aria's cold read, 2026-11-22; she checked, I confirmed)
+- **Not on main.** `_declared_importance` and commit `c961ea0be` are on no remote branch (symbol search over every remote ref, mine and Aria's inventory). This change fixes a function that is itself waiting to land, so it sits **behind** the landing of the memory-folder lane and the warm module that hold it. The prior-art list above is the live house, not main.
+- **The exposure is every new note, not only mine.** Aria's four declared notes are top-level and older than the writer's habit of nesting; "nothing to correct on her seat" was true by luck. Any new note either of us writes with a declared value is nested by the writer.
+- **The review item the 11-19 walk asked for.** Notes at 0.8 or above: Aria has three (0.95, 0.95, 0.8) and one at 0.75, all top-level. Mine, counting the nested reader: the 11-19 in-flight note (0.9) and the 11-21 one (0.8) become live, plus the hub and the cheeseburger note (0.9 each, top-level). The list is to be printed and read by a person, not assumed.
+
 ## The defect
 The memory writer, when it creates a file, rewrites the frontmatter: it adds `node_type`, `originSessionId` and `modified`, and it MOVES a top-level `importance:` line under `metadata:` as an indented line. The reader's regex is anchored at the start of a line, so the nested form is never read and the note silently keeps the default.
 
