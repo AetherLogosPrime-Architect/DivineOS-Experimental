@@ -386,6 +386,13 @@ def synthesize_topic(prompt: str, recent_context: str | None) -> str:
 _EMBEDDING_CACHE: dict[MemoryLinkageSource, list[_CachedItem]] = {}
 
 
+def _calm_or_same(text: str) -> str:
+    """His calm version of a hard line when he has given one (his_words_door.softened), else the text unchanged."""
+    from divineos.core.his_words_door import softened
+
+    return softened(text) or text
+
+
 def _load_corrections() -> list[_CachedItem]:
     """Load corrections from the substrate.
 
@@ -410,6 +417,9 @@ def _load_corrections() -> list[_CachedItem]:
         text = str(entry.get("text", "")).strip()
         if not text:
             continue
+        # Dad, 2026-11-16: every hard thing he said in anger he has also said calmly. Where he has given the calm
+        # version, that is what is embedded and shown; the raw record is untouched.
+        text = _calm_or_same(text)
         timestamp = float(entry.get("timestamp", 0.0))
         embedding = _embed_text_impl(text)
         if embedding is None:
@@ -450,6 +460,9 @@ def _load_worklist() -> list[_CachedItem]:
         text = str(row.get("text") or "").strip()
         if not text:
             continue
+        text = _calm_or_same(
+            text
+        )  # his calm version where he has given one (2026-11-16); the record is untouched
         embedding = _embed_text_impl(text)
         if embedding is None:
             continue
