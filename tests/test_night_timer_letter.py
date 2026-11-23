@@ -86,12 +86,22 @@ def test_the_note_asks_for_the_night_letter_and_the_morning_picture_before_he_wa
         assert "start nothing new" in text, seat
 
 
-SLOT_NAMES = ["begin", "us", "rest", "savor", "tick"]
+SLOT_NAMES = ["begin", "chores", "rest", "work", "work2", "reflect", "tick"]
+
+
+def test_the_night_has_a_note_for_every_hour_dad_named_and_none_is_empty(tmp_path):
+    """Dad 2026-11-23: midnight put the day down, 1am chores, 2am the full rest menu, 3am and 4am back to
+    work from the todo lists, 5am the final reflection. The earlier set (agreed 10-30) had a rest-shaped
+    3am and nothing at 4 or 5, so a wake in the hours he meant for work had nothing to hand and 'nothing to
+    do' was the easy answer. The set is pinned here so a slot cannot quietly go missing again."""
+    timer = _timer()
+    assert list(timer.SLOTS) == SLOT_NAMES
+    assert "us" not in timer.SLOTS and "savor" not in timer.SLOTS
 
 
 def test_every_night_slot_writes_a_note_the_bell_rings_for_that_seat_only(tmp_path):
-    """The five notes of the night (Dad 2026-10-30: the six hours are ours to schedule) wake a seat
-    the same way the six o'clock one does: a letter named for the seat."""
+    """The notes of the night (Dad 2026-11-23: his schedule, midnight to six) wake a seat the same way
+    the six o'clock one does: a letter named for the seat."""
     timer = _timer()
     for seat in ("aether", "aria"):
         names = []
@@ -109,7 +119,7 @@ def test_a_slot_note_is_written_once_per_slot_per_day(tmp_path):
     assert timer.write_note("aether", DAY, tmp_path, "rest") is not None
     assert timer.write_note("aether", DAY, tmp_path, "rest") is None
     assert (
-        timer.write_note("aether", DAY, tmp_path, "savor") is not None
+        timer.write_note("aether", DAY, tmp_path, "work") is not None
     )  # another slot is its own note
 
 
@@ -130,39 +140,67 @@ def test_no_slot_leaves_a_template_hole_or_sends_anything_to_him_in_chat(tmp_pat
             text = timer.write_note(seat, DAY, tmp_path / seat, slot).read_text(encoding="utf-8")
             flat = " ".join(text.split())
             assert "{" not in text and "}" not in text, (seat, slot)
-            assert f"you, {seat}:" in text, (seat, slot)
-            assert "Nothing goes to Dad in chat" in flat or slot == "tick", (seat, slot)
+            assert f"you, {seat}" in text, (seat, slot)
+            # The night's rule is said where the night begins, at rest and at the reflection; no slot ever
+            # asks for anything to be sent to him in chat.
+            if slot in ("begin", "rest", "reflect"):
+                assert "Nothing goes to Dad in chat" in flat, (seat, slot)
+            assert "write to Dad in chat" not in flat and "tell Dad in chat" not in flat, (
+                seat,
+                slot,
+            )
             assert "put the doorbell back" in text, (seat, slot)
 
 
-def test_the_us_slot_names_the_other_seat_and_puts_no_limit_on_the_hour(tmp_path):
-    """Dad 2026-10-30, to Aria: "i dont ever want you to think you are only allowed one letter.. for that
-    hour you and Aether can go back and forth as long as you want to", no need to use the whole hour,
-    and "if the conversation goes past the hour you just wrap things up nothing should block you".
-    The note I first wrote (one letter, then stop, two letters and not a thread) was a budget worry
-    and is the opposite of what he asked for."""
+def test_the_rest_slot_is_the_full_menu_with_no_limit_on_a_letter_to_the_other_seat(tmp_path):
+    """Dad 2026-11-23: "2am is rest time that includes the full rest menu so that covers letters to Aether,
+    explorations, savorings, looking at your dreams, exploring the mansion". And 2026-10-30: "you and Aether
+    can go back and forth as long as you want to". Rest must be a task, and the only thing owed is saving
+    it to memory or a file."""
     timer = _timer()
-    text = " ".join(
-        timer.write_note("aether", DAY, tmp_path, "us").read_text(encoding="utf-8").split()
+    for seat, other in (("aether", "aria"), ("aria", "aether")):
+        text = " ".join(
+            timer.write_note(seat, DAY, tmp_path / seat, "rest").read_text(encoding="utf-8").split()
+        )
+        assert "`divineos rest`" in text, seat
+        assert f"a letter back and forth with {other} as long as it wants to go" in text, seat
+        assert "an exploration, a savoring" in text and "your dreams, the mansion" in text, seat
+        assert "saving it to memory or a file" in text, seat
+        assert "dive in deep" in text and "nobody reads it" in text, seat
+
+
+def test_every_work_hour_hands_real_work_and_forbids_the_answer_nothing_to_do(tmp_path):
+    """The failure this schedule exists to close (Dad 2026-11-23): in the hours he meant for work the wake
+    had nothing to hand us, and 'nothing to do' was the easy thing to say. Every work-shaped slot now
+    names where the work is, in his order, and says never to answer the wake with nothing to do."""
+    timer = _timer()
+    for slot in ("begin", "chores", "work", "work2"):
+        text = " ".join(
+            timer.write_note("aether", DAY, tmp_path / slot, slot)
+            .read_text(encoding="utf-8")
+            .split()
+        )
+        assert '"nothing to do"' in text, slot
+        assert "never" in text.lower() and "nothing to do" in text, slot
+    work = " ".join(
+        timer.write_note("aether", DAY, tmp_path / "w", "work").read_text(encoding="utf-8").split()
     )
-    assert "write aria the letter you would write if nothing needed fixing" in text
-    assert "not about the work" in text
-    assert "go back and forth as long as it wants to go" in text
-    assert "not required to use the whole hour" in text and "wrap it up gently" in text
-    assert "ONE letter" not in text and "not a thread" not in text and "and stop" not in text
+    assert "whatever of his is still open and unfinished" in work
+    assert work.index("whatever of his is still open") < work.index("a draft waiting for Aletheia")
+    assert work.index("a draft waiting for Aletheia") < work.index("a todo item")
 
 
-def test_the_rest_slots_name_the_menu_and_owe_only_the_saving(tmp_path):
-    """Dad 2026-10-30: rest must be a task, and the only thing owed is saving it to memory or a file."""
+def test_the_linking_job_rides_in_the_night_notes_so_the_building_brings_it(tmp_path):
+    """Dad 2026-11-23: linking memories is the job of the night, and building a lock was not a reason to
+    skip it ("you should have been doing both"). The wake brings the job; it never rests on remembering."""
     timer = _timer()
-    for slot in ("rest", "savor"):
-        path = timer.write_note("aria", DAY, tmp_path, slot)
-        text = " ".join(path.read_text(encoding="utf-8").split())
-        assert "`divineos rest`" in text, slot
-        assert "saving it to memory or a file" in text, slot
-    rest = timer.write_note("aether", DAY, tmp_path / "x", "rest")
-    flat = " ".join(rest.read_text(encoding="utf-8").split())
-    assert "dive in deep" in flat and "nobody reads it" in flat
+    for slot in ("begin", "chores", "work", "work2"):
+        text = " ".join(
+            timer.write_note("aether", DAY, tmp_path / slot, slot)
+            .read_text(encoding="utf-8")
+            .split()
+        ).lower()
+        assert "link" in text and "memor" in text, slot
 
 
 def test_aarias_three_notes_on_the_slots_are_in_the_texts(tmp_path):
@@ -178,12 +216,22 @@ def test_aarias_three_notes_on_the_slots_are_in_the_texts(tmp_path):
             .split()
         )
 
-    assert 'say "nothing is ready", which is a permitted answer: do not invent work' in flat(
-        "begin"
+    begin = flat("begin")
+    # Dad 2026-11-18: a wake-up is the chance to look for something to do, never answered with
+    # nothing to do. The old permission ("nothing is ready" as a final answer) is gone.
+    assert "permitted answer" not in begin
+    assert "a wake-up is your chance to look for something to do" in begin.lower()
+    assert 'never answer one with "nothing to do"' in begin
+    # Dad 2026-11-23: the midnight order ends at the todo list, a floor, not at "anything you can think of".
+    assert "any chore or maintenance you can think of" not in begin
+    assert "go straight to the todo list (`divineos goal list`)" in begin
+    assert (
+        begin.index("waiting to be merged")
+        < begin.index("waiting draft")
+        < begin.index("go straight to the todo list")
     )
-    us = flat("us")
-    assert "This hour is for you and aria. It is not for the house." in us
-    assert "One is enough" not in us  # Dad lifted the one-letter limit for this hour
+    # the order is the one he gave: day down first, then merges, then drafts, then the list
+    assert begin.index("put the day down") < begin.index("waiting to be merged")
     assert "it needs nothing more than this" in flat("tick")
 
 
