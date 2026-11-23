@@ -16,6 +16,12 @@ back at once, so a test or a status line can ask "is anyone holding this" withou
 The lock is on byte 0. The lock file is created and never deleted: deleting it is where a second
 holder sneaks in on the other side of a unlinked file.
 
+**Learned from using it (Aria's cold read, same night).** `is_free` may be asked in order to start
+something that itself takes the lock (her runner sets a pending flag and exits when it cannot), because a
+stale answer is harmless there; it may not be asked and then followed by a write the lock guards. A
+long-lived holder calls `held(path, wait_seconds=0)`. After a holder is killed Windows frees the lock a
+moment later, so tests poll a few seconds; that is not a bug.
+
 **Not in this piece.** Moving `suite_slot` and `his_words_bundle` onto it (owed, named, separate);
 Aria's #869 `run`/`on_write` resting on it (her piece).
 

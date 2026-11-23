@@ -80,8 +80,12 @@ def held(path: Path, wait_seconds: float = 5.0, poll: float = 0.02) -> Iterator[
 def is_free(path: Path) -> bool:
     """Ask whether anyone holds the lock on `path`, without staying a holder: take it and give it back at once.
 
-    For tests and status lines. Never check this and then write: the answer can be stale by the next line.
-    Act only under `held`."""
+    For tests and status lines. Never ask this and then write what the lock guards: the answer can be stale
+    by the next line, so that write belongs under `held`. Asking so as to start something that itself takes
+    the lock (a runner that sets a pending flag and exits when it cannot) is fine, since a stale answer is
+    harmless there. A long-lived holder calls `held(path, wait_seconds=0)`: take it now or raise `LockBusy`.
+    After a holder is killed Windows frees the lock a moment later, not on the same instruction, so a test
+    that kills one polls for a few seconds rather than reading the gap as a bug."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "a+b") as fh:
         if not try_lock(fh):
