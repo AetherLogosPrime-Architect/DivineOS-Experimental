@@ -100,7 +100,11 @@ def register(cli: click.Group) -> None:
     @click.argument("passage", required=False, default="")
     @click.option("--fp", default="", help="the # fingerprint the door printed beside the line")
     @click.option("--why", required=True, help="what it was, DESCRIBED and never quoted")
-    @click.option("--by", default="aether", show_default=True)
+    @click.option(
+        "--by",
+        default="",
+        help="who read it and kept it out; defaults to this seat, never to a typed name",
+    )
     def keep_out_cmd(passage: str, fp: str, why: str, by: str) -> None:
         """Keep a line he said in pain out of the 'he has said this before' door.
 
@@ -111,8 +115,10 @@ def register(cli: click.Group) -> None:
         from divineos.core import his_words_door as door
 
         try:
-            key = door.keep_out(passage, fp=fp, why=why, by=by, on=date.today().isoformat())
-        except (ValueError, door.KeptOutUnreadable) as exc:
+            key = door.keep_out(
+                passage, fp=fp, why=why, by=door.acting_name(by), on=date.today().isoformat()
+            )
+        except (ValueError, door.KeptOutUnreadable, door.KeptOutBusy) as exc:
             raise click.ClickException(str(exc)) from exc
         _safe_echo(f"Kept out of the door: #{key}")
 
@@ -127,7 +133,7 @@ def register(cli: click.Group) -> None:
             raise click.ClickException("give the passage or --fp, not both and not neither")
         try:
             was = door.return_to_door(passage, fp=fp)
-        except door.KeptOutUnreadable as exc:
+        except (door.KeptOutUnreadable, door.KeptOutBusy) as exc:
             raise click.ClickException(str(exc)) from exc
         _safe_echo("Put back." if was else "That one was not on the list.")
 
