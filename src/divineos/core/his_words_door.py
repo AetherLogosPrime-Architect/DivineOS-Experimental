@@ -45,6 +45,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -127,6 +129,7 @@ class Door:
     looked: bool
     reason: str = ""
     kept_out: int = 0  # lines dropped for the kept-out list: a count, never the content
+    kept_out_note: str = ""  # said when the list may no longer match (made under another cleaner)
 
 
 def _squash(text: str) -> str:
@@ -159,6 +162,48 @@ class KeptOutUnreadable(Exception):
     """The kept-out list exists and cannot be read. An unreadable list is not an empty one."""
 
 
+class KeptOutBusy(Exception):
+    """Another writer held the list for the whole wait. Said out loud; nothing was changed or dropped."""
+
+
+#: How long a writer waits for the other seat before saying so. The list is held for milliseconds, so waiting
+#: this long means the other writer is stuck, not that it is busy.
+LOCK_WAIT_SECONDS = 5.0
+
+
+@contextmanager
+def _locked(path: Path) -> Iterator[None]:
+    """One writer at a time around read-then-write: a lost keep-out here means a hurt line comes back.
+
+    The operating system's own lock (``os_file_lock``), never a lock file judged by its age; see that module."""
+    from divineos.core import os_file_lock
+
+    try:
+        with os_file_lock.held(path.with_name(path.name + ".lock"), LOCK_WAIT_SECONDS):
+            yield
+    except os_file_lock.LockBusy as exc:
+        raise KeptOutBusy(
+            "another writer holds the kept-out list; nothing was changed, try again in a moment"
+        ) from exc
+
+
+def acting_name(by: str = "") -> str:
+    """Who is keeping a line out: the name given, else this seat. Never a typed default, because a list of
+    who read what must not record the wrong reader."""
+    if by.strip():
+        return by.strip()
+    from divineos.core.identity import (
+        IdentityNotSetError,
+        IdentityUnreadableError,
+        get_my_identity,
+    )
+
+    try:
+        return get_my_identity(raise_on_unset=True)
+    except (IdentityNotSetError, IdentityUnreadableError) as exc:
+        raise ValueError("say who you are: pass --by <name>, or set this seat's identity") from exc
+
+
 def fingerprint(text: str) -> str:
     """A short hash of a passage's words, in the one canonical shape the door compares in."""
     return hashlib.sha256(_words(text).encode("utf-8")).hexdigest()[:16]
@@ -188,8 +233,30 @@ def _save_kept_out(entries: list[dict], path: Path) -> None:
     from divineos.core.atomic_io import atomic_write_text
 
     path.parent.mkdir(parents=True, exist_ok=True)
+    # The cleaner is stamped beside the entries: a fingerprint is a hash of cleaned text, so if the cleaner
+    # changes, every fingerprint here stops matching and the lines come back with no sign (Aria, #867).
     atomic_write_text(
-        path, json.dumps({"entries": entries}, ensure_ascii=False, indent=1), per_process=True
+        path,
+        json.dumps({"cleaner": CLEANER, "entries": entries}, ensure_ascii=False, indent=1),
+        per_process=True,
+    )
+
+
+def kept_out_cleaner_note(path: Path = KEPT_OUT) -> str:
+    """Said when the list was made under a different cleaner than the door now uses, else "".
+
+    Quiet when there is no file, an unreadable file (that case is already said by the list itself), or a file
+    from before the stamp existed: the next save stamps it."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    stamped = data.get("cleaner") if isinstance(data, dict) else None
+    if not isinstance(stamped, str) or not stamped or stamped == CLEANER:
+        return ""
+    return (
+        "The kept-out list was made under a different cleaner than the door now uses, so a line kept out "
+        "may no longer match and could come back. Re-keep the lines you read as pain."
     )
 
 
@@ -256,22 +323,26 @@ def keep_out(
         raise ValueError(
             "the reason holds words of the passage itself; describe it, do not quote it"
         )
-    entries = _kept_out_entries(path)
-    if any(e["fp"] == key for e in entries):
-        return key
-    entries.append({"fp": key, "why": " ".join(why.split()), "by": by, "on": on})
-    _save_kept_out(entries, path)
+    with _locked(path):
+        entries = _kept_out_entries(
+            path
+        )  # read inside the lock, so the other seat's entry is never overwritten
+        if any(e["fp"] == key for e in entries):
+            return key
+        entries.append({"fp": key, "why": " ".join(why.split()), "by": by, "on": on})
+        _save_kept_out(entries, path)
     return key
 
 
 def return_to_door(passage: str = "", *, fp: str = "", path: Path = KEPT_OUT) -> bool:
     """Take a line off the list; True when it was there. Never touches the corpus."""
     key = fingerprint(passage) if passage.strip() else fp.strip().lower()
-    entries = _kept_out_entries(path)
-    left = [e for e in entries if e["fp"] != key]
-    if len(left) == len(entries):
-        return False
-    _save_kept_out(left, path)
+    with _locked(path):
+        entries = _kept_out_entries(path)
+        left = [e for e in entries if e["fp"] != key]
+        if len(left) == len(entries):
+            return False
+        _save_kept_out(left, path)
     return True
 
 
@@ -615,7 +686,13 @@ def look(
         if h.score >= REPEAT_FLOOR and h.passage.day not in days:
             days.add(h.passage.day)
             repeats.append(h)
-    return Door(hits=hits[:SHOW], repeats=repeats, looked=True, kept_out=dropped)
+    return Door(
+        hits=hits[:SHOW],
+        repeats=repeats,
+        looked=True,
+        kept_out=dropped,
+        kept_out_note=kept_out_cleaner_note(kept_out_path),
+    )
 
 
 def surface(
@@ -632,7 +709,10 @@ def surface(
     if not door.hits:
         # Silent on purpose (Aletheia's hold, 2026-10-16): his rule for the lessons shelf is
         # "nothing when nothing fits: silence is fine, wallpaper is not". A search that ran and
-        # found nothing says nothing; only a search that could not run is spoken above.
+        # found nothing says nothing; only a search that could not run is spoken above. The one other thing
+        # said here is that the kept-out list may no longer match, since silence would read as "all clear".
+        if door.kept_out_note:
+            return "\n".join([*lines, door.kept_out_note]) + "\n"
         return ""
     if len(door.repeats) >= 2:
         first = door.repeats[0].passage
@@ -642,6 +722,8 @@ def surface(
             f'first: "{first.text[:160]}"'
         )
         lines.append("")
+    if door.kept_out_note:
+        lines.extend([door.kept_out_note, ""])
     for h in door.hits:
         mark = f"  [{ILLUSTRATION_NOTE}]" if is_illustration(h.passage.text) else ""
         fp = fingerprint(h.passage.text)

@@ -23,8 +23,18 @@ No pattern judges. The list holds **only what a person read and kept out**: Aeth
 ## What I have not checked
 Which surfaces on main call `look()` (so which of them this protects). That is a question for the review, and the first thing I would read before claiming how far the protection reaches.
 
+## Reach, said plainly (Aria's cold read of #867, 2026-11-23, checked against the files)
+`look()` is reached by `ask_after_his_words.py`, `own_words_stop.py` and, through `door.surface`, the prompt bundle (`his_words_bundle.py`); the list covers all of those. **`his_lessons_shelf.py`, the second shelf ("he has taught that fits this"), builds its own index from spans of his words and never consults this list.** A fingerprint is of a whole passage and a lesson is a span of one, so a kept-out passage's fingerprint does not match a lesson cut from it. So a kept-out line can still reach me through the lessons shelf. This piece protects the door's own paths and **not** the shelf; the shelf needs its own decision (which fingerprint a span carries) and is **owed, not done here**.
+
+## Changes after Aria's cold read
+- **Two seats, one file (her point 4).** `keep_out` and `return_to_door` read the list, change it and write it back; two writers at once could lose an entry, and a lost keep-out here means a hurt line returns. Both now take the operating system's own lock and re-read inside it. The lock lives in a small new module, `os_file_lock.py`, because the same two calls were already copied in `suite_slot.py` and `his_words_bundle.py` and a third copy would break the house's own rule; moving those two onto it is owed, not done here. No lock is ever judged by its age (the defect class of Aletheia's holds on #686 and #736). A writer that cannot get the lock in five seconds says so and changes nothing.
+- **A cleaner change would silently bring lines back (her point 2).** A fingerprint is a hash of cleaned text; if the cleaner changes, every fingerprint stops matching. The list now carries the cleaner it was made under, and the door says so when it differs. A list from before the stamp says nothing and is stamped on the next save.
+- **`--by` no longer defaults to a typed name (her point 3).** It defaults to this seat, and with no seat and no name the command refuses in plain words.
+- **Not changed (her point 5):** the list path does not read `DIVINEOS_SHARED_DIR`, because nothing in main's source reads that variable (it belongs to the older phrase list in her house); the live house uses `~/.divineos-shared`.
+- **The body (her point 6):** the diff also carries the three count lines the doc check requires (`CLAUDE.md`, `README.md`, `docs/ARCHITECTURE.md`); the body now says so.
+
 ## Falsifier
-After landing: a line on the list must not appear in the door's hits from any caller, and a line not on the list must still appear; an unreadable list must be said out loud; a `return` must put the line back. If a kept-out line reaches me through the door, this piece failed.
+After landing: a line on the list must not appear in the door's hits from any `look()` caller (the lessons shelf is the stated exception above), and a line not on the list must still appear; an unreadable list must be said out loud; a `return` must put the line back; two writers at once must lose nothing. If a kept-out line reaches me through `look()`, this piece failed.
 
 ## Not in this draft
 The held-shelf readers and the calm-version change (they depend on each other and on this order); the retirement of the older phrase list in Aria's house (it stays as a named stopgap until Dad's hand has marked what it holds).
