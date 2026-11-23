@@ -76,7 +76,7 @@ def register(cli: click.Group) -> None:
         required=True,
         help="Full text of the source event — used only for the verbatim check.",
     )
-    @click.option("--observer", default="aether", help="Who is logging (defaults to aether).")
+    @click.option("--observer", default=None, help="Who is logging (defaults to this seat).")
     def log_cmd(
         axis: str,
         observation: str,
@@ -84,7 +84,7 @@ def register(cli: click.Group) -> None:
         source_event_id: str,
         source_event_ts: float,
         source_text: str,
-        observer: str,
+        observer: str | None,
     ) -> None:
         """Log a new observation of Andrew's state."""
         try:
@@ -148,7 +148,7 @@ def register(cli: click.Group) -> None:
     @click.option("--source-event-ts", required=True, type=float)
     @click.option("--source-text", required=True)
     @click.option("--note", required=True, help="Andrew's correction note (verbatim).")
-    @click.option("--observer", default="aether")
+    @click.option("--observer", default=None, help="Who is logging (defaults to this seat).")
     def correct_cmd(
         observation_id: str,
         axis: str,
@@ -158,7 +158,7 @@ def register(cli: click.Group) -> None:
         source_event_ts: float,
         source_text: str,
         note: str,
-        observer: str,
+        observer: str | None,
     ) -> None:
         """Andrew corrects an observation — new row inserted, old row CORRECTED + linked."""
         try:

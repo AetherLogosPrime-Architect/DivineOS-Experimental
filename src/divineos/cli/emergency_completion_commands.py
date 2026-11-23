@@ -106,8 +106,8 @@ def register(cli: click.Group) -> None:
             "false-positive next time."
         ),
     )
-    @click.option("--actor", default="aether", show_default=True)
-    def ec_resolve(diagnosis: str, actor: str) -> None:
+    @click.option("--actor", default=None, help="Who is resolving (default: this seat).")
+    def ec_resolve(diagnosis: str, actor: str | None) -> None:
         """Discharge the outstanding debt by filing a root-cause diagnosis.
 
         THE COMMAND THAT WAS MISSING. Without it an outstanding debt could

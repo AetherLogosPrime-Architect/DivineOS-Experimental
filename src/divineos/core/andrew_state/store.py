@@ -24,6 +24,13 @@ def _new_id() -> str:
     return uuid.uuid4().hex[:16]
 
 
+def _observer() -> str:
+    """Who is logging: the seat that is running (was typed as "aether", so on Aria's seat every observation said he made it)."""
+    from divineos.core.sibling_audit_rounds import acting_seat
+
+    return acting_seat()
+
+
 def _row_to_observation(row) -> Observation:
     """Convert a sqlite Row into a typed Observation."""
     return Observation(
@@ -51,7 +58,7 @@ def log_observation(
     source_event_id: str,
     source_event_ts: float,
     source_text: str,
-    observer: str = "aether",
+    observer: str | None = None,
     now: float | None = None,
 ) -> Observation:
     """Log a new observation after substance-binding passes.
@@ -65,6 +72,7 @@ def log_observation(
     (the cited_span is the canonical reference; the source event remains
     in its own substrate location).
     """
+    observer = observer or _observer()
     ts = time.time() if now is None else now
     content_link_token = verify_all(
         observation=observation,
@@ -191,7 +199,7 @@ def correct(
     source_event_ts: float,
     source_text: str,
     note: str,
-    observer: str = "aether",
+    observer: str | None = None,
     now: float | None = None,
 ) -> Observation:
     """Andrew corrects an observation — log NEW row, link old via superseded_by.
@@ -202,6 +210,7 @@ def correct(
     substance-binding fresh because the corrected text needs its own
     cited_span and content-link.
     """
+    observer = observer or _observer()
     ts = time.time() if now is None else now
 
     # Substance-binding on the new row.

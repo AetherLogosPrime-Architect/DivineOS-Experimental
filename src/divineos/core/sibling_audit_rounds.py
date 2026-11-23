@@ -190,6 +190,20 @@ def acting_seat() -> str:
     return this_seat() or "unknown-seat"
 
 
+def other_seat() -> str | None:
+    """The seat that is not this one, or None when this seat cannot be told or there is not exactly one other.
+
+    For a default that means "my sibling" (whose corrections to mirror, whose store to read): a typed-in name is
+    right on one seat and wrong on the other, so it is resolved at call time. Never a guess: an unresolvable home
+    returns None, and the caller says so instead of picking a store to read.
+    """
+    me = this_seat()
+    if me is None:
+        return None
+    others = sorted(name for name in SIBLING_HOMES if name != me)
+    return others[0] if len(others) == 1 else None
+
+
 def read_other_seats(
     mine: str | None, home_overrides: dict[str, str] | None = None
 ) -> list[SiblingRounds]:

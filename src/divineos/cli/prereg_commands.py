@@ -332,9 +332,9 @@ def register(cli: click.Group) -> None:
         required=True,
         help="What you are going to LOOK AT to settle this review",
     )
-    @click.option("--actor", default="aether", help="Who is doing the review")
+    @click.option("--actor", default=None, help="Who is doing the review (default: this seat)")
     @click.option("--minutes", default=0, help="Window length; 0 uses the default")
-    def prereg_reviewing_cmd(prereg_id: str, purpose: str, actor: str, minutes: int) -> None:
+    def prereg_reviewing_cmd(prereg_id: str, purpose: str, actor: str | None, minutes: int) -> None:
         """Declare that an overdue review is being worked on right now.
 
         The overdue gate blocks substantive tool use, which includes the tools
@@ -350,11 +350,12 @@ def register(cli: click.Group) -> None:
             WindowRefused,
             open_window,
         )
+        from divineos.core.sibling_audit_rounds import acting_seat
 
         try:
             state = open_window(
                 prereg_id,
-                actor,
+                actor or acting_seat(),
                 purpose,
                 minutes=minutes or DEFAULT_MINUTES,
             )
