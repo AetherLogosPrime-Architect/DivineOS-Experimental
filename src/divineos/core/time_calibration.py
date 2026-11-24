@@ -170,7 +170,7 @@ def detect_estimates(text: str) -> list[TimeEstimate]:
 def record_prediction(
     estimate: TimeEstimate,
     *,
-    actor: str = "aether",
+    actor: str | None = None,
     task_hint: str = "",
 ) -> str:
     """Append a 'predict' record to the calibration log. Returns the
@@ -179,6 +179,10 @@ def record_prediction(
     Errors (disk full, permission denied) raise so the calling hook can
     decide whether to suppress or report.
     """
+    if actor is None:
+        from divineos.core.sibling_audit_rounds import acting_seat
+
+        actor = acting_seat()
     _LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
     prediction_id = uuid.uuid4().hex[:12]
     record = {
@@ -200,12 +204,16 @@ def record_prediction(
 def close_prediction(
     prediction_id: str,
     *,
-    actor: str = "aether",
+    actor: str | None = None,
     outcome_note: str = "",
 ) -> dict | None:
     """Append a 'close' record paired with a prior 'predict'. Returns the
     completed prediction summary, or None if the prediction_id wasn't found.
     """
+    if actor is None:
+        from divineos.core.sibling_audit_rounds import acting_seat
+
+        actor = acting_seat()
     predict_record = _find_predict(prediction_id)
     if predict_record is None:
         return None
