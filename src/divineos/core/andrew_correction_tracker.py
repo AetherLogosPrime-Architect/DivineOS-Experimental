@@ -251,6 +251,9 @@ def _conn() -> sqlite3.Connection:
         ("read_count", "INTEGER DEFAULT 0"),
         ("held_reason", "TEXT"),
         ("held_confirmed_by", "TEXT"),
+        # What a row was before it was held (OPEN, MISFILED, INTEGRATED, DEFERRED), so unhold can give it back
+        # there and not to OPEN (2026-11-24). NULL for a row never held and for rows held before this existed.
+        ("status_before_hold", "TEXT"),
     ):
         try:
             conn.execute(f"ALTER TABLE andrew_corrections ADD COLUMN {column} {decl}")
@@ -913,21 +916,55 @@ def _his_messages(transcripts: list[Path]) -> list[str]:
     return [h.text for h in heard_in(records)]
 
 
+def explain_propose_refusal(correction_id: int, why: str) -> str:
+    """Say WHICH reason a proposal for the held shelf was refused, one sentence each.
+
+    The refusal used to be one line for four different situations (not there, a detector's verdict, a reason
+    that is too short, already on the shelf), so the person could not tell what to fix. Same repair as
+    ``explain_integrate_refusal``. A row of any status can be proposed except one already HELD.
+    """
+    conn = _conn()
+    try:
+        row = conn.execute(
+            "SELECT source, correction_text, status, held_reason FROM andrew_corrections WHERE id = ?",
+            (correction_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        return f"no such row: #{correction_id} is not in this store."
+    if _is_detector_row(row[0], row[1]):
+        return f"#{correction_id} is a detector's verdict, not his words, so it cannot be proposed."
+    if row[2] == "HELD":
+        return f"#{correction_id} is already held on his word."
+    if row[3] is not None:
+        return f"#{correction_id} is already proposed; withdraw it first (unhold) to change the reason."
+    if not why or len(why.strip()) < 20:
+        return "the reason is shorter than 20 characters; say why this is grief and not a task."
+    return f"#{correction_id} could not be proposed for a reason that was not named."
+
+
 def propose_hold(correction_id: int, why: str) -> bool:
-    """Propose an OPEN row for the held shelf. It stays OPEN until he confirms."""
+    """Propose a row for the held shelf. Its status does not change until he confirms.
+
+    Any status can be proposed except HELD (OPEN, MISFILED, INTEGRATED, DEFERRED): his approval of a row that had
+    already been filed away used to have nowhere to land. A proposal moves nothing, and a second proposal does not
+    overwrite the first reason.
+    """
     if not why or len(why.strip()) < 20:
         return False
     conn = _conn()
     try:
         row = conn.execute(
             "SELECT source, correction_text FROM andrew_corrections "
-            "WHERE id = ? AND status = 'OPEN'",
+            "WHERE id = ? AND status != 'HELD' AND held_reason IS NULL",
             (correction_id,),
         ).fetchone()
         if row is None or _is_detector_row(row[0], row[1]):
             return False
         cur = conn.execute(
-            "UPDATE andrew_corrections SET held_reason = ? WHERE id = ? AND status = 'OPEN'",
+            "UPDATE andrew_corrections SET held_reason = ? "
+            "WHERE id = ? AND status != 'HELD' AND held_reason IS NULL",
             (why.strip(), correction_id),
         )
         conn.commit()
@@ -944,9 +981,12 @@ def confirm_hold(correction_id: int, transcripts: list[Path] | None = None) -> b
         return False
     conn = _conn()
     try:
+        # The prior status is stored in the same statement that sets HELD, and only for a row that is not already
+        # HELD: typing the line twice must not store HELD as the prior status, or the row could never leave the
+        # shelf (Aether's attack, 2026-11-24). SQLite evaluates the right-hand sides against the old row.
         cur = conn.execute(
-            "UPDATE andrew_corrections SET status = 'HELD', held_confirmed_by = ? "
-            "WHERE id = ? AND status = 'OPEN' AND held_reason IS NOT NULL",
+            "UPDATE andrew_corrections SET status_before_hold = status, status = 'HELD', "
+            "held_confirmed_by = ? WHERE id = ? AND status != 'HELD' AND held_reason IS NOT NULL",
             (his.strip(), correction_id),
         )
         conn.commit()
@@ -956,13 +996,20 @@ def confirm_hold(correction_id: int, transcripts: list[Path] | None = None) -> b
 
 
 def unhold(correction_id: int) -> bool:
-    """Return a HELD row to OPEN, or withdraw a proposal. Either way it is a task again."""
+    """Give a HELD row back where it came from, or withdraw a proposal. Nothing else moves.
+
+    A held row returns to the status it had before (MISFILED stays MISFILED, INTEGRATED stays INTEGRATED); a row
+    held before the prior status was kept has none stored and returns to OPEN as it always did. A withdrawn
+    proposal changes no status. The stored prior status is cleared either way, so a row that is not held never
+    carries a "was".
+    """
     conn = _conn()
     try:
         cur = conn.execute(
-            "UPDATE andrew_corrections SET status = 'OPEN', held_reason = NULL, "
-            "held_confirmed_by = NULL WHERE id = ? AND "
-            "(status = 'HELD' OR (status = 'OPEN' AND held_reason IS NOT NULL))",
+            "UPDATE andrew_corrections SET "
+            "status = CASE WHEN status = 'HELD' THEN COALESCE(status_before_hold, 'OPEN') ELSE status END, "
+            "status_before_hold = NULL, held_reason = NULL, held_confirmed_by = NULL "
+            "WHERE id = ? AND (status = 'HELD' OR held_reason IS NOT NULL)",
             (correction_id,),
         )
         conn.commit()
@@ -972,10 +1019,10 @@ def unhold(correction_id: int) -> bool:
 
 
 _ROW_QUERIES = {
-    "held": "SELECT id, timestamp, correction_text, held_reason, held_confirmed_by "
+    "held": "SELECT id, timestamp, correction_text, held_reason, held_confirmed_by, status_before_hold "
     "FROM andrew_corrections WHERE status = 'HELD' ORDER BY timestamp ASC",
-    "proposed": "SELECT id, timestamp, correction_text, held_reason, held_confirmed_by "
-    "FROM andrew_corrections WHERE status = 'OPEN' AND held_reason IS NOT NULL "
+    "proposed": "SELECT id, timestamp, correction_text, held_reason, held_confirmed_by, status "
+    "FROM andrew_corrections WHERE status != 'HELD' AND held_reason IS NOT NULL "
     "ORDER BY timestamp ASC",
 }
 
@@ -986,8 +1033,18 @@ def _rows(which: str) -> list[dict]:
         rows = conn.execute(_ROW_QUERIES[which]).fetchall()
     finally:
         conn.close()
+    # "was" is what a HELD row was before it was held (None for rows held before it was kept); "now" is the
+    # status a proposed row still has, because a proposal moves nothing.
+    extra = "was" if which == "held" else "now"
     return [
-        {"id": r[0], "timestamp": r[1], "text": r[2], "why": r[3], "his_confirmation": r[4]}
+        {
+            "id": r[0],
+            "timestamp": r[1],
+            "text": r[2],
+            "why": r[3],
+            "his_confirmation": r[4],
+            extra: r[5],
+        }
         for r in rows
     ]
 
