@@ -1513,7 +1513,7 @@ def briefing_block() -> str:
                 line = f"  - #{row['id']} {row['text'][:70].replace(chr(10), ' ')}"
                 if title.startswith("PROPOSED"):
                     line += (
-                        f"  [to shelve it, he types on its own line: {confirm_phrase(row['id'])}]"
+                        "  [to shelve it, ask him in chat naming the row, then confirm-hold-plain]"
                     )
                 lines.append(line)
     return "\n".join(lines)

@@ -300,6 +300,16 @@ def test_the_command_refuses_out_loud_and_exits_nonzero_when_nothing_named_the_r
     assert _status(row) != "HELD"
 
 
+def test_the_briefing_never_tells_anyone_that_dad_types_a_code_line(tmp_path):
+    """He has never typed code and will not (2026-11-24): the way to shelve a row is to ask him in chat."""
+    row = _proposed()
+    block = act.briefing_block()
+    assert f"#{row}" in block, "a proposed row must still be listed"
+    assert "he types" not in block.lower()
+    assert f"hold {row}" not in block, "the typed line must not be offered to him as the way"
+    assert "ask him in chat" in block.lower()
+
+
 def test_the_exact_line_he_could_always_type_still_works(tmp_path):
     row = _proposed()
     paths = _transcript(tmp_path, _he(f"hold {row}"))
