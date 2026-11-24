@@ -202,6 +202,52 @@ def test_each_refusal_names_its_own_reason(tmp_path):
     assert "typed" in reasons[2].lower()
 
 
+def test_the_receipt_keeps_his_whole_message_so_a_but_cannot_hide_behind_the_quote(tmp_path):
+    """Aether's attack 1: the seat quotes "yes put 149 on" and the "but not 281" is thrown away."""
+    row = _proposed()
+    his_message = "yes put those on, but not the last one"
+    paths = _transcript(tmp_path, _asked(_asking(row)), _he(his_message))
+    moved, _ = act.confirm_hold_plain([row], "yes put those on", MEANING, paths)
+    assert moved == [row]
+    assert his_message in _receipt(row), "the receipt must show what the quote was cut from"
+
+
+def test_the_receipt_names_the_rows_as_its_own_field_even_when_the_asking_text_is_cut(tmp_path):
+    """Aether's attack 5: the asking message is cut in the receipt, the row check ran on all of it."""
+    one, two = _proposed(), _proposed()
+    long_ask = "x " * 1200 + _asking(one, two)
+    paths = _transcript(tmp_path, _asked(long_ask), _he("yes"))
+    moved, _ = act.confirm_hold_plain([one, two], "yes", MEANING, paths)
+    assert moved == [one, two]
+    line = next(part for part in _receipt(one).splitlines() if part.startswith("rows:"))
+    assert f"#{one}" in line, "the receipt must list the row numbers the asking message named"
+
+
+@pytest.mark.parametrize("his_text, words", [("yesterday was long", "yes"), ("a good book", "ok")])
+def test_a_quote_must_match_whole_words_not_a_piece_of_a_longer_word(tmp_path, his_text, words):
+    """Aether's attack 3: "yes" is inside "yesterday" and "ok" inside "book"."""
+    row = _proposed()
+    paths = _transcript(tmp_path, _asked(_asking(row)), _he(his_text))
+    moved, refused = act.confirm_hold_plain([row], words, MEANING, paths)
+    assert moved == [] and row in refused
+
+
+def test_his_first_reply_after_the_asking_message_is_the_one_that_counts(tmp_path):
+    """Aether's attack 4: a later yes about something else must not slide the pairing off the real one."""
+    row = _proposed()
+    asking = _asking(row)
+    paths = _transcript(
+        tmp_path,
+        _asked(asking),
+        _he("yes"),
+        _asked("Great. Separately, shall I make lunch plans for later?"),
+        _he("yes"),
+    )
+    moved, _ = act.confirm_hold_plain([row], "yes", MEANING, paths)
+    assert moved == [row]
+    assert asking in _receipt(row)
+
+
 def test_the_command_says_in_plain_words_what_moved_and_that_unhold_puts_it_back(tmp_path):
     from click.testing import CliRunner
 
@@ -250,7 +296,7 @@ def test_the_command_refuses_out_loud_and_exits_nonzero_when_nothing_named_the_r
         ],
     )
     assert result.exit_code == 1
-    assert "did not name" in result.output
+    assert "named these rows" in result.output
     assert _status(row) != "HELD"
 
 

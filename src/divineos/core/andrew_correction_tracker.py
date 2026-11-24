@@ -1069,26 +1069,40 @@ def confirm_hold_plain(
     if len(said) < 20:
         return refuse_all("say which question his yes answered (at least 20 characters).")
     events = _conversation(paths)
-    reply_at = next(
-        (
-            n
-            for n in range(len(events) - 1, -1, -1)
-            if events[n][0] == "he" and words in _squash(events[n][1])
-        ),
-        None,
-    )
-    if reply_at is None:
+    # Whole words only: "yes" is not inside "yesterday" (Aether's attack 3).
+    quote = re.compile(rf"(?<!\w){re.escape(words)}(?!\w)")
+    if not any(who == "he" and quote.search(_squash(text)) for who, text in events):
         return refuse_all("his words were not found in anything he typed.")
+    # His FIRST message carrying the quote after a message of mine that named a row: a later yes about something
+    # else must not slide the pairing off the real one (Aether's attack 4).
+    asked_seen, reply_at = False, None
+    for n, (who, text) in enumerate(events):
+        if who == "me" and any(names_the_row(text, i) for i in ids):
+            asked_seen = True
+        elif who == "he" and asked_seen and quote.search(_squash(text)):
+            reply_at = n
+            break
+    if reply_at is None:
+        return refuse_all(
+            "no message of mine before his reply named these rows, so his yes cannot be its answer."
+        )
     asked = next((t for who, t in reversed(events[:reply_at]) if who == "me"), "")
+    named = [i for i in ids if names_the_row(asked, i)]
+    # The whole of his message sits beside the quote, so a "but" cannot hide behind it (attack 1), and the rows the
+    # asking message named are a field of their own, not left to a cut-off copy of the text (attack 5).
+    receipt = (
+        f"rows: {', '.join(f'#{i}' for i in named)}\n"
+        f"asked: {asked[:_RECEIPT_ASKED_CHARS]}\n"
+        f"he said: {events[reply_at][1].strip()[:_RECEIPT_ASKED_CHARS]}\n"
+        f"quote: {his_words.strip()}\n"
+        f"meant: {said}"
+    )
     for correction_id in ids:
-        if not names_the_row(asked, correction_id):
+        if correction_id not in named:
             refused[correction_id] = (
                 f"my last message before his reply did not name #{correction_id}, so his yes cannot be its answer."
             )
             continue
-        receipt = (
-            f"asked: {asked[:_RECEIPT_ASKED_CHARS]}\nhe said: {his_words.strip()}\nmeant: {said}"
-        )
         if _hold_row(correction_id, receipt):
             moved.append(correction_id)
         else:
