@@ -791,6 +791,7 @@ src/divineos/
     stall_on_promise.py        A promise to act is followed by the act, when no one is there to push.
     memory_linkage_own_words.py The memory link, read through what I said last turn, apart from what he said.
     folder_registry.py         The registry of the folders that are ours.
+    pain_hold.py               Lines of Dad's old hurt that the memory link must not hand back unasked.
 
   analysis/
     _session_types.py          Session analysis type definitions
