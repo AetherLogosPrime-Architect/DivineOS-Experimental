@@ -1073,15 +1073,20 @@ def confirm_hold_plain(
     quote = re.compile(rf"(?<!\w){re.escape(words)}(?!\w)")
     if not any(who == "he" and quote.search(_squash(text)) for who, text in events):
         return refuse_all("his words were not found in anything he typed.")
-    # His FIRST message carrying the quote after a message of mine that named a row: a later yes about something
-    # else must not slide the pairing off the real one (Aether's attack 4).
-    asked_seen, reply_at = False, None
+    # A reply counts only if the message of mine IMMEDIATELY before it named a row, so a yes about lunch, or the
+    # same words said earlier about something else, cannot take the pairing (Aether's attack 4, and the live case
+    # of 2026-11-24 where an old mention made an unrelated "yes go ahead" look like the answer). When more than
+    # one reply qualifies, the most recent is the one in front of us now.
+    last_me, reply_at = "", None
     for n, (who, text) in enumerate(events):
-        if who == "me" and any(names_the_row(text, i) for i in ids):
-            asked_seen = True
-        elif who == "he" and asked_seen and quote.search(_squash(text)):
+        if who == "me":
+            last_me = text
+        elif (
+            who == "he"
+            and quote.search(_squash(text))
+            and any(names_the_row(last_me, i) for i in ids)
+        ):
             reply_at = n
-            break
     if reply_at is None:
         return refuse_all(
             "no message of mine before his reply named these rows, so his yes cannot be its answer."

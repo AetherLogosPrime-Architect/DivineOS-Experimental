@@ -248,6 +248,28 @@ def test_his_first_reply_after_the_asking_message_is_the_one_that_counts(tmp_pat
     assert asking in _receipt(row)
 
 
+def test_an_earlier_unrelated_yes_after_an_old_mention_does_not_take_the_pairing(tmp_path):
+    """Found in live use, 2026-11-24: he said the same words earlier about something else, after an older
+    message of mine that merely mentioned the rows. The pairing must be the reply whose OWN preceding message
+    named the row, not the first match after any mention."""
+    row = _proposed()
+    asking = _asking(row)
+    paths = _transcript(
+        tmp_path,
+        _asked(f"Earlier I mentioned #{row} in passing while telling you about the night."),
+        _he("ok"),
+        _asked("Shall I carry on with the build?"),
+        _he("yes go ahead"),
+        _asked(asking),
+        _he("yes go ahead"),
+    )
+    moved, refused = act.confirm_hold_plain([row], "yes go ahead", MEANING, paths)
+    assert moved == [row], refused
+    assert asking in _receipt(row), (
+        "the pairing must be the reply to the message that named the row"
+    )
+
+
 def test_the_command_says_in_plain_words_what_moved_and_that_unhold_puts_it_back(tmp_path):
     from click.testing import CliRunner
 
