@@ -121,3 +121,17 @@ def test_item_ids_carry_folder_id_and_slug(tmp_path):
     fr.register_folder(reg, d2, whose="aria", kind="k")
     ids = [i["id"] for i in fr.registered_items(reg)]
     assert len(set(ids)) == 2
+
+
+def test_summary_counts_items_unplaced_and_unregistered(tmp_path):
+    reg = tmp_path / "folders.jsonl"
+    good = tmp_path / "good"
+    gone = tmp_path / "gone"
+    stray = tmp_path / "stray"
+    _write(good / "a.md", "# a\n\nfirst\n")
+    _write(good / "b.md", "# b\n\nsecond\n")
+    _write(stray / "c.md", "# c\n\nthird\n")
+    fr.register_folder(reg, good, whose="aria", kind="k")
+    fr.register_folder(reg, gone, whose="aria", kind="k")  # registered, but not on disk
+    s = fr.registry_summary(reg, tmp_path)
+    assert s == {"items": 2, "could_not_be_placed": 1, "unregistered_folders": 1}
