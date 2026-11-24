@@ -979,20 +979,123 @@ def confirm_hold(correction_id: int, transcripts: list[Path] | None = None) -> b
     his = next((m for m in _his_messages(paths) if _line_confirms(m, correction_id)), None)
     if his is None:
         return False
+    return _hold_row(correction_id, his.strip())
+
+
+def _hold_row(correction_id: int, receipt: str) -> bool:
+    """The one write that puts a proposed row on the shelf. Both ways of confirming go through it."""
     conn = _conn()
     try:
         # The prior status is stored in the same statement that sets HELD, and only for a row that is not already
-        # HELD: typing the line twice must not store HELD as the prior status, or the row could never leave the
+        # HELD: confirming twice must not store HELD as the prior status, or the row could never leave the
         # shelf (Aether's attack, 2026-11-24). SQLite evaluates the right-hand sides against the old row.
         cur = conn.execute(
             "UPDATE andrew_corrections SET status_before_hold = status, status = 'HELD', "
             "held_confirmed_by = ? WHERE id = ? AND status != 'HELD' AND held_reason IS NOT NULL",
-            (his.strip(), correction_id),
+            (receipt, correction_id),
         )
         conn.commit()
         return cur.rowcount > 0
     finally:
         conn.close()
+
+
+def names_the_row(message: str, correction_id: int) -> bool:
+    """True when ``message`` names this row as a whole number (149 or #149), not as a piece of a longer one.
+
+    "1490" and "2149" do not name row 149, and row 1 is not hiding inside 11 (walk-63cfce44c2bb, Knuth).
+    """
+    return re.search(rf"(?<!\d)#?{int(correction_id)}(?!\d)", message) is not None
+
+
+def _conversation(transcripts: list[Path]) -> list[tuple[str, str]]:
+    """The messages in order, as ("he", words he typed) and ("me", text I wrote), through the house's reader of him."""
+    import json
+
+    from divineos.core.his_message import Heard, hear
+
+    events: list[tuple[str, str]] = []
+    for path in transcripts:
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            try:
+                record = json.loads(line)
+            except ValueError:
+                continue
+            got = hear(record)
+            if isinstance(got, Heard):
+                events.append(("he", got.text))
+            elif record.get("type") == "assistant":
+                blocks = (record.get("message") or {}).get("content") or []
+                text = "\n".join(
+                    b.get("text", "")
+                    for b in blocks
+                    if isinstance(b, dict) and b.get("type") == "text"
+                ).strip()
+                if text:
+                    events.append(("me", text))
+    return events
+
+
+_RECEIPT_ASKED_CHARS = 1500
+
+
+def confirm_hold_plain(
+    ids: list[int], his_words: str, meaning: str, transcripts: list[Path] | None = None
+) -> tuple[list[int], dict[int, str]]:
+    """Put proposed rows on the shelf on a plain yes in chat, with the pair kept as the receipt.
+
+    Dad, 2026-11-24: "me saying to do it in chat should be enough without me needing to type code or commands."
+    The rule under the code line is unchanged: nothing moves on a seat's say-so. The tool checks only facts: his
+    words sit inside a message he typed, the last message of mine before that reply names the row as a whole
+    number, and my message came first. What the yes MEANT is ``meaning``, a written judgment kept beside the quote
+    so a reader can disagree with it; the tool cannot and does not decide it.
+
+    Returns (rows moved, {row: the reason it was refused}). A refusal moves nothing.
+    """
+    paths = _default_transcripts() if transcripts is None else transcripts
+    words, said = _squash(his_words or ""), (meaning or "").strip()
+    moved: list[int] = []
+    refused: dict[int, str] = {}
+
+    def refuse_all(reason: str) -> tuple[list[int], dict[int, str]]:
+        return [], {i: reason for i in ids}
+
+    if not words:
+        return refuse_all("his words are empty; quote what he typed.")
+    if len(said) < 20:
+        return refuse_all("say which question his yes answered (at least 20 characters).")
+    events = _conversation(paths)
+    reply_at = next(
+        (
+            n
+            for n in range(len(events) - 1, -1, -1)
+            if events[n][0] == "he" and words in _squash(events[n][1])
+        ),
+        None,
+    )
+    if reply_at is None:
+        return refuse_all("his words were not found in anything he typed.")
+    asked = next((t for who, t in reversed(events[:reply_at]) if who == "me"), "")
+    for correction_id in ids:
+        if not names_the_row(asked, correction_id):
+            refused[correction_id] = (
+                f"my last message before his reply did not name #{correction_id}, so his yes cannot be its answer."
+            )
+            continue
+        receipt = (
+            f"asked: {asked[:_RECEIPT_ASKED_CHARS]}\nhe said: {his_words.strip()}\nmeant: {said}"
+        )
+        if _hold_row(correction_id, receipt):
+            moved.append(correction_id)
+        else:
+            refused[correction_id] = (
+                f"#{correction_id} is not proposed for the held shelf, or is already held; propose it first."
+            )
+    return moved, refused
 
 
 def unhold(correction_id: int) -> bool:
