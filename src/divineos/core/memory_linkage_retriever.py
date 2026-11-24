@@ -103,6 +103,9 @@ _SOURCE_THRESHOLDS: dict[str, dict[str, Any]] = {
     # never a wall (Dad: noise is pointless). The floor is a starting value; it is set by the
     # hand-written pairs that must match, not by feel, and moved only by them.
     "moment": {"target_k": 1, "floor": 0.35, "steepness": 0.0},
+    # The folders we write in (dreams, evenings, mantras, adventures). Starts where letters sit; the
+    # arrival exam on both seats moves it, and only it (a fresh floor set by feel is the thing to avoid).
+    "writing": {"target_k": 1, "floor": 0.40, "steepness": 0.30},
 }
 
 
@@ -1249,6 +1252,48 @@ def _load_letters() -> list[_CachedItem]:
     return items
 
 
+def _load_writing() -> list[_CachedItem]:
+    """The folders we write in, read through the registry of folders (2026-11-23).
+
+    One item per file in each folder registered ``read``; folders registered ``never`` are not
+    opened. The item's title is the arrival text (title, whose it is, and the think-with label for the
+    other seat's files), its content is the opening only (what the encoder reads), its path the
+    pointer. A file's id carries its folder id and a key from its title and opening, so a renumbered
+    copy is the same file.
+
+    Empty list when the registry is absent or unreadable: behavior-neutral, as the loaders above.
+    """
+    try:
+        from divineos.core import folder_registry
+        from divineos.core import sibling_audit_rounds as seats
+
+        entries = folder_registry.registered_items(
+            folder_registry.default_registry_path(), seat=seats.this_seat()
+        )
+    except Exception:  # noqa: BLE001 - observability boundary, as the loaders above
+        return []
+    items: list[_CachedItem] = []
+    for entry in entries:
+        head = str(entry.get("opening") or "")[:_EXPLORATION_HEAD_CHARS]
+        embedding = _embed_text_impl(head)
+        if embedding is None:
+            continue
+        items.append(
+            _CachedItem(
+                id=entry["id"],
+                source="writing",
+                tier="topic",
+                title=entry["arrival"],
+                content=head,
+                path=entry["pointer"],
+                filed_at_unix=float(entry.get("filed_at") or 0.0),
+                importance_score=0.5,
+                embedding=embedding,
+            )
+        )
+    return items
+
+
 def _ensure_cache() -> None:
     """Populate _EMBEDDING_CACHE from persistent stores if empty.
 
@@ -1267,6 +1312,7 @@ def _ensure_cache() -> None:
     _EMBEDDING_CACHE["letter"] = _load_letters()
     _EMBEDDING_CACHE["worklist"] = _load_worklist()
     _EMBEDDING_CACHE["moment"] = _load_moments()
+    _EMBEDDING_CACHE["writing"] = _load_writing()
 
 
 # WHERE ITEM VECTORS COME FROM (2026-09-24). They used to be computed here with
@@ -1367,6 +1413,7 @@ def warm(progress: Any = None) -> dict[str, int]:
             _load_letters,
             _load_worklist,
             _load_moments,
+            _load_writing,
         ):
             loader()
     finally:
@@ -1427,6 +1474,9 @@ def _shape_content(
     - correction, wall: full body (short by construction)
     - knowledge: full if ≤300 words, else snippet + path
     - exploration, letter: snippet + path (long by construction)
+    - anything else, writing included: pointer only, never a word of the body. A source this table
+      does not know yet must not show a body by accident (found 2026-11-23: the old default sent
+      unknown sources down the exploration branch and printed the first sixty words).
     """
     if source in ("correction", "wall", "moment"):
         return "full", raw_content, ""
@@ -1435,9 +1485,10 @@ def _shape_content(
             return "full", raw_content, ""
         snippet = " ".join(raw_content.split()[:60]) + " …"
         return "snippet", snippet, path
-    # exploration, letter
-    snippet = " ".join(raw_content.split()[:60]) + " …"
-    return "snippet", snippet, path
+    if source in ("exploration", "letter"):
+        snippet = " ".join(raw_content.split()[:60]) + " …"
+        return "snippet", snippet, path
+    return "pointer", "", path
 
 
 def _cite_reason(

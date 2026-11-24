@@ -12,11 +12,20 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from pathlib import Path
 
 VISIBILITIES = ("read", "never")
 THINK_WITH_LABEL = "for me to think with, never to quote to him"
+# What a file offers the encoder: the retriever embeds about its first thousand characters, so more is waste.
+OPENING_CHARS = 4000
+
+
+def default_registry_path() -> Path:
+    """Where the one real registry lives: the shared folder both seats read, same resolution as pain_hold."""
+    base = os.environ.get("DIVINEOS_SHARED_DIR") or str(Path.home() / ".divineos-shared")
+    return Path(base) / "registry" / "folders.jsonl"
 
 
 def folder_id(path: Path | str) -> str:
@@ -113,6 +122,7 @@ def registered_items(registry: Path, seat: str | None = None) -> list[dict]:
                     "title": title,
                     "pointer": md.as_posix(),
                     "arrival": arrival,
+                    "opening": text.strip()[:OPENING_CHARS],
                     "filed_at": md.stat().st_mtime,
                 }
             )

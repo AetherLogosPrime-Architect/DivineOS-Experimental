@@ -445,6 +445,23 @@ def discard_priming_state() -> None:
 # --------------------------------------------------------------------
 
 
+def _one_per_folder(candidates: list[MemoryLinkagePayload]) -> list[MemoryLinkagePayload]:
+    """At most one writing item per folder per turn: one big folder cannot take every slot.
+
+    A writing item's id is ``<folder id>:<file key>`` (folder_registry), so the folder is what comes
+    before the colon. The best-ranked file of each folder stays; other sources are untouched.
+    """
+    best: dict[str, MemoryLinkagePayload] = {}
+    for p in candidates:
+        if p.source != "writing":
+            continue
+        folder = p.id.split(":", 1)[0]
+        if folder not in best or p.composite_rank > best[folder].composite_rank:
+            best[folder] = p
+    kept = {id(p) for p in best.values()}
+    return [p for p in candidates if p.source != "writing" or id(p) in kept]
+
+
 def retrieve_v2(
     prompt: str,
     recent_context: str | None = None,
@@ -547,6 +564,7 @@ def retrieve_v2(
     # what reaches composition. Taking it over all candidates would let a long
     # low-similarity tail inflate the span and hand priming back the power
     # this change removes.
+    candidates = _one_per_folder(candidates)
     candidates.sort(key=lambda p: p.composite_rank, reverse=True)
     visible = candidates[:TOTAL_INJECTION_CAP]
     if len(visible) > 1:
@@ -639,6 +657,7 @@ def retrieve_similarity_only(prompt: str) -> list[MemoryLinkagePayload]:
                 )
             )
 
+    candidates = _one_per_folder(candidates)
     candidates.sort(key=lambda p: p.composite_rank, reverse=True)
     return candidates
 

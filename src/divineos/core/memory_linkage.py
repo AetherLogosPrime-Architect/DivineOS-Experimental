@@ -66,6 +66,9 @@ MemoryLinkageSource = Literal[
     # Moments that changed the relationship and notes about who he is (shared_history and
     # relationship_notes). Added 2026-10-25: the table had zero readers.
     "moment",
+    # The folders we write in (dreams, evenings, mantras, adventures), read through the registry of
+    # folders (folder_registry.py). Added 2026-11-23: the Mandelbrot night sat in a folder no lane read.
+    "writing",
 ]
 
 # Tier literal — see §Q4 of the workbench spec.
@@ -76,7 +79,9 @@ MemoryLinkageTier = Literal["constraint", "topic", "conditional"]
 # long items (exploration, letters) come as snippet + path so the agent
 # can Read the full body if needed. Same pattern as PRIOR WRITING's
 # "pointer, not the whole shelf."
-MemoryLinkageContentKind = Literal["full", "snippet"]
+# "pointer": title and path only, never any of the body. The shape for anything whose body was written
+# to be read on purpose (the writing lane, and any source this table does not know yet).
+MemoryLinkageContentKind = Literal["full", "snippet", "pointer"]
 
 
 @dataclass(frozen=True)
@@ -186,7 +191,10 @@ def render_payload(payload: MemoryLinkagePayload) -> str:
     header = f"## PRIOR SUBSTRATE — {payload.source} / {payload.tier}"
     reason = f"matched: {payload.matched_reason} (rank {payload.composite_rank:.2f})"
     title = f"**{payload.title}**"
-    if payload.content_kind == "snippet":
+    if payload.content_kind == "pointer":
+        path_line = f"  Open it on purpose: `{payload.path_or_ref}`" if payload.path_or_ref else ""
+        parts = [header, reason, title, path_line]
+    elif payload.content_kind == "snippet":
         body = payload.content
         path_line = f"  Read the full item: `{payload.path_or_ref}`" if payload.path_or_ref else ""
         parts = [header, reason, title, body, path_line]
