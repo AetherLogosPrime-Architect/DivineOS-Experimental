@@ -206,15 +206,9 @@ def test_warm_embeds_the_writing_lanes_texts_so_the_first_reply_finds_a_vector(
     tmp_path, monkeypatch
 ):
     _registered_folder(tmp_path, "ours", "shared", {"b.md": _long_file("A shared night")})
-    for name in (
-        "_load_corrections",
-        "_load_knowledge",
-        "_load_wall",
-        "_load_exploration",
-        "_load_letters",
-        "_load_worklist",
-        "_load_moments",
-    ):
+    # Every other lane's loader, found by name rather than listed: a list of names breaks on a checkout
+    # where a lane is called something else or does not exist yet (found merging onto a live branch).
+    for name in [n for n in dir(v1) if n.startswith("_load_") and n != "_load_writing"]:
         monkeypatch.setattr(v1, name, list)
     monkeypatch.setattr(vector_drawer, "_bulk_encoder", lambda: _fake_encode_many)
 
