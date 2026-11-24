@@ -136,10 +136,14 @@ def test_his_refusal_or_question_never_shelves_it(tmp_path, he_said):
     assert act.list_held() == []
 
 
-def test_the_proposal_shows_him_the_exact_words_to_type(tmp_path):
+def test_the_proposal_is_listed_with_the_plain_way_to_shelve_it(tmp_path):
+    # This used to pin "he types: hold <n>". He has never typed code and will not (2026-11-24), so the briefing
+    # now says to ask him in chat; the typed line still works and is pinned by the confirm tests below.
     grief, _ = _grief_and_task()
     act.propose_hold(grief, WHY)
-    assert f"hold {grief}" in act.briefing_block().split("PROPOSED FOR THE SHELF")[1]
+    listed = act.briefing_block().split("PROPOSED FOR THE SHELF")[1]
+    assert f"#{grief}" in listed
+    assert "ask him in chat" in listed.lower()
 
 
 def test_a_bare_proposal_is_refused():
