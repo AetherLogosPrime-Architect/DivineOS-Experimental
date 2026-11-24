@@ -1491,6 +1491,19 @@ def _shape_content(
     return "pointer", "", path
 
 
+def _shape_item(item: _CachedItem) -> tuple[MemoryLinkageContentKind, str, str]:
+    """``_shape_content`` for one loaded item, with the pointer shape shown as the item's title.
+
+    The pointer shape returns an empty body (it must never carry the file's words), but the surfaces
+    print the body, so the first writing item to reach a real reply printed as nothing but its path
+    (found live 2026-11-23). The title is the arrival: whose it is, and the think-with label.
+    """
+    kind, shown, path = _shape_content(item.source, item.content, item.path)
+    if kind == "pointer":
+        shown = item.title
+    return kind, shown, path
+
+
 def _cite_reason(
     item: _CachedItem,
     similarity: float,
@@ -1542,9 +1555,7 @@ def retrieve_v1(
             similarity = _cosine(topic_vec, item.embedding)
             if similarity < threshold:
                 continue
-            content_kind, content, path_or_ref = _shape_content(
-                item.source, item.content, item.path
-            )
+            content_kind, content, path_or_ref = _shape_item(item)
             recency_days = _days_since(item.filed_at_unix)
             rank = composite_score(
                 similarity=similarity,

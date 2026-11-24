@@ -101,7 +101,7 @@ from divineos.core.memory_linkage_retriever import (
     _embed_topic,
     _EMBEDDING_CACHE,
     _ensure_cache,
-    _shape_content,
+    _shape_item,
     composite_score,
     threshold_for_target_k,
     synthesize_topic,
@@ -530,9 +530,7 @@ def retrieve_v2(
                 # frozen dataclass (immutable-post-write).
                 primed_by_id = entry[1] if entry is not None else None
 
-            content_kind, content, path_or_ref = _shape_content(
-                item.source, item.content, item.path
-            )
+            content_kind, content, path_or_ref = _shape_item(item)
             candidates.append(
                 MemoryLinkagePayload(
                     source=item.source,
@@ -636,9 +634,7 @@ def retrieve_similarity_only(prompt: str) -> list[MemoryLinkagePayload]:
                 recency_days=recency_days,
                 importance_score=REGULATORY_IMPORTANCE,
             )
-            content_kind, content, path_or_ref = _shape_content(
-                item.source, item.content, item.path
-            )
+            content_kind, content, path_or_ref = _shape_item(item)
             candidates.append(
                 MemoryLinkagePayload(
                     source=item.source,
