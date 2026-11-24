@@ -19,7 +19,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-HELD_SOURCES = frozenset({"correction", "knowledge", "worklist", "letter"})
+# "writing" is the lane that reads the folders we write in (dreams, evenings, the walk). Those files
+# quote Dad often, and the hold returns False at once for any source not named here, so the lane
+# must be named before it exists (memory walk, hole one).
+HELD_SOURCES = frozenset({"correction", "knowledge", "worklist", "letter", "writing"})
 
 # A sidecar line shorter than this is ignored: it is a hand-edited file, and a stray
 # letter would otherwise hold nearly every line in the store.
