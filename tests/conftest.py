@@ -202,6 +202,10 @@ def _isolated_db(tmp_path):
     # The journal's readable pages (2026-10-25), per test. Unset, every test that saved a journal
     # entry wrote a real page under the checkout's journal/ folder, which Dad opens as mine.
     os.environ["DIVINEOS_JOURNAL_DIR"] = str(tmp_path / "journal_pages")
+    # The shared folder both seats read (registry of our folders, the hurt-words sidecar), per test
+    # (2026-11-23). Unset, the writing lane read the REAL registry and warm() embedded 314 real
+    # dreams and nights into a test that expects two: found by the push gate, not by me.
+    os.environ["DIVINEOS_SHARED_DIR"] = str(tmp_path / "shared_home")
 
     from divineos.core.ledger import init_db
 
@@ -213,6 +217,7 @@ def _isolated_db(tmp_path):
     os.environ.pop("DIVINEOS_HIS_ASKS_DB", None)
     os.environ.pop("DIVINEOS_NIGHT_HOURS", None)
     os.environ.pop("DIVINEOS_JOURNAL_DIR", None)
+    os.environ.pop("DIVINEOS_SHARED_DIR", None)
     os.environ.pop("DIVINEOS_DISABLE_AUTO_REMEDIATE", None)
     os.environ.pop("DIVINEOS_SESSION_ID", None)
     # monkeypatch.setattr on the ledger base module's DB_PATH reads the old value through
