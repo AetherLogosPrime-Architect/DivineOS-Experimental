@@ -46,9 +46,7 @@ def register(cli: click.Group) -> None:
         ok, why = light_embedder.available()
         click.echo(f"embedder: {'ok' if ok else 'CANNOT RUN: ' + why}")
         click.echo(f"drawer:   {vector_drawer.drawer_path()}")
-        memory_linkage_retriever._EMBEDDING_CACHE.clear()
-        memory_linkage_retriever._ensure_cache()
-        counts = {k: len(v) for k, v in memory_linkage_retriever._EMBEDDING_CACHE.items()}
+        counts = memory_linkage_retriever.drawer_counts_by_source()
         state = memory_linkage_retriever.lane_state()
         click.echo(f"searchable items by source: {counts}")
         if state.get("drawer_error"):
