@@ -306,7 +306,9 @@ def _exploration_count(occupant: str | None = None) -> int | None:
         from pathlib import Path
         import re as _re
 
-        subdir = (occupant or "aether").lower()
+        from divineos.core.sibling_audit_rounds import acting_seat
+
+        subdir = (occupant or acting_seat()).lower()
         candidates = [
             Path(f"exploration/{subdir}"),
             Path.cwd() / "exploration" / subdir,

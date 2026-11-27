@@ -125,8 +125,15 @@ def letter_doorbell_listening(beat: Path | None = None, now: float | None = None
     not listening; only a fresh heartbeat is OK.
     """
     if beat is None:
-        root = Path(__file__).resolve().parents[3]
-        seat = "aria" if "aria" in str(root).lower() else "aether"
+        from divineos.core.sibling_audit_rounds import acting_seat
+
+        seat = acting_seat()
+        if seat == "unknown-seat":
+            return CheckResult(
+                "letters.doorbell",
+                UNKNOWN,
+                "cannot tell which seat this is, so no heartbeat to read",
+            )
         beat = Path.home() / ".divineos-shared" / f".{seat}_doorbell_alive"
     now = time.time() if now is None else now
     remedy = "re-arm: bash scripts/letter_doorbell.sh <seat>, run in the background"

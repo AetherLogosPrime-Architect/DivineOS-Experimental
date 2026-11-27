@@ -69,6 +69,7 @@ class ImportReport:
 
 def _recipient_of(name: str) -> str:
     """Who she addressed. Defaults to aether; REPLY_TO_ARIA is the exception."""
+    # SEAT-NAME-OK: a reply FILE's name says whom it is addressed to; this maps a file, it guesses no one.
     return "aria" if name.upper().startswith("REPLY_TO_ARIA") else "aether"
 
 

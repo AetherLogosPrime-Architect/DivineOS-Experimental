@@ -92,11 +92,10 @@ def register(cli: click.Group) -> None:
         """Link a saved moment to the lessons of his it belongs to (per seat)."""
 
     def _seat() -> str:
-        from pathlib import Path
 
         from divineos.core import his_lessons_shelf
 
-        return his_lessons_shelf.seat(Path.cwd())
+        return his_lessons_shelf.seat()
 
     @moment_links_group.command("propose")
     @click.argument("moment_id")

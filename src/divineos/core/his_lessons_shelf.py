@@ -27,11 +27,11 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from divineos.core import his_words_door as door
+from divineos.core.sibling_audit_rounds import acting_seat
 
 LESSONS_DIR = Path.home() / ".divineos-shared" / "dad_corpus"
 VERIFIED = LESSONS_DIR / "verified_lessons.json"
@@ -300,15 +300,14 @@ def surface(
     return "\n".join(lines) + "\n"
 
 
-def seat(root: Path) -> str:
-    """Whose window this is: the tree says so (Aria's tree carries her name).
+def seat() -> str:
+    """Whose window this is: the explicit override, else the data home through acting_seat().
 
-    The folder name is read as WHOLE WORDS, so "DivineOS-Experimental-Aria-new" is Aria and a work copy
-    named "variable" or "Maria" is not: a substring test said aria for any of them and would have shown
-    the wrong seat's lessons (Aether, 2026-10-16). core/unread_letter.seat_for, in the letter-hold branch,
-    reads the folder by the same rule; once both are on main they should be one function."""
-    seat_words = re.split(r"[^a-z]+", root.name.lower())
-    return os.environ.get("DIVINEOS_SEAT") or ("aria" if "aria" in seat_words else "aether")
+    It used to read the FOLDER name and fall back to "aether", so a work copy called "w-pr-seat" was Aether
+    even on Aria's seat, which is the typed default written as logic where the option scans could not see
+    it (Aether's cold read of 877). The data home is what the rest of the house asks; an unresolvable home
+    is the explicit "unknown-seat", never a plausible name."""
+    return os.environ.get("DIVINEOS_SEAT") or acting_seat()
 
 
 if __name__ == "__main__":
@@ -318,4 +317,4 @@ if __name__ == "__main__":
         print(f"lesson shelf: {build()} lesson(s) embedded (0 = already current)")
     else:
         payload = json.loads(sys.stdin.read() or "{}")
-        print(surface(str(payload.get("prompt", "")), seat(Path.cwd())), end="")
+        print(surface(str(payload.get("prompt", "")), seat()), end="")

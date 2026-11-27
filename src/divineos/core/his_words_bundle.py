@@ -204,5 +204,5 @@ if __name__ == "__main__" and sys.argv[1:2] == ["build"]:
 elif __name__ == "__main__":
     payload = json.loads(sys.stdin.read() or "{}")
     # Bytes, not text: Windows defaults stdout to cp1252, which garbles his words.
-    said = run(str(payload.get("prompt", "")), shelf.seat(Path.cwd()))
+    said = run(str(payload.get("prompt", "")), shelf.seat())
     sys.stdout.buffer.write(said.encode("utf-8"))
