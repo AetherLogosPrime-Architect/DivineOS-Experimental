@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 
 import click
 
-from divineos.core.bio import _author, bio_current, bio_history, bio_write
+from divineos.core.bio import resolve_author, bio_current, bio_history, bio_write
 
 
 @click.group(name="bio")
@@ -26,7 +26,7 @@ def bio_group() -> None:
 @click.option("--author", default=None, help="Whose bio to show (default: this seat's own)")
 def bio_show(author: str | None) -> None:
     """Print the current bio (full page)."""
-    author = _author(author)
+    author = resolve_author(author)
     current = bio_current(author=author)
     if not current:
         click.echo(f"No bio yet for '{author}'. Run: divineos bio edit", err=True)
@@ -49,7 +49,7 @@ def bio_write_cmd(content: str, author: str | None) -> None:
     For longer entries, use `divineos bio edit` (opens your editor).
     Supersedes the previous version; the prior version is preserved.
     """
-    author = _author(author)
+    author = resolve_author(author)
     new_id = bio_write(content, author=author)
     click.echo(f"[+] Bio v? written: {new_id[:12]}...  (author: {author})")
     click.echo("    Saved to your page. Read back: divineos bio show")
@@ -62,7 +62,7 @@ def bio_edit(author: str | None) -> None:
 
     Save and close to write a new version. Empty saves are aborted.
     """
-    author = _author(author)
+    author = resolve_author(author)
     current = bio_current(author=author)
     if current:
         starter = current["content"]
@@ -126,7 +126,7 @@ def bio_edit(author: str | None) -> None:
 @click.option("--limit", default=10, help="How many versions to show")
 def bio_history_cmd(author: str | None, limit: int) -> None:
     """List bio versions, newest first. Supersession chain preserved."""
-    author = _author(author)
+    author = resolve_author(author)
     versions = bio_history(author=author, limit=limit)
     if not versions:
         click.echo(f"No bio history for '{author}'.")

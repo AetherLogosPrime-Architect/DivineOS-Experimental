@@ -52,7 +52,7 @@ def init_bio_table() -> None:
         conn.close()
 
 
-def _author(author: str | None) -> str:
+def resolve_author(author: str | None) -> str:
     """Whose page: the one named, or else the seat that is running.
 
     2026-11-23: these four functions and their commands defaulted to "aether", so on Aria's seat `bio show` looked
@@ -72,7 +72,7 @@ def bio_write(content: str, author: str | None = None) -> str:
     Returns the new bio_id. The prior version is preserved — supersession
     not deletion, like everything else in DivineOS.
     """
-    author = _author(author)
+    author = resolve_author(author)
     init_bio_table()
     if not content.strip():
         raise ValueError("Bio content cannot be empty")
@@ -107,7 +107,7 @@ def bio_write(content: str, author: str | None = None) -> str:
 
 def bio_current(author: str | None = None) -> dict[str, Any] | None:
     """Get the most recent bio version for this author, or None."""
-    author = _author(author)
+    author = resolve_author(author)
     init_bio_table()
     conn = _get_connection()
     try:
@@ -132,7 +132,7 @@ def bio_current(author: str | None = None) -> dict[str, Any] | None:
 
 def bio_history(author: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
     """Get all bio versions for this author, newest first."""
-    author = _author(author)
+    author = resolve_author(author)
     init_bio_table()
     conn = _get_connection()
     try:
