@@ -52,6 +52,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Callable, Literal
 
+from divineos.core.dream_files import A_DREAM_LABEL
+
 # Source-type literal — union of the five stores the retriever indexes over.
 MemoryLinkageSource = Literal[
     "knowledge",
@@ -66,6 +68,9 @@ MemoryLinkageSource = Literal[
     # Moments that changed the relationship and notes about who he is (shared_history and
     # relationship_notes). Added 2026-10-25: the table had zero readers.
     "moment",
+    # My dreams (dreams/<seat>/NNN_*.md), read-only. Unbidden and wild, never a
+    # record of what happened, so every line that shows one says so.
+    "dream",
 ]
 
 # Tier literal — see §Q4 of the workbench spec.
@@ -184,6 +189,8 @@ def render_payload(payload: MemoryLinkagePayload) -> str:
     agent can Read the full body if it wants; full-kind inline the body.
     """
     header = f"## PRIOR SUBSTRATE — {payload.source} / {payload.tier}"
+    if payload.source == "dream":
+        header += f" ({A_DREAM_LABEL})"
     reason = f"matched: {payload.matched_reason} (rank {payload.composite_rank:.2f})"
     title = f"**{payload.title}**"
     if payload.content_kind == "snippet":
@@ -258,6 +265,8 @@ def compose_block(prompt: str, transcript_path: str | None = None) -> ComposeBlo
         if len(gist) > _LINE_CHARS:
             gist = gist[:_LINE_CHARS].rstrip() + "..."
         where = f" ({payload.path_or_ref})" if payload.path_or_ref else ""
+        if payload.source == "dream":
+            gist = f"({A_DREAM_LABEL}) {gist}"
         lines.append(f"- [{payload.source}, {payload.similarity:.2f}] {gist}{where}")
     blocks = ["## THE PAST ON THIS (memory link)\n" + "\n".join(lines)] if lines else []
     notes = []
