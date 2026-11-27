@@ -218,8 +218,11 @@ def bring(
         return [], "an automated notice, not his message"
     if me not in FAMILY:
         # Lessons are chosen by whom they were taught to; with no seat, every one would be filtered as
-        # someone else's and the shelf would read as empty rather than as unable to say.
-        return [], "cannot tell which seat this is, so no lesson can be chosen as his for it"
+        # someone else's and the shelf would read as empty rather than as unable to say. The reason names
+        # which of the two it is: an unresolvable seat, or a seat the tree knows that this list does not.
+        if me == "unknown-seat":
+            return [], "cannot tell which seat this is, so no lesson can be chosen as his for it"
+        return [], f"this shelf does not know the seat {me!r} (FAMILY lists {sorted(FAMILY)})"
     try:
         items, vecs = _load(index_dir)
         q = door._embed_query(door._squash(f"{message} {context}")[:2000])

@@ -85,6 +85,15 @@ def test_the_lessons_shelf_says_it_could_not_search_on_an_unknown_seat(tmp_path)
     assert "cannot tell which seat" not in real and "could not be searched" in real
 
 
+def test_a_named_seat_the_shelf_does_not_know_is_named_not_called_unknown(tmp_path):
+    # If a third seat is added to the tree and not to FAMILY, the shelf must not say it cannot tell which
+    # seat this is: it can, and the fault is the shelf's list (Aether's note on 240c9a8e9).
+    out = his_lessons_shelf.surface(
+        "yes the same thing again please", "a-third-seat", index_dir=tmp_path, log=None
+    )
+    assert "a-third-seat" in out and "cannot tell which seat" not in out, out
+
+
 def test_an_exploration_count_on_an_unknown_seat_is_none_not_zero(monkeypatch, tmp_path):
     from divineos.core import multiplex_panels
 

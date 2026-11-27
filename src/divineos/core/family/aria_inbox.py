@@ -203,7 +203,6 @@ def letters_from_aria(root: Path | None = None) -> list[dict[str, Any]]:
 # bug Aria hit on her side, avoided here by set-membership not mtime-newest).
 
 
-# Whether the briefing call that omits `sender` should run on Aria's seat at all is open, filed with Aether.
 # SEAT-NAME-OK: `sender` names whose letters these are; this module is Aether's reach to Aria's folder.
 def _seen_path(sender: str = "aria") -> Path:
     """Where THIS agent tracks which of ``sender``'s letters it has seen.
