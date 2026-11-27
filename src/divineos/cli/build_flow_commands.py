@@ -259,6 +259,45 @@ def _open_prs() -> list[dict] | None:
     return parsed
 
 
+def _open_pr_total() -> int | None:
+    """GitHub's own count of open requests, asked a DIFFERENT way than the list.
+
+    The list comes from ``pr list``; this comes from the search endpoint. A count
+    taken from the same response as the list would agree with itself however
+    truncated the list was, so it is a separate question on purpose. None when it
+    cannot be read.
+    """
+    out = _gh(
+        [
+            "api",
+            "search/issues?q=repo:{owner}/{repo}+is:pr+is:open&per_page=1",
+            "--jq",
+            ".total_count",
+        ]
+    )
+    if out is None:
+        return None  # both-empty: no answer and an unreadable answer both leave the total unknown, and the one caller prints "could not ask GitHub" for either
+    try:
+        return int(out.strip())
+    except ValueError:
+        return None  # both-empty: see above; the caller needs only whether the total is known, never which way it failed
+
+
+def read_count_line(read: int, github_total: int | None) -> str:
+    """One line saying how many the board read beside how many GitHub says are open."""
+    if github_total is None:
+        return (
+            f"  Board read {read} open request(s); could not ask GitHub how many are open, "
+            "so a missing one would not show."
+        )
+    if read < github_total:
+        return (
+            f"  Board read {read}; GitHub says {github_total} are open -- NOT ALL: "
+            f"{github_total - read} request(s) are not on this board."
+        )
+    return f"  Board read {read}; GitHub says {github_total} are open."
+
+
 """``gh pr view --json files`` returns at most this many entries, with no
 warning and no pagination. A result of exactly this length cannot be
 distinguished from a truncated one."""
@@ -1063,6 +1102,7 @@ def render(
         f"  {ready} ready, {in_flight} in flight, {len(attention)} needing attention"
         f" (of {len(statuses)})."
     )
+    lines.append(read_count_line(len(statuses), _open_pr_total()))
     if attention:
         lines.append(f"  Needing attention: {', '.join(f'#{n}' for n in attention)}")
     else:
