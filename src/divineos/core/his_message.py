@@ -440,3 +440,37 @@ def opener_of_prompt(transcript_path: object, prompt: str) -> str:
 def may_carry_arrival(line: str) -> bool:
     """A cheap pre-check on a raw transcript line, before parsing it as JSON."""
     return '"origin"' in line or '"queued_command"' in line
+
+
+# Every notice shape the answer check knows, spelled out. A new shape the harness invents is NOT
+# handled until it is added here (and a case in tests/test_harness_notices_are_not_his_words.py).
+# Real and HTML-escaped tags: ``&lt;system-reminder&gt;`` arrives when a notice is quoted through
+# a layer that escapes it. A notice is only a WHOLE envelope that opens at a line start and whose
+# closing tag ends its line: a pair he types inside his own sentence is his words, and an
+# envelope that never closes is left alone (eating to the end would swallow his real words).
+# The body may not contain a second opening of the same tag, so a pair he typed cannot stretch
+# over to a real notice further down and take the words between.
+_NOTICE_BLOCK = re.compile(
+    r"^[ \t]*(?:<|&lt;)(system-reminder|task-notification)\b[^>\n]*?(?:>|&gt;)"
+    r"(?:(?!(?:<|&lt;)\1\b)[\s\S])*?(?:</|&lt;/)\1\s*(?:>|&gt;)[ \t]*(?=\r?\n|\Z)",
+    re.IGNORECASE | re.MULTILINE,
+)
+# "[SYSTEM NOTIFICATION - NOT USER INPUT] ..." is the banner LINE only, and only at a line start.
+# A mention of it mid-sentence is his words, and the line right after it (no blank line) is his.
+_NOTICE_BANNER = re.compile(
+    r"^[ \t]*\[SYSTEM NOTIFICATION\b[^\n]*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def without_notices(text: str) -> str:
+    """``text`` with every known harness notice cut out, wherever it sits (front, middle, end).
+
+    ``_his_part`` only peels envelopes that OPEN the message and knows neither the escaped form
+    nor the banner, so the answer check measured the notice as his words. Kept separate on
+    purpose: the shared reader's source is hashed into the words-door index stamp, so editing it
+    would force every index to re-embed.
+    """
+    original = text or ""
+    cut = _NOTICE_BANNER.sub(" ", _NOTICE_BLOCK.sub(" ", original))
+    return original if cut == original else cut.strip()
