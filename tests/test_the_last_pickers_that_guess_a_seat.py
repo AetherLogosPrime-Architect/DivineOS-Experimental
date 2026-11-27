@@ -70,6 +70,114 @@ def test_the_waiting_claim_surface_says_could_not_check_when_the_seat_is_unknown
     assert "seat" in (out.error or "")
 
 
+# ----------- what each changed caller answers on a seat it cannot tell (Aether's holes 1 and 2)
+# An unknown seat must read as "could not tell", never as a plausible empty answer: a count of 0, a plain
+# False, an empty shelf. These pin the answer each caller gives, so the false-clean cannot come back quietly.
+
+
+def test_the_lessons_shelf_says_it_could_not_search_on_an_unknown_seat(tmp_path):
+    ask = "yes the same thing again please"
+    out = his_lessons_shelf.surface(ask, "unknown-seat", index_dir=tmp_path, log=None)
+    assert "cannot tell which seat" in out, out
+    # Control: a real seat with the same empty index is stopped by the index, not by the seat, so the
+    # assertion above cannot be passing on the index error that both would otherwise hit.
+    real = his_lessons_shelf.surface(ask, "aria", index_dir=tmp_path, log=None)
+    assert "cannot tell which seat" not in real and "could not be searched" in real
+
+
+def test_an_exploration_count_on_an_unknown_seat_is_none_not_zero(monkeypatch, tmp_path):
+    from divineos.core import multiplex_panels
+
+    _home_is(monkeypatch, None)
+    monkeypatch.chdir(tmp_path)
+    assert multiplex_panels._exploration_count() is None
+
+
+def test_the_obligations_gate_stays_on_when_the_seat_is_unknown(monkeypatch, tmp_path):
+    from divineos.core import obligations
+
+    _home_is(monkeypatch, None)
+    monkeypatch.delenv("DIVINEOS_MEMBER", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    assert obligations.is_gate_disabled() is False
+
+
+def test_the_unrouted_home_for_an_unknown_seat_is_not_a_real_place(monkeypatch, tmp_path):
+    from divineos.core import instruments
+
+    _home_is(monkeypatch, None)
+    monkeypatch.delenv("DIVINEOS_MEMBER", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    home = instruments.unrouted_member_home()
+    assert home.name == ".divineos-unknown-seat" and not home.exists()
+
+
+def test_the_family_queue_briefing_reads_the_acting_seats_queue_not_aethers(monkeypatch):
+    from divineos.core import family_queue_surface as fqs
+
+    asked = []
+    monkeypatch.setattr(
+        fqs.queue, "for_recipient", lambda recipient, **kw: asked.append(recipient) or []
+    )
+    _home_is(monkeypatch, SIBLING_HOMES["aria"])
+    fqs.format_for_briefing()
+    _home_is(monkeypatch, SIBLING_HOMES["aether"])
+    fqs.format_for_briefing()
+    assert asked == ["aria", "aether"]
+
+
+def test_the_family_queue_briefing_says_so_when_the_seat_is_unknown(monkeypatch):
+    from divineos.core import family_queue_surface as fqs
+
+    asked = []
+    monkeypatch.setattr(
+        fqs.queue, "for_recipient", lambda recipient, **kw: asked.append(recipient) or []
+    )
+    _home_is(monkeypatch, None)
+    out = fqs.format_for_briefing()
+    assert "cannot tell which seat" in out and asked == []
+
+
+def test_the_doorbell_check_is_unknown_when_the_seat_is_unknown(monkeypatch):
+    from divineos.core import dashboard_checks
+
+    _home_is(monkeypatch, None)
+    result = dashboard_checks.letter_doorbell_listening()
+    assert result.state == dashboard_checks.UNKNOWN
+
+
+def _copies_of_acting_seat(text):
+    """`this_seat() or "unknown-seat"` written out by hand: the same answer as acting_seat(), copied."""
+    return [
+        n.lineno
+        for n in ast.walk(ast.parse(text))
+        if isinstance(n, ast.BoolOp)
+        and isinstance(n.op, ast.Or)
+        and any(
+            isinstance(v, ast.Call)
+            and getattr(v.func, "id", getattr(v.func, "attr", "")) == "this_seat"
+            for v in n.values
+        )
+        and any(isinstance(v, ast.Constant) and v.value == "unknown-seat" for v in n.values)
+    ]
+
+
+def test_the_copy_scan_finds_a_hand_written_acting_seat():
+    assert _copies_of_acting_seat('x = this_seat() or "unknown-seat"') == [1]
+    assert _copies_of_acting_seat("x = acting_seat()") == []
+
+
+def test_acting_seat_is_the_only_place_that_spells_out_this_seat_or_unknown():
+    where = {}
+    for path in sorted(SRC.rglob("*.py")):
+        lines = _copies_of_acting_seat(path.read_text(encoding="utf-8", errors="ignore"))
+        if lines:
+            where[path.relative_to(SRC).as_posix()] = lines
+    assert list(where) == ["core/sibling_audit_rounds.py"], where
+
+
 # ------------------------------------------------ the floor: a seat name as the fallback in logic
 
 _NAMES = frozenset(SIBLING_HOMES)
@@ -86,6 +194,16 @@ def _fallback_lines(text):
     lines = text.splitlines()
     found = set()
     for node in ast.walk(ast.parse(text)):
+        if isinstance(node, ast.arguments):
+            # `def f(seat="aether")`: the commonest shape of all. A default has no line of its own on the
+            # arguments node, so each default constant is judged where it stands.
+            for default in [*node.defaults, *node.kw_defaults]:
+                if default is not None and _is_name(default):
+                    if MARKER not in " ".join(
+                        lines[max(default.lineno - 2, 0) : default.end_lineno]
+                    ):
+                        found.add(default.lineno)
+            continue
         hit = (
             (
                 isinstance(node, ast.BoolOp)
@@ -96,7 +214,7 @@ def _fallback_lines(text):
             or (
                 isinstance(node, ast.Call)
                 and isinstance(node.func, ast.Attribute)
-                and node.func.attr in {"get", "getenv"}
+                and node.func.attr in {"get", "getenv", "setdefault"}
                 and len(node.args) == 2
                 and _is_name(node.args[1])
             )
@@ -118,6 +236,14 @@ def test_the_scan_finds_the_shapes_the_old_scans_could_not_see():
     )
     # A marker two lines up excuses nothing: it must sit directly above.
     assert _fallback_lines('# SEAT-NAME-OK: x\nfoo()\nx = "aether" if a else "b"') == [3]
+
+
+def test_the_scan_finds_a_function_default_and_a_setdefault():
+    assert _fallback_lines('def f(seat="aether"):\n    pass') == [1]
+    assert _fallback_lines('def f(*, seat="aria"):\n    pass') == [1]
+    assert _fallback_lines('d.setdefault("seat", "aether")') == [1]
+    assert _fallback_lines("def f(seat=None):\n    pass") == []
+    assert _fallback_lines('# SEAT-NAME-OK: x\ndef f(seat="aether"):\n    pass') == []
 
 
 def test_a_help_string_that_says_or_aether_is_prose_not_a_guess():

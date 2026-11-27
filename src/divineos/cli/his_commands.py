@@ -12,13 +12,13 @@ from __future__ import annotations
 import click
 
 from divineos.core import his_asks, sort_first
-from divineos.core.sibling_audit_rounds import this_seat
+from divineos.core.sibling_audit_rounds import acting_seat
 
 
 def _seat() -> str:
     # Same fallback the front door files under, so the refusal and the sort
     # always agree about which seat a message belongs to.
-    return this_seat() or "unknown-seat"
+    return acting_seat()
 
 
 def register(cli: click.Group) -> None:

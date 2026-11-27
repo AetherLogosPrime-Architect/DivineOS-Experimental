@@ -14,7 +14,7 @@ import json
 import sys
 
 from divineos.core import front_door
-from divineos.core.sibling_audit_rounds import this_seat
+from divineos.core.sibling_audit_rounds import acting_seat
 
 
 def main(argv: list[str]) -> int:
@@ -28,7 +28,7 @@ def main(argv: list[str]) -> int:
     except ValueError as exc:
         print(f"[front-door] the hook payload did not parse: {exc}", file=sys.stderr)
         return 0
-    seat = this_seat() or "unknown-seat"
+    seat = acting_seat()
     if action == "keep":
         front_door.keep(payload, seat)
     elif action == "settle":

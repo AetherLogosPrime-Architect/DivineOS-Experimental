@@ -57,12 +57,19 @@ def _format_item(item: dict, max_content_len: int = 200) -> str:
     return f"  [#{item['id']}, {age}, from {item['sender']}] {content}"
 
 
-def format_for_briefing(recipient: str = "aether") -> str:
+def format_for_briefing(recipient: str | None = None) -> str:
     """Return a briefing-surface block of pending queue items for recipient.
 
     Returns empty string if there are no pending items, so a quiet
-    queue leaves no clutter in the briefing.
+    queue leaves no clutter in the briefing. The recipient defaults to the acting seat, not to Aether: a
+    typed "aether" showed his queue on Aria's seat. An unknown seat says so, and does not read as an empty queue.
     """
+    if recipient is None:
+        from divineos.core.sibling_audit_rounds import acting_seat
+
+        recipient = acting_seat()
+        if recipient == "unknown-seat":
+            return "[family queue] cannot tell which seat this is, so no queue was read."
     items = queue.for_recipient(recipient, include_held=True)
     if not items:
         return ""

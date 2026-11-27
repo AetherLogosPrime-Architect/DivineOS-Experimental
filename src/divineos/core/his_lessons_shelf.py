@@ -216,6 +216,10 @@ def bring(
     message = door.his_part(message)
     if not message:
         return [], "an automated notice, not his message"
+    if me not in FAMILY:
+        # Lessons are chosen by whom they were taught to; with no seat, every one would be filtered as
+        # someone else's and the shelf would read as empty rather than as unable to say.
+        return [], "cannot tell which seat this is, so no lesson can be chosen as his for it"
     try:
         items, vecs = _load(index_dir)
         q = door._embed_query(door._squash(f"{message} {context}")[:2000])
