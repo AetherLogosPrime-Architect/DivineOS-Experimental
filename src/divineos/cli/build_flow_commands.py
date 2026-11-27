@@ -222,6 +222,14 @@ def _run_git(args: list[str]) -> str | None:
     return p.stdout if p.returncode == 0 else None
 
 
+"""The most open requests the board will ask GitHub for. It was 50 and 71 were
+open (2026-11-27): the 21 oldest were absent from the board with no word said,
+and ``divineos landing`` read each absence as "could not look". A list that
+comes back exactly this long cannot be told from a truncated one, so it is
+answered as unknown, never as "these are all of them"."""
+_GH_OPEN_PRS_CAP = 500
+
+
 def _open_prs() -> list[dict] | None:
     out = _gh(
         [
@@ -230,7 +238,7 @@ def _open_prs() -> list[dict] | None:
             "--state",
             "open",
             "--limit",
-            "50",
+            str(_GH_OPEN_PRS_CAP),
             "--json",
             # body: station 9 reads what the OTHER open requests claim to replace.
             "number,headRefName,isDraft,body",
@@ -246,7 +254,9 @@ def _open_prs() -> list[dict] | None:
     # valid JSON but not a list must read as could-not-parse, not as zero open
     # PRs -- that is the same absence-becomes-value collapse Hoare's lens is
     # seated for, and this module already carries one instance of it.
-    return parsed if isinstance(parsed, list) else None
+    if not isinstance(parsed, list) or len(parsed) >= _GH_OPEN_PRS_CAP:
+        return None
+    return parsed
 
 
 """``gh pr view --json files`` returns at most this many entries, with no
