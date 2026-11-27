@@ -87,6 +87,9 @@ def test_seen_set_roundtrip_and_unseen(tmp_path, monkeypatch):
 
 
 def test_briefing_block_empty_when_all_seen(tmp_path, monkeypatch):
+    # The block now asks whose seat is acting; this test is about Aether's side, so say so
+    # rather than pass only because the checkout it runs in happens to be Aether's.
+    monkeypatch.setattr("divineos.core.sibling_audit_rounds.this_seat", lambda: "aether")
     seen_file = tmp_path / "seen.json"
     monkeypatch.setattr(aria_inbox, "_seen_path", lambda sender="aria": seen_file)
     d = tmp_path / "family" / "letters"

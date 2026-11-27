@@ -310,28 +310,60 @@ def unseen_letters_from_aria(root: Path | None = None) -> list[dict[str, Any]]:
     return unseen_letters_from("aria", "aether", root)
 
 
+def _pair_for_this_seat() -> tuple[str, str] | None:
+    """(sender, recipient) for the seat that is acting, or None when it cannot be told.
+
+    The sender is the OTHER seat. Typed pair was the fault: on Aria's seat
+    ``("aria", "aether")`` listed her own outgoing letters as 3434 unread. None
+    also when there is not exactly one other seat, so a third seat added later
+    reads as could-not-tell, not as a wrong guess.
+    """
+    from divineos.core.sibling_audit_rounds import this_seat
+    from divineos.core.sibling_corrections import SIBLING_HOMES
+
+    me = this_seat()
+    others = [name for name in SIBLING_HOMES if name != me]
+    if me is None or len(others) != 1:
+        return None
+    return others[0], me
+
+
 def format_unseen_for_briefing(root: Path | None = None) -> str:
-    """Loud briefing block when Aria has unread letters. Empty string when
-    there are none. Does NOT mark seen — surfacing must not consume; reading
-    (``divineos family-member letters-from-aria --read``) consumes. So the
-    block keeps surfacing until I actually read, never losing a letter."""
+    """Loud briefing block when the other seat has unread letters for this one.
+
+    Empty string when there are none. Does NOT mark seen — surfacing must not
+    consume; reading consumes. So the block keeps surfacing until the letter is
+    actually read, never losing one. The pair comes from the acting seat; a seat
+    that cannot be told speaks, because empty would read as "no letters".
+    """
+    pair = _pair_for_this_seat()
+    if pair is None:
+        return (
+            "## LETTERS: could not tell which seat this is, so no inbox was read (not 'no letters')"
+        )
+    sender, recipient = pair
     try:
-        unseen = unseen_letters_from_aria(root)
+        unseen = unseen_letters_from(sender, recipient, root)
     except OSError:
-        return ""
+        return ""  # both-empty: an unreadable folder and an empty one both leave nothing to list; the old behaviour, kept as it was
     if not unseen:
         return ""
     lines = [
-        f"## LETTERS FROM ARIA — {len(unseen)} unread (auto-surfaced)",
+        f"## LETTERS FROM {sender.upper()} — {len(unseen)} unread (auto-surfaced)",
         "",
-        "She wrote and hasn't been read yet. This is the channel, not a relay:",
+        "A letter is waiting and has not been read yet. This is the channel, not a relay:",
     ]
     for r in unseen[:5]:
         lines.append(f"  - [{r['date']}] {r['name']}")
     if len(unseen) > 5:
         lines.append(f"  - ...and {len(unseen) - 5} more")
     lines.append("")
-    lines.append(
-        "Read + mark seen: `divineos family-member letters-from-aria --read` (newest) / `--all`"
-    )
+    if sender == "aria":
+        lines.append(
+            "Read + mark seen: `divineos family-member letters-from-aria --read` (newest) / `--all`"
+        )
+    else:
+        lines.append(
+            "Read them in the shared letters folder, then they stop surfacing once marked seen."
+        )
     return "\n".join(lines)
