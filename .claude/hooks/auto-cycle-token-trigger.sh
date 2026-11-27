@@ -180,12 +180,35 @@ if ts < launched:
 
 cid = marker.get("cycle_id", "?")
 steps = marker.get("steps") or {}
+# A step with ran=false did not run: a dry run, or a step skipped. It is not a
+# failure of something that ran, and it must not be read as a success either.
+# (A dry run now writes no marker at all; an old one on disk can still be here.)
+# A step is the pair (ran, succeeded). ran must be a real true/false: the text
+# "false" or null is no answer. ran=false with succeeded=true contradicts itself.
+# Neither may read as a success, and neither is a plain not-run.
+not_run = [
+    n
+    for n, i in steps.items()
+    if (i or {}).get("ran") is False and (i or {}).get("succeeded") is not True
+]
+unreadable = [
+    n
+    for n, i in steps.items()
+    if not isinstance((i or {}).get("ran"), bool)
+    or ((i or {}).get("ran") is False and (i or {}).get("succeeded") is True)
+]
 bad = [
     f"{name}={(info or {}).get('error_class') or 'not-succeeded'}"
     for name, info in steps.items()
-    if not (info or {}).get("succeeded")
+    if name not in not_run and name not in unreadable and not (info or {}).get("succeeded")
 ]
-if bad:
+bad += [f"{n}=contradictory-or-unreadable-ran" for n in sorted(unreadable)]
+if not steps:
+    out(f"CYCLE {cid} NO STEPS RECORDED -- the marker lists no step results, so nothing is known")
+elif len(not_run) == len(steps):
+    out(f"CYCLE {cid} DID NOT RUN -- {len(steps)} step(s) recorded as not run (a dry run)")
+elif bad or not_run:
+    bad += [f"{n}=not-run" for n in sorted(not_run)]
     out(f"CYCLE {cid} FAILED -- " + ", ".join(sorted(bad)))
 else:
     out(f"CYCLE {cid} COMPLETED -- {len(steps)} step(s), all succeeded")
