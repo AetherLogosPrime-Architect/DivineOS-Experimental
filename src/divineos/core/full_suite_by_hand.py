@@ -24,7 +24,11 @@ import shlex
 import subprocess
 from pathlib import Path
 
-from divineos.core.command_parsing import split_shell_segments, strip_prefixes_raw
+from divineos.core.command_parsing import (
+    _SUBSTITUTION_MARKS,
+    split_shell_segments,
+    strip_prefixes_raw,
+)
 
 # Nothing runs under these.
 _COLLECT_ONLY = {"--collect-only", "--co"}
@@ -73,14 +77,80 @@ def _pytest_args(segment: str) -> list[str] | None:
         return None
     if _program(tokens[0]) == "git" and not _git_can_run(tokens):
         return None
+    if _is_record_segment(segment, tokens):
+        return None
+    real = _pytest_invocation_args(tokens)
+    if real is not None:
+        return real
+    if any(_PYTEST_WORD.search(tok) for tok in tokens):
+        return []
+    return None
+
+
+def _pytest_invocation_args(tokens: list[str]) -> list[str] | None:
+    """The arguments after a real pytest program or ``-m pytest``, else None."""
     for i, tok in enumerate(tokens):
         if _program(tok) in ("pytest", "py.test"):
             return tokens[i + 1 :]
         if tok == "-m" and i + 1 < len(tokens) and tokens[i + 1] == "pytest":
             return tokens[i + 2 :]
-    if any(_PYTEST_WORD.search(tok) for tok in tokens):
-        return []
     return None
+
+
+# `divineos` subcommands that RECORD their text and never run it, so the word
+# inside their quoted arguments is data. Exempt by name, which is the weakness:
+# tests/test_full_suite_record_commands.py reads the code of every command here
+# and fails if it, or what it calls in divineos.core, can execute its text.
+# reflection-note is not here: it has no Click function in this repository, so
+# there is no code to read and nothing to pin.
+_RECORD_COMMANDS = frozenset(
+    {
+        ("learn",),
+        ("decide",),
+        ("claim",),
+        ("feel",),
+        ("journal", "save"),
+        ("compass-ops", "observe"),
+        ("prereg", "file"),
+        ("prereg", "assess"),
+        ("goal", "add"),
+    }
+)
+_PYTHON_PROGRAM = re.compile(r"python[\d.]*|py")
+# Where a line breaks into commands when the real splitter gives up on it.
+_CRUDE_CUT = re.compile(r"&&|\|\||[;&|\n]")
+# A quoted $( ), backtick or ${ } still runs inside double quotes, and <( ) and
+# >( ) run in a subshell, so any of these in the segment ends the exemption.
+_EXECUTING_MARKS = (*_SUBSTITUTION_MARKS, "<(", ">(")
+
+
+def _is_record_segment(segment: str, tokens: list[str]) -> bool:
+    """True only for a bare ``divineos <record command> ...`` that is one whole
+    segment with nothing in it the shell would execute."""
+    # The program's name, not its spelling: ./.direnv/.../Scripts/divineos.exe and
+    # DIVINEOS.EXE are the same program as bare divineos.
+    if not tokens:
+        return False
+    # The first word as typed: shlex eats the backslashes of an unquoted Windows
+    # path (C:\x\divineos.exe -> C:xdivineos.exe), so its name is read raw.
+    raw_first = (strip_prefixes_raw(segment).strip().split(None, 1) or [""])[0]
+    first = raw_first if "\\" in raw_first and raw_first[:1] not in "\"'" else tokens[0]
+    program = _program(first)
+    if program == "divineos":
+        rest = tokens[1:]
+    elif _PYTHON_PROGRAM.fullmatch(program) and tokens[1:3] == ["-m", "divineos"]:
+        # python -m divineos is the same program as bare divineos.
+        rest = tokens[3:]
+    else:
+        return False
+    if not any(tuple(rest[: len(key)]) == key for key in _RECORD_COMMANDS):
+        return False
+    if any(mark in segment for mark in _EXECUTING_MARKS):
+        return False
+    # A splitter that cannot cut this safely, or cuts it in more than one, means
+    # a second command may be in here; fail closed.
+    cut = split_shell_segments(segment)
+    return cut is not None and len(cut) == 1
 
 
 def _git_can_run(tokens: list[str]) -> bool:
@@ -267,13 +337,88 @@ def changed_tests(repo: Path) -> list[str]:
     return list(dict.fromkeys(found))
 
 
+def _segment_runs_pytest(segment: str) -> bool:
+    try:
+        tokens = shlex.split(strip_prefixes_raw(segment).strip(), posix=True)
+    except ValueError:
+        return False
+    return _pytest_invocation_args(tokens) is not None
+
+
+_RECORD_WAY = (
+    "put the words in a divineos record command, whose text the door knows is data "
+    "(divineos learn, decide, claim, feel, journal save, compass-ops observe, "
+    "prereg file, prereg assess, goal add)"
+)
+# A here-document marker: `<<EOF`, `<<-EOF`, `<< 'EOF'`.
+_HEREDOC = re.compile(r"<<-?\s*[\"']?[A-Za-z_]\w*")
+_NAMES_TEST_FILES = re.compile(r"test\w*\.py|\btests?/")
+
+# What was found and what is actually true about getting out, per way the word
+# reached the door. The old text gave one way out for all of them, and for a
+# wrapped run with the files named (`bash -c "pytest tests/test_a.py"`) that
+# way out was false: naming the files is what that command already did.
+_WAY_OUT = {
+    "wrapper": (
+        "The word is inside a quoted script, a group or a string handed to another "
+        "shell, where the door cannot place any target. If this was a test run, run "
+        "it unwrapped, straight in the shell with the files named "
+        "(pytest tests/test_x.py -q), not inside bash -c, python -c or a group. "
+        "{named}If the words are only text, "
+    ),
+    "pipe": (
+        "Text that says pytest is piped into a shell, python or xargs, which turns "
+        "the text into a program. Do not pipe it; write the script to a file with "
+        "the Write tool. If the words are only text, "
+    ),
+    "heredoc": (
+        "A here-document body is read line by line as if each line were a command, "
+        "so a line that says pytest looks like a run. Write the text to a file with "
+        "the Write tool and pass the file (git commit -F <file>, gh pr create "
+        "--body-file <file>). Or, "
+    ),
+    "word": (
+        "The program in front of the word can run its arguments, or the door cannot "
+        "tell (for example gh pr create --body, or any other command that carries "
+        "text). Put the body in a file with the Write tool and pass the file "
+        "(gh pr create --body-file <file>, git commit -F <file>). Or, "
+    ),
+}
+
+
+def _word_refusal(kind: str = "word", names_files: bool = False) -> str:
+    """The refusal when the word was found but no pytest program was: it says
+    which rule fired and the way out that is true for how the word arrived, and
+    gives no test-running advice to a command that may not have been running tests.
+
+    ``kind`` is how it arrived: "wrapper", "pipe", "heredoc" or "word"."""
+    named = "The files you named are not the problem; the wrapper is. " if names_files else ""
+    way = _WAY_OUT[kind].format(named=named)
+    return (
+        "THE FULL SUITE IS THE PUSH'S JOB. This command was refused by one rule: "
+        "the word pytest appears in a part of it the door cannot prove is only text "
+        "(a quoted script, a group, a pipe into a shell, or a program that can run "
+        "its arguments), so it is treated as a run with no test files named. It may "
+        "not have been running tests at all.\n\n"
+        'Dad, 2026-09-09: "is there a reason you continue to run the full suite and '
+        "gauntlet after every small change? do you realize that it takes upwards of "
+        '15-20 mins?" He has asked four times. The push runs the whole suite itself.\n\n'
+        "The way out for this command: " + way + _RECORD_WAY + "."
+    )
+
+
 def decide(command: str, repo: Path | None = None) -> str | None:
     """The refusal text when this command hand-runs the whole suite, else None."""
     # The raw split, not acting_segments: that one drops cd as inert, which is
     # right for the gates it serves and is exactly the segment this one needs.
     segments = split_shell_segments(command)
     if segments is None:
-        segments = [command]
+        # The splitter gives up on some lines (arithmetic expansion, $(( ))).
+        # Judging the uncut line by its first word let `echo $((1+2)); <run>` pass
+        # because echo is a reader. Cut it crudely instead: a piece the cut breaks
+        # mid-quote fails to parse and is not a hit, so this can only make the
+        # door see more runs, never exempt one.
+        segments = [p.strip() for p in _CRUDE_CUT.split(command) if p.strip()]
     base = (repo or Path.cwd()).resolve()
     # Aria, 2026-10-04: "cd src && pytest ../tests" ran everything, because the
     # check read the target from the repository, not from where the cd left
@@ -282,6 +427,13 @@ def decide(command: str, repo: Path | None = None) -> str | None:
     # unknown place counts as everything.
     here: Path | None = base
     hit = False
+    # True when a real pytest program was found, as opposed to the word turning
+    # up somewhere the door cannot prove is only text. Decides what it says.
+    real_run = False
+    # How the word arrived, for the text of the refusal (see _WAY_OUT).
+    kind = "word"
+    names_files = False
+    heredoc = _HEREDOC.search(command)
     # Aletheia, 2026-10-04: "(cd src; pytest ../tests)" and "{ ...; }" run in a
     # group the splitter cuts into pieces, so a brace group's pytest arrives
     # with no brace on it. Carry the depth across segments: a run inside any
@@ -292,6 +444,7 @@ def decide(command: str, repo: Path | None = None) -> str | None:
     # `echo pytest | sh`: the text is a program once it reaches the pipe.
     if _PYTEST_WORD.search(command) and _PIPE_INTO_INTERPRETER.search(command):
         hit = True
+        kind = "pipe"
         segments = []
     for s in segments:
         stripped = s.strip()
@@ -302,6 +455,8 @@ def decide(command: str, repo: Path | None = None) -> str | None:
             depth = max(0, depth - 1)
         if "pytest" in s.lower() and hidden:
             hit = True
+            kind = "wrapper"
+            names_files = bool(_NAMES_TEST_FILES.search(s))
             break
         moved = _cd_target(s)
         if moved is not None:
@@ -313,9 +468,19 @@ def decide(command: str, repo: Path | None = None) -> str | None:
         args = _pytest_args(s)
         if args is not None and _whole_suite_from(args, base, here):
             hit = True
+            real_run = _segment_runs_pytest(s)
+            # A line of a here-document body that starts with pytest is text, not
+            # a run: the splitter cuts the body into lines and reads each as a
+            # command. Only a segment that sits before the marker can be a run.
+            if heredoc and command.find(s.strip()) >= heredoc.end():
+                real_run = False
             break
     if not hit:
         return None
+    if not real_run:
+        if kind == "word" and heredoc:
+            kind = "heredoc"
+        return _word_refusal(kind, names_files)
     tests = changed_tests(repo) if repo is not None else []
     # Tannen, 2026-10-04: after a cd these paths would read from the wrong
     # place, so name where they are written from.
