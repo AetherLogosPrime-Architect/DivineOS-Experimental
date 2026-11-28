@@ -23,7 +23,7 @@ import re
 import subprocess
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 NEVER_TOLD = "NEVER TOLD"
@@ -140,7 +140,7 @@ def open_prs() -> list[dict] | None:
                 "--limit",
                 "100",
                 "--json",
-                "number,headRefName,headRefOid,title",
+                "number,headRefName,headRefOid,title,createdAt",
             ],
             capture_output=True,
             text=True,
@@ -225,12 +225,26 @@ def confirm_days_from_letters(
 
 
 def told_dates_from_letters(
-    letters: Mapping[str, str], branches: Mapping[int, str]
+    letters: Mapping[str, str],
+    branches: Mapping[int, str],
+    created: Mapping[int, date] | None = None,
 ) -> dict[int, date]:
     """PR number -> the newest day one of my letters to her named it.
 
     A letter names a fix by its number or its branch. The number must not run
     into a longer one (#5961 is not #596).
+
+    ``created`` is the day each PR was opened. When given, a NUMBER match in a letter
+    dated more than a day before that cannot have told her about it: a '#809' in
+    October is a correction number, not a pull request that did not exist until
+    November (Aria, 2026-11-03). Correction, claim and row numbers share the space of
+    PR numbers, which is the whole collision. A BRANCH name is specific, so a letter
+    that named the branch before the PR was opened did tell her about that work, and
+    the date rule does not apply to it (Aether's cold read, same night). The one day
+    of grace covers the file name's local day against the PR's UTC day. A number match
+    for a PR with no day in ``created`` is not told, because on doubt the safe label is
+    'never told': an invented 'asked' hides the fix from the next request. None keeps
+    the old behaviour for callers that have no dates.
     """
     told: dict[int, date] = {}
     for name, text in letters.items():
@@ -241,10 +255,24 @@ def told_dates_from_letters(
             continue
         day = date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
         for pr, branch in branches.items():
-            named = re.search(rf"#{pr}(?!\d)", text) or (branch and branch in text)
+            by_number = re.search(rf"#{pr}(?!\d)", text)
+            if by_number and created is not None:
+                born = created.get(pr)
+                if born is None or day < born - timedelta(days=1):
+                    by_number = None
+            named = by_number or (branch and branch in text)
             if named and (pr not in told or day > told[pr]):
                 told[pr] = day
     return told
+
+
+def _created_day(pr: Mapping) -> date | None:
+    """The UTC day a PR was opened, or None when the list did not say."""
+    raw = str(pr.get("createdAt") or "")[:10]
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return None
 
 
 def _at_head(shas: Iterable[str], head_sha: str) -> bool:
@@ -350,7 +378,8 @@ def classify_pile(
     confirms = confirms_from_letters(letters)
     holds = holds_from_letters(letters)
     confirm_days = confirm_days_from_letters(letters)
-    told = told_dates_from_letters(letters, branches)
+    created = {int(p["number"]): born for p in prs if (born := _created_day(p)) is not None}
+    told = told_dates_from_letters(letters, branches, created)
     rows: list[tuple[dict, Status]] = []
     for pr in prs:
         number = int(pr["number"])
