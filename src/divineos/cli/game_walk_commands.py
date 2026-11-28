@@ -92,15 +92,18 @@ def register(cli: click.Group) -> None:
         help="If no route was found: what was tried. Finding nothing is a real answer.",
     )
     @click.option("--edit", default="", help="Edit fingerprint this walk binds to (tool:path)")
-    @click.option("--actor", default="aether", help="Who walked it")
+    @click.option("--actor", default=None, help="Who walked it (default: this seat)")
     def cmd_file(
         mechanism: str,
         routes: tuple[str, ...],
         found_nothing_because: str,
         edit: str,
-        actor: str,
+        actor: str | None,
     ) -> None:
         """File a game-walk. Prints the walk back so thinness is visible now."""
+        from divineos.core.sibling_audit_rounds import acting_seat
+
+        actor = actor or acting_seat()
         try:
             parsed = tuple(_parse_route(r) for r in routes)
         except GameWalkRefused as exc:

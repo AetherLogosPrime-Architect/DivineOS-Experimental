@@ -169,7 +169,18 @@ def _outstanding_debt() -> EmergencyCompletionDebt | None:
         return None
 
 
-def arm(*, reason: str, for_ref: str, risk: str, actor: str = "aether") -> EmergencyCompletionArm:
+def _actor(actor: str | None) -> str:
+    """The seat that is acting unless one is named: never a typed-in default (was "aether" on both seats)."""
+    if actor:
+        return actor
+    from divineos.core.sibling_audit_rounds import acting_seat
+
+    return acting_seat()
+
+
+def arm(
+    *, reason: str, for_ref: str, risk: str, actor: str | None = None
+) -> EmergencyCompletionArm:
     """Arm the emergency-completion lane for the next gate-fire.
 
     Preconditions (raise ValueError on violation):
@@ -179,6 +190,7 @@ def arm(*, reason: str, for_ref: str, risk: str, actor: str = "aether") -> Emerg
     - no outstanding debt from a prior emergency-completion
     - not over the weekly rate limit
     """
+    actor = _actor(actor)
     reason = (reason or "").strip()
     if len(reason) < _MIN_REASON_LENGTH:
         raise ValueError(
@@ -303,13 +315,14 @@ def consume_if_armed(*, consumed_by: str) -> EmergencyCompletionArm | None:
     return armed
 
 
-def resolve_debt(*, diagnosis: str, actor: str = "aether") -> EmergencyCompletionDebt:
+def resolve_debt(*, diagnosis: str, actor: str | None = None) -> EmergencyCompletionDebt:
     """Discharge the outstanding debt by filing a root-cause diagnosis.
 
     Diagnosis must name (a) what class the gate should have distinguished,
     (b) whether the emergency-classification was right in hindsight,
     (c) what structural change would prevent the false-positive next time.
     """
+    actor = _actor(actor)
     diagnosis = (diagnosis or "").strip()
     if len(diagnosis) < 100:
         raise ValueError(

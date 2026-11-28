@@ -85,8 +85,8 @@ def register(cli: click.Group) -> None:
         required=True,
         help="Why this is not fixed yet, and what stays unwatched meanwhile (30+ chars).",
     )
-    @click.option("--actor", default="aether", show_default=True)
-    def detectors_defer(detector: str, reason: str, actor: str) -> None:
+    @click.option("--actor", default=None, help="Who is deferring (default: this seat).")
+    def detectors_defer(detector: str, reason: str, actor: str | None) -> None:
         """Stop blocking on a detector, on the record.
 
         Remediation (c). The reason is required and stored with a name

@@ -176,6 +176,34 @@ def this_seat() -> str | None:
     return None
 
 
+def acting_seat() -> str:
+    """The seat that is acting, for the ``actor`` field of an event: ``this_seat()`` or ``"unknown-seat"``.
+
+    THE ONE FUNCTION for it. Thirteen places in eleven files typed Aether's own name as the actor, copied because
+    copying was the easiest thing to write, so on the other seat every one of those events was attributed to Aether
+    (Aria 2026-11-19, letter 1072; she fixed her two in council_walk with this same expression, and points that
+    at this once it exists). Never a guess: when the data home matches no seat the answer is the explicit
+    ``"unknown-seat"``, so a failed resolution is visible in the ledger and does not pass as a plausible name.
+    Events already written keep their old actor (the ledger is append-only), so history from the other seat
+    before 2026-11-19 stays attributed to aether.
+    """
+    return this_seat() or "unknown-seat"
+
+
+def other_seat() -> str | None:
+    """The seat that is not this one, or None when this seat cannot be told or there is not exactly one other.
+
+    For a default that means "my sibling" (whose corrections to mirror, whose store to read): a typed-in name is
+    right on one seat and wrong on the other, so it is resolved at call time. Never a guess: an unresolvable home
+    returns None, and the caller says so instead of picking a store to read.
+    """
+    me = this_seat()
+    if me is None:
+        return None
+    others = sorted(name for name in SIBLING_HOMES if name != me)
+    return others[0] if len(others) == 1 else None
+
+
 def read_other_seats(
     mine: str | None, home_overrides: dict[str, str] | None = None
 ) -> list[SiblingRounds]:

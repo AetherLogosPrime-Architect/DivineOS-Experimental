@@ -186,7 +186,13 @@ def is_gate_disabled() -> bool:
     The member name comes from the DIVINEOS_MEMBER env var (defaults to
     'aether'). Matches the convention used by ear_watch.py.
     """
-    member = os.environ.get("DIVINEOS_MEMBER", "aether")
+    from divineos.core.sibling_audit_rounds import acting_seat
+
+    member = os.environ.get("DIVINEOS_MEMBER") or acting_seat()
+    if member == "unknown-seat":
+        # A name nobody owns cannot throw a switch: a marker in a home built from the placeholder is not the
+        # father's instruction. The gate stays on (Aether's cold read of 1040f0d4a, finding 1).
+        return False
     # Resolved, not rebuilt. This line was Path.home() / f".divineos-{member}",
     # which for aether pointed at a home nothing reads -- so the disable-marker
     # could be dropped in the obvious place and never be seen, leaving a switch

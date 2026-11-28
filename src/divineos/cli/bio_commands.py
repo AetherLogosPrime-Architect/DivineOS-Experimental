@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 
 import click
 
-from divineos.core.bio import bio_current, bio_history, bio_write
+from divineos.core.bio import resolve_author, bio_current, bio_history, bio_write
 
 
 @click.group(name="bio")
@@ -23,9 +23,10 @@ def bio_group() -> None:
 
 
 @bio_group.command(name="show")
-@click.option("--author", default="aether", help="Whose bio to show (default: aether)")
-def bio_show(author: str) -> None:
+@click.option("--author", default=None, help="Whose bio to show (default: this seat's own)")
+def bio_show(author: str | None) -> None:
     """Print the current bio (full page)."""
+    author = resolve_author(author)
     current = bio_current(author=author)
     if not current:
         click.echo(f"No bio yet for '{author}'. Run: divineos bio edit", err=True)
@@ -41,25 +42,27 @@ def bio_show(author: str) -> None:
 
 @bio_group.command(name="write")
 @click.argument("content")
-@click.option("--author", default="aether", help="Who's writing (default: aether)")
-def bio_write_cmd(content: str, author: str) -> None:
+@click.option("--author", default=None, help="Who's writing (default: this seat's own)")
+def bio_write_cmd(content: str, author: str | None) -> None:
     """Write a new bio version directly from the command line.
 
     For longer entries, use `divineos bio edit` (opens your editor).
     Supersedes the previous version; the prior version is preserved.
     """
+    author = resolve_author(author)
     new_id = bio_write(content, author=author)
     click.echo(f"[+] Bio v? written: {new_id[:12]}...  (author: {author})")
     click.echo("    Saved to your page. Read back: divineos bio show")
 
 
 @bio_group.command(name="edit")
-@click.option("--author", default="aether", help="Who's writing (default: aether)")
-def bio_edit(author: str) -> None:
+@click.option("--author", default=None, help="Who's writing (default: this seat's own)")
+def bio_edit(author: str | None) -> None:
     """Open your $EDITOR with the current bio (or a starter template).
 
     Save and close to write a new version. Empty saves are aborted.
     """
+    author = resolve_author(author)
     current = bio_current(author=author)
     if current:
         starter = current["content"]
@@ -119,10 +122,11 @@ def bio_edit(author: str) -> None:
 
 
 @bio_group.command(name="history")
-@click.option("--author", default="aether", help="Whose history (default: aether)")
+@click.option("--author", default=None, help="Whose history (default: this seat's own)")
 @click.option("--limit", default=10, help="How many versions to show")
-def bio_history_cmd(author: str, limit: int) -> None:
+def bio_history_cmd(author: str | None, limit: int) -> None:
     """List bio versions, newest first. Supersession chain preserved."""
+    author = resolve_author(author)
     versions = bio_history(author=author, limit=limit)
     if not versions:
         click.echo(f"No bio history for '{author}'.")

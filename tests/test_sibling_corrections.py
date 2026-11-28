@@ -126,7 +126,7 @@ def _invoke(args):
 def test_cli_exits_two_and_says_it_could_not_look(tmp_path, monkeypatch):
     monkeypatch.setitem(sc.SIBLING_HOMES, "aether", str(tmp_path / "gone"))
     monkeypatch.setitem(sc.SIBLING_HOMES, "aria", str(_make_store(tmp_path / "m", ["x y z w"])))
-    result = _invoke(["corrections-sibling"])
+    result = _invoke(["corrections-sibling", "--sibling", "aether", "--me", "aria"])
     assert result.exit_code == 2
     assert "COULD NOT COMPARE" in result.output
     assert "not 'no novel corrections'" in result.output
@@ -142,7 +142,7 @@ def test_cli_lists_novel_rows(tmp_path, monkeypatch):
     monkeypatch.setitem(
         sc.SIBLING_HOMES, "aria", str(_make_store(tmp_path / "m", ["completely unrelated words"]))
     )
-    result = _invoke(["corrections-sibling"])
+    result = _invoke(["corrections-sibling", "--sibling", "aether", "--me", "aria"])
     assert result.exit_code == 0
     assert "aether #1" in result.output
     assert "imprisons" in result.output
@@ -232,3 +232,9 @@ def test_cli_refuses_self_comparison():
     result = _invoke(["corrections-sibling", "--sibling", "aria", "--me", "aria"])
     assert result.exit_code != 0
     assert "must differ" in result.output
+
+
+def test_cli_without_flags_refuses_to_guess_when_the_seat_cannot_be_told(tmp_path):
+    result = _invoke(["corrections-sibling"])
+    assert result.exit_code != 0
+    assert "will not guess" in result.output

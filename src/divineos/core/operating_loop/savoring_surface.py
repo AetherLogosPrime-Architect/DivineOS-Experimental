@@ -94,8 +94,9 @@ def savor(what: str, why: str) -> str:
     }
     try:
         from divineos.core.ledger import log_event
+        from divineos.core.sibling_audit_rounds import acting_seat
 
-        log_event(event_type="AGENT_PATTERN", actor="aether", payload=payload)
+        log_event(event_type="AGENT_PATTERN", actor=acting_seat(), payload=payload)
         return sid
     except _SV_ERRORS:
         return ""

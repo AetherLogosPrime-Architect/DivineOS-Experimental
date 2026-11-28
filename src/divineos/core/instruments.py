@@ -252,7 +252,9 @@ def unrouted_member_home() -> Path:
     for opening surfaces rather than describing them. So: check both homes, and
     prefer whichever actually holds the file.
     """
-    member = os.environ.get("DIVINEOS_MEMBER", "aether").strip() or "aether"
+    from divineos.core.sibling_audit_rounds import acting_seat
+
+    member = os.environ.get("DIVINEOS_MEMBER", "").strip() or acting_seat()
     # The declaration below is for scripts/check_member_home_rebuilt.py, which flags
     # exactly this shape everywhere else and was right to flag it here on its
     # first run. This is the one site where routing would destroy the point:

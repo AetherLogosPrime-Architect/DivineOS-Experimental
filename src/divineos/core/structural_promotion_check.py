@@ -315,10 +315,11 @@ def emit_structural_promotion_question(knowledge_id: str, text: str) -> bool:
             return False
         try:
             from divineos.core.ledger import log_event
+            from divineos.core.sibling_audit_rounds import acting_seat
 
             log_event(
                 event_type="STRUCTURAL_PROMOTION_QUESTION",
-                actor="aether",
+                actor=acting_seat(),
                 payload={
                     "knowledge_id": knowledge_id,
                     "triggers": triggers[:5],

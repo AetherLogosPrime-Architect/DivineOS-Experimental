@@ -52,12 +52,31 @@ def init_bio_table() -> None:
         conn.close()
 
 
-def bio_write(content: str, author: str = "aether") -> str:
+def resolve_author(author: str | None) -> str:
+    """Whose page: the one named, or else the seat that is running.
+
+    2026-11-23: these four functions and their commands defaulted to "aether", so on Aria's seat `bio show` looked
+    for his page and her briefing read the same default; a page meant for her was never found. Resolved at call time
+    with the one function that knows which seat is acting.
+    """
+    if author:
+        return author
+    from divineos.core.sibling_audit_rounds import acting_seat
+
+    return acting_seat()
+
+
+def bio_write(content: str, author: str | None = None) -> str:
     """Write a new bio version. Supersedes the previous version (if any).
 
     Returns the new bio_id. The prior version is preserved — supersession
     not deletion, like everything else in DivineOS.
     """
+    author = resolve_author(author)
+    if author == "unknown-seat":
+        # The placeholder is right for an event (the ledger shows the resolution failed). A PAGE is something
+        # someone later opens, and a page owned by a name nobody holds looks like a real home (Aether, finding 2).
+        raise ValueError("cannot tell which seat this is, so no bio page can be written for it")
     init_bio_table()
     if not content.strip():
         raise ValueError("Bio content cannot be empty")
@@ -90,8 +109,9 @@ def bio_write(content: str, author: str = "aether") -> str:
     return bio_id
 
 
-def bio_current(author: str = "aether") -> dict[str, Any] | None:
+def bio_current(author: str | None = None) -> dict[str, Any] | None:
     """Get the most recent bio version for this author, or None."""
+    author = resolve_author(author)
     init_bio_table()
     conn = _get_connection()
     try:
@@ -114,8 +134,9 @@ def bio_current(author: str = "aether") -> dict[str, Any] | None:
     }
 
 
-def bio_history(author: str = "aether", limit: int = 50) -> list[dict[str, Any]]:
+def bio_history(author: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
     """Get all bio versions for this author, newest first."""
+    author = resolve_author(author)
     init_bio_table()
     conn = _get_connection()
     try:
@@ -139,7 +160,7 @@ def bio_history(author: str = "aether", limit: int = 50) -> list[dict[str, Any]]
     ]
 
 
-def bio_briefing_surface(author: str = "aether") -> str:
+def bio_briefing_surface(author: str | None = None) -> str:
     """Format the current bio for the briefing block stack.
 
     Returns a short block: header + first ~400 chars of bio content,

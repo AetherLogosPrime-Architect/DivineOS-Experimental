@@ -96,7 +96,10 @@ def _told(letters: Mapping[str, str], pr: int, head: str, me: str) -> bool:
     return False
 
 
-def assess(text: str, letters: Mapping[str, str], head_of: HeadOf, me: str = "aether") -> Verdict:
+def assess(text: str, letters: Mapping[str, str], head_of: HeadOf, me: str) -> Verdict:
+    """``me`` is REQUIRED, not defaulted: it names whose letters to Aletheia count, and a typed-in "aether" was wrong
+    on the other seat for any caller that forgot it (found by the widened floor scan in
+    tests/test_no_default_types_a_seat_name.py, 2026-11-27). The one real caller passes the acting seat."""
     missing: list[Missing] = []
     unreadable: list[int] = []
     for pr in _claimed(text):

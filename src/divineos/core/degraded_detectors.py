@@ -173,12 +173,16 @@ def report_healthy(detector: str) -> bool:
     return True
 
 
-def defer(detector: str, reason: str, actor: str = "aether") -> Degradation:
+def defer(detector: str, reason: str, actor: str | None = None) -> Degradation:
     """Stop blocking on this detector, on the record.
 
     Requires a real reason. An escape that costs nothing is not an escape,
-    it is the hole.
+    it is the hole. The name stored with it is the seat that is acting, resolved here, never a typed default.
     """
+    if not actor:
+        from divineos.core.sibling_audit_rounds import acting_seat
+
+        actor = acting_seat()
     reason = (reason or "").strip()
     if len(reason) < 30:
         raise ValueError(

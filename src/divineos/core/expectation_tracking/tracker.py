@@ -65,8 +65,9 @@ def record_expectation(claim: str, basis: str) -> str:
     }
     try:
         from divineos.core.ledger import log_event
+        from divineos.core.sibling_audit_rounds import acting_seat
 
-        log_event(event_type="AGENT_PATTERN", actor="aether", payload=payload)
+        log_event(event_type="AGENT_PATTERN", actor=acting_seat(), payload=payload)
         return eid
     except _ET_ERRORS:
         return ""
@@ -87,8 +88,9 @@ def record_actual(expectation_id: str, actual: str, accurate: bool) -> str:
     }
     try:
         from divineos.core.ledger import log_event
+        from divineos.core.sibling_audit_rounds import acting_seat
 
-        ev_id = log_event(event_type="AGENT_PATTERN", actor="aether", payload=payload)
+        ev_id = log_event(event_type="AGENT_PATTERN", actor=acting_seat(), payload=payload)
         return str(ev_id or "")
     except _ET_ERRORS:
         return ""

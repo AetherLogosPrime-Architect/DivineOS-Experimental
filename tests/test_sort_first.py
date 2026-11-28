@@ -250,7 +250,7 @@ def cli(monkeypatch):
 
     import divineos.cli.his_commands as his_commands
 
-    monkeypatch.setattr(his_commands, "this_seat", lambda: SEAT)
+    monkeypatch.setattr(his_commands, "acting_seat", lambda: SEAT)
     root = click.Group()
     his_commands.register(root)
     return root

@@ -61,6 +61,7 @@ def log_surfaced_warnings(warnings: list[dict]) -> None:
         return
     try:
         from divineos.core.ledger import log_event
+        from divineos.core.sibling_audit_rounds import acting_seat
     except Exception:  # noqa: BLE001
         return
 
@@ -72,7 +73,7 @@ def log_surfaced_warnings(warnings: list[dict]) -> None:
         try:
             log_event(
                 event_type="SURFACED_WARNING",
-                actor="aether",
+                actor=acting_seat(),
                 payload={
                     "session_id": sid,
                     "warning_id": wid,

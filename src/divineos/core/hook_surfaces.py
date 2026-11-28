@@ -2023,11 +2023,16 @@ def waiting_claim_surface(payload: dict) -> SurfaceOutcome | None:
         from divineos.core import landing_status
         from divineos.core.waiting_claim import assess, real_head_of, render_block
 
-        from pathlib import Path
-
         from divineos.core.his_lessons_shelf import seat
 
-        verdict = assess(text, landing_status.read_letters(), real_head_of, me=seat(Path.cwd()))
+        me = seat()
+        if me == "unknown-seat":
+            return SurfaceOutcome(
+                name=name,
+                error="cannot tell which seat this is, so no letter of mine can be looked for",
+                state="could-not-run",
+            )
+        verdict = assess(text, landing_status.read_letters(), real_head_of, me=me)
         block = render_block(verdict)
     except Exception as exc:  # noqa: BLE001
         return SurfaceOutcome(
@@ -2725,9 +2730,9 @@ def stop_runs_killed_surface(payload: dict) -> SurfaceOutcome | None:
 def _this_seat() -> str:
     # The front door files under the same fallback, so the refusal and the
     # store always agree about which seat a message of his belongs to.
-    from divineos.core.sibling_audit_rounds import this_seat
+    from divineos.core.sibling_audit_rounds import acting_seat
 
-    return this_seat() or "unknown-seat"
+    return acting_seat()
 
 
 def _sort_first_outcome(name: str, verdict_of) -> SurfaceOutcome:  # noqa: ANN001

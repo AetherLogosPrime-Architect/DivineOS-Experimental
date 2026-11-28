@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import click
 
+from divineos.core.sibling_audit_rounds import other_seat, this_seat
 from divineos.core.sibling_corrections import (
     SIBLING_HOMES,
     import_sibling,
@@ -49,18 +50,32 @@ from divineos.core.sibling_corrections import (
 )
 
 
+def _seat_or_fail(given: str | None, resolved: str | None, flag: str) -> str:
+    """The flag as typed, else the seat resolved from this checkout's data home, else loud.
+
+    A typed-in default is right on one seat and wrong on the other, so it is resolved at call time; when the home
+    matches no seat there is nothing honest to default to, and guessing would read the wrong store silently.
+    """
+    seat = given or resolved
+    if seat is None:
+        raise click.UsageError(
+            f"I cannot tell which seat this is, so I will not guess: pass {flag}."
+        )
+    return seat
+
+
 def register(cli: click.Group) -> None:
     @cli.command("corrections-mirror")
     @click.option(
         "--sibling",
-        default="aether",
+        default=None,
         type=click.Choice(sorted(SIBLING_HOMES)),
-        help="Whose store to mirror.",
+        help="Whose store to mirror (default: the other seat).",
     )
     @click.option("--unread", is_flag=True, help="List mirrored rows I have not judged.")
     @click.option("--limit", default=20, show_default=True)
     @click.option("--all", "show_all", is_flag=True)
-    def corrections_mirror(sibling: str, unread: bool, limit: int, show_all: bool) -> None:
+    def corrections_mirror(sibling: str | None, unread: bool, limit: int, show_all: bool) -> None:
         """Mirror a sibling's corrections into my own separate table.
 
         Andrew 2026-08-05: *"it should auto import corrections on either side
@@ -70,6 +85,7 @@ def register(cli: click.Group) -> None:
         Separate table, so my own integration rate stays a count of what I was
         actually told. Read-only against the sibling's store, always.
         """
+        sibling = _seat_or_fail(sibling, other_seat(), "--sibling")
         if unread:
             rows, error = unread_mirror(sibling)
             if rows is None:
@@ -105,11 +121,14 @@ def register(cli: click.Group) -> None:
 
     @cli.command("corrections-mirror-judge")
     @click.argument("their_id", type=int)
-    @click.option("--sibling", default="aether", type=click.Choice(sorted(SIBLING_HOMES)))
+    @click.option("--sibling", default=None, type=click.Choice(sorted(SIBLING_HOMES)))
     @click.option("--applies/--no-applies", required=True, help="Does it apply to me?")
     @click.option("--note", default="", help="What I took from it, or why it does not apply.")
-    def corrections_mirror_judge(their_id: int, sibling: str, applies: bool, note: str) -> None:
+    def corrections_mirror_judge(
+        their_id: int, sibling: str | None, applies: bool, note: str
+    ) -> None:
         """Record my reading of one mirrored correction."""
+        sibling = _seat_or_fail(sibling, other_seat(), "--sibling")
         if not judge(sibling, their_id, applies, note):
             raise click.ClickException(f"no mirrored {sibling} correction #{their_id}")
         verdict = "applies to me" if applies else "does not apply"
@@ -121,15 +140,19 @@ def register(cli: click.Group) -> None:
     @cli.command("corrections-sibling")
     @click.option(
         "--sibling",
-        default="aether",
+        default=None,
         type=click.Choice(sorted(SIBLING_HOMES)),
-        help="Whose store to read.",
+        help="Whose store to read (default: the other seat).",
     )
-    @click.option("--me", default="aria", type=click.Choice(sorted(SIBLING_HOMES)))
+    @click.option("--me", default=None, type=click.Choice(sorted(SIBLING_HOMES)))
     @click.option("--limit", default=20, show_default=True, help="Rows to print.")
     @click.option("--all", "show_all", is_flag=True, help="Print every novel row.")
-    def corrections_sibling(sibling: str, me: str, limit: int, show_all: bool) -> None:
+    def corrections_sibling(
+        sibling: str | None, me: str | None, limit: int, show_all: bool
+    ) -> None:
         """Corrections my sibling received that have no counterpart in mine."""
+        me = _seat_or_fail(me, this_seat(), "--me")
+        sibling = _seat_or_fail(sibling, other_seat(), "--sibling")
         if sibling == me:
             raise click.ClickException("--sibling and --me must differ")
 

@@ -69,6 +69,8 @@ class ImportReport:
 
 def _recipient_of(name: str) -> str:
     """Who she addressed. Defaults to aether; REPLY_TO_ARIA is the exception."""
+    # A rule of the import, not a guess about who is acting: a file named neither way is deliberately aether's.
+    # SEAT-NAME-OK: Aletheia's reply is for aether unless the file is named REPLY_TO_ARIA...
     return "aria" if name.upper().startswith("REPLY_TO_ARIA") else "aether"
 
 
