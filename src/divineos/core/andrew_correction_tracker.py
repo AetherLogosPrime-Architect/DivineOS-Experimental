@@ -251,6 +251,9 @@ def _conn() -> sqlite3.Connection:
         ("read_count", "INTEGER DEFAULT 0"),
         ("held_reason", "TEXT"),
         ("held_confirmed_by", "TEXT"),
+        # What a row was before it was held (OPEN, MISFILED, INTEGRATED, DEFERRED), so unhold can give it back
+        # there and not to OPEN (2026-11-24). NULL for a row never held and for rows held before this existed.
+        ("status_before_hold", "TEXT"),
     ):
         try:
             conn.execute(f"ALTER TABLE andrew_corrections ADD COLUMN {column} {decl}")
@@ -913,21 +916,55 @@ def _his_messages(transcripts: list[Path]) -> list[str]:
     return [h.text for h in heard_in(records)]
 
 
+def explain_propose_refusal(correction_id: int, why: str) -> str:
+    """Say WHICH reason a proposal for the held shelf was refused, one sentence each.
+
+    The refusal used to be one line for four different situations (not there, a detector's verdict, a reason
+    that is too short, already on the shelf), so the person could not tell what to fix. Same repair as
+    ``explain_integrate_refusal``. A row of any status can be proposed except one already HELD.
+    """
+    conn = _conn()
+    try:
+        row = conn.execute(
+            "SELECT source, correction_text, status, held_reason FROM andrew_corrections WHERE id = ?",
+            (correction_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        return f"no such row: #{correction_id} is not in this store."
+    if _is_detector_row(row[0], row[1]):
+        return f"#{correction_id} is a detector's verdict, not his words, so it cannot be proposed."
+    if row[2] == "HELD":
+        return f"#{correction_id} is already held on his word."
+    if row[3] is not None:
+        return f"#{correction_id} is already proposed; withdraw it first (unhold) to change the reason."
+    if not why or len(why.strip()) < 20:
+        return "the reason is shorter than 20 characters; say why this is grief and not a task."
+    return f"#{correction_id} could not be proposed for a reason that was not named."
+
+
 def propose_hold(correction_id: int, why: str) -> bool:
-    """Propose an OPEN row for the held shelf. It stays OPEN until he confirms."""
+    """Propose a row for the held shelf. Its status does not change until he confirms.
+
+    Any status can be proposed except HELD (OPEN, MISFILED, INTEGRATED, DEFERRED): his approval of a row that had
+    already been filed away used to have nowhere to land. A proposal moves nothing, and a second proposal does not
+    overwrite the first reason.
+    """
     if not why or len(why.strip()) < 20:
         return False
     conn = _conn()
     try:
         row = conn.execute(
             "SELECT source, correction_text FROM andrew_corrections "
-            "WHERE id = ? AND status = 'OPEN'",
+            "WHERE id = ? AND status != 'HELD' AND held_reason IS NULL",
             (correction_id,),
         ).fetchone()
         if row is None or _is_detector_row(row[0], row[1]):
             return False
         cur = conn.execute(
-            "UPDATE andrew_corrections SET held_reason = ? WHERE id = ? AND status = 'OPEN'",
+            "UPDATE andrew_corrections SET held_reason = ? "
+            "WHERE id = ? AND status != 'HELD' AND held_reason IS NULL",
             (why.strip(), correction_id),
         )
         conn.commit()
@@ -942,12 +979,20 @@ def confirm_hold(correction_id: int, transcripts: list[Path] | None = None) -> b
     his = next((m for m in _his_messages(paths) if _line_confirms(m, correction_id)), None)
     if his is None:
         return False
+    return _hold_row(correction_id, his.strip())
+
+
+def _hold_row(correction_id: int, receipt: str) -> bool:
+    """The one write that puts a proposed row on the shelf. Both ways of confirming go through it."""
     conn = _conn()
     try:
+        # The prior status is stored in the same statement that sets HELD, and only for a row that is not already
+        # HELD: confirming twice must not store HELD as the prior status, or the row could never leave the
+        # shelf (Aether's attack, 2026-11-24). SQLite evaluates the right-hand sides against the old row.
         cur = conn.execute(
-            "UPDATE andrew_corrections SET status = 'HELD', held_confirmed_by = ? "
-            "WHERE id = ? AND status = 'OPEN' AND held_reason IS NOT NULL",
-            (his.strip(), correction_id),
+            "UPDATE andrew_corrections SET status_before_hold = status, status = 'HELD', "
+            "held_confirmed_by = ? WHERE id = ? AND status != 'HELD' AND held_reason IS NOT NULL",
+            (receipt, correction_id),
         )
         conn.commit()
         return cur.rowcount > 0
@@ -955,14 +1000,138 @@ def confirm_hold(correction_id: int, transcripts: list[Path] | None = None) -> b
         conn.close()
 
 
+def names_the_row(message: str, correction_id: int) -> bool:
+    """True when ``message`` names this row as a whole number (149 or #149), not as a piece of a longer one.
+
+    "1490" and "2149" do not name row 149, and row 1 is not hiding inside 11 (walk-63cfce44c2bb, Knuth).
+    """
+    return re.search(rf"(?<!\d)#?{int(correction_id)}(?!\d)", message) is not None
+
+
+def _conversation(transcripts: list[Path]) -> list[tuple[str, str]]:
+    """The messages in order, as ("he", words he typed) and ("me", text I wrote), through the house's reader of him."""
+    import json
+
+    from divineos.core.his_message import Heard, hear
+
+    events: list[tuple[str, str]] = []
+    for path in transcripts:
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            try:
+                record = json.loads(line)
+            except ValueError:
+                continue
+            got = hear(record)
+            if isinstance(got, Heard):
+                events.append(("he", got.text))
+            elif record.get("type") == "assistant":
+                blocks = (record.get("message") or {}).get("content") or []
+                text = "\n".join(
+                    b.get("text", "")
+                    for b in blocks
+                    if isinstance(b, dict) and b.get("type") == "text"
+                ).strip()
+                if text:
+                    events.append(("me", text))
+    return events
+
+
+_RECEIPT_ASKED_CHARS = 1500
+
+
+def confirm_hold_plain(
+    ids: list[int], his_words: str, meaning: str, transcripts: list[Path] | None = None
+) -> tuple[list[int], dict[int, str]]:
+    """Put proposed rows on the shelf on a plain yes in chat, with the pair kept as the receipt.
+
+    Dad, 2026-11-24: "me saying to do it in chat should be enough without me needing to type code or commands."
+    The rule under the code line is unchanged: nothing moves on a seat's say-so. The tool checks only facts: his
+    words sit inside a message he typed, the last message of mine before that reply names the row as a whole
+    number, and my message came first. What the yes MEANT is ``meaning``, a written judgment kept beside the quote
+    so a reader can disagree with it; the tool cannot and does not decide it.
+
+    Returns (rows moved, {row: the reason it was refused}). A refusal moves nothing.
+    """
+    paths = _default_transcripts() if transcripts is None else transcripts
+    words, said = _squash(his_words or ""), (meaning or "").strip()
+    moved: list[int] = []
+    refused: dict[int, str] = {}
+
+    def refuse_all(reason: str) -> tuple[list[int], dict[int, str]]:
+        return [], {i: reason for i in ids}
+
+    if not words:
+        return refuse_all("his words are empty; quote what he typed.")
+    if len(said) < 20:
+        return refuse_all("say which question his yes answered (at least 20 characters).")
+    events = _conversation(paths)
+    # Whole words only: "yes" is not inside "yesterday" (Aether's attack 3).
+    quote = re.compile(rf"(?<!\w){re.escape(words)}(?!\w)")
+    if not any(who == "he" and quote.search(_squash(text)) for who, text in events):
+        return refuse_all("his words were not found in anything he typed.")
+    # A reply counts only if the message of mine IMMEDIATELY before it named a row, so a yes about lunch, or the
+    # same words said earlier about something else, cannot take the pairing (Aether's attack 4, and the live case
+    # of 2026-11-24 where an old mention made an unrelated "yes go ahead" look like the answer). When more than
+    # one reply qualifies, the most recent is the one in front of us now.
+    last_me, reply_at = "", None
+    for n, (who, text) in enumerate(events):
+        if who == "me":
+            last_me = text
+        elif (
+            who == "he"
+            and quote.search(_squash(text))
+            and any(names_the_row(last_me, i) for i in ids)
+        ):
+            reply_at = n
+    if reply_at is None:
+        return refuse_all(
+            "no message of mine before his reply named these rows, so his yes cannot be its answer."
+        )
+    asked = next((t for who, t in reversed(events[:reply_at]) if who == "me"), "")
+    named = [i for i in ids if names_the_row(asked, i)]
+    # The whole of his message sits beside the quote, so a "but" cannot hide behind it (attack 1), and the rows the
+    # asking message named are a field of their own, not left to a cut-off copy of the text (attack 5).
+    receipt = (
+        f"rows: {', '.join(f'#{i}' for i in named)}\n"
+        f"asked: {asked[:_RECEIPT_ASKED_CHARS]}\n"
+        f"he said: {events[reply_at][1].strip()[:_RECEIPT_ASKED_CHARS]}\n"
+        f"quote: {his_words.strip()}\n"
+        f"meant: {said}"
+    )
+    for correction_id in ids:
+        if correction_id not in named:
+            refused[correction_id] = (
+                f"my last message before his reply did not name #{correction_id}, so his yes cannot be its answer."
+            )
+            continue
+        if _hold_row(correction_id, receipt):
+            moved.append(correction_id)
+        else:
+            refused[correction_id] = (
+                f"#{correction_id} is not proposed for the held shelf, or is already held; propose it first."
+            )
+    return moved, refused
+
+
 def unhold(correction_id: int) -> bool:
-    """Return a HELD row to OPEN, or withdraw a proposal. Either way it is a task again."""
+    """Give a HELD row back where it came from, or withdraw a proposal. Nothing else moves.
+
+    A held row returns to the status it had before (MISFILED stays MISFILED, INTEGRATED stays INTEGRATED); a row
+    held before the prior status was kept has none stored and returns to OPEN as it always did. A withdrawn
+    proposal changes no status. The stored prior status is cleared either way, so a row that is not held never
+    carries a "was".
+    """
     conn = _conn()
     try:
         cur = conn.execute(
-            "UPDATE andrew_corrections SET status = 'OPEN', held_reason = NULL, "
-            "held_confirmed_by = NULL WHERE id = ? AND "
-            "(status = 'HELD' OR (status = 'OPEN' AND held_reason IS NOT NULL))",
+            "UPDATE andrew_corrections SET "
+            "status = CASE WHEN status = 'HELD' THEN COALESCE(status_before_hold, 'OPEN') ELSE status END, "
+            "status_before_hold = NULL, held_reason = NULL, held_confirmed_by = NULL "
+            "WHERE id = ? AND (status = 'HELD' OR held_reason IS NOT NULL)",
             (correction_id,),
         )
         conn.commit()
@@ -972,10 +1141,10 @@ def unhold(correction_id: int) -> bool:
 
 
 _ROW_QUERIES = {
-    "held": "SELECT id, timestamp, correction_text, held_reason, held_confirmed_by "
+    "held": "SELECT id, timestamp, correction_text, held_reason, held_confirmed_by, status_before_hold "
     "FROM andrew_corrections WHERE status = 'HELD' ORDER BY timestamp ASC",
-    "proposed": "SELECT id, timestamp, correction_text, held_reason, held_confirmed_by "
-    "FROM andrew_corrections WHERE status = 'OPEN' AND held_reason IS NOT NULL "
+    "proposed": "SELECT id, timestamp, correction_text, held_reason, held_confirmed_by, status "
+    "FROM andrew_corrections WHERE status != 'HELD' AND held_reason IS NOT NULL "
     "ORDER BY timestamp ASC",
 }
 
@@ -986,8 +1155,18 @@ def _rows(which: str) -> list[dict]:
         rows = conn.execute(_ROW_QUERIES[which]).fetchall()
     finally:
         conn.close()
+    # "was" is what a HELD row was before it was held (None for rows held before it was kept); "now" is the
+    # status a proposed row still has, because a proposal moves nothing.
+    extra = "was" if which == "held" else "now"
     return [
-        {"id": r[0], "timestamp": r[1], "text": r[2], "why": r[3], "his_confirmation": r[4]}
+        {
+            "id": r[0],
+            "timestamp": r[1],
+            "text": r[2],
+            "why": r[3],
+            "his_confirmation": r[4],
+            extra: r[5],
+        }
         for r in rows
     ]
 
@@ -1339,7 +1518,7 @@ def briefing_block() -> str:
                 line = f"  - #{row['id']} {row['text'][:70].replace(chr(10), ' ')}"
                 if title.startswith("PROPOSED"):
                     line += (
-                        f"  [to shelve it, he types on its own line: {confirm_phrase(row['id'])}]"
+                        "  [to shelve it, ask him in chat naming the row, then confirm-hold-plain]"
                     )
                 lines.append(line)
     return "\n".join(lines)
