@@ -239,6 +239,84 @@ def _normalize_to_repo_relative(path: str, repo_root: str) -> str | None:
     return norm
 
 
+def _is_outside_the_house(path: str, repo_root: str) -> bool:
+    """True only when ``path`` resolves outside the repository AND is not a linked
+    worktree of it. Anything unreadable answers False, which keeps the gate strict.
+
+    A scratch copy of the hooks folder is not an edit of the house, but a linked
+    worktree of this repository is the house at another address, so the folder
+    test alone would free real edits. A worktree's ``.git`` is a file pointing back
+    into this repository's ``.git/worktrees/``; a separate clone has a ``.git``
+    folder and is somebody's scratch copy. Relative paths are read against the
+    repository root, as everywhere else in this file, so a ``cd`` before a relative
+    redirect is invisible here and stays gated.
+    """
+    if not path or not repo_root:
+        return False  # both-empty: not provably outside and inside both mean keep gating
+    from pathlib import Path
+
+    try:
+        root = Path(repo_root).resolve()
+        target = Path(path.replace("\\", "/"))
+        if not target.is_absolute():
+            target = root / target
+        resolved = target.resolve()
+        if resolved == root or root in resolved.parents:
+            return False
+        common = _shared_git_folder(root)
+        if common is None:
+            return False  # both-empty: no readable shared git folder, so nothing is proven outside
+        for folder in (resolved, *resolved.parents):
+            marker = folder / ".git"
+            if marker.is_file():
+                pointed = _worktree_admin_folder(marker)
+                return not (pointed is not None and common in pointed.parents)
+            if marker.exists():
+                return marker.resolve() != common
+        return True
+    except (OSError, ValueError, RuntimeError):
+        return False  # both-empty: an unreadable path is not proven outside, so it stays gated
+
+
+def _worktree_admin_folder(marker):
+    """The folder a linked worktree's ``.git`` file points at, or None if unreadable."""
+    from pathlib import Path
+
+    text = marker.read_text(encoding="utf-8", errors="replace")
+    pointed = text.partition("gitdir:")[2].strip()
+    if not pointed:
+        return None
+    admin = Path(pointed)
+    if not admin.is_absolute():
+        admin = marker.parent / admin
+    return admin.resolve()
+
+
+def _shared_git_folder(root):
+    """The one git folder every checkout of this repository shares, or None.
+
+    In the main checkout ``.git`` is that folder. In a linked worktree ``.git`` is a
+    file pointing at ``<shared>/worktrees/<name>``, whose ``commondir`` names the
+    shared folder (or, failing that, it is two levels up). Judging "is this the
+    house" by the root's own ``.git`` was the bug: from a worktree it is a file.
+    """
+    marker = root / ".git"
+    if marker.is_dir():
+        return marker.resolve()
+    if not marker.is_file():
+        return None
+    admin = _worktree_admin_folder(marker)
+    if admin is None:
+        return None
+    commondir = admin / "commondir"
+    if commondir.is_file():
+        named = commondir.read_text(encoding="utf-8", errors="replace").strip()
+        return (admin / named).resolve() if named else None
+    if admin.parent.name == "worktrees":
+        return admin.parent.parent
+    return None
+
+
 # Redirects to these are not writes to the tree. Swallowing output is not
 # editing a file, and counting it as one would fire the gate on nearly every
 # command -- which is how a gate gets turned off.
@@ -649,6 +727,15 @@ def score_substrate_modification(
         # a gate that does not fire generates none.
         paths = paths + shell_written
         wrote_a_file = True
+
+    # A PATH OUTSIDE THE HOUSE IS NOT AN EDIT OF IT. Every path feature below reads
+    # `paths`, so the filter sits once, here, instead of in each feature. Two false
+    # alarms came from a scratch copy of the hooks folder (and a redirect into one)
+    # scoring as a guardrail edit. Only paths that resolve outside the repository and
+    # outside any linked worktree of it are dropped; if the root is unknown nothing
+    # is dropped, so this can only ever fail strict.
+    _, house_root = _guardrail_listed_paths()
+    paths = tuple(p for p in paths if not _is_outside_the_house(p, house_root))
 
     # The path-reading features apply to a real file tool OR to a shell command
     # that wrote a file. Written as one named question so the four sites below
