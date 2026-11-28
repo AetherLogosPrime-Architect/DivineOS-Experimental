@@ -86,6 +86,7 @@ import math
 from dataclasses import replace
 import time
 
+from divineos.core import pain_hold
 from divineos.core.memory_linkage import (
     MemoryLinkagePayload,
     MemoryLinkageTier,
@@ -100,7 +101,7 @@ from divineos.core.memory_linkage_retriever import (
     _embed_topic,
     _EMBEDDING_CACHE,
     _ensure_cache,
-    _shape_content,
+    _shape_item,
     composite_score,
     threshold_for_target_k,
     synthesize_topic,
@@ -444,6 +445,23 @@ def discard_priming_state() -> None:
 # --------------------------------------------------------------------
 
 
+def _one_per_folder(candidates: list[MemoryLinkagePayload]) -> list[MemoryLinkagePayload]:
+    """At most one writing item per folder per turn: one big folder cannot take every slot.
+
+    A writing item's id is ``<folder id>:<file key>`` (folder_registry), so the folder is what comes
+    before the colon. The best-ranked file of each folder stays; other sources are untouched.
+    """
+    best: dict[str, MemoryLinkagePayload] = {}
+    for p in candidates:
+        if p.source != "writing":
+            continue
+        folder = p.id.split(":", 1)[0]
+        if folder not in best or p.composite_rank > best[folder].composite_rank:
+            best[folder] = p
+    kept = {id(p) for p in best.values()}
+    return [p for p in candidates if p.source != "writing" or id(p) in kept]
+
+
 def retrieve_v2(
     prompt: str,
     recent_context: str | None = None,
@@ -484,6 +502,10 @@ def retrieve_v2(
             # NOT lift items over the threshold.
             if similarity < threshold:
                 continue
+            # His old hurt stays in the store, found by a deliberate ask, and is
+            # never handed back by a joke that happens to sit near it.
+            if pain_hold.is_held(item.source, item.content):
+                continue
             recency_days = _days_since(item.filed_at_unix)
             base_rank = composite_score(
                 similarity=similarity,
@@ -508,9 +530,7 @@ def retrieve_v2(
                 # frozen dataclass (immutable-post-write).
                 primed_by_id = entry[1] if entry is not None else None
 
-            content_kind, content, path_or_ref = _shape_content(
-                item.source, item.content, item.path
-            )
+            content_kind, content, path_or_ref = _shape_item(item)
             candidates.append(
                 MemoryLinkagePayload(
                     source=item.source,
@@ -542,6 +562,7 @@ def retrieve_v2(
     # what reaches composition. Taking it over all candidates would let a long
     # low-similarity tail inflate the span and hand priming back the power
     # this change removes.
+    candidates = _one_per_folder(candidates)
     candidates.sort(key=lambda p: p.composite_rank, reverse=True)
     visible = candidates[:TOTAL_INJECTION_CAP]
     if len(visible) > 1:
@@ -604,6 +625,8 @@ def retrieve_similarity_only(prompt: str) -> list[MemoryLinkagePayload]:
         for item, similarity in zip(items, sims, strict=True):
             if similarity < threshold:
                 continue
+            if pain_hold.is_held(item.source, item.content):
+                continue
             recency_days = _days_since(item.filed_at_unix)
             base_rank = composite_score(
                 similarity=similarity,
@@ -611,9 +634,7 @@ def retrieve_similarity_only(prompt: str) -> list[MemoryLinkagePayload]:
                 recency_days=recency_days,
                 importance_score=REGULATORY_IMPORTANCE,
             )
-            content_kind, content, path_or_ref = _shape_content(
-                item.source, item.content, item.path
-            )
+            content_kind, content, path_or_ref = _shape_item(item)
             candidates.append(
                 MemoryLinkagePayload(
                     source=item.source,
@@ -632,6 +653,7 @@ def retrieve_similarity_only(prompt: str) -> list[MemoryLinkagePayload]:
                 )
             )
 
+    candidates = _one_per_folder(candidates)
     candidates.sort(key=lambda p: p.composite_rank, reverse=True)
     return candidates
 
