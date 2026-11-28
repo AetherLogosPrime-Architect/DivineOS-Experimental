@@ -222,11 +222,11 @@ def _run_git(args: list[str]) -> str | None:
     return p.stdout if p.returncode == 0 else None
 
 
-"""The most open requests the board will ask GitHub for. It was 50 and 71 were
-open (2026-11-27): the 21 oldest were absent from the board with no word said,
-and ``divineos landing`` read each absence as "could not look". A list that
-comes back exactly this long cannot be told from a truncated one, so it is
-answered as unknown, never as "these are all of them"."""
+# The most open requests the board will ask GitHub for. It was 50 and 71 were
+# open (2026-11-27): the 21 oldest were absent from the board with no word said,
+# and `divineos landing` read each absence as "could not look". A list that
+# comes back exactly this long cannot be told from a truncated one, so it is
+# answered as unknown, never as "these are all of them".
 _GH_OPEN_PRS_CAP = 500
 
 
