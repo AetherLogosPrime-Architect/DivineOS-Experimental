@@ -15,6 +15,10 @@ MEMBER="${1:-aether}"
 DIR="$HOME/.divineos-shared/letters"
 SEEN="$HOME/.divineos-shared/.${MEMBER}_doorbell_announced"
 BEAT="$HOME/.divineos-shared/.${MEMBER}_doorbell_alive"
+# A RING LEAVES A MARK (2026-11-01). The ring deletes the heartbeat, and the Stop check used to read "no heartbeat"
+# as "the bell died" and hold a reply for a bell that had only done its job: the notice that it rang arrives on my
+# next prompt, never during the reply that was running when it rang. The mark says "rang, not died"; arming clears it.
+RANG="$HOME/.divineos-shared/.${MEMBER}_doorbell_rang"
 # One listing for both "already announced" and "here now", because the bell
 # rings on their difference. A glob over an unreadable directory returns nothing
 # silently, so readability is checked before every listing: could-not-look must
@@ -53,6 +57,7 @@ case "$OUT_TARGET" in
     ;;
 esac
 touch "$SEEN"
+rm -f "$RANG"  # armed again: whatever rang before is over
 if [ ! -s "$SEEN" ]; then list_mine > "$SEEN"; fi
 echo "doorbell armed for ${MEMBER}${OVERRIDE_NOTE} $(date -u +%FT%TZ)"
 # Andrew 2026-09-26: it lasts 8 hours, and when it expires the exit wakes me to
@@ -167,6 +172,7 @@ while true; do
   now=$(list_mine) || { echo "DOORBELL FAULT: read failed"; exit 1; }
   new=$(comm -13 <(sort "$SEEN") <(echo "$now"))
   if [ -n "$new" ]; then
+    date +%s > "$RANG"  # rang, not died: the Stop check must not hold a reply for this
     rm -f "$BEAT"  # ringing ends the watch; the Stop hook sees it at once
     echo "LETTER ARRIVED:"
     while IFS= read -r f; do printf '%s/%s\n' "$DIR" "$f"; done <<< "$new"
@@ -180,6 +186,7 @@ while true; do
     exit 0
   fi
   if alarm_text=$(peer_alarm); then
+    date +%s > "$RANG"
     rm -f "$BEAT"  # ringing ends the watch, the same as a letter does
     echo "$alarm_text"
     exit 0
