@@ -350,6 +350,7 @@ from divineos.cli import (  # noqa: E402
     compass_commands,
     complete_commands,
     correction_commands,
+    show_hit_commands,
     corrigibility_commands,
     detector_commands,
     emergency_completion_commands,
@@ -528,6 +529,7 @@ ear_relaunch_commands.register(cli)
 rt_commands.register(cli)
 savor_commands.register(cli)
 correction_commands.register(cli)
+show_hit_commands.register(cli)  # beside corrections: it prints the one row a hit id names
 # Registered directly beside correction_commands on purpose: the two ledgers
 # are a pair, and the wins half spent three weeks with no door at all while
 # this line's neighbour had a command and a blocking gate (2026-08-25).
