@@ -55,3 +55,4 @@ session_start_diagnostics
 theater_observation_surface
 upstream_freshness
 component_register_surface   # hand-soldered: briefing via knowledge_commands, panel via multiplex_panels
+memory_journal   # hand-soldered: briefing via knowledge_commands.py:1322 (format_for_briefing as _fmt_journal_gap), checked 2026-11-23; dark in the registry sense only. Missing from this list on main, so every branch cut from main failed this check.
