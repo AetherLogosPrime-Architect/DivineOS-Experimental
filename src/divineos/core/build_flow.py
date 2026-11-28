@@ -364,6 +364,84 @@ def _owner_file(branch: str, owners_dir: Path) -> Path:
     return owners_dir / f"{branch.replace('/', '__')}.txt"
 
 
+# THE CLOUD LANE ON A BRANCH NOT NAMED `cloud/`, GRANTED BY HIS WORD AND NEVER BY A NAME
+# (Aria and Aether, 2026-11-27).
+#
+# Fifteen stamped repairs sit on `claude/...` branches: the harness's default name for the
+# cloud sessions that ran on the credits Anthropic gifted, which Dad started and the two seats
+# gave chores to. `declared_owner` refused the lane on any branch not named `cloud/`, so no
+# reading letter could ever satisfy the two reading stations for them. Honouring the `claude/`
+# prefix was refused (Aria): a local session started by either seat gets the same shape of
+# name, and her own count found one `claude/` branch from August (#432) outside the run, so the
+# prefix does not mark the run. What marks it is a fact only Dad holds, so the grant is the
+# owner file carrying his quoted words, plus the window of the run and the day this branch was
+# opened, which must fall inside it. The board prints the quote as the station's basis, so the
+# auditor sees WHY and can disagree. Nothing in a file stops a seat typing the line; that is the
+# weakness of every owner file, now with his words visible and checkable.
+_DECLARED_BY = re.compile(
+    r'^Declared-by:\s*andrew,\s*(?P<date>\d{4}-\d{2}-\d{2}):\s*"(?P<quote>.+)"\s*$',
+    re.MULTILINE,
+)
+_WINDOW = re.compile(
+    r"^Window:\s*(?P<start>\d{4}-\d{2}-\d{2})\s+to\s+(?P<end>\d{4}-\d{2}-\d{2})\s*$",
+    re.MULTILINE,
+)
+_OPENED = re.compile(r"^Opened:\s*(?P<day>\d{4}-\d{2}-\d{2})\s*$", re.MULTILINE)
+_MIN_QUOTE_CHARS = 20
+
+
+def _cloud_declaration_in(text: str, branch: str) -> tuple[str | None, str]:
+    """``(basis, reason)``: his printed basis when the file grants the cloud lane to this
+    non-``cloud/`` branch, else ``(None, why not)``. Refused for a seat's own prefix whatever
+    the file says: a seat prefix names a seat."""
+    if branch.startswith(tuple(f"{seat}/" for seat in SEATS)):
+        return (
+            None,
+            f"the owner file names {HELPER_LANE} but this branch name begins with a seat's "
+            "name; a seat prefix names a seat, and no declaration changes that",
+        )
+    refusal = (
+        f"the owner file names {HELPER_LANE} but this branch name does not begin with "
+        f"{HELPER_BRANCH_PREFIX}; a name may withhold a pass, never grant one -- unless the "
+        "file carries Andrew's quoted word, the window of the run and the day this branch "
+        "was opened"
+    )
+    declared = _DECLARED_BY.search(text)
+    if declared is None or len(declared.group("quote").strip()) < _MIN_QUOTE_CHARS:
+        return (None, refusal)
+    window = _WINDOW.search(text)
+    opened = _OPENED.search(text)
+    if window is None or opened is None:
+        return (None, refusal + " (this file has no Window and Opened lines)")
+    start, end, day = window.group("start"), window.group("end"), opened.group("day")
+    if start > end:
+        return (None, f"the declared window runs backwards ({start} to {end})")
+    if not start <= day <= end:
+        return (
+            None,
+            f"this branch was opened {day}, outside the declared window {start} to {end}; "
+            "refused for that reason, not for its name",
+        )
+    basis = (
+        f'declared by andrew {declared.group("date")}: "{declared.group("quote").strip()}" '
+        f"(window {start} to {end}, this branch opened {day})"
+    )
+    return (basis, "")
+
+
+def cloud_declaration(branch: str, owners_dir: Path) -> str | None:
+    """The printed basis when the cloud lane was granted to a non-``cloud/`` branch by his word,
+    else None (a ``cloud/`` branch needs no declaration, so it has no basis to print)."""
+    if branch.startswith(HELPER_BRANCH_PREFIX):
+        return None
+    try:
+        text = _owner_file(branch, owners_dir).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    basis, _ = _cloud_declaration_in(text, branch)
+    return basis
+
+
 def declared_owner(branch: str, owners_dir: Path) -> tuple[str, str]:
     """``(state, seat)`` — who declared themselves owner of this branch.
 
@@ -395,11 +473,9 @@ def declared_owner(branch: str, owners_dir: Path) -> tuple[str, str]:
     if not named:
         return ("undeclared", "")
     if HELPER_LANE in named and not branch.startswith(HELPER_BRANCH_PREFIX):
-        return (
-            "cannot-read",
-            f"the owner file names {HELPER_LANE} but this branch name does not begin with "
-            f"{HELPER_BRANCH_PREFIX}; a name may withhold a pass, never grant one",
-        )
+        granted, why = _cloud_declaration_in(text, branch)
+        if granted is None:
+            return ("cannot-read", why)
     if len(named) > 1:
         return ("contested", ", ".join(named))
     return ("declared", named[0])
@@ -497,15 +573,17 @@ def check_cold_read_station(branch: str, letters_dir: Path, owners_dir: Path) ->
     if owner == HELPER_LANE:
         # Written by the cloud helper: neither seat wrote it, so either seat's
         # declared reading is a cold one.
+        basis = cloud_declaration(branch, owners_dir)
+        basis_note = f" [lane basis: {basis}]" if basis else ""
         for seat in SEATS:
             result = _reading_declared_by(seat, branch, letters_dir)
             if result.status is Status.SATISFIED:
-                return result
+                return StationResult(result.station, result.status, result.detail + basis_note)
         return StationResult(
             "4-cold-read",
             Status.MISSING,
             "written by the cloud helper; no declared reading by Aria or Aether names "
-            "this branch yet",
+            "this branch yet" + basis_note,
         )
     reviewer = next(s for s in SEATS if s != owner)
     return _reading_declared_by(reviewer, branch, letters_dir)
@@ -551,17 +629,23 @@ def author_of(body: str | None, branch: str, owners_dir: Path) -> str | None:
     makes the author the cloud helper. Nothing is inferred from a branch name.
     """
     declared = declared_author(body)
+    if declared is not None and declared.lower() in SEATS:
+        return declared  # a seat's own name on its own request is never overridden by a file
+    state, seat = declared_owner(branch, owners_dir)
+    if state == "declared" and seat == HELPER_LANE and declared in (None, HELPER_LANE, "claude"):
+        # The owner file grants the lane: the branch is `cloud/...`, or it carries Andrew's
+        # quoted word and the window of the run (``declared_owner``). A body that says nothing,
+        # `cloud`, or `claude` (the cloud agent's own name) is then consistent with that.
+        return HELPER_LANE
     if declared is not None:
         # A name may withhold a pass and never grant one (Aria's cold read, 2026-10-14):
         # `Author: cloud` in a body on a branch that is not `cloud/...` would turn my own
-        # reading into an outside one, so it is not honoured. No author means the station
-        # cannot say who wrote it and refuses rather than guessing.
+        # reading into an outside one, so it is not honoured unless the owner file above
+        # grants it. No author means the station cannot say who wrote it and refuses
+        # rather than guessing.
         if declared.lower() == HELPER_LANE and not branch.startswith(f"{HELPER_LANE}/"):
             return None
         return declared
-    state, seat = declared_owner(branch, owners_dir)
-    if state == "declared" and seat == HELPER_LANE:
-        return HELPER_LANE
     return None
 
 
