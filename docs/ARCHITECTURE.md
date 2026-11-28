@@ -781,6 +781,7 @@ src/divineos/
     suite_slot.py              One full test suite at a time on this machine.
     merge_freshness.py         Refuse a `gh pr merge` of a pull request that is behind main, and hand over the remedy.
     merge_command.py           What a shell command merges: the one reader every gate on a merge asks.
+    dismissal_stamp_check.py   A reply must not end by telling Dad he is not needed.
     cd_drift_check.py          Refuse a top-level `cd` that moves the app's idea of home.
     trial_in_days_check.py     A trial measured in days is refused where it is written.
     work_copy_sweep.py         Work copies clean themselves up: finished ones are removed, doubtful ones are listed, nothing is ...
