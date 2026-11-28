@@ -774,6 +774,7 @@ src/divineos/
     landing_status.py          Where each waiting fix stands toward the external auditor, from the real facts.
     landing_homework.py        A clerk for the author's side of landing a fix.
     unread_letter.py           A letter the bell rang for holds real work until it is opened.
+    os_file_lock.py            One writer at a time on a small file, by the operating system's own lock, never a file's age.
     body_memory.py             Memory sense: the body feels memory held by no program, and remembers the climb.
     checkout_behind_main.py    How far behind origin/main is the checkout the hooks run from?
     baton.py                   The baton: while Dad is away, exactly one seat works and the other waits.
