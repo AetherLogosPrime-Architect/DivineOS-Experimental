@@ -154,11 +154,33 @@ def whole_suite(args: list[str], base: Path | None = None) -> bool:
     return _whole_suite_from(args, resolved, resolved)
 
 
+def _counts_as_the_house(here: Path, base: Path) -> bool:
+    """True if a place the shell stands in is the house: inside it, or a checkout of it.
+
+    A pytest run after a cd to an UNRELATED folder (another project's tests) is not the
+    house's whole suite. It was refused as one five times on 2026-11-28, each costing a
+    rewrite of a harmless line, because every place the shell stood counted as the repository.
+    A subfolder of the house (cd src) and a clone or worktree of it (has src/divineos) still do.
+    """
+    if here == base or not here.exists():
+        # A folder the door cannot see cannot be placed, and a place it cannot place counts as
+        # everything: it is the one a route around this door would use.
+        return True
+    try:
+        here.relative_to(base)
+        return True
+    except ValueError:
+        pass
+    return (here / "src" / "divineos").is_dir()
+
+
 def _whole_suite_from(args: list[str], base: Path, here: Path | None) -> bool:
     """``base`` is the repository; ``here`` is where the shell stands after any
-    cd, None when a cd could not be followed. The whole suite is either place,
-    or its tests folder."""
-    roots: tuple[Path, ...] = (base,) if here is None else (base, here)
+    cd, None when a cd could not be followed. The whole suite is the house, a
+    checkout of it, or its tests folder; an unrelated folder is not."""
+    roots: tuple[Path, ...] = (base,)
+    if here is not None and _counts_as_the_house(here, base):
+        roots = (base, here)
     targets: list[str] = []
     i = 0
     while i < len(args):
@@ -182,7 +204,9 @@ def _whole_suite_from(args: list[str], base: Path, here: Path | None) -> bool:
         targets.append(a)
         i += 1
     if not targets:
-        return True
+        # A bare run collects whatever the shell stands in: the house suite only if that place
+        # is the house (or cannot be placed). An unrelated folder's bare run is not ours to refuse.
+        return here is None or here in roots
     # An honest narrowed run names test files or test folders. A "target"
     # that names no test at all is the argument of something else in front of
     # pytest (man -P pytest ls), so it narrows nothing (Aletheia, 2026-10-04).
