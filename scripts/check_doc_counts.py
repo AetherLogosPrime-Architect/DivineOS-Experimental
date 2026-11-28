@@ -126,7 +126,7 @@ def extract_documented_counts(path: Path) -> list[tuple[str, int, str]]:
     text = path.read_text(encoding="utf-8", errors="replace")
 
     # Match patterns like "2,608+ tests" or "2608 tests"
-    for m in re.finditer(r"([\d,]+)\+?\s+tests", text):
+    for m in re.finditer(r"(\d[\d,]*)\+?\s+tests", text):
         num = int(m.group(1).replace(",", ""))
         findings.append(("tests", num, f"{path.name}: {m.group(0)}"))
 
