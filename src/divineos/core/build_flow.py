@@ -1294,8 +1294,20 @@ def check_test_station(changed_paths: Sequence[str], dark: Sequence[str] | None)
         problems.append(f"{len(code)} code file(s) changed and no test touched")
     if dark is None:
         problems.append("could not read the dark-surface list, so wiring is unverified")
-    elif dark:
-        problems.append(f"{len(dark)} surface(s) built and reachable by nothing: {dark[0]}")
+        mine: list[str] = []
+    else:
+        # The dark list is tree-wide; a request answers only for the surfaces
+        # whose module (core/<name>.py or core/<name>/) it actually changed.
+        mine = [
+            d
+            for d in dark
+            if any(
+                p == f"src/divineos/core/{d}.py" or p.startswith(f"src/divineos/core/{d}/")
+                for p in code
+            )
+        ]
+        if mine:
+            problems.append(f"{len(mine)} surface(s) built and reachable by nothing: {mine[0]}")
 
     if not problems:
         return StationResult(
