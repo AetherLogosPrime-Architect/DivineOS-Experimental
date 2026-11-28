@@ -22,6 +22,7 @@ not by any check pretending to verify comprehension.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import subprocess
 from datetime import datetime
@@ -222,6 +223,26 @@ def _run_git(args: list[str]) -> str | None:
     return p.stdout if p.returncode == 0 else None
 
 
+# The most open requests the board will ask GitHub for. It was 50 and 71 were
+# open (2026-11-27): the 21 oldest were absent from the board with no word said,
+# and `divineos landing` read each absence as "could not look". A list that
+# comes back exactly this long cannot be told from a truncated one, so it is
+# answered as unknown, never as "these are all of them".
+_GH_OPEN_PRS_CAP = 500
+
+
+def _opened_on(pr: dict) -> str | None:
+    """The day (``YYYY-MM-DD``, UTC) GitHub says this request was opened, else None.
+
+    None when the field is missing or is not a date, so a request GitHub did not date has no
+    day to check and reads as cannot-check, never as inside any window.
+    """
+    stamp = pr.get("createdAt")
+    if not isinstance(stamp, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T.*", stamp):
+        return None
+    return stamp[:10]
+
+
 def _open_prs() -> list[dict] | None:
     out = _gh(
         [
@@ -230,10 +251,12 @@ def _open_prs() -> list[dict] | None:
             "--state",
             "open",
             "--limit",
-            "50",
+            str(_GH_OPEN_PRS_CAP),
             "--json",
             # body: station 9 reads what the OTHER open requests claim to replace.
-            "number,headRefName,isDraft,body",
+            # createdAt: the cloud lane's window is checked against GitHub's own opening day,
+            # never against a day a file claims for itself.
+            "number,headRefName,isDraft,body,createdAt",
         ]
     )
     if out is None:
@@ -246,7 +269,48 @@ def _open_prs() -> list[dict] | None:
     # valid JSON but not a list must read as could-not-parse, not as zero open
     # PRs -- that is the same absence-becomes-value collapse Hoare's lens is
     # seated for, and this module already carries one instance of it.
-    return parsed if isinstance(parsed, list) else None
+    if not isinstance(parsed, list) or len(parsed) >= _GH_OPEN_PRS_CAP:
+        return None
+    return parsed
+
+
+def _open_pr_total() -> int | None:
+    """GitHub's own count of open requests, asked a DIFFERENT way than the list.
+
+    The list comes from ``pr list``; this comes from the search endpoint. A count
+    taken from the same response as the list would agree with itself however
+    truncated the list was, so it is a separate question on purpose. None when it
+    cannot be read.
+    """
+    out = _gh(
+        [
+            "api",
+            "search/issues?q=repo:{owner}/{repo}+is:pr+is:open&per_page=1",
+            "--jq",
+            ".total_count",
+        ]
+    )
+    if out is None:
+        return None  # both-empty: no answer and an unreadable answer both leave the total unknown, and the one caller prints "could not ask GitHub" for either
+    try:
+        return int(out.strip())
+    except ValueError:
+        return None  # both-empty: see above; the caller needs only whether the total is known, never which way it failed
+
+
+def read_count_line(read: int, github_total: int | None) -> str:
+    """One line saying how many the board read beside how many GitHub says are open."""
+    if github_total is None:
+        return (
+            f"  Board read {read} open request(s); could not ask GitHub how many are open, "
+            "so a missing one would not show."
+        )
+    if read < github_total:
+        return (
+            f"  Board read {read}; GitHub says {github_total} are open -- NOT ALL: "
+            f"{github_total - read} request(s) are not on this board."
+        )
+    return f"  Board read {read}; GitHub says {github_total} are open."
 
 
 """``gh pr view --json files`` returns at most this many entries, with no
@@ -870,6 +934,8 @@ def collect(
     for pr in prs:
         n = int(pr.get("number", 0))
         branch = pr.get("headRefName", "")
+        # GitHub's opening day (UTC) for this request, or None when it did not say.
+        opened_on = _opened_on(pr)
         paths = _changed_paths(n)
         if paths is None:
             # Knuth, from the walk: an unreachable API is not an empty diff.
@@ -886,9 +952,11 @@ def collect(
             anchor, anchor_detail = _anchor_for(branch, deep, n)
             st.stations = [
                 StationResult("2-council", Status.CANNOT_CHECK, "changed files unreadable"),
-                check_cold_read_station(branch, _LETTERS, _OWNERS),
+                check_cold_read_station(branch, _LETTERS, _OWNERS, opened_on),
                 check_scope_station(None, branch),
-                check_aria_station(branch, _LETTERS, author_of(pr.get("body"), branch, _OWNERS)),
+                check_aria_station(
+                    branch, _LETTERS, author_of(pr.get("body"), branch, _OWNERS, opened_on)
+                ),
                 check_draft_station(pr.get("isDraft")),
                 check_audit_station(
                     n,
@@ -927,10 +995,12 @@ def collect(
                 _other_seat_lenses(paths),
                 coverage=coverage,
             ),
-            check_cold_read_station(branch, _LETTERS, _OWNERS),
+            check_cold_read_station(branch, _LETTERS, _OWNERS, opened_on),
             check_scope_station(paths, branch),
             check_build_station(paths),
-            check_aria_station(branch, _LETTERS, author_of(pr.get("body"), branch, _OWNERS)),
+            check_aria_station(
+                branch, _LETTERS, author_of(pr.get("body"), branch, _OWNERS, opened_on)
+            ),
             check_test_station(paths, _dark_surfaces_or_none()),
             check_more_council_station(
                 branch,
@@ -1053,6 +1123,7 @@ def render(
         f"  {ready} ready, {in_flight} in flight, {len(attention)} needing attention"
         f" (of {len(statuses)})."
     )
+    lines.append(read_count_line(len(statuses), _open_pr_total()))
     if attention:
         lines.append(f"  Needing attention: {', '.join(f'#{n}' for n in attention)}")
     else:
