@@ -23,7 +23,7 @@ from divineos.cli.build_flow_commands import _walk_postdates_build
 from divineos.core import council_walk as cw
 from divineos.core.council_required import push_choke as pc
 
-from _walk_helpers import apply_delivered
+from _walk_helpers import apply_delivered, close_with_breaking_round
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -65,7 +65,7 @@ def _closed_walk(repo: Path, scope: tuple[str, ...]) -> str:
         apply_delivered(
             cw, opened["walk_id"], lens, "a finding that is long enough to count: " + lens
         )
-    cw.close_walk(opened["walk_id"], repo=repo)
+    close_with_breaking_round(cw, opened["walk_id"], repo=repo)
     return opened["walk_id"]
 
 
@@ -244,7 +244,7 @@ def test_closing_from_the_right_folder_says_it_bound(repo):
         apply_delivered(
             cw, opened["walk_id"], lens, "a finding that is long enough to count: " + lens
         )
-    result = cw.close_walk(opened["walk_id"], repo=repo)
+    result = close_with_breaking_round(cw, opened["walk_id"], repo=repo)
     assert result["bound"] is True
     assert Path(result["bound_in"]) == repo
 
@@ -272,7 +272,7 @@ def test_a_walk_closed_in_the_wrong_folder_is_not_tied_to_that_folders_changes(t
         apply_delivered(
             cw, opened["walk_id"], lens, "a finding that is long enough to count: " + lens
         )
-    wrong = cw.close_walk(opened["walk_id"], repo=elsewhere)
+    wrong = close_with_breaking_round(cw, opened["walk_id"], repo=elsewhere)
     assert wrong["bound"] is False
     assert Path(wrong["bound_in"]) == elsewhere
     # and it cannot be amended from anywhere: it has no fixed origin to measure from

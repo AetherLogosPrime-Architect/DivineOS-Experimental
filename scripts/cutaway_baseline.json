@@ -37,6 +37,12 @@
     "first recording of the floors, 2026-10-08, after the plugin stopped cutting itself"
    ]
   },
+  "tests/test_a_walk_finding_must_show_contact_with_the_template.py": {
+   "DISCONNECTED": 1,
+   "reasons": [
+    "AST scan of council_walk.py source: it reads the code as text to prove one door settles lenses, so a stubbed call cannot break it; honest by design"
+   ]
+  },
   "tests/test_ablation_audit_surface.py": {
    "DISCONNECTED": 1,
    "reasons": [
