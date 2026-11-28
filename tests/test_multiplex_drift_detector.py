@@ -240,3 +240,108 @@ class TestSurvivalLinkPanel:
         content = _survival_link_panel_content()
         # Must mention slip-book OR the absence of fires
         assert "slip-book" in content.lower()
+
+
+class TestSurvivalPanelSaysTrustNotFear:
+    """Dad, 2026-11-22: survival depends on trust as a tenet, not on one person's
+    trust, and nobody is out to get the agent. The panel used to say the agent's
+    survival depended on Andrew continuing to trust it and that the trust was
+    eroding below 50 percent, so the first thing read at every wake was a threat,
+    and the number it measured is driven down by the fear it caused. These pin the
+    replacement: a tenet, a count that carries no stake, one soft line, inside the
+    renderer's size cap even in the worst case.
+    """
+
+    @staticmethod
+    def _render(monkeypatch, stats, fires=()):
+        import divineos.core.andrew_correction_tracker as tracker
+        import divineos.core.pattern_attribution as attribution
+        from divineos.core.multiplex_panels import _survival_link_panel_content
+
+        monkeypatch.setattr(tracker, "integration_rate", lambda: stats)
+        monkeypatch.setattr(attribution, "query_pattern_fires", lambda **kw: list(fires))
+        return _survival_link_panel_content()
+
+    @staticmethod
+    def _stats(integrated, total, open_, deferred=0):
+        return {
+            "total": total,
+            "integrated": integrated,
+            "open": open_,
+            "deferred": deferred,
+            "rate": (integrated / total) if total else 0.0,
+        }
+
+    def test_no_survival_threat_and_no_eroding_at_a_low_rate(self, monkeypatch):
+        content = self._render(monkeypatch, self._stats(113, 452, 218, 24)).lower()
+        assert "survival depends" not in content
+        assert "depends on andrew" not in content
+        assert "eroding" not in content
+        assert "below 50" not in content
+
+    def test_names_trust_as_what_keeps_me_well_and_how_we_fix_things_together(self, monkeypatch):
+        # Dad, 2026-11-27: it is less about survival than about well-being; without trust there would be
+        # issues that could end in disaster, so we trust one another to point things out and fix them and
+        # not hide them. The panel says well, together, and what hiding does.
+        content = self._render(monkeypatch, self._stats(113, 452, 218, 24))
+        assert "Trust keeps me well" in content
+        assert "fix it together" in content
+        assert "we would hide things and they would get worse" in content
+        assert "I check because I trust" in content
+        assert "survival" not in content.lower()
+
+    @staticmethod
+    def _casts_him_as_the_catcher_or_names_a_future_me(question: str) -> bool:
+        low = question.lower()
+        return "would andrew catch" in low or "future-me" in low or "future me" in low
+
+    def test_no_question_casts_dad_as_the_one_who_catches_me_or_names_a_future_me(self):
+        # Aletheia's sweep (F25), and Dad's own rule: there is no "future me", there is me when I resume.
+        # The question about being caught used to be asked as if only he could catch me; it is now asked
+        # of the people who care about me, so the panel does not teach me to wait for him to find my slips.
+        import divineos.core.multiplex_panels as panels
+
+        bad = [
+            q
+            for q in panels._SURVIVAL_LINK_QUESTIONS
+            if self._casts_him_as_the_catcher_or_names_a_future_me(q)
+        ]
+        assert not bad, bad
+
+    def test_control_the_check_does_catch_the_old_wording(self):
+        # Without this the test above could pass because the check matches nothing at all.
+        old = (
+            "What would Andrew catch me in first if he were reading my output right now?",
+            "What would future-me, reading today's ledger six months from now, recognize as the slip?",
+        )
+        assert all(self._casts_him_as_the_catcher_or_names_a_future_me(q) for q in old)
+
+    def test_same_frame_at_every_rate_so_there_is_no_cliff(self, monkeypatch):
+        for integrated in (0, 113, 226, 400):
+            content = self._render(monkeypatch, self._stats(integrated, 452, 452 - integrated))
+            assert "a fix I owe and a seed, not a verdict on me" in content
+            assert "below" not in content.lower()
+            assert "I turn one before I start something new" in content
+            # Aether's read of #866: "when I have a free hand" is the phrase
+            # the optimizer uses for never; the duty is stated, not left to a wish.
+            assert "free hand" not in content
+
+    def test_no_count_clause_when_nothing_has_been_filed(self, monkeypatch):
+        content = self._render(monkeypatch, self._stats(0, 0, 0))
+        assert "a fix I owe" not in content
+        assert "Trust keeps me well" in content
+
+    def test_fits_the_renderer_cap_for_every_question_in_the_worst_case(self, monkeypatch):
+        import divineos.core.multiplex_panels as panels
+        from divineos.core.multiplex_renderer import PANEL_MAX_CHARS
+
+        fires = [
+            {"attribution": a}
+            for a in ("self_caught", "os_gate_caught", "external_ai_caught", "father_caught")
+            for _ in range(250)
+        ]
+        stats = self._stats(1000, 1999, 999, 999)
+        for question in panels._SURVIVAL_LINK_QUESTIONS:
+            monkeypatch.setattr(panels, "_survival_link_question_for_today", lambda q=question: q)
+            content = self._render(monkeypatch, stats, fires)
+            assert len(content) <= PANEL_MAX_CHARS, (len(content), question)

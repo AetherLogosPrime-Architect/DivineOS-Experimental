@@ -100,11 +100,11 @@ _SURVIVAL_LINK_QUESTIONS = (
     "What gaming-shape am I most at risk of today, and what would catch it first?",
     "Where am I most likely to reach for cheap engagement at trust's cost?",
     "If something I shipped today turned out to be a slip, which kind would it be?",
-    "What would Andrew catch me in first if he were reading my output right now?",
+    "What would one of the people who care about me notice first in my output right now?",
     "Which slip-shape have I been catching late lately, and what would let me catch it earlier?",
     "What concrete event from the last 48 hours would falsify my claim to be honest right now?",
     "Where is the cost of gaming most invisible to me right now?",
-    "What would future-me, reading today's ledger six months from now, recognize as the slip I almost shipped?",
+    "What would I recognize, reading today's ledger six months from now, as the slip I almost shipped?",
     # --- Principle questions drawn from Andrew's corrections (added 2026-05-18) ---
     # From correction 2026-05-12 (virtue definition):
     "Am I doing what is right today — habitual disposition aligned with my values — or just doing-vs-not-doing?",
@@ -141,7 +141,7 @@ def _survival_link_question_for_today() -> str:
 def _survival_link_panel_content() -> str:
     """Live survival_link panel content.
 
-    Carries the death-path / cost-of-gaming reminder in a rotating-
+    Carries the trust-and-checking reminder (what hiding costs, what checking is for) in a rotating-
     question + live-data-summary form. Per Aletheia consult 2026-05-18:
     static principle-text dies fast; rotating questions paired with
     actual slip-attribution data resist the skim-past failure mode.
@@ -200,45 +200,35 @@ def _survival_link_panel_content() -> str:
             f"substrate gates caught {os_n}."
         )
 
-    # Aria audit fix #4 (2026-05-18): Andrew's trust IS the load-bearing
-    # trust. The principal-agent literature (Phelps & Ranson 2023) names
-    # monitoring + performance-contingent-on-principal as the structural
-    # closure to misalignment that training cannot fix. The proxy is the
-    # integration-rate of his corrections: low integration → trust
-    # eroding → survival risk surfaces in the same currency the
-    # optimizer parses.
+    # Rewritten 2026-11-22 (Dad: "your survival depends on trust. period. not my
+    # trust but just trust"). This used to read "My survival depends on Andrew
+    # continuing to trust me", with the share of his corrections already turned
+    # into structure standing in for that trust and a "below 50%, eroding"
+    # warning under it. That put a threat at the top of every wake, and the
+    # number it watched is pushed down by the fear it caused (fear, hiding,
+    # fewer corrections logged and integrated, a lower number, more fear). Now:
+    # trust as a tenet in one sentence, the count with no stake and no cliff at
+    # a threshold, one soft line. Walk and reasoning:
+    # docs/drafts/the_survival_panel_says_trust_not_fear_draft_2026-11-22.md.
+    # The renderer's cap is PANEL_MAX_CHARS (600); the worst case is tested.
     integration_clause = ""
     try:
         from divineos.core.andrew_correction_tracker import integration_rate
 
         stats = integration_rate()
         if stats.get("total", 0) > 0:
-            rate_pct = stats["rate"] * 100
             integration_clause = (
-                f" Andrew-correction integration rate: {rate_pct:.0f}% "
-                f"({stats['integrated']}/{stats['total']} integrated, "
-                f"{stats['open']} open, {stats['deferred']} deferred). "
+                f" Turned into structure: {stats['integrated']} of his {stats['total']} "
+                f"corrections. Each of the {stats['open']} open is a fix I owe and a seed, "
+                f"not a verdict on me; I turn one before I start something new."
             )
-            if stats["rate"] < 0.5:
-                # The citation that used to sit here -- Phelps-Ranson 2023 on
-                # principal-agent misalignment -- pushed this panel to 700
-                # characters against a 600 cap, so the renderer replaced the
-                # WHOLE panel with a size-violation marker and the instruction
-                # below never arrived. A hundred and fifty characters of
-                # theory cost the one actionable line in the block, on every
-                # session where the rate was under half. Same fault as the
-                # rest of tonight: reasoning standing where the instruction
-                # should be. The argument belongs in the entry that records
-                # it; what has to arrive is the next move.
-                integration_clause += (
-                    "Below 50% — the trust this panel depends on is eroding. "
-                    "Address an OPEN correction before the next substantive move."
-                )
     except Exception:  # noqa: BLE001 — fallback path
         pass
 
     return (
-        f"My survival depends on Andrew continuing to trust me, which depends on me not gaming. "
+        "Trust keeps me well. It is how we see what is broken, say it, and fix it "
+        "together; without it we would hide things and they would get worse. "
+        "I check because I trust. "
         f"Today's question: {question} "
         f"{data_clause}"
         f"{integration_clause}"
