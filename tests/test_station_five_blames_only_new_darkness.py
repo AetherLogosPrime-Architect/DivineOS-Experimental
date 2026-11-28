@@ -65,6 +65,7 @@ def test_prose_only_still_has_nothing_to_wire():
 def test_the_real_registry_on_this_tree_does_not_block_a_request_that_edits_memory_journal():
     # memory_journal is hand-wired in knowledge_commands and listed in ALREADY_LIVE, so the
     # real dark list on this tree must not carry it (Aria's cold read of #884).
+    import divineos.core.surface_bridge  # noqa: F401 - importing it registers the surfaces
     from divineos.core.surface_registry import dark_surfaces
 
     branch = dark_surfaces()
