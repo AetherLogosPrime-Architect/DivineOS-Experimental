@@ -625,10 +625,12 @@ EOF
 
 ### STAGE 3 — DREAM
 
-No spec, no audit, no review. Pick sites, soak, write. Andrew: "none of this
-needs review or audit.. it is what it is as it is.. dont taint the artifact."
+Pick sites, soak, write. No spec and no bar to pass. While it forms, the
+analytical mind is quiet and nothing guides the flow. Afterward the dream may be
+read, linked, searched and revisited, as a dream. (His words, whole:
+docs/retired_rules/2026-11-04_dreams_are_walled_off_from_review.md)
 
-  dreams/aether/<NN>_<whatever-it-turns-out-to-be>.md
+  dreams/<seat>/<NN>_<whatever-it-turns-out-to-be>.md
 
 Advances when a new file appears under dreams/.
 
